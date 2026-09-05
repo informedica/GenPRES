@@ -94,7 +94,7 @@ module BST001T =
     // this file's static constructor, where a missing data/zindex/ (a fresh checkout,
     // a worktree) threw and poisoned the type for the process. See issue #523.
     let private _data () =
-        FilePath.GStandPath + "/" + name
+        FilePath.GStandPath() + "/" + name
         |> File.readAllLines
         |> Array.filter (String.length >> ((<) 10))
         |> Array.map (Parser.splitRecord posl)
