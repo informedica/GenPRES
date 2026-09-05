@@ -21,7 +21,6 @@
 #load "../ServerApi.Ports.fs"
 #load "../ServerApi.Services.fs"
 #load "../ServerApi.Adapters.fs"
-#load "../ServerApi.AgentAdapters.fs"
 #load "../ServerApi.Command.fs"
 #load "../ServerApi.CompositionRoot.fs"
 #load "../ServerApi.ApiImpl.fs"

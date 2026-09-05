@@ -6,7 +6,7 @@ GenPRES Integration Test Report — Version 1.0, May 2026
 
 This document records the integration test results for GenPRES as of May 2026. Integration tests verify that independently developed modules interact correctly at their boundaries: resource loading, server command dispatch, and dose-check severity classification. All tests are located in `tests/Informedica.GenPRES.Server.Tests/` and are executed as part of the `dotnet run ServerTests` CI run.
 
-**Test count (baseline, May 2026):** 32 integration tests across 3 modules, all passing.
+**Test count (baseline, May 2026):** 30 integration tests across 3 modules, all passing.
 
 ---
 
@@ -43,7 +43,7 @@ Client-side (Fable/Elmish) integration is validated manually and through the `do
 
 Tests that the `loadAllResourcesWithConfig` function correctly propagates failures from any individual getter and that the `CachedResourceProvider` preserves error state across calls.
 
-**Test count: 14**
+**Test count: 12**
 
 | # | Test name | Scenario | Expected result |
 |---|---|---|---|
@@ -59,10 +59,8 @@ Tests that the `loadAllResourcesWithConfig` function correctly propagates failur
 | 10 | Fail then succeed after `ReloadCache` | First load fails; `ReloadCache`; second load succeeds | After reload: `IsLoaded = true` |
 | 11 | `FormularyCmd` when `IsLoaded = false` | `CachedResourceProvider` with error loader | `processCmd` returns `Error` |
 | 12 | `ParenteraliaCmd` when `IsLoaded = false` | `CachedResourceProvider` with error loader | `processCmd` returns `Error` |
-| 13 | `FormularyCmd` when `IsLoaded = false` (agent) | `AgentAdapters.makeAppEnv` with error loader | `processCmd` returns `Error` |
-| 14 | `ParenteraliaCmd` when `IsLoaded = false` (agent) | `AgentAdapters.makeAppEnv` with error loader | `processCmd` returns `Error` |
 
-**Pass/fail status:** All 14 passing.
+**Pass/fail status:** All 12 passing.
 
 ---
 

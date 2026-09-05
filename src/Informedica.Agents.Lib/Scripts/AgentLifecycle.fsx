@@ -17,8 +17,11 @@
 //     - a Composition Root lifecycle (stop all on shutdown)
 //     - individual agent factories inside each domain library
 //
-// See: src/Informedica.GenPRES.Server/ServerApi.CompositionRoot.fs and
-//      ServerApi.AgentAdapters.fs for the current composition root.
+// Historical note (2026-09-05, issue #420):
+//   The five server agents and ServerApi.AgentAdapters.fs were removed;
+//   ServerApi.CompositionRoot.fs now composes the ports from the direct
+//   ServerApi.Adapters. The lifecycle sketch below is kept as a reference
+//   for the remaining logging agents (Informedica.Agents.Lib, issue #416).
 // =================================================================
 
 #I __SOURCE_DIRECTORY__
