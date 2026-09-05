@@ -891,12 +891,12 @@ This project uses a `.env` file at the project root as the single source of trut
 #### Quick Setup
 
 1. Copy the example file: `cp .env.example .env`
-2. Edit `.env` and fill in the `GENPRES_URL_ID` value (ask a team member for the production URL ID)
+2. `.env.example` ships with the public demo sheet ID, so the copy works as-is in demo mode. For production data, edit `.env` and replace `GENPRES_URL_ID` (ask a team member for the production URL ID)
 
 The `.env` file uses standard `KEY=VALUE` format:
 
 ```bash
-GENPRES_URL_ID=<your-url-id>   # Google Sheets data URL ID (required)
+GENPRES_URL_ID=<your-url-id>   # Google Sheets data URL ID (required; .env.example ships the public demo ID)
 GENPRES_LOG=i                  # Logging level: 0=off, d=debug, i=info, w=warning, e=error
 GENPRES_PROD=0                 # Production mode: 0=demo (safe default), 1=production data
 GENPRES_DEBUG=1                # Debug mode: 0=off, 1=on

@@ -15,7 +15,8 @@ services:
     ports:
       - "${GENPRES_PORT:-8080}:8085"
     environment:
-      GENPRES_URL_ID: ${GENPRES_URL_ID:?set GENPRES_URL_ID in .env}
+      # Falls back to the public demo sheet (the image default) when .env leaves it unset or empty.
+      GENPRES_URL_ID: ${GENPRES_URL_ID:-1IZ3sbmrM4W4OuSYELRmCkdxpN9SlBI-5TLSvXWhHVmA}
       # Optional in demo mode (admin operations disabled); required, 16+ chars, when GENPRES_PROD=1.
       GENPRES_PASSWORD: ${GENPRES_PASSWORD:-}
       GENPRES_PROD: ${GENPRES_PROD:-0}
