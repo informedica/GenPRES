@@ -1,5 +1,5 @@
 ---
-last_commit_released: ec537a2a1fde2a3cdfc0bb1eec5ba9d65a99208f
+last_commit_released: adeee27fb3aedc85eaa5a0d88236510876a87e85
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -14,6 +14,20 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.9 - 2026-09-05
+
+### 🐞 Bug Fixes
+
+* *(genform)* Degrade gracefully when Kinderformularium is unreachable ([e790e378](https://github.com/informedica/GenPRES/commit/e790e37819b1f839e2547dd900ef78853b2f8f67))
+
+    Dose-rule markdown no longer fails when kinderformularium.nl is
+    unreachable; the NKF link falls back to "*Lokaal*" and the outage shows
+    in the resource messages. Farmacotherapeutisch Kompas links now point
+    at the right page.
+* *(genform)* Make NKF link lookup atomic and label-safe ([fff4d3af](https://github.com/informedica/GenPRES/commit/fff4d3aff340efaa424aa1ccd4649a31ace25ced))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/ec537a2a1fde2a3cdfc0bb1eec5ba9d65a99208f..adeee27fb3aedc85eaa5a0d88236510876a87e85)</small></strong>
 
 ## 0.1.2-alpha.8 - 2026-09-05
 
