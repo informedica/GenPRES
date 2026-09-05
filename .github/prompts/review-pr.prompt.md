@@ -22,7 +22,7 @@ Review the changes in this pull request for correctness, safety, and adherence t
 
 ### Medical Safety
 - [ ] Changes to dosing logic, rules, or parsing are accompanied by unit tests
-- [ ] Spreadsheet column name/semantic changes are reflected in `docs/mdr/design-history/genpres_resource_requirements.md`
+- [ ] Spreadsheet column name/semantic changes are reflected in the `Data` record field comments in `src/Informedica.GenFORM.Lib/Types.fs` and the `ColumnContract` test
 - [ ] No hardcoded medication values — all rules come from Google Spreadsheets
 
 ### Dependencies

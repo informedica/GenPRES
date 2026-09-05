@@ -28,7 +28,7 @@ Add or modify a medication rule (dose rule, solution rule, product, etc.) in Gen
 
 4. **Write tests** in the script to verify parsing and rule evaluation.
 
-5. **Update documentation** — if you add or rename spreadsheet columns, update `docs/mdr/design-history/genpres_resource_requirements.md`.
+5. **Update documentation** — if you add or rename spreadsheet columns, update the field comments on the corresponding `Data` record in `src/Informedica.GenFORM.Lib/Types.fs` and the `ColumnContract` test.
 
 6. **Do not modify `.fs` source files** — leave migration to the user.
 

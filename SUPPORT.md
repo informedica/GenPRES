@@ -86,7 +86,7 @@ For questions related to:
 
 Please:
 
-1. Review existing clinical documentation in `docs/scenarios/` and `docs/mdr/`
+1. Review existing clinical documentation in `docs/scenarios/` and `docs/domain/`
 2. Search for related issues with `safety` or `clinical` labels
 3. Create a discussion in the Q&A category with `[Clinical]` prefix
 4. Be prepared to provide clinical context and references
@@ -267,14 +267,14 @@ Violations will be removed and may result in access restrictions.
 - [README.md](README.md) - Project overview
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture
 - [CONTRIBUTING.md](CONTRIBUTING.md) - How to contribute
-- `docs/mdr/` - Medical device regulatory documentation
+- `docs/README.md` - Map of the technical documentation (regulatory MDR documentation is maintained in a separate, proprietary repository)
 - `docs/scenarios/` - Clinical scenario examples
 
 ### External Resources
 
 - [F# Documentation](https://docs.microsoft.com/en-us/dotnet/fsharp/)
 - [SAFE Stack Documentation](https://safe-stack.github.io/)
-- [MDR Resources](docs/mdr/mdr-regulations.md)
+- [EU Medical Device Regulation 2017/745](https://eur-lex.europa.eu/eli/reg/2017/745/oj)
 
 ### Community
 

@@ -65,12 +65,7 @@ Full functional user guides are maintained at the GenPRES project site. These in
 
 ## MDR Compliance
 
-GenPRES is developed in accordance with the European Medical Device Regulation (MDR 2017/745). Relevant regulatory documentation is maintained under [`docs/mdr/`](../mdr/README.md):
-
-- [User Requirements](../mdr/requirements/user-requirements.md)
-- [User Profile](../mdr/usability/user-profile.md)
-- [Critical Tasks](../mdr/usability/critical-tasks.md)
-- [Risk Analysis](../mdr/risk-analysis/)
+GenPRES is developed in accordance with the European Medical Device Regulation (MDR 2017/745). The regulatory documentation (user requirements, user profile, critical tasks, risk analysis) is maintained in a separate, proprietary repository and is not part of this one.
 
 ---
 

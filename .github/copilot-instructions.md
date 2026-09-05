@@ -110,8 +110,8 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 
 ## Resource Loading Pattern
 
-- Docs with sheet specs: `docs/mdr/design-history/genpres_resource_requirements.md`.
-- Check `genpres_resource_requirements.md` for expected sheet and column names.
+- Sheet specs live in code: the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs` (field comments carry the column names) and the `ColumnContract` tests in `tests/Informedica.GenFORM.Tests/Tests.fs`.
+- Check those for expected sheet and column names.
 - Resources are loaded from Google Sheets via `Web.getDataFromSheet dataUrlId "SheetName"`.
 - Mapping helper functions use `Csv.getStringColumn` / `Csv.getFloatOptionColumn` and call getString/getFloat-style delegates.
 - The central `ResourceConfig` (in `Api.fs`) expects functions returning `GenFormResult<'T>` (alias for `Result<'T, Message list>`). Use the `*Result` variants where present (e.g., `Mapping.getRouteMapping` or `Mapping.getRouteMappingResult`) and wrap with `delay` when the signature expects a `unit -> GenFormResult<_>`.
@@ -379,9 +379,9 @@ FSI's `#load` directive resolves relative paths from its *include path*, **not**
 - Demo version uses sample medication data included in repository
 - Google Spreadsheets contain live configuration — changes affect running systems
 
-## Safety, MDR and Documentation
+## Safety and Documentation
 
-- This project targets clinical medication workflows. Any change that affects dosing, rules, parsing, or resource mapping must include: unit tests, changelog entry, and an update to `docs/mdr/design-history/genpres_resource_requirements.md` if spreadsheet columns or semantics changed.
+- This project targets clinical medication workflows. Any change that affects dosing, rules, parsing, or resource mapping must include: unit tests, a changelog entry, and — if spreadsheet columns or semantics changed — updated field comments on the corresponding `Data` record in `GenFORM.Lib/Types.fs` plus an updated column-contract test.
 - Add notes to CONTRIBUTING.md if the change introduces a new external dependency or changes deployment behavior.
 
 ## AI/LLM Usage Policy

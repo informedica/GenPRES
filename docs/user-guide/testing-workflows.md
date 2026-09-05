@@ -184,5 +184,3 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 
 - [Getting Started](getting-started.md) — full parameter reference and setup instructions
 - [External User Guides](README.md#external-user-guides) — annotated walkthroughs for clinical workflows
-- [Critical Tasks (MDR Usability)](../mdr/usability/critical-tasks.md) — formal usability test scenarios
-- [Formative Testing](../mdr/usability/formative-testing.md) — usability evaluation protocols

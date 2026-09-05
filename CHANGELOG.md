@@ -444,10 +444,6 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
 - **Release Candidate (RC)**: Validation complete, final testing before release
 - **Stable**: Production-ready, clinically validated, regulatory compliance
 
-### Design History File
+### Design decisions
 
-This CHANGELOG.md is the user-facing release notes. For developer-focused design changes, see:
-
-- [Design History Change Log](docs/mdr/design-history/0000-change-log.md)
-
-The design history file tracks internal design decisions and technical changes, while this CHANGELOG focuses on user-visible changes and release information.
+This CHANGELOG.md is the user-facing release notes. Architecture decisions are recorded in [`docs/adr/`](docs/adr/) and the history of every change is in `git log`; the regulatory design history file is maintained in the separate, proprietary MDR documentation repository.

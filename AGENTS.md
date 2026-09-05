@@ -439,7 +439,7 @@ FSI's `#load` directive resolves relative paths from its *include path*, **not**
 - Demo version uses sample medication data included in repository
 - Google Spreadsheets contain live configuration — changes affect running systems
 
-## Safety, MDR and Documentation
+## Safety and Documentation
 
 - This project targets clinical medication workflows. Any change that affects dosing, rules, parsing, or resource mapping must include: unit tests, a changelog entry, and — if spreadsheet columns or semantics changed — updated field comments on the corresponding `Data` record in `GenFORM.Lib/Types.fs` plus an updated column-contract test.
 - Add notes to CONTRIBUTING.md if the change introduces a new external dependency or changes deployment behavior.

@@ -11,7 +11,7 @@ GenPRES aims to be the leading open-source medication decision support system fo
 **Current Phase**: Foundation Building & Documentation
 - Core libraries implemented (GenSolver, GenUnits, GenOrder, GenForm, NLP, MCP)
 - SAFE Stack architecture in place (upgraded to Fable 5 / React 19 / Vite 8 in Q1 2026)
-- MDR compliance documentation in progress (ADRs 0000–0021; the set was pruned under issue #411 so the numbering is not contiguous)
+- Architecture decisions recorded in `docs/adr/` (pruned under issue #411, numbering is not contiguous); MDR compliance documentation maintained in the separate, proprietary MDR documentation repository
 - Test coverage expanding (Expecto property tests for solver, GenUnits, GenOrder)
 - LRU memoisation in GenSolver reducing repeat-calculation overhead
 - MCP stdio server (Informedica.MCP.Server) exposing GenFORM/GenORDER tools

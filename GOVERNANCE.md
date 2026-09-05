@@ -275,10 +275,8 @@ GenPRES operates under a Quality Management System per ISO 13485:
 
 **QMS Documentation:**
 
-- Design History File (DHF): `docs/mdr/design-history/`
-- Risk Management: `docs/mdr/risk-analysis/`
-- Requirements: `docs/mdr/requirements/`
-- Validation: `docs/mdr/validation/`
+- Design History File (DHF), risk management, requirements and validation records are maintained in the separate, proprietary MDR documentation repository.
+- Architecture Decision Records for this code base: `docs/adr/`
 
 ### Change Control
 
@@ -291,7 +289,7 @@ All changes follow change control process:
 5. Documentation update
 6. Change log entry
 
-**See**: `docs/mdr/design-history/0000-change-log.md`
+**See**: `git log` and the ADRs in `docs/adr/`; the regulatory change log is maintained in the separate, proprietary MDR documentation repository.
 
 ### Post-Market Surveillance
 
@@ -302,7 +300,7 @@ Active monitoring includes:
 - Performance monitoring
 - Regulatory vigilance reporting
 
-**See**: `docs/mdr/post-market/`
+**See**: post-market surveillance records are maintained in the separate, proprietary MDR documentation repository.
 
 ## Communication Channels
 
