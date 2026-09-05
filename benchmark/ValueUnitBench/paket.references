@@ -1,5 +1,4 @@
 FSharp.Core
-MathNet.Numerics.FSharp
 
 group Benchmark
 BenchmarkDotNet

@@ -1,0 +1,13 @@
+<Project>
+  <!-- Pulls <Version> from the repo-root Directory.Build.props, like the src/ libraries do. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- Paket writes every package of `group Benchmark` (root paket.dependencies) as a direct
+         PackageReference, including the System.* assemblies BenchmarkDotNet pulls in that the
+         net10.0 targeting pack already ships. NuGet flags each of those with NU1510 ("will not
+         be pruned"). They are harmless and not ours to remove, so silence the warning here for
+         the benchmark projects only. See issue #513. -->
+    <NoWarn>$(NoWarn);NU1510</NoWarn>
+  </PropertyGroup>
+</Project>

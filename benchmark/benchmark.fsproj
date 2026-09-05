@@ -11,5 +11,5 @@
   <ItemGroup>
     <ProjectReference Include=".\Informedica.GenSolver.Lib_v1\Informedica.GenSolver.Lib_v1.fsproj" />
   </ItemGroup>
-  <Import Project=".paket\Paket.Restore.targets" />
+  <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>

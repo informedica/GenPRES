@@ -20,7 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
-    <ProjectReference Include="..\..\src\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
+    <ProjectReference Include="..\..\src\Informedica.GenUNITS.Lib\Informedica.GenUNITS.Lib.fsproj" />
   </ItemGroup>
-  <Import Project="..\.paket\Paket.Restore.targets" />
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
