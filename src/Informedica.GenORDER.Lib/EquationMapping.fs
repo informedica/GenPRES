@@ -175,6 +175,12 @@ module EquationMapping =
         |> List.map fst
 
 
+    // Memoised once at module init (issue #530). Kept private and wrapped below so the
+    // public binding stays an argument-taking function: a function value compiles to a
+    // property returning FSharpFunc, a different .NET shape.
+    let private memoizedGetEquations = Memoization.memoize getEquations_
+
+
     /// <summary>
     /// Get a string list of Equations and
     /// use an index to filter out the relevant equations
@@ -184,7 +190,7 @@ module EquationMapping =
     /// The indx can be 3 for discontinuous equations, 4 for continuous
     /// and 5 for timed equations.
     /// </remarks>
-    let getEquations = Memoization.memoize getEquations_
+    let getEquations indx = memoizedGetEquations indx
 
 
     /// <summary>
