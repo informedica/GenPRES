@@ -23,7 +23,8 @@ The Dutch healthcare landscape mandates:
 - **IHE Pharmacy** profile compliance for treatment-plan messages.
 - **FHIR R4** as the industry-standard interchange format.
 
-A formal interface specification (`docs/mdr/interface/genpres_interface_specification.md`, v1.3) defines
+A formal interface specification (v1.3, since removed from this repository and maintained with the MDR
+documentation) defines
 eleven treatment-plan scenarios (6.1–6.11) ranging from single-product once-only orders to multi-product
 TPN and enteral feeding. The specification was prototyped as a proof-of-concept in `Informedica.FHIR.Lib`
 (PRs #215 and #222) — since deleted, see the Status note above — but no ADR documented the
@@ -97,7 +98,7 @@ nor `paket.lock`, which is consistent with `Informedica.FHIR.Lib` never having b
 
 ### Scripts-First Implementation
 
-Following the established GenPRES workflow ([AGENTS.md](../../../AGENTS.md)):
+Following the established GenPRES workflow ([AGENTS.md](../../AGENTS.md)):
 
 1. FHIR translation logic was prototyped in `.fsx` scripts before migration to
    `Informedica.FHIR.Lib` source files. That migration never happened and the scripts were
@@ -118,8 +119,8 @@ Following the established GenPRES workflow ([AGENTS.md](../../../AGENTS.md)):
   reducing serialization bugs.
 - **Validated scenarios**: Eleven concrete scenarios from the interface specification serve as
   acceptance tests for the integration layer.
-- **MDR traceability**: Every translation is auditable — the input `MedicationRequest` and output
-  `OrderScenario` can be logged for MDR compliance.
+- **Traceability**: Every translation is auditable — the input `MedicationRequest` and output
+  `OrderScenario` can be logged.
 
 ### Trade-offs and Risks
 
@@ -160,7 +161,7 @@ authentication plumbing not yet needed for the calculation-service use case. Def
 
 ## References
 
-- Interface specification: [`docs/mdr/interface/genpres_interface_specification.md`](../../mdr/interface/genpres_interface_specification.md)
+- Interface specification v1.3: removed from this repository under #522; maintained with the MDR documentation
 - FHIR R4 specification: <https://hl7.org/fhir/R4/>
 - Firely .NET SDK: <https://docs.fire.ly/projects/Firely-NET-SDK/>
 - Dutch G-Standard / NL FHIR: <https://informatiestandaarden.nictiz.nl/wiki/Landingspagina_Medicatie>

@@ -27,7 +27,7 @@ At the start of each session, read these documents for full project context.
 
 ### Architecture and data
 
-@docs/mdr/design-history/0001-system-architecture.md
+@docs/adr/0001-system-architecture.md
 
 ## Session Startup
 

@@ -5,7 +5,7 @@
 
 ## Context
 
-GenPRES is a clinical decision support system (CDSS) for medication order management. An explicit architectural baseline is needed to guide development, onboarding, and maintenance decisions and to satisfy MDR traceability requirements for medical device software.
+GenPRES is a clinical decision support system (CDSS) for medication order management. An explicit architectural baseline is needed to guide development, onboarding, and maintenance decisions and to give the design history of this medical device software a traceable starting point.
 
 ## Decision
 
@@ -35,10 +35,10 @@ Recorded retrospectively; the original decision predates this ADR format.
 
 The concrete code layout deliberately lives outside this ADR, so that it cannot go stale here:
 
-- Build, run, toolchain and folder structure: [DEVELOPMENT.md](../../../DEVELOPMENT.md)
+- Build, run, toolchain and folder structure: [DEVELOPMENT.md](../../DEVELOPMENT.md)
 - Domain architecture:
-  - [Core Domain Model](../../domain/core-domain.md)
-  - [GenFORM: Free Text to Operational Rules](../../domain/genform-free-text-to-operational-rules.md)
-  - [GenORDER: Operational Rules to Orders](../../domain/genorder-operational-rules-to-orders.md)
-  - [GenSOLVER: Order Scenarios to Quantitative Solutions](../../domain/gensolver-from-orders-to-quantitative-solutions.md)
+  - [Core Domain Model](../domain/core-domain.md)
+  - [GenFORM: Free Text to Operational Rules](../domain/genform-free-text-to-operational-rules.md)
+  - [GenORDER: Operational Rules to Orders](../domain/genorder-operational-rules-to-orders.md)
+  - [GenSOLVER: Order Scenarios to Quantitative Solutions](../domain/gensolver-from-orders-to-quantitative-solutions.md)
 - Technical stack: [SAFE Stack](https://safe-stack.github.io/docs/), [Saturn](https://saturnframework.org/), [Fable](https://fable.io/docs/), [Elmish](https://elmish.github.io/elmish/), [.NET 10.0](https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-10/overview)

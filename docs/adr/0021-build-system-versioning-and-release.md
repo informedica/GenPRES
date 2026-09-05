@@ -6,7 +6,7 @@
 
 **Related Issue**: [#234 — Improve build system](https://github.com/informedica/GenPRES/issues/234)
 
-**Related Plan**: [Implementation plan for issue #234](../../implementation-plans/234-improve-build-system.md)
+**Related Plan**: [Implementation plan for issue #234](../implementation-plans/234-improve-build-system.md)
 
 ## Context
 
@@ -44,8 +44,7 @@ granularity could matter. On acceptance (2026-08-17) that restriction was droppe
 entirely: all three merge methods stay enabled, and `--skip-merge-commit` handles the
 `Merge pull request ...` commits ShipIt cannot parse. See design choice 2 below.
 
-This document is ADR-0021, the next number available in
-[the design-history log](0000-change-log.md).
+This document is ADR-0021, the next free number in `docs/adr/` at the time of writing.
 
 ## Decision
 
@@ -233,26 +232,25 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
 - Release/version automation is process tooling, not clinical logic, it does not 
   touch dosing, rules, parsing, or resource mapping, so it does not trigger the 
   unit-test/changelog/field-comment requirements that apply to those areas.
-- The changelog remains the audit trail referenced by
-  `docs/mdr/design-history/0000-change-log.md`; automating its generation must not 
-  reduce its usefulness as a Design History File input, this is why the `=== changelog ===` 
-  escape hatch matters for anything with MDR-relevant detail.
+- The changelog remains an audit trail that the MDR design history file draws on;
+  automating its generation must not reduce its usefulness as such, this is why the
+  `=== changelog ===` escape hatch matters for anything with MDR-relevant detail.
 - A known gap follows from the omission of `docs`, `build`, and `chore` commits: a
   change of one of those types cannot reach the generated changelog at all, and no
-  escape hatch overrides that. Design-history-relevant changes are therefore tracked
-  through the ADRs in `docs/mdr/design-history/` and their entry in
-  `0000-change-log.md`, which do not depend on ShipIt's output. This ADR is itself an
-  instance: it lands as a `docs` commit and will not appear in any release section.
+  escape hatch overrides that. Design-relevant decisions are therefore recorded as ADRs
+  in `docs/adr/` and found through `git log`, which do not depend on ShipIt's output.
+  This ADR is itself an instance: it lands as a `docs` commit and will not appear in any
+  release section.
 
 ## References
 
 - [Issue #234 — Improve build system](https://github.com/informedica/GenPRES/issues/234)
 - [Issue #470 — Tag and publish a GitHub Release when the ShipIt release PR merges](https://github.com/informedica/GenPRES/issues/470) (follow-up, item 2, second half)
 - [Issue #459 — Publish the Docker image automatically on release](https://github.com/informedica/GenPRES/issues/459) (follow-up, item 3, closed by the Docker image publishing amendment above)
-- [`.github/workflows/tag-release.yml`](../../../.github/workflows/tag-release.yml) — implements both the tag/Release job and the `publish-docker-image` job
+- [`.github/workflows/tag-release.yml`](../../.github/workflows/tag-release.yml) — implements both the tag/Release job and the `publish-docker-image` job
 - [Issue #460 — Auto-generate and publish API documentation](https://github.com/informedica/GenPRES/issues/460) (follow-up, item 4)
-- [Implementation plan for issue #234](../../implementation-plans/234-improve-build-system.md)
+- [Implementation plan for issue #234](../implementation-plans/234-improve-build-system.md)
 - [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt)
-- [Repo Assist workflow](../../../.github/workflows/repo-assist.md)
-- [ADR-0000 — Design History Change Log](0000-change-log.md)
-- [ADR-0016 — G-Standard Dose Rule Fallback](0016-gstand-dose-rule-fallback.md) (structural reference for this ADR)
+- [Repo Assist workflow](../../.github/workflows/repo-assist.md)
+- [ADR-0000 — Documentation Rules](0000-documentation-rules.md)
+- [Implementation plan for issue #307 — G-Standard dose rule fallback](../implementation-plans/307-gstand-dose-rule-fallback.md) (formerly ADR-0016; structural reference for this ADR)

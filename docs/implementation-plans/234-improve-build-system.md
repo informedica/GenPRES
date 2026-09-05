@@ -52,7 +52,7 @@ as follow-up issues once the versioning foundation lands.
   `DEVELOPMENT.md` get updated in the same PR that makes them stale.
 
 Full detail (decisions, trade-offs, MDR/safety notes) lives in
-[ADR-0021](../mdr/design-history/0021-build-system-versioning-and-release.md).
+[ADR-0021](../adr/0021-build-system-versioning-and-release.md).
 
 ## Confidence
 
