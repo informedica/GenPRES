@@ -13,11 +13,11 @@ GenPRES aims to be the leading open-source medication decision support system fo
 - SAFE Stack architecture in place (upgraded to Fable 5 / React 19 / Vite 8 in Q1 2026)
 - Architecture decisions recorded in `docs/adr/` (pruned under issue #411, numbering is not contiguous); MDR compliance documentation maintained in the separate, proprietary MDR documentation repository
 - Test coverage expanding (Expecto property tests for solver, GenUnits, GenOrder)
-- LRU memoisation in GenSolver reducing repeat-calculation overhead
+- LRU memoisation for GenSolver prototyped in scripts (pending integration; see the GenSOLVER domain document)
 - MCP stdio server (Informedica.MCP.Server) exposing GenFORM/GenORDER tools
 - NLP dose-rule extraction pipeline (DoseRuleExtract.fsx) for semi-automated data entry
-- G-Standard dose-rule fallback for medications without GenFORM spreadsheet entries
-- Shared calculation scripts (BSA, Age, Renal, Emergency) for AI-assisted prototyping
+- G-Standard dose-rule fallback for medications without GenFORM spreadsheet entries (prototype; implementation plan for #307)
+- Shared clinical calculations (BSA, age, renal eGFR) in `Informedica.GenPRES.Shared` for server and client (ADR-0019)
 
 ## Release Schedule
 
@@ -82,7 +82,7 @@ First production-ready release with MDR compliance and clinical validation.
 **Workshop W7-W9**
 
 - ⏳ W7: FHIR/HL7 Integration
-  - ✅ ADR-0020: FHIR R4 integration architecture designed (bidirectional `MedicationRequest` translation, Dutch G-Standard coding, Firely .NET SDK)
+  - ADR-0020: FHIR R4 integration architecture designed, then superseded — the prototype was never compiled and was deleted; integration restarts from the MainEHR integration model in `docs/scenarios/integration/`
   - Interface implementation
   - EHR integration testing
   - Interoperability validation

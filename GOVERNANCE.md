@@ -244,15 +244,14 @@ Maintainers who step back retain emeritus status:
 
 **Release Manager**: Project Lead or designated maintainer
 
-**Release Process:**
+**Release Process** (automated by EasyBuild.ShipIt, see [DEVELOPMENT.md](DEVELOPMENT.md#changelog--release-automation-easybuildshipit)):
 
-1. All tests passing
-2. MDR documentation updated
-3. CHANGELOG.md updated
-4. Version number per semantic versioning
-5. Risk management review
-6. Release notes prepared
-7. Tag and publish
+1. All tests passing on `master`
+2. MDR documentation updated (in the separate, proprietary MDR repository)
+3. ShipIt derives the version from conventional commits and opens a release PR with the `CHANGELOG.md` section and the `Directory.Build.props` bump
+4. Risk management review
+5. Release manager reviews and merges the release PR
+6. `tag-release.yml` tags the merge commit, publishes the GitHub Release and the Docker image
 
 **Release Schedule:**
 

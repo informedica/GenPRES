@@ -17,7 +17,7 @@ This project is initially aimed at the Dutch medical setting, but can easily be 
 
 ## Background
 
-Medication errors are one of the most common sources of medical complications. However, the medication process, prescribing, preparing and administration of medication is als one of the most thoroughly protocolized medical processes.
+Medication errors are one of the most common sources of medical complications. However, the medication process, prescribing, preparing and administration of medication is also one of the most thoroughly protocolized medical processes.
 
 In order to achieve a safe and efficient medication workflow the following human error prone activities can be solved by Clinical Decision Support Software (CDSS):
 
@@ -60,63 +60,35 @@ Starting the application in developer mode is now super easy, just `dotnet run` 
 
 Open a browser to <http://localhost:5173> to view the site.
 
-Additionally, an environment variable can be set to use a different GenPRES data Excel URL:
-`export GENPRES_URL_ID=<some url id>`. After starting the application, the url that is used will be
-printed to the terminal. If no env is set, the default url will be used.
-
-For Windows users, see the environment variable setup section above for PowerShell and Command Prompt syntax.
+The `GENPRES_URL_ID` environment variable selects the Google Sheet the server reads its rules from;
+`.env.example` ships the public demo sheet ID. After starting the application, the sheet ID in use is
+printed (masked) to the terminal. See [Environment Configuration](DEVELOPMENT.md#environment-configuration)
+for the full variable list, the `.env` priority order, and Windows syntax.
 
 ### Deployment using Docker
 
-This will create a production ready Docker image. **The proprietary
-`GENPRES_URL_ID` is no longer baked into the image** — it must be injected
-at container runtime.
+The published image (`informedica/genpres`) defaults to **demo mode**: `GENPRES_PROD=0` and the
+public demo sheet ID baked in, so a bare run starts a working demo with no secrets:
 
 ```bash
-docker build -t [USERNAME]/genpres .
+docker run -it -p 8080:8085 informedica/genpres
 ```
 
-**Note**: this will build using the local processor architecture.
+Open a browser to <http://localhost:8080> to view the site.
 
-To build on macOS (M1/M2/Apple Silicon) and still want to publish for AMD64 (x86_64):
+Production is an explicit opt-in at container runtime and needs `GENPRES_PROD=1`, the proprietary
+`GENPRES_URL_ID`, a `GENPRES_PASSWORD` of at least 16 characters, and a bind mount of `data/cache`.
+Neither the URL ID nor the password is ever baked into the image; inject them via a Docker or
+Kubernetes secret. The repo-root `compose.yaml` wires all of this from `.env`:
 
 ```bash
-docker build --platform linux/amd64 -t [USERNAME]/genpres .
+cp .env.example .env    # once; for production set the secrets
+docker compose pull && docker compose up -d
 ```
 
-To run the Docker image locally, inject `GENPRES_URL_ID` and (for admin
-operations) `GENPRES_PASSWORD` at runtime:
-
-```bash
-docker run -it -p 8080:8085 \
-  -e GENPRES_URL_ID="your_url_id" \
-  -e GENPRES_PASSWORD="your_admin_password" \
-  [USERNAME]/genpres
-```
-
-For production deployments use a Docker / Kubernetes secret rather than
-passing the value on the command line. Open a browser to
-<http://localhost:8080> to view the site.
-
-> **Tip**: If you find yourself typing these commands often, see
-> [Helper Shell Scripts](DEVELOPMENT.md#helper-shell-scripts) in
-> DEVELOPMENT.md for ready-to-paste templates of `docker-local.sh`,
-> `docker-amd64.sh`, and `docker-run.sh`. These are *local-only*
-> convenience wrappers — they are not committed to the repo, and the
-> opt-in `.gitignore` strategy deliberately keeps them untracked so
-> each developer can customize them.
-
-## User Documentation
-
-For guidance on using and testing the application, see the [User Guide](docs/user-guide/README.md):
-
-- [Getting Started](docs/user-guide/getting-started.md) — accessing the app without patient data, URL parameter reference, navigating views
-- [Testing Workflows](docs/user-guide/testing-workflows.md) — reproducible QA procedures: no-patient-context testing, unit conversion testing, emergency list, neonate scenarios
-
-External functional walkthroughs (with annotated screenshots and animations):
-
-- [Emergency List & Standard Infusion Pumps](https://picuwkz.nl/de-genpres-noodlijst/)
-- [Prescribing & Drug Dosing](https://picuwkz.nl/genpres-medicatie-controle/)
+To build the image yourself use the FAKE targets `dotnet run DockerBuild` and `dotnet run DockerRun`
+(cross-build with `DOCKER_PLATFORM=linux/amd64`). See [Docker](DEVELOPMENT.md#docker-wrappers) in
+DEVELOPMENT.md for details.
 
 ## SAFE Stack Documentation
 
@@ -141,7 +113,15 @@ A multilingual user guide is available in [`docs/user-guide/`](docs/user-guide/R
 | 🇬🇧 English | [User Guide](docs/user-guide/en/user-guide.md) |
 | 🇳🇱 Nederlands | [Gebruikershandleiding](docs/user-guide/nl/gebruikershandleiding.md) |
 
-The guide covers basic navigation, prescribing medication, the emergency list, testing without patient data, and unit conversion testing.
+The guide covers basic navigation, prescribing medication, the emergency list, testing without patient data, and unit conversion testing. For developers and testers:
+
+- [Getting Started](docs/user-guide/getting-started.md) — running the app, entering patient data manually or via URL parameters, navigating views
+- [Testing Workflows](docs/user-guide/testing-workflows.md) — reproducible QA procedures: no-patient-context testing, unit conversion, emergency list, neonate scenarios
+
+External functional walkthroughs (with annotated screenshots and animations):
+
+- [Emergency List & Standard Infusion Pumps](https://picuwkz.nl/de-genpres-noodlijst/)
+- [Prescribing & Drug Dosing](https://picuwkz.nl/genpres-medicatie-controle/)
 
 ## Collaboration
 
@@ -149,5 +129,5 @@ Any help or collaboration is welcome! You can fork this repository, post issues,
 
 Some specifics, for more detailed information look at the [CONTRIBUTING.md](CONTRIBUTING.md):
 
-- **An opt-in strategy is used** in the `.gitignore` file, i.e. you have to specifically define what should be included instead or the other way around.
+- **An opt-in strategy is used** in the `.gitignore` file, i.e. you have to specifically define what should be included instead of the other way around.
 - Commits follow [conventional commit format](.github/instructions/commit-message.instructions.md) with types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
