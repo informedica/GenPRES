@@ -6,6 +6,9 @@ updaters:
   - xml:
       file: Directory.Build.props
       selector: /Project/PropertyGroup/Version
+  - regex:
+      file: compose.yaml
+      pattern: (?<=informedica/genpres:\$\{GENPRES_IMAGE_TAG:-)[^}]*
 ---
 
 # Changelog
