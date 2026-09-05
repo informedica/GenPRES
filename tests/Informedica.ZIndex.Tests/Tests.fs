@@ -17,10 +17,12 @@ module Tests =
     // Lay down the synthetic Z-Index fixture files BEFORE anything else in this
     // file's static initializer. F# initializes every nested-module binding here
     // as part of `$Tests..cctor` in source order, and several of those bindings
-    // (e.g. DoseRuleTests.frqs/rts) transitively touch raw ZIndex tables. Because
-    // .NET caches a type initializer's exception permanently, a single such touch
-    // before the fixtures exist would poison the ZIndex types for the whole test
-    // process. The `dotnet test` adapter bypasses Main.fs, so forcing the fixture
+    // (e.g. DoseRuleTests.frqs/rts) transitively touch raw ZIndex tables. Those
+    // reads are memoized, and the underlying `Lazy` caches a thrown exception as
+    // readily as a result, so a single touch before the fixtures exist fails for
+    // the whole test process. (Before issue #523 it was worse still: the read ran
+    // in BST001T's own type initializer, poisoning the type rather than one memo
+    // entry.) The `dotnet test` adapter bypasses Main.fs, so forcing the fixture
     // here is what makes the synthetic-data tests pass under `dotnet test`.
     // (Main.fs forces the same cached value for the `dotnet run` path.)
     do fixtureCreatedFiles |> ignore

@@ -66,12 +66,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 11; 12 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -121,12 +121,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 5; 6 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -200,12 +200,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 5; 6; 7; 10; 18; 19; 20; 21; 22; 30; 38 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -272,12 +272,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 7; 8; 9; 10; 11 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -327,12 +327,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 5 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -372,12 +372,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 4 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs -> create (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2))
 
         let records: unit -> BST360T[] = Memoization.memoize _records
@@ -410,12 +410,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 4 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs -> create (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2))
 
         let records: unit -> BST380T[] = Memoization.memoize _records
@@ -451,12 +451,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 6; 8 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3)
             )
@@ -503,12 +503,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 5; 6; 7 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -568,12 +568,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 5; 6; 8; 11; 12; 13 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -647,12 +647,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12; 13 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -748,12 +748,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -826,12 +826,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -901,12 +901,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 5; 7; 8; 11; 12; 17; 20; 22 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -964,12 +964,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 5; 6; 7 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -1011,12 +1011,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs -> create (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2))
 
         let records: unit -> BST720T[] = Memoization.memoize _records
@@ -1052,12 +1052,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3)
             )
@@ -1144,12 +1144,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14; 15 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -1199,12 +1199,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 5 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs -> create (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2))
 
         let records: unit -> BST760T[] = Memoization.memoize _records
@@ -1243,12 +1243,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 5 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -1294,12 +1294,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 7; 8 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
@@ -1357,12 +1357,12 @@ module Zindex =
             }
 
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = [ 1; 2; 3; 4; 5; 6; 7; 8; 9 ]
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map (fun xs ->
                 create
                     (xs |> Array.item 0)
