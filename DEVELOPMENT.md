@@ -143,7 +143,18 @@ YAML front matter at the top of the root `CHANGELOG.md`.
 ShipIt runs in CI on every push to `master` (see [Release Automation](#release-automation-github-actions)
 below) and owns the version number: the `updaters:` block in the `CHANGELOG.md` front matter points at 
 `/Project/PropertyGroup/Version` in the root `Directory.Build.props`, so the release PR bumps that
-element as well as adding the changelog section. Do not hand-edit `<Version>`.
+element as well as adding the changelog section. A second, `regex` updater rewrites the default
+image tag in the root `compose.yaml` (`informedica/genpres:${GENPRES_IMAGE_TAG:-<version>}`) so a
+`git pull && docker compose pull && docker compose up -d` after a release runs the version that was
+just shipped. Do not hand-edit `<Version>` or that compose default.
+
+The `regex` updater writes the version verbatim, whereas `tag-release.yml` folds any `+` in the
+version to `-` because `+` is not a legal Docker tag character. The two agree only as long as
+`<Version>` carries no SemVer build metadata. ShipIt never generates build metadata (versions come
+from conventional commits plus the `alpha.N` pre-release counter), so this holds unless someone
+hand-edits `<Version>` with a `+`, which is already disallowed above. If build metadata is ever
+introduced deliberately, replace the `regex` updater with a `command` updater that applies the same
+fold before writing `compose.yaml`.
 
 To preview locally what ShipIt would generate:
 
@@ -365,14 +376,16 @@ Get-Content .env | ForEach-Object {
 dotnet run DockerRun
 ```
 
-**Run a published image** — the `compose.yaml` at the repo root (tracked; see the `!compose.yaml` allow-line in `.gitignore`) runs an image pulled from Docker Hub with the tag, port, secrets and mode all read from `.env`, so nothing has to be retyped after a new release. Compose interpolates `${...}` from the `.env` in the project directory by itself; no `source` needed.
+**Run a published image** — the `compose.yaml` at the repo root (tracked; see the `!compose.yaml` allow-line in `.gitignore`) runs an image pulled from Docker Hub with port, secrets and mode read from `.env`, so nothing has to be retyped after a new release. Compose interpolates `${...}` from the `.env` in the project directory by itself; no `source` needed. The image tag defaults to the current release: ShipIt bumps it in `compose.yaml` as part of every release PR (see [Changelog & Release Automation](#changelog--release-automation-easybuildshipit)), so `git pull` brings the new tag along. Set `GENPRES_IMAGE_TAG` in `.env` only to pin a different version. If you added `GENPRES_IMAGE_TAG` to `.env` while it was still required (between [#550](https://github.com/informedica/GenPRES/pull/550) and [#552](https://github.com/informedica/GenPRES/pull/552)), remove it: a leftover value silently overrides the ShipIt-maintained default and keeps `docker compose pull` on the old image.
 
 ```bash
-cp .env.example .env            # once; set GENPRES_IMAGE_TAG (and the secrets for production)
-docker compose pull             # after each release, once GENPRES_IMAGE_TAG is bumped
+cp .env.example .env            # once; for production, set the secrets
+git pull && docker compose pull # after each release
 docker compose up -d            # (re)creates container "genpres" on http://localhost:8080
 docker compose logs -f genpres
 ```
+
+The image is published by `tag-release.yml` a few minutes *after* the release PR merges, so a `docker compose pull` in that window fails with "manifest unknown"; retry shortly after.
 
 Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID`, a 16+ character `GENPRES_PASSWORD`, and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
 
