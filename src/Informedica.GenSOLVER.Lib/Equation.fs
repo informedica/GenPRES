@@ -498,7 +498,10 @@ module Equation =
                             |> List.tryFind (Variable.eqName v2)
                             |> function
                                 | Some v1 -> v2, v2.Values |> Variable.ValueRange.diffWith v1.Values
-                                | None -> $"cannot find {v2}! in {vars}!" |> failwith
+                                | None ->
+                                    raise (
+                                        System.Collections.Generic.KeyNotFoundException $"cannot find {v2}! in {vars}!"
+                                    )
                         )
                         |> List.filter (snd >> Set.isEmpty >> not)
                         |> Changed

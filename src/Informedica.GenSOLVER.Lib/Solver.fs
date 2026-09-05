@@ -107,7 +107,7 @@ module Solver =
                 let msg = $"didn't catch {e}"
                 writeErrorMessage msg
 
-                msg |> failwith
+                reraise ()
 
         let rec loop n que acc =
             match acc with
@@ -212,7 +212,7 @@ module Solver =
                 | e ->
                     let msg = $"something unexpected happened, didn't catch {e}"
                     writeErrorMessage msg
-                    msg |> failwith
+                    reraise ()
 
                 |> function
                     | Ok eqs ->

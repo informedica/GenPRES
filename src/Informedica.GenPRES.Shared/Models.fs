@@ -65,7 +65,7 @@ module Models =
 
             let fromBirthDate (now: DateTime) (bdt: DateTime) =
                 if bdt > now then
-                    failwith $"birthdate: {bdt} cannot be after current date: {now}"
+                    invalidArg (nameof bdt) $"birthdate: {bdt} cannot be after current date: {now}"
                 // calculated last birthdate and number of years ago
                 let last, yrs =
                     // set day one day back if not a leap year, and the birthdate is at Feb 29 in a leap year

@@ -179,7 +179,7 @@ module String =
     /// c appears in string t
     let countChar c t =
         if String.IsNullOrEmpty(c) then
-            "Cannot count empty string in text: '" + t + "'" |> failwith
+            invalidArg (nameof c) ("Cannot count empty string in text: '" + t + "'")
 
         (c |> regex).Matches(t).Count
 

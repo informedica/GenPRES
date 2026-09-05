@@ -341,7 +341,7 @@ module BigRational =
         | _ when op |> opIsDiv -> Div
         | _ when op |> opIsAdd -> Add
         | _ when op |> opIsSubtr -> Sub
-        | _ -> failwith "Operator is not supported"
+        | _ -> raiseExc CannotMatchOperator
 
 
     let calcCartesian op (vs1: BigRational[]) (vs2: BigRational[]) : BigRational[] =

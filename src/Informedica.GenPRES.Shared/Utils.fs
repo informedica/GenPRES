@@ -414,7 +414,11 @@ module Csv =
         columns
         |> Array.tryFindIndex ((=) s)
         |> function
-            | None -> $"""cannot find column {s} in {columns |> String.concat ", "}""" |> failwith
+            | None ->
+                raise (
+                    System.Collections.Generic.KeyNotFoundException
+                        $"""cannot find column {s} in {columns |> String.concat ", "}"""
+                )
             | Some i -> sl |> Array.item i |> tryCast dt
 
 

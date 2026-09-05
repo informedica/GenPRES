@@ -30,7 +30,7 @@ module Api =
         | :? CachedResourceProvider as cachedProvider ->
             cachedProvider.ReloadCache()
             (cachedProvider :> IResourceProvider) |> logGenFormMessages logger
-        | _ -> failwith "Provider is not a CachedResourceProvider instance"
+        | _ -> invalidArg (nameof provider) "Provider is not a CachedResourceProvider instance"
 
 
     /// Generic accessor: resolve any registered resource by its typed key.

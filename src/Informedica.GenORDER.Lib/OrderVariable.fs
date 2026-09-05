@@ -73,7 +73,7 @@ module ValueUnit =
                     |> Array.distinct
                     |> String.concat "; "
 
-                failwith $"Cannot collect the ValueUnit array to a single ValueUnit, values: [{details}]"
+                invalidArg (nameof vus) $"Cannot collect the ValueUnit array to a single ValueUnit, values: [{details}]"
 
             let result = vus |> Array.collect (toBase >> getValue) |> withUnit u |> toUnit
 

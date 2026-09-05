@@ -1668,7 +1668,7 @@ module Variable =
         /// </remarks>
         let minMultipleOf incr min =
             if (min, incr) |> MinIncr |> allSameUnitGroup |> not then
-                $"{min}, {incr} don't have the same unit group" |> failwith
+                invalidArg (nameof incr) $"{min}, {incr} don't have the same unit group"
 
             min |> Minimum.multipleOf incr
 
@@ -1701,7 +1701,7 @@ module Variable =
         /// </remarks>
         let maxMultipleOf incr max =
             if (incr, max) |> IncrMax |> allSameUnitGroup |> not then
-                $"{incr}, {max} don't have the same unit group" |> failwith
+                invalidArg (nameof max) $"{incr}, {max} don't have the same unit group"
 
             max |> Maximum.multipleOf incr
 
@@ -1734,7 +1734,7 @@ module Variable =
                 | _ -> min, max
 
             if (min, max) |> MinMax |> allSameUnitGroup |> not then
-                $"{min}, {max} don't have the same unit group" |> failwith
+                invalidArg (nameof max) $"{min}, {max} don't have the same unit group"
 
             if min |> minGTmax max then
                 // printfn $"min:\n{min}\nmax:\n{max}"
@@ -1776,7 +1776,7 @@ module Variable =
                 | _ -> min
 
             if (min, incr) |> MinIncr |> allSameUnitGroup |> not then
-                $"{min}, {incr} don't have the same unit group" |> failwith
+                invalidArg (nameof incr) $"{min}, {incr} don't have the same unit group"
 
             if min |> Minimum.hasZeroUnit |> not then
                 (min |> minMultipleOf incr, incr) |> MinIncr
@@ -1815,7 +1815,7 @@ module Variable =
                 | _ -> max
 
             if (incr, max) |> IncrMax |> allSameUnitGroup |> not then
-                $"{incr}, {max} don't have the same unit group" |> failwith
+                invalidArg (nameof max) $"{incr}, {max} don't have the same unit group"
 
             (incr, max |> maxMultipleOf incr) |> IncrMax
 
@@ -1847,7 +1847,7 @@ module Variable =
                     max |> Maximum.setUnit incrUnit
 
             if (min, incr, max) |> MinIncrMax |> allSameUnitGroup |> not then
-                $"{min}, {incr}, {max} don't have the same unit group" |> failwith
+                invalidArg (nameof max) $"{min}, {incr}, {max} don't have the same unit group"
 
             let min = min |> minMultipleOf incr
             let max = max |> maxMultipleOf incr

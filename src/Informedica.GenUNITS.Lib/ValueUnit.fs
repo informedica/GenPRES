@@ -780,7 +780,7 @@ module ValueUnit =
                 | ZeroUnit, u
                 | u, ZeroUnit -> u
                 // Otherwise fail
-                | _ -> failwith <| $"cannot add or subtract different units %A{u1} %A{u2}"
+                | _ -> invalidArg (nameof vu2) $"cannot add or subtract different units %A{u1} %A{u2}"
             |> fun u -> if b then simplifyUnit u else u
         // recreate valueunit with base value and combined unit
         v
@@ -818,7 +818,7 @@ module ValueUnit =
             && (vu1 |> hasNoUnit |> not && vu2 |> hasNoUnit |> not)
             && (vu1 |> eqsGroup vu2 |> not)
         then
-            failwith $"cannot compare {vu1} with {vu2}"
+            invalidArg (nameof vu2) $"cannot compare {vu1} with {vu2}"
         //else
         let vs1 = vu1 |> toBaseValue
         let vs2 = vu2 |> toBaseValue
@@ -839,7 +839,7 @@ module ValueUnit =
             && (vu1 |> hasNoUnit |> not && vu2 |> hasNoUnit |> not)
             && (vu1 |> eqsGroup vu2 |> not)
         then
-            failwith $"cannot compare {vu1} with {vu2}"
+            invalidArg (nameof vu2) $"cannot compare {vu1} with {vu2}"
 
         let vs1 = vu1 |> toBaseValue |> BigRational.distinct |> Array.sort
 

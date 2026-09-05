@@ -202,13 +202,14 @@ module List =
         |> List.countBy id
         |> List.map (fun (k, v) -> k, v - 1)
         |> List.sortBy (fun (k, _) ->
-            try
-                xs1 |> List.findIndex ((=) k)
-            with _ ->
+            match xs1 |> List.tryFindIndex ((=) k) with
+            | Some i -> i
+            | None ->
                 xs1
                 |> String.concat ", "
                 |> sprintf "countByList couldn't find %s in %s" k
-                |> failwith
+                |> System.Collections.Generic.KeyNotFoundException
+                |> raise
         )
 
     let inline findNearestMax n ns =
