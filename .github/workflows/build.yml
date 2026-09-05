@@ -84,6 +84,10 @@ jobs:
         name: test-results-${{ matrix.os }}
         path: '**/TestResults/**/*.trx'
         retention-days: 7
+        # Artifact names are unique per workflow run, and a re-run of a job is the same run: without
+        # this, "Re-run jobs" on any leg fails at this step with a name conflict. The re-run's trx
+        # replaces the earlier attempt's, which is the one you want anyway.
+        overwrite: true
 
     - name: Publish test results
       # continue-on-error: Dependabot PRs (and PRs from forks) get a read-only GITHUB_TOKEN that GitHub forces 
