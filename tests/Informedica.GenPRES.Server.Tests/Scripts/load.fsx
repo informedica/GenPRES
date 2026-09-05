@@ -18,7 +18,6 @@
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Ports.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Services.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Adapters.fs"
-#load "../../../src/Informedica.GenPRES.Server/ServerApi.AgentAdapters.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Command.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.CompositionRoot.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.ApiImpl.fs"

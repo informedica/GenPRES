@@ -140,3 +140,19 @@ Remaining residual after the fix:
 - New gap register G-1..G-8; key open items: zorggroep merged instead of selected (RuleFinder.fs:119-120), PRK/HPK level discarded (ZIndex DoseRule.fs:456), gender gate absent, BSA categories never filter (Check.fs:223 passes bsa=None), ICPC aggregation, IR 3.4.2 frequency-signal suppression missing.
 - Analysis only — no code changed, per user decision.
 - Correction (user): the GenPRES dose check runs at DOSE-RULE level (formulary QA via ServerApi.Services.fs:189-192), NOT at prescription level — a different use case than the IR. Since the solver generates prescriptions that exactly satisfy dose rules, rule-level validation transitively guarantees G-Standaard compliance of prescriptions. Document § 1 rewritten with this framing; all impact statements reworded to rule-validation level.
+
+## 2026-09-05 — Issue #420, PR 1: composition root swap
+
+- Branch `refactor/use-of-agents`, commit 9f96e280 `fix(server): stop serialising requests through domain agents`.
+- One-line change: `CompositionRoot.compose` now uses `Adapters.makeAppEnv` instead of `AgentAdapters.makeAppEnv`.
+- Framed as `fix` (user decision): per-domain single-thread serialisation is a concurrency defect; `fix` also renders in the ShipIt changelog.
+- Per-port `[XAgent]` debug logging dropped deliberately (user decision); reason in commit body. CompositionRoot already logs command name + full exception.
+- Verified: `dotnet run build` clean; `CI=true dotnet run servertests` 6141 passed / 0 failed; app smoke test in Chrome with GENPRES_DEBUG=1 exercised all six ports (Formulary, Parenteralia, GetDrugNames, UpdateOrderContext, UpdatedOrderPlan, InitNutritionPlan/AddNutritionContext), 0 "Error processing" lines, commands visibly interleaved in the log.
+
+## 2026-09-05 — Issue #420, PR 2: delete AgentAdapters
+
+- Commit `fix(server): remove the unused agent adapters` on `refactor/use-of-agents` (stacked on 9f96e280).
+- Deleted `ServerApi.AgentAdapters.fs` (497 lines) + fsproj entry; removed `agentAdapterGuardTests` (2 tests, direct-adapter twins remain); dropped the `#load` line from server and test `Scripts/load.fsx` (kept `#r Agents.Lib` — `Logging.fs` needs it).
+- Docs: `0000-change-log.md` row for the removal (no new ADR; ADR-0008 already deleted in 5f930887); `integration-test-report.md` rows 13/14 removed, counts 14→12, 32→30; historical note in `Agents.Lib/Scripts/AgentLifecycle.fsx`.
+- Verified: `dotnet run build` clean; `CI=true dotnet run servertests` 6139 passed / 0 failed (exactly 2 fewer); `dotnet fsi --exec Scripts/load.fsx` in the server Scripts dir exits 0; markdownlint clean on both docs.
+- Out of scope, unchanged: `Informedica.Agents.Lib` (#416), shared `OrderLogger` cross-request interleaving.

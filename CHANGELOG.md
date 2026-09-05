@@ -1,5 +1,5 @@
 ---
-last_commit_released: e74fbf4d11688f801f9a8c84e2d0cdedcd5aec43
+last_commit_released: e4adc399573cc44080db1fd2a1531c90fd828140
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -14,6 +14,19 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.11 - 2026-09-05
+
+### 🐞 Bug Fixes
+
+* *(server)* Stop serialising requests through domain agents ([9f96e280](https://github.com/informedica/GenPRES/commit/9f96e280c5d9768cd78ecbcbbc63f7a6f3ee23a8))
+
+    API commands are no longer serialised per domain through
+    MailboxProcessor agents; concurrent requests are processed in
+    parallel via the direct adapters.
+* *(server)* Remove the unused agent adapters ([ba016a31](https://github.com/informedica/GenPRES/commit/ba016a31348c4823a5a3c14d7ad634764ab0db3a))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/e74fbf4d11688f801f9a8c84e2d0cdedcd5aec43..e4adc399573cc44080db1fd2a1531c90fd828140)</small></strong>
 
 ## 0.1.2-alpha.10 - 2026-09-05
 
