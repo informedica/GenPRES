@@ -22,8 +22,8 @@ module File =
     let timeStamp s = s |> getFileInfo |> _.LastWriteTime
 
 // File
-File.exists <| FilePath.GStandPath + "BST000T"
-File.timeStamp <| (FilePath.GStandPath + "BST000T")
+File.exists <| FilePath.GStandPath () + "BST000T"
+File.timeStamp <| (FilePath.GStandPath () + "BST000T")
 
 // Check the product cache
 FilePath.productCache false |> File.exists

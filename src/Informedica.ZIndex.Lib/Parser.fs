@@ -29,7 +29,7 @@ module Parser =
     /// <param name="pick">The fields to pick.</param>
     let getData name posl pick =
         let data =
-            FilePath.GStandPath + "/" + name
+            FilePath.GStandPath() + "/" + name
             |> File.readAllLines
             |> Array.filter (String.length >> ((<) 10))
             |> Array.map (splitRecord posl)

@@ -49,19 +49,25 @@ module FilePath =
             | None -> "./data"
 
 
-    // The base data directory, resolved by the unified AppPath resolver.
-    let data = AppPath.dataDir () + "/"
+    /// The base data directory, resolved by the unified AppPath resolver.
+    ///
+    /// A function, not a value: as a value this ran in this file's static constructor
+    /// and forced AppPath's `lazy` root at whatever moment anything in FilePath was
+    /// first touched — before an Env.loadDotEnv () could set GENPRES_ROOT, defeating
+    /// the deferral documented at AppPath.fs. No cache is needed; AppPath.root is
+    /// already lazy, so this is a Path.Combine and a concat. See issue #523.
+    let data () = AppPath.dataDir () + "/"
 
 
-    let GStandPath = data + "zindex/"
+    let GStandPath () = data () + "zindex/"
 
 
     /// Get the path to the Substance cache file
     let substanceCache useDemo =
         if not useDemo then
-            data + "cache/substance.cache"
+            data () + "cache/substance.cache"
         else
-            data + "cache/substance.demo"
+            data () + "cache/substance.demo"
         |> fun s ->
             let s = s |> Path.GetFullPath
             writeInfoMessage $"substance cache path: {s}"
@@ -71,9 +77,9 @@ module FilePath =
     /// Get the path to the Product cache file
     let productCache useDemo =
         if not useDemo then
-            data + "cache/product.cache"
+            data () + "cache/product.cache"
         else
-            data + "cache/product.demo"
+            data () + "cache/product.demo"
         |> fun s ->
             let s = s |> Path.GetFullPath
             writeInfoMessage $"product cache path: {s}"
@@ -83,9 +89,9 @@ module FilePath =
     /// Get the path to the Rule cache file
     let ruleCache useDemo =
         if not useDemo then
-            data + "cache/rule.cache"
+            data () + "cache/rule.cache"
         else
-            data + "cache/rule.demo"
+            data () + "cache/rule.demo"
         |> fun s ->
             let s = s |> Path.GetFullPath
             writeInfoMessage $"rule cache path: {s}"
@@ -95,9 +101,9 @@ module FilePath =
     /// Get the path to the Group cache file
     let groupCache useDemo =
         if not useDemo then
-            data + "cache/group.cache"
+            data () + "cache/group.cache"
         else
-            data + "cache/group.demo"
+            data () + "cache/group.demo"
         |> fun s ->
             let s = s |> Path.GetFullPath
             writeInfoMessage $"group cache path: {s}"
