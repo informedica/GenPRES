@@ -26,12 +26,12 @@ module CodeGen =
 
         {create}
 
-        let posl = BST001T.getPosl name
+        let posl () = BST001T.getPosl name
 
         let pickList = {pickList}
 
         let _records _ =
-            Parser.getData name posl pickList
+            Parser.getData name (posl ()) pickList
             |> Array.map {map}
 
         let records : unit -> {n} [] = Memoization.memoize _records
