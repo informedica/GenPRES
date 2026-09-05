@@ -248,11 +248,25 @@ Target.create
                 captured |> Seq.iter (printfn "%s")
                 printfn "-------------------------------------------------------------------------"
 
-                failwithf "Tests failed with exit code %d" result.ExitCode
+                if totalFailed.Value = 0 then
+                    // The signature of a test DISCOVERY failure: a non-zero exit while
+                    // every assembly that did load reports 0 failures. An assembly whose
+                    // static initializer throws produces no results at all, so it adds
+                    // nothing to these counters and the summary reads green on a red
+                    // build. See issue #523.
+                    failwithf
+                        $"dotnet test exited %i{result.ExitCode} with 0 reported failures \
+                          (%i{totalPassed.Value} passed). This is the signature of a test \
+                          DISCOVERY failure: an assembly's static initializer threw before \
+                          Expecto could enumerate its tests. Search the dumped output above \
+                          for TypeInitializationException, and look for a top-level `let` \
+                          VALUE binding that performs IO — see issue #523."
+                else
+                    failwithf "Tests failed with exit code %d" result.ExitCode
 
             if totalTests.Value = 0 then
                 failwith
-                    "No tests were discovered or run. The solution was likely not built/restored before 'dotnet test'."
+                    "No tests were discovered or run. The solution was likely not built/restored before `dotnet test`."
     )
 
 Target.create "CheckVersions" (fun _ -> run dotnet [ "fsi"; "scripts/CheckSolutionVersions.fsx" ] ".")
