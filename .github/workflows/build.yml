@@ -9,6 +9,10 @@ on:
 jobs:
   build:
     strategy:
+      # Without this, one leg's failure cancels the other two and you cannot tell a
+      # platform-specific break from a universal one. Issue #523 failed on ubuntu and
+      # reported the macOS and Windows legs only as "The operation was canceled".
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
     runs-on: ${{ matrix.os }}
