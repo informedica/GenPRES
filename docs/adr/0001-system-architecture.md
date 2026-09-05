@@ -21,7 +21,7 @@ Two further foundational choices follow from it and are recorded here because th
 - Server-side F# domain libraries remain pure and testable independent of the UI.
 - Client code (Fable/Elmish) compiles to JavaScript and runs in the browser.
 - Client and server share one type-safe contract through Fable.Remoting, so an API change that breaks a caller fails at compile time rather than at runtime.
-- Editing a production spreadsheet changes the behaviour of a running system with no deployment, which is the point — and the risk. It is not instantaneous, though: the server holds resources in a `CachedResourceProvider` with no expiry, so an edit takes effect only after an admin `ReloadResources` (or a restart), and the client's own hard-coded sheets are separate again.
+- Editing a production spreadsheet changes the behavior of a running system with no deployment, which is the point — and the risk. It is not instantaneous, though: the server holds resources in a `CachedResourceProvider` with no expiry, so an edit takes effect only after an admin `ReloadResources` (or a restart), and the client's own hard-coded sheets are separate again.
 - Proprietary medication cache files are not distributed with the repository; only demo cache files are.
 
 ## Alternatives considered

@@ -176,7 +176,7 @@ AP2019's user management was lightweight: identity and role were **trusted from 
 
 ## 11. GenPRES-specific (no AP2019 equivalent)
 
-Behaviour the use cases require that AP2019 never had, so there is nothing to
+Behavior the use cases require that AP2019 never had, so there is nothing to
 be "Fit" against. Status here is simply **Built** or **Not built**, and these
 rows are excluded from the summary counts.
 

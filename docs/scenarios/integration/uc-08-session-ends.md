@@ -81,7 +81,7 @@ or from one Patient to another.
   SessionRecord and its work is in the Client, and the Server held neither (Rules 10, 32).
   The next request continues the Session, the idle clock permitting.
 - **An upgrade** (ext 1b). Open Sessions are served by the version they opened on until
-  they end. Not modelled: this model has one version.
+  they end. Not modeled: this model has one version.
 - **Another Session at another workstation** (ext 1c). The launch ends the old Session and
   delivers the notice with it.
 - **The absolute lifetime.** Rule 9's clock forgives a Client that keeps talking; the

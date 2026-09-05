@@ -17,7 +17,7 @@ GenPRES dose rules are sourced from a Google Spreadsheet managed by clinical
 pharmacists. The source material for these rules comes from Dutch-language
 reference publications — primarily:
 
-- **NKF** (Nederlands Kinderformularium) — the Dutch national paediatric
+- **NKF** (Nederlands Kinderformularium) — the Dutch national pediatric
   formulary, published by the Erasmus MC; contains free-text dosing schedules
   per age band, weight band, and indication
 - **FTK** (Farmacotherapeutisch Kompas) — the Dutch national drug reference,
@@ -241,7 +241,7 @@ decisions. The following safety constraints apply:
    units, and patient-category constraints against the original source text.
 
 4. **Validation stage is not sufficient alone**: `RuleValidation.validate`
-   performs structural checks (required fields present, units recognised) but
+   performs structural checks (required fields present, units recognized) but
    cannot verify clinical correctness. Human review remains mandatory.
 
 5. **No PII**: The input text is drawn from published reference works; no
@@ -257,6 +257,6 @@ decisions. The following safety constraints apply:
 - [PR #317 — NLP pipeline overhaul](https://github.com/informedica/GenPRES/pull/317)
 - [PR #321 — Extraction prompt improvement](https://github.com/informedica/GenPRES/pull/321)
 - [ADR-0009: MCP Server Architecture](../adr/0009-mcp-server-architecture.md)
-- [Implementation plan for issue #307: G-Standard dose rule fallback](../implementation-plans/307-gstand-dose-rule-fallback.md) (formerly ADR-0016)
+- [Implementation plan for issue #307: G-Standaard dose rule fallback](../implementation-plans/307-gstand-dose-rule-fallback.md) (formerly ADR-0016)
 - [Nederlands Kinderformularium](https://www.kinderformularium.nl/)
 - [Farmacotherapeutisch Kompas](https://www.farmacotherapeutischkompas.nl/)

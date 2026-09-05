@@ -19,7 +19,7 @@ The MVP must persist patient state and running orders so that reopening a patien
 
 ## 2. What the legacy system does (benchmark)
 
-The behaviour to replicate lives in the VBA modules that save a snapshot of patient state:
+The behavior to replicate lives in the VBA modules that save a snapshot of patient state:
 
 - **`src/module/ModPatient.bas`** — `Patient_SavePatient` → `SavePatientToDatabase` (orchestration, guards, concurrency check).
 - **`src/module/ModDatabase.bas`** — `Database_SavePatient`, `Database_SavePrescriber`, `Database_SaveData` (the actual writes).
@@ -32,16 +32,16 @@ Its model, which we adopt:
 4. **Prescriber attribution on every row.** Each written record carries the prescriber login plus the version timestamps — this is also the audit trail.
 5. **Snapshot = patient demographics + prescriber + the full prescription state** (structured key/value data + free-text notes).
 
-## 3. Proposed behaviour for GenPRES (MVP)
+## 3. Proposed behavior for GenPRES (MVP)
 
 ### 3.1 Scope of a snapshot
 
 A snapshot is the **complete patient state as a single atomic unit**:
 
 - Patient context (demographics, weight, age, GA/PMA, access type, etc.).
-- The **treatment plan**: the list of running orders. Following the legacy/event-sourcing-flavoured model, each running order carries **its own patient-context snapshot**, so an order is self-contained and reproducible.
+- The **treatment plan**: the list of running orders. Following the legacy/event-sourcing-flavored model, each running order carries **its own patient-context snapshot**, so an order is self-contained and reproducible.
 
-Serialise the snapshot as an opaque payload (JSON blob) — GenPRES's domain owns the shape; the persistence layer treats it as data.
+Serialize the snapshot as an opaque payload (JSON blob) — GenPRES's domain owns the shape; the persistence layer treats it as data.
 
 ### 3.2 Persist only when a patient id is present
 
@@ -83,7 +83,7 @@ Assumptions fixed here:
 
 **Open questions for the architecture step (do not block writing this request):**
 
-- Relational schema shape: one snapshot-blob column per version, vs. normalised order rows. (Legacy normalises into key/value + text tables; a blob-per-version is simpler and matches the "atomic snapshot" intent.)
+- Relational schema shape: one snapshot-blob column per version, vs. normalized order rows. (Legacy normalizes into key/value + text tables; a blob-per-version is simpler and matches the "atomic snapshot" intent.)
 - Retention policy for old versions.
 - How the prescriber identity is threaded from the API/user-management layer into each save.
 

@@ -28,7 +28,7 @@ The review identified open findings in three remediation buckets (§7.2,
 items at the application layer; the rest are deferred to architectural
 work tracked in the existing roadmap. This document exists so future
 maintainers, reviewers, and auditors can locate the authoritative
-security artefacts and understand which decisions were deliberately
+security artifacts and understand which decisions were deliberately
 taken at the demo level versus deferred to a non-demo deployment.
 
 ## Decision
@@ -56,7 +56,7 @@ taken at the demo level versus deferred to a non-demo deployment.
      `securityHeadersMiddleware` registered through `app_config`.
    - **A2** per-IP fixed-window rate limiter
      (`Microsoft.AspNetCore.RateLimiting`, 60 requests / 10 s, partition
-     keyed by `getClientIP` so `X-Forwarded-For` is honoured).
+     keyed by `getClientIP` so `X-Forwarded-For` is honored).
    - **B3** trusted-proxy allow-list wired via ASP.NET
      `ForwardedHeadersMiddleware` and the `GENPRES_TRUSTED_PROXIES`
      env var (defaults to `127.0.0.1, ::1`, matching the Plesk →
@@ -77,7 +77,7 @@ taken at the demo level versus deferred to a non-demo deployment.
    live test suite maintained out-of-repo by the maintainer. It is
    deliberately not part of the repository because it encodes
    deployment assumptions (target URL, demo credentials, expected HTTP
-   behaviour) rather than source-code invariants. The current suite
+   behavior) rather than source-code invariants. The current suite
    verifies the items recorded in the `Update — 2026-04-11` section of
    the security review and is run before any production deploy.
 
@@ -143,7 +143,7 @@ taken at the demo level versus deferred to a non-demo deployment.
 - The intentional A5 non-remediation is now traceable through both the
   security review and this baseline, so it cannot accidentally be
   inherited by a non-demo deployment.
-- The formal risk-analysis artefacts are maintained with the MDR
+- The formal risk-analysis artifacts are maintained with the MDR
   documentation, outside this repository; the maintainer must map the
   resolved items into them through normal change control before any C2
   deployment.

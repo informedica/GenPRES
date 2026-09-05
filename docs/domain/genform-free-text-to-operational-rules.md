@@ -42,7 +42,7 @@
 | *Dose Rule* | An OKR that defines qualitative and quantitative constraints for dosing a specific generic in a defined clinical context. |
 | *Dose Limit* | A set of numeric constraints defining the minimum, maximum, or normative allowable dose. |
 | *Dose* | A patient-specific calculated dose value that satisfies all applicable constraints. Note that a dose can be per administration, per time unit, or rate unit and can be adjusted for patient weight or BSA. |
-| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. A source value that is empty or unrecognised parses to `NoDoseType`, and such a row is **rejected**: `DoseRuleData.validateData` returns "Has no dose type", so the loader partitions the row out and surfaces the message as a warning. An unrecognised value also produces a parser warning naming it; an empty value does not. In effect a dose type is mandatory — `NoDoseType` marks a row to discard, not a fifth kind of dosing. |
+| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. A source value that is empty or unrecognized parses to `NoDoseType`, and such a row is **rejected**: `DoseRuleData.validateData` returns "Has no dose type", so the loader partitions the row out and surfaces the message as a warning. An unrecognized value also produces a parser warning naming it; an empty value does not. In effect a dose type is mandatory — `NoDoseType` marks a row to discard, not a fifth kind of dosing. |
 | *Selection Constraint* | A rule element used to determine which calculation constraints apply. |
 | *Calculation Constraint* | A quantitative rule element used to compute dose, rate, volume, or timing. |
 | *Adjustment Unit* | A patient normalization unit used to scale doses (e.g., kg for weight, m² for BSA). |
@@ -260,15 +260,10 @@ Free text is structured by GenFORM to operational structured knowledge rules and
 ### Appendix B.3. GenFORM Libraries
 
 This appendix used to restate the library list with per-library capabilities and dependencies.
-The same list also appeared in the GenORDER document and in
-[`genpres-architecture-and-timeline.md`](../roadmap/genpres-architecture-and-timeline.md), and the
-three copies drifted apart — between them they described four libraries that no longer exist and
-omitted two that do. There is now one copy:
-
-- **Target architecture** (planned libraries, capabilities, dependencies):
-  [GenPRES Architecture and Timeline, Addendum 3](../roadmap/genpres-architecture-and-timeline.md)
-- **What is actually built today**: the Core Libraries list in
-  [DEVELOPMENT.md](../../DEVELOPMENT.md#core-libraries)
+The same list also appeared in the GenORDER document and in a roadmap timeline, and the copies
+drifted apart — between them they described libraries that no longer exist and omitted some that
+do. There is now one copy, the inventory of what is actually built: the Core Libraries list in
+[DEVELOPMENT.md](../../DEVELOPMENT.md#core-libraries).
 
 ### Appendix C.1. Dose Rule Model Figure
 

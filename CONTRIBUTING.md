@@ -34,7 +34,7 @@ Fill in information according to the appropriate template:
 
 Maintaining open-source software is difficult, and it's easy to be inefficient with maintainers' and contributors' time. Our pull request process is intended to reduce the amount of time lost to inefficiencies such as slow code reviews and reimplementing (or even rejecting) contributions, and to reduce the likelihood of accepting substandard contributions just because a lot of time has been spent on them.
 
-We acknowledge that the process does place some up-front burden on contributors, but this early communication will help everyone to spot and correct potential problems before a lot of time has been spent. In exchange for contributors following the process, reviewers and maintainers will endeavour to be prompt with responses and reviews.
+We acknowledge that the process does place some up-front burden on contributors, but this early communication will help everyone to spot and correct potential problems before a lot of time has been spent. In exchange for contributors following the process, reviewers and maintainers will endeavor to be prompt with responses and reviews.
 
 The process is meant to support productive develpoment, not be a hindrance to it, and maintainers will be pragmatic. In addition, we will monitor its effectiveness, and tweak as necessary; we want to keep the process as light as possible while still achieving the underlying aims.
 
@@ -77,7 +77,7 @@ Reviewers should review PRs promptly, or select a new reviewer if they are unabl
 
 Reviewers must check that code changes: work; meet guidelines and standards; are not more complex than necessary.
 
-Suggestions should be clearly categorised as follows: blocking (must be addressed before the PR can be merged); required but not blocking (must be addressed, but could be in a follow-up PR); optional (don't ever have to be addressed).
+Suggestions should be clearly categorized as follows: blocking (must be addressed before the PR can be merged); required but not blocking (must be addressed, but could be in a follow-up PR); optional (don't ever have to be addressed).
 
 ## AI-Assisted Contributions
 

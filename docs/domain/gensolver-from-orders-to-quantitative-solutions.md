@@ -125,7 +125,7 @@ Exact fractional arithmetic is preserved:
 - 1/3 × 3 = 1
 - No floating-point rounding is introduced during symbolic solving
 
-Unit validation is enforced at every calculation step. This capability is provided by Informedica.GenUnits.Lib.
+Unit validation is enforced at every calculation step. This capability is provided by Informedica.GenUNITS.Lib.
 
 ## 6. Relationship to GenORDER Quantitative Semantics
 
@@ -190,11 +190,11 @@ This allows:
 
 GenSOLVER is implemented as a domain library:
 
-- **Informedica.GenSolver.Lib**
+- **Informedica.GenSOLVER.Lib**
 
 It depends on:
 
-- **Informedica.GenUnits.Lib** for unit-aware arithmetic
+- **Informedica.GenUNITS.Lib** for unit-aware arithmetic
 - **Informedica.Utils.Lib** for basic primitives
 - **Informedica.Logging.Lib** for trace output
 
@@ -203,18 +203,18 @@ It can run as:
 - An embedded library
 - A standalone agent-based microservice
 
-### Session-Level LRU Memoisation
+### Session-Level LRU Memoization
 
-A prototype session-level memoisation avoids redundant re-solving of equivalent equation systems across multiple patients or scenarios within the same server session. It lives in `src/Informedica.GenSOLVER.Lib/Scripts/` (`LRUCache.fsx`, `MemoCanon.fsx`, `LRUSolverIntegration.fsx`) and remains pending integration into the production solver.
+A prototype session-level memoization avoids redundant re-solving of equivalent equation systems across multiple patients or scenarios within the same server session. It lives in `src/Informedica.GenSOLVER.Lib/Scripts/` (`LRUCache.fsx`, `MemoCanon.fsx`, `LRUSolverIntegration.fsx`) and remains pending integration into the production solver.
 
 Key design points of the prototype:
 
-- **Canonical key remapping**: variable names are normalised to a canonical form before cache lookup, enabling cross-patient cache sharing even when variable names differ only by patient-specific identifiers.
+- **Canonical key remapping**: variable names are normalized to a canonical form before cache lookup, enabling cross-patient cache sharing even when variable names differ only by patient-specific identifiers.
 - **LRU eviction**: the prototype cache uses a Least-Recently-Used eviction policy with a configurable capacity, implemented as a `Dictionary<K, LinkedListNode<K*V>>` plus `LinkedList<K*V>` guarded by a single `obj` mutex.
 - **Correctness guarantee**: the cache never returns a stale result; cache hits require the full canonical equation system to match.
 - **Benchmarked improvement**: in a 50-patient benchmark, cache hits eliminate the solve inner loop entirely for repeat scenarios, yielding significant latency reduction.
 
-If integrated, this optimisation is intended to be transparent to callers, with the `SessionSolver` API remaining identical to the non-memoised solver.
+If integrated, this optimization is intended to be transparent to callers, with the `SessionSolver` API remaining identical to the non-memoized solver.
 
 See [Code Review & Memoization Design for Solver.fs](../code-reviews/solver-memoization.md) for the complete design rationale.
 
@@ -266,7 +266,7 @@ This GenSOLVER document is part of the GenPRES domain documentation. For the com
 | [GenFORM: Free Text to Operational Rules](genform-free-text-to-operational-rules.md) | How free-text expert knowledge is transformed into structured Operational Knowledge Rules (OKRs). |
 | [GenORDER: Operational Rules to Orders](genorder-operational-rules-to-orders.md) | How OKRs are transformed into executable Order Scenarios. Includes the equation system that GenSOLVER solves. |
 | [GenSOLVER Stability Analysis](gensolver-stability-analysis.md) | Analysis of solver stability properties, known limitations, and open questions. |
-| [Code Review & Memoization Design for Solver.fs](../code-reviews/solver-memoization.md) | Design rationale for session-level LRU memoisation and canonical key remapping. |
+| [Code Review & Memoization Design for Solver.fs](../code-reviews/solver-memoization.md) | Design rationale for session-level LRU memoization and canonical key remapping. |
 
 ### Quick Reference by Topic
 

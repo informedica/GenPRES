@@ -256,15 +256,10 @@ This GenORDER document is part of the GenPRES domain documentation. For the comp
 ### Appendix B.3. GenORDER Libraries
 
 This appendix used to restate the library list with per-library capabilities and dependencies.
-The same list also appeared in the GenFORM document and in
-[`genpres-architecture-and-timeline.md`](../roadmap/genpres-architecture-and-timeline.md), and the
-three copies drifted apart — between them they described four libraries that no longer exist and
-omitted two that do. There is now one copy:
-
-* **Target architecture** (planned libraries, capabilities, dependencies):
-  [GenPRES Architecture and Timeline, Addendum 3](../roadmap/genpres-architecture-and-timeline.md)
-* **What is actually built today**: the Core Libraries list in
-  [DEVELOPMENT.md](../../DEVELOPMENT.md#core-libraries)
+The same list also appeared in the GenFORM document and in a roadmap timeline, and the copies
+drifted apart — between them they described libraries that no longer exist and omitted some that
+do. There is now one copy, the inventory of what is actually built: the Core Libraries list in
+[DEVELOPMENT.md](../../DEVELOPMENT.md#core-libraries).
 
 ### Appendix C.1. Order Model Figure
 

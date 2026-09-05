@@ -2,7 +2,7 @@
 
 ## Problem description
 
-Summarise the problem in a sentence or two (refer to the issue if it contains additional context).
+Summarize the problem in a sentence or two (refer to the issue if it contains additional context).
 
 ## Approaches considered
 

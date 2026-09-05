@@ -2,7 +2,7 @@
 
 The FTK extraction FSI script exposes a `FTK_EXTRACT_UPLOAD=1` gate that uploads the Pass-1 TSV to Google Drive and converts it server-side to a Google Sheet at `My Drive/GenPRES/data/extraction/ftk_extract_pass1_<UTC>`. This runbook documents the one-time setup that gets that working from a personal `@gmail.com` account.
 
-The script authenticates via Application Default Credentials (`GoogleCredential.GetApplicationDefault()`), which natively honours both gcloud user creds and a service-account JSON. On a personal Gmail account, the only path that actually *uploads* (not just creates folders) is gcloud user creds backed by a **custom OAuth client** — see "Why not a service account?" below for the reasoning.
+The script authenticates via Application Default Credentials (`GoogleCredential.GetApplicationDefault()`), which natively honors both gcloud user creds and a service-account JSON. On a personal Gmail account, the only path that actually *uploads* (not just creates folders) is gcloud user creds backed by a **custom OAuth client** — see "Why not a service account?" below for the reasoning.
 
 > **No Drive folder pre-creation or sharing is needed for the user-creds path.** Files and folders are owned by you, written into your own My Drive. The "share folder with `xxx@…iam.gserviceaccount.com` as Editor" step you may have seen in earlier service-account guides applies to the SA path only and is irrelevant here.
 

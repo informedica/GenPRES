@@ -28,7 +28,7 @@ The scaffold the [[Phase]]s build: Source → Generic → Indication → Route �
 PatientCategory → (DoseType/DoseText) → DoseTarget → DoseLimit. It is
 *structuring scaffold, not a set of domain entities* — each level is a
 *position* in the free-text→row process, not a thing to name. One TSV row =
-one full root-to-leaf path; the hierarchy is flattened, never serialised as a
+one full root-to-leaf path; the hierarchy is flattened, never serialized as a
 tree. The L5 level is simply where a row acquires its `DoseType` / `DoseText`
 (and its `ScheduleText` is sliced to match) — it is **not** an entity called
 "DosePhase".
@@ -55,12 +55,12 @@ enforce "adults only" (`Patient.getAge` returns an empty range for the case;
 see the `TODO` in `src/Informedica.GenFORM.Lib/Patient.fs`), so until it does
 no `IsAdult = "x"` row may reach GenFORM ingest (its `MinAge`/`MaxAge` are
 blanked, so it would otherwise match every age).
-_Avoid_: AgeCategory, age band, adult flag (it is not a tri-state, does not generalise).
+_Avoid_: AgeCategory, age band, adult flag (it is not a tri-state, does not generalize).
 
 **SortNo**:
 The display rank of a rule within its **GrpId**. Its source of truth is the
 user's manual row ordering at the [[Ux checkpoint]]s — reordering rows *is* the
-lever. Pass 4 only mechanises this: it ranks the distinct `Id`s inside one
+lever. Pass 4 only mechanizes this: it ranks the distinct `Id`s inside one
 GrpId by the first-appearance index of the user-arranged rows. It is **never**
 system- or DoseType-derived. Rows sharing an `Id` (multi-substance fan-outs)
 share a SortNo.
@@ -75,9 +75,9 @@ the canonical `data/sources/Rules/doserules.tsv`. It does **not** do
 string→typed elevation — the production `DoseRule` parser already does that.
 
 **Pass 5 (validation)**:
-The optional, terminal, read-only bridge that feeds the Pass-4 artefact
+The optional, terminal, read-only bridge that feeds the Pass-4 artifact
 through the production GenFORM `DoseRule` parser to confirm it ingests as real
-`DoseRule` records. Unlike Passes 1–4 it extends no artefact and has no
+`DoseRule` records. Unlike Passes 1–4 it extends no artifact and has no
 [[Ux checkpoint]]. **Structurally blind to [[IsAdult]]**: it bridges the
 *legacy* parser, which has no `IsAdult` field, so an `IsAdult = "x"` row parses
 *because* the facet is dropped and renders age-unbounded. A clean Pass 5

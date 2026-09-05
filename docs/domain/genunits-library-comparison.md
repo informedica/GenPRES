@@ -16,7 +16,7 @@
 
 **Notes:**
 
-- Informedica.GenUnits.Lib stands out for its domain-specific units, localization, and precise algebraic handling of composite units.
+- Informedica.GenUNITS.Lib stands out for its domain-specific units, localization, and precise algebraic handling of composite units.
 - Pint is flexible, but domain features must be user-defined.
 - SymPy Units is symbolic and precise but not domain-focused.
 - UnitsNet and FSharp.Units are strong for SI/science but less so for clinical or custom domain units.

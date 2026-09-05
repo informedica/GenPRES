@@ -1,8 +1,8 @@
-# GenSolver Stability Analysis: Cycle Risks and Current Safeguards
+# GenSOLVER Stability Analysis: Cycle Risks and Current Safeguards
 
 ## Purpose
 
-This document summarizes the findings of the master thesis *"Optimizing GenSolver, a module for solving equations in a medical environment"* by Kerim Đelić (Utrecht University, June 2022) and analyzes which of the thesis-identified problems remain relevant in the current GenSolver implementation.
+This document summarizes the findings of the master thesis *"Optimizing GenSOLVER, a module for solving equations in a medical environment"* by Kerim Đelić (Utrecht University, June 2022) and analyzes which of the thesis-identified problems remain relevant in the current GenSOLVER implementation.
 
 It serves as a reference for anyone maintaining or reasoning about the stability properties of the constraint solver.
 
@@ -14,7 +14,7 @@ It serves as a reference for anyone maintaining or reasoning about the stability
 
 ## Thesis Findings Overview
 
-Đelić's thesis identified three problems in the 2021 version of GenSolver:
+Đelić's thesis identified three problems in the 2021 version of GenSOLVER:
 
 1. **Efficiency**: O(n²) operations on large finite sets of rational numbers caused gentamicin calculations to take ~55 seconds with 19 GB of allocated memory.
 2. **Incorrect increment arithmetic**: Multiplying two domains with increments used a flawed formula that produced values not actually reachable by element-wise multiplication.
@@ -146,7 +146,7 @@ At any such boundary, the Chapter 5 α/β tracking proposal (or an equivalent cy
 
 ## References
 
-- Đelić, K. (2022). *Optimizing GenSolver, a module for solving equations in a medical environment*. Master thesis, Utrecht University. Supervisors: Prof. R.H. Bisseling, Dr. C.W. Bollen.
+- Đelić, K. (2022). *Optimizing GenSOLVER, a module for solving equations in a medical environment*. Master thesis, Utrecht University. Supervisors: Prof. R.H. Bisseling, Dr. C.W. Bollen.
 - `src/Informedica.GenSOLVER.Lib/Variable.fs` — domain arithmetic (`ValueRange.calc`, `ValueSet.calc`)
 - `src/Informedica.GenSOLVER.Lib/Solver.fs` — propagation loop (`solve`)
 - `src/Informedica.GenSOLVER.Lib/Utils.fs` — `Constants.MAX_LOOP_COUNT`

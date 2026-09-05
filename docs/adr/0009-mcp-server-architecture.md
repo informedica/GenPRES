@@ -46,7 +46,7 @@ GenPRES is a **medical device software** project. The following constraints appl
 
 4. **Authentication (SSE transport only)**: If the SSE transport is used, the server must require an API key or equivalent authentication. The stdio transport is inherently restricted to the local machine.
 
-5. **Validation of outputs**: MCP responses contain dosing information derived from validated rule sets. AI-generated summaries of these responses are not validated medical advice and must be labelled as such in any user-facing application.
+5. **Validation of outputs**: MCP responses contain dosing information derived from validated rule sets. AI-generated summaries of these responses are not validated medical advice and must be labeled as such in any user-facing application.
 
 6. **Review gate**: Per the repository policy, no new code may be merged to `.fs` source files without human review. The MCP implementation follows the scripts-first workflow.
 
@@ -67,7 +67,7 @@ Only `GenFORM.Lib` and `GenORDER.Lib` are exposed. The others are deliberately n
 Two new external dependencies, both listed in `src/Informedica.MCP.Lib/paket.references`:
 
 - `ModelContextProtocol` — the official .NET MCP SDK, maintained by the
-  [modelcontextprotocol GitHub organisation](https://github.com/modelcontextprotocol/csharp-sdk).
+  [modelcontextprotocol GitHub organization](https://github.com/modelcontextprotocol/csharp-sdk).
 - `Microsoft.Extensions.Hosting` — the generic host the SDK's server builder is wired into
   (`McpServer.fs` opens it directly).
 

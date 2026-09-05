@@ -19,7 +19,7 @@ between GenPRES and EHR systems.
 
 The Dutch healthcare landscape mandates:
 
-- **G-Standard** compliance for medication identification (GPK codes, thesauri for route and form).
+- **G-Standaard** compliance for medication identification (GPK codes, thesauri for route and form).
 - **IHE Pharmacy** profile compliance for treatment-plan messages.
 - **FHIR R4** as the industry-standard interchange format.
 
@@ -76,7 +76,7 @@ FHIR MedicationRequest
 The orderable quantities and schedule (frequency, rate) are the only domain values that flow **from** the
 FHIR resource into GenPRES; all other constraints come from the local ZIndex database.
 
-### Dutch G-Standard Coding Systems
+### Dutch G-Standaard Coding Systems
 
 Medication identification uses established Dutch OID systems:
 
@@ -111,7 +111,7 @@ Following the established GenPRES workflow ([AGENTS.md](../../AGENTS.md)):
 
 ### Benefits
 
-- **Standard interoperability**: FHIR R4 + G-Standard is the Dutch national standard for hospital
+- **Standard interoperability**: FHIR R4 + G-Standaard is the Dutch national standard for hospital
   medication exchange; adoption reduces bespoke integration work for each EHR partner.
 - **Separation of concerns**: EHR owns persistence; GenPRES owns clinical calculation. Neither system
   must understand the other's internal domain model in depth.
@@ -125,7 +125,7 @@ Following the established GenPRES workflow ([AGENTS.md](../../AGENTS.md)):
 ### Trade-offs and Risks
 
 - **GPK placeholder limitation**: The interface specification uses placeholder GPK codes. Real codes
-  must come from the G-Standard database; the round-trip is only fully verifiable with real product
+  must come from the G-Standaard database; the round-trip is only fully verifiable with real product
   data.
 - **FHIR version lock**: Committing to FHIR R4 means future migration to FHIR R5 will require a
   translation shim or a parallel implementation.
@@ -164,7 +164,7 @@ authentication plumbing not yet needed for the calculation-service use case. Def
 - Interface specification v1.3: removed from this repository under #522; maintained with the MDR documentation
 - FHIR R4 specification: <https://hl7.org/fhir/R4/>
 - Firely .NET SDK: <https://docs.fire.ly/projects/Firely-NET-SDK/>
-- Dutch G-Standard / NL FHIR: <https://informatiestandaarden.nictiz.nl/wiki/Landingspagina_Medicatie>
+- Dutch G-Standaard / NL FHIR: <https://informatiestandaarden.nictiz.nl/wiki/Landingspagina_Medicatie>
 - IHE Pharmacy profile: <https://www.ihe.net/resources/technical_frameworks/#pharmacy>
 - [ADR-0009: MCP Server Architecture](0009-mcp-server-architecture.md)
 - [Security baseline (formerly ADR-0015)](../security/security-baseline.md)

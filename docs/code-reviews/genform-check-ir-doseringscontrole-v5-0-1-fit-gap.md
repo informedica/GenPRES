@@ -113,7 +113,7 @@ Statuses used: **Fit** (requirement covered, possibly in adapted form),
 | 3.3 | Age in months, < 1 month as fraction, 1 month = 30 days | Fit | `monthsMinMaxToDays` (`Check.fs:74-86`), applied in `filterPatient` (`Check.fs:384`) | Prior MEDIUM-3, fixed |
 | 3.3 | BSA computable from weight + length if absent | N/A by design | — | Patient BSA is a GenPRES-wide concern; Check never uses patient BSA at all (see § 4.5.4 gap) |
 | 3.3 | Recency of weight/BSA (user-configurable, or confirm prompt) | Gap | — | App-level requirement; not implemented anywhere in the order workflow |
-| 3.4 | Interchangeable time units (per 2 dagen ↔ om de dag; per 4 weken ↔ per maand; per 8 weken ↔ per 2 maanden; per half jaar ↔ per 6 maanden); per 12 weken **≠** per 3 maanden | Fit | `interchangeGroups`/`canonTimeUnit`/`interchangeable` (`Check.fs:91-105`), used in `freqRow` (`Check.fs:718`) | Prior LOW-3, fixed. Note: ZIndex additionally normalises "om de dag"→"per 2 dagen" at parse time (`ZIndex/DoseRule.fs:387`) |
+| 3.4 | Interchangeable time units (per 2 dagen ↔ om de dag; per 4 weken ↔ per maand; per 8 weken ↔ per 2 maanden; per half jaar ↔ per 6 maanden); per 12 weken **≠** per 3 maanden | Fit | `interchangeGroups`/`canonTimeUnit`/`interchangeable` (`Check.fs:91-105`), used in `freqRow` (`Check.fs:718`) | Prior LOW-3, fixed. Note: ZIndex additionally normalizes "om de dag"→"per 2 dagen" at parse time (`ZIndex/DoseRule.fs:387`) |
 | 3.4.1 | Dose ranges ('1-3× per dag', '1-2 tabletten'): unravel frequency range; check highest amount vs max, lowest vs min | Fit (by construction) | `checkInRangeOf` tests both ends of the GenFORM range against the reference (`Check.fs:268-271`) | The IR recommendation exists because the IR checks scalars; GenPRES compares ranges natively, which subsumes it |
 | 3.4.2 | Missing-frequency signal suppression (suppress tekst 8/24/25 when not narrow-TI, Q algemeen, per-day frequency, and computed day dose stays under the highest allowed day dose; optionally show tekst 20) | Gap | `freqRow` always emits `FrequencyMismatch` on a non-match (`Check.fs:727-731`) | Prior INFO-2, still open. All preconditions are *available* in the data (HighRisk, frequency sets, norm max), so this is implementable inside Check |
 
@@ -142,7 +142,7 @@ Statuses used: **Fit** (requirement covered, possibly in adapted form),
 |---|---|---|---|---|
 | 4.5.1 | Select rules matching age (months); none → tekst 13 | Fit | `filterPatient` intersects age after months→days conversion (`Check.fs:379-394`); an empty match yields `dl.gstand = None` → skipped rows (`Check.fs:634-635`), surfaced as `NoMonitoring` by the server (`ServerApi.Services.fs:130-136`) | The distinct tekst 13 ("no limits for this age") vs tekst 16 ("no rules at all") granularity is collapsed into one no-monitoring signal |
 | 4.5.2 | Select rules matching frequency (aantal + tijdseenheid as a combination); none → tekst 24/25/8 | Partial | `freqRow` compares the GenFORM frequency *set* against the G-Standaard *set* with `isSubset` + interchangeability (`Check.fs:703-731`); granular tekst 24 (aantal) / 25 (tijdseenheid) / 8 (both) via `freqMsg` (`Check.fs:109-113`) | Tekst granularity: Fit (prior LOW-4). Deviation: frequency does **not** filter which bst643 category's limits are compared — limits from all frequency categories are merged by `maximizeDosages`. The IR couples each frequency to its own keerdosis limits (e.g. 1×/day max 100 mg, 2×/day max 50 mg); GenPRES checks against the merged max |
-| 4.5.3 | Select rules matching weight; weight unknown → tekst 10; no match → tekst 14 | Partial | Weight intersect `Check.fs:390-392`; weight unknown (`w = None`) widens instead of signalling | Range intersect: Fit. Missing-weight signal: N/A by design (rule-vs-rule); but note the IR's "tekst 10" moment also exists at limit time, see § 4.6.2 row |
+| 4.5.3 | Select rules matching weight; weight unknown → tekst 10; no match → tekst 14 | Partial | Weight intersect `Check.fs:390-392`; weight unknown (`w = None`) widens instead of signaling | Range intersect: Fit. Missing-weight signal: N/A by design (rule-vs-rule); but note the IR's "tekst 10" moment also exists at limit time, see § 4.6.2 row |
 | 4.5.4 | Select rules matching BSA; BSA unknown → tekst 11; no match → tekst 15 | Gap | `createDoseRulesWithMapping` passes `bsa = None` (`Check.fs:223`); `filterPatient` ignores `pdsg.Patient.BSA` (`Check.fs:379-394`); `RuleFinder` *can* filter BSA (`RuleFinder.fs:125`) but never receives one | BSA-banded rule sets (oncology dosing) are merged across all BSA categories instead of selecting the patient's band. Per-m² *limits* are still compared (unit-gated), but *category* selection per IR 4.5.4 is absent |
 
 ### IR § 4.6 — Dose limits and comparison
@@ -180,7 +180,7 @@ between the two maxima passes QA, so prescriptions generated from it would
 breach the alle-zorg G-Standaard check without the rule ever being flagged.
 **Direction:** add a care-group parameter to the
 lookup chain (`RuleFinder.Filter` → `GStand.CreateConfig` →
-`Check.CheckConfig`), defaulting to the current merged behaviour for
+`Check.CheckConfig`), defaulting to the current merged behavior for
 back-compat, and let the GenPRES setting (PICU/NICU context) pick the group.
 
 ### G-2 — PRK/HPK check level discarded (IR 4.3) — Gap, safety-relevant
@@ -253,7 +253,7 @@ patient-data entry flow.
 
 ### Lower-priority observations
 
-- **Age unknown widens instead of signalling (IR 4.2.3):** `pat.Age = None`
+- **Age unknown widens instead of signaling (IR 4.2.3):** `pat.Age = None`
   removes the age filter. In rule-vs-rule mode this means a patient-category
   rule without age bounds is checked against the all-ages envelope; consider an
   explicit `NotComparable`-style row when both sides lack age bounds.
@@ -266,7 +266,7 @@ patient-data entry flow.
 | Finding | IR § | Status in current source |
 |---|---|---|
 | HIGH-1 margin on risk substances | 4.6.1.3/4 | Fixed — `marginedTestRange` + `HighRisk` threading |
-| HIGH-2 rate checks out of scope | 1.3.2 | Fixed — `RateCheckMode`, default labelled |
+| HIGH-2 rate checks out of scope | 1.3.2 | Fixed — `RateCheckMode`, default labeled |
 | MEDIUM-1 m²/kg priority inverted | 4.6.1 | Fixed — `pickAdjust` |
 | MEDIUM-2 no norm/abs severity flow | 4.6.2 | Fixed — `Severity` + `classify`/`grade` |
 | MEDIUM-3 months→days | 3.3 | Fixed — `monthsMinMaxToDays` |

@@ -75,7 +75,7 @@ All public functions use F# units of measure:
 | Input | Unit | F# type |
 |-------|------|---------|
 | Body weight | grams | `int<gram>` |
-| Height | centimetres | `int<cm>` |
+| Height | centimeters | `int<cm>` |
 | BSA output | m² | `float<bsa>` |
 | eGFR output | mL/min/1.73 m² | `float<mL/minute/normalM2>` |
 
@@ -92,7 +92,7 @@ most appropriate one for the clinical context:
 
 | Formula | Reference | Typical use |
 |---------|-----------|-------------|
-| Mosteller | N Engl J Med 1987;317:1098 | General paediatric and adult |
+| Mosteller | N Engl J Med 1987;317:1098 | General pediatric and adult |
 | Du Bois | Arch Intern Med 1916;17:863 | Historical; adults |
 | Haycock | J Pediatr 1978;93:62 | Infants and neonates |
 | Gehan & George | Cancer Chemother Rep 1970;54:225 | Oncology dosing |
@@ -113,7 +113,7 @@ most appropriate one for the clinical context:
 | CKD-EPI Creatinine 2021 | Inker et al., NEJM 2021;385:1737 | No race coefficient |
 | CKD-EPI 2009 | Levey et al., Ann Intern Med 2009;150:604 | Older cohort data |
 | MDRD 4-variable | Levey et al., Ann Intern Med 1999;130:461 | Legacy; lower accuracy |
-| Bedside Schwartz | Schwartz et al., JASN 2009;20:629 | Paediatric (up to 18 yr) |
+| Bedside Schwartz | Schwartz et al., JASN 2009;20:629 | Pediatric (up to 18 yr) |
 
 KDIGO 2012 GFR classification (`G1`–`G5`, plus `G3a`/`G3b`) is provided as a
 standalone `classifyGfr` function.
@@ -126,8 +126,8 @@ standalone `classifyGfr` function.
   divergence is structurally impossible.
 - **Zero JavaScript overhead**: UoM annotations erased at compile time produce
   no extra bytes or runtime cost in the Fable build.
-- **Compile-time type safety**: mixing grams and kilograms, or centimetres and
-  metres, is caught by the F# compiler before the code runs.
+- **Compile-time type safety**: mixing grams and kilograms, or centimeters and
+  meters, is caught by the F# compiler before the code runs.
 - **Offline-ready**: calculations work without a server connection, enabling future
   PWA/offline modes.
 - **Testable in isolation**: the Shared library has no server or Fable.Remoting

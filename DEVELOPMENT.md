@@ -68,7 +68,7 @@ GenPRES uses [FAKE](https://fake.build/) (F# Make) as its build automation tool.
 - **`Build.fs`** – defines all FAKE build targets (tasks) and their dependency chains
 - **`Helpers.fs`** – helper functions for running processes (dotnet, npm, docker) in the build
 
-When you type `dotnet run` from the repository root, .NET executes `Build.fsproj`, which is an F# console application that initialises the FAKE execution context. FAKE then reads the target name from the command-line arguments (defaulting to `Run` when none is given) and executes the corresponding target and all of its declared dependencies.
+When you type `dotnet run` from the repository root, .NET executes `Build.fsproj`, which is an F# console application that initializes the FAKE execution context. FAKE then reads the target name from the command-line arguments (defaulting to `Run` when none is given) and executes the corresponding target and all of its declared dependencies.
 
 ```text
 dotnet run [target]
@@ -95,14 +95,14 @@ packages for the Fable/Vite dev server).
 | `dotnet run Build` | `Build` | Compile the entire solution (`GenPRES.sln`) — libraries, server, tests, and the client `.fsproj`. No npm involved |
 | `dotnet run ServerBuild` | `ServerBuild` | Compile only the server and the libraries it depends on. Skips test projects and the client toolchain |
 | `dotnet run ClientBuild` | `ClientBuild` | Compile the client: Fable (F# → `.jsx`) then a production Vite bundle. Runs `npm ci` first via `RestoreClient` |
-| `dotnet run Clean` | `Clean` | Remove `deploy/` and `dist/` artefacts, delete Fable-generated `.jsx` files |
+| `dotnet run Clean` | `Clean` | Remove `deploy/` and `dist/` artifacts, delete Fable-generated `.jsx` files |
 | `dotnet run Bundle` | `Bundle` | Production build: publish server, compile client, copy data |
 | `dotnet run ServerTests` | `ServerTests` | Run all F# unit tests (Expecto) with quiet logging |
 | `dotnet run CheckVersions` | `CheckVersions` | Verify every built DLL's version matches the root `Directory.Build.props` |
 | `dotnet run TestHeadless` | `TestHeadless` | Build and run tests without launching a browser |
 | `dotnet run WatchTests` | `WatchTests` | Run tests in watch mode (re-runs on file changes) |
 | `dotnet run Format` | `Format` | Format all F# source files using Fantomas |
-| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`informedica/genpres` by default, override with `DOCKER_IMAGE`), labelling it with the version from the root `Directory.Build.props` |
+| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`informedica/genpres` by default, override with `DOCKER_IMAGE`), labeling it with the version from the root `Directory.Build.props` |
 | `dotnet run DockerRun` | `DockerRun` | Run the built image locally, using `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) |
 
 #### Target Dependency Chains
@@ -171,7 +171,7 @@ never modifies files or opens a pull request, so it's safe to run against a dirt
 
 #### What reaches the changelog
 
-The behaviour below was established by running ShipIt 3.0.1 against a throwaway branch of this
+The behavior below was established by running ShipIt 3.0.1 against a throwaway branch of this
 repo. ShipIt's own documentation covers none of it.
 
 - **`docs`, `build`, and `chore` commits never render.** Only types like `feat` and `fix` produce
@@ -205,7 +205,7 @@ The `Run` target starts two long-running processes **in parallel**:
 2. **Client** – `dotnet fable watch … --run npx vite` in `src/Informedica.GenPRES.Client/`
    - Fable compiles F# → JavaScript, Vite serves the client on `http://localhost:5173` with Hot Module Replacement (HMR)
 
-Output from both processes is printed concurrently with colour-coded prefixes (`server:`, `client:`).
+Output from both processes is printed concurrently with color-coded prefixes (`server:`, `client:`).
 
 ### Helper Shell Scripts
 
