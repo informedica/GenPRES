@@ -2356,7 +2356,7 @@ module Tests =
                 | None ->
                     // fail loudly rather than fall back to a size that does not
                     // actually conflict, which would make the test vacuous
-                    failwithf
+                    failtestf
                         "patientFor: BSA %s is unreachable within 400 kg; this rule cannot induce a realistic adjusted-vs-MaxQty conflict"
                         (adjVU |> ValueUnit.toStringDecimalDutchShortWithPrec 2)
 
@@ -3645,14 +3645,14 @@ module Tests =
                         let url = "http://127.0.0.1:9/geneesmiddelen.json"
 
                         match SourceLoader.fetchNKFMedicationsFrom url with
-                        | Ok _ -> failwith "expected Error"
+                        | Ok _ -> failtest "expected Error"
                         | Error [ ErrorMsg(text, Some _) ] ->
                             text |> String.contains url |> Expect.isTrue "message names the url"
 
                             text
                             |> String.contains "could not fetch"
                             |> Expect.isTrue "message says what failed"
-                        | Error msgs -> failwith $"expected one ErrorMsg with the exception, got %A{msgs}"
+                        | Error msgs -> failtest $"expected one ErrorMsg with the exception, got %A{msgs}"
                     }
                 ]
 

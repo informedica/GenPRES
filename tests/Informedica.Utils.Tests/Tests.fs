@@ -1029,7 +1029,7 @@ module Tests =
                             | [| cols; row1; _; _ |] ->
                                 let v = row1 |> Csv.getColumn<string> Csv.StringData cols |> (fun get -> get "c")
                                 Expect.equal "column c should be hello" v stringData
-                            | _ -> failwith "unexpected parseCSV result"
+                            | _ -> failtest "unexpected parseCSV result"
                     }
                 ]
 
