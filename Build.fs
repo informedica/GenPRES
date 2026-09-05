@@ -113,8 +113,8 @@ Target.create
 
 
 // Builds the benchmark suite, which is deliberately excluded from GenPRES.sln (issue #513).
-// Nothing depends on this target and it is not run in CI; it exists so the directory can be
-// compiled with one command instead of rotting silently.
+// Nothing depends on this target; the `benchmark` job in .github/workflows/build.yml runs it so
+// the directory cannot rot silently again, and it compiles everything with one command locally.
 Target.create
     "BenchmarkBuild"
     (fun _ ->

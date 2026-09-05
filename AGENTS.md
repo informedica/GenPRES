@@ -53,7 +53,7 @@ dotnet test
 - `dotnet run list` - Show all available build targets
 - `dotnet run Build` - Build the whole solution (libraries, server, tests, client `.fsproj`); no npm involved
 - `dotnet run ServerBuild` - Build only the server and the libraries it depends on.
-- `dotnet run BenchmarkBuild` - Build the benchmark projects under `benchmark/` (excluded from `GenPRES.sln`, not run in CI)
+- `dotnet run BenchmarkBuild` - Build the benchmark projects under `benchmark/` (excluded from `GenPRES.sln`; CI runs this in its own `benchmark` job)
 - `dotnet run ClientBuild` - Build the client to browser output (Fable, then a production Vite bundle). Runs `npm ci` first
 - `dotnet run Bundle` - Create production bundle
 - `dotnet run CheckVersions` - Proves that every project shipped in GenPRES.sln reports the same version as the repo-root Directory.Build.props

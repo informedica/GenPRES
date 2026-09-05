@@ -94,7 +94,7 @@ packages for the Fable/Vite dev server).
 | `dotnet run list` | *(special)* | List all available FAKE targets |
 | `dotnet run Build` | `Build` | Compile the entire solution (`GenPRES.sln`) — libraries, server, tests, and the client `.fsproj`. No npm involved |
 | `dotnet run ServerBuild` | `ServerBuild` | Compile only the server and the libraries it depends on. Skips test projects and the client toolchain |
-| `dotnet run BenchmarkBuild` | `BenchmarkBuild` | Compile the four benchmark projects under `benchmark/` in Release. They are excluded from `GenPRES.sln` and not built in CI |
+| `dotnet run BenchmarkBuild` | `BenchmarkBuild` | Compile the four benchmark projects under `benchmark/` in Release. They are excluded from `GenPRES.sln`; CI runs this target in a separate `benchmark` job |
 | `dotnet run ClientBuild` | `ClientBuild` | Compile the client: Fable (F# → `.jsx`) then a production Vite bundle. Runs `npm ci` first via `RestoreClient` |
 | `dotnet run Clean` | `Clean` | Remove `deploy/` and `dist/` artifacts, delete Fable-generated `.jsx` files |
 | `dotnet run Bundle` | `Bundle` | Production build: publish server, compile client, copy data |
@@ -420,6 +420,13 @@ env:
 ```
 
 The pipeline does **not** set `GENPRES_URL_ID`, so tests run against demo/cached data only. Production data is never accessed in CI.
+
+A fourth job, `benchmark`, runs `dotnet run BenchmarkBuild` on `ubuntu-latest` alongside the matrix.
+The benchmark projects are outside `GenPRES.sln`, so the matrix never compiles them, and they rotted
+unnoticed until [#513](https://github.com/informedica/GenPRES/issues/513). The job is separate from the
+matrix on purpose: it runs in parallel and finishes inside the windows leg's duration, so it adds no
+wall-clock time to a run, only about three runner-minutes. It compiles only; BenchmarkDotNet runs stay a
+local activity (see `benchmark/run.sh`).
 
 ### Release Automation (GitHub Actions)
 

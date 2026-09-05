@@ -98,3 +98,35 @@ jobs:
       uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
       with:
         files: '**/TestResults/**/*.trx'
+
+  benchmark:
+    # The benchmark projects are deliberately outside GenPRES.sln, so nothing in the matrix above
+    # compiles them and they rotted unnoticed for months (issue #513). This job compiles them so
+    # a library API change that breaks them is visible on the PR that made it. It is a separate
+    # job rather than an extra step in the matrix on purpose: it runs in parallel on one ubuntu
+    # runner and finishes well inside the windows leg's duration, so it adds no wall-clock time.
+    # It only builds; BenchmarkDotNet runs need a quiet machine and stay a local activity
+    # (benchmark/run.sh).
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+    - name: Use .NET Core 10.0 SDK
+      uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: |
+          global.json
+          .config/dotnet-tools.json
+          **/paket.dependencies
+          **/paket.references
+          **/paket.lock
+          Build.fsproj
+          GenPRES.sln
+
+    - name: Tool restore
+      run: dotnet tool restore
+
+    - name: Build benchmark projects
+      run: dotnet run BenchmarkBuild
