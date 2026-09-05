@@ -224,14 +224,6 @@ Target.create
                 // genuinely unbuilt tree into a loud failure rather than a green no-op.
                 "--no-build"
                 "--no-restore"
-                // Cap how many test projects MSBuild runs at once. Each one is a testhost
-                // whose Expecto workers already scale with the core count, and vstest.console
-                // plus the MSBuild node need a core too: on the 3-core / 7 GB macOS CI runner
-                // an uncapped run oversubscribed the box badly (run 33972679870: GenSOLVER
-                // scenario throughput ~65 tests/s while other testhosts ran, ~170/s alone).
-                // Leave one core free; never go below two so small boxes still overlap the
-                // sleep-bound assemblies (Agents.Tests, Logging.Tests) with the CPU-bound ones.
-                $"-m:%i{max 2 (System.Environment.ProcessorCount - 1)}"
                 "--verbosity"
                 "quiet"
                 "--logger"
