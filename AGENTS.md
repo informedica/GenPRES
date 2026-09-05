@@ -98,9 +98,9 @@ Production is an explicit opt-in at container runtime and needs all four of `GEN
 
 - F# libraries under `src/`
 - Tests: `tests/` (uses Expecto + FsCheck).
-- Resource loading: `src/Informedica.GenForm.Lib/Api.fs`
+- Resource loading: `src/Informedica.GenFORM.Lib/Api.fs`
 - Resource parsers: `Mapping.fs`, `Product.fs`, `DoseRuleData.fs`, `SolutionRule.fs`, `RenalRule.fs`
-- Unit and BigRational helpers: `src/Informedica.GenUnits.Lib/ValueUnit.fs`
+- Unit and BigRational helpers: `src/Informedica.GenUNITS.Lib/ValueUnit.fs`
 - Sheet documentation: the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs` (one record per sheet, columns documented on the fields), with the column names enforced by the `ColumnContract` tests in `tests/Informedica.GenFORM.Tests/Tests.fs`
 
 **Important:** an opt-in strategy is used in the `.gitignore` file — you have to specifically define what should be included instead of the other way around!
@@ -260,7 +260,7 @@ GenPRES uses an FSI script-based workflow for safely implementing new functional
 
 ### Real-World Example: Cross-Project Feature in a Single Script
 
-Commit `d51252c` added a "pick nearest higher else lower component quantity" feature that ultimately touched 3 libraries and 7 source files (`Array.fs`, `ValueUnit.fs`, `OrderVariable.fs`, `Order.fs`, `OrderProcessor.fs`). But it was **prototyped first in a single script** — `src/Informedica.GenUNITS.Lib/Scripts/Api.fsx`:
+Commit `d51252c` added a "pick nearest higher else lower component quantity" feature that ultimately touched 3 libraries and 7 source files (`Array.fs`, `ValueUnit.fs`, `OrderVariable.fs`, `Order.fs`, `OrderProcessor.fs`). But it was **prototyped first in a single script** in `src/Informedica.GenUNITS.Lib/Scripts/` (since removed after migration):
 
 ```fsharp
 #load "load.fsx"                          // loads GenUnits source files + compiled Utils DLL

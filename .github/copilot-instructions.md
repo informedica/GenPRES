@@ -88,9 +88,9 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 
 - F# libraries under `src/`
 - Tests: `tests/` (Expecto + FsCheck). Look for BigRational and ValueUnit tests.
-- Resource loading and tests: `src/Informedica.GenForm.Lib/Api.fs` and `tests/`
-- Sheet parsers: `Mapping.fs`, `Product.fs`, `DoseRule.fs`, `SolutionRule.fs`, `RenalRule.fs`
-- Unit and BigRational helpers: `src/Informedica.GenUnits.Lib/ValueUnit.fs`
+- Resource loading and tests: `src/Informedica.GenFORM.Lib/Api.fs` and `tests/`
+- Sheet parsers: `Mapping.fs`, `Product.fs`, `DoseRuleData.fs`, `SolutionRule.fs`, `RenalRule.fs`
+- Unit and BigRational helpers: `src/Informedica.GenUNITS.Lib/ValueUnit.fs`
 - Sheet documentation: the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs` (one record per sheet, columns documented on the fields), with the column names enforced by the `ColumnContract` tests in `tests/Informedica.GenFORM.Tests/Tests.fs`
 
 **Important:** an opt-in strategy is used in the `.gitignore` file — you have to specifically define what should be included instead of the other way around!
@@ -115,7 +115,7 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 - Resources are loaded from Google Sheets via `Web.getDataFromSheet dataUrlId "SheetName"`.
 - Mapping helper functions use `Csv.getStringColumn` / `Csv.getFloatOptionColumn` and call getString/getFloat-style delegates.
 - The central `ResourceConfig` (in `Api.fs`) expects functions returning `GenFormResult<'T>` (alias for `Result<'T, Message list>`). Use the `*Result` variants where present (e.g., `Mapping.getRouteMapping` or `Mapping.getRouteMappingResult`) and wrap with `delay` when the signature expects a `unit -> GenFormResult<_>`.
-- To add/modify sheet mappings: adjust the mapper in the corresponding module (e.g., `Product.Reconstitution.get`, `DoseRule.get`) and update `genpres_resource_requirements.md` to reflect column names.
+- To add/modify sheet mappings: adjust the mapper in the corresponding module (e.g., `Product.Reconstitution.parseReconstitution`, `DoseRuleData.parseDoseRuleData`), update the field comments on the matching `Data` record, and update the declared column list in the column-contract test.
 - Update the mapper to read columns by name using the `get` delegate (e.g., `let get = getColumn row in get "Generic"`), parse with `BigRational.toBrs` / `getFloat` as appropriate.
 - If adding optional numeric columns, use `getFloatOptionColumn` and `Option.bind BigRational.fromFloat`.
 
@@ -200,7 +200,7 @@ GenPRES uses an FSI script-based workflow for safely implementing new functional
 
 ### Real-World Example: Cross-Project Feature in a Single Script
 
-Commit `d51252c` added a "pick nearest higher else lower component quantity" feature that ultimately touched 3 libraries and 7 source files (`Array.fs`, `ValueUnit.fs`, `OrderVariable.fs`, `Order.fs`, `OrderProcessor.fs`). But it was **prototyped first in a single script** — `src/Informedica.GenUNITS.Lib/Scripts/Api.fsx`:
+Commit `d51252c` added a "pick nearest higher else lower component quantity" feature that ultimately touched 3 libraries and 7 source files (`Array.fs`, `ValueUnit.fs`, `OrderVariable.fs`, `Order.fs`, `OrderProcessor.fs`). But it was **prototyped first in a single script** in `src/Informedica.GenUNITS.Lib/Scripts/` (since removed after migration):
 
 ```fsharp
 #load "load.fsx"                          // loads GenUnits source files + compiled Utils DLL
@@ -401,7 +401,7 @@ Contributors must also disclose when code submitted in a pull request is **vibe 
 - [ ] Small, focused change with < 300 LOC modified when possible.
 - [ ] Add or update unit tests covering the change.
 - [ ] Ensure `dotnet run servertests` passes locally for affected projects.
-- [ ] Update `genpres_resource_requirements.md` if spreadsheet column names or semantics change.
+- [ ] Update the `Data` record comments and the column-contract test if spreadsheet column names or semantics change.
 - [ ] Use conventional commit message with scope and short description.
 
 ## Related Documentation
