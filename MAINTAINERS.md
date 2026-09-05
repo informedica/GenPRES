@@ -24,7 +24,7 @@ For governance process and role definitions, see [GOVERNANCE.md](GOVERNANCE.md).
 
 ## Area Maintainers
 
-### Constraint Solver (GenSolver.Lib)
+### Constraint Solver (Informedica.GenSOLVER.Lib)
 
 **[INSERT NAME]**
 
@@ -38,7 +38,7 @@ For governance process and role definitions, see [GOVERNANCE.md](GOVERNANCE.md).
   - Mathematical correctness
 - **Timezone**: [timezone]
 
-### Units of Measure (GenUnits.Lib)
+### Units of Measure (Informedica.GenUNITS.Lib)
 
 **[INSERT NAME]**
 
@@ -52,7 +52,7 @@ For governance process and role definitions, see [GOVERNANCE.md](GOVERNANCE.md).
   - Calculation accuracy
 - **Timezone**: [timezone]
 
-### Order Domain (GenOrder.Lib)
+### Order Domain (Informedica.GenORDER.Lib)
 
 **[INSERT NAME]**
 
@@ -66,7 +66,7 @@ For governance process and role definitions, see [GOVERNANCE.md](GOVERNANCE.md).
   - Clinical logic
 - **Timezone**: [timezone]
 
-### Formulary (GenForm.Lib)
+### Formulary (Informedica.GenFORM.Lib)
 
 **[INSERT NAME]**
 
@@ -269,7 +269,7 @@ For non-urgent maintainer questions:
 
 ## Acknowledgments
 
-We thank all maintainers for their dedication to GenPRES and commitment to improving medication safety for pediatric patients.
+We thank all maintainers for their dedication to GenPRES and commitment to improving medication safety for pediatric and adult patients.
 
 ### Recognition
 

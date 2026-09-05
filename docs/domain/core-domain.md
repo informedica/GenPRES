@@ -87,7 +87,7 @@ The transformation is implemented by three core systems:
 | *Renal Rule* | An OKR used to adjust the dose advice according to renal function (GFR). |
 | *Patient Category* | A categorical description of the type of patient a rule applies to, defined by ranges for age, weight, BSA, gestational age, post-menstrual age, and gender. Used by GenFORM to define which patients an OKR covers. |
 | *Patient* | A specific individual patient instance with concrete (or calculated values, i.e. BSA) values for age, weight, BSA, etc. Used by GenORDER to match against Patient Categories and compute patient-specific Order Scenarios. |
-| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. A source value that is empty or unrecognised parses to `NoDoseType`, and such a row is **rejected**: `DoseRuleData.validateData` returns "Has no dose type", so the loader partitions the row out and surfaces the message as a warning. An unrecognised value also produces a parser warning naming it; an empty value does not. In effect a dose type is mandatory — `NoDoseType` marks a row to discard, not a fifth kind of dosing. |
+| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. A source value that is empty or unrecognized parses to `NoDoseType`, and such a row is **rejected**: `DoseRuleData.validateData` returns "Has no dose type", so the loader partitions the row out and surfaces the message as a warning. An unrecognized value also produces a parser warning naming it; an empty value does not. In effect a dose type is mandatory — `NoDoseType` marks a row to discard, not a fifth kind of dosing. |
 | *Dose Quantity* | The amount delivered per single administration. |
 | *Dose Per Time* | The accumulated dose delivered per unit time (e.g., per day). |
 | *Dose Rate* | The continuous delivery speed of a dose (unit per time), typically used for infusions. |
@@ -283,7 +283,7 @@ GenORDER operates as the execution engine of a hybrid constraint system implemen
 
 #### Filter Stage (Selection Constraints from GenFORM)
 
-At this stage, categorical selection constraints originating from GenFORM are applied. See [GenFORM Section 6.1](genform-free-text-to-operational-rules.md#61-selection-constraints) for complete selection constraint definitions and [GenORDER Section 3.1](genorder-operational-rules-to-orders.md#3.1.-filter-stage-(inherited-from-genform)) for execution details.
+At this stage, categorical selection constraints originating from GenFORM are applied. See [GenFORM Section 6.1](genform-free-text-to-operational-rules.md#61-selection-constraints) for complete selection constraint definitions and [GenORDER Section 3.1](genorder-operational-rules-to-orders.md#31-filter-stage-inherited-from-genform) for execution details.
 
 - Generic
 - Indication
@@ -304,7 +304,7 @@ This stage produces a bounded rule domain that is guaranteed to contain only cli
 
 #### Solver Stage (Calculation Constraints via GenSOLVER)
 
-GenORDER transforms the quantitative calculation constraints into explicit equations. These equations are passed to GenSOLVER, which applies constraint logic programming and monotonic domain refinement to compute valid numerical values. See [GenSOLVER: Formal Constraint Solving Model](gensolver-from-orders-to-quantitative-solutions.md#3-formal-constraint-solving-model) for the solving algorithm, [GenORDER Section 3.2](genorder-operational-rules-to-orders.md#3.2-solver-stage-(genorder-+-gensolver)) for equation construction, and [GenORDER Appendix D: Equations Table](genorder-operational-rules-to-orders.md#appendix-d.1.-equations-table) for the complete equation system.
+GenORDER transforms the quantitative calculation constraints into explicit equations. These equations are passed to GenSOLVER, which applies constraint logic programming and monotonic domain refinement to compute valid numerical values. See [GenSOLVER: Formal Constraint Solving Model](gensolver-from-orders-to-quantitative-solutions.md#3-formal-constraint-solving-model) for the solving algorithm, [GenORDER Section 3.2](genorder-operational-rules-to-orders.md#32-solver-stage-genorder--gensolver) for equation construction, and [GenORDER Appendix D: Equations Table](genorder-operational-rules-to-orders.md#appendix-d1-equations-table) for the complete equation system.
 
 **Lattice Theory for Calculation Constraints:**
 
@@ -393,7 +393,7 @@ Dose Rule (most specific match)
             └── Dose Rate, Dose Rate Adjust (continuous infusion)
 ```
 
-**Dose semantics** (per [GenORDER Section 7: Quantitative Dose Semantics](genorder-operational-rules-to-orders.md#7.-quantitative-dose-semantics)):
+**Dose semantics** (per [GenORDER Section 7: Quantitative Dose Semantics](genorder-operational-rules-to-orders.md#7-quantitative-dose-semantics)):
 
 - **Dose Quantity**: amount per administration
 - **Dose Per Time**: accumulated dose per time unit (= Dose Quantity × Frequency)
@@ -401,7 +401,7 @@ Dose Rule (most specific match)
 - **Dose Total**: cumulative dose over the entire order duration
 - **Adjusted Dose**: dose normalized to Adjustment Unit (kg, m²) × Adjustment Quantity (patient value)
 
-**Mathematical Dose Relations** (forming the equation system for GenSOLVER). See [GenSOLVER Section 6: Relationship to GenORDER Quantitative Semantics](gensolver-from-orders-to-quantitative-solutions.md#6-relationship-to-genorder-quantitative-semantics) for how these relations are resolved, and [GenORDER Appendix D.1: Equations Table](genorder-operational-rules-to-orders.md#appendix-d.1.-equations-table) for the complete set of 65 equations by dose type:
+**Mathematical Dose Relations** (forming the equation system for GenSOLVER). See [GenSOLVER Section 6: Relationship to GenORDER Quantitative Semantics](gensolver-from-orders-to-quantitative-solutions.md#6-relationship-to-genorder-quantitative-semantics) for how these relations are resolved, and [GenORDER Appendix D.1: Equations Table](genorder-operational-rules-to-orders.md#appendix-d1-equations-table) for the complete set of 65 equations by dose type:
 
 - Dose PerTime = Dose Quantity × Frequency
 - Dose Total = Dose PerTime × Order Duration
@@ -452,13 +452,13 @@ This Core Domain Model document provides a high-level overview. For detailed spe
 | Topic | GenFORM Reference | GenORDER Reference | GenSOLVER Reference |
 | ----- | ----------------- | ------------------ | ------------------- |
 | Rule Types (Dose, Solution, Reconstitution, Renal) | [Section 3](genform-free-text-to-operational-rules.md#3-sources-and-types-of-dose-rules) | — | — |
-| Patient Category Definition | [Appendix C.2](genform-free-text-to-operational-rules.md#addendum-c2-dose-rule-model-table) | [Section 4](genorder-operational-rules-to-orders.md#4.-ordercontext) | — |
-| Selection Constraints | [Section 6.1](genform-free-text-to-operational-rules.md#61-selection-constraints) | [Section 3.1](genorder-operational-rules-to-orders.md#3.1.-filter-stage-(inherited-from-genform)) | — |
-| Calculation Constraints | [Section 6.2](genform-free-text-to-operational-rules.md#62-calculation-constraints) | [Section 3.2](genorder-operational-rules-to-orders.md#3.2-solver-stage-(genorder-+-gensolver)) | [Section 3](gensolver-from-orders-to-quantitative-solutions.md#3-formal-constraint-solving-model) |
-| Order Model (Orderable, Component, Item) | — | [Section 6](genorder-operational-rules-to-orders.md#6.-order-model-(executable-structure)) | — |
-| Dose Semantics | — | [Section 7](genorder-operational-rules-to-orders.md#7.-quantitative-dose-semantics) | [Section 6](gensolver-from-orders-to-quantitative-solutions.md#6-relationship-to-genorder-quantitative-semantics) |
-| Equation System | — | [Appendix D.1](genorder-operational-rules-to-orders.md#appendix-d.1.-equations-table) | [Section 4](gensolver-from-orders-to-quantitative-solutions.md#4-equation-types) |
+| Patient Category Definition | [Appendix C.2](genform-free-text-to-operational-rules.md#appendix-c2-dose-rule-model-table) | [Section 4](genorder-operational-rules-to-orders.md#4-ordercontext) | — |
+| Selection Constraints | [Section 6.1](genform-free-text-to-operational-rules.md#61-selection-constraints) | [Section 3.1](genorder-operational-rules-to-orders.md#31-filter-stage-inherited-from-genform) | — |
+| Calculation Constraints | [Section 6.2](genform-free-text-to-operational-rules.md#62-calculation-constraints) | [Section 3.2](genorder-operational-rules-to-orders.md#32-solver-stage-genorder--gensolver) | [Section 3](gensolver-from-orders-to-quantitative-solutions.md#3-formal-constraint-solving-model) |
+| Order Model (Orderable, Component, Item) | — | [Section 6](genorder-operational-rules-to-orders.md#6-order-model-executable-structure) | — |
+| Dose Semantics | — | [Section 7](genorder-operational-rules-to-orders.md#7-quantitative-dose-semantics) | [Section 6](gensolver-from-orders-to-quantitative-solutions.md#6-relationship-to-genorder-quantitative-semantics) |
+| Equation System | — | [Appendix D.1](genorder-operational-rules-to-orders.md#appendix-d1-equations-table) | [Section 4](gensolver-from-orders-to-quantitative-solutions.md#4-equation-types) |
 | Variable Domains & Propagation | — | — | [Section 3.1](gensolver-from-orders-to-quantitative-solutions.md#31-variable-domains), [Section 7](gensolver-from-orders-to-quantitative-solutions.md#7-variable-propagation-and-solving-strategy) |
 | Unit-Aware Computation | — | — | [Section 5](gensolver-from-orders-to-quantitative-solutions.md#5-unit-aware-computation) |
 | Logging & Traceability | — | — | [Section 8](gensolver-from-orders-to-quantitative-solutions.md#8-logging-and-explainability) |
-| Library Architecture | [Appendix B.3](genform-free-text-to-operational-rules.md#addendum-b3-genform-libraries) | [Appendix B.3](genorder-operational-rules-to-orders.md#addendum-b.3.-genorder-libraries) | [Section 9](gensolver-from-orders-to-quantitative-solutions.md#9-technical-architecture-and-library-positioning) |
+| Library Architecture | [Appendix B.3](genform-free-text-to-operational-rules.md#appendix-b3-genform-libraries) | [Appendix B.3](genorder-operational-rules-to-orders.md#appendix-b3-genorder-libraries) | [Section 9](gensolver-from-orders-to-quantitative-solutions.md#9-technical-architecture-and-library-positioning) |

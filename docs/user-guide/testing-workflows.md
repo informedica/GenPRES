@@ -36,7 +36,7 @@ This document describes reproducible testing procedures for developers and QA te
 
 1. Open <http://localhost:5173>.
 2. In the **Patient** panel, enter:
-   - Birth year: `2015`, birth month: `6`, birth day: `1`
+   - Age: `10` years (the panel takes years, months, weeks and days, not a birth date)
    - Weight: `20` kg
    - Height: `115` cm
 3. **Expected**: The Patient panel collapses automatically once weight and height are set.
@@ -148,7 +148,7 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 
    (Age: 5 days, weight: 3200 g, gestational age: 39 weeks + 2 days)
 
-2. **Expected**: Patient is recognised as a neonate; gestational-age-specific dosing rules apply where applicable.
+2. **Expected**: Patient is recognized as a neonate; gestational-age-specific dosing rules apply where applicable.
 3. Select a medication and verify the dose recommendation reflects neonatal constraints.
 
 **Pass criteria**: Application correctly identifies neonate patient type; dosing constraints are applied.
@@ -184,5 +184,3 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 
 - [Getting Started](getting-started.md) — full parameter reference and setup instructions
 - [External User Guides](README.md#external-user-guides) — annotated walkthroughs for clinical workflows
-- [Critical Tasks (MDR Usability)](../mdr/usability/critical-tasks.md) — formal usability test scenarios
-- [Formative Testing](../mdr/usability/formative-testing.md) — usability evaluation protocols

@@ -1,4 +1,4 @@
-# Informedica.GenUNITS.Lib Requirements
+# Informedica.GenUNITS.Lib compared with other unit libraries
 
 | Feature                              | Informedica.GenUNITS.Lib (F#) | Pint (Python)         | SymPy Units (Python)   | UnitsNet (C#)        | FSharp.Units (F#)   |
 |--------------------------------------|:-----------------------------:|:---------------------:|:----------------------:|:--------------------:|:-------------------:|
@@ -16,8 +16,8 @@
 
 **Notes:**
 
-- Informedica.GenUnits.Lib stands out for its domain-specific units, localization, and precise algebraic handling of composite units.
+- Informedica.GenUNITS.Lib stands out for its domain-specific units, localization, and precise algebraic handling of composite units.
 - Pint is flexible, but domain features must be user-defined.
 - SymPy Units is symbolic and precise but not domain-focused.
 - UnitsNet and FSharp.Units are strong for SI/science but less so for clinical or custom domain units.
-- For more on the F# code, see [`src/Informedica.GenUNITS.Lib/ValueUnit.fs`](../../../src/Informedica.GenUNITS.Lib/ValueUnit.fs) in this repository. (This note previously linked to a pinned commit in the predecessor repository `halcwb/GenPres2`.)
+- For more on the F# code, see [`src/Informedica.GenUNITS.Lib/ValueUnit.fs`](../../src/Informedica.GenUNITS.Lib/ValueUnit.fs) in this repository. (This note previously linked to a pinned commit in the predecessor repository `halcwb/GenPres2`.)

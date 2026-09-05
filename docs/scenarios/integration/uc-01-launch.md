@@ -97,7 +97,7 @@ anything.
   into UC-2 — a confirmation code is mailed, the PIN is set, and the launch continues
   at the data fetch. Only an enrolment abandoned or failed leaves no Session (Rule 7),
   and the cure is a relaunch.
-- **The audit.** Every launch, honoured or refused, is appended to the audit
+- **The audit.** Every launch, honored or refused, is appended to the audit
   (Rule 46); drawing each append would double the diagram.
 - **Everything after the launch** — prescribing and signing, and the ten other use
   cases.

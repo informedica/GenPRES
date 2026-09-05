@@ -11,12 +11,12 @@ Add or modify a medication rule (dose rule, solution rule, product, etc.) in Gen
 1. **Understand the sheet structure** — read the matching `Data` record in `src/Informedica.GenFORM.Lib/Types.fs` (its XML summary names the sheet and parser; the field comments carry column names, units and encodings) and the declared column lists in `DoseRuleToDataTests.ColumnContract` (`tests/Informedica.GenFORM.Tests/Tests.fs`).
 
 2. **Locate the parser** — find the corresponding module:
-   - Dose rules → `src/Informedica.GenForm.Lib/DoseRule.fs`
-   - Solution rules → `src/Informedica.GenForm.Lib/SolutionRule.fs`
-   - Products → `src/Informedica.GenForm.Lib/Product.fs`
-   - Mappings → `src/Informedica.GenForm.Lib/Mapping.fs`
+   - Dose rules → `src/Informedica.GenFORM.Lib/DoseRuleData.fs` (row parsing), `DoseRule.fs` (mapping), `DoseRuleLoader.fs` (loading)
+   - Solution rules → `src/Informedica.GenFORM.Lib/SolutionRule.fs`
+   - Products → `src/Informedica.GenFORM.Lib/Product.fs`
+   - Mappings → `src/Informedica.GenFORM.Lib/Mapping.fs`
 
-3. **Prototype changes in a script** — create a `.fsx` script in `src/Informedica.GenForm.Lib/Scripts/`:
+3. **Prototype changes in a script** — create a `.fsx` script in `src/Informedica.GenFORM.Lib/Scripts/`:
    ```fsharp
    #I __SOURCE_DIRECTORY__
    Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
@@ -28,7 +28,7 @@ Add or modify a medication rule (dose rule, solution rule, product, etc.) in Gen
 
 4. **Write tests** in the script to verify parsing and rule evaluation.
 
-5. **Update documentation** — if you add or rename spreadsheet columns, update `docs/mdr/design-history/genpres_resource_requirements.md`.
+5. **Update documentation** — if you add or rename spreadsheet columns, update the field comments on the corresponding `Data` record in `src/Informedica.GenFORM.Lib/Types.fs` and the `ColumnContract` test.
 
 6. **Do not modify `.fs` source files** — leave migration to the user.
 

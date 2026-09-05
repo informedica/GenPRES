@@ -2,7 +2,7 @@
 /// Prototype MCP tool handlers for Informedica.GenFORM.Lib.
 ///
 /// This script implements the GenFORM MCP tools described in:
-///   docs/mdr/design-history/mcp-server-architecture.md
+///   docs/adr/0009-mcp-server-architecture.md
 ///
 /// All tools are read-only and delegate directly to GenForm.Api functions
 /// via IResourceProvider. No domain logic lives here.

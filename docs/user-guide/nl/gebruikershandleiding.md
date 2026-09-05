@@ -28,7 +28,7 @@ GenPRES (Generic Prescribing System) is een open-source Clinical Decision Suppor
 - Het uitvoeren van veilige medicatieberekeningen
 - Het verifiëren van de juiste toepassing van klinische richtlijnen
 
-GenPRES richt zich op pediatrische en neonatale intensivecareafdeling, maar kan worden toegepast in elke medische omgeving.
+GenPRES ondersteunt kinderen (inclusief neonaten) en volwassenen. Het is ontwikkeld op een intensivecareafdeling, maar kan worden toegepast in elke medische omgeving.
 
 Het live systeem draait op <http://genpres.nl>.
 
@@ -42,7 +42,7 @@ Aanvullende achtergrondinformatie is beschikbaar op <https://medicatieveiligensn
 
 In een klinische omgeving wordt GenPRES doorgaans gestart vanuit een Elektronisch Patiënten Dossier (EPD) waarbij patiëntparameters vooraf zijn ingevuld in de URL, bijvoorbeeld:
 
-```
+```url
 https://genpres.nl/#patient?pg=pr&dc=n&la=du&ad=730&wt=12000&ht=87
 ```
 
@@ -119,13 +119,13 @@ Voorbeeldpatiënten via queryparameters:
 
 De applicatie kan worden gebruikt **zonder patiëntgegevens** in de querystring. Open de applicatie direct via:
 
-```
+```url
 http://localhost:5173
 ```
 
 of op de productieserver:
 
-```
+```url
 http://genpres.nl
 ```
 
@@ -143,7 +143,7 @@ Toont de patiëntparameters (leeftijd, gewicht, geslacht, lengte). Als deze niet
 
 ### Medicatiekeuze (hoofdgebied)
 
-Bak de medicatie af met de keuzelijsten — indicatie, generiek, toedieningsweg, farmaceutische
+Baken de medicatie af met de keuzelijsten — indicatie, generiek, toedieningsweg, farmaceutische
 vorm en doseertype. Elke lijst toont alleen waarden die nog geldig zijn bij wat u al gekozen
 hebt, zodat een combinatie zonder bijbehorende doseerregel niet te selecteren is.
 
@@ -176,7 +176,9 @@ Toont de berekende doseringsrange op basis van de patiëntparameters en het gese
 6. **Druk** het voorschrift af als een papieren vastlegging nodig is.
 
 > GenPRES voorkomt onveilige waarden in plaats van ze achteraf te signaleren: een optie die een
-> regel schendt, wordt niet aangeboden. Er is dus geen aparte waarschuwingsstatus om te lezen.
+> regel schendt, wordt niet aangeboden. Waarden krijgen wel een kleurcodering ten opzichte van de
+> geldende regels en de G-Standaard doseringscontrole (blauw = attentie, oranje = waarschuwing,
+> rood = alarm), zowel in de orderweergave als in het Formularium; zie [Probleemoplossing](#9-probleemoplossing).
 
 ---
 
@@ -197,7 +199,7 @@ Elk item op de noodlijst toont:
 
 - **Medicatienaam**
 - **Aanbevolen concentratie** (bijv. 1 mg/mL)
-- **Startdosis** (µg/kg/min of mL/h)
+- **Startdosis** (mcg/kg/min of mL/h)
 - **Doseringsrange** (minimum – maximum)
 
 ---
@@ -244,7 +246,7 @@ De repository bevat een democachebestand met voorbeeldmedicatiegegevens. Dit is 
 
 GenPRES gebruikt intern `BigRational`-rekenkunde voor exacte, eenheidveilige berekeningen via **Informedica.GenUNITS.Lib**. De volgende procedure stelt u in staat eenheidconversies in de gebruikersinterface te verifiëren.
 
-### Dosisoenheden verifiëren
+### Doseereenheden verifiëren
 
 1. Selecteer een medicament met een bekende dosis (bijv. *paracetamol* oraal).
 2. Bekijk het veld **dosis per kg** — dit moet de waarde in `mg/kg` tonen.
@@ -279,7 +281,7 @@ GenPRES gebruikt intern `BigRational`-rekenkunde voor exacte, eenheidveilige ber
 
 1. Voer in: leeftijd `5` jaar, gewicht `20` kg, lengte `110` cm, geslacht `Vrouw`.
 2. Selecteer het generiek `morfine`, een intraveneuze toedieningsweg en het doseertype continu.
-3. Bekijk de startdosis (bijv. 10–40 µg/kg/h) en de berekende pompsnelheid.
+3. Bekijk de startdosis (bijv. 10–40 mcg/kg/h) en de berekende pompsnelheid.
 4. Stap de dosis aan; bevestig dat de snelheid bijwerkt.
 
 ### Scenario 3: Parenterale voeding
@@ -296,7 +298,7 @@ GenPRES gebruikt intern `BigRational`-rekenkunde voor exacte, eenheidveilige ber
 
 ### Applicatie start niet op
 
-- Zorg ervoor dat de vereiste vereisten zijn geïnstalleerd (.NET SDK, Node.js, npm). Zie [DEVELOPMENT.md](../../../DEVELOPMENT.md#toolchain-requirements).
+- Zorg ervoor dat de vereiste software is geïnstalleerd (.NET SDK, Node.js, npm). Zie [DEVELOPMENT.md](../../../DEVELOPMENT.md#toolchain-requirements).
 - Voer `dotnet run` uit vanuit de root van de repository.
 - Controleer of poort `5173` niet bezet is door een ander proces.
 

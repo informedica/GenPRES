@@ -186,7 +186,7 @@ push to `master` (`.github/workflows/release.yml`) and opens/updates its own rel
 with the derived version bump and changelog section. **Do not perform release preparation
 in this task** — a second, independently-proposed release PR would compete with ShipIt's
 and confuse maintainers about which one to merge. See ADR-0021
-(`docs/mdr/design-history/0021-build-system-versioning-and-release.md`) for the full
+(`docs/adr/0021-build-system-versioning-and-release.md`) for the full
 rationale.
 
 ### Task 9: Welcome New Contributors

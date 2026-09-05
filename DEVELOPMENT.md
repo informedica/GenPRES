@@ -68,7 +68,7 @@ GenPRES uses [FAKE](https://fake.build/) (F# Make) as its build automation tool.
 - **`Build.fs`** – defines all FAKE build targets (tasks) and their dependency chains
 - **`Helpers.fs`** – helper functions for running processes (dotnet, npm, docker) in the build
 
-When you type `dotnet run` from the repository root, .NET executes `Build.fsproj`, which is an F# console application that initialises the FAKE execution context. FAKE then reads the target name from the command-line arguments (defaulting to `Run` when none is given) and executes the corresponding target and all of its declared dependencies.
+When you type `dotnet run` from the repository root, .NET executes `Build.fsproj`, which is an F# console application that initializes the FAKE execution context. FAKE then reads the target name from the command-line arguments (defaulting to `Run` when none is given) and executes the corresponding target and all of its declared dependencies.
 
 ```text
 dotnet run [target]
@@ -95,14 +95,14 @@ packages for the Fable/Vite dev server).
 | `dotnet run Build` | `Build` | Compile the entire solution (`GenPRES.sln`) — libraries, server, tests, and the client `.fsproj`. No npm involved |
 | `dotnet run ServerBuild` | `ServerBuild` | Compile only the server and the libraries it depends on. Skips test projects and the client toolchain |
 | `dotnet run ClientBuild` | `ClientBuild` | Compile the client: Fable (F# → `.jsx`) then a production Vite bundle. Runs `npm ci` first via `RestoreClient` |
-| `dotnet run Clean` | `Clean` | Remove `deploy/` and `dist/` artefacts, delete Fable-generated `.jsx` files |
+| `dotnet run Clean` | `Clean` | Remove `deploy/` and `dist/` artifacts, delete Fable-generated `.jsx` files |
 | `dotnet run Bundle` | `Bundle` | Production build: publish server, compile client, copy data |
 | `dotnet run ServerTests` | `ServerTests` | Run all F# unit tests (Expecto) with quiet logging |
 | `dotnet run CheckVersions` | `CheckVersions` | Verify every built DLL's version matches the root `Directory.Build.props` |
 | `dotnet run TestHeadless` | `TestHeadless` | Build and run tests without launching a browser |
 | `dotnet run WatchTests` | `WatchTests` | Run tests in watch mode (re-runs on file changes) |
 | `dotnet run Format` | `Format` | Format all F# source files using Fantomas |
-| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`informedica/genpres` by default, override with `DOCKER_IMAGE`), labelling it with the version from the root `Directory.Build.props` |
+| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`informedica/genpres` by default, override with `DOCKER_IMAGE`), labeling it with the version from the root `Directory.Build.props` |
 | `dotnet run DockerRun` | `DockerRun` | Run the built image locally, using `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) |
 
 #### Target Dependency Chains
@@ -136,7 +136,7 @@ while the new targets compile either side separately.
 
 GenPRES uses [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt) to derive
 the next semantic version and changelog entries from conventional-commit history — see
-[ADR-0021](docs/mdr/design-history/0021-build-system-versioning-and-release.md) for the full
+[ADR-0021](docs/adr/0021-build-system-versioning-and-release.md) for the full
 design. It is registered as a local dotnet tool (`.config/dotnet-tools.json`) and configured via
 YAML front matter at the top of the root `CHANGELOG.md`.
 
@@ -171,7 +171,7 @@ never modifies files or opens a pull request, so it's safe to run against a dirt
 
 #### What reaches the changelog
 
-The behaviour below was established by running ShipIt 3.0.1 against a throwaway branch of this
+The behavior below was established by running ShipIt 3.0.1 against a throwaway branch of this
 repo. ShipIt's own documentation covers none of it.
 
 - **`docs`, `build`, and `chore` commits never render.** Only types like `feat` and `fix` produce
@@ -205,7 +205,7 @@ The `Run` target starts two long-running processes **in parallel**:
 2. **Client** – `dotnet fable watch … --run npx vite` in `src/Informedica.GenPRES.Client/`
    - Fable compiles F# → JavaScript, Vite serves the client on `http://localhost:5173` with Hot Module Replacement (HMR)
 
-Output from both processes is printed concurrently with colour-coded prefixes (`server:`, `client:`).
+Output from both processes is printed concurrently with color-coded prefixes (`server:`, `client:`).
 
 ### Helper Shell Scripts
 
@@ -425,7 +425,7 @@ The pipeline does **not** set `GENPRES_URL_ID`, so tests run against demo/cached
 on every push to `master`, opening or updating a draft release PR with the next derived version and changelog 
 section. It is deliberately a separate workflow from `build.yml`, not a job within it: a ShipIt failure must 
 never block the test/format matrix that already gated the PR which produced the push. See 
-[ADR-0021](docs/mdr/design-history/0021-build-system-versioning-and-release.md) for the full design and the
+[ADR-0021](docs/adr/0021-build-system-versioning-and-release.md) for the full design and the
 [implementation plan](docs/implementation-plans/234-improve-build-system.md) for status.
 
 This replaces the "Repo Assist" bot's former Task 8 ("Release Preparation", `.github/workflows/repo-assist.md`), 
@@ -439,7 +439,7 @@ Without it, `release.yml` runs but fails to open the PR.
 
 `.github/workflows/tag-release.yml` turns a merged release PR into the immutable artifact ShipIt itself
 cannot produce — ShipIt 3.0.1 has no tag or Release capability in any mode, verified against the installed
-assembly rather than its documentation (see [ADR-0021](docs/mdr/design-history/0021-build-system-versioning-and-release.md)
+assembly rather than its documentation (see [ADR-0021](docs/adr/0021-build-system-versioning-and-release.md)
 and [issue #470](https://github.com/informedica/GenPRES/issues/470)). The workflow:
 
 1. Checks out the **merge commit** (`pull_request.merge_commit_sha`) — the state `master` was actually in
@@ -510,7 +510,7 @@ options for anything downstream are a job inside `tag-release.yml`, a `workflow_
 A `publish-docker-image` job in `tag-release.yml`, gated on `needs: tag-and-release`, closes
 [#234](https://github.com/informedica/GenPRES/issues/234) item 3
 ([#459](https://github.com/informedica/GenPRES/issues/459)) — see
-[ADR-0021's Docker image publishing amendment](docs/mdr/design-history/0021-build-system-versioning-and-release.md)
+[ADR-0021's Docker image publishing amendment](docs/adr/0021-build-system-versioning-and-release.md)
 for the full design rationale. It only runs once tagging and the Release have both succeeded, and reuses
 that job's `version`/`tag`/`prerelease` outputs. For a given release it:
 
@@ -677,22 +677,17 @@ GenPRES/
 │   ├── data/                  # JSON data files
 │   └── zindex/                # Z-Index drug database files
 ├── deploy/                    # Deployment scripts and configurations
-├── docs/                      # Documentation
-│   ├── code-reviews/          # Code review documents
-│   ├── data-extraction/       # Data extraction documentation
-│   ├── domain/                # Domain documentation
-│   ├── implementation-plans/  # Implementation plans
+├── docs/                      # Documentation (see docs/README.md)
+│   ├── adr/                   # Architecture Decision Records
+│   ├── code-reviews/          # Conformance analyses against external standards
+│   ├── data-extraction/       # Dose-rule extraction pipeline documentation
+│   ├── domain/                # Domain model specifications and explainers
+│   ├── implementation-plans/  # Per-issue implementation plans
 │   ├── literature/            # Research literature
-│   ├── mdr/                   # Medical Device Regulation documentation
-│   │   ├── design-history/    # Design history files
-│   │   ├── interface/         # Interface specifications
-│   │   ├── post-market/       # Post-market surveillance
-│   │   ├── requirements/      # Requirements documentation
-│   │   ├── risk-analysis/     # Risk management
-│   │   ├── usability/         # Usability engineering
-│   │   └── validation/        # Validation documentation
-│   ├── roadmap/               # Project roadmap
-│   └── scenarios/             # Clinical scenarios
+│   ├── roadmap/               # Backlog, feature requests, fit-gap analyses
+│   ├── scenarios/             # Use cases (executable integration model)
+│   ├── security/              # Security reviews and baseline
+│   └── user-guide/            # End-user guide (en/nl) and manual test workflows
 ├── scripts/                   # Utility scripts
 └── src/                       # Source code
     ├── Informedica.Agents.Lib/           # Agent-based concurrency library
@@ -745,7 +740,7 @@ GenPRES/
 - `SECURITY.md` - Security policy
 - `SUPPORT.md` - Support information
 - `WARP.md` - Warp AI agent documentation
-- `docs/mdr/design-history/0001-system-architecture.md` - Technical architecture
+- `docs/adr/0001-system-architecture.md` - Technical architecture
 - `docs/domain/` - Domain model specifications
 - `docs/user-guide/` - Multilingual user guide ([English](docs/user-guide/en/user-guide.md), [Nederlands](docs/user-guide/nl/gebruikershandleiding.md))
 
@@ -758,7 +753,7 @@ GenPRES/
 - **`data/`** - Application data (drug cache, configuration, clinical data, Z-Index database)
 - **`docs/`** - Comprehensive documentation:
   - `docs/domain/` - Domain model specifications (Core Domain, GenFORM, GenORDER, GenSOLVER)
-  - `docs/mdr/` - MDR compliance (design history, requirements, risk analysis, validation)
+  - `docs/adr/` - Architecture Decision Records
   - `docs/scenarios/` - Clinical scenarios
 - **`src/`** - Source code (client, server, and F# libraries)
 
@@ -776,7 +771,7 @@ Each `Informedica.*.Lib` directory contains:
 
 For complete architectural documentation, see:
 
-- **[Architecture Overview](docs/mdr/design-history/0001-system-architecture.md)**: Technical stack, server/client structure, Docker hosting, and build configuration
+- **[Architecture Overview](docs/adr/0001-system-architecture.md)**: Technical stack, server/client structure, Docker hosting, and build configuration
 - **[Core Domain Model](docs/domain/core-domain.md)**: Transformation pipeline, constraint-based architecture, and domain concepts
 - **[GenFORM](docs/domain/genform-free-text-to-operational-rules.md)**: Free text to Operational Knowledge Rules (OKRs)
 - **[GenORDER](docs/domain/genorder-operational-rules-to-orders.md)**: OKRs to Order Scenarios
@@ -793,7 +788,7 @@ This project is built on the [SAFE Stack](https://safe-stack.github.io/):
 
 ### Core Libraries
 
-For complete library specifications including capabilities and dependencies, see [GenFORM Appendix B.3](docs/domain/genform-free-text-to-operational-rules.md#addendum-b3-genform-libraries).
+For complete library specifications including capabilities and dependencies, see [GenFORM Appendix B.3](docs/domain/genform-free-text-to-operational-rules.md#appendix-b3-genform-libraries).
 
 Key libraries in dependency order:
 

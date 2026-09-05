@@ -284,12 +284,11 @@ module AsyncResult =
 - Group related functionality in modules
 - Use explicit module declarations
 - Keep modules focused and cohesive
-- Expose only necessary functions (prefer `internal` for non-public API)
+- Keep pure functions public (see "Scoping and use of `private`"); reserve `private` for smart-constructor invariants, mutable state and IO wiring
 - Place types at the top of modules before functions
 - Use nested modules for related functionality
 - Create separate modules for DTOs, validation, and business logic
 - Create consistent API modules that expose main functionality
-- Use `.fsi` signature files in libraries to control visibility and hide constructors and fields for domain types
 - Use `[<RequireQualifiedAccess>]` for DUs and modules to keep call sites explicit
 
 ### Assembly and Project Structure

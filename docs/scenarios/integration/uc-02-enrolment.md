@@ -59,7 +59,7 @@ enrolled in their name.
 
 **The confirmation code goes where the registry says, not where the browser says.** That
 is the whole of what Rule 37 rests on: whoever is at this workstation does not control
-User A's mailbox. An unrecognised login never reaches this branch at all — the registry
+User A's mailbox. An unrecognized login never reaches this branch at all — the registry
 is asked first (Rule 25) — and a Reader is never asked for a PIN (Rule 26).
 
 **The address is asked for twice.** Once when the code is mailed, and again when the PIN

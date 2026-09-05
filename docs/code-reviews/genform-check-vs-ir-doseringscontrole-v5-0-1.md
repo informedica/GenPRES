@@ -21,7 +21,7 @@ rule's allowed range stays inside the G-Standaard envelope
 This is a **defensible adaptation** of the IR. The IR describes checking a single
 *entered* dose against scalar bounds; a GenFORM `DoseRule` instead describes an
 allowed *range* over a *patient category*. Asking "does my rule's range fit
-inside the G-Standaard limits?" is the correct generalisation. The findings below
+inside the G-Standaard limits?" is the correct generalization. The findings below
 are deviations *within* that framing, not objections to it.
 
 ## 2. Key IR facts used in this review
@@ -114,7 +114,7 @@ Mostly affects product applicability, not the dose range.
 
 ### LOW-3 — Frequency time-unit interchangeability ignored
 
-IR 3.4 table not honoured; `isSubset` treats "per maand" and "per 4 weken" as
+IR 3.4 table not honored; `isSubset` treats "per maand" and "per 4 weken" as
 different, producing spurious frequency mismatches.
 
 ### LOW-4 — Frequency message granularity

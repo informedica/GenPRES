@@ -51,7 +51,7 @@ Minified schema shown to the LLM:
 
 - **sortNo** — integer, source order of rules.
 - **source** *(required)* — `NKF`, `FK`, `SWAB`, protocol id.
-- **generic** *(required)* — lower-case unless source capitalises.
+- **generic** *(required)* — lower-case unless source capitalizes.
 - **form** — `tablet`, `suspensie`, `injectievloeistof`, `zetpil`, etc. Empty if form-agnostic.
 - **brand** — only if rule is brand-specific.
 - **gpks** — array of strings.
@@ -105,7 +105,7 @@ One rule = one patient group. If the paragraph describes disjoint patient groups
 - Never invent bounds. Single value (`50 mg/kg/dag`) → fill one side, partner `null`.
 - `max 4 g/dag` → `Max*`. `min X` → `Min*`.
 - Range (`10-15 mg/kg/dosis`) → both `Min*` and `Max*`.
-- Unlabelled single value (recommendation) → `Min*` only, `Max*` `null`.
+- Unlabeled single value (recommendation) → `Min*` only, `Max*` `null`.
 
 ## 5. Splitting rules
 

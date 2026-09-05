@@ -28,7 +28,7 @@ GenPRES (Generic Prescribing System) is an open-source Clinical Decision Support
 - Performing safe medication calculations
 - Verifying the correct application of clinical protocols
 
-GenPRES targets pediatric and neonatal intensive care settings, but can be adapted to any medical environment.
+GenPRES supports pediatric (including neonatal) and adult patients. It was developed in an intensive care setting but can be adapted to any medical environment.
 
 The live system runs at <http://genpres.nl>.
 
@@ -36,9 +36,9 @@ The live system runs at <http://genpres.nl>.
 
 ## 2. Accessing the Application
 
-### With Patient Data (EPD Integration)
+### With Patient Data (EHR Integration)
 
-In a clinical setting GenPRES is typically launched from an Electronic Patient Dossier (EPD) with patient parameters pre-filled in the URL, for example:
+In a clinical setting GenPRES is typically launched from an Electronic Health Record (EHR; in Dutch EPD) with patient parameters pre-filled in the URL, for example:
 
 ```url
 https://genpres.nl/#patient?pg=pr&dc=n&la=en&ad=730&wt=12000&ht=87
@@ -173,7 +173,9 @@ Shows the calculated dose range based on the patient parameters and the selected
 6. **Print** the order if a paper record is needed.
 
 > GenPRES prevents unsafe values rather than flagging them after entry: an option that violates
-> a rule is not offered in the first place. There is no separate "warning" state to read.
+> a rule is not offered in the first place. Values are still color-coded against the applicable
+> rules and the G-Standaard dose check (blue = caution, orange = warning, red = alert), in the
+> order view as well as in the Formulary; see [Troubleshooting](#9-troubleshooting).
 
 ---
 
@@ -194,7 +196,7 @@ Each entry on the emergency list shows:
 
 - **Medication name**
 - **Recommended concentration** (e.g., 1 mg/mL)
-- **Starting dose** (µg/kg/min or mL/h)
+- **Starting dose** (mcg/kg/min or mL/h)
 - **Dose range** (minimum – maximum)
 
 ---
@@ -276,7 +278,7 @@ GenPRES internally uses `BigRational` arithmetic for exact unit-safe calculation
 
 1. Enter: age `5` years, weight `20` kg, height `110` cm, gender `Female`.
 2. Select the generic `morfine`, an intravenous route, and the continuous dose type.
-3. Observe the starting dose (e.g., 10–40 µg/kg/h) and the calculated pump rate.
+3. Observe the starting dose (e.g., 10–40 mcg/kg/h) and the calculated pump rate.
 4. Step the dose up or down; confirm the rate updates.
 
 ### Use case 3: Parenteral nutrition
@@ -306,7 +308,7 @@ GenPRES internally uses `BigRational` arithmetic for exact unit-safe calculation
 
 - Verify that patient weight and age are entered correctly.
 - Check whether the correct administration route is selected.
-- Review the safety colour coding — a red alert indicates a value outside the permitted range.
+- Review the safety color coding — a red alert indicates a value outside the permitted range.
 
 ### Further help
 

@@ -1,7 +1,7 @@
 # Code Review & Memoization Design for Solver.fs
 
-Repository: halcwb/GenPres2  
-File reviewed: src/Informedica.GenSolver.Lib/Solver.fs (commit c66e953)
+Repository: halcwb/GenPres2 (the predecessor of informedica/GenPRES)  
+File reviewed: src/Informedica.GenSOLVER.Lib/Solver.fs (commit c66e953)
 
 Date: 2025-10-17  
 Reviewer: senior developer (AI)

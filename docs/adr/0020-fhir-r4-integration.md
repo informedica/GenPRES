@@ -19,11 +19,12 @@ between GenPRES and EHR systems.
 
 The Dutch healthcare landscape mandates:
 
-- **G-Standard** compliance for medication identification (GPK codes, thesauri for route and form).
+- **G-Standaard** compliance for medication identification (GPK codes, thesauri for route and form).
 - **IHE Pharmacy** profile compliance for treatment-plan messages.
 - **FHIR R4** as the industry-standard interchange format.
 
-A formal interface specification (`docs/mdr/interface/genpres_interface_specification.md`, v1.3) defines
+A formal interface specification (v1.3, since removed from this repository and maintained with the MDR
+documentation) defines
 eleven treatment-plan scenarios (6.1–6.11) ranging from single-product once-only orders to multi-product
 TPN and enteral feeding. The specification was prototyped as a proof-of-concept in `Informedica.FHIR.Lib`
 (PRs #215 and #222) — since deleted, see the Status note above — but no ADR documented the
@@ -75,7 +76,7 @@ FHIR MedicationRequest
 The orderable quantities and schedule (frequency, rate) are the only domain values that flow **from** the
 FHIR resource into GenPRES; all other constraints come from the local ZIndex database.
 
-### Dutch G-Standard Coding Systems
+### Dutch G-Standaard Coding Systems
 
 Medication identification uses established Dutch OID systems:
 
@@ -97,7 +98,7 @@ nor `paket.lock`, which is consistent with `Informedica.FHIR.Lib` never having b
 
 ### Scripts-First Implementation
 
-Following the established GenPRES workflow ([AGENTS.md](../../../AGENTS.md)):
+Following the established GenPRES workflow ([AGENTS.md](../../AGENTS.md)):
 
 1. FHIR translation logic was prototyped in `.fsx` scripts before migration to
    `Informedica.FHIR.Lib` source files. That migration never happened and the scripts were
@@ -110,7 +111,7 @@ Following the established GenPRES workflow ([AGENTS.md](../../../AGENTS.md)):
 
 ### Benefits
 
-- **Standard interoperability**: FHIR R4 + G-Standard is the Dutch national standard for hospital
+- **Standard interoperability**: FHIR R4 + G-Standaard is the Dutch national standard for hospital
   medication exchange; adoption reduces bespoke integration work for each EHR partner.
 - **Separation of concerns**: EHR owns persistence; GenPRES owns clinical calculation. Neither system
   must understand the other's internal domain model in depth.
@@ -118,13 +119,13 @@ Following the established GenPRES workflow ([AGENTS.md](../../../AGENTS.md)):
   reducing serialization bugs.
 - **Validated scenarios**: Eleven concrete scenarios from the interface specification serve as
   acceptance tests for the integration layer.
-- **MDR traceability**: Every translation is auditable — the input `MedicationRequest` and output
-  `OrderScenario` can be logged for MDR compliance.
+- **Traceability**: Every translation is auditable — the input `MedicationRequest` and output
+  `OrderScenario` can be logged.
 
 ### Trade-offs and Risks
 
 - **GPK placeholder limitation**: The interface specification uses placeholder GPK codes. Real codes
-  must come from the G-Standard database; the round-trip is only fully verifiable with real product
+  must come from the G-Standaard database; the round-trip is only fully verifiable with real product
   data.
 - **FHIR version lock**: Committing to FHIR R4 means future migration to FHIR R5 will require a
   translation shim or a parallel implementation.
@@ -160,12 +161,12 @@ authentication plumbing not yet needed for the calculation-service use case. Def
 
 ## References
 
-- Interface specification: [`docs/mdr/interface/genpres_interface_specification.md`](../../mdr/interface/genpres_interface_specification.md)
+- Interface specification v1.3: removed from this repository under #522; maintained with the MDR documentation
 - FHIR R4 specification: <https://hl7.org/fhir/R4/>
 - Firely .NET SDK: <https://docs.fire.ly/projects/Firely-NET-SDK/>
-- Dutch G-Standard / NL FHIR: <https://informatiestandaarden.nictiz.nl/wiki/Landingspagina_Medicatie>
+- Dutch G-Standaard / NL FHIR: <https://informatiestandaarden.nictiz.nl/wiki/Landingspagina_Medicatie>
 - IHE Pharmacy profile: <https://www.ihe.net/resources/technical_frameworks/#pharmacy>
 - [ADR-0009: MCP Server Architecture](0009-mcp-server-architecture.md)
-- [ADR-0015: Security Baseline](0015-security-baseline.md)
+- [Security baseline (formerly ADR-0015)](../security/security-baseline.md)
 - PR #215: Scripts (FHIR): Add `ImplementationPlan.fsx`
 - PR #222: Scripts (FHIR): Fix `ImplementationPlan.fsx` — major rework with correct FHIR property mappings

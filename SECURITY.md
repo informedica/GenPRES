@@ -2,7 +2,7 @@
 
 ## Overview
 
-GenPRES is a medical decision support system for medication safety in pediatrics. Security vulnerabilities in this software could directly impact patient safety. We take security extremely seriously and appreciate responsible disclosure of any security issues.
+GenPRES is a medical decision support system for medication safety in pediatric and adult care. Security vulnerabilities in this software could directly impact patient safety. We take security extremely seriously and appreciate responsible disclosure of any security issues.
 
 The current document is a first draft and will be expanded over time to include more details on our security practices, vulnerability management, and best practices for contributors.
 
@@ -10,8 +10,10 @@ The current document is a first draft and will be expanded over time to include 
 
 | Version | Supported          | Status        |
 | ------- | ------------------ | ------------- |
-| 2.0.x   | :white_check_mark: | Active Development |
-| 1.x.x   | :x:                | No longer supported |
+| 0.1.x-alpha (current line, see `Directory.Build.props`) | :white_check_mark: | Pre-release, active development |
+| Older pre-releases | :x: | Not supported |
+
+Versions are derived by EasyBuild.ShipIt from the commit history; see [DEVELOPMENT.md](DEVELOPMENT.md#changelog--release-automation-easybuildshipit).
 
 ## Reporting a Vulnerability
 
@@ -135,12 +137,10 @@ The current document is a first draft and will be expanded over time to include 
    - Server fails closed: when `GENPRES_PASSWORD` is unset (or empty / whitespace) all admin operations are rejected
    - **Production password policy enforced at startup**: when `GENPRES_PROD=1`, the server refuses to bind any HTTP listener if `GENPRES_PASSWORD` is missing, empty, whitespace-only, or shorter than 16 characters. Operators must inject a CSPRNG-generated value (e.g. `openssl rand -base64 32`)
 
-3. **Audit Logging**
-   - All calculation operations logged
-   - User actions tracked
+3. **Logging**
+   - Calculation operations and requests logged (operational logging)
    - Error conditions recorded
-   - Compliance with medical device audit requirements
-   - *(Tamper-evident, user-attributable audit trail tracked as a §7.2 remediation item — depends on per-user identity, see [security review F1](docs/security/2026-04-10-security-review.md#f1--no-tamper-evident-audit-trail))*
+   - *There is no user-attributable audit trail yet: GenPRES has no per-user identity. A tamper-evident audit trail is a §7.2 remediation item, see [security review F1](docs/security/2026-04-10-security-review.md#f1--no-tamper-evident-audit-trail)*
 
 4. **Data Privacy**
    - Stateless session design (no persistent patient data)
@@ -153,14 +153,11 @@ The current document is a first draft and will be expanded over time to include 
    - Type-safe F# implementation
    - Immutable data structures
    - Comprehensive test coverage
-   - Regular security scanning
    - **Newtonsoft.Json `TypeNameHandling`** is pinned to `None` in `Informedica.Utils.Lib/Json.fs` and guarded by three Expecto regression tests in the `JsonSecurity` sub-module — eliminates the canonical gadget-chain RCE vector by default. A SECURITY block-comment documents the policy; opting in to polymorphic deserialization requires a local `SerializationBinder` allow-list, never a global setting change
 
 6. **Dependency Management**
-   - Regular dependency updates
-   - Security advisory monitoring
-   - SBOM (Software Bill of Materials) generation
-   - License compliance tracking
+   - Dependencies pinned via `paket.lock` and `package-lock.json`; updates are reviewed manually
+   - No automated advisory monitoring, SBOM generation or secret scanning yet (see Planned Security Enhancements and [security review E8](docs/security/2026-04-10-security-review.md#e8--no-automated-secret-scanning))
 
 7. **Build & Deployment**
    - **Proprietary `GENPRES_URL_ID` is never baked into the published Docker image** — the `Dockerfile` declares `ENV GENPRES_URL_ID=` / `ENV GENPRES_PASSWORD=` with empty defaults so the variables remain discoverable in container management UIs (Plesk, Portainer, Kubernetes manifests). Operators inject the real values at runtime via `docker run -e`, Docker secret, or Kubernetes secret
@@ -170,7 +167,7 @@ The current document is a first draft and will be expanded over time to include 
 
 ### Planned Security Enhancements
 
-- [ ] Automated security scanning in CI/CD
+- [ ] Automated security scanning in CI/CD (dependency advisories, secret scanning, SBOM)
 - [ ] Penetration testing
 - [ ] Security-focused code reviews
 - [ ] Threat modeling workshops
@@ -205,7 +202,7 @@ We believe in recognizing security researchers who help keep GenPRES secure:
 
 - Public acknowledgment in security advisories (with permission)
 - Credit in CHANGELOG.md for security fixes
-- Recognition in CONTRIBUTORS.md
+- Recognition in the release notes
 
 We currently do not offer a bug bounty program but greatly appreciate responsible disclosure.
 

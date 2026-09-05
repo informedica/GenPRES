@@ -6,7 +6,7 @@
 
 **Related Issue**: [#234 — Improve build system](https://github.com/informedica/GenPRES/issues/234)
 
-**Related Plan**: [Implementation plan for issue #234](../../implementation-plans/234-improve-build-system.md)
+**Related Plan**: [Implementation plan for issue #234](../implementation-plans/234-improve-build-system.md)
 
 ## Context
 
@@ -44,8 +44,7 @@ granularity could matter. On acceptance (2026-08-17) that restriction was droppe
 entirely: all three merge methods stay enabled, and `--skip-merge-commit` handles the
 `Merge pull request ...` commits ShipIt cannot parse. See design choice 2 below.
 
-This document is ADR-0021, the next number available in
-[the design-history log](0000-change-log.md).
+This document is ADR-0021, the next free number in `docs/adr/` at the time of writing.
 
 ## Decision
 
@@ -65,7 +64,7 @@ at a time, rather than as a single documentation pass.
 | 3 | Retire Repo Assist Task 8 in the same PR that turns on CI-driven ShipIt | Prevents two bots from proposing competing release PRs on the same merge |
 | 4 | Docker-on-release (item 3) and API docs (item 4) deferred to new follow-up issues — filed as [#459](https://github.com/informedica/GenPRES/issues/459) and [#460](https://github.com/informedica/GenPRES/issues/460) | Both are greenfield efforts (no existing docfx/GitHub Pages/Docker-publish infrastructure) with no dependency on the versioning work landing first being a blocker either way; keeping them separate lets #234 close on a coherent, reviewable scope |
 | 5 | `Build` FAKE target split into `ServerBuild`/`ClientBuild`, with `Build` kept as an umbrella target | Existing dependency chains (`Build ==> ServerTests`, `Build ==> CheckVersions`, `Build ==> Run`) keep working unchanged; new targets are additive |
-| 6 | Agent-visible docs (`AGENTS.md`/`DEVELOPMENT.md`) updated per-PR, not as a separate pass | Each PR already knows which target/behaviour it changed; batching risks the docs pass lagging behind or being skipped |
+| 6 | Agent-visible docs (`AGENTS.md`/`DEVELOPMENT.md`) updated per-PR, not as a separate pass | Each PR already knows which target/behavior it changed; batching risks the docs pass lagging behind or being skipped |
 | 7 | Release artifact created by a separate `tag-release.yml` workflow triggered by the release PR merging, not by ShipIt | ShipIt 3.0.1 cannot create a tag or Release in any mode. See the amendment below |
 
 ### Verification gap — closed 2026-08-17
@@ -98,7 +97,7 @@ opened. Step 1 of the implementation plan closed it. What was confirmed against 
 The last two points were established by running ShipIt 3.0.1 against a throwaway
 branch of this repo (probe commits of each type, with and without terminated
 blocks) rather than from its documentation, which describes none of this
-behaviour. See `DEVELOPMENT.md` for the contributor-facing version.
+behavior. See `DEVELOPMENT.md` for the contributor-facing version.
 
 ### Release artifact — amended 2026-08-19
 
@@ -135,7 +134,7 @@ merging a release PR execute the same code; that script resolves `<Version>` thr
 | Pre-release flag | Derived from the version itself (SemVer: `0.1.2-alpha.4` is a pre-release, `0.1.3` is not), not hardcoded and not read from `CHANGELOG.md`'s `pre_release:` front matter — the front matter describes what ShipIt generates next, so it would answer differently for the same shipped version depending on when it was asked |
 | Attached build output | None. The tag plus the changelog body is the artifact; publishing built images stays [#459](https://github.com/informedica/GenPRES/issues/459)'s scope |
 
-Two behaviours were verified against this repo rather than assumed from documentation. ShipIt's
+Two behaviors were verified against this repo rather than assumed from documentation. ShipIt's
 README recommends gating the downstream release job on
 `startsWith(github.event.head_commit.message, 'chore: release ')`; that is 0 for 3 here, because
 every release PR merged as a true merge commit whose push event carries
@@ -174,7 +173,7 @@ Key points agreed during implementation:
 
 ### Docker registry moved to Docker Hub — amended 2026-09-01
 
-The `informedica` Docker Hub organisation now exists, so the follow-up anticipated above landed as issue
+The `informedica` Docker Hub organization now exists, so the follow-up anticipated above landed as issue
 [#459](https://github.com/informedica/GenPRES/issues/459).
 
 **Decision**: `publish-docker-image` publishes to `docker.io/informedica/genpres` instead of GHCR. This
@@ -197,7 +196,7 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
 - A single, well-defined tool owns version bumps, changelog entries, and release-PR
   creation — no more manual `Directory.Build.props` edits, no competing automation.
 - `ServerBuild`/`ClientBuild` let CI and contributors build just the piece
-  they're touching without changing any existing target's behaviour.
+  they're touching without changing any existing target's behavior.
 - Agent-facing docs stay in sync with the build system because each PR
   updates its own corner rather than deferring to a cleanup pass.
 - Every version shipped under ShipIt has an immutable tag and a Release page carrying its
@@ -233,26 +232,25 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
 - Release/version automation is process tooling, not clinical logic, it does not 
   touch dosing, rules, parsing, or resource mapping, so it does not trigger the 
   unit-test/changelog/field-comment requirements that apply to those areas.
-- The changelog remains the audit trail referenced by
-  `docs/mdr/design-history/0000-change-log.md`; automating its generation must not 
-  reduce its usefulness as a Design History File input, this is why the `=== changelog ===` 
-  escape hatch matters for anything with MDR-relevant detail.
+- The changelog remains an audit trail that the MDR design history file draws on;
+  automating its generation must not reduce its usefulness as such, this is why the
+  `=== changelog ===` escape hatch matters for anything with MDR-relevant detail.
 - A known gap follows from the omission of `docs`, `build`, and `chore` commits: a
   change of one of those types cannot reach the generated changelog at all, and no
-  escape hatch overrides that. Design-history-relevant changes are therefore tracked
-  through the ADRs in `docs/mdr/design-history/` and their entry in
-  `0000-change-log.md`, which do not depend on ShipIt's output. This ADR is itself an
-  instance: it lands as a `docs` commit and will not appear in any release section.
+  escape hatch overrides that. Design-relevant decisions are therefore recorded as ADRs
+  in `docs/adr/` and found through `git log`, which do not depend on ShipIt's output.
+  This ADR is itself an instance: it lands as a `docs` commit and will not appear in any
+  release section.
 
 ## References
 
 - [Issue #234 — Improve build system](https://github.com/informedica/GenPRES/issues/234)
 - [Issue #470 — Tag and publish a GitHub Release when the ShipIt release PR merges](https://github.com/informedica/GenPRES/issues/470) (follow-up, item 2, second half)
 - [Issue #459 — Publish the Docker image automatically on release](https://github.com/informedica/GenPRES/issues/459) (follow-up, item 3, closed by the Docker image publishing amendment above)
-- [`.github/workflows/tag-release.yml`](../../../.github/workflows/tag-release.yml) — implements both the tag/Release job and the `publish-docker-image` job
+- [`.github/workflows/tag-release.yml`](../../.github/workflows/tag-release.yml) — implements both the tag/Release job and the `publish-docker-image` job
 - [Issue #460 — Auto-generate and publish API documentation](https://github.com/informedica/GenPRES/issues/460) (follow-up, item 4)
-- [Implementation plan for issue #234](../../implementation-plans/234-improve-build-system.md)
+- [Implementation plan for issue #234](../implementation-plans/234-improve-build-system.md)
 - [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt)
-- [Repo Assist workflow](../../../.github/workflows/repo-assist.md)
-- [ADR-0000 — Design History Change Log](0000-change-log.md)
-- [ADR-0016 — G-Standard Dose Rule Fallback](0016-gstand-dose-rule-fallback.md) (structural reference for this ADR)
+- [Repo Assist workflow](../../.github/workflows/repo-assist.md)
+- [ADR-0000 — Documentation Rules](0000-documentation-rules.md)
+- [Implementation plan for issue #307 — G-Standaard dose rule fallback](../implementation-plans/307-gstand-dose-rule-fallback.md) (formerly ADR-0016; structural reference for this ADR)

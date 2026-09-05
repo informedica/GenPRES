@@ -12,7 +12,7 @@ Sometimes the planned approach isn't suitable. Significant changes should ideall
 
 ## Verification
 
-Guideline: in this section you're aiming to minimise the effort required, between you and the reviewer, for the reviewer to be confident that the implementation works. The effort you put into this section counts! So, if it'd be quicker for the reviewer to run changes than for you to document them here, let them do that. But equally, if you can quickly add notes that will convince a reviewer that the change works without them needing to do more than a cursory check, do that.
+Guideline: in this section you're aiming to minimize the effort required, between you and the reviewer, for the reviewer to be confident that the implementation works. The effort you put into this section counts! So, if it'd be quicker for the reviewer to run changes than for you to document them here, let them do that. But equally, if you can quickly add notes that will convince a reviewer that the change works without them needing to do more than a cursory check, do that.
 
 - Briefly describe how you checked that your changes work, including manual and automated tests, discussing edge cases you considered.
 - If appropriate, add screenshots/GIFs that show the changes in the UI.
@@ -26,7 +26,7 @@ Guideline: in this section you're aiming to minimise the effort required, betwee
 
 I confirm that these changes:
 
-- [ ] Follow the process described in [CONTRIBUTING.md](../CONTRIBUTING.md#Pull_Request_Process).
+- [ ] Follow the process described in [CONTRIBUTING.md](../../CONTRIBUTING.md#pull-request-process).
 - [ ] Make the changes proposed in the linked issue (if applicable): <issue number, or 'n/a'>
 - [ ] Follow the approach documented in the linked implementation plan (if applicable): <link, or 'n/a'>
 - [ ] Are no more than 200 lines of changed code, ideally 25-100.
@@ -56,4 +56,4 @@ I confirm that:
 - [ ] I am confident that the changes work.
 - [ ] The changed code meets our guidelines and standards.
 - [ ] The new code is not more complex than necessary.
-- [ ] I have clearly labelled suggestions as blocking, required but not blocking, or optional (see [CONTRIBUTING.md](../CONTRIBUTING.md#Pull_Request_Process)).
+- [ ] I have clearly labeled suggestions as blocking, required but not blocking, or optional (see [CONTRIBUTING.md](../../CONTRIBUTING.md#pull-request-process)).

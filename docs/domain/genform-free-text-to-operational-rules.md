@@ -22,16 +22,16 @@
     - [Appendix A. The Medication Treatment Cycle](#appendix-a-the-medication-treatment-cycle)
     - [Appendix B.1. GenFORM Conceptual Architecture](#appendix-b1-genform-conceptual-architecture)
     - [Appendix B.2. GenFORM Technical Architecture](#appendix-b2-genform-technical-architecture)
-    - [Addendum B.3. GenFORM Libraries](#addendum-b3-genform-libraries)
+    - [Appendix B.3. GenFORM Libraries](#appendix-b3-genform-libraries)
     - [Appendix C.1. Dose Rule Model Figure](#appendix-c1-dose-rule-model-figure)
-    - [Addendum C.2. Dose Rule Model Table](#addendum-c2-dose-rule-model-table)
-    - [Addendum C.1. Reconstitution and Solution Rule Model Figure](#addendum-c1-reconstitution-and-solution-rule-model-figure)
-    - [Addendum C.2. Reconstitution Rule Model Table](#addendum-c2-reconstitution-rule-model-table)
-    - [Addendum C.3. Solution Rule Model Table](#addendum-c3-solution-rule-model-table)
-    - [Addendum D.1. Renal Rule Model Figure](#addendum-d1-renal-rule-model-figure)
-    - [Addendum D.2. Renal Rule Model Table](#addendum-d2-renal-rule-model-table)
-    - [Addendum E.1. Product Component Model Figure](#addendum-e1-product-component-model-figure)
-    - [Addendum E.2. Product Component Model Table](#addendum-e2-product-component-model-table)
+    - [Appendix C.2. Dose Rule Model Table](#appendix-c2-dose-rule-model-table)
+    - [Appendix D.1. Reconstitution and Solution Rule Model Figure](#appendix-d1-reconstitution-and-solution-rule-model-figure)
+    - [Appendix D.2. Reconstitution Rule Model Table](#appendix-d2-reconstitution-rule-model-table)
+    - [Appendix D.3. Solution Rule Model Table](#appendix-d3-solution-rule-model-table)
+    - [Appendix E.1. Renal Rule Model Figure](#appendix-e1-renal-rule-model-figure)
+    - [Appendix E.2. Renal Rule Model Table](#appendix-e2-renal-rule-model-table)
+    - [Appendix F.1. Product Component Model Figure](#appendix-f1-product-component-model-figure)
+    - [Appendix F.2. Product Component Model Table](#appendix-f2-product-component-model-table)
 
 ## Core Definitions
 
@@ -42,7 +42,7 @@
 | *Dose Rule* | An OKR that defines qualitative and quantitative constraints for dosing a specific generic in a defined clinical context. |
 | *Dose Limit* | A set of numeric constraints defining the minimum, maximum, or normative allowable dose. |
 | *Dose* | A patient-specific calculated dose value that satisfies all applicable constraints. Note that a dose can be per administration, per time unit, or rate unit and can be adjusted for patient weight or BSA. |
-| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. A source value that is empty or unrecognised parses to `NoDoseType`, and such a row is **rejected**: `DoseRuleData.validateData` returns "Has no dose type", so the loader partitions the row out and surfaces the message as a warning. An unrecognised value also produces a parser warning naming it; an empty value does not. In effect a dose type is mandatory — `NoDoseType` marks a row to discard, not a fifth kind of dosing. |
+| *Dose Type* | The temporal category of dosing: once, onceTimed, discontinuous, timed, or continuous. A source value that is empty or unrecognized parses to `NoDoseType`, and such a row is **rejected**: `DoseRuleData.validateData` returns "Has no dose type", so the loader partitions the row out and surfaces the message as a warning. An unrecognized value also produces a parser warning naming it; an empty value does not. In effect a dose type is mandatory — `NoDoseType` marks a row to discard, not a fifth kind of dosing. |
 | *Selection Constraint* | A rule element used to determine which calculation constraints apply. |
 | *Calculation Constraint* | A quantitative rule element used to compute dose, rate, volume, or timing. |
 | *Adjustment Unit* | A patient normalization unit used to scale doses (e.g., kg for weight, m² for BSA). |
@@ -59,7 +59,7 @@
 
 ## 1. Objectives
 
-The aim of GenFORM is to extract and structure expert medication-related knowledge, together with all additional operational information, so that medication can be automatically prescribed, planned, prepared, and administered (see Addendum A. The Medication Treatment Cycle).
+The aim of GenFORM is to extract and structure expert medication-related knowledge, together with all additional operational information, so that medication can be automatically prescribed, planned, prepared, and administered (see Appendix A. The Medication Treatment Cycle).
 
 GenFORM (Generic FORMulary) is a generic solution that produces Operational Knowledge Rules (OKRs): fully computable, constraint-based representations of all medication knowledge relevant to prescribing, preparing, and administering medication.
 
@@ -131,7 +131,7 @@ In order to be available as an OKR, the dose rule needs to be structured so that
 2. The resulting dose rule needs to contain all information necessary to perform a full calculation of prescription, preparation and administration of a medication.
 3. Every possible dosing scenario should be able to be encoded as an operational dose rule structure.
 
-This results in the dose rule structure as shown in Appendix D. The Dose Rule Structure.
+This results in the dose rule structure shown in Appendix C.1 (figure) and Appendix C.2 (table).
 
 ## 6. Selection and Calculation Constraints
 
@@ -257,24 +257,19 @@ Free text is structured by GenFORM to operational structured knowledge rules and
 
 ![image3](https://docs.google.com/drawings/d/e/2PACX-1vSopywjJaeck4Ta8vAN52rDbbdtqOFfh0Orox7YW8fYLek_ntEGC6xBH_LAoZGUkY1pjvzx732TFslL/pub?w=778&h=577)
 
-### Addendum B.3. GenFORM Libraries
+### Appendix B.3. GenFORM Libraries
 
 This appendix used to restate the library list with per-library capabilities and dependencies.
-The same list also appeared in the GenORDER document and in
-[`genpres-architecture-and-timeline.md`](../roadmap/genpres-architecture-and-timeline.md), and the
-three copies drifted apart — between them they described four libraries that no longer exist and
-omitted two that do. There is now one copy:
-
-- **Target architecture** (planned libraries, capabilities, dependencies):
-  [GenPRES Architecture and Timeline, Addendum 3](../roadmap/genpres-architecture-and-timeline.md)
-- **What is actually built today**: the Core Libraries list in
-  [DEVELOPMENT.md](../../DEVELOPMENT.md#core-libraries)
+The same list also appeared in the GenORDER document and in a roadmap timeline, and the copies
+drifted apart — between them they described libraries that no longer exist and omitted some that
+do. There is now one copy, the inventory of what is actually built: the Core Libraries list in
+[DEVELOPMENT.md](../../DEVELOPMENT.md#core-libraries).
 
 ### Appendix C.1. Dose Rule Model Figure
 
 ![image4](https://docs.google.com/drawings/d/e/2PACX-1vQ0JtMXGCuyZ4Tw_EjHErHbvI7b5qXSJjTQsveI8kBbRPyAkh1RzTtw_NsbaPNyiKYgPufPWAk-ZduD/pub?w=1042&h=710)
 
-### Addendum C.2. Dose Rule Model Table
+### Appendix C.2. Dose Rule Model Table
 
 | Object     | Variable       | Type                                                  | Unit                                | Key | Description                                         |
 |------------|----------------|-------------------------------------------------------|-------------------------------------|-----|-----------------------------------------------------|
@@ -330,11 +325,11 @@ omitted two that do. There is now one copy:
 | DoseLimit  | MinRateAdj     | float                                                 | dose_unit / adjust_unit / rate_unit |     | The minimum patient-adjusted dose rate              |
 | DoseLimit  | MaxRateAdj     | float                                                 | dose_unit / adjust_unit / rate_unit |     | The maximum patient-adjusted dose rate              |
 
-### Addendum C.1. Reconstitution and Solution Rule Model Figure
+### Appendix D.1. Reconstitution and Solution Rule Model Figure
 
 ![image5](https://docs.google.com/drawings/d/e/2PACX-1vTCmWhej7l1HTUelmCR8PGOjG-VbFCXpG4tBHLRSWIayhyk-okLkkqUENUOCKugOHZP6YafcFdE_Ti3/pub?w=858&h=567)
 
-### Addendum C.2. Reconstitution Rule Model Table
+### Appendix D.2. Reconstitution Rule Model Table
 
 | Object   | Property     | Type      | Unit | Key | Description                                       |
 |----------|--------------|-----------|------|-----|---------------------------------------------------|
@@ -348,7 +343,7 @@ omitted two that do. There is now one copy:
 | Solution | ExpansionVol | float     | mL   |     | The expansion volume                              |
 | Solution | Diluents     | text list |      |     | The possible diluents that can be used            |
 
-### Addendum C.3. Solution Rule Model Table
+### Appendix D.3. Solution Rule Model Table
 
 | Object                       | Property   | Type                                                  | Unit            | Key | Description                                                        |
 |------------------------------|------------|-------------------------------------------------------|-----------------|-----|--------------------------------------------------------------------|
@@ -385,11 +380,11 @@ omitted two that do. There is now one copy:
 | SolutionLimit                | MinConc    | float                                                 | subst_unit / mL |     | The minimum substance concentration                                |
 | SolutionLimit                | MaxConc    | float                                                 | subst_unit / mL |     | The maximum substance concentration                                |
 
-### Addendum D.1. Renal Rule Model Figure
+### Appendix E.1. Renal Rule Model Figure
 
 ![image6](https://docs.google.com/drawings/d/e/2PACX-1vSiLTebrTbFyX9sDNxjl3OZbxfmRNu-_VZOhs45P5OY663c988L-MqiN3HDQBc5V_Rn45cTgWYrO1gf/pub?w=940&h=582)
 
-### Addendum D.2. Renal Rule Model Table
+### Appendix E.2. Renal Rule Model Table
 
 | Object     | Variable       | Type                                                  | Unit                                       | Key | Description                                                                        |
 |------------|----------------|-------------------------------------------------------|--------------------------------------------|-----|------------------------------------------------------------------------------------|
@@ -429,13 +424,13 @@ omitted two that do. There is now one copy:
 | DoseLimit  | MinRate        | float                                                 | count /dose_unit / rate_unit               |     | The relative or absolute minimum dose rate (renal adjustment)                      |
 | DoseLimit  | MaxRate        | float                                                 | count /dose_unit / rate_unit               |     | The relative or absolute maximum dose rate (renal adjustment)                      |
 | DoseLimit  | MinRateAdj     | float                                                 | count /dose_unit / adjust_unit / rate_unit |     | The relative or absolute minimum patient-adjusted dose rate (renal adjustment)     |
-| DoseLimit  | MaxRateAdj     | float                                                 | count /dose_unit / adjust_unit / rate_unit |     | The relative or absolute minimum patient-adjusted dose rate (renal adjustment)     |
+| DoseLimit  | MaxRateAdj     | float                                                 | count /dose_unit / adjust_unit / rate_unit |     | The relative or absolute maximum patient-adjusted dose rate (renal adjustment)     |
 
-### Addendum E.1. Product Component Model Figure
+### Appendix F.1. Product Component Model Figure
 
 ![image7](https://docs.google.com/drawings/d/e/2PACX-1vS3xWXvNVpM6MHRH5aAJ0S-bliMviuW1fK0chOd1PA_i8TPDpBRB4MthbspBucUURaxu5vAUrQ3R5TU/pub?w=1029&h=581)
 
-### Addendum E.2. Product Component Model Table
+### Appendix F.2. Product Component Model Table
 
 | Object               | Prop                   | Type                      | Unit           | Key | Description                                                   |
 |----------------------|------------------------|---------------------------|----------------|-----|---------------------------------------------------------------|

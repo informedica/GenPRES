@@ -2,7 +2,7 @@
 /// Prototype MCP tool handlers for Informedica.GenORDER.Lib.
 ///
 /// This script implements the GenORDER MCP tools described in:
-///   docs/mdr/design-history/mcp-server-architecture.md
+///   docs/adr/0009-mcp-server-architecture.md
 ///
 /// All tools are read-only. Navigation/mutation commands (increase/decrease dose)
 /// are out of scope for Phase 1 and not implemented here.

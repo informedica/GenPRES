@@ -80,7 +80,7 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 
 `GENPRES_URL_ID` is required at server startup, in both demo and production mode — not just for admin operations. The image also sets `GENPRES_PROD=1` by default, so the server refuses to start unless `GENPRES_PASSWORD` is also set to at least 16 characters — it's not purely an admin-operations toggle either. Neither the proprietary URL ID nor the password is baked into the image; inject both at container runtime, ideally via a Docker / Kubernetes secret. For local testing without production credentials, use the public demo sheet ID documented in `.env.example`.
 
-- `dotnet run DockerBuild` - Build the image, labelled with the version from the root `Directory.Build.props`. Override the image name with `DOCKER_IMAGE` (default `informedica/genpres`), cross-build a different platform with `DOCKER_PLATFORM`.
+- `dotnet run DockerBuild` - Build the image, labeled with the version from the root `Directory.Build.props`. Override the image name with `DOCKER_IMAGE` (default `informedica/genpres`), cross-build a different platform with `DOCKER_PLATFORM`.
 - `dotnet run DockerRun` - Run the built image, reading `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) and failing fast if either is unset.
 - Equivalent manual commands: `docker build -t informedica/genpres .` / `docker run -it -p 8080:8085 -e GENPRES_URL_ID="your_url_id" -e GENPRES_PASSWORD="your_admin_password" informedica/genpres`
 
@@ -88,9 +88,9 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 
 - F# libraries under `src/`
 - Tests: `tests/` (Expecto + FsCheck). Look for BigRational and ValueUnit tests.
-- Resource loading and tests: `src/Informedica.GenForm.Lib/Api.fs` and `tests/`
-- Sheet parsers: `Mapping.fs`, `Product.fs`, `DoseRule.fs`, `SolutionRule.fs`, `RenalRule.fs`
-- Unit and BigRational helpers: `src/Informedica.GenUnits.Lib/ValueUnit.fs`
+- Resource loading and tests: `src/Informedica.GenFORM.Lib/Api.fs` and `tests/`
+- Sheet parsers: `Mapping.fs`, `Product.fs`, `DoseRuleData.fs`, `SolutionRule.fs`, `RenalRule.fs`
+- Unit and BigRational helpers: `src/Informedica.GenUNITS.Lib/ValueUnit.fs`
 - Sheet documentation: the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs` (one record per sheet, columns documented on the fields), with the column names enforced by the `ColumnContract` tests in `tests/Informedica.GenFORM.Tests/Tests.fs`
 
 **Important:** an opt-in strategy is used in the `.gitignore` file — you have to specifically define what should be included instead of the other way around!
@@ -110,19 +110,19 @@ dotnet test tests/Informedica.GenUNITS.Tests/
 
 ## Resource Loading Pattern
 
-- Docs with sheet specs: `docs/mdr/design-history/genpres_resource_requirements.md`.
-- Check `genpres_resource_requirements.md` for expected sheet and column names.
+- Sheet specs live in code: the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs` (field comments carry the column names) and the `ColumnContract` tests in `tests/Informedica.GenFORM.Tests/Tests.fs`.
+- Check those for expected sheet and column names.
 - Resources are loaded from Google Sheets via `Web.getDataFromSheet dataUrlId "SheetName"`.
 - Mapping helper functions use `Csv.getStringColumn` / `Csv.getFloatOptionColumn` and call getString/getFloat-style delegates.
-- The central `ResourceConfig` (in `Api.fs`) expects functions returning `GenFormResult<'T>` (alias for `Result<'T, Message list>`). Use the `*Result` variants where present (e.g., `Mapping.getRouteMapping` or `Mapping.getRouteMappingResult`) and wrap with `delay` when the signature expects a `unit -> GenFormResult<_>`.
-- To add/modify sheet mappings: adjust the mapper in the corresponding module (e.g., `Product.Reconstitution.get`, `DoseRule.get`) and update `genpres_resource_requirements.md` to reflect column names.
+- Resources are declared in the `ResourceRegistry` built by `Resources.defaultRegistry` (`Resources.fs`): a map from a `ResourceKey` name to a `ResourceLoader`. Wrap a `unit -> Result<'T, Message list>` reader with `ofResult`, derive a resource from others with `derive` / `deriveWith` (dependencies are declared by calling `r.Get Keys.x` and resolved lazily, once, by `LoadEngine`). `loadAllResourcesWithRegistry` resolves the whole map; callers reach the result through `IResourceProvider` (`Api.fs`).
+- To add/modify sheet mappings: adjust the mapper in the corresponding module (e.g., `Product.Reconstitution.parseReconstitution`, `DoseRuleData.parseDoseRuleData`), update the field comments on the matching `Data` record, and update the declared column list in the column-contract test.
 - Update the mapper to read columns by name using the `get` delegate (e.g., `let get = getColumn row in get "Generic"`), parse with `BigRational.toBrs` / `getFloat` as appropriate.
 - If adding optional numeric columns, use `getFloatOptionColumn` and `Option.bind BigRational.fromFloat`.
 
 ## Result and Error Handling
 
 - IO and parsing functions should return `GenFormResult<'T>` (i.e., Result). Use `FsToolkit.ErrorHandling.ResultCE` computation expression for readability (`result { let! x = ... }`).
-- When editing `ResourceConfig` or callers, make sure to handle `Result` values consistently; use `Result.bind`, CE, or `delay` for unit-returning getters.
+- When editing the registry or its callers, keep every loader returning `Result`; use `Result.bind`, the CE, or `ofResult` for readers.
 
 ## BigRational & ValueUnit Semantics
 
@@ -200,7 +200,7 @@ GenPRES uses an FSI script-based workflow for safely implementing new functional
 
 ### Real-World Example: Cross-Project Feature in a Single Script
 
-Commit `d51252c` added a "pick nearest higher else lower component quantity" feature that ultimately touched 3 libraries and 7 source files (`Array.fs`, `ValueUnit.fs`, `OrderVariable.fs`, `Order.fs`, `OrderProcessor.fs`). But it was **prototyped first in a single script** — `src/Informedica.GenUNITS.Lib/Scripts/Api.fsx`:
+Commit `d51252c` added a "pick nearest higher else lower component quantity" feature that ultimately touched 3 libraries and 7 source files (`Array.fs`, `ValueUnit.fs`, `OrderVariable.fs`, `Order.fs`, `OrderProcessor.fs`). But it was **prototyped first in a single script** in `src/Informedica.GenUNITS.Lib/Scripts/` (since removed after migration):
 
 ```fsharp
 #load "load.fsx"                          // loads GenUnits source files + compiled Utils DLL
@@ -236,7 +236,7 @@ module ValueUnit =
             |> ValueUnit.toUnit
 ```
 
-Because `load.fsx` loads the GenUnits source files via `#load` and references the compiled Utils DLL via `#r`, you can prototype functions from **multiple libraries** in one interactive session. Once the logic is verified in FSI, the code is migrated to the appropriate source files across projects.
+Because `load.fsx` loads the GenUNITS source files via `#load` and references the compiled Utils DLL via `#r`, you can prototype functions from **multiple libraries** in one interactive session. Once the logic is verified in FSI, the code is migrated to the appropriate source files across projects.
 
 ### Infrastructure
 
@@ -379,9 +379,9 @@ FSI's `#load` directive resolves relative paths from its *include path*, **not**
 - Demo version uses sample medication data included in repository
 - Google Spreadsheets contain live configuration — changes affect running systems
 
-## Safety, MDR and Documentation
+## Safety and Documentation
 
-- This project targets clinical medication workflows. Any change that affects dosing, rules, parsing, or resource mapping must include: unit tests, changelog entry, and an update to `docs/mdr/design-history/genpres_resource_requirements.md` if spreadsheet columns or semantics changed.
+- This project targets clinical medication workflows. Any change that affects dosing, rules, parsing, or resource mapping must include: unit tests, a changelog entry, and — if spreadsheet columns or semantics changed — updated field comments on the corresponding `Data` record in `GenFORM.Lib/Types.fs` plus an updated column-contract test.
 - Add notes to CONTRIBUTING.md if the change introduces a new external dependency or changes deployment behavior.
 
 ## AI/LLM Usage Policy
@@ -401,7 +401,7 @@ Contributors must also disclose when code submitted in a pull request is **vibe 
 - [ ] Small, focused change with < 300 LOC modified when possible.
 - [ ] Add or update unit tests covering the change.
 - [ ] Ensure `dotnet run servertests` passes locally for affected projects.
-- [ ] Update `genpres_resource_requirements.md` if spreadsheet column names or semantics change.
+- [ ] Update the `Data` record comments and the column-contract test if spreadsheet column names or semantics change.
 - [ ] Use conventional commit message with scope and short description.
 
 ## Related Documentation

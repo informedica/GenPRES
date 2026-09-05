@@ -18,7 +18,7 @@ Implement MCP (Model Context Protocol) servers for `Informedica.GenFORM.Lib` and
 - AI assistants (Claude Desktop, VS Code Copilot, custom agents) can query GenPRES knowledge through standard MCP tool calls.
 - No domain logic changes are needed in `GenFORM.Lib` or `GenORDER.Lib`.
 - All MCP tool calls are read-only in Phase 1; write operations require a separate ADR.
-- Every tool call must be audit-logged to satisfy MDR traceability requirements.
+- Every tool call must be audit-logged so that its use is traceable.
 - The MCP layer is an additional presentation layer alongside the Fable.Remoting API; it does not replace it.
 
 **References**:
@@ -42,11 +42,11 @@ GenPRES is a **medical device software** project. The following constraints appl
 
 2. **No direct patient data in MCP responses**: MCP responses must not include patient-identifiable information. The `OrderContext` passed to GenORDER tools uses anonymised or synthetic patient data.
 
-3. **Audit logging**: Every MCP tool call must be logged with timestamp, tool name, inputs (minus any PII), and response status. This satisfies the MDR traceability requirement.
+3. **Audit logging**: Every MCP tool call must be logged with timestamp, tool name, inputs (minus any PII), and response status, so that every query of dosing knowledge is traceable.
 
 4. **Authentication (SSE transport only)**: If the SSE transport is used, the server must require an API key or equivalent authentication. The stdio transport is inherently restricted to the local machine.
 
-5. **Validation of outputs**: MCP responses contain dosing information derived from validated rule sets. AI-generated summaries of these responses are not validated medical advice and must be labelled as such in any user-facing application.
+5. **Validation of outputs**: MCP responses contain dosing information derived from validated rule sets. AI-generated summaries of these responses are not validated medical advice and must be labeled as such in any user-facing application.
 
 6. **Review gate**: Per the repository policy, no new code may be merged to `.fs` source files without human review. The MCP implementation follows the scripts-first workflow.
 
@@ -67,12 +67,12 @@ Only `GenFORM.Lib` and `GenORDER.Lib` are exposed. The others are deliberately n
 Two new external dependencies, both listed in `src/Informedica.MCP.Lib/paket.references`:
 
 - `ModelContextProtocol` — the official .NET MCP SDK, maintained by the
-  [modelcontextprotocol GitHub organisation](https://github.com/modelcontextprotocol/csharp-sdk).
+  [modelcontextprotocol GitHub organization](https://github.com/modelcontextprotocol/csharp-sdk).
 - `Microsoft.Extensions.Hosting` — the generic host the SDK's server builder is wired into
   (`McpServer.fs` opens it directly).
 
 The decision is to pin exact versions in `paket.dependencies` rather than floating specifiers, so
-builds stay reproducible as MDR traceability requires, and to re-run a GitHub Advisory Database
+builds stay reproducible, and to re-run a GitHub Advisory Database
 check before each deliberate bump. `ModelContextProtocol` is pinned (`1.2.0`);
 `Microsoft.Extensions.Hosting` is currently declared without a version constraint and so does not
 yet follow this decision — `paket.lock` is what holds it steady today. No changes were required to

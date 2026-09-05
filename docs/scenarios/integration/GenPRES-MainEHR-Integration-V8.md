@@ -8,7 +8,7 @@
 
 ## Use Cases
 
-What the User does, and what they see. Each use case gives its goal, precondition and main path, then a trace whose steps cite the System Model, then extensions labelled by the step they branch from.
+What the User does, and what they see. Each use case gives its goal, precondition and main path, then a trace whose steps cite the System Model, then extensions labeled by the step they branch from.
 
 ### Cast
 
@@ -64,7 +64,7 @@ What the User does, and what they see. Each use case gives its goal, preconditio
 
 *3b The Launch is stolen before it is presented.* The thief's browser proves the thief, not User A (Rule 4), and the thief's own Role and own active Patient decide what opens (Rules 5, 6; Guarantee 5): no Role, or Patient 1 not active in the thief's own MainEHR — nothing opens. At most the thief gets the Session their own launch would have given, everything in it under their own name. User A's Launch is spent (Rule 2); A relaunches.
 
-*3c The IdentityProvider cannot be reached, or does not recognise the browser.* No launch (Rule 7); GenPRES Client retries while the Launch lives.
+*3c The IdentityProvider cannot be reached, or does not recognize the browser.* No launch (Rule 7); GenPRES Client retries while the Launch lives.
 
 *4a The Launch is expired, used by another browser, or not sealed under the key.* No launch (Rules 2, 3, 7); GenPRES Client asks for a relaunch from MainEHR.
 
@@ -100,7 +100,7 @@ What the User does, and what they see. Each use case gives its goal, preconditio
 
 3. GenPRES Server verifies the confirmation code, sets the PIN — creating the UserCredential if GenPRES holds none — with a count of zero, records it, and mails User A (Rules 27, 28, 37, 46). The launch continues at UC-1 step 6\.
 
-The confirmation code goes to the address the UserRegistry holds, so an unrecognised login never enrols (UC-1 ext 5a) and a Reader is never asked (ext 5c).
+The confirmation code goes to the address the UserRegistry holds, so an unrecognized login never enrols (UC-1 ext 5a) and a Reader is never asked (ext 5c).
 
 **Extensions**
 
@@ -140,7 +140,7 @@ The confirmation code goes to the address the UserRegistry holds, so an unrecogn
 
 *3b A dose needs fixing on the challenge.* User A cancels, edits, and signs against a fresh challenge (Rule 43).
 
-*3c Someone else takes the keyboard during the challenge.* Editing requires cancelling the modal; any other change no longer matches the challenge and is refused (Rule 43).
+*3c Someone else takes the keyboard during the challenge.* Editing requires canceling the modal; any other change no longer matches the challenge and is refused (Rule 43).
 
 *3d A Submission arrives late, repeated or out of order.* Its challenge no longer matches or is spent, and it is refused (Rules 34, 43); a retry of one that was committed returns the first result (Rule 45).
 
@@ -369,7 +369,7 @@ The kinds of participants that appear in the use cases. \[ours\] \= under constr
 
 8. IdentityProvider \[given\]: Entra ID.  
 
-   - Already signs the User into Windows with badge and PIN, and recognises the browser in that session without a prompt.  
+   - Already signs the User into Windows with badge and PIN, and recognizes the browser in that session without a prompt.  
    - Says who is at a browser — no Role, no Patient.
 
 
@@ -403,7 +403,7 @@ The things passed between actors, or held by them, and what each one means.
 
    - Single use, short-lived, opaque, and carrying no login (Rule 4).  
    - Its Patient is checked against the UserRegistry at the launch (Rule 6): the Session opens only on the Patient the User really has active in MainEHR.  
-   - Patient-level authorisation is MainEHR's; GenPRES enforces nothing finer.
+   - Patient-level authorization is MainEHR's; GenPRES enforces nothing finer.
 
 
 
@@ -437,7 +437,7 @@ The things passed between actors, or held by them, and what each one means.
 
    - Records whether the Session is open or ended, when it last heard from the Client (Rule 9), and whether the User has acknowledged its ending (Rule 11).  
    - Holds the mail address the registry last gave for this User — written at the launch and whenever a mail is sent — read only as the fallback for a notice (Rule 27).  
-   - Realised as appended events (Actor 5; Rule 40); "when it last heard" is the newest entry of an activity stream beside it, where only the newest entry counts.  
+   - Realized as appended events (Actor 5; Rule 40); "when it last heard" is the newest entry of an activity stream beside it, where only the newest entry counts.  
    - Kept after the Session ends.
 
 
@@ -618,10 +618,10 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
 
 
-7. If a launch cannot be honoured, no GenPRES Session is opened by it.  
+7. If a launch cannot be honored, no GenPRES Session is opened by it.  
 
-   - Not honoured: no Launch, no BrowserIdentity, no Role, another active Patient (Rule 6), or a required PIN that is still missing after enrolment failed or was abandoned.  
-   - A missing PIN alone refuses nothing: it suspends the launch into enrolment (Rule 25; UC-2), and the launch continues once the PIN is set. Only an enrolment that ends without one leaves the launch unhonoured.  
+   - Not honored: no Launch, no BrowserIdentity, no Role, another active Patient (Rule 6), or a required PIN that is still missing after enrolment failed or was abandoned.  
+   - A missing PIN alone refuses nothing: it suspends the launch into enrolment (Rule 25; UC-2), and the launch continues once the PIN is set. Only an enrolment that ends without one leaves the launch unhonored.  
    - There is no silent fallback: at most, GenPRES Client offers the User a fresh anonymous open (Rule 14; UC-7), which carries nothing over from the launch — no User, no Patient.
 
 **Session**
@@ -705,7 +705,7 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
 24. Every launch checks whether a PIN is set for the login.  
 
-25. A Prescriber with no PIN must set one before the launch continues, and only after the UserRegistry has recognised their login.  
+25. A Prescriber with no PIN must set one before the launch continues, and only after the UserRegistry has recognized their login.  
 
 26. A Reader is never asked for a PIN: a Reader never creates a TreatmentPlan (Roles), so they have nothing to prove.  
 
@@ -824,7 +824,7 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
 46. GenPRES Server appends to the audit, in the private store.  
 
-    - Recorded: every launch, honoured or refused; every Session opening and ending, with the reason; every Submission, committed or refused, failed PIN entries included; every PIN change; every refused request, anonymous ones by count.  
+    - Recorded: every launch, honored or refused; every Session opening and ending, with the reason; every Submission, committed or refused, failed PIN entries included; every PIN change; every refused request, anonymous ones by count.  
     - Append-only; who reads it is out of scope (Guarantee 4).
 
 ### Guarantees
@@ -885,7 +885,7 @@ Decisions not yet made. Each one blocks something.
 2. **Payload.** Under Rule 32 the whole WorkPlan (Concept 16\) travels with every computing request and every Submission.  
 
    - Whether that is acceptable is a measurement, not a judgement.  
-   - Blocks: nothing yet — but a bad number would force a server-side cache of the WorkPlan, which must then be built as an optimisation the Rules never depend on, losable without breaking anything.
+   - Blocks: nothing yet — but a bad number would force a server-side cache of the WorkPlan, which must then be built as an optimization the Rules never depend on, losable without breaking anything.
 
 
 
@@ -899,7 +899,7 @@ Decisions not yet made. Each one blocks something.
 
 
 
-4. **Finer patient authorisation.** The launch, confirmed against the UserRegistry (Rule 6), says this User has this Patient open in MainEHR right now; GenPRES enforces nothing finer.  
+4. **Finer patient authorization.** The launch, confirmed against the UserRegistry (Rule 6), says this User has this Patient open in MainEHR right now; GenPRES enforces nothing finer.  
 
    - No care relationship, encounter, or co-sign requirement: only MainEHR knows them.  
    - Blocks: any rule finer than the Prescriber/Reader split.
@@ -937,4 +937,4 @@ Decisions not yet made. Each one blocks something.
 
 ## Appendix Simulation Runs
 
-*Regenerated from Session.fsx once the model carries this revision.*  
+*The traces are produced by `Integration.fsx` (see [README](README.md)); they are written to `Integration.run.txt` beside the script and are not reproduced here.*  

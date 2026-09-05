@@ -1,6 +1,6 @@
 # GenPRES – MainEHR integration
 
-The design document for this integration is modelled here as an executable F# script.
+The design document for this integration is modeled here as an executable F# script.
 `Integration.fsx` runs standalone and checks itself:
 
 ```bash

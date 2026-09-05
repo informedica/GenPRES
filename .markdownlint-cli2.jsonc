@@ -30,6 +30,11 @@
 
         // MD010/no-hard-tabs: Allow tabs inside code blocks (TSV samples in
         // data-extraction docs require real tab characters).
-        "MD010": { "code_blocks": false }
+        "MD010": { "code_blocks": false },
+
+        // MD033/no-inline-html: EasyBuild.ShipIt closes every release section in
+        // CHANGELOG.md with a <strong><small>View changes on Github</small></strong>
+        // footer. That output is generated, so allow exactly those two elements.
+        "MD033": { "allowed_elements": [ "strong", "small" ] }
     }
 }

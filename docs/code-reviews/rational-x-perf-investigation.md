@@ -59,7 +59,7 @@ chase the bottlenecks the change exposed.
 ### 2.5 Dead-code removal in the solver
 - `GenSOLVER/Equation.fs`: removed a provably-dead per-iteration `List.sortBy`
   (its output was re-sorted by the next iteration before `calcVars` ran, and the
-  loop's final list is consumed by index). Behaviour-preserving; perf-neutral.
+  loop's final list is consumed by index). Behavior-preserving; perf-neutral.
 
 ---
 
@@ -167,7 +167,7 @@ Distinct result sets identical throughout.
    field; `noOp` is `false`, `create`/real loggers `true`, `filterByLevel`/`combine`
    propagate it. New thunk-based `logLazy`/`logInfoLazy` build the message only
    when `Enabled level`. `Logging.isActive` is redefined as `Enabled Informative`,
-   so the existing guards generalise beyond `noOp` to **any** logger filtered
+   so the existing guards generalize beyond `noOp` to **any** logger filtered
    above informative; `logOrder` migrated to the thunk API. (8 `Logger` literal
    sites updated for the new field — 2 in `Logging.Lib`, AgentLogger, SolverLogging,
    OrderLogging, plus test/benchmark loggers.) Scenario solve holds at ~116 ms.

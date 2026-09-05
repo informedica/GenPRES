@@ -86,7 +86,7 @@ token — is refused before the PIN is looked at, so it costs the User no attemp
 - **The wrong PIN** (ext 3a). No TreatmentPlan is committed and no token is spent. Wrong entries
   count across Sessions; at the limit the Session ends and signing locks for a growing
   delay.
-- **Cancelling and editing** (ext 3b), **someone else at the keyboard** (ext 3c), **a late
+- **Canceling and editing** (ext 3b), **someone else at the keyboard** (ext 3c), **a late
   or repeated Submission** (ext 3d), and **never signing at all** (ext 3e).
 - **The audit.** Every Submission, committed or refused, is appended (Rule 46).
 

@@ -7,29 +7,29 @@ server and the constraint solver — the client never computes the value locally
 ```mermaid
 flowchart TD
     subgraph CLIENT["Client (Fable/Elmish)"]
-        UI["Stepper +/- button<br/>Views/Prescribe.fs:520"]
-        MSG["dispatch OrderContextMsg<br/>App.fs:72"]
-        CALL["makeServerCall<br/>wraps Api.OrderContextCmd(cmd, ctx)<br/>App.fs:128"]
-        RESP["OrderContextResp(OrderContextResult ctx)<br/>state.OrderContext = Resolved ctx<br/>App.fs:139"]
-        RENDER["Re-render dose select +<br/>enable/disable steppers<br/>Views/Order.fs:1570"]
+        UI["Stepper +/- button<br/>Views/Prescribe.fs"]
+        MSG["dispatch OrderContextMsg<br/>App.fs"]
+        CALL["makeServerCall<br/>wraps Api.OrderContextCmd(cmd, ctx)<br/>App.fs"]
+        RESP["OrderContextResp(OrderContextResult ctx)<br/>state.OrderContext = Resolved ctx<br/>App.fs"]
+        RENDER["Re-render dose select +<br/>enable/disable steppers<br/>Views/Order.fs"]
     end
 
     subgraph SHARED["Shared API DTO"]
-        CMD["Increase/DecreaseOrderableDoseQuantityProperty<br/>(ntimes:int, useCalc:bool)<br/>Shared/Api.fs:32"]
+        CMD["Increase/DecreaseOrderableDoseQuantityProperty<br/>(ntimes:int, useCalc:bool)<br/>Shared/Api.fs"]
     end
 
     subgraph SERVER["Server"]
-        SCMD["processCmd: OrderContextCmd<br/>ServerApi.Command.fs:160"]
-        SEVAL["OrderContext.evaluate<br/>map -> GenOrderContext cmd<br/>ServerApi.Services.fs:357"]
+        SCMD["processCmd: OrderContextCmd<br/>ServerApi.Command.fs"]
+        SEVAL["OrderContext.evaluate<br/>map -> GenOrderContext cmd<br/>ServerApi.Services.fs"]
     end
 
     subgraph GENORDER["GenORDER.Lib"]
-        GEVAL["evaluate -> processPropertyCmd<br/>ChangeProperty(o, ...DoseQuantity)<br/>Api.fs:952"]
-        PIPE["OrderProcessor.processPipeline<br/>ChangeProperty case<br/>OrderProcessor.fs:682"]
-        PCHANGE["processChangeProperty<br/>Dose.increase/decreaseQuantity<br/>OrderProcessor.fs:187"]
-        STEP["OrderVariable.step true/false useCalc n<br/>min + N*incr  /  max - N*incr<br/>pickNearestHigherElseLower<br/>OrderVariable.fs:990"]
-        CALCMM["calcMinMaxStep<br/>recompute constraints<br/>OrderProcessor.fs:690"]
-        SOLVE["Order.solve<br/>mapToOrderEquations -> ... -> mapFromOrderEquations<br/>Order.fs:3426"]
+        GEVAL["evaluate -> processPropertyCmd<br/>ChangeProperty(o, ...DoseQuantity)<br/>Api.fs"]
+        PIPE["OrderProcessor.processPipeline<br/>ChangeProperty case<br/>OrderProcessor.fs"]
+        PCHANGE["processChangeProperty<br/>Dose.increase/decreaseQuantity<br/>OrderProcessor.fs"]
+        STEP["OrderVariable.step true/false useCalc n<br/>min + N*incr  /  max - N*incr<br/>pickNearestHigherElseLower<br/>OrderVariable.fs"]
+        CALCMM["calcMinMaxStep<br/>recompute constraints<br/>OrderProcessor.fs"]
+        SOLVE["Order.solve<br/>mapToOrderEquations -> ... -> mapFromOrderEquations<br/>Order.fs"]
     end
 
     subgraph SOLVER["GenSOLVER.Lib"]
@@ -59,18 +59,18 @@ firing one blocking round-trip each.
 ```mermaid
 flowchart TD
     CLICK["User clicks +/- stepper<br/>ClickCountingButton.onStep<br/>Components/SimpleSelect.fs"]
-    DELTA["bump local smallDelta/largeDelta<br/>(React.useState)<br/>SimpleSelect.fs:44"]
-    PRELIM["Render PRELIMINARY label<br/>stepFn(smallDelta, largeDelta)<br/>key stays = server value<br/>SimpleSelect.fs:90"]
-    DISPATCH["dispatch OrderContextMsg<br/>Increase/DecreaseOrderableDoseQuantityProperty(n, useCalc)<br/>App.fs:821"]
+    DELTA["bump local smallDelta/largeDelta<br/>(React.useState)<br/>SimpleSelect.fs"]
+    PRELIM["Render PRELIMINARY label<br/>stepFn(smallDelta, largeDelta)<br/>key stays = server value<br/>SimpleSelect.fs"]
+    DISPATCH["dispatch OrderContextMsg<br/>Increase/DecreaseOrderableDoseQuantityProperty(n, useCalc)<br/>App.fs"]
 
-    REC["OrderContext: Resolved ctx -> Recalculating ctx<br/>(old context kept visible)<br/>App.fs:841"]
-    KEEP["Steppers stay enabled, no spinner<br/>isOptimisticStep = true<br/>Order.fs:913<br/>old dose values still shown via Deferred.toOption<br/>Order.fs:936"]
+    REC["OrderContext: Resolved ctx -> Recalculating ctx<br/>(old context kept visible)<br/>App.fs"]
+    KEEP["Steppers stay enabled, no spinner<br/>isOptimisticStep = true<br/>Order.fs<br/>old dose values still shown via Deferred.toOption<br/>Order.fs"]
 
     SERVER(["Server re-solve round-trip<br/>(see main flow above)"])
 
-    DONE["LoadOrderContextResult Finished(Ok)<br/>OrderContext = Resolved newCtx<br/>App.fs:139"]
-    BUMP["revision++<br/>App.fs:903"]
-    RESET["useLayoutEffect resets deltas to 0<br/>keyed on valueKey + revision<br/>SimpleSelect.fs:60"]
+    DONE["LoadOrderContextResult Finished(Ok)<br/>OrderContext = Resolved newCtx<br/>App.fs"]
+    BUMP["revision++<br/>App.fs"]
+    RESET["useLayoutEffect resets deltas to 0<br/>keyed on valueKey + revision<br/>SimpleSelect.fs"]
     FINAL["Render SOLVED value from server<br/>preliminary -> confirmed"]
 
     CLICK --> DELTA --> PRELIM
@@ -85,7 +85,7 @@ flowchart TD
     style SERVER fill:#cfe8ff,stroke:#005bbb,color:#1a1a1a
 ```
 
-### Deferred state cases (`Extensions.fs:16`)
+### Deferred state cases (`Extensions.fs`)
 
 | Case | Meaning | UI effect |
 | ---- | ------- | --------- |
@@ -118,16 +118,16 @@ confirmed solver result.
 
 | Hop | File | Symbol |
 | --- | ---- | ------ |
-| UI stepper | `src/Informedica.GenPRES.Client/Views/Prescribe.fs:520` | `Increase/DecreaseOrderableDoseQuantityProperty` |
-| Elmish msg | `src/Informedica.GenPRES.Client/App.fs:72` | `OrderContextMsg` |
-| Server call | `src/Informedica.GenPRES.Client/App.fs:128` | `makeServerCall` |
-| Shared DTO | `src/Informedica.GenPRES.Shared/Api.fs:32` | `OrderContextCommand` |
-| Server cmd | `src/Informedica.GenPRES.Server/ServerApi.Command.fs:160` | `processCmd` |
-| Server service | `src/Informedica.GenPRES.Server/ServerApi.Services.fs:357` | `OrderContext.evaluate` |
-| GenORDER eval | `src/Informedica.GenORDER.Lib/Api.fs:952` | `evaluate` / `processPropertyCmd` |
-| Pipeline | `src/Informedica.GenORDER.Lib/OrderProcessor.fs:682` | `processPipeline` |
-| Property change | `src/Informedica.GenORDER.Lib/OrderProcessor.fs:187` | `processChangeProperty` |
-| Step math | `src/Informedica.GenORDER.Lib/OrderVariable.fs:990` | `step`, `pickNearestHigherElseLower` |
-| Constraint recalc | `src/Informedica.GenORDER.Lib/OrderProcessor.fs:690` | `calcMinMaxStep` |
-| Solve | `src/Informedica.GenORDER.Lib/Order.fs:3426` | `solve` |
-| UI re-render | `src/Informedica.GenPRES.Client/Views/Order.fs:1570` | dose quantity select |
+| UI stepper | `src/Informedica.GenPRES.Client/Views/Prescribe.fs` | `Increase/DecreaseOrderableDoseQuantityProperty` |
+| Elmish msg | `src/Informedica.GenPRES.Client/App.fs` | `OrderContextMsg` |
+| Server call | `src/Informedica.GenPRES.Client/App.fs` | `makeServerCall` |
+| Shared DTO | `src/Informedica.GenPRES.Shared/Api.fs` | `OrderContextCommand` |
+| Server cmd | `src/Informedica.GenPRES.Server/ServerApi.Command.fs` | `processCmd` |
+| Server service | `src/Informedica.GenPRES.Server/ServerApi.Services.fs` | `OrderContext.evaluate` |
+| GenORDER eval | `src/Informedica.GenORDER.Lib/Api.fs` | `evaluate` / `processPropertyCmd` |
+| Pipeline | `src/Informedica.GenORDER.Lib/OrderProcessor.fs` | `processPipeline` |
+| Property change | `src/Informedica.GenORDER.Lib/OrderProcessor.fs` | `processChangeProperty` |
+| Step math | `src/Informedica.GenORDER.Lib/OrderVariable.fs` | `step`, `pickNearestHigherElseLower` |
+| Constraint recalc | `src/Informedica.GenORDER.Lib/OrderProcessor.fs` | `calcMinMaxStep` |
+| Solve | `src/Informedica.GenORDER.Lib/Order.fs` | `solve` |
+| UI re-render | `src/Informedica.GenPRES.Client/Views/Order.fs` | dose quantity select |

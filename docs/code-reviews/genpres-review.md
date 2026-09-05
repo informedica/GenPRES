@@ -11,12 +11,12 @@ It's clear that this application could be very useful in clinical practice:
 
 ## UX review
 
-- There are some cases where only icons, only labels, or both are clickable to trigger an action. For example, language selection is done via icon, page selection in the sidebar is done via label, buttons afford clicking either. Consistency would be good. We recommend making both clickable to maximise the target area for users.
+- There are some cases where only icons, only labels, or both are clickable to trigger an action. For example, language selection is done via icon, page selection in the sidebar is done via label, buttons afford clicking either. Consistency would be good. We recommend making both clickable to maximize the target area for users.
 - Clearer indication of the current page that a user is on could be valuable. Although it is shown in the nav bar, the patient data box staying in place makes the difference between the pages somewhat subtle. An on-page heading underneath the patient data box could be a simple solution.
-- The patient data box collapsing when a selection was made struck us as odd. What if the clinician wants to enter multiple details in one go, such as age, sex, height and weight? Of course, we are not experts in clinical or emergency settings, so it may well be that the existing behaviour may be preferable in some contexts.
+- The patient data box collapsing when a selection was made struck us as odd. What if the clinician wants to enter multiple details in one go, such as age, sex, height and weight? Of course, we are not experts in clinical or emergency settings, so it may well be that the existing behavior may be preferable in some contexts.
 - Calculation happened at seemingly surprising times. For example, when clearing all text from any of the "Prescribe" inputs, a loading spinner was shown for a few seconds.
-- Sometimes pressing the cross to clear inputs resulted in calculation followed by the old input being reinstated. For example, selecting once the medication ibuprofen is selected when prescribing for a 14-year old patient, clearing the input results in it being reinstated again. The only recourse was to delete the entry. While we can make sense of this behaviour because of the mutual constraints between medications and indications, it is not intuitive and is likely to confuse a significant proportion of users.
-- Another behaviour that was confusing was that the input for selecting form for a medication scenario disappeared after a selection had been made.
+- Sometimes pressing the cross to clear inputs resulted in calculation followed by the old input being reinstated. For example, selecting once the medication ibuprofen is selected when prescribing for a 14-year old patient, clearing the input results in it being reinstated again. The only recourse was to delete the entry. While we can make sense of this behavior because of the mutual constraints between medications and indications, it is not intuitive and is likely to confuse a significant proportion of users.
+- Another behavior that was confusing was that the input for selecting form for a medication scenario disappeared after a selection had been made.
 
 ## Code review
 
@@ -29,7 +29,7 @@ There's lots to like!
 - Good use of custom operators, for example `ml50 >? l5`.
 - Support for adding, subtracting, multiplying and dividing `valueUnit`s is great.
 
-That said, I found a few areas that could be improved in the Informedica.GenUnits.Lib library.
+That said, I found a few areas that could be improved in the Informedica.GenUNITS.Lib library.
 
 ### Incorrect results
 

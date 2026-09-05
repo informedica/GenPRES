@@ -1,4 +1,6 @@
-# ADR-0015: Security Baseline for the Demo Deployment
+# Security Baseline for the Demo Deployment
+
+> Formerly ADR-0015 (accepted 2026-04-11). Moved out of `docs/adr/` under issue #411 because it records the security posture in force and its remediation status, not a hard-to-reverse decision; see [ADR-0000](../adr/0000-documentation-rules.md).
 
 **Date**: 2026-04-11
 
@@ -6,14 +8,14 @@
 
 **References**:
 
-- [Security Review 2026-04-10](../../security/2026-04-10-security-review.md)
-- [System Architecture (ADR-0001)](0001-system-architecture.md)
+- [Security Review 2026-04-10](2026-04-10-security-review.md)
+- [System Architecture (ADR-0001)](../adr/0001-system-architecture.md)
 
 ## Context
 
 GenPRES is a medical-device-class clinical decision support system (CDSS).
 A formal static security review was performed on 2026-04-10
-([`docs/security/2026-04-10-security-review.md`](../../security/2026-04-10-security-review.md)),
+([`docs/security/2026-04-10-security-review.md`](2026-04-10-security-review.md)),
 followed by a live probe of the public demo at <https://genpres.nl/>. The
 review grades every finding against three deployment contexts:
 
@@ -24,11 +26,10 @@ review grades every finding against three deployment contexts:
 The review identified open findings in three remediation buckets (§7.2,
 §7.3, §7.4). Two implementation passes resolved the cheap, high-leverage
 items at the application layer; the rest are deferred to architectural
-work tracked in the existing roadmap. An MDR Design History record is
-needed so future maintainers, reviewers, and auditors can locate the
-authoritative security artefacts and understand which decisions were
-deliberately taken at the demo level versus deferred to a non-demo
-deployment.
+work tracked in the existing roadmap. This document exists so future
+maintainers, reviewers, and auditors can locate the authoritative
+security artifacts and understand which decisions were deliberately
+taken at the demo level versus deferred to a non-demo deployment.
 
 ## Decision
 
@@ -38,7 +39,7 @@ deployment.
    in-place via dated `Update — YYYY-MM-DD` sections rather than
    spawning parallel review files. The live remediation state is
    summarized in the
-   [Current Status — 2026-04-11](../../security/2026-04-10-security-review.md#current-status--2026-04-11)
+   [Current Status — 2026-04-11](2026-04-10-security-review.md#current-status--2026-04-11)
    section of that document; per-finding evidence lives in §4 of the
    same file.
 
@@ -55,7 +56,7 @@ deployment.
      `securityHeadersMiddleware` registered through `app_config`.
    - **A2** per-IP fixed-window rate limiter
      (`Microsoft.AspNetCore.RateLimiting`, 60 requests / 10 s, partition
-     keyed by `getClientIP` so `X-Forwarded-For` is honoured).
+     keyed by `getClientIP` so `X-Forwarded-For` is honored).
    - **B3** trusted-proxy allow-list wired via ASP.NET
      `ForwardedHeadersMiddleware` and the `GENPRES_TRUSTED_PROXIES`
      env var (defaults to `127.0.0.1, ::1`, matching the Plesk →
@@ -76,7 +77,7 @@ deployment.
    live test suite maintained out-of-repo by the maintainer. It is
    deliberately not part of the repository because it encodes
    deployment assumptions (target URL, demo credentials, expected HTTP
-   behaviour) rather than source-code invariants. The current suite
+   behavior) rather than source-code invariants. The current suite
    verifies the items recorded in the `Update — 2026-04-11` section of
    the security review and is run before any production deploy.
 
@@ -130,22 +131,22 @@ deployment.
 
 ## Consequences
 
-- The security review document, the regression test suite, and this ADR
-  together form a single chain of evidence: posture → verification → MDR
-  record.
+- The security review document, the regression test suite, and this
+  baseline together form a single chain of evidence: posture →
+  verification → record.
 - Auditors and new contributors can find the authoritative security
-  state in one place and trust that the MDR Design History references it.
+  state in one place.
 - Any change to the demo's runtime security profile (headers, rate
   limit, CSP, auth) must be reflected in both the security review's
   `Update — YYYY-MM-DD` section and, if it changes the *baseline*, in a
-  new ADR amending or superseding this one.
+  dated update to this document.
 - The intentional A5 non-remediation is now traceable through both the
-  security review and the Design History, so it cannot accidentally be
+  security review and this baseline, so it cannot accidentally be
   inherited by a non-demo deployment.
-- The risk-analysis files in `docs/mdr/risk-analysis/` are still the
-  formal regulatory artefacts; the maintainer must map the resolved
-  items into `risk-management-report.md` and the hazard-analysis
-  spreadsheets through normal change control before any C2 deployment.
+- The formal risk-analysis artifacts are maintained with the MDR
+  documentation, outside this repository; the maintainer must map the
+  resolved items into them through normal change control before any C2
+  deployment.
 - The "untrusted input as storage key" design principle (Decision 6)
   becomes a standing review item for any future request handler that
   allocates server-side state. Absence of an explicit trust-boundary

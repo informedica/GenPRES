@@ -44,13 +44,13 @@ The workbook contains 11 sheets:
 | 1.6 | Prostin (alprostadil) ng/kg/min infusion | **Fit** | Prescribe | Continuous dose type; unit handled by GenUNITS |
 | 1.7 | Sedation step protocol (fenobarbital, chloralhydraat, rivotril, morfine): mg/kg/day, frequency, keerdosering | **Fit** | Prescribe | Rule-driven discontinuous dosing incl. PRN-style "zo nodig" text (PRN toggle itself is AP §3.11 **Gap**) |
 | 1.8 | Vitamine D deficiency dose: `40 × (streef − serum) × gewicht` | **Gap** | — | Formula-based loading-dose calculator; no equivalent GenPRES rule authored |
-| 1.9 | Midazolam → lorazepam conversion (¼ of daily mida dose, in 3–4 dd) | **Gap** | — | Cross-drug equivalence conversion; not modelled |
+| 1.9 | Midazolam → lorazepam conversion (¼ of daily mida dose, in 3–4 dd) | **Gap** | — | Cross-drug equivalence conversion; not modeled |
 | 1.10 | Corticosteroid taper schedule (week 1–8, mg/m²/day → mg/day → ochtend/middag/avond) + stress-dose schema + steroid equivalence (dexamethason/prednison/HC) | **Gap** | — | Multi-week scheduled-taper dosing and inter-steroid equivalence; no roadmap coverage. Related to AP §9.15 (order start/stop) for scheduling |
 | 1.11 | Half-life extrapolation (concentration at t=±x from t₀ and half-life) | **Out of scope** | — | Pharmacokinetic estimate, not an order |
 
 ## 2. Electrolyte & Acid-Base Correction (Suppletion)
 
-Acute-correction dosing. Adjacent to the APLS/emergency category (AP §8) but not itemised in the AP2019 roadmap.
+Acute-correction dosing. Adjacent to the APLS/emergency category (AP §8) but not itemized in the AP2019 roadmap.
 
 | # | Workbook Function | GenPRES Status | View | Notes |
 |---|---|---|---|---|
@@ -65,7 +65,7 @@ Acute-correction dosing. Adjacent to the APLS/emergency category (AP §8) but no
 | # | Workbook Function | GenPRES Status | View | Notes |
 |---|---|---|---|---|
 | 3.1 | Maintenance fluid (Holliday-Segar: 150 ml/kg to 10 kg, +50, +20) per 24/48 hr and per 1/4/6/8/10 hr | **Partial** | — | Fluid targets expressible as dose rules (ml/kg/day); explicit maintenance-schedule breakdown not surfaced. Related to AP §2.8 |
-| 3.2 | Rehydration over 4/6/8/10/24/48 hr → ml/hr | **Gap** | — | Deficit-replacement scheduling; not modelled |
+| 3.2 | Rehydration over 4/6/8/10/24/48 hr → ml/hr | **Gap** | — | Deficit-replacement scheduling; not modeled |
 | 3.3 | Combined deficit + maintenance total → ml/hr | **Gap** | — | As above |
 | 3.4 | Dehydration % → fluid deficit (ml); normal (pre-dehydration) weight from current weight | **Partial** | — | Deficit maths; weight-back-calc not present |
 
@@ -74,7 +74,7 @@ Acute-correction dosing. Adjacent to the APLS/emergency category (AP §8) but no
 | # | Workbook Function | GenPRES Status | View | Notes |
 |---|---|---|---|---|
 | 4.1 | **eGFR Schwartz** (serum creatinine + length) | **Gap** | — | Directly matches AP §7.12 (**Gap**: Schwartz < 50 kg). Workbook has the exact formula — a reference implementation |
-| 4.2 | GFR from timed urine collection (volume, time, plasma/urine creatinine, BSA) | **Gap** | — | Clearance from urine collection; not modelled |
+| 4.2 | GFR from timed urine collection (volume, time, plasma/urine creatinine, BSA) | **Gap** | — | Clearance from urine collection; not modeled |
 | 4.3 | Fractional sodium excretion (%) and tubular phosphate resorption (%) | **Out of scope** | — | Diagnostic indices, not dosing |
 | 4.4 | Albumin deficit (weight, serum albumin, target, Ht) | **Gap** | — | Deficit-replacement calc, borders §2 suppletion |
 
@@ -150,7 +150,7 @@ The workbook exposes dosing patterns absent from both GenPRES and the AP2019 roa
 
 ### Why replacing this tooling matters
 
-These workbooks are **unversioned, untested shadow tooling**: formulas copied between clinicians, no audit trail, no validation, no MDR traceability. Every function GenPRES absorbs removes a silent single point of failure. The Fit column shows GenPRES already retires roughly a third of this workbook outright; the Partial and Gap columns are a prioritised backlog for retiring the rest.
+These workbooks are **unversioned, untested shadow tooling**: formulas copied between clinicians, no audit trail, no validation, no MDR traceability. Every function GenPRES absorbs removes a silent single point of failure. The Fit column shows GenPRES already retires roughly a third of this workbook outright; the Partial and Gap columns are a prioritized backlog for retiring the rest.
 
 ---
 
