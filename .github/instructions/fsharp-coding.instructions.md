@@ -241,6 +241,7 @@ let handleQuery fetchById fetchByName = function
 - Use `Result<'T,'Error>` for operations that can fail
   - Use exceptions only for unexpected or unrecoverable errors (system failures, programming errors)
 - Avoid throwing exceptions in business logic
+- Never use `failwith` / `failwithf`: they throw a bare `System.Exception`, which the .NET design guidelines forbid ([#419](https://github.com/informedica/GenPRES/issues/419)). Use `invalidArg (nameof x)` for argument preconditions, `invalidOp` for invalid state, `raise` with a specific BCL or library exception type (`KeyNotFoundException`, `FormatException`, `TimeoutException`, `SolverException`, ...), `reraise ()` to propagate a caught exception, and Expecto's `failtest` inside tests
 - Use `Option<'T>` for values that might not exist
 - Prefer specific error types (DUs) over strings
 - Aggregate validation errors using a DU or non-empty collection
