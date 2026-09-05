@@ -197,7 +197,9 @@ DoseType : {filter.DoseType |> Option.map DoseType.toDescription |> Option.defau
                     writeDebugMessage $"finished checking {dsrs |> Array.length} rules"
 
                     { form with
-                        Markdown = dsrs |> DoseRule.Print.toMarkdown
+                        Markdown =
+                            dsrs
+                            |> DoseRule.Print.toMarkdown (Informedica.GenForm.Lib.Api.getNKFLinkProvider provider)
                         DoseCheck = doseCheck
                     }
 

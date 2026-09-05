@@ -6,9 +6,6 @@ module DoseRule =
     open System
     open Informedica.Utils.Lib.BCL
 
-    open FSharp.Data
-    open FSharp.Data.JsonExtensions
-
     open Informedica.Utils.Lib
     open Informedica.GenCore.Lib.Ranges
 
@@ -79,40 +76,28 @@ module DoseRule =
             )
 
 
-        // get all medications from Kinderformularium
-        let kinderFormUrl = "https://www.kinderformularium.nl/geneesmiddelen.json"
-
-
-        let private _medications () =
-            let res = JsonValue.Load kinderFormUrl
-
-            [
-                for v in res do
-                    {|
-                        id = v?id.AsString()
-                        generic = v?generic_name.AsString().Trim().ToLower()
-                    |}
-            ]
-            |> List.distinct
-
-
-        let getKFMedications = Memoization.memoize _medications
-
-
         /// <summary>
-        /// Find the Kinderformularium link for a <c>Source</c> / <c>GenericLabel</c> pair.
+        /// Render the dose rules of <b>one</b> generic as markdown: a generic heading, then
+        /// per route the products and synonyms, per patient category and indication the
+        /// dose type, schedule, formulary link and dose limits.
         /// </summary>
         /// <remarks>
-        /// Without parameters, the right will be a value and will be evaluated eagerly. See
-        /// "Never Perform IO in a Top-Level `let` Value" in AGENTS.md.
+        /// Per-generic by contract: the outer fold keeps the last generic it sees, so a
+        /// multi-generic array yields only the last one. Use <c>printGenerics</c> for
+        /// several. On the anonymous record in the fold, see
+        /// https://github.com/dotnet/fsharp/issues/6699.
         /// </remarks>
-        let getLink source gen =
-            Source.getLink (getKFMedications ()) source gen
-
-
-        /// See for use of anonymous record in
-        /// fold: https://github.com/dotnet/fsharp/issues/6699
-        let toMarkdown (rules: DoseRule array) =
+        /// <param name="getLink">
+        /// Resolves the external formulary link per dose rule. Passed in rather than
+        /// looked up here: the Nederlands Kinder Formularium index it needs is a registered
+        /// resource (<c>Resources.Keys.nkfLinkProvider</c>), so a failed fetch degrades to
+        /// an empty index — rendered below as the existing "*Lokaal*" fallback — is
+        /// reported as a resource <c>Warning</c>, and is refreshed by an admin
+        /// ReloadResources. Keeping the fetch here made this module impure and its cache
+        /// unreachable by that reload. See issue #529.
+        /// </param>
+        /// <param name="rules">The dose rules to render.</param>
+        let toMarkdown (getLink: Source.LinkProvider) (rules: DoseRule array) =
             let generic_md generic = $"\n\n# %s{generic}\n\n---\n"
 
             let route_md route products synonyms =
@@ -299,11 +284,11 @@ module DoseRule =
             |> _.md
 
 
-        let printGenerics generics (doseRules: DoseRule[]) =
+        let printGenerics (getLink: Source.LinkProvider) generics (doseRules: DoseRule[]) =
             doseRules
             |> generics
             |> Array.sort
-            |> Array.map (fun g -> doseRules |> Array.filter (fun dr -> dr.Generic = g) |> toMarkdown)
+            |> Array.map (fun g -> doseRules |> Array.filter (fun dr -> dr.Generic = g) |> toMarkdown getLink)
 
 
     open Informedica.GenUnits.Lib

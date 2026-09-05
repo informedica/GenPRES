@@ -3535,6 +3535,109 @@ module Tests =
                 ]
 
 
+    /// External formulary links (issue #529): `Source.getLink` is pure over an NKF index
+    /// that may be empty, and `SourceLoader` is the IO leaf that must fail as a `Result`.
+    module SourceLinkTests =
+
+        let private fk = Source.identified "FK"
+        let private nkf = Source.identified "NKF"
+        let private label = GenericLabel.fromShorthand
+
+        let private meds: Source.NKFMedication list =
+            [
+                {
+                    Generic = "paracetamol"
+                    Id = "123"
+                }
+                {
+                    Generic = "amoxicilline + clavulaanzuur"
+                    Id = "456"
+                }
+            ]
+
+        let tests =
+            testList
+                "Source links"
+                [
+                    test "FK link files the generic under its first letter" {
+                        // Verified live: .../preparaatteksten/n/paracetamol is a 404,
+                        // .../preparaatteksten/p/paracetamol is the monograph.
+                        let exp =
+                            "[Farmacotherapeutisch Kompas](https://www.farmacotherapeutischkompas.nl/bladeren/preparaatteksten/p/paracetamol#doseringen)"
+
+                        Source.getLink [] fk (label "paracetamol")
+                        |> Expect.equal $"FK link should be {exp}" (Some exp)
+                    }
+
+                    test "FK link is lower case and slugs '/' to '-'" {
+                        let exp =
+                            "[Farmacotherapeutisch Kompas](https://www.farmacotherapeutischkompas.nl/bladeren/preparaatteksten/a/amoxicilline-clavulaanzuur#doseringen)"
+
+                        Source.getLink meds fk (label "Amoxicilline/Clavulaanzuur")
+                        |> Expect.equal $"FK link should be {exp}" (Some exp)
+                    }
+
+                    test "FK link does not need the NKF index" {
+                        Source.getLink [] fk (label "paracetamol")
+                        |> Expect.equal
+                            "same link with and without index"
+                            (Source.getLink meds fk (label "paracetamol"))
+                    }
+
+                    test "FK link is None for an empty label" {
+                        Source.getLink [] fk (label "") |> Expect.isNone "no page for an empty generic"
+                    }
+
+                    test "NKF link is None when the index is empty" {
+                        Source.getLink [] nkf (label "paracetamol")
+                        |> Expect.isNone "empty index (site unreachable) drops NKF links"
+                    }
+
+                    test "NKF link is built from the index id and the slugged label" {
+                        let exp =
+                            "[Kinderformularium](https://www.kinderformularium.nl/geneesmiddel/456/amoxicilline-clavulaanzuur)"
+
+                        Source.getLink meds nkf (label "amoxicilline/clavulaanzuur")
+                        |> Expect.equal $"NKF link should be {exp}" (Some exp)
+                    }
+
+                    test "NKF index match is case-insensitive" {
+                        Source.getLink meds nkf (label "Paracetamol")
+                        |> Option.map (String.contains "/geneesmiddel/123/")
+                        |> Expect.equal "matched entry 123" (Some true)
+                    }
+
+                    test "NKF link is None when the generic is not in the index" {
+                        Source.getLink meds nkf (label "ibuprofen") |> Expect.isNone "not indexed"
+                    }
+
+                    test "other sources have no link" {
+                        Source.getLink meds (Source.other "Lokaal") (label "paracetamol")
+                        |> Expect.isNone "no external formulary"
+                    }
+
+                    test "noLinks never finds a link" {
+                        Source.noLinks fk (label "paracetamol") |> Expect.isNone "FK"
+                        Source.noLinks nkf (label "paracetamol") |> Expect.isNone "NKF"
+                    }
+
+                    test "fetchNKFMedicationsFrom returns Error, not an exception, when unreachable" {
+                        // Port 9 (discard) on the loopback: refused immediately, no DNS.
+                        let url = "http://127.0.0.1:9/geneesmiddelen.json"
+
+                        match SourceLoader.fetchNKFMedicationsFrom url with
+                        | Ok _ -> failwith "expected Error"
+                        | Error [ ErrorMsg(text, Some _) ] ->
+                            text |> String.contains url |> Expect.isTrue "message names the url"
+
+                            text
+                            |> String.contains "could not fetch"
+                            |> Expect.isTrue "message says what failed"
+                        | Error msgs -> failwith $"expected one ErrorMsg with the exception, got %A{msgs}"
+                    }
+                ]
+
+
     /// The boxed resource registry engine (approach a) + GStand as a
     /// function-valued resource. Engine validated in Scripts/ResourcesRegistryImpl.fsx
     /// (incl. live load parity); these are the in-CI unit checks.
@@ -3629,6 +3732,66 @@ module Tests =
                         out |> Seq.isEmpty |> Expect.isTrue "fake provider returns empty"
                         called |> Expect.isTrue "function-valued resource was invoked"
                     }
+
+                    test "ofResultOrDefault: Ok passes the value through without warnings" {
+                        let k = kInt "opt-ok"
+                        let reg = Map [ k.Name, ofResultOrDefault "note" -1 (fun () -> Ok 42) ]
+                        let eng = LoadEngine reg
+
+                        eng.Resolve k |> Expect.equal "value" 42
+                        eng.Warnings |> Expect.equal "no warnings" []
+                    }
+
+                    test "ofResultOrDefault: Error yields the fallback and a prefixed Warning per error" {
+                        let k = kInt "opt-err"
+
+                        let reg =
+                            Map
+                                [
+                                    k.Name,
+                                    ofResultOrDefault
+                                        "not loaded"
+                                        -1
+                                        (fun () -> Error [ ErrorMsg("boom", None); Warning "meh" ])
+                                ]
+
+                        let eng = LoadEngine reg
+
+                        eng.Resolve k |> Expect.equal "fallback served" -1
+
+                        eng.Warnings
+                        |> Expect.equal
+                            "each error is a Warning prefixed with the note"
+                            [ Warning "not loaded: boom"; Warning "not loaded: meh" ]
+                    }
+
+                    test "nkfLinkProvider degrades to FK-only links when the fetch fails" {
+                        // Mirrors the defaultRegistry entry, with the fetch replaced.
+                        let reg =
+                            Map
+                                [
+                                    Keys.nkfLinkProvider.Name,
+                                    ofResultOrDefault
+                                        "NKF links not loaded"
+                                        (Source.getLink []: Source.LinkProvider)
+                                        (fun () -> Error [ ErrorMsg("kinderformularium.nl down", None) ])
+                                ]
+
+                        let eng = LoadEngine reg
+                        let getLink: Source.LinkProvider = eng.Resolve Keys.nkfLinkProvider
+                        let label = GenericLabel.fromShorthand "paracetamol"
+
+                        getLink (Source.identified "FK") label |> Expect.isSome "FK link survives"
+
+                        getLink (Source.identified "NKF") label |> Expect.isNone "NKF link is lost"
+
+                        eng.Warnings
+                        |> Expect.equal
+                            "outage surfaces as a Warning"
+                            [
+                                Warning "NKF links not loaded: kinderformularium.nl down"
+                            ]
+                    }
                 ]
 
 
@@ -3649,5 +3812,6 @@ module Tests =
                 DoseRuleToDataTests.tests
                 DoseRuleRoundtripTests.tests
                 CheckTests.tests
+                SourceLinkTests.tests
                 ResourceRegistryTests.tests
             ]

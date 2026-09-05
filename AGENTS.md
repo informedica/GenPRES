@@ -146,14 +146,18 @@ The distinction is **value vs. function**, and it is easy to miss when the IO hi
 partial application:
 
 ```fsharp
-// BAD — a VALUE. `getKFMedications ()` is applied here, so the HTTP fetch runs in the
-// file's static constructor, triggered by any unrelated binding in the same file.
-let getLink = Source.getLink (getKFMedications ())
+// BAD — a VALUE. `fetch ()` is applied at binding time, so the IO runs in the file's
+// static constructor, triggered by any unrelated binding in the same file.
+let index = fetch () |> Result.defaultValue []
 
-// GOOD — a FUNCTION. The fetch happens on first actual use; `getKFMedications` is
-// memoized, so it still runs at most once per process.
-let getLink source gen = Source.getLink (getKFMedications ()) source gen
+// GOOD — a FUNCTION. Nothing runs until a caller asks; the caller (a resource
+// registry, a request handler) decides when, how often, and what a failure means.
+let index () = fetch () |> Result.defaultValue []
 ```
+
+The test: no parameters, not `lazy`, and the right-hand side reaches IO — then it runs at type
+initialisation. Give it a `()` parameter or wrap it in `lazy`, keep the IO leaf returning a
+`Result`, and let the composition site own the failure policy.
 
 Nesting inside a sub-module does **not** isolate it — the cctor is per file, not per module.
 

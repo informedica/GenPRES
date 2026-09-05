@@ -137,6 +137,24 @@ let cachedProviderErrorStateTests =
                 (provider :> IResourceProvider).GetRenalRules()
                 |> Expect.equal "RenalRules should be empty" [||]
             }
+
+            test "getNKFLinkProvider serves FK-only links instead of throwing when loader failed" {
+                // Nothing is registered on a failed load, so `Get` would raise
+                // KeyNotFoundException; a decorative link must not fail a request.
+                let provider =
+                    CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+
+                let getLink =
+                    Informedica.GenForm.Lib.Api.getNKFLinkProvider (provider :> IResourceProvider)
+
+                let label = GenericLabel.fromShorthand "paracetamol"
+
+                getLink (Source.identified "FK") label
+                |> Expect.isSome "FK link is built from the generic name alone"
+
+                getLink (Source.identified "NKF") label
+                |> Expect.isNone "NKF link needs the index, which did not load"
+            }
         ]
 
 
