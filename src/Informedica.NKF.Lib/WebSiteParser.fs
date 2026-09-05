@@ -298,12 +298,14 @@ module WebSiteParser =
 
 
     let cacheFormulary (ds: Drug.Drug[]) =
-        ds |> Json.serialize |> File.writeTextToFile File.cachePath
+        ds |> Json.serialize |> File.writeTextToFile (File.cachePath ())
 
 
     let _getFormulary () =
-        if File.cachePath |> File.exists then
-            File.cachePath
+        let cachePath = File.cachePath ()
+
+        if cachePath |> File.exists then
+            cachePath
             |> File.readAllLines
             |> String.concat ""
             |> Json.deSerialize<Drug.Drug[]>
