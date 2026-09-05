@@ -83,10 +83,6 @@ module DoseRule =
         let kinderFormUrl = "https://www.kinderformularium.nl/geneesmiddelen.json"
 
 
-        let farmocoTherapeutischKompas =
-            "https://www.farmacotherapeutischkompas.nl/bladeren/preparaatteksten/n/GENERIEK#doseringen"
-
-
         let private _medications () =
             let res = JsonValue.Load kinderFormUrl
 
@@ -103,7 +99,15 @@ module DoseRule =
         let getKFMedications = Memoization.memoize _medications
 
 
-        let getLink = Source.getLink (getKFMedications ())
+        /// <summary>
+        /// Find the Kinderformularium link for a <c>Source</c> / <c>GenericLabel</c> pair.
+        /// </summary>
+        /// <remarks>
+        /// Without parameters, the right will be a value and will be evaluated eagerly. See
+        /// "Never Perform IO in a Top-Level `let` Value" in AGENTS.md.
+        /// </remarks>
+        let getLink source gen =
+            Source.getLink (getKFMedications ()) source gen
 
 
         /// See for use of anonymous record in
