@@ -314,7 +314,7 @@ let tests =
             let original = Scenarios.pcmSupp
             let text = original |> Medication.toString |> String.concat "\n"
             match text |> Medication.fromString with
-            | Error errs -> failwith $"Parse failed: {errs}"
+            | Error errs -> failtest $"Parse failed: {errs}"
             | Ok parsed ->
                 parsed.Id |> Expect.equal "Id matches" original.Id
         }
