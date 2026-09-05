@@ -1,5 +1,5 @@
 ---
-last_commit_released: e4adc399573cc44080db1fd2a1531c90fd828140
+last_commit_released: 5235dee77dbc2e8d5d4dae368e9de2037597ecc2
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,29 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.12 - 2026-09-05
+
+### 🚀 Features
+
+* *(docker)* Let ShipIt bump the compose image tag on release ([7b23850f](https://github.com/informedica/GenPRES/commit/7b23850f9cccd479d43cb92d5567d3e2cb6bdebe))
+
+    `docker compose up -d` now runs the current release by default; the tag
+    in `compose.yaml` is maintained by the release PR. `GENPRES_IMAGE_TAG`
+    in `.env` is only needed to pin a different version.
+
+### 🐞 Bug Fixes
+
+* *(docker)* Default image to demo mode, add compose.yaml ([a9d133eb](https://github.com/informedica/GenPRES/commit/a9d133eb6285e8cb933937017ee51d34eef24089))
+
+    The Docker image now starts a working demo with no environment variables
+    (`GENPRES_PROD=0`, public demo sheet ID). Production is an explicit opt-in:
+    `GENPRES_PROD=1`, the production `GENPRES_URL_ID`, a 16+ character
+    `GENPRES_PASSWORD` and a `data/cache` bind mount. A repo-root
+    `compose.yaml` wires all of this from `.env`.
+* *(docker)* Ship demo sheet ID in .env.example, fall back in compose ([579c497a](https://github.com/informedica/GenPRES/commit/579c497a5f419ee6e5b10f41d7753c02ce983f26))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/e4adc399573cc44080db1fd2a1531c90fd828140..5235dee77dbc2e8d5d4dae368e9de2037597ecc2)</small></strong>
 
 ## 0.1.2-alpha.11 - 2026-09-05
 

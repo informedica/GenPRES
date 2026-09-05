@@ -12,7 +12,7 @@ services:
     # No :latest is published (only pre-releases), so a tag is needed. The default is the
     # current release and is bumped by ShipIt's `regex` updater (CHANGELOG.md front matter)
     # in every release PR; do not hand-edit it. Set GENPRES_IMAGE_TAG in .env to pin another.
-    image: informedica/genpres:${GENPRES_IMAGE_TAG:-0.1.2-alpha.11}
+    image: informedica/genpres:${GENPRES_IMAGE_TAG:-0.1.2-alpha.12}
     container_name: genpres
     ports:
       - "${GENPRES_PORT:-8080}:8085"
