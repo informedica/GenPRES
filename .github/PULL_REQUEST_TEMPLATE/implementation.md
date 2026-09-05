@@ -26,7 +26,7 @@ Guideline: in this section you're aiming to minimise the effort required, betwee
 
 I confirm that these changes:
 
-- [ ] Follow the process described in [CONTRIBUTING.md](../CONTRIBUTING.md#Pull_Request_Process).
+- [ ] Follow the process described in [CONTRIBUTING.md](../../CONTRIBUTING.md#pull-request-process).
 - [ ] Make the changes proposed in the linked issue (if applicable): <issue number, or 'n/a'>
 - [ ] Follow the approach documented in the linked implementation plan (if applicable): <link, or 'n/a'>
 - [ ] Are no more than 200 lines of changed code, ideally 25-100.
@@ -56,4 +56,4 @@ I confirm that:
 - [ ] I am confident that the changes work.
 - [ ] The changed code meets our guidelines and standards.
 - [ ] The new code is not more complex than necessary.
-- [ ] I have clearly labelled suggestions as blocking, required but not blocking, or optional (see [CONTRIBUTING.md](../CONTRIBUTING.md#Pull_Request_Process)).
+- [ ] I have clearly labelled suggestions as blocking, required but not blocking, or optional (see [CONTRIBUTING.md](../../CONTRIBUTING.md#pull-request-process)).

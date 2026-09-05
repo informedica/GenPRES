@@ -18,7 +18,7 @@ Give a high-level description of the documentation changes. Link to any relevant
 
 I confirm that these changes:
 
-- [ ] Follow the process described in [CONTRIBUTING.md](../CONTRIBUTING.md#Pull_Request_Process).
+- [ ] Follow the process described in [CONTRIBUTING.md](../../CONTRIBUTING.md#pull-request-process).
 - [ ] Are limited to documentation (no source code changes).
 - [ ] Are accurate and up to date.
 - [ ] Are clearly written and understandable by the intended audience.
