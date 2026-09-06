@@ -2,7 +2,7 @@
 
 **Date**: 2024-01-01
 
-**Status**: Accepted, amended (2026-09-06)
+**Status**: Accepted, amended (2026-09-06); § Dependency rule and effects: Proposed
 
 **Related Issues** (amendment): [#378 — Change project architecture](https://github.com/informedica/GenPRES/issues/378),
 [#416 — Standard logging library](https://github.com/informedica/GenPRES/issues/416),
@@ -62,6 +62,15 @@ The core is the domain: units, patient, solver, operational knowledge rules, ord
 Core projects contain no call that reaches outside the process. Core projects do not read
 configuration; they receive values.
 
+The ring map in `scripts/CheckDependencyRule.fsx` names six rings, innermost first: Core;
+Contract, which is `GenPRES.Shared` alone — the types and pure functions that client and server
+exchange; Infrastructure, the adapters and the agent runtime; Presentation, the server and the
+MCP host; Client; and Tooling, the extraction pipeline, which sits outside the runtime rings. For
+the Contract ring the rule is stricter than "inward": Contract references only Contract, and only
+Presentation and Client may reference it. Core and Infrastructure never see the contract types,
+so the domain cannot come to depend on the wire shape, and the client sees nothing but the
+contract.
+
 #### 2. ZIndex, ZForm, NKF and FTK are adapters
 
 They parse external sources (the G-Standaard files, the Kinderformularium website, the
@@ -106,7 +115,11 @@ solution, that references point inward, that core sources contain no call that r
 that only the DMZ names a `GENPRES_*` setting, and that only the DMZ declares an entry point. The
 violations that exist at the time of this decision are listed in the script as allowances, each
 with a reason. An allowance that no longer matches fails the run, so the list can only shrink.
-The migration is planned in `docs/implementation-plans/378-dependency-rule.md`.
+The check reads code lines only, so a comment may name a setting or a banned token without an
+allowance. The setting check matches the string literal `"GENPRES_`, the form in which a setting
+is read; the prefix is one value in the script today and becomes one per executable if GenPRES
+is ever split into separately deployed modules. The migration is planned in
+`docs/implementation-plans/378-dependency-rule.md`.
 
 ## Consequences
 

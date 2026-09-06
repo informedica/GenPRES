@@ -72,6 +72,11 @@ An ADR is **not** written for:
   decision is an amendment: a dated `### … — amended YYYY-MM-DD` section in place, as
   [ADR-0005](0005-build-system-versioning-and-release.md) does. A superseded ADR stays as the record
   of a road not taken ([ADR-0004](0004-fhir-r4-integration.md)); it is not deleted.
+  *Amended 2026-09-06*: an amendment section may carry its own status when it differs from the
+  ADR's — a `Proposed` amendment to an `Accepted` ADR, with the condition under which it becomes
+  `Accepted` — and the ADR-level status line then names it, as in
+  `Accepted, amended (date); § <section>: Proposed`. [ADR-0001](0001-system-architecture.md)'s
+  dependency-rule section is the case in point.
 - There is no hand-maintained index or change log. The folder listing and `git log docs/adr` are the index.
 
 ### 4. What lives where in `docs/`
