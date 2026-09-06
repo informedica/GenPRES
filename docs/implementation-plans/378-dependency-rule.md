@@ -68,18 +68,12 @@ a clinical path and the validation effort is not yet scoped.
    `MailboxProcessor` — the pattern of #523).
 2. Confirm the type-initialization "warm-up" in `src/Informedica.GenFORM.Lib/DoseRuleLoader.fs`
    is unnecessary now that ZIndex loads lazily (#526), and delete it.
-3. Run `scripts/CheckDependencyRule.fsx` in CI: a step in `.github/workflows/build.yml` next to
-   the one that runs `CheckSolutionVersions.fsx`, calling the script directly so no `Build.fs`
-   change is needed:
+3. Land `scripts/CheckDependencyRule.fsx` and a `CheckArchitecture` FAKE target in `Build.fs`
+   next to `CheckVersions`, run in CI:
 
-   ```yaml
-   - name: Check dependency rule
-     run: dotnet fsi scripts/CheckDependencyRule.fsx
+   ```fsharp
+   Target.create "CheckArchitecture" (fun _ -> run dotnet [ "fsi"; "scripts/CheckDependencyRule.fsx" ] ".")
    ```
-
-   The script has only run on macOS so far; the first CI run proves the path handling on Windows
-   and Linux. Optionally add a `CheckArchitecture` FAKE target for local use, mirroring
-   `CheckVersions`.
 
 4. Land ADR-0022 and the ADR-0001 amendment; answer the open question on #378.
 
