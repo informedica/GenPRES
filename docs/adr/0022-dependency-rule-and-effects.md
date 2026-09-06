@@ -85,7 +85,9 @@ solution, that references point inward, that core sources contain no call that r
 that only the DMZ names a `GENPRES_*` setting, and that only the DMZ declares an entry point. The
 violations that exist at the time of this decision are listed in the script as allowances, each
 with a reason. An allowance that no longer matches fails the run, so the list can only shrink.
-The migration is planned in `docs/implementation-plans/378-dependency-rule.md`.
+The script is run by hand today (`dotnet fsi scripts/CheckDependencyRule.fsx`); adding it as a
+CI step is the first phase of the migration, planned in
+`docs/implementation-plans/378-dependency-rule.md`.
 
 ## Consequences
 
@@ -99,8 +101,8 @@ The migration is planned in `docs/implementation-plans/378-dependency-rule.md`.
   own issue and validation; it is the last step of the migration, not the first.
 - The MCP host composes the same ports as the server instead of its own singletons, and stops
   setting environment variables.
-- A change that violates the rule fails the fitness test in CI; the reviewer points at this ADR
-  instead of arguing from taste.
+- A change that violates the rule fails the fitness test — in CI once its step lands, by hand
+  until then — and the reviewer points at this ADR instead of arguing from taste.
 
 ## Alternatives considered
 

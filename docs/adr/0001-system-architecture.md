@@ -23,7 +23,7 @@ an enforced rule, and by 2026 it did not hold: see
 [#378](https://github.com/informedica/GenPRES/issues/378). The rule that makes it hold — which
 projects form the core, that references point inward, how effects enter the core, and that the
 outer ring is the DMZ — is decided in [ADR-0022](0022-dependency-rule-and-effects.md) and
-enforced by `scripts/CheckDependencyRule.fsx`.
+checked by `scripts/CheckDependencyRule.fsx`, run by hand until its CI step lands.
 
 ## Consequences
 
