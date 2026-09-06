@@ -574,3 +574,14 @@ module Types =
             SizeBytes: int64
             LastModifiedAt: string
         }
+
+    type SessionLaunchToken = SessionLaunchToken of string
+
+    type SessionContent =
+        {
+            RedeemToken: string
+            UserName: string
+            UserEmail: string
+            PatientId: string
+            SessionId: string
+        }

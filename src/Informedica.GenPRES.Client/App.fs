@@ -16,6 +16,18 @@ open Global
 
 module private Elmish =
 
+    [<RequireQualifiedAccess>]
+    type SessionContextMsg =
+        | Launch of SessionLaunchToken
+        | Error of string
+        | Redeemed of SessionContent
+
+    [<RequireQualifiedAccess>]
+    type SessionContext =
+        | Anonymous
+        | Launched of SessionLaunchToken
+        | Error of string
+        | Content of Deferred<SessionContent>
 
     type State =
         {
@@ -49,6 +61,7 @@ module private Elmish =
             AuthToken: string
             LogFiles: Deferred<LogFileInfo[]>
             LogAnalysisReport: Deferred<string>
+            SessionContext: SessionContext
         }
 
 
@@ -104,6 +117,8 @@ module private Elmish =
         | LoadLogFilesResult of ApiResponse
         | AnalyzeLogFile of string
         | LoadLogAnalysisResult of ApiResponse
+
+        | SessionContextMsg of SessionContextMsg
 
 
     and ApiResponse = AsyncOperationStatus<Result<Api.Response, string[]>>
@@ -234,127 +249,140 @@ module private Elmish =
         tryParseInt "gd" paramsMap |> Option.map Measures.toDay,
         Map.tryFind "dp" paramsMap
 
-    let parseUrl sl =
-        match sl with
-        | [] -> None, None, None, true, None
-        | [ "patient"; Route.Query queryParams ] ->
-            let paramsMap = Map.ofList queryParams
+    let parsePatient (urlParts: string list) =
+        urlParts
+        |> List.pairwise
+        |> List.tryFind (fun (a, b) -> a = "patient")
+        |> function
+            | Some(_, Route.Query queryParams) ->
+                let paramsMap = Map.ofList queryParams
 
-            let pat =
-                match Map.tryFind "by" paramsMap, Map.tryFind "ad" paramsMap with
-                | Some(Route.Int year), _ ->
-                    // birthday year is required
-                    let month =
-                        match Map.tryFind "bm" paramsMap with
-                        | Some(Route.Int months) -> months
-                        | _ -> 1 // january is the default
+                let pat =
+                    match Map.tryFind "by" paramsMap, Map.tryFind "ad" paramsMap with
+                    | Some(Route.Int year), _ ->
+                        // birthday year is required
+                        let month =
+                            match Map.tryFind "bm" paramsMap with
+                            | Some(Route.Int months) -> months
+                            | _ -> 1 // january is the default
 
-                    let day =
-                        match Map.tryFind "bd" paramsMap with
-                        | Some(Route.Int days) -> days
-                        | _ -> 1 // first day of the month is the default
+                        let day =
+                            match Map.tryFind "bd" paramsMap with
+                            | Some(Route.Int days) -> days
+                            | _ -> 1 // first day of the month is the default
 
-                    let weight, height, gaWeeks, gaDays, dep = parsePatientParams paramsMap
+                        let weight, height, gaWeeks, gaDays, dep = parsePatientParams paramsMap
 
-                    let cvl =
-                        match Map.tryFind "cv" paramsMap with
-                        | Some s when s = "y" -> true
-                        | _ -> false
+                        let cvl =
+                            match Map.tryFind "cv" paramsMap with
+                            | Some s when s = "y" -> true
+                            | _ -> false
 
-                    let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
+                        let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
 
-                    let patient =
-                        Patient.create
-                            (Some age.Years)
-                            (Some age.Months)
-                            (Some age.Weeks)
-                            (Some age.Days)
-                            weight
-                            height
-                            gaWeeks
-                            gaDays
-                            UnknownGender
-                            [
-                                if cvl then
-                                    CVL
-                            ]
-                            None
-                            dep
+                        let patient =
+                            Patient.create
+                                (Some age.Years)
+                                (Some age.Months)
+                                (Some age.Weeks)
+                                (Some age.Days)
+                                weight
+                                height
+                                gaWeeks
+                                gaDays
+                                UnknownGender
+                                [
+                                    if cvl then
+                                        CVL
+                                ]
+                                None
+                                dep
 
-                    patient
-                | _, Some(Route.Int days) ->
-                    let weight, height, gaWeeks, gaDays, dep = parsePatientParams paramsMap
+                        patient
+                    | _, Some(Route.Int days) ->
+                        let weight, height, gaWeeks, gaDays, dep = parsePatientParams paramsMap
 
-                    let cvl =
-                        match Map.tryFind "cv" paramsMap with
-                        | Some s when s = "y" -> [ CVL ]
-                        | _ -> []
+                        let cvl =
+                            match Map.tryFind "cv" paramsMap with
+                            | Some "y" -> [ CVL ]
+                            | _ -> []
 
-                    let age = Patient.Age.fromDays days
+                        let age = Patient.Age.fromDays days
 
-                    let patient =
-                        Patient.create
-                            (Some age.Years)
-                            (Some age.Months)
-                            (Some age.Weeks)
-                            (Some age.Days)
-                            weight
-                            height
-                            gaWeeks
-                            gaDays
-                            UnknownGender
-                            cvl
-                            None
-                            dep
+                        let patient =
+                            Patient.create
+                                (Some age.Years)
+                                (Some age.Months)
+                                (Some age.Weeks)
+                                (Some age.Days)
+                                weight
+                                height
+                                gaWeeks
+                                gaDays
+                                UnknownGender
+                                cvl
+                                None
+                                dep
 
-                    patient
+                        patient
 
-                | _ ->
-                    Logging.warning "could not parse url to patient" (sl |> String.concat ";")
-                    None
+                    | _ ->
+                        Logging.warning "could not parse url to patient" (urlParts |> String.concat ";")
+                        None
 
-            let page =
-                match paramsMap |> Map.tryFind "pg" with
-                | Some s when s = "el" -> Some LifeSupport
-                | Some s when s = "cm" -> Some ContinuousMeds
-                | Some s when s = "pr" -> Some Prescribe
-                | Some s when s = "fm" -> Some Formulary
-                | Some s when s = "pe" -> Some Parenteralia
+                let page =
+                    match paramsMap |> Map.tryFind "pg" with
+                    | Some s when s = "el" -> Some LifeSupport
+                    | Some s when s = "cm" -> Some ContinuousMeds
+                    | Some s when s = "pr" -> Some Prescribe
+                    | Some s when s = "fm" -> Some Formulary
+                    | Some s when s = "pe" -> Some Parenteralia
+                    | _ -> None
+
+                let lang =
+                    match paramsMap |> Map.tryFind "la" with
+                    | Some s when s = "en" -> Some Localization.English
+                    | Some s when s = "du" -> Some Localization.Dutch
+                    | Some s when s = "fr" -> Some Localization.French
+                    | Some s when s = "gr" -> Some Localization.German
+                    | Some s when s = "sp" -> Some Localization.Spanish
+                    | Some s when s = "it" -> Some Localization.Italian
+                    //                | Some s when s = "ch" -> Some Localization.Chinees // refact: to Chinese
+                    | _ -> None
+
+                let discl =
+                    match paramsMap |> Map.tryFind "dc" with
+                    | Some s when s = "n" -> false
+                    | _ -> true
+
+                let med =
+                    {|
+                        indication = paramsMap |> Map.tryFind "in"
+                        medication = paramsMap |> Map.tryFind "md"
+                        route = paramsMap |> Map.tryFind "rt"
+                        form = paramsMap |> Map.tryFind "fr"
+                        dosetype = paramsMap |> Map.tryFind "dt" |> Option.map DoseType.doseTypeFromString
+                    |}
+                    |> Some
+
+                pat, page, lang, discl, med
+            | _ -> None, None, None, true, None
+
+    // expects url parts of the form "session?launch={token}"
+    // parses it into SessionContext.Launched token if found,
+    // otherwise SessionContext.Anonymous
+    let parseSessionInfo (urlParts: string list) =
+        let launchToken =
+            urlParts
+            |> List.pairwise
+            |> List.tryFind (fun (a, b) -> a = "session")
+            |> function
+                | Some(_, Route.Query [ "launch", token ]) -> Some(SessionLaunchToken token)
                 | _ -> None
 
-            let lang =
-                match paramsMap |> Map.tryFind "la" with
-                | Some s when s = "en" -> Some Localization.English
-                | Some s when s = "du" -> Some Localization.Dutch
-                | Some s when s = "fr" -> Some Localization.French
-                | Some s when s = "gr" -> Some Localization.German
-                | Some s when s = "sp" -> Some Localization.Spanish
-                | Some s when s = "it" -> Some Localization.Italian
-                //                | Some s when s = "ch" -> Some Localization.Chinees // refact: to Chinese
-                | _ -> None
-
-            let discl =
-                match paramsMap |> Map.tryFind "dc" with
-                | Some s when s = "n" -> false
-                | _ -> true
-
-            let med =
-                {|
-                    indication = paramsMap |> Map.tryFind "in"
-                    medication = paramsMap |> Map.tryFind "md"
-                    route = paramsMap |> Map.tryFind "rt"
-                    form = paramsMap |> Map.tryFind "fr"
-                    dosetype = paramsMap |> Map.tryFind "dt" |> Option.map DoseType.doseTypeFromString
-                |}
-                |> Some
-
-            pat, page, lang, discl, med
-
-        | _ ->
-            sl |> String.concat "" |> Logging.warning "could not parse url"
-
-            None, None, None, true, None
-
+        match launchToken with
+        | Some token -> SessionContext.Launched token
+        | None -> SessionContext.Anonymous
 
     let initialState
         pat
@@ -369,9 +397,10 @@ module private Elmish =
                 form: string option
                 dosetype: DoseType option
             |} option)
+        sessionContext
         =
         {
-            ShowDisclaimer = discl
+            ShowDisclaimer = discl && sessionContext = SessionContext.Anonymous
             Page = page |> Option.defaultValue LifeSupport
             Patient = pat
             NormalValues = HasNotStartedYet
@@ -414,11 +443,16 @@ module private Elmish =
             AuthToken = ""
             LogFiles = HasNotStartedYet
             LogAnalysisReport = HasNotStartedYet
+            SessionContext = sessionContext
         }
 
 
     let init () : State * Cmd<Msg> =
-        let pat, page, lang, discl, med = Router.currentUrl () |> parseUrl
+        let currentUrl = Router.currentUrl ()
+        let pat, page, lang, discl, med = parsePatient currentUrl
+        console.log currentUrl
+        let sessionInfo = parseSessionInfo currentUrl
+        console.log sessionInfo
 
         let cmds =
             Cmd.batch
@@ -432,9 +466,12 @@ module private Elmish =
                     Cmd.ofMsg (LoadFormulary Started)
                     Cmd.ofMsg (LoadParenteralia Started)
                     Cmd.ofMsg (LoadInteractionDrugNames Started)
+                    match sessionInfo with
+                    | SessionContext.Launched token -> Cmd.ofMsg (SessionContextMsg(SessionContextMsg.Launch token))
+                    | _ -> Cmd.none
                 ]
 
-        initialState pat page lang discl med, cmds
+        initialState pat page lang discl med sessionInfo, cmds
 
 
     let applyNormalValues (normalValues: Deferred<NormalValues>) (pat: Patient option) =
@@ -692,8 +729,9 @@ module private Elmish =
                     Cmd.ofMsg (LoadParenteralia Started)
                 ]
 
-        | UrlChanged sl ->
-            let pat, page, lang, discl, med = sl |> parseUrl
+        | UrlChanged newUrl ->
+            let pat, page, lang, discl, med = parsePatient newUrl
+            let sessionInfo = parseSessionInfo newUrl
 
             { state with
                 ShowDisclaimer = discl
@@ -716,8 +754,15 @@ module private Elmish =
                             |> Resolved
                 // State. prefix needed: disambiguates State.Context field from Global.Context type
                 State.Context.Localization = lang |> Option.defaultValue Localization.English
+                SessionContext = sessionInfo
             },
-            Cmd.ofMsg (pat |> UpdatePatient)
+            Cmd.batch
+                [
+                    Cmd.ofMsg (UpdatePatient pat)
+                    match sessionInfo with
+                    | SessionContext.Launched token -> Cmd.ofMsg (SessionContextMsg(SessionContextMsg.Launch token))
+                    | _ -> Cmd.none
+                ]
 
         | LoadLocalization Started ->
             { state with Localization = InProgress }, Cmd.fromAsync (GoogleDocs.loadLocalization LoadLocalization)
@@ -1086,6 +1131,32 @@ module private Elmish =
                 }
                 |> Cmd.fromAsync
 
+        | SessionContextMsg(SessionContextMsg.Launch token) ->
+            // launch token received, set session context to Launched
+            let state = { state with SessionContext = SessionContext.Content InProgress }
+
+            let launch =
+                async {
+                    try
+                        match! serverApi.launchSession token with
+                        | Ok session -> return SessionContextMsg(SessionContextMsg.Redeemed session)
+                        | Error err -> return SessionContextMsg(SessionContextMsg.Error err)
+                    with ex ->
+                        return SessionContextMsg(SessionContextMsg.Error ex.Message)
+                }
+
+            state, Cmd.fromAsync launch
+
+        | SessionContextMsg(SessionContextMsg.Error err) ->
+            // launch token received, but error occurred, set session context to Anonymous
+            Logging.error "launch token error" err
+            let state = { state with SessionContext = SessionContext.Error err }
+            state, Cmd.none
+
+        | SessionContextMsg(SessionContextMsg.Redeemed content) ->
+            // no launch token, set session context to Anonymous
+            let state = { state with SessionContext = SessionContext.Content(Resolved content) }
+            state, Cmd.none
 
     let calculatInterventions calc meds pat =
         meds
