@@ -5,6 +5,8 @@
 **Date**: 2026-03-28
 **Status**: Accepted
 
+**Formerly**: ADR-0009, renumbered on 2026-09-06 when `docs/adr/` was made contiguous (see [ADR-0000](0000-documentation-rules.md)).
+
 ## Context
 
 GenPRES exposes medication knowledge through a web API (`IServerApi`) for the Fable client and through direct F# calls for server-side composition. A third access pathway is needed to allow AI assistants to query prescription rules, dose rules, and order scenarios without duplicating domain logic.

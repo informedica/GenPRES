@@ -110,7 +110,7 @@ The migration is planned in `docs/implementation-plans/378-dependency-rule.md`.
 
 ## Consequences
 
-- Server-side F# domain libraries are pure and testable independent of the UI. What "pure" means
+- Server-side F# domain libraries are meant to be pure and testable independent of the UI. What "pure" means
   and how it is enforced is the
   [Dependency rule and effects](#dependency-rule-and-effects--amended-2026-09-06) section above.
 - Client code (Fable/Elmish) compiles to JavaScript and runs in the browser.

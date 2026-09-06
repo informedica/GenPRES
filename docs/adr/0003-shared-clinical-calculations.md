@@ -4,6 +4,8 @@
 
 **Status**: Accepted
 
+**Formerly**: ADR-0019, renumbered on 2026-09-06 when `docs/adr/` was made contiguous (see [ADR-0000](0000-documentation-rules.md)).
+
 **Related PRs**:
 
 - [#276 — BSACalculations.fsx prototype](https://github.com/informedica/GenPRES/pull/276)

@@ -10,6 +10,8 @@ was never compiled. The ADR is retained as the record that a FHIR R4 approach wa
 and then abandoned; nothing it describes is implemented today. Any renewed EHR
 integration work starts from scratch — see `docs/roadmap/backlog.md` item 7.
 
+**Formerly**: ADR-0020, renumbered on 2026-09-06 when `docs/adr/` was made contiguous (see [ADR-0000](0000-documentation-rules.md)).
+
 ## Context
 
 GenPRES is a Clinical Decision Support System (CDSS) that validates and calculates medication orders.
