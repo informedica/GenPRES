@@ -62,6 +62,12 @@ jobs:
     - name: Format check
       run: dotnet fantomas --check .
 
+    - name: Check dependency rule
+      # Architecture fitness test for ADR-0022: project references point inward, the core reaches no
+      # IO, only the DMZ names GENPRES_* settings or declares entry points. Reads the .fsproj and
+      # source files only, so it needs no build and runs before the tests for fast feedback.
+      run: dotnet fsi scripts/CheckDependencyRule.fsx
+
     - name: Test execution
       env:
         CI: true

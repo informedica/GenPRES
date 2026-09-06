@@ -59,7 +59,7 @@ Only `GenFORM.Lib` and `GenORDER.Lib` are exposed. The others are deliberately n
 | `Informedica.GenSOLVER.Lib` | Pure mathematical solver; results only meaningful in the context of a full order — covered by GenORDER tools |
 | `Informedica.GenUNITS.Lib` | Pure unit-of-measure utilities; not a domain service |
 | `Informedica.GenCORE.Lib` | Core type definitions only |
-| `Informedica.Utils.Lib` | Pure utility functions |
+| `Informedica.Utils.Lib` | Utility functions; not a domain service (its IO half is being split out, see [ADR-0022](0022-dependency-rule-and-effects.md)) |
 | `Informedica.GenPRES.Server` | Already exposes the full API via `IServerApi`; MCP is an additional pathway, not a replacement |
 
 ## Dependencies
