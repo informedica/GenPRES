@@ -7,7 +7,7 @@ pure domain core, all IO at the outer edge, the domain never depending on IO —
 references point outward (`GenFORM.Lib → ZForm.Lib → ZIndex.Lib`, `Logging.Lib → Agents.Lib`),
 the formulary library owns its own Google-Sheets loaders and cache, the core reads the clock and
 entropy, and the browser fetches rule data and computes emergency doses on its own. The rule is
-decided in [ADR-0022](../adr/0022-dependency-rule-and-effects.md); the inventory of violations is
+decided in [ADR-0001](../adr/0001-system-architecture.md); the inventory of violations is
 the allow-list in `scripts/CheckDependencyRule.fsx`. This plan is the order in which the
 allow-list shrinks.
 
@@ -27,7 +27,7 @@ Each step is classified for validation, because this is medical device software:
    record, `IResourceProvider`, `GStandProvider`, the registry and the server's `AppEnv`; move
    what is misplaced; add `now` / `newId` parameters. Chosen.
 2. **A `program` computation expression over an instruction set, interpreted at the edge**
-   (the approach of #194 and #226). Rejected in ADR-0022: interpreter on the solver's hot path,
+   (the approach of #194 and #226). Rejected in ADR-0001: interpreter on the solver's hot path,
    less readable effect boundary, a fourth mechanism next to three that work.
 3. **Consolidate projects first** (`Logging` + `Utils` into a foundation project, as #378
    originally proposed). Rejected: merging the agent runtime into the utilities every core library
@@ -73,7 +73,7 @@ a clinical path and the validation effort is not yet scoped.
    `CheckSolutionVersions.fsx` is called, so no `Build.fs` change is needed. Optionally add a
    `CheckArchitecture` FAKE target for local use, mirroring `CheckVersions`.
 
-4. Land ADR-0022 and the ADR-0001 amendment; answer the open question on #378.
+4. Land the ADR-0001 dependency-rule amendment (first written as ADR-0022, merged into ADR-0001 the same day); answer the open question on #378.
 
 ### Phase 1 — logging inversion (A)
 
@@ -156,7 +156,7 @@ a clinical path and the validation effort is not yet scoped.
    `docs.google.com` from the CSP in `Server.fs`. Formulas still run in the browser, so the
    dosing output is unchanged; only the data path moves inside the DMZ.
 2. (test) A property test asserting that `Shared/Calculations.fs` and `GenCORE/Calculations.fs`
-   agree within tolerance for BSA, adjusted age, eGFR and GFR staging. ADR-0019 stands; the test
+   agree within tolerance for BSA, adjusted age, eGFR and GFR staging. ADR-0003 stands; the test
    guards against divergence.
 3. (**C**) Move `EmergencyTreatment.calculate` and `ContinuousMedication.calculate` from
    `src/Informedica.GenPRES.Shared/Models.fs` behind a server port, and replace the

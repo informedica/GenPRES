@@ -1,4 +1,4 @@
-# ADR-0020: FHIR R4 EHR Integration
+# ADR-0004: FHIR R4 EHR Integration
 
 **Issue**: FHIR R4 EHR integration design
 
@@ -166,7 +166,7 @@ authentication plumbing not yet needed for the calculation-service use case. Def
 - Firely .NET SDK: <https://docs.fire.ly/projects/Firely-NET-SDK/>
 - Dutch G-Standaard / NL FHIR: <https://informatiestandaarden.nictiz.nl/wiki/Landingspagina_Medicatie>
 - IHE Pharmacy profile: <https://www.ihe.net/resources/technical_frameworks/#pharmacy>
-- [ADR-0009: MCP Server Architecture](0009-mcp-server-architecture.md)
+- [ADR-0002: MCP Server Architecture](0002-mcp-server-architecture.md)
 - [Security baseline (formerly ADR-0015)](../security/security-baseline.md)
 - PR #215: Scripts (FHIR): Add `ImplementationPlan.fsx`
 - PR #222: Scripts (FHIR): Fix `ImplementationPlan.fsx` — major rework with correct FHIR property mappings

@@ -1,4 +1,4 @@
-# ADR-0021: Build System Versioning and Release Automation
+# ADR-0005: Build System Versioning and Release Automation
 
 **Date**: 2026-08-05
 
@@ -44,7 +44,7 @@ granularity could matter. On acceptance (2026-08-17) that restriction was droppe
 entirely: all three merge methods stay enabled, and `--skip-merge-commit` handles the
 `Merge pull request ...` commits ShipIt cannot parse. See design choice 2 below.
 
-This document is ADR-0021, the next free number in `docs/adr/` at the time of writing.
+This document was written as ADR-0021, the next free number in `docs/adr/` at the time; it became ADR-0005 when the folder was renumbered contiguously on 2026-09-06 (see [ADR-0000](0000-documentation-rules.md)).
 
 ## Decision
 
@@ -79,7 +79,7 @@ opened. Step 1 of the implementation plan closed it. What was confirmed against 
 - The computed version reaches MSBuild **directly**: an `xml` updater with
   `file: Directory.Build.props` and `selector: /Project/PropertyGroup/Version`
   rewrites the `<Version>` element as part of the release PR. No git-tag intermediary, 
-  and therefore no change to `scripts/CheckSolutionVersions.fsx`, it keeps asserting 
+  and therefore no change to `scripts/CheckSolutionVersions.fsx`, it keeps asserting
   that every built DLL matches whatever ShipIt wrote.
 - The invocation is `dotnet shipit --allow-branch master --skip-merge-commit`
   (no `github` subcommand); `--mode` defaults to `pull-request`.
@@ -211,7 +211,7 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
   merge commits remain enabled. Omitting it makes ShipIt throw on the first
   `Merge pull request ...` commit it reaches rather than skipping it. This is
   documented at every invocation site (`release.yml`, `DEVELOPMENT.md`).
-- `CHANGELOG.md`'s current rich, hand-written prose entries (see any `[Unreleased]` 
+- `CHANGELOG.md`'s current rich, hand-written prose entries (see any `[Unreleased]`
   entry today) become leaner, commit-title-derived entries under ShipIt.
   A `=== changelog ===` block in the commit message body is the escape hatch for
   entries that need more detail than a title provides.
@@ -229,8 +229,8 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
 
 **MDR / Safety**:
 
-- Release/version automation is process tooling, not clinical logic, it does not 
-  touch dosing, rules, parsing, or resource mapping, so it does not trigger the 
+- Release/version automation is process tooling, not clinical logic, it does not
+  touch dosing, rules, parsing, or resource mapping, so it does not trigger the
   unit-test/changelog/field-comment requirements that apply to those areas.
 - The changelog remains an audit trail that the MDR design history file draws on;
   automating its generation must not reduce its usefulness as such, this is why the

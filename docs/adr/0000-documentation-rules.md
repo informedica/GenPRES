@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-05
 
-**Status**: Accepted
+**Status**: Accepted, amended (2026-09-06)
 
 **Related Issues**: [#411 — Only use ADRs if no other suitable documentation option is available](https://github.com/informedica/GenPRES/issues/411),
 [#522 — Reorganize the docs folder](https://github.com/informedica/GenPRES/issues/522)
@@ -59,13 +59,19 @@ An ADR is **not** written for:
 
 - One file per decision in `docs/adr/`, named `NNNN-short-title.md`. Take the next free number.
   Gaps are deliberate (deleted ADRs) and are never refilled.
+  *Amended 2026-09-06*: the numbering is contiguous. On that date the surviving ADRs were
+  renumbered (0009 → 0002, 0019 → 0003, 0020 → 0004, 0021 → 0005) and every reference outside
+  `CHANGELOG.md` was repointed; the changelog keeps the numbers as they were at release time.
+  A deleted or merged ADR still leaves no gap to refill: renumber the ones after it and repoint
+  their references in the same change. The old number stays mentioned in the renumbered ADR
+  so `git log` and old release notes can be followed.
 - Spine: `# ADR-NNNN: Title`, `**Date**`, `**Status**`, optional `**Related Issue**` /
   `**Related PRs**`, then `## Context`, `## Decision`, `## Consequences`,
   `## Alternatives considered`, `## References`. Keep it short; link out rather than restating.
 - Status is `Proposed`, `Accepted`, `Superseded` or `Deprecated`. A later change to an accepted
   decision is an amendment: a dated `### … — amended YYYY-MM-DD` section in place, as
-  [ADR-0021](0021-build-system-versioning-and-release.md) does. A superseded ADR stays as the record
-  of a road not taken ([ADR-0020](0020-fhir-r4-integration.md)); it is not deleted.
+  [ADR-0005](0005-build-system-versioning-and-release.md) does. A superseded ADR stays as the record
+  of a road not taken ([ADR-0004](0004-fhir-r4-integration.md)); it is not deleted.
 - There is no hand-maintained index or change log. The folder listing and `git log docs/adr` are the index.
 
 ### 4. What lives where in `docs/`
@@ -104,7 +110,7 @@ fact but does not link to it.
 
 ## Consequences
 
-- `docs/adr/` stays small: five decisions at the time of writing (0001, 0009, 0019, 0020, 0021),
+- `docs/adr/` stays small: five decisions at the time of writing (then numbered 0001, 0009, 0019, 0020, 0021; since 2026-09-06 numbered 0001 to 0005),
   each of which would be expensive to reverse.
 - Explainers, plans and reviews that used to be ADRs live in the folder that matches their subject
   and are free to change without an amendment ceremony.
@@ -118,9 +124,11 @@ fact but does not link to it.
 - **Keep the change-log ADR-0000 as an index of ADRs.** Rejected: it duplicated `git log`, its
   reason for existing (the MDR design history file) is served in the MDR repository, and a
   hand-maintained index is exactly the kind of document that goes stale.
-- **Renumber the surviving ADRs contiguously.** Rejected: `ADR-0021` is referenced from
-  `DEVELOPMENT.md`, the release workflows, `CHANGELOG.md` and source comments; a renumbering
-  would break all of them for no gain. Gaps cost nothing.
+- **Renumber the surviving ADRs contiguously.** Rejected at the time: `ADR-0021` was referenced
+  from `DEVELOPMENT.md`, the release workflows, `CHANGELOG.md` and source comments; a renumbering
+  would break all of them for no gain. Reversed 2026-09-06 (see rule 3): the references were few
+  enough to repoint in one change, and a folder of six files numbered 0000, 0001, 0009, 0019,
+  0020, 0021 misled readers into looking for the missing fifteen.
 - **Write these rules into `CONTRIBUTING.md` instead of an ADR.** Rejected: how the project
   documents itself is a foundational, hard-to-reverse choice, which is what an ADR is for; making
   it the first entry in the folder means it is the first thing a new contributor reads there.
