@@ -276,6 +276,17 @@ let allowances =
     ]
 
 
+/// The prefixes under which settings are read, as they appear in source (`"GENPRES_URL_ID"`).
+/// One entry today; the single place to change. Whether a second executable would get its own
+/// prefix is an open question in `docs/roadmap/modular-design-discussion.md`.
+let settingPrefixes = [ "GENPRES_" ]
+
+
+/// True when a code line names a setting under any known prefix.
+let namesSetting (line: string) =
+    settingPrefixes |> List.exists (fun p -> line.Contains("\"" + p))
+
+
 /// Core files that may name a `GENPRES_*` setting today.
 let allowedConfigMentions =
     [
@@ -514,7 +525,7 @@ let dmzTests =
                         []
                     else
                         codeLines file
-                        |> Array.filter (fun (_, l) -> l.Contains "\"GENPRES_")
+                        |> Array.filter (fun (_, l) -> namesSetting l)
                         |> Array.map (fun (n, _) -> $"%s{rel}:%i{n}")
                         |> Array.toList
                 )
@@ -527,7 +538,7 @@ let dmzTests =
                     let full = Path.Combine(repoRoot, rel)
 
                     not (File.Exists full)
-                    || codeLines full |> Array.exists (fun (_, l) -> l.Contains "\"GENPRES_") |> not
+                    || codeLines full |> Array.exists (fun (_, l) -> namesSetting l) |> not
                 )
                 |> List.map fst
                 |> failWithAll "config allowances that no longer match; remove them"
