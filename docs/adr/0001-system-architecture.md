@@ -1,7 +1,7 @@
 # ADR-0001: System Architecture
 
 **Date**: 2024-01-01
-**Status**: Accepted
+**Status**: Accepted, amended (2026-09-06)
 
 ## Context
 
@@ -16,9 +16,20 @@ Two further foundational choices follow from it and are recorded here because th
 - **Google Spreadsheets as the configuration store.** Medication rules and constraints are authored in spreadsheets, downloaded as CSV and parsed at runtime. This lets clinical staff maintain the rule base without a developer, at the cost of coupling the system to an external service. Note that `GENPRES_URL_ID` selects the *server's* sheet only; the client reads a few of its own sheets from IDs hard-coded in `Client/Utils.fs`, so it is not a single switch over all sheet-sourced data.
 - **Docker as the production delivery mechanism.**
 
+### Domain purity — amended 2026-09-06
+
+The consequence below that "server-side F# domain libraries remain pure" was an intention, not
+an enforced rule, and by 2026 it did not hold: see
+[#378](https://github.com/informedica/GenPRES/issues/378). The rule that makes it hold — which
+projects form the core, that references point inward, how effects enter the core, and that the
+outer ring is the DMZ — is decided in [ADR-0022](0022-dependency-rule-and-effects.md) and
+enforced by `scripts/CheckDependencyRule.fsx`.
+
 ## Consequences
 
-- Server-side F# domain libraries remain pure and testable independent of the UI.
+- Server-side F# domain libraries are meant to be pure and testable independent of the UI. What
+  "pure" means and how it is enforced is decided in
+  [ADR-0022](0022-dependency-rule-and-effects.md).
 - Client code (Fable/Elmish) compiles to JavaScript and runs in the browser.
 - Client and server share one type-safe contract through Fable.Remoting, so an API change that breaks a caller fails at compile time rather than at runtime.
 - Editing a production spreadsheet changes the behavior of a running system with no deployment, which is the point — and the risk. It is not instantaneous, though: the server holds resources in a `CachedResourceProvider` with no expiry, so an edit takes effect only after an admin `ReloadResources` (or a restart), and the client's own hard-coded sheets are separate again.
