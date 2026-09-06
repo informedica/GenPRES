@@ -1,8 +1,10 @@
-# ADR-0019: Shared Library Clinical Calculations
+# ADR-0003: Shared Library Clinical Calculations
 
 **Date**: 2026-04-27
 
 **Status**: Accepted
+
+**Formerly**: ADR-0019, renumbered on 2026-09-06 when `docs/adr/` was made contiguous (see [ADR-0000](0000-documentation-rules.md)).
 
 **Related PRs**:
 

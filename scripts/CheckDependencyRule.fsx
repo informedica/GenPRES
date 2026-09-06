@@ -1,6 +1,6 @@
 // Check Dependency Rule
 //
-// Architecture fitness test for ADR-0022 (docs/adr/0022-dependency-rule-and-effects.md):
+// Architecture fitness test for ADR-0001 (docs/adr/0001-system-architecture.md):
 // project references point inward, the core never reaches network, filesystem,
 // environment, clock or entropy, and only the DMZ (the server-side outer ring) knows
 // configuration and owns entry points.
@@ -176,7 +176,7 @@ let bannedTokens =
 
 
 /// Phase numbers refer to docs/implementation-plans/378-dependency-rule.md.
-/// "Permanent" entries are accepted exceptions recorded in ADR-0022.
+/// "Permanent" entries are accepted exceptions recorded in ADR-0001.
 let allowances =
     let utilsSplit = "IO module in Utils.Lib; leaves the core with the Utils split (Phase 2)"
     let loggingSplit = "Logger port and agent runtime share one file; split pending (Phase 1)"

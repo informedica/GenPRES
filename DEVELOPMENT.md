@@ -138,7 +138,7 @@ while the new targets compile either side separately.
 
 GenPRES uses [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt) to derive
 the next semantic version and changelog entries from conventional-commit history — see
-[ADR-0021](docs/adr/0021-build-system-versioning-and-release.md) for the full
+[ADR-0005](docs/adr/0005-build-system-versioning-and-release.md) for the full
 design. It is registered as a local dotnet tool (`.config/dotnet-tools.json`) and configured via
 YAML front matter at the top of the root `CHANGELOG.md`.
 
@@ -434,7 +434,7 @@ local activity (see `benchmark/run.sh`).
 on every push to `master`, opening or updating a draft release PR with the next derived version and changelog 
 section. It is deliberately a separate workflow from `build.yml`, not a job within it: a ShipIt failure must 
 never block the test/format matrix that already gated the PR which produced the push. See 
-[ADR-0021](docs/adr/0021-build-system-versioning-and-release.md) for the full design and the
+[ADR-0005](docs/adr/0005-build-system-versioning-and-release.md) for the full design and the
 [implementation plan](docs/implementation-plans/234-improve-build-system.md) for status.
 
 This replaces the "Repo Assist" bot's former Task 8 ("Release Preparation", `.github/workflows/repo-assist.md`), 
@@ -448,7 +448,7 @@ Without it, `release.yml` runs but fails to open the PR.
 
 `.github/workflows/tag-release.yml` turns a merged release PR into the immutable artifact ShipIt itself
 cannot produce — ShipIt 3.0.1 has no tag or Release capability in any mode, verified against the installed
-assembly rather than its documentation (see [ADR-0021](docs/adr/0021-build-system-versioning-and-release.md)
+assembly rather than its documentation (see [ADR-0005](docs/adr/0005-build-system-versioning-and-release.md)
 and [issue #470](https://github.com/informedica/GenPRES/issues/470)). The workflow:
 
 1. Checks out the **merge commit** (`pull_request.merge_commit_sha`) — the state `master` was actually in
@@ -498,7 +498,7 @@ gating a downstream job on the push event:
 if: startsWith(github.event.head_commit.message, 'chore: release ')
 ```
 
-That condition would never have fired here. All three merge methods stay enabled (ADR-0021, design choice 2),
+That condition would never have fired here. All three merge methods stay enabled (ADR-0005, design choice 2),
 and every release PR so far (#455, #458, #464) merged as a true merge commit, so the push event's
 `head_commit.message` was `Merge pull request #NNN from informedica/release/master`, never
 `chore: release ...` — 0 for 3. The head ref is merge-method independent, so the trigger keeps working if a
@@ -519,7 +519,7 @@ options for anything downstream are a job inside `tag-release.yml`, a `workflow_
 A `publish-docker-image` job in `tag-release.yml`, gated on `needs: tag-and-release`, closes
 [#234](https://github.com/informedica/GenPRES/issues/234) item 3
 ([#459](https://github.com/informedica/GenPRES/issues/459)) — see
-[ADR-0021's Docker image publishing amendment](docs/adr/0021-build-system-versioning-and-release.md)
+[ADR-0005's Docker image publishing amendment](docs/adr/0005-build-system-versioning-and-release.md)
 for the full design rationale. It only runs once tagging and the Release have both succeeded, and reuses
 that job's `version`/`tag`/`prerelease` outputs. For a given release it:
 

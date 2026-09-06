@@ -4,7 +4,7 @@
 ///
 /// Reference implementation: https://github.com/jovaneyck/fsi-mcp-server
 /// NuGet package: https://www.nuget.org/packages/ModelContextProtocol
-/// ADR: docs/adr/0009-mcp-server-architecture.md
+/// ADR: docs/adr/0002-mcp-server-architecture.md
 ///
 /// Usage:
 ///   # Build first to ensure DLLs are up to date

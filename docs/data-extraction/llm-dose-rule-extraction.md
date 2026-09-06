@@ -256,7 +256,7 @@ decisions. The following safety constraints apply:
 - [doserule-extraction-prompt.md](doserule-extraction-prompt.md)
 - [PR #317 — NLP pipeline overhaul](https://github.com/informedica/GenPRES/pull/317)
 - [PR #321 — Extraction prompt improvement](https://github.com/informedica/GenPRES/pull/321)
-- [ADR-0009: MCP Server Architecture](../adr/0009-mcp-server-architecture.md)
+- [ADR-0002: MCP Server Architecture](../adr/0002-mcp-server-architecture.md)
 - [Implementation plan for issue #307: G-Standaard dose rule fallback](../implementation-plans/307-gstand-dose-rule-fallback.md) (formerly ADR-0016)
 - [Nederlands Kinderformularium](https://www.kinderformularium.nl/)
 - [Farmacotherapeutisch Kompas](https://www.farmacotherapeutischkompas.nl/)

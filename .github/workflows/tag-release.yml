@@ -6,7 +6,7 @@ name: Tag and Release
 #
 # This is a separate workflow, not a job inside build.yml or release.yml. The reason is the same as for
 # release.yml: a failure here must not stop the test and format matrix, and it runs on a different event
-# (pull_request closed) than release.yml (push to master). See ADR-0021 and issues #470 and #459.
+# (pull_request closed) than release.yml (push to master). See ADR-0005 and issues #470 and #459.
 #
 # The version number, pre-release flag, and release body all come from scripts/ReleaseNotes.fsx instead 
 # of being parsed here. That means this workflow and a local dry run before merging a release PR use the
@@ -20,7 +20,7 @@ name: Tag and Release
 # normal merge commit with two parents, so the push event's head_commit.message is:
 #    "Merge pull request #NNN from informedica/release/master", not "chore: release ...".
 #
-# Because all three merge methods remain enabled (ADR-0021, design choice 2), the trigger must work regardless
+# Because all three merge methods remain enabled (ADR-0005, design choice 2), the trigger must work regardless
 # of merge method. ShipIt always pushes its release branch as `release/master` and labels the PR 
 # `easybuild-release:pending`, so the branch name is the main signal here. The label is the fallback equivalent.
 
