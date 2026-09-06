@@ -117,8 +117,7 @@ violations that exist at the time of this decision are listed in the script as a
 with a reason. An allowance that no longer matches fails the run, so the list can only shrink.
 The check reads code lines only, so a comment may name a setting or a banned token without an
 allowance. The setting check matches the string literal `"GENPRES_`, the form in which a setting
-is read; the prefix is one value in the script today and becomes one per executable if GenPRES
-is ever split into separately deployed modules. The migration is planned in
+is read; the prefix is the `settingPrefixes` list in the script. The migration is planned in
 `docs/implementation-plans/378-dependency-rule.md`.
 
 ## Consequences

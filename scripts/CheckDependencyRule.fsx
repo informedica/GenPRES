@@ -277,10 +277,8 @@ let allowances =
 
 
 /// The prefixes under which settings are read, as they appear in source (`"GENPRES_URL_ID"`).
-/// One entry today. If GenPRES is split into separately deployed modules, either every module
-/// keeps this prefix or each executable gets its own and this becomes a map from executable to
-/// prefix; that is decided with the modular design, not here. Until then the list is the single
-/// place to change.
+/// One entry today; the single place to change. Whether a second executable would get its own
+/// prefix is an open question in `docs/roadmap/modular-design-discussion.md`.
 let settingPrefixes = [ "GENPRES_" ]
 
 
