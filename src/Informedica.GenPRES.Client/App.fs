@@ -19,13 +19,15 @@ module private Elmish =
     [<RequireQualifiedAccess>]
     type SessionContextMsg =
         | Launch of SessionLaunchToken
+        | Redeem of SessionRedeemToken
         | Error of string
-        | Redeemed of SessionContent
+        | Redeemed of SessionContent * redirect: bool
 
     [<RequireQualifiedAccess>]
     type SessionContext =
         | Anonymous
-        | Launched of SessionLaunchToken
+        | Launching of SessionLaunchToken
+        | Redeeming of SessionRedeemToken
         | Error of string
         | Content of Deferred<SessionContent>
 
@@ -372,17 +374,20 @@ module private Elmish =
     // parses it into SessionContext.Launched token if found,
     // otherwise SessionContext.Anonymous
     let parseSessionInfo (urlParts: string list) =
-        let launchToken =
+        let sessionPart part =
             urlParts
             |> List.pairwise
             |> List.tryFind (fun (a, b) -> a = "session")
             |> function
-                | Some(_, Route.Query [ "launch", token ]) -> Some(SessionLaunchToken token)
+                | Some(_, Route.Query [ queryPart, value ]) when part = queryPart -> Some value
                 | _ -> None
 
-        match launchToken with
-        | Some token -> SessionContext.Launched token
-        | None -> SessionContext.Anonymous
+        match sessionPart "launch" with
+        | Some token -> SessionContext.Launching(SessionLaunchToken token)
+        | None ->
+            match sessionPart "redeem" with
+            | Some token -> SessionContext.Redeeming(SessionRedeemToken token)
+            | None -> SessionContext.Anonymous
 
     let initialState
         pat
@@ -450,9 +455,7 @@ module private Elmish =
     let init () : State * Cmd<Msg> =
         let currentUrl = Router.currentUrl ()
         let pat, page, lang, discl, med = parsePatient currentUrl
-        console.log currentUrl
         let sessionInfo = parseSessionInfo currentUrl
-        console.log sessionInfo
 
         let cmds =
             Cmd.batch
@@ -467,7 +470,8 @@ module private Elmish =
                     Cmd.ofMsg (LoadParenteralia Started)
                     Cmd.ofMsg (LoadInteractionDrugNames Started)
                     match sessionInfo with
-                    | SessionContext.Launched token -> Cmd.ofMsg (SessionContextMsg(SessionContextMsg.Launch token))
+                    | SessionContext.Launching token -> Cmd.ofMsg (SessionContextMsg(SessionContextMsg.Launch token))
+                    | SessionContext.Redeeming token -> Cmd.ofMsg (SessionContextMsg(SessionContextMsg.Redeem token))
                     | _ -> Cmd.none
                 ]
 
@@ -734,7 +738,7 @@ module private Elmish =
             let sessionInfo = parseSessionInfo newUrl
 
             { state with
-                ShowDisclaimer = discl
+                ShowDisclaimer = discl && sessionInfo = SessionContext.Anonymous
                 Page = page |> Option.defaultValue LifeSupport
                 Patient = pat
                 OrderContext =
@@ -754,13 +758,13 @@ module private Elmish =
                             |> Resolved
                 // State. prefix needed: disambiguates State.Context field from Global.Context type
                 State.Context.Localization = lang |> Option.defaultValue Localization.English
-                SessionContext = sessionInfo
             },
             Cmd.batch
                 [
                     Cmd.ofMsg (UpdatePatient pat)
                     match sessionInfo with
-                    | SessionContext.Launched token -> Cmd.ofMsg (SessionContextMsg(SessionContextMsg.Launch token))
+                    | SessionContext.Launching token -> Cmd.ofMsg (SessionContextMsg(SessionContextMsg.Launch token))
+                    | SessionContext.Redeeming token -> Cmd.ofMsg (SessionContextMsg(SessionContextMsg.Redeem token))
                     | _ -> Cmd.none
                 ]
 
@@ -1132,14 +1136,15 @@ module private Elmish =
                 |> Cmd.fromAsync
 
         | SessionContextMsg(SessionContextMsg.Launch token) ->
-            // launch token received, set session context to Launched
+            // launch token received, set session context to being launched
             let state = { state with SessionContext = SessionContext.Content InProgress }
 
             let launch =
                 async {
                     try
                         match! serverApi.launchSession token with
-                        | Ok session -> return SessionContextMsg(SessionContextMsg.Redeemed session)
+                        // a launched session still has to be handed over to its redeem url
+                        | Ok session -> return SessionContextMsg(SessionContextMsg.Redeemed(session, true))
                         | Error err -> return SessionContextMsg(SessionContextMsg.Error err)
                     with ex ->
                         return SessionContextMsg(SessionContextMsg.Error ex.Message)
@@ -1147,18 +1152,44 @@ module private Elmish =
 
             state, Cmd.fromAsync launch
 
+        | SessionContextMsg(SessionContextMsg.Redeem token) ->
+            // session is being redeemed
+            let state = { state with SessionContext = SessionContext.Content InProgress }
+
+            let redeem =
+                async {
+                    try
+                        match! serverApi.redeemSession token with
+                        | Ok session -> return SessionContextMsg(SessionContextMsg.Redeemed(session, false))
+                        | Error err -> return SessionContextMsg(SessionContextMsg.Error err)
+                    with ex ->
+                        return SessionContextMsg(SessionContextMsg.Error ex.Message)
+                }
+
+            state, Cmd.fromAsync redeem
+
         | SessionContextMsg(SessionContextMsg.Error err) ->
             // launch token received, but error occurred, set session context to Anonymous
             Logging.error "launch token error" err
             let state = { state with SessionContext = SessionContext.Error err }
             state, Cmd.none
 
-        | SessionContextMsg(SessionContextMsg.Redeemed content) ->
-            // no launch token, set session context to Anonymous
-            let state = { state with SessionContext = SessionContext.Content(Resolved content) }
-            state, Cmd.none
+        | SessionContextMsg(SessionContextMsg.Redeemed(content, redirect)) ->
+            // a launched session navigates to #/session?redeem={token}, which comes back
+            // round as UrlChanged -> Redeem. A redeemed session is already there and must
+            // not navigate again, or it would re-enter Redeem indefinitely.
+            let cmd =
+                if redirect then
+                    Cmd.navigate ("session", [ "redeem", content.RedeemToken ])
+                else
+                    Cmd.none
 
-    let calculatInterventions calc meds pat =
+            let state = { state with SessionContext = SessionContext.Content(Resolved content) }
+
+            state, cmd
+
+
+    let calculateInterventions calc meds pat =
         meds
         |> Deferred.bind (fun xs ->
             match pat with
@@ -1306,7 +1337,7 @@ let View () =
         | _ -> null
 
     let bm =
-        calculatInterventions EmergencyTreatment.calculate state.BolusMedication state.Patient
+        calculateInterventions EmergencyTreatment.calculate state.BolusMedication state.Patient
 
     let cm =
         let calc =
@@ -1315,7 +1346,7 @@ let View () =
                 | Some w' -> ContinuousMedication.calculate w' meds
                 | None -> []
 
-        calculatInterventions calc state.ContinuousMedication state.Patient
+        calculateInterventions calc state.ContinuousMedication state.Patient
 
     let appEnv = ConcreteAppEnv(state, dispatch, bm, cm) :> obj
 

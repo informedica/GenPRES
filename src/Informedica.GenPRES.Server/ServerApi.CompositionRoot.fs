@@ -30,11 +30,17 @@ module CompositionRoot =
                     return Error ex.Message
         }
 
+    let redeemSession (env: AppEnv) (token: SessionRedeemToken) : Async<Result<SessionContent, string>> =
+        // TODO
+        let (SessionRedeemToken token) = token
+        launchSession env (SessionLaunchToken token)
+
     let compose (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) : IServerApi =
         let env = Adapters.makeAppEnv provider
 
         {
             launchSession = launchSession env
+            redeemSession = redeemSession env
             processCommand =
                 fun cmd ->
                     async {

@@ -163,4 +163,5 @@ module Api =
             processCommand: Command -> Async<Result<Response, string[]>>
             testApi: unit -> Async<string>
             launchSession: SessionLaunchToken -> Async<Result<SessionContent, string>>
+            redeemSession: SessionRedeemToken -> Async<Result<SessionContent, string>>
         }

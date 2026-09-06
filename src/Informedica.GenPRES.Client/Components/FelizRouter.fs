@@ -1,6 +1,10 @@
 // VENDORED: Feliz.Router source vendored here because Feliz.Router v4.0.0 is
 // incompatible with Fable 5.  Once an upstream release supports Fable 5,
 // remove this file and restore the Feliz.Router NuGet reference.
+//
+// Known divergence from upstream: `Router.router` reimplements the latest-callback
+// behaviour of `React.useCallbackRef` with a ref, because Feliz 3.x no longer ships
+// that hook.  See the comment at that call site before re-syncing this file.
 namespace Feliz.Router
 
 open Browser.Dom
@@ -161,11 +165,24 @@ module Router =
 
     let router =
         React.memo (fun (input: RouterProps) ->
+            // DIVERGES FROM UPSTREAM: upstream uses React.useCallbackRef, which Feliz 3.x
+            // removed. The listeners below are registered once (useEffectOnce), so onChange
+            // must read the *latest* props through a ref. Capturing `input` directly pins the
+            // first render's onUrlChanged -- and useElmish's dispatch is still a no-op on that
+            // render, so every URL change would be silently dropped. Do not "simplify" this
+            // back to a plain useCallback over `input`.
+            let latest = React.useRef input
+
+            React.useLayoutEffect (fun () -> latest.current <- input)
+
             let onChange =
-                React.useCallback (fun (ev: Event) ->
-                    let urlChanged = Option.defaultValue ignore input.onUrlChanged
-                    let routeMode = Option.defaultValue RouteMode.Hash input.hashMode
-                    onUrlChange routeMode urlChanged ev
+                React.useCallback (
+                    (fun (ev: Event) ->
+                        let urlChanged = Option.defaultValue ignore latest.current.onUrlChanged
+                        let routeMode = Option.defaultValue RouteMode.Hash latest.current.hashMode
+                        onUrlChange routeMode urlChanged ev
+                    ),
+                    [||]
                 )
 
             // subscribe to navigation events

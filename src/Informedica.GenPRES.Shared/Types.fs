@@ -577,6 +577,8 @@ module Types =
 
     type SessionLaunchToken = SessionLaunchToken of string
 
+    type SessionRedeemToken = SessionRedeemToken of string
+
     type SessionContent =
         {
             RedeemToken: string
