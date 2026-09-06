@@ -370,13 +370,15 @@ module private Elmish =
                 pat, page, lang, discl, med
             | _ -> None, None, None, true, None
 
-    // expects url parts of the form "session?launch={token}"
-    // parses it into SessionContext.Launched token if found,
-    // otherwise SessionContext.Anonymous
+    // parses the session info from the url. The url can be in one of the following formats:
+    //  | -- "session?launch={token}" -> SessionContext.Launching token
+    //  | -- "session?redeem={token}" -> SessionContext.Redeeming token
+    //  | -- otherwise -> SessionContext.Anonymous
     let parseSessionInfo (urlParts: string list) =
+        let parts = List.pairwise urlParts
+
         let sessionPart part =
-            urlParts
-            |> List.pairwise
+            parts
             |> List.tryFind (fun (a, b) -> a = "session")
             |> function
                 | Some(_, Route.Query [ queryPart, value ]) when part = queryPart -> Some value
