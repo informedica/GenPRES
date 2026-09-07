@@ -198,10 +198,34 @@ let logClientIP: HttpHandler =
             next ctx
 
 
+/// <summary>
+/// Cache-Control value for a request path. Vite emits the client as
+/// content-hashed files under /assets/, so those can be cached forever;
+/// everything else — "/", index.html, icons, the Fable.Remoting routes —
+/// is "no-cache": the browser may keep a copy but must revalidate it on
+/// every load. The ETag that StaticFileMiddleware already emits then
+/// answers with a 304 when nothing changed and a full fetch after a deploy.
+/// </summary>
+/// <remarks>
+/// Without a Cache-Control header browsers apply heuristic freshness
+/// (RFC 9111 §4.2.2, typically 10 % of now − Last-Modified), which is how
+/// a long-running container ends up with clients that never see a new
+/// index.html and keep loading the previous hashed bundle (#568).
+/// </remarks>
+let cacheControlFor (path: string) =
+    if path.StartsWith("/assets/", System.StringComparison.OrdinalIgnoreCase) then
+        "public, max-age=31536000, immutable"
+    else
+        "no-cache"
+
+
 // B2 — Security response header baseline. ASP.NET middleware (wired via
 // app_config) using Response.OnStarting so headers land on every flushed
 // response: static files, Giraffe routes, the 404 fallback, and
-// Fable.Remoting error responses alike.
+// Fable.Remoting error responses alike. Also owns the Cache-Control
+// policy (cacheControlFor above), because this is the one hook that
+// runs on static responses and Saturn's use_static does not expose
+// StaticFileOptions.OnPrepareResponse.
 //
 // CSP allow-list reflects the SPA's actual fetches: same-origin scripts
 // (Fable bundle), maxcdn + Google Fonts for CSS, gstatic for fonts,
@@ -224,6 +248,7 @@ let private securityHeadersMiddleware (ctx: HttpContext) (next: System.Func<Task
         h["X-Frame-Options"] <- "DENY"
         h["Referrer-Policy"] <- "no-referrer"
         h["Permissions-Policy"] <- "geolocation=(), camera=(), microphone=()"
+        h["Cache-Control"] <- cacheControlFor ctx.Request.Path.Value
 
         h["Content-Security-Policy"] <-
             "default-src 'self'; \

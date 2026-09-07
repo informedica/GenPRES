@@ -447,6 +447,19 @@ The image is published by `tag-release.yml` a few minutes *after* the release PR
 
 Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID`, a 16+ character `GENPRES_PASSWORD`, and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
 
+**Browser caching after an update** — the server sets `Cache-Control` on every response
+(`securityHeadersMiddleware` in `src/Informedica.GenPRES.Server/Server.fs`, issue
+[#568](https://github.com/informedica/GenPRES/issues/568)): `no-cache` for `index.html` and
+everything else, `public, max-age=31536000, immutable` for the content-hashed bundles under
+`/assets/`. A browser therefore revalidates the entry document on every load (a cheap `ETag` 304
+when nothing changed) and picks up a new container without a hard refresh. Two caveats: a browser
+that cached `index.html` *before* this header existed still needs one hard reload
+(Cmd/Ctrl+Shift+R); and on a Plesk host with "Serve static files directly by nginx" including
+`html`, nginx answers `index.html` from disk and Kestrel's header never reaches the browser, so
+either drop `html`/`htm` from that list or add `location = / { add_header Cache-Control "no-cache"; }`
+and the same for `location = /index.html` to the per-site nginx directives. Check with
+`curl -sI https://<host>/ | grep -i cache-control`.
+
 If you find yourself wanting to commit one of these local scripts (e.g. because the team agrees it should be standardized), add a `!`-prefixed allow-line for the file to `.gitignore` in the same PR — otherwise the opt-in strategy will silently keep it untracked.
 
 ### CI/CD Pipeline (GitHub Actions)
