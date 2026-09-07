@@ -1,5 +1,5 @@
 ---
-last_commit_released: 3a9f2c85c8db1669e8b505d39525440b87cb5446
+last_commit_released: 227434d000b816740c7f238275b444fe2859c692
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,18 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.14 - 2026-09-07
+
+### 🐞 Bug Fixes
+
+* *(server)* Send Cache-Control so a deploy replaces the cached client ([6e601650](https://github.com/informedica/GenPRES/commit/6e60165046c14d6f38ae5ba3f11f646bf7a55dfc))
+
+    The server now sends Cache-Control headers, so a browser picks up a new
+    GenPRES version on a plain reload instead of keeping the previous client.
+* *(server)* Only mark successful asset responses immutable ([37d67852](https://github.com/informedica/GenPRES/commit/37d67852f18e5812b6bb35e1f3b2e3adae608742))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/3a9f2c85c8db1669e8b505d39525440b87cb5446..227434d000b816740c7f238275b444fe2859c692)</small></strong>
 
 ## 0.1.2-alpha.13 - 2026-09-07
 
