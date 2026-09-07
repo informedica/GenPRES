@@ -61,6 +61,8 @@ dotnet test
 - `dotnet run DockerBuild` - Builds the Docker image, version-labeled from `Directory.Build.props`
 - `dotnet run DockerRun` - Runs a Docker container
 - `dotnet run Format` - Uses Fantomas to format F# code
+- `dotnet run ApiDocs` - Build the fsdocs API reference for the libraries into `./output/` (CI publishes it to GitHub Pages via `docs.yml`)
+- `dotnet run ApiDocsWatch` - Local live-preview server for the API reference
 - `dotnet run MarkdownLint` - Runs the mark down linter
 - `dotnet run RestoreClient` - Runs the client npm restore process
 - Access the application at `http://localhost:5173`

@@ -143,6 +143,56 @@ Target.create
     )
 
 
+// Generates the HTML API reference for the libraries with fsdocs (issue #460). fsdocs finds GenPRES.sln,
+// documents every project in it that sets <GenerateDocumentationFile>true</...> and is not a test project
+// (all 16 src/Informedica.*.Lib today), and renders their /// XML doc comments alongside the literate
+// content under docs/reference/. Output goes to ./output/ (gitignored); .github/workflows/docs.yml
+// publishes it to GitHub Pages on push to master.
+//
+// Self-contained rather than chained off Build: fsdocs cracks the projects and reads their compiled .dll + .xml,
+// and defaults to the Release configuration, so this builds Release explicitly instead of reusing Build's Debug
+// output. Set FSDOCS_ROOT to the site's base URL (docs.yml passes https://informedica.github.io/GenPRES/ for
+// the project Pages site); left unset the links are site-root relative, which is what a local `--output` preview wants.
+let fsdocsRootArgs () =
+    match System.Environment.GetEnvironmentVariable "FSDOCS_ROOT" with
+    | root when System.String.IsNullOrWhiteSpace root -> []
+    | root -> [ "--parameters"; "root"; root ]
+
+
+Target.create
+    "ApiDocs"
+    (fun _ ->
+        run dotnet [ "tool"; "restore" ] "."
+        run dotnet [ "restore"; sln ] "."
+        run dotnet [ "build"; sln; "-c"; "Release"; "--no-restore" ] "."
+
+        run
+            dotnet
+            ([
+                "fsdocs"
+                "build"
+                "--input"
+                "docs/reference"
+                "--output"
+                "output"
+                "--clean"
+             ]
+             @ fsdocsRootArgs ())
+            "."
+    )
+
+
+// Local live-preview server for iterating on the API reference: rebuilds and reloads the  browser on changes
+// to docs/reference/ or to the libraries' XML doc comments. Serves on http://localhost:8901 by default.
+Target.create
+    "ApiDocsWatch"
+    (fun _ ->
+        run dotnet [ "tool"; "restore" ] "."
+        run dotnet [ "build"; sln; "-c"; "Release" ] "."
+        run dotnet [ "fsdocs"; "watch"; "--input"; "docs/reference" ] "."
+    )
+
+
 // A fresh clone or worktree has no .env (it is gitignored), and the server refuses to start
 // without GENPRES_URL_ID. .env.example ships the public demo sheet ID and GENPRES_PROD=0, so
 // seeding .env from it gives a working demo run with no manual step. .env.example leaves

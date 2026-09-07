@@ -1,0 +1,79 @@
+name: API docs
+
+# Builds the fsdocs API reference (issue #460) and publishes it to GitHub Pages.
+# A separate workflow from build.yml for the same reason release.yml is: a docs-build
+# failure must never block the test/format matrix, and a test failure must not stop
+# the docs refreshing. Runs only on master, never on PRs, there is nowhere to publish 
+# a PR build to and the full Release build is not worth spending on every push to a branch.
+#
+# One-time repo setup (admin): Settings -> Pages -> Build and deployment -> Source =
+# "GitHub Actions". Without it the deploy job fails with "Pages site not found".
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never cancel an in-flight Pages deployment; let it finish and run the next one after.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build API docs
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+    - name: Use .NET Core 10.0 SDK
+      # global-json-file, not dotnet-version: global.json is the single source of truth for
+      # the SDK feature band (issue #447).
+      uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+      with:
+        global-json-file: global.json
+        cache: true
+        cache-dependency-path: |
+          global.json
+          .config/dotnet-tools.json
+          **/paket.dependencies
+          **/paket.references
+          **/paket.lock
+          Build.fsproj
+          GenPRES.sln
+
+    - name: Tool restore
+      run: dotnet tool restore
+
+    - name: Configure Pages
+      uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+    - name: Build API docs
+      # ApiDocs builds the solution in Release, then runs `dotnet fsdocs build` into ./output.
+      # FSDOCS_ROOT is this project-Pages site's base path so generated links resolve under
+      # https://informedica.github.io/GenPRES/.
+      env:
+        FSDOCS_ROOT: https://informedica.github.io/GenPRES/
+      run: dotnet run ApiDocs
+
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      with:
+        path: output
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - name: Deploy
+      id: deployment
+      uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
