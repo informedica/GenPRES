@@ -141,6 +141,20 @@ module Config =
             | Some _ -> Ok()
 
 
+    /// <summary>
+    /// Every start-up guard in one place: the production password policy,
+    /// then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries the URL
+    /// ID the host needs; <c>Error</c> is the message the server exits with.
+    /// </summary>
+    let validateStartup (settings: Settings) : Result<string, string> =
+        validateProductionPassword settings.IsProd settings.Password
+        |> Result.bind (fun () ->
+            match settings.UrlId with
+            | Some urlId -> Ok urlId
+            | None -> Error "No GENPRES_URL_ID (or value is empty)"
+        )
+
+
     /// Reads every setting through <c>getEnv</c>. Pure: pass <c>Env.getItem</c>
     /// for the real environment, a <c>Map.tryFind</c> in tests.
     let fromEnv (getEnv: string -> string option) : Settings =
@@ -504,15 +518,16 @@ let main _ =
 
     settings |> Config.banner (Env.getSystemInfo ()) |> writeInfoMessage
 
-    // Fail-closed, before any listener binds.
-    match Config.validateProductionPassword settings.IsProd settings.Password with
-    | Error msg -> invalidOp msg
-    | Ok() -> ()
-
-    let provider =
-        settings.UrlId
-        |> Option.defaultWith (fun () -> invalidOp "No GENPRES_URL_ID (or value is empty)")
-        |> Host.resourceProvider
-
-    Host.build settings provider |> run
-    0
+    // Fail-closed, before any listener binds. A refused configuration is
+    // reported with an exit code, not an exception: in the Docker image the
+    // runtime used to be PID 1, and the SIGABRT it sends itself after an
+    // unhandled exception was dropped, leaving the container "running" with
+    // nothing listening (issue #572). A genuine crash elsewhere is still an
+    // unhandled exception on purpose; tini as PID 1 turns it into exit 134.
+    match Config.validateStartup settings with
+    | Error msg ->
+        writeErrorMessage msg
+        1
+    | Ok urlId ->
+        Host.build settings (Host.resourceProvider urlId) |> run
+        0
