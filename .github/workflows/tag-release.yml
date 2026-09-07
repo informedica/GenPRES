@@ -282,7 +282,9 @@ jobs:
       # The smoke test above cannot see issue #572: a container that never exits after the server
       # refuses to start looks exactly like one that is still starting. This starts the image with a
       # configuration the server refuses (production mode without a password) and requires the
-      # container to exit non-zero, which proves PID 1 (tini) passes the exit on.
+      # container to exit with code 1: the controlled refusal in `main`, not the 134 of an unhandled
+      # exception, so the check proves both that PID 1 (tini) passes the exit on and that the
+      # server took its documented exit path.
       run: |
         set -euo pipefail
         container=$(docker run -d -e GENPRES_PROD=1 -e GENPRES_PASSWORD= "$IMAGE")
@@ -296,8 +298,8 @@ jobs:
           echo "::error::Container still running 30s after a refused start-up (issue #572)"
           exit 1
         fi
-        if [ "$code" -eq 0 ]; then
-          echo "::error::Refused start-up exited 0; expected a non-zero exit code"
+        if [ "$code" -ne 1 ]; then
+          echo "::error::Refused start-up exited $code; expected exit code 1"
           exit 1
         fi
         echo "Refusal check passed: container exited $code"

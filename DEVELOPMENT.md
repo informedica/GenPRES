@@ -459,8 +459,8 @@ Now a refused start-up (the production password policy, or no `GENPRES_URL_ID`) 
 and exits `1`, a crash exits `134`, and `docker stop` still reaches Kestrel for a graceful shutdown.
 `compose.yaml`'s `restart: unless-stopped` and any orchestrator act on those codes; read them with
 `docker ps -a`. No `--init` or `init: true` is needed. The release workflow proves this on every
-image it publishes by starting it with `GENPRES_PROD=1` and no password and requiring a non-zero
-exit within 30 seconds.
+image it publishes by starting it with `GENPRES_PROD=1` and no password and requiring exit code
+`1` within 30 seconds.
 
 **Browser caching after an update** — the server sets `Cache-Control` on every response
 (`securityHeadersMiddleware` in `src/Informedica.GenPRES.Server/Server.fs`, issue
