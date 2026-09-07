@@ -68,6 +68,11 @@ jobs:
       # source files only, so it needs no build and runs before the tests for fast feedback.
       run: dotnet fsi scripts/CheckDependencyRule.fsx
 
+    - name: Check project graph is current
+      # The dependency diagram in ARCHITECTURE.md is generated from the .fsproj files and the ring
+      # map; fails when a project or reference changed without `dotnet fsi scripts/ProjectGraph.fsx --write`.
+      run: dotnet fsi scripts/ProjectGraph.fsx --check
+
     - name: Test execution
       env:
         CI: true

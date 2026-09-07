@@ -62,7 +62,7 @@ The core is the domain: units, patient, solver, operational knowledge rules, ord
 Core projects contain no call that reaches outside the process. Core projects do not read
 configuration; they receive values.
 
-The ring map in `scripts/CheckDependencyRule.fsx` names six rings, innermost first: Core;
+The ring map in `scripts/DependencyRule.fsx` names six rings, innermost first: Core;
 Contract, which is `GenPRES.Shared` alone — the types and pure functions that client and server
 exchange; Infrastructure, the adapters and the agent runtime; Presentation, the server and the
 MCP host; Client; and Tooling, the extraction pipeline, which sits outside the runtime rings. For
@@ -110,7 +110,7 @@ not fetch rule data on its own; both cross the DMZ through the server.
 
 #### 5. Enforcement
 
-`scripts/CheckDependencyRule.fsx` holds the ring map and checks, for every project in the
+`scripts/DependencyRule.fsx` holds the ring map; `scripts/CheckDependencyRule.fsx` checks, for every project in the
 solution, that references point inward, that core sources contain no call that reaches outside,
 that only the DMZ names a `GENPRES_*` setting, and that only the DMZ declares an entry point. The
 violations that exist at the time of this decision are listed in the script as allowances, each
@@ -194,7 +194,8 @@ The concrete code layout deliberately lives outside this ADR, so that it cannot 
   - [ADR-0002: MCP Server Architecture](0002-mcp-server-architecture.md) — the second entry point
   - [ADR-0003: Shared Clinical Calculations](0003-shared-clinical-calculations.md) — pure
     formulas may be shared with the client; that decision stands
-  - `scripts/CheckDependencyRule.fsx` — the ring map and the fitness test
+  - `scripts/DependencyRule.fsx` — the ring map; `scripts/CheckDependencyRule.fsx` — the fitness test;
+    `scripts/ProjectGraph.fsx` — the project dependency diagram in `ARCHITECTURE.md`, generated from both
   - `docs/implementation-plans/378-dependency-rule.md` — the migration
   - Mark Seemann, [Impureim sandwich](https://blog.ploeh.dk/2020/03/02/impureim-sandwich/)
   - Romain Deneau, [Safe Clean Architecture](https://github.com/rdeneau/gitbook-safe-clean-archi)
