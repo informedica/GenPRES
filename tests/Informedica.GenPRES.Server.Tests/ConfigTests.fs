@@ -76,6 +76,52 @@ let passwordTests =
         ]
 
 
+let validateStartupTests =
+    let settings (m: Map<string, string>) =
+        Config.fromEnv (fun key -> m |> Map.tryFind key)
+
+    let sixteen = String.replicate 16 "x"
+
+    testList
+        "validateStartup"
+        [
+            test "demo with a url id starts" {
+                Map [ "GENPRES_URL_ID", "sheet-id" ]
+                |> settings
+                |> Config.validateStartup
+                |> Expect.equal "Ok with the url id" (Ok "sheet-id")
+            }
+
+            test "demo without a url id is refused" {
+                match Map.empty |> settings |> Config.validateStartup with
+                | Error msg -> msg |> Expect.stringContains "names the setting" "GENPRES_URL_ID"
+                | Ok _ -> failtest "expected Error"
+            }
+
+            test "production without a password is refused before the url id is checked" {
+                match
+                    Map [ "GENPRES_PROD", "1"; "GENPRES_URL_ID", "sheet-id" ]
+                    |> settings
+                    |> Config.validateStartup
+                with
+                | Error msg -> msg |> Expect.stringContains "names the cause" "not set"
+                | Ok _ -> failtest "expected Error"
+            }
+
+            test "production with a valid password and a url id starts" {
+                Map
+                    [
+                        "GENPRES_PROD", "1"
+                        "GENPRES_PASSWORD", sixteen
+                        "GENPRES_URL_ID", "sheet-id"
+                    ]
+                |> settings
+                |> Config.validateStartup
+                |> Expect.equal "Ok with the url id" (Ok "sheet-id")
+            }
+        ]
+
+
 let redactionTests =
     testList
         "banner redaction"
@@ -158,6 +204,7 @@ let tests =
         [
             trustedProxiesTests
             passwordTests
+            validateStartupTests
             redactionTests
             fromEnvTests
         ]

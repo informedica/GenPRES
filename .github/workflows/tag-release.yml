@@ -276,6 +276,34 @@ jobs:
         echo "::error::Smoke test failed: / did not return 200 within 60s of container start"
         exit 1
 
+    - name: Check that a refused start-up exits the container
+      env:
+        IMAGE: ${{ steps.tags.outputs.version_tag }}
+      # The smoke test above cannot see issue #572: a container that never exits after the server
+      # refuses to start looks exactly like one that is still starting. This starts the image with a
+      # configuration the server refuses (production mode without a password) and requires the
+      # container to exit with code 1: the controlled refusal in `main`, not the 134 of an unhandled
+      # exception, so the check proves both that PID 1 (tini) passes the exit on and that the
+      # server took its documented exit path.
+      run: |
+        set -euo pipefail
+        container=$(docker run -d -e GENPRES_PROD=1 -e GENPRES_PASSWORD= "$IMAGE")
+        cleanup() {
+          docker logs "$container" || true
+          docker rm -f "$container" >/dev/null 2>&1 || true
+        }
+        trap cleanup EXIT
+
+        if ! code=$(timeout 30 docker wait "$container"); then
+          echo "::error::Container still running 30s after a refused start-up (issue #572)"
+          exit 1
+        fi
+        if [ "$code" -ne 1 ]; then
+          echo "::error::Refused start-up exited $code; expected exit code 1"
+          exit 1
+        fi
+        echo "Refusal check passed: container exited $code"
+
     - name: Push image
       # The image already built and passed its smoke test above, tagged locally under every tag
       # from steps.tags. Pushing each tag directly here avoids building the image a second time.

@@ -51,6 +51,16 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0
 ARG APP_VERSION=0.0.0
 LABEL org.opencontainers.image.version="${APP_VERSION}"
 
+# tini as PID 1 (issue #572). With dotnet itself as PID 1 the runtime never died from
+# the SIGABRT it sends itself after an unhandled exception, because Linux drops the
+# default action of a signal for PID 1: a refused start-up left the container "running"
+# with nothing listening. tini reaps and forwards signals, so an abort now ends the
+# container (exit 134), a refused start-up exits 1 (see Server.fs, main), and
+# `docker stop` still reaches Kestrel for a graceful shutdown. No `--init` needed.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tini \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=app-build /workspace/deploy /app
 
 ENV GENPRES_LOG=0
@@ -86,4 +96,4 @@ ENV GENPRES_PASSWORD=
 
 WORKDIR /app
 EXPOSE 8085
-ENTRYPOINT [ "dotnet", "Informedica.GenPRES.Server.dll" ]
+ENTRYPOINT [ "tini", "--", "dotnet", "Informedica.GenPRES.Server.dll" ]
