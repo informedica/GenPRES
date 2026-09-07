@@ -70,6 +70,19 @@ GenPRES uses [FAKE](https://fake.build/) (F# Make) as its build automation tool.
 
 When you type `dotnet run` from the repository root, .NET executes `Build.fsproj`, which is an F# console application that initializes the FAKE execution context. FAKE then reads the target name from the command-line arguments (defaulting to `Run` when none is given) and executes the corresponding target and all of its declared dependencies.
 
+`Build.fsproj` has to live in the repository root: bare `dotnet run` resolves its project only
+from the current directory (there is no configuration or environment variable to redirect it),
+so moving it into a subfolder would turn every invocation into `dotnet run --project <dir> <target>`.
+The same root placement is why plain `dotnet build` / `dotnet test` fail with MSB1011 — both the
+solution and this project file are candidates — and must be given `GenPRES.sln` explicitly.
+
+`Build.fsproj` is listed in `GenPRES.sln` so that editors that load projects from the solution
+(Ionide, Rider) give `Build.fs` and `Helpers.fs` IntelliSense. It is deliberately **not** part of
+the solution build: its solution entry has `ActiveCfg` lines only, no `Build.0` lines, so
+`dotnet build GenPRES.sln` — which the `Build` target runs from inside the running build
+executable — never tries to overwrite `Build.dll` while it is executing. `dotnet run` builds
+the project itself, and `scripts/CheckSolutionVersions.fsx` skips it as a non-shipped project.
+
 ```text
 dotnet run [target]
      │
@@ -133,6 +146,42 @@ does not use them. `Build` still builds the test projects because `ServerTests` 
 `dotnet test --no-restore`. It also stays npm-free so CI does not run `npm ci` and a
 Fable compile for every test run. Thus, `Build` remains the full-solution build,
 while the new targets compile either side separately.
+
+### Paket groups
+
+Packages are managed by [Paket](https://fsprojects.github.io/Paket/) from the single root
+`paket.dependencies` / `paket.lock`; each project lists what it uses in its own `paket.references`.
+The dependencies file is split into five groups, each resolved independently so that packages
+needed only by one side of the repo never influence the version resolution of the shipped code:
+
+| Group | Used by | Contents |
+|---|---|---|
+| `Main` (the unnamed first section) | `src/` libraries, server, shared contract | everything shipped, including `Unquote` and `IcedTasks`, which the libraries use |
+| `Client` | `src/Informedica.GenPRES.Client` | Fable, Elmish, Feliz |
+| `Test` | `tests/*` | Expecto, FsCheck, the test SDK and adapter |
+| `Build` | the root `Build.fsproj` | FAKE |
+| `Benchmark` | `benchmark/*` | BenchmarkDotNet (see [#513](https://github.com/informedica/GenPRES/issues/513)) |
+
+A `paket.references` file names a group with a `group <Name>` line; everything above the first
+such line is `Main`. Each project references exactly one group: the `src/` projects `Main`, the
+client `Client`, the test projects `Test`, the root build project `Build`. The `benchmark/`
+projects are the one exception and list `Main` and `Benchmark`.
+
+The one-group-per-project rule is not cosmetic. Paket emits one `PackageReference` (and one
+`PackageVersion`) per group and per package and never de-duplicates across groups, so a project
+that listed `Main` and `Test` would get `FSharp.Core` twice and NuGet would warn `NU1504` /
+`NU1506` on every restore. Test projects therefore do **not** list `Unquote`,
+`MathNet.Numerics.FSharp` or `IcedTasks` themselves: those flow to them transitively through their
+`ProjectReference` to the `src/` library under test, exactly as they would in any SDK-style
+project, at the version `Main` pins. `FSharp.Core` they list from the `Test` group.
+
+`FSharp.Core` is pinned to the same version in every group on purpose, so that the copy a test or
+client project gets from its own group agrees with the copy that flows in from `Main` through the
+project reference. Bump the pin in all four places together.
+
+To add a package: put the `nuget` line in the group that matches its consumer, add it to the
+consuming project's `paket.references` under that group, run `dotnet paket install`, and commit
+`paket.dependencies`, `paket.lock` and the touched `paket.references` files.
 
 ### Changelog & Release Automation (EasyBuild.ShipIt)
 
@@ -228,7 +277,7 @@ Common conventions for both categories:
 These three scripts ship with the repository and are listed explicitly in `.gitignore` with `!` allow-entries.
 
 - **`debugTests.sh`** — sources `.env`, then iterates through eight test projects (`Utils`, `Agents`, `Logging`, `GenUnits`, `GenCore`, `GenSolver`, `GenForm`, `GenOrder`, plus the `Server` test project) and runs each with `dotnet run --project <proj> -- --debug --summary --sequenced`. Exits non-zero on the first failure. Similar to `dotnet run ServerTests` but with per-project isolation, debug output, and forced sequential execution — useful when chasing flaky tests or test interactions. The project list is hardcoded; if you add a new test project, update both this script and the `ServerTests` FAKE target.
-- **`benchmark/run.sh`** — runs `sudo dotnet run -c Release "$@"`. Must be invoked from the `benchmark/` directory; it does not `cd` for you. The `sudo` is required because some BenchmarkDotNet diagnostics need elevated privileges. Extra arguments are forwarded to `dotnet run`. The `benchmark/` projects are part of the root paket root, with their packages in a separate `group Benchmark` in `paket.dependencies` so that BenchmarkDotNet's transitive tree never influences the `Main` resolution (see [#513](https://github.com/informedica/GenPRES/issues/513)); `dotnet run BenchmarkBuild` compiles all four benchmark projects without running them.
+- **`benchmark/run.sh`** — runs `sudo dotnet run -c Release "$@"`. Must be invoked from the `benchmark/` directory; it does not `cd` for you. The `sudo` is required because some BenchmarkDotNet diagnostics need elevated privileges. Extra arguments are forwarded to `dotnet run`. The `benchmark/` projects are part of the root paket root, with their packages in a separate `group Benchmark` in `paket.dependencies` so that BenchmarkDotNet's transitive tree never influences the `Main` resolution (see [#513](https://github.com/informedica/GenPRES/issues/513) and [Paket groups](#paket-groups) above); `dotnet run BenchmarkBuild` compiles all four benchmark projects without running them.
 - **`.husky/scripts/format-staged.sh`** — invoked by the Husky pre-commit hook. Receives staged F# files as positional arguments, warns about partially-staged files (Fantomas formats the *full working-tree* version of each file, not just the staged hunks), runs `dotnet fantomas` on them, and re-stages the formatted output. You normally never call this directly; it runs automatically on `git commit`. See also [CONTRIBUTING.md](CONTRIBUTING.md#code-formatting-pre-commit-hook).
 
 #### Optional local scripts (not in the repo — paste into your working copy)

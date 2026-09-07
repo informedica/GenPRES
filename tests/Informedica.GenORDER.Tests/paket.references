@@ -1,8 +1,6 @@
+group Test
+FSharp.Core
 Expecto
-MathNet.Numerics.FSharp
 Expecto.FsCheck
 Microsoft.Net.Test.Sdk
 YoloDev.Expecto.TestSdk
-Unquote
-FSharp.Core
-IcedTasks

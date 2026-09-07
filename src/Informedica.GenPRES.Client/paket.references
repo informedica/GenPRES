@@ -1,3 +1,4 @@
+group Client
 Fable.Browser.DOM
 Fable.Core
 Fable.Elmish
