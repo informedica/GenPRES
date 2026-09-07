@@ -13,23 +13,15 @@ open Shared.Types
 open Shared.Models
 open Global
 
-
 module private Elmish =
 
     [<RequireQualifiedAccess>]
     type SessionContextMsg =
         | Launch of SessionLaunchToken
+        | Launched of SessionRedeemToken
         | Redeem of SessionRedeemToken
+        | Redeemed of SessionContent
         | Error of string
-        | Redeemed of SessionContent * redirect: bool
-
-    [<RequireQualifiedAccess>]
-    type SessionContext =
-        | Anonymous
-        | Launching of SessionLaunchToken
-        | Redeeming of SessionRedeemToken
-        | Error of string
-        | Content of Deferred<SessionContent>
 
     type State =
         {
@@ -1144,15 +1136,20 @@ module private Elmish =
             let launch =
                 async {
                     try
+                        do! Async.Sleep 3000 // simulate some delay for the launch
+
                         match! serverApi.launchSession token with
                         // a launched session still has to be handed over to its redeem url
-                        | Ok session -> return SessionContextMsg(SessionContextMsg.Redeemed(session, true))
+                        | Ok redeemToken -> return SessionContextMsg(SessionContextMsg.Launched redeemToken)
                         | Error err -> return SessionContextMsg(SessionContextMsg.Error err)
                     with ex ->
                         return SessionContextMsg(SessionContextMsg.Error ex.Message)
                 }
 
             state, Cmd.fromAsync launch
+
+        | SessionContextMsg(SessionContextMsg.Launched(SessionRedeemToken token)) ->
+            state, Cmd.navigate ("session", [ "redeem", token ])
 
         | SessionContextMsg(SessionContextMsg.Redeem token) ->
             // session is being redeemed
@@ -1161,8 +1158,10 @@ module private Elmish =
             let redeem =
                 async {
                     try
+                        do! Async.Sleep 2000
+
                         match! serverApi.redeemSession token with
-                        | Ok session -> return SessionContextMsg(SessionContextMsg.Redeemed(session, false))
+                        | Ok session -> return SessionContextMsg(SessionContextMsg.Redeemed session)
                         | Error err -> return SessionContextMsg(SessionContextMsg.Error err)
                     with ex ->
                         return SessionContextMsg(SessionContextMsg.Error ex.Message)
@@ -1176,19 +1175,17 @@ module private Elmish =
             let state = { state with SessionContext = SessionContext.Error err }
             state, Cmd.none
 
-        | SessionContextMsg(SessionContextMsg.Redeemed(content, redirect)) ->
-            // a launched session navigates to #/session?redeem={token}, which comes back
-            // round as UrlChanged -> Redeem. A redeemed session is already there and must
-            // not navigate again, or it would re-enter Redeem indefinitely.
-            let cmd =
-                if redirect then
-                    Cmd.navigate ("session", [ "redeem", content.RedeemToken ])
-                else
-                    Cmd.none
+        | SessionContextMsg(SessionContextMsg.Redeemed content) ->
+            // the url already carries the redeem token (see Launched), so a redeemed session
+            // must not navigate again, or it would re-enter Redeem indefinitely.
+            // update the state with the redeemed session content and patient data
+            let state =
+                { state with
+                    SessionContext = SessionContext.Content(Resolved content)
+                    Patient = Some content.Patient
+                }
 
-            let state = { state with SessionContext = SessionContext.Content(Resolved content) }
-
-            state, cmd
+            state, Cmd.none
 
 
     let calculateInterventions calc meds pat =
@@ -1390,6 +1387,7 @@ let View () =
             acceptDisclaimer = fun _ -> AcceptDisclaimer |> dispatch
             updatePage = UpdatePage >> dispatch
             page = state.Page
+            session = state.SessionContext
             languages = Localization.languages
             hospitals = state.Hospitals
             switchLang = UpdateLanguage >> dispatch

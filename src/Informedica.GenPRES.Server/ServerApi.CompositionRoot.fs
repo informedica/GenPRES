@@ -7,33 +7,45 @@ module CompositionRoot =
     open Shared.Api
     open Shared.Types
 
-    let launchSession (env: AppEnv) (token: SessionLaunchToken) : Async<Result<SessionContent, string>> =
+    let launchSession (env: AppEnv) (token: SessionLaunchToken) : Async<Result<SessionRedeemToken, string>> =
+        // TODO: implement proper session launch logic,
+        // which checks the validity of the token and returns a redeem token if valid, or an error if invalid.
+        let (SessionLaunchToken token) = token
+        async { return Ok(SessionRedeemToken "test-redeem-token") }
+
+    let redeemSession (env: AppEnv) (token: SessionRedeemToken) : Async<Result<SessionContent, string>> =
         async {
-            let (SessionLaunchToken token) = token
+            let (SessionRedeemToken token) = token
 
             if token = "demo-error" then
-                return Error "error: Invalid launch token"
+                return Error "error: invalid launch token"
             else
                 try
-                    let dummySessionContent =
-                        {
-                            RedeemToken = "dummy-redeem-token"
-                            UserName = "John Doe"
-                            UserEmail = "john@doe.com"
-                            PatientId = "dummy-patient-id"
-                            SessionId = "dummy"
-                        }
+                    let patientId = "test-patient-id"
 
-                    return Ok dummySessionContent
+                    match! env.patient.loadPatientData (PatientId patientId) with
+                    | Error error ->
+                        let errorMessage =
+                            $"Error loading patient data for patientId: {patientId}. Error: {error}"
+
+                        return Error errorMessage
+                    | Ok patient ->
+                        let testSessionContent =
+                            {
+                                RedeemToken = "test-redeem-token"
+                                UserName = "John Doe"
+                                UserEmail = "john@doe.com"
+                                PatientId = "test-patient-id"
+                                SessionId = "test-session-id"
+                                Patient = patient
+                            }
+
+                        return Ok testSessionContent
                 with ex ->
                     writeErrorMessage $"Error launching session with token: {token}\n{ex}"
                     return Error ex.Message
         }
 
-    let redeemSession (env: AppEnv) (token: SessionRedeemToken) : Async<Result<SessionContent, string>> =
-        // TODO
-        let (SessionRedeemToken token) = token
-        launchSession env (SessionLaunchToken token)
 
     let compose (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) : IServerApi =
         let env = Adapters.makeAppEnv provider

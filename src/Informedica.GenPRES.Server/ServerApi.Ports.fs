@@ -46,6 +46,10 @@ type LogAnalyzerPort =
         analyzeLogFile: string -> Async<Result<string, string[]>>
     }
 
+type PatientId = PatientId of string
+
+type PatientPort = { loadPatientData: PatientId -> Async<Result<Patient, string>> }
+
 
 type AppEnv =
     {
@@ -56,4 +60,5 @@ type AppEnv =
         interaction: InteractionPort
         logAnalyzer: LogAnalyzerPort
         requireLoaded: unit -> string[] option
+        patient: PatientPort
     }
