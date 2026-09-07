@@ -43,6 +43,13 @@
         "shipit"
       ],
       "rollForward": false
+    },
+    "fsdocs-tool": {
+      "version": "22.2.0",
+      "commands": [
+        "fsdocs"
+      ],
+      "rollForward": false
     }
   }
 }
