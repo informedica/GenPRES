@@ -35,7 +35,7 @@ let cacheControlTests =
             for status, path, expected in cacheControlCases do
                 test $"%i{status} %A{path} -> %s{expected}" {
                     path
-                    |> Server.cacheControlFor status
+                    |> Server.Http.cacheControlFor status
                     |> Expect.equal $"%i{status} %A{path} should get {expected}" expected
                 }
         ]
