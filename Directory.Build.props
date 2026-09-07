@@ -1,8 +1,7 @@
 <Project>
   <PropertyGroup>
-    <Version>0.1.2-alpha.14</Version>
+    <Version>0.1.2-alpha.15</Version>
   </PropertyGroup>
-
   <!--
     Repository and documentation metadata consumed by fsdocs (FSharp.Formatting) when it
     generates the API reference (issue #460): the RepositoryUrl / RepositoryBranch /
