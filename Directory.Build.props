@@ -4,10 +4,17 @@
   </PropertyGroup>
 
   <!--
-    Repository and documentation metadata consumed by fsdocs (FSharp.Formatting) when it generates the API 
-    reference (issue #460): "edit on GitHub" and source links, plus the header/footer links on every page. 
-    Harmless for the non-library projects it also applies to, none of them are packed. Kept in its own 
+    Repository and documentation metadata consumed by fsdocs (FSharp.Formatting) when it generates the API
+    reference (issue #460): "edit on GitHub" and source links, plus the header/footer links on every page.
+    Harmless for the non-library projects it also applies to, none of them are packed. Kept in its own
     PropertyGroup so the ShipIt updater's /Project/PropertyGroup/Version selector stays unambiguous.
+
+    FsDocsSourceRepository is set explicitly rather than left to fsdocs' RepositoryUrl/tree/branch fallback: 
+    six libraries (Utils, GenUNITS, GenSOLVER, GenORDER, GenFORM, NKF) carry a nested Directory.Build.props 
+    with a pre-monorepo standalone <RepositoryUrl> (NKF's is a copy of GenFORM's) that shadows the root value, 
+    which would point their source links at the wrong repo. fsdocs checks <FsDocsSourceRepository> before 
+    <RepositoryUrl>, and those nested files do not set it, so this one line fixes the links for all 16 libraries. 
+    Removing that dead package metadata from the six files is the proper fix and is left as a follow-up.
   -->
   <PropertyGroup>
     <Authors>Informedica</Authors>
@@ -15,6 +22,7 @@
     <RepositoryUrl>https://github.com/informedica/GenPRES</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryBranch>master</RepositoryBranch>
+    <FsDocsSourceRepository>https://github.com/informedica/GenPRES/tree/master</FsDocsSourceRepository>
     <PackageProjectUrl>https://informedica.github.io/GenPRES/</PackageProjectUrl>
     <FsDocsLicenseLink>https://github.com/informedica/GenPRES/blob/master/LICENSE</FsDocsLicenseLink>
     <FsDocsReleaseNotesLink>https://github.com/informedica/GenPRES/blob/master/CHANGELOG.md</FsDocsReleaseNotesLink>
