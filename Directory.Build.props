@@ -2,4 +2,26 @@
   <PropertyGroup>
     <Version>0.1.2-alpha.14</Version>
   </PropertyGroup>
+
+  <!--
+    Repository and documentation metadata consumed by fsdocs (FSharp.Formatting) when it generates the API 
+    reference (issue #460): "edit on GitHub" and source links, plus the header/footer links on every page. 
+    Harmless for the non-library projects it also applies to, none of them are packed. Kept in its own 
+    PropertyGroup so the ShipIt updater's /Project/PropertyGroup/Version selector stays unambiguous.
+  -->
+  <PropertyGroup>
+    <Authors>Informedica</Authors>
+    <Copyright>Copyright (c) Informedica</Copyright>
+    <RepositoryUrl>https://github.com/informedica/GenPRES</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryBranch>master</RepositoryBranch>
+    <PackageProjectUrl>https://informedica.github.io/GenPRES/</PackageProjectUrl>
+    <FsDocsLicenseLink>https://github.com/informedica/GenPRES/blob/master/LICENSE</FsDocsLicenseLink>
+    <FsDocsReleaseNotesLink>https://github.com/informedica/GenPRES/blob/master/CHANGELOG.md</FsDocsReleaseNotesLink>
+    <FsDocsRepositoryLink>https://github.com/informedica/GenPRES</FsDocsRepositoryLink>
+    <!-- F# libraries use /// XML doc comments, not Markdown-in-XML. -->
+    <UsesMarkdownComments>false</UsesMarkdownComments>
+    <!-- Missing-doc noise stays off for now; FS3390 (malformed doc) already warns per project. -->
+    <FsDocsWarnOnMissingDocs>false</FsDocsWarnOnMissingDocs>
+  </PropertyGroup>
 </Project>

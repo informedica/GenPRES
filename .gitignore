@@ -150,6 +150,9 @@
 !/docs/domain/
 !/docs/adr/
 !/docs/implementation-plans/
+# fsdocs literate-content input for the generated API reference (issue #460). The
+# HTML output lands in ./output/ and stays ignored; docs.yml publishes it to Pages.
+!/docs/reference/
 !/docs/user-guide/
 !/docs/user-guide/en/
 !/docs/user-guide/nl/

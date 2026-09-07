@@ -116,6 +116,8 @@ packages for the Fable/Vite dev server).
 | `dotnet run TestHeadless` | `TestHeadless` | Build and run tests without launching a browser |
 | `dotnet run WatchTests` | `WatchTests` | Run tests in watch mode (re-runs on file changes) |
 | `dotnet run Format` | `Format` | Format all F# source files using Fantomas |
+| `dotnet run ApiDocs` | `ApiDocs` | Build the fsdocs API reference for the `Informedica.*.Lib` libraries in Release into `./output/`. CI (`docs.yml`) publishes it to GitHub Pages on push to `master`. Set `FSDOCS_ROOT` to the site base URL (CI passes `https://informedica.github.io/GenPRES/`) |
+| `dotnet run ApiDocsWatch` | `ApiDocsWatch` | Local live-preview server for the API reference; rebuilds on changes to `docs/reference/` or the libraries' XML doc comments |
 | `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`informedica/genpres` by default, override with `DOCKER_IMAGE`), labeling it with the version from the root `Directory.Build.props` |
 | `dotnet run DockerRun` | `DockerRun` | Run the built image locally, using `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) |
 
@@ -127,6 +129,8 @@ Clean ──► RestoreClient ──► ClientBuild
 
 ServerBuild            (no prerequisites — restores itself)
 BenchmarkBuild         (no prerequisites — restores itself)
+ApiDocs                (no prerequisites — restores and builds Release itself)
+ApiDocsWatch           (no prerequisites — restores and builds Release itself)
 
 Build ──► Run
 RestoreClient ──► Run
@@ -497,6 +501,18 @@ unnoticed until [#513](https://github.com/informedica/GenPRES/issues/513). The j
 matrix on purpose: it runs in parallel and finishes inside the windows leg's duration, so it adds no
 wall-clock time to a run, only about three runner-minutes. It compiles only; BenchmarkDotNet runs stay a
 local activity (see `benchmark/run.sh`).
+
+### API Documentation (GitHub Actions)
+
+`.github/workflows/docs.yml` runs `dotnet run ApiDocs` on every push to `master` and publishes the fsdocs 
+output to GitHub Pages at `https://informedica.github.io/GenPRES/`
+([#460](https://github.com/informedica/GenPRES/issues/460)). Like `release.yml` it is a separate workflow 
+rather than a job in `build.yml`: a docs-build failure must not block the test/format matrix, and a red 
+test run must not stop the reference from refreshing. It does not run on pull requests — there is nowhere 
+to publish a PR build and the Release solution build is not worth spending per branch push.
+
+**One-time repo setup (admin)**: Settings → Pages → Build and deployment → Source = "GitHub
+Actions". Until that is set, the `deploy` job fails with "Pages site not found".
 
 ### Release Automation (GitHub Actions)
 
