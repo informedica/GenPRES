@@ -227,7 +227,7 @@ access control + audit mandatory). Storage tech choice is **open**.
 **Description.** Integration layer to exchange orders/patient context with external EHR
 systems. GenPRES has no integration libraries today: the earlier `Informedica.FHIR.Lib`,
 `Informedica.HIXConnect.Lib`, `Informedica.DataPlatform.Lib` and `Informedica.OTS.Lib`
-projects were removed from the solution, so this item starts from scratch. See ADR-0020
+projects were removed from the solution, so this item starts from scratch. See ADR-0004
 for the superseded FHIR design.
 
 **Rationale.** GenPRES must consume patient context from and return validated orders to the

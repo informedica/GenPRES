@@ -3,7 +3,7 @@ name: Release
 # Runs ShipIt on every push to master to open/update a release PR with the next version
 # and changelog section. Deliberately its own workflow, not a job in build.yml: a ShipIt
 # failure must never block the test/format matrix that already ran (and gated) the PR
-# that got merged to produce this push. See ADR-0021 and the #234 implementation plan,
+# that got merged to produce this push. See ADR-0005 and the #234 implementation plan,
 # step 5.
 
 on:
@@ -42,7 +42,7 @@ jobs:
       # --allow-branch: this repo's default branch is master, not ShipIt's main-branch default.
       # --skip-merge-commit: existing history has `Merge pull request ...` commits ShipIt can't
       # parse; both flags are required for every invocation against this repo (see DEVELOPMENT.md).
-      # No --mode flag: defaults to pull-request, matching ADR-0021's decision that ShipIt opens
+      # No --mode flag: defaults to pull-request, matching ADR-0005's decision that ShipIt opens
       # a release PR for review rather than pushing directly to master.
       run: dotnet shipit --allow-branch master --skip-merge-commit
       env:

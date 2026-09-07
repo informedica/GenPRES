@@ -52,7 +52,7 @@ as follow-up issues once the versioning foundation lands.
   `DEVELOPMENT.md` get updated in the same PR that makes them stale.
 
 Full detail (decisions, trade-offs, MDR/safety notes) lives in
-[ADR-0021](../adr/0021-build-system-versioning-and-release.md).
+[ADR-0005](../adr/0005-build-system-versioning-and-release.md).
 
 ## Confidence
 
@@ -74,7 +74,7 @@ except step 2, which was dropped as unnecessary.
    squash and rebase merging enabled**~~ — **dropped, not done.** Every local
    and CI invocation passes `--skip-merge-commit`, which makes ShipIt tolerate
    `Merge pull request ...` commits, so no repo setting change was needed to
-   adopt it. All three merge methods stay enabled. See ADR-0021 design choice 2.
+   adopt it. All three merge methods stay enabled. See ADR-0005 design choice 2.
 3. **Adopt ShipIt tooling**: add it to `.config/dotnet-tools.json`, add the confirmed 
    front-matter to `CHANGELOG.md`, add a local dry-run entry point 
    (FAKE target or direct `dotnet shipit` invocation): not wired into CI yet.
@@ -89,7 +89,7 @@ except step 2, which was dropped as unnecessary.
 7. **Split `Build` into `ServerBuild`/`ClientBuild`** in `Build.fs`, update
    `DEVELOPMENT.md`'s target table and dependency-chain diagram and
    `AGENTS.md`'s quick-start section in the same PR.
-8. **File follow-up issues** for items 3 and 4, linked from ADR-0021. Done:
+8. **File follow-up issues** for items 3 and 4, linked from ADR-0005. Done:
    [#459](https://github.com/informedica/GenPRES/issues/459) (Docker image on
    release) and [#460](https://github.com/informedica/GenPRES/issues/460)
    (auto-generated API documentation).

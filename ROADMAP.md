@@ -17,7 +17,7 @@ GenPRES aims to be the leading open-source medication decision support system fo
 - MCP stdio server (Informedica.MCP.Server) exposing GenFORM/GenORDER tools
 - NLP dose-rule extraction pipeline (DoseRuleExtract.fsx) for semi-automated data entry
 - G-Standaard dose-rule fallback for medications without GenFORM spreadsheet entries (prototype; implementation plan for #307)
-- Shared clinical calculations (BSA, age, renal eGFR) in `Informedica.GenPRES.Shared` for server and client (ADR-0019)
+- Shared clinical calculations (BSA, age, renal eGFR) in `Informedica.GenPRES.Shared` for server and client (ADR-0003)
 
 ## Release Schedule
 
@@ -82,7 +82,7 @@ First production-ready (non-pre-release) version with MDR compliance and clinica
 **Workshop W7-W9**
 
 - ⏳ W7: FHIR/HL7 Integration
-  - ADR-0020: FHIR R4 integration architecture designed, then superseded — the prototype was never compiled and was deleted; integration restarts from the MainEHR integration model in `docs/scenarios/integration/`
+  - ADR-0004: FHIR R4 integration architecture designed, then superseded — the prototype was never compiled and was deleted; integration restarts from the MainEHR integration model in `docs/scenarios/integration/`
   - Interface implementation
   - EHR integration testing
   - Interoperability validation

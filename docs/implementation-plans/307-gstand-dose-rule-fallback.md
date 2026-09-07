@@ -127,5 +127,5 @@ When the maintainer is ready to migrate:
 - [GStandDoseRules.fsx prototype — PR #310](https://github.com/informedica/GenPRES/pull/310)
 - [G-Standaard dose rule check color coding — PR #309](https://github.com/informedica/GenPRES/pull/309)
 - [GenFORM sheet contract — the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs`](../../src/Informedica.GenFORM.Lib/Types.fs)
-- [MCP Server Architecture — ADR-0009](../adr/0009-mcp-server-architecture.md)
+- [MCP Server Architecture — ADR-0002](../adr/0002-mcp-server-architecture.md)
 - [ZForm.GStand API — `src/Informedica.ZForm.Lib/GStand.fs`](../../src/Informedica.ZForm.Lib/GStand.fs)

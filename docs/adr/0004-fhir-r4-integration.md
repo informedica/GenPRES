@@ -1,4 +1,4 @@
-# ADR-0020: FHIR R4 EHR Integration
+# ADR-0004: FHIR R4 EHR Integration
 
 **Issue**: FHIR R4 EHR integration design
 
@@ -9,6 +9,8 @@ project"), because `Informedica.FHIR.Lib` was never referenced by `GenPRES.sln` 
 was never compiled. The ADR is retained as the record that a FHIR R4 approach was chosen
 and then abandoned; nothing it describes is implemented today. Any renewed EHR
 integration work starts from scratch — see `docs/roadmap/backlog.md` item 7.
+
+**Formerly**: ADR-0020, renumbered on 2026-09-06 when `docs/adr/` was made contiguous (see [ADR-0000](0000-documentation-rules.md)).
 
 ## Context
 
@@ -166,7 +168,7 @@ authentication plumbing not yet needed for the calculation-service use case. Def
 - Firely .NET SDK: <https://docs.fire.ly/projects/Firely-NET-SDK/>
 - Dutch G-Standaard / NL FHIR: <https://informatiestandaarden.nictiz.nl/wiki/Landingspagina_Medicatie>
 - IHE Pharmacy profile: <https://www.ihe.net/resources/technical_frameworks/#pharmacy>
-- [ADR-0009: MCP Server Architecture](0009-mcp-server-architecture.md)
+- [ADR-0002: MCP Server Architecture](0002-mcp-server-architecture.md)
 - [Security baseline (formerly ADR-0015)](../security/security-baseline.md)
 - PR #215: Scripts (FHIR): Add `ImplementationPlan.fsx`
 - PR #222: Scripts (FHIR): Fix `ImplementationPlan.fsx` — major rework with correct FHIR property mappings

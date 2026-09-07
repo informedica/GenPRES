@@ -60,8 +60,12 @@ Starting the application in developer mode is now super easy, just `dotnet run` 
 
 Open a browser to <http://localhost:5173> to view the site.
 
-The `GENPRES_URL_ID` environment variable selects the Google Sheet the server reads its rules from;
-`.env.example` ships the public demo sheet ID. After starting the application, the sheet ID in use is
+The `GENPRES_URL_ID` environment variable selects the Google Sheet the server reads its rules from.
+On a fresh clone there is no `.env` yet, so the first `dotnet run` creates one by copying
+`.env.example`, which ships the public demo sheet ID, `GENPRES_PROD=0` and an empty
+`GENPRES_PASSWORD` (admin operations disabled). That gives a working demo with no manual step; it does need network access to `docs.google.com`, because the rule base is
+fetched from the sheet at startup even in demo mode. An existing `.env` is never overwritten, so
+edit it to switch to production data. After starting the application, the sheet ID in use is
 printed (masked) to the terminal. See [Environment Configuration](DEVELOPMENT.md#environment-configuration)
 for the full variable list, the `.env` priority order, and Windows syntax.
 

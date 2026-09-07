@@ -1,4 +1,4 @@
-# ADR-0021: Build System Versioning and Release Automation
+# ADR-0005: Build System Versioning and Release Automation
 
 **Date**: 2026-08-05
 
@@ -10,13 +10,13 @@
 
 ## Context
 
-GenPRES has no automated version management. `Directory.Build.props` carries a single 
-hand-edited `<Version>0.1.2-alpha</Version>` element that every project's own 
-`Directory.Build.props` imports; `dotnet run CheckVersions` (`scripts/CheckSolutionVersions.fsx`) 
-only asserts that every built DLL matches this hand-set value — it does not derive it. 
+GenPRES has no automated version management. `Directory.Build.props` carries a single
+hand-edited `<Version>0.1.2-alpha</Version>` element that every project's own
+`Directory.Build.props` imports; `dotnet run CheckVersions` (`scripts/CheckSolutionVersions.fsx`)
+only asserts that every built DLL matches this hand-set value — it does not derive it.
 `CHANGELOG.md` is hand-written Keep-a-Changelog prose with no front-matter and no tooling
-behind it. No MinVer, Nerdbank.GitVersioning, GitVersion, or equivalent exists anywhere in 
-the repo (`.config/dotnet-tools.json`, `paket.dependencies`, every `.fsproj`, and 
+behind it. No MinVer, Nerdbank.GitVersioning, GitVersion, or equivalent exists anywhere in
+the repo (`.config/dotnet-tools.json`, `paket.dependencies`, every `.fsproj`, and
 `Directory.Build.props` were all checked directly).
 
 Issue #234 asks for six improvements and explicitly requires this ADR before implementation:
@@ -29,9 +29,9 @@ Issue #234 asks for six improvements and explicitly requires this ADR before imp
 6. A build system that AI coding agents can understand and drive correctly
 
 A `gh-aw` (GitHub Agentic Workflows) bot, "Repo Assist"
-(`.github/workflows/repo-assist.md`), already runs a "Release Preparation" task (Task 8) 
-that manually finds merged PRs, proposes a semver bump, updates the changelog by hand, 
-and opens a draft release PR. This is the current de facto release process. Any automation 
+(`.github/workflows/repo-assist.md`), already runs a "Release Preparation" task (Task 8)
+that manually finds merged PRs, proposes a semver bump, updates the changelog by hand,
+and opens a draft release PR. This is the current de facto release process. Any automation
 adopted here must either replace this task outright or coordinate with it, running both in
 parallel would produce competing release PRs.
 
@@ -39,20 +39,20 @@ The repo currently merges PRs with merge commits
 (`939aec79 Merge pull request #436 from ...`), not squashes, even though
 squash-merge is enabled at the GitHub API level. The maintainer initially confirmed
 (2026-08-05) that switching the default merge method to squash-only is acceptable.
-Concerns were raised that squash-only discards commit-level history on PRs where 
-granularity could matter. On acceptance (2026-08-17) that restriction was dropped 
+Concerns were raised that squash-only discards commit-level history on PRs where
+granularity could matter. On acceptance (2026-08-17) that restriction was dropped
 entirely: all three merge methods stay enabled, and `--skip-merge-commit` handles the
 `Merge pull request ...` commits ShipIt cannot parse. See design choice 2 below.
 
-This document is ADR-0021, the next free number in `docs/adr/` at the time of writing.
+This document was written as ADR-0021, the next free number in `docs/adr/` at the time; it became ADR-0005 when the folder was renumbered contiguously on 2026-09-06 (see [ADR-0000](0000-documentation-rules.md)).
 
 ## Decision
 
-Adopt **EasyBuild.ShipIt** to cover items 1 and 2 together: it derives the next semver 
-version from conventional-commit history, generates the changelog section, and opens the 
-release PR — replacing Repo Assist's Task 8 rather than running alongside it. Scope 
-items 3 and 4 out of #234 entirely, tracked as separate follow-up issues. Address 
-item 5 with a straightforward FAKE target split. Address item 6 incrementally, one PR 
+Adopt **EasyBuild.ShipIt** to cover items 1 and 2 together: it derives the next semver
+version from conventional-commit history, generates the changelog section, and opens the
+release PR — replacing Repo Assist's Task 8 rather than running alongside it. Scope
+items 3 and 4 out of #234 entirely, tracked as separate follow-up issues. Address
+item 5 with a straightforward FAKE target split. Address item 6 incrementally, one PR
 at a time, rather than as a single documentation pass.
 
 ### Key design choices
@@ -70,16 +70,16 @@ at a time, rather than as a single documentation pass.
 ### Verification gap — closed 2026-08-17
 
 This section originally recorded that everything known about EasyBuild.ShipIt's CLI
-and config surface came from an AI-generated issue comment summarizing the tool rather 
-than its own README, and required that gap be closed before any implementation PR was 
+and config surface came from an AI-generated issue comment summarizing the tool rather
+than its own README, and required that gap be closed before any implementation PR was
 opened. Step 1 of the implementation plan closed it. What was confirmed against the tool:
 
 - The `CHANGELOG.md` front matter carries `last_commit_released`, `pre_release`,
   `name`, and an `updaters:` list.
 - The computed version reaches MSBuild **directly**: an `xml` updater with
   `file: Directory.Build.props` and `selector: /Project/PropertyGroup/Version`
-  rewrites the `<Version>` element as part of the release PR. No git-tag intermediary, 
-  and therefore no change to `scripts/CheckSolutionVersions.fsx`, it keeps asserting 
+  rewrites the `<Version>` element as part of the release PR. No git-tag intermediary,
+  and therefore no change to `scripts/CheckSolutionVersions.fsx`, it keeps asserting
   that every built DLL matches whatever ShipIt wrote.
 - The invocation is `dotnet shipit --allow-branch master --skip-merge-commit`
   (no `github` subcommand); `--mode` defaults to `pull-request`.
@@ -211,7 +211,7 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
   merge commits remain enabled. Omitting it makes ShipIt throw on the first
   `Merge pull request ...` commit it reaches rather than skipping it. This is
   documented at every invocation site (`release.yml`, `DEVELOPMENT.md`).
-- `CHANGELOG.md`'s current rich, hand-written prose entries (see any `[Unreleased]` 
+- `CHANGELOG.md`'s current rich, hand-written prose entries (see any `[Unreleased]`
   entry today) become leaner, commit-title-derived entries under ShipIt.
   A `=== changelog ===` block in the commit message body is the escape hatch for
   entries that need more detail than a title provides.
@@ -229,8 +229,8 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
 
 **MDR / Safety**:
 
-- Release/version automation is process tooling, not clinical logic, it does not 
-  touch dosing, rules, parsing, or resource mapping, so it does not trigger the 
+- Release/version automation is process tooling, not clinical logic, it does not
+  touch dosing, rules, parsing, or resource mapping, so it does not trigger the
   unit-test/changelog/field-comment requirements that apply to those areas.
 - The changelog remains an audit trail that the MDR design history file draws on;
   automating its generation must not reduce its usefulness as such, this is why the

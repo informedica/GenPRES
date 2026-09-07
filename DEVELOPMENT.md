@@ -70,6 +70,19 @@ GenPRES uses [FAKE](https://fake.build/) (F# Make) as its build automation tool.
 
 When you type `dotnet run` from the repository root, .NET executes `Build.fsproj`, which is an F# console application that initializes the FAKE execution context. FAKE then reads the target name from the command-line arguments (defaulting to `Run` when none is given) and executes the corresponding target and all of its declared dependencies.
 
+`Build.fsproj` has to live in the repository root: bare `dotnet run` resolves its project only
+from the current directory (there is no configuration or environment variable to redirect it),
+so moving it into a subfolder would turn every invocation into `dotnet run --project <dir> <target>`.
+The same root placement is why plain `dotnet build` / `dotnet test` fail with MSB1011 — both the
+solution and this project file are candidates — and must be given `GenPRES.sln` explicitly.
+
+`Build.fsproj` is listed in `GenPRES.sln` so that editors that load projects from the solution
+(Ionide, Rider) give `Build.fs` and `Helpers.fs` IntelliSense. It is deliberately **not** part of
+the solution build: its solution entry has `ActiveCfg` lines only, no `Build.0` lines, so
+`dotnet build GenPRES.sln` — which the `Build` target runs from inside the running build
+executable — never tries to overwrite `Build.dll` while it is executing. `dotnet run` builds
+the project itself, and `scripts/CheckSolutionVersions.fsx` skips it as a non-shipped project.
+
 ```text
 dotnet run [target]
      │
@@ -90,7 +103,7 @@ packages for the Fable/Vite dev server).
 
 | Command | Target | Description |
 |---|---|---|
-| `dotnet run` | `Run` | Start server + Fable/Vite dev server with hot reload (default) |
+| `dotnet run` | `Run` | Start server + Fable/Vite dev server with hot reload (default). Creates `.env` from `.env.example` when it is missing |
 | `dotnet run list` | *(special)* | List all available FAKE targets |
 | `dotnet run Build` | `Build` | Compile the entire solution (`GenPRES.sln`) — libraries, server, tests, and the client `.fsproj`. No npm involved |
 | `dotnet run ServerBuild` | `ServerBuild` | Compile only the server and the libraries it depends on. Skips test projects and the client toolchain |
@@ -134,11 +147,47 @@ does not use them. `Build` still builds the test projects because `ServerTests` 
 Fable compile for every test run. Thus, `Build` remains the full-solution build,
 while the new targets compile either side separately.
 
+### Paket groups
+
+Packages are managed by [Paket](https://fsprojects.github.io/Paket/) from the single root
+`paket.dependencies` / `paket.lock`; each project lists what it uses in its own `paket.references`.
+The dependencies file is split into five groups, each resolved independently so that packages
+needed only by one side of the repo never influence the version resolution of the shipped code:
+
+| Group | Used by | Contents |
+|---|---|---|
+| `Main` (the unnamed first section) | `src/` libraries, server, shared contract | everything shipped, including `Unquote` and `IcedTasks`, which the libraries use |
+| `Client` | `src/Informedica.GenPRES.Client` | Fable, Elmish, Feliz |
+| `Test` | `tests/*` | Expecto, FsCheck, the test SDK and adapter |
+| `Build` | the root `Build.fsproj` | FAKE |
+| `Benchmark` | `benchmark/*` | BenchmarkDotNet (see [#513](https://github.com/informedica/GenPRES/issues/513)) |
+
+A `paket.references` file names a group with a `group <Name>` line; everything above the first
+such line is `Main`. Each project references exactly one group: the `src/` projects `Main`, the
+client `Client`, the test projects `Test`, the root build project `Build`. The `benchmark/`
+projects are the one exception and list `Main` and `Benchmark`.
+
+The one-group-per-project rule is not cosmetic. Paket emits one `PackageReference` (and one
+`PackageVersion`) per group and per package and never de-duplicates across groups, so a project
+that listed `Main` and `Test` would get `FSharp.Core` twice and NuGet would warn `NU1504` /
+`NU1506` on every restore. Test projects therefore do **not** list `Unquote`,
+`MathNet.Numerics.FSharp` or `IcedTasks` themselves: those flow to them transitively through their
+`ProjectReference` to the `src/` library under test, exactly as they would in any SDK-style
+project, at the version `Main` pins. `FSharp.Core` they list from the `Test` group.
+
+`FSharp.Core` is pinned to the same version in every group on purpose, so that the copy a test or
+client project gets from its own group agrees with the copy that flows in from `Main` through the
+project reference. Bump the pin in all four places together.
+
+To add a package: put the `nuget` line in the group that matches its consumer, add it to the
+consuming project's `paket.references` under that group, run `dotnet paket install`, and commit
+`paket.dependencies`, `paket.lock` and the touched `paket.references` files.
+
 ### Changelog & Release Automation (EasyBuild.ShipIt)
 
 GenPRES uses [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt) to derive
 the next semantic version and changelog entries from conventional-commit history — see
-[ADR-0021](docs/adr/0021-build-system-versioning-and-release.md) for the full
+[ADR-0005](docs/adr/0005-build-system-versioning-and-release.md) for the full
 design. It is registered as a local dotnet tool (`.config/dotnet-tools.json`) and configured via
 YAML front matter at the top of the root `CHANGELOG.md`.
 
@@ -200,7 +249,14 @@ merge methods are enabled here, put it in the commit message.
 
 ### What Happens During `dotnet run` (the `Run` target)
 
-The `Run` target starts two long-running processes **in parallel**:
+The `Run` target first makes sure a `.env` file exists: when there is none, it copies
+`.env.example` (public demo sheet ID, `GENPRES_PROD=0`, empty `GENPRES_PASSWORD`) and prints a
+notice, so a fresh clone or `git worktree` runs the demo without a manual `cp`. The seeded server
+has admin operations disabled, because the password is empty; set `GENPRES_PASSWORD` in `.env` to
+enable them locally. An existing `.env` is never touched. Only
+`Run` does this; `Build`, `ServerTests` and `Bundle` keep working without a `.env`, as they do in CI.
+
+Then it starts two long-running processes **in parallel**:
 
 1. **Server** – `dotnet run --no-restore` in `src/Informedica.GenPRES.Server/`
    - Saturn/Giraffe HTTP server on port `8085`
@@ -228,7 +284,7 @@ Common conventions for both categories:
 These three scripts ship with the repository and are listed explicitly in `.gitignore` with `!` allow-entries.
 
 - **`debugTests.sh`** — sources `.env`, then iterates through eight test projects (`Utils`, `Agents`, `Logging`, `GenUnits`, `GenCore`, `GenSolver`, `GenForm`, `GenOrder`, plus the `Server` test project) and runs each with `dotnet run --project <proj> -- --debug --summary --sequenced`. Exits non-zero on the first failure. Similar to `dotnet run ServerTests` but with per-project isolation, debug output, and forced sequential execution — useful when chasing flaky tests or test interactions. The project list is hardcoded; if you add a new test project, update both this script and the `ServerTests` FAKE target.
-- **`benchmark/run.sh`** — runs `sudo dotnet run -c Release "$@"`. Must be invoked from the `benchmark/` directory; it does not `cd` for you. The `sudo` is required because some BenchmarkDotNet diagnostics need elevated privileges. Extra arguments are forwarded to `dotnet run`. The `benchmark/` projects are part of the root paket root, with their packages in a separate `group Benchmark` in `paket.dependencies` so that BenchmarkDotNet's transitive tree never influences the `Main` resolution (see [#513](https://github.com/informedica/GenPRES/issues/513)); `dotnet run BenchmarkBuild` compiles all four benchmark projects without running them.
+- **`benchmark/run.sh`** — runs `sudo dotnet run -c Release "$@"`. Must be invoked from the `benchmark/` directory; it does not `cd` for you. The `sudo` is required because some BenchmarkDotNet diagnostics need elevated privileges. Extra arguments are forwarded to `dotnet run`. The `benchmark/` projects are part of the root paket root, with their packages in a separate `group Benchmark` in `paket.dependencies` so that BenchmarkDotNet's transitive tree never influences the `Main` resolution (see [#513](https://github.com/informedica/GenPRES/issues/513) and [Paket groups](#paket-groups) above); `dotnet run BenchmarkBuild` compiles all four benchmark projects without running them.
 - **`.husky/scripts/format-staged.sh`** — invoked by the Husky pre-commit hook. Receives staged F# files as positional arguments, warns about partially-staged files (Fantomas formats the *full working-tree* version of each file, not just the staged hunks), runs `dotnet fantomas` on them, and re-stages the formatted output. You normally never call this directly; it runs automatically on `git commit`. See also [CONTRIBUTING.md](CONTRIBUTING.md#code-formatting-pre-commit-hook).
 
 #### Optional local scripts (not in the repo — paste into your working copy)
@@ -391,6 +447,20 @@ The image is published by `tag-release.yml` a few minutes *after* the release PR
 
 Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID`, a 16+ character `GENPRES_PASSWORD`, and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
 
+**Browser caching after an update** — the server sets `Cache-Control` on every response
+(`securityHeadersMiddleware` in `src/Informedica.GenPRES.Server/Server.fs`, issue
+[#568](https://github.com/informedica/GenPRES/issues/568)): `no-cache` for `index.html` and
+everything else, `public, max-age=31536000, immutable` for a successful response of a content-hashed
+bundle under `/assets/` (a 404 there stays `no-cache`, so a bundle this instance does not have yet is
+retried). A browser therefore revalidates the entry document on every load (a cheap `ETag` 304
+when nothing changed) and picks up a new container without a hard refresh. Two caveats: a browser
+that cached `index.html` *before* this header existed still needs one hard reload
+(Cmd/Ctrl+Shift+R); and on a Plesk host with "Serve static files directly by nginx" including
+`html`, nginx answers `index.html` from disk and Kestrel's header never reaches the browser, so
+either drop `html`/`htm` from that list or add `location = / { add_header Cache-Control "no-cache"; }`
+and the same for `location = /index.html` to the per-site nginx directives. Check with
+`curl -sI https://<host>/ | grep -i cache-control`.
+
 If you find yourself wanting to commit one of these local scripts (e.g. because the team agrees it should be standardized), add a `!`-prefixed allow-line for the file to `.gitignore` in the same PR — otherwise the opt-in strategy will silently keep it untracked.
 
 ### CI/CD Pipeline (GitHub Actions)
@@ -434,7 +504,7 @@ local activity (see `benchmark/run.sh`).
 on every push to `master`, opening or updating a draft release PR with the next derived version and changelog 
 section. It is deliberately a separate workflow from `build.yml`, not a job within it: a ShipIt failure must 
 never block the test/format matrix that already gated the PR which produced the push. See 
-[ADR-0021](docs/adr/0021-build-system-versioning-and-release.md) for the full design and the
+[ADR-0005](docs/adr/0005-build-system-versioning-and-release.md) for the full design and the
 [implementation plan](docs/implementation-plans/234-improve-build-system.md) for status.
 
 This replaces the "Repo Assist" bot's former Task 8 ("Release Preparation", `.github/workflows/repo-assist.md`), 
@@ -448,7 +518,7 @@ Without it, `release.yml` runs but fails to open the PR.
 
 `.github/workflows/tag-release.yml` turns a merged release PR into the immutable artifact ShipIt itself
 cannot produce — ShipIt 3.0.1 has no tag or Release capability in any mode, verified against the installed
-assembly rather than its documentation (see [ADR-0021](docs/adr/0021-build-system-versioning-and-release.md)
+assembly rather than its documentation (see [ADR-0005](docs/adr/0005-build-system-versioning-and-release.md)
 and [issue #470](https://github.com/informedica/GenPRES/issues/470)). The workflow:
 
 1. Checks out the **merge commit** (`pull_request.merge_commit_sha`) — the state `master` was actually in
@@ -498,7 +568,7 @@ gating a downstream job on the push event:
 if: startsWith(github.event.head_commit.message, 'chore: release ')
 ```
 
-That condition would never have fired here. All three merge methods stay enabled (ADR-0021, design choice 2),
+That condition would never have fired here. All three merge methods stay enabled (ADR-0005, design choice 2),
 and every release PR so far (#455, #458, #464) merged as a true merge commit, so the push event's
 `head_commit.message` was `Merge pull request #NNN from informedica/release/master`, never
 `chore: release ...` — 0 for 3. The head ref is merge-method independent, so the trigger keeps working if a
@@ -519,7 +589,7 @@ options for anything downstream are a job inside `tag-release.yml`, a `workflow_
 A `publish-docker-image` job in `tag-release.yml`, gated on `needs: tag-and-release`, closes
 [#234](https://github.com/informedica/GenPRES/issues/234) item 3
 ([#459](https://github.com/informedica/GenPRES/issues/459)) — see
-[ADR-0021's Docker image publishing amendment](docs/adr/0021-build-system-versioning-and-release.md)
+[ADR-0005's Docker image publishing amendment](docs/adr/0005-build-system-versioning-and-release.md)
 for the full design rationale. It only runs once tagging and the Release have both succeeded, and reuses
 that job's `version`/`tag`/`prerelease` outputs. For a given release it:
 
@@ -907,8 +977,10 @@ This project uses a `.env` file at the project root as the single source of trut
 
 #### Quick Setup
 
-1. Copy the example file: `cp .env.example .env`
-2. `.env.example` ships with the public demo sheet ID, so the copy works as-is in demo mode. For production data, edit `.env` and replace `GENPRES_URL_ID` (ask a team member for the production URL ID)
+1. Nothing, for the demo: the first `dotnet run` copies `.env.example` to `.env` when no `.env` exists (see [What Happens During `dotnet run`](#what-happens-during-dotnet-run-the-run-target)). To create it by hand instead: `cp .env.example .env`
+2. `.env.example` ships with the public demo sheet ID and an empty `GENPRES_PASSWORD`, so the copy works as-is in demo mode with admin operations disabled. Set `GENPRES_PASSWORD` to use the admin pages locally. For production data, edit `.env` and replace `GENPRES_URL_ID` (ask a team member for the production URL ID)
+
+Put a `git worktree` **next to** the main checkout, not inside it: the root resolver (`AppPath`) and `Env.loadDotEnv` search upward for `.env`, so a worktree nested under the repo would pick up the main checkout's `.env` and `data/` instead of its own.
 
 The `.env` file uses standard `KEY=VALUE` format:
 
