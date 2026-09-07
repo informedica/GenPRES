@@ -1,0 +1,15 @@
+<Project>
+  <!-- Keep the repo-root Directory.Build.props (the single <Version>) in effect for the test
+       projects; a Directory.Build.props in this folder would otherwise shadow it. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  <PropertyGroup>
+    <!-- Every test project references the Main and the Test Paket groups, and both contain
+         FSharp.Core. Paket emits one PackageReference per group and per package, and it never
+         de-duplicates across groups, so NuGet sees FSharp.Core twice and warns NU1504 for the
+         PackageReference items and NU1506 for the matching PackageVersion items. The two
+         items are always the same version: paket.dependencies pins FSharp.Core identically in
+         every group, and `paket install` fails outright when the versions differ. See the
+         "Paket groups" section of DEVELOPMENT.md. -->
+    <NoWarn>$(NoWarn);NU1504;NU1506</NoWarn>
+  </PropertyGroup>
+</Project>

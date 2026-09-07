@@ -1,9 +1,11 @@
-Expecto
 MathNet.Numerics.FSharp
-Expecto.FsCheck
-Microsoft.Net.Test.Sdk
-YoloDev.Expecto.TestSdk
 Unquote
 FSharp.Core
 NJsonSchema
 IcedTasks
+
+group Test
+Expecto
+Expecto.FsCheck
+Microsoft.Net.Test.Sdk
+YoloDev.Expecto.TestSdk

@@ -1,6 +1,8 @@
+Unquote
+FSharp.Core
+
+group Test
 Expecto
 Expecto.FsCheck
 Microsoft.Net.Test.Sdk
 YoloDev.Expecto.TestSdk
-Unquote
-FSharp.Core

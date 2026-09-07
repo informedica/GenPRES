@@ -1,25 +1,13 @@
+// Main: the shipped libraries under src/, the server and the shared contract.
+// Client-, test-, build- and benchmark-only packages live in their own groups
+// below so that their transitive trees never influence the Main resolution
+// (the pattern introduced for BenchmarkDotNet in issue #513).
 source https://api.nuget.org/v3/index.json
 framework: net10.0
 storage: none
 
+nuget FSharp.Core 10.1.203
 nuget FSharpPlus 1.9.1
-
-nuget Fable.Core 5.0.0
-nuget Fable.Remoting.Client
-nuget Fable.Remoting.Giraffe
-nuget Fable.Browser.DOM
-nuget Fable.Elmish
-nuget Fable.Elmish.React 5.6.0
-nuget Fable.Elmish.Debugger
-nuget Fable.Elmish.HMR 9.0.0
-nuget Fable.React.UseElmish
-nuget Fable.Mocha
-nuget Fable.SimpleHttp
-
-nuget Feliz.UseElmish
-nuget Feliz ~> 3
-nuget Feliz.Markdown 3.1.0
-nuget NJsonSchema 11.6.1
 
 nuget Saturn ~> 0
 // Fable.Remoting.Giraffe 6.1.0 recompiled against the task-based
@@ -27,28 +15,74 @@ nuget Saturn ~> 0
 // earlier L1 hard pin (Giraffe = 6.4.0) is no longer needed. See the
 // Update — 2026-04-18 section of docs/security/2026-04-10-security-review.md.
 nuget Giraffe
-
-nuget Fake.Core.Target 6.1.4
-nuget Fake.IO.FileSystem 6.1.4
+nuget Fable.Remoting.Giraffe
 
 nuget FSharp.Data
 nuget HtmlAgilityPack 1.12.4
 nuget FParsec
 nuget FsToolkit.ErrorHandling 5.2.0
 nuget MathNet.Numerics.FSharp
-nuget Microsoft.Net.Test.Sdk 18.4.0
+nuget NJsonSchema 11.6.1
 nuget Validus
-nuget YoloDev.Expecto.TestSdk 0.15.5
 nuget Markdig 1.1.3
 nuget ConsoleTables
 nuget IcedTasks 0.11.9
-
 nuget Unquote
-nuget Expecto ~> 10
-nuget Expecto.FsCheck
 
 nuget ModelContextProtocol 1.2.0
 nuget Microsoft.Extensions.Hosting
+
+// Fable / Elmish / Feliz packages, referenced only by Informedica.GenPRES.Client.
+group Client
+  source https://api.nuget.org/v3/index.json
+  framework: net10.0
+  storage: none
+
+  // Same pin as Main: projects reference both groups, and Paket refuses
+  // two versions of one package in one project.
+  nuget FSharp.Core 10.1.203
+  nuget Fable.Core 5.0.0
+  nuget Fable.Remoting.Client
+  nuget Fable.Browser.DOM
+  nuget Fable.Elmish
+  nuget Fable.Elmish.React 5.6.0
+  nuget Fable.Elmish.Debugger
+  nuget Fable.Elmish.HMR 9.0.0
+  nuget Fable.React.UseElmish
+  nuget Fable.Mocha
+  nuget Fable.SimpleHttp
+
+  nuget Feliz ~> 3
+  nuget Feliz.UseElmish
+  nuget Feliz.Markdown 3.1.0
+
+// Test framework and test host, referenced only by the projects under tests/.
+// Unquote stays in Main because the libraries use it too.
+group Test
+  source https://api.nuget.org/v3/index.json
+  framework: net10.0
+  storage: none
+
+  // Same pin as Main: projects reference both groups, and Paket refuses
+  // two versions of one package in one project.
+  nuget FSharp.Core 10.1.203
+  nuget Expecto ~> 10
+  nuget Expecto.FsCheck
+  nuget Microsoft.Net.Test.Sdk 18.4.0
+  nuget YoloDev.Expecto.TestSdk 0.15.5
+
+// FAKE build script (the root Build.fsproj, run with `dotnet run <target>`).
+group Build
+  source https://api.nuget.org/v3/index.json
+  framework: net10.0
+  storage: none
+
+  // Same pin as Main: projects reference both groups, and Paket refuses
+  // two versions of one package in one project.
+  nuget FSharp.Core 10.1.203
+  nuget Fake.Core.Target 6.1.4
+  nuget Fake.IO.FileSystem 6.1.4
+  nuget FsToolkit.ErrorHandling 5.2.0
 
 // Benchmark suite (benchmark/, excluded from GenPRES.sln). Kept in its own group so that
 // BenchmarkDotNet's transitive tree never influences the Main resolution. See issue #513.

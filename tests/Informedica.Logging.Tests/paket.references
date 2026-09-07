@@ -1,7 +1,9 @@
+Unquote
+FSharp.Core
+IcedTasks
+
+group Test
 Expecto
 Expecto.FsCheck
 Microsoft.Net.Test.Sdk
 YoloDev.Expecto.TestSdk
-Unquote
-FSharp.Core
-IcedTasks
