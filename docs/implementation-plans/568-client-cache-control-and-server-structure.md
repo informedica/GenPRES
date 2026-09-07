@@ -124,8 +124,10 @@ relative to each other. Verification step 5 covers that.
 
       ```bash
       curl -sI http://localhost:8080/ | grep -i cache-control            # no-cache
-      curl -sI "http://localhost:8080/assets/$(ls deploy/public/assets | grep '\.js$' | head -1)" \
-          | grep -i cache-control                                         # immutable
+      # the hashed bundle name comes from the served index.html: the Docker build produces
+      # the client inside its own stage, so deploy/public on the host is empty or stale
+      js=$(curl -s http://localhost:8080/ | grep -o 'assets/[^"]*\.js' | head -1)
+      curl -sI "http://localhost:8080/$js" | grep -i cache-control        # immutable
       curl -sI http://localhost:8080/ | grep -i x-frame-options           # security headers intact
       ```
 
