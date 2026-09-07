@@ -38,8 +38,8 @@ group Client
   framework: net10.0
   storage: none
 
-  // Same pin as Main: projects reference both groups, and Paket refuses
-  // two versions of one package in one project.
+  // Same pin as Main, so that the copy this group provides agrees with the
+  // copy that flows in from Main through project references.
   nuget FSharp.Core 10.1.203
   nuget Fable.Core 5.0.0
   nuget Fable.Remoting.Client
@@ -63,8 +63,8 @@ group Test
   framework: net10.0
   storage: none
 
-  // Same pin as Main: projects reference both groups, and Paket refuses
-  // two versions of one package in one project.
+  // Same pin as Main, so that the copy this group provides agrees with the
+  // copy that flows in from Main through project references.
   nuget FSharp.Core 10.1.203
   nuget Expecto ~> 10
   nuget Expecto.FsCheck
@@ -77,8 +77,8 @@ group Build
   framework: net10.0
   storage: none
 
-  // Same pin as Main: projects reference both groups, and Paket refuses
-  // two versions of one package in one project.
+  // Same pin as Main, so that the copy this group provides agrees with the
+  // copy that flows in from Main through project references.
   nuget FSharp.Core 10.1.203
   nuget Fake.Core.Target 6.1.4
   nuget Fake.IO.FileSystem 6.1.4

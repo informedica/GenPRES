@@ -1,7 +1,5 @@
-Unquote
-FSharp.Core
-
 group Test
+FSharp.Core
 Expecto
 Expecto.FsCheck
 Microsoft.Net.Test.Sdk

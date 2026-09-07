@@ -1,8 +1,5 @@
-Unquote
-FSharp.Core
-IcedTasks
-
 group Test
+FSharp.Core
 Expecto
 Expecto.FsCheck
 Microsoft.Net.Test.Sdk

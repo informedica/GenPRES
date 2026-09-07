@@ -1,10 +1,5 @@
-MathNet.Numerics.FSharp
-Unquote
-FSharp.Core
-NJsonSchema
-IcedTasks
-
 group Test
+FSharp.Core
 Expecto
 Expecto.FsCheck
 Microsoft.Net.Test.Sdk

@@ -163,21 +163,21 @@ needed only by one side of the repo never influence the version resolution of th
 | `Benchmark` | `benchmark/*` | BenchmarkDotNet (see [#513](https://github.com/informedica/GenPRES/issues/513)) |
 
 A `paket.references` file names a group with a `group <Name>` line; everything above the first
-such line is `Main`. Test projects therefore keep their `Main` lines (`FSharp.Core`, `Unquote`,
-`MathNet.Numerics.FSharp`, ...) and add a `group Test` block, as the `benchmark/` projects
-already did for `group Benchmark`.
+such line is `Main`. Each project references exactly one group: the `src/` projects `Main`, the
+client `Client`, the test projects `Test`, the root build project `Build`. The `benchmark/`
+projects are the one exception and list `Main` and `Benchmark`.
 
-`FSharp.Core` is pinned to the same version in every group on purpose. Paket refuses to install
-a project that would receive two versions of one package from two groups, and a project that
-references `Main` and `Test` (every test project) gets `FSharp.Core` from both. Bump the pin in
-all four places together.
+The one-group-per-project rule is not cosmetic. Paket emits one `PackageReference` (and one
+`PackageVersion`) per group and per package and never de-duplicates across groups, so a project
+that listed `Main` and `Test` would get `FSharp.Core` twice and NuGet would warn `NU1504` /
+`NU1506` on every restore. Test projects therefore do **not** list `Unquote`,
+`MathNet.Numerics.FSharp` or `IcedTasks` themselves: those flow to them transitively through their
+`ProjectReference` to the `src/` library under test, exactly as they would in any SDK-style
+project, at the version `Main` pins. `FSharp.Core` they list from the `Test` group.
 
-Paket emits one `PackageReference` per group and per package and never de-duplicates across
-groups, so a test project's restore sees `FSharp.Core` twice, at the same version, and NuGet
-warns `NU1504` (and `NU1506` for the matching `PackageVersion` item). `tests/Directory.Build.props` suppresses those two warnings for the test projects
-and re-imports the root `Directory.Build.props` so the single `<Version>` still applies. Nothing
-else in the repo references two groups that share a package: the client project lists only
-`Client`, the build project only `Build`, and the `Benchmark` group has no `FSharp.Core`.
+`FSharp.Core` is pinned to the same version in every group on purpose, so that the copy a test or
+client project gets from its own group agrees with the copy that flows in from `Main` through the
+project reference. Bump the pin in all four places together.
 
 To add a package: put the `nuget` line in the group that matches its consumer, add it to the
 consuming project's `paket.references` under that group, run `dotnet paket install`, and commit
