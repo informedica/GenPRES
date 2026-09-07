@@ -194,7 +194,8 @@ The concrete code layout deliberately lives outside this ADR, so that it cannot 
   - [ADR-0002: MCP Server Architecture](0002-mcp-server-architecture.md) — the second entry point
   - [ADR-0003: Shared Clinical Calculations](0003-shared-clinical-calculations.md) — pure
     formulas may be shared with the client; that decision stands
-  - `scripts/DependencyRule.fsx` — the ring map; `scripts/CheckDependencyRule.fsx` — the fitness test
+  - `scripts/DependencyRule.fsx` — the ring map; `scripts/CheckDependencyRule.fsx` — the fitness test;
+    `scripts/ProjectGraph.fsx` — the project dependency diagram in `ARCHITECTURE.md`, generated from both
   - `docs/implementation-plans/378-dependency-rule.md` — the migration
   - Mark Seemann, [Impureim sandwich](https://blog.ploeh.dk/2020/03/02/impureim-sandwich/)
   - Romain Deneau, [Safe Clean Architecture](https://github.com/rdeneau/gitbook-safe-clean-archi)
