@@ -82,7 +82,29 @@ binds.
 3. Add `validateStartup` tests to `ConfigTests.fs`.
 4. Add the refused-start-up check to `tag-release.yml` between the smoke test and the push.
 5. Document the PID 1 behaviour and exit codes in `DEVELOPMENT.md`.
-6. Verify locally with `dotnet run DockerBuild`: a run with `GENPRES_PROD=1` and no password
-   exits 1 within seconds with the password message and no stack trace; a run with
-   `GENPRES_URL_ID=` exits 1 with the URL ID message; a plain demo run serves `/` and
-   `docker stop` ends it promptly; `docker top` shows `tini` as PID 1.
+6. Verify locally. `dotnet run DockerBuild` only builds `informedica/genpres`, and `DockerRun`
+   insists on both secrets, so the refusal cases need plain `docker run`:
+
+   ```bash
+   dotnet run DockerBuild
+
+   # Refused: production without a password. Expect exit 1 within seconds, the
+   # "GENPRES_PROD=1 but GENPRES_PASSWORD is not set" line once, and no stack trace.
+   c=$(docker run -d -e GENPRES_PROD=1 -e GENPRES_PASSWORD= informedica/genpres)
+   docker wait "$c"; docker logs "$c"; docker rm "$c"
+
+   # Refused: no URL ID. Expect exit 1 and "No GENPRES_URL_ID (or value is empty)".
+   c=$(docker run -d -e GENPRES_URL_ID= informedica/genpres)
+   docker wait "$c"; docker logs "$c"; docker rm "$c"
+
+   # Demo run: / answers 200, tini is PID 1 with dotnet as its child, and
+   # `docker stop` returns promptly with exit 0 (SIGTERM was forwarded).
+   c=$(docker run -d -p 8090:8085 informedica/genpres)
+   until curl -sf -o /dev/null http://localhost:8090/; do sleep 2; done
+   docker top "$c" -o pid,ppid,comm
+   docker stop "$c"; docker inspect -f '{{.State.ExitCode}}' "$c"; docker rm "$c"
+   ```
+
+   On `master` the first `docker wait` never returns, which is the bug. Bound it with
+   `timeout 30 docker wait "$c"` on Linux; macOS ships no `timeout`, so poll
+   `docker inspect -f '{{.State.Status}}'` instead, or just watch `docker ps`.
