@@ -450,8 +450,9 @@ Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself d
 **Browser caching after an update** — the server sets `Cache-Control` on every response
 (`securityHeadersMiddleware` in `src/Informedica.GenPRES.Server/Server.fs`, issue
 [#568](https://github.com/informedica/GenPRES/issues/568)): `no-cache` for `index.html` and
-everything else, `public, max-age=31536000, immutable` for the content-hashed bundles under
-`/assets/`. A browser therefore revalidates the entry document on every load (a cheap `ETag` 304
+everything else, `public, max-age=31536000, immutable` for a successful response of a content-hashed
+bundle under `/assets/` (a 404 there stays `no-cache`, so a bundle this instance does not have yet is
+retried). A browser therefore revalidates the entry document on every load (a cheap `ETag` 304
 when nothing changed) and picks up a new container without a hard refresh. Two caveats: a browser
 that cached `index.html` *before* this header existed still needs one hard reload
 (Cmd/Ctrl+Shift+R); and on a Plesk host with "Serve static files directly by nginx" including
