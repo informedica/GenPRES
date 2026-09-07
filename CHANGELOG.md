@@ -1,5 +1,5 @@
 ---
-last_commit_released: 5235dee77dbc2e8d5d4dae368e9de2037597ecc2
+last_commit_released: 3a9f2c85c8db1669e8b505d39525440b87cb5446
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,19 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.13 - 2026-09-07
+
+### 🐞 Bug Fixes
+
+* *(config)* Seed .env from .env.example on run ([a1ce0c30](https://github.com/informedica/GenPRES/commit/a1ce0c3048946ab26c58aec4a719d7b3923b11fe))
+
+    `dotnet run` on a fresh clone now creates `.env` from `.env.example`
+    (public demo sheet, demo mode) instead of failing on a missing
+    `GENPRES_URL_ID`.
+* *(config)* Ship .env.example with empty password ([481b07dc](https://github.com/informedica/GenPRES/commit/481b07dc1021171ceeea042849bde6a3d4861467))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/5235dee77dbc2e8d5d4dae368e9de2037597ecc2..3a9f2c85c8db1669e8b505d39525440b87cb5446)</small></strong>
 
 ## 0.1.2-alpha.12 - 2026-09-05
 
