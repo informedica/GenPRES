@@ -103,7 +103,7 @@ packages for the Fable/Vite dev server).
 
 | Command | Target | Description |
 |---|---|---|
-| `dotnet run` | `Run` | Start server + Fable/Vite dev server with hot reload (default) |
+| `dotnet run` | `Run` | Start server + Fable/Vite dev server with hot reload (default). Creates `.env` from `.env.example` when it is missing |
 | `dotnet run list` | *(special)* | List all available FAKE targets |
 | `dotnet run Build` | `Build` | Compile the entire solution (`GenPRES.sln`) — libraries, server, tests, and the client `.fsproj`. No npm involved |
 | `dotnet run ServerBuild` | `ServerBuild` | Compile only the server and the libraries it depends on. Skips test projects and the client toolchain |
@@ -249,7 +249,12 @@ merge methods are enabled here, put it in the commit message.
 
 ### What Happens During `dotnet run` (the `Run` target)
 
-The `Run` target starts two long-running processes **in parallel**:
+The `Run` target first makes sure a `.env` file exists: when there is none, it copies
+`.env.example` (public demo sheet ID, `GENPRES_PROD=0`) and prints a notice, so a fresh clone or
+`git worktree` runs the demo without a manual `cp`. An existing `.env` is never touched. Only
+`Run` does this; `Build`, `ServerTests` and `Bundle` keep working without a `.env`, as they do in CI.
+
+Then it starts two long-running processes **in parallel**:
 
 1. **Server** – `dotnet run --no-restore` in `src/Informedica.GenPRES.Server/`
    - Saturn/Giraffe HTTP server on port `8085`
@@ -956,8 +961,10 @@ This project uses a `.env` file at the project root as the single source of trut
 
 #### Quick Setup
 
-1. Copy the example file: `cp .env.example .env`
+1. Nothing, for the demo: the first `dotnet run` copies `.env.example` to `.env` when no `.env` exists (see [What Happens During `dotnet run`](#what-happens-during-dotnet-run-the-run-target)). To create it by hand instead: `cp .env.example .env`
 2. `.env.example` ships with the public demo sheet ID, so the copy works as-is in demo mode. For production data, edit `.env` and replace `GENPRES_URL_ID` (ask a team member for the production URL ID)
+
+Put a `git worktree` **next to** the main checkout, not inside it: the root resolver (`AppPath`) and `Env.loadDotEnv` search upward for `.env`, so a worktree nested under the repo would pick up the main checkout's `.env` and `data/` instead of its own.
 
 The `.env` file uses standard `KEY=VALUE` format:
 
