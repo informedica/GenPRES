@@ -250,8 +250,10 @@ merge methods are enabled here, put it in the commit message.
 ### What Happens During `dotnet run` (the `Run` target)
 
 The `Run` target first makes sure a `.env` file exists: when there is none, it copies
-`.env.example` (public demo sheet ID, `GENPRES_PROD=0`) and prints a notice, so a fresh clone or
-`git worktree` runs the demo without a manual `cp`. An existing `.env` is never touched. Only
+`.env.example` (public demo sheet ID, `GENPRES_PROD=0`, empty `GENPRES_PASSWORD`) and prints a
+notice, so a fresh clone or `git worktree` runs the demo without a manual `cp`. The seeded server
+has admin operations disabled, because the password is empty; set `GENPRES_PASSWORD` in `.env` to
+enable them locally. An existing `.env` is never touched. Only
 `Run` does this; `Build`, `ServerTests` and `Bundle` keep working without a `.env`, as they do in CI.
 
 Then it starts two long-running processes **in parallel**:
@@ -962,7 +964,7 @@ This project uses a `.env` file at the project root as the single source of trut
 #### Quick Setup
 
 1. Nothing, for the demo: the first `dotnet run` copies `.env.example` to `.env` when no `.env` exists (see [What Happens During `dotnet run`](#what-happens-during-dotnet-run-the-run-target)). To create it by hand instead: `cp .env.example .env`
-2. `.env.example` ships with the public demo sheet ID, so the copy works as-is in demo mode. For production data, edit `.env` and replace `GENPRES_URL_ID` (ask a team member for the production URL ID)
+2. `.env.example` ships with the public demo sheet ID and an empty `GENPRES_PASSWORD`, so the copy works as-is in demo mode with admin operations disabled. Set `GENPRES_PASSWORD` to use the admin pages locally. For production data, edit `.env` and replace `GENPRES_URL_ID` (ask a team member for the production URL ID)
 
 Put a `git worktree` **next to** the main checkout, not inside it: the root resolver (`AppPath`) and `Env.loadDotEnv` search upward for `.env`, so a worktree nested under the repo would pick up the main checkout's `.env` and `data/` instead of its own.
 

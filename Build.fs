@@ -145,9 +145,11 @@ Target.create
 
 // A fresh clone or worktree has no .env (it is gitignored), and the server refuses to start
 // without GENPRES_URL_ID. .env.example ships the public demo sheet ID and GENPRES_PROD=0, so
-// seeding .env from it gives a working demo run with no manual step. An existing .env is never
-// touched, so local or production settings stay as they are. Only the dev-server launch needs
-// this: Build, ServerTests and Bundle keep running without a .env, as they do in CI.
+// seeding .env from it gives a working demo run with no manual step. .env.example leaves
+// GENPRES_PASSWORD empty, so the seeded server has admin operations disabled (fail-closed)
+// rather than a repository-visible password. An existing .env is never touched, so local or
+// production settings stay as they are. Only the dev-server launch needs this: Build,
+// ServerTests and Bundle keep running without a .env, as they do in CI.
 let ensureEnvFile () =
     if not (File.exists envPath) then
         Shell.copyFile envPath envExamplePath
