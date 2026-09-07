@@ -53,6 +53,10 @@ let projectsInSln =
     output.Split('\n')
     |> Array.map (fun l -> l.Trim().Replace('\\', '/'))
     |> Array.filter (fun l -> l.EndsWith ".fsproj")
+    // Build.fsproj (the FAKE build script) is in the sln only so editors give it
+    // IntelliSense; it has no Build.0 entries, is never shipped, and is built by
+    // `dotnet run`, not by the solution build. Not a "shipped project".
+    |> Array.filter (fun l -> l <> "Build.fsproj")
     |> Array.distinct
     |> Array.sort
     |> List.ofArray

@@ -77,6 +77,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.GenPRES.Shared.
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.GenPRES.Server.Tests", "tests\Informedica.GenPRES.Server.Tests\Informedica.GenPRES.Server.Tests.fsproj", "{9E7B8210-2551-4B24-82CD-B9D78CC3B38C}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Build", "Build.fsproj", "{20E4EBF6-E1CA-4DD8-8F4A-320C17F025AF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -507,6 +509,12 @@ Global
 		{217ACB9E-43C7-4138-B650-2DD5A3191F54}.Release|x64.Build.0 = Release|Any CPU
 		{217ACB9E-43C7-4138-B650-2DD5A3191F54}.Release|x86.ActiveCfg = Release|Any CPU
 		{217ACB9E-43C7-4138-B650-2DD5A3191F54}.Release|x86.Build.0 = Release|Any CPU
+		{20E4EBF6-E1CA-4DD8-8F4A-320C17F025AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{20E4EBF6-E1CA-4DD8-8F4A-320C17F025AF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{20E4EBF6-E1CA-4DD8-8F4A-320C17F025AF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{20E4EBF6-E1CA-4DD8-8F4A-320C17F025AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{20E4EBF6-E1CA-4DD8-8F4A-320C17F025AF}.Release|x64.ActiveCfg = Release|Any CPU
+		{20E4EBF6-E1CA-4DD8-8F4A-320C17F025AF}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

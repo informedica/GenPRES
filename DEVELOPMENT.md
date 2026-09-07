@@ -70,6 +70,19 @@ GenPRES uses [FAKE](https://fake.build/) (F# Make) as its build automation tool.
 
 When you type `dotnet run` from the repository root, .NET executes `Build.fsproj`, which is an F# console application that initializes the FAKE execution context. FAKE then reads the target name from the command-line arguments (defaulting to `Run` when none is given) and executes the corresponding target and all of its declared dependencies.
 
+`Build.fsproj` has to live in the repository root: bare `dotnet run` resolves its project only
+from the current directory (there is no configuration or environment variable to redirect it),
+so moving it into a subfolder would turn every invocation into `dotnet run --project <dir> <target>`.
+The same root placement is why plain `dotnet build` / `dotnet test` fail with MSB1011 — both the
+solution and this project file are candidates — and must be given `GenPRES.sln` explicitly.
+
+`Build.fsproj` is listed in `GenPRES.sln` so that editors that load projects from the solution
+(Ionide, Rider) give `Build.fs` and `Helpers.fs` IntelliSense. It is deliberately **not** part of
+the solution build: its solution entry has `ActiveCfg` lines only, no `Build.0` lines, so
+`dotnet build GenPRES.sln` — which the `Build` target runs from inside the running build
+executable — never tries to overwrite `Build.dll` while it is executing. `dotnet run` builds
+the project itself, and `scripts/CheckSolutionVersions.fsx` skips it as a non-shipped project.
+
 ```text
 dotnet run [target]
      │
