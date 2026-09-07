@@ -1,5 +1,5 @@
 ---
-last_commit_released: 227434d000b816740c7f238275b444fe2859c692
+last_commit_released: 0b45499c06cfd59afc84db0914e7453df2119e9c
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,19 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.15 - 2026-09-07
+
+### 🐞 Bug Fixes
+
+* *(docker)* Exit the container when the server refuses to start ([987cc27f](https://github.com/informedica/GenPRES/commit/987cc27fa0b26c58d555daf4fe3d9afaba6035e5))
+
+    A refused start-up (GENPRES_PROD=1 without a valid GENPRES_PASSWORD, or
+    no GENPRES_URL_ID) left the container running with nothing listening.
+    The image now runs tini as PID 1 and the server exits with code 1, so
+    `docker compose` and orchestrators see the failure.
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/227434d000b816740c7f238275b444fe2859c692..0b45499c06cfd59afc84db0914e7453df2119e9c)</small></strong>
 
 ## 0.1.2-alpha.14 - 2026-09-07
 
