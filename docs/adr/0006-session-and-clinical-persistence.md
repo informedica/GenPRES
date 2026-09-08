@@ -42,9 +42,9 @@ Decision 4 as an amendment to Rule 40 and Actor 5.
 GenPRES gains a relational database with two logical stores, one writer (GenPRES Server), matching
 Actor 5. The private store holds SessionRecords, spent nonces, the anonymous-refusal counter and the
 audit. The clinical store holds signed TreatmentPlans. Both stores live in the same database instance,
-because Rule 42 commits a session check and a clinical append in one transaction. This partly
-supersedes ADR-0004's persistence stance: the EHR remains the system of record for patient data, but
-GenPRES now owns its own sessions and its own signed-plan history.
+because Rule 42 commits a session check and a clinical append in one transaction. This departs from
+the stance ADR-0004 recorded (already Superseded): the EHR remains the system of record for patient
+data, but GenPRES now owns its own sessions and its own signed-plan history.
 
 ### 2. One database engine for development and production
 
@@ -118,6 +118,11 @@ setting. An in-memory implementation of the port serves unit tests and a bare `d
   the integration test project sits outside `GenPRES.sln` and runs on its own Ubuntu job, as
   `benchmark/` does. It is required on any PR that touches the persistence project.
 - The clinical store is constrained to the same database instance as the private store (Decision 1).
+- Rule 8's per-browser limit, and the partial index that backs it, are only as strong as the browser
+  identifier, which is not yet designed (plan open decision 3). Until that is settled the per-browser
+  guarantee is weaker than the per-user one.
+- Every schema migration after the first is expand then contract: a drain-on-upgrade runs the old and
+  new server versions side by side, so a migration must not break the previous version's statements.
 - If hospital operations choose SQL Server, the schema is a separately reviewed script per engine, not
   a search and replace: identity columns, JSON storage, timestamps, string collation and the upsert
   form all differ.

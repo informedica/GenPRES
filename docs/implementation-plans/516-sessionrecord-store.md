@@ -70,7 +70,7 @@ wrong trade, so approach 1 is out.
 
 ### Data access
 
-1. Dapper with hand-written SQL and a migration runner (DbUp or Evolve). Thin, and every race-critical 
+1. Dapper with hand-written SQL and a migration runner (DbUp or Evolve). Thin, and every race-critical
    statement sits in a `.sql` file a reviewer can read.
 2. EF Core. Migrations and LINQ come for free, but the change tracker assumes load, mutate, save.
    This store is append-only and its important writes are conditional `INSERT` and `UPDATE ... WHERE`.
@@ -241,12 +241,19 @@ create table anonymous_refusal (
     updated_at bigint not null
 );
 
--- Rule 46. Every act around a session.
+-- Rule 46. Every act around a session. Structured so the reader (its own issue) can
+-- answer "every act on session X" and "which address did this mail go to".
 create table audit_entry (
-    entry_id bigint generated always as identity primary key,
-    at       bigint not null,
-    what     text   not null
+    entry_id   bigint generated always as identity primary key,
+    at         bigint not null,
+    session_id text   null,             -- null for acts not tied to one session
+    actor      text   null,             -- user_id, 'system' for the sweep, null if unknown
+    action     text   not null,         -- Launched | Opened | Ended | MailSent | RefusedAnon | ...
+    target     text   null,             -- e.g. the mail address for MailSent
+    outcome    text   not null,         -- 'ok' | 'refused'
+    detail     jsonb  null
 );
+create index ix_audit_entry_session on audit_entry (session_id, entry_id);
 ```
 
 ### The races, walked through
@@ -306,7 +313,9 @@ implementer's to guess.
    guarding an unauthenticated value.
 4. The clock and the tick. `Integration.fsx` uses an `int` tick. Production needs a real clock passed
    in as `now: unit -> int64`. Confirm the unit (Unix milliseconds) for `occurred_at`, `last_seen`
-   and `expires_at`.
+   and `expires_at`. With more than one server (Rule 36) the Rule 41 idle check is a wall-clock
+   comparison, so the idle check and the touch are one conditional `UPDATE` (the database clock is
+   then the only clock) and server clock skew needs a stated bound (NTP).
 5. Migration timing: at server startup under a database advisory lock so instances do not race, or a
    separate step in the container entrypoint, or a deploy job. Partly depends on decision 1's second
    question.
@@ -315,7 +324,11 @@ implementer's to guess.
    cannot carry Rule 8's dual key without extra machinery, which is why the plan goes the other way.
    That is arguably a change to a design input, so it should go back to the V8 owner as a proposed
    amendment (permit a guarded projection beside the log, and say why), rather than being decided
-   here.
+   here. The same review should ask whether `session_event` earns its place on day one, or whether
+   the `session` projection plus a structured `audit_entry` already covers the audit need.
+7. Audit retention. `audit_entry` is append-only and names mail addresses (Rule 27, Rule 46). A
+   retention period and a legal basis (GDPR, MDR) need stating before the audit ships, even though
+   the reader is a later issue.
 
 ## Confidence
 
@@ -335,10 +348,11 @@ Each step is one PR, aimed at 200 changed lines or fewer, less where it can be. 
 in a `.fsx` under the relevant `Scripts/` folder first; the PR that lands source files is the
 maintainer's. Expect twelve to fifteen PRs, not nine.
 
-1. This plan, and an ADR (next free number, 0006) recording the engine, the access library, the
-   migration ownership, and the event-log-plus-projection model. This is the first datastore in the
-   system, and ADR-0000 lists a storage mechanism and a third-party dependency as ADR-worthy. The ADR
-   is what resolves open decisions 1, 5 and 6.
+1. This plan, and an ADR (next free number, 0006) recording the default engine, the access library,
+   the migration ownership, and the event-log-plus-projection model. This is the first datastore in
+   the system, and ADR-0000 lists a storage mechanism and a third-party dependency as ADR-worthy. The
+   ADR records the defaults and the reasoning; open decisions 1, 3 and 6 still need a maintainer
+   answer before the steps they touch (4, 6, 8) can land, and the ADR stays Proposed until then.
 2. Project scaffolding only. Two `.fsproj` skeletons (session domain, persistence), their entries in
    `GenPRES.sln`, their ring entries in `scripts/DependencyRule.fsx`, and a regenerated
    `ARCHITECTURE.md` diagram. Nothing compiles yet beyond an empty module. This exists because the
@@ -352,8 +366,11 @@ maintainer's. Expect twelve to fifteen PRs, not nine.
    Core. The in-memory version uses a lock and dictionaries with the same conditional semantics. Wire
    it onto `AppEnv` behind `GENPRES_DB_CONNECTION` being unset. Unit tests for the port contract
    against the in-memory version.
-5. The migration runner. DbUp, the startup migration under an advisory lock, and an empty first
-   script. No schema yet.
+5. The migration runner. DbUp, the startup migration under a database advisory lock so instances do
+   not race, and an empty first script. No schema yet. Every migration from here on is expand then
+   contract: during a drain-on-upgrade (Rule 32) an old-version server keeps running its old
+   statements while the new version migrates, so a migration must not break the previous schema
+   version.
 6. The schema. The six tables above (`session_event`, `session`, `session_key_lock`, `spent_nonce`,
    `anonymous_refusal`, `audit_entry`) and their indexes, as migration scripts. A `compose.dev.yaml`
    or a compose profile for the database, kept out of the published-image `compose.yaml`.
