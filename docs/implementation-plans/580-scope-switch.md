@@ -65,8 +65,8 @@ type Scope =
 /// client-only page; the accredited set is a single list below.
 [<RequireQualifiedAccess>]
 type Feature =
-    | EmergencyList        // LifeSupport page, client-side sheets only
-    | ContinuousMeds       // page, client-side sheets only
+    | EmergencyList        // LifeSupport page; client-side sheets until #582
+    | ContinuousMeds       // page; client-side sheets until #582
     | Prescribe            // OrderContextCmd
     | OrderPlan            // OrderPlanCmd
     | Nutrition            // NutritionPlanCmd
@@ -165,10 +165,10 @@ getSettings: unit -> Async<ServerSettings>
   compute in the browser; they need no server command. The sheets are public, so their data
   cannot be withheld by GenPRES at all; what the accredited deployment withholds is the function.
   In this plan the client neither shows nor fetches them in accredited scope, which is the
-  strongest enforcement available without moving the computation server-side. Moving it is a
-  feature-sized change (a new command family, the sheet ids out of the bundle) and is filed as a
-  follow-up issue in step 4, blocking the first accredited production deployment if the MDR
-  file lists either page as withheld.
+  strongest enforcement available while the client loads them itself. Serving these rules
+  through the server, so the scope gate covers them like every other feature, is #582. It
+  blocks the first accredited production deployment if the MDR file lists either page as
+  withheld, and once it lands this limit disappears without changes to the gate.
 - The MCP host (`Informedica.MCP.Server`) calls the domain libraries directly, not
   `processCmd`, so the switch does not cover it. It is a separate deployable with its own scope
   question.
@@ -201,9 +201,8 @@ migrated by the maintainer; client files are edited directly.
    the `UpdatePage` and `pg` guards, start-page normalisation, sheet loads gated by feature,
    `IsDemo` wired, the `NOT_IN_SCOPE` snackbar and its term.
 4. **Configuration and docs.** `.env.example`, `compose.yaml`, `Build.fs` `DockerRun`,
-   `DEVELOPMENT.md`, a line in `docs/roadmap/mvpap2019-gap-overview.md` pointing here, and a
-   follow-up issue for routing the emergency-list and continuous-medication sheets through the
-   server.
+   `DEVELOPMENT.md`, and a line in `docs/roadmap/mvpap2019-gap-overview.md` pointing here and
+   to #582 (client-side knowledge rules served by the server).
 5. **Accredited list.** Replace the placeholder with the list from the MDR file. One-line PR,
    reviewed by whoever owns that file.
 
