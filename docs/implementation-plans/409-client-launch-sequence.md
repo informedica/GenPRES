@@ -230,8 +230,7 @@ Drafted in `src/Informedica.GenPRES.Server/Scripts/Session.fsx` and migrated by 
 - `ServerApi.Adapters.fs`: an in-memory stub keyed by a random session id. Token conventions
   `expired`, `spent` (marked as used by another browser), `no-role`, `wrong-patient` and
   `no-identity` map to the matching refusal; anything else opens a session with a stub
-  Prescriber and the existing `PatientPort` stub patient. With `GENPRES_PROD=1` every launch is
-  refused with `LaunchInvalid`, so the stub fails closed in production.
+  Prescriber and the existing `PatientPort` stub patient.
 - Presentation is idempotent per Rule 2, correlated by the `PresentationKey`, never by the
   presence or absence of a cookie. The spent-mark is written only in the act that opens a
   Session (Rule 2, Rule 40); a refusal records nothing, so a retry after a transient refusal
@@ -249,7 +248,7 @@ Drafted in `src/Informedica.GenPRES.Server/Scripts/Session.fsx` and migrated by 
 - Tests in `tests/Informedica.GenPRES.Server.Tests/StubAdapterTests.fs`: refusal mapping, a
   second presentation within the lifetime with the same key returns the first outcome and the
   same session, one with a different key is `LaunchSpent` and opens nothing, a presentation
-  after the lifetime is `LaunchExpired`, production fail-closed, close removes the session.
+  after the lifetime is `LaunchExpired`, close removes the session.
 
 ### Out of scope
 
@@ -261,6 +260,8 @@ Each has a named extension point:
 - UC-2 PIN enrolment.
 - WorkPlan carry-over (#518).
 - The LaunchScript contract for a path query versus the hash form (decision D1).
+- Whether the production server exposes the stubbed session endpoints at all. That is a scope
+  question, tracked in #580 (scope switch), not a launch question.
 
 ## Confidence
 
@@ -312,28 +313,6 @@ and no longer logs unparseable URLs verbatim.
 The block must be in the commit message, not the PR body: with all three merge methods enabled,
 only squash merges copy a PR body into the commit.
 
-### Release gating
-
-ShipIt offers no per-commit way to hold back a release: its CLI has no skip list or footer for
-that, and a `[skip ci]` on one push only delays the run, because the next push walks history
-back to `last_commit_released` and picks the commits up anyway. Two gates exist instead:
-
-1. **Commit type.** A push whose commits are all non-rendering (`chore`, `docs`, `build`, merge
-   commits) makes ShipIt report "nothing to ship" and open no release PR. Verified with
-   `dotnet shipit --dry-run --allow-branch master --skip-merge-commit` on the current `master`.
-   This is not a tool for hiding a feature: the launch steps are `feat`/`fix` and must render.
-2. **The release PR.** ShipIt runs in pull-request mode and never releases by itself. The tag,
-   the GitHub Release and the Docker push in `tag-release.yml` fire only when a maintainer merges
-   the `release/master` PR. Leaving that PR open holds every release, for every change on
-   `master`, until it is merged.
-
-Because gate 2 holds all of `master`, this plan does not rely on it. The stubbed launch is safe to
-ship in an alpha because the server stub fails closed under `GENPRES_PROD=1` (every launch is
-refused) and an anonymous open is unchanged. That is the feature-flag approach CONTRIBUTING asks
-for with incomplete work, and it keeps the release line free for unrelated fixes. If a step is
-ever unsafe to ship, keep it on the feature branch until it is, rather than merging and holding
-the release PR.
-
 ## Verification
 
 Manual, with `dotnet run` and the demo sheet:
@@ -359,6 +338,5 @@ Manual, with `dotnet run` and the demo sheet:
   Start the server; Retry opens the session.
 - Close the session from the title bar: anonymous state, cookie gone, patient and order context
   cleared.
-- `GENPRES_PROD=1`: every launch is refused.
 - `dotnet run ServerTests` passes with the new stub tests; `dotnet run MarkdownLint` is clean for
   this document.
