@@ -79,14 +79,20 @@ beside the log instead. That is a change to a design input, so it is put to the 
 amendment: permit a guarded projection beside the log, and record why the chain formulation was not
 enough.
 
-### 5. Fixed-order row locking decides the races
+### 5. Fixed-order row locking on durable key rows decides the races
 
-`OpenSessionClosingOthers` runs as one transaction that spends the nonce first, then locks the user's
-open row and the browser's open row in that fixed order (user before browser, always, so a deadlock
-cannot form), then closes those rows and inserts the new session. Isolation is `READ COMMITTED` with a
-bounded retry on a serialization or unique-violation error; the nonce spend is idempotent
-(`INSERT ... ON CONFLICT DO NOTHING`), so a retry is safe. The partial unique indexes on the open rows
-stay as a backstop that catches a mistake, not as the mechanism that decides the race.
+`OpenSessionClosingOthers` runs as one transaction that spends the nonce first, then takes fixed-order
+row locks on a `session_key_lock` table holding one row per lock scope and key. The lock target is the
+key row (`('user', user_id)`, then `('browser', browser_id)`), never the open session, so a first
+open that has no session yet still serializes against a concurrent first open for the same key. An
+anonymous open locks a single `('anon', 'global')` row and enforces the Rule 14 cap under it, so
+concurrent anonymous opens cannot overshoot the cap. User before browser, always, so a deadlock
+cannot form. Then it closes the open sessions on those keys and inserts the new one. The locks are
+plain row locks, so a transaction-mode connection pooler does not break them, which an advisory lock
+would. Isolation is `READ COMMITTED` with a bounded retry on a serialization or unique-violation
+error; the nonce spend is idempotent (`INSERT ... ON CONFLICT DO NOTHING`), so a retry is safe. The
+partial unique indexes on the open rows stay as a backstop that catches a mistake, not as the
+mechanism that decides the race.
 
 ### 6. Placement follows the ADR-0001 dependency rule
 
@@ -94,8 +100,8 @@ The pure session domain (the `SessionRecord` types and their transition function
 `[ships]` sections of `Integration.fsx`) goes in Core, takes `now` and a policy record as parameters,
 and does no IO. The `SessionStore` port is defined next to that domain, since the domain is what
 consumes it. A new Infrastructure-ring project, `Informedica.GenPRES.Persistence.Lib`, holds the SQL
-implementation, the migrations and the connection handling, and reads the `GENPRES_DB_*` settings. An
-in-memory implementation of the port serves unit tests and a bare `dotnet run`.
+implementation, the migrations and the connection handling, and reads the `GENPRES_DB_CONNECTION`
+setting. An in-memory implementation of the port serves unit tests and a bare `dotnet run`.
 
 ## Consequences
 
@@ -103,8 +109,9 @@ in-memory implementation of the port serves unit tests and a bare `dotnet run`.
   `DbUp` enter the `Main` Paket group. Two new projects (`Informedica.Session.Lib` or a GenCORE
   module set, and `Informedica.GenPRES.Persistence.Lib`) enter `GenPRES.sln` and the ring map in
   `scripts/DependencyRule.fsx`, and `ARCHITECTURE.md`'s diagram is regenerated.
-- Production (`GENPRES_PROD=1`) gains a required `GENPRES_DB_CONNECTION`. The server refuses to start
-  without it, the same fail-closed rule as `GENPRES_PASSWORD`.
+- `GENPRES_DB_CONNECTION` is the single switch: set, the SQL adapter is wired; unset, the in-memory
+  port. Production (`GENPRES_PROD=1`) requires it and the server refuses to start without it, the same
+  fail-closed rule as `GENPRES_PASSWORD`.
 - Demo and a bare `dotnet run` fall back to the in-memory port. Demo then loses its sessions on a
   restart, a documented divergence from Rule 32.
 - CI gains a container-based integration job. GitHub's `macos-latest` runner has no Docker daemon, so
@@ -114,8 +121,10 @@ in-memory implementation of the port serves unit tests and a bare `dotnet run`.
 - If hospital operations choose SQL Server, the schema is a separately reviewed script per engine, not
   a search and replace: identity columns, JSON storage, timestamps, string collation and the upsert
   form all differ.
-- The deployed connection topology is an open question. A connection pooler in transaction mode breaks
-  advisory locks and session-scoped settings, both of which Decision 5 and the migration runner use.
+- The deployed connection topology is an open question for the migration runner, which takes a
+  database advisory lock so instances do not race a migration; a connection pooler in transaction mode
+  breaks advisory locks and session-scoped settings. Decision 5 does not depend on advisory locks: it
+  uses plain row locks on `session_key_lock`, which a pooler does not break.
 
 ## Alternatives considered
 

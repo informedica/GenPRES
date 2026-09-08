@@ -30,7 +30,8 @@ In scope:
 - A `SessionStore` port covering the C9 messages: open-closing-others (with the `replacing` session),
   check-launch-spent (returning the spending session), touch-if-open, end-if-open, read one, read all
   for a user, mark-delivered, mark-acknowledged, note-mail-used, note-anonymous-refusal.
-- The Rule 14 anonymous cap, checked inside the open transaction.
+- The Rule 14 anonymous cap, enforced under the `('anon', 'global')` key lock inside the open
+  transaction so concurrent anonymous opens cannot overshoot it.
 - Rule 41 in full: an arriving request ends an over-idle session, and a periodic sweep ends the ones
   nobody comes back to.
 - The Rule 46 audit writer. Every act writes its audit row inside the same transaction as the act.
@@ -91,10 +92,16 @@ This is the real design choice, more than the storage shape.
 2. Partial unique indexes on a mutable projection: `UNIQUE (user_id) WHERE state = 'open'` and the
    same on `browser_id`. Simple to state, but it makes the index the race referee, and that is the
    part whose behaviour differs between Postgres and SQL Server.
-3. Take a row lock in a fixed order. Lock the user's open row, then the browser's open row, both
-   `SELECT ... FOR UPDATE` on Postgres or `WITH (UPDLOCK, HOLDLOCK)` on SQL Server, then do the close
-   and the insert. A fixed order, user before browser, always, makes a deadlock impossible. The
-   partial unique indexes stay, but as a backstop invariant, not as the thing that decides the race.
+3. Take a row lock in a fixed order, on a durable key row rather than on the open session. A
+   `session_key_lock` table holds one row per lock scope and key: `('user', user_id)`,
+   `('browser', browser_id)`, and `('anon', 'global')` for the anonymous cap. The open ensures its
+   rows exist (`INSERT ... ON CONFLICT DO NOTHING`, user key before browser key) and then locks them
+   in that same fixed order, `SELECT ... FOR UPDATE` on Postgres or `WITH (UPDLOCK, HOLDLOCK)` on SQL
+   Server, then does the close and the insert. User before browser, always, so a deadlock cannot
+   form. Because the lock target is the key row and not the session, a first open with no session yet
+   still serializes against a concurrent first open for the same key. The lock is a plain row lock,
+   so it survives a transaction-mode connection pooler, which an advisory lock would not. The partial
+   unique indexes stay, but as a backstop invariant, not as the thing that decides the race.
 
 ### Storage model
 
@@ -116,8 +123,11 @@ Dapper with hand-written SQL. Migrations run through DbUp, scripts embedded as r
 Event log plus current-state projection. The log carries the Rule 46 history; the projection carries
 the state that reads and locks work against.
 
-Fixed-order row locking for the races, approach 3 above. Read the user's open row for update, then the
-browser's, then close and insert. `READ COMMITTED` with a bounded retry on a serialization or
+Fixed-order row locking on durable key rows for the races, approach 3 above. Spend the nonce, ensure
+the `session_key_lock` rows exist, lock `('user', user_id)` then `('browser', browser_id)` for
+update, then close any open sessions on those keys and insert. An anonymous open locks
+`('anon', 'global')` instead, then counts the open anonymous sessions and refuses above the cap
+(Rule 14) inside the same transaction. `READ COMMITTED` with a bounded retry on a serialization or
 unique-violation error. The nonce spend is idempotent (`INSERT ... ON CONFLICT (kind, nonce)
 DO NOTHING`), so a retry is safe. The partial unique indexes stay as a last-line check that the
 invariant held.
@@ -139,11 +149,14 @@ Project placement, following the ADR-0001 dependency rule:
   `dotnet run` without a database. It is not a stand-in for the integration tests. Rules 8, 40, 2 and
   41 are statements about database behaviour, and a dictionary behind a lock does not prove them.
 
-Config: `GENPRES_DB_CONNECTION`, or the discrete `GENPRES_DB_HOST` / `_PORT` / `_NAME` / `_USER` /
-`_PASSWORD`. In production (`GENPRES_PROD=1`) the server refuses to start without it, the same
-fail-closed rule as `GENPRES_PASSWORD`. Demo and a bare `dotnet run` fall back to the in-memory port.
+Config: a single `GENPRES_DB_CONNECTION` connection string, and it is the one switch. Set, the
+composition root wires the SQL adapter; unset, it wires the in-memory port. In production
+(`GENPRES_PROD=1`) the server refuses to start when it is unset, the same fail-closed rule as
+`GENPRES_PASSWORD`. Demo and a bare `dotnet run` leave it unset and fall back to the in-memory port.
 Demo then loses its sessions on restart, which is a divergence from Rule 32. Document it, or run a
-throwaway Postgres container in the demo compose file.
+throwaway Postgres container in the demo compose file. Discrete `GENPRES_DB_HOST` / `_PORT` / ... vars
+are not read; if a deployment needs them later, the composition root builds the connection string
+from them and the same one switch and guard still apply.
 
 Wiring: `SessionStore` goes on `AppEnv`, and the composition root picks the SQL or in-memory
 implementation from whether `GENPRES_DB_CONNECTION` is set. This meets the `launchSession` and
@@ -182,8 +195,13 @@ create table session (
     browser_id   text        null,       -- see open decision 3
     launch_nonce text        null,
     opened_at    bigint      not null,
-    expires_at   bigint      null,       -- absolute lifetime (Rule 30)
-    last_seen    bigint      not null,   -- idle clock (Rule 9), never moves backwards
+    expires_at   bigint      null,       -- absolute lifetime: Rule 10 ends a session
+                                         -- "at its absolute lifetime (Rule 30)". Set from
+                                         -- SessionPolicy.absoluteLifetime at open, null for none.
+    last_seen    bigint      not null,   -- idle clock: refreshed each request (Rule 9),
+                                         -- compared against SessionPolicy.idleLimit by the
+                                         -- arriving request and by the sweep (Rule 41).
+                                         -- Never moves backwards.
     state        text        not null,   -- 'open' | 'ended'
     end_mark     text        null,
     ended_at     bigint      null,
@@ -195,6 +213,17 @@ create unique index ux_session_open_user
     on session (user_id)    where state = 'open' and user_id    is not null;
 create unique index ux_session_open_browser
     on session (browser_id) where state = 'open' and browser_id is not null;
+
+-- Rule 8, Rule 14. Fixed-order lock targets, one row per (scope, key). A row always
+-- exists to lock, so a first open with no session yet still serializes against a
+-- concurrent one for the same key. scope 'anon' / key 'global' serializes anonymous
+-- opens for the Rule 14 cap. Plain row locks, so a transaction-mode pooler does not
+-- break them. Rows are never deleted: at most one per distinct user and browser.
+create table session_key_lock (
+    scope    text not null,            -- 'user' | 'browser' | 'anon'
+    lock_key text not null,            -- user_id, browser_id, or 'global'
+    primary key (scope, lock_key)
+);
 
 -- Rule 2. Launch nonces and, later, token nonces. Keyed on both so the two never collide.
 create table spent_nonce (
@@ -223,12 +252,21 @@ create table audit_entry (
 ### The races, walked through
 
 Two launches of the same user, two different nonces (UC-1 ext 8b). Both nonces are unspent, so both
-transactions spend their own nonce and run the whole pipeline. Each locks the user's current open row,
-ends it as `Superseded` with its notice `Delivered`, inserts its own session, writes its audit row.
-The lock forces them into sequence, so the second one supersedes the first. Both browsers are told a
-session opened; only the later one still has it. The earlier browser finds out at its next request
-(Rule 11). This is the specified outcome, and it is not a lost update: the database decided which
-session stands.
+transactions spend their own nonce and run the whole pipeline. Each locks the `('user', user_id)` key
+row in fixed order, so the two run in sequence whether or not the user already had an open session.
+The first ends any open session for that user as `Superseded` with its notice `Delivered`, inserts
+its own session, writes its audit row. The second, now holding the lock, sees the first's session,
+supersedes that, and inserts its own. Both browsers are told a session opened; only the later one
+still has it. The earlier browser finds out at its next request (Rule 11). This is the specified
+outcome, and it is not a lost update: the database decided which session stands. Two first launches
+with no prior session resolve the same way, because the key row is what is locked, not the session.
+
+The anonymous cap (Rule 14). Anonymous opens have no user row and maybe no browser row, so they
+serialize on the single `('anon', 'global')` key row instead. Holding that lock, the transaction
+counts open anonymous sessions and, if the count is at or above the configured cap, refuses without
+writing a SessionRecord and bumps `anonymous_refusal` for the source. Because every anonymous open
+takes the same lock, the count each one sees already includes every anonymous session that will
+commit before it, so the cap cannot be overshot.
 
 The same nonce presented twice (one Launch, two browsers, or a refresh). The open spends the nonce as
 its first write: `INSERT ... ON CONFLICT (kind, nonce) DO NOTHING`. If that inserts a row, the open
@@ -316,17 +354,21 @@ maintainer's. Expect twelve to fifteen PRs, not nine.
    against the in-memory version.
 5. The migration runner. DbUp, the startup migration under an advisory lock, and an empty first
    script. No schema yet.
-6. The schema. The six tables above and their indexes, as migration scripts. A `compose.dev.yaml` or
-   a compose profile for the database, kept out of the published-image `compose.yaml`. `.env.example`
-   gains the `GENPRES_DB_*` keys, commented, defaulting to the in-memory fallback.
+6. The schema. The six tables above (`session_event`, `session`, `session_key_lock`, `spent_nonce`,
+   `anonymous_refusal`, `audit_entry`) and their indexes, as migration scripts. A `compose.dev.yaml`
+   or a compose profile for the database, kept out of the published-image `compose.yaml`.
+   `.env.example` gains the `GENPRES_DB_CONNECTION` key, commented, defaulting to the in-memory
+   fallback.
 7. SQL adapter, reads. `readSessionRecord` returning `SessionRecord option * TreatmentPlan option`
    with the plan always `None` until the clinical store lands, `readSessionRecords` for a user,
    `checkLaunchSpent` returning the spending session. Integration tests via Testcontainers.
 8. SQL adapter, the open. `openSessionClosingOthers` as the one transaction: the nonce spend first,
-   then the ordered locks, the ordered closes, the insert, the audit row, the Rule 14 count. A nonce
-   that is already spent short-circuits to the replay answer. Concurrency tests: many threads racing
-   an open for the same user, the same browser, and the same nonce, asserting the ext 8b outcome and
-   a single spent nonce.
+   then ensure and lock the `session_key_lock` rows in fixed order, the ordered closes, the insert,
+   the audit row, and for an anonymous open the Rule 14 count under the `('anon', 'global')` lock. A
+   nonce that is already spent short-circuits to the replay answer. Concurrency tests: many threads
+   racing an open for the same user, the same browser, the same nonce, two first launches with no
+   prior session, and many anonymous opens against the cap, asserting the ext 8b outcome, a single
+   spent nonce, and that the anonymous cap is never exceeded.
 9. SQL adapter, touch and end. `touchIfOpen` (never moves `last_seen` back), `endSessionIfOpen`, and
    the arriving-request half of Rule 41.
 10. The Rule 41 sweep. A periodic job under an advisory lock that ends sessions past their idle limit
@@ -338,7 +380,8 @@ maintainer's. Expect twelve to fifteen PRs, not nine.
     rebuild-from-log path. Without this the log is write-only.
 13. Composition-root switch and the production guard. `GENPRES_PROD=1` without a connection string
     refuses to start, with a clear message, the same shape as `validateProductionPassword`.
-14. Docs. The `GENPRES_DB_*` keys and the dev database container in DEVELOPMENT.md, a CHANGELOG entry.
+14. Docs. The `GENPRES_DB_CONNECTION` key and the dev database container in DEVELOPMENT.md, a
+    CHANGELOG entry.
 
 ## Testing
 
