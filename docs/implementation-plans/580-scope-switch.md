@@ -42,8 +42,9 @@ branch, which is exactly the split this plan avoids.
 `GENPRES_SCOPE` with two values, `accredited` and `full`.
 
 - Parsed in `Server.Config.fromEnv` into a new `Settings.Scope` field, next to `IsProd`.
-- Default when unset: `accredited` if `IsProd`, `full` otherwise. The safe direction: a
-  production server that forgets the setting shows less, never more.
+- Default when unset or blank (`nonBlank`, as for the other secrets): `accredited` if `IsProd`,
+  `full` otherwise. The safe direction: a production server that forgets the setting shows less,
+  never more. No launch path may supply its own fallback, or the derivation is lost.
 - Any other value is rejected in `Config.validateStartup`, so the server refuses to start, in the
   same way it refuses a short production password.
 - `Settings` is threaded into `createServerApi` and `CompositionRoot.compose`, which today drop
@@ -106,10 +107,12 @@ getSettings: unit -> Async<ServerSettings>
 
 - `AppEnv` (`ServerApi.Ports.fs`) gains `scope: Scope`. `Adapters.makeAppEnv` takes it from
   `Settings`.
-- `Command.processCmd` checks `Feature.ofCommand cmd |> Feature.isPermitted env.scope` before
-  `requireLoaded` and before the three commands that bypass it. A refused command returns
-  `Error [| "NOT_IN_SCOPE" |]`, a stable code the client can recognise, and touches no port. The
-  existing `requireLoaded` short-circuit is the pattern.
+- `Command.processCmd` checks `Feature.ofCommand cmd |> Feature.isPermitted env.scope` as its
+  first operation, before the `match` that today lets four commands bypass `requireLoaded`
+  (`InteractionCmd GetDrugNames`, `ValidatePassword`, `ListLogFiles`, `AnalyzeLogFile`) and
+  before `requireLoaded` itself. A refused command returns `Error [| "NOT_IN_SCOPE" |]`, a stable
+  code the client can recognise, and touches no port. The existing `requireLoaded`
+  short-circuit is the pattern.
 - `getSettings` returns `{ Scope = settings.Scope; IsDemo = not settings.IsProd }`.
 - `setDemoVersion` in `ServerApi.Services.fs` keeps reading the environment for now; folding it
   into `Settings` is a follow-up once the command layer has them.
@@ -119,6 +122,12 @@ getSettings: unit -> Async<ServerSettings>
 - `State.Settings: Deferred<ServerSettings>`, fetched in `init` next to `checkServer`. Until it
   resolves the client behaves as `Accredited`: a short flash of the smaller menu in full mode is
   preferable to a flash of the larger one in production.
+- The start page is normalised when settings resolve. `init` today lands on `LifeSupport`
+  whether or not a `pg` parameter is present; when that page is withheld, the settings handler
+  moves `Page` to the first permitted page, so an accredited client opened at the bare url never
+  renders a withheld view.
+- The client-side sheet loads (`LoadBolusMedication`, `LoadContinuousMedication`) run only when
+  their feature is permitted. In accredited scope those sheets are neither shown nor fetched.
 - `Global.Feature.ofPage: Pages -> Feature` maps every page to its feature.
 - `Pages/GenPres.fs`: the `pages` list is filtered by `Feature.isPermitted scope`, so withheld
   pages are removed from the side menu, not greyed out like the unauthenticated Settings entry.
@@ -137,7 +146,9 @@ getSettings: unit -> Async<ServerSettings>
 - `.env.example`: `GENPRES_SCOPE=full` with a comment on the default rule.
 - `Dockerfile`: no `ENV GENPRES_SCOPE`; the image inherits the default rule, so a production
   container with `GENPRES_PROD=1` is accredited unless told otherwise.
-- `compose.yaml`: `GENPRES_SCOPE: ${GENPRES_SCOPE:-full}` next to `GENPRES_PROD`.
+- `compose.yaml`: `GENPRES_SCOPE: ${GENPRES_SCOPE:-}` next to `GENPRES_PROD`, deliberately
+  without a `full` fallback: an empty value is "unset" to `fromEnv`, so the derivation from
+  `GENPRES_PROD` still applies when an operator omits the setting.
 - `Build.fs` `DockerRun`: forward `GENPRES_SCOPE` when set, as it forwards the url id and password.
 - `DEVELOPMENT.md`: the environment block, the wrapper-script table (a `GENPRES_SCOPE` column) and
   a short "Environments" table:
@@ -151,9 +162,13 @@ getSettings: unit -> Async<ServerSettings>
 ### Known limits, stated rather than hidden
 
 - `EmergencyList` and `ContinuousMeds` read their sheets from Google directly in the browser and
-  need no server command. For those two, the client-side filter is the only enforcement; the
-  server cannot withhold what it never serves. If that is not acceptable for the accredited
-  surface, the follow-up is to route those sheets through the server, which is a separate issue.
+  compute in the browser; they need no server command. The sheets are public, so their data
+  cannot be withheld by GenPRES at all; what the accredited deployment withholds is the function.
+  In this plan the client neither shows nor fetches them in accredited scope, which is the
+  strongest enforcement available without moving the computation server-side. Moving it is a
+  feature-sized change (a new command family, the sheet ids out of the bundle) and is filed as a
+  follow-up issue in step 4, blocking the first accredited production deployment if the MDR
+  file lists either page as withheld.
 - The MCP host (`Informedica.MCP.Server`) calls the domain libraries directly, not
   `processCmd`, so the switch does not cover it. It is a separate deployable with its own scope
   question.
@@ -179,19 +194,29 @@ migrated by the maintainer; client files are edited directly.
    `Settings` threaded into `compose`, `AppEnv.scope`, the `processCmd` gate, `getSettings`.
    Tests: `ConfigTests` (default derivation for both `IsProd` values, invalid value rejected),
    `StubAdapterTests` (`makeEnv` gains `scope`; an accredited env refuses a withheld command
-   with `NOT_IN_SCOPE` without touching any port; a full env passes it through).
+   with `NOT_IN_SCOPE` without touching any port; a full env passes it through; each of the four
+   commands that bypass `requireLoaded` is refused too when its feature is withheld, so the gate
+   is proven to sit ahead of that bypass).
 3. **Client.** `getSettings` fetch, `State.Settings`, `Feature.ofPage`, filtered `pages`,
-   the `UpdatePage` and `pg` guards, `IsDemo` wired, the `NOT_IN_SCOPE` snackbar and its term.
+   the `UpdatePage` and `pg` guards, start-page normalisation, sheet loads gated by feature,
+   `IsDemo` wired, the `NOT_IN_SCOPE` snackbar and its term.
 4. **Configuration and docs.** `.env.example`, `compose.yaml`, `Build.fs` `DockerRun`,
-   `DEVELOPMENT.md`, and a line in `docs/roadmap/mvpap2019-gap-overview.md` pointing here.
+   `DEVELOPMENT.md`, a line in `docs/roadmap/mvpap2019-gap-overview.md` pointing here, and a
+   follow-up issue for routing the emergency-list and continuous-medication sheets through the
+   server.
 5. **Accredited list.** Replace the placeholder with the list from the MDR file. One-line PR,
    reviewed by whoever owns that file.
 
 ## Verification
 
-- `GENPRES_SCOPE=accredited dotnet run`: the side menu shows only the accredited pages; a deep
-  link `#/patient?pg=pe` lands on the first permitted page; `curl` of a withheld command family
-  against `/api/...` returns the `NOT_IN_SCOPE` error and nothing is logged from the ports.
+- `GENPRES_SCOPE=accredited dotnet run`: the side menu shows only the accredited pages; the bare
+  url `http://localhost:5173/` opens on the first permitted page, not on the emergency list; a
+  deep link `#/patient?pg=pe` lands on the first permitted page; the Network tab shows no
+  request to the emergency-list or continuous-medication sheets; `curl` of a withheld command
+  family against `/api/...` returns the `NOT_IN_SCOPE` error and nothing is logged from the
+  ports, including `GetDrugNames` and the log-analyzer commands when their feature is withheld.
+- `docker compose up` with `GENPRES_PROD=1` and no `GENPRES_SCOPE` in the environment: the
+  container runs accredited.
 - `GENPRES_SCOPE=full`: all pages, all commands, unchanged behaviour.
 - `GENPRES_SCOPE=bogus`: the server refuses to start with a message naming the setting.
 - `GENPRES_PROD=1` with `GENPRES_SCOPE` unset: accredited. `GENPRES_PROD=0` unset: full.
