@@ -181,6 +181,14 @@ type KnowledgeProvider(registry: ResourceRegistry) =
 
 `KnowledgeProvider` runs `LoadEngine registry`, calls `ForceAll`, and keeps `Resolved` and
 `Warnings` under a lock, exactly as `CachedResourceProvider.getFromCache` and `ReloadCache` do.
+The load is wrapped in `try/with`, as `loadAllResourcesWithRegistry` wraps its own `ForceAll`:
+`ofResultOrDefault` converts an `Error` from a loader, not an exception, so a loader that raises
+(a `ResourceLoadError` from the engine, or anything the sheet fetch did not catch) must be
+caught here. On an exception the provider caches a snapshot in which every key holds its empty
+value and `Warnings` carries one `ErrorMsg` with the exception, the same "empty state on error,
+cached so it is not retried on every request" rule that `CachedResourceProvider.loadFresh`
+applies. `Get`, `Reload` and `Warnings` therefore never propagate an exception; that is part of
+the type's contract and is pinned by a test.
 `Warnings` goes through that same path, so reading it loads the snapshot when there is none,
 as `GetResourceInfo` does on the formulary provider. It never touches `LoadedResources` or
 `ResourceState`, which is why it is a server type and not a second GenFORM provider. Nothing
@@ -242,8 +250,11 @@ the one admin action that can refresh the emergency list. The fan-out therefore 
 `OrderContextService.evaluate`, in the branch that runs after the password guard: it calls
 `knowledge.Reload()` and logs its warnings before handing the command to GenORDER, so the
 knowledge reload runs whenever the password was accepted, whatever the formulary then does.
-`OrderContextService.evaluate` receives the reload as a `unit -> unit` parameter from the
-adapter, so the service stays testable with a stub. Reload stays one admin action with one
+The reverse holds too: `Reload` contains its own exceptions by contract, see above, and the
+service wraps the call in a `try/with` of its own that logs and continues, so even a provider
+that broke that contract could not stop the GenORDER reload behind it. Neither reload can
+prevent the other. `OrderContextService.evaluate` receives the reload as a `unit -> unit`
+parameter from the adapter, so the service stays testable with a stub. Reload stays one admin action with one
 password check, and the settings page needs no change. When the raw-password path moves to the
 token check in `Command.fs` (#378 phase 5), the fan-out moves with it.
 
@@ -335,7 +346,9 @@ scripts and migrated by the maintainer; client files are edited directly.
    default id, a set value wins); `KnowledgeProviderTests` over an in-memory registry, in the
    style of `ResourceErrorTests`: a failing loader yields the empty value and a `Warning` naming
    the sheet while the other keys load; a wrong-header response yields the same; `Get` loads
-   once and `Reload` loads again; a loader that raises does not poison the provider.
+   once and `Reload` loads again; a loader that raises makes `Get` return the empty value and
+   `Warnings` carry the exception, and neither `Get`, `Reload` nor `Warnings` propagates it; a
+   `Reload` after the loader is fixed serves data again.
 3. **Port and dispatcher.** `KnowledgePort`, `AppEnv.knowledge`, the adapter including the
    reload fan-out in `OrderContextService.evaluate`, the three `processCmd` arms, and
    `getLocalization` in `CompositionRoot`. Tests in `StubAdapterTests`: `makeEnv` gains the
@@ -344,7 +357,8 @@ scripts and migrated by the maintainer; client files are edited directly.
    refuses `GetEmergencyList` and `GetContinuousMeds` with `NOT_IN_SCOPE` ahead of the bypass
    and passes `GetNormalValues`. A service test with a stub reload proves that
    `ReloadResources` with the right password invokes the knowledge reload even when the GenFORM
-   provider reports not loaded, and that a wrong password invokes nothing.
+   provider reports not loaded, that a wrong password invokes nothing, and that a stub reload
+   which raises is logged while the command still reaches GenORDER.
 4. **Client: emergency list, continuous medication, normal values.** The three loads go through
    `processCommand`; `LoadProducts` and `State.Products` are removed; `GoogleDocs` keeps only
    `loadLocalization`.
