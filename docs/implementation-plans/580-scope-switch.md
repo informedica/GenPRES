@@ -126,8 +126,12 @@ getSettings: unit -> Async<ServerSettings>
   whether or not a `pg` parameter is present; when that page is withheld, the settings handler
   moves `Page` to the first permitted page, so an accredited client opened at the bare url never
   renders a withheld view.
-- The client-side sheet loads (`LoadBolusMedication`, `LoadContinuousMedication`) run only when
-  their feature is permitted. In accredited scope those sheets are neither shown nor fetched.
+- The client-side sheet loads (`LoadBolusMedication`, `LoadContinuousMedication`) move out of
+  `init` into the settings-resolved handler, which dispatches them only when their feature is
+  permitted. Because unresolved settings count as accredited, a load left in `init` would be
+  skipped in every scope; dispatching from the handler starts them in full scope and never in
+  accredited scope, where those sheets are neither shown nor fetched. The handler is the one
+  place that acts on the scope: page normalisation and the permitted loads both live there.
 - `Global.Feature.ofPage: Pages -> Feature` maps every page to its feature.
 - `Pages/GenPres.fs`: the `pages` list is filtered by `Feature.isPermitted scope`, so withheld
   pages are removed from the side menu, not greyed out like the unauthenticated Settings entry.
@@ -216,7 +220,9 @@ migrated by the maintainer; client files are edited directly.
   ports, including `GetDrugNames` and the log-analyzer commands when their feature is withheld.
 - `docker compose up` with `GENPRES_PROD=1` and no `GENPRES_SCOPE` in the environment: the
   container runs accredited.
-- `GENPRES_SCOPE=full`: all pages, all commands, unchanged behaviour.
+- `GENPRES_SCOPE=full`: all pages, all commands, unchanged behaviour; the Network tab shows the
+  emergency-list and continuous-medication sheets fetched once settings resolve, and both pages
+  show data.
 - `GENPRES_SCOPE=bogus`: the server refuses to start with a message naming the setting.
 - `GENPRES_PROD=1` with `GENPRES_SCOPE` unset: accredited. `GENPRES_PROD=0` unset: full.
 - `GENPRES_PROD=0`: the title bar shows the demo suffix; with `1` it does not.
