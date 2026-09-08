@@ -288,30 +288,7 @@ maintainer.
    suppression, the `ISession` capability on `ConcreteAppEnv`.
 4. **UI.** Title bar session indicator and close, the `SessionGate` modal with retry, anonymous
    open and relaunch texts, localisation terms for the new strings.
-5. **Docs.** Tick roadmap 2.1.2. Nothing is written to `CHANGELOG.md` by hand: EasyBuild.ShipIt
-   generates it on every push to `master` from the conventional-commit history and bumps the
-   version in `Directory.Build.props` (see DEVELOPMENT.md, "Changelog & Release Automation").
-
-### Commit conventions for the release notes
-
-Only `feat` and `fix` commits render in the changelog; `docs`, `chore` and `build` never do. So
-each step above lands as a `feat(client)`, `feat(api)` or `fix(client)` commit, and the docs step
-as `docs(...)`. Where a step deserves more than its subject line in the release notes, put a
-`=== changelog ===` block in the commit message body, opened and closed with the marker, for
-example:
-
-```text
-fix(client): erase the launch token from URL and history
-
-=== changelog ===
-A launch token in the address bar ended up in browser history, referrer
-headers and logs. The client now removes it on first presentation (Rule 39)
-and no longer logs unparseable URLs verbatim.
-=== changelog ===
-```
-
-The block must be in the commit message, not the PR body: with all three merge methods enabled,
-only squash merges copy a PR body into the commit.
+5. **Docs.** Tick roadmap 2.1.2.
 
 ## Verification
 
