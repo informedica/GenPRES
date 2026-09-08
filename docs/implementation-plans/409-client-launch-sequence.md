@@ -102,7 +102,7 @@ type Session =
 
 type SessionMsg =
     | Present of Launch * PresentationKey            // key minted by App.fs, once per page load
-    | Outcome of Launch * Result<LaunchOutcome, string>   // Error = transport failure
+    | Outcome of Launch * PresentationKey * Result<LaunchOutcome, string>   // Error = transport failure
     | Resume
     | Resumed of Result<SessionOpened option, string>
     | RefusedAtCallback of LaunchRefusal             // from #/session?refused={reason}, see IdP return
@@ -122,8 +122,13 @@ val transition: SessionMsg -> Session -> Session * SessionEffect list
 
 Rules encoded in `transition`:
 
-- `Outcome (l, _)` is ignored unless the state is `Launching (l, _, _)` for the same Launch.
-  `Resumed` is ignored unless the state is `Resuming`. This is the stale-request guard.
+- `Outcome (l, k, _)` is ignored unless the state is `Launching (l, k, _)` for the same Launch
+  and the same key. `Resumed` is ignored unless the state is `Resuming`. This is the
+  stale-request guard: a response can only land on the presentation that sent it.
+- `Present (l, _)` while the state is `Launching (l, _, _)` or `Unreachable (l, _, _)` is a
+  no-op: an in-flight presentation is never replaced by a second one for the same Launch, and
+  the first key stays the one the server will recognise. A `Present` for a different Launch
+  supersedes the current one, and the old one's outcome is then dropped by the guard above.
 - A transport error while `Launching (l, k, n)` with `n < 3` yields `Launching (l, k, n + 1)`
   plus `CallPresentLaunch (l, k)`; at three attempts it becomes `Unreachable (l, k, 3)` and the
   UI offers Retry, which re-presents with the same key. A retry always carries the same Launch
@@ -187,8 +192,9 @@ handles it and the `refused` return, so no client change is needed when 2.1.3 la
 
 - `State.Session: Session` and `Msg.SessionMsg of SessionMsg`.
 - `update` calls `Session.transition` and interprets each `SessionEffect` into a `Cmd`:
-  `CallPresentLaunch (l, k)` runs `serverApi.presentLaunch (l, k)` in a `try/with` that maps
-  exceptions to `Outcome (l, Error msg)`; `GoTo url` calls `window.location.assign url`;
+  `CallPresentLaunch (l, k)` runs `serverApi.presentLaunch (l, k)` and yields
+  `Outcome (l, k, result)`, with a `try/with` that maps exceptions to `Error msg`;
+  `GoTo url` calls `window.location.assign url`;
   `SetPatient p` is `Cmd.ofMsg (UpdatePatient p)`.
 - `init` and `UrlChanged` mint the `PresentationKey` with `window.crypto.randomUUID()` when they
   dispatch `Present`; `transition` never creates one, so it stays pure.
