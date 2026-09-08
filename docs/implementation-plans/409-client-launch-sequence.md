@@ -76,7 +76,7 @@ type LaunchRefusal =
 
 type LaunchOutcome =
     | Opened of SessionOpened
-    | RedirectTo of url: string                      // IdP hop (UC-1 step 3); stub never returns it
+    | RedirectTo of url: string                      // IdP hop (UC-1 step 3), see below; stub never returns it
     | Refused of LaunchRefusal
 
 // IServerApi additions
@@ -104,6 +104,7 @@ type SessionMsg =
     | Outcome of Launch * Result<LaunchOutcome, string>   // Error = transport failure
     | Resume
     | Resumed of Result<SessionOpened option, string>
+    | RefusedAtCallback of LaunchRefusal             // from #/session?refused={reason}, see IdP return
     | OpenAnonymous
     | Close
     | Closed
@@ -124,17 +125,50 @@ Rules encoded in `transition`:
   `Resumed` is ignored unless the state is `Resuming`. This is the stale-request guard.
 - A transport error while `Launching (l, n)` with `n < 3` yields `Launching (l, n + 1)` plus
   `CallPresentLaunch l`; at three attempts it becomes `Unreachable (l, 3)` and the UI offers
-  Retry.
+  Retry. A retry always re-presents the same Launch. It is safe because presentation is
+  idempotent per browser within the Launch lifetime (Rule 2, see the server stub): a response
+  lost on the wire is answered again as the first was, so a retry can never turn a session that
+  did open into `LaunchSpent`.
 - `Opened s` yields `Open s` plus `SetPatient (s.PatientContext |> Option.map _.Patient)`.
   Patient changes go through `UpdatePatient` so order context, order plan, formulary and
   parenteralia reload. `Patient` is never assigned directly.
+- `Closed` and `OpenAnonymous` yield `Anonymous` plus `SetPatient None`. A launched patient and
+  everything derived from it (order context, order plan, formulary, parenteralia) leave the
+  screen with the session; an anonymous open carries nothing over (Rule 7).
 - `Refused NoRole` keeps `retry = None` and the UI offers an anonymous open. Other refusals keep
   the Launch only when a retry is meaningful (`NoBrowserIdentity`).
+- `RefusedAtCallback r` yields `Refused (r, None)`: the Launch was consumed server-side.
+
+### IdentityProvider return
+
+`RedirectTo` unloads the client, so the client cannot keep the Launch across the hop. It does not
+need to: from UC-1 step 3 and Rule 39, the Launch travels in the request state of the identity
+round trip, and the server finishes the launch before the client runs again.
+
+1. `presentLaunch` answers `RedirectTo url`. The server has put the Launch in the request state
+   of that url (the OIDC `state` parameter, encrypted, or a server-side entry keyed by the
+   `state` nonce; roadmap 2.1.3 decides which).
+2. The client calls `window.location.assign url`. The IdentityProvider signs the browser on and
+   redirects to a server callback, a plain GET outside Fable.Remoting, with the authorization
+   code and `state`.
+3. The callback redeems the code back-channel (edge C6), verifies the Launch, opens the Session
+   and sets the cookie on its own redirect response, then redirects the browser to `/#/session`.
+   On refusal it opens nothing and redirects to `/#/session?refused={reason}` with a fixed
+   reason vocabulary (`expired`, `spent`, `invalid`, `no-identity`, `no-role`,
+   `wrong-patient`, `enrolment`). A reason is not a secret; the token never appears in that url.
+4. The client loads without a Launch, erases a `refused` parameter the same way it erases a
+   launch, and dispatches `Resume` (cookie present, `getSession` answers `Some`) or
+   `RefusedAtCallback`.
+
+Only step 4 is client work in this plan. The stub never returns `RedirectTo`, but the client
+handles it and the `refused` return, so no client change is needed when 2.1.3 lands.
 
 ### URL handling in `App.fs`
 
 - Split `parseUrl` into `parsePatient` and `parseLaunch`, as PR #574 does. The launch URL form is
   `#/session?launch={token}`. In hash mode the token never reaches the server request line.
+  `parseLaunch` also recognises `#/session?refused={reason}` from the IdentityProvider return
+  and yields `RefusedAtCallback`; both forms are erased the same way.
 - In `init`, when a Launch is present, call `history.replaceState(null, "", "#/session")` through
   `Browser.Dom` directly, not through `Router.navigate`: `Router.nav` in `FelizRouter.fs` always
   fires the navigation event and would re-enter `UrlChanged` and `UpdatePatient`. Do the same in
@@ -176,15 +210,24 @@ Drafted in `src/Informedica.GenPRES.Server/Scripts/Session.fsx` and migrated by 
 - `ServerApi.Ports.fs`: `SessionPort` with `open: Launch -> Async<LaunchOutcome>`,
   `find: string -> Async<SessionOpened option>` and `close: string -> Async<unit>`.
 - `ServerApi.Adapters.fs`: an in-memory stub keyed by a random session id. Token conventions
-  `expired`, `spent` (second presentation), `no-role`, `wrong-patient` and `no-identity` map to
-  the matching refusal; anything else opens a session with a stub Prescriber and the existing
-  `PatientPort` stub patient. With `GENPRES_PROD=1` every launch is refused with `LaunchInvalid`,
-  so the stub fails closed in production.
+  `expired`, `spent` (marked as used by another browser), `no-role`, `wrong-patient` and
+  `no-identity` map to the matching refusal; anything else opens a session with a stub
+  Prescriber and the existing `PatientPort` stub patient. With `GENPRES_PROD=1` every launch is
+  refused with `LaunchInvalid`, so the stub fails closed in production.
+- Presentation is idempotent per Rule 2. The stub keeps a spent-mark per Launch holding the
+  outcome, the session id and a lifetime (Rule 29; two minutes in the stub). A second
+  presentation within the lifetime from the same browser, recognised by the session cookie that
+  the first answer set, or by no cookie at all when that answer was lost, is answered as the
+  first was and re-issues the same cookie; nothing opens twice. After the lifetime the Launch is
+  `LaunchExpired`. The real implementation keys the same-browser check on the BrowserIdentity
+  (Rule 2); the stub has none, which is the one place it is weaker than the design.
 - `ServerApi.CompositionRoot.fs`: `presentLaunch` sets the cookie `genpres_session` with HttpOnly,
   SameSite=Strict, Path=/ and Secure when the request is HTTPS. `getSession` reads it and
   `closeSession` deletes it.
-- Tests in `tests/Informedica.GenPRES.Server.Tests/StubAdapterTests.fs`: refusal mapping, spent
-  on second presentation, production fail-closed, close removes the session.
+- Tests in `tests/Informedica.GenPRES.Server.Tests/StubAdapterTests.fs`: refusal mapping, a
+  second presentation within the lifetime returns the first outcome and the same session, a
+  presentation after the lifetime is `LaunchExpired`, production fail-closed, close removes the
+  session.
 
 ### Out of scope
 
@@ -279,11 +322,18 @@ Manual, with `dotnet run` and the demo sheet:
 - DevTools: the cookie `genpres_session` is HttpOnly and SameSite=Strict; no request URL contains
   the token; a reload keeps the session.
 - `launch=expired` and `launch=wrong-patient`: the modal asks for a relaunch. `launch=no-role`:
-  the modal offers an anonymous open, which yields a plain anonymous state without a patient.
-  Presenting `launch=once` in two tabs: the second tab gets `LaunchSpent`.
+  the modal offers an anonymous open, which yields a plain anonymous state without a patient
+  and no order context. `launch=spent`: the modal asks for a relaunch.
+- Open the same `launch=demo` url in a second tab within two minutes: the second tab shows the
+  same session, no second session is opened. Open it again after two minutes: `LaunchExpired`.
+- Throttle the network in DevTools so the first `presentLaunch` response is dropped: the retry
+  opens the session that the first call created, not a refusal.
+- `#/session?refused=no-role`: the parameter is erased from the address bar and the modal offers
+  an anonymous open.
 - Stop the server and open a launch URL: three attempts, then the Unreachable modal with Retry.
   Start the server; Retry opens the session.
-- Close the session from the title bar: anonymous state, cookie gone.
+- Close the session from the title bar: anonymous state, cookie gone, patient and order context
+  cleared.
 - `GENPRES_PROD=1`: every launch is refused.
 - `dotnet run ServerTests` passes with the new stub tests; `dotnet run MarkdownLint` is clean for
   this document.
