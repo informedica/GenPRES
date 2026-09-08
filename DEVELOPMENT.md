@@ -451,6 +451,17 @@ The image is published by `tag-release.yml` a few minutes *after* the release PR
 
 Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID`, a 16+ character `GENPRES_PASSWORD`, and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
 
+**Process 1 and exit codes** — the image runs [`tini`](https://github.com/krallin/tini) as PID 1
+and starts `dotnet` under it (issue [#572](https://github.com/informedica/GenPRES/issues/572)).
+With `dotnet` itself as PID 1, the `SIGABRT` the runtime sends itself after an unhandled exception
+was dropped, so a container whose server refused to start stayed "running" with nothing listening.
+Now a refused start-up (the production password policy, or no `GENPRES_URL_ID`) prints one message
+and exits `1`, a crash exits `134`, and `docker stop` still reaches Kestrel for a graceful shutdown.
+`compose.yaml`'s `restart: unless-stopped` and any orchestrator act on those codes; read them with
+`docker ps -a`. No `--init` or `init: true` is needed. The release workflow proves this on every
+image it publishes by starting it with `GENPRES_PROD=1` and no password and requiring exit code
+`1` within 30 seconds.
+
 **Browser caching after an update** — the server sets `Cache-Control` on every response
 (`securityHeadersMiddleware` in `src/Informedica.GenPRES.Server/Server.fs`, issue
 [#568](https://github.com/informedica/GenPRES/issues/568)): `no-cache` for `index.html` and
