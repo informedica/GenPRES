@@ -97,12 +97,13 @@ type Session =
     | Launching of Launch * PresentationKey * attempt: int
     | Resuming                                       // getSession in flight (reload, IdP return)
     | Open of SessionOpened
-    | Refused of LaunchRefusal * retry: Launch option
+    | Refused of LaunchRefusal * retry: (Launch * PresentationKey) option
     | Unreachable of Launch * PresentationKey * attempts: int   // ext 3a: server down after page served
 
 type SessionMsg =
     | Present of Launch * PresentationKey            // key minted by App.fs, once per page load
     | Outcome of Launch * PresentationKey * Result<LaunchOutcome, string>   // Error = transport failure
+    | Retry                                          // from Unreachable, or Refused with a retry
     | Resume
     | Resumed of Result<SessionOpened option, string>
     | RefusedAtCallback of LaunchRefusal             // from #/session?refused={reason}, see IdP return
@@ -125,13 +126,19 @@ Rules encoded in `transition`:
 - `Outcome (l, k, _)` is ignored unless the state is `Launching (l, k, _)` for the same Launch
   and the same key. `Resumed` is ignored unless the state is `Resuming`. This is the
   stale-request guard: a response can only land on the presentation that sent it.
-- `Present (l, _)` while the state is `Launching (l, _, _)` or `Unreachable (l, _, _)` is a
-  no-op: an in-flight presentation is never replaced by a second one for the same Launch, and
-  the first key stays the one the server will recognise. A `Present` for a different Launch
-  supersedes the current one, and the old one's outcome is then dropped by the guard above.
+- `Present (l, _)` while the state is `Launching (l, _, _)` is a no-op: an in-flight
+  presentation is never replaced by a second one for the same Launch, and the first key stays
+  the one the server will recognise. In every other state, `Unreachable` and `Refused`
+  included, `Present` starts a fresh presentation; only `Retry` re-uses the stored key. A
+  `Present` for a different Launch supersedes the current one, and the old one's outcome is then
+  dropped by the guard above.
 - A transport error while `Launching (l, k, n)` with `n < 3` yields `Launching (l, k, n + 1)`
   plus `CallPresentLaunch (l, k)`; at three attempts it becomes `Unreachable (l, k, 3)` and the
-  UI offers Retry, which re-presents with the same key. A retry always carries the same Launch
+  UI offers Retry.
+- `Retry` from `Unreachable (l, k, _)` or `Refused (_, Some (l, k))` yields `Launching (l, k, 1)`
+  plus `CallPresentLaunch (l, k)`: the same Launch and the same key, so the server answers a
+  session that did open as it did the first time, and re-verifies a Launch that did not. `Retry`
+  in any other state is a no-op. A retry always carries the same Launch
   and the same `PresentationKey`. The key is what makes the retry safe: the server answers a
   repeated key as it answered the first time (Rule 2, see the server stub), so a response lost
   on the wire cannot turn a session that did open into `LaunchSpent`, while a presentation with
@@ -144,7 +151,7 @@ Rules encoded in `transition`:
   everything derived from it (order context, order plan, formulary, parenteralia) leave the
   screen with the session; an anonymous open carries nothing over (Rule 7).
 - `Refused NoRole` keeps `retry = None` and the UI offers an anonymous open. Other refusals keep
-  the Launch only when a retry is meaningful (`NoBrowserIdentity`).
+  the Launch and key only when a retry is meaningful (`NoBrowserIdentity`).
 - `RefusedAtCallback r` yields `Refused (r, None)`: the Launch was consumed server-side.
 
 ### IdentityProvider return
@@ -226,10 +233,12 @@ Drafted in `src/Informedica.GenPRES.Server/Scripts/Session.fsx` and migrated by 
   Prescriber and the existing `PatientPort` stub patient. With `GENPRES_PROD=1` every launch is
   refused with `LaunchInvalid`, so the stub fails closed in production.
 - Presentation is idempotent per Rule 2, correlated by the `PresentationKey`, never by the
-  presence or absence of a cookie. The stub keeps a spent-mark per Launch holding the key, the
-  outcome, the session id and a lifetime (Rule 29; two minutes in the stub). A second
-  presentation within the lifetime with the same key is answered as the first was and re-issues
-  the same cookie; nothing opens twice. A presentation with a different key, or with no key, is
+  presence or absence of a cookie. The spent-mark is written only in the act that opens a
+  Session (Rule 2, Rule 40); a refusal records nothing, so a retry after a transient refusal
+  such as `NoBrowserIdentity` re-verifies the Launch. The stub keeps the spent-mark per Launch
+  holding the key, the outcome, the session id and a lifetime (Rule 29; two minutes in the
+  stub). A second presentation within the lifetime with the same key is answered as the first
+  was and re-issues the same cookie; nothing opens twice. A presentation with a different key, or with no key, is
   `LaunchSpent`: a request without a key cannot be told apart from another browser, so it is
   treated as one. After the lifetime the Launch is `LaunchExpired`. The real implementation
   keys the same-browser check on the BrowserIdentity (Rule 2); the key is the stand-in that the
