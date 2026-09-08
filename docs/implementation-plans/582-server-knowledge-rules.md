@@ -56,17 +56,22 @@ Two facts established while writing this plan, by fetching the public demo workb
    project and may not reference the Contract ring (`scripts/DependencyRule.fsx`), so the
    `Shared.Types` records the client already consumes would have to be duplicated and mapped.
    It would also add to the Google-Sheets loaders that #378 phase 2 is evicting from GenFORM.
-4. **Extend the registry from the server.** `ResourceRegistry` is a plain `Map`, `LoadEngine`
-   resolves whatever is registered, and `CachedResourceProvider` takes the load function as a
-   parameter. The server, which is in the DMZ and already references `Shared`, `Utils.Lib` and
-   `GenFORM.Lib`, adds its own keys and loaders to `defaultRegistry` and reaches them through
-   `provider.Get key`. The parsers stay in `Shared/Models.fs`, unchanged, and run on the server.
-   Chosen.
-5. **A second `CachedResourceProvider` for the emergency-list workbook**, so a formulary load
-   failure does not take the emergency list down. Considered and not chosen for now:
-   `ReloadResources` and `GetResourceInfo` would have to fan out over two providers, and the
-   coupling it avoids is stated below as a consequence instead. It remains the fallback if that
-   consequence is judged unacceptable.
+4. **Extend `defaultRegistry` from the server and read the new keys through the one
+   `CachedResourceProvider`.** Smallest change, and the first draft of this plan. Rejected on
+   review: that provider caches an all-or-nothing `LoadedResources`, so a fatal formulary load
+   failure empties the emergency list as well, and every `KnowledgeCmd` has to sit behind
+   `requireLoaded`. Today the browser fetch is independent of the formulary, and an emergency
+   page must not lose that.
+5. **A second `CachedResourceProvider` over a registry of its own.** Rejected: `LoadedResources`
+   and `ResourceState` are shaped after the formulary, so a second instance would carry empty
+   formulary fields and an `IResourceProvider` whose members mean nothing for these sheets.
+6. **A small server-side provider over `LoadEngine`, with its own registry, cache and reload.**
+   `ResourceRegistry` is a plain `Map` and `LoadEngine` resolves whatever is registered, so the
+   server, which is in the DMZ and already references `Shared`, `Utils.Lib` and `GenFORM.Lib`,
+   builds a registry of the four keys and wraps the engine in the same lock-cache-reload shape
+   as `CachedResourceProvider`, about forty lines. The parsers stay in `Shared/Models.fs`,
+   unchanged, and run on the server. The formulary provider, GenFORM and `requireLoaded` are
+   untouched; `ReloadResources` reloads both. Chosen.
 
 ## Chosen approach
 
@@ -126,20 +131,29 @@ with no change to the gate.
 
 ### Server configuration
 
-`Config.Settings` gains `EmergencyUrlId: string option`, read from `GENPRES_EMERGENCY_URL_ID`
-through `nonBlank`, and shown redacted in the banner. When unset it defaults to `UrlId`, so a
-deployment whose sheet owners move the emergency tabs into the main workbook needs no second
-variable, which is the issue's first option, while a deployment that keeps them separate sets the
-variable, the issue's second option. `validateStartup` does not require it: a missing or wrong
-workbook degrades to an empty list with a warning, see below, and never stops the server.
+`Config.Settings` gains `EmergencyUrlId: string`, read from `GENPRES_EMERGENCY_URL_ID` through
+`nonBlank`, and shown redacted in the banner. When unset it defaults to the id of the workbook
+every deployment reads today, the one compiled into the client as `dataEMLUrlId`, held as one
+literal in `Config`. That is the "hard-coded default in source code" tier of the priority order
+in `DEVELOPMENT.md`, and it is what makes the cutover safe: a deployment that upgrades without
+touching its configuration keeps the emergency list, the continuous medication list and the
+growth references it had, because the server fetches the same workbook the browser did. A
+deployment whose sheet owners move the tabs into the main workbook sets the variable to the same
+value as `GENPRES_URL_ID`; one that keeps a workbook of its own sets it to that. `validateStartup`
+does not require it: a wrong workbook degrades to an empty list with a warning, see below, and
+never stops the server.
 
-`.env.example`, the `Dockerfile` and `compose.yaml` carry the current public emergency-list id
-the same way they carry the demo `GENPRES_URL_ID`, so a fresh clone, a bare `docker run` and
-`docker compose up` keep showing the emergency list. `Build.fs` `DockerRun` forwards the variable
-when set. The rule that the proprietary id is injected at runtime and never baked applies to
-this id as well.
+The default must not be `GENPRES_URL_ID`: the main workbook has no emergency tabs, so that
+default would turn an unconfigured upgrade into an empty emergency page. The first draft of
+this plan had it that way and review caught it.
 
-### Registry extension
+`.env.example`, the `Dockerfile` and `compose.yaml` carry the same id explicitly, the way they
+carry the demo `GENPRES_URL_ID`, so the value is visible where operators look and a bare
+`docker run` or `docker compose up` shows the emergency list. `Build.fs` `DockerRun` forwards the
+variable when set. The rule that a proprietary id is injected at runtime and never baked applies
+to this id as well.
+
+### The knowledge provider
 
 A new server file `ServerApi.Knowledge.fs`, compiled before `ServerApi.Adapters.fs`:
 
@@ -150,32 +164,42 @@ module Keys =
     let normalValues = ResourceKey.create<NormalValues> "normalValues"
     let localization = ResourceKey.create<string[][]> "localization"
 
-/// Adds the four loaders to a registry. `emergencyUrlId` for the first three, `urlId`
-/// for the localization tab.
-let addTo urlId emergencyUrlId (registry: ResourceRegistry) : ResourceRegistry = ...
+/// The registry of the four sheets: `emergencyUrlId` for the first three, `urlId` for
+/// the localization tab.
+let registry urlId emergencyUrlId : ResourceRegistry = ...
+
+/// Lazy, locked, reloadable snapshot of a registry, the shape of
+/// `CachedResourceProvider` without its formulary-specific state.
+type KnowledgeProvider(registry: ResourceRegistry) =
+    member _.Get(key: ResourceKey<'T>) : 'T      // loads on first use
+    member _.Reload() : unit                     // drops the snapshot, loads again
+    member _.Warnings : Message list             // from the last load
 ```
+
+`KnowledgeProvider` runs `LoadEngine registry`, calls `ForceAll`, and keeps `Resolved` and
+`Warnings` under a lock, exactly as `CachedResourceProvider.getFromCache` and `ReloadCache` do.
+It never touches `LoadedResources` or `ResourceState`, which is why it is a server type and not
+a second GenFORM provider. Nothing loads at type initialisation: the first `Get` loads, as with
+the formulary provider (AGENTS.md, "Never Perform IO in a Top-Level `let` Value").
 
 Each loader is `ofResultOrDefault`, the pattern `Keys.totalsData` uses: a failed fetch or a
 header row from the wrong tab yields the empty value plus a `Warning` naming the sheet and the
-id, so the failure is visible in `GetResourceInfo` and on the settings page, a
-`ReloadResources` retries it, and the formulary never goes down because the emergency-list
-workbook did. The fetch is `Web.GoogleSheets.getDataFromSheet` with the composed parser
-(`Shared.Csv.parseCSV >> EmergencyTreatment.parse` and so on), run synchronously inside the
-loader thunk, never in a top-level value (AGENTS.md, "Never Perform IO in a Top-Level `let`
-Value"). Using the `Shared` CSV parser keeps the server's parse identical to what the browser
-did.
+id, so the failure is visible in the server log, a `ReloadResources` retries it, and one bad
+sheet never empties the others. The fetch is `Web.GoogleSheets.getDataFromSheet` with the
+composed parser (`Shared.Csv.parseCSV >> EmergencyTreatment.parse` and so on), run synchronously
+inside the loader thunk. Using the `Shared` CSV parser keeps the server's parse identical to what
+the browser did.
 
 The four growth sheets become one resource: the loader fetches all four and builds
 `NormalValues`, as `GoogleDocs.loadNormalValues` does today, and a failure in any one of them
 fails the resource as a whole, as today.
 
-`GenFORM.Lib/Api.fs` gets one function, `getCachedProviderWithRegistry logger registry`, and
-`getCachedProviderWithDataUrlId` becomes a call to it with `defaultRegistry dataUrlId`. That is
-the only change in a Core project; it exists because the message logging in that module is
-private. `Host.resourceProvider` in `Server.fs` then builds
-`Resources.defaultRegistry urlId |> Knowledge.addTo urlId emergencyUrlId` and passes it in. The
-MCP host keeps calling `getCachedProviderWithDataUrlId`: it does not serve these sheets, and its
-own scope question is out of this plan.
+`Host` in `Server.fs` builds `KnowledgeProvider (Knowledge.registry urlId emergencyUrlId)` next
+to `resourceProvider urlId` and passes both into `createServerApi`, `CompositionRoot.compose` and
+`Adapters.makeAppEnv`. Its warnings are logged where `Api.getCachedProviderWithDataUrlId` logs the
+GenFORM messages, at start-up and after each reload. GenFORM itself is not changed. The MCP host
+keeps its `getCachedProviderWithDataUrlId`: it does not serve these sheets, and its own scope
+question is out of this plan.
 
 ### Port and dispatcher
 
@@ -192,10 +216,18 @@ type KnowledgePort =
 ```
 
 `AppEnv` gains `knowledge: KnowledgePort`; `Adapters.makeAppEnv` implements it as
-`provider.Get Knowledge.Keys.x`. `processCmd` gets four arms in the `requireLoaded` branch, next
-to `FormularyCmd`. They sit behind `requireLoaded` on purpose: when the main load fails,
-`CachedResourceProvider` caches an empty `LoadedResources` whose `Resolved` map is empty, and a
-`Get` on it would throw. The consequence is stated below.
+`knowledge.Get Knowledge.Keys.x` inside a `try`, so an exception from a loader is an `Error`,
+never an unhandled one. `processCmd` gets four arms in the group that bypasses `requireLoaded`,
+next to `InteractionCmd GetDrugNames`, which reads a source of its own in the same way. A fatal
+formulary load therefore refuses the order-context, formulary and nutrition families as it does
+today and leaves the emergency list, the continuous medication list, the growth references and
+the UI text served, which is what the browser fetch gives today. When #580 lands, the scope
+gate still runs ahead of this bypass, as its plan requires.
+
+`ReloadResources` reloads both. The order-context adapter in `Adapters.makeOrderContextPort`
+matches `ReloadResources _` and, once the GenFORM reload has returned `Ok`, calls
+`knowledge.Reload()` and logs its warnings. Reload stays one admin action with one password
+check, and the settings page needs no change.
 
 ### Client
 
@@ -236,12 +268,14 @@ to `FormularyCmd`. They sit behind `requireLoaded` on purpose: when the main loa
 - **A sheet edit now takes effect on `ReloadResources` or restart, not on the next browser
   load.** This is the point of the change, and it is a change in operating procedure for whoever
   edits the emergency-list workbook.
-- **The emergency list is unavailable when the formulary fails to load.** Today the two are
-  independent because the browser fetches the sheet itself; after this plan a fatal formulary
-  load failure refuses every command, `KnowledgeCmd` included. The reverse is guarded: the
-  emergency-list loaders are optional and cannot fail the formulary. If that coupling is not
-  acceptable for a page used in emergencies, approach 5 (a second provider) is the remedy, at
-  the cost of fanning `ReloadResources` and `GetResourceInfo` over two providers.
+- **The emergency list and the formulary stay independent, in both directions.** A fatal
+  formulary load leaves the four knowledge commands served, because they bypass `requireLoaded`
+  and read their own provider; a bad emergency-list workbook is a warning on that provider and
+  never reaches the formulary. This is the independence the browser fetch has today, kept. The
+  price is a second, small provider and a two-line fan-out in the reload path.
+- **An unconfigured upgrade keeps its data.** The default emergency-list id is the workbook the
+  client reads today, so a deployment that sets nothing new sees no change in content, only in
+  the path the data takes.
 - **A wrong or stale emergency-list id is a warning, not a crash.** Because Google returns the
   first tab for an unknown tab name, the parser's `KeyNotFoundException` on the header row is
   what turns "wrong workbook" into an `Error`; without it the server would serve the formulary's
@@ -253,16 +287,16 @@ to `FormularyCmd`. They sit behind `requireLoaded` on purpose: when the main loa
 ## Confidence
 
 High on the mechanism: every piece follows a pattern already in the code base (`ofResultOrDefault`
-for optional sheets, `ResourceKey` and `provider.Get` for typed access, a port record and a
-`processCmd` arm per command family, `Config.fromEnv` for the setting, `StubAdapterTests` for the
-dispatcher). Medium on two decisions that are not software decisions and are called out for the
-reviewer: whether the formulary-to-emergency-list coupling is acceptable, and where
-`GetNormalValues` and `GetLocalization` sit in the accredited list.
+for optional sheets, `ResourceKey` and `LoadEngine` for typed, memoised access, the
+`CachedResourceProvider` lock-and-reload shape, a port record and a `processCmd` arm per command
+family, the `GetDrugNames` bypass, `Config.fromEnv` for the setting, `StubAdapterTests` for the
+dispatcher). Medium on one decision that is not a software decision and is called out for the
+reviewer: where `GetNormalValues` and `GetLocalization` sit in the accredited list.
 
 ## Steps
 
-Each step is one PR under 200 changed lines. Shared, Server and GenFORM changes are drafted in
-`.fsx` scripts and migrated by the maintainer; client files are edited directly.
+Each step is one PR under 200 changed lines. Shared and Server changes are drafted in `.fsx`
+scripts and migrated by the maintainer; client files are edited directly.
 
 1. **Shared contract.** `KnowledgeCmd`, `KnowledgeCommand`, `KnowledgeResp`, `KnowledgeResponse`,
    `Command.toString`; if #580 step 1 has landed, `Feature.Patient` and the four `ofCommand`
@@ -272,18 +306,19 @@ Each step is one PR under 200 changed lines. Shared, Server and GenFORM changes 
    `KeyNotFoundException` on a header row from another sheet (the `gviz` first-tab fallback).
    The fixture columns are the ones the parsers read today; this is the column-contract idea
    from `GenFORM.Tests` applied to `Shared`.
-2. **Server configuration and registry.** `Settings.EmergencyUrlId`, `fromEnv` with the
-   default-to-`UrlId` rule, banner line; `ServerApi.Knowledge.fs` with the keys and `addTo`;
-   `Api.getCachedProviderWithRegistry` in GenFORM with `getCachedProviderWithDataUrlId` delegating
-   to it; `Host.resourceProvider settings`. Tests: `ConfigTests` (unset and blank default to
-   `UrlId`, set value wins); a `ResourceErrorTests`-style test that a registry extended with a
-   failing emergency-list loader still loads with `IsLoaded = true` and a `Warning` naming the
-   sheet, and that a wrong-header response yields the same.
-3. **Port and dispatcher.** `KnowledgePort`, `AppEnv.knowledge`, the adapter, the four
-   `processCmd` arms. Tests in `StubAdapterTests`: `makeEnv` gains the port; each command routes
-   to its response; a not-loaded env refuses all four with the `requireLoaded` messages; once
-   #580 is in, an accredited env refuses `GetEmergencyList` and `GetContinuousMeds` with
-   `NOT_IN_SCOPE` and passes `GetNormalValues`.
+2. **Server configuration and provider.** `Settings.EmergencyUrlId` with the literal default,
+   `fromEnv`, banner line; `ServerApi.Knowledge.fs` with the keys, `registry` and
+   `KnowledgeProvider`; `Host` constructing it. Tests: `ConfigTests` (unset and blank give the
+   default id, a set value wins); `KnowledgeProviderTests` over an in-memory registry, in the
+   style of `ResourceErrorTests`: a failing loader yields the empty value and a `Warning` naming
+   the sheet while the other keys load; a wrong-header response yields the same; `Get` loads
+   once and `Reload` loads again; a loader that raises does not poison the provider.
+3. **Port and dispatcher.** `KnowledgePort`, `AppEnv.knowledge`, the adapter including the
+   reload fan-out, the four `processCmd` arms. Tests in `StubAdapterTests`: `makeEnv` gains the
+   port; each command routes to its response; a not-loaded env still serves all four, proving
+   the bypass, as the existing `GetDrugNames` test does; once #580 is in, an accredited env
+   refuses `GetEmergencyList` and `GetContinuousMeds` with `NOT_IN_SCOPE` ahead of the bypass
+   and passes `GetNormalValues`.
 4. **Client: emergency list, continuous medication, normal values.** The three loads go through
    `processCommand`; `LoadProducts` and `State.Products` are removed; `GoogleDocs` keeps only
    `loadLocalization`.
@@ -302,21 +337,23 @@ Google until then, so each step ships green on its own.
 - `dotnet run` with `.env` from `.env.example`: the LifeSupport and ContinuousMeds pages show data;
   a patient without a weight gets an estimated weight; the Network tab shows no request to
   `docs.google.com` (after step 5), and one `KnowledgeCmd` request per sheet family at start.
-- The settings page's resource info lists the four resources with no warnings; `ReloadResources`
-  reloads them, and an edit to the public emergency-list workbook shows up after the reload and
-  not before.
-- `GENPRES_EMERGENCY_URL_ID` set to the main demo workbook id: the server starts, the LifeSupport
-  page is empty, resource info carries a warning naming `emergencylist` and the id, and the
-  formulary is unaffected. Unset the variable: the same, since it defaults to `GENPRES_URL_ID`.
-  Set it to the emergency-list id: data again after `ReloadResources`.
+- The server log shows the four sheets loaded with no warnings; `ReloadResources` from the
+  settings page reloads them, and an edit to the public emergency-list workbook shows up after
+  the reload and not before.
+- `GENPRES_EMERGENCY_URL_ID` unset: the LifeSupport page shows the same data as before the
+  upgrade. Set to the main demo workbook id: the server starts, the LifeSupport page is empty,
+  the log carries a warning naming `emergencylist` and the id, and the formulary is unaffected.
+  Set back to the emergency-list id: data again after `ReloadResources`.
+- `GENPRES_URL_ID` set to a wrong id: the formulary commands return the `requireLoaded`
+  messages, and the LifeSupport page still shows data.
 - `curl` of `KnowledgeCmd GetEmergencyList` against `/api/...` returns the list; against a server
-  whose main load failed, it returns the `requireLoaded` messages; against an accredited server
-  (with #580), `NOT_IN_SCOPE`.
+  whose formulary load failed, it still returns the list; against an accredited server (with
+  #580), `NOT_IN_SCOPE`.
 - `curl -sI http://localhost:8085/ | grep -i content-security-policy` shows no `docs.google.com`
   after step 5.
 - `docker compose up` with no `GENPRES_EMERGENCY_URL_ID` in `.env`: the container serves the
   demo emergency list from the baked-in id.
-- `dotnet run ServerTests` passes with the new Shared, Config, resource-error and stub tests;
-  `dotnet fsi scripts/CheckDependencyRule.fsx` still passes, since the server is in the DMZ and
-  the only Core change is one function in `GenFORM.Lib/Api.fs` that does no IO itself;
-  `dotnet run MarkdownLint` is clean for this document.
+- `dotnet run ServerTests` passes with the new Shared, Config, provider and stub tests;
+  `dotnet fsi scripts/CheckDependencyRule.fsx` still passes, since every change is in the DMZ
+  or the Contract ring and no Core project is touched; `dotnet run MarkdownLint` is clean for
+  this document.
