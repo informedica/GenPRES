@@ -55,6 +55,7 @@ the maintainer):
 
 ```fsharp
 type Launch = Launch of string                      // opaque, sealed by MainEHR LaunchScript
+type PresentationKey = PresentationKey of string    // random per page load, lives only in client memory
 type OpenedToken = OpenedToken of string
 type UserRole = Prescriber | Reader
 type UserContext = { UserId: string; DisplayName: string; Role: UserRole }
@@ -80,7 +81,7 @@ type LaunchOutcome =
     | Refused of LaunchRefusal
 
 // IServerApi additions
-presentLaunch: Launch -> Async<LaunchOutcome>
+presentLaunch: Launch * PresentationKey -> Async<LaunchOutcome>   // idempotent per key, Rule 2
 getSession: unit -> Async<SessionOpened option>     // cookie-authenticated
 closeSession: unit -> Async<unit>                   // Rule 10: explicit close
 ```
@@ -93,14 +94,14 @@ New file `src/Informedica.GenPRES.Client/Session.fs`, pure F# without React:
 [<RequireQualifiedAccess>]
 type Session =
     | Anonymous
-    | Launching of Launch * attempt: int
+    | Launching of Launch * PresentationKey * attempt: int
     | Resuming                                       // getSession in flight (reload, IdP return)
     | Open of SessionOpened
     | Refused of LaunchRefusal * retry: Launch option
-    | Unreachable of Launch * attempts: int          // ext 3a: server down after page served
+    | Unreachable of Launch * PresentationKey * attempts: int   // ext 3a: server down after page served
 
 type SessionMsg =
-    | Present of Launch
+    | Present of Launch * PresentationKey            // key minted by App.fs, once per page load
     | Outcome of Launch * Result<LaunchOutcome, string>   // Error = transport failure
     | Resume
     | Resumed of Result<SessionOpened option, string>
@@ -110,7 +111,7 @@ type SessionMsg =
     | Closed
 
 type SessionEffect =
-    | CallPresentLaunch of Launch
+    | CallPresentLaunch of Launch * PresentationKey
     | CallGetSession
     | CallCloseSession
     | GoTo of url: string                            // window.location.assign, for RedirectTo
@@ -121,14 +122,16 @@ val transition: SessionMsg -> Session -> Session * SessionEffect list
 
 Rules encoded in `transition`:
 
-- `Outcome (l, _)` is ignored unless the state is `Launching (l, _)` for the same Launch.
+- `Outcome (l, _)` is ignored unless the state is `Launching (l, _, _)` for the same Launch.
   `Resumed` is ignored unless the state is `Resuming`. This is the stale-request guard.
-- A transport error while `Launching (l, n)` with `n < 3` yields `Launching (l, n + 1)` plus
-  `CallPresentLaunch l`; at three attempts it becomes `Unreachable (l, 3)` and the UI offers
-  Retry. A retry always re-presents the same Launch. It is safe because presentation is
-  idempotent per browser within the Launch lifetime (Rule 2, see the server stub): a response
-  lost on the wire is answered again as the first was, so a retry can never turn a session that
-  did open into `LaunchSpent`.
+- A transport error while `Launching (l, k, n)` with `n < 3` yields `Launching (l, k, n + 1)`
+  plus `CallPresentLaunch (l, k)`; at three attempts it becomes `Unreachable (l, k, 3)` and the
+  UI offers Retry, which re-presents with the same key. A retry always carries the same Launch
+  and the same `PresentationKey`. The key is what makes the retry safe: the server answers a
+  repeated key as it answered the first time (Rule 2, see the server stub), so a response lost
+  on the wire cannot turn a session that did open into `LaunchSpent`, while a presentation with
+  another key, which is what any other browser has, is refused. The key exists only in this
+  page load's memory (Rule 39); a reload has no Launch left to present anyway.
 - `Opened s` yields `Open s` plus `SetPatient (s.PatientContext |> Option.map _.Patient)`.
   Patient changes go through `UpdatePatient` so order context, order plan, formulary and
   parenteralia reload. `Patient` is never assigned directly.
@@ -184,9 +187,11 @@ handles it and the `refused` return, so no client change is needed when 2.1.3 la
 
 - `State.Session: Session` and `Msg.SessionMsg of SessionMsg`.
 - `update` calls `Session.transition` and interprets each `SessionEffect` into a `Cmd`:
-  `CallPresentLaunch l` runs `serverApi.presentLaunch l` in a `try/with` that maps exceptions to
-  `Outcome (l, Error msg)`; `GoTo url` calls `window.location.assign url`; `SetPatient p` is
-  `Cmd.ofMsg (UpdatePatient p)`.
+  `CallPresentLaunch (l, k)` runs `serverApi.presentLaunch (l, k)` in a `try/with` that maps
+  exceptions to `Outcome (l, Error msg)`; `GoTo url` calls `window.location.assign url`;
+  `SetPatient p` is `Cmd.ofMsg (UpdatePatient p)`.
+- `init` and `UrlChanged` mint the `PresentationKey` with `window.crypto.randomUUID()` when they
+  dispatch `Present`; `transition` never creates one, so it stays pure.
 - An `ISession` capability on `ConcreteAppEnv` exposes the `Session` value and the `close`,
   `retry` and `openAnonymously` actions, instead of threading more props through `GenPres.fs` and
   `TitleBar.fs`.
@@ -214,20 +219,22 @@ Drafted in `src/Informedica.GenPRES.Server/Scripts/Session.fsx` and migrated by 
   `no-identity` map to the matching refusal; anything else opens a session with a stub
   Prescriber and the existing `PatientPort` stub patient. With `GENPRES_PROD=1` every launch is
   refused with `LaunchInvalid`, so the stub fails closed in production.
-- Presentation is idempotent per Rule 2. The stub keeps a spent-mark per Launch holding the
+- Presentation is idempotent per Rule 2, correlated by the `PresentationKey`, never by the
+  presence or absence of a cookie. The stub keeps a spent-mark per Launch holding the key, the
   outcome, the session id and a lifetime (Rule 29; two minutes in the stub). A second
-  presentation within the lifetime from the same browser, recognised by the session cookie that
-  the first answer set, or by no cookie at all when that answer was lost, is answered as the
-  first was and re-issues the same cookie; nothing opens twice. After the lifetime the Launch is
-  `LaunchExpired`. The real implementation keys the same-browser check on the BrowserIdentity
-  (Rule 2); the stub has none, which is the one place it is weaker than the design.
+  presentation within the lifetime with the same key is answered as the first was and re-issues
+  the same cookie; nothing opens twice. A presentation with a different key, or with no key, is
+  `LaunchSpent`: a request without a key cannot be told apart from another browser, so it is
+  treated as one. After the lifetime the Launch is `LaunchExpired`. The real implementation
+  keys the same-browser check on the BrowserIdentity (Rule 2); the key is the stand-in that the
+  stub, and the real server before the identity hop, can verify.
 - `ServerApi.CompositionRoot.fs`: `presentLaunch` sets the cookie `genpres_session` with HttpOnly,
   SameSite=Strict, Path=/ and Secure when the request is HTTPS. `getSession` reads it and
   `closeSession` deletes it.
 - Tests in `tests/Informedica.GenPRES.Server.Tests/StubAdapterTests.fs`: refusal mapping, a
-  second presentation within the lifetime returns the first outcome and the same session, a
-  presentation after the lifetime is `LaunchExpired`, production fail-closed, close removes the
-  session.
+  second presentation within the lifetime with the same key returns the first outcome and the
+  same session, one with a different key is `LaunchSpent` and opens nothing, a presentation
+  after the lifetime is `LaunchExpired`, production fail-closed, close removes the session.
 
 ### Out of scope
 
@@ -324,10 +331,13 @@ Manual, with `dotnet run` and the demo sheet:
 - `launch=expired` and `launch=wrong-patient`: the modal asks for a relaunch. `launch=no-role`:
   the modal offers an anonymous open, which yields a plain anonymous state without a patient
   and no order context. `launch=spent`: the modal asks for a relaunch.
-- Open the same `launch=demo` url in a second tab within two minutes: the second tab shows the
-  same session, no second session is opened. Open it again after two minutes: `LaunchExpired`.
-- Throttle the network in DevTools so the first `presentLaunch` response is dropped: the retry
-  opens the session that the first call created, not a refusal.
+- Open the same `launch=demo` url in a second tab, or a second browser, within two minutes: the
+  second gets `LaunchSpent` and no second session is opened; the first tab keeps its session.
+  Open it again after two minutes: `LaunchExpired`.
+- Block the first `presentLaunch` response in DevTools (or stop the server between request and
+  reply): the automatic retry, carrying the same key, is answered with the session the first
+  call opened, not with a refusal. The key is visible in the request body and identical across
+  the attempts.
 - `#/session?refused=no-role`: the parameter is erased from the address bar and the modal offers
   an anonymous open.
 - Stop the server and open a launch URL: three attempts, then the Unreachable modal with Retry.
