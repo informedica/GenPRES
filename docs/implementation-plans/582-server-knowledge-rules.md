@@ -86,7 +86,6 @@ and KnowledgeCommand =
     | GetEmergencyList
     | GetContinuousMeds
     | GetNormalValues
-    | GetLocalization
 
 // Response
     | KnowledgeResp of KnowledgeResponse
@@ -95,7 +94,9 @@ and KnowledgeResponse =
     | EmergencyListLoaded of BolusMedication list
     | ContinuousMedsLoaded of ContinuousMedication list
     | NormalValuesLoaded of NormalValues
-    | LocalizationLoaded of string[][]
+
+// IServerApi addition, next to getSettings from #580
+getLocalization: unit -> Async<Result<string[][], string[]>>
 ```
 
 `Command.toString` gains one line per case. The payload types are the `Shared.Types` records the
@@ -105,9 +106,12 @@ client already holds in its state, so nothing changes downstream of the fetch.
 `State.Products` and read nowhere in the client. The plan removes that dead load rather than
 porting it. If a use turns up, it is one more case in the family.
 
-`Localization` is not a knowledge rule, but it is the last client-side fetch. Serving it is what
-lets the `docs.google.com` entry leave the CSP, so it is in scope, as the last and separately
-droppable step.
+`Localization` is UI text, not a knowledge rule and not an MDR function, so it is not a command:
+it is served by a remoting method of its own, outside `processCmd`, the way #580 serves
+`getSettings`. It never meets the scope gate, `Feature.ofCommand` needs no case for it, and no
+scope can withhold it. It is still in this plan because it is the last client-side fetch, and
+serving it is what lets the `docs.google.com` entry leave the CSP; it is the last and separately
+droppable step. It reads the same cached, reloadable provider as the three commands.
 
 ### Scope classification (#580)
 
@@ -118,12 +122,11 @@ droppable step.
 | `GetEmergencyList` | `EmergencyList` |
 | `GetContinuousMeds` | `ContinuousMeds` |
 | `GetNormalValues` | `Patient` (new case) |
-| `GetLocalization` | `Patient` |
 
-`Feature.Patient` is new: patient data entry with weight and height estimation, which every page
-uses. It goes into the placeholder accredited list. Localization maps there too because UI text
-is not a function the MDR file will list, and a feature for it would exist only to be always on.
-If the reviewer prefers a dedicated always-on case, it is one line.
+`Feature.Patient` is new: patient data entry with weight and height estimation from the growth
+references, which every page uses. It is an MDR function, so it goes into the accredited list,
+and an accredited server that withheld it would lose patient entry on every page. Localization is
+not classified at all; see above.
 
 Whichever of #580 step 1 and step 1 below lands second adds the classification and its
 `ofCommand` totality tests. Once both are in, the "client-only" limit in the #580 plan goes away
@@ -173,14 +176,19 @@ let registry urlId emergencyUrlId : ResourceRegistry = ...
 type KnowledgeProvider(registry: ResourceRegistry) =
     member _.Get(key: ResourceKey<'T>) : 'T      // loads on first use
     member _.Reload() : unit                     // drops the snapshot, loads again
-    member _.Warnings : Message list             // from the last load
+    member _.Warnings : Message list             // reads through the cache: loads on first use
 ```
 
 `KnowledgeProvider` runs `LoadEngine registry`, calls `ForceAll`, and keeps `Resolved` and
 `Warnings` under a lock, exactly as `CachedResourceProvider.getFromCache` and `ReloadCache` do.
-It never touches `LoadedResources` or `ResourceState`, which is why it is a server type and not
-a second GenFORM provider. Nothing loads at type initialisation: the first `Get` loads, as with
-the formulary provider (AGENTS.md, "Never Perform IO in a Top-Level `let` Value").
+`Warnings` goes through that same path, so reading it loads the snapshot when there is none,
+as `GetResourceInfo` does on the formulary provider. It never touches `LoadedResources` or
+`ResourceState`, which is why it is a server type and not a second GenFORM provider. Nothing
+loads at type initialisation (AGENTS.md, "Never Perform IO in a Top-Level `let` Value"): `Host`
+constructs the provider inside `main`'s call chain and reads `Warnings` at once, which is the
+initial load, the same forcing that `Api.getCachedProviderWithDataUrlId` performs through
+`GetResourceInfo`. A wrong workbook id is therefore in the start-up log, not first seen on a
+client request.
 
 Each loader is `ofResultOrDefault`, the pattern `Keys.totalsData` uses: a failed fetch or a
 header row from the wrong tab yields the empty value plus a `Warning` naming the sheet and the
@@ -197,7 +205,8 @@ fails the resource as a whole, as today.
 `Host` in `Server.fs` builds `KnowledgeProvider (Knowledge.registry urlId emergencyUrlId)` next
 to `resourceProvider urlId` and passes both into `createServerApi`, `CompositionRoot.compose` and
 `Adapters.makeAppEnv`. Its warnings are logged where `Api.getCachedProviderWithDataUrlId` logs the
-GenFORM messages, at start-up and after each reload. GenFORM itself is not changed. The MCP host
+GenFORM messages, at start-up through the forced load above and after each reload. GenFORM
+itself is not changed. The MCP host
 keeps its `getCachedProviderWithDataUrlId`: it does not serve these sheets, and its own scope
 question is out of this plan.
 
@@ -217,17 +226,26 @@ type KnowledgePort =
 
 `AppEnv` gains `knowledge: KnowledgePort`; `Adapters.makeAppEnv` implements it as
 `knowledge.Get Knowledge.Keys.x` inside a `try`, so an exception from a loader is an `Error`,
-never an unhandled one. `processCmd` gets four arms in the group that bypasses `requireLoaded`,
-next to `InteractionCmd GetDrugNames`, which reads a source of its own in the same way. A fatal
-formulary load therefore refuses the order-context, formulary and nutrition families as it does
-today and leaves the emergency list, the continuous medication list, the growth references and
-the UI text served, which is what the browser fetch gives today. When #580 lands, the scope
-gate still runs ahead of this bypass, as its plan requires.
+never an unhandled one. `processCmd` gets three arms in the group that bypasses `requireLoaded`,
+next to `InteractionCmd GetDrugNames`, which reads a source of its own in the same way.
+`getLocalization` on `IServerApi` is wired in `CompositionRoot.compose` straight to
+`env.knowledge.getLocalization`, with the same logging wrapper as `processCommand`, and never
+enters `processCmd`. A fatal formulary load therefore refuses the order-context, formulary and
+nutrition families as it does today and leaves the emergency list, the continuous medication
+list, the growth references and the UI text served, which is what the browser fetch gives today.
+When #580 lands, the scope gate still runs ahead of this bypass, as its plan requires.
 
-`ReloadResources` reloads both. The order-context adapter in `Adapters.makeOrderContextPort`
-matches `ReloadResources _` and, once the GenFORM reload has returned `Ok`, calls
-`knowledge.Reload()` and logs its warnings. Reload stays one admin action with one password
-check, and the settings page needs no change.
+`ReloadResources` reloads both, unconditionally. `Api.reloadCache` returns `unit` and turns a
+failed load into an empty cached state, so there is no GenFORM result to condition on, and the
+order-context result that follows must not be used either: a formulary failure would then skip
+the one admin action that can refresh the emergency list. The fan-out therefore sits in
+`OrderContextService.evaluate`, in the branch that runs after the password guard: it calls
+`knowledge.Reload()` and logs its warnings before handing the command to GenORDER, so the
+knowledge reload runs whenever the password was accepted, whatever the formulary then does.
+`OrderContextService.evaluate` receives the reload as a `unit -> unit` parameter from the
+adapter, so the service stays testable with a stub. Reload stays one admin action with one
+password check, and the settings page needs no change. When the raw-password path moves to the
+token check in `Command.fs` (#378 phase 5), the fan-out moves with it.
 
 ### Client
 
@@ -238,7 +256,8 @@ check, and the settings page needs no change.
   `string` the handlers log today.
 - `LoadProducts`, `State.Products` and `Products.parse`'s only caller go. `Products.parse` and
   the `Product` type stay in `Shared` until the maintainer decides on them; they are pure.
-- `LoadLocalization Started` does the same with `GetLocalization`, in the last step.
+- `LoadLocalization Started` calls `serverApi.getLocalization` in the last step; no command, no
+  scope check, the same `Finished` handlers as today.
 - `GoogleDocs` is then empty and is deleted, together with the `Fable.SimpleHttp` reference in
   the client's `paket.references`, whose only user it was.
 - Where the loads are dispatched depends on order of landing. Today they are in `init`. The #580
@@ -269,10 +288,12 @@ check, and the settings page needs no change.
   load.** This is the point of the change, and it is a change in operating procedure for whoever
   edits the emergency-list workbook.
 - **The emergency list and the formulary stay independent, in both directions.** A fatal
-  formulary load leaves the four knowledge commands served, because they bypass `requireLoaded`
-  and read their own provider; a bad emergency-list workbook is a warning on that provider and
-  never reaches the formulary. This is the independence the browser fetch has today, kept. The
-  price is a second, small provider and a two-line fan-out in the reload path.
+  formulary load leaves the three knowledge commands and `getLocalization` served, because they
+  bypass `requireLoaded` and read their own provider; a bad emergency-list workbook is a warning
+  on that provider and never reaches the formulary; and the admin reload refreshes the knowledge
+  provider whether or not the formulary reload succeeds. This is the independence the browser
+  fetch has today, kept. The price is a second, small provider and a two-line fan-out in the
+  reload path.
 - **An unconfigured upgrade keeps its data.** The default emergency-list id is the workbook the
   client reads today, so a deployment that sets nothing new sees no change in content, only in
   the path the data takes.
@@ -290,8 +311,9 @@ High on the mechanism: every piece follows a pattern already in the code base (`
 for optional sheets, `ResourceKey` and `LoadEngine` for typed, memoised access, the
 `CachedResourceProvider` lock-and-reload shape, a port record and a `processCmd` arm per command
 family, the `GetDrugNames` bypass, `Config.fromEnv` for the setting, `StubAdapterTests` for the
-dispatcher). Medium on one decision that is not a software decision and is called out for the
-reviewer: where `GetNormalValues` and `GetLocalization` sit in the accredited list.
+dispatcher). The one non-software question, whether the growth references and the UI text are MDR
+functions, has been answered by the maintainer: the growth references are, the UI text is not,
+and the contract above follows from that.
 
 ## Steps
 
@@ -299,8 +321,9 @@ Each step is one PR under 200 changed lines. Shared and Server changes are draft
 scripts and migrated by the maintainer; client files are edited directly.
 
 1. **Shared contract.** `KnowledgeCmd`, `KnowledgeCommand`, `KnowledgeResp`, `KnowledgeResponse`,
-   `Command.toString`; if #580 step 1 has landed, `Feature.Patient` and the four `ofCommand`
-   lines with their totality tests. Tests in `tests/Informedica.GenPRES.Shared.Tests`, the first
+   `Command.toString`, `getLocalization` on `IServerApi`; if #580 step 1 has landed,
+   `Feature.Patient` in the accredited list and the three `ofCommand` lines with their totality
+   tests. Tests in `tests/Informedica.GenPRES.Shared.Tests`, the first
    for these parsers: each of `EmergencyTreatment.parse`, `ContinuousMedication.parse` and
    `NormalValues.parse` parses a two-row fixture with exactly its declared columns, and raises
    `KeyNotFoundException` on a header row from another sheet (the `gviz` first-tab fallback).
@@ -314,15 +337,18 @@ scripts and migrated by the maintainer; client files are edited directly.
    the sheet while the other keys load; a wrong-header response yields the same; `Get` loads
    once and `Reload` loads again; a loader that raises does not poison the provider.
 3. **Port and dispatcher.** `KnowledgePort`, `AppEnv.knowledge`, the adapter including the
-   reload fan-out, the four `processCmd` arms. Tests in `StubAdapterTests`: `makeEnv` gains the
-   port; each command routes to its response; a not-loaded env still serves all four, proving
+   reload fan-out in `OrderContextService.evaluate`, the three `processCmd` arms, and
+   `getLocalization` in `CompositionRoot`. Tests in `StubAdapterTests`: `makeEnv` gains the
+   port; each command routes to its response; a not-loaded env still serves all three, proving
    the bypass, as the existing `GetDrugNames` test does; once #580 is in, an accredited env
    refuses `GetEmergencyList` and `GetContinuousMeds` with `NOT_IN_SCOPE` ahead of the bypass
-   and passes `GetNormalValues`.
+   and passes `GetNormalValues`. A service test with a stub reload proves that
+   `ReloadResources` with the right password invokes the knowledge reload even when the GenFORM
+   provider reports not loaded, and that a wrong password invokes nothing.
 4. **Client: emergency list, continuous medication, normal values.** The three loads go through
    `processCommand`; `LoadProducts` and `State.Products` are removed; `GoogleDocs` keeps only
    `loadLocalization`.
-5. **Client: localization, and the CSP.** `LoadLocalization` through `processCommand`;
+5. **Client: localization, and the CSP.** `LoadLocalization` through `serverApi.getLocalization`;
    `GoogleDocs` and `Fable.SimpleHttp` deleted; `https://docs.google.com` dropped from
    `connect-src` in `Server.fs`, with the comment that anticipates it. `HttpTests` gets the
    assertion that the header no longer names it.
@@ -336,10 +362,13 @@ Google until then, so each step ships green on its own.
 
 - `dotnet run` with `.env` from `.env.example`: the LifeSupport and ContinuousMeds pages show data;
   a patient without a weight gets an estimated weight; the Network tab shows no request to
-  `docs.google.com` (after step 5), and one `KnowledgeCmd` request per sheet family at start.
-- The server log shows the four sheets loaded with no warnings; `ReloadResources` from the
-  settings page reloads them, and an edit to the public emergency-list workbook shows up after
-  the reload and not before.
+  `docs.google.com` (after step 5), three `KnowledgeCmd` requests and one `getLocalization`
+  call at start.
+- The start-up log shows the four sheets loaded with no warnings, before the first client
+  request; `ReloadResources` from the settings page reloads them, and an edit to the public
+  emergency-list workbook shows up after the reload and not before.
+- `GENPRES_URL_ID` set to a wrong id and a `ReloadResources` after an edit to the emergency-list
+  workbook: the formulary stays not loaded and the LifeSupport page shows the edit.
 - `GENPRES_EMERGENCY_URL_ID` unset: the LifeSupport page shows the same data as before the
   upgrade. Set to the main demo workbook id: the server starts, the LifeSupport page is empty,
   the log carries a warning naming `emergencylist` and the id, and the formulary is unaffected.
