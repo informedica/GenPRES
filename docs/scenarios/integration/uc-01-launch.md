@@ -97,8 +97,10 @@ sequenceDiagram
   the callback is refused before the code is redeemed. That is what proves the callback comes
   from the browser that started the hop: a callback URL captured and opened elsewhere has no
   matching cookie. The Server then reads the LaunchRecord by `state`, redeems the code on its
-  own connection to the IdentityProvider (edge C6), receives the signed BrowserIdentity
-  (Rule 4), and deletes the `state` cookie.
+  own connection to the IdentityProvider (edge C6), and receives the signed BrowserIdentity
+  (Rule 4). The cookie is not deleted: it expires with the Launch, so a reload of the callback
+  within the lifetime still matches and is answered from the record (4.5). After the lifetime
+  the cookie and the record are both gone, and the callback is refused as expired.
 - **4.5** The Server continues with step 5 and answers the callback with a redirect to
   `#/session`. On refusal it opens nothing and redirects to `#/session?refused={reason}`.
   A reason is not a secret; the Launch never appears in that URL. The Server appends the
@@ -109,7 +111,7 @@ sequenceDiagram
 
 Two proofs, two moments: the `state` cookie proves the callback comes from the browser that
 started the hop; the public key proves, from step 7 on, that every request comes from the
-browser that presented the Launch. The cookie is gone after the callback, and the key pair
+browser that presented the Launch. The cookie expires with the Launch, and the key pair
 cannot act before the Session exists, so neither replaces the other.
 
 The redirect in 4.2 unloads the Client, so the Client cannot keep the Launch across the hop.
