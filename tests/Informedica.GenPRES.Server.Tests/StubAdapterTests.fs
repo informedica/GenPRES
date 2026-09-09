@@ -299,6 +299,7 @@ let requireLoadedTests =
 
 module SessionStubTests =
 
+    open Shared.Api
     open SessionStub
 
 
@@ -501,7 +502,171 @@ module SessionStubTests =
             ]
 
 
-    let tests = testList "Session" [ thumbprintTests; stubTests ]
+    /// An in-memory cookie: what the browser would hold after the response.
+    let memoryCookie (initial: string option) =
+        let value = ref initial
+
+        {
+            read = fun () -> value.Value
+            write = fun id -> value.Value <- Some id
+            delete = fun () -> value.Value <- None
+        },
+        value
+
+
+    /// The stub env with a fresh, counting session stub.
+    let envWithStub () =
+        let port, _ = makePort ()
+
+        { makeEnv
+              (formularyAlwaysOk Formulary.empty)
+              (orderContextAlwaysOk OrderContext.empty)
+              (orderPlanAlwaysOk (OrderPlan.create Patient.empty [||]))
+              (nutritionPlanAlwaysOk (NutritionPlan.create Patient.empty [||])) with
+            session = port
+        }
+
+
+    let present launch key =
+        LaunchCommand.PresentLaunch(Launch launch, key)
+
+
+    let compositionTests =
+        testList
+            "processLaunch and processSession"
+            [
+                testAsync "PresentLaunch: Opened writes the session id to the cookie and returns the session without it" {
+                    let env = envWithStub ()
+                    let cookie, held = memoryCookie None
+
+                    match! CompositionRoot.processLaunch env cookie (present "demo" keyA) with
+                    | LaunchOutcome.Opened session ->
+                        held.Value |> Expect.equal "cookie holds the id" (Some "session-1")
+                        session.User |> Expect.isSome "a user"
+
+                        session.OpenedToken
+                        |> Expect.notEqual "opened token is not the session id" (Some(OpenedToken "session-1"))
+                    | other -> failtest $"expected Opened, got {other}"
+                }
+
+                testAsync "PresentLaunch: a refusal writes no cookie" {
+                    let env = envWithStub ()
+                    let cookie, held = memoryCookie None
+
+                    let! outcome = CompositionRoot.processLaunch env cookie (present "no-role" keyA)
+
+                    outcome |> Expect.equal "refused" (LaunchOutcome.Refused LaunchRefusal.NoRole)
+
+                    held.Value |> Expect.isNone "no cookie"
+                }
+
+                testAsync "GetSession: no cookie is None" {
+                    let env = envWithStub ()
+                    let cookie, _ = memoryCookie None
+
+                    let! response = CompositionRoot.processSession env cookie SessionCommand.GetSession
+                    response |> Expect.equal "anonymous" (SessionResponse.SessionResp None)
+                }
+
+                testAsync "GetSession: the cookie of an opened session finds it" {
+                    let env = envWithStub ()
+                    let cookie, held = memoryCookie None
+
+                    let! opened = CompositionRoot.processLaunch env cookie (present "demo" keyA)
+                    // a later request carries the cookie the first response set
+                    let later, _ = memoryCookie held.Value
+                    let! found = CompositionRoot.processSession env later SessionCommand.GetSession
+
+                    match opened, found with
+                    | LaunchOutcome.Opened s, SessionResponse.SessionResp(Some f) -> f |> Expect.equal "same session" s
+                    | _ -> failtest $"expected Opened and Some, got {opened} and {found}"
+                }
+
+                testAsync "GetSession: a cookie for an unknown session is None" {
+                    let env = envWithStub ()
+                    let cookie, _ = memoryCookie (Some "stale")
+
+                    let! response = CompositionRoot.processSession env cookie SessionCommand.GetSession
+                    response |> Expect.equal "unknown id" (SessionResponse.SessionResp None)
+                }
+
+                testAsync "CloseSession: closes the session and deletes the cookie" {
+                    let env = envWithStub ()
+                    let cookie, held = memoryCookie None
+
+                    let! _ = CompositionRoot.processLaunch env cookie (present "demo" keyA)
+                    let! closed = CompositionRoot.processSession env cookie SessionCommand.CloseSession
+
+                    closed |> Expect.equal "closed" SessionResponse.SessionClosed
+                    held.Value |> Expect.isNone "cookie deleted"
+
+                    let! found = env.session.find "session-1"
+                    found |> Expect.isNone "session closed"
+                }
+
+                testAsync "CloseSession without a cookie still deletes (idempotent)" {
+                    let env = envWithStub ()
+                    let deleted = ref false
+
+                    let cookie =
+                        {
+                            read = fun () -> None
+                            write = fun _ -> ()
+                            delete = fun () -> deleted.Value <- true
+                        }
+
+                    let! _ = CompositionRoot.processSession env cookie SessionCommand.CloseSession
+                    deleted.Value |> Expect.isTrue "delete called"
+                }
+
+                testAsync "CloseSession deletes the cookie even when the port's close throws" {
+                    let deleted = ref false
+
+                    let env =
+                        { envWithStub () with
+                            session =
+                                { Adapters.sessionDisabled with
+                                    close = fun _ -> async { return raise (InvalidOperationException "store down") }
+                                }
+                        }
+
+                    let cookie =
+                        {
+                            read = fun () -> Some "session-1"
+                            write = fun _ -> ()
+                            delete = fun () -> deleted.Value <- true
+                        }
+
+                    let! outcome =
+                        CompositionRoot.processSession env cookie SessionCommand.CloseSession
+                        |> Async.Catch
+
+                    match outcome with
+                    | Choice2Of2(:? InvalidOperationException) -> ()
+                    | other -> failtest $"expected the close exception to propagate, got {other}"
+
+                    deleted.Value |> Expect.isTrue "cookie deleted regardless"
+                }
+
+                testAsync "sessionDisabled refuses every launch as invalid and finds nothing" {
+                    let env = { envWithStub () with session = Adapters.sessionDisabled }
+
+                    let cookie, held = memoryCookie (Some "any")
+
+                    let! outcome = CompositionRoot.processLaunch env cookie (present "demo" keyA)
+
+                    outcome
+                    |> Expect.equal "invalid" (LaunchOutcome.Refused LaunchRefusal.LaunchInvalid)
+
+                    held.Value |> Expect.equal "cookie untouched" (Some "any")
+
+                    let! response = CompositionRoot.processSession env cookie SessionCommand.GetSession
+                    response |> Expect.equal "nothing" (SessionResponse.SessionResp None)
+                }
+            ]
+
+
+    let tests = testList "Session" [ thumbprintTests; stubTests; compositionTests ]
 
 
 [<Tests>]

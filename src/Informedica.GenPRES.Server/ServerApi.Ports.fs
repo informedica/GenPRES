@@ -67,6 +67,16 @@ type SessionPort =
     }
 
 
+/// The session cookie of one request, as three functions. Built from the HttpContext in
+/// Server.fs; the composition root only reads, writes and deletes through it.
+type SessionCookie =
+    {
+        read: unit -> string option
+        write: string -> unit
+        delete: unit -> unit
+    }
+
+
 type AppEnv =
     {
         formulary: FormularyPort
