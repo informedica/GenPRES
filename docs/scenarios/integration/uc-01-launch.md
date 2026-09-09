@@ -56,40 +56,44 @@ sequenceDiagram
     participant C as GenPRES Client
     participant S as GenPRES Server
     participant I as IdentityProvider
+    participant D as GenPRES Database
 
     C->>S: 4.1 PresentLaunch (Launch, public key)
-    Note over S: 4.2 store {state, Launch, public key}
+    S->>D: 4.2 append LaunchRecord {state, Launch, public key, lifetime}
     S-->>C: redirect to /authorize?...&state=...
     C->>I: 4.3 GET /authorize (silent device sign-on)
     I-->>C: redirect to /callback?code=...&state=...
     C->>S: GET /callback?code=...&state=...
-    Note over S: look up state: Launch, public key
+    S->>D: read LaunchRecord by state
+    D-->>S: Launch, public key
     S->>I: 4.4 POST /token (code, client secret), back channel
     I-->>S: BrowserIdentity (signed id_token)
     Note over S: 4.5 continue with step 5
+    S->>D: append the outcome to the LaunchRecord
     S-->>C: redirect to #35;/session, or #35;/session?refused={reason}
 ```
 
 - **4.1** The Client presents the Launch and the public key.
-- **4.2** The Server generates a random `state`, stores the Launch and the public key under
-  it (a server-side record, or an encrypted cookie), and redirects the browser to the
-  IdentityProvider with that `state`.
+- **4.2** The Server generates a random `state`, appends a LaunchRecord with the `state`, the
+  Launch, the public key and the Launch's lifetime, and redirects the browser to the
+  IdentityProvider with that `state`. Nothing is kept in a cookie or in Server memory
+  (Rules 32, 36).
 - **4.3** The IdentityProvider signs the device on silently and redirects the browser to the
   Server's callback with an authorization code and the `state`.
-- **4.4** The Server looks up the `state`, redeems the code on its own connection to the
+- **4.4** The Server reads the LaunchRecord by `state`, redeems the code on its own connection to the
   IdentityProvider (edge C6), and receives the signed BrowserIdentity (Rule 4).
 - **4.5** The Server continues with step 5 and answers the callback with a redirect to
   `#/session`. On refusal it opens nothing and redirects to `#/session?refused={reason}`.
-  A reason is not a secret; the Launch never appears in that URL. The Server keeps the
-  outcome under `state` for the Launch's lifetime: a browser that reloads the callback URL,
-  whose code the IdentityProvider has already redeemed, is answered as the first time
-  (Rule 45).
+  A reason is not a secret; the Launch never appears in that URL. The Server appends the
+  outcome to the LaunchRecord: a browser that reloads the callback URL within the Launch's
+  lifetime, whose code the IdentityProvider has already redeemed, is answered as the first
+  time (Rule 45).
 
 The redirect in 4.2 unloads the Client, so the Client cannot keep the Launch across the hop.
-It does not need to: the Launch stays on the Server from 4.2 to 4.5, and the Client only runs
-again when the launch is finished. For the same reason a refusal at 4.4 cannot be retried by
-the Client; it asks for a relaunch. The Server could offer the retry itself, since it still
-holds the Launch under `state`, by putting a link on the refusal that restarts 4.2. That is an
+It does not need to: the Launch stays in the LaunchRecord from 4.2 to 4.5, and the Client only
+runs again when the launch is finished. For the same reason a refusal at 4.4 cannot be retried
+by the Client; it asks for a relaunch. The Server could offer the retry itself, since the
+LaunchRecord still holds the Launch, by putting a link on the refusal that restarts 4.2. That is an
 option for the identity hop's own plan, not part of this page's sequence.
 
 ## Step 5: verify and open
@@ -128,7 +132,9 @@ sequenceDiagram
 - **5.6** Read the newest TreatmentPlan to start from (Rule 19) and this User's other open
   Sessions (Rule 8).
 - **5.7** Open the Session in one conditional act (Rule 40): spend the Launch, close the other
-  Sessions, write the SessionRecord with the public key. All of it commits, or none.
+  Sessions, write the SessionRecord with the public key. All of it commits, or none. The
+  spent-mark is appended to the LaunchRecord of 4.2, so one record per Launch carries the
+  `state`, the public key, the outcome, the SessionId and the lifetime.
 
 The check in 5.2 and the spend in 5.7 are two different things. By the time the open runs the
 check may be out of date. What decides is the open, which spends the Launch in the same act

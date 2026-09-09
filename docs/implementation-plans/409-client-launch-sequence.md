@@ -206,15 +206,18 @@ try to parse the IdentityProvider's HTML as the response.
 
 Two server-side points the client shape depends on, for the plan that implements the hop:
 
-- If the state of 4.2 is kept in a cookie, that cookie must be `SameSite=Lax` (or `None`). The
-  callback is a cross-site top-level navigation, and a `Strict` cookie is not sent on it. The
-  session cookie stays `Strict`: it is set on the callback response and only read by same-site
-  requests afterwards. It is not sent on the landing GET of `#/session` either, which is fine,
-  since `index.html` does not need it.
-- The `state` record and the spent-mark are one record per Launch, holding `state`, the public
+- The state of 4.2 is a LaunchRecord appended to the GenPRES Database, not a cookie. The
+  callback is a cross-site top-level navigation, on which a `SameSite=Strict` cookie is not
+  sent, so a cookie could not carry it anyway. The session cookie stays `Strict`: it is set on
+  the callback response and only read by same-site requests afterwards. It is not sent on the
+  landing GET of `#/session` either, which is fine, since `index.html` does not need it.
+- The LaunchRecord and the spent-mark are one record per Launch, holding `state`, the public
   key, the outcome, the session id and the lifetime. So the server answers a repeated callback
   (a reload of `/callback?code=...`, whose code is already redeemed) and a repeated presentation
-  with the same public key alike: the first outcome, the same cookie (Rule 45).
+  with the same public key alike: the first outcome, the same cookie (Rule 45). A refusal
+  answered directly by `presentLaunch`, before the hop, records nothing, so a retry re-verifies
+  the Launch; a refusal at the callback is appended to the LaunchRecord, so a reload of the
+  callback gets the same answer.
 
 The client work is the return:
 
@@ -290,8 +293,8 @@ Drafted in `src/Informedica.GenPRES.Server/Scripts/Session.fsx` and migrated by 
   A second presentation within the lifetime with the same public key is answered as the first
   was and re-issues the same cookie; nothing opens twice. A presentation with a different key,
   or with none, is `LaunchSpent`: it cannot be told from another browser, so it is treated as
-  one. After the lifetime the Launch is `LaunchExpired`. The stub record is the same record the
-  real server keeps under `state` (see the IdentityProvider return), so the real server re-issues
+  one. After the lifetime the Launch is `LaunchExpired`. The stub record is the same LaunchRecord
+  the real server appends at 4.2 (see the IdentityProvider return), so the real server re-issues
   at the callback and at a repeated presentation from the same place. Rule 2 names the
   BrowserIdentity; the public key is what the stub, and the real server before the identity hop,
   can check, and the BrowserIdentity is a second check after it.
