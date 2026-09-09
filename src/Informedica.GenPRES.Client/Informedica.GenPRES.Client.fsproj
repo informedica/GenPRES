@@ -8,6 +8,9 @@
     <Compile Include="Extensions.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Global.fs" />
+    <Compile Include="SessionMachine.fs" />
+    <Compile Include="SessionGatePolicy.fs" />
+    <Compile Include="Keys.fs" />
     <Compile Include="AppEnv.fs" />
     <Compile Include="MUI.fs" />
     <Compile Include="./Components/FelizRouter.fs" />
@@ -30,6 +33,7 @@
     <Compile Include="./Components/ResponsiveTable.fs" />
     <Compile Include="./Views/ViewHelpers.fs" />
     <Compile Include="./Views/Disclaimer.fs" />
+    <Compile Include="./Views/SessionGate.fs" />
     <Compile Include="./Views/Patient.fs" />
     <Compile Include="./Views/Order.fs" />
     <Compile Include="./Views/EmergencyList.fs" />

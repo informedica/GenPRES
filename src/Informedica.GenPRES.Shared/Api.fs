@@ -153,6 +153,47 @@ module Api =
             | LogAnalyzerCmd(AnalyzeLogFile(_, f)) -> $"AnalyzeLogFile %s{f}"
 
 
+    /// The launch command family (launch sequence step 4). Cut from the session family at the
+    /// authentication boundary: a launch command arrives without a cookie. Room to grow: the
+    /// identity callback.
+    [<RequireQualifiedAccess>]
+    type LaunchCommand =
+        // idempotent per public key (Rule 2); sets the session cookie on Opened
+        | PresentLaunch of Launch * PublicKey
+
+
+    /// The session command family (launch step 6 and later): always cookie-authenticated.
+    /// Room to grow: Rule 11 endings, resume, PIN.
+    [<RequireQualifiedAccess>]
+    type SessionCommand =
+        // the Session of this browser, if any (reload, IdP return)
+        | GetSession
+        // Rule 10: explicit close; always removes the cookie
+        | CloseSession
+
+
+    [<RequireQualifiedAccess>]
+    type SessionResponse =
+        | SessionResp of SessionOpened option
+        | SessionClosed
+
+
+    module LaunchCommand =
+
+        /// For the log. Never the Launch or the key: the Launch is a secret, the key is long.
+        let toString cmd =
+            match cmd with
+            | LaunchCommand.PresentLaunch _ -> "PresentLaunch"
+
+
+    module SessionCommand =
+
+        let toString cmd =
+            match cmd with
+            | SessionCommand.GetSession -> "GetSession"
+            | SessionCommand.CloseSession -> "CloseSession"
+
+
     /// Defines how routes are generated on server and mapped from the client
     let routerPaths typeName method = $"/api/%s{typeName}/%s{method}"
 
@@ -162,5 +203,7 @@ module Api =
     type IServerApi =
         {
             processCommand: Command -> Async<Result<Response, string[]>>
+            processLaunch: LaunchCommand -> Async<LaunchOutcome>
+            processSession: SessionCommand -> Async<SessionResponse>
             testApi: unit -> Async<string>
         }
