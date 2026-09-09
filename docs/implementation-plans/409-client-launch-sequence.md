@@ -32,9 +32,11 @@ obligations:
 - Launch step 3: the client generates a key pair at the launch. The public key correlates retries
   now and signs every request later (step 7).
 
-The raw-URL logging on parse failure is also called out in
-`docs/roadmap/feature-ehr-url-parameters.md` ("Additional context"); erasing the launch and
-dropping the raw URL from the logs is the one part of that gap this plan can close on its own.
+Erasing the launch from the URL and the history is a requirement of this plan (Rule 39 above).
+Separately, the raw-URL logging on parse failure is called out in
+`docs/roadmap/feature-ehr-url-parameters.md` ("Additional context"); dropping the raw URL from
+the warnings is the one part of that logging gap this plan closes on its own, and the two changes
+travel together in step 1 only because both concern what a launch URL must never reveal.
 Decision D1 is still open; this plan is D1-neutral on the client because the Launch is opaque to
 it.
 
