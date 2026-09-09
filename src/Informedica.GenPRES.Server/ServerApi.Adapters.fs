@@ -134,17 +134,6 @@ module Adapters =
                     NutritionPlanService.navigateNutritionOrderContext totals orderCtxPort (plan, label, ctxCmd, ctx)
         }
 
-    let private makePatientPort (provider: Resources.IResourceProvider) : PatientPort =
-        {
-            loadPatientData =
-                fun (PatientId patientId) ->
-                    async {
-                        if patientId = "test-patient-id" then
-                            return Ok Shared.Types.Patient.Empty
-                        else
-                            return Error "TOOD: Not implemented yet"
-                    }
-        }
 
     let makeAppEnv (provider: Resources.IResourceProvider) : AppEnv =
         let agent, logger = resolveLogger ()
@@ -152,7 +141,6 @@ module Adapters =
 
         {
             formulary = makeFormularyPort provider
-            patient = makePatientPort provider
             orderContext = orderCtxPort
             orderPlan = makeOrderPlanPort agent provider orderCtxPort
             nutritionPlan = makeNutritionPlanPort orderCtxPort logger provider

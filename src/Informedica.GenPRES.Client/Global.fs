@@ -2,7 +2,7 @@ module Global
 
 open Feliz
 open Shared
-open Shared.Types
+
 
 type Pages =
     | LifeSupport
@@ -15,13 +15,6 @@ type Pages =
     | Interactions
     | Settings
 
-[<RequireQualifiedAccess>]
-type SessionContext =
-    | Anonymous
-    | Launching of SessionLaunchToken
-    | Redeeming of SessionRedeemToken
-    | Error of string
-    | Content of Deferred<SessionContent>
 
 let getLocalizedTerm (localizationTerms: Deferred<string[][]>) (lang: Localization.Locales) defVal term =
     localizationTerms

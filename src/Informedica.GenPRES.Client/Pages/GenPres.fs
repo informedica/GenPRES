@@ -113,7 +113,6 @@ module GenPres =
                 acceptDisclaimer: bool -> unit
                 updatePage: Global.Pages -> unit
                 page: Global.Pages
-                session: Global.SessionContext
                 languages: Localization.Locales[]
                 hospitals: Deferred<string[]>
                 switchLang: Localization.Locales -> unit
@@ -215,7 +214,6 @@ module GenPres =
                     hospitals = props.hospitals
                     switchLang = props.switchLang
                     switchHosp = props.switchHosp
-                    session = props.session
                     isAuthenticated = auth.IsAuthenticated
                     onLogin = auth.Login
                     onLogout = auth.Logout
