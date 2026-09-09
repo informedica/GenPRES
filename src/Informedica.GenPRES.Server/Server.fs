@@ -208,6 +208,32 @@ module Http =
         | ip -> ip.ToString()
 
 
+    let sessionCookieName = "genpres_session"
+
+
+    /// The attributes of the session cookie (uc-01 step 6, Rule 12): HttpOnly, SameSite=Strict,
+    /// Path=/, Secure when the request came in over HTTPS. Behind the TLS-terminating proxy
+    /// that is Request.IsHttps as set by ForwardedHeadersMiddleware from X-Forwarded-Proto
+    /// (Host.build). Host-only on purpose: no Domain, so the Vite dev proxy passes it
+    /// unchanged and it never reaches a sibling host.
+    let sessionCookieOptions (isHttps: bool) =
+        CookieOptions(HttpOnly = true, Secure = isHttps, SameSite = SameSiteMode.Strict, Path = "/")
+
+
+    /// The session cookie of this request as the port the composition root uses.
+    let sessionCookie (ctx: HttpContext) : SessionCookie =
+        {
+            read =
+                fun () ->
+                    match ctx.Request.Cookies.TryGetValue sessionCookieName with
+                    | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
+                    | _ -> None
+            write =
+                fun id -> ctx.Response.Cookies.Append(sessionCookieName, id, sessionCookieOptions ctx.Request.IsHttps)
+            delete = fun () -> ctx.Response.Cookies.Delete(sessionCookieName, sessionCookieOptions ctx.Request.IsHttps)
+        }
+
+
     /// <summary>
     /// Cache-Control value for a response. Vite emits the client as
     /// content-hashed files under /assets/, so a successful response for one
@@ -445,9 +471,21 @@ module Host =
 
 
     let build (settings: Config.Settings) (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
+        // Built once per host: the session stub's state lives in it. Remoting.fromContext
+        // runs its function per request, so the env must not be built in there.
+        let env =
+            let env = Adapters.makeAppEnv provider
+
+            // Stop-gap until the scope switch (#580): a production server never opens a
+            // stub Session. Drop this swap when #580 decides what production exposes.
+            if settings.IsProd then
+                { env with session = Adapters.sessionDisabled }
+            else
+                env
+
         let webApi =
             Remoting.createApi ()
-            |> Remoting.fromValue (createServerApi provider)
+            |> Remoting.fromContext (fun ctx -> createServerApi env (Http.sessionCookie ctx))
             |> Remoting.withRouteBuilder routerPaths
             |> Remoting.buildHttpHandler
 
@@ -474,8 +512,11 @@ module Host =
                 // B3 — Configure ForwardedHeadersMiddleware so XFF is only
                 // honoured for connections from the trustedProxies allow-list
                 // (loopback by default, overridable via GENPRES_TRUSTED_PROXIES).
+                // X-Forwarded-Proto from the same proxies sets Request.IsHttps,
+                // which is what makes the session cookie Secure behind a
+                // TLS-terminating proxy (Kestrel itself only listens on http).
                 services.Configure<ForwardedHeadersOptions>(fun (opts: ForwardedHeadersOptions) ->
-                    opts.ForwardedHeaders <- ForwardedHeaders.XForwardedFor
+                    opts.ForwardedHeaders <- ForwardedHeaders.XForwardedFor ||| ForwardedHeaders.XForwardedProto
                     opts.KnownProxies.Clear()
 
                     for ip in settings.TrustedProxies do

@@ -574,3 +574,80 @@ module Types =
             SizeBytes: int64
             LastModifiedAt: string
         }
+
+
+    /// Opaque launch token, sealed by the MainEHR LaunchScript (launch sequence step 1);
+    /// the client never reads it.
+    type Launch = Launch of string
+
+
+    /// Public JWK (JSON text) of the browser key pair made at launch step 3.
+    type PublicKey = PublicKey of string
+
+
+    /// Names the TreatmentPlan the Session opened with (Rule 34). Stored now, sent later
+    /// inside the signed request of launch step 7.
+    type OpenedToken = OpenedToken of string
+
+
+    [<RequireQualifiedAccess>]
+    type UserRole =
+        | Prescriber
+        | Reader
+
+
+    type UserContext =
+        {
+            UserId: string
+            DisplayName: string
+            Role: UserRole
+        }
+
+
+    type PatientContext =
+        {
+            PatientId: string
+            Patient: Patient
+        }
+
+
+    /// What the client keeps of an open Session (launch step 6). No SessionId: it lives in
+    /// the cookie (Rule 12).
+    type SessionOpened =
+        {
+            // None = anonymous session (Rule 14)
+            User: UserContext option
+            // None = launch without an active patient (ext 1a)
+            PatientContext: PatientContext option
+            OpenedToken: OpenedToken option
+            // RFC 7638 thumbprint of the public key this Session signs with (step 7);
+            // the client keeps that private key and prunes the others
+            KeyThumbprint: string option
+        }
+
+
+    /// Every refusal ends the same: no Session opens (Rule 7). The case says what the client
+    /// offers next (uc-01, Refusals table).
+    [<RequireQualifiedAccess>]
+    type LaunchRefusal =
+        // ext 4a: ask for a relaunch
+        | LaunchExpired
+        | LaunchSpent
+        | LaunchInvalid
+        // ext 3c: retry, then relaunch
+        | NoBrowserIdentity
+        // ext 5a: offer an anonymous open
+        | NoRole
+        // ext 5b: relaunch after fixing MainEHR
+        | WrongActivePatient
+        // UC-2, shown as text only for now
+        | EnrolmentRequired
+
+
+    [<RequireQualifiedAccess>]
+    type LaunchOutcome =
+        | Opened of SessionOpened
+        // step 4.2 as a payload: Fable.Remoting's XHR would follow a 302 and try to parse
+        // the IdentityProvider's HTML. The stub never returns it.
+        | RedirectTo of url: string
+        | Refused of LaunchRefusal

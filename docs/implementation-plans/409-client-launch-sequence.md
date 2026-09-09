@@ -1,8 +1,10 @@
 # Implementation plan for issue 409: client side of the launch sequence
 
 Scope: the GenPRES Client half of UC-1 (launch), with every server-side action stubbed behind the
-final API contract. The plan is picked up in PR #574, which already scaffolds this flow, to
-correct that PR to the shape below; later steps follow as PRs on top of it.
+final API contract. The plan was picked up in PR #574, which already scaffolded this flow, to
+correct that PR to the shape below; later steps followed as PRs on top of it. Everything below the
+problem description describes the plan as written; the section [As built](#as-built) at the end
+records what landed, PR by PR, and where it deviates and why.
 
 The sequence itself is [the launch sequence](../scenarios/integration/uc-01-launch.md). Step
 numbers below refer to that page.
@@ -30,9 +32,13 @@ obligations:
 - Launch step 3: the client generates a key pair at the launch. The public key correlates retries
   now and signs every request later (step 7).
 
-Roadmap item 2.1.2 in `docs/roadmap/mvpap2019-gap-overview.md` (erase the launch, stop logging
-the raw URL) is the one unblocked 2.1.x item. Decision D1 is still open; this plan is D1-neutral on
-the client because the Launch is opaque to it.
+Erasing the launch from the URL and the history is a requirement of this plan (Rule 39 above).
+Separately, the raw-URL logging on parse failure is called out in
+`docs/roadmap/feature-ehr-url-parameters.md` ("Additional context"); dropping the raw URL from
+the warnings is the one part of that logging gap this plan closes on its own, and the two changes
+travel together in step 1 only because both concern what a launch URL must never reveal.
+Decision D1 is still open; this plan is D1-neutral on the client because the Launch is opaque to
+it.
 
 PR #574 diverges from V8 on three points: a redeem token in the URL, the SessionId in the response
 body, and a launch that is never erased. Its `FelizRouter` fix and the split of the URL parser are
@@ -248,8 +254,7 @@ client change is needed when roadmap 2.1.3 lands.
   `Browser.Dom` directly, not through `Router.navigate`: `Router.nav` in `FelizRouter.fs` always
   fires the navigation event and would re-enter `UrlChanged` and `UpdatePatient`. Do the same in
   `UrlChanged` for an in-app launch URL.
-- Remove the raw-URL argument from both `Logging.warning "could not parse url…"` calls
-  (roadmap 2.1.2).
+- Remove the raw-URL argument from both `Logging.warning "could not parse url…"` calls.
 - Patient parameters in the URL are ignored while a launch is present; the session supplies the
   patient.
 - `init` without a Launch dispatches `Resume`, so a reload keeps a launched session via the cookie.
@@ -349,7 +354,7 @@ maintainer.
    latest-callback fix and the `parsePatient`/`parseLaunch` split. Remove the redeem-token
    navigation, the `SessionContext` state, the session API stubs and the simulated delays. Erase
    the launch from URL and history in `init` and `UrlChanged`. Drop the raw URL from the warning
-   logs. No session state yet: a launch URL simply becomes `#/session`. Closes roadmap 2.1.2.
+   logs. No session state yet: a launch URL simply becomes `#/session`.
 2. **Shared contract and server stub.** Types and `IServerApi` additions in Shared, `SessionPort`,
    the stub adapter storing the public key, cookie handling via `fromContext`, stub tests. Verify
    the cookie round trip through the Vite proxy.
@@ -360,7 +365,7 @@ maintainer.
    `ConcreteAppEnv`.
 4. **UI.** Title bar session indicator and close, the `SessionGate` modal with retry, anonymous
    open and relaunch texts, localisation terms for the new strings.
-5. **Docs.** Tick roadmap 2.1.2.
+5. **Docs.** Record what was built against this plan (the [As built](#as-built) section).
 
 ## Verification
 
@@ -395,3 +400,74 @@ Manual, with `dotnet run` and the demo sheet:
   redirects): the second load lands in the same Session, no refusal.
 - `dotnet run ServerTests` passes with the new stub tests; `dotnet run MarkdownLint` is clean for
   this document.
+
+## As built
+
+Every step landed as one or more PRs from a fork branch against `master`, each drafted script-first
+where it touched non-UI source and reviewed before migration. The plan's shape held; the deviations
+are listed per step with the reason.
+
+| Step | PR | Landed |
+|------|----|--------|
+| 1 | [#574](https://github.com/informedica/GenPRES/pull/574), [#587](https://github.com/informedica/GenPRES/pull/587) | #574 merged as scaffolded; #587 reverted its redeem-token contract and `SessionContext`, kept the `FelizRouter` fix, added `parseLaunch` and `eraseLaunch` (`history.replaceState`, not `Router.navigate`), dropped the raw URL from the warnings |
+| 2a | [#588](https://github.com/informedica/GenPRES/pull/588) | Shared contract types; `SessionPort`; RFC 7638 `PublicKey.thumbprint`; in-memory `SessionStub` with a pure `present` transition; 17 tests |
+| 2b | [#589](https://github.com/informedica/GenPRES/pull/589) | `processLaunch` and `processSession`; `SessionCookie` request port; `Http.sessionCookie`; `Remoting.fromContext` with the env built once in `Host.build`; 12 tests |
+| 3a | [#591](https://github.com/informedica/GenPRES/pull/591) | `SessionMachine.fs` with `Session.transition`; 53 tests, linked into `Informedica.GenPRES.Shared.Tests` |
+| 3b | [#592](https://github.com/informedica/GenPRES/pull/592) | `Keys.fs`: WebCrypto ECDSA P-256, private key in IndexedDB under the RFC 7638 thumbprint |
+| 3c | [#593](https://github.com/informedica/GenPRES/pull/593) | `App.fs` wiring: `State.Session`, effect interpreter, `Resume` on load, `ISession` on `ConcreteAppEnv` |
+| 4a | [#595](https://github.com/informedica/GenPRES/pull/595) | title bar: user and role behind a person button, "Close session" |
+| 4b | [#596](https://github.com/informedica/GenPRES/pull/596) | `SessionGatePolicy.fs` (pure, tested) and `Views/SessionGate.fs` |
+
+### Deviations from the text above
+
+- **API shape.** `IServerApi` did not gain three flat functions. It gained two command families
+  next to `processCommand`, cut at the authentication boundary: `processLaunch: LaunchCommand ->
+  Async<LaunchOutcome>` with `PresentLaunch of Launch * PublicKey`, and `processSession:
+  SessionCommand -> Async<SessionResponse>` with `GetSession | CloseSession`. A refusal is a value,
+  never an `Error`; each family has room to grow (the identity callback; Rule 11 endings, resume,
+  PIN) without new API fields.
+- **Port shape.** The port field is `present`, not `open` (an F# keyword), and it answers a
+  server-side `LaunchResult` that carries the session id next to the `SessionOpened`: the plan's
+  `Async<LaunchOutcome>` had nowhere to put the id the cookie needs, and the id never enters the
+  client-facing `LaunchOutcome` (Rule 12).
+- **Cookie handling.** The composition root never sees `HttpContext`. It takes a request-scoped
+  `SessionCookie { read; write; delete }` built in `Server.fs`, so it is testable with an in-memory
+  cookie; the attributes are tested once over `DefaultHttpContext`. `X-Forwarded-Proto` from the
+  trusted proxies is honoured next to `X-Forwarded-For`, so the cookie is `Secure` behind the
+  TLS-terminating proxy. `CloseSession` deletes the cookie in a `finally`.
+- **Production stop-gap.** Until the scope switch (#580) lands, `Host.build` swaps the session port
+  for `Adapters.sessionDisabled` when `GENPRES_PROD=1`: every launch is refused as invalid and no
+  session is found. One `if` to delete when #580 decides what production exposes.
+- **File name.** The machine lives in `SessionMachine.fs`, not `Session.fs`. The call sites
+  `Session.Anonymous` and `Session.transition` need the coding standard's type-first pair `type
+  Session` / `module Session`, and that pair cannot live in a file module also named `Session`
+  (`open Session` then resolves `Session.X` to the outer module, FS0035).
+- **Two more states and one more message.** `Close` from `Open` enters `Closing of SessionOpened`;
+  `Closed` lands only there, so a close that completes after a newer launch has opened another
+  session cannot end it. A close whose request never reached the server sends `CloseFailed`, which
+  returns `Closing` to `Open`, and the app shows an error; any answer from the server means
+  `Closed`, since the server deleted the cookie either way.
+- **Keys.** `generate` returns `Async<PublicKey>`, not `JS.Promise`, to fit the client's
+  `Cmd.fromAsync`; `thumbprint` and `list` were added. `keep` prunes by age, not by identity: each
+  stored key carries its creation time and `keep` deletes only keys older than the Launch lifetime
+  besides the kept one. Two launches racing in two tabs (ext 8b) both keep their fresh key; the
+  loser's is pruned by a later launch. Pruning by identity let each tab delete the other's key and
+  left the winning Session unable to sign.
+- **URL patient.** URL patient parameters count only while no Session is `Open` or `Closing`, not
+  while the session is merely non-anonymous: the router fires `UrlChanged` on mount while `Resume`
+  is still in flight, and blocking `Resuming` broke anonymous patient URLs.
+- **Disclaimer.** Gated at the view, `ShowDisclaimer && Session is Anonymous`, not in state, for
+  the same reason (`Resuming` is transient) and so that an anonymous open after a refusal still
+  sees it.
+- **Gate texts.** The title bar and gate strings are English, in one place each. Turning them into
+  `Terms` cases means editing `Shared/Localization.fs` (non-UI source) plus sheet rows; that is a
+  script-first follow-up, not part of these PRs.
+
+### Still open
+
+- The identity hop (`RedirectTo`, the callback, the `state` cookie): the client handles the payload
+  and the `refused` return; the server stub never redirects.
+- Step 7, the signed request (`Keys.sign`, the DPoP proof, the OpenedToken inside it).
+- Session endings and the Rule 11 notice; UC-2 enrolment; WorkPlan carry-over (#518); decision D1.
+- The scope switch (#580), which retires the `IsProd` stop-gap.
+- Localisation terms for the title bar and the gate.

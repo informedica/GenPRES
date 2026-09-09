@@ -47,6 +47,36 @@ type LogAnalyzerPort =
     }
 
 
+/// The session adapter's answer to a presentation. The session id is the server's to put in
+/// the cookie; the composition root maps this to the client's `LaunchOutcome` without it.
+[<RequireQualifiedAccess>]
+type LaunchResult =
+    | Opened of sessionId: string * SessionOpened
+    | RedirectTo of url: string
+    | Refused of LaunchRefusal
+
+
+type SessionPort =
+    {
+        // idempotent per public key within the Launch lifetime (Rule 2, uc-01 Retries)
+        present: Launch * PublicKey -> Async<LaunchResult>
+        // by session id from the cookie
+        find: string -> Async<SessionOpened option>
+        // Rule 10: explicit close
+        close: string -> Async<unit>
+    }
+
+
+/// The session cookie of one request, as three functions. Built from the HttpContext in
+/// Server.fs; the composition root only reads, writes and deletes through it.
+type SessionCookie =
+    {
+        read: unit -> string option
+        write: string -> unit
+        delete: unit -> unit
+    }
+
+
 type AppEnv =
     {
         formulary: FormularyPort
@@ -56,4 +86,5 @@ type AppEnv =
         interaction: InteractionPort
         logAnalyzer: LogAnalyzerPort
         requireLoaded: unit -> string[] option
+        session: SessionPort
     }

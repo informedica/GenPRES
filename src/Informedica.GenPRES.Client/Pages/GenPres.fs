@@ -217,6 +217,7 @@ module GenPres =
                     isAuthenticated = auth.IsAuthenticated
                     onLogin = auth.Login
                     onLogout = auth.Logout
+                    appEnv = props.appEnv
                 |}
 
         let interactions = (AppEnv.asEnv<AppEnv.IInteractions> props.appEnv).Interactions
@@ -329,6 +330,15 @@ module GenPres =
                     localizationTerms = localizationTerms
                 |}
 
+        // the session gate (plan 409): over the app while a launch is presented or resumed,
+        // and after a refusal; it cannot be dismissed, the machine decides when it goes
+        let sessionGateOpen =
+            (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session
+            |> SessionGatePolicy.gateFor
+            |> Option.isSome
+
+        let sessionGateView = Views.SessionGate.View {| appEnv = props.appEnv |}
+
         let sxContainer =
             {|
                 flex = 1
@@ -433,6 +443,11 @@ module GenPres =
             <Modal open={props.showDisclaimer} onClose={onCloseModal} >
                 <Box sx={modalStyle}>
                     {disclaimerView}
+                </Box>
+            </Modal>
+            <Modal open={sessionGateOpen} onClose={onCloseModal} >
+                <Box sx={modalStyle}>
+                    {sessionGateView}
                 </Box>
             </Modal>
         </Box>
