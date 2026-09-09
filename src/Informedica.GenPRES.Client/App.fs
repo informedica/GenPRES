@@ -12,6 +12,7 @@ open Shared
 open Shared.Types
 open Shared.Models
 open Global
+open SessionMachine
 
 
 module private Elmish =
@@ -49,12 +50,15 @@ module private Elmish =
             AuthToken: string
             LogFiles: Deferred<LogFileInfo[]>
             LogAnalysisReport: Deferred<string>
+            // the launch Session (plan 409); Anonymous is the state every URL patient runs in
+            Session: Session
         }
 
 
     type Msg =
         | UrlChanged of string list
         | AcceptDisclaimer
+        | SessionMsg of SessionMsg
 
         | UpdatePage of Global.Pages
         | UpdatePatient of Patient option
@@ -363,11 +367,37 @@ module private Elmish =
             None, None, None, true, None
 
 
-    /// The launch token of a "#/session?launch={token}" url, the form MainEHR
-    /// opens GenPRES with (launch sequence step 1). Opaque to the client.
+    /// What a "#/session?..." url carries: the Launch MainEHR opened GenPRES with (launch
+    /// sequence step 1), or the reason the IdentityProvider return refused it (step 4.5).
+    [<RequireQualifiedAccess>]
+    type LaunchUrl =
+        | Launch of Launch
+        | Refused of LaunchRefusal
+
+
+    /// The fixed vocabulary of "#/session?refused={reason}"; an unknown reason is invalid.
+    let parseRefusal reason =
+        match reason with
+        | "expired" -> LaunchRefusal.LaunchExpired
+        | "spent" -> LaunchRefusal.LaunchSpent
+        | "no-identity" -> LaunchRefusal.NoBrowserIdentity
+        | "no-role" -> LaunchRefusal.NoRole
+        | "wrong-patient" -> LaunchRefusal.WrongActivePatient
+        | "enrolment" -> LaunchRefusal.EnrolmentRequired
+        | _ -> LaunchRefusal.LaunchInvalid
+
+
+    /// The launch token of a "#/session?launch={token}" url, opaque to the client, or the
+    /// refusal of a "#/session?refused={reason}" url. Both are erased the same way.
     let parseLaunch sl =
         match sl with
-        | [ "session"; Route.Query queryParams ] -> queryParams |> Map.ofList |> Map.tryFind "launch"
+        | [ "session"; Route.Query queryParams ] ->
+            let query = queryParams |> Map.ofList
+
+            match query |> Map.tryFind "launch", query |> Map.tryFind "refused" with
+            | Some token, _ -> Some(LaunchUrl.Launch(Launch token))
+            | None, Some reason -> Some(LaunchUrl.Refused(parseRefusal reason))
+            | None, None -> None
         | _ -> None
 
 
@@ -438,13 +468,37 @@ module private Elmish =
             AuthToken = ""
             LogFiles = HasNotStartedYet
             LogAnalysisReport = HasNotStartedYet
+            Session = Session.Anonymous
         }
+
+
+    /// Launch step 3 then 4: make the key pair, then present the Launch with its public key.
+    /// A browser that cannot make a key cannot launch; that is reported as a missing browser
+    /// identity, the refusal whose text asks for a retry and then a relaunch.
+    let presentLaunch (launch: Launch) : Cmd<Msg> =
+        async {
+            match! Keys.generate () |> Async.Catch with
+            | Choice1Of2 key -> return SessionMsg(SessionMsg.Present(launch, key))
+            | Choice2Of2 ex ->
+                Logging.error "could not make the browser key pair" ex.Message
+                return SessionMsg(SessionMsg.RefusedAtCallback LaunchRefusal.NoBrowserIdentity)
+        }
+        |> Cmd.fromAsync
+
+
+    /// The session command a "#/session?..." url asks for; a plain url asks for nothing.
+    let launchCmd (launchUrl: LaunchUrl option) : Cmd<Msg> =
+        match launchUrl with
+        | Some(LaunchUrl.Launch launch) -> presentLaunch launch
+        | Some(LaunchUrl.Refused refusal) -> Cmd.ofMsg (SessionMsg(SessionMsg.RefusedAtCallback refusal))
+        | None -> Cmd.none
 
 
     let init () : State * Cmd<Msg> =
         let url = Router.currentUrl ()
+        let launchUrl = url |> parseLaunch
 
-        if url |> parseLaunch |> Option.isSome then
+        if launchUrl.IsSome then
             eraseLaunch ()
 
         let pat, page, lang, discl, med = url |> parsePatient
@@ -452,6 +506,10 @@ module private Elmish =
         let cmds =
             Cmd.batch
                 [
+                    // a page load without a Launch resumes on the cookie (reload, IdP return)
+                    match launchUrl with
+                    | None -> Cmd.ofMsg (SessionMsg SessionMsg.Resume)
+                    | Some _ -> launchCmd launchUrl
                     checkServer
                     Cmd.ofMsg (LoadNormalValues Started)
                     Cmd.ofMsg (LoadBolusMedication Started)
@@ -499,6 +557,52 @@ module private Elmish =
                         Cmd.ofMsg (LoadParenteralia Started)
                     ]
             | _ -> base', Cmd.ofMsg (LoadOrderContextResult(cmd, Started))
+
+
+    /// One command per session effect (plan 409, "Wiring in App.fs"). A transport failure
+    /// is a message, never an exception: an Error outcome for a presentation, CloseFailed for
+    /// a close that did not reach the server.
+    let interpretSessionEffect (effect: SessionEffect) : Cmd<Msg> =
+        match effect with
+        | SessionEffect.CallPresentLaunch(launch, key) ->
+            async {
+                try
+                    let! outcome = serverApi.processLaunch (Api.LaunchCommand.PresentLaunch(launch, key))
+                    return SessionMsg(SessionMsg.Outcome(launch, key, Ok outcome))
+                with ex ->
+                    return SessionMsg(SessionMsg.Outcome(launch, key, Error ex.Message))
+            }
+            |> Cmd.fromAsync
+        | SessionEffect.CallGetSession ->
+            async {
+                try
+                    match! serverApi.processSession Api.SessionCommand.GetSession with
+                    | Api.SessionResponse.SessionResp session -> return SessionMsg(SessionMsg.Resumed(Ok session))
+                    | Api.SessionResponse.SessionClosed -> return SessionMsg(SessionMsg.Resumed(Ok None))
+                with ex ->
+                    return SessionMsg(SessionMsg.Resumed(Error ex.Message))
+            }
+            |> Cmd.fromAsync
+        | SessionEffect.CallCloseSession ->
+            async {
+                // the server deletes the cookie whatever its close returns (finally), so an
+                // answer of any kind means Closed; only a request that never got there fails
+                match! serverApi.processSession Api.SessionCommand.CloseSession |> Async.Catch with
+                | Choice1Of2 _ -> return SessionMsg SessionMsg.Closed
+                | Choice2Of2 ex -> return SessionMsg(SessionMsg.CloseFailed ex.Message)
+            }
+            |> Cmd.fromAsync
+        | SessionEffect.GoTo url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
+        | SessionEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient patient)
+        | SessionEffect.KeepKey thumbprint ->
+            Cmd.ofEffect (fun _ ->
+                async {
+                    match! Keys.keep thumbprint |> Async.Catch with
+                    | Choice1Of2() -> ()
+                    | Choice2Of2 ex -> Logging.error "could not prune the browser keys" ex.Message
+                }
+                |> Async.StartImmediate
+            )
 
 
     let update (msg: Msg) (state: State) =
@@ -722,10 +826,24 @@ module private Elmish =
                 ]
 
         | UrlChanged sl ->
-            if sl |> parseLaunch |> Option.isSome then
+            let launchUrl = sl |> parseLaunch
+
+            if launchUrl.IsSome then
                 eraseLaunch ()
 
             let pat, page, lang, discl, med = sl |> parsePatient
+
+            // an open Session supplies the patient: url patient parameters count only while
+            // no Session holds one (plan 409, "Patient is never assigned directly"). The
+            // router fires UrlChanged on mount too, while a Resume may still be in flight,
+            // so only Open and Closing block the url patient
+            let anonymous =
+                match state.Session with
+                | Session.Open _
+                | Session.Closing _ -> false
+                | _ -> true
+
+            let pat = if anonymous then pat else state.Patient
 
             { state with
                 ShowDisclaimer = discl
@@ -749,7 +867,32 @@ module private Elmish =
                 // State. prefix needed: disambiguates State.Context field from Global.Context type
                 State.Context.Localization = lang |> Option.defaultValue Localization.English
             },
-            Cmd.ofMsg (pat |> UpdatePatient)
+            Cmd.batch
+                [
+                    if anonymous then
+                        Cmd.ofMsg (pat |> UpdatePatient)
+                    launchCmd launchUrl
+                ]
+
+        | SessionMsg msg ->
+            let session, effects = Session.transition msg state.Session
+
+            // a failed close is reported only when it was this session's close: a CloseFailed
+            // that arrives after a newer launch superseded the Closing session is dropped by
+            // the machine and must not put an error over the newer session
+            let state =
+                match msg, state.Session with
+                | SessionMsg.CloseFailed reason, Session.Closing _ ->
+                    Logging.error "could not close the session on the server" reason
+
+                    { state with
+                        SnackbarMsg = "De sessie kon niet worden gesloten. Probeer het opnieuw."
+                        SnackbarOpen = true
+                        SnackbarSeverity = "error"
+                    }
+                | _ -> state
+
+            { state with Session = session }, effects |> List.map interpretSessionEffect |> Cmd.batch
 
         | LoadLocalization Started ->
             { state with Localization = InProgress }, Cmd.fromAsync (GoogleDocs.loadLocalization LoadLocalization)
@@ -1173,6 +1316,14 @@ type private ConcreteAppEnv
         member _.ReloadResources pw =
             OrderContextMsg(Api.ReloadResources pw, OrderContext.empty) |> dispatch
 
+    interface AppEnv.ISession with
+        member _.Session = state.Session
+        member _.Close() = SessionMsg SessionMsg.Close |> dispatch
+        member _.Retry() = SessionMsg SessionMsg.Retry |> dispatch
+
+        member _.OpenAnonymously() =
+            SessionMsg SessionMsg.OpenAnonymous |> dispatch
+
     interface AppEnv.IAuthentication with
         member _.IsAuthenticated = state.IsAuthenticated
         member _.Login password = Login password |> dispatch
@@ -1313,7 +1464,15 @@ let View () =
     let genPresProps =
         {|
             appEnv = appEnv
-            showDisclaimer = state.ShowDisclaimer
+            // the disclaimer is for anonymous use only (plan 409): a launched, resuming or
+            // refused session never sees it; an anonymous open after a refusal does
+            showDisclaimer =
+                state.ShowDisclaimer
+                && (
+                    match state.Session with
+                    | Session.Anonymous -> true
+                    | _ -> false
+                )
             isDemo = state.IsDemo
             acceptDisclaimer = fun _ -> AcceptDisclaimer |> dispatch
             updatePage = UpdatePage >> dispatch
