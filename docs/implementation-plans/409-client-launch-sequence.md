@@ -206,13 +206,15 @@ try to parse the IdentityProvider's HTML as the response.
 
 Two server-side points the client shape depends on, for the plan that implements the hop:
 
-- The state of 4.2 is a LaunchRecord appended to the GenPRES Database, not a cookie. The
+- The state of 4.2 is a LaunchRecord appended to the GenPRES Database, not a cookie. It holds
+  the Launch's verified contents (nonce, PatientId, expiry), the `state` and the public key,
+  never the sealed Launch, and is dropped whole after the expiry. The
   callback is a cross-site top-level navigation, on which a `SameSite=Strict` cookie is not
   sent, so a cookie could not carry it anyway. The session cookie stays `Strict`: it is set on
   the callback response and only read by same-site requests afterwards. It is not sent on the
   landing GET of `#/session` either, which is fine, since `index.html` does not need it.
-- The LaunchRecord and the spent-mark are one record per Launch, holding `state`, the public
-  key, the outcome, the session id and the lifetime. So the server answers a repeated callback
+- The LaunchRecord and the spent-mark are one record per Launch, keyed by the nonce, holding
+  `state`, the public key, the outcome and the session id. So the server answers a repeated callback
   (a reload of `/callback?code=...`, whose code is already redeemed) and a repeated presentation
   with the same public key alike: the first outcome, the same cookie (Rule 45). A refusal
   answered directly by `presentLaunch`, before the hop, records nothing, so a retry re-verifies
@@ -288,8 +290,9 @@ Drafted in `src/Informedica.GenPRES.Server/Scripts/Session.fsx` and migrated by 
 - Presentation is idempotent per Rule 2, correlated by the public key, never by the presence or
   absence of a cookie. The spent-mark is written only in the act that opens a Session (Rules 2,
   40); a refusal records nothing, so a retry after a transient refusal such as
-  `NoBrowserIdentity` re-verifies the Launch. The stub keeps the spent-mark per Launch holding
-  the public key, the outcome, the session id and a lifetime (Rule 29; two minutes in the stub).
+  `NoBrowserIdentity` re-verifies the Launch. The stub keeps the spent-mark per Launch, keyed by
+  the Launch text as its stand-in for the nonce, holding the public key, the outcome, the session
+  id and an expiry (Rule 29; two minutes in the stub), and drops it after the expiry.
   A second presentation within the lifetime with the same public key is answered as the first
   was and re-issues the same cookie; nothing opens twice. A presentation with a different key,
   or with none, is `LaunchSpent`: it cannot be told from another browser, so it is treated as
