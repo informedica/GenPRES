@@ -20,6 +20,7 @@ module TitleBar =
                 switchLang: Shared.Localization.Locales -> unit
                 switchHosp: string -> unit
                 isAuthenticated: bool
+                session: Global.SessionContext
                 onLogin: string -> unit
                 onLogout: unit -> unit
             |})
@@ -155,6 +156,40 @@ module TitleBar =
                 horizontal = "right"
             |}
 
+        let sessionInfo =
+            match props.session with
+            | Global.SessionContext.Anonymous ->
+                JSX.jsx
+                    $"""
+                <Box sx={ {| marginLeft = 2 |} }>
+                    <Typography variant="body1" component="div">
+                        {"Anonymous"}
+                    </Typography>
+                </Box>
+                """
+            | Global.SessionContext.Content deferredContent ->
+                match deferredContent with
+                | Deferred.InProgress ->
+                    JSX.jsx
+                        $"""
+                    <Box sx={ {| marginLeft = 2 |} }>
+                        <Typography variant="body1" component="div">
+                            {"Loading..."}
+                        </Typography>
+                    </Box>
+                    """
+                | Deferred.Resolved content ->
+                    JSX.jsx
+                        $"""
+                    <Box sx={ {| marginLeft = 2 |} }>
+                        <Typography variant="body1" component="div">
+                            {content.UserName}
+                        </Typography>
+                    </Box>
+                    """
+                | _ -> null
+            | _ -> null
+
         JSX.jsx
             $"""
         import AppBar from '@mui/material/AppBar';
@@ -209,6 +244,7 @@ module TitleBar =
                     <Typography variant="body1" component="div" >
                         {$"{context.Hospital}"}
                     </Typography>
+                    {sessionInfo}
 
                     <Box sx={sxLangBox}>
                         <IconButton color="inherit" onClick={handleOpenLangMenu}>

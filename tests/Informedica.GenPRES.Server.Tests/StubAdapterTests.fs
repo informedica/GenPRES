@@ -55,6 +55,8 @@ module StubAdapters =
             navigateNutritionOrderContext = fun _ -> async { return Ok returnPlan }
         }
 
+    let patientAlwaysOk (returnPatient: Patient) : PatientPort =
+        { loadPatientData = fun _ -> async { return Ok returnPatient } }
 
     let makeEnv
         (formulary: FormularyPort)
@@ -65,6 +67,7 @@ module StubAdapters =
         =
         {
             formulary = formulary
+            patient = patientAlwaysOk Patient.Empty
             orderContext = orderContext
             orderPlan = orderPlan
             nutritionPlan = nutritionPlan
@@ -82,9 +85,13 @@ module StubAdapters =
         }
 
 
+    let patientAlwaysFails (msg: string) : PatientPort =
+        { loadPatientData = fun _ -> async { return Error msg } }
+
     let makeEnvNotLoaded (msgs: string[]) : AppEnv =
         {
             formulary = formularyAlwaysFails [| "not loaded" |]
+            patient = patientAlwaysFails "not loaded"
             orderContext = orderContextAlwaysFails [| "not loaded" |]
             orderPlan =
                 {
