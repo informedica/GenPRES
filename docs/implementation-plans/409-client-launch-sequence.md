@@ -141,7 +141,7 @@ type SessionEffect =
     | CallCloseSession
     | GoTo of url: string                            // window.location.assign, for RedirectTo
     | SetPatient of Patient option                   // interpreted as UpdatePatient
-    | KeepKey of thumbprint: string option           // Keys.keep: prune the other private keys
+    | KeepKey of thumbprint: string                  // Keys.keep: prune the other private keys
 
 val transition: SessionMsg -> Session -> Session * SessionEffect list
 ```
@@ -165,8 +165,10 @@ Rules encoded in `transition`:
   first time (Rule 2, see the server stub), so a response lost on the wire cannot turn a session
   that did open into `LaunchSpent`. Another browser has another key and is refused. The Launch
   exists only in this page load's memory (Rule 39); a reload has nothing left to present.
-- `Opened s` yields `Open s` plus `SetPatient (s.PatientContext |> Option.map _.Patient)` and
-  `KeepKey s.KeyThumbprint`.
+- `Opened s` yields `Open s` plus `SetPatient (s.PatientContext |> Option.map _.Patient)`, and
+  `KeepKey t` when `s.KeyThumbprint = Some t`. A session without a key (`None`: an anonymous
+  session, or a stub that has none) prunes nothing; stored keys of other launches are left
+  alone.
   Patient changes go through `UpdatePatient` so order context, order plan, formulary and
   parenteralia reload. `Patient` is never assigned directly.
 - `Closed` and `OpenAnonymous` yield `Anonymous` plus `SetPatient None`. A launched patient and
@@ -184,7 +186,7 @@ New file `src/Informedica.GenPRES.Client/Keys.fs`, the WebCrypto and IndexedDB i
   extractable, stores the private key in IndexedDB under the public key's thumbprint (RFC 7638),
   and returns the public key as a JWK string.
 - `keep: string -> JS.Promise<unit>`: deletes every stored key except the one with the given
-  thumbprint. Called on `Opened s` with `s.KeyThumbprint`. Keys are per thumbprint, not a single
+  thumbprint. Called on `Opened s` when `s.KeyThumbprint` is `Some`. Keys are per thumbprint, not a single
   entry, so a second launch in another tab that is refused cannot take away the key of the
   first tab's Session, which is still open and must still sign once step 7 lands. Pruning on
   open is safe: an open in the same browser closes the earlier Session anyway (Rule 8).
@@ -315,7 +317,9 @@ Each has a named extension point:
 - WorkPlan carry-over (#518).
 - The LaunchScript contract for a path query versus the hash form (decision D1).
 - Whether the production server exposes the stubbed session endpoints at all. That is a scope
-  question, tracked in #580 (scope switch), not a launch question.
+  question, tracked in #580 (scope switch), not a launch question. The stub of step 2 opens a
+  session for any Launch text outside its refusal vocabulary, so #580 is a prerequisite for
+  merging step 2: the stub does not ship to a server without the scope switch.
 
 ## Confidence
 
