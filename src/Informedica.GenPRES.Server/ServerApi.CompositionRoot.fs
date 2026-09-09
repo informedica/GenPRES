@@ -25,8 +25,9 @@ module CompositionRoot =
 
 
     /// Cookie-authenticated session commands. CloseSession deletes the cookie even when no
-    /// session is found: an explicit close (Rule 10) always leaves the browser without a
-    /// credential.
+    /// session is found, and even when the server-side close throws: an explicit close
+    /// (Rule 10) always leaves the browser without a credential. The exception still
+    /// propagates after the delete, so the failure stays visible.
     let processSession (env: AppEnv) (cookie: SessionCookie) (cmd: SessionCommand) =
         async {
             match cmd with
@@ -37,11 +38,13 @@ module CompositionRoot =
                     let! session = env.session.find id
                     return SessionResponse.SessionResp session
             | SessionCommand.CloseSession ->
-                match cookie.read () with
-                | Some id -> do! env.session.close id
-                | None -> ()
+                try
+                    match cookie.read () with
+                    | Some id -> do! env.session.close id
+                    | None -> ()
+                finally
+                    cookie.delete ()
 
-                cookie.delete ()
                 return SessionResponse.SessionClosed
         }
 

@@ -212,8 +212,10 @@ module Http =
 
 
     /// The attributes of the session cookie (uc-01 step 6, Rule 12): HttpOnly, SameSite=Strict,
-    /// Path=/, Secure when the request came in over HTTPS. Host-only on purpose: no Domain, so
-    /// the Vite dev proxy passes it unchanged and it never reaches a sibling host.
+    /// Path=/, Secure when the request came in over HTTPS. Behind the TLS-terminating proxy
+    /// that is Request.IsHttps as set by ForwardedHeadersMiddleware from X-Forwarded-Proto
+    /// (Host.build). Host-only on purpose: no Domain, so the Vite dev proxy passes it
+    /// unchanged and it never reaches a sibling host.
     let sessionCookieOptions (isHttps: bool) =
         CookieOptions(HttpOnly = true, Secure = isHttps, SameSite = SameSiteMode.Strict, Path = "/")
 
@@ -510,8 +512,11 @@ module Host =
                 // B3 — Configure ForwardedHeadersMiddleware so XFF is only
                 // honoured for connections from the trustedProxies allow-list
                 // (loopback by default, overridable via GENPRES_TRUSTED_PROXIES).
+                // X-Forwarded-Proto from the same proxies sets Request.IsHttps,
+                // which is what makes the session cookie Secure behind a
+                // TLS-terminating proxy (Kestrel itself only listens on http).
                 services.Configure<ForwardedHeadersOptions>(fun (opts: ForwardedHeadersOptions) ->
-                    opts.ForwardedHeaders <- ForwardedHeaders.XForwardedFor
+                    opts.ForwardedHeaders <- ForwardedHeaders.XForwardedFor ||| ForwardedHeaders.XForwardedProto
                     opts.KnownProxies.Clear()
 
                     for ip in settings.TrustedProxies do

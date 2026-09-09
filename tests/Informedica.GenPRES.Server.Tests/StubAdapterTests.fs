@@ -619,6 +619,35 @@ module SessionStubTests =
                     deleted.Value |> Expect.isTrue "delete called"
                 }
 
+                testAsync "CloseSession deletes the cookie even when the port's close throws" {
+                    let deleted = ref false
+
+                    let env =
+                        { envWithStub () with
+                            session =
+                                { Adapters.sessionDisabled with
+                                    close = fun _ -> async { return raise (InvalidOperationException "store down") }
+                                }
+                        }
+
+                    let cookie =
+                        {
+                            read = fun () -> Some "session-1"
+                            write = fun _ -> ()
+                            delete = fun () -> deleted.Value <- true
+                        }
+
+                    let! outcome =
+                        CompositionRoot.processSession env cookie SessionCommand.CloseSession
+                        |> Async.Catch
+
+                    match outcome with
+                    | Choice2Of2(:? InvalidOperationException) -> ()
+                    | other -> failtest $"expected the close exception to propagate, got {other}"
+
+                    deleted.Value |> Expect.isTrue "cookie deleted regardless"
+                }
+
                 testAsync "sessionDisabled refuses every launch as invalid and finds nothing" {
                     let env = { envWithStub () with session = Adapters.sessionDisabled }
 
