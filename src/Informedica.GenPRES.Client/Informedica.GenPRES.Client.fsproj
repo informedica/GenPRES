@@ -9,6 +9,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Global.fs" />
     <Compile Include="SessionMachine.fs" />
+    <Compile Include="Keys.fs" />
     <Compile Include="AppEnv.fs" />
     <Compile Include="MUI.fs" />
     <Compile Include="./Components/FelizRouter.fs" />
