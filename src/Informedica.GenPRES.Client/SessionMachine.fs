@@ -48,6 +48,8 @@ type SessionMsg =
     | OpenAnonymous
     | Close
     | Closed
+    // the close request did not reach the server: the cookie is still there, so is the Session
+    | CloseFailed of reason: string
 
 
 [<RequireQualifiedAccess>]
@@ -149,3 +151,8 @@ module Session =
         // superseded it must not touch the newer session (the same guard as Outcome)
         | SessionMsg.Closed, Session.Closing _ -> Session.Anonymous, [ SessionEffect.SetPatient None ]
         | SessionMsg.Closed, _ -> state, []
+
+        // a close that never reached the server has closed nothing: the Session stays open,
+        // with its patient, and the UI says so; the same guard as Closed
+        | SessionMsg.CloseFailed _, Session.Closing session -> Session.Open session, []
+        | SessionMsg.CloseFailed _, _ -> state, []

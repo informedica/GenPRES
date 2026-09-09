@@ -560,8 +560,8 @@ module private Elmish =
 
 
     /// One command per session effect (plan 409, "Wiring in App.fs"). A transport failure
-    /// is an Error outcome, never an exception; Closed is dispatched whether or not the close
-    /// call succeeded, because the server deletes the cookie either way.
+    /// is a message, never an exception: an Error outcome for a presentation, CloseFailed for
+    /// a close that did not reach the server.
     let interpretSessionEffect (effect: SessionEffect) : Cmd<Msg> =
         match effect with
         | SessionEffect.CallPresentLaunch(launch, key) ->
@@ -585,11 +585,11 @@ module private Elmish =
             |> Cmd.fromAsync
         | SessionEffect.CallCloseSession ->
             async {
+                // the server deletes the cookie whatever its close returns (finally), so an
+                // answer of any kind means Closed; only a request that never got there fails
                 match! serverApi.processSession Api.SessionCommand.CloseSession |> Async.Catch with
-                | Choice1Of2 _ -> ()
-                | Choice2Of2 ex -> Logging.error "could not close the session on the server" ex.Message
-
-                return SessionMsg SessionMsg.Closed
+                | Choice1Of2 _ -> return SessionMsg SessionMsg.Closed
+                | Choice2Of2 ex -> return SessionMsg(SessionMsg.CloseFailed ex.Message)
             }
             |> Cmd.fromAsync
         | SessionEffect.GoTo url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
@@ -876,6 +876,18 @@ module private Elmish =
 
         | SessionMsg msg ->
             let session, effects = Session.transition msg state.Session
+
+            let state =
+                match msg with
+                | SessionMsg.CloseFailed reason ->
+                    Logging.error "could not close the session on the server" reason
+
+                    { state with
+                        SnackbarMsg = "De sessie kon niet worden gesloten. Probeer het opnieuw."
+                        SnackbarOpen = true
+                        SnackbarSeverity = "error"
+                    }
+                | _ -> state
 
             { state with Session = session }, effects |> List.map interpretSessionEffect |> Cmd.batch
 

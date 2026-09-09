@@ -375,6 +375,23 @@ module SessionMachineTests =
                     |> Expect.equal "anonymous" (Session.Anonymous, [ SessionEffect.SetPatient None ])
                 }
 
+                test "CloseFailed from Closing returns to Open with the same session and no effects" {
+                    transition (SessionMsg.CloseFailed "down") (Session.Closing full)
+                    |> Expect.equal "still open" (Session.Open full, [])
+                }
+
+                test "CloseFailed outside Closing is dropped" {
+                    for state in
+                        [
+                            Session.Open full
+                            Session.Anonymous
+                            launching
+                            Session.Resuming
+                        ] do
+                        transition (SessionMsg.CloseFailed "down") state
+                        |> Expect.equal "unchanged" (state, [])
+                }
+
                 test "Closed outside Closing is dropped" {
                     for state in
                         [
