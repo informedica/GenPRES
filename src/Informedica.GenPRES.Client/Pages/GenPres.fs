@@ -217,6 +217,7 @@ module GenPres =
                     isAuthenticated = auth.IsAuthenticated
                     onLogin = auth.Login
                     onLogout = auth.Logout
+                    appEnv = props.appEnv
                 |}
 
         let interactions = (AppEnv.asEnv<AppEnv.IInteractions> props.appEnv).Interactions
