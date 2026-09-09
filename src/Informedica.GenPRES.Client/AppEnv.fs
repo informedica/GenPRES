@@ -70,6 +70,18 @@ type IResources =
     abstract ReloadResources: string -> unit
 
 
+/// The launch Session (plan 409): its phase, and the actions the UI offers on it
+[<Interface>]
+type ISession =
+    abstract Session: SessionMachine.Session
+    // Rule 10: explicit close, from an open Session
+    abstract Close: unit -> unit
+    // from Unreachable, or a refusal worth retrying
+    abstract Retry: unit -> unit
+    // ext 5a: a fresh anonymous open that carries nothing over
+    abstract OpenAnonymously: unit -> unit
+
+
 /// Authentication state and commands
 [<Interface>]
 type IAuthentication =
