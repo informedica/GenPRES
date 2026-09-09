@@ -25,6 +25,8 @@ type Session =
     // GetSession in flight (reload, IdentityProvider return)
     | Resuming
     | Open of SessionOpened
+    // CloseSession in flight; Closed lands here and nowhere else
+    | Closing of SessionOpened
     // no Session; the Launch and key are kept only when a retry is meaningful
     | Refused of LaunchRefusal * retry: (Launch * PublicKey) option
     // ext 3a: server down after the page was served
@@ -139,8 +141,11 @@ module Session =
         | SessionMsg.OpenAnonymous, Session.Unreachable _ -> Session.Anonymous, [ SessionEffect.SetPatient None ]
         | SessionMsg.OpenAnonymous, _ -> state, []
 
-        | SessionMsg.Close, Session.Open _ -> state, [ SessionEffect.CallCloseSession ]
+        | SessionMsg.Close, Session.Open session -> Session.Closing session, [ SessionEffect.CallCloseSession ]
         | SessionMsg.Close, _ -> state, []
 
-        // a launched patient and everything derived from it leave with the session
-        | SessionMsg.Closed, _ -> Session.Anonymous, [ SessionEffect.SetPatient None ]
+        // a launched patient and everything derived from it leave with the session. Closed
+        // lands only on Closing: a close that completes after a newer presentation has
+        // superseded it must not touch the newer session (the same guard as Outcome)
+        | SessionMsg.Closed, Session.Closing _ -> Session.Anonymous, [ SessionEffect.SetPatient None ]
+        | SessionMsg.Closed, _ -> state, []

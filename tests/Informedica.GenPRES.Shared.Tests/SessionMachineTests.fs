@@ -87,6 +87,7 @@ module SessionMachineTests =
                                 "Refused", Session.Refused(LaunchRefusal.NoRole, None)
                                 "Unreachable", Session.Unreachable(launchB, keyB, 3)
                                 "Resuming", Session.Resuming
+                                "Closing", Session.Closing full
                             ] do
                             test name {
                                 transition (SessionMsg.Present(launchA, keyA)) state
@@ -238,6 +239,7 @@ module SessionMachineTests =
                                         "Resuming", Session.Resuming
                                         "Refused", Session.Refused(LaunchRefusal.NoRole, None)
                                         "Unreachable", Session.Unreachable(launchA, keyA, 3)
+                                        "Closing", Session.Closing full
                                     ] do
                                     test name {
                                         transition
@@ -352,25 +354,64 @@ module SessionMachineTests =
                     |> Expect.equal "unchanged" (Session.Open full, [])
                 }
 
-                test "Close from Open asks the server and stays Open until Closed" {
+                test "Close from Open asks the server and is Closing until Closed" {
                     transition SessionMsg.Close (Session.Open full)
-                    |> Expect.equal "closing" (Session.Open full, [ SessionEffect.CallCloseSession ])
+                    |> Expect.equal "closing" (Session.Closing full, [ SessionEffect.CallCloseSession ])
                 }
 
-                test "Close elsewhere is a no-op" {
+                test "Close elsewhere is a no-op, Closing included" {
                     for state in
                         [
                             Session.Anonymous
                             launching
                             Session.Refused(LaunchRefusal.NoRole, None)
+                            Session.Closing full
                         ] do
                         transition SessionMsg.Close state |> Expect.equal "unchanged" (state, [])
                 }
 
-                test "Closed is Anonymous and clears the patient, from any state" {
-                    for state in [ Session.Open full; Session.Anonymous; launching ] do
-                        transition SessionMsg.Closed state
-                        |> Expect.equal "anonymous" (Session.Anonymous, [ SessionEffect.SetPatient None ])
+                test "Closed from Closing is Anonymous and clears the patient" {
+                    transition SessionMsg.Closed (Session.Closing full)
+                    |> Expect.equal "anonymous" (Session.Anonymous, [ SessionEffect.SetPatient None ])
+                }
+
+                test "Closed outside Closing is dropped" {
+                    for state in
+                        [
+                            Session.Open full
+                            Session.Anonymous
+                            launching
+                            Session.Resuming
+                        ] do
+                        transition SessionMsg.Closed state |> Expect.equal "unchanged" (state, [])
+                }
+
+                test "a close that completes after a newer session opened does not touch it" {
+                    let newer = sessionWith (Some "thumb-2") (Some patient)
+
+                    let state, effects =
+                        run
+                            (Session.Open full)
+                            [
+                                SessionMsg.Close
+                                // a new launch supersedes the close in flight
+                                SessionMsg.Present(launchB, keyB)
+                                SessionMsg.Outcome(launchB, keyB, Ok(LaunchOutcome.Opened newer))
+                                // the old close completes now
+                                SessionMsg.Closed
+                            ]
+
+                    state |> Expect.equal "the newer session stays open" (Session.Open newer)
+
+                    effects
+                    |> Expect.equal
+                        "no SetPatient None after the newer session opened"
+                        [
+                            SessionEffect.CallCloseSession
+                            SessionEffect.CallPresentLaunch(launchB, keyB)
+                            SessionEffect.SetPatient(Some patient)
+                            SessionEffect.KeepKey "thumb-2"
+                        ]
                 }
 
                 test "the happy path: present, open, close" {
