@@ -208,6 +208,30 @@ module Http =
         | ip -> ip.ToString()
 
 
+    let sessionCookieName = "genpres_session"
+
+
+    /// The attributes of the session cookie (uc-01 step 6, Rule 12): HttpOnly, SameSite=Strict,
+    /// Path=/, Secure when the request came in over HTTPS. Host-only on purpose: no Domain, so
+    /// the Vite dev proxy passes it unchanged and it never reaches a sibling host.
+    let sessionCookieOptions (isHttps: bool) =
+        CookieOptions(HttpOnly = true, Secure = isHttps, SameSite = SameSiteMode.Strict, Path = "/")
+
+
+    /// The session cookie of this request as the port the composition root uses.
+    let sessionCookie (ctx: HttpContext) : SessionCookie =
+        {
+            read =
+                fun () ->
+                    match ctx.Request.Cookies.TryGetValue sessionCookieName with
+                    | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
+                    | _ -> None
+            write =
+                fun id -> ctx.Response.Cookies.Append(sessionCookieName, id, sessionCookieOptions ctx.Request.IsHttps)
+            delete = fun () -> ctx.Response.Cookies.Delete(sessionCookieName, sessionCookieOptions ctx.Request.IsHttps)
+        }
+
+
     /// <summary>
     /// Cache-Control value for a response. Vite emits the client as
     /// content-hashed files under /assets/, so a successful response for one
@@ -445,9 +469,21 @@ module Host =
 
 
     let build (settings: Config.Settings) (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
+        // Built once per host: the session stub's state lives in it. Remoting.fromContext
+        // runs its function per request, so the env must not be built in there.
+        let env =
+            let env = Adapters.makeAppEnv provider
+
+            // Stop-gap until the scope switch (#580): a production server never opens a
+            // stub Session. Drop this swap when #580 decides what production exposes.
+            if settings.IsProd then
+                { env with session = Adapters.sessionDisabled }
+            else
+                env
+
         let webApi =
             Remoting.createApi ()
-            |> Remoting.fromValue (createServerApi provider)
+            |> Remoting.fromContext (fun ctx -> createServerApi env (Http.sessionCookie ctx))
             |> Remoting.withRouteBuilder routerPaths
             |> Remoting.buildHttpHandler
 

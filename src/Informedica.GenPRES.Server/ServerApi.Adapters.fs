@@ -344,6 +344,17 @@ module Adapters =
         }
 
 
+    /// The session port of a server that does not launch: every Launch is refused as
+    /// invalid and no session is ever found. Used in production until the scope switch (#580)
+    /// decides what a production server exposes.
+    let sessionDisabled: SessionPort =
+        {
+            present = fun _ -> async { return LaunchResult.Refused LaunchRefusal.LaunchInvalid }
+            find = fun _ -> async { return None }
+            close = fun _ -> async { return () }
+        }
+
+
     let makeAppEnv (provider: Resources.IResourceProvider) : AppEnv =
         let agent, logger = resolveLogger ()
         let orderCtxPort = makeOrderContextPort agent logger provider
