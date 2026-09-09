@@ -3,14 +3,17 @@
 /// signing key made at the launch, whose private key stays in IndexedDB under the public key's
 /// RFC 7638 thumbprint and whose public key goes to the server with the Launch. The server
 /// stores the public key in the SessionRecord and answers the thumbprint; <c>keep</c> then
-/// prunes the private keys of other launches (Rule 8). Signing (launch step 7, DPoP) comes
+/// prunes the private keys of earlier launches (Rule 8). Signing (launch step 7, DPoP) comes
 /// later; the key is made now so the SessionRecord already holds it.
 /// </summary>
 /// <remarks>
 /// WebCrypto and IndexedDB are promise- and event-based browser APIs, so the interop is one
 /// JavaScript literal (the pattern of <c>themeDef</c> in App.fs) with thin typed F# wrappers.
 /// Keys are kept per thumbprint, not as a single entry, so a second launch in another tab
-/// that is refused cannot take away the key of the first tab's open Session.
+/// that is refused cannot take away the key of the first tab's open Session. Pruning is by
+/// age, not by identity: <c>keep</c> deletes only keys older than the Launch lifetime, so two
+/// launches racing in two tabs (uc-01, ext 8b) cannot delete each other's fresh key and leave
+/// the winning Session unable to sign. The loser's key lingers until the next launch prunes it.
 /// </remarks>
 module Keys
 
@@ -25,6 +28,9 @@ let private keysDef =
 (() => {
     const DB = "genpres";
     const STORE = "keys";
+    // no launch still in flight can own a key older than this (Rule 29); keys younger than
+    // it are left alone by keep, whoever calls it
+    const GRACE_MS = 10 * 60 * 1000;
 
     const b64url = bytes =>
         btoa(String.fromCharCode(...new Uint8Array(bytes)))
@@ -78,14 +84,18 @@ let private keysDef =
                 { name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
             const jwk = await crypto.subtle.exportKey("jwk", pair.publicKey);
             const id = await thumbprint(jwk);
-            await withStore("readwrite", store => request(store.put(pair.privateKey, id)));
+            const entry = { key: pair.privateKey, createdAt: Date.now() };
+            await withStore("readwrite", store => request(store.put(entry, id)));
             return JSON.stringify({ kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y });
         },
         thumbprint: json => thumbprint(JSON.parse(json)),
-        // delete every stored key except the one with this thumbprint
+        // delete every stored key except this one and those younger than the grace period
         keep: id => withStore("readwrite", async store => {
+            const cutoff = Date.now() - GRACE_MS;
             for (const other of await request(store.getAllKeys())) {
-                if (other !== id) await request(store.delete(other));
+                if (other === id) continue;
+                const entry = await request(store.get(other));
+                if (!entry || !entry.createdAt || entry.createdAt < cutoff) await request(store.delete(other));
             }
         }),
         // the thumbprints of the stored keys
@@ -125,8 +135,10 @@ let generate () : Async<PublicKey> =
 let thumbprint (PublicKey json) : Async<string> = keys?thumbprint json |> await
 
 
-/// Deletes every stored private key except the one with this thumbprint. Called when a
-/// Session opens with that key: the other keys belonged to Sessions this open closed.
+/// Deletes the stored private keys of earlier launches: every key except this one and those
+/// younger than the Launch lifetime. Called when a Session opens with this key. A key made by
+/// a launch racing in another tab is left alone; if that launch won, its key is the one its
+/// Session signs with, and this one is pruned by a later launch.
 let keep (thumbprint: string) : Async<unit> = keys?keep thumbprint |> await
 
 
