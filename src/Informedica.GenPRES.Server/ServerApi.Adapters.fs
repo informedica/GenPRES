@@ -205,7 +205,7 @@ module SessionStub =
 
         {
             present = fun launch -> async { return update (fun s -> present (now ()) newId lifetime patient s launch) }
-            find = fun id -> async { return state.Sessions |> Map.tryFind id }
+            find = fun id -> async { return lock gate (fun () -> state.Sessions |> Map.tryFind id) }
             close = fun id -> async { return update (fun s -> { s with Sessions = s.Sessions |> Map.remove id }, ()) }
         }
 
