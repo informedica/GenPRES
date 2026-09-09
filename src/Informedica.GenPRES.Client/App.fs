@@ -877,9 +877,12 @@ module private Elmish =
         | SessionMsg msg ->
             let session, effects = Session.transition msg state.Session
 
+            // a failed close is reported only when it was this session's close: a CloseFailed
+            // that arrives after a newer launch superseded the Closing session is dropped by
+            // the machine and must not put an error over the newer session
             let state =
-                match msg with
-                | SessionMsg.CloseFailed reason ->
+                match msg, state.Session with
+                | SessionMsg.CloseFailed reason, Session.Closing _ ->
                     Logging.error "could not close the session on the server" reason
 
                     { state with
