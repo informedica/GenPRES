@@ -234,9 +234,14 @@ module private Elmish =
         tryParseInt "gd" paramsMap |> Option.map Measures.toDay,
         Map.tryFind "dp" paramsMap
 
-    let parseUrl sl =
+    // The patient, page, language, disclaimer and medication carried by an
+    // anonymous "#/patient?..." url. A "#/session..." url carries none of these:
+    // the session supplies the patient (plan 409), so it yields the defaults
+    // without a warning.
+    let parsePatient sl =
         match sl with
         | [] -> None, None, None, true, None
+        | "session" :: _ -> None, None, None, true, None
         | [ "patient"; Route.Query queryParams ] ->
             let paramsMap = Map.ofList queryParams
 
@@ -310,7 +315,8 @@ module private Elmish =
                     patient
 
                 | _ ->
-                    Logging.warning "could not parse url to patient" (sl |> String.concat ";")
+                    // only the parameter names: the values are patient data
+                    Logging.warning "could not parse url to patient" (paramsMap |> Map.toList |> List.map fst)
                     None
 
             let page =
@@ -351,9 +357,27 @@ module private Elmish =
             pat, page, lang, discl, med
 
         | _ ->
-            sl |> String.concat "" |> Logging.warning "could not parse url"
+            // only the route segment: the rest of the url is never logged
+            Logging.warning "could not parse url" (sl |> List.head)
 
             None, None, None, true, None
+
+
+    /// The launch token of a "#/session?launch={token}" url, the form MainEHR
+    /// opens GenPRES with (launch sequence step 1). Opaque to the client.
+    let parseLaunch sl =
+        match sl with
+        | [ "session"; Route.Query queryParams ] -> queryParams |> Map.ofList |> Map.tryFind "launch"
+        | _ -> None
+
+
+    /// Launch sequence step 2: replace the launch url with "#/session" in the
+    /// address bar and the history entry, so the token survives neither a
+    /// reload, the back button nor a copied url. Goes through the History API
+    /// directly: Router.navigate would dispatch the navigation event and
+    /// re-enter UrlChanged.
+    let eraseLaunch () =
+        Browser.Dom.history.replaceState (null, "", "#/session")
 
 
     let initialState
@@ -418,7 +442,12 @@ module private Elmish =
 
 
     let init () : State * Cmd<Msg> =
-        let pat, page, lang, discl, med = Router.currentUrl () |> parseUrl
+        let url = Router.currentUrl ()
+
+        if url |> parseLaunch |> Option.isSome then
+            eraseLaunch ()
+
+        let pat, page, lang, discl, med = url |> parsePatient
 
         let cmds =
             Cmd.batch
@@ -693,7 +722,10 @@ module private Elmish =
                 ]
 
         | UrlChanged sl ->
-            let pat, page, lang, discl, med = sl |> parseUrl
+            if sl |> parseLaunch |> Option.isSome then
+                eraseLaunch ()
+
+            let pat, page, lang, discl, med = sl |> parsePatient
 
             { state with
                 ShowDisclaimer = discl
