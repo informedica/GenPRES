@@ -7,6 +7,10 @@
 // Standalone — no #load, no #r. It prints a trace per scenario and ends with a count
 // of self-checks.
 //
+// For the launch sequence, uc-01-launch.md is the leading page and this model follows
+// it. Not modelled here yet: the browser key pair, the LaunchRecord appended before the
+// identity hop (its `state`, expiry and public key), and the signed request.
+//
 // ═══════════════════════════════════════════════════════════════════════════════
 //   SECTION 0 — THE SYSTEM MODEL
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1132,6 +1136,18 @@ type AuditEntry =
         What : string
     }
 
+/// Rule 2, UC-1 step 5.7. What the Database keeps of a Launch: never the sealed
+/// Launch itself, only its nonce, the Patient it named, and — once the open has spent
+/// it — the Session that spent it. One row per Launch, written once. uc-01 appends
+/// the record before the identity hop and adds the outcome and the spent-mark to it
+/// later; this model, which has no hop, writes it whole at the spend.
+type LaunchRecord =
+    {
+        Nonce   : string
+        Patient : PatientId option
+        Session : SessionId
+    }
+
 /// Actor 5, the other half. Everything that is GenPRES's own business and no record
 /// of care. Never copied anywhere.
 type PrivateStore =
@@ -1143,8 +1159,13 @@ type PrivateStore =
         Resets       : Map<UserId, PinReset>
         /// Rule 45. What each key has already been answered with.
         Answered     : Map<IdemKey, Result<TreatmentPlan, CommitRefusal>>
-        /// Rules 2, 34, 43. Spent nonces, of tokens and of Launches. This is what
-        /// makes each work exactly once. A mark past its lifetime can be purged.
+        /// Rule 2. The LaunchRecords, keyed by nonce. A Launch is spent when its record
+        /// is here; the record names the Session that spent it, which is what the
+        /// replay clause answers from. A record past the Launch's lifetime is dropped
+        /// whole (UC-1 step 4.5).
+        Launches     : Map<string, LaunchRecord>
+        /// Rules 34, 43. Spent token nonces. This is what makes each work exactly
+        /// once. A mark past its lifetime can be purged.
         Spent        : Set<string>
         /// Rule 46. Anonymous opens refused above the bound (Rule 14), counted per
         /// source. A count and not a line each, so a flood writes nothing that grows.
@@ -1880,6 +1901,7 @@ module Hospital =
                             Credentials = Map.empty
                             Resets = Map.empty
                             Answered = Map.empty
+                            Launches = Map.empty
                             Spent = Set.empty
                             AnonymousRefused = Map.empty
                             Audit = []
@@ -2677,15 +2699,21 @@ module Hospital =
         // act that opens the Session, so a launch cannot spend one and then fail to
         // open. Two presentations that both passed the early check cannot both open
         // either: only one finds the nonce unspent at this point.
-        match r.Launch with
-        | Some nonce when h.Database.Private.Spent.Contains nonce ->
-            let opened = h.Database.Private.Sessions |> List.tryFind (fun x -> x.Launch = Some nonce)
+        match r.Launch |> Option.bind (fun nonce -> h.Database.Private.Launches |> Map.tryFind nonce) with
+        | Some spent ->
+            let opened = h.Database.Private.Sessions |> List.tryFind (fun x -> x.Id = spent.Session)
             h, [ send GenPresDatabase env.From (LaunchReplayed(tag, opened)) ]
-        | _ ->
+        | None ->
 
+        // UC-1 step 5.7. The spent-mark is the LaunchRecord, keyed by the nonce and
+        // naming the Session: a row written once, in the same act as the record.
         let spend (db: DatabaseState) =
             match r.Launch with
-            | Some nonce -> { db with Private.Spent = db.Private.Spent |> Set.add nonce }
+            | Some nonce ->
+                { db with
+                    Private.Launches =
+                        db.Private.Launches
+                        |> Map.add nonce { Nonce = nonce; Patient = r.Patient; Session = r.Id } }
             | None -> db
 
         // The SessionId counter never reissues, so an id already present is a replay,
@@ -2817,10 +2845,11 @@ module Hospital =
         // was plainly spent before anything is fetched for it, which is worth doing,
         // but it is not what makes the spend safe. The open is (Rule 40).
         | GenPresServer, GenPresDatabase, CheckLaunchSpent(tag, nonce) ->
-            if h.Database.Private.Spent.Contains nonce then
-                let opened = h.Database.Private.Sessions |> List.tryFind (fun x -> x.Launch = Some nonce)
+            match h.Database.Private.Launches |> Map.tryFind nonce with
+            | Some spent ->
+                let opened = h.Database.Private.Sessions |> List.tryFind (fun x -> x.Id = spent.Session)
                 h, [ send GenPresDatabase env.From (LaunchReplayed(tag, opened)) ]
-            else
+            | None ->
                 h, [ send GenPresDatabase env.From (LaunchUnspent tag) ]
 
         // Rule 46. A count per source and nothing else: no SessionRecord, and no audit
@@ -5025,11 +5054,17 @@ let uc1 () =
     expect "UC-1 and from here the Server keeps nothing of the Session (Rule 32)"
         (launched.GenPres.InFlight.IsEmpty && launched.GenPres.Pending.IsEmpty)
 
-    // Rule 2. The spent-mark is a nonce and nothing else: GenPRES keeps no copy of
-    // the Launch, and the SessionRecord names the nonce that opened it.
-    expect "UC-1 the Launch is spent, and all GenPRES keeps of it is the nonce (Rule 2)"
-        (launched.Database.Private.Spent
-         |> Set.exists (fun n -> (newestRecord launched |> Option.bind _.Launch) = Some n))
+    // Rule 2, UC-1 steps 4.2 and 5.7. The spent-mark is the LaunchRecord, keyed by the
+    // nonce and naming the Session that spent it. It holds what the Launch said, never
+    // the sealed Launch: the early check reads it by nonce, and nothing in the Database
+    // can present the Launch again.
+    expect "UC-1 the Launch is spent: its record names the Session, and the sealed Launch is not kept (Rule 2)"
+        (match newestRecord launched with
+         | Some r ->
+             r.Launch.IsSome
+             && launched.Database.Private.Launches
+                |> Map.exists (fun n l -> Some n = r.Launch && l.Session = r.Id)
+         | None -> false)
 
     // ── UC-1 ext 1a — no Patient is active in the MainEHR Session ──
     // GenPRES opens and A can prescribe, but a TreatmentPlan cannot be opened or signed.
@@ -5080,7 +5115,7 @@ let uc1 () =
          && openCount noKey = 0)
 
     expect "2a and no Launch was minted, so none can be spent or replayed later (Rule 2)"
-        (noKey.Database.Private.Spent.IsEmpty)
+        (noKey.Database.Private.Launches.IsEmpty)
 
     // ── UC-1 ext 2b / 3a — the Server is unreachable ──
     // The Client is served by the Server, so a Server that is down serves no Client.
@@ -5282,7 +5317,7 @@ let uc1 () =
     expect "Rule 2 the early check wrote nothing: the nonce is unspent and no Session exists"
         (saw (function LaunchUnspent _ -> true | _ -> false)
          && never (function OpenSessionClosingOthers _ -> true | _ -> false)
-         && halfWay.Database.Private.Spent.IsEmpty
+         && halfWay.Database.Private.Launches.IsEmpty
          && openCount halfWay = 0)
 
     let afterCrash =
@@ -5297,7 +5332,7 @@ let uc1 () =
         (openCount afterCrash = 1
          && (sidAt 1 afterCrash).IsSome
          && never (function LaunchRefused _ -> true | _ -> false)
-         && afterCrash.Database.Private.Spent.Count = 1)
+         && afterCrash.Database.Private.Launches.Count = 1)
 
     // ── Rule 2 — two presentations that both pass the early check ──
     // The check is advisory, so two browsers can both be told the nonce is unspent and
@@ -5326,7 +5361,7 @@ let uc1 () =
 
     expect "Rule 2 the open decided it: one Session, one spent nonce (Rules 36, 40)"
         (openCount raced = 1
-         && raced.Database.Private.Spent.Count = 1
+         && raced.Database.Private.Launches.Count = 1
          && countOf (function SessionOpened _ -> true | _ -> false) = 1)
 
     expect "Rule 2 the loser is answered as a replay, and refused because it is another browser"
