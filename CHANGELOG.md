@@ -1,5 +1,5 @@
 ---
-last_commit_released: 0b45499c06cfd59afc84db0914e7453df2119e9c
+last_commit_released: 06cc5ac79e5c09f650615b4bbd866caaa1622fd0
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,32 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.16 - 2026-09-09
+
+### 🚀 Features
+
+* *(api)* Initial session interaction scaffold ([d33a5127](https://github.com/informedica/GenPRES/commit/d33a5127e11f6e64fb17a2a4d5835c388eaaf80e))
+* *(api)* Implement token redeem logic ([dab4f763](https://github.com/informedica/GenPRES/commit/dab4f7637f5b9c2f838266089a21dd89d4fedd5e))
+* *(api)* Better docs for parseSessionInfo ([62cce32a](https://github.com/informedica/GenPRES/commit/62cce32a8c911ffdf947196436673ea4f25b8615))
+* *(api)* Restructure token exchange and show progress in UI ([7175f1fe](https://github.com/informedica/GenPRES/commit/7175f1fe0dc3be123904443741de4a76f8865906))
+* *(api)* Add launch and session commands with a session cookie ([2271ee90](https://github.com/informedica/GenPRES/commit/2271ee904fd5ba174f461bd54dba7be9f0ae17c9))
+* *(client)* Erase the launch from URL and history ([927a324c](https://github.com/informedica/GenPRES/commit/927a324cb398e7d9236f76c48ba7f781b17cc3a2))
+* *(client)* Draft the session state machine ([85b6b482](https://github.com/informedica/GenPRES/commit/85b6b482f947310b4b26cd943edb7de4fd988128))
+* *(client)* Add the session state machine ([c202f8ca](https://github.com/informedica/GenPRES/commit/c202f8ca675f6d66200ae44a07ebdb7de93d3474))
+* *(client)* Add the browser key pair for the launch ([34b159ef](https://github.com/informedica/GenPRES/commit/34b159efd8c6786d1d9aa1011a44e9d55e7e2678))
+* *(server)* Draft session contract and in-memory launch stub ([7cfd9687](https://github.com/informedica/GenPRES/commit/7cfd9687e8743aea45fa20bbba8ddc00534108a8))
+* *(server)* Migrate session contract and launch stub to source ([ec34470b](https://github.com/informedica/GenPRES/commit/ec34470b6167fc8e89a16907f12c395d49b56522))
+* *(server)* Draft launch and session command families ([7ccd710b](https://github.com/informedica/GenPRES/commit/7ccd710b70386f2c7e76fc2ffbebdaaf37e03d5b))
+
+### 🐞 Bug Fixes
+
+* *(client)* Land Closed only on a Closing session ([c6b03a2a](https://github.com/informedica/GenPRES/commit/c6b03a2ab5ded6b625136300cf236440e89f7246))
+* *(client)* Prune private keys by age, not by identity ([9ae54bc1](https://github.com/informedica/GenPRES/commit/9ae54bc19995228313ed6da90ec8f3d3736e8782))
+* *(server)* Read session stub state under the lock ([4a115319](https://github.com/informedica/GenPRES/commit/4a1153199bf6de3c25a8a6727d21627ee1fe510a))
+* *(server)* Secure the session cookie behind the proxy, delete on failed close ([f0011083](https://github.com/informedica/GenPRES/commit/f0011083ebd213e6de522c2e94239f8e6d5093fd))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/0b45499c06cfd59afc84db0914e7453df2119e9c..06cc5ac79e5c09f650615b4bbd866caaa1622fd0)</small></strong>
 
 ## 0.1.2-alpha.15 - 2026-09-07
 
