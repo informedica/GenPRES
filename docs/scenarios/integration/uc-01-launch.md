@@ -64,10 +64,11 @@ sequenceDiagram
     S->>D: CheckLaunchSpent (nonce)
     D-->>S: LaunchUnspent (a read, decides nothing)
     S->>D: append LaunchRecord {state, nonce, PatientId, expiry, public key}
-    S-->>C: redirect to /authorize?...&state=...
+    S-->>C: redirect to /authorize?...&state=... + Set-Cookie state (Lax, lifetime of the Launch)
     C->>I: 4.3 GET /authorize (silent device sign-on)
     I-->>C: redirect to /callback?code=...&state=...
-    C->>S: GET /callback?code=...&state=...
+    C->>S: GET /callback?code=...&state=... + cookie state
+    Note over S: the cookie must match the state in the URL
     S->>D: read LaunchRecord by state
     D-->>S: nonce, PatientId, expiry, public key
     S->>I: 4.4 POST /token (code, client secret), back channel
@@ -85,11 +86,19 @@ sequenceDiagram
   LaunchRecord with the `state`, the Launch's nonce, PatientId and expiry, and the public key.
   The sealed Launch itself is not stored: everything step 5 needs is in the record, and the
   spent-mark is keyed by the nonce (Rule 2). The browser is redirected to the IdentityProvider
-  with the `state`. Nothing is kept in a cookie or in Server memory (Rules 32, 36).
+  with the `state`, and the same redirect sets a cookie holding the `state`: `HttpOnly`,
+  `Secure`, `SameSite=Lax` (the callback is a cross-site top-level GET, on which `Strict` is
+  not sent), `Path=/callback`, `Max-Age` the Launch's lifetime. The cookie is a random value
+  with no meaning outside the LaunchRecord, not a bearer for anything (Rule 12 does not apply),
+  and the Server keeps nothing in memory (Rules 32, 36).
 - **4.3** The IdentityProvider signs the device on silently and redirects the browser to the
   Server's callback with an authorization code and the `state`.
-- **4.4** The Server reads the LaunchRecord by `state`, redeems the code on its own connection
-  to the IdentityProvider (edge C6), and receives the signed BrowserIdentity (Rule 4).
+- **4.4** The Server compares the `state` in the URL with the `state` cookie; without a match
+  the callback is refused before the code is redeemed. That is what proves the callback comes
+  from the browser that started the hop: a callback URL captured and opened elsewhere has no
+  matching cookie. The Server then reads the LaunchRecord by `state`, redeems the code on its
+  own connection to the IdentityProvider (edge C6), receives the signed BrowserIdentity
+  (Rule 4), and deletes the `state` cookie.
 - **4.5** The Server continues with step 5 and answers the callback with a redirect to
   `#/session`. On refusal it opens nothing and redirects to `#/session?refused={reason}`.
   A reason is not a secret; the Launch never appears in that URL. The Server appends the
@@ -97,6 +106,11 @@ sequenceDiagram
   lifetime, whose code the IdentityProvider has already redeemed, is answered as the first
   time (Rule 45). The record lives as long as the Launch: after the expiry it is dropped whole,
   never rewritten. The audit keeps the launch (Rule 46); the record does not.
+
+Two proofs, two moments: the `state` cookie proves the callback comes from the browser that
+started the hop; the public key proves, from step 7 on, that every request comes from the
+browser that presented the Launch. The cookie is gone after the callback, and the key pair
+cannot act before the Session exists, so neither replaces the other.
 
 The redirect in 4.2 unloads the Client, so the Client cannot keep the Launch across the hop.
 It does not need to: the LaunchRecord carries what the Launch said from 4.2 to 4.5, and the

@@ -206,13 +206,18 @@ try to parse the IdentityProvider's HTML as the response.
 
 Two server-side points the client shape depends on, for the plan that implements the hop:
 
-- The state of 4.2 is a LaunchRecord appended to the GenPRES Database, not a cookie. It holds
-  the Launch's verified contents (nonce, PatientId, expiry), the `state` and the public key,
-  never the sealed Launch, and is dropped whole after the expiry. The
-  callback is a cross-site top-level navigation, on which a `SameSite=Strict` cookie is not
-  sent, so a cookie could not carry it anyway. The session cookie stays `Strict`: it is set on
-  the callback response and only read by same-site requests afterwards. It is not sent on the
-  landing GET of `#/session` either, which is fine, since `index.html` does not need it.
+- The state of 4.2 is a LaunchRecord appended to the GenPRES Database. It holds the Launch's
+  verified contents (nonce, PatientId, expiry), the `state` and the public key, never the
+  sealed Launch, and is dropped whole after the expiry.
+- The redirect of 4.2 also sets a `state` cookie (`HttpOnly`, `Secure`, `SameSite=Lax`,
+  `Path=/callback`, `Max-Age` the Launch lifetime) and the callback refuses when it does not
+  match the `state` in the URL, before the code is redeemed. This is the OpenID Connect
+  correlation check (ASP.NET's OIDC handler does the same) and it is what stops a captured
+  callback URL from opening the Session in another browser before step 7 exists. `Lax`
+  because the callback is a cross-site top-level GET, on which `Strict` is not sent. The
+  session cookie stays `Strict`: it is set on the callback response and only read by
+  same-site requests afterwards. It is not sent on the landing GET of `#/session` either,
+  which is fine, since `index.html` does not need it.
 - The LaunchRecord and the spent-mark are one record per Launch, keyed by the nonce, holding
   `state`, the public key, the outcome and the session id. So the server answers a repeated callback
   (a reload of `/callback?code=...`, whose code is already redeemed) and a repeated presentation
