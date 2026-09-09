@@ -103,31 +103,6 @@ module Types =
             Department: string option
         }
 
-        static member Empty =
-            {
-                Age = None
-                GestationalAge = None
-                Weight =
-                    {
-                        EstimatedP3 = None
-                        Estimated = None
-                        EstimatedP97 = None
-                        Measured = None
-                    }
-                Height =
-                    {
-                        EstimatedP3 = None
-                        Estimated = None
-                        EstimatedP97 = None
-                        Measured = None
-                    }
-                Gender = UnknownGender
-                Access = []
-                RenalFunction = None
-                Location = None
-                Department = None
-            }
-
     /// Weight in gram!!
     and Weight =
         {
@@ -598,23 +573,4 @@ module Types =
             FileName: string
             SizeBytes: int64
             LastModifiedAt: string
-        }
-
-    /// The token used to launch a session in GenPRES,
-    /// which is typically provided by the hospital's authentication system.
-    /// The token is used to verify the user's identity and permissions before allowing access to the GenPRES system.
-    /// It can be used to acquire a redeem token, which is then used to
-    /// redeem the session and obtain the session content, including patient data.
-    type SessionLaunchToken = SessionLaunchToken of string
-
-    type SessionRedeemToken = SessionRedeemToken of string
-
-    type SessionContent =
-        {
-            RedeemToken: string
-            UserName: string
-            UserEmail: string
-            PatientId: string
-            Patient: Patient
-            SessionId: string
         }
