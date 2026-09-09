@@ -3031,11 +3031,13 @@ module Hospital =
             // nothing more (Rule 32), so the bound is on opens: how many within the
             // anonymous lifetime. Closing or replacing one frees nothing — the bound
             // guards against flooding, not a capacity — and since none outlives that
-            // lifetime, the same number caps how many stand open. Above the bound the
-            // answer is a refusal that writes nothing.
+            // lifetime, the same number caps how many stand open — the window is
+            // inclusive, because `hasExpired` ends a Session only once its age exceeds
+            // the lifetime, so one exactly that old still stands and must be counted.
+            // Above the bound the answer is a refusal that writes nothing.
             let recent =
                 h.Database.Private.Sessions
-                |> List.filter (fun r -> r.User.IsNone && r.OpenedAt > h.Env.Now - anonymousLifetime)
+                |> List.filter (fun r -> r.User.IsNone && r.OpenedAt >= h.Env.Now - anonymousLifetime)
                 |> List.length
 
             if recent >= anonymousOpenLimit then

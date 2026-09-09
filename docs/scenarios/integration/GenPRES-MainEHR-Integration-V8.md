@@ -663,7 +663,7 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 14. A Session opened without a launch is anonymous: no User, no Role, no PatientId.  
 
     - Rule 8's per-User limit and Rule 11 do not apply to it — its browser's limit does — nor does idling: it ends when closed, replaced, or at an absolute limit.  
-    - Anonymous opens are bounded: past a configured number of anonymous opens within the anonymous lifetime, an open is refused without a SessionRecord. The bound is on opens, not on Sessions standing open — closing or replacing one frees nothing — because it guards against flooding, not a capacity; and since no anonymous Session outlives the anonymous lifetime, the same number also bounds how many stand open at once. The count is read without a lock, and a small overshoot between concurrent opens is accepted.  
+    - Anonymous opens are bounded: past a configured number of anonymous opens within the anonymous lifetime, an open is refused without a SessionRecord. The bound is on opens, not on Sessions standing open — closing or replacing one frees nothing — because it guards against flooding, not a capacity; and since no anonymous Session outlives the anonymous lifetime, the same number also bounds how many stand open at once — provided the window counted is never shorter than the lifetime, boundary included, so that every Session that can still stand open is in the count. The count is read without a lock, and a small overshoot between concurrent opens is accepted.  
     - It can commit nothing (Rule 13), so Rules 40–45 have nothing to guard in it.
 
 **Record**
