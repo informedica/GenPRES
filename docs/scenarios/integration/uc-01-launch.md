@@ -38,7 +38,7 @@ sequenceDiagram
 
 | # | Step | What happens |
 |---|------|--------------|
-| 1 | Launch | The LaunchScript seals the PatientId under the key it shares with the Server, opens the browser on `#/session?launch={token}`, and exits. The Launch is single use and short-lived (Rules 2, 3, 29) and carries no login (Rule 4). |
+| 1 | Launch | The LaunchScript seals the PatientId and a fresh nonce under the key it shares with the Server, opens the browser on `#/session?launch={token}`, and exits. The Launch is single use and short-lived (Rules 2, 3, 29) and carries no login (Rule 4). |
 | 2 | Erase | The Client removes the Launch from the URL and the browser history and keeps it only in memory, for retries within its lifetime (Rule 39). |
 | 3 | Key pair | The Client generates a key pair with WebCrypto. The private key is not extractable and is stored in IndexedDB under the public key's thumbprint, next to keys of earlier launches in this browser. The public key goes with the Launch. |
 | 4 | Identity | The Client presents the Launch and the public key. The Server verifies the Launch, keeps its contents in a LaunchRecord, and sends the browser to the IdentityProvider and gets it back with a signed BrowserIdentity over its own connection, never through the Client's hands. See [Step 4](#step-4-the-identity-round-trip). |
