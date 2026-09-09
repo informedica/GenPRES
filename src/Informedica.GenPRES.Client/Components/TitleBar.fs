@@ -7,6 +7,8 @@ module TitleBar =
     open Fable.Core
     open Feliz
     open Fable.Core.JsInterop
+    open Shared.Types
+    open SessionMachine
 
 
     [<JSX.Component>]
@@ -22,10 +24,24 @@ module TitleBar =
                 isAuthenticated: bool
                 onLogin: string -> unit
                 onLogout: unit -> unit
+                // the launch Session (plan 409) is read through the env, not threaded as props
+                appEnv: obj
             |})
         =
 
         let context: Global.Context = React.useContext Global.context
+
+        let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
+
+        let anchorElSession, setAnchorElSession = React.useState None
+
+        let handleOpenSessionMenu = fun ev -> ev?currentTarget |> setAnchorElSession
+        let handleCloseSessionMenu = fun _ -> setAnchorElSession None
+
+        let handleCloseSession =
+            fun _ ->
+                setAnchorElSession None
+                session.Close()
 
         let anchorElHosp, setAnchorElHosp = React.useState None
 
@@ -155,6 +171,82 @@ module TitleBar =
                 horizontal = "right"
             |}
 
+        let sxSessionBox =
+            {|
+                display = "flex"
+                alignItems = "center"
+                marginLeft = 2
+            |}
+
+        // one button, like Login: keyboard-focusable, named by its text; the name is capped
+        // and clipped so a long display name cannot push the language and login controls out
+        let sxSessionButton =
+            {|
+                marginLeft = 1
+                textTransform = "none"
+                maxWidth = 260
+            |}
+
+        let sxSessionLabel =
+            {|
+                overflow = "hidden"
+                textOverflow = "ellipsis"
+                whiteSpace = "nowrap"
+            |}
+
+        let roleName role =
+            match role with
+            | UserRole.Prescriber -> "Prescriber"
+            | UserRole.Reader -> "Reader"
+
+        // who is in this Session, next to the hospital: only for an open Session with a user;
+        // nothing for anonymous use (plan 409, UI)
+        let sessionView =
+            let userOf (opened: SessionOpened) closing =
+                opened.User
+                |> Option.map (fun user ->
+                    let label = $"{user.DisplayName} ({roleName user.Role})"
+
+                    JSX.jsx
+                        $"""
+                    <Box sx={sxSessionBox}>
+                        <Button
+                            color="inherit"
+                            startIcon={Mui.Icons.Person}
+                            onClick={handleOpenSessionMenu}
+                            aria-haspopup="menu"
+                            aria-expanded={anchorElSession.IsSome}
+                            title={label}
+                            sx={sxSessionButton}>
+                            <Box component="span" sx={sxSessionLabel}>{label}</Box>
+                        </Button>
+                        <Menu
+                            sx={menuSx}
+                            anchorEl={anchorElSession}
+                            anchorOrigin={topRightOrigin}
+                            keepMounted
+                            transformOrigin={topRightOrigin}
+                            open={anchorElSession.IsSome}
+                            onClose={handleCloseSessionMenu}
+                        >
+                            <MenuItem onClick={handleCloseSession} disabled={closing}>
+                                <Typography>{"Close session"}</Typography>
+                            </MenuItem>
+                        </Menu>
+                    </Box>
+                    """
+                )
+
+            match session.Session with
+            | Session.Open opened -> userOf opened false
+            | Session.Closing opened -> userOf opened true
+            | Session.Anonymous
+            | Session.Launching _
+            | Session.Resuming
+            | Session.Refused _
+            | Session.Unreachable _ -> None
+            |> Option.defaultValue null
+
         JSX.jsx
             $"""
         import AppBar from '@mui/material/AppBar';
@@ -209,6 +301,7 @@ module TitleBar =
                     <Typography variant="body1" component="div" >
                         {$"{context.Hospital}"}
                     </Typography>
+                    {sessionView}
 
                     <Box sx={sxLangBox}>
                         <IconButton color="inherit" onClick={handleOpenLangMenu}>

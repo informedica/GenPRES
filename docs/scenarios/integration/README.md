@@ -51,4 +51,7 @@ which UC-1 already draws; rather than redraw it, those diagrams open with a note
 UC-1. Extensions are described in prose under *What it leaves out*, except the four above.
 
 The messages are read off `Integration.run.txt`, not sketched. If a diagram and the trace
-disagree, the trace is right.
+disagree, the trace is right — with one exception. The launch sequence,
+[uc-01-launch.md](uc-01-launch.md), goes beyond the trace (the browser key pair, the
+LaunchRecord, the signed request) and is the leading page for that sequence; where the script,
+the design document or a plan disagrees with it, they follow it.

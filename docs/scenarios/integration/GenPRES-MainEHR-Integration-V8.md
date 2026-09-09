@@ -358,7 +358,7 @@ The kinds of participants that appear in the use cases. \[ours\] \= under constr
 5. GenPRES Database \[ours\]: two stores, one writer — GenPRES Server.  
 
    - The clinical store holds the TreatmentPlans of the GenPRES PatientRecords, each with its base (Concept 13), and is what the PatientDataPlatform copies.  
-   - The private store holds everything else — SessionRecords, UserCredentials, the spent-state of Launches (Rule 2\) and of Tokens (Concept 17), the audit — and is never copied anywhere.  
+   - The private store holds everything else — SessionRecords, UserCredentials, the LaunchRecords that carry the spent-state of Launches (Rule 2; UC-1 steps 4 and 5), the spent-state of Tokens (Concept 17) and of signed request proofs (UC-1 step 7), the audit — and is never copied anywhere.  
    - Both stores are append-only, by definition: rows are added, never changed — the record by its nature (Concept 12), Sessions and UserCredentials as chains of events, spent-marks and request keys as rows written once. What may be forgotten (an old idle heartbeat) is dropped whole, never rewritten.
 
 
@@ -402,6 +402,7 @@ The things passed between actors, or held by them, and what each one means.
 3. **Launch**: the active Patient's PatientId, if any, sealed by MainEHR LaunchScript under a key it shares with GenPRES Server.  
 
    - Single use, short-lived, opaque, and carrying no login (Rule 4).  
+   - Carries a nonce the LaunchScript mints fresh per Launch, under the seal. It is what "single use" is counted on (Rule 2) and the identity of the LaunchRecord (UC-1 step 4.2).  
    - Its Patient is checked against the UserRegistry at the launch (Rule 6): the Session opens only on the Patient the User really has active in MainEHR.  
    - Patient-level authorization is MainEHR's; GenPRES enforces nothing finer.
 
@@ -437,6 +438,7 @@ The things passed between actors, or held by them, and what each one means.
 
    - Records whether the Session is open or ended, when it last heard from the Client (Rule 9), and whether the User has acknowledged its ending (Rule 11).  
    - Holds the mail address the registry last gave for this User — written at the launch and whenever a mail is sent — read only as the fallback for a notice (Rule 27).  
+   - Holds the public key the browser presented at its launch (UC-1 steps 3 and 5); every later request is verified against it (UC-1 step 7).  
    - Realized as appended events (Actor 5; Rule 40); "when it last heard" is the newest entry of an activity stream beside it, where only the newest entry counts.  
    - Kept after the Session ends.
 
@@ -598,10 +600,11 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
 1. MainEHR LaunchScript decides which MainEHR User may run it, and opens GenPRES. The Session's User is Rule 4's.  
 
-2. A Launch is accepted once; a second presentation is refused, unless it comes from the same BrowserIdentity within the Launch's lifetime, in which case it is answered as the first was (Rule 45\) and nothing is opened twice.  
+2. A Launch is accepted once; a second presentation is refused, unless it comes from the same browser within the Launch's lifetime — the same public key (UC-1 step 3), and once the identity hop is done the same BrowserIdentity — in which case it is answered as the first was (Rule 45\) and nothing is opened twice.  
 
    - The spent-marks are checked as soon as the Launch is verified, so a second use is refused before any further work — an early check, and only a check: it decides nothing.  
-   - Spent is a mark in the GenPRES Database, written in the same act that opens the Session (Rule 40), and that act alone decides: when the same Launch is presented twice and both pass the early check before either has opened, still only one Session opens. Server memory cannot hold the mark — a restart ends nothing (Rule 32\) and more than one Server may run (Rule 36).
+   - Spent is a mark in the GenPRES Database, written in the same act that opens the Session (Rule 40), and that act alone decides: when the same Launch is presented twice and both pass the early check before either has opened, still only one Session opens. Server memory cannot hold the mark — a restart ends nothing (Rule 32\) and more than one Server may run (Rule 36).  
+   - The mark is an entry appended to the LaunchRecord, keyed by the nonce and naming the Session that spent it (UC-1 step 5.7): a row written once, so the same Launch cannot be spent twice, and a retry is answered from that entry.
 
 
 
@@ -660,7 +663,7 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 14. A Session opened without a launch is anonymous: no User, no Role, no PatientId.  
 
     - Rule 8's per-User limit and Rule 11 do not apply to it — its browser's limit does — nor does idling: it ends when closed, replaced, or at an absolute limit.  
-    - Opens beyond a configured number of open anonymous Sessions are refused without a SessionRecord.  
+    - Anonymous opens are bounded: past a configured number of anonymous opens within the anonymous lifetime, an open is refused without a SessionRecord. The bound is on opens, not on Sessions standing open — closing or replacing one frees nothing — because it guards against flooding, not a capacity; and since no anonymous Session outlives the anonymous lifetime, the same number also bounds how many stand open at once — provided the window counted is never shorter than the lifetime, boundary included, so that every Session that can still stand open is in the count. The count is read without a lock, and a small overshoot between concurrent opens is accepted.  
     - It can commit nothing (Rule 13), so Rules 40–45 have nothing to guard in it.
 
 **Record**
@@ -787,7 +790,7 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
     - An ended Session can never return to open.  
     - One open Session per User and per browser (Rule 8\) is a Database constraint, enforced in the same act that opens the next.  
-    - The append-only Database (Actor 5\) enforces both by shape: a Session is a chain of events, each opening naming the Session it replaces, with uniqueness on that predecessor — the Database decides races, the newest of a chain is the open one, and an ended Session returning to open cannot even be written.
+    - The append-only Database (Actor 5\) enforces both by shape: a Session is a chain of events, and the open Session of a User, and of a browser, is the newest record written for that key that has not ended — newest by the Database's own monotonic id, never by a clock. An opening may name the Session it replaces, but that is descriptive: the ordering decides races (UC-1 ext 8b), so no lock and no rewrite is needed, a first opening needs no predecessor, and an ended Session returning to open cannot even be written.
 
 
 
@@ -795,7 +798,8 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
 42. Committing a Submission is one transaction: at its commit the Database re-verifies everything the request rests on, and all of it holds together, or the Submission is refused and nothing is committed.  
 
-    - Re-verified: the Session open, unexpired, and for this User and Patient (Rules 40, 41); the Role (Rule 38); the tokens (Rules 34, 44); the head (Rule 36); the challenge (Rule 43); and the PIN against the UserCredential as it stands at that moment, replaced or locked included (Rules 23, 28).
+    - Re-verified: the Session open, unexpired, and for this User and Patient (Rules 40, 41); the Role (Rule 38); the tokens (Rules 34, 44); the head (Rule 36); the challenge (Rule 43); and the PIN against the UserCredential as it stands at that moment, replaced or locked included (Rules 23, 28).  
+    - The Session check and the append touch two chains, and an open that supersedes the Session writes a new row and touches nothing the Submission holds (Rule 40), so no row lock can serialize the two: the commit transaction runs serializable and is retried once on conflict. Under plain read-committed isolation a Submission and a superseding open could both commit.
 
 
 
