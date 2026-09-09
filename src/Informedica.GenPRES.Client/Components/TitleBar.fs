@@ -178,11 +178,20 @@ module TitleBar =
                 marginLeft = 2
             |}
 
+        // one button, like Login: keyboard-focusable, named by its text; the name is capped
+        // and clipped so a long display name cannot push the language and login controls out
+        let sxSessionButton =
+            {|
+                marginLeft = 1
+                textTransform = "none"
+                maxWidth = 260
+            |}
+
         let sxSessionLabel =
             {|
-                cursor = "pointer"
-                color = "inherit"
-                userSelect = "none"
+                overflow = "hidden"
+                textOverflow = "ellipsis"
+                whiteSpace = "nowrap"
             |}
 
         let roleName role =
@@ -201,12 +210,16 @@ module TitleBar =
                     JSX.jsx
                         $"""
                     <Box sx={sxSessionBox}>
-                        <IconButton color="inherit" onClick={handleOpenSessionMenu}>
-                            {Mui.Icons.Person}
-                        </IconButton>
-                        <Typography variant="body1" component="div" sx={sxSessionLabel} onClick={handleOpenSessionMenu}>
-                            {label}
-                        </Typography>
+                        <Button
+                            color="inherit"
+                            startIcon={Mui.Icons.Person}
+                            onClick={handleOpenSessionMenu}
+                            aria-haspopup="menu"
+                            aria-expanded={anchorElSession.IsSome}
+                            title={label}
+                            sx={sxSessionButton}>
+                            <Box component="span" sx={sxSessionLabel}>{label}</Box>
+                        </Button>
                         <Menu
                             sx={menuSx}
                             anchorEl={anchorElSession}
