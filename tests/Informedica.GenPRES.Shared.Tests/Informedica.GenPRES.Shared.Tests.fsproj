@@ -16,6 +16,8 @@
     <!-- the client session state machine is pure F#; linked in so it runs under Expecto -->
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SessionMachine.fs" />
     <Compile Include="SessionMachineTests.fs" />
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\SessionGatePolicy.fs" />
+    <Compile Include="SessionGatePolicyTests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="scripts\CalcYearsOracle.fsx" />
