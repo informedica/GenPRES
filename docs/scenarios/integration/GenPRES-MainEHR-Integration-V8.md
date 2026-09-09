@@ -663,7 +663,7 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 14. A Session opened without a launch is anonymous: no User, no Role, no PatientId.  
 
     - Rule 8's per-User limit and Rule 11 do not apply to it — its browser's limit does — nor does idling: it ends when closed, replaced, or at an absolute limit.  
-    - Opens beyond a configured number of open anonymous Sessions are refused without a SessionRecord. Counted as anonymous opens within the anonymous lifetime, which is never less than the open count since an anonymous Session does not idle out; a small overshoot between concurrent opens is accepted — the bound is against flooding, not a clinical invariant, and needs no lock.  
+    - Anonymous opens are bounded: past a configured number of anonymous opens within the anonymous lifetime, an open is refused without a SessionRecord. The bound is on opens, not on Sessions standing open — closing or replacing one frees nothing — because it guards against flooding, not a capacity; and since no anonymous Session outlives the anonymous lifetime, the same number also bounds how many stand open at once. The count is read without a lock, and a small overshoot between concurrent opens is accepted.  
     - It can commit nothing (Rule 13), so Rules 40–45 have nothing to guard in it.
 
 **Record**
@@ -799,7 +799,7 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 42. Committing a Submission is one transaction: at its commit the Database re-verifies everything the request rests on, and all of it holds together, or the Submission is refused and nothing is committed.  
 
     - Re-verified: the Session open, unexpired, and for this User and Patient (Rules 40, 41); the Role (Rule 38); the tokens (Rules 34, 44); the head (Rule 36); the challenge (Rule 43); and the PIN against the UserCredential as it stands at that moment, replaced or locked included (Rules 23, 28).  
-    - The Session check and the append touch two chains, so the transaction runs serializable, or holds that Session's row, and is retried once on conflict: under plain read-committed isolation a Submission and an open that supersedes its Session could both commit.
+    - The Session check and the append touch two chains, and an open that supersedes the Session writes a new row and touches nothing the Submission holds (Rule 40), so no row lock can serialize the two: the commit transaction runs serializable and is retried once on conflict. Under plain read-committed isolation a Submission and a superseding open could both commit.
 
 
 

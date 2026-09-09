@@ -37,7 +37,9 @@ sequenceDiagram
 clinical data at all: the User types what they want computed. That is what makes it safe
 to hand to anyone who can reach the address.
 
-**It is bounded twice.** By how many may stand open at once, and by an absolute lifetime
+**It is bounded twice.** By how many anonymous opens the Server accepts within the
+anonymous lifetime — a bound on opens, so closing one frees nothing, and since none outlives
+that lifetime it also caps how many stand open at once — and by an absolute lifetime
 counted from the open. There is no idle clock — nobody is waiting to be told anything —
 so the lifetime is the only thing that ends it.
 

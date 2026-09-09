@@ -3028,14 +3028,17 @@ module Hospital =
 
         | GenPresClient _, GenPresServer, OpenAnonymous replacing ->
             // Rule 14. An anonymous open costs the Server one SessionRecord and
-            // nothing more (Rule 32), so the bound on the cost is how many may stand at
-            // once. Above the bound the answer is a refusal that writes nothing.
-            let standing =
+            // nothing more (Rule 32), so the bound is on opens: how many within the
+            // anonymous lifetime. Closing or replacing one frees nothing — the bound
+            // guards against flooding, not a capacity — and since none outlives that
+            // lifetime, the same number caps how many stand open. Above the bound the
+            // answer is a refusal that writes nothing.
+            let recent =
                 h.Database.Private.Sessions
-                |> List.filter (fun r -> r.User.IsNone && SessionRecord.isOpen r)
+                |> List.filter (fun r -> r.User.IsNone && r.OpenedAt > h.Env.Now - anonymousLifetime)
                 |> List.length
 
-            if standing >= anonymousOpenLimit then
+            if recent >= anonymousOpenLimit then
                 // Rule 46. Counted, not written out line by line: the refusal is an
                 // event worth knowing about, and a count is what a flood may grow.
                 h,
@@ -6847,9 +6850,9 @@ let uc7 () =
          && (recNo 1 outlived |> Option.bind _.User).IsNone)
 
     // ── Rule 14 — anonymous opens are bounded in number, not only in lifetime ──
-    // An anonymous open is an unauthenticated write: one SessionRecord per open, and
-    // the lifetime says only how long each lives. Above the bound the answer is a
-    // refusal that writes no record.
+    // An anonymous open is an unauthenticated write: one SessionRecord per open, so
+    // the bound is on opens within the anonymous lifetime, not on what stands open.
+    // Above the bound the answer is a refusal that writes no record.
     let refusals = 4
 
     let flooded =
@@ -6858,7 +6861,7 @@ let uc7 () =
             |> List.collect (fun i -> [ atClient (100 + i) OpenDirectly ])
         step "Rule 14 — many browsers open anonymously at once" world opens
 
-    expect "Rule 14 the standing anonymous Sessions are capped, and the rest are refused"
+    expect "Rule 14 anonymous opens within the lifetime are capped, and the rest are refused"
         (openCount flooded = anonymousOpenLimit
          && saw (function AnonymousRefused -> true | _ -> false))
 
