@@ -535,6 +535,19 @@ module SessionStubTests =
         testList
             "processLaunch and processSession"
             [
+                testAsync "getSettings answers the settings the host composed with" {
+                    let settings =
+                        {
+                            ServerSettings.Language = Shared.Localization.French
+                            IsDemo = false
+                        }
+
+                    let cookie, _ = memoryCookie None
+                    let api = CompositionRoot.compose settings (envWithStub ()) cookie
+                    let! answer = api.getSettings ()
+                    answer |> Expect.equal "same value" settings
+                }
+
                 testAsync "PresentLaunch: Opened writes the session id to the cookie and returns the session without it" {
                     let env = envWithStub ()
                     let cookie, held = memoryCookie None

@@ -14,15 +14,22 @@ module SessionGate =
 
     open Fable.Core
     open Feliz
+    open Shared
     open SessionGatePolicy
 
 
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
+        let terms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let context: Global.Context = React.useContext Global.context
+
+        // the sheet's translation in the User's language, else the policy's English
+        let tr term =
+            Global.getLocalizedTerm terms context.Localization (english term) term
 
         let gate =
-            gateFor session.Session
+            gateFor tr session.Session
             |> Option.defaultValue
                 {
                     Title = ""
@@ -53,14 +60,14 @@ module SessionGate =
                     JSX.jsx
                         $"""
                     <Button key="retry" variant="contained" color="primary" onClick={onRetry}>
-                        {"Try again"}
+                        {tr Terms.``Session Try Again``}
                     </Button>
                     """
                 | Action.ContinueWithoutLaunch ->
                     JSX.jsx
                         $"""
                     <Button key="continue" variant="contained" color="primary" onClick={onContinue}>
-                        {"Continue without launch"}
+                        {tr Terms.``Session Continue Without Launch``}
                     </Button>
                     """
             )

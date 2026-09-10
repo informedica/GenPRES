@@ -5,5 +5,10 @@ namespace ServerApi
 module ApiImpl =
 
     /// Creates the IServerApi implementation for one request using the composition root.
-    let createServerApi (env: AppEnv) (cookie: SessionCookie) : Shared.Api.IServerApi =
-        CompositionRoot.compose env cookie
+    let createServerApi
+        (settings: Shared.Api.ServerSettings)
+        (env: AppEnv)
+        (cookie: SessionCookie)
+        : Shared.Api.IServerApi
+        =
+        CompositionRoot.compose settings env cookie
