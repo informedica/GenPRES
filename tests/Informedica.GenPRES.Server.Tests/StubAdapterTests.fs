@@ -64,7 +64,7 @@ module StubAdapters =
             callback =
                 fun _ ->
                     async { return CallbackResult.Refused(LaunchRefusal.LaunchInvalid, "/#/session?refused=invalid") }
-            find = fun _ -> async { return None }
+            find = fun _ -> async { return SessionLookup.NotFound }
             close = fun _ -> async { return () }
         }
 
@@ -725,8 +725,46 @@ module SessionStubTests =
 
                             state.Endings
                             |> Map.tryFind id1
-                            |> Expect.equal "marked" (Some Hop.SessionEnding.SupersededByLaunch)
+                            |> Option.map fst
+                            |> Expect.equal "marked" (Some SessionEnding.SupersededByLaunch)
                         | other -> failtest $"expected two Opened, got {other}"
+                    }
+
+                    test "a callback reload after a newer launch of the same login does not hand back the dead Session" {
+                        let ids, d = fixture ()
+                        let state, cb1 = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, _ = run ids d state cb1
+                        let state, cb2 = hop ids d state (mintFor "n-2" "patient-1") keyB "prescriber"
+                        let state, _ = run ids d state cb2
+                        let state2, again = run ids d state cb1
+                        again |> Expect.equal "superseded" (CallbackResult.Superseded "/#/session")
+                        state2 |> Expect.equal "unchanged" state
+                    }
+
+                    test
+                        "the ended Session is told at every lookup that still carries the cookie, until its lifetime (Rule 11)" {
+                        let ids, d = fixture ()
+                        let state, cb1 = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, first = run ids d state cb1
+                        let state, cb2 = hop ids d state (mintFor "n-2" "patient-1") keyB "prescriber"
+                        let state, _ = run ids d state cb2
+
+                        let id1 =
+                            match first with
+                            | CallbackResult.Opened(id, _) -> id
+                            | other -> failtest $"{other}"
+
+                        let state, told = Hop.find id1 state
+
+                        told
+                        |> Expect.equal "told" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
+
+                        // the answer was lost, or the tab comes back much later: the cookie came
+                        // again, so is the ending
+                        let _, again = Hop.find id1 state
+
+                        again
+                        |> Expect.equal "told again" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
                     }
 
                     test "two logins keep two Sessions" {
@@ -769,16 +807,14 @@ module SessionStubTests =
 
                         match opened with
                         | CallbackResult.Opened(id, _) ->
-                            let! found = port.find id
-
-                            found
-                            |> Option.bind _.User
-                            |> Option.map _.UserId
-                            |> Expect.equal "found" (Some "prescriber")
+                            match! port.find id with
+                            | SessionLookup.Found session ->
+                                session.User |> Option.map _.UserId |> Expect.equal "found" (Some "prescriber")
+                            | other -> failtest $"expected Found, got {other}"
 
                             do! port.close id
                             let! gone = port.find id
-                            gone |> Expect.isNone "closed"
+                            gone |> Expect.equal "closed" SessionLookup.NotFound
                         | other -> failtest $"expected Opened, got {other}"
                     }
                 ]
@@ -806,6 +842,16 @@ module SessionStubTests =
             testList
                 "StubDirectory"
                 [
+                    test "past the lifetime a code does not redeem, and the next issue prunes it" {
+                        let clock = ref t0
+                        let d = StubDirectory.make (fun () -> clock.Value) (counter "code")
+                        let stale = d.issue "prescriber" "p"
+                        clock.Value <- t0 + StubDirectory.codeLifetime + TimeSpan.FromSeconds 1.0
+                        d.idp.redeem stale |> Expect.isNone "stale"
+                        let fresh = d.issue "reader" "p"
+                        d.idp.redeem fresh |> Option.map _.Login |> Expect.equal "fresh" (Some "reader")
+                    }
+
                     test "a code redeems once" {
                         let d = StubDirectory.make (fun () -> t0) (counter "code")
                         let code = d.issue "prescriber" "p"
@@ -815,16 +861,6 @@ module SessionStubTests =
                         |> Expect.equal "first" (Some "prescriber")
 
                         d.idp.redeem code |> Expect.isNone "second"
-                    }
-
-                    test "past the lifetime a code does not redeem, and the next issue prunes it" {
-                        let clock = ref t0
-                        let d = StubDirectory.make (fun () -> clock.Value) (counter "code")
-                        let stale = d.issue "prescriber" "p"
-                        clock.Value <- t0 + StubDirectory.codeLifetime + TimeSpan.FromSeconds 1.0
-                        d.idp.redeem stale |> Expect.isNone "stale"
-                        let fresh = d.issue "reader" "p"
-                        d.idp.redeem fresh |> Option.map _.Login |> Expect.equal "fresh" (Some "reader")
                     }
 
                     test "every choice but none has an identity; unknown has no standing" {
@@ -1119,12 +1155,13 @@ module SessionStubTests =
 
                     redirect |> Expect.equal "to the app" "/#/session"
                     held.Value |> Expect.isSome "cookie holds the id"
-                    let! found = env.session.find held.Value.Value
 
-                    found
-                    |> Option.bind _.User
-                    |> Option.map _.UserId
-                    |> Expect.equal "the opened session" (Some "prescriber")
+                    match! env.session.find held.Value.Value with
+                    | SessionLookup.Found session ->
+                        session.User
+                        |> Option.map _.UserId
+                        |> Expect.equal "the opened session" (Some "prescriber")
+                    | other -> failtest $"expected Found, got {other}"
                 }
 
                 testAsync "processCallback: a refusal writes no session cookie and names the reason in the url" {
@@ -1235,6 +1272,43 @@ module SessionStubTests =
                     | other -> failtest $"expected the session, got {other}"
                 }
 
+                testAsync
+                    "GetSession: after a newer launch of the same login the ending is told until the client closes to acknowledge (Rule 11)" {
+                    let directory, env = envWithStub ()
+                    let cookie, held = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+                    let! _ = openVia directory env cookie stateCookie (mintFor "n-1" "stub-patient") keyA "prescriber"
+                    let first = held.Value.Value
+
+                    let stateCookie2, _ = memoryStateCookie None
+                    let other, _ = memoryCookie None
+                    let! _ = openVia directory env other stateCookie2 (mintFor "n-2" "stub-patient") keyB "prescriber"
+
+                    // the first browser still holds its cookie
+                    let firstBrowser, heldFirst = memoryCookie (Some first)
+                    let! told = CompositionRoot.processSession env firstBrowser SessionCommand.GetSession
+
+                    told
+                    |> Expect.equal "told" (SessionResponse.SessionEnded SessionEnding.SupersededByLaunch)
+
+                    heldFirst.Value |> Expect.equal "cookie kept until acknowledged" (Some first)
+
+                    // the answer was lost: the browser asks again and is told again
+                    let! second = CompositionRoot.processSession env firstBrowser SessionCommand.GetSession
+
+                    second
+                    |> Expect.equal "told again" (SessionResponse.SessionEnded SessionEnding.SupersededByLaunch)
+
+                    // the client acknowledges with a close: cookie deleted, ending dropped
+                    let! closed = CompositionRoot.processSession env firstBrowser SessionCommand.CloseSession
+                    closed |> Expect.equal "closed" SessionResponse.SessionClosed
+                    heldFirst.Value |> Expect.isNone "cookie deleted"
+
+                    let stale, _ = memoryCookie (Some first)
+                    let! third = CompositionRoot.processSession env stale SessionCommand.GetSession
+                    third |> Expect.equal "nothing left to tell" (SessionResponse.SessionResp None)
+                }
+
                 testAsync "GetSession: a cookie for an unknown session is None" {
                     let _, env = envWithStub ()
                     let cookie, _ = memoryCookie (Some "stale")
@@ -1252,7 +1326,7 @@ module SessionStubTests =
                     response |> Expect.equal "closed" SessionResponse.SessionClosed
                     held.Value |> Expect.isNone "cookie deleted"
                     let! found = env.session.find id
-                    found |> Expect.isNone "session gone"
+                    found |> Expect.equal "session gone" SessionLookup.NotFound
                 }
 
                 testAsync "CloseSession without a cookie still deletes (idempotent)" {

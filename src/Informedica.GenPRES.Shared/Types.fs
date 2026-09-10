@@ -644,6 +644,13 @@ module Types =
         | EnrolmentRequired
 
 
+    /// Why a Session ended other than by the User closing it (Rule 11). The server says it
+    /// once, at the next request, and the client shows it. One case now; idle and absolute
+    /// lifetime (Rule 10) come with their own plan.
+    [<RequireQualifiedAccess>]
+    type SessionEnding = SupersededByLaunch
+
+
     [<RequireQualifiedAccess>]
     type LaunchOutcome =
         | Opened of SessionOpened

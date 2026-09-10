@@ -116,6 +116,16 @@ type CallbackResult =
     | Superseded of redirect: string
 
 
+/// What the store says about a session id from the cookie: the Session, nothing, or that the
+/// server ended it (Rule 11), said as long as the browser still sends the cookie; the client
+/// acknowledges with CloseSession, which deletes the cookie and drops the ending.
+[<RequireQualifiedAccess>]
+type SessionLookup =
+    | Found of SessionOpened
+    | NotFound
+    | Ended of SessionEnding
+
+
 type SessionPort =
     {
         // idempotent per public key within the Launch lifetime (Rule 2, uc-01 Retries)
@@ -123,7 +133,8 @@ type SessionPort =
         // uc-01 step 4.5: the browser is back from the IdentityProvider
         callback: Callback -> Async<CallbackResult>
         // by session id from the cookie
-        find: string -> Async<SessionOpened option>
+        // by session id from the cookie; an ending is told once (Rule 11)
+        find: string -> Async<SessionLookup>
         // Rule 10: explicit close
         close: string -> Async<unit>
     }

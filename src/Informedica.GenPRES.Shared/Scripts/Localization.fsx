@@ -51,6 +51,9 @@ type SessionTerms =
     | ``Session Close``
     | ``Session Role Prescriber``
     | ``Session Role Reader``
+    // the gate after the server ended the Session (Rule 11, plan 605 PR 4)
+    | ``Session Gate Ended``
+    | ``Session Ending Superseded``
 
 
 /// The English defaults: the strings the client shows today, verbatim.
@@ -81,6 +84,9 @@ let english term =
     | ``Session Close`` -> "Close session"
     | ``Session Role Prescriber`` -> "Prescriber"
     | ``Session Role Reader`` -> "Reader"
+    | ``Session Gate Ended`` -> "Your session was ended"
+    | ``Session Ending Superseded`` ->
+        "Another launch of yours opened a newer session, and this one was closed."
 
 
 /// Dutch, for the sheet; the other four languages stay empty and fall back to English.
@@ -111,6 +117,9 @@ let dutch term =
     | ``Session Close`` -> "Sessie sluiten"
     | ``Session Role Prescriber`` -> "Voorschrijver"
     | ``Session Role Reader`` -> "Lezer"
+    | ``Session Gate Ended`` -> "Uw sessie is beëindigd"
+    | ``Session Ending Superseded`` ->
+        "Een andere start van u heeft een nieuwere sessie geopend; deze sessie is gesloten."
 
 
 let all =

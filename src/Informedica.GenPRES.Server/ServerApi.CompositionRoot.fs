@@ -52,8 +52,13 @@ module CompositionRoot =
                 match cookie.read () with
                 | None -> return SessionResponse.SessionResp None
                 | Some id ->
-                    let! session = env.session.find id
-                    return SessionResponse.SessionResp session
+                    match! env.session.find id with
+                    | SessionLookup.Found session -> return SessionResponse.SessionResp(Some session)
+                    | SessionLookup.NotFound -> return SessionResponse.SessionResp None
+                    | SessionLookup.Ended ending ->
+                        // the cookie stays until the client acknowledges with CloseSession, which
+                        // deletes it and drops the ending; a lost answer is asked and told again
+                        return SessionResponse.SessionEnded ending
             | SessionCommand.CloseSession ->
                 try
                     match cookie.read () with

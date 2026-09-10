@@ -176,6 +176,8 @@ module Api =
     type SessionResponse =
         | SessionResp of SessionOpened option
         | SessionClosed
+        // the server ended the Session the cookie named, and deleted the cookie (Rule 11)
+        | SessionEnded of SessionEnding
 
 
     module LaunchCommand =

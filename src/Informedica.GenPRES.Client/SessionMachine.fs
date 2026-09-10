@@ -31,6 +31,17 @@ type Session =
     | Refused of LaunchRefusal * retry: (Launch * PublicKey) option
     // ext 3a: server down after the page was served
     | Unreachable of Launch * PublicKey * attempts: int
+    // no Session: the server ended it (Rule 11) and said so once; the User continues
+    // anonymously or relaunches
+    | Ended of SessionEnding
+
+
+/// What GetSession answered at a resume.
+[<RequireQualifiedAccess>]
+type ResumeResult =
+    | Found of SessionOpened
+    | NotFound
+    | Ended of SessionEnding
 
 
 [<RequireQualifiedAccess>]
@@ -42,7 +53,7 @@ type SessionMsg =
     // from Unreachable, or Refused with a retry
     | Retry
     | Resume
-    | Resumed of Result<SessionOpened option, string>
+    | Resumed of Result<ResumeResult, string>
     // from #/session?refused={reason}, launch step 4.5
     | RefusedAtCallback of LaunchRefusal
     | OpenAnonymous
@@ -131,7 +142,11 @@ module Session =
         | SessionMsg.Resume, Session.Anonymous -> Session.Resuming, [ SessionEffect.CallGetSession ]
         | SessionMsg.Resume, _ -> state, []
 
-        | SessionMsg.Resumed(Ok(Some session)), Session.Resuming -> opened session
+        | SessionMsg.Resumed(Ok(ResumeResult.Found session)), Session.Resuming -> opened session
+        // told once (Rule 11): the cookie is gone, the gate says why, the User chooses
+        // the close acknowledges the ending: the server deletes the cookie and drops the mark
+        | SessionMsg.Resumed(Ok(ResumeResult.Ended ending)), Session.Resuming ->
+            Session.Ended ending, [ SessionEffect.CallCloseSession ]
         | SessionMsg.Resumed _, Session.Resuming -> Session.Anonymous, []
         | SessionMsg.Resumed _, _ -> state, []
 
@@ -140,7 +155,8 @@ module Session =
 
         // an anonymous open carries nothing over (Rule 7)
         | SessionMsg.OpenAnonymous, Session.Refused _
-        | SessionMsg.OpenAnonymous, Session.Unreachable _ -> Session.Anonymous, [ SessionEffect.SetPatient None ]
+        | SessionMsg.OpenAnonymous, Session.Unreachable _
+        | SessionMsg.OpenAnonymous, Session.Ended _ -> Session.Anonymous, [ SessionEffect.SetPatient None ]
         | SessionMsg.OpenAnonymous, _ -> state, []
 
         | SessionMsg.Close, Session.Open session -> Session.Closing session, [ SessionEffect.CallCloseSession ]

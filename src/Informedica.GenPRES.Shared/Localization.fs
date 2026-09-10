@@ -158,6 +158,9 @@ type Terms =
     | ``Session Close``
     | ``Session Role Prescriber``
     | ``Session Role Reader``
+    // the gate after the server ended the Session (Rule 11)
+    | ``Session Gate Ended``
+    | ``Session Ending Superseded``
 
 
 module Localization =
