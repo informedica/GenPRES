@@ -754,22 +754,17 @@ module SessionStubTests =
                             | CallbackResult.Opened(id, _) -> id
                             | other -> failtest $"{other}"
 
-                        let state, told = Hop.find t0 id1 state
+                        let state, told = Hop.find id1 state
 
                         told
                         |> Expect.equal "told" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
 
-                        // the answer was lost: the cookie came again, so is the ending
-                        let state, again = Hop.find t0 id1 state
+                        // the answer was lost, or the tab comes back much later: the cookie came
+                        // again, so is the ending
+                        let _, again = Hop.find id1 state
 
                         again
                         |> Expect.equal "told again" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
-
-                        // past the lifetime the ending is gone
-                        let _, late =
-                            Hop.find (t0 + Hop.endingLifetime + TimeSpan.FromSeconds 1.0) id1 state
-
-                        late |> Expect.equal "dropped" SessionLookup.NotFound
                     }
 
                     test "two logins keep two Sessions" {
