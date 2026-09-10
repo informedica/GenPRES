@@ -252,7 +252,8 @@ module TitleBar =
             | Session.Resuming
             | Session.Refused _
             | Session.Unreachable _
-            | Session.Ended _ -> None
+            | Session.Ended _
+            | Session.Enrolling _ -> None
             |> Option.defaultValue null
 
         JSX.jsx

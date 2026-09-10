@@ -80,6 +80,12 @@ module SessionGatePolicyTests =
                                 "Unreachable", Session.Unreachable(launch, key, 3)
                                 "Refused", Session.Refused(LaunchRefusal.NoRole, None)
                                 "Ended", Session.Ended SessionEnding.SupersededByLaunch
+                                "Enrolling",
+                                Session.Enrolling
+                                    {
+                                        DisplayName = "Stub Prescriber (no PIN)"
+                                        MailHint = "n***@stub.example"
+                                    }
                             ] do
                             test name {
                                 gateFor english session |> Expect.isSome "gate"

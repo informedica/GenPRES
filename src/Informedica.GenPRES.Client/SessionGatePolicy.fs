@@ -110,7 +110,8 @@ let isGated (session: Session) =
     | Session.Resuming
     | Session.Unreachable _
     | Session.Refused _
-    | Session.Ended _ -> true
+    | Session.Ended _
+    | Session.Enrolling _ -> true
 
 
 /// The gate for a session phase, or None when the app is usable (anonymous, open, closing).
@@ -182,6 +183,16 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
                         ]
                 Busy = false
                 Actions = [ Action.ContinueWithoutLaunch ]
+            }
+    // UC-2, until the form lands (plan 615, step 3): the launch waits on a PIN and the gate
+    // says what the refusal said, a relaunch
+    | Session.Enrolling _ ->
+        Some
+            {
+                Title = tr Terms.``Session Gate Refused``
+                Body = sentences [ tr Terms.``Session Refusal Enrolment`` ]
+                Busy = false
+                Actions = []
             }
     | Session.Anonymous
     | Session.Open _
