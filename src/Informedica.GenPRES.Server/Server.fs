@@ -349,6 +349,45 @@ module Http =
         }
 
 
+    let enrolmentCookieName = "genpres_enrolment"
+
+
+    /// The enrolment cookie (UC-2): the attempt a suspended launch left in this browser. HttpOnly
+    /// and Strict (only the app's own calls carry it), Path=/, Max-Age what remains of the
+    /// confirmation code's lifetime, Secure over HTTPS. Not a bearer for anything without the
+    /// mailed code.
+    let enrolmentCookieOptions (isHttps: bool) (now: System.DateTime) (until: System.DateTime) =
+        CookieOptions(
+            HttpOnly = true,
+            Secure = isHttps,
+            SameSite = SameSiteMode.Strict,
+            Path = "/",
+            MaxAge = (if until > now then until - now else System.TimeSpan.Zero)
+        )
+
+
+    /// The enrolment cookie of this request as the port the composition root uses.
+    let enrolmentCookie (ctx: HttpContext) : EnrolmentCookie =
+        {
+            read =
+                fun () ->
+                    match ctx.Request.Cookies.TryGetValue enrolmentCookieName with
+                    | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
+                    | _ -> None
+            write =
+                fun attempt until ->
+                    ctx.Response.Cookies.Append(
+                        enrolmentCookieName,
+                        attempt,
+                        enrolmentCookieOptions ctx.Request.IsHttps System.DateTime.UtcNow until
+                    )
+            delete =
+                fun () ->
+                    let now = System.DateTime.UtcNow
+                    ctx.Response.Cookies.Delete(enrolmentCookieName, enrolmentCookieOptions ctx.Request.IsHttps now now)
+        }
+
+
     /// The session cookie of this request as the port the composition root uses.
     let sessionCookie (ctx: HttpContext) : SessionCookie =
         {
@@ -617,7 +656,7 @@ module Host =
         let mail = StubMail.make ()
 
         let env =
-            let env = Adapters.makeAppEnvWith launchKey directory provider
+            let env = Adapters.makeAppEnvWith launchKey directory mail.port provider
 
             // Stop-gap until the scope switch (#580): a production server never opens a
             // stub Session. Drop this swap when #580 decides what production exposes.
@@ -632,7 +671,12 @@ module Host =
         let webApi =
             Remoting.createApi ()
             |> Remoting.fromContext (fun ctx ->
-                createServerApi serverSettings env (Http.sessionCookie ctx) (Http.launchStateCookie ctx)
+                createServerApi
+                    serverSettings
+                    env
+                    (Http.sessionCookie ctx)
+                    (Http.launchStateCookie ctx)
+                    (Http.enrolmentCookie ctx)
             )
             |> Remoting.withRouteBuilder routerPaths
             |> Remoting.buildHttpHandler
@@ -725,7 +769,12 @@ module Host =
                         }
 
                     let! redirect =
-                        CompositionRoot.processCallback env (Http.sessionCookie ctx) (Http.launchStateCookie ctx) cb
+                        CompositionRoot.processCallback
+                            env
+                            (Http.sessionCookie ctx)
+                            (Http.launchStateCookie ctx)
+                            (Http.enrolmentCookie ctx)
+                            cb
 
                     return! redirectTo false redirect next ctx
                 }

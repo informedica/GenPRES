@@ -261,11 +261,44 @@ module Credential =
         }
 
 
+module Pin =
+
+    /// Four to six digits. V8 names no format; this is the assumption plan 615 records.
+    let isValid (pin: string) =
+        not (isNull pin)
+        && pin.Length >= 4
+        && pin.Length <= 6
+        && pin |> Seq.forall Char.IsAsciiDigit
+
+
+module MailHint =
+
+    /// `n***@stub.example`: enough for the User to know which mailbox, not enough for a
+    /// shoulder to read the address.
+    let ofAddress (address: string) =
+        match address.IndexOf '@' with
+        | i when i > 0 -> $"{address[0]}***{address.Substring i}"
+        | _ -> "***"
+
+
+/// The two mails of UC-2 (Rule 27). English only; the mail language is a later concern.
+module Mails =
+
+    let confirmationCode (displayName: string) (code: string) (minutes: int) : string * string =
+        "GenPRES: your confirmation code",
+        $"Hello {displayName},\n\nYour confirmation code is {code}. It is valid for {minutes} minutes. Enter it in GenPRES together with the PIN of your choice.\n\nIf you did not open GenPRES just now, somebody tried to enrol in your name; nothing was set."
+
+
+    let pinSet (displayName: string) : string * string =
+        "GenPRES: your PIN was set",
+        $"Hello {displayName},\n\nA PIN was set for your GenPRES account just now. If that was not you, tell your administrator."
+
+
 /// Launch steps 4 and 5 over server-hosted stubs (plan 605): the LaunchRecord keyed by the
 /// nonce (4.2), the redirect to the IdentityProvider, the callback (4.5) with the step-5 ladder,
-/// the Rule 45 replay and the Rule 40 single act with the Rule 8 closes, and the credential
-/// half of the Database (plan 615). Pure over a state record; `makeSessionPort` wraps it in a
-/// lock over the three actor ports.
+/// the Rule 45 replay and the Rule 40 single act with the Rule 8 closes; the credential half of
+/// the Database and the suspended launch of UC-2 (plan 615). Pure over a state record;
+/// `makeSessionPort` wraps it in a lock over the actor ports.
 module Hop =
 
     /// The refusal words of `#/session?refused=<word>`; the client's `parseRefusal` reads them.
@@ -286,8 +319,41 @@ module Hop =
         $"/#/session?refused={refusalWord refusal}"
 
 
-    /// One record per Launch (4.2), keyed by the nonce (Rule 2) and found by the `state` at the
-    /// callback. The outcome is appended once (Rule 45); the record is dropped whole at expiry.
+    /// A Session as the store holds it: what the client learns, plus the login it belongs to
+    /// (Rule 8: a User has at most one open Session).
+    type SessionRecord =
+        {
+            Session: SessionOpened
+            Login: string option
+        }
+
+
+    /// A confirmation code as the Database keeps it (Rule 37, "the code as a mac"): one per
+    /// credential, with the address it went to, its expiry and the wrong tries so far.
+    type PendingCode =
+        {
+            UserId: string
+            MailAddress: string
+            CodeMac: byte[]
+            Expiry: DateTime
+            Tries: int
+        }
+
+
+    /// One suspended launch (UC-2): what the open needs once the PIN is set, and the public key
+    /// of the browser that made it, so the Session opens on the key the supplying browser holds.
+    /// No lifetime of its own: it lives as long as the code it is bound to.
+    type Enrolment =
+        {
+            Attempt: string
+            UserId: string
+            Login: string
+            DisplayName: string
+            PatientId: string
+            PublicKey: PublicKey
+        }
+
+
     type LaunchRecord =
         {
             Nonce: string
@@ -299,27 +365,16 @@ module Hop =
         }
 
 
-    /// A Session as the store holds it: what the client learns, plus the login it belongs to
-    /// (Rule 8: a User has at most one open Session).
-    type SessionRecord =
-        {
-            Session: SessionOpened
-            Login: string option
-        }
-
-
     type State =
         {
             Launches: Map<string, LaunchRecord>
             Sessions: Map<string, SessionRecord>
-            // sessions ended by the server, told once at the next GetSession (Rule 11, PR 4)
-            // sessions the server ended, with the moment: told at every GetSession that still
-            // carries their cookie (Rule 11), dropped when the client acknowledges with
-            // CloseSession. Kept as long as the Sessions are (Rule 10 will bound both).
             Endings: Map<string, SessionEnding * DateTime>
-            // the credential per person (Concept 7): read at 5.4 (Rule 24), written by
-            // enrolment (UC-2)
             Credentials: Map<string, Credential>
+            // UC-2: the live confirmation code per person
+            Codes: Map<string, PendingCode>
+            // UC-2: the suspended launches by attempt
+            Enrolments: Map<string, Enrolment>
         }
 
 
@@ -329,38 +384,44 @@ module Hop =
             Sessions = Map.empty
             Endings = Map.empty
             Credentials = Map.empty
+            Codes = Map.empty
+            Enrolments = Map.empty
         }
 
 
-    /// The state a host starts from: the credentials it was seeded with (the stub's, or a
-    /// store's read once the Database exists), nothing else.
     let initialState (credentials: Map<string, Credential>) =
         { emptyState with Credentials = credentials }
 
 
-    /// Rule 24, uc-02 `ReadCredential`: the credential of a person, or an empty one.
+    /// How long a confirmation code lives: a mail round trip, not Rule 30's gap. Bounds the
+    /// half-finished launch too (plan 615's deviation from the model).
+    let codeLifetime = TimeSpan.FromMinutes 15.0
+
+    /// Wrong codes before the code is void (ext 2b).
+    let maxTries = 3
+
+
     let credentialOf (userId: string) (state: State) =
         state.Credentials |> Map.tryFind userId |> Option.defaultValue Credential.empty
 
 
     let private dropExpired (now: DateTime) (state: State) =
-        { state with Launches = state.Launches |> Map.filter (fun _ r -> now <= r.Expiry) }
+        let codes = state.Codes |> Map.filter (fun _ c -> now <= c.Expiry)
+
+        { state with
+            Launches = state.Launches |> Map.filter (fun _ r -> now <= r.Expiry)
+            Codes = codes
+            // an attempt lives as long as its code
+            Enrolments = state.Enrolments |> Map.filter (fun _ e -> codes |> Map.containsKey e.UserId)
+        }
 
 
-    /// The answer `present` gives for a record: the recorded outcome, else the redirect again.
     let private answerOf (authorizeUrl: string -> string) (record: LaunchRecord) =
         match record.Outcome with
         | Some outcome -> outcome
         | None -> LaunchResult.RedirectTo(authorizeUrl record.State, record.State)
 
 
-    /// Step 4.1 and 4.2. Pure over the state; the clock, the id source, the verifier and the
-    /// IdentityProvider's url are parameters.
-    ///
-    /// - not sealed under the key, or past its expiry: refused, nothing recorded (Rules 3, 29);
-    /// - a record under the nonce: the same public key gets the recorded answer, or the redirect
-    ///   again while the hop is still open (Rule 2, uc-01 Retries); another key is LaunchSpent;
-    /// - a new nonce appends the record and sends the browser to the IdentityProvider.
     let present
         (now: DateTime)
         (newId: unit -> string)
@@ -392,33 +453,34 @@ module Hop =
                 { state with Launches = state.Launches |> Map.add claims.Nonce record }, answerOf authorizeUrl record
 
 
-    /// Step 5.7, one act (Rule 40): the Session is written, the login's other Sessions are
-    /// closed and marked (Rule 8), the outcome is appended to the record.
-    let private openSession
+    /// Step 5.7, one act (Rule 40), from whatever carried the launch this far: a LaunchRecord
+    /// at the callback, an Enrolment once the PIN is set. The Session is written, the login's
+    /// other Sessions are closed and marked (Rule 8).
+    let private openWith
         (now: DateTime)
         (newId: unit -> string)
         (patientData: string -> Patient option)
-        (record: LaunchRecord)
-        (standing: UserStanding)
+        (patientId: string)
+        (key: PublicKey)
+        (user: UserContext)
         (state: State)
         =
         let id = newId ()
 
         let session =
             {
-                User = Some standing.User
+                User = Some user
                 PatientContext =
                     Some
                         {
-                            PatientId = record.PatientId
-                            // ext 6a: no imported data is not a refusal
-                            Patient = patientData record.PatientId |> Option.defaultValue Shared.Models.Patient.empty
+                            PatientId = patientId
+                            Patient = patientData patientId |> Option.defaultValue Shared.Models.Patient.empty
                         }
                 OpenedToken = Some(OpenedToken $"opened-{id}")
-                KeyThumbprint = Some(PublicKey.thumbprint record.PublicKey)
+                KeyThumbprint = Some(PublicKey.thumbprint key)
             }
 
-        let login = Some standing.User.UserId
+        let login = Some user.UserId
 
         let superseded =
             state.Sessions
@@ -426,10 +488,7 @@ module Hop =
             |> Map.toList
             |> List.map fst
 
-        let outcome = LaunchResult.Opened(id, session)
-
         { state with
-            Launches = state.Launches |> Map.add record.Nonce { record with Outcome = Some outcome }
             Sessions =
                 superseded
                 |> List.fold (fun m sid -> Map.remove sid m) state.Sessions
@@ -443,30 +502,102 @@ module Hop =
                 superseded
                 |> List.fold (fun m sid -> Map.add sid (SessionEnding.SupersededByLaunch, now) m) state.Endings
         },
-        CallbackResult.Opened(id, openedUrl)
+        (id, session)
+
+
+    let private recordOutcome (record: LaunchRecord) outcome (state: State) =
+        { state with Launches = state.Launches |> Map.add record.Nonce { record with Outcome = Some outcome } }
+
+
+    let private openSession now newId patientData (record: LaunchRecord) (standing: UserStanding) (state: State) =
+        let state, (id, session) =
+            openWith now newId patientData record.PatientId record.PublicKey standing.User state
+
+        recordOutcome record (LaunchResult.Opened(id, session)) state, CallbackResult.Opened(id, openedUrl)
 
 
     let private refuse (record: LaunchRecord) refusal (state: State) =
-        { state with
-            Launches =
-                state.Launches
-                |> Map.add record.Nonce { record with Outcome = Some(LaunchResult.Refused refusal) }
-        },
-        CallbackResult.Refused(refusal, refusedUrl refusal)
+        recordOutcome record (LaunchResult.Refused refusal) state, CallbackResult.Refused(refusal, refusedUrl refusal)
 
 
-    /// Step 4.5 and step 5. The ladder, in order: the state cookie must match (the browser that
-    /// started the hop), the record must exist and be within its lifetime, an outcome already
-    /// recorded is answered again (Rule 45), the IdentityProvider must have said who is there
-    /// (ext 3c), the UserRegistry must know them (5.3, ext 5a) with the Launch's Patient active
-    /// (ext 5b), and a Prescriber's credential must have a PIN (5.4, Rules 24 and 25, ext 5d;
-    /// a Reader needs none, Rule 26, ext 5c). Then the Session opens in one act.
+    /// UC-2: the launch suspends at the PIN question. One live code per credential (Rule 37,
+    /// ext 2a): a code that still stands is reused and nothing is mailed; else a fresh code is
+    /// mailed to the address the registry gave on this request (Rule 27). The attempt is this
+    /// launch's own, with its browser's key.
+    let private suspend
+        (now: DateTime)
+        (newId: unit -> string)
+        (newCode: unit -> string)
+        (codeMac: string -> byte[])
+        (send: Mail -> unit)
+        (record: LaunchRecord)
+        (identity: BrowserIdentity)
+        (standing: UserStanding)
+        (state: State)
+        =
+        let userId = standing.User.UserId
+
+        let state =
+            match state.Codes |> Map.tryFind userId with
+            | Some _ -> state
+            | None ->
+                let code = newCode ()
+
+                let subject, body =
+                    Mails.confirmationCode identity.DisplayName code (int codeLifetime.TotalMinutes)
+
+                send
+                    {
+                        To = standing.MailAddress
+                        Subject = subject
+                        Body = body
+                    }
+
+                { state with
+                    Codes =
+                        state.Codes
+                        |> Map.add
+                            userId
+                            {
+                                UserId = userId
+                                MailAddress = standing.MailAddress
+                                CodeMac = codeMac code
+                                Expiry = now + codeLifetime
+                                Tries = 0
+                            }
+                }
+
+        let attempt = newId ()
+
+        let enrolment =
+            {
+                Attempt = attempt
+                UserId = userId
+                Login = identity.Login
+                DisplayName = identity.DisplayName
+                PatientId = record.PatientId
+                PublicKey = record.PublicKey
+            }
+
+        let until = state.Codes[userId].Expiry
+
+        { state with Enrolments = state.Enrolments |> Map.add attempt enrolment }
+        |> recordOutcome record (LaunchResult.Enrolling attempt),
+        CallbackResult.Enrolling(attempt, openedUrl, until)
+
+
+    /// Step 4.5 and step 5. As before, except at 5.4: a Prescriber whose credential has no PIN
+    /// is not refused, the launch suspends (Rules 7, 25). A callback reload while the attempt
+    /// stands is answered with it again (Rule 45); once it is gone, a relaunch is asked for.
     let callback
         (now: DateTime)
         (newId: unit -> string)
+        (newCode: unit -> string)
+        (codeMac: string -> byte[])
         (redeem: string -> BrowserIdentity option)
         (standing: BrowserIdentity -> UserStanding option)
         (patientData: string -> Patient option)
+        (send: Mail -> unit)
         (state: State)
         (cb: Callback)
         : State * CallbackResult
@@ -487,10 +618,14 @@ module Hop =
             match record.Outcome with
             | Some(LaunchResult.Opened(id, _)) when state.Sessions |> Map.containsKey id ->
                 state, CallbackResult.Opened(id, openedUrl)
-            // the recorded Session was replaced by a newer launch of the same login (Rule 8):
-            // answering its id would put a dead cookie over the live one
             | Some(LaunchResult.Opened _) -> state, CallbackResult.Superseded openedUrl
             | Some(LaunchResult.Refused refusal) -> state, CallbackResult.Refused(refusal, refusedUrl refusal)
+            | Some(LaunchResult.Enrolling attempt) ->
+                match state.Enrolments |> Map.tryFind attempt with
+                | Some e -> state, CallbackResult.Enrolling(attempt, openedUrl, state.Codes[e.UserId].Expiry)
+                | None ->
+                    state,
+                    CallbackResult.Refused(LaunchRefusal.EnrolmentRequired, refusedUrl LaunchRefusal.EnrolmentRequired)
             | Some(LaunchResult.RedirectTo _)
             | None ->
                 let identity =
@@ -505,26 +640,137 @@ module Hop =
                     | None -> refuse record LaunchRefusal.NoRole state
                     | Some standing when standing.ActivePatientId <> Some record.PatientId ->
                         refuse record LaunchRefusal.WrongActivePatient state
-                    // 5.4, Rule 24: the credential is the Database's; Rule 25 binds Prescribers
-                    // only, a Reader is never asked (Rule 26, ext 5c)
                     | Some standing when
                         standing.User.Role = UserRole.Prescriber
                         && not (credentialOf standing.User.UserId state |> Credential.pinSet)
                         ->
-                        refuse record LaunchRefusal.EnrolmentRequired state
+                        suspend now newId newCode codeMac send record identity standing state
                     | Some standing -> openSession now newId patientData record standing state
-        | _, None ->
-            // no record: expired and dropped (Rule 29), or never presented
-            state, invalid
+        | _, None -> state, invalid
         | _ -> state, invalid
 
 
-    /// The lookup for a session id: the Session; else the ending the server recorded, answered
-    /// as long as the cookie keeps coming; else nothing. The client acknowledges an ending with
-    /// CloseSession, which deletes the cookie and drops the mark (`close`), so a lost answer is
-    /// asked and told again while an acknowledged one is told once. An unacknowledged ending
-    /// is kept as long as the stub keeps its Sessions: the notification is the User's only one
-    /// (Rule 11). The absolute Session lifetime (Rule 10), when it lands, bounds both.
+    /// What a browser holding an attempt is told at GetSession: whom the launch is for and where
+    /// the code went, while the attempt (that is, its code) stands; nothing once it is gone.
+    let findEnrolment (now: DateTime) (attempt: string) (state: State) : State * EnrolmentPending option =
+        let state = dropExpired now state
+
+        match state.Enrolments |> Map.tryFind attempt with
+        | Some e ->
+            state,
+            Some
+                {
+                    DisplayName = e.DisplayName
+                    MailHint = MailHint.ofAddress state.Codes[e.UserId].MailAddress
+                }
+        | None -> state, None
+
+
+    /// The code and every attempt bound to it, gone (the PIN was set, the code is void, or
+    /// the browser gave up).
+    let private dropCode (userId: string) (state: State) =
+        { state with
+            Codes = state.Codes |> Map.remove userId
+            Enrolments = state.Enrolments |> Map.filter (fun _ e -> e.UserId <> userId)
+        }
+
+
+    /// The browser gave up on its attempt (CloseSession while enrolling). The code stands for
+    /// any other attempt bound to it; when this was the last one it goes too, so that the next
+    /// launch mails a fresh code.
+    let dropEnrolment (attempt: string) (state: State) : State =
+        match state.Enrolments |> Map.tryFind attempt with
+        | None -> state
+        | Some e ->
+            let state = { state with Enrolments = state.Enrolments |> Map.remove attempt }
+
+            if state.Enrolments |> Map.exists (fun _ o -> o.UserId = e.UserId) then
+                state
+            else
+                dropCode e.UserId state
+
+
+    /// UC-2, the PIN comes back with the code. In order: the attempt (and its code) must stand;
+    /// the PIN must have the format, else no try is spent; a wrong code counts, and the third
+    /// voids the code for every attempt (ext 2b); else one act (Rules 37, 40): the PIN is set
+    /// with a count of zero (Rule 28), the code and its attempts are dropped, the User is
+    /// told (Rule 27, at the address the registry answers now, else the one the code went to),
+    /// and the launch continues at 5.5 to 5.7 on the supplying attempt's key.
+    let supplyPin
+        (now: DateTime)
+        (newId: unit -> string)
+        (newSalt: int -> byte[])
+        (codeMac: string -> byte[])
+        (standing: BrowserIdentity -> UserStanding option)
+        (patientData: string -> Patient option)
+        (send: Mail -> unit)
+        (attempt: string)
+        (code: string)
+        (pin: string)
+        (state: State)
+        : State * SupplyPinResult
+        =
+        let state = dropExpired now state
+
+        match state.Enrolments |> Map.tryFind attempt with
+        | None -> state, SupplyPinResult.Refused PinRefusal.AttemptExpired
+        | Some e ->
+            let pending = state.Codes[e.UserId]
+
+            if not (Pin.isValid pin) then
+                state, SupplyPinResult.Refused PinRefusal.PinFormat
+            elif
+                not (
+                    System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(codeMac code, pending.CodeMac)
+                )
+            then
+                let tries = pending.Tries + 1
+
+                if tries >= maxTries then
+                    dropCode e.UserId state, SupplyPinResult.Refused PinRefusal.CodeVoid
+                else
+                    { state with Codes = state.Codes |> Map.add e.UserId { pending with Tries = tries } },
+                    SupplyPinResult.Refused(PinRefusal.WrongCode(maxTries - tries))
+            else
+                let identity =
+                    {
+                        Login = e.Login
+                        DisplayName = e.DisplayName
+                    }
+
+                // Rule 27: the address, asked fresh on the request that sends the mail; the
+                // code's address when the registry cannot answer (uc-02, last bullet)
+                let address =
+                    standing identity
+                    |> Option.map _.MailAddress
+                    |> Option.defaultValue pending.MailAddress
+
+                let subject, body = Mails.pinSet e.DisplayName
+
+                send
+                    {
+                        To = address
+                        Subject = subject
+                        Body = body
+                    }
+
+                let user =
+                    {
+                        UserId = e.UserId
+                        DisplayName = e.DisplayName
+                        Role = UserRole.Prescriber
+                    }
+
+                let state =
+                    { state with Credentials = state.Credentials |> Map.add e.UserId (Credential.withPin newSalt pin) }
+                    |> dropCode e.UserId
+
+                let state, (id, session) =
+                    openWith now newId patientData e.PatientId e.PublicKey user state
+
+                state, SupplyPinResult.Opened(id, session)
+
+
     let find (id: string) (state: State) : State * SessionLookup =
         match state.Sessions |> Map.tryFind id with
         | Some record -> state, SessionLookup.Found record.Session
@@ -534,8 +780,6 @@ module Hop =
             | None -> state, SessionLookup.NotFound
 
 
-    /// Rule 10's explicit close, and the acknowledgement of an ending: the Session and any
-    /// mark for the id are dropped together.
     let close (id: string) (state: State) : State =
         { state with
             Sessions = state.Sessions |> Map.remove id
@@ -543,16 +787,28 @@ module Hop =
         }
 
 
-    /// The port over a single mutable state guarded by a lock, over the three actor ports,
-    /// started from `initial`.
+    /// Six digits from a random source (the CSPRNG in the host).
+    let newCode (randomBelow: int -> int) () = (randomBelow 1_000_000).ToString "D6"
+
+
+    /// The mac of a code under the host key (Rule 37).
+    let codeMac (key: LaunchSeal.Key) (code: string) =
+        LaunchSeal.mac key (Text.Encoding.UTF8.GetBytes code)
+
+
     let makeSessionPort
         (now: unit -> DateTime)
         (newId: unit -> string)
+        (newCode: unit -> string)
+        (newSalt: int -> byte[])
+        (codeMac: string -> byte[])
         (verify: Launch -> Result<LaunchSeal.Claims, LaunchRefusal>)
         (idp: IdentityProviderPort)
         (registry: UserRegistryPort)
         (patientData: PatientDataPort)
+        (mail: MailPort)
         (initial: State)
+        : SessionPort
         =
         let gate = obj ()
         let mutable state = initial
@@ -573,10 +829,43 @@ module Hop =
                 fun cb ->
                     async {
                         return
-                            update (fun s -> callback (now ()) newId idp.redeem registry.standing patientData.read s cb)
+                            update (fun s ->
+                                callback
+                                    (now ())
+                                    newId
+                                    newCode
+                                    codeMac
+                                    idp.redeem
+                                    registry.standing
+                                    patientData.read
+                                    mail.send
+                                    s
+                                    cb
+                            )
                     }
             find = fun id -> async { return update (find id) }
             close = fun id -> async { return update (fun s -> close id s, ()) }
+            findEnrolment = fun attempt -> async { return update (findEnrolment (now ()) attempt) }
+            supplyPin =
+                fun attempt code pin ->
+                    async {
+                        return
+                            update (fun s ->
+                                supplyPin
+                                    (now ())
+                                    newId
+                                    newSalt
+                                    codeMac
+                                    registry.standing
+                                    patientData.read
+                                    mail.send
+                                    attempt
+                                    code
+                                    pin
+                                    s
+                            )
+                    }
+            dropEnrolment = fun attempt -> async { return update (fun s -> dropEnrolment attempt s, ()) }
         }
 
 
@@ -1046,12 +1335,16 @@ module Adapters =
                     }
             find = fun _ -> async { return SessionLookup.NotFound }
             close = fun _ -> async { return () }
+            findEnrolment = fun _ -> async { return None }
+            supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
+            dropEnrolment = fun _ -> async { return () }
         }
 
 
     let makeAppEnvWith
         (launchKey: LaunchSeal.Key)
         (directory: StubDirectory.Directory)
+        (mail: MailPort)
         (provider: Resources.IResourceProvider)
         : AppEnv
         =
@@ -1115,10 +1408,16 @@ module Adapters =
                 Hop.makeSessionPort
                     (fun () -> DateTime.UtcNow)
                     PublicKey.randomId
+                    // the confirmation code and the salt from the CSPRNG, the code mac under
+                    // the host key (UC-2, Rule 37)
+                    (Hop.newCode System.Security.Cryptography.RandomNumberGenerator.GetInt32)
+                    System.Security.Cryptography.RandomNumberGenerator.GetBytes
+                    (Hop.codeMac launchKey)
                     (fun launch -> LaunchSeal.verify DateTime.UtcNow launchKey launch)
                     directory.idp
                     directory.registry
                     StubPatientData.port
+                    mail
                     // the credential store, seeded per stub login (plan 615)
                     (Hop.initialState (StubCredentials.seed System.Security.Cryptography.RandomNumberGenerator.GetBytes))
         }
@@ -1130,4 +1429,5 @@ module Adapters =
         makeAppEnvWith
             (LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes)
             (StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId)
+            (StubMail.make ()).port
             provider

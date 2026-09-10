@@ -34,6 +34,9 @@ type Session =
     // no Session: the server ended it (Rule 11) and said so once; the User continues
     // anonymously or relaunches
     | Ended of SessionEnding
+    // no Session yet: the launch waits on a PIN (UC-2); the browser holds the attempt in a
+    // cookie, and the form to supply the code and the PIN follows (plan 615, step 3)
+    | Enrolling of EnrolmentPending
 
 
 /// What GetSession answered at a resume.
@@ -42,6 +45,7 @@ type ResumeResult =
     | Found of SessionOpened
     | NotFound
     | Ended of SessionEnding
+    | Enrolling of EnrolmentPending
 
 
 [<RequireQualifiedAccess>]
@@ -147,6 +151,8 @@ module Session =
         // the close acknowledges the ending: the server deletes the cookie and drops the mark
         | SessionMsg.Resumed(Ok(ResumeResult.Ended ending)), Session.Resuming ->
             Session.Ended ending, [ SessionEffect.CallCloseSession ]
+        // the launch waits on a PIN (UC-2): the gate says so, the form follows in step 3
+        | SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)), Session.Resuming -> Session.Enrolling pending, []
         | SessionMsg.Resumed _, Session.Resuming -> Session.Anonymous, []
         | SessionMsg.Resumed _, _ -> state, []
 

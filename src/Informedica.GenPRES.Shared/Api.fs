@@ -170,6 +170,9 @@ module Api =
         | GetSession
         // Rule 10: explicit close; always removes the cookie
         | CloseSession
+        // UC-2: the confirmation code from the mail and the chosen PIN, for the attempt the
+        // enrolment cookie names
+        | SupplyPin of code: string * pin: string
 
 
     [<RequireQualifiedAccess>]
@@ -178,6 +181,9 @@ module Api =
         | SessionClosed
         // the server ended the Session the cookie named, and deleted the cookie (Rule 11)
         | SessionEnded of SessionEnding
+        // the launch waits on a PIN (UC-2); answered to GetSession while the attempt stands
+        | EnrolmentPending of EnrolmentPending
+        | PinRefused of PinRefusal
 
 
     module LaunchCommand =
@@ -194,6 +200,8 @@ module Api =
             match cmd with
             | SessionCommand.GetSession -> "GetSession"
             | SessionCommand.CloseSession -> "CloseSession"
+            // never the code or the PIN
+            | SessionCommand.SupplyPin _ -> "SupplyPin"
 
 
     /// Defines how routes are generated on server and mapped from the client

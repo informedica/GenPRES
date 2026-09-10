@@ -319,6 +319,20 @@ module SessionMachineTests =
                         (Session.Ended SessionEnding.SupersededByLaunch, [ SessionEffect.CallCloseSession ])
                 }
 
+                test "Resumed with a pending enrolment is Enrolling, and a new launch presents (UC-2)" {
+                    let pending: EnrolmentPending =
+                        {
+                            DisplayName = "Stub Prescriber (no PIN)"
+                            MailHint = "n***@stub.example"
+                        }
+
+                    transition (SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending))) Session.Resuming
+                    |> Expect.equal "enrolling" (Session.Enrolling pending, [])
+
+                    transition (SessionMsg.Present(launchB, keyB)) (Session.Enrolling pending)
+                    |> Expect.equal "presents" (Session.present launchB keyB)
+                }
+
                 test "from Ended the anonymous open carries nothing over, and a new launch presents" {
                     let ended = Session.Ended SessionEnding.SupersededByLaunch
 

@@ -651,6 +651,25 @@ module Types =
     type SessionEnding = SupersededByLaunch
 
 
+    /// What the client learns when its launch is waiting on a PIN (UC-2): whom to greet and
+    /// where the confirmation code went, hinted so that a shoulder cannot read the address.
+    type EnrolmentPending =
+        {
+            DisplayName: string
+            MailHint: string
+        }
+
+
+    /// Why a supplied PIN did not set (UC-2 ext 2b). `WrongCode` leaves the form open with the
+    /// tries left; `CodeVoid` and `AttemptExpired` are terminal: the launch has to start over.
+    [<RequireQualifiedAccess>]
+    type PinRefusal =
+        | WrongCode of attemptsLeft: int
+        | CodeVoid
+        | AttemptExpired
+        | PinFormat
+
+
     [<RequireQualifiedAccess>]
     type LaunchOutcome =
         | Opened of SessionOpened

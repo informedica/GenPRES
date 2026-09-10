@@ -108,6 +108,8 @@ type LaunchResult =
     | Opened of sessionId: string * SessionOpened
     | RedirectTo of url: string * state: string
     | Refused of LaunchRefusal
+    // the launch suspended into enrolment (UC-2); the browser holds the attempt in a cookie
+    | Enrolling of attemptId: string
 
 
 /// What the callback (4.5) brings: the `state` from the url and from the cookie, and either a
@@ -130,6 +132,15 @@ type CallbackResult =
     // a reload of a callback whose Session a newer launch has since replaced (Rule 8): the
     // browser goes to the app on whatever cookie it holds, which is the newer Session's
     | Superseded of redirect: string
+    // UC-2: the attempt for the enrolment cookie, and how long the code it is bound to lives
+    | Enrolling of attemptId: string * redirect: string * until: System.DateTime
+
+
+/// The answer to a supplied PIN: the Session that opened, or why not.
+[<RequireQualifiedAccess>]
+type SupplyPinResult =
+    | Opened of sessionId: string * SessionOpened
+    | Refused of PinRefusal
 
 
 /// What the store says about a session id from the cookie: the Session, nothing, or that the
@@ -153,6 +164,12 @@ type SessionPort =
         find: string -> Async<SessionLookup>
         // Rule 10: explicit close
         close: string -> Async<unit>
+        // UC-2: what a browser holding an attempt is told
+        findEnrolment: string -> Async<EnrolmentPending option>
+        // UC-2: the code and the chosen PIN, for the attempt in the cookie
+        supplyPin: string -> string -> string -> Async<SupplyPinResult>
+        // an attempt the browser gave up on (CloseSession while enrolling)
+        dropEnrolment: string -> Async<unit>
     }
 
 
@@ -172,6 +189,16 @@ type LaunchStateCookie =
         // the cookie of one hop, named by its state, so that two tabs can launch at once
         read: string -> string option
         write: string -> unit
+    }
+
+
+/// The enrolment cookie of one request (UC-2): written at the callback with the code's expiry,
+/// read at GetSession and SupplyPin, deleted when the attempt is spent or gone.
+type EnrolmentCookie =
+    {
+        read: unit -> string option
+        write: string -> System.DateTime -> unit
+        delete: unit -> unit
     }
 
 

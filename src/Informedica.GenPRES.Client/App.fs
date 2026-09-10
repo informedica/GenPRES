@@ -613,6 +613,11 @@ module private Elmish =
                         return SessionMsg(SessionMsg.Resumed(Ok ResumeResult.NotFound))
                     | Api.SessionResponse.SessionEnded ending ->
                         return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Ended ending)))
+                    | Api.SessionResponse.EnrolmentPending pending ->
+                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)))
+                    // never an answer to GetSession
+                    | Api.SessionResponse.PinRefused _ ->
+                        return SessionMsg(SessionMsg.Resumed(Ok ResumeResult.NotFound))
                 with ex ->
                     return SessionMsg(SessionMsg.Resumed(Error ex.Message))
             }

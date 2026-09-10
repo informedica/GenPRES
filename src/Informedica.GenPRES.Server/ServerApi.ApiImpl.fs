@@ -10,6 +10,7 @@ module ApiImpl =
         (env: AppEnv)
         (cookie: SessionCookie)
         (stateCookie: LaunchStateCookie)
+        (enrolment: EnrolmentCookie)
         : Shared.Api.IServerApi
         =
-        CompositionRoot.compose settings env cookie stateCookie
+        CompositionRoot.compose settings env cookie stateCookie enrolment
