@@ -238,7 +238,7 @@ module Hop =
             // sessions ended by the server, told once at the next GetSession (Rule 11, PR 4)
             // sessions the server ended, with the moment: told at every GetSession that still
             // carries their cookie (Rule 11); the answer deletes the cookie, so a lost answer is
-            // asked again. Pruned after endingLifetime.
+            // asked again. Kept as long as the Sessions are (Rule 10 will bound both).
             Endings: Map<string, SessionEnding * DateTime>
         }
 
@@ -422,18 +422,12 @@ module Hop =
         | _ -> state, invalid
 
 
-    /// How long an ending is kept for a browser that still sends the cookie (Rule 11). Long
-    /// enough for a lost answer to be asked again; the answer that arrives deletes the cookie.
-    let endingLifetime = TimeSpan.FromHours 1.0
-
-
     /// The lookup for a session id: the Session; else the ending the server recorded, answered
     /// as long as the cookie keeps coming (the answer deletes it, so a lost answer is retried
-    /// rather than swallowed); else nothing. Endings past their lifetime are dropped here.
-    let find (now: DateTime) (id: string) (state: State) : State * SessionLookup =
-        let state =
-            { state with Endings = state.Endings |> Map.filter (fun _ (_, at) -> now - at <= endingLifetime) }
-
+    /// rather than swallowed); else nothing. An ending is kept as long as the stub keeps its
+    /// Sessions: the notification is the User's only one (Rule 11), and a tab may come back
+    /// after any pause. The absolute Session lifetime (Rule 10), when it lands, bounds both.
+    let find (id: string) (state: State) : State * SessionLookup =
         match state.Sessions |> Map.tryFind id with
         | Some record -> state, SessionLookup.Found record.Session
         | None ->
@@ -472,7 +466,7 @@ module Hop =
                         return
                             update (fun s -> callback (now ()) newId idp.redeem registry.standing patientData.read s cb)
                     }
-            find = fun id -> async { return update (find (now ()) id) }
+            find = fun id -> async { return update (find id) }
             close = fun id -> async { return update (fun s -> { s with Sessions = s.Sessions |> Map.remove id }, ()) }
         }
 
