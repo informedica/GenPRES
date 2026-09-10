@@ -73,13 +73,14 @@ there. Stub registry: `MailAddress = $"{login}@stub.example"`.
 At the callback ladder a Prescriber whose credential has no PIN no longer refuses. Two records
 carry the suspended launch, because the code belongs to the credential and the browser to the
 launch: a `PendingCode { UserId; MailAddress; CodeMac; Expiry; Tries }`, one per credential,
-and an `Enrolment { Attempt; UserId; Login; DisplayName; PatientId; PublicKey; Expiry }`, one
-per launch, holding the public key of the browser that made it. In one act the server appends
+and an `Enrolment { Attempt; UserId; Login; DisplayName; PatientId; PublicKey }`, one per
+launch, holding the public key of the browser that made it. The attempt has no lifetime of its
+own: it lives exactly as long as its code, whatever launch made it. In one act the server appends
 both (or only the attempt, when a code already stands, below), mails the six-digit code (CSPRNG;
 stored as an HMAC under the host key, "the code as a mac", Rule 37) to the address the registry
 gave on this request (Rule 27), records the LaunchRecord's outcome as suspended, and answers
 `Enrolling (attempt, "/#/session")`. The edge sets `genpres_enrolment=<attempt>` (HttpOnly, Strict, `Path=/`,
-`Max-Age` the attempt lifetime) and redirects. Nothing in the URL: the client learns of the
+`Max-Age` what remains of the code's lifetime) and redirects. Nothing in the URL: the client learns of the
 pending enrolment at its next `GetSession`.
 
 **One live code per credential** (Rule 37, ext 2a): a second `no-pin` launch while a code
@@ -88,15 +89,18 @@ User A is about to read is not voided. Either browser can supply the code; the S
 on the key of the attempt that supplied it, which is the key that browser holds (step 7 will
 sign with it). Setting the PIN drops the code and every attempt bound to it.
 
-**Abandonment**: an attempt expires after 15 minutes, a mail round trip. The model's
-`AwaitingPinChoice` is never collected; bounding it is a deliberate deviation, recorded here.
-`GetSession` on an expired attempt deletes the cookie and answers `NotFound`.
+**Abandonment**: a code expires 15 minutes after it was mailed, a mail round trip, and takes
+every attempt bound to it along; a launch made near the end of that window gets an attempt
+that is short-lived. The model's `AwaitingPinChoice` is never collected; bounding it is a
+deliberate deviation, recorded here. `GetSession` on an attempt whose code is gone deletes the
+cookie and answers `NotFound`.
 
 ### Supplying the PIN
 
 `supplyPin attempt code pin`, on the attempt named by the cookie, never by the client:
 
-- unknown or expired attempt: `Refused AttemptExpired`;
+- unknown attempt, or its code expired: the code and its attempts are dropped, `Refused
+  AttemptExpired`; the check is on the code's expiry, the only one there is;
 - wrong code: `Tries + 1` on the code, `Refused (WrongCode attemptsLeft)` while tries remain;
   the third wrong code drops the code and its attempts and answers `Refused CodeVoid`, a
   terminal answer (ext 2b: "a few tries, then the code is void; a fresh launch mails a fresh
