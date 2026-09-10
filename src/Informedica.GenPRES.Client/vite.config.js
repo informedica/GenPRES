@@ -24,6 +24,15 @@ export default defineConfig({
         "/stub": {
             target: proxyTarget,
             changeOrigin: true,
+        },
+        // the identity hop (uc-01 step 4): the stub IdentityProvider and the callback
+        "/authorize": {
+            target: proxyTarget,
+            changeOrigin: true,
+        },
+        "/callback": {
+            target: proxyTarget,
+            changeOrigin: true,
         }
     }
   },

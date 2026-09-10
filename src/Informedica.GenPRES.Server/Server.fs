@@ -300,6 +300,55 @@ module Http =
         CookieOptions(HttpOnly = true, Secure = isHttps, SameSite = SameSiteMode.Strict, Path = "/")
 
 
+    /// One state cookie per hop, named by the state (base64url, so a cookie-name token), so
+    /// that two tabs can launch at once without the second erasing the first's proof.
+    let launchStateCookieName (state: string) = $"genpres_launch_state.{state}"
+
+
+    /// The state cookie of the identity hop (uc-01 step 4.2): HttpOnly, SameSite=Lax so that
+    /// the redirect back from the IdentityProvider carries it, Path=/callback so that nothing
+    /// else sees it, Max-Age the Launch lifetime (Rule 29), Secure when the request came in
+    /// over HTTPS. Not a bearer for anything: it proves the browser that started the hop.
+    let launchStateCookieOptions (isHttps: bool) =
+        CookieOptions(
+            HttpOnly = true,
+            Secure = isHttps,
+            SameSite = SameSiteMode.Lax,
+            Path = "/callback",
+            MaxAge = StubLaunch.lifetime
+        )
+
+
+    /// The stub page's identity choice for the stub IdentityProvider: readable by /authorize
+    /// only for the Launch lifetime; HttpOnly and Lax, never a credential.
+    let stubIdentityCookieOptions (isHttps: bool) =
+        CookieOptions(
+            HttpOnly = true,
+            Secure = isHttps,
+            SameSite = SameSiteMode.Lax,
+            Path = "/",
+            MaxAge = StubLaunch.lifetime
+        )
+
+
+    /// The state cookie of this request as the port the composition root uses.
+    let launchStateCookie (ctx: HttpContext) : LaunchStateCookie =
+        {
+            read =
+                fun state ->
+                    match ctx.Request.Cookies.TryGetValue(launchStateCookieName state) with
+                    | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
+                    | _ -> None
+            write =
+                fun state ->
+                    ctx.Response.Cookies.Append(
+                        launchStateCookieName state,
+                        state,
+                        launchStateCookieOptions ctx.Request.IsHttps
+                    )
+        }
+
+
     /// The session cookie of this request as the port the composition root uses.
     let sessionCookie (ctx: HttpContext) : SessionCookie =
         {
@@ -558,8 +607,13 @@ module Host =
         let launchKey =
             LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes
 
+        // the stub IdentityProvider and UserRegistry (plan 605): one-time codes and the active
+        // patient per identity choice, issued by /authorize and redeemed at the callback
+        let directory =
+            StubDirectory.make (fun () -> System.DateTime.UtcNow) PublicKey.randomId
+
         let env =
-            let env = Adapters.makeAppEnvWith launchKey provider
+            let env = Adapters.makeAppEnvWith launchKey directory provider
 
             // Stop-gap until the scope switch (#580): a production server never opens a
             // stub Session. Drop this swap when #580 decides what production exposes.
@@ -573,7 +627,9 @@ module Host =
 
         let webApi =
             Remoting.createApi ()
-            |> Remoting.fromContext (fun ctx -> createServerApi serverSettings env (Http.sessionCookie ctx))
+            |> Remoting.fromContext (fun ctx ->
+                createServerApi serverSettings env (Http.sessionCookie ctx) (Http.launchStateCookie ctx)
+            )
             |> Remoting.withRouteBuilder routerPaths
             |> Remoting.buildHttpHandler
 
@@ -600,10 +656,71 @@ module Host =
                                 | true, values -> values.ToString()
                                 | _ -> ""
 
+                            let choice =
+                                match form.TryGetValue "identity" with
+                                | true, values when StubLaunch.choices |> List.contains (values.ToString()) ->
+                                    values.ToString()
+                                | _ -> "prescriber"
+
                             let launch = StubLaunch.mint System.DateTime.UtcNow PublicKey.randomId launchKey pid
+
+                            // what the stub IdentityProvider will say at /authorize, and which
+                            // patient the stub UserRegistry has active for it
+                            ctx.Response.Cookies.Append(
+                                StubLaunch.identityCookieName,
+                                StubLaunch.identityCookie choice pid,
+                                Http.stubIdentityCookieOptions ctx.Request.IsHttps
+                            )
+
                             return! redirectTo false (StubLaunch.launchUrl launch) next ctx
                         }
+                    // the stub IdentityProvider (uc-01 step 4.3): signs the browser on from the
+                    // identity chosen on the stub page, or reports no identity, and sends it back
+                    // with the state it received
+                    GET
+                    >=> route "/authorize"
+                    >=> fun next ctx ->
+                        let state = ctx.TryGetQueryStringValue "state" |> Option.defaultValue ""
+
+                        let identity =
+                            match ctx.Request.Cookies.TryGetValue StubLaunch.identityCookieName with
+                            | true, value -> StubLaunch.parseIdentityCookie (Some value)
+                            | _ -> None
+
+                        let url =
+                            match identity with
+                            | None
+                            | Some("none", _) ->
+                                $"/callback?state={System.Uri.EscapeDataString state}&error=no-identity"
+                            | Some(choice, pid) ->
+                                let code = directory.issue choice pid
+                                $"/callback?code={System.Uri.EscapeDataString code}&state={System.Uri.EscapeDataString state}"
+
+                        redirectTo false url next ctx
                 ]
+
+        // uc-01 step 4.5: the browser is back from the IdentityProvider. Mounted always; with the
+        // session port disabled it refuses as invalid.
+        let callback =
+            GET
+            >=> route "/callback"
+            >=> fun next ctx ->
+                task {
+                    let query name = ctx.TryGetQueryStringValue name
+
+                    let cb: Callback =
+                        {
+                            State = query "state" |> Option.defaultValue ""
+                            StateCookie = None
+                            Code = query "code"
+                            Error = query "error"
+                        }
+
+                    let! redirect =
+                        CompositionRoot.processCallback env (Http.sessionCookie ctx) (Http.launchStateCookie ctx) cb
+
+                    return! redirectTo false redirect next ctx
+                }
 
         // one request log around the whole route selection: the stub page, the api and the
         // 404 arm each leave exactly one trail
@@ -612,6 +729,7 @@ module Host =
             >=> choose
                     [
                         yield! stubLaunch
+                        callback
                         Http.safeWebApi webApi
                         setStatusCode 404 >=> text "Not Found"
                     ]
