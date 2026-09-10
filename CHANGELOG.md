@@ -1,5 +1,5 @@
 ---
-last_commit_released: 0b45499c06cfd59afc84db0914e7453df2119e9c
+last_commit_released: be079a7e07a285f55086dc3cba81914c5511c8ce
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,63 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.16 - 2026-09-10
+
+### 🚀 Features
+
+* *(api)* Initial session interaction scaffold ([d33a5127](https://github.com/informedica/GenPRES/commit/d33a5127e11f6e64fb17a2a4d5835c388eaaf80e))
+* *(api)* Implement token redeem logic ([dab4f763](https://github.com/informedica/GenPRES/commit/dab4f7637f5b9c2f838266089a21dd89d4fedd5e))
+* *(api)* Better docs for parseSessionInfo ([62cce32a](https://github.com/informedica/GenPRES/commit/62cce32a8c911ffdf947196436673ea4f25b8615))
+* *(api)* Restructure token exchange and show progress in UI ([7175f1fe](https://github.com/informedica/GenPRES/commit/7175f1fe0dc3be123904443741de4a76f8865906))
+* *(api)* Add launch and session commands with a session cookie ([2271ee90](https://github.com/informedica/GenPRES/commit/2271ee904fd5ba174f461bd54dba7be9f0ae17c9))
+* *(client)* Erase the launch from URL and history ([927a324c](https://github.com/informedica/GenPRES/commit/927a324cb398e7d9236f76c48ba7f781b17cc3a2))
+* *(client)* Draft the session state machine ([85b6b482](https://github.com/informedica/GenPRES/commit/85b6b482f947310b4b26cd943edb7de4fd988128))
+* *(client)* Add the session state machine ([c202f8ca](https://github.com/informedica/GenPRES/commit/c202f8ca675f6d66200ae44a07ebdb7de93d3474))
+* *(client)* Add the browser key pair for the launch ([34b159ef](https://github.com/informedica/GenPRES/commit/34b159efd8c6786d1d9aa1011a44e9d55e7e2678))
+* *(client)* Wire the launch session into the app ([8696b077](https://github.com/informedica/GenPRES/commit/8696b077de8c3b9c7d44eac68ebe5b065bcdd68c))
+* *(client)* Localise the session gate and session menu ([1f44c305](https://github.com/informedica/GenPRES/commit/1f44c305396dd3e9d19d03e4eeb2a385236be5ec))
+
+    The session gate and the session menu are localised through the
+    Localization sheet (22 new terms, English and Dutch rows).
+* *(server)* Draft session contract and in-memory launch stub ([7cfd9687](https://github.com/informedica/GenPRES/commit/7cfd9687e8743aea45fa20bbba8ddc00534108a8))
+* *(server)* Migrate session contract and launch stub to source ([ec34470b](https://github.com/informedica/GenPRES/commit/ec34470b6167fc8e89a16907f12c395d49b56522))
+* *(server)* Draft launch and session command families ([7ccd710b](https://github.com/informedica/GenPRES/commit/7ccd710b70386f2c7e76fc2ffbebdaaf37e03d5b))
+* *(server)* Default UI language from GENPRES_LANG ([5e3c638d](https://github.com/informedica/GenPRES/commit/5e3c638d528b06c22a2995d78e519c05e425358d))
+
+    `GENPRES_LANG` sets the default UI language; the client keeps the
+    chosen language across navigations and shows the demo suffix again.
+* *(server)* Seal the Launch and serve a stub LaunchScript page ([484a1744](https://github.com/informedica/GenPRES/commit/484a1744ee6d64fe4686fad9a28bef16cde91e24))
+
+    Development servers serve a stub LaunchScript page at /stub/launch
+    that mints a sealed Launch; the session stub verifies the seal, the
+    lifetime and the nonce.
+* *(server)* Run the identity hop over a stub IdentityProvider ([9f50d3cf](https://github.com/informedica/GenPRES/commit/9f50d3cfc8da0377c1e54af1316628e652280492))
+
+    Development servers run the launch's identity hop end to end through a
+    stub IdentityProvider and UserRegistry.
+* *(ui)* Show the session user in the title bar with a close action ([414b17de](https://github.com/informedica/GenPRES/commit/414b17de95750f99597cef7f69944c991468e7c2))
+* *(ui)* Add the session gate modal ([d16a68a8](https://github.com/informedica/GenPRES/commit/d16a68a849bf3af71c81f699cbad10c5fbe60e39))
+
+### 🐞 Bug Fixes
+
+* *(client)* Land Closed only on a Closing session ([c6b03a2a](https://github.com/informedica/GenPRES/commit/c6b03a2ab5ded6b625136300cf236440e89f7246))
+* *(client)* Prune private keys by age, not by identity ([9ae54bc1](https://github.com/informedica/GenPRES/commit/9ae54bc19995228313ed6da90ec8f3d3736e8782))
+* *(client)* Keep the session open when a close never reaches the server ([9e453aa3](https://github.com/informedica/GenPRES/commit/9e453aa374898a12d1f9242c7979757358478a2a))
+* *(client)* Report a failed close only for the closing session ([d359a72f](https://github.com/informedica/GenPRES/commit/d359a72fe401d7b38c706f94a23df19119028dbd))
+* *(server)* Read session stub state under the lock ([4a115319](https://github.com/informedica/GenPRES/commit/4a1153199bf6de3c25a8a6727d21627ee1fe510a))
+* *(server)* Secure the session cookie behind the proxy, delete on failed close ([f0011083](https://github.com/informedica/GenPRES/commit/f0011083ebd213e6de522c2e94239f8e6d5093fd))
+* *(server)* Start production without a password ([8d65941a](https://github.com/informedica/GenPRES/commit/8d65941aec141b12ae1986d2ef3a4461bf7ac267))
+
+    Production mode without an admin password starts with admin operations
+    disabled and a warning instead of refusing to start; a password
+    shorter than 16 characters still refuses.
+* *(server)* Log the stub launch page like the api ([0a89c299](https://github.com/informedica/GenPRES/commit/0a89c29961b4cfe3bd1bd1809810c11a5fd8571d))
+* *(server)* Log each request once ([aca218e4](https://github.com/informedica/GenPRES/commit/aca218e446b9d2e472b7c08c5c292a76ff48aa93))
+* *(server)* One state cookie per hop, no dead cookie on replay ([f0a9d210](https://github.com/informedica/GenPRES/commit/f0a9d210981b4b7135b553b3dad4296d17661c86))
+* *(ui)* Make the session trigger a labeled, clipped button ([756f66e3](https://github.com/informedica/GenPRES/commit/756f66e3b3f35942ac51ada71ed090e382f42140))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/0b45499c06cfd59afc84db0914e7453df2119e9c..be079a7e07a285f55086dc3cba81914c5511c8ce)</small></strong>
 
 ## 0.1.2-alpha.15 - 2026-09-07
 
