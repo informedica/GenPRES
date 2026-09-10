@@ -97,13 +97,42 @@ What each identity choice ends in:
 | `prescriber` | a Prescriber whose active patient is the launched one | an open Session as Prescriber | main path |
 | `reader` | a Reader; no PIN needed | an open Session as Reader | ext 5c |
 | `prescriber-other-patient` | a Prescriber with another patient active in MainEHR | the gate: wrong patient, relaunch | ext 5b |
-| `no-pin` | a Prescriber without a PIN | the gate: enrolment needed (UC-2 is not built; a relaunch is offered) | ext 5d |
+| `no-pin` | a Prescriber without a PIN | the enrolment form: a confirmation code by mail, then a PIN (UC-2, below) | ext 5d |
 | `unknown` | a login the UserRegistry does not know | the gate: no role, with "continue without launch" | ext 5a |
 | `none` | nobody signed on at the browser | the gate: no browser identity, relaunch only | ext 3c |
 
 A refusal arrives as `#/session?refused=<word>` with the words `expired`, `spent`, `invalid`,
 `no-identity`, `no-role`, `wrong-patient` and `enrolment`; the client erases the parameter and
 shows the gate for it.
+
+#### Enrolment: the first launch of a Prescriber without a PIN
+
+A Prescriber has to set a PIN before prescribing
+([uc-02](docs/scenarios/integration/uc-02-enrolment.md), Rules 24, 25, 37). The demo stands in
+for the MailService too ([plan 615](docs/implementation-plans/615-enrolment-with-server-stubs.md)):
+
+1. Launch with the identity `no-pin`. The hop runs as above, but instead of opening a Session
+   the server mails a six-digit confirmation code and the browser lands on the gate **Set a PIN
+   to continue**, which greets the user and says where the code went (`n***@stub.example`).
+2. Open `http://localhost:5173/stub/mail` in another tab: the stub MailService's outbox, newest
+   mail first. Copy the code from "GenPRES: your confirmation code".
+3. Enter the code, a PIN of four to six digits, and the PIN again, and press **Set PIN**. The
+   Session opens as **Stub Prescriber (no PIN)**, and the outbox shows a second mail, "GenPRES:
+   your PIN was set".
+4. Launch `no-pin` again, in this or another browser: the Session opens directly. The PIN lives
+   as long as the server runs. The seeded Prescribers (`prescriber`,
+   `prescriber-other-patient`) start with the PIN `1234`.
+
+Things worth trying here:
+
+- **A wrong code**: the form stays, with the tries left. The third wrong code voids it; a fresh
+  launch mails a fresh one.
+- **A second launch while the code stands** (another tab or browser, `no-pin` again): no second
+  mail; either browser can enter the code, and the Session opens in the one that did.
+- **Waiting**: the code lives fifteen minutes; after that the form is gone at the next reload
+  and a fresh launch mails a new code.
+- **Leaving**: **Close session** is not offered while enrolling; a relaunch replaces the
+  attempt, and closing the tab abandons it.
 
 #### Things worth trying
 
@@ -123,8 +152,9 @@ shows the gate for it.
 - **Production**: `GENPRES_PROD=1 GENPRES_PASSWORD=<16+ chars> dotnet run`; `/stub/launch`
   and `/authorize` are 404, `/callback` redirects to `refused=invalid`.
 
-The stand-ins keep everything in memory: launches by nonce, sessions, endings, one-time codes.
-A restart forgets all of it and the browser's session cookie no longer finds a Session.
+The stand-ins keep everything in memory: launches by nonce, sessions, endings, one-time codes,
+credentials and confirmation codes, the outbox. A restart forgets all of it: the browser's
+session cookie no longer finds a Session, and `no-pin` has to enrol again.
 
 #### Cookies and the development proxy
 
@@ -133,6 +163,7 @@ A restart forgets all of it and the browser's session cookie no longer finds a S
 | `genpres_session` | the callback, on an open | HttpOnly, Strict, `Path=/`, Secure over HTTPS | names the Session (Rule 12) |
 | `genpres_launch_state.<state>` | the answer to `PresentLaunch` | HttpOnly, Lax, `Path=/callback`, `Max-Age` 2 min | proves the callback comes from the browser that started the hop; one per hop so two tabs can launch at once |
 | `genpres_stub_identity` | the stub launch page | HttpOnly, Lax, `Path=/`, `Max-Age` 2 min | carries the identity choice and the PatientId to the stub IdentityProvider; demo only |
+| `genpres_enrolment` | the callback, when the launch suspends into enrolment | HttpOnly, Strict, `Path=/`, `Max-Age` what remains of the code's fifteen minutes | names the enrolment attempt this browser made; the form's `SupplyPin` works on it and nothing else (UC-2) |
 
 `vite.config.js` proxies `/api`, `/stub`, `/authorize` and `/callback` to the server on port
 8085, so in development the browser talks to one origin (`localhost:5173`) and the cookies,

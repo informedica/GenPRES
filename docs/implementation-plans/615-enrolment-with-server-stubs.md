@@ -192,3 +192,40 @@ the client, migration by the maintainer after review.
 - `prescriber` and `reader` open as before; `unknown` never reaches the PIN question.
 - With `GENPRES_PROD=1` and a valid password: `/stub/mail` is 404 and `SupplyPin` is refused.
 - `dotnet run ServerTests`, the Fable compile and Fantomas stay green after every step.
+
+## As built
+
+Every step landed as one PR from a fork branch against `master`, script-first for the server
+and Shared code (`Server/Scripts/Enrolment.fsx`, `Shared/Scripts/Localization.fsx`), reviewed
+and migrated by the maintainer, client edits direct.
+
+| Step | PR | Landed |
+|------|----|--------|
+| plan | [#616](https://github.com/informedica/GenPRES/pull/616) | this document; review split the code from the attempt (below), made the third wrong code terminal, and gave the attempt no lifetime of its own |
+| 1 | [#617](https://github.com/informedica/GenPRES/pull/617) | `PinHash`, `Credential`, the credential store in the hop state seeded per stub login, `UserStanding.MailAddress` for `PinSet`, `Mail`/`MailPort`, `StubMail` with `/stub/mail`; no change in behaviour |
+| 2 | [#619](https://github.com/informedica/GenPRES/pull/619) | `PendingCode` per person and `Enrolment` per launch, the suspended callback, `supplyPin` as one act with the two mails, `EnrolmentPending`/`PinRefusal`/`SupplyPin` on the wire, the `genpres_enrolment` cookie, the composition root over both cookies, `Session.Enrolling` on the client without the form |
+| 3 | [#620](https://github.com/informedica/GenPRES/pull/620) | the form on the gate, `SupplyingPin` and `EnrolmentFailed`, `formError`, twelve `Terms` with sheet rows |
+| 4 | this PR | uc-02 as-built note, uc-01 and plan 409 updated, `DEVELOPMENT.md` enrolment walkthrough, this table |
+
+### Deviations from the text above
+
+- **`PinRefusal.WrongActivePatient`.** Review on #619: the supply asks the registry again and
+  takes its answer whole, the Role re-taken and the Session opened only if the launch's Patient
+  is still the active one (Rule 6); otherwise the PIN is set and told and the answer is a fifth,
+  terminal refusal. When the registry cannot answer, the launch continues on what it had, as
+  uc-02's last bullet says. The stub registry answers nothing for both an unknown and an
+  unreachable login; the real port will tell them apart.
+- **An enrolling callback closes the browser's Session.** Review on #619: a Session this browser
+  still held would otherwise hide the enrolment at the next `GetSession`; the callback closes it
+  and deletes its cookie, as an open replaces the cookie.
+- **`findEnrolment` and `dropEnrolment`** on the port, next to `supplyPin`: what `GetSession`
+  asks while an attempt stands, and what `CloseSession` does with one.
+- **Two more client states.** `SupplyingPin` (the request in flight, sent once at a time) and
+  `EnrolmentFailed` (the terminal answers, with their own sentence and a relaunch), so the gate
+  can say why the enrolment ended instead of the generic refusal.
+- **Twelve terms, not about eight.** One per field and button, one per refusal, plus the title
+  and body; and the existing enrolment refusal no longer says enrolment is unavailable.
+- **The form's fields** are cleared when the launch leaves the enrolment, and a server refusal
+  is hidden once the User edits a field (review on #620).
+- **Step 3's browser checks** covered the wrong code and the local checks; the void and expired
+  endings are covered by the machine and gate tests.

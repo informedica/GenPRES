@@ -468,11 +468,12 @@ are listed per step with the reason.
 ### Still open
 
 - Step 7, the signed request (`Keys.sign`, the DPoP proof, the OpenedToken inside it).
-- UC-2 enrolment; WorkPlan carry-over (#518); decision D1 (#599).
+- WorkPlan carry-over (#518); decision D1 (#599).
 - The scope switch (#580), which retires the `IsProd` stop-gap.
 - On a launch URL the gate hides the language switcher; the language itself follows the
   server default since #601.
 
 Closed since this list was written: the identity hop (`RedirectTo`, the callback, the `state`
 cookie), the Rule 8 and 11 endings, and the sealed Launch, all against server-hosted stubs
-([plan 605](605-launch-with-server-stubs.md)).
+([plan 605](605-launch-with-server-stubs.md)); UC-2 enrolment against a stub MailService and an
+in-memory credential store ([plan 615](615-enrolment-with-server-stubs.md)).

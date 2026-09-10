@@ -299,15 +299,16 @@ Where the code departs from the text above, on purpose:
   Launch's PatientId and an empty patient (ext 6a); a data outage does not block prescribing.
 - **The key pair's thumbprint** is stored in the SessionRecord at 5.7, ready for step 7.
 
-Not built: step 7 (the signed request and the OpenedToken check), the PIN detour (UC-2; a
-Prescriber without a PIN is refused with `enrolment`), the audit (Rule 46), the newest
-TreatmentPlan of 5.6, and the absolute lifetime and idle endings of Rule 10.
+The PIN detour of 5.4 is built too: a Prescriber without a PIN suspends into
+[uc-02](uc-02-enrolment.md) and continues once the PIN is set (its as-built note is there).
+
+Not built: step 7 (the signed request and the OpenedToken check), the audit (Rule 46), the
+newest TreatmentPlan of 5.6, and the absolute lifetime and idle endings of Rule 10.
 
 ## Left out
 
-- **The PIN detour.** By design a Prescriber with no PIN is not refused: the launch suspends
-  into UC-2 and continues at 5.5 once the PIN is set. Until UC-2 is built, the code refuses
-  with `enrolment` and the Client asks for a relaunch (see [As built](#as-built-against-stubs)).
+- **The PIN detour.** A Prescriber with no PIN is not refused: the launch suspends into UC-2
+  and continues at 5.5 once the PIN is set.
 - **The audit.** Every launch, honored or refused, is appended to the audit (Rule 46).
 - **Everything after the launch**: prescribing and signing, and the ten other use cases.
 - **The confirmation code.** UC-2 and UC-6 mail a code to set or replace a PIN. It is not the
