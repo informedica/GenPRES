@@ -334,8 +334,7 @@ module GenPres =
         // and after a refusal; it cannot be dismissed, the machine decides when it goes
         let sessionGateOpen =
             (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session
-            |> SessionGatePolicy.gateFor
-            |> Option.isSome
+            |> SessionGatePolicy.isGated
 
         let sessionGateView = Views.SessionGate.View {| appEnv = props.appEnv |}
 

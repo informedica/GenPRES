@@ -7,6 +7,7 @@ module TitleBar =
     open Fable.Core
     open Feliz
     open Fable.Core.JsInterop
+    open Shared
     open Shared.Types
     open SessionMachine
 
@@ -194,10 +195,16 @@ module TitleBar =
                 whiteSpace = "nowrap"
             |}
 
+        // the session terms in the User's language, else the policy's English
+        let terms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+
+        let tr term =
+            Global.getLocalizedTerm terms context.Localization (SessionGatePolicy.english term) term
+
         let roleName role =
             match role with
-            | UserRole.Prescriber -> "Prescriber"
-            | UserRole.Reader -> "Reader"
+            | UserRole.Prescriber -> tr Terms.``Session Role Prescriber``
+            | UserRole.Reader -> tr Terms.``Session Role Reader``
 
         // who is in this Session, next to the hospital: only for an open Session with a user;
         // nothing for anonymous use (plan 409, UI)
@@ -230,7 +237,7 @@ module TitleBar =
                             onClose={handleCloseSessionMenu}
                         >
                             <MenuItem onClick={handleCloseSession} disabled={closing}>
-                                <Typography>{"Close session"}</Typography>
+                                <Typography>{tr Terms.``Session Close``}</Typography>
                             </MenuItem>
                         </Menu>
                     </Box>
