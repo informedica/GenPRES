@@ -1,5 +1,5 @@
 ---
-last_commit_released: ca55f59b8a6e16a11376a03479f034311955c405
+last_commit_released: e7a6aa839014b2d735cca587cc42001af83789ab
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,23 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.17 - 2026-09-10
+
+### 🚀 Features
+
+* *(client)* The enrolment form on the session gate ([4bc7c13a](https://github.com/informedica/GenPRES/commit/4bc7c13a8cd753c43887f0422c00b2aab39d2767))
+* *(server)* Draft the credential store and the mail stub ([4c42108c](https://github.com/informedica/GenPRES/commit/4c42108c046243d2e9c78e8b6fc442f58ca35e15))
+* *(server)* Keep the PIN in a credential store, add the mail stub ([c6ee6571](https://github.com/informedica/GenPRES/commit/c6ee657129cf55ccdec8643cbe4c62801035e274))
+* *(server)* Draft the suspended launch and the PIN supply ([1779532f](https://github.com/informedica/GenPRES/commit/1779532f0b5e948de8460d48cd86cf8d9f6863be))
+* *(server)* Suspend the launch at the PIN question and take the PIN ([3a2ae13d](https://github.com/informedica/GenPRES/commit/3a2ae13dbcfb65aee0f71194fb37cd23578532c8))
+
+### 🐞 Bug Fixes
+
+* *(server)* Ask the registry again when the PIN is supplied ([acf1ce7c](https://github.com/informedica/GenPRES/commit/acf1ce7c1d3f89f56ae91fcf1146ae4e82817966))
+* *(ui)* Clear the enrolment fields, hide a stale refusal on edit ([374cb301](https://github.com/informedica/GenPRES/commit/374cb30196a026098f7a186ded521a14cd0d4ee1))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/ca55f59b8a6e16a11376a03479f034311955c405..e7a6aa839014b2d735cca587cc42001af83789ab)</small></strong>
 
 ## 0.1.2-alpha.16 - 2026-09-10
 
