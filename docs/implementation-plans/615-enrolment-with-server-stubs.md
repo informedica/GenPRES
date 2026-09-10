@@ -70,19 +70,23 @@ there. Stub registry: `MailAddress = $"{login}@stub.example"`.
 
 ### The suspended launch
 
-At the callback ladder a Prescriber whose credential has no PIN no longer refuses. In one act
-the server appends `Enrolment { Attempt; UserId; Login; DisplayName; MailAddress; PatientId;
-PublicKey; CodeMac; Expiry; Tries }`, mails the six-digit code (CSPRNG; stored as an HMAC under
-the host key, "the code as a mac", Rule 37) to the address the registry gave on this request
-(Rule 27), records the LaunchRecord's outcome as suspended, and answers `Enrolling (attempt,
-"/#/session")`. The edge sets `genpres_enrolment=<attempt>` (HttpOnly, Strict, `Path=/`,
+At the callback ladder a Prescriber whose credential has no PIN no longer refuses. Two records
+carry the suspended launch, because the code belongs to the credential and the browser to the
+launch: a `PendingCode { UserId; MailAddress; CodeMac; Expiry; Tries }`, one per credential,
+and an `Enrolment { Attempt; UserId; Login; DisplayName; PatientId; PublicKey; Expiry }`, one
+per launch, holding the public key of the browser that made it. In one act the server appends
+both (or only the attempt, when a code already stands, below), mails the six-digit code (CSPRNG;
+stored as an HMAC under the host key, "the code as a mac", Rule 37) to the address the registry
+gave on this request (Rule 27), records the LaunchRecord's outcome as suspended, and answers
+`Enrolling (attempt, "/#/session")`. The edge sets `genpres_enrolment=<attempt>` (HttpOnly, Strict, `Path=/`,
 `Max-Age` the attempt lifetime) and redirects. Nothing in the URL: the client learns of the
 pending enrolment at its next `GetSession`.
 
-**One live code per credential** (Rule 37, ext 2a): a second `no-pin` launch while an attempt
-stands suspends into the *same* attempt and mails nothing, so the code User A is about to read
-is not voided. The new launch's public key replaces the attempt's, since that browser is the
-one that will supply the PIN.
+**One live code per credential** (Rule 37, ext 2a): a second `no-pin` launch while a code
+stands gets an attempt of its own, bound to the *same* code, and mails nothing, so the code
+User A is about to read is not voided. Either browser can supply the code; the Session opens
+on the key of the attempt that supplied it, which is the key that browser holds (step 7 will
+sign with it). Setting the PIN drops the code and every attempt bound to it.
 
 **Abandonment**: an attempt expires after 15 minutes, a mail round trip. The model's
 `AwaitingPinChoice` is never collected; bounding it is a deliberate deviation, recorded here.
@@ -93,21 +97,23 @@ one that will supply the PIN.
 `supplyPin attempt code pin`, on the attempt named by the cookie, never by the client:
 
 - unknown or expired attempt: `Refused AttemptExpired`;
-- wrong code: `Tries + 1`, `Refused (WrongCode attemptsLeft)`; the third wrong code drops the
-  attempt (ext 2b: "a few tries, then the code is void; a fresh launch mails a fresh one");
+- wrong code: `Tries + 1` on the code, `Refused (WrongCode attemptsLeft)` while tries remain;
+  the third wrong code drops the code and its attempts and answers `Refused CodeVoid`, a
+  terminal answer (ext 2b: "a few tries, then the code is void; a fresh launch mails a fresh
+  one");
 - PIN not four to six digits: `Refused PinFormat`, no try spent;
 - else **one act** (Rules 37, 40): the credential's PIN hash is set with a zero wrong-count
   (Rule 28), the attempt dropped, the "your PIN was set" mail sent to the address the registry
   answers on *this* request (Rule 27), falling back on the attempt's address when the registry
   has no answer (uc-02, last bullet); then uc-01 continues at 5.5 to 5.7 through the existing
-  `openSession` (patient data, other Sessions closed, `SessionOpened` with the attempt's key
-  thumbprint), and the answer is `Opened (sessionId, opened)`.
+  `openSession` (patient data, other Sessions closed, `SessionOpened` with the thumbprint of
+  the supplying attempt's key), and the answer is `Opened (sessionId, opened)`.
 
 ### Wire (`Shared/Api.fs`, `Shared/Types.fs`)
 
 ```fsharp
 type EnrolmentPending = { DisplayName: string; MailHint: string }   // "n***@stub.example"
-type PinRefusal = | WrongCode of attemptsLeft: int | AttemptExpired | PinFormat
+type PinRefusal = | WrongCode of attemptsLeft: int | CodeVoid | AttemptExpired | PinFormat
 type SessionCommand = | GetSession | CloseSession | SupplyPin of code: string * pin: string
 type SessionResponse = | SessionResp ... | SessionClosed | SessionEnded ... | EnrolmentPending of EnrolmentPending | PinRefused of PinRefusal
 ```
@@ -124,10 +130,11 @@ session cookie (deleting the enrolment cookie) on success, `PinRefused` otherwis
 `ResumeResult.Enrolling`, `SessionMsg.SupplyPin of code * pin` and `PinAnswered of
 Result<PinOutcome, string>`, effect `CallSupplyPin`. From `Enrolling`: `SupplyPin` calls;
 `Opened` goes to `Open` with `KeepKey` and `SetPatient`; a `WrongCode` or `PinFormat` refusal
-stays `Enrolling` with the refusal shown; `AttemptExpired` becomes `Refused (EnrolmentRequired,
-None)`; `OpenAnonymous` goes to `Anonymous`. `SessionGatePolicy.fs`: an `Enrolling` gate with
+stays `Enrolling` with the refusal shown; `CodeVoid` and `AttemptExpired` are terminal and
+become `Refused (EnrolmentRequired, None)`, the gate that asks for a relaunch; `OpenAnonymous`
+goes to `Anonymous`. `SessionGatePolicy.fs`: an `Enrolling` gate with
 three fields (code, PIN, PIN again) and a submit, every text a `Terms` case (title, text with
-the mail hint, the three labels, submit, wrong code with `{0}`, format, expired).
+the mail hint, the three labels, submit, wrong code with `{0}`, format, void, expired).
 `Views/SessionGate.fs` renders the fields with `inputMode="numeric"`.
 
 ### What stays as is
@@ -160,7 +167,8 @@ the client, migration by the maintainer after review.
    `sessionDisabled` refusing. Client minimal so `master` keeps working: `EnrolmentPending`
    lands in `Session.Enrolling` and the gate shows the pending text with a relaunch action, no
    form yet. Tests: every `supplyPin` branch, the fresh-address rule and its fallback, the
-   one-code rule, the expired attempt at `GetSession`, the Reader never asked (Rule 26).
+   one-code rule with two attempts (each opening on its own key), the third wrong code voiding
+   the code for both, the expired attempt at `GetSession`, the Reader never asked (Rule 26).
 3. **The enrolment form.** Gate policy and view: code, PIN, repeat, submit, the refusal texts;
    `Terms` script-first (`Shared/Scripts/Localization.fsx`) with English and Dutch sheet rows;
    machine and gate tests. Browser: `no-pin` reaches the gate; `/stub/mail` shows the code; code
