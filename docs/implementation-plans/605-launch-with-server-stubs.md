@@ -66,10 +66,15 @@ type CallbackResult =
   expired is `LaunchExpired`; an outcome already recorded is answered again (Rule 45, the cookie
   proves the same browser); `Error = no-identity` or a code that does not redeem is
   `NoBrowserIdentity`; no standing is `NoRole`; another active patient is `WrongActivePatient`;
-  no PIN is `EnrolmentRequired`; otherwise the patient data is read and the session opens in one
+  a Prescriber without a PIN is `EnrolmentRequired` (Rule 25 binds only Prescribers; a Reader
+  opens without a PIN, ext 5c); otherwise the patient data is read and the session opens in one
   act (Rule 40): the nonce is spent, the user's other sessions are closed and marked
   `SupersededByLaunch` (Rule 8), the session is written with `KeyThumbprint` and `OpenedToken`,
-  and the outcome is appended to the record.
+  and the outcome is appended to the record. When `PatientDataPort.read` answers `None`
+  (ext 6a: the platform is unreachable or has nothing), the session still opens: the
+  `PatientContext` carries the Launch's PatientId with an empty `Patient`, and the client shows
+  the patient without imported data. Refusing would let a data outage block prescribing, which
+  the design keeps open on purpose.
 
 ### The sealed Launch and the stub LaunchScript page
 
@@ -84,11 +89,15 @@ identity choice (`prescriber`, `reader`, `prescriber-other-patient`, `no-pin`, `
 `none`). `POST /stub/launch` mints the token, sets `genpres_stub_identity` (Lax, `Path=/`, two
 minutes) and redirects to `/#/session?launch=<token>`.
 
-Stub IdentityProvider, `GET /authorize?state=`: reads `genpres_stub_identity`; `none` redirects
-to `/callback?state=&error=no-identity`; anything else mints a one-time code and redirects to
-`/callback?code=&state=`. Stub UserRegistry: `prescriber` is a Prescriber with the launch's
-patient active; `reader` a Reader; `prescriber-other-patient` has another patient active;
-`no-pin` has no PIN; `unknown` has no standing. Stub patient data answers `Patient.empty`.
+Stub IdentityProvider, `GET /authorize?state=<state>`: reads `genpres_stub_identity`; `none`
+redirects to `/callback?state=<state>&error=no-identity`, the same `state` as it received, so
+the callback's cookie check passes and the error is what decides; anything else mints a one-time
+code and redirects to `/callback?code=<code>&state=<state>`. Stub UserRegistry: `prescriber` is a
+Prescriber with the launch's patient active; `reader` a Reader with the launch's patient active,
+no PIN needed; `prescriber-other-patient` has another patient active; `no-pin` is a Prescriber
+without a PIN; `unknown` has no standing. Stub patient data answers `Patient.empty` for every
+PatientId except `no-data`, for which it answers `None`, so ext 6a can be exercised from the
+stub page.
 
 `GET /callback` is mounted always; with `sessionDisabled` it refuses `invalid`. It runs
 `session.callback`, sets the session cookie on `Opened` and redirects.
@@ -134,7 +143,8 @@ the client, migration by the maintainer after review.
 2. **Identity hop, core.** `Server/Scripts/Hop.fsx`: the ports, the LaunchRecord by nonce with
    state, expiry, key and outcome, pure `present` and `callback` with the refusal ladder, the
    Rule 45 replay, the Rule 40 single act and the Rule 8 closes, the three stubs, tests over every
-   refusal and the replay. Migrate to `Ports.fs`, `Adapters.fs`, `CompositionRoot.fs`.
+   refusal, the replay, the Reader opening without a PIN, and `read = None` opening without
+   imported data. Migrate to `Ports.fs`, `Adapters.fs`, `CompositionRoot.fs`.
 3. **Identity hop, edge.** `Server.fs`: `/authorize`, `/callback`, the `genpres_launch_state` and
    `genpres_stub_identity` cookies, `sessionDisabled.callback`; `HttpTests` for the state cookie;
    the client's `invalid` word; the identity select on the stub page. Browser, isolated contexts:
@@ -153,9 +163,10 @@ the client, migration by the maintainer after review.
 
 - Against `GENPRES_PROD=0 dotnet run`: `/stub/launch` with `prescriber` ends on `#/session` with
   the stub prescriber in the title bar and the session cookie set; the network shows
-  `PresentLaunch` answering `RedirectTo`, two redirects, then `GetSession`. Each other identity
-  choice lands on the gate with its text; `none` offers no retry, the Launch is gone after the
-  redirect.
+  `PresentLaunch` answering `RedirectTo`, two redirects, then `GetSession`. `reader` opens a
+  session too, as a Reader. `prescriber-other-patient`, `no-pin`, `unknown` and `none` land on
+  the gate with their texts; `none` offers no retry, the Launch is gone after the redirect.
+  PatientId `no-data` opens a session whose patient carries no imported data.
 - The same token replayed in the same browser context gets the same answer; in another context
   it is spent. A reloaded `/callback?code&state` gets the same answer. History holds `#/session`
   only (the omnibox residue is #599).
