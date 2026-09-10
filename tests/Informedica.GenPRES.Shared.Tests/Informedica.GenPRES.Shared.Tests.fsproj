@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <Compile Include="AgeTests.fs" />
+    <Compile Include="LocalizationTests.fs" />
     <Compile Include="Tests.fs" />
     <!-- the client session state machine is pure F#; linked in so it runs under Expecto -->
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SessionMachine.fs" />

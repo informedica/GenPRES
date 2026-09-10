@@ -286,6 +286,30 @@ module Localization =
         | _ -> None
 
 
+    /// <summary>
+    /// Parses a language given as an ISO 639-1 code (<c>en</c>, <c>nl</c>, <c>fr</c>, <c>de</c>,
+    /// <c>es</c>, <c>it</c>), a display name (<c>English</c>, <c>Nederlands</c>, ...) or one of
+    /// the client's legacy url codes (<c>du</c>, <c>gr</c>, <c>sp</c>). Case and surrounding
+    /// whitespace do not matter; anything else, including null, is <c>None</c>. One parser for
+    /// the <c>GENPRES_LANG</c> setting, the <c>la</c> url parameter and the sheet header.
+    /// </summary>
+    let tryParse (s: string) : Locales option =
+        if isNull s then
+            None
+        else
+            match s.Trim().ToLower() with
+            | "en" -> Some English
+            | "nl"
+            | "du" -> Some Dutch
+            | "fr" -> Some French
+            | "de"
+            | "gr" -> Some German
+            | "es"
+            | "sp" -> Some Spanish
+            | "it" -> Some Italian
+            | s -> tryFromString s
+
+
     /// Parses a `string[][]` from `Csv.parseCSV` into a `TranslationMap`.
     ///
     /// The first row is expected to contain column headers. Any column whose

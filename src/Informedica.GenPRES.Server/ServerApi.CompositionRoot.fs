@@ -49,8 +49,9 @@ module CompositionRoot =
         }
 
 
-    /// The api of one request: the env is built once per host, the cookie once per request.
-    let compose (env: AppEnv) (cookie: SessionCookie) : IServerApi =
+    /// The api of one request: the settings and the env are built once per host, the cookie
+    /// once per request.
+    let compose (settings: ServerSettings) (env: AppEnv) (cookie: SessionCookie) : IServerApi =
         {
             processCommand =
                 fun cmd ->
@@ -81,6 +82,13 @@ module CompositionRoot =
                         let! response = processSession env cookie cmd
                         writeInfoMessage $"Finished processing session: {cmd |> SessionCommand.toString}"
                         return response
+                    }
+
+            getSettings =
+                fun () ->
+                    async {
+                        writeInfoMessage "Processing settings"
+                        return settings
                     }
 
             testApi = fun () -> async { return "Hello world!" }

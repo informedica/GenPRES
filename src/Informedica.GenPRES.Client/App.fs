@@ -52,6 +52,10 @@ module private Elmish =
             LogAnalysisReport: Deferred<string>
             // the launch Session (plan 409); Anonymous is the state every URL patient runs in
             Session: Session
+            // what the server was configured with: the default language, the demo flag
+            Settings: Deferred<Api.ServerSettings>
+            // the url or the User chose the language; the server default no longer applies
+            LanguageChosen: bool
         }
 
 
@@ -99,6 +103,7 @@ module private Elmish =
         | CloseSnackbar
         | CheckServer of AsyncOperationStatus<Result<string, exn>>
         | DismissServerError
+        | LoadSettings of AsyncOperationStatus<Result<Api.ServerSettings, exn>>
 
         | Login of password: string
         | LoadLoginResult of ApiResponse
@@ -126,6 +131,17 @@ module private Elmish =
                 return CheckServer(Finished(Ok result))
             with ex ->
                 return CheckServer(Finished(Error ex))
+        }
+        |> Cmd.fromAsync
+
+
+    let loadSettings =
+        async {
+            try
+                let! settings = serverApi.getSettings ()
+                return LoadSettings(Finished(Ok settings))
+            with ex ->
+                return LoadSettings(Finished(Error ex))
         }
         |> Cmd.fromAsync
 
@@ -332,16 +348,8 @@ module private Elmish =
                 | Some s when s = "pe" -> Some Parenteralia
                 | _ -> None
 
-            let lang =
-                match paramsMap |> Map.tryFind "la" with
-                | Some s when s = "en" -> Some Localization.English
-                | Some s when s = "du" -> Some Localization.Dutch
-                | Some s when s = "fr" -> Some Localization.French
-                | Some s when s = "gr" -> Some Localization.German
-                | Some s when s = "sp" -> Some Localization.Spanish
-                | Some s when s = "it" -> Some Localization.Italian
-                //                | Some s when s = "ch" -> Some Localization.Chinees // refact: to Chinese
-                | _ -> None
+            // ISO code, display name or the legacy codes (du, gr, sp): one parser with the server
+            let lang = paramsMap |> Map.tryFind "la" |> Option.bind Localization.tryParse
 
             let discl =
                 match paramsMap |> Map.tryFind "dc" with
@@ -453,6 +461,7 @@ module private Elmish =
             Hospitals = HasNotStartedYet
             Context =
                 {
+                    // the server default replaces this once LoadSettings resolves, unless the url chose
                     Localization = lang |> Option.defaultValue Localization.Dutch
                     Hospital = "UMCU"
                 }
@@ -469,6 +478,8 @@ module private Elmish =
             LogFiles = HasNotStartedYet
             LogAnalysisReport = HasNotStartedYet
             Session = Session.Anonymous
+            Settings = HasNotStartedYet
+            LanguageChosen = lang.IsSome
         }
 
 
@@ -511,6 +522,7 @@ module private Elmish =
                     | None -> Cmd.ofMsg (SessionMsg SessionMsg.Resume)
                     | Some _ -> launchCmd launchUrl
                     checkServer
+                    Cmd.ofMsg (LoadSettings Started)
                     Cmd.ofMsg (LoadNormalValues Started)
                     Cmd.ofMsg (LoadBolusMedication Started)
                     Cmd.ofMsg (LoadContinuousMedication Started)
@@ -680,6 +692,27 @@ module private Elmish =
 
         | DismissServerError -> { state with ServerError = None }, Cmd.none
 
+        | LoadSettings Started -> { state with Settings = InProgress }, loadSettings
+
+        | LoadSettings(Finished(Ok settings)) ->
+            // the server default counts until the url or the User chooses; a choice made while
+            // the settings were in flight wins
+            { state with
+                Settings = Resolved settings
+                IsDemo = settings.IsDemo
+                State.Context.Localization =
+                    if state.LanguageChosen then
+                        state.Context.Localization
+                    else
+                        settings.Language
+            },
+            Cmd.none
+
+        | LoadSettings(Finished(Error err)) ->
+            // no settings: the client keeps its own defaults, which is what it did before
+            Logging.error "cannot load the server settings" err
+            { state with Settings = HasNotStartedYet }, Cmd.none
+
         | Login password ->
             state,
             Api.LogAnalyzerCmd(Api.ValidatePassword password)
@@ -738,6 +771,7 @@ module private Elmish =
             { state with
                 ShowDisclaimer = true
                 State.Context.Localization = lang
+                LanguageChosen = true
             },
             Cmd.none
 
@@ -864,8 +898,10 @@ module private Elmish =
                             ctx
                             |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
                             |> Resolved
-                // State. prefix needed: disambiguates State.Context field from Global.Context type
-                State.Context.Localization = lang |> Option.defaultValue Localization.English
+                // State. prefix needed: disambiguates State.Context field from Global.Context type.
+                // Only an `la` parameter changes the language; a navigation keeps the current one
+                State.Context.Localization = lang |> Option.defaultValue state.Context.Localization
+                LanguageChosen = state.LanguageChosen || lang.IsSome
             },
             Cmd.batch
                 [

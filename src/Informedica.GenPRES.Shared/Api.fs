@@ -198,6 +198,16 @@ module Api =
     let routerPaths typeName method = $"/api/%s{typeName}/%s{method}"
 
 
+    /// What the client learns from the server at start-up: how the server was configured.
+    type ServerSettings =
+        {
+            // GENPRES_LANG: the UI language until the url or the User chooses one
+            Language: Localization.Locales
+            // not GENPRES_PROD: demo data, shown as the title suffix
+            IsDemo: bool
+        }
+
+
     /// A type that specifies the communication protocol between client and server
     /// to learn more read the docs at https://zaid-ajaj.github.io/Fable.Remoting/src/basics.html
     type IServerApi =
@@ -205,5 +215,6 @@ module Api =
             processCommand: Command -> Async<Result<Response, string[]>>
             processLaunch: LaunchCommand -> Async<LaunchOutcome>
             processSession: SessionCommand -> Async<SessionResponse>
+            getSettings: unit -> Async<ServerSettings>
             testApi: unit -> Async<string>
         }
