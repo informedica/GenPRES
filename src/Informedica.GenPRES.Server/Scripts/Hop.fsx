@@ -93,6 +93,9 @@ type Callback =
 type CallbackResult =
     | Opened of sessionId: string * redirect: string
     | Refused of LaunchRefusal * redirect: string
+    // a reload of a callback whose Session a newer launch has since replaced (Rule 8): the
+    // browser goes to the app on whatever cookie it holds, which is the newer Session's
+    | Superseded of redirect: string
 
 
 type SessionPort =
@@ -107,7 +110,8 @@ type SessionPort =
 /// The state cookie of one request (4.2): written with the redirect, read at the callback.
 type LaunchStateCookie =
     {
-        read: unit -> string option
+        // the cookie of one hop, named by its state, so that two tabs can launch at once
+        read: string -> string option
         write: string -> unit
     }
 
@@ -312,7 +316,11 @@ module Hop =
         match cb.StateCookie, byState with
         | Some cookie, Some record when cookie = cb.State && cb.State <> "" ->
             match record.Outcome with
-            | Some(LaunchResult.Opened(id, _)) -> state, CallbackResult.Opened(id, openedUrl)
+            | Some(LaunchResult.Opened(id, _)) when state.Sessions |> Map.containsKey id ->
+                state, CallbackResult.Opened(id, openedUrl)
+            // the recorded Session was replaced by a newer launch of the same login (Rule 8):
+            // answering its id would put a dead cookie over the live one
+            | Some(LaunchResult.Opened _) -> state, CallbackResult.Superseded openedUrl
             | Some(LaunchResult.Refused refusal) -> state, CallbackResult.Refused(refusal, refusedUrl refusal)
             | Some(LaunchResult.RedirectTo _)
             | None ->
@@ -452,10 +460,22 @@ module StubDirectory =
         }
 
 
-    let make (newCode: unit -> string) : Directory =
+    /// A code lives as long as a Launch (Rule 29); older ones are pruned on the next issue.
+    let codeLifetime = TimeSpan.FromMinutes 2.0
+
+
+    /// One active Patient per login, as MainEHR has: a later launch of the same login for
+    /// another Patient makes an earlier, still open launch wrong-patient (ext 5b).
+    let make (now: unit -> DateTime) (newCode: unit -> string) : Directory =
         let gate = obj ()
-        let codes = Collections.Generic.Dictionary<string, BrowserIdentity>()
+        let codes = Collections.Generic.Dictionary<string, BrowserIdentity * DateTime>()
         let active = Collections.Generic.Dictionary<string, string>()
+
+        let prune () =
+            let cutoff = now () - codeLifetime
+
+            for stale in codes |> Seq.filter (fun kv -> snd kv.Value < cutoff) |> Seq.map _.Key |> Seq.toList do
+                codes.Remove stale |> ignore
 
         {
             idp =
@@ -467,7 +487,7 @@ module StubDirectory =
                                 gate
                                 (fun () ->
                                     match codes.TryGetValue code with
-                                    | true, identity ->
+                                    | true, (identity, issued) when now () - issued <= codeLifetime ->
                                         codes.Remove code |> ignore
                                         Some identity
                                     | _ -> None
@@ -490,8 +510,9 @@ module StubDirectory =
                     lock
                         gate
                         (fun () ->
+                            prune ()
                             let code = newCode ()
-                            codes[code] <- identityOf choice
+                            codes[code] <- identityOf choice, now ()
                             active[choice] <- activePatientId
                             code
                         )
@@ -573,7 +594,7 @@ let counter prefix =
 /// A fresh directory and id sources per test.
 let fixture () =
     let ids = counter "id"
-    let directory = StubDirectory.make (counter "code")
+    let directory = StubDirectory.make (fun () -> t0) (counter "code")
     ids, directory
 
 
@@ -821,6 +842,17 @@ let callbackTests =
                 | other -> failtest $"expected two Opened, got {other}"
             }
 
+            test "a callback reload after a newer launch of the same login does not hand back the dead Session" {
+                let ids, d = fixture ()
+                let state, cb1 = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                let state, _ = run ids d state cb1
+                let state, cb2 = hop ids d state (mintFor "n-2" "patient-1") keyB "prescriber"
+                let state, _ = run ids d state cb2
+                let state2, again = run ids d state cb1
+                again |> Expect.equal "superseded" (CallbackResult.Superseded "/#/session")
+                state2 |> Expect.equal "unchanged" state
+            }
+
             test "two logins keep two Sessions" {
                 let ids, d = fixture ()
                 let state, cb1 = hop ids d Hop.emptyState launch1 keyA "prescriber"
@@ -893,15 +925,25 @@ let directoryTests =
     testList
         "StubDirectory"
         [
+            test "past the lifetime a code does not redeem, and the next issue prunes it" {
+                let clock = ref t0
+                let d = StubDirectory.make (fun () -> clock.Value) (counter "code")
+                let stale = d.issue "prescriber" "p"
+                clock.Value <- t0 + StubDirectory.codeLifetime + TimeSpan.FromSeconds 1.0
+                d.idp.redeem stale |> Expect.isNone "stale"
+                let fresh = d.issue "reader" "p"
+                d.idp.redeem fresh |> Option.map _.Login |> Expect.equal "fresh" (Some "reader")
+            }
+
             test "a code redeems once" {
-                let d = StubDirectory.make (counter "code")
+                let d = StubDirectory.make (fun () -> t0) (counter "code")
                 let code = d.issue "prescriber" "p"
                 d.idp.redeem code |> Option.map _.Login |> Expect.equal "first" (Some "prescriber")
                 d.idp.redeem code |> Expect.isNone "second"
             }
 
             test "every choice but none has an identity; unknown has no standing" {
-                let d = StubDirectory.make (counter "code")
+                let d = StubDirectory.make (fun () -> t0) (counter "code")
 
                 for choice in StubDirectory.choices |> List.filter ((<>) "none") do
                     let identity = d.idp.redeem (d.issue choice "p") |> Option.get

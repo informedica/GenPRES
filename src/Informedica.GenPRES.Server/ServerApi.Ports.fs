@@ -111,6 +111,9 @@ type Callback =
 type CallbackResult =
     | Opened of sessionId: string * redirect: string
     | Refused of LaunchRefusal * redirect: string
+    // a reload of a callback whose Session a newer launch has since replaced (Rule 8): the
+    // browser goes to the app on whatever cookie it holds, which is the newer Session's
+    | Superseded of redirect: string
 
 
 type SessionPort =
@@ -139,7 +142,8 @@ type SessionCookie =
 /// The state cookie of one request (4.2): written with the redirect, read at the callback.
 type LaunchStateCookie =
     {
-        read: unit -> string option
+        // the cookie of one hop, named by its state, so that two tabs can launch at once
+        read: string -> string option
         write: string -> unit
     }
 

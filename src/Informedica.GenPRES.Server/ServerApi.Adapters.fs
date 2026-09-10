@@ -394,7 +394,11 @@ module Hop =
         match cb.StateCookie, byState with
         | Some cookie, Some record when cookie = cb.State && cb.State <> "" ->
             match record.Outcome with
-            | Some(LaunchResult.Opened(id, _)) -> state, CallbackResult.Opened(id, openedUrl)
+            | Some(LaunchResult.Opened(id, _)) when state.Sessions |> Map.containsKey id ->
+                state, CallbackResult.Opened(id, openedUrl)
+            // the recorded Session was replaced by a newer launch of the same login (Rule 8):
+            // answering its id would put a dead cookie over the live one
+            | Some(LaunchResult.Opened _) -> state, CallbackResult.Superseded openedUrl
             | Some(LaunchResult.Refused refusal) -> state, CallbackResult.Refused(refusal, refusedUrl refusal)
             | Some(LaunchResult.RedirectTo _)
             | None ->
@@ -539,10 +543,26 @@ module StubDirectory =
         }
 
 
-    let make (newCode: unit -> string) : Directory =
+    /// A code lives as long as a Launch (Rule 29); older ones are pruned on the next issue.
+    let codeLifetime = TimeSpan.FromMinutes 2.0
+
+
+    /// One active Patient per login, as MainEHR has: a later launch of the same login for
+    /// another Patient makes an earlier, still open launch wrong-patient (ext 5b).
+    let make (now: unit -> DateTime) (newCode: unit -> string) : Directory =
         let gate = obj ()
-        let codes = Collections.Generic.Dictionary<string, BrowserIdentity>()
+        let codes = Collections.Generic.Dictionary<string, BrowserIdentity * DateTime>()
         let active = Collections.Generic.Dictionary<string, string>()
+
+        let prune () =
+            let cutoff = now () - codeLifetime
+
+            for stale in
+                codes
+                |> Seq.filter (fun kv -> snd kv.Value < cutoff)
+                |> Seq.map _.Key
+                |> Seq.toList do
+                codes.Remove stale |> ignore
 
         {
             idp =
@@ -554,7 +574,7 @@ module StubDirectory =
                                 gate
                                 (fun () ->
                                     match codes.TryGetValue code with
-                                    | true, identity ->
+                                    | true, (identity, issued) when now () - issued <= codeLifetime ->
                                         codes.Remove code |> ignore
                                         Some identity
                                     | _ -> None
@@ -577,8 +597,9 @@ module StubDirectory =
                     lock
                         gate
                         (fun () ->
+                            prune ()
                             let code = newCode ()
-                            codes[code] <- identityOf choice
+                            codes[code] <- identityOf choice, now ()
                             active[choice] <- activePatientId
                             code
                         )
@@ -905,5 +926,5 @@ module Adapters =
     let makeAppEnv (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
         makeAppEnvWith
             (LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes)
-            (StubDirectory.make PublicKey.randomId)
+            (StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId)
             provider

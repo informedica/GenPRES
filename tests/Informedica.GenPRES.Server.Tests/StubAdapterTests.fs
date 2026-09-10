@@ -339,7 +339,9 @@ module SessionStubTests =
     let makePort () =
         let clock = ref t0
         let count = ref 0
-        let directory = StubDirectory.make (fun () -> $"code-{Guid.NewGuid()}")
+
+        let directory =
+            StubDirectory.make (fun () -> clock.Value) (fun () -> $"code-{Guid.NewGuid()}")
 
         let port =
             Hop.makeSessionPort
@@ -413,7 +415,7 @@ module SessionStubTests =
         /// A fresh directory and id sources per test.
         let fixture () =
             let ids = counter "id"
-            let directory = StubDirectory.make (counter "code")
+            let directory = StubDirectory.make (fun () -> t0) (counter "code")
             ids, directory
 
 
@@ -805,7 +807,7 @@ module SessionStubTests =
                 "StubDirectory"
                 [
                     test "a code redeems once" {
-                        let d = StubDirectory.make (counter "code")
+                        let d = StubDirectory.make (fun () -> t0) (counter "code")
                         let code = d.issue "prescriber" "p"
 
                         d.idp.redeem code
@@ -815,8 +817,18 @@ module SessionStubTests =
                         d.idp.redeem code |> Expect.isNone "second"
                     }
 
+                    test "past the lifetime a code does not redeem, and the next issue prunes it" {
+                        let clock = ref t0
+                        let d = StubDirectory.make (fun () -> clock.Value) (counter "code")
+                        let stale = d.issue "prescriber" "p"
+                        clock.Value <- t0 + StubDirectory.codeLifetime + TimeSpan.FromSeconds 1.0
+                        d.idp.redeem stale |> Expect.isNone "stale"
+                        let fresh = d.issue "reader" "p"
+                        d.idp.redeem fresh |> Option.map _.Login |> Expect.equal "fresh" (Some "reader")
+                    }
+
                     test "every choice but none has an identity; unknown has no standing" {
-                        let d = StubDirectory.make (counter "code")
+                        let d = StubDirectory.make (fun () -> t0) (counter "code")
 
                         for choice in StubDirectory.choices |> List.filter ((<>) "none") do
                             let identity = d.idp.redeem (d.issue choice "p") |> Option.get
@@ -860,7 +872,7 @@ module SessionStubTests =
         let value = ref initial
 
         {
-            LaunchStateCookie.read = fun () -> value.Value
+            LaunchStateCookie.read = fun state -> value.Value |> Option.filter ((=) state)
             write = fun state -> value.Value <- Some state
         },
         value
@@ -1148,6 +1160,47 @@ module SessionStubTests =
                     redirect |> Expect.equal "invalid" "/#/session?refused=invalid"
                     held.Value |> Expect.isNone "no cookie"
                     heldState.Value |> Expect.isSome "the first browser's state cookie is untouched"
+                }
+
+                testAsync
+                    "processCallback: a reload after a newer launch of the same login keeps the newer session's cookie" {
+                    let directory, env = envWithStub ()
+                    let cookie, held = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+
+                    let! outcome =
+                        CompositionRoot.processLaunch
+                            env
+                            cookie
+                            stateCookie
+                            (LaunchCommand.PresentLaunch(mintFor "n-1" "stub-patient", keyA))
+
+                    let state1 =
+                        match outcome with
+                        | LaunchOutcome.RedirectTo url -> url.Substring(url.IndexOf "state=" + 6)
+                        | other -> failtest $"{other}"
+
+                    let cb1: Callback =
+                        {
+                            State = state1
+                            StateCookie = None
+                            Code = Some(directory.issue "prescriber" "stub-patient")
+                            Error = None
+                        }
+
+                    let! _ = CompositionRoot.processCallback env cookie stateCookie cb1
+                    let first = held.Value.Value
+
+                    // the same login launches again in another tab: the first Session is replaced
+                    let stateCookie2, _ = memoryStateCookie None
+                    let! _ = openVia directory env cookie stateCookie2 (mintFor "n-2" "stub-patient") keyB "prescriber"
+                    let second = held.Value.Value
+                    second |> Expect.notEqual "a newer session" first
+
+                    // the first tab reloads its callback
+                    let! redirect = CompositionRoot.processCallback env cookie stateCookie cb1
+                    redirect |> Expect.equal "to the app" "/#/session"
+                    held.Value |> Expect.equal "the newer cookie stays" (Some second)
                 }
 
                 testAsync "GetSession: no cookie is None" {

@@ -300,7 +300,9 @@ module Http =
         CookieOptions(HttpOnly = true, Secure = isHttps, SameSite = SameSiteMode.Strict, Path = "/")
 
 
-    let launchStateCookieName = "genpres_launch_state"
+    /// One state cookie per hop, named by the state (base64url, so a cookie-name token), so
+    /// that two tabs can launch at once without the second erasing the first's proof.
+    let launchStateCookieName (state: string) = $"genpres_launch_state.{state}"
 
 
     /// The state cookie of the identity hop (uc-01 step 4.2): HttpOnly, SameSite=Lax so that
@@ -333,14 +335,14 @@ module Http =
     let launchStateCookie (ctx: HttpContext) : LaunchStateCookie =
         {
             read =
-                fun () ->
-                    match ctx.Request.Cookies.TryGetValue launchStateCookieName with
+                fun state ->
+                    match ctx.Request.Cookies.TryGetValue(launchStateCookieName state) with
                     | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
                     | _ -> None
             write =
                 fun state ->
                     ctx.Response.Cookies.Append(
-                        launchStateCookieName,
+                        launchStateCookieName state,
                         state,
                         launchStateCookieOptions ctx.Request.IsHttps
                     )
@@ -607,7 +609,8 @@ module Host =
 
         // the stub IdentityProvider and UserRegistry (plan 605): one-time codes and the active
         // patient per identity choice, issued by /authorize and redeemed at the callback
-        let directory = StubDirectory.make PublicKey.randomId
+        let directory =
+            StubDirectory.make (fun () -> System.DateTime.UtcNow) PublicKey.randomId
 
         let env =
             let env = Adapters.makeAppEnvWith launchKey directory provider

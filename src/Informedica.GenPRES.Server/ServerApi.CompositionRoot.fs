@@ -32,11 +32,12 @@ module CompositionRoot =
     /// Answers where it goes next; the session cookie is set when a Session opened.
     let processCallback (env: AppEnv) (cookie: SessionCookie) (stateCookie: LaunchStateCookie) (cb: Callback) =
         async {
-            match! env.session.callback { cb with StateCookie = stateCookie.read () } with
+            match! env.session.callback { cb with StateCookie = stateCookie.read cb.State } with
             | CallbackResult.Opened(id, redirect) ->
                 cookie.write id
                 return redirect
-            | CallbackResult.Refused(_, redirect) -> return redirect
+            | CallbackResult.Refused(_, redirect)
+            | CallbackResult.Superseded redirect -> return redirect
         }
 
 
