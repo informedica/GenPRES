@@ -262,10 +262,52 @@ different race from two presentations of the *same* Launch: there the spend insi
 (5.7) settles it and exactly one Session opens; here two Launches contend for the per-User
 limit.
 
+## As built against stubs
+
+Steps 1 to 6 run end to end in the demo server since
+[plan 605](../../implementation-plans/605-launch-with-server-stubs.md). What crosses the
+browser goes over HTTP as it will with MainEHR and the IdentityProvider: the Launch of step 1,
+the presentation of 4.1, the redirects of 4.2 and 4.3, the callback of 4.4 and the answer of
+4.5 and 6, with the cookies each sets. What the Server does on its own side (redeeming the code
+in 4.4, the UserRegistry and PatientDataPlatform reads of step 5, the Database) is an in-process
+call through a port, answered by a stand-in mounted when `GENPRES_PROD=0`; the real adapters
+will make those calls over the back channel without the port changing shape. The walkthrough is in
+[DEVELOPMENT.md](../../../DEVELOPMENT.md#simulating-the-launch-sequence).
+
+| Party | Stand-in | What it does |
+|-------|----------|--------------|
+| MainEHR LaunchScript (step 1) | the `/stub/launch` page | mints a Launch sealed under a key made at server start, two minutes, and opens the browser on `#/session?launch=…`; the identity choice made on the page travels in a cookie to the stub IdentityProvider |
+| IdentityProvider (4.3, 4.4) | `/authorize` and an in-memory code store | issues a one-time code for the chosen identity, or reports `no-identity`; the code is redeemed on the server's side of the callback and pruned after the Launch lifetime |
+| UserRegistry (5.3, 5.4) | the stub directory | answers Role, active Patient and PIN state per identity choice: `prescriber`, `reader`, `prescriber-other-patient`, `no-pin`, `unknown` |
+| PatientDataPlatform (5.5) | the stub patient data | answers an empty patient for every PatientId, none for `no-data` |
+| GenPRES Database | one in-memory state per server start | LaunchRecords by nonce, SessionRecords, endings; every transition is a pure function over it, run under one lock, so 5.2 and 5.7 cannot interleave |
+
+Where the code departs from the text above, on purpose:
+
+- **One state cookie per hop.** The cookie of 4.2 is named `genpres_launch_state.<state>`, not
+  a single `state` cookie, so that two tabs launching at once (ext 8b) do not overwrite each
+  other's proof.
+- **A replay whose Session is gone.** A reloaded callback within the lifetime is answered as
+  the first time (4.5, Rule 45). When the Session it opened has since been superseded, the
+  answer is the same redirect to `#/session`, and the next `GetSession` tells the ending.
+- **The ending is acknowledged, not told once.** A Client whose Session ended is told at every
+  `GetSession` until it acknowledges with `CloseSession`, which drops the mark; a notice lost in
+  transit is repeated instead of lost. [session-endings.md](session-endings.md) stands: nothing
+  is discharged by the telling.
+- **A Reader needs no PIN.** 5.4 binds Prescribers only (Rule 25, ext 5c).
+- **No patient data is not a refusal.** When 5.5 finds nothing, the Session opens with the
+  Launch's PatientId and an empty patient (ext 6a); a data outage does not block prescribing.
+- **The key pair's thumbprint** is stored in the SessionRecord at 5.7, ready for step 7.
+
+Not built: step 7 (the signed request and the OpenedToken check), the PIN detour (UC-2; a
+Prescriber without a PIN is refused with `enrolment`), the audit (Rule 46), the newest
+TreatmentPlan of 5.6, and the absolute lifetime and idle endings of Rule 10.
+
 ## Left out
 
-- **The PIN detour.** A Prescriber with no PIN is not refused: the launch suspends into UC-2
-  and continues at 5.5 once the PIN is set.
+- **The PIN detour.** By design a Prescriber with no PIN is not refused: the launch suspends
+  into UC-2 and continues at 5.5 once the PIN is set. Until UC-2 is built, the code refuses
+  with `enrolment` and the Client asks for a relaunch (see [As built](#as-built-against-stubs)).
 - **The audit.** Every launch, honored or refused, is appended to the audit (Rule 46).
 - **Everything after the launch**: prescribing and signing, and the ten other use cases.
 - **The confirmation code.** UC-2 and UC-6 mail a code to set or replace a PIN. It is not the

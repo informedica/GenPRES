@@ -467,10 +467,12 @@ are listed per step with the reason.
 
 ### Still open
 
-- The identity hop (`RedirectTo`, the callback, the `state` cookie): the client handles the payload
-  and the `refused` return; the server stub never redirects.
 - Step 7, the signed request (`Keys.sign`, the DPoP proof, the OpenedToken inside it).
-- Session endings and the Rule 11 notice; UC-2 enrolment; WorkPlan carry-over (#518); decision D1.
+- UC-2 enrolment; WorkPlan carry-over (#518); decision D1 (#599).
 - The scope switch (#580), which retires the `IsProd` stop-gap.
-- On a launch URL the language ends up English (`UrlChanged` defaults to English without `la=`)
-  and the gate hides the language switcher; the gate itself is localised (#600).
+- On a launch URL the gate hides the language switcher; the language itself follows the
+  server default since #601.
+
+Closed since this list was written: the identity hop (`RedirectTo`, the callback, the `state`
+cookie), the Rule 8 and 11 endings, and the sealed Launch, all against server-hosted stubs
+([plan 605](605-launch-with-server-stubs.md)).

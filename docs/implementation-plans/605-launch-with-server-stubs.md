@@ -173,3 +173,44 @@ the client, migration by the maintainer after review.
 - With `GENPRES_PROD=1` and a valid password: `/stub/launch` and `/authorize` are 404 and
   `/callback` refuses `invalid`.
 - `dotnet run ServerTests`, the Fable compile and Fantomas stay green after every step.
+
+## As built
+
+Every step landed as one PR from a fork branch against `master`, script-first for the server
+and Shared code (`Server/Scripts/Launch.fsx`, `Server/Scripts/Hop.fsx`,
+`Shared/Scripts/Localization.fsx`), reviewed and migrated by the maintainer, client edits
+direct. The plan's shape held; the deviations are listed below.
+
+| Step | PR | Landed |
+|------|----|--------|
+| plan | [#606](https://github.com/informedica/GenPRES/pull/606) | this document; review added the `state` on the stub IdP's error redirect, the PIN check for Prescribers only, and the open on `read = None` |
+| 1 | [#607](https://github.com/informedica/GenPRES/pull/607) | `LaunchSeal`, the `/stub/launch` page, `SessionStub.present` over the seal, the Vite proxy for `/stub` |
+| 2 | [#609](https://github.com/informedica/GenPRES/pull/609) | the ports, `Hop` with `LaunchRecord` by nonce, `present` answering `RedirectTo`, the `callback` ladder, the stub directory and patient data; also the `/authorize` and `/callback` routes and both cookies, so `master` kept launching |
+| 3 | [#610](https://github.com/informedica/GenPRES/pull/610) | the identity select and the `no-data` hint on the stub page, `HttpTests` for the state cookie, the client's `invalid` word |
+| 4 | [#612](https://github.com/informedica/GenPRES/pull/612) | `SessionLookup`, `SessionResponse.SessionEnded`, `Session.Ended` and `ResumeResult` on the client, the gate text, two `Terms` with sheet rows |
+| 5 | this PR | uc-01 as-built note, plan 409 "Still open", `DEVELOPMENT.md` walkthrough, this table |
+
+### Deviations from the text above
+
+- **Routes in step 2, not 3.** `/authorize`, `/callback` and the two cookies went in with the
+  hop core: without them `master` would have presented a Launch that redirects nowhere. Step 3
+  became the page's identity select, the cookie tests and the client word.
+- **One state cookie per hop.** `genpres_launch_state.<state>` instead of one
+  `genpres_launch_state`, read by state, so two tabs launching at once keep both proofs
+  (ext 8b). `LaunchStateCookie.read` takes the state.
+- **`CallbackResult.Superseded`.** A callback replay whose recorded Session has since been
+  closed by a newer launch is answered with the plain redirect to `#/session`, cookie untouched;
+  the next `GetSession` tells the ending. Neither "open again" nor a refusal fit.
+- **Endings are acknowledged, not told once.** `GetSession` answers `SessionEnded` at every call
+  while the mark stands and does not delete the cookie; the client answers with the existing
+  `CloseSession`, whose `Hop.close` drops the Session and the mark and deletes the cookie. A lost
+  answer is repeated; an acknowledged one is not. The marks are not time-bound: they live as
+  long as the stub's sessions, and Rule 10's absolute lifetime will bound both.
+- **One-time codes are pruned.** The stub directory stamps each code and drops it after the
+  Launch lifetime, so a demo server does not grow with every launch.
+- **`SessionLookup`.** `find` answers `Found | NotFound | Ended`, a value, instead of an option
+  plus a second lookup.
+- **Two `Terms`, not three.** ``Session Gate Ended`` and ``Session Ending Superseded``; the
+  "continue without launch" action reuses its existing term.
+- **`makeAppEnvWith`.** The host passes its launch key and directory in; `makeAppEnv` keeps its
+  old signature with a key and directory of its own, so the other server tests were untouched.
