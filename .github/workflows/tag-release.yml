@@ -281,13 +281,14 @@ jobs:
         IMAGE: ${{ steps.tags.outputs.version_tag }}
       # The smoke test above cannot see issue #572: a container that never exits after the server
       # refuses to start looks exactly like one that is still starting. This starts the image with a
-      # configuration the server refuses (production mode without a password) and requires the
-      # container to exit with code 1: the controlled refusal in `main`, not the 134 of an unhandled
-      # exception, so the check proves both that PID 1 (tini) passes the exit on and that the
-      # server took its documented exit path.
+      # configuration the server refuses (production mode with a password shorter than 16
+      # characters; a missing password no longer refuses since #590, it starts with admin
+      # operations disabled) and requires the container to exit with code 1: the controlled
+      # refusal in `main`, not the 134 of an unhandled exception, so the check proves both that
+      # PID 1 (tini) passes the exit on and that the server took its documented exit path.
       run: |
         set -euo pipefail
-        container=$(docker run -d -e GENPRES_PROD=1 -e GENPRES_PASSWORD= "$IMAGE")
+        container=$(docker run -d -e GENPRES_PROD=1 -e GENPRES_PASSWORD=short "$IMAGE")
         cleanup() {
           docker logs "$container" || true
           docker rm -f "$container" >/dev/null 2>&1 || true

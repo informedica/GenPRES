@@ -1,6 +1,14 @@
-// Server default language (GENPRES_LANG) and the settings the client learns from the server.
+// Server settings drafts (script-only policy): GENPRES_LANG (merged, #601) and, for #590, the
+// production password policy that starts with admin operations disabled instead of refusing.
 //
-// Script-first draft (script-only policy) of:
+// #590: `validateProductionPassword` answers `Ok (Some warning)` when GENPRES_PROD=1 and the
+// password is missing or blank: the server starts on the configured data, prints the warning,
+// and the admin commands stay disabled because they read the (unset) variable themselves.
+// A password shorter than 16 characters still refuses (user decision: a weak secret would stay
+// live in those env reads). `validateStartup` returns a `Startup` with the url id and the
+// warnings to print. To migrate into `Server.fs`, module `Config`, and `main`.
+//
+// Earlier draft (merged) of:
 //   - `Config.Settings.Lang` (raw, `nonBlank`), `Config.language` (derived, `Result`), the
 //     `validateStartup` extension, the banner line — to migrate into `Server.fs`, module `Config`;
 //   - `ServerSettings` and `getSettings` — to migrate into `Shared/Api.fs` next to `IServerApi`
@@ -72,15 +80,42 @@ module Config =
     let minProductionPasswordLength = 16
 
 
-    let validateProductionPassword (isProd: bool) (password: string option) : Result<unit, string> =
+    /// <summary>
+    /// The production password policy. <c>Ok None</c>: nothing to say. <c>Ok (Some warning)</c>:
+    /// the server starts with admin operations disabled and prints the warning (#590: a missing
+    /// or blank password no longer refuses the start; the admin commands fail closed on the
+    /// unset variable). <c>Error</c>: the message the server refuses to start with, kept for a
+    /// password shorter than <c>minProductionPasswordLength</c>, which would otherwise stay live.
+    /// </summary>
+    let validateProductionPassword (isProd: bool) (password: string option) : Result<string option, string> =
         if not isProd then
-            Ok()
+            Ok None
         else
             match password |> nonBlank with
-            | None -> Error "GENPRES_PROD=1 but GENPRES_PASSWORD is not set (or is empty)."
+            | None ->
+                Ok(
+                    Some
+                        "GENPRES_PROD=1 but GENPRES_PASSWORD is not set (or is empty). \
+                         Starting with admin operations disabled (settings page, log analysis, resource reload). \
+                         Set a password of at least 16 characters to enable them; generate one with `openssl rand -base64 32` \
+                         and inject it via a secret store. See DEVELOPMENT.md → Password policy."
+                )
             | Some pwd when pwd.Length < minProductionPasswordLength ->
-                Error $"GENPRES_PROD=1 but GENPRES_PASSWORD is shorter than %i{minProductionPasswordLength} characters."
-            | Some _ -> Ok()
+                Error
+                    $"GENPRES_PROD=1 but GENPRES_PASSWORD is shorter than %i{minProductionPasswordLength} characters. \
+                      Refusing to start in production with a weak admin password. \
+                      Generate a stronger one with `openssl rand -base64 32`. \
+                      See DEVELOPMENT.md → Password policy."
+            | Some _ -> Ok None
+
+
+    /// What a start-up needs: the url id the host is built with, and the warnings to print
+    /// before hosting (today at most the password warning).
+    type Startup =
+        {
+            UrlId: string
+            Warnings: string list
+        }
 
 
     /// The default UI language. Unset means Dutch, the client's default until now; a value
@@ -111,13 +146,20 @@ module Config =
     /// Every start-up guard in one place: the production password policy, the language, then
     /// the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries the URL ID the host needs.
     /// </summary>
-    let validateStartup (settings: Settings) : Result<string, string> =
+    let validateStartup (settings: Settings) : Result<Startup, string> =
         validateProductionPassword settings.IsProd settings.Password
-        |> Result.bind (fun () -> language settings |> Result.map ignore)
-        |> Result.bind (fun () ->
-            match settings.UrlId with
-            | Some urlId -> Ok urlId
-            | None -> Error "No GENPRES_URL_ID (or value is empty)"
+        |> Result.bind (fun warning ->
+            language settings
+            |> Result.bind (fun _ ->
+                match settings.UrlId with
+                | Some urlId ->
+                    Ok
+                        {
+                            UrlId = urlId
+                            Warnings = warning |> Option.toList
+                        }
+                | None -> Error "No GENPRES_URL_ID (or value is empty)"
+            )
         )
 
 
@@ -206,8 +248,17 @@ let tests =
             }
 
             test "the language is checked after the password and before the url id" {
-                match Map [ "GENPRES_PROD", "1"; "GENPRES_LANG", "klingon" ] |> settingsOf |> Config.validateStartup with
+                match
+                    Map [ "GENPRES_PROD", "1"; "GENPRES_PASSWORD", "short"; "GENPRES_LANG", "klingon" ]
+                    |> settingsOf
+                    |> Config.validateStartup
+                with
                 | Error msg -> msg |> Expect.stringContains "password first" "GENPRES_PASSWORD"
+                | Ok _ -> failtest "expected Error"
+
+                // a missing password is a warning (#590), so it does not mask the language error
+                match Map [ "GENPRES_PROD", "1"; "GENPRES_LANG", "klingon" ] |> settingsOf |> Config.validateStartup with
+                | Error msg -> msg |> Expect.stringContains "language after the warning" "GENPRES_LANG"
                 | Ok _ -> failtest "expected Error"
 
                 match Map [ "GENPRES_LANG", "klingon" ] |> settingsOf |> Config.validateStartup with
@@ -219,7 +270,7 @@ let tests =
                 Map [ "GENPRES_LANG", "en"; "GENPRES_URL_ID", "id" ]
                 |> settingsOf
                 |> Config.validateStartup
-                |> Expect.equal "Ok with the url id" (Ok "id")
+                |> Expect.equal "Ok with the url id" (Ok { Config.Startup.UrlId = "id"; Config.Startup.Warnings = [] })
             }
 
             test "toServerSettings carries the language and the demo flag" {
@@ -251,4 +302,82 @@ let tests =
         ]
 
 
-runTestsWithCLIArgs [] [||] tests |> ignore
+let sixteen = String.replicate 16 "x"
+let fifteen = String.replicate 15 "x"
+
+
+let passwordTests =
+    testList
+        "GENPRES_PASSWORD (#590)"
+        [
+            test "demo mode: no password, nothing to say" {
+                Config.validateProductionPassword false None |> Expect.equal "Ok None" (Ok None)
+            }
+
+            test "production without a password starts with a warning naming the setting and what is disabled" {
+                match Config.validateProductionPassword true None with
+                | Ok(Some warning) ->
+                    warning |> Expect.stringContains "setting" "GENPRES_PASSWORD"
+                    warning |> Expect.stringContains "cause" "not set"
+                    warning |> Expect.stringContains "effect" "admin operations disabled"
+                | other -> failtest $"expected Ok (Some warning), got {other}"
+            }
+
+            test "production with a blank password is the same as none" {
+                Config.validateProductionPassword true (Some "  ")
+                |> Expect.equal "same warning" (Config.validateProductionPassword true None)
+            }
+
+            test "production with 15 characters still refuses, naming the minimum" {
+                match Config.validateProductionPassword true (Some fifteen) with
+                | Error msg -> msg |> Expect.stringContains "minimum" "16"
+                | other -> failtest $"expected Error, got {other}"
+            }
+
+            test "production with 16 characters: nothing to say" {
+                Config.validateProductionPassword true (Some sixteen) |> Expect.equal "Ok None" (Ok None)
+            }
+        ]
+
+
+let startupTests =
+    testList
+        "validateStartup (#590)"
+        [
+            test "production without a password starts with one warning and the url id" {
+                match Map [ "GENPRES_PROD", "1"; "GENPRES_URL_ID", "id" ] |> settingsOf |> Config.validateStartup with
+                | Ok startup ->
+                    startup.UrlId |> Expect.equal "url id" "id"
+                    startup.Warnings |> List.length |> Expect.equal "one warning" 1
+                    startup.Warnings.Head |> Expect.stringContains "the password warning" "admin operations disabled"
+                | Error msg -> failtest $"expected Ok, got Error {msg}"
+            }
+
+            test "production with a valid password starts without warnings" {
+                Map [ "GENPRES_PROD", "1"; "GENPRES_PASSWORD", sixteen; "GENPRES_URL_ID", "id" ]
+                |> settingsOf
+                |> Config.validateStartup
+                |> Expect.equal "no warnings" (Ok { Config.Startup.UrlId = "id"; Config.Startup.Warnings = [] })
+            }
+
+            test "the password warning does not mask a missing url id" {
+                match Map [ "GENPRES_PROD", "1" ] |> settingsOf |> Config.validateStartup with
+                | Error msg -> msg |> Expect.stringContains "url id" "GENPRES_URL_ID"
+                | Ok _ -> failtest "expected Error"
+            }
+
+            test "a short password still refuses before the url id is checked" {
+                match Map [ "GENPRES_PROD", "1"; "GENPRES_PASSWORD", fifteen ] |> settingsOf |> Config.validateStartup with
+                | Error msg -> msg |> Expect.stringContains "password" "GENPRES_PASSWORD"
+                | Ok _ -> failtest "expected Error"
+            }
+
+            test "demo without a url id is refused, as before" {
+                match Map.empty |> settingsOf |> Config.validateStartup with
+                | Error msg -> msg |> Expect.stringContains "url id" "GENPRES_URL_ID"
+                | Ok _ -> failtest "expected Error"
+            }
+        ]
+
+
+runTestsWithCLIArgs [] [||] (testList "Settings.fsx" [ tests; passwordTests; startupTests ]) |> ignore

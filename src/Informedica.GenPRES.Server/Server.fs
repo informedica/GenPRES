@@ -109,38 +109,54 @@ module Config =
             |]
 
 
-    // SECURITY: in production mode (GENPRES_PROD=1), refuse to start without
-    // a GENPRES_PASSWORD of at least minProductionPasswordLength characters.
-    // Fail-closed, checked before any listener binds. Demo/dev mode accepts
-    // any value (or none — admin ops just stay disabled).
+    // SECURITY: in production mode (GENPRES_PROD=1) a GENPRES_PASSWORD shorter
+    // than minProductionPasswordLength characters refuses the start: a weak
+    // secret would otherwise stay live in the admin commands, which read the
+    // variable themselves. A missing or blank password does not refuse
+    // (issue #590): the server starts on the configured data with admin
+    // operations disabled, which those same commands enforce by failing
+    // closed on the unset variable, and it prints a warning. Demo/dev mode
+    // accepts any value (or none).
     let minProductionPasswordLength = 16
 
 
     /// <summary>
-    /// The production password policy. <c>Ok</c> outside production or with
-    /// a password of at least <c>minProductionPasswordLength</c> characters;
-    /// otherwise the message the server refuses to start with.
+    /// The production password policy. <c>Ok None</c>: nothing to say.
+    /// <c>Ok (Some warning)</c>: the server starts with admin operations
+    /// disabled and prints the warning. <c>Error</c>: the message the server
+    /// refuses to start with.
     /// </summary>
-    let validateProductionPassword (isProd: bool) (password: string option) : Result<unit, string> =
+    let validateProductionPassword (isProd: bool) (password: string option) : Result<string option, string> =
         if not isProd then
-            Ok()
+            Ok None
         else
             // Blank = unset, so a forgotten Docker env hits the "not set"
             // branch instead of "shorter than 16 characters".
             match password |> nonBlank with
             | None ->
-                Error
-                    "GENPRES_PROD=1 but GENPRES_PASSWORD is not set (or is empty). \
-                     Refusing to start in production without an admin password. \
-                     Generate one with `openssl rand -base64 32` and inject it via a secret store. \
-                     See DEVELOPMENT.md → Password policy."
+                Ok(
+                    Some
+                        "GENPRES_PROD=1 but GENPRES_PASSWORD is not set (or is empty). \
+                         Starting with admin operations disabled (settings page, log analysis, resource reload). \
+                         Set a password of at least 16 characters to enable them; generate one with `openssl rand -base64 32` \
+                         and inject it via a secret store. See DEVELOPMENT.md → Password policy."
+                )
             | Some pwd when pwd.Length < minProductionPasswordLength ->
                 Error
                     $"GENPRES_PROD=1 but GENPRES_PASSWORD is shorter than %i{minProductionPasswordLength} characters. \
                      Refusing to start in production with a weak admin password. \
                      Generate a stronger one with `openssl rand -base64 32`. \
                      See DEVELOPMENT.md → Password policy."
-            | Some _ -> Ok()
+            | Some _ -> Ok None
+
+
+    /// What a start-up needs: the url id the host is built with, and the
+    /// warnings to print before hosting (today at most the password warning).
+    type Startup =
+        {
+            UrlId: string
+            Warnings: string list
+        }
 
 
     /// The default UI language: Dutch, the client's own default until now.
@@ -185,15 +201,23 @@ module Config =
     /// <summary>
     /// Every start-up guard in one place: the production password policy, the
     /// language, then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries
-    /// the URL ID the host needs; <c>Error</c> is the message the server exits with.
+    /// the URL ID the host needs and the warnings to print; <c>Error</c> is the
+    /// message the server exits with.
     /// </summary>
-    let validateStartup (settings: Settings) : Result<string, string> =
+    let validateStartup (settings: Settings) : Result<Startup, string> =
         validateProductionPassword settings.IsProd settings.Password
-        |> Result.bind (fun () -> language settings |> Result.map ignore)
-        |> Result.bind (fun () ->
-            match settings.UrlId with
-            | Some urlId -> Ok urlId
-            | None -> Error "No GENPRES_URL_ID (or value is empty)"
+        |> Result.bind (fun warning ->
+            language settings
+            |> Result.bind (fun _ ->
+                match settings.UrlId with
+                | Some urlId ->
+                    Ok
+                        {
+                            UrlId = urlId
+                            Warnings = warning |> Option.toList
+                        }
+                | None -> Error "No GENPRES_URL_ID (or value is empty)"
+            )
         )
 
 
@@ -628,6 +652,8 @@ let main _ =
     | Error msg ->
         writeErrorMessage msg
         1
-    | Ok urlId ->
-        Host.build settings (Host.resourceProvider urlId) |> run
+    | Ok startup ->
+        // a degraded but permitted configuration (issue #590) is said once, before hosting
+        startup.Warnings |> List.iter writeWarningMessage
+        Host.build settings (Host.resourceProvider startup.UrlId) |> run
         0

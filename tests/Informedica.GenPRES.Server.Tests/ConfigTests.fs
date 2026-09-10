@@ -47,33 +47,43 @@ let passwordTests =
     testList
         "validateProductionPassword"
         [
-            test "demo mode accepts no password" {
-                Config.validateProductionPassword false None |> Expect.equal "Ok" (Ok())
+            test "demo mode accepts no password, nothing to say" {
+                Config.validateProductionPassword false None |> Expect.equal "Ok None" (Ok None)
             }
 
-            test "production without a password is refused" {
+            test "production without a password starts with a warning naming the setting and what is disabled" {
                 match Config.validateProductionPassword true None with
-                | Error msg -> msg |> Expect.stringContains "names the cause" "not set"
-                | Ok() -> failtest "expected Error"
+                | Ok(Some warning) ->
+                    warning |> Expect.stringContains "names the setting" "GENPRES_PASSWORD"
+                    warning |> Expect.stringContains "names the cause" "not set"
+                    warning |> Expect.stringContains "names the effect" "admin operations disabled"
+                | other -> failtest $"expected Ok (Some warning), got {other}"
             }
 
-            test "production with a blank password is refused as not set" {
-                match Config.validateProductionPassword true (Some "  ") with
-                | Error msg -> msg |> Expect.stringContains "names the cause" "not set"
-                | Ok() -> failtest "expected Error"
+            test "production with a blank password is the same as none" {
+                Config.validateProductionPassword true (Some "  ")
+                |> Expect.equal "same warning" (Config.validateProductionPassword true None)
             }
 
             test "production with 15 characters is refused" {
                 match Config.validateProductionPassword true (Some fifteen) with
                 | Error msg -> msg |> Expect.stringContains "names the minimum" "16"
-                | Ok() -> failtest "expected Error"
+                | other -> failtest $"expected Error, got {other}"
             }
 
-            test "production with 16 characters is accepted" {
+            test "production with 16 characters is accepted, nothing to say" {
                 Config.validateProductionPassword true (Some sixteen)
-                |> Expect.equal "Ok" (Ok())
+                |> Expect.equal "Ok None" (Ok None)
             }
         ]
+
+
+/// A start-up with nothing to warn about.
+let startup urlId : Config.Startup =
+    {
+        UrlId = urlId
+        Warnings = []
+    }
 
 
 let validateStartupTests =
@@ -85,11 +95,11 @@ let validateStartupTests =
     testList
         "validateStartup"
         [
-            test "demo with a url id starts" {
+            test "demo with a url id starts without warnings" {
                 Map [ "GENPRES_URL_ID", "sheet-id" ]
                 |> settings
                 |> Config.validateStartup
-                |> Expect.equal "Ok with the url id" (Ok "sheet-id")
+                |> Expect.equal "Ok with the url id" (Ok(startup "sheet-id"))
             }
 
             test "demo without a url id is refused" {
@@ -98,17 +108,38 @@ let validateStartupTests =
                 | Ok _ -> failtest "expected Error"
             }
 
-            test "production without a password is refused before the url id is checked" {
+            test "production without a password starts with one warning and the url id (#590)" {
                 match
                     Map [ "GENPRES_PROD", "1"; "GENPRES_URL_ID", "sheet-id" ]
                     |> settings
                     |> Config.validateStartup
                 with
-                | Error msg -> msg |> Expect.stringContains "names the cause" "not set"
+                | Ok s ->
+                    s.UrlId |> Expect.equal "url id" "sheet-id"
+                    s.Warnings |> List.length |> Expect.equal "one warning" 1
+
+                    s.Warnings.Head
+                    |> Expect.stringContains "the password warning" "admin operations disabled"
+                | Error msg -> failtest $"expected Ok, got Error {msg}"
+            }
+
+            test "the password warning does not mask a missing url id" {
+                match Map [ "GENPRES_PROD", "1" ] |> settings |> Config.validateStartup with
+                | Error msg -> msg |> Expect.stringContains "names the setting" "GENPRES_URL_ID"
                 | Ok _ -> failtest "expected Error"
             }
 
-            test "production with a valid password and a url id starts" {
+            test "production with a short password is refused before the url id is checked" {
+                match
+                    Map [ "GENPRES_PROD", "1"; "GENPRES_PASSWORD", "short" ]
+                    |> settings
+                    |> Config.validateStartup
+                with
+                | Error msg -> msg |> Expect.stringContains "names the setting" "GENPRES_PASSWORD"
+                | Ok _ -> failtest "expected Error"
+            }
+
+            test "production with a valid password and a url id starts without warnings" {
                 Map
                     [
                         "GENPRES_PROD", "1"
@@ -117,7 +148,7 @@ let validateStartupTests =
                     ]
                 |> settings
                 |> Config.validateStartup
-                |> Expect.equal "Ok with the url id" (Ok "sheet-id")
+                |> Expect.equal "Ok with the url id" (Ok(startup "sheet-id"))
             }
         ]
 
@@ -258,11 +289,25 @@ let languageTests =
 
             test "the language is checked after the password and before the url id" {
                 match
-                    Map [ "GENPRES_PROD", "1"; "GENPRES_LANG", "klingon" ]
+                    Map
+                        [
+                            "GENPRES_PROD", "1"
+                            "GENPRES_PASSWORD", "short"
+                            "GENPRES_LANG", "klingon"
+                        ]
                     |> settings
                     |> Config.validateStartup
                 with
                 | Error msg -> msg |> Expect.stringContains "password first" "GENPRES_PASSWORD"
+                | Ok _ -> failtest "expected Error"
+
+                // a missing password is a warning (#590), so it does not mask the language error
+                match
+                    Map [ "GENPRES_PROD", "1"; "GENPRES_LANG", "klingon" ]
+                    |> settings
+                    |> Config.validateStartup
+                with
+                | Error msg -> msg |> Expect.stringContains "language after the warning" "GENPRES_LANG"
                 | Ok _ -> failtest "expected Error"
 
                 match Map [ "GENPRES_LANG", "klingon" ] |> settings |> Config.validateStartup with
@@ -274,7 +319,7 @@ let languageTests =
                 Map [ "GENPRES_LANG", "en"; "GENPRES_URL_ID", "sheet-id" ]
                 |> settings
                 |> Config.validateStartup
-                |> Expect.equal "Ok with the url id" (Ok "sheet-id")
+                |> Expect.equal "Ok with the url id" (Ok(startup "sheet-id"))
             }
 
             test "toServerSettings carries the language and the demo flag" {

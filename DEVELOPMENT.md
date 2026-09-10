@@ -449,13 +449,14 @@ docker compose logs -f genpres
 
 The image is published by `tag-release.yml` a few minutes *after* the release PR merges, so a `docker compose pull` in that window fails with "manifest unknown"; retry shortly after.
 
-Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID`, a 16+ character `GENPRES_PASSWORD`, and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
+Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID` and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. A 16+ character `GENPRES_PASSWORD` enables the admin operations; without one the server starts with them disabled and warns (issue #590). `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
 
 **Process 1 and exit codes** — the image runs [`tini`](https://github.com/krallin/tini) as PID 1
 and starts `dotnet` under it (issue [#572](https://github.com/informedica/GenPRES/issues/572)).
 With `dotnet` itself as PID 1, the `SIGABRT` the runtime sends itself after an unhandled exception
 was dropped, so a container whose server refused to start stayed "running" with nothing listening.
-Now a refused start-up (the production password policy, or no `GENPRES_URL_ID`) prints one message
+Now a refused start-up (a production password shorter than 16 characters, an unknown
+`GENPRES_LANG`, or no `GENPRES_URL_ID`) prints one message
 and exits `1`, a crash exits `134`, and `docker stop` still reaches Kestrel for a graceful shutdown.
 `compose.yaml`'s `restart: unless-stopped` and any orchestrator act on those codes; read them with
 `docker ps -a`. No `--init` or `init: true` is needed. The release workflow proves this on every
@@ -1040,10 +1041,13 @@ resource reload). The server enforces a length policy at startup:
 - **Development (`GENPRES_PROD=0`)**: any value is accepted, including the
   trivial `genpres` used by some local setups. Convenient for development;
   unsafe anywhere else.
-- **Production (`GENPRES_PROD=1`)**: the server **refuses to start** when
-  `GENPRES_PASSWORD` is missing or shorter than 16 characters. Generate a
-  strong value with a CSPRNG, e.g. `openssl rand -base64 32`, and inject it
-  via a secret store (Docker secret, Kubernetes secret, vault, ...).
+- **Production (`GENPRES_PROD=1`)**: when `GENPRES_PASSWORD` is missing or
+  blank the server **starts with admin operations disabled** and prints a
+  warning saying so (issue #590); the data set is still the production one.
+  When the password is set but shorter than 16 characters the server
+  **refuses to start**: a weak secret would stay live. Generate a strong
+  value with a CSPRNG, e.g. `openssl rand -base64 32`, and inject it via a
+  secret store (Docker secret, Kubernetes secret, vault, ...).
 
 Never reuse a development password in production. Never commit a real
 password to the repository — `.env` is gitignored.
