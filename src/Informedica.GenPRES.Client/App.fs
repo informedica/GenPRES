@@ -389,6 +389,7 @@ module private Elmish =
         match reason with
         | "expired" -> LaunchRefusal.LaunchExpired
         | "spent" -> LaunchRefusal.LaunchSpent
+        | "invalid" -> LaunchRefusal.LaunchInvalid
         | "no-identity" -> LaunchRefusal.NoBrowserIdentity
         | "no-role" -> LaunchRefusal.NoRole
         | "wrong-patient" -> LaunchRefusal.WrongActivePatient

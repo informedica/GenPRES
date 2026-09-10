@@ -1036,6 +1036,15 @@ module SessionStubTests =
                     |> Expect.equal "escaped" "/#/session?launch=a%2Bb%2Fc%3D"
                 }
 
+                test "the page offers every identity choice and names the no-data patient" {
+                    StubLaunch.page.Contains "<select name=\"identity\">" |> Expect.isTrue "select"
+
+                    for c in StubDirectory.choices do
+                        StubLaunch.page.Contains $"<option value=\"{c}\">" |> Expect.isTrue c
+
+                    StubLaunch.page.Contains "no-data" |> Expect.isTrue "no-data hint"
+                }
+
                 test "the page has no inline script and posts to its own path" {
                     StubLaunch.page.Contains "<script" |> Expect.isFalse "no script"
 

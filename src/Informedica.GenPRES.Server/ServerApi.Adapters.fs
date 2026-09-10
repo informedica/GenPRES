@@ -633,8 +633,15 @@ module StubLaunch =
     let lifetime = TimeSpan.FromMinutes 2.0
 
 
-    /// The form. No inline script or style, so the CSP (`default-src 'self'`) holds.
-    let page =
+    /// The form for a list of identity choices (the stub directory's). No inline script or
+    /// style, so the CSP (`default-src 'self'`) holds. The PatientId `no-data` opens a Session
+    /// without imported data (ext 6a).
+    let pageFor (choices: string list) =
+        let options =
+            choices
+            |> List.map (fun c -> $"""    <option value="{c}">{c}</option>""")
+            |> String.concat "\n"
+
         $"""<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>GenPRES stub launch</title></head>
@@ -643,11 +650,21 @@ module StubLaunch =
 <p>Stands in for the MainEHR LaunchScript (uc-01 step 1): mints a sealed Launch for the patient
 below and opens GenPRES on it. Development and test servers only.</p>
 <form method="post" action="{path}">
-  <label>PatientId <input name="pid" value="stub-patient" required></label>
+  <p><label>PatientId <input name="pid" value="stub-patient" required></label>
+  <small>(<code>no-data</code>: a patient without imported data)</small></p>
+  <p><label>Identity at the browser
+  <select name="identity">
+{options}
+  </select></label>
+  <small>(who the stub IdentityProvider says is there; <code>none</code>: nobody)</small></p>
   <button type="submit">Launch</button>
 </form>
 </body>
 </html>"""
+
+
+    /// The page over the stub directory's choices.
+    let page = pageFor StubDirectory.choices
 
 
     /// Where the browser goes after minting: the hash form of decision D1.
