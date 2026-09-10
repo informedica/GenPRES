@@ -24,8 +24,8 @@ software that ships with it is a new baseline.
 What exists today. `master` is the only long-lived branch. ShipIt opens a release PR from its
 reused `release/master` branch on every push, the release manager merges it, and
 `tag-release.yml` tags the merge commit and publishes a Docker image ([ADR-0005](0005-build-system-versioning-and-release.md)).
-Every version so far is a pre-release (`0.1.2-alpha.N`); the security review already states that
-such versions are not appropriate for an MDR-regulated production deployment. `GENPRES_PROD`
+Every version so far is a pre-release (`0.1.2-alpha.N`), and nothing in the repository says which
+versions may run in production. `GENPRES_PROD`
 selects the data set. Issue #580 and its plan (PR #581) add `GENPRES_SCOPE=accredited|full`, a
 server-enforced switch with the accredited feature list as code in `Informedica.GenPRES.Shared`,
 so that a production server withholds the features that are not accredited. That plan frames
@@ -139,9 +139,9 @@ because acceptance would then test a different binary from the one in production
   branch becomes: no release branch is needed for feature isolation; the maintenance line exists
   for the code baseline.
 - **Production becomes a defined configuration.** A production server is a maintenance-line
-  tag, production data, accredited scope. The statement in the security review that
-  pre-release versions are not appropriate for production becomes enforceable rather than
-  advisory.
+  tag, production data, accredited scope. A pre-release version, an alpha from `master`, is by
+  this decision never a production deployment: it carries no verified baseline. This is a
+  conclusion of this ADR, not a rule stated elsewhere in the repository.
 - **Cherry-picks are work.** Every correction to a certified feature is made twice, on `master`
   and on the line, and verified on the line. This is the cost of not shipping unverified
   changes; it is bounded by the number of certified lines kept alive, which should be one, at
@@ -189,8 +189,6 @@ because acceptance would then test a different binary from the one in production
   [implementation plan, PR #581](https://github.com/informedica/GenPRES/pull/581) — the scope
   switch, the environment table, the accredited list as code.
 - [GOVERNANCE.md](../../GOVERNANCE.md) — change control, safety-critical changes, release authority.
-- [docs/security/2026-04-10-security-review.md](../security/2026-04-10-security-review.md) —
-  pre-release versions and production.
 - MDCG 2020-3 Rev.1, *Guidance on significant changes regarding the transitional provision under
   Article 120 of the MDR*, section 4.3.2.3 and Chart C:
   <https://health.ec.europa.eu/system/files/2023-09/mdcg_2020-3_en_1.pdf>
