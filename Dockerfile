@@ -82,7 +82,7 @@ ENV GENPRES_ROOT="/app"
 #
 #   -e GENPRES_PROD=1
 #   -e GENPRES_URL_ID="<proprietary_url_id>"
-#   -e GENPRES_PASSWORD="<admin_password, 16+ chars>"
+#   -e GENPRES_PASSWORD="<admin_password, 16+ chars>"   (empty: starts with admin disabled, #590)
 #   -v "$PWD/data/cache:/app/data/cache"   (production reads *.cache, not shipped)
 #
 # `docker compose up -d` with the repo-root compose.yaml wires all four from .env.

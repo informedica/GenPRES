@@ -455,7 +455,8 @@ Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself d
 and starts `dotnet` under it (issue [#572](https://github.com/informedica/GenPRES/issues/572)).
 With `dotnet` itself as PID 1, the `SIGABRT` the runtime sends itself after an unhandled exception
 was dropped, so a container whose server refused to start stayed "running" with nothing listening.
-Now a refused start-up (the production password policy, or no `GENPRES_URL_ID`) prints one message
+Now a refused start-up (a production password shorter than 16 characters, an unknown
+`GENPRES_LANG`, or no `GENPRES_URL_ID`) prints one message
 and exits `1`, a crash exits `134`, and `docker stop` still reaches Kestrel for a graceful shutdown.
 `compose.yaml`'s `restart: unless-stopped` and any orchestrator act on those codes; read them with
 `docker ps -a`. No `--init` or `init: true` is needed. The release workflow proves this on every
@@ -1040,10 +1041,13 @@ resource reload). The server enforces a length policy at startup:
 - **Development (`GENPRES_PROD=0`)**: any value is accepted, including the
   trivial `genpres` used by some local setups. Convenient for development;
   unsafe anywhere else.
-- **Production (`GENPRES_PROD=1`)**: the server **refuses to start** when
-  `GENPRES_PASSWORD` is missing or shorter than 16 characters. Generate a
-  strong value with a CSPRNG, e.g. `openssl rand -base64 32`, and inject it
-  via a secret store (Docker secret, Kubernetes secret, vault, ...).
+- **Production (`GENPRES_PROD=1`)**: when `GENPRES_PASSWORD` is missing or
+  blank the server **starts with admin operations disabled** and prints a
+  warning saying so (issue #590); the data set is still the production one.
+  When the password is set but shorter than 16 characters the server
+  **refuses to start**: a weak secret would stay live. Generate a strong
+  value with a CSPRNG, e.g. `openssl rand -base64 32`, and inject it via a
+  secret store (Docker secret, Kubernetes secret, vault, ...).
 
 Never reuse a development password in production. Never commit a real
 password to the repository — `.env` is gitignored.
