@@ -1016,8 +1016,21 @@ GENPRES_URL_ID=<your-url-id>   # Google Sheets data URL ID (required; .env.examp
 GENPRES_LOG=i                  # Logging level: 0=off, d=debug, i=info, w=warning, e=error
 GENPRES_PROD=0                 # Production mode: 0=demo (safe default), 1=production data
 GENPRES_DEBUG=1                # Debug mode: 0=off, 1=on
+GENPRES_LANG=nl                # Default UI language: en, nl, fr, de, es, it — see below
 GENPRES_PASSWORD=<password>    # Admin password — see policy below
 ```
+
+#### Default language
+
+`GENPRES_LANG` is the UI language a browser starts in. The client asks the server for it at
+start-up (`getSettings`); until then, and when the server cannot be reached, the client falls
+back to Dutch, as it always did. Accepted values are the ISO 639-1 codes `en`, `nl`, `fr`, `de`,
+`es`, `it` in any case (the display names such as `Nederlands` work too). Unset or blank means
+`nl`; any other value makes the server refuse to start with a message naming the setting.
+
+The server default is the lowest rung: an `la=` parameter in the url wins over it, and so does a
+language the user picks in the title bar or the disclaimer. Navigating between pages keeps the
+current language; only a new `la=` changes it.
 
 #### Password policy
 

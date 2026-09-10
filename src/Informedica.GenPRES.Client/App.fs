@@ -52,6 +52,11 @@ module private Elmish =
             LogAnalysisReport: Deferred<string>
             // the launch Session (plan 409); Anonymous is the state every URL patient runs in
             Session: Session
+            // what the server was configured with: the default language, the demo flag
+            Settings: Deferred<Api.ServerSettings>
+            // the url or the User chose the language (LanguagePolicy); the server default no
+            // longer applies. The language itself lives in Context, where the views read it
+            LanguageChosen: bool
         }
 
 
@@ -99,6 +104,7 @@ module private Elmish =
         | CloseSnackbar
         | CheckServer of AsyncOperationStatus<Result<string, exn>>
         | DismissServerError
+        | LoadSettings of AsyncOperationStatus<Result<Api.ServerSettings, exn>>
 
         | Login of password: string
         | LoadLoginResult of ApiResponse
@@ -126,6 +132,17 @@ module private Elmish =
                 return CheckServer(Finished(Ok result))
             with ex ->
                 return CheckServer(Finished(Error ex))
+        }
+        |> Cmd.fromAsync
+
+
+    let loadSettings =
+        async {
+            try
+                let! settings = serverApi.getSettings ()
+                return LoadSettings(Finished(Ok settings))
+            with ex ->
+                return LoadSettings(Finished(Error ex))
         }
         |> Cmd.fromAsync
 
@@ -332,16 +349,8 @@ module private Elmish =
                 | Some s when s = "pe" -> Some Parenteralia
                 | _ -> None
 
-            let lang =
-                match paramsMap |> Map.tryFind "la" with
-                | Some s when s = "en" -> Some Localization.English
-                | Some s when s = "du" -> Some Localization.Dutch
-                | Some s when s = "fr" -> Some Localization.French
-                | Some s when s = "gr" -> Some Localization.German
-                | Some s when s = "sp" -> Some Localization.Spanish
-                | Some s when s = "it" -> Some Localization.Italian
-                //                | Some s when s = "ch" -> Some Localization.Chinees // refact: to Chinese
-                | _ -> None
+            // ISO code, display name or the legacy codes (du, gr, sp): one parser with the server
+            let lang = paramsMap |> Map.tryFind "la" |> Option.bind Localization.tryParse
 
             let discl =
                 match paramsMap |> Map.tryFind "dc" with
@@ -453,7 +462,8 @@ module private Elmish =
             Hospitals = HasNotStartedYet
             Context =
                 {
-                    Localization = lang |> Option.defaultValue Localization.Dutch
+                    // the server default replaces this once LoadSettings resolves, unless the url chose
+                    Localization = (LanguagePolicy.Language.initial lang).Current
                     Hospital = "UMCU"
                 }
             IsDemo = false
@@ -469,6 +479,23 @@ module private Elmish =
             LogFiles = HasNotStartedYet
             LogAnalysisReport = HasNotStartedYet
             Session = Session.Anonymous
+            Settings = HasNotStartedYet
+            LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
+        }
+
+
+    /// The language as LanguagePolicy sees it, and the state after the policy answered.
+    let languageOf (state: State) : LanguagePolicy.Language =
+        {
+            Current = state.Context.Localization
+            Chosen = state.LanguageChosen
+        }
+
+
+    let withLanguage (language: LanguagePolicy.Language) (state: State) =
+        { state with
+            State.Context.Localization = language.Current
+            LanguageChosen = language.Chosen
         }
 
 
@@ -511,6 +538,7 @@ module private Elmish =
                     | None -> Cmd.ofMsg (SessionMsg SessionMsg.Resume)
                     | Some _ -> launchCmd launchUrl
                     checkServer
+                    Cmd.ofMsg (LoadSettings Started)
                     Cmd.ofMsg (LoadNormalValues Started)
                     Cmd.ofMsg (LoadBolusMedication Started)
                     Cmd.ofMsg (LoadContinuousMedication Started)
@@ -680,6 +708,23 @@ module private Elmish =
 
         | DismissServerError -> { state with ServerError = None }, Cmd.none
 
+        | LoadSettings Started -> { state with Settings = InProgress }, loadSettings
+
+        | LoadSettings(Finished(Ok settings)) ->
+            // the server default counts until the url or the User chooses; a choice made while
+            // the settings were in flight wins (LanguagePolicy.onServerDefault)
+            { state with
+                Settings = Resolved settings
+                IsDemo = settings.IsDemo
+            }
+            |> withLanguage (languageOf state |> LanguagePolicy.Language.onServerDefault settings.Language),
+            Cmd.none
+
+        | LoadSettings(Finished(Error err)) ->
+            // no settings: the client keeps its own defaults, which is what it did before
+            Logging.error "cannot load the server settings" err
+            { state with Settings = HasNotStartedYet }, Cmd.none
+
         | Login password ->
             state,
             Api.LogAnalyzerCmd(Api.ValidatePassword password)
@@ -735,10 +780,8 @@ module private Elmish =
         | AcceptDisclaimer -> { state with ShowDisclaimer = false }, Cmd.none
 
         | UpdateLanguage lang ->
-            { state with
-                ShowDisclaimer = true
-                State.Context.Localization = lang
-            },
+            { state with ShowDisclaimer = true }
+            |> withLanguage (languageOf state |> LanguagePolicy.Language.choose lang),
             Cmd.none
 
         | UpdateHospital hosp ->
@@ -845,6 +888,9 @@ module private Elmish =
 
             let pat = if anonymous then pat else state.Patient
 
+            // only an `la` parameter changes the language; a navigation keeps the current one
+            let language = languageOf state |> LanguagePolicy.Language.onUrl lang
+
             { state with
                 ShowDisclaimer = discl
                 Page = page |> Option.defaultValue LifeSupport
@@ -865,7 +911,8 @@ module private Elmish =
                             |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
                             |> Resolved
                 // State. prefix needed: disambiguates State.Context field from Global.Context type
-                State.Context.Localization = lang |> Option.defaultValue Localization.English
+                State.Context.Localization = language.Current
+                LanguageChosen = language.Chosen
             },
             Cmd.batch
                 [

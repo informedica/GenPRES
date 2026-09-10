@@ -46,6 +46,8 @@ module Config =
             Log: string
             // GENPRES_DEBUG, raw, banner only
             Debug: string
+            // GENPRES_LANG, raw; None when unset or blank. Parsed by `language`.
+            Lang: string option
         }
 
 
@@ -141,18 +143,70 @@ module Config =
             | Some _ -> Ok()
 
 
+    /// The default UI language: Dutch, the client's own default until now.
+    let defaultLanguage = Shared.Localization.Dutch
+
+
     /// <summary>
-    /// Every start-up guard in one place: the production password policy,
-    /// then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries the URL
-    /// ID the host needs; <c>Error</c> is the message the server exits with.
+    /// The UI language from <c>GENPRES_LANG</c>: <c>defaultLanguage</c> when
+    /// unset, the parsed language when the value is one (ISO code, display
+    /// name or legacy url code, any case), otherwise the start-up error naming
+    /// the setting and the value.
+    /// </summary>
+    let language (settings: Settings) : Result<Shared.Localization.Locales, string> =
+        match settings.Lang with
+        | None -> Ok defaultLanguage
+        | Some raw ->
+            match Shared.Localization.tryParse raw with
+            | Some l -> Ok l
+            | None ->
+                let accepted =
+                    Shared.Localization.languages
+                    |> Array.map (Shared.Localization.toShortCode >> _.ToLower())
+                    |> String.concat ", "
+
+                let fallback = defaultLanguage |> Shared.Localization.toShortCode |> _.ToLower()
+
+                Error
+                    $"GENPRES_LANG=%s{raw} is not a language. Accepted: %s{accepted} \
+                      (or a display name such as Nederlands). Unset it for the default (%s{fallback})."
+
+
+    /// Banner display string for the language: the derived value, or the raw
+    /// one flagged when it is not a language (validateStartup then refuses).
+    let displayLanguage (settings: Settings) =
+        match language settings with
+        | Ok l -> $"{l |> Shared.Localization.toShortCode |> _.ToLower()} ({l |> Shared.Localization.toString})"
+        | Error _ ->
+            let raw = settings.Lang |> Option.defaultValue ""
+            $"%s{raw} (NOT A LANGUAGE)"
+
+
+    /// <summary>
+    /// Every start-up guard in one place: the production password policy, the
+    /// language, then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries
+    /// the URL ID the host needs; <c>Error</c> is the message the server exits with.
     /// </summary>
     let validateStartup (settings: Settings) : Result<string, string> =
         validateProductionPassword settings.IsProd settings.Password
+        |> Result.bind (fun () -> language settings |> Result.map ignore)
         |> Result.bind (fun () ->
             match settings.UrlId with
             | Some urlId -> Ok urlId
             | None -> Error "No GENPRES_URL_ID (or value is empty)"
         )
+
+
+    /// <summary>
+    /// The settings the client learns, mapped here in the DMZ from the
+    /// env-shaped record. Call after <c>validateStartup</c>: an invalid
+    /// language never reaches this point, so the fallback is dead.
+    /// </summary>
+    let toServerSettings (settings: Settings) : Shared.Api.ServerSettings =
+        {
+            Language = language settings |> Result.defaultValue defaultLanguage
+            IsDemo = not settings.IsProd
+        }
 
 
     /// Reads every setting through <c>getEnv</c>. Pure: pass <c>Env.getItem</c>
@@ -169,6 +223,7 @@ module Config =
             TrustedProxies = getEnv "GENPRES_TRUSTED_PROXIES" |> parseTrustedProxies
             Log = getEnv "GENPRES_LOG" |> Option.defaultValue "0"
             Debug = getEnv "GENPRES_DEBUG" |> Option.defaultValue "i"
+            Lang = getEnv "GENPRES_LANG" |> nonBlank
         }
 
 
@@ -182,6 +237,7 @@ GENPRES_URL_ID = {settings.UrlId |> redactUrlId}
 GENPRES_LOG ={settings.Log}
 GENPRES_PROD = {if settings.IsProd then "1" else "0"}
 GENPRES_DEBUG = {settings.Debug}
+GENPRES_LANG = {settings |> displayLanguage}
 GENPRES_PASSWORD = {settings.Password |> displayPassword}
 
 === System Info ===
@@ -483,9 +539,12 @@ module Host =
             else
                 env
 
+        // what the client learns: computed once here, answered per request
+        let serverSettings = Config.toServerSettings settings
+
         let webApi =
             Remoting.createApi ()
-            |> Remoting.fromContext (fun ctx -> createServerApi env (Http.sessionCookie ctx))
+            |> Remoting.fromContext (fun ctx -> createServerApi serverSettings env (Http.sessionCookie ctx))
             |> Remoting.withRouteBuilder routerPaths
             |> Remoting.buildHttpHandler
 

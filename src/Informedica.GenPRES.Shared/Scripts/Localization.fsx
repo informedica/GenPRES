@@ -136,8 +136,78 @@ let printTsv () =
     rows |> Array.iter (fun r -> r |> String.concat "\t" |> printfn "%s")
 
 
+// ---------------------------------------------------------------------------------------------
+// One language vocabulary (GENPRES_LANG, plan: server default language). Today three spellings
+// of the same six languages exist: the ISO short codes of `toShortCode`, the display names of
+// `tryFromString`, and the url codes of the client's `la` parameter (`en du fr gr sp it`).
+// `tryParse` accepts all of them, so the env value and the url parameter share one parser (the
+// sheet header keeps `tryFromString`: display names only).
+// ---------------------------------------------------------------------------------------------
+
+module Localization =
+
+    open Shared.Localization
+
+    /// Parses a language given as an ISO 639-1 code (`en`, `nl`, `fr`, `de`, `es`, `it`), a
+    /// display name (`English`, `Nederlands`, ...) or one of the client's legacy url codes
+    /// (`du`, `gr`, `sp`). Case and surrounding whitespace do not matter; anything else is None.
+    let tryParse (s: string) : Locales option =
+        if isNull s then
+            None
+        else
+            match s.Trim().ToLower() with
+            | "en" -> Some English
+            | "nl"
+            | "du" -> Some Dutch
+            | "fr" -> Some French
+            | "de"
+            | "gr" -> Some German
+            | "es"
+            | "sp" -> Some Spanish
+            | "it" -> Some Italian
+            | s -> tryFromString s
+
+
 open Expecto
 open Expecto.Flip
+
+
+let parseTests =
+    testList
+        "Localization.tryParse"
+        [
+            test "every locale round-trips through its short code, upper or lower case" {
+                for l in languages do
+                    l |> toShortCode |> Localization.tryParse |> Expect.equal $"{l} upper" (Some l)
+
+                    l
+                    |> toShortCode
+                    |> _.ToLower()
+                    |> Localization.tryParse
+                    |> Expect.equal $"{l} lower" (Some l)
+            }
+
+            test "every locale round-trips through its display name" {
+                for l in languages do
+                    l |> toString |> Localization.tryParse |> Expect.equal $"{l}" (Some l)
+            }
+
+            testList
+                "the client's legacy url codes"
+                [
+                    for code, l in [ "en", English; "du", Dutch; "fr", French; "gr", German; "sp", Spanish; "it", Italian ] do
+                        test code { code |> Localization.tryParse |> Expect.equal code (Some l) }
+                ]
+
+            test "whitespace is ignored" {
+                "  nl " |> Localization.tryParse |> Expect.equal "padded" (Some Dutch)
+            }
+
+            test "unknown, empty and null are None" {
+                for s in [ "xx"; ""; " "; "dutch"; null ] do
+                    s |> Localization.tryParse |> Expect.isNone $"'{s}'"
+            }
+        ]
 
 
 let tests =
@@ -203,4 +273,4 @@ let tests =
         ]
 
 
-runTestsWithCLIArgs [] [||] tests |> ignore
+runTestsWithCLIArgs [] [||] (testList "Localization.fsx" [ tests; parseTests ]) |> ignore

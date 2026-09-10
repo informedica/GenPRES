@@ -160,6 +160,7 @@ let fromEnvTests =
                 s.Password |> Expect.isNone "no password"
                 s.TrustedProxies |> Expect.equal "loopback" loopback
                 s.Log |> Expect.equal "log" "0"
+                s.Lang |> Expect.isNone "no language"
             }
 
             test "reads every setting" {
@@ -173,6 +174,7 @@ let fromEnvTests =
                             "GENPRES_TRUSTED_PROXIES", "10.0.0.5"
                             "GENPRES_LOG", "d"
                             "GENPRES_DEBUG", "1"
+                            "GENPRES_LANG", "en"
                         ]
 
                 let s = Config.fromEnv (getEnv env)
@@ -186,6 +188,7 @@ let fromEnvTests =
 
                 s.Log |> Expect.equal "log" "d"
                 s.Debug |> Expect.equal "debug" "1"
+                s.Lang |> Expect.equal "language" (Some "en")
             }
 
             test "blank secrets are treated as unset" {
@@ -193,6 +196,119 @@ let fromEnvTests =
                 let s = Config.fromEnv (getEnv env)
                 s.UrlId |> Expect.isNone "blank url id"
                 s.Password |> Expect.isNone "blank password"
+            }
+
+            test "a blank language is unset" {
+                let s = Config.fromEnv (getEnv (Map [ "GENPRES_LANG", "  " ]))
+                s.Lang |> Expect.isNone "blank language"
+            }
+        ]
+
+
+let languageTests =
+    let settings (m: Map<string, string>) =
+        Config.fromEnv (fun key -> m |> Map.tryFind key)
+
+    testList
+        "GENPRES_LANG"
+        [
+            test "unset is Dutch, the client's default until now" {
+                Map.empty
+                |> settings
+                |> Config.language
+                |> Expect.equal "default" (Ok Shared.Localization.Dutch)
+            }
+
+            testList
+                "accepted spellings: ISO code, display name, legacy url code, any case"
+                [
+                    for raw, lang in
+                        [
+                            "en", Shared.Localization.English
+                            "NL", Shared.Localization.Dutch
+                            " fr ", Shared.Localization.French
+                            "de", Shared.Localization.German
+                            "es", Shared.Localization.Spanish
+                            "it", Shared.Localization.Italian
+                            "du", Shared.Localization.Dutch
+                            "gr", Shared.Localization.German
+                            "sp", Shared.Localization.Spanish
+                            "Nederlands", Shared.Localization.Dutch
+                        ] do
+                        test $"'{raw}'" {
+                            Map [ "GENPRES_LANG", raw ]
+                            |> settings
+                            |> Config.language
+                            |> Expect.equal raw (Ok lang)
+                        }
+                ]
+
+            test "a value that is not a language refuses the start, naming the setting and the value" {
+                match
+                    Map [ "GENPRES_LANG", "klingon"; "GENPRES_URL_ID", "sheet-id" ]
+                    |> settings
+                    |> Config.validateStartup
+                with
+                | Error msg ->
+                    msg |> Expect.stringContains "setting" "GENPRES_LANG"
+                    msg |> Expect.stringContains "value" "klingon"
+                    msg |> Expect.stringContains "accepted values" "nl"
+                | Ok _ -> failtest "expected Error"
+            }
+
+            test "the language is checked after the password and before the url id" {
+                match
+                    Map [ "GENPRES_PROD", "1"; "GENPRES_LANG", "klingon" ]
+                    |> settings
+                    |> Config.validateStartup
+                with
+                | Error msg -> msg |> Expect.stringContains "password first" "GENPRES_PASSWORD"
+                | Ok _ -> failtest "expected Error"
+
+                match Map [ "GENPRES_LANG", "klingon" ] |> settings |> Config.validateStartup with
+                | Error msg -> msg |> Expect.stringContains "language before the url id" "GENPRES_LANG"
+                | Ok _ -> failtest "expected Error"
+            }
+
+            test "a valid language starts with the url id" {
+                Map [ "GENPRES_LANG", "en"; "GENPRES_URL_ID", "sheet-id" ]
+                |> settings
+                |> Config.validateStartup
+                |> Expect.equal "Ok with the url id" (Ok "sheet-id")
+            }
+
+            test "toServerSettings carries the language and the demo flag" {
+                Map [ "GENPRES_LANG", "en" ]
+                |> settings
+                |> Config.toServerSettings
+                |> Expect.equal
+                    "demo, English"
+                    {
+                        Shared.Api.ServerSettings.Language = Shared.Localization.English
+                        IsDemo = true
+                    }
+
+                Map [ "GENPRES_PROD", "1" ]
+                |> settings
+                |> Config.toServerSettings
+                |> Expect.equal
+                    "production, Dutch"
+                    {
+                        Shared.Api.ServerSettings.Language = Shared.Localization.Dutch
+                        IsDemo = false
+                    }
+            }
+
+            test "the banner shows the derived language, or flags the raw value" {
+                Map [ "GENPRES_LANG", "EN" ]
+                |> settings
+                |> Config.displayLanguage
+                |> Expect.equal "derived" "en (English)"
+
+                Map [ "GENPRES_LANG", "klingon" ]
+                |> settings
+                |> Config.displayLanguage
+                |> Expect.equal "flagged" "klingon (NOT A LANGUAGE)"
             }
         ]
 
@@ -207,4 +323,5 @@ let tests =
             validateStartupTests
             redactionTests
             fromEnvTests
+            languageTests
         ]

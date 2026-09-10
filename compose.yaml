@@ -24,6 +24,8 @@ services:
       GENPRES_PROD: ${GENPRES_PROD:-0}
       GENPRES_LOG: ${GENPRES_LOG:-0}
       GENPRES_DEBUG: ${GENPRES_DEBUG:-0}
+      # Default UI language (en, nl, fr, de, es, it); empty = the server default, nl.
+      GENPRES_LANG: ${GENPRES_LANG:-}
     volumes:
       # Production reads *.cache, which the image does not ship. The host data/cache also
       # holds the *.demo files, so the mount is harmless in demo mode.
