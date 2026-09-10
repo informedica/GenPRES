@@ -46,6 +46,8 @@ module Config =
             Log: string
             // GENPRES_DEBUG, raw, banner only
             Debug: string
+            // GENPRES_LANG, raw; None when unset or blank. Parsed by `language`.
+            Lang: string option
         }
 
 
@@ -107,52 +109,128 @@ module Config =
             |]
 
 
-    // SECURITY: in production mode (GENPRES_PROD=1), refuse to start without
-    // a GENPRES_PASSWORD of at least minProductionPasswordLength characters.
-    // Fail-closed, checked before any listener binds. Demo/dev mode accepts
-    // any value (or none — admin ops just stay disabled).
+    // SECURITY: in production mode (GENPRES_PROD=1) a GENPRES_PASSWORD shorter
+    // than minProductionPasswordLength characters refuses the start: a weak
+    // secret would otherwise stay live in the admin commands, which read the
+    // variable themselves. A missing or blank password does not refuse
+    // (issue #590): the server starts on the configured data with admin
+    // operations disabled, which those same commands enforce by failing
+    // closed on the unset variable, and it prints a warning. Demo/dev mode
+    // accepts any value (or none).
     let minProductionPasswordLength = 16
 
 
     /// <summary>
-    /// The production password policy. <c>Ok</c> outside production or with
-    /// a password of at least <c>minProductionPasswordLength</c> characters;
-    /// otherwise the message the server refuses to start with.
+    /// The production password policy. <c>Ok None</c>: nothing to say.
+    /// <c>Ok (Some warning)</c>: the server starts with admin operations
+    /// disabled and prints the warning. <c>Error</c>: the message the server
+    /// refuses to start with.
     /// </summary>
-    let validateProductionPassword (isProd: bool) (password: string option) : Result<unit, string> =
+    let validateProductionPassword (isProd: bool) (password: string option) : Result<string option, string> =
         if not isProd then
-            Ok()
+            Ok None
         else
             // Blank = unset, so a forgotten Docker env hits the "not set"
             // branch instead of "shorter than 16 characters".
             match password |> nonBlank with
             | None ->
-                Error
-                    "GENPRES_PROD=1 but GENPRES_PASSWORD is not set (or is empty). \
-                     Refusing to start in production without an admin password. \
-                     Generate one with `openssl rand -base64 32` and inject it via a secret store. \
-                     See DEVELOPMENT.md → Password policy."
+                Ok(
+                    Some
+                        "GENPRES_PROD=1 but GENPRES_PASSWORD is not set (or is empty). \
+                         Starting with admin operations disabled (settings page, log analysis, resource reload). \
+                         Set a password of at least 16 characters to enable them; generate one with `openssl rand -base64 32` \
+                         and inject it via a secret store. See DEVELOPMENT.md → Password policy."
+                )
             | Some pwd when pwd.Length < minProductionPasswordLength ->
                 Error
                     $"GENPRES_PROD=1 but GENPRES_PASSWORD is shorter than %i{minProductionPasswordLength} characters. \
                      Refusing to start in production with a weak admin password. \
                      Generate a stronger one with `openssl rand -base64 32`. \
                      See DEVELOPMENT.md → Password policy."
-            | Some _ -> Ok()
+            | Some _ -> Ok None
+
+
+    /// What a start-up needs: the url id the host is built with, and the
+    /// warnings to print before hosting (today at most the password warning).
+    type Startup =
+        {
+            UrlId: string
+            Warnings: string list
+        }
+
+
+    /// The default UI language: Dutch, the client's own default until now.
+    let defaultLanguage = Shared.Localization.Dutch
 
 
     /// <summary>
-    /// Every start-up guard in one place: the production password policy,
-    /// then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries the URL
-    /// ID the host needs; <c>Error</c> is the message the server exits with.
+    /// The UI language from <c>GENPRES_LANG</c>: <c>defaultLanguage</c> when
+    /// unset, the parsed language when the value is one (ISO code, display
+    /// name or legacy url code, any case), otherwise the start-up error naming
+    /// the setting and the value.
     /// </summary>
-    let validateStartup (settings: Settings) : Result<string, string> =
+    let language (settings: Settings) : Result<Shared.Localization.Locales, string> =
+        match settings.Lang with
+        | None -> Ok defaultLanguage
+        | Some raw ->
+            match Shared.Localization.tryParse raw with
+            | Some l -> Ok l
+            | None ->
+                let accepted =
+                    Shared.Localization.languages
+                    |> Array.map (Shared.Localization.toShortCode >> _.ToLower())
+                    |> String.concat ", "
+
+                let fallback = defaultLanguage |> Shared.Localization.toShortCode |> _.ToLower()
+
+                Error
+                    $"GENPRES_LANG=%s{raw} is not a language. Accepted: %s{accepted} \
+                      (or a display name such as Nederlands). Unset it for the default (%s{fallback})."
+
+
+    /// Banner display string for the language: the derived value, or the raw
+    /// one flagged when it is not a language (validateStartup then refuses).
+    let displayLanguage (settings: Settings) =
+        match language settings with
+        | Ok l -> $"{l |> Shared.Localization.toShortCode |> _.ToLower()} ({l |> Shared.Localization.toString})"
+        | Error _ ->
+            let raw = settings.Lang |> Option.defaultValue ""
+            $"%s{raw} (NOT A LANGUAGE)"
+
+
+    /// <summary>
+    /// Every start-up guard in one place: the production password policy, the
+    /// language, then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries
+    /// the URL ID the host needs and the warnings to print; <c>Error</c> is the
+    /// message the server exits with.
+    /// </summary>
+    let validateStartup (settings: Settings) : Result<Startup, string> =
         validateProductionPassword settings.IsProd settings.Password
-        |> Result.bind (fun () ->
-            match settings.UrlId with
-            | Some urlId -> Ok urlId
-            | None -> Error "No GENPRES_URL_ID (or value is empty)"
+        |> Result.bind (fun warning ->
+            language settings
+            |> Result.bind (fun _ ->
+                match settings.UrlId with
+                | Some urlId ->
+                    Ok
+                        {
+                            UrlId = urlId
+                            Warnings = warning |> Option.toList
+                        }
+                | None -> Error "No GENPRES_URL_ID (or value is empty)"
+            )
         )
+
+
+    /// <summary>
+    /// The settings the client learns, mapped here in the DMZ from the
+    /// env-shaped record. Call after <c>validateStartup</c>: an invalid
+    /// language never reaches this point, so the fallback is dead.
+    /// </summary>
+    let toServerSettings (settings: Settings) : Shared.Api.ServerSettings =
+        {
+            Language = language settings |> Result.defaultValue defaultLanguage
+            IsDemo = not settings.IsProd
+        }
 
 
     /// Reads every setting through <c>getEnv</c>. Pure: pass <c>Env.getItem</c>
@@ -169,6 +247,7 @@ module Config =
             TrustedProxies = getEnv "GENPRES_TRUSTED_PROXIES" |> parseTrustedProxies
             Log = getEnv "GENPRES_LOG" |> Option.defaultValue "0"
             Debug = getEnv "GENPRES_DEBUG" |> Option.defaultValue "i"
+            Lang = getEnv "GENPRES_LANG" |> nonBlank
         }
 
 
@@ -182,6 +261,7 @@ GENPRES_URL_ID = {settings.UrlId |> redactUrlId}
 GENPRES_LOG ={settings.Log}
 GENPRES_PROD = {if settings.IsProd then "1" else "0"}
 GENPRES_DEBUG = {settings.Debug}
+GENPRES_LANG = {settings |> displayLanguage}
 GENPRES_PASSWORD = {settings.Password |> displayPassword}
 
 === System Info ===
@@ -218,6 +298,55 @@ module Http =
     /// unchanged and it never reaches a sibling host.
     let sessionCookieOptions (isHttps: bool) =
         CookieOptions(HttpOnly = true, Secure = isHttps, SameSite = SameSiteMode.Strict, Path = "/")
+
+
+    /// One state cookie per hop, named by the state (base64url, so a cookie-name token), so
+    /// that two tabs can launch at once without the second erasing the first's proof.
+    let launchStateCookieName (state: string) = $"genpres_launch_state.{state}"
+
+
+    /// The state cookie of the identity hop (uc-01 step 4.2): HttpOnly, SameSite=Lax so that
+    /// the redirect back from the IdentityProvider carries it, Path=/callback so that nothing
+    /// else sees it, Max-Age the Launch lifetime (Rule 29), Secure when the request came in
+    /// over HTTPS. Not a bearer for anything: it proves the browser that started the hop.
+    let launchStateCookieOptions (isHttps: bool) =
+        CookieOptions(
+            HttpOnly = true,
+            Secure = isHttps,
+            SameSite = SameSiteMode.Lax,
+            Path = "/callback",
+            MaxAge = StubLaunch.lifetime
+        )
+
+
+    /// The stub page's identity choice for the stub IdentityProvider: readable by /authorize
+    /// only for the Launch lifetime; HttpOnly and Lax, never a credential.
+    let stubIdentityCookieOptions (isHttps: bool) =
+        CookieOptions(
+            HttpOnly = true,
+            Secure = isHttps,
+            SameSite = SameSiteMode.Lax,
+            Path = "/",
+            MaxAge = StubLaunch.lifetime
+        )
+
+
+    /// The state cookie of this request as the port the composition root uses.
+    let launchStateCookie (ctx: HttpContext) : LaunchStateCookie =
+        {
+            read =
+                fun state ->
+                    match ctx.Request.Cookies.TryGetValue(launchStateCookieName state) with
+                    | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
+                    | _ -> None
+            write =
+                fun state ->
+                    ctx.Response.Cookies.Append(
+                        launchStateCookieName state,
+                        state,
+                        launchStateCookieOptions ctx.Request.IsHttps
+                    )
+        }
 
 
     /// The session cookie of this request as the port the composition root uses.
@@ -473,8 +602,18 @@ module Host =
     let build (settings: Config.Settings) (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
         // Built once per host: the session stub's state lives in it. Remoting.fromContext
         // runs its function per request, so the env must not be built in there.
+        // the key the stub LaunchScript seals Launches under (plan 605): per host start, so a
+        // token from an earlier run is "not sealed under the key"
+        let launchKey =
+            LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes
+
+        // the stub IdentityProvider and UserRegistry (plan 605): one-time codes and the active
+        // patient per identity choice, issued by /authorize and redeemed at the callback
+        let directory =
+            StubDirectory.make (fun () -> System.DateTime.UtcNow) PublicKey.randomId
+
         let env =
-            let env = Adapters.makeAppEnv provider
+            let env = Adapters.makeAppEnvWith launchKey directory provider
 
             // Stop-gap until the scope switch (#580): a production server never opens a
             // stub Session. Drop this swap when #580 decides what production exposes.
@@ -483,9 +622,14 @@ module Host =
             else
                 env
 
+        // what the client learns: computed once here, answered per request
+        let serverSettings = Config.toServerSettings settings
+
         let webApi =
             Remoting.createApi ()
-            |> Remoting.fromContext (fun ctx -> createServerApi env (Http.sessionCookie ctx))
+            |> Remoting.fromContext (fun ctx ->
+                createServerApi serverSettings env (Http.sessionCookie ctx) (Http.launchStateCookie ctx)
+            )
             |> Remoting.withRouteBuilder routerPaths
             |> Remoting.buildHttpHandler
 
@@ -493,12 +637,102 @@ module Host =
         // below), so this stays handler-only. The 404 arm replaces a legacy
         // "GenInteractions App. Use localhost: 8080 for the GUI" string that
         // leaked an old app name and hinted at port 8080 (L2 / B5).
-        let webApp =
-            choose
+        // the stub LaunchScript page (uc-01 step 1 stand-in, plan 605): full scope only, so a
+        // production server never mints a Launch. GET shows the form, POST mints and redirects.
+        let stubLaunch =
+            if settings.IsProd then
+                []
+            else
                 [
-                    Http.logClientIP >=> Http.safeWebApi webApi
-                    setStatusCode 404 >=> text "Not Found"
+                    GET >=> route StubLaunch.path >=> htmlString StubLaunch.page
+                    POST
+                    >=> route StubLaunch.path
+                    >=> fun next ctx ->
+                        task {
+                            let! form = ctx.Request.ReadFormAsync()
+
+                            let pid =
+                                match form.TryGetValue "pid" with
+                                | true, values -> values.ToString()
+                                | _ -> ""
+
+                            let choice =
+                                match form.TryGetValue "identity" with
+                                | true, values when StubLaunch.choices |> List.contains (values.ToString()) ->
+                                    values.ToString()
+                                | _ -> "prescriber"
+
+                            let launch = StubLaunch.mint System.DateTime.UtcNow PublicKey.randomId launchKey pid
+
+                            // what the stub IdentityProvider will say at /authorize, and which
+                            // patient the stub UserRegistry has active for it
+                            ctx.Response.Cookies.Append(
+                                StubLaunch.identityCookieName,
+                                StubLaunch.identityCookie choice pid,
+                                Http.stubIdentityCookieOptions ctx.Request.IsHttps
+                            )
+
+                            return! redirectTo false (StubLaunch.launchUrl launch) next ctx
+                        }
+                    // the stub IdentityProvider (uc-01 step 4.3): signs the browser on from the
+                    // identity chosen on the stub page, or reports no identity, and sends it back
+                    // with the state it received
+                    GET
+                    >=> route "/authorize"
+                    >=> fun next ctx ->
+                        let state = ctx.TryGetQueryStringValue "state" |> Option.defaultValue ""
+
+                        let identity =
+                            match ctx.Request.Cookies.TryGetValue StubLaunch.identityCookieName with
+                            | true, value -> StubLaunch.parseIdentityCookie (Some value)
+                            | _ -> None
+
+                        let url =
+                            match identity with
+                            | None
+                            | Some("none", _) ->
+                                $"/callback?state={System.Uri.EscapeDataString state}&error=no-identity"
+                            | Some(choice, pid) ->
+                                let code = directory.issue choice pid
+                                $"/callback?code={System.Uri.EscapeDataString code}&state={System.Uri.EscapeDataString state}"
+
+                        redirectTo false url next ctx
                 ]
+
+        // uc-01 step 4.5: the browser is back from the IdentityProvider. Mounted always; with the
+        // session port disabled it refuses as invalid.
+        let callback =
+            GET
+            >=> route "/callback"
+            >=> fun next ctx ->
+                task {
+                    let query name = ctx.TryGetQueryStringValue name
+
+                    let cb: Callback =
+                        {
+                            State = query "state" |> Option.defaultValue ""
+                            StateCookie = None
+                            Code = query "code"
+                            Error = query "error"
+                        }
+
+                    let! redirect =
+                        CompositionRoot.processCallback env (Http.sessionCookie ctx) (Http.launchStateCookie ctx) cb
+
+                    return! redirectTo false redirect next ctx
+                }
+
+        // one request log around the whole route selection: the stub page, the api and the
+        // 404 arm each leave exactly one trail
+        let webApp =
+            Http.logClientIP
+            >=> choose
+                    [
+                        yield! stubLaunch
+                        callback
+                        Http.safeWebApi webApi
+                        setStatusCode 404 >=> text "Not Found"
+                    ]
 
         application {
             url ("http://*:" + settings.Port.ToString() + "/")
@@ -569,6 +803,8 @@ let main _ =
     | Error msg ->
         writeErrorMessage msg
         1
-    | Ok urlId ->
-        Host.build settings (Host.resourceProvider urlId) |> run
+    | Ok startup ->
+        // a degraded but permitted configuration (issue #590) is said once, before hosting
+        startup.Warnings |> List.iter writeWarningMessage
+        Host.build settings (Host.resourceProvider startup.UrlId) |> run
         0

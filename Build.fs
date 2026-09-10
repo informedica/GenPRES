@@ -530,6 +530,9 @@ Target.create
                 "GENPRES_URL_ID"
                 "-e"
                 "GENPRES_PASSWORD"
+                // optional: forwarded only when set in the caller's environment
+                "-e"
+                "GENPRES_LANG"
                 dockerImage
             ]
             "."

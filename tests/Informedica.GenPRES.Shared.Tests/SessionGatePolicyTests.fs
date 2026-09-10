@@ -6,6 +6,7 @@ module SessionGatePolicyTests =
 
     open Expecto
     open Expecto.Flip
+    open Shared
     open Shared.Types
     open SessionMachine
     open SessionGatePolicy
@@ -24,7 +25,17 @@ module SessionGatePolicyTests =
 
 
     let gateOf session =
-        match gateFor session with
+        match gateFor english session with
+        | Some gate -> gate
+        | None -> failtest $"expected a gate for {session}"
+
+
+    /// A translator that shows which term was asked for, so a test can assert terms, not prose.
+    let named (term: Terms) = $"<{term}>"
+
+
+    let namedGateOf session =
+        match gateFor named session with
         | Some gate -> gate
         | None -> failtest $"expected a gate for {session}"
 
@@ -53,7 +64,26 @@ module SessionGatePolicyTests =
                                 "Open", Session.Open opened
                                 "Closing", Session.Closing opened
                             ] do
-                            test name { gateFor session |> Expect.isNone "no gate" }
+                            test name {
+                                gateFor english session |> Expect.isNone "no gate"
+                                isGated session |> Expect.isFalse "not gated"
+                            }
+                    ]
+
+                testList
+                    "isGated agrees with gateFor"
+                    [
+                        for name, session in
+                            [
+                                "Launching", Session.Launching(launch, key, 1)
+                                "Resuming", Session.Resuming
+                                "Unreachable", Session.Unreachable(launch, key, 3)
+                                "Refused", Session.Refused(LaunchRefusal.NoRole, None)
+                            ] do
+                            test name {
+                                gateFor english session |> Expect.isSome "gate"
+                                isGated session |> Expect.isTrue "gated"
+                            }
                     ]
 
                 test "Launching is busy, names the attempt, offers nothing" {
@@ -111,6 +141,107 @@ module SessionGatePolicyTests =
                     let gate = gateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, None))
                     gate.Actions |> Expect.isEmpty "no actions"
                     gate.Body |> Expect.stringContains "relaunch" "Open GenPRES again from MainEHR."
+                }
+
+                testList
+                    "every text is a term, translated by the caller"
+                    [
+                        test "Launching" {
+                            let gate = namedGateOf (Session.Launching(launch, key, 2))
+                            gate.Title |> Expect.equal "title" "<Session Gate Opening>"
+                            gate.Body |> Expect.equal "body" "<Session Gate Opening Text>"
+                        }
+
+                        test "Resuming" {
+                            let gate = namedGateOf Session.Resuming
+                            gate.Title |> Expect.equal "title" "<Session Gate Resuming>"
+                            gate.Body |> Expect.equal "body" "<Session Gate Resuming Text>"
+                        }
+
+                        test "Unreachable" {
+                            let gate = namedGateOf (Session.Unreachable(launch, key, 3))
+                            gate.Title |> Expect.equal "title" "<Session Gate Unreachable>"
+
+                            gate.Body
+                            |> Expect.equal
+                                "body"
+                                "<Session Gate Unreachable Text> <Session Gate Try Again Or Relaunch>"
+                        }
+
+                        for refusal, body in
+                            [
+                                LaunchRefusal.LaunchExpired, "<Session Refusal Expired> <Session Relaunch>"
+                                LaunchRefusal.LaunchSpent, "<Session Refusal Spent> <Session Relaunch>"
+                                LaunchRefusal.LaunchInvalid, "<Session Refusal Invalid> <Session Relaunch>"
+                                LaunchRefusal.NoRole, "<Session Refusal No Role>"
+                                LaunchRefusal.WrongActivePatient, "<Session Refusal Wrong Patient>"
+                                LaunchRefusal.EnrolmentRequired, "<Session Refusal Enrolment>"
+                                LaunchRefusal.NoBrowserIdentity,
+                                "<Session Refusal No Browser Identity> <Session Relaunch>"
+                            ] do
+                            test $"Refused {refusal} without a retry" {
+                                let gate = namedGateOf (Session.Refused(refusal, None))
+                                gate.Title |> Expect.equal "title" "<Session Gate Refused>"
+                                gate.Body |> Expect.equal "body" body
+                            }
+
+                        test "Refused NoBrowserIdentity with a retry" {
+                            let gate =
+                                namedGateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launch, key)))
+
+                            gate.Body
+                            |> Expect.equal "body" "<Session Refusal No Browser Identity> <Session Retry>"
+                        }
+                    ]
+
+                test "the numbers are filled into the translated text, in order" {
+                    let template (term: Terms) =
+                        match term with
+                        | Terms.``Session Gate Opening Text`` -> "poging {0} van {1}"
+                        | Terms.``Session Gate Unreachable Text`` -> "{0} pogingen"
+                        | _ -> ""
+
+                    (gateOf (Session.Launching(launch, key, 2))).Body
+                    |> Expect.equal "english" $"Presenting the launch, attempt 2 of {Session.maxAttempts}."
+
+                    match gateFor template (Session.Launching(launch, key, 2)) with
+                    | Some gate -> gate.Body |> Expect.equal "translated" $"poging 2 van {Session.maxAttempts}"
+                    | None -> failtest "expected a gate"
+
+                    match gateFor template (Session.Unreachable(launch, key, 3)) with
+                    | Some gate -> gate.Body |> Expect.equal "translated" "3 pogingen"
+                    | None -> failtest "expected a gate"
+                }
+
+                test "every session term has an English default that is not its name" {
+                    for term in
+                        [
+                            Terms.``Session Gate Opening``
+                            Terms.``Session Gate Opening Text``
+                            Terms.``Session Gate Resuming``
+                            Terms.``Session Gate Resuming Text``
+                            Terms.``Session Gate Unreachable``
+                            Terms.``Session Gate Unreachable Text``
+                            Terms.``Session Gate Refused``
+                            Terms.``Session Gate Try Again Or Relaunch``
+                            Terms.``Session Relaunch``
+                            Terms.``Session Retry``
+                            Terms.``Session Refusal Expired``
+                            Terms.``Session Refusal Spent``
+                            Terms.``Session Refusal Invalid``
+                            Terms.``Session Refusal No Browser Identity``
+                            Terms.``Session Refusal No Role``
+                            Terms.``Session Refusal Wrong Patient``
+                            Terms.``Session Refusal Enrolment``
+                            Terms.``Session Try Again``
+                            Terms.``Session Continue Without Launch``
+                            Terms.``Session Close``
+                            Terms.``Session Role Prescriber``
+                            Terms.``Session Role Reader``
+                        ] do
+                        english term |> Expect.notEqual $"default for {term}" $"{term}"
+
+                    english Terms.Cancel |> Expect.equal "not a session term: its name" "Cancel"
                 }
 
                 test "product names keep their case in every body" {

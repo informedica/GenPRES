@@ -417,6 +417,7 @@ are listed per step with the reason.
 | 3c | [#593](https://github.com/informedica/GenPRES/pull/593) | `App.fs` wiring: `State.Session`, effect interpreter, `Resume` on load, `ISession` on `ConcreteAppEnv` |
 | 4a | [#595](https://github.com/informedica/GenPRES/pull/595) | title bar: user and role behind a person button, "Close session" |
 | 4b | [#596](https://github.com/informedica/GenPRES/pull/596) | `SessionGatePolicy.fs` (pure, tested) and `Views/SessionGate.fs` |
+| follow-up | [#600](https://github.com/informedica/GenPRES/pull/600) | localisation: 22 `Terms` cases for the gate and the session menu, `gateFor` takes a translator, English and Dutch sheet rows |
 
 ### Deviations from the text above
 
@@ -459,9 +460,10 @@ are listed per step with the reason.
 - **Disclaimer.** Gated at the view, `ShowDisclaimer && Session is Anonymous`, not in state, for
   the same reason (`Resuming` is transient) and so that an anonymous open after a refusal still
   sees it.
-- **Gate texts.** The title bar and gate strings are English, in one place each. Turning them into
-  `Terms` cases means editing `Shared/Localization.fs` (non-UI source) plus sheet rows; that is a
-  script-first follow-up, not part of these PRs.
+- **Gate texts.** The title bar and gate strings landed as English literals, in one place each,
+  because turning them into `Terms` cases means editing `Shared/Localization.fs` (non-UI source)
+  plus sheet rows. The script-first follow-up (#600) did that: the policy takes a translator
+  (`Terms -> string`), every sentence is one term, numbers are filled through `{0}`/`{1}`.
 
 ### Still open
 
@@ -470,4 +472,5 @@ are listed per step with the reason.
 - Step 7, the signed request (`Keys.sign`, the DPoP proof, the OpenedToken inside it).
 - Session endings and the Rule 11 notice; UC-2 enrolment; WorkPlan carry-over (#518); decision D1.
 - The scope switch (#580), which retires the `IsProd` stop-gap.
-- Localisation terms for the title bar and the gate.
+- On a launch URL the language ends up English (`UrlChanged` defaults to English without `la=`)
+  and the gate hides the language switcher; the gate itself is localised (#600).

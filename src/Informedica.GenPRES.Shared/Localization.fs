@@ -5,8 +5,8 @@
 // indices that map to each language are hardcoded in `getTerm`, which means
 // **reordering columns in the spreadsheet silently breaks all translations**.
 //
-// An improved, more idiomatic approach is demonstrated in
-// `Scripts/Localization.fsx`.  Key improvements proposed there:
+// An improved, more idiomatic approach is the `TranslationMap` API further down in this file
+// (`parseCSV`, `getTermFromMap`, `mergeTranslations`), not yet used by the client:
 //   - Parse the CSV by column *headers* (language display names) so the
 //     implementation is robust to spreadsheet column reordering.
 //   - Store translations as `TranslationMap` (`Map<string, Map<Locales, string>>`)
@@ -21,7 +21,8 @@ namespace Shared
 
 /// Compile-time-safe enumeration of all localizable UI strings.
 /// Add a new case here whenever a new UI label is introduced, and update the
-/// Localization sheet (and `Scripts/Localization.fsx` static fallback) accordingly.
+/// Localization sheet accordingly. New cases are drafted script-first in
+/// `Scripts/Localization.fsx` (the script-only policy), which also prints the sheet rows.
 type Terms =
     | ``Patient enter patient data``
     | ``Patient Age``
@@ -134,15 +135,37 @@ type Terms =
     | ``Nutrition Remove Enteral Text``
     // Interactions
     | ``Interactions Medication``
+    // Session (plan 409): the gate and the session menu
+    | ``Session Gate Opening``
+    | ``Session Gate Opening Text``
+    | ``Session Gate Resuming``
+    | ``Session Gate Resuming Text``
+    | ``Session Gate Unreachable``
+    | ``Session Gate Unreachable Text``
+    | ``Session Gate Refused``
+    | ``Session Gate Try Again Or Relaunch``
+    | ``Session Relaunch``
+    | ``Session Retry``
+    | ``Session Refusal Expired``
+    | ``Session Refusal Spent``
+    | ``Session Refusal Invalid``
+    | ``Session Refusal No Browser Identity``
+    | ``Session Refusal No Role``
+    | ``Session Refusal Wrong Patient``
+    | ``Session Refusal Enrolment``
+    | ``Session Try Again``
+    | ``Session Continue Without Launch``
+    | ``Session Close``
+    | ``Session Role Prescriber``
+    | ``Session Role Reader``
 
 
 module Localization =
 
 
     /// Supported UI languages.  Add a case here when a new language is
-    /// introduced, then update `toString`, `fromString`, `languages`, the
-    /// Localization spreadsheet, and the static fallback in
-    /// `Scripts/Localization.fsx`.
+    /// introduced, then update `toString`, `fromString`, `languages`, `getTerm`
+    /// and the Localization spreadsheet.
     type Locales =
         | English
         | Dutch
@@ -191,9 +214,8 @@ module Localization =
 
     /// Converts a display name string to a `Locales` value.
     ///
-    /// ⚠️  This function **throws** for unknown input.  Consider using the
-    /// `tryLocaleFromString` function from `Scripts/Localization.fsx` which
-    /// returns `Option<Locales>` instead.
+    /// ⚠️  This function **throws** for unknown input.  Consider using
+    /// `tryFromString` below, which returns `Option<Locales>` instead.
     let fromString (s: string) =
         let s = s.Trim().ToLower()
 
@@ -216,9 +238,9 @@ module Localization =
     ///
     /// ⚠️  Column positions are **hardcoded** (English = 1, Dutch = 2, …).
     /// Reordering columns in the spreadsheet will silently return wrong
-    /// translations.  See `Scripts/Localization.fsx` for a header-based parser
-    /// (`parseLocalizationCSV`) that is robust to column reordering and uses a
-    /// typed `TranslationMap` instead of `string[][]`.
+    /// translations.  See `parseCSV` below for a header-based parser that is
+    /// robust to column reordering and uses a typed `TranslationMap` instead of
+    /// `string[][]`.
     let getTerm (terms: string[][]) locale term =
         let term = $"{term}".Trim()
 
@@ -262,6 +284,31 @@ module Localization =
         | "deutsch" -> Some German
         | "italiano" -> Some Italian
         | _ -> None
+
+
+    /// <summary>
+    /// Parses a language given as an ISO 639-1 code (<c>en</c>, <c>nl</c>, <c>fr</c>, <c>de</c>,
+    /// <c>es</c>, <c>it</c>), a display name (<c>English</c>, <c>Nederlands</c>, ...) or one of
+    /// the client's legacy url codes (<c>du</c>, <c>gr</c>, <c>sp</c>). Case and surrounding
+    /// whitespace do not matter; anything else, including null, is <c>None</c>. One parser for
+    /// the <c>GENPRES_LANG</c> setting and the <c>la</c> url parameter. The sheet header keeps
+    /// <c>tryFromString</c>: display names only.
+    /// </summary>
+    let tryParse (s: string) : Locales option =
+        if isNull s then
+            None
+        else
+            match s.Trim().ToLower() with
+            | "en" -> Some English
+            | "nl"
+            | "du" -> Some Dutch
+            | "fr" -> Some French
+            | "de"
+            | "gr" -> Some German
+            | "es"
+            | "sp" -> Some Spanish
+            | "it" -> Some Italian
+            | s -> tryFromString s
 
 
     /// Parses a `string[][]` from `Csv.parseCSV` into a `TranslationMap`.

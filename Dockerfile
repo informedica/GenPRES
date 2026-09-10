@@ -78,14 +78,18 @@ ENV GENPRES_ROOT="/app"
 # only the *.demo files, and demo mode is what reads them. Admin operations stay
 # disabled because GENPRES_PASSWORD is empty.
 #
-# Production is an explicit opt-in at container runtime and needs all four of:
+# Production is an explicit opt-in at container runtime and needs three things:
 #
 #   -e GENPRES_PROD=1
 #   -e GENPRES_URL_ID="<proprietary_url_id>"
-#   -e GENPRES_PASSWORD="<admin_password, 16+ chars>"
 #   -v "$PWD/data/cache:/app/data/cache"   (production reads *.cache, not shipped)
 #
-# `docker compose up -d` with the repo-root compose.yaml wires all four from .env.
+# GENPRES_PASSWORD is optional: without it the server starts with admin operations
+# disabled and warns (#590); to enable them pass 16+ characters (fewer refuses):
+#
+#   -e GENPRES_PASSWORD="<admin_password, 16+ chars>"
+#
+# `docker compose up -d` with the repo-root compose.yaml wires all of this from .env.
 #
 # SECURITY: the proprietary production GENPRES_URL_ID is a FAIR asset and MUST
 # NOT be baked into the published image; inject it at runtime, ideally via a
