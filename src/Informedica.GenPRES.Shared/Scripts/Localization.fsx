@@ -140,7 +140,8 @@ let printTsv () =
 // One language vocabulary (GENPRES_LANG, plan: server default language). Today three spellings
 // of the same six languages exist: the ISO short codes of `toShortCode`, the display names of
 // `tryFromString`, and the url codes of the client's `la` parameter (`en du fr gr sp it`).
-// `tryParse` accepts all of them, so the env value and the url parameter share one parser.
+// `tryParse` accepts all of them, so the env value and the url parameter share one parser (the
+// sheet header keeps `tryFromString`: display names only).
 // ---------------------------------------------------------------------------------------------
 
 module Localization =

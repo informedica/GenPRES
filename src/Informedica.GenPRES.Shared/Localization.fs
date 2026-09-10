@@ -291,7 +291,8 @@ module Localization =
     /// <c>es</c>, <c>it</c>), a display name (<c>English</c>, <c>Nederlands</c>, ...) or one of
     /// the client's legacy url codes (<c>du</c>, <c>gr</c>, <c>sp</c>). Case and surrounding
     /// whitespace do not matter; anything else, including null, is <c>None</c>. One parser for
-    /// the <c>GENPRES_LANG</c> setting, the <c>la</c> url parameter and the sheet header.
+    /// the <c>GENPRES_LANG</c> setting and the <c>la</c> url parameter. The sheet header keeps
+    /// <c>tryFromString</c>: display names only.
     /// </summary>
     let tryParse (s: string) : Locales option =
         if isNull s then

@@ -8,6 +8,7 @@
     <Compile Include="Extensions.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Global.fs" />
+    <Compile Include="LanguagePolicy.fs" />
     <Compile Include="SessionMachine.fs" />
     <Compile Include="SessionGatePolicy.fs" />
     <Compile Include="Keys.fs" />

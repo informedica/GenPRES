@@ -1,8 +1,8 @@
 namespace Informedica.GenPRES.Shared.Tests
 
 
-/// One language vocabulary: `Localization.tryParse` serves the `GENPRES_LANG` setting, the
-/// client's `la` url parameter and the sheet header names.
+/// One language vocabulary: `Localization.tryParse` serves the `GENPRES_LANG` setting and the
+/// client's `la` url parameter (the sheet header keeps `tryFromString`, display names only).
 module LocalizationTests =
 
     open Expecto

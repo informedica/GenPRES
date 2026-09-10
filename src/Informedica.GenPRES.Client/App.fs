@@ -54,7 +54,8 @@ module private Elmish =
             Session: Session
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
-            // the url or the User chose the language; the server default no longer applies
+            // the url or the User chose the language (LanguagePolicy); the server default no
+            // longer applies. The language itself lives in Context, where the views read it
             LanguageChosen: bool
         }
 
@@ -462,7 +463,7 @@ module private Elmish =
             Context =
                 {
                     // the server default replaces this once LoadSettings resolves, unless the url chose
-                    Localization = lang |> Option.defaultValue Localization.Dutch
+                    Localization = (LanguagePolicy.Language.initial lang).Current
                     Hospital = "UMCU"
                 }
             IsDemo = false
@@ -479,7 +480,22 @@ module private Elmish =
             LogAnalysisReport = HasNotStartedYet
             Session = Session.Anonymous
             Settings = HasNotStartedYet
-            LanguageChosen = lang.IsSome
+            LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
+        }
+
+
+    /// The language as LanguagePolicy sees it, and the state after the policy answered.
+    let languageOf (state: State) : LanguagePolicy.Language =
+        {
+            Current = state.Context.Localization
+            Chosen = state.LanguageChosen
+        }
+
+
+    let withLanguage (language: LanguagePolicy.Language) (state: State) =
+        { state with
+            State.Context.Localization = language.Current
+            LanguageChosen = language.Chosen
         }
 
 
@@ -696,16 +712,12 @@ module private Elmish =
 
         | LoadSettings(Finished(Ok settings)) ->
             // the server default counts until the url or the User chooses; a choice made while
-            // the settings were in flight wins
+            // the settings were in flight wins (LanguagePolicy.onServerDefault)
             { state with
                 Settings = Resolved settings
                 IsDemo = settings.IsDemo
-                State.Context.Localization =
-                    if state.LanguageChosen then
-                        state.Context.Localization
-                    else
-                        settings.Language
-            },
+            }
+            |> withLanguage (languageOf state |> LanguagePolicy.Language.onServerDefault settings.Language),
             Cmd.none
 
         | LoadSettings(Finished(Error err)) ->
@@ -768,11 +780,8 @@ module private Elmish =
         | AcceptDisclaimer -> { state with ShowDisclaimer = false }, Cmd.none
 
         | UpdateLanguage lang ->
-            { state with
-                ShowDisclaimer = true
-                State.Context.Localization = lang
-                LanguageChosen = true
-            },
+            { state with ShowDisclaimer = true }
+            |> withLanguage (languageOf state |> LanguagePolicy.Language.choose lang),
             Cmd.none
 
         | UpdateHospital hosp ->
@@ -879,6 +888,9 @@ module private Elmish =
 
             let pat = if anonymous then pat else state.Patient
 
+            // only an `la` parameter changes the language; a navigation keeps the current one
+            let language = languageOf state |> LanguagePolicy.Language.onUrl lang
+
             { state with
                 ShowDisclaimer = discl
                 Page = page |> Option.defaultValue LifeSupport
@@ -898,10 +910,9 @@ module private Elmish =
                             ctx
                             |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
                             |> Resolved
-                // State. prefix needed: disambiguates State.Context field from Global.Context type.
-                // Only an `la` parameter changes the language; a navigation keeps the current one
-                State.Context.Localization = lang |> Option.defaultValue state.Context.Localization
-                LanguageChosen = state.LanguageChosen || lang.IsSome
+                // State. prefix needed: disambiguates State.Context field from Global.Context type
+                State.Context.Localization = language.Current
+                LanguageChosen = language.Chosen
             },
             Cmd.batch
                 [
