@@ -56,9 +56,8 @@ module CompositionRoot =
                     | SessionLookup.Found session -> return SessionResponse.SessionResp(Some session)
                     | SessionLookup.NotFound -> return SessionResponse.SessionResp None
                     | SessionLookup.Ended ending ->
-                        // the cookie goes with the answer (Rule 11): a browser that got it stops
-                        // asking; one that lost the answer asks again and is told again
-                        cookie.delete ()
+                        // the cookie stays until the client acknowledges with CloseSession, which
+                        // deletes it and drops the ending; a lost answer is asked and told again
                         return SessionResponse.SessionEnded ending
             | SessionCommand.CloseSession ->
                 try

@@ -144,7 +144,9 @@ module Session =
 
         | SessionMsg.Resumed(Ok(ResumeResult.Found session)), Session.Resuming -> opened session
         // told once (Rule 11): the cookie is gone, the gate says why, the User chooses
-        | SessionMsg.Resumed(Ok(ResumeResult.Ended ending)), Session.Resuming -> Session.Ended ending, []
+        // the close acknowledges the ending: the server deletes the cookie and drops the mark
+        | SessionMsg.Resumed(Ok(ResumeResult.Ended ending)), Session.Resuming ->
+            Session.Ended ending, [ SessionEffect.CallCloseSession ]
         | SessionMsg.Resumed _, Session.Resuming -> Session.Anonymous, []
         | SessionMsg.Resumed _, _ -> state, []
 

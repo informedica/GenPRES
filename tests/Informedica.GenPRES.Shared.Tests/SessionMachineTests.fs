@@ -310,11 +310,13 @@ module SessionMachineTests =
                     |> Expect.equal "anonymous" (Session.Anonymous, [])
                 }
 
-                test "Resumed with an ending is Ended, told once, no effects (Rule 11)" {
+                test "Resumed with an ending is Ended and acknowledges it with a close (Rule 11)" {
                     transition
                         (SessionMsg.Resumed(Ok(ResumeResult.Ended SessionEnding.SupersededByLaunch)))
                         Session.Resuming
-                    |> Expect.equal "ended" (Session.Ended SessionEnding.SupersededByLaunch, [])
+                    |> Expect.equal
+                        "ended, acknowledged"
+                        (Session.Ended SessionEnding.SupersededByLaunch, [ SessionEffect.CallCloseSession ])
                 }
 
                 test "from Ended the anonymous open carries nothing over, and a new launch presents" {

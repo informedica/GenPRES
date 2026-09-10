@@ -1273,7 +1273,7 @@ module SessionStubTests =
                 }
 
                 testAsync
-                    "GetSession: after a newer launch of the same login the ending is told with the cookie deleted, again if the answer was lost (Rule 11)" {
+                    "GetSession: after a newer launch of the same login the ending is told until the client closes to acknowledge (Rule 11)" {
                     let directory, env = envWithStub ()
                     let cookie, held = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
@@ -1289,23 +1289,24 @@ module SessionStubTests =
                     let! told = CompositionRoot.processSession env firstBrowser SessionCommand.GetSession
 
                     told
-                    |> Expect.equal "told once" (SessionResponse.SessionEnded SessionEnding.SupersededByLaunch)
+                    |> Expect.equal "told" (SessionResponse.SessionEnded SessionEnding.SupersededByLaunch)
 
-                    heldFirst.Value |> Expect.isNone "cookie deleted"
+                    heldFirst.Value |> Expect.equal "cookie kept until acknowledged" (Some first)
 
-                    // the answer was lost: the browser still sends the cookie, and is told again
-                    let again, heldAgain = memoryCookie (Some first)
-                    let! second = CompositionRoot.processSession env again SessionCommand.GetSession
+                    // the answer was lost: the browser asks again and is told again
+                    let! second = CompositionRoot.processSession env firstBrowser SessionCommand.GetSession
 
                     second
                     |> Expect.equal "told again" (SessionResponse.SessionEnded SessionEnding.SupersededByLaunch)
 
-                    heldAgain.Value |> Expect.isNone "cookie deleted again"
+                    // the client acknowledges with a close: cookie deleted, ending dropped
+                    let! closed = CompositionRoot.processSession env firstBrowser SessionCommand.CloseSession
+                    closed |> Expect.equal "closed" SessionResponse.SessionClosed
+                    heldFirst.Value |> Expect.isNone "cookie deleted"
 
-                    // the browser that got the answer has no cookie left to ask with
-                    let gone, _ = memoryCookie None
-                    let! third = CompositionRoot.processSession env gone SessionCommand.GetSession
-                    third |> Expect.equal "nothing to tell" (SessionResponse.SessionResp None)
+                    let stale, _ = memoryCookie (Some first)
+                    let! third = CompositionRoot.processSession env stale SessionCommand.GetSession
+                    third |> Expect.equal "nothing left to tell" (SessionResponse.SessionResp None)
                 }
 
                 testAsync "GetSession: a cookie for an unknown session is None" {
