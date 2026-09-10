@@ -78,6 +78,113 @@ module PublicKey =
         RandomNumberGenerator.GetBytes 32 |> base64Url
 
 
+module LaunchSeal =
+
+    /// The key the Launch is sealed under. 32 bytes from a CSPRNG (`newKey`); shared with the
+    /// LaunchScript in the real integration, made per host start for the stub.
+    type Key = Key of byte[]
+
+
+    /// What a Launch says once the seal is verified.
+    type Claims =
+        {
+            PatientId: string
+            Nonce: string
+            Expiry: DateTime
+        }
+
+
+    /// The sealed payload on the wire. Field names are the contract; keep them short.
+    type Payload =
+        {
+            pid: string
+            nonce: string
+            // unix seconds, UTC
+            exp: int64
+        }
+
+
+    let keyLength = 32
+
+
+    let newKey (random: int -> byte[]) = Key(random keyLength)
+
+
+    let toBase64Url (bytes: byte[]) =
+        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+
+
+    let fromBase64Url (s: string) =
+        try
+            let padded = s.Replace('-', '+').Replace('_', '/')
+
+            let padded =
+                match padded.Length % 4 with
+                | 2 -> padded + "=="
+                | 3 -> padded + "="
+                | 0 -> padded
+                | _ -> raise (FormatException "bad length")
+
+            Some(Convert.FromBase64String padded)
+        with _ ->
+            None
+
+
+    let mac (Key key) (data: byte[]) =
+        System.Security.Cryptography.HMACSHA256.HashData(key, data)
+
+
+    let private json = System.Text.Json.JsonSerializerOptions()
+
+
+    /// Seals the claims: `base64url(json) + "." + base64url(HMAC-SHA256(key, json))`.
+    let mint (key: Key) (claims: Claims) : Launch =
+        let payload =
+            {
+                pid = claims.PatientId
+                nonce = claims.Nonce
+                exp = DateTimeOffset(claims.Expiry, TimeSpan.Zero).ToUnixTimeSeconds()
+            }
+
+        let bytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(payload, json)
+        Launch $"{toBase64Url bytes}.{toBase64Url (mac key bytes)}"
+
+
+    /// Verifies the seal (constant-time), then the lifetime (Rule 3). Anything that is not a
+    /// Launch sealed under the key is `LaunchInvalid`; a Launch past its expiry is
+    /// `LaunchExpired`.
+    let verify (now: DateTime) (key: Key) (Launch text) : Result<Claims, LaunchRefusal> =
+        let parts = if isNull text then [||] else text.Split('.')
+
+        match parts with
+        | [| payload; signature |] ->
+            match fromBase64Url payload, fromBase64Url signature with
+            | Some bytes, Some given when
+                System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(mac key bytes, given)
+                ->
+                try
+                    let p = System.Text.Json.JsonSerializer.Deserialize<Payload>(bytes, json)
+
+                    if isNull p.pid || isNull p.nonce || p.pid = "" || p.nonce = "" then
+                        Error LaunchRefusal.LaunchInvalid
+                    else
+                        let expiry = DateTimeOffset.FromUnixTimeSeconds(p.exp).UtcDateTime
+
+                        if now > expiry then
+                            Error LaunchRefusal.LaunchExpired
+                        else
+                            Ok
+                                {
+                                    PatientId = p.pid
+                                    Nonce = p.nonce
+                                    Expiry = expiry
+                                }
+                with _ ->
+                    Error LaunchRefusal.LaunchInvalid
+            | _ -> Error LaunchRefusal.LaunchInvalid
+        | _ -> Error LaunchRefusal.LaunchInvalid
+
+
 /// In-memory stand-in for launch steps 4 and 5 (plan 409 step 2). It never redirects: the
 /// answer comes from the Launch text. The record it keeps per Launch is the LaunchRecord the
 /// real server appends at step 4.2, with the Launch text standing in for the nonce.
@@ -107,19 +214,6 @@ module SessionStub =
         }
 
 
-    /// The Launch texts that refuse; anything else opens a Session.
-    let refusalOf text =
-        match text with
-        | "expired" -> Some LaunchRefusal.LaunchExpired
-        | "spent" -> Some LaunchRefusal.LaunchSpent
-        | "invalid" -> Some LaunchRefusal.LaunchInvalid
-        | "no-identity" -> Some LaunchRefusal.NoBrowserIdentity
-        | "no-role" -> Some LaunchRefusal.NoRole
-        | "wrong-patient" -> Some LaunchRefusal.WrongActivePatient
-        | "enrolment" -> Some LaunchRefusal.EnrolmentRequired
-        | _ -> None
-
-
     let stubUser =
         {
             UserId = "stub-prescriber"
@@ -129,32 +223,31 @@ module SessionStub =
 
 
     /// Answers a presentation and returns the state after it. Pure: the clock, the id source,
-    /// the lifetime and the patient are parameters.
+    /// the verifier and the patient are parameters.
     ///
-    /// - a Launch with a record: expired -> LaunchExpired and the record is dropped; the same
-    ///   public key -> the recorded answer (Rule 2, same browser); another key -> LaunchSpent
-    ///   (it cannot be told from another browser).
-    /// - a Launch without a record: a refusal word refuses and records nothing, so a retry
-    ///   re-verifies; anything else opens a Session and writes the record in the same act
-    ///   (Rule 40).
+    /// - not sealed under the key, or past its expiry: refused, nothing recorded (Rules 3, 29);
+    /// - a record under the nonce: the same public key gets the recorded answer (Rule 2, same
+    ///   browser); another key is LaunchSpent (it cannot be told from another browser);
+    /// - a new nonce opens a Session for the Launch's PatientId and writes the record in the
+    ///   same act (Rule 40). The record lives as long as the Launch does.
     let present
         (now: DateTime)
         (newId: unit -> string)
-        (lifetime: TimeSpan)
+        (verify: Launch -> Result<LaunchSeal.Claims, LaunchRefusal>)
         (patient: Patient)
         (state: State)
-        (Launch text, key)
+        (launch, key)
         : State * LaunchResult
         =
-        match state.Launches |> Map.tryFind text with
-        | Some record when now > record.Expiry ->
-            { state with Launches = state.Launches |> Map.remove text },
-            LaunchResult.Refused LaunchRefusal.LaunchExpired
-        | Some record when record.PublicKey = key -> state, record.Result
-        | Some _ -> state, LaunchResult.Refused LaunchRefusal.LaunchSpent
-        | None ->
-            match refusalOf text with
-            | Some refusal -> state, LaunchResult.Refused refusal
+        match verify launch with
+        | Error refusal ->
+            // nothing is recorded for a refused Launch; records past their expiry go with it (Rule 29)
+            { state with Launches = state.Launches |> Map.filter (fun _ r -> now <= r.Expiry) },
+            LaunchResult.Refused refusal
+        | Ok claims ->
+            match state.Launches |> Map.tryFind claims.Nonce with
+            | Some record when record.PublicKey = key -> state, record.Result
+            | Some _ -> state, LaunchResult.Refused LaunchRefusal.LaunchSpent
             | None ->
                 let id = newId ()
 
@@ -164,7 +257,7 @@ module SessionStub =
                         PatientContext =
                             Some
                                 {
-                                    PatientId = "stub-patient"
+                                    PatientId = claims.PatientId
                                     Patient = patient
                                 }
                         OpenedToken = Some(OpenedToken $"opened-{id}")
@@ -176,21 +269,27 @@ module SessionStub =
                 {
                     Launches =
                         state.Launches
+                        |> Map.filter (fun _ r -> now <= r.Expiry)
                         |> Map.add
-                            text
+                            claims.Nonce
                             {
                                 PublicKey = key
                                 Result = result
-                                Expiry = now + lifetime
+                                Expiry = claims.Expiry
                             }
                     Sessions = state.Sessions |> Map.add id session
                 },
                 result
 
 
-    /// The port over a single mutable state guarded by a lock. `now` and `newId` are injected
-    /// (ADR-0001, effects as parameters); production passes `DateTime.UtcNow` and a random id.
-    let makeSessionPort (now: unit -> DateTime) (newId: unit -> string) (lifetime: TimeSpan) (patient: Patient) =
+    /// The port over a single mutable state guarded by a lock; `verify` is the seal check
+    /// bound to the host's key.
+    let makeSessionPort
+        (now: unit -> DateTime)
+        (newId: unit -> string)
+        (verify: Launch -> Result<LaunchSeal.Claims, LaunchRefusal>)
+        (patient: Patient)
+        =
         let gate = obj ()
         let mutable state = emptyState
 
@@ -204,10 +303,62 @@ module SessionStub =
                 )
 
         {
-            present = fun launch -> async { return update (fun s -> present (now ()) newId lifetime patient s launch) }
+            present = fun launch -> async { return update (fun s -> present (now ()) newId verify patient s launch) }
             find = fun id -> async { return lock gate (fun () -> state.Sessions |> Map.tryFind id) }
             close = fun id -> async { return update (fun s -> { s with Sessions = s.Sessions |> Map.remove id }, ()) }
         }
+
+
+/// The stub LaunchScript (uc-01 step 1) as a page the server serves in full scope: it mints a
+/// sealed Launch for a chosen PatientId and opens the client on it. Pure here; `Server.fs`
+/// mounts `GET /stub/launch` (the page) and `POST /stub/launch` (mint + redirect).
+module StubLaunch =
+
+    let path = "/stub/launch"
+
+
+    /// The Launch lifetime (Rule 29): a page load, the identity round trip, a retry or two.
+    let lifetime = TimeSpan.FromMinutes 2.0
+
+
+    /// The form. No inline script or style, so the CSP (`default-src 'self'`) holds.
+    let page =
+        $"""<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>GenPRES stub launch</title></head>
+<body>
+<h1>Stub LaunchScript</h1>
+<p>Stands in for the MainEHR LaunchScript (uc-01 step 1): mints a sealed Launch for the patient
+below and opens GenPRES on it. Development and test servers only.</p>
+<form method="post" action="{path}">
+  <label>PatientId <input name="pid" value="stub-patient" required></label>
+  <button type="submit">Launch</button>
+</form>
+</body>
+</html>"""
+
+
+    /// Where the browser goes after minting: the hash form of decision D1.
+    let launchUrl (launch: Launch) =
+        match launch with
+        | Launch text -> $"/#/session?launch={Uri.EscapeDataString text}"
+
+
+    /// Mints the Launch for a posted PatientId; blank falls back to the stub patient.
+    let mint (now: DateTime) (newNonce: unit -> string) (key: LaunchSeal.Key) (pid: string) =
+        let pid =
+            if String.IsNullOrWhiteSpace pid then
+                "stub-patient"
+            else
+                pid.Trim()
+
+        LaunchSeal.mint
+            key
+            {
+                PatientId = pid
+                Nonce = newNonce ()
+                Expiry = now + lifetime
+            }
 
 
 module Adapters =
@@ -355,7 +506,7 @@ module Adapters =
         }
 
 
-    let makeAppEnv (provider: Resources.IResourceProvider) : AppEnv =
+    let makeAppEnvWith (launchKey: LaunchSeal.Key) (provider: Resources.IResourceProvider) : AppEnv =
         let agent, logger = resolveLogger ()
         let orderCtxPort = makeOrderContextPort agent logger provider
 
@@ -416,6 +567,12 @@ module Adapters =
                 SessionStub.makeSessionPort
                     (fun () -> DateTime.UtcNow)
                     PublicKey.randomId
-                    (TimeSpan.FromMinutes 2.0)
+                    (fun launch -> LaunchSeal.verify DateTime.UtcNow launchKey launch)
                     Shared.Models.Patient.empty
         }
+
+
+    /// An env with its own seal key: what tests and the MCP host build. The server builds
+    /// `makeAppEnvWith` so that its stub LaunchScript page mints under the same key.
+    let makeAppEnv (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
+        makeAppEnvWith (LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes) provider

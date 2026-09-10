@@ -553,8 +553,13 @@ module Host =
     let build (settings: Config.Settings) (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
         // Built once per host: the session stub's state lives in it. Remoting.fromContext
         // runs its function per request, so the env must not be built in there.
+        // the key the stub LaunchScript seals Launches under (plan 605): per host start, so a
+        // token from an earlier run is "not sealed under the key"
+        let launchKey =
+            LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes
+
         let env =
-            let env = Adapters.makeAppEnv provider
+            let env = Adapters.makeAppEnvWith launchKey provider
 
             // Stop-gap until the scope switch (#580): a production server never opens a
             // stub Session. Drop this swap when #580 decides what production exposes.
@@ -576,12 +581,40 @@ module Host =
         // below), so this stays handler-only. The 404 arm replaces a legacy
         // "GenInteractions App. Use localhost: 8080 for the GUI" string that
         // leaked an old app name and hinted at port 8080 (L2 / B5).
-        let webApp =
-            choose
+        // the stub LaunchScript page (uc-01 step 1 stand-in, plan 605): full scope only, so a
+        // production server never mints a Launch. GET shows the form, POST mints and redirects.
+        let stubLaunch =
+            if settings.IsProd then
+                []
+            else
                 [
-                    Http.logClientIP >=> Http.safeWebApi webApi
-                    setStatusCode 404 >=> text "Not Found"
+                    GET >=> route StubLaunch.path >=> htmlString StubLaunch.page
+                    POST
+                    >=> route StubLaunch.path
+                    >=> fun next ctx ->
+                        task {
+                            let! form = ctx.Request.ReadFormAsync()
+
+                            let pid =
+                                match form.TryGetValue "pid" with
+                                | true, values -> values.ToString()
+                                | _ -> ""
+
+                            let launch = StubLaunch.mint System.DateTime.UtcNow PublicKey.randomId launchKey pid
+                            return! redirectTo false (StubLaunch.launchUrl launch) next ctx
+                        }
                 ]
+
+        // one request log around the whole route selection: the stub page, the api and the
+        // 404 arm each leave exactly one trail
+        let webApp =
+            Http.logClientIP
+            >=> choose
+                    [
+                        yield! stubLaunch
+                        Http.safeWebApi webApi
+                        setStatusCode 404 >=> text "Not Found"
+                    ]
 
         application {
             url ("http://*:" + settings.Port.ToString() + "/")
