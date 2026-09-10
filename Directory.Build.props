@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <Version>0.1.2-alpha.15</Version>
+    <Version>0.1.2-alpha.16</Version>
   </PropertyGroup>
   <!--
     Repository and documentation metadata consumed by fsdocs (FSharp.Formatting) when it
