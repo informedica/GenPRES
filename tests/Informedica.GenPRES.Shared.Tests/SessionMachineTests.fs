@@ -327,10 +327,54 @@ module SessionMachineTests =
                         }
 
                     transition (SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending))) Session.Resuming
-                    |> Expect.equal "enrolling" (Session.Enrolling pending, [])
+                    |> Expect.equal "enrolling" (Session.Enrolling(pending, None), [])
 
-                    transition (SessionMsg.Present(launchB, keyB)) (Session.Enrolling pending)
+                    transition (SessionMsg.Present(launchB, keyB)) (Session.Enrolling(pending, None))
                     |> Expect.equal "presents" (Session.present launchB keyB)
+                }
+
+                test "the form is sent once at a time, and the answer opens, keeps the form, or ends it (UC-2)" {
+                    let pending: EnrolmentPending =
+                        {
+                            DisplayName = "Stub Prescriber (no PIN)"
+                            MailHint = "n***@stub.example"
+                        }
+
+                    let enrolling = Session.Enrolling(pending, None)
+                    let supplying = Session.SupplyingPin pending
+
+                    transition (SessionMsg.SupplyPin("123456", "2468")) enrolling
+                    |> Expect.equal "sent" (supplying, [ SessionEffect.CallSupplyPin("123456", "2468") ])
+
+                    transition (SessionMsg.SupplyPin("123456", "2468")) supplying
+                    |> Expect.equal "not twice" (supplying, [])
+
+                    let session = sessionWith (Some "t") (Some patient)
+
+                    transition (SessionMsg.PinAnswered(Ok(PinOutcome.Opened session))) supplying
+                    |> Expect.equal "opened" (Session.opened session)
+
+                    transition (SessionMsg.PinAnswered(Ok(PinOutcome.Refused(PinRefusal.WrongCode 2)))) supplying
+                    |> Expect.equal "form kept" (Session.Enrolling(pending, Some(PinRefusal.WrongCode 2)), [])
+
+                    transition (SessionMsg.PinAnswered(Ok(PinOutcome.Refused PinRefusal.PinFormat))) supplying
+                    |> Expect.equal "form kept" (Session.Enrolling(pending, Some PinRefusal.PinFormat), [])
+
+                    for terminal in
+                        [
+                            PinRefusal.CodeVoid
+                            PinRefusal.AttemptExpired
+                            PinRefusal.WrongActivePatient
+                        ] do
+                        transition (SessionMsg.PinAnswered(Ok(PinOutcome.Refused terminal))) supplying
+                        |> Expect.equal $"{terminal}" (Session.EnrolmentFailed terminal, [])
+
+                    transition (SessionMsg.PinAnswered(Error "down")) supplying
+                    |> Expect.equal "form back" (enrolling, [])
+
+                    // an answer lands only on the request in flight
+                    transition (SessionMsg.PinAnswered(Ok(PinOutcome.Opened session))) enrolling
+                    |> Expect.equal "dropped" (enrolling, [])
                 }
 
                 test "from Ended the anonymous open carries nothing over, and a new launch presents" {

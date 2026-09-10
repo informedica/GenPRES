@@ -54,6 +54,20 @@ type SessionTerms =
     // the gate after the server ended the Session (Rule 11, plan 605 PR 4)
     | ``Session Gate Ended``
     | ``Session Ending Superseded``
+    // the enrolment form (UC-2, plan 615 PR 3): title, body with {0} the name and {1} the
+    // hinted mail address, the three field labels, the button, and one sentence per refusal
+    | ``Session Gate Enrolment``
+    | ``Session Gate Enrolment Text``
+    | ``Session Enrolment Code``
+    | ``Session Enrolment Pin``
+    | ``Session Enrolment Pin Repeat``
+    | ``Session Enrolment Submit``
+    | ``Session Enrolment Code Format``
+    | ``Session Enrolment Pin Format``
+    | ``Session Enrolment Pins Differ``
+    | ``Session Enrolment Wrong Code``
+    | ``Session Enrolment Code Void``
+    | ``Session Enrolment Expired``
 
 
 /// The English defaults: the strings the client shows today, verbatim.
@@ -77,8 +91,7 @@ let english term =
         "You have no role in GenPRES. You can continue without a launch: no patient is carried over."
     | ``Session Refusal Wrong Patient`` ->
         "The patient active in MainEHR is not the patient of this launch. Activate the right patient and open GenPRES again from MainEHR."
-    | ``Session Refusal Enrolment`` ->
-        "A PIN has to be set before prescribing. Enrolment is not available yet. Open GenPRES again from MainEHR."
+    | ``Session Refusal Enrolment`` -> "A PIN has to be set before prescribing. Open GenPRES again from MainEHR."
     | ``Session Try Again`` -> "Try again"
     | ``Session Continue Without Launch`` -> "Continue without launch"
     | ``Session Close`` -> "Close session"
@@ -87,6 +100,19 @@ let english term =
     | ``Session Gate Ended`` -> "Your session was ended"
     | ``Session Ending Superseded`` ->
         "Another launch of yours opened a newer session, and this one was closed."
+    | ``Session Gate Enrolment`` -> "Set a PIN to continue"
+    | ``Session Gate Enrolment Text`` ->
+        "Welcome, {0}. A confirmation code was mailed to {1}. Enter it together with the PIN of your choice: four to six digits."
+    | ``Session Enrolment Code`` -> "Confirmation code"
+    | ``Session Enrolment Pin`` -> "PIN"
+    | ``Session Enrolment Pin Repeat`` -> "Repeat the PIN"
+    | ``Session Enrolment Submit`` -> "Set PIN"
+    | ``Session Enrolment Code Format`` -> "The confirmation code has six digits."
+    | ``Session Enrolment Pin Format`` -> "The PIN has four to six digits."
+    | ``Session Enrolment Pins Differ`` -> "The two PINs differ."
+    | ``Session Enrolment Wrong Code`` -> "The code is not right. {0} tries left."
+    | ``Session Enrolment Code Void`` -> "The code is void after three wrong tries."
+    | ``Session Enrolment Expired`` -> "The enrolment has expired."
 
 
 /// Dutch, for the sheet; the other four languages stay empty and fall back to English.
@@ -111,7 +137,7 @@ let dutch term =
     | ``Session Refusal Wrong Patient`` ->
         "De patiënt die actief is in MainEHR is niet de patiënt van deze launch. Activeer de juiste patiënt en open GenPRES opnieuw vanuit MainEHR."
     | ``Session Refusal Enrolment`` ->
-        "Er moet een pincode worden ingesteld voordat u kunt voorschrijven. Inschrijven is nog niet beschikbaar. Open GenPRES opnieuw vanuit MainEHR."
+        "Er moet een pincode worden ingesteld voordat u kunt voorschrijven. Open GenPRES opnieuw vanuit MainEHR."
     | ``Session Try Again`` -> "Probeer opnieuw"
     | ``Session Continue Without Launch`` -> "Doorgaan zonder launch"
     | ``Session Close`` -> "Sessie sluiten"
@@ -120,6 +146,19 @@ let dutch term =
     | ``Session Gate Ended`` -> "Uw sessie is beëindigd"
     | ``Session Ending Superseded`` ->
         "Een andere start van u heeft een nieuwere sessie geopend; deze sessie is gesloten."
+    | ``Session Gate Enrolment`` -> "Stel een pincode in om verder te gaan"
+    | ``Session Gate Enrolment Text`` ->
+        "Welkom, {0}. Er is een bevestigingscode gemaild naar {1}. Voer die in samen met de pincode van uw keuze: vier tot zes cijfers."
+    | ``Session Enrolment Code`` -> "Bevestigingscode"
+    | ``Session Enrolment Pin`` -> "Pincode"
+    | ``Session Enrolment Pin Repeat`` -> "Herhaal de pincode"
+    | ``Session Enrolment Submit`` -> "Pincode instellen"
+    | ``Session Enrolment Code Format`` -> "De bevestigingscode bestaat uit zes cijfers."
+    | ``Session Enrolment Pin Format`` -> "De pincode bestaat uit vier tot zes cijfers."
+    | ``Session Enrolment Pins Differ`` -> "De twee pincodes verschillen."
+    | ``Session Enrolment Wrong Code`` -> "De code klopt niet. Nog {0} pogingen."
+    | ``Session Enrolment Code Void`` -> "De code is na drie verkeerde pogingen niet meer geldig."
+    | ``Session Enrolment Expired`` -> "De inschrijving is verlopen."
 
 
 let all =
@@ -248,7 +287,7 @@ let tests =
                 |> Expect.equal "distinct keys" all.Length
             }
 
-            test "placeholders appear only in the two attempt texts, in both languages" {
+            test "placeholders appear only in the attempt, enrolment and wrong-code texts, in both languages" {
                 let withPlaceholders =
                     all
                     |> Array.filter (fun t -> (english t).Contains "{0}" || (dutch t).Contains "{0}")
@@ -257,10 +296,17 @@ let tests =
                 withPlaceholders
                 |> Expect.equal
                     "placeholders"
-                    ([| ``Session Gate Opening Text``; ``Session Gate Unreachable Text`` |] |> Array.sort)
+                    ([|
+                        ``Session Gate Opening Text``
+                        ``Session Gate Unreachable Text``
+                        ``Session Gate Enrolment Text``
+                        ``Session Enrolment Wrong Code``
+                     |]
+                     |> Array.sort)
 
-                (english ``Session Gate Opening Text``).Contains "{1}" |> Expect.isTrue "{1} en"
-                (dutch ``Session Gate Opening Text``).Contains "{1}" |> Expect.isTrue "{1} nl"
+                for t in [ ``Session Gate Opening Text``; ``Session Gate Enrolment Text`` ] do
+                    (english t).Contains "{1}" |> Expect.isTrue $"{{1}} en {t}"
+                    (dutch t).Contains "{1}" |> Expect.isTrue $"{{1}} nl {t}"
             }
 
             test "fill replaces the placeholders" {
