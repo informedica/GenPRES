@@ -50,18 +50,46 @@ module SessionGate =
         let pin, setPin = React.useState ""
         let repeat, setRepeat = React.useState ""
         let localError, setLocalError = React.useState<string option> None
+        // the server's answer is shown until the User edits a field; the next answer shows again
+        let edited, setEdited = React.useState false
+
+        let enrolling =
+            match session.Session with
+            | SessionMachine.Session.Enrolling _
+            | SessionMachine.Session.SupplyingPin _ -> true
+            | _ -> false
+
+        // the fields belong to one enrolment: they are cleared when the launch leaves it, so
+        // that a later enrolment in this page never shows or sends what an earlier one typed
+        React.useEffect (
+            (fun () ->
+                if not enrolling then
+                    setCode ""
+                    setPin ""
+                    setRepeat ""
+                    setLocalError None
+                    setEdited false
+            ),
+            [| box enrolling |]
+        )
+
+        // an answer arrived (the request in flight is over): show it, until the next edit
+        React.useEffect ((fun () -> setEdited false), [| box gate.Busy |])
 
         let onCode (e: Browser.Types.Event) =
             setCode (e.target?value: string)
             setLocalError None
+            setEdited true
 
         let onPin (e: Browser.Types.Event) =
             setPin (e.target?value: string)
             setLocalError None
+            setEdited true
 
         let onRepeat (e: Browser.Types.Event) =
             setRepeat (e.target?value: string)
             setLocalError None
+            setEdited true
 
         let submit () =
             match formError tr code pin repeat with
@@ -78,7 +106,7 @@ module SessionGate =
             match gate.Form with
             | None -> null
             | Some form ->
-                let error = localError |> Option.orElse form.Error
+                let error = localError |> Option.orElse (if edited then None else form.Error)
                 let hasError = error.IsSome
                 let helper = error |> Option.defaultValue ""
 
