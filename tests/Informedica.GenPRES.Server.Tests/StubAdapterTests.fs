@@ -725,6 +725,7 @@ module SessionStubTests =
 
                             state.Endings
                             |> Map.tryFind id1
+                            |> Option.map fst
                             |> Expect.equal "marked" (Some SessionEnding.SupersededByLaunch)
                         | other -> failtest $"expected two Opened, got {other}"
                     }
@@ -740,7 +741,8 @@ module SessionStubTests =
                         state2 |> Expect.equal "unchanged" state
                     }
 
-                    test "the ended Session is told once at the next lookup, then it is gone (Rule 11)" {
+                    test
+                        "the ended Session is told at every lookup that still carries the cookie, until its lifetime (Rule 11)" {
                         let ids, d = fixture ()
                         let state, cb1 = hop ids d Hop.emptyState launch1 keyA "prescriber"
                         let state, first = run ids d state cb1
@@ -752,13 +754,22 @@ module SessionStubTests =
                             | CallbackResult.Opened(id, _) -> id
                             | other -> failtest $"{other}"
 
-                        let state, once = Hop.find id1 state
+                        let state, told = Hop.find t0 id1 state
 
-                        once
+                        told
                         |> Expect.equal "told" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
 
-                        let _, again = Hop.find id1 state
-                        again |> Expect.equal "forgotten" SessionLookup.NotFound
+                        // the answer was lost: the cookie came again, so is the ending
+                        let state, again = Hop.find t0 id1 state
+
+                        again
+                        |> Expect.equal "told again" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
+
+                        // past the lifetime the ending is gone
+                        let _, late =
+                            Hop.find (t0 + Hop.endingLifetime + TimeSpan.FromSeconds 1.0) id1 state
+
+                        late |> Expect.equal "dropped" SessionLookup.NotFound
                     }
 
                     test "two logins keep two Sessions" {
@@ -1267,7 +1278,7 @@ module SessionStubTests =
                 }
 
                 testAsync
-                    "GetSession: after a newer launch of the same login the ending is told once and the cookie deleted (Rule 11)" {
+                    "GetSession: after a newer launch of the same login the ending is told with the cookie deleted, again if the answer was lost (Rule 11)" {
                     let directory, env = envWithStub ()
                     let cookie, held = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
@@ -1287,9 +1298,19 @@ module SessionStubTests =
 
                     heldFirst.Value |> Expect.isNone "cookie deleted"
 
-                    let again, _ = memoryCookie (Some first)
+                    // the answer was lost: the browser still sends the cookie, and is told again
+                    let again, heldAgain = memoryCookie (Some first)
                     let! second = CompositionRoot.processSession env again SessionCommand.GetSession
-                    second |> Expect.equal "then nothing" (SessionResponse.SessionResp None)
+
+                    second
+                    |> Expect.equal "told again" (SessionResponse.SessionEnded SessionEnding.SupersededByLaunch)
+
+                    heldAgain.Value |> Expect.isNone "cookie deleted again"
+
+                    // the browser that got the answer has no cookie left to ask with
+                    let gone, _ = memoryCookie None
+                    let! third = CompositionRoot.processSession env gone SessionCommand.GetSession
+                    third |> Expect.equal "nothing to tell" (SessionResponse.SessionResp None)
                 }
 
                 testAsync "GetSession: a cookie for an unknown session is None" {

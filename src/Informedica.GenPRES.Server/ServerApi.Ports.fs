@@ -117,7 +117,8 @@ type CallbackResult =
 
 
 /// What the store says about a session id from the cookie: the Session, nothing, or that the
-/// server ended it, which is said once (Rule 11) and then forgotten.
+/// server ended it (Rule 11), said as long as the browser still sends the cookie the answer
+/// deletes.
 [<RequireQualifiedAccess>]
 type SessionLookup =
     | Found of SessionOpened

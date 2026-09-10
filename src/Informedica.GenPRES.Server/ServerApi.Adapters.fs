@@ -236,7 +236,10 @@ module Hop =
             Launches: Map<string, LaunchRecord>
             Sessions: Map<string, SessionRecord>
             // sessions ended by the server, told once at the next GetSession (Rule 11, PR 4)
-            Endings: Map<string, SessionEnding>
+            // sessions the server ended, with the moment: told at every GetSession that still
+            // carries their cookie (Rule 11); the answer deletes the cookie, so a lost answer is
+            // asked again. Pruned after endingLifetime.
+            Endings: Map<string, SessionEnding * DateTime>
         }
 
 
@@ -300,6 +303,7 @@ module Hop =
     /// Step 5.7, one act (Rule 40): the Session is written, the login's other Sessions are
     /// closed and marked (Rule 8), the outcome is appended to the record.
     let private openSession
+        (now: DateTime)
         (newId: unit -> string)
         (patientData: string -> Patient option)
         (record: LaunchRecord)
@@ -345,7 +349,7 @@ module Hop =
                     }
             Endings =
                 superseded
-                |> List.fold (fun m sid -> Map.add sid SessionEnding.SupersededByLaunch m) state.Endings
+                |> List.fold (fun m sid -> Map.add sid (SessionEnding.SupersededByLaunch, now) m) state.Endings
         },
         CallbackResult.Opened(id, openedUrl)
 
@@ -411,21 +415,30 @@ module Hop =
                         refuse record LaunchRefusal.WrongActivePatient state
                     | Some standing when standing.User.Role = UserRole.Prescriber && not standing.PinSet ->
                         refuse record LaunchRefusal.EnrolmentRequired state
-                    | Some standing -> openSession newId patientData record standing state
+                    | Some standing -> openSession now newId patientData record standing state
         | _, None ->
             // no record: expired and dropped (Rule 29), or never presented
             state, invalid
         | _ -> state, invalid
 
 
+    /// How long an ending is kept for a browser that still sends the cookie (Rule 11). Long
+    /// enough for a lost answer to be asked again; the answer that arrives deletes the cookie.
+    let endingLifetime = TimeSpan.FromHours 1.0
+
+
     /// The lookup for a session id: the Session; else the ending the server recorded, answered
-    /// once and dropped (Rule 11, told at the next request); else nothing.
-    let find (id: string) (state: State) : State * SessionLookup =
+    /// as long as the cookie keeps coming (the answer deletes it, so a lost answer is retried
+    /// rather than swallowed); else nothing. Endings past their lifetime are dropped here.
+    let find (now: DateTime) (id: string) (state: State) : State * SessionLookup =
+        let state =
+            { state with Endings = state.Endings |> Map.filter (fun _ (_, at) -> now - at <= endingLifetime) }
+
         match state.Sessions |> Map.tryFind id with
         | Some record -> state, SessionLookup.Found record.Session
         | None ->
             match state.Endings |> Map.tryFind id with
-            | Some ending -> { state with Endings = state.Endings |> Map.remove id }, SessionLookup.Ended ending
+            | Some(ending, _) -> state, SessionLookup.Ended ending
             | None -> state, SessionLookup.NotFound
 
 
@@ -459,7 +472,7 @@ module Hop =
                         return
                             update (fun s -> callback (now ()) newId idp.redeem registry.standing patientData.read s cb)
                     }
-            find = fun id -> async { return update (find id) }
+            find = fun id -> async { return update (find (now ()) id) }
             close = fun id -> async { return update (fun s -> { s with Sessions = s.Sessions |> Map.remove id }, ()) }
         }
 
