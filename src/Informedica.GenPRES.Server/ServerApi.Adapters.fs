@@ -695,7 +695,8 @@ module Hop =
     /// voids the code for every attempt (ext 2b); else one act (Rules 37, 40): the PIN is set
     /// with a count of zero (Rule 28), the code and its attempts are dropped, the User is
     /// told (Rule 27, at the address the registry answers now, else the one the code went to),
-    /// and the launch continues at 5.5 to 5.7 on the supplying attempt's key.
+    /// and the launch continues at 5.5 to 5.7 on the supplying attempt's key, with the Role the
+    /// registry answers now and only if the launch's Patient is still the active one (Rule 6).
     let supplyPin
         (now: DateTime)
         (newId: unit -> string)
@@ -738,12 +739,24 @@ module Hop =
                         DisplayName = e.DisplayName
                     }
 
-                // Rule 27: the address, asked fresh on the request that sends the mail; the
-                // code's address when the registry cannot answer (uc-02, last bullet)
+                // 5.3 again, fresh: the address for the mail (Rule 27), the Role re-taken and
+                // the active Patient (Rule 6), because the registry may have moved on during
+                // the wait. When it cannot answer, the code settles the PIN (Rule 37, uc-02 last
+                // bullet) and the launch continues on what it had.
+                let fresh = standing identity
+
                 let address =
-                    standing identity
-                    |> Option.map _.MailAddress
-                    |> Option.defaultValue pending.MailAddress
+                    fresh |> Option.map _.MailAddress |> Option.defaultValue pending.MailAddress
+
+                let user =
+                    fresh
+                    |> Option.map _.User
+                    |> Option.defaultValue
+                        {
+                            UserId = e.UserId
+                            DisplayName = e.DisplayName
+                            Role = UserRole.Prescriber
+                        }
 
                 let subject, body = Mails.pinSet e.DisplayName
 
@@ -754,21 +767,20 @@ module Hop =
                         Body = body
                     }
 
-                let user =
-                    {
-                        UserId = e.UserId
-                        DisplayName = e.DisplayName
-                        Role = UserRole.Prescriber
-                    }
-
                 let state =
                     { state with Credentials = state.Credentials |> Map.add e.UserId (Credential.withPin newSalt pin) }
                     |> dropCode e.UserId
 
-                let state, (id, session) =
-                    openWith now newId patientData e.PatientId e.PublicKey user state
+                match fresh with
+                | Some s when s.ActivePatientId <> Some e.PatientId ->
+                    // the PIN is set and told; no Session opens for a Patient that is no longer
+                    // the active one (Rule 6): a relaunch is asked for
+                    state, SupplyPinResult.Refused PinRefusal.WrongActivePatient
+                | _ ->
+                    let state, (id, session) =
+                        openWith now newId patientData e.PatientId e.PublicKey user state
 
-                state, SupplyPinResult.Opened(id, session)
+                    state, SupplyPinResult.Opened(id, session)
 
 
     let find (id: string) (state: State) : State * SessionLookup =

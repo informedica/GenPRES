@@ -660,14 +660,17 @@ module Types =
         }
 
 
-    /// Why a supplied PIN did not set (UC-2 ext 2b). `WrongCode` leaves the form open with the
-    /// tries left; `CodeVoid` and `AttemptExpired` are terminal: the launch has to start over.
+    /// Why a supplied PIN opened no Session (UC-2 ext 2b). `WrongCode` leaves the form open with
+    /// the tries left; `PinFormat` spends no try; `CodeVoid` and `AttemptExpired` are terminal:
+    /// the launch has to start over. `WrongActivePatient` is terminal too, and the PIN is set:
+    /// the registry no longer has the launch's Patient active (Rule 6).
     [<RequireQualifiedAccess>]
     type PinRefusal =
         | WrongCode of attemptsLeft: int
         | CodeVoid
         | AttemptExpired
         | PinFormat
+        | WrongActivePatient
 
 
     [<RequireQualifiedAccess>]

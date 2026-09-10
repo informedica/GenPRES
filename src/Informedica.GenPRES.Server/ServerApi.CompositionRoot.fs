@@ -45,6 +45,14 @@ module CompositionRoot =
                 cookie.write id
                 return redirect
             | CallbackResult.Enrolling(attempt, redirect, until) ->
+                // the new launch replaces whatever Session this browser still held, as an open
+                // would (session-endings: ReplacedInBrowser owes nothing); left in place, its
+                // cookie would hide the enrolment at the next GetSession
+                match cookie.read () with
+                | Some id -> do! env.session.close id
+                | None -> ()
+
+                cookie.delete ()
                 enrolment.write attempt until
                 return redirect
             | CallbackResult.Refused(_, redirect)
@@ -92,7 +100,8 @@ module CompositionRoot =
                         cookie.write id
                         return SessionResponse.SessionResp(Some opened)
                     | SupplyPinResult.Refused(PinRefusal.CodeVoid as refusal)
-                    | SupplyPinResult.Refused(PinRefusal.AttemptExpired as refusal) ->
+                    | SupplyPinResult.Refused(PinRefusal.AttemptExpired as refusal)
+                    | SupplyPinResult.Refused(PinRefusal.WrongActivePatient as refusal) ->
                         enrolment.delete ()
                         return SessionResponse.PinRefused refusal
                     | SupplyPinResult.Refused refusal -> return SessionResponse.PinRefused refusal

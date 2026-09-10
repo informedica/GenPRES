@@ -1561,6 +1561,70 @@ module SessionStubTests =
                         |> Expect.equal "expired" (SupplyPinResult.Refused PinRefusal.AttemptExpired)
                     }
 
+                    test
+                        "the registry is asked again at the supply: the Role is re-taken, another active Patient sets the PIN but opens nothing (Rule 6)" {
+                        let f = enrolFixture ()
+                        let state, attempt = suspendVia f seeded launch1 keyA "no-pin"
+                        let code = mailedCode f
+
+                        let moved identity =
+                            f.d.registry.standing identity
+                            |> Option.map (fun s -> { s with ActivePatientId = Some "other-patient" })
+
+                        let state, result =
+                            Hop.supplyPin
+                                t0
+                                f.ids
+                                salts
+                                codeMac
+                                moved
+                                StubPatientData.port.read
+                                f.outbox.port.send
+                                attempt
+                                code
+                                "2468"
+                                state
+
+                        result
+                        |> Expect.equal "no Session" (SupplyPinResult.Refused PinRefusal.WrongActivePatient)
+
+                        state.Sessions |> Map.isEmpty |> Expect.isTrue "nothing opened"
+
+                        state.Credentials["no-pin"]
+                        |> Credential.pinSet
+                        |> Expect.isTrue "the PIN is set (Rule 37)"
+
+                        state.Codes |> Map.isEmpty |> Expect.isTrue "code dropped"
+                        f.outbox.sent () |> List.length |> Expect.equal "told" 2
+
+                        let state, attempt = suspendVia f seeded launch1 keyA "no-pin"
+
+                        let reader identity =
+                            f.d.registry.standing identity
+                            |> Option.map (fun s -> { s with User = { s.User with Role = UserRole.Reader } })
+
+                        let _, result =
+                            Hop.supplyPin
+                                t0
+                                f.ids
+                                salts
+                                codeMac
+                                reader
+                                StubPatientData.port.read
+                                f.outbox.port.send
+                                attempt
+                                (mailedCode f)
+                                "2468"
+                                state
+
+                        match result with
+                        | SupplyPinResult.Opened(_, session) ->
+                            session.User
+                            |> Option.map _.Role
+                            |> Expect.equal "the fresh Role" (Some UserRole.Reader)
+                        | other -> failtest $"expected Opened, got {other}"
+                    }
+
                     test "the PIN-set mail falls back on the code's address when the registry cannot answer" {
                         let f = enrolFixture ()
                         let state, attempt = suspendVia f seeded launch1 keyA "no-pin"
@@ -2419,6 +2483,41 @@ module SessionStubTests =
                     match found with
                     | SessionResponse.SessionResp(Some _) -> ()
                     | other -> failtest $"expected the Session, got {other}"
+                }
+
+                testAsync "an enrolling callback replaces the Session this browser still held" {
+                    let directory, _, env = envWithStubMail ()
+                    let cookie, held = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+                    let enrolment, attempt, _ = memoryEnrolmentCookie None
+
+                    let! _ =
+                        openVia
+                            directory
+                            env
+                            cookie
+                            stateCookie
+                            enrolment
+                            (mintFor "n-1" "stub-patient")
+                            keyA
+                            "prescriber"
+
+                    let old = held.Value
+                    old |> Expect.isSome "a Session"
+
+                    let! _ =
+                        openVia directory env cookie stateCookie enrolment (mintFor "n-2" "stub-patient") keyB "no-pin"
+
+                    held.Value |> Expect.isNone "session cookie gone"
+                    attempt.Value |> Expect.isSome "enrolment cookie"
+                    let! pending = CompositionRoot.processSession env cookie enrolment SessionCommand.GetSession
+
+                    match pending with
+                    | SessionResponse.EnrolmentPending _ -> ()
+                    | other -> failtest $"expected EnrolmentPending, got {other}"
+
+                    let! gone = env.session.find old.Value
+                    gone |> Expect.equal "the old Session is closed" SessionLookup.NotFound
                 }
 
                 testAsync "the disabled port refuses to enrol" {

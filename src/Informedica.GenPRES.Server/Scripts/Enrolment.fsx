@@ -46,14 +46,17 @@ type EnrolmentPending =
     }
 
 
-/// Why a supplied PIN did not set (UC-2 ext 2b). `WrongCode` leaves the form open with the
-/// tries left; `CodeVoid` and `AttemptExpired` are terminal: the launch has to start over.
+/// Why a supplied PIN opened no Session (UC-2 ext 2b). `WrongCode` leaves the form open with
+/// the tries left; `PinFormat` spends no try; `CodeVoid` and `AttemptExpired` are terminal:
+/// the launch has to start over. `WrongActivePatient` is terminal too, and the PIN is set:
+/// the registry no longer has the launch's Patient active (Rule 6).
 [<RequireQualifiedAccess>]
 type PinRefusal =
     | WrongCode of attemptsLeft: int
     | CodeVoid
     | AttemptExpired
     | PinFormat
+    | WrongActivePatient
 
 
 [<RequireQualifiedAccess>]
@@ -547,7 +550,8 @@ module Hop =
     /// voids the code for every attempt (ext 2b); else one act (Rules 37, 40): the PIN is set
     /// with a count of zero (Rule 28), the code and its attempts are dropped, the User is
     /// told (Rule 27, at the address the registry answers now, else the one the code went to),
-    /// and the launch continues at 5.5 to 5.7 on the supplying attempt's key.
+    /// and the launch continues at 5.5 to 5.7 on the supplying attempt's key, with the Role the
+    /// registry answers now and only if the launch's Patient is still the active one (Rule 6).
     let supplyPin
         (now: DateTime)
         (newId: unit -> string)
@@ -590,12 +594,24 @@ module Hop =
                         DisplayName = e.DisplayName
                     }
 
-                // Rule 27: the address, asked fresh on the request that sends the mail; the
-                // code's address when the registry cannot answer (uc-02, last bullet)
+                // 5.3 again, fresh: the address for the mail (Rule 27), the Role re-taken and
+                // the active Patient (Rule 6), because the registry may have moved on during
+                // the wait. When it cannot answer, the code settles the PIN (Rule 37, uc-02 last
+                // bullet) and the launch continues on what it had.
+                let fresh = standing identity
+
                 let address =
-                    standing identity
-                    |> Option.map _.MailAddress
-                    |> Option.defaultValue pending.MailAddress
+                    fresh |> Option.map _.MailAddress |> Option.defaultValue pending.MailAddress
+
+                let user =
+                    fresh
+                    |> Option.map _.User
+                    |> Option.defaultValue
+                        {
+                            UserId = e.UserId
+                            DisplayName = e.DisplayName
+                            Role = UserRole.Prescriber
+                        }
 
                 let subject, body = Mails.pinSet e.DisplayName
 
@@ -606,23 +622,22 @@ module Hop =
                         Body = body
                     }
 
-                let user =
-                    {
-                        UserId = e.UserId
-                        DisplayName = e.DisplayName
-                        Role = UserRole.Prescriber
-                    }
-
                 let state =
                     { state with
                         Credentials = state.Credentials |> Map.add e.UserId (Credential.withPin newSalt pin)
                     }
                     |> dropCode e.UserId
 
-                let state, (id, session) =
-                    openWith now newId patientData e.PatientId e.PublicKey user state
+                match fresh with
+                | Some s when s.ActivePatientId <> Some e.PatientId ->
+                    // the PIN is set and told; no Session opens for a Patient that is no longer
+                    // the active one (Rule 6): a relaunch is asked for
+                    state, SupplyPinResult.Refused PinRefusal.WrongActivePatient
+                | _ ->
+                    let state, (id, session) =
+                        openWith now newId patientData e.PatientId e.PublicKey user state
 
-                state, SupplyPinResult.Opened(id, session)
+                    state, SupplyPinResult.Opened(id, session)
 
 
     let find (id: string) (state: State) : State * SessionLookup =
@@ -778,6 +793,14 @@ module CompositionRoot =
                 cookie.write id
                 return redirect
             | CallbackResult.Enrolling(attempt, redirect, until) ->
+                // the new launch replaces whatever Session this browser still held, as an open
+                // would (session-endings: ReplacedInBrowser owes nothing); left in place, its
+                // cookie would hide the enrolment at the next GetSession
+                match cookie.read () with
+                | Some id -> do! session.close id
+                | None -> ()
+
+                cookie.delete ()
                 enrolment.write attempt until
                 return redirect
             | CallbackResult.Refused(_, redirect)
@@ -827,7 +850,8 @@ module CompositionRoot =
                         cookie.write id
                         return SessionResponse.SessionResp(Some opened)
                     | SupplyPinResult.Refused(PinRefusal.CodeVoid as refusal)
-                    | SupplyPinResult.Refused(PinRefusal.AttemptExpired as refusal) ->
+                    | SupplyPinResult.Refused(PinRefusal.AttemptExpired as refusal)
+                    | SupplyPinResult.Refused(PinRefusal.WrongActivePatient as refusal) ->
                         enrolment.delete ()
                         return SessionResponse.PinRefused refusal
                     | SupplyPinResult.Refused refusal -> return SessionResponse.PinRefused refusal
@@ -1273,6 +1297,39 @@ let supplyTests =
                 result |> Expect.equal "expired" (SupplyPinResult.Refused PinRefusal.AttemptExpired)
             }
 
+            test "the registry is asked again at the supply: the Role is re-taken, another active Patient sets the PIN but opens nothing (Rule 6)" {
+                let f = fixture ()
+                let state, attempt = suspendVia f seeded launch1 keyA "no-pin"
+                let code = mailedCode f
+
+                let moved identity =
+                    f.d.registry.standing identity
+                    |> Option.map (fun s -> { s with ActivePatientId = Some "other-patient" })
+
+                let state, result =
+                    Hop.supplyPin t0 f.ids salts codeMac moved StubPatientData.port.read f.outbox.port.send attempt code "2468" state
+
+                result |> Expect.equal "no Session" (SupplyPinResult.Refused PinRefusal.WrongActivePatient)
+                state.Sessions |> Map.isEmpty |> Expect.isTrue "nothing opened"
+                state.Credentials["no-pin"] |> Credential.pinSet |> Expect.isTrue "the PIN is set (Rule 37)"
+                state.Codes |> Map.isEmpty |> Expect.isTrue "code dropped"
+                f.outbox.sent () |> List.length |> Expect.equal "told" 2
+
+                let state, attempt = suspendVia f seeded launch1 keyA "no-pin"
+
+                let reader identity =
+                    f.d.registry.standing identity
+                    |> Option.map (fun s -> { s with User = { s.User with Role = UserRole.Reader } })
+
+                let _, result =
+                    Hop.supplyPin t0 f.ids salts codeMac reader StubPatientData.port.read f.outbox.port.send attempt (mailedCode f) "2468" state
+
+                match result with
+                | SupplyPinResult.Opened(_, session) ->
+                    session.User |> Option.map _.Role |> Expect.equal "the fresh Role" (Some UserRole.Reader)
+                | other -> failtest $"expected Opened, got {other}"
+            }
+
             test "the PIN-set mail falls back on the code's address when the registry cannot answer" {
                 let f = fixture ()
                 let state, attempt = suspendVia f seeded launch1 keyA "no-pin"
@@ -1509,6 +1566,28 @@ let compositionTests =
                 match found with
                 | SessionResponse.SessionResp(Some _) -> ()
                 | other -> failtest $"expected the Session, got {other}"
+            }
+
+            testAsync "an enrolling callback replaces the Session this browser still held" {
+                let f = fixture ()
+                let port = makePort f
+                let cookie, held = memoryCookie None
+                let stateCookie, _ = memoryStateCookie None
+                let enrolment, attempt, _ = memoryEnrolmentCookie None
+                let! _ = openVia f port cookie stateCookie enrolment launch1 keyA "prescriber"
+                let old = held.Value
+                old |> Expect.isSome "a Session"
+                let! _ = openVia f port cookie stateCookie enrolment (mintFor "n-2" "patient-1") keyB "no-pin"
+                held.Value |> Expect.isNone "session cookie gone"
+                attempt.Value |> Expect.isSome "enrolment cookie"
+                let! pending = CompositionRoot.processSession port cookie enrolment SessionCommand.GetSession
+
+                match pending with
+                | SessionResponse.EnrolmentPending _ -> ()
+                | other -> failtest $"expected EnrolmentPending, got {other}"
+
+                let! gone = port.find old.Value
+                gone |> Expect.equal "the old Session is closed" SessionLookup.NotFound
             }
 
             testAsync "the disabled port refuses to enrol" {
