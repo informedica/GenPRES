@@ -11,7 +11,7 @@ module CompositionRoot =
     /// Launch step 4 over the session port. The session id goes into the cookie and nowhere
     /// else (Rule 12); a refusal is a value. A server exception is not a refusal: it propagates,
     /// Fable.Remoting answers 500 and the client's transport-error path retries.
-    let processLaunch (env: AppEnv) (cookie: SessionCookie) (cmd: LaunchCommand) =
+    let processLaunch (env: AppEnv) (cookie: SessionCookie) (stateCookie: LaunchStateCookie) (cmd: LaunchCommand) =
         async {
             match cmd with
             | LaunchCommand.PresentLaunch(launch, key) ->
@@ -19,8 +19,24 @@ module CompositionRoot =
                 | LaunchResult.Opened(id, session) ->
                     cookie.write id
                     return LaunchOutcome.Opened session
-                | LaunchResult.RedirectTo url -> return LaunchOutcome.RedirectTo url
+                | LaunchResult.RedirectTo(url, state) ->
+                    // step 4.2: the state cookie is what proves, at the callback, that the same
+                    // browser started the hop
+                    stateCookie.write state
+                    return LaunchOutcome.RedirectTo url
                 | LaunchResult.Refused refusal -> return LaunchOutcome.Refused refusal
+        }
+
+
+    /// Launch step 4.5 over the session port: the browser is back from the IdentityProvider.
+    /// Answers where it goes next; the session cookie is set when a Session opened.
+    let processCallback (env: AppEnv) (cookie: SessionCookie) (stateCookie: LaunchStateCookie) (cb: Callback) =
+        async {
+            match! env.session.callback { cb with StateCookie = stateCookie.read () } with
+            | CallbackResult.Opened(id, redirect) ->
+                cookie.write id
+                return redirect
+            | CallbackResult.Refused(_, redirect) -> return redirect
         }
 
 
@@ -51,7 +67,13 @@ module CompositionRoot =
 
     /// The api of one request: the settings and the env are built once per host, the cookie
     /// once per request.
-    let compose (settings: ServerSettings) (env: AppEnv) (cookie: SessionCookie) : IServerApi =
+    let compose
+        (settings: ServerSettings)
+        (env: AppEnv)
+        (cookie: SessionCookie)
+        (stateCookie: LaunchStateCookie)
+        : IServerApi
+        =
         {
             processCommand =
                 fun cmd ->
@@ -70,7 +92,7 @@ module CompositionRoot =
                 fun cmd ->
                     async {
                         writeInfoMessage $"Processing launch: {cmd |> LaunchCommand.toString}"
-                        let! outcome = processLaunch env cookie cmd
+                        let! outcome = processLaunch env cookie stateCookie cmd
                         writeInfoMessage $"Finished processing launch: {cmd |> LaunchCommand.toString}"
                         return outcome
                     }
