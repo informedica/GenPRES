@@ -605,14 +605,16 @@ module Host =
                         }
                 ]
 
+        // one request log around the whole route selection: the stub page, the api and the
+        // 404 arm each leave exactly one trail
         let webApp =
-            choose
-                [
-                    // the stub page is logged like the api, so a minted Launch leaves the same trail
-                    Http.logClientIP >=> choose stubLaunch
-                    Http.logClientIP >=> Http.safeWebApi webApi
-                    setStatusCode 404 >=> text "Not Found"
-                ]
+            Http.logClientIP
+            >=> choose
+                    [
+                        yield! stubLaunch
+                        Http.safeWebApi webApi
+                        setStatusCode 404 >=> text "Not Found"
+                    ]
 
         application {
             url ("http://*:" + settings.Port.ToString() + "/")
