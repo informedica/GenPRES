@@ -100,5 +100,81 @@ let sessionCookieTests =
         ]
 
 
+let launchStateCookieTests =
+    let state = "AbC-_123"
+
+    testList
+        "launchStateCookie"
+        [
+            test
+                "write names the cookie by its state, HttpOnly, SameSite=Lax, Path=/callback, one Launch lifetime, no Secure over http" {
+                let ctx = DefaultHttpContext()
+                (Server.Http.launchStateCookie ctx).write state
+                let header = setCookieHeader ctx
+
+                header
+                |> Expect.stringStarts "name=value" $"genpres_launch_state.{state}={state}"
+
+                header |> Expect.stringContains "httponly" "httponly"
+                header |> Expect.stringContains "lax" "samesite=lax"
+                header |> Expect.stringContains "path" "path=/callback"
+                header |> Expect.stringContains "lifetime" "max-age=120"
+
+                header.Contains("secure", StringComparison.OrdinalIgnoreCase)
+                |> Expect.isFalse "not secure over http"
+            }
+
+            test "write sets Secure over https" {
+                let ctx = DefaultHttpContext()
+                ctx.Request.IsHttps <- true
+                (Server.Http.launchStateCookie ctx).write state
+
+                setCookieHeader ctx |> Expect.stringContains "secure" "secure"
+            }
+
+            test "read answers the cookie of the asked state only" {
+                let withCookie (value: string) (asked: string) =
+                    let ctx = DefaultHttpContext()
+                    ctx.Request.Headers.Cookie <- Microsoft.Extensions.Primitives.StringValues value
+                    (Server.Http.launchStateCookie ctx).read asked
+
+                withCookie $"genpres_launch_state.{state}={state}; other=1" state
+                |> Expect.equal "own state" (Some state)
+
+                withCookie $"genpres_launch_state.{state}={state}" "other-state"
+                |> Expect.isNone "another tab's state"
+
+                withCookie $"genpres_launch_state.{state}=" state |> Expect.isNone "blank"
+
+                (Server.Http.launchStateCookie (DefaultHttpContext())).read state
+                |> Expect.isNone "no header"
+            }
+
+            test "the stub identity cookie is HttpOnly, SameSite=Lax, Path=/, one Launch lifetime" {
+                let ctx = DefaultHttpContext()
+
+                ctx.Response.Cookies.Append(
+                    "genpres_stub_identity",
+                    "prescriber.p",
+                    Server.Http.stubIdentityCookieOptions false
+                )
+
+                let header = setCookieHeader ctx
+
+                header |> Expect.stringContains "httponly" "httponly"
+                header |> Expect.stringContains "lax" "samesite=lax"
+                header |> Expect.stringContains "path" "path=/"
+                header |> Expect.stringContains "lifetime" "max-age=120"
+            }
+        ]
+
+
 [<Tests>]
-let tests = testList "Http Tests" [ cacheControlTests; sessionCookieTests ]
+let tests =
+    testList
+        "Http Tests"
+        [
+            cacheControlTests
+            sessionCookieTests
+            launchStateCookieTests
+        ]

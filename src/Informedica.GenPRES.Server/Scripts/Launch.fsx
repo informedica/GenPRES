@@ -5,9 +5,7 @@
 //     a fresh nonce and an expiry sealed under a key shared with the Server (Concept 3, Rules 3,
 //     29). Here the key is made once per host start, so a token from an earlier run is "not
 //     sealed under the key". → `ServerApi.Adapters.fs`, module `LaunchSeal`.
-//   - `SessionStub.present` verifying the seal instead of matching words: `expired`, `invalid`
-//     and `spent` become behaviour; records are keyed by the nonce (Rule 2). Until the identity
-//     hop (PR 2) any valid token opens with the stub prescriber. → `ServerApi.Adapters.fs`.
+//   - (superseded by Hop.fsx, PR 2) the sealed-Launch `SessionStub.present`;
 //   - `StubLaunch`: the page and the redirect of the stub LaunchScript, pure; the Giraffe routes
 //     go into `Server.fs` at migration, behind `not IsProd`.
 //
@@ -131,96 +129,8 @@ module LaunchSeal =
         | _ -> Error LaunchRefusal.LaunchInvalid
 
 
-/// The stub for launch steps 4 and 5 over a sealed Launch (replaces the word-matching stub).
-module SessionStub =
-
-    open SessionStub
-
-    /// Answers a presentation and returns the state after it. Pure: the clock, the id source,
-    /// the verifier and the patient are parameters.
-    ///
-    /// - not sealed under the key, or past its expiry: refused, nothing recorded (Rules 3, 29);
-    /// - a record under the nonce: the same public key gets the recorded answer (Rule 2, same
-    ///   browser); another key is LaunchSpent (it cannot be told from another browser);
-    /// - a new nonce opens a Session for the Launch's PatientId and writes the record in the
-    ///   same act (Rule 40). The record lives as long as the Launch does.
-    let present
-        (now: DateTime)
-        (newId: unit -> string)
-        (verify: Launch -> Result<LaunchSeal.Claims, LaunchRefusal>)
-        (patient: Patient)
-        (state: State)
-        (launch, key)
-        : State * LaunchResult
-        =
-        match verify launch with
-        | Error refusal ->
-            // nothing is recorded for a refused Launch; records past their expiry go with it (Rule 29)
-            { state with Launches = state.Launches |> Map.filter (fun _ r -> now <= r.Expiry) },
-            LaunchResult.Refused refusal
-        | Ok claims ->
-            match state.Launches |> Map.tryFind claims.Nonce with
-            | Some record when record.PublicKey = key -> state, record.Result
-            | Some _ -> state, LaunchResult.Refused LaunchRefusal.LaunchSpent
-            | None ->
-                let id = newId ()
-
-                let session =
-                    {
-                        User = Some stubUser
-                        PatientContext =
-                            Some
-                                {
-                                    PatientId = claims.PatientId
-                                    Patient = patient
-                                }
-                        OpenedToken = Some(OpenedToken $"opened-{id}")
-                        KeyThumbprint = Some(PublicKey.thumbprint key)
-                    }
-
-                let result = LaunchResult.Opened(id, session)
-
-                {
-                    Launches =
-                        state.Launches
-                        |> Map.filter (fun _ r -> now <= r.Expiry)
-                        |> Map.add
-                            claims.Nonce
-                            {
-                                PublicKey = key
-                                Result = result
-                                Expiry = claims.Expiry
-                            }
-                    Sessions = state.Sessions |> Map.add id session
-                },
-                result
-
-
-    /// The port over a single mutable state guarded by a lock; `verify` is the seal check
-    /// bound to the host's key.
-    let makeSessionPort
-        (now: unit -> DateTime)
-        (newId: unit -> string)
-        (verify: Launch -> Result<LaunchSeal.Claims, LaunchRefusal>)
-        (patient: Patient)
-        =
-        let gate = obj ()
-        let mutable state = emptyState
-
-        let update f =
-            lock
-                gate
-                (fun () ->
-                    let next, result = f state
-                    state <- next
-                    result
-                )
-
-        {
-            present = fun launch -> async { return update (fun s -> present (now ()) newId verify patient s launch) }
-            find = fun id -> async { return lock gate (fun () -> state.Sessions |> Map.tryFind id) }
-            close = fun id -> async { return update (fun s -> { s with Sessions = s.Sessions |> Map.remove id }, ()) }
-        }
+// The sealed-Launch `SessionStub.present` this script first drafted was superseded by `Hop`
+// (Hop.fsx, PR 2), which presents, redirects and answers the callback over the same seal.
 
 
 /// The stub LaunchScript (uc-01 step 1) as a page the server serves in full scope: it mints a
@@ -235,8 +145,15 @@ module StubLaunch =
     let lifetime = TimeSpan.FromMinutes 2.0
 
 
-    /// The form. No inline script or style, so the CSP (`default-src 'self'`) holds.
-    let page =
+    /// The form for a list of identity choices (the stub directory's). No inline script or
+    /// style, so the CSP (`default-src 'self'`) holds. The PatientId `no-data` opens a Session
+    /// without imported data (ext 6a).
+    let pageFor (choices: string list) =
+        let options =
+            choices
+            |> List.map (fun c -> $"""    <option value="{c}">{c}</option>""")
+            |> String.concat "\n"
+
         $"""<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>GenPRES stub launch</title></head>
@@ -245,11 +162,22 @@ module StubLaunch =
 <p>Stands in for the MainEHR LaunchScript (uc-01 step 1): mints a sealed Launch for the patient
 below and opens GenPRES on it. Development and test servers only.</p>
 <form method="post" action="{path}">
-  <label>PatientId <input name="pid" value="stub-patient" required></label>
+  <p><label>PatientId <input name="pid" value="stub-patient" required></label>
+  <small>(<code>no-data</code>: a patient without imported data)</small></p>
+  <p><label>Identity at the browser
+  <select name="identity">
+{options}
+  </select></label>
+  <small>(who the stub IdentityProvider says is there; <code>none</code>: nobody)</small></p>
   <button type="submit">Launch</button>
 </form>
 </body>
 </html>"""
+
+
+    /// The page over the stub directory's choices (in the script: listed here).
+    let page =
+        pageFor [ "prescriber"; "reader"; "prescriber-other-patient"; "no-pin"; "unknown"; "none" ]
 
 
     /// Where the browser goes after minting: the hash form of decision D1.
@@ -348,82 +276,6 @@ let sealTests =
         ]
 
 
-let ids = ref 0
-let newId () = ids.Value <- ids.Value + 1; $"id-{ids.Value}"
-let verify = LaunchSeal.verify t0 key
-let keyA = PublicKey "key-a"
-let keyB = PublicKey "key-b"
-let launch1 = LaunchSeal.mint key claims
-let launch2 = LaunchSeal.mint key { claims with Nonce = "n-2"; PatientId = "p-2" }
-
-let presentWith st launch k =
-    SessionStub.present t0 newId verify Patient.empty st (launch, k)
-
-
-let stubTests =
-    testList
-        "SessionStub.present over a sealed Launch"
-        [
-            test "a valid Launch opens a Session for its PatientId and records the nonce" {
-                let st, result = presentWith SessionStub.emptyState launch1 keyA
-
-                match result with
-                | LaunchResult.Opened(_, session) ->
-                    session.PatientContext |> Option.map _.PatientId |> Expect.equal "patient" (Some "p-1")
-                    session.KeyThumbprint |> Expect.equal "thumbprint" (Some(PublicKey.thumbprint keyA))
-                | other -> failtest $"expected Opened, got {other}"
-
-                st.Launches |> Map.containsKey "n-1" |> Expect.isTrue "record under the nonce"
-                st.Sessions |> Map.count |> Expect.equal "one session" 1
-            }
-
-            test "the same key within the lifetime is answered as the first time (Rule 2)" {
-                let st, first = presentWith SessionStub.emptyState launch1 keyA
-                let st2, again = presentWith st launch1 keyA
-                again |> Expect.equal "same answer" first
-                st2 |> Expect.equal "same state" st
-            }
-
-            test "another key is spent and opens nothing" {
-                let st, _ = presentWith SessionStub.emptyState launch1 keyA
-                let st2, result = presentWith st launch1 keyB
-                result |> Expect.equal "spent" (LaunchResult.Refused LaunchRefusal.LaunchSpent)
-                st2.Sessions |> Map.count |> Expect.equal "still one" 1
-            }
-
-            test "a second Launch with another nonce opens a second Session" {
-                let st, _ = presentWith SessionStub.emptyState launch1 keyA
-                let st2, result = presentWith st launch2 keyB
-
-                match result with
-                | LaunchResult.Opened(_, session) ->
-                    session.PatientContext |> Option.map _.PatientId |> Expect.equal "patient" (Some "p-2")
-                | other -> failtest $"expected Opened, got {other}"
-
-                st2.Sessions |> Map.count |> Expect.equal "two" 2
-            }
-
-            test "not sealed under the key: invalid, nothing recorded" {
-                let st, result =
-                    presentWith SessionStub.emptyState (LaunchSeal.mint otherKey claims) keyA
-
-                result |> Expect.equal "invalid" (LaunchResult.Refused LaunchRefusal.LaunchInvalid)
-                st |> Expect.equal "unchanged" SessionStub.emptyState
-            }
-
-            test "past its expiry: expired, even for the same key, and the record is gone" {
-                let st, _ = presentWith SessionStub.emptyState launch1 keyA
-                let later = t0.AddMinutes 3.0
-
-                let st2, result =
-                    SessionStub.present later newId (LaunchSeal.verify later key) Patient.empty st (launch1, keyA)
-
-                result |> Expect.equal "expired" (LaunchResult.Refused LaunchRefusal.LaunchExpired)
-                st2.Launches |> Map.containsKey "n-1" |> Expect.isFalse "record dropped"
-            }
-        ]
-
-
 let stubLaunchTests =
     testList
         "StubLaunch"
@@ -461,7 +313,16 @@ let stubLaunchTests =
                 StubLaunch.page.Contains $"action=\"{StubLaunch.path}\"" |> Expect.isTrue "posts to itself"
                 StubLaunch.page.Contains "name=\"pid\"" |> Expect.isTrue "pid field"
             }
+
+            test "the page offers every identity choice and names the no-data patient" {
+                StubLaunch.page.Contains "<select name=\"identity\">" |> Expect.isTrue "select"
+
+                for c in [ "prescriber"; "reader"; "prescriber-other-patient"; "no-pin"; "unknown"; "none" ] do
+                    StubLaunch.page.Contains $"<option value=\"{c}\">" |> Expect.isTrue c
+
+                StubLaunch.page.Contains "no-data" |> Expect.isTrue "no-data hint"
+            }
         ]
 
 
-runTestsWithCLIArgs [] [||] (testList "Launch.fsx" [ sealTests; stubTests; stubLaunchTests ]) |> ignore
+runTestsWithCLIArgs [] [||] (testList "Launch.fsx" [ sealTests; stubLaunchTests ]) |> ignore
