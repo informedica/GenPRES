@@ -606,8 +606,13 @@ module private Elmish =
             async {
                 try
                     match! serverApi.processSession Api.SessionCommand.GetSession with
-                    | Api.SessionResponse.SessionResp session -> return SessionMsg(SessionMsg.Resumed(Ok session))
-                    | Api.SessionResponse.SessionClosed -> return SessionMsg(SessionMsg.Resumed(Ok None))
+                    | Api.SessionResponse.SessionResp(Some session) ->
+                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Found session)))
+                    | Api.SessionResponse.SessionResp None
+                    | Api.SessionResponse.SessionClosed ->
+                        return SessionMsg(SessionMsg.Resumed(Ok ResumeResult.NotFound))
+                    | Api.SessionResponse.SessionEnded ending ->
+                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Ended ending)))
                 with ex ->
                     return SessionMsg(SessionMsg.Resumed(Error ex.Message))
             }

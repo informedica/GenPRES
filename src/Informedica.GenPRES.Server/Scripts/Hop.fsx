@@ -14,6 +14,9 @@
 // Review points folded in (#606): the error redirect keeps the state; the PIN check binds
 // Prescribers only (Rule 25, ext 5c); `read = None` opens without imported data (ext 6a).
 //
+// PR 4 (endings, Rules 8 and 11): `SessionEnding` moves to Shared (the client shows it),
+// `find` answers `SessionLookup.Ended` once for a Session the server ended, and drops the mark.
+//
 // Run: `dotnet fsi Hop.fsx` from this directory (build the solution first).
 
 #I __SOURCE_DIRECTORY__
@@ -98,11 +101,26 @@ type CallbackResult =
     | Superseded of redirect: string
 
 
+/// Why a Session ended other than by the User closing it (Rule 11). One case now; idle and
+/// absolute lifetime (Rule 10) come with their own plan. → Shared/Types.fs, next to LaunchRefusal.
+[<RequireQualifiedAccess>]
+type SessionEnding = SupersededByLaunch
+
+
+/// What the store says about a session id from the cookie: the Session, nothing, or that the
+/// server ended it, which is said once (Rule 11) and then forgotten.
+[<RequireQualifiedAccess>]
+type SessionLookup =
+    | Found of SessionOpened
+    | NotFound
+    | Ended of SessionEnding
+
+
 type SessionPort =
     {
         present: Launch * PublicKey -> Async<LaunchResult>
         callback: Callback -> Async<CallbackResult>
-        find: string -> Async<SessionOpened option>
+        find: string -> Async<SessionLookup>
         close: string -> Async<unit>
     }
 
@@ -159,11 +177,6 @@ module Hop =
             Session: SessionOpened
             Login: string option
         }
-
-
-    /// Why a Session ended other than by the User closing it (Rule 11). One case now.
-    [<RequireQualifiedAccess>]
-    type SessionEnding = SupersededByLaunch
 
 
     type State =
@@ -345,6 +358,17 @@ module Hop =
         | _ -> state, invalid
 
 
+    /// The lookup for a session id: the Session; else the ending the server recorded, answered
+    /// once and dropped (Rule 11, told at the next request); else nothing.
+    let find (id: string) (state: State) : State * SessionLookup =
+        match state.Sessions |> Map.tryFind id with
+        | Some record -> state, SessionLookup.Found record.Session
+        | None ->
+            match state.Endings |> Map.tryFind id with
+            | Some ending -> { state with Endings = state.Endings |> Map.remove id }, SessionLookup.Ended ending
+            | None -> state, SessionLookup.NotFound
+
+
     /// The port over a single mutable state guarded by a lock, over the three actor ports.
     let makeSessionPort
         (now: unit -> DateTime)
@@ -375,8 +399,7 @@ module Hop =
                         return
                             update (fun s -> callback (now ()) newId idp.redeem registry.standing patientData.read s cb)
                     }
-            find =
-                fun id -> async { return lock gate (fun () -> state.Sessions |> Map.tryFind id |> Option.map _.Session) }
+            find = fun id -> async { return update (find id) }
             close = fun id -> async { return update (fun s -> { s with Sessions = s.Sessions |> Map.remove id }, ()) }
         }
 
@@ -838,7 +861,7 @@ let callbackTests =
                 | CallbackResult.Opened(id1, _), CallbackResult.Opened(id2, _) ->
                     state.Sessions |> Map.containsKey id1 |> Expect.isFalse "first closed"
                     state.Sessions |> Map.containsKey id2 |> Expect.isTrue "second open"
-                    state.Endings |> Map.tryFind id1 |> Expect.equal "marked" (Some Hop.SessionEnding.SupersededByLaunch)
+                    state.Endings |> Map.tryFind id1 |> Expect.equal "marked" (Some SessionEnding.SupersededByLaunch)
                 | other -> failtest $"expected two Opened, got {other}"
             }
 
@@ -851,6 +874,24 @@ let callbackTests =
                 let state2, again = run ids d state cb1
                 again |> Expect.equal "superseded" (CallbackResult.Superseded "/#/session")
                 state2 |> Expect.equal "unchanged" state
+            }
+
+            test "the ended Session is told once at the next lookup, then it is gone (Rule 11)" {
+                let ids, d = fixture ()
+                let state, cb1 = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                let state, first = run ids d state cb1
+                let state, cb2 = hop ids d state (mintFor "n-2" "patient-1") keyB "prescriber"
+                let state, _ = run ids d state cb2
+
+                let id1 =
+                    match first with
+                    | CallbackResult.Opened(id, _) -> id
+                    | other -> failtest $"{other}"
+
+                let state, once = Hop.find id1 state
+                once |> Expect.equal "told" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
+                let _, again = Hop.find id1 state
+                again |> Expect.equal "forgotten" SessionLookup.NotFound
             }
 
             test "two logins keep two Sessions" {
@@ -893,11 +934,14 @@ let portTests =
 
                 match opened with
                 | CallbackResult.Opened(id, _) ->
-                    let! found = port.find id
-                    found |> Option.bind _.User |> Option.map _.UserId |> Expect.equal "found" (Some "prescriber")
+                    match! port.find id with
+                    | SessionLookup.Found session ->
+                        session.User |> Option.map _.UserId |> Expect.equal "found" (Some "prescriber")
+                    | other -> failtest $"expected Found, got {other}"
+
                     do! port.close id
                     let! gone = port.find id
-                    gone |> Expect.isNone "closed"
+                    gone |> Expect.equal "closed" SessionLookup.NotFound
                 | other -> failtest $"expected Opened, got {other}"
             }
         ]

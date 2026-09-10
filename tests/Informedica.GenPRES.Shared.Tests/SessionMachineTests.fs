@@ -301,13 +301,30 @@ module SessionMachineTests =
                 }
 
                 test "Resumed with a session opens it like a launch" {
-                    transition (SessionMsg.Resumed(Ok(Some full))) Session.Resuming
+                    transition (SessionMsg.Resumed(Ok(ResumeResult.Found full))) Session.Resuming
                     |> Expect.equal "open" (Session.opened full)
                 }
 
                 test "Resumed without a session is Anonymous and keeps the url patient (no SetPatient)" {
-                    transition (SessionMsg.Resumed(Ok None)) Session.Resuming
+                    transition (SessionMsg.Resumed(Ok ResumeResult.NotFound)) Session.Resuming
                     |> Expect.equal "anonymous" (Session.Anonymous, [])
+                }
+
+                test "Resumed with an ending is Ended, told once, no effects (Rule 11)" {
+                    transition
+                        (SessionMsg.Resumed(Ok(ResumeResult.Ended SessionEnding.SupersededByLaunch)))
+                        Session.Resuming
+                    |> Expect.equal "ended" (Session.Ended SessionEnding.SupersededByLaunch, [])
+                }
+
+                test "from Ended the anonymous open carries nothing over, and a new launch presents" {
+                    let ended = Session.Ended SessionEnding.SupersededByLaunch
+
+                    transition SessionMsg.OpenAnonymous ended
+                    |> Expect.equal "anonymous" (Session.Anonymous, [ SessionEffect.SetPatient None ])
+
+                    transition (SessionMsg.Present(launchB, keyB)) ended
+                    |> Expect.equal "presents" (Session.present launchB keyB)
                 }
 
                 test "Resumed with a transport error is Anonymous" {
@@ -317,7 +334,7 @@ module SessionMachineTests =
 
                 test "Resumed outside Resuming is dropped" {
                     for state in [ Session.Anonymous; launching; Session.Open full ] do
-                        transition (SessionMsg.Resumed(Ok(Some full))) state
+                        transition (SessionMsg.Resumed(Ok(ResumeResult.Found full))) state
                         |> Expect.equal "unchanged" (state, [])
                 }
             ]

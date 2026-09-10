@@ -79,12 +79,27 @@ module SessionGatePolicyTests =
                                 "Resuming", Session.Resuming
                                 "Unreachable", Session.Unreachable(launch, key, 3)
                                 "Refused", Session.Refused(LaunchRefusal.NoRole, None)
+                                "Ended", Session.Ended SessionEnding.SupersededByLaunch
                             ] do
                             test name {
                                 gateFor english session |> Expect.isSome "gate"
                                 isGated session |> Expect.isTrue "gated"
                             }
                     ]
+
+                test "Ended says why, asks for a relaunch, and offers the anonymous open (Rule 11)" {
+                    let gate = gateOf (Session.Ended SessionEnding.SupersededByLaunch)
+                    gate.Busy |> Expect.isFalse "not busy"
+                    gate.Actions |> Expect.equal "continue" [ Action.ContinueWithoutLaunch ]
+                    gate.Body |> Expect.stringContains "reason" "newer session"
+                    gate.Body |> Expect.stringContains "relaunch" "Open GenPRES again from MainEHR."
+
+                    let named = namedGateOf (Session.Ended SessionEnding.SupersededByLaunch)
+                    named.Title |> Expect.equal "title term" "<Session Gate Ended>"
+
+                    named.Body
+                    |> Expect.equal "body terms" "<Session Ending Superseded> <Session Relaunch>"
+                }
 
                 test "Launching is busy, names the attempt, offers nothing" {
                     let gate = gateOf (Session.Launching(launch, key, 2))
@@ -238,6 +253,8 @@ module SessionGatePolicyTests =
                             Terms.``Session Close``
                             Terms.``Session Role Prescriber``
                             Terms.``Session Role Reader``
+                            Terms.``Session Gate Ended``
+                            Terms.``Session Ending Superseded``
                         ] do
                         english term |> Expect.notEqual $"default for {term}" $"{term}"
 

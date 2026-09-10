@@ -58,6 +58,8 @@ let english (term: Terms) =
     | Terms.``Session Close`` -> "Close session"
     | Terms.``Session Role Prescriber`` -> "Prescriber"
     | Terms.``Session Role Reader`` -> "Reader"
+    | Terms.``Session Gate Ended`` -> "Your session was ended"
+    | Terms.``Session Ending Superseded`` -> "Another launch of yours opened a newer session, and this one was closed."
     | _ -> $"{term}"
 
 
@@ -107,7 +109,8 @@ let isGated (session: Session) =
     | Session.Launching _
     | Session.Resuming
     | Session.Unreachable _
-    | Session.Refused _ -> true
+    | Session.Refused _
+    | Session.Ended _ -> true
 
 
 /// The gate for a session phase, or None when the app is usable (anonymous, open, closing).
@@ -165,6 +168,20 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
                         | _, Some _ -> Action.Retry
                         | _ -> ()
                     ]
+            }
+    | Session.Ended ending ->
+        Some
+            {
+                Title = tr Terms.``Session Gate Ended``
+                Body =
+                    sentences
+                        [
+                            match ending with
+                            | SessionEnding.SupersededByLaunch -> tr Terms.``Session Ending Superseded``
+                            tr Terms.``Session Relaunch``
+                        ]
+                Busy = false
+                Actions = [ Action.ContinueWithoutLaunch ]
             }
     | Session.Anonymous
     | Session.Open _

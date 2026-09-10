@@ -231,11 +231,6 @@ module Hop =
         }
 
 
-    /// Why a Session ended other than by the User closing it (Rule 11). One case now.
-    [<RequireQualifiedAccess>]
-    type SessionEnding = SupersededByLaunch
-
-
     type State =
         {
             Launches: Map<string, LaunchRecord>
@@ -423,6 +418,17 @@ module Hop =
         | _ -> state, invalid
 
 
+    /// The lookup for a session id: the Session; else the ending the server recorded, answered
+    /// once and dropped (Rule 11, told at the next request); else nothing.
+    let find (id: string) (state: State) : State * SessionLookup =
+        match state.Sessions |> Map.tryFind id with
+        | Some record -> state, SessionLookup.Found record.Session
+        | None ->
+            match state.Endings |> Map.tryFind id with
+            | Some ending -> { state with Endings = state.Endings |> Map.remove id }, SessionLookup.Ended ending
+            | None -> state, SessionLookup.NotFound
+
+
     /// The port over a single mutable state guarded by a lock, over the three actor ports.
     let makeSessionPort
         (now: unit -> DateTime)
@@ -453,9 +459,7 @@ module Hop =
                         return
                             update (fun s -> callback (now ()) newId idp.redeem registry.standing patientData.read s cb)
                     }
-            find =
-                fun id ->
-                    async { return lock gate (fun () -> state.Sessions |> Map.tryFind id |> Option.map _.Session) }
+            find = fun id -> async { return update (find id) }
             close = fun id -> async { return update (fun s -> { s with Sessions = s.Sessions |> Map.remove id }, ()) }
         }
 
@@ -860,7 +864,7 @@ module Adapters =
                                 Hop.refusedUrl LaunchRefusal.LaunchInvalid
                             )
                     }
-            find = fun _ -> async { return None }
+            find = fun _ -> async { return SessionLookup.NotFound }
             close = fun _ -> async { return () }
         }
 
