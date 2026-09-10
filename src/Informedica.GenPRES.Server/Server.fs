@@ -612,6 +612,10 @@ module Host =
         let directory =
             StubDirectory.make (fun () -> System.DateTime.UtcNow) PublicKey.randomId
 
+        // the stub MailService (plan 615): an outbox the /stub/mail page shows, so the tester
+        // reads a confirmation code where a User would read their mail
+        let mail = StubMail.make ()
+
         let env =
             let env = Adapters.makeAppEnvWith launchKey directory provider
 
@@ -645,6 +649,10 @@ module Host =
             else
                 [
                     GET >=> route StubLaunch.path >=> htmlString StubLaunch.page
+                    // the stub MailService outbox (uc-02, Rule 27 stand-in, plan 615)
+                    GET
+                    >=> route StubMail.path
+                    >=> fun next ctx -> htmlString (StubMail.page (mail.sent ())) next ctx
                     POST
                     >=> route StubLaunch.path
                     >=> fun next ctx ->
