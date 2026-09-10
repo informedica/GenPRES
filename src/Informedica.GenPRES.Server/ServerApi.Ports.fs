@@ -56,13 +56,14 @@ type BrowserIdentity =
     }
 
 
-/// What the UserRegistry says about a login at this launch (Rules 5, 6, 24): the User with the
-/// Role, the Patient active in MainEHR, and whether a PIN is set.
+/// What the UserRegistry says about a login at this launch (Rules 5, 6, 27): the User with the
+/// Role, the Patient active in MainEHR, and the mail address a confirmation code goes to.
+/// Whether a PIN is set is the Database's answer (Rule 24), not the registry's.
 type UserStanding =
     {
         User: UserContext
         ActivePatientId: string option
-        PinSet: bool
+        MailAddress: string
     }
 
 
@@ -81,6 +82,21 @@ type UserRegistryPort = { standing: BrowserIdentity -> UserStanding option }
 /// The PatientDataPlatform, read once at the launch (Concept 2). `None` is not a refusal
 /// (ext 6a): the Session opens without imported data.
 type PatientDataPort = { read: string -> Patient option }
+
+
+/// One mail from the Server to a User (Rule 27): a confirmation code, a notice that the PIN
+/// was set, a notice at the wrong-PIN limit.
+type Mail =
+    {
+        To: string
+        Subject: string
+        Body: string
+    }
+
+
+/// Actor M, the MailService, over edge C10. Sending is fire and forget: the Server records
+/// what it sent in the audit (Rule 46, later), not the outcome of delivery.
+type MailPort = { send: Mail -> unit }
 
 
 /// The session adapter's answer to a presentation. The session id is the server's to put in

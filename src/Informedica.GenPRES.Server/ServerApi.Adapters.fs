@@ -185,10 +185,87 @@ module LaunchSeal =
         | _ -> Error LaunchRefusal.LaunchInvalid
 
 
+/// A PIN as the Database keeps it: never the PIN, a PBKDF2-SHA256 derivation under a salt of
+/// its own, so that two Users with the same PIN have nothing in common on disk.
+type PinHash =
+    {
+        Salt: byte[]
+        Hash: byte[]
+    }
+
+
+module PinHash =
+
+    /// Enough rounds to make guessing a four-to-six-digit PIN offline slow, few enough for a
+    /// signing check to feel immediate. One place to tune.
+    let iterations = 100_000
+
+    let saltLength = 16
+
+    let hashLength = 32
+
+
+    let private derive (salt: byte[]) (pin: string) =
+        System.Security.Cryptography.Rfc2898DeriveBytes.Pbkdf2(
+            pin,
+            salt,
+            iterations,
+            System.Security.Cryptography.HashAlgorithmName.SHA256,
+            hashLength
+        )
+
+
+    /// Derives the hash of a PIN under a fresh salt from `newSalt` (the CSPRNG in the host).
+    let make (newSalt: int -> byte[]) (pin: string) : PinHash =
+        let salt = newSalt saltLength
+
+        {
+            Salt = salt
+            Hash = derive salt pin
+        }
+
+
+    /// Whether the PIN derives to the stored hash, compared in constant time.
+    let verify (pin: string) (hash: PinHash) =
+        System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(derive hash.Salt pin, hash.Hash)
+
+
+/// Concept 7, the UserCredential: what the Database holds per person (keyed by UserId, not by
+/// login). No PIN yet is a credential without one; the wrong-count is Rule 28's, counted across
+/// Sessions and reset to zero when the PIN is set.
+type Credential =
+    {
+        PinHash: PinHash option
+        WrongCount: int
+    }
+
+
+module Credential =
+
+    let empty =
+        {
+            PinHash = None
+            WrongCount = 0
+        }
+
+
+    /// Rule 24: whether a PIN is set.
+    let pinSet (credential: Credential) = credential.PinHash.IsSome
+
+
+    /// A credential with this PIN and a count of zero (Rule 28: setting the PIN resets it).
+    let withPin (newSalt: int -> byte[]) (pin: string) : Credential =
+        {
+            PinHash = Some(PinHash.make newSalt pin)
+            WrongCount = 0
+        }
+
+
 /// Launch steps 4 and 5 over server-hosted stubs (plan 605): the LaunchRecord keyed by the
 /// nonce (4.2), the redirect to the IdentityProvider, the callback (4.5) with the step-5 ladder,
-/// the Rule 45 replay and the Rule 40 single act with the Rule 8 closes. Pure over a state
-/// record; `makeSessionPort` wraps it in a lock over the three actor ports.
+/// the Rule 45 replay and the Rule 40 single act with the Rule 8 closes, and the credential
+/// half of the Database (plan 615). Pure over a state record; `makeSessionPort` wraps it in a
+/// lock over the three actor ports.
 module Hop =
 
     /// The refusal words of `#/session?refused=<word>`; the client's `parseRefusal` reads them.
@@ -240,6 +317,9 @@ module Hop =
             // carries their cookie (Rule 11), dropped when the client acknowledges with
             // CloseSession. Kept as long as the Sessions are (Rule 10 will bound both).
             Endings: Map<string, SessionEnding * DateTime>
+            // the credential per person (Concept 7): read at 5.4 (Rule 24), written by
+            // enrolment (UC-2)
+            Credentials: Map<string, Credential>
         }
 
 
@@ -248,7 +328,19 @@ module Hop =
             Launches = Map.empty
             Sessions = Map.empty
             Endings = Map.empty
+            Credentials = Map.empty
         }
+
+
+    /// The state a host starts from: the credentials it was seeded with (the stub's, or a
+    /// store's read once the Database exists), nothing else.
+    let initialState (credentials: Map<string, Credential>) =
+        { emptyState with Credentials = credentials }
+
+
+    /// Rule 24, uc-02 `ReadCredential`: the credential of a person, or an empty one.
+    let credentialOf (userId: string) (state: State) =
+        state.Credentials |> Map.tryFind userId |> Option.defaultValue Credential.empty
 
 
     let private dropExpired (now: DateTime) (state: State) =
@@ -336,7 +428,7 @@ module Hop =
 
         let outcome = LaunchResult.Opened(id, session)
 
-        {
+        { state with
             Launches = state.Launches |> Map.add record.Nonce { record with Outcome = Some outcome }
             Sessions =
                 superseded
@@ -367,8 +459,8 @@ module Hop =
     /// started the hop), the record must exist and be within its lifetime, an outcome already
     /// recorded is answered again (Rule 45), the IdentityProvider must have said who is there
     /// (ext 3c), the UserRegistry must know them (5.3, ext 5a) with the Launch's Patient active
-    /// (ext 5b), and a Prescriber must have a PIN (5.4, Rule 25, ext 5d; a Reader needs none,
-    /// ext 5c). Then the Session opens in one act.
+    /// (ext 5b), and a Prescriber's credential must have a PIN (5.4, Rules 24 and 25, ext 5d;
+    /// a Reader needs none, Rule 26, ext 5c). Then the Session opens in one act.
     let callback
         (now: DateTime)
         (newId: unit -> string)
@@ -413,7 +505,12 @@ module Hop =
                     | None -> refuse record LaunchRefusal.NoRole state
                     | Some standing when standing.ActivePatientId <> Some record.PatientId ->
                         refuse record LaunchRefusal.WrongActivePatient state
-                    | Some standing when standing.User.Role = UserRole.Prescriber && not standing.PinSet ->
+                    // 5.4, Rule 24: the credential is the Database's; Rule 25 binds Prescribers
+                    // only, a Reader is never asked (Rule 26, ext 5c)
+                    | Some standing when
+                        standing.User.Role = UserRole.Prescriber
+                        && not (credentialOf standing.User.UserId state |> Credential.pinSet)
+                        ->
                         refuse record LaunchRefusal.EnrolmentRequired state
                     | Some standing -> openSession now newId patientData record standing state
         | _, None ->
@@ -446,7 +543,8 @@ module Hop =
         }
 
 
-    /// The port over a single mutable state guarded by a lock, over the three actor ports.
+    /// The port over a single mutable state guarded by a lock, over the three actor ports,
+    /// started from `initial`.
     let makeSessionPort
         (now: unit -> DateTime)
         (newId: unit -> string)
@@ -454,9 +552,10 @@ module Hop =
         (idp: IdentityProviderPort)
         (registry: UserRegistryPort)
         (patientData: PatientDataPort)
+        (initial: State)
         =
         let gate = obj ()
-        let mutable state = emptyState
+        let mutable state = initial
 
         let update f =
             lock
@@ -512,44 +611,32 @@ module StubDirectory =
         }
 
 
-    /// The registry's answer for a login, given the Patient the launch page made active.
+    /// Rule 27: the address the registry gives for a login. The stub's is derived from it.
+    let mailAddressOf (identity: BrowserIdentity) = $"{identity.Login}@stub.example"
+
+
+    /// The registry's answer for a login, given the Patient the launch page made active. Whether
+    /// a PIN is set is not the registry's to say (Rule 24): `no-pin` differs from `prescriber`
+    /// only in the credential store's seed.
     let standingOf (activePatientId: string) (identity: BrowserIdentity) : UserStanding option =
-        let user role =
-            {
-                UserId = identity.Login
-                DisplayName = identity.DisplayName
-                Role = role
-            }
+        let standing role activePatientId =
+            Some
+                {
+                    User =
+                        {
+                            UserId = identity.Login
+                            DisplayName = identity.DisplayName
+                            Role = role
+                        }
+                    ActivePatientId = Some activePatientId
+                    MailAddress = mailAddressOf identity
+                }
 
         match identity.Login with
-        | "prescriber" ->
-            Some
-                {
-                    User = user UserRole.Prescriber
-                    ActivePatientId = Some activePatientId
-                    PinSet = true
-                }
-        | "reader" ->
-            Some
-                {
-                    User = user UserRole.Reader
-                    ActivePatientId = Some activePatientId
-                    PinSet = false
-                }
-        | "prescriber-other-patient" ->
-            Some
-                {
-                    User = user UserRole.Prescriber
-                    ActivePatientId = Some "other-patient"
-                    PinSet = true
-                }
-        | "no-pin" ->
-            Some
-                {
-                    User = user UserRole.Prescriber
-                    ActivePatientId = Some activePatientId
-                    PinSet = false
-                }
+        | "prescriber"
+        | "no-pin" -> standing UserRole.Prescriber activePatientId
+        | "reader" -> standing UserRole.Reader activePatientId
+        | "prescriber-other-patient" -> standing UserRole.Prescriber "other-patient"
         | _ -> None
 
 
@@ -640,6 +727,82 @@ module StubPatientData =
                     else
                         Some Shared.Models.Patient.empty
         }
+
+
+/// The credential half of the Database, seeded for the stub logins: the Prescribers that sign
+/// have the PIN `1234`, `no-pin` has none and enrols (UC-2), a Reader has no credential
+/// (Rule 26). Per host start; a PIN set by enrolment lives as long as the host.
+module StubCredentials =
+
+    /// The PIN every seeded stub Prescriber has. Development and test servers only.
+    let stubPin = "1234"
+
+
+    let seed (newSalt: int -> byte[]) : Map<string, Credential> =
+        [
+            "prescriber", Credential.withPin newSalt stubPin
+            "prescriber-other-patient", Credential.withPin newSalt stubPin
+            "no-pin", Credential.empty
+        ]
+        |> Map.ofList
+
+
+/// The MailService stub (Actor M): an outbox behind a lock and a page that shows it, newest
+/// first, so the tester reads a confirmation code where a User would read their mail.
+/// `Server.fs` mounts `GET /stub/mail` in full scope only.
+module StubMail =
+
+    let path = "/stub/mail"
+
+
+    type Outbox =
+        {
+            port: MailPort
+            // newest first
+            sent: unit -> Mail list
+        }
+
+
+    let make () : Outbox =
+        let gate = obj ()
+        let mutable mails: Mail list = []
+
+        {
+            port = { send = fun mail -> lock gate (fun () -> mails <- mail :: mails) }
+            sent = fun () -> lock gate (fun () -> mails)
+        }
+
+
+    let private encode (s: string) = System.Net.WebUtility.HtmlEncode s
+
+
+    /// The outbox as a page. No inline script or style, so the CSP (`default-src 'self'`)
+    /// holds; every field is HTML-encoded, the body keeps its line breaks.
+    let page (mails: Mail list) =
+        let items =
+            match mails with
+            | [] -> "<p>No mail sent yet.</p>"
+            | mails ->
+                mails
+                |> List.map (fun m ->
+                    $"""<article>
+<h2>{encode m.Subject}</h2>
+<p>To: <code>{encode m.To}</code></p>
+<pre>{encode m.Body}</pre>
+</article>"""
+                )
+                |> String.concat "\n"
+
+        $"""<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>GenPRES stub mail</title></head>
+<body>
+<h1>Stub MailService outbox</h1>
+<p>Stands in for the MailService (uc-02, Rule 27): every mail the server sent since it started,
+newest first. Development and test servers only.</p>
+{items}
+</body>
+</html>"""
 
 
 /// The stub LaunchScript (uc-01 step 1) as a page the server serves in full scope: it mints a
@@ -956,6 +1119,8 @@ module Adapters =
                     directory.idp
                     directory.registry
                     StubPatientData.port
+                    // the credential store, seeded per stub login (plan 615)
+                    (Hop.initialState (StubCredentials.seed System.Security.Cryptography.RandomNumberGenerator.GetBytes))
         }
 
 

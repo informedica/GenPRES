@@ -312,6 +312,12 @@ module SessionStubTests =
     let keyA = PublicKey "key-A"
     let keyB = PublicKey "key-B"
 
+    /// A deterministic salt source for the tests.
+    let salts (n: int) = Array.init n byte
+
+    /// The state a stub host starts from: the seeded credentials (plan 615).
+    let seeded = Hop.initialState (StubCredentials.seed salts)
+
 
     /// The seal key of the tests, and another one.
     let sealKey = LaunchSeal.Key(Array.init LaunchSeal.keyLength byte)
@@ -354,6 +360,7 @@ module SessionStubTests =
                 directory.idp
                 directory.registry
                 StubPatientData.port
+                seeded
 
         port, clock, directory
 
@@ -458,7 +465,7 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let state, result =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl Hop.emptyState (launch1, keyA)
+                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         match result with
                         | LaunchResult.RedirectTo(url, st) ->
@@ -474,7 +481,7 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let state, first =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl Hop.emptyState (launch1, keyA)
+                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         let state2, again =
                             Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyA)
@@ -487,7 +494,7 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let state, _ =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl Hop.emptyState (launch1, keyA)
+                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         let _, other =
                             Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyB)
@@ -497,7 +504,7 @@ module SessionStubTests =
 
                     test "after the hop opened, the same key gets the opened Session (Rule 2)" {
                         let ids, d = fixture ()
-                        let state, cb = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, cb = hop ids d seeded launch1 keyA "prescriber"
                         let state, opened = run ids d state cb
 
                         let _, again =
@@ -517,7 +524,7 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let _, invalid =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl Hop.emptyState (Launch "junk", keyA)
+                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (Launch "junk", keyA)
 
                         invalid
                         |> Expect.equal "invalid" (LaunchResult.Refused LaunchRefusal.LaunchInvalid)
@@ -525,7 +532,7 @@ module SessionStubTests =
                         let late = t0 + lifetime + TimeSpan.FromSeconds 1.0
 
                         let state, expired =
-                            Hop.present late ids (verifyAt late) d.idp.authorizeUrl Hop.emptyState (launch1, keyA)
+                            Hop.present late ids (verifyAt late) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         expired
                         |> Expect.equal "expired" (LaunchResult.Refused LaunchRefusal.LaunchExpired)
@@ -541,7 +548,7 @@ module SessionStubTests =
                 [
                     test "prescriber: the Session opens for the Launch's Patient, the outcome is recorded" {
                         let ids, d = fixture ()
-                        let state, cb = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, cb = hop ids d seeded launch1 keyA "prescriber"
                         let state, result = run ids d state cb
 
                         match result with
@@ -567,7 +574,7 @@ module SessionStubTests =
 
                     test "reader: opens without a PIN (ext 5c)" {
                         let ids, d = fixture ()
-                        let state, cb = hop ids d Hop.emptyState launch1 keyA "reader"
+                        let state, cb = hop ids d seeded launch1 keyA "reader"
                         let state, result = run ids d state cb
 
                         match result with
@@ -590,7 +597,7 @@ module SessionStubTests =
                                 ] do
                                 test choice {
                                     let ids, d = fixture ()
-                                    let state, cb = hop ids d Hop.emptyState launch1 keyA choice
+                                    let state, cb = hop ids d seeded launch1 keyA choice
                                     let state, result = run ids d state cb
 
                                     result
@@ -610,7 +617,7 @@ module SessionStubTests =
 
                     test "a callback reload gets the same answer without a second redeem (Rule 45)" {
                         let ids, d = fixture ()
-                        let state, cb = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, cb = hop ids d seeded launch1 keyA "prescriber"
                         let state, first = run ids d state cb
                         // the code was consumed by the first redeem; the replay must not need it
                         let state2, again = run ids d state cb
@@ -620,7 +627,7 @@ module SessionStubTests =
 
                     test "a state cookie that does not match is invalid, and nothing is redeemed" {
                         let ids, d = fixture ()
-                        let state, cb = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, cb = hop ids d seeded launch1 keyA "prescriber"
 
                         for cookie in [ None; Some "other" ] do
                             let state2, result = run ids d state { cb with StateCookie = cookie }
@@ -640,7 +647,7 @@ module SessionStubTests =
                             run
                                 ids
                                 d
-                                Hop.emptyState
+                                seeded
                                 {
                                     State = "nope"
                                     StateCookie = Some "nope"
@@ -656,7 +663,7 @@ module SessionStubTests =
 
                     test "a code that does not redeem is no browser identity" {
                         let ids, d = fixture ()
-                        let state, cb = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, cb = hop ids d seeded launch1 keyA "prescriber"
                         let _, result = run ids d state { cb with Code = Some "forged" }
 
                         result
@@ -667,7 +674,7 @@ module SessionStubTests =
 
                     test "after the lifetime the callback is invalid: the record is gone (Rule 29)" {
                         let ids, d = fixture ()
-                        let state, cb = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, cb = hop ids d seeded launch1 keyA "prescriber"
                         let late = t0 + lifetime + TimeSpan.FromSeconds 1.0
 
                         let state2, result =
@@ -686,7 +693,7 @@ module SessionStubTests =
                         let launch = mintFor "n-nd" "no-data"
 
                         let state, result =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl Hop.emptyState (launch, keyA)
+                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch, keyA)
 
                         let st =
                             match result with
@@ -713,7 +720,7 @@ module SessionStubTests =
 
                     test "a second launch of the same login closes the first Session and marks it (Rule 8)" {
                         let ids, d = fixture ()
-                        let state, cb1 = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, cb1 = hop ids d seeded launch1 keyA "prescriber"
                         let state, first = run ids d state cb1
                         let state, cb2 = hop ids d state (mintFor "n-2" "patient-1") keyB "prescriber"
                         let state, second = run ids d state cb2
@@ -732,7 +739,7 @@ module SessionStubTests =
 
                     test "a callback reload after a newer launch of the same login does not hand back the dead Session" {
                         let ids, d = fixture ()
-                        let state, cb1 = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, cb1 = hop ids d seeded launch1 keyA "prescriber"
                         let state, _ = run ids d state cb1
                         let state, cb2 = hop ids d state (mintFor "n-2" "patient-1") keyB "prescriber"
                         let state, _ = run ids d state cb2
@@ -744,7 +751,7 @@ module SessionStubTests =
                     test
                         "the ended Session is told at every lookup that still carries the cookie, until its lifetime (Rule 11)" {
                         let ids, d = fixture ()
-                        let state, cb1 = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, cb1 = hop ids d seeded launch1 keyA "prescriber"
                         let state, first = run ids d state cb1
                         let state, cb2 = hop ids d state (mintFor "n-2" "patient-1") keyB "prescriber"
                         let state, _ = run ids d state cb2
@@ -769,7 +776,7 @@ module SessionStubTests =
 
                     test "two logins keep two Sessions" {
                         let ids, d = fixture ()
-                        let state, cb1 = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, cb1 = hop ids d seeded launch1 keyA "prescriber"
                         let state, _ = run ids d state cb1
                         let state, cb2 = hop ids d state (mintFor "n-2" "patient-1") keyB "reader"
                         let state, _ = run ids d state cb2
@@ -787,7 +794,14 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let port =
-                            Hop.makeSessionPort (fun () -> t0) ids (verifyAt t0) d.idp d.registry StubPatientData.port
+                            Hop.makeSessionPort
+                                (fun () -> t0)
+                                ids
+                                (verifyAt t0)
+                                d.idp
+                                d.registry
+                                StubPatientData.port
+                                seeded
 
                         let! redirect = port.present (launch1, keyA)
 
@@ -879,6 +893,196 @@ module SessionStubTests =
                 ]
 
 
+        let pinHashTests =
+            testList
+                "PinHash"
+                [
+                    test "the PIN it was made from verifies" {
+                        PinHash.make salts "1234" |> PinHash.verify "1234" |> Expect.isTrue "verifies"
+                    }
+
+                    test "another PIN does not" {
+                        let hash = PinHash.make salts "1234"
+                        hash |> PinHash.verify "1235" |> Expect.isFalse "wrong PIN"
+                        hash |> PinHash.verify "" |> Expect.isFalse "empty PIN"
+                    }
+
+                    test "the same PIN under another salt is another hash" {
+                        let a = PinHash.make salts "1234"
+                        let b = PinHash.make (fun n -> Array.init n (fun i -> byte (i + 1))) "1234"
+                        a.Hash |> Expect.notEqual "different hashes" b.Hash
+                        b |> PinHash.verify "1234" |> Expect.isTrue "still verifies"
+                    }
+
+                    test "the hash is never the PIN, and has the declared lengths" {
+                        let hash = PinHash.make salts "1234"
+                        hash.Salt.Length |> Expect.equal "salt" PinHash.saltLength
+                        hash.Hash.Length |> Expect.equal "hash" PinHash.hashLength
+                        Text.Encoding.UTF8.GetString hash.Hash |> Expect.notEqual "not the PIN" "1234"
+                    }
+                ]
+
+
+        let credentialTests =
+            testList
+                "Credential"
+                [
+                    test "an empty credential has no PIN set (Rule 24)" {
+                        Credential.empty |> Credential.pinSet |> Expect.isFalse "no PIN"
+                    }
+
+                    test "withPin sets the PIN and a count of zero (Rule 28)" {
+                        let c = Credential.withPin salts "1234"
+                        c |> Credential.pinSet |> Expect.isTrue "set"
+                        c.WrongCount |> Expect.equal "zero" 0
+
+                        c.PinHash
+                        |> Option.map (PinHash.verify "1234")
+                        |> Expect.equal "verifies" (Some true)
+                    }
+
+                    test "the stub seed: the signing Prescribers have the stub PIN, no-pin has none" {
+                        let seed = StubCredentials.seed salts
+
+                        for login in [ "prescriber"; "prescriber-other-patient" ] do
+                            seed[login] |> Credential.pinSet |> Expect.isTrue $"{login} set"
+
+                            seed[login].PinHash
+                            |> Option.map (PinHash.verify StubCredentials.stubPin)
+                            |> Expect.equal $"{login} verifies" (Some true)
+
+                        seed["no-pin"] |> Credential.pinSet |> Expect.isFalse "no-pin unset"
+                        seed |> Map.containsKey "reader" |> Expect.isFalse "a Reader has no credential"
+                    }
+
+                    test "credentialOf answers the empty credential for a person the store does not know" {
+                        Hop.credentialOf "nobody" seeded |> Expect.equal "empty" Credential.empty
+                        Hop.credentialOf "no-pin" seeded |> Expect.equal "seeded" Credential.empty
+
+                        Hop.credentialOf "prescriber" seeded
+                        |> Credential.pinSet
+                        |> Expect.isTrue "seeded with PIN"
+                    }
+                ]
+
+
+        let standingTests =
+            testList
+                "StubDirectory.standing"
+                [
+                    test "the registry answers the mail address and no longer the PIN" {
+                        let _, d = fixture ()
+                        let identity = d.issue "prescriber" "patient-1" |> d.idp.redeem |> Option.get
+
+                        match d.registry.standing identity with
+                        | Some standing ->
+                            standing.MailAddress |> Expect.equal "address" "prescriber@stub.example"
+                            standing.ActivePatientId |> Expect.equal "active" (Some "patient-1")
+                            standing.User.Role |> Expect.equal "role" UserRole.Prescriber
+                        | None -> failtest "expected a standing"
+                    }
+
+                    test "no-pin is a Prescriber with the launch's patient active" {
+                        let _, d = fixture ()
+                        let identity = d.issue "no-pin" "patient-1" |> d.idp.redeem |> Option.get
+                        let standing = d.registry.standing identity |> Option.get
+                        standing.User.Role |> Expect.equal "role" UserRole.Prescriber
+                        standing.ActivePatientId |> Expect.equal "active" (Some "patient-1")
+                    }
+                ]
+
+
+        let credentialStoreTests =
+            testList
+                "Hop.callback over the credential store"
+                [
+                    test "a Prescriber the store does not know at all has no PIN either" {
+                        let ids, d = fixture ()
+                        let state, cb = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let _, result = run ids d state cb
+
+                        result
+                        |> Expect.equal
+                            "enrolment"
+                            (CallbackResult.Refused(LaunchRefusal.EnrolmentRequired, "/#/session?refused=enrolment"))
+                    }
+
+                    test "a Reader is never asked for a PIN (Rule 26)" {
+                        let ids, d = fixture ()
+                        let state, cb = hop ids d Hop.emptyState launch1 keyA "reader"
+                        let _, result = run ids d state cb
+
+                        match result with
+                        | CallbackResult.Opened _ -> ()
+                        | other -> failtest $"expected Opened, got {other}"
+                    }
+
+                    test "a PIN set in the store lets the next launch open" {
+                        let ids, d = fixture ()
+
+                        let state =
+                            { seeded with
+                                Credentials = seeded.Credentials |> Map.add "no-pin" (Credential.withPin salts "2468")
+                            }
+
+                        let state, cb = hop ids d state launch1 keyA "no-pin"
+                        let _, result = run ids d state cb
+
+                        match result with
+                        | CallbackResult.Opened _ -> ()
+                        | other -> failtest $"expected Opened, got {other}"
+                    }
+                ]
+
+
+        let mailTests =
+            testList
+                "StubMail"
+                [
+                    test "the outbox lists what was sent, newest first" {
+                        let outbox = StubMail.make ()
+                        outbox.sent () |> Expect.isEmpty "nothing yet"
+
+                        outbox.port.send
+                            {
+                                To = "a@stub.example"
+                                Subject = "first"
+                                Body = "1"
+                            }
+
+                        outbox.port.send
+                            {
+                                To = "b@stub.example"
+                                Subject = "second"
+                                Body = "2"
+                            }
+
+                        outbox.sent ()
+                        |> List.map _.Subject
+                        |> Expect.equal "newest first" [ "second"; "first" ]
+                    }
+
+                    test "the page shows every mail, HTML-encoded, and says when there is none" {
+                        StubMail.page [] |> Expect.stringContains "empty" "No mail sent yet"
+
+                        let page =
+                            StubMail.page
+                                [
+                                    {
+                                        To = "a@stub.example"
+                                        Subject = "Your code <b>"
+                                        Body = "code 123456\n& more"
+                                    }
+                                ]
+
+                        page |> Expect.stringContains "subject encoded" "Your code &lt;b&gt;"
+                        page |> Expect.stringContains "body encoded" "code 123456\n&amp; more"
+                        page |> Expect.stringContains "address" "a@stub.example"
+                        page.Contains "<script" |> Expect.isFalse "no script"
+                    }
+                ]
+
+
         let tests =
             testList
                 "Hop"
@@ -888,6 +1092,11 @@ module SessionStubTests =
                     portTests
                     directoryTests
                     identityCookieTests
+                    pinHashTests
+                    credentialTests
+                    standingTests
+                    credentialStoreTests
+                    mailTests
                 ]
 
 
