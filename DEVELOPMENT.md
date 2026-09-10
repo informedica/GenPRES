@@ -59,6 +59,86 @@ dotnet run
 
 Open your browser to `http://localhost:5173`
 
+### Simulating the launch sequence
+
+In production a User reaches GenPRES from MainEHR: the LaunchScript opens the browser on a
+sealed Launch, the browser is signed on at the IdentityProvider, and the server opens a Session
+for the launched patient (steps 1 to 6 of [uc-01](docs/scenarios/integration/uc-01-launch.md)).
+In demo mode the server hosts stand-ins for every party outside GenPRES, so the whole sequence
+runs on one machine with nothing to install
+([plan 605](docs/implementation-plans/605-launch-with-server-stubs.md)). The stand-ins are
+mounted only when `GENPRES_PROD=0`; a production server answers 404 on their routes and refuses
+every launch as invalid until the scope switch
+([#580](https://github.com/informedica/GenPRES/issues/580)) decides what production exposes.
+
+#### Walkthrough
+
+1. Start the application with `GENPRES_PROD=0` (the `.env.example` default): `dotnet run`.
+2. Open `http://localhost:5173/stub/launch`. This is the stub LaunchScript page, served by the
+   server on port 8085 and reached through the Vite proxy. It has two fields:
+   - **PatientId**, default `stub-patient`. Any text works; `no-data` stands for a patient the
+     PatientDataPlatform has no record for (ext 6a).
+   - **Identity at the browser**: who the stub IdentityProvider will say is signed on. The
+     table below lists the choices.
+3. Press **Launch**. The server mints a Launch sealed under a key it made at start-up, valid for
+   two minutes, and redirects to `#/session?launch=<token>`. The client erases the token from
+   the address bar and history, generates a key pair, and presents the Launch.
+4. The server answers with a redirect to `/authorize` (the stub IdentityProvider), which sends
+   the browser straight back to `/callback` with a one-time code. The server redeems the code,
+   asks the stub UserRegistry for the role and the active patient, reads the patient data, and
+   opens the Session in one act.
+5. The browser lands on `#/session`. With `prescriber` the title bar shows a person button with
+   **Stub Prescriber** and the role; the session menu offers **Close session**.
+
+What each identity choice ends in:
+
+| Identity | Stands for | Ends in | uc-01 |
+|---|---|---|---|
+| `prescriber` | a Prescriber whose active patient is the launched one | an open Session as Prescriber | main path |
+| `reader` | a Reader; no PIN needed | an open Session as Reader | ext 5c |
+| `prescriber-other-patient` | a Prescriber with another patient active in MainEHR | the gate: wrong patient, relaunch | ext 5b |
+| `no-pin` | a Prescriber without a PIN | the gate: enrolment needed (UC-2 is not built; a relaunch is offered) | ext 5d |
+| `unknown` | a login the UserRegistry does not know | the gate: no role, with "continue without launch" | ext 5a |
+| `none` | nobody signed on at the browser | the gate: no browser identity, relaunch only | ext 3c |
+
+A refusal arrives as `#/session?refused=<word>` with the words `expired`, `spent`, `invalid`,
+`no-identity`, `no-role`, `wrong-patient` and `enrolment`; the client erases the parameter and
+shows the gate for it.
+
+#### Things worth trying
+
+- **Reload after the launch**: the Session resumes from the `genpres_session` cookie.
+- **Replay the Launch**: copy the `#/session?launch=…` URL from the Network tab (it never stays
+  in the address bar) and open it in another browser profile or an incognito window within two
+  minutes: `spent`. After two minutes: `expired`. A token from an earlier server run: `invalid`,
+  the key is new at every start.
+- **Reload the callback**: reload `/callback?code=…&state=…` from the Network tab within two
+  minutes: the same answer as the first time (Rule 45), no second Session.
+- **Two launches of the same user**: launch as `prescriber` in tab A, then again in tab B. B is
+  open; A's next request is told that a newer launch ended its Session and offers to continue
+  without a launch (Rules 8 and 11). Once A acknowledged, the notice is gone.
+- **Watch the wire**: in the Network tab, the `PresentLaunch` call answers `RedirectTo`, then
+  two 302s (`/authorize`, `/callback`), then `GetSession`. The Launch appears in none of the
+  responses after the first request.
+- **Production**: `GENPRES_PROD=1 GENPRES_PASSWORD=<16+ chars> dotnet run`; `/stub/launch`
+  and `/authorize` are 404, `/callback` redirects to `refused=invalid`.
+
+The stand-ins keep everything in memory: launches by nonce, sessions, endings, one-time codes.
+A restart forgets all of it and the browser's session cookie no longer finds a Session.
+
+#### Cookies and the development proxy
+
+| Cookie | Set by | Attributes | Purpose |
+|---|---|---|---|
+| `genpres_session` | the callback, on an open | HttpOnly, Strict, `Path=/`, Secure over HTTPS | names the Session (Rule 12) |
+| `genpres_launch_state.<state>` | the answer to `PresentLaunch` | HttpOnly, Lax, `Path=/callback`, `Max-Age` 2 min | proves the callback comes from the browser that started the hop; one per hop so two tabs can launch at once |
+| `genpres_stub_identity` | the stub launch page | HttpOnly, Lax, `Path=/`, `Max-Age` 2 min | carries the identity choice and the PatientId to the stub IdentityProvider; demo only |
+
+`vite.config.js` proxies `/api`, `/stub`, `/authorize` and `/callback` to the server on port
+8085, so in development the browser talks to one origin (`localhost:5173`) and the cookies,
+which are host-only and port-agnostic, reach both. In production the server serves the client
+itself and no proxy is involved.
+
 ## Build System Architecture
 
 ### How `dotnet run` Interacts with FAKE
