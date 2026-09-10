@@ -161,6 +161,20 @@ type Terms =
     // the gate after the server ended the Session (Rule 11)
     | ``Session Gate Ended``
     | ``Session Ending Superseded``
+    // the enrolment form (UC-2, plan 615): title, body with {0} the name and {1} the hinted
+    // mail address, the three field labels, the button, and one sentence per refusal
+    | ``Session Gate Enrolment``
+    | ``Session Gate Enrolment Text``
+    | ``Session Enrolment Code``
+    | ``Session Enrolment Pin``
+    | ``Session Enrolment Pin Repeat``
+    | ``Session Enrolment Submit``
+    | ``Session Enrolment Code Format``
+    | ``Session Enrolment Pin Format``
+    | ``Session Enrolment Pins Differ``
+    | ``Session Enrolment Wrong Code``
+    | ``Session Enrolment Code Void``
+    | ``Session Enrolment Expired``
 
 
 module Localization =

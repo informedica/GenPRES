@@ -35,8 +35,13 @@ type Session =
     // anonymously or relaunches
     | Ended of SessionEnding
     // no Session yet: the launch waits on a PIN (UC-2); the browser holds the attempt in a
-    // cookie, and the form to supply the code and the PIN follows (plan 615, step 3)
-    | Enrolling of EnrolmentPending
+    // cookie, the gate shows the form, and the last refusal of the form if any
+    | Enrolling of EnrolmentPending * refusal: PinRefusal option
+    // SupplyPin in flight
+    | SupplyingPin of EnrolmentPending
+    // no Session: the enrolment ended without a PIN (the code void or expired) or, the PIN
+    // set, with another Patient active (Rule 6); a relaunch is the only way on
+    | EnrolmentFailed of PinRefusal
 
 
 /// What GetSession answered at a resume.
@@ -46,6 +51,13 @@ type ResumeResult =
     | NotFound
     | Ended of SessionEnding
     | Enrolling of EnrolmentPending
+
+
+/// What SupplyPin answered.
+[<RequireQualifiedAccess>]
+type PinOutcome =
+    | Opened of SessionOpened
+    | Refused of PinRefusal
 
 
 [<RequireQualifiedAccess>]
@@ -58,6 +70,10 @@ type SessionMsg =
     | Retry
     | Resume
     | Resumed of Result<ResumeResult, string>
+    // UC-2: the confirmation code and the chosen PIN, from the gate's form
+    | SupplyPin of code: string * pin: string
+    // Error = transport failure
+    | PinAnswered of Result<PinOutcome, string>
     // from #/session?refused={reason}, launch step 4.5
     | RefusedAtCallback of LaunchRefusal
     | OpenAnonymous
@@ -72,6 +88,7 @@ type SessionEffect =
     | CallPresentLaunch of Launch * PublicKey
     | CallGetSession
     | CallCloseSession
+    | CallSupplyPin of code: string * pin: string
     // window.location.assign, for RedirectTo
     | GoTo of url: string
     // interpreted as UpdatePatient, so everything derived from the patient reloads
@@ -151,13 +168,31 @@ module Session =
         // the close acknowledges the ending: the server deletes the cookie and drops the mark
         | SessionMsg.Resumed(Ok(ResumeResult.Ended ending)), Session.Resuming ->
             Session.Ended ending, [ SessionEffect.CallCloseSession ]
-        // the launch waits on a PIN (UC-2): the gate says so, the form follows in step 3
-        | SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)), Session.Resuming -> Session.Enrolling pending, []
+        // the launch waits on a PIN (UC-2): the gate shows the form
+        | SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)), Session.Resuming ->
+            Session.Enrolling(pending, None), []
         | SessionMsg.Resumed _, Session.Resuming -> Session.Anonymous, []
         | SessionMsg.Resumed _, _ -> state, []
 
         // the Launch was consumed server-side; nothing is left to retry with
         | SessionMsg.RefusedAtCallback refusal, _ -> Session.Refused(refusal, None), []
+
+        // UC-2: the form is sent once at a time; the answer lands only on the request in flight
+        | SessionMsg.SupplyPin(code, pin), Session.Enrolling(pending, _) ->
+            Session.SupplyingPin pending, [ SessionEffect.CallSupplyPin(code, pin) ]
+        | SessionMsg.SupplyPin _, _ -> state, []
+        | SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)), Session.SupplyingPin _ -> opened session
+        // the form stays open with what went wrong (ext 2b, a try left; a PIN out of format)
+        | SessionMsg.PinAnswered(Ok(PinOutcome.Refused(PinRefusal.WrongCode _ as refusal))),
+          Session.SupplyingPin pending
+        | SessionMsg.PinAnswered(Ok(PinOutcome.Refused(PinRefusal.PinFormat as refusal))), Session.SupplyingPin pending ->
+            Session.Enrolling(pending, Some refusal), []
+        // terminal: the code is void or expired, or the Patient moved (Rule 6); relaunch
+        | SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)), Session.SupplyingPin _ ->
+            Session.EnrolmentFailed refusal, []
+        // the request never got there: the attempt stands, the form comes back as it was
+        | SessionMsg.PinAnswered(Error _), Session.SupplyingPin pending -> Session.Enrolling(pending, None), []
+        | SessionMsg.PinAnswered _, _ -> state, []
 
         // an anonymous open carries nothing over (Rule 7)
         | SessionMsg.OpenAnonymous, Session.Refused _

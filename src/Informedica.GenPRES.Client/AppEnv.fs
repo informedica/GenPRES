@@ -80,6 +80,8 @@ type ISession =
     abstract Retry: unit -> unit
     // ext 5a: a fresh anonymous open that carries nothing over
     abstract OpenAnonymously: unit -> unit
+    // UC-2: the confirmation code and the chosen PIN, from the gate's form
+    abstract SupplyPin: string -> string -> unit
 
 
 /// Authentication state and commands

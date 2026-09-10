@@ -7,12 +7,14 @@ namespace Views
 /// same way, no Session opens (Rule 7); the gate says why and what the User can do: retry
 /// (ext 3a, and a missing browser identity answered before the identity hop, ext 3c),
 /// continue without a launch (no Role, ext 5a), or relaunch from MainEHR (everything else).
-/// The gate cannot be dismissed: the edge from MainEHR is one-way, so the Client cannot
-/// relaunch by itself.
+/// While the launch waits on a PIN (UC-2) the gate is the enrolment form: the mailed
+/// confirmation code and the chosen PIN, twice. The gate cannot be dismissed: the edge from
+/// MainEHR is one-way, so the Client cannot relaunch by itself.
 /// </summary>
 module SessionGate =
 
     open Fable.Core
+    open Fable.Core.JsInterop
     open Feliz
     open Shared
     open SessionGatePolicy
@@ -36,10 +38,158 @@ module SessionGate =
                     Body = ""
                     Busy = false
                     Actions = []
+                    Form = None
                 }
 
         let onRetry = fun _ -> session.Retry()
         let onContinue = fun _ -> session.OpenAnonymously()
+
+        // the form's fields live here until they are sent; a local check runs first, the
+        // server's answer comes back through the session as the form's Error
+        let code, setCode = React.useState ""
+        let pin, setPin = React.useState ""
+        let repeat, setRepeat = React.useState ""
+        let localError, setLocalError = React.useState<string option> None
+        // the server's answer is shown until the User edits a field; the next answer shows again
+        let edited, setEdited = React.useState false
+
+        let enrolling =
+            match session.Session with
+            | SessionMachine.Session.Enrolling _
+            | SessionMachine.Session.SupplyingPin _ -> true
+            | _ -> false
+
+        // the fields belong to one enrolment: they are cleared when the launch leaves it, so
+        // that a later enrolment in this page never shows or sends what an earlier one typed
+        React.useEffect (
+            (fun () ->
+                if not enrolling then
+                    setCode ""
+                    setPin ""
+                    setRepeat ""
+                    setLocalError None
+                    setEdited false
+            ),
+            [| box enrolling |]
+        )
+
+        // an answer arrived (the request in flight is over): show it, until the next edit
+        React.useEffect ((fun () -> setEdited false), [| box gate.Busy |])
+
+        let onCode (e: Browser.Types.Event) =
+            setCode (e.target?value: string)
+            setLocalError None
+            setEdited true
+
+        let onPin (e: Browser.Types.Event) =
+            setPin (e.target?value: string)
+            setLocalError None
+            setEdited true
+
+        let onRepeat (e: Browser.Types.Event) =
+            setRepeat (e.target?value: string)
+            setLocalError None
+            setEdited true
+
+        let submit () =
+            match formError tr code pin repeat with
+            | Some error -> setLocalError (Some error)
+            | None -> session.SupplyPin code pin
+
+        let onSubmit = fun _ -> submit ()
+
+        let onKeyDown (e: Browser.Types.KeyboardEvent) =
+            if e.key = "Enter" then
+                submit ()
+
+        let form =
+            match gate.Form with
+            | None -> null
+            | Some form ->
+                let error = localError |> Option.orElse (if edited then None else form.Error)
+                let hasError = error.IsSome
+                let helper = error |> Option.defaultValue ""
+
+                JSX.jsx
+                    $"""
+                <Box component="form" noValidate={true} autoComplete="off" sx={ {| marginTop = 2 |} }>
+                    <TextField
+                        id="session-enrolment-code"
+                        name="code"
+                        autoFocus={true}
+                        margin="dense"
+                        label={form.Code}
+                        fullWidth={true}
+                        variant="outlined"
+                        value={code}
+                        onChange={onCode}
+                        onKeyDown={onKeyDown}
+                        error={hasError}
+                        slotProps={ {|
+                                        htmlInput =
+                                            {|
+                                                inputMode = "numeric"
+                                                autoComplete = "one-time-code"
+                                                maxLength = 6
+                                            |}
+                                    |} }
+                    />
+                    <TextField
+                        id="session-enrolment-pin"
+                        name="pin"
+                        margin="dense"
+                        label={form.Pin}
+                        type="password"
+                        fullWidth={true}
+                        variant="outlined"
+                        value={pin}
+                        onChange={onPin}
+                        onKeyDown={onKeyDown}
+                        error={hasError}
+                        slotProps={ {|
+                                        htmlInput =
+                                            {|
+                                                inputMode = "numeric"
+                                                autoComplete = "new-password"
+                                                maxLength = 6
+                                            |}
+                                    |} }
+                    />
+                    <TextField
+                        id="session-enrolment-repeat"
+                        name="repeat"
+                        margin="dense"
+                        label={form.Repeat}
+                        type="password"
+                        fullWidth={true}
+                        variant="outlined"
+                        value={repeat}
+                        onChange={onRepeat}
+                        onKeyDown={onKeyDown}
+                        error={hasError}
+                        helperText={helper}
+                        slotProps={ {|
+                                        htmlInput =
+                                            {|
+                                                inputMode = "numeric"
+                                                autoComplete = "new-password"
+                                                maxLength = 6
+                                            |}
+                                    |} }
+                    />
+                </Box>
+                """
+
+        let submitButton =
+            match gate.Form with
+            | None -> null
+            | Some form ->
+                JSX.jsx
+                    $"""
+                <Button key="submit" variant="contained" color="primary" onClick={onSubmit}>
+                    {form.Submit}
+                </Button>
+                """
 
         let progress =
             if gate.Busy then
@@ -83,15 +233,18 @@ module SessionGate =
         import Button from '@mui/material/Button';
         import Typography from '@mui/material/Typography';
         import CircularProgress from '@mui/material/CircularProgress';
+        import TextField from '@mui/material/TextField';
 
         <Card sx={ {| p = 4 |} } variant="outlined" role="alertdialog" aria-labelledby="session-gate-title">
             <CardHeader id="session-gate-title" title={gate.Title} />
             <CardContent>
                 <Typography variant="body2">{gate.Body}</Typography>
+                {form}
                 {progress}
             </CardContent>
             <CardActions>
                 {actions}
+                {submitButton}
             </CardActions>
         </Card>
         """

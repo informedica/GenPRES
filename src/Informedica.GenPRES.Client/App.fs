@@ -631,6 +631,24 @@ module private Elmish =
                 | Choice2Of2 ex -> return SessionMsg(SessionMsg.CloseFailed ex.Message)
             }
             |> Cmd.fromAsync
+        | SessionEffect.CallSupplyPin(code, pin) ->
+            async {
+                try
+                    match! serverApi.processSession (Api.SessionCommand.SupplyPin(code, pin)) with
+                    | Api.SessionResponse.SessionResp(Some session) ->
+                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)))
+                    | Api.SessionResponse.PinRefused refusal ->
+                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)))
+                    // never an answer to SupplyPin: the attempt is gone, whatever happened
+                    | Api.SessionResponse.SessionResp None
+                    | Api.SessionResponse.SessionClosed
+                    | Api.SessionResponse.SessionEnded _
+                    | Api.SessionResponse.EnrolmentPending _ ->
+                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Refused PinRefusal.AttemptExpired)))
+                with ex ->
+                    return SessionMsg(SessionMsg.PinAnswered(Error ex.Message))
+            }
+            |> Cmd.fromAsync
         | SessionEffect.GoTo url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         | SessionEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient patient)
         | SessionEffect.KeepKey thumbprint ->
@@ -945,6 +963,15 @@ module private Elmish =
 
                     { state with
                         SnackbarMsg = "De sessie kon niet worden gesloten. Probeer het opnieuw."
+                        SnackbarOpen = true
+                        SnackbarSeverity = "error"
+                    }
+                // the same for a PIN that never reached the server: the form comes back as it was
+                | SessionMsg.PinAnswered(Error reason), Session.SupplyingPin _ ->
+                    Logging.error "could not send the PIN to the server" reason
+
+                    { state with
+                        SnackbarMsg = "De pincode kon niet worden verstuurd. Probeer het opnieuw."
                         SnackbarOpen = true
                         SnackbarSeverity = "error"
                     }
@@ -1381,6 +1408,9 @@ type private ConcreteAppEnv
 
         member _.OpenAnonymously() =
             SessionMsg SessionMsg.OpenAnonymous |> dispatch
+
+        member _.SupplyPin code pin =
+            SessionMsg(SessionMsg.SupplyPin(code, pin)) |> dispatch
 
     interface AppEnv.IAuthentication with
         member _.IsAuthenticated = state.IsAuthenticated
