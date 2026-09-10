@@ -265,9 +265,13 @@ limit.
 ## As built against stubs
 
 Steps 1 to 6 run end to end in the demo server since
-[plan 605](../../implementation-plans/605-launch-with-server-stubs.md): every message above is
-exchanged over HTTP as it will be with MainEHR and the IdentityProvider, and only the parties
-outside GenPRES are stand-ins, mounted when `GENPRES_PROD=0`. The walkthrough is in
+[plan 605](../../implementation-plans/605-launch-with-server-stubs.md). What crosses the
+browser goes over HTTP as it will with MainEHR and the IdentityProvider: the Launch of step 1,
+the presentation of 4.1, the redirects of 4.2 and 4.3, the callback of 4.4 and the answer of
+4.5 and 6, with the cookies each sets. What the Server does on its own side (redeeming the code
+in 4.4, the UserRegistry and PatientDataPlatform reads of step 5, the Database) is an in-process
+call through a port, answered by a stand-in mounted when `GENPRES_PROD=0`; the real adapters
+will make those calls over the back channel without the port changing shape. The walkthrough is in
 [DEVELOPMENT.md](../../../DEVELOPMENT.md#simulating-the-launch-sequence).
 
 | Party | Stand-in | What it does |
@@ -301,8 +305,9 @@ TreatmentPlan of 5.6, and the absolute lifetime and idle endings of Rule 10.
 
 ## Left out
 
-- **The PIN detour.** A Prescriber with no PIN is not refused: the launch suspends into UC-2
-  and continues at 5.5 once the PIN is set.
+- **The PIN detour.** By design a Prescriber with no PIN is not refused: the launch suspends
+  into UC-2 and continues at 5.5 once the PIN is set. Until UC-2 is built, the code refuses
+  with `enrolment` and the Client asks for a relaunch (see [As built](#as-built-against-stubs)).
 - **The audit.** Every launch, honored or refused, is appended to the audit (Rule 46).
 - **Everything after the launch**: prescribing and signing, and the ten other use cases.
 - **The confirmation code.** UC-2 and UC-6 mail a code to set or replace a PIN. It is not the
