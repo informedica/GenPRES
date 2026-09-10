@@ -19,6 +19,11 @@ export default defineConfig({
         "/api": {
             target: proxyTarget,
             changeOrigin: true,
+        },
+        // the stub LaunchScript page (plan 605): served by the server in full scope only
+        "/stub": {
+            target: proxyTarget,
+            changeOrigin: true,
         }
     }
   },

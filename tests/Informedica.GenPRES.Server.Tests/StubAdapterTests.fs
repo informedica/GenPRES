@@ -311,7 +311,28 @@ module SessionStubTests =
     let keyB = PublicKey "key-B"
 
 
-    /// A port with a settable clock and a counting id source.
+    /// The seal key of the tests, and another one.
+    let sealKey = LaunchSeal.Key(Array.init LaunchSeal.keyLength byte)
+
+    let otherSealKey =
+        LaunchSeal.Key(Array.init LaunchSeal.keyLength (fun i -> byte (i + 1)))
+
+
+    /// A Launch sealed under the test key for the stub patient, valid for the lifetime from t0.
+    let mintFor nonce pid =
+        LaunchSeal.mint
+            sealKey
+            {
+                PatientId = pid
+                Nonce = nonce
+                Expiry = t0 + lifetime
+            }
+
+    let launch1 = mintFor "n-1" "stub-patient"
+    let launch2 = mintFor "n-2" "p-2"
+
+
+    /// A port with a settable clock, a counting id source and the seal check bound to the clock.
     let makePort () =
         let clock = ref t0
         let count = ref 0
@@ -323,22 +344,10 @@ module SessionStubTests =
                     count.Value <- count.Value + 1
                     $"session-{count.Value}"
                 )
-                lifetime
+                (fun launch -> LaunchSeal.verify clock.Value sealKey launch)
                 Patient.empty
 
         port, clock
-
-
-    let refusalWords =
-        [
-            "expired", LaunchRefusal.LaunchExpired
-            "spent", LaunchRefusal.LaunchSpent
-            "invalid", LaunchRefusal.LaunchInvalid
-            "no-identity", LaunchRefusal.NoBrowserIdentity
-            "no-role", LaunchRefusal.NoRole
-            "wrong-patient", LaunchRefusal.WrongActivePatient
-            "enrolment", LaunchRefusal.EnrolmentRequired
-        ]
 
 
     let thumbprintTests =
@@ -385,15 +394,36 @@ module SessionStubTests =
             "Session stub"
             [
                 testList
-                    "refusal mapping"
+                    "a Launch the seal refuses opens nothing and records nothing"
                     [
-                        for word, refusal in refusalWords do
-                            testAsync $"launch={word} refuses with {refusal} and records nothing" {
+                        for name, launch, refusal in
+                            [
+                                "not sealed under the key",
+                                LaunchSeal.mint
+                                    otherSealKey
+                                    {
+                                        PatientId = "p"
+                                        Nonce = "n"
+                                        Expiry = t0 + lifetime
+                                    },
+                                LaunchRefusal.LaunchInvalid
+                                "garbage", Launch "not-a-launch", LaunchRefusal.LaunchInvalid
+                                "already expired",
+                                LaunchSeal.mint
+                                    sealKey
+                                    {
+                                        PatientId = "p"
+                                        Nonce = "n"
+                                        Expiry = t0 - TimeSpan.FromSeconds 1.0
+                                    },
+                                LaunchRefusal.LaunchExpired
+                            ] do
+                            testAsync $"{name} refuses with {refusal}" {
                                 let port, _ = makePort ()
 
-                                let! first = port.present (Launch word, keyA)
+                                let! first = port.present (launch, keyA)
                                 // another key gets the same answer: nothing was recorded
-                                let! second = port.present (Launch word, keyB)
+                                let! second = port.present (launch, keyB)
 
                                 first |> Expect.equal "first" (LaunchResult.Refused refusal)
                                 second |> Expect.equal "second, other key" (LaunchResult.Refused refusal)
@@ -403,10 +433,10 @@ module SessionStubTests =
                             }
                     ]
 
-                testAsync "any other launch opens a session with a stub prescriber and patient" {
+                testAsync "a sealed Launch opens a session with the stub prescriber for its PatientId" {
                     let port, _ = makePort ()
 
-                    match! port.present (Launch "demo", keyA) with
+                    match! port.present (launch1, keyA) with
                     | LaunchResult.Opened(id, session) ->
                         id |> Expect.equal "session id" "session-1"
 
@@ -431,9 +461,9 @@ module SessionStubTests =
                 testAsync "a second presentation with the same key within the lifetime is answered as the first" {
                     let port, clock = makePort ()
 
-                    let! first = port.present (Launch "demo", keyA)
+                    let! first = port.present (launch1, keyA)
                     clock.Value <- t0 + TimeSpan.FromSeconds 90.0
-                    let! second = port.present (Launch "demo", keyA)
+                    let! second = port.present (launch1, keyA)
 
                     second |> Expect.equal "same session, same content" first
 
@@ -444,8 +474,8 @@ module SessionStubTests =
                 testAsync "a second presentation with another key is LaunchSpent and opens nothing" {
                     let port, _ = makePort ()
 
-                    let! _ = port.present (Launch "demo", keyA)
-                    let! other = port.present (Launch "demo", keyB)
+                    let! _ = port.present (launch1, keyA)
+                    let! other = port.present (launch1, keyB)
 
                     other |> Expect.equal "spent" (LaunchResult.Refused LaunchRefusal.LaunchSpent)
 
@@ -459,18 +489,33 @@ module SessionStubTests =
                 testAsync "after the lifetime the launch is LaunchExpired, even for the same key" {
                     let port, clock = makePort ()
 
-                    let! _ = port.present (Launch "demo", keyA)
+                    let! _ = port.present (launch1, keyA)
                     clock.Value <- t0 + lifetime + TimeSpan.FromSeconds 1.0
-                    let! late = port.present (Launch "demo", keyA)
+                    let! late = port.present (launch1, keyA)
 
                     late
                     |> Expect.equal "expired" (LaunchResult.Refused LaunchRefusal.LaunchExpired)
                 }
 
+                testAsync "a second Launch with another nonce opens a second session" {
+                    let port, _ = makePort ()
+
+                    let! _ = port.present (launch1, keyA)
+
+                    match! port.present (launch2, keyB) with
+                    | LaunchResult.Opened(id, session) ->
+                        id |> Expect.equal "second id" "session-2"
+
+                        session.PatientContext
+                        |> Option.map _.PatientId
+                        |> Expect.equal "its own patient" (Some "p-2")
+                    | other -> failtest $"expected Opened, got {other}"
+                }
+
                 testAsync "close removes the session" {
                     let port, _ = makePort ()
 
-                    let! _ = port.present (Launch "demo", keyA)
+                    let! _ = port.present (launch1, keyA)
                     do! port.close "session-1"
 
                     let! found = port.find "session-1"
@@ -490,10 +535,11 @@ module SessionStubTests =
                         ids.Value <- ids.Value + 1
                         $"s{ids.Value}"
 
-                    let state1, r1 =
-                        present t0 newId lifetime Patient.empty emptyState (Launch "demo", keyA)
+                    let verify = LaunchSeal.verify t0 sealKey
 
-                    let _, r2 = present t0 newId lifetime Patient.empty state1 (Launch "demo", keyA)
+                    let state1, r1 = present t0 newId verify Patient.empty emptyState (launch1, keyA)
+
+                    let _, r2 = present t0 newId verify Patient.empty state1 (launch1, keyA)
 
                     r2 |> Expect.equal "recorded answer" r1
                     state1.Launches |> Map.count |> Expect.equal "one record" 1
@@ -527,8 +573,118 @@ module SessionStubTests =
         }
 
 
-    let present launch key =
-        LaunchCommand.PresentLaunch(Launch launch, key)
+    /// A fresh sealed Launch under `nonce` for the stub patient.
+    let present nonce key =
+        LaunchCommand.PresentLaunch(mintFor $"n-{nonce}" "stub-patient", key)
+
+
+    let sealTests =
+        let claims: LaunchSeal.Claims =
+            {
+                PatientId = "p-1"
+                Nonce = "n-1"
+                Expiry = t0 + lifetime
+            }
+
+        testList
+            "LaunchSeal"
+            [
+                test "a minted Launch verifies to its claims" {
+                    LaunchSeal.mint sealKey claims
+                    |> LaunchSeal.verify t0 sealKey
+                    |> Expect.equal "claims" (Ok claims)
+                }
+
+                test "the token has two base64url parts and no padding" {
+                    let (Launch text) = LaunchSeal.mint sealKey claims
+                    let parts = text.Split('.')
+                    parts.Length |> Expect.equal "two parts" 2
+
+                    for p in parts do
+                        (p.Contains "=" || p.Contains "+" || p.Contains "/")
+                        |> Expect.isFalse "no padding, no + or /"
+                }
+
+                test "another key does not verify" {
+                    LaunchSeal.mint sealKey claims
+                    |> LaunchSeal.verify t0 otherSealKey
+                    |> Expect.equal "invalid" (Error LaunchRefusal.LaunchInvalid)
+                }
+
+                test "a payload swapped under a signature does not verify" {
+                    let (Launch text) = LaunchSeal.mint sealKey claims
+                    let signature = text.Split('.')[1]
+
+                    let (Launch other) = LaunchSeal.mint sealKey { claims with PatientId = "p-2" }
+                    let payload = other.Split('.')[0]
+
+                    Launch $"{payload}.{signature}"
+                    |> LaunchSeal.verify t0 sealKey
+                    |> Expect.equal "invalid" (Error LaunchRefusal.LaunchInvalid)
+                }
+
+                test "garbage, empty, null and one-part texts are invalid" {
+                    for text in [ "garbage"; ""; null; "a.b.c"; "!!.??"; "eyJ9.abc" ] do
+                        Launch text
+                        |> LaunchSeal.verify t0 sealKey
+                        |> Expect.equal $"'{text}'" (Error LaunchRefusal.LaunchInvalid)
+                }
+
+                test "past the expiry the Launch is expired, not invalid" {
+                    LaunchSeal.mint sealKey claims
+                    |> LaunchSeal.verify (t0 + lifetime + TimeSpan.FromSeconds 1.0) sealKey
+                    |> Expect.equal "expired" (Error LaunchRefusal.LaunchExpired)
+                }
+
+                test "empty claims are invalid even under the right seal" {
+                    LaunchSeal.mint sealKey { claims with PatientId = "" }
+                    |> LaunchSeal.verify t0 sealKey
+                    |> Expect.equal "invalid" (Error LaunchRefusal.LaunchInvalid)
+                }
+            ]
+
+
+    let stubLaunchTests =
+        testList
+            "StubLaunch"
+            [
+                test "mint gives a Launch that verifies to the posted PatientId, one lifetime long" {
+                    StubLaunch.mint t0 (fun () -> "nonce-x") sealKey "p-9"
+                    |> LaunchSeal.verify t0 sealKey
+                    |> Expect.equal
+                        "claims"
+                        (Ok
+                            {
+                                LaunchSeal.PatientId = "p-9"
+                                LaunchSeal.Nonce = "nonce-x"
+                                LaunchSeal.Expiry = t0 + StubLaunch.lifetime
+                            })
+                }
+
+                test "a blank PatientId falls back to the stub patient" {
+                    StubLaunch.mint t0 (fun () -> "n") sealKey "  "
+                    |> LaunchSeal.verify t0 sealKey
+                    |> Result.map _.PatientId
+                    |> Expect.equal "stub-patient" (Ok "stub-patient")
+                }
+
+                test "the launch url is the hash form with the token escaped" {
+                    StubLaunch.launchUrl (Launch "a.b")
+                    |> Expect.equal "url" "/#/session?launch=a.b"
+
+                    StubLaunch.launchUrl (Launch "a+b/c=")
+                    |> Expect.equal "escaped" "/#/session?launch=a%2Bb%2Fc%3D"
+                }
+
+                test "the page has no inline script and posts to its own path" {
+                    StubLaunch.page.Contains "<script" |> Expect.isFalse "no script"
+
+                    StubLaunch.page.Contains $"action=\"{StubLaunch.path}\""
+                    |> Expect.isTrue "posts to itself"
+
+                    StubLaunch.page.Contains "name=\"pid\"" |> Expect.isTrue "pid field"
+                }
+            ]
 
 
     let compositionTests =
@@ -566,9 +722,14 @@ module SessionStubTests =
                     let env = envWithStub ()
                     let cookie, held = memoryCookie None
 
-                    let! outcome = CompositionRoot.processLaunch env cookie (present "no-role" keyA)
+                    let! outcome =
+                        CompositionRoot.processLaunch
+                            env
+                            cookie
+                            (LaunchCommand.PresentLaunch(Launch "not-a-launch", keyA))
 
-                    outcome |> Expect.equal "refused" (LaunchOutcome.Refused LaunchRefusal.NoRole)
+                    outcome
+                    |> Expect.equal "refused" (LaunchOutcome.Refused LaunchRefusal.LaunchInvalid)
 
                     held.Value |> Expect.isNone "no cookie"
                 }
@@ -679,7 +840,16 @@ module SessionStubTests =
             ]
 
 
-    let tests = testList "Session" [ thumbprintTests; stubTests; compositionTests ]
+    let tests =
+        testList
+            "Session"
+            [
+                thumbprintTests
+                sealTests
+                stubTests
+                stubLaunchTests
+                compositionTests
+            ]
 
 
 [<Tests>]
