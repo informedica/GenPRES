@@ -608,7 +608,8 @@ module Host =
         let webApp =
             choose
                 [
-                    yield! stubLaunch
+                    // the stub page is logged like the api, so a minted Launch leaves the same trail
+                    Http.logClientIP >=> choose stubLaunch
                     Http.logClientIP >=> Http.safeWebApi webApi
                     setStatusCode 404 >=> text "Not Found"
                 ]
