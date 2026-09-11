@@ -146,6 +146,11 @@ module Hop =
         | _ -> None
 
 
+    /// Concept 10: an order appears once in a plan.
+    let duplicateOrders (scenarios: OrderScenario[]) =
+        scenarios |> Array.countBy _.Order.Id |> Array.exists (fun (_, n) -> n > 1)
+
+
     let private dropExpired (now: DateTime) (state: State) =
         { state with
             Challenges = state.Challenges |> Map.filter (fun _ c -> now <= c.Expiry)
@@ -213,6 +218,7 @@ module Hop =
                                     challenge.Nonce <> submission.Challenge
                                     || challenge.Patient <> submission.Plan.Patient
                                     || challenge.Scenarios <> submission.Plan.Scenarios
+                                    || duplicateOrders submission.Plan.Scenarios
                                     ->
                                     refuse SigningRefusal.ChallengeMismatch
                                 | Some challenge ->
@@ -268,12 +274,17 @@ module Hop =
                                         // Rule 28: the limit is reached now; the Session ends (Rule 10)
                                         let subject, body = Mails.pinLimit user.DisplayName
 
-                                        send
-                                            {
-                                                To = fresh.MailAddress
-                                                Subject = subject
-                                                Body = body
-                                            }
+                                        // best effort (MailPort: fire and forget): the ending and the lock
+                                        // land whatever the mail does
+                                        try
+                                            send
+                                                {
+                                                    To = fresh.MailAddress
+                                                    Subject = subject
+                                                    Body = body
+                                                }
+                                        with _ ->
+                                            ()
 
                                         remember
                                             { state with
@@ -416,6 +427,38 @@ let registry (identity: BrowserIdentity) =
 let outbox () =
     let sent = ref []
     (fun (m: Mail) -> sent.Value <- m :: sent.Value), sent
+
+
+/// An OrderScenario with only its order id set, every other field a default (built by
+/// reflection: the order graph is too deep to write by hand), for the duplicate check.
+let scenarioWithOrder (id: string) : OrderScenario =
+    let rec defaultOf (t: Type) : obj =
+        if t = typeof<string> then box ""
+        elif t = typeof<bool> then box false
+        elif t = typeof<int> then box 0
+        elif t = typeof<decimal> then box 0m
+        elif t = typeof<float> then box 0.0
+        elif t = typeof<DateTime> then box t0
+        elif t.IsArray then box (Array.CreateInstance(t.GetElementType(), 0))
+        elif t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>> then null
+        elif Microsoft.FSharp.Reflection.FSharpType.IsRecord t then
+            Microsoft.FSharp.Reflection.FSharpValue.MakeRecord(
+                t,
+                Microsoft.FSharp.Reflection.FSharpType.GetRecordFields t
+                |> Array.map (fun f -> defaultOf f.PropertyType)
+            )
+        elif Microsoft.FSharp.Reflection.FSharpType.IsUnion t then
+            let case = (Microsoft.FSharp.Reflection.FSharpType.GetUnionCases t)[0]
+
+            Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(
+                case,
+                case.GetFields() |> Array.map (fun f -> defaultOf f.PropertyType)
+            )
+        else
+            null
+
+    let scenario = defaultOf typeof<OrderScenario> :?> OrderScenario
+    { scenario with Order = { scenario.Order with Id = id } }
 
 
 let counter prefix =
@@ -572,6 +615,23 @@ let refusalTests =
                 state.Challenges |> Map.containsKey "s-1" |> Expect.isTrue "the challenge stands"
             }
 
+            test "the same order twice in the plan is a mismatch (Concept 10), the PIN never looked at" {
+                let twice = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-1" |]
+                let planted = { snd (challenged "s-1" t0) with Scenarios = twice }
+                let state = stateOf [ opened ] [] [ "s-1", planted ]
+                let state, answer = submit state "s-1" { submission "s-1" "0000" "k" with Plan = OrderPlan.create stubPatient twice }
+                answer |> Expect.equal "mismatch" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+                (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "not counted" 0
+
+                let once = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
+                let planted = { planted with Scenarios = once }
+                let state = stateOf [ opened ] [] [ "s-1", planted ]
+
+                match submit state "s-1" { submission "s-1" "1234" "k" with Plan = OrderPlan.create stubPatient once } |> snd with
+                | SigningResponse.Submitted(signed, _) -> signed.Scenarios |> Expect.equal "two orders" once
+                | other -> failtest $"expected Submitted, got {other}"
+            }
+
             test "no challenge, an expired one, another nonce, another plan (Rule 43)" {
                 stateOf [ opened ] [] [] |> submit <| "s-1" <| submission "s-1" "1234" "k"
                 |> snd
@@ -630,6 +690,16 @@ let pinTests =
                 sent.Value |> List.length |> Expect.equal "one mail" 1
                 sent.Value.Head.To |> Expect.equal "to the registry's address" "prescriber@stub.example"
                 sent.Value.Head.Subject |> Expect.equal "subject" "GenPRES: signing is locked"
+            }
+
+            test "the mail failing stops neither the ending nor the lock" {
+                let broken (_: Mail) = raise (InvalidOperationException "smtp down")
+                let state, _ = submitAt t0 (counter "id") broken ready "s-1" (submission "s-1" "0000" "k-1")
+                let state, _ = submitAt t0 (counter "id") broken state "s-1" (submission "s-1" "0000" "k-2")
+                let state, third = submitAt t0 (counter "id") broken state "s-1" (submission "s-1" "0000" "k-3")
+                third |> Expect.equal "the limit" (SigningResponse.Refused SigningRefusal.PinLimit)
+                state.Sessions |> Map.containsKey "s-1" |> Expect.isFalse "ended"
+                (Hop.credentialOf "prescriber" state).LockedUntil |> Expect.isSome "locked"
             }
 
             test "after a relaunch: a right PIN while locked is refused and counts nothing; a wrong one pushes the lock out" {

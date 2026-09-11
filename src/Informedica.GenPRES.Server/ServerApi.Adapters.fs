@@ -937,6 +937,11 @@ module Hop =
         | _ -> None
 
 
+    /// Concept 10: an order appears once in a plan.
+    let duplicateOrders (scenarios: OrderScenario[]) =
+        scenarios |> Array.countBy _.Order.Id |> Array.exists (fun (_, n) -> n > 1)
+
+
     /// uc-03 step 2, in order: the Session with a User and a Patient; the Role Prescriber; the
     /// OpenedToken this Session holds (Rule 34); the patient data re-read (Rule 44): when it is
     /// not what the Session opened with and no notice over this reading was accepted, no
@@ -1003,6 +1008,9 @@ module Hop =
                     // unverified data: the plan stays over what the Session opened with
                     elif plan.Patient <> (current |> Option.defaultValue patient.Patient) then
                         refuse SigningRefusal.NoPatient
+                    // Concept 10: no challenge over a plan that names an order twice
+                    elif duplicateOrders plan.Scenarios then
+                        refuse SigningRefusal.ChallengeMismatch
                     else
                         match blockedBy record patient.PatientId state with
                         | Some head -> refuse (SigningRefusal.Blocked head)
@@ -1087,6 +1095,7 @@ module Hop =
                                     challenge.Nonce <> submission.Challenge
                                     || challenge.Patient <> submission.Plan.Patient
                                     || challenge.Scenarios <> submission.Plan.Scenarios
+                                    || duplicateOrders submission.Plan.Scenarios
                                     ->
                                     refuse SigningRefusal.ChallengeMismatch
                                 | Some challenge ->
@@ -1151,12 +1160,17 @@ module Hop =
                                         // Rule 28: the limit is reached now; the Session ends (Rule 10)
                                         let subject, body = Mails.pinLimit user.DisplayName
 
-                                        send
-                                            {
-                                                To = fresh.MailAddress
-                                                Subject = subject
-                                                Body = body
-                                            }
+                                        // best effort (MailPort: fire and forget): the ending and the lock
+                                        // land whatever the mail does
+                                        try
+                                            send
+                                                {
+                                                    To = fresh.MailAddress
+                                                    Subject = subject
+                                                    Body = body
+                                                }
+                                        with _ ->
+                                            ()
 
                                         remember
                                             { state with

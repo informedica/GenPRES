@@ -324,6 +324,46 @@ module SessionStubTests =
     let seeded = Hop.initialState (StubCredentials.seed salts)
 
 
+    /// An OrderScenario with only its order id set, every other field a default (built by
+    /// reflection: the order graph is too deep to write by hand), for the duplicate check.
+    let scenarioWithOrder (id: string) : OrderScenario =
+        let rec defaultOf (t: Type) : obj =
+            if t = typeof<string> then
+                box ""
+            elif t = typeof<bool> then
+                box false
+            elif t = typeof<int> then
+                box 0
+            elif t = typeof<decimal> then
+                box 0m
+            elif t = typeof<float> then
+                box 0.0
+            elif t = typeof<DateTime> then
+                box t0
+            elif t.IsArray then
+                box (Array.CreateInstance(t.GetElementType(), 0))
+            elif t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>> then
+                null
+            elif Microsoft.FSharp.Reflection.FSharpType.IsRecord t then
+                Microsoft.FSharp.Reflection.FSharpValue.MakeRecord(
+                    t,
+                    Microsoft.FSharp.Reflection.FSharpType.GetRecordFields t
+                    |> Array.map (fun f -> defaultOf f.PropertyType)
+                )
+            elif Microsoft.FSharp.Reflection.FSharpType.IsUnion t then
+                let case = (Microsoft.FSharp.Reflection.FSharpType.GetUnionCases t)[0]
+
+                Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(
+                    case,
+                    case.GetFields() |> Array.map (fun f -> defaultOf f.PropertyType)
+                )
+            else
+                null
+
+        let scenario = defaultOf typeof<OrderScenario> :?> OrderScenario
+        { scenario with Order = { scenario.Order with Id = id } }
+
+
     /// The seal key of the tests, and another one.
     let sealKey = LaunchSeal.Key(Array.init LaunchSeal.keyLength byte)
 
@@ -2165,6 +2205,26 @@ module SessionStubTests =
                                 })
                     }
 
+                    test "the same order twice in the plan gets no challenge (Concept 10)" {
+                        let twice =
+                            OrderPlan.create stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-1" |]
+
+                        let state, answer =
+                            stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (twice, token "s-1")
+
+                        answer
+                        |> Expect.equal "mismatch" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+
+                        state.Challenges |> Expect.isEmpty "nothing stored"
+
+                        let once =
+                            OrderPlan.create stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
+
+                        stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (once, token "s-1")
+                        |> snd
+                        |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
+                    }
+
                     test "refuses when the record moved on (Rule 20): whose version, and when" {
                         let byOther = signedBy other 1 (t0 - minutes 5.0)
 
@@ -2502,6 +2562,56 @@ module SessionStubTests =
                         state.Challenges
                         |> Map.containsKey "s-1"
                         |> Expect.isTrue "the challenge stands"
+                    }
+
+                    test
+                        "the same order twice in the plan is a mismatch at the commit too (Concept 10), the PIN never looked at" {
+                        let twice = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-1" |]
+                        let planted = { snd (challenged "s-1" t0) with Scenarios = twice }
+
+                        let state, answer =
+                            submit
+                                (stateOf [ opened ] [] [ "s-1", planted ])
+                                "s-1"
+                                { submission "s-1" "0000" "k" with Plan = OrderPlan.create stubPatient twice }
+
+                        answer
+                        |> Expect.equal "mismatch" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+
+                        (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "not counted" 0
+
+                        let once = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
+                        let planted = { planted with Scenarios = once }
+
+                        match
+                            submit
+                                (stateOf [ opened ] [] [ "s-1", planted ])
+                                "s-1"
+                                { submission "s-1" "1234" "k" with Plan = OrderPlan.create stubPatient once }
+                            |> snd
+                        with
+                        | SigningResponse.Submitted(signed, _) -> signed.Scenarios |> Expect.equal "two orders" once
+                        | other -> failtest $"expected Submitted, got {other}"
+                    }
+
+                    test "the mail failing stops neither the ending nor the lock" {
+                        let broken (_: Mail) =
+                            raise (InvalidOperationException "smtp down")
+
+                        let state, _ =
+                            submitAt t0 (counter "id") broken ready "s-1" (submission "s-1" "0000" "k-1")
+
+                        let state, _ =
+                            submitAt t0 (counter "id") broken state "s-1" (submission "s-1" "0000" "k-2")
+
+                        let state, third =
+                            submitAt t0 (counter "id") broken state "s-1" (submission "s-1" "0000" "k-3")
+
+                        third
+                        |> Expect.equal "the limit" (SigningResponse.Refused SigningRefusal.PinLimit)
+
+                        state.Sessions |> Map.containsKey "s-1" |> Expect.isFalse "ended"
+                        (Hop.credentialOf "prescriber" state).LockedUntil |> Expect.isSome "locked"
                     }
 
                     test
