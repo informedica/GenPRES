@@ -34,15 +34,15 @@ sequenceDiagram
     S-->>CC: NewerPlanNotice (dr.a, signed at 62)
     Note over CC: Rule 21 reaches a Reader like anyone else
 
-    C->>CC: OpensTreatmentPlan
-    CC->>S: OpenTreatmentPlan
-    S-->>CC: TreatmentPlanOpened
+    C->>CC: OpensOrderPlan
+    CC->>S: OpenOrderPlan
+    S-->>CC: OrderPlanOpened
     Note over CC: Rule 18: the whole history is open to read
 
     C->>CC: Signs
     CC->>S: RequestSignChallenge
     S-->>CC: NotPermitted
-    Note over S: Roles: a Reader never creates a TreatmentPlan
+    Note over S: Roles: a Reader never creates an OrderPlan
 ```
 
 ## Reading it

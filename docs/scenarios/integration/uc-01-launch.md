@@ -44,7 +44,7 @@ sequenceDiagram
 | 4 | Identity | The Client presents the Launch and the public key. The Server verifies the Launch, keeps its contents in a LaunchRecord, and sends the browser to the IdentityProvider and gets it back with a signed BrowserIdentity over its own connection, never through the Client's hands. See [Step 4](#step-4-the-identity-round-trip). |
 | 5 | Check and open | The Server checks that the Launch is unspent, asks the UserRegistry for the Role and the active Patient, reads the patient data and the record, and opens the Session in one act that stores the public key in the SessionRecord. See [Step 5](#step-5-check-and-open). |
 | 6 | Session open | The response sets the SessionId as an HttpOnly, Secure, SameSite=Strict cookie (Rule 12) and returns UserContext, PatientContext, the OrderContexts to start from, the OpenedToken (Rule 34) and the thumbprint of the Session's public key. The Client deletes the private keys of other launches; the Session they belonged to is closed by this open (Rule 8). The Client keeps these in memory and shows the patient. |
-| 7 | Every later request | The cookie says which Session, a proof signed with the private key says which browser, the OpenedToken says which TreatmentPlan was opened. See [Step 7](#step-7-a-signed-request). |
+| 7 | Every later request | The cookie says which Session, a proof signed with the private key says which browser, the OpenedToken says which OrderPlan was opened. See [Step 7](#step-7-a-signed-request). |
 
 Two questions, two answers: *who is this* is the IdentityProvider's answer (step 4), *what may
 they do, and on which Patient* is the UserRegistry's (step 5). The Server asks both at every
@@ -141,7 +141,7 @@ sequenceDiagram
     S->>P: 5.5 ReadPatientData (PatientId)
     P-->>S: PatientData
     S->>D: 5.6 ReadRecord (PatientId), ReadSessionRecords (User)
-    D-->>S: newest TreatmentPlan, this User's other Sessions
+    D-->>S: newest OrderPlan, this User's other Sessions
     Note over S,D: 5.7 one conditional act: spend the Launch, close the other Sessions,<br/>write SessionRecord {SessionId, User, Role, Patient, public key}
     S->>D: OpenSessionClosingOthers
     D-->>S: SessionWasOpened
@@ -156,7 +156,7 @@ sequenceDiagram
 - **5.4** Check that a PIN is set (Rule 24). A Prescriber without one goes through UC-2 and
   the launch continues at 5.5 afterwards.
 - **5.5** Read the patient data from the PatientDataPlatform, once (Concept 2).
-- **5.6** Read the newest TreatmentPlan to start from (Rule 19) and this User's other open
+- **5.6** Read the newest OrderPlan to start from (Rule 19) and this User's other open
   Sessions (Rule 8).
 - **5.7** Open the Session in one conditional act (Rule 40): spend the Launch, close the other
   Sessions, write the SessionRecord with the public key. All of it commits, or none. The
@@ -176,12 +176,12 @@ Every request after the launch carries two things:
 - the SessionId cookie, which names the Session;
 - a proof signed with the private key from step 3, which names the browser. It covers the
   HTTP method, the URL, a hash of the body, the time, a unique id, and the OpenedToken, which
-  names the TreatmentPlan the Session opened with (Rule 34). This is the DPoP pattern
+  names the OrderPlan the Session opened with (Rule 34). This is the DPoP pattern
   ([RFC 9449](https://www.rfc-editor.org/rfc/rfc9449)).
 
 The Server reads the SessionRecord by SessionId, verifies the signature against the stored
 public key, checks method, URL, body hash, time and uniqueness, and compares the OpenedToken
-with the head of the record. If a newer TreatmentPlan exists, the response says so (Rule 21).
+with the head of the record. If a newer OrderPlan exists, the response says so (Rule 21).
 
 Implementing the signed proof is a later plan. The key pair is generated at the launch so
 that the SessionRecord already holds the public key when that plan lands. Keys are kept per
