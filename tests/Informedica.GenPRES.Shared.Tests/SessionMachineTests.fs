@@ -142,13 +142,13 @@ module SessionMachineTests =
                          [
                              SessionEffect.SetPatient(Some patient)
                              SessionEffect.KeepKey "thumb"
-                             SessionEffect.LoadCart(patient, head)
+                             SessionEffect.LoadCart head
                          ])
 
                     // a resume opens the same way
                     transition (SessionMsg.Resumed(Ok(ResumeResult.Found over))) Session.Resuming
                     |> snd
-                    |> List.contains (SessionEffect.LoadCart(patient, head))
+                    |> List.contains (SessionEffect.LoadCart head)
                     |> Expect.isTrue "loaded at resume"
 
                     // no patient, no cart to load, whatever the head says

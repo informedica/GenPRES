@@ -71,6 +71,8 @@ module private Elmish =
 
         | UpdatePage of Global.Pages
         | UpdatePatient of Patient option
+        // Rule 19: the version the Session opened with, into the cart over the patient in state
+        | LoadCart of SignedOrderPlan
 
         | LoadNormalValues of AsyncOperationStatus<Result<NormalValues, string>>
 
@@ -679,10 +681,9 @@ module private Elmish =
             |> Cmd.fromAsync
         | SessionEffect.GoTo url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         | SessionEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient patient)
-        // Rule 19: the cart starts as the version the Session opened with; FilterOrderPlan
-        // sends it through the server so totals and filters are computed as for any cart
-        | SessionEffect.LoadCart(patient, head) ->
-            Cmd.ofMsg (OrderPlanMsg(Api.FilterOrderPlan(OrderPlan.create patient head.Scenarios)))
+        // Rule 19: the cart starts as the version the Session opened with; built in update, over
+        // the patient as UpdatePatient left it (normal values applied)
+        | SessionEffect.LoadCart head -> Cmd.ofMsg (LoadCart head)
         | SessionEffect.KeepKey thumbprint ->
             Cmd.ofEffect (fun _ ->
                 async {
@@ -951,6 +952,13 @@ module private Elmish =
                     | _ -> []
 
                 { state with Page = page }, Cmd.batch (retryDrugNames :: loadCmds)
+
+        // FilterOrderPlan sends the cart through the server so totals and filters are computed
+        // as for any cart; the patient is the one every other part of the state uses
+        | LoadCart head ->
+            match state.Patient with
+            | Some pat -> state, Cmd.ofMsg (OrderPlanMsg(Api.FilterOrderPlan(OrderPlan.create pat head.Scenarios)))
+            | None -> state, Cmd.none
 
         | UpdatePatient pat ->
             let pat = pat |> applyNormalValues state.NormalValues

@@ -99,9 +99,10 @@ type SessionEffect =
     | SetPatient of Patient option
     // Keys.keep: prune the other private keys
     | KeepKey of thumbprint: string
-    // Rule 19: the orders of the version the Session opened with go into the cart, with the
-    // Session's patient; interpreted as a FilterOrderPlan over them
-    | LoadCart of Patient * SignedOrderPlan
+    // Rule 19: the orders of the version the Session opened with go into the cart, over the
+    // patient as the client holds it after SetPatient (normal values applied); interpreted as
+    // a FilterOrderPlan over them
+    | LoadCart of SignedOrderPlan
 
 
 module Session =
@@ -135,7 +136,7 @@ module Session =
             | Some thumbprint -> SessionEffect.KeepKey thumbprint
             | None -> ()
             match session.PatientContext, session.Head with
-            | Some patient, Some head -> SessionEffect.LoadCart(patient.Patient, head)
+            | Some _, Some head -> SessionEffect.LoadCart head
             | _ -> ()
         ]
 
