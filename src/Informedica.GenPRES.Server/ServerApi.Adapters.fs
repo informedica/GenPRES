@@ -431,6 +431,29 @@ module Hop =
         }
 
 
+    /// A data notice as the store holds it (Rule 44): one per Session, the platform's reading
+    /// it was told over (`None`: unreadable), for two minutes.
+    type Notice =
+        {
+            Nonce: string
+            Data: Patient option
+            Expiry: DateTime
+        }
+
+
+    /// A signing challenge as the store holds it (Concept 17): one per Session, over exactly
+    /// the patient data and the orders shown (Rule 43), whether that data was the platform's
+    /// reading when it was issued (Rule 44), for two minutes.
+    type Challenge =
+        {
+            Nonce: string
+            Patient: Patient
+            Scenarios: OrderScenario[]
+            Verified: bool
+            Expiry: DateTime
+        }
+
+
     type LaunchRecord =
         {
             Nonce: string
@@ -454,6 +477,10 @@ module Hop =
             Enrolments: Map<string, Enrolment>
             // UC-3: the signed versions of each patient's order plan, newest first
             Records: Map<string, SignedOrderPlan list>
+            // UC-3: the live data notice per Session
+            Notices: Map<string, Notice>
+            // UC-3: the live challenge per Session
+            Challenges: Map<string, Challenge>
         }
 
 
@@ -466,6 +493,8 @@ module Hop =
             Codes = Map.empty
             Enrolments = Map.empty
             Records = Map.empty
+            Notices = Map.empty
+            Challenges = Map.empty
         }
 
 
@@ -479,6 +508,10 @@ module Hop =
 
     /// Wrong codes before the code is void (ext 2b).
     let maxTries = 3
+
+    /// How long a challenge lives: the launch's two minutes, the time to read the modal and
+    /// enter a PIN, so what is signed was checked against the platform moments ago (Rule 44).
+    let challengeLifetime = TimeSpan.FromMinutes 2.0
 
 
     let credentialOf (userId: string) (state: State) =
@@ -498,6 +531,8 @@ module Hop =
             Codes = codes
             // an attempt lives as long as its code
             Enrolments = state.Enrolments |> Map.filter (fun _ e -> codes |> Map.containsKey e.UserId)
+            Notices = state.Notices |> Map.filter (fun _ n -> now <= n.Expiry)
+            Challenges = state.Challenges |> Map.filter (fun _ c -> now <= c.Expiry)
         }
 
 
@@ -885,6 +920,102 @@ module Hop =
         }
 
 
+    /// Rule 20: the head of the record, when it is not the version the Session opened with.
+    let blockedBy (record: SessionRecord) (patientId: string) (state: State) =
+        match headOf patientId state with
+        | Some head when Some head.Head.Id <> record.OpenedWith -> Some head.Head
+        | _ -> None
+
+
+    /// uc-03 step 2, in order: the Session with a User and a Patient; the Role Prescriber; the
+    /// OpenedToken this Session holds (Rule 34); the patient data re-read (Rule 44): when it is
+    /// not what the Session opened with and no notice over this reading was accepted, no
+    /// challenge yet but a `DataNotice`, replacing any earlier notice and dropping any earlier
+    /// challenge (it was over the data before the change); the plan over the data as
+    /// it stands (Rule 33); the record not moved on (Rule 20). Then a challenge over exactly
+    /// this plan (Rule 43), replacing the Session's earlier one and spending the notice. The
+    /// PIN is not involved: a refusal here costs no attempt (Rule 28).
+    let challenge
+        (now: DateTime)
+        (newId: unit -> string)
+        (patientData: string -> Patient option)
+        (sid: string)
+        (plan: OrderPlan, opened: OpenedToken, notice: string option)
+        (state: State)
+        : State * SigningResponse
+        =
+        let state = dropExpired now state
+        let refuse refusal = state, SigningResponse.Refused refusal
+
+        match state.Sessions |> Map.tryFind sid with
+        | None -> refuse SigningRefusal.NoSession
+        | Some record ->
+            match record.Session.User, record.Session.PatientContext with
+            | None, _ -> refuse SigningRefusal.NotPrescriber
+            | Some _, None -> refuse SigningRefusal.NoPatient
+            | Some user, Some patient ->
+                if user.Role <> UserRole.Prescriber then
+                    refuse SigningRefusal.NotPrescriber
+                elif record.Session.OpenedToken <> Some opened then
+                    refuse SigningRefusal.StaleToken
+                else
+                    let current = patientData patient.PatientId
+
+                    let accepted =
+                        notice
+                        |> Option.bind (fun token ->
+                            state.Notices
+                            |> Map.tryFind sid
+                            |> Option.filter (fun n -> n.Nonce = token && n.Data = current)
+                        )
+
+                    if current <> Some patient.Patient && accepted.IsNone then
+                        let nonce = newId ()
+
+                        { state with
+                            Notices =
+                                state.Notices
+                                |> Map.add
+                                    sid
+                                    {
+                                        Nonce = nonce
+                                        Data = current
+                                        Expiry = now + challengeLifetime
+                                    }
+                            // a challenge over the data before the change must not be signed
+                            Challenges = state.Challenges |> Map.remove sid
+                        },
+                        SigningResponse.DataNotice
+                            {
+                                Data = current
+                                Token = nonce
+                            }
+                    // unverified data: the plan stays over what the Session opened with
+                    elif plan.Patient <> (current |> Option.defaultValue patient.Patient) then
+                        refuse SigningRefusal.NoPatient
+                    else
+                        match blockedBy record patient.PatientId state with
+                        | Some head -> refuse (SigningRefusal.Blocked head)
+                        | None ->
+                            let nonce = newId ()
+
+                            { state with
+                                Notices = state.Notices |> Map.remove sid
+                                Challenges =
+                                    state.Challenges
+                                    |> Map.add
+                                        sid
+                                        {
+                                            Nonce = nonce
+                                            Patient = plan.Patient
+                                            Scenarios = plan.Scenarios
+                                            Verified = current.IsSome
+                                            Expiry = now + challengeLifetime
+                                        }
+                            },
+                            SigningResponse.ChallengeIssued nonce
+
+
     /// Six digits from a random source (the CSPRNG in the host).
     let newCode (randomBelow: int -> int) () = (randomBelow 1_000_000).ToString "D6"
 
@@ -964,6 +1095,9 @@ module Hop =
                             )
                     }
             dropEnrolment = fun attempt -> async { return update (fun s -> dropEnrolment attempt s, ()) }
+            challenge =
+                fun sid request ->
+                    async { return update (fun s -> challenge (now ()) newId patientData.read sid request s) }
         }
 
 
@@ -1436,6 +1570,7 @@ module Adapters =
             findEnrolment = fun _ -> async { return None }
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
+            challenge = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
         }
 
 

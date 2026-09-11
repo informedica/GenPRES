@@ -709,3 +709,49 @@ module Types =
         // the IdentityProvider's HTML. The stub never returns it.
         | RedirectTo of url: string
         | Refused of LaunchRefusal
+
+
+    /// Why a signature did not proceed (uc-03 steps 2 and 3). The first seven end the signing
+    /// and are told once; `PinWrong` and `Locked` keep the PIN dialog open; `PinLimit` ends
+    /// the Session (Rule 28). Changed patient data is not a refusal but a `DataNotice`
+    /// (Rule 44). The PIN cases arrive with the Submission.
+    [<RequireQualifiedAccess>]
+    type SigningRefusal =
+        // no Session for the cookie, or none at all
+        | NoSession
+        // the Session has no Patient, or the plan names other patient data (Rule 33)
+        | NoPatient
+        // nobody to sign as, or the Role is not Prescriber (Concept 7, Rule 38)
+        | NotPrescriber
+        // Rule 20: the record moved on; whose version, and when
+        | Blocked of OrderPlanHead
+        // Rule 34: not the OpenedToken this Session holds
+        | StaleToken
+        // Rule 43: not the plan the challenge was issued over, or no challenge
+        | ChallengeMismatch
+        | ChallengeExpired
+        // Rule 28
+        | PinWrong of attemptsLeft: int
+        | PinLimit
+        | Locked of until: DateTime
+
+
+    /// Rule 44: the patient data as it stands, told before a challenge is issued when it is
+    /// not what the Session opened with. `Data = None`: the platform cannot be read, the data
+    /// is unverified. The User proceeds by returning the token with the next request.
+    type DataNotice =
+        {
+            Data: Patient option
+            Token: string
+        }
+
+
+    /// The answer to a signing command. A payload like `LaunchOutcome`: the session port
+    /// answers it, so it lives with the types, not the api.
+    [<RequireQualifiedAccess>]
+    type SigningResponse =
+        // the challenge over exactly this plan (Rule 43); comes back with the PIN
+        | ChallengeIssued of challenge: string
+        // Rule 44: no challenge yet; the data as it stands, to show and to accept or not
+        | DataNotice of DataNotice
+        | Refused of SigningRefusal

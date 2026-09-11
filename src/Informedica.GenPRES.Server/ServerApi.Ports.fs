@@ -170,6 +170,8 @@ type SessionPort =
         supplyPin: string -> string -> string -> Async<SupplyPinResult>
         // an attempt the browser gave up on (CloseSession while enrolling)
         dropEnrolment: string -> Async<unit>
+        // UC-3 step 2: a challenge over the plan as shown, for the Session the cookie names
+        challenge: string -> OrderPlan * OpenedToken * string option -> Async<SigningResponse>
     }
 
 

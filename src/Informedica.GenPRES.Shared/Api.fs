@@ -186,6 +186,15 @@ module Api =
         | PinRefused of PinRefusal
 
 
+    /// The signing command family (uc-03 steps 2 and 3): always cookie-authenticated, like
+    /// the session family. Room to grow: the Submission.
+    [<RequireQualifiedAccess>]
+    type SigningCommand =
+        // step 2: the plan as shown, the OpenedToken the Session holds (Rule 34), and the
+        // token of the data notice the User accepted, if one was told (Rule 44)
+        | RequestSignChallenge of OrderPlan * OpenedToken * dataNotice: string option
+
+
     module LaunchCommand =
 
         /// For the log. Never the Launch or the key: the Launch is a secret, the key is long.
@@ -202,6 +211,14 @@ module Api =
             | SessionCommand.CloseSession -> "CloseSession"
             // never the code or the PIN
             | SessionCommand.SupplyPin _ -> "SupplyPin"
+
+
+    module SigningCommand =
+
+        /// For the log. Never the plan (long) or, later, the PIN.
+        let toString cmd =
+            match cmd with
+            | SigningCommand.RequestSignChallenge _ -> "RequestSignChallenge"
 
 
     /// Defines how routes are generated on server and mapped from the client
@@ -225,6 +242,7 @@ module Api =
             processCommand: Command -> Async<Result<Response, string[]>>
             processLaunch: LaunchCommand -> Async<LaunchOutcome>
             processSession: SessionCommand -> Async<SessionResponse>
+            processSigning: SigningCommand -> Async<SigningResponse>
             getSettings: unit -> Async<ServerSettings>
             testApi: unit -> Async<string>
         }
