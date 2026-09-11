@@ -930,7 +930,8 @@ module Hop =
     /// uc-03 step 2, in order: the Session with a User and a Patient; the Role Prescriber; the
     /// OpenedToken this Session holds (Rule 34); the patient data re-read (Rule 44): when it is
     /// not what the Session opened with and no notice over this reading was accepted, no
-    /// challenge yet but a `DataNotice`, replacing any earlier one; the plan over the data as
+    /// challenge yet but a `DataNotice`, replacing any earlier notice and dropping any earlier
+    /// challenge (it was over the data before the change); the plan over the data as
     /// it stands (Rule 33); the record not moved on (Rule 20). Then a challenge over exactly
     /// this plan (Rule 43), replacing the Session's earlier one and spending the notice. The
     /// PIN is not involved: a refusal here costs no attempt (Rule 28).
@@ -981,6 +982,8 @@ module Hop =
                                         Data = current
                                         Expiry = now + challengeLifetime
                                     }
+                            // a challenge over the data before the change must not be signed
+                            Challenges = state.Challenges |> Map.remove sid
                         },
                         SigningResponse.DataNotice
                             {

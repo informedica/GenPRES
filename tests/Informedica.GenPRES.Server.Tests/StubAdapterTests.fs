@@ -2030,6 +2030,39 @@ module SessionStubTests =
                         |> Expect.equal "after the token" (SigningResponse.Refused SigningRefusal.StaleToken)
                     }
 
+                    test "a notice drops the Session's earlier challenge: it was over the data before the change" {
+                        let nonces = counter "n"
+
+                        let state, issued =
+                            stateOf [ opened ] [] |> ask t0 nonces <| "s-1" <| (plan, token "s-1")
+
+                        issued |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
+
+                        // the platform's reading changes under the challenge
+                        let changed =
+                            { state with
+                                Sessions =
+                                    state.Sessions
+                                    |> Map.add
+                                        "s-1"
+                                        (snd (session "s-1" (Some prescriber) (Some("stub-patient", otherData)) None))
+                            }
+
+                        let state, told =
+                            ask (t0 + seconds 30.0) nonces changed "s-1" (OrderPlan.create otherData [||], token "s-1")
+
+                        told
+                        |> Expect.equal
+                            "told"
+                            (SigningResponse.DataNotice
+                                {
+                                    Data = Some stubPatient
+                                    Token = "n-2"
+                                })
+
+                        state.Challenges |> Expect.isEmpty "the earlier challenge is gone"
+                    }
+
                     test
                         "an accepted notice: the challenge over the data as it stands, unverified when unreadable (Rule 44)" {
                         let nonces = counter "n"

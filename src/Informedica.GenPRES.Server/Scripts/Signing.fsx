@@ -192,7 +192,8 @@ module Hop =
     /// uc-03 step 2, in order: the Session with a User and a Patient; the Role Prescriber; the
     /// OpenedToken this Session holds (Rule 34); the patient data re-read (Rule 44): when it is
     /// not what the Session opened with and no notice over this reading was accepted, no
-    /// challenge yet but a `DataNotice`, replacing any earlier one; the plan over the data as
+    /// challenge yet but a `DataNotice`, replacing any earlier notice and dropping any earlier
+    /// challenge (it was over the data before the change); the plan over the data as
     /// it stands (Rule 33); the record not moved on (Rule 20). Then a challenge over exactly
     /// this plan (Rule 43), replacing the Session's earlier one and spending the notice. The
     /// PIN is not involved: a refusal here costs no attempt (Rule 28).
@@ -243,6 +244,8 @@ module Hop =
                                         Data = current
                                         Expiry = now + challengeLifetime
                                     }
+                            // a challenge over the data before the change must not be signed
+                            Challenges = state.Challenges |> Map.remove sid
                         },
                         SigningResponse.DataNotice { Data = current; Token = nonce }
                     // unverified data: the plan stays over what the Session opened with
@@ -486,6 +489,18 @@ let ladderTests =
                         Data = Some stubPatient
                         Expiry = t0 + minutes 2.0
                     }
+            }
+
+            test "a notice drops the Session's earlier challenge: it was over the data before the change" {
+                let nonces = counter "n"
+                let state, issued = stateOf [ opened ] [] |> ask t0 nonces <| "s-1" <| (plan, token "s-1")
+                issued |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
+
+                // the platform's reading changes under the challenge
+                let changed = { state with Sessions = state.Sessions |> Map.add "s-1" (snd (session "s-1" (Some prescriber) (Some("stub-patient", otherData)) None)) }
+                let state, told = ask (t0 + seconds 30.0) nonces changed "s-1" (OrderPlan.create otherData [||], token "s-1")
+                told |> Expect.equal "told" (SigningResponse.DataNotice { Data = Some stubPatient; Token = "n-2" })
+                state.Challenges |> Expect.isEmpty "the earlier challenge is gone"
             }
 
             test "unreadable data is a notice without data" {
