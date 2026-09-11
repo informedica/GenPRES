@@ -1,5 +1,5 @@
 ---
-last_commit_released: e7a6aa839014b2d735cca587cc42001af83789ab
+last_commit_released: e52af269e03c63b98afd41e901d08dbfc75c945e
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,33 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.18 - 2026-09-11
+
+### 🚀 Features
+
+* *(api)* The signing terms (#622) ([220df51d](https://github.com/informedica/GenPRES/commit/220df51dc76404fc3c0a6bafc950aec15ba4ce27))
+* *(client)* The signing machine and its texts (#622) ([25252cff](https://github.com/informedica/GenPRES/commit/25252cff2c6dcec08827b01f5b264c81d5953983))
+* *(client)* Sign the order plan with the PIN (#622) ([4a8f4c6e](https://github.com/informedica/GenPRES/commit/4a8f4c6e09df1160773437bd6c61ce011bda3fc3))
+* *(server)* Draft the record and the credential lock (#622) ([4a12ab01](https://github.com/informedica/GenPRES/commit/4a12ab0164f8ec55df94e5293240abe21db55230))
+* *(server)* Keep the record and lock the credential (#622) ([12d2d2fa](https://github.com/informedica/GenPRES/commit/12d2d2fac66bd42476944955510b726fb84f443f))
+* *(server)* Draft the signing challenge (#622) ([6c1c22b4](https://github.com/informedica/GenPRES/commit/6c1c22b4ad6bb4db3811cca296071faa58ee4d4b))
+* *(server)* Tell changed patient data as a notice (#622) ([8e928224](https://github.com/informedica/GenPRES/commit/8e92822400a8512cbf8e5cc2571cae1bf3579440))
+* *(server)* Issue the signing challenge (#622) ([2483b701](https://github.com/informedica/GenPRES/commit/2483b701d1de70e80fd9100672dc8bf6e3cb9fa1))
+* *(server)* Draft the commit of a signature (#622) ([294bc896](https://github.com/informedica/GenPRES/commit/294bc896fce68437d9d7882f849a2e8e0b7c92fb))
+* *(server)* Commit a signature (#622) ([454467ea](https://github.com/informedica/GenPRES/commit/454467ea9f7795ed2dafbe18e04abbe57a687601))
+* *(server)* Draft a second stub Prescriber (#622) ([799cb7ee](https://github.com/informedica/GenPRES/commit/799cb7ee9876c3ebbe423c1faf9365c62555e413))
+* *(server)* A second stub Prescriber for Rule 20 (#622) ([0f073995](https://github.com/informedica/GenPRES/commit/0f073995621f9b49e05165c025368a13eeebaab8))
+
+### 🐞 Bug Fixes
+
+* *(client)* Retry a lost Submission under the same key (#622) ([16f8d6f4](https://github.com/informedica/GenPRES/commit/16f8d6f4108aa7e111d94d443ab48a1870aa2a33))
+* *(client)* Land a signing answer only on its request (#622) ([1dfdcf39](https://github.com/informedica/GenPRES/commit/1dfdcf39a3206bc54e196bd3ea28fa0fbde6f98c))
+* *(server)* Cap the credential lock at a day (#622) ([a75fde28](https://github.com/informedica/GenPRES/commit/a75fde28d1a299125fe10c65fe798ddbc2b662b5))
+* *(server)* A data notice drops the standing challenge (#622) ([75ceaafd](https://github.com/informedica/GenPRES/commit/75ceaafd576269cf13c3e91b6c90ae9e66c6d6e3))
+* *(server)* Refuse a plan naming an order twice, mail best effort (#622) ([1c17ff0c](https://github.com/informedica/GenPRES/commit/1c17ff0cf8c837b8901e46c9db4c404c06cf7672))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/e7a6aa839014b2d735cca587cc42001af83789ab..e52af269e03c63b98afd41e901d08dbfc75c945e)</small></strong>
 
 ## 0.1.2-alpha.17 - 2026-09-10
 
