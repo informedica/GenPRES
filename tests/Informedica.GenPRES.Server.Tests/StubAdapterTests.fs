@@ -1101,7 +1101,7 @@ module SessionStubTests =
                     test "the stub seed: the signing Prescribers have the stub PIN, no-pin has none" {
                         let seed = StubCredentials.seed salts
 
-                        for login in [ "prescriber"; "prescriber-other-patient" ] do
+                        for login in [ "prescriber"; "prescriber-b"; "prescriber-other-patient" ] do
                             seed[login] |> Credential.pinSet |> Expect.isTrue $"{login} set"
 
                             seed[login].PinHash
@@ -3798,6 +3798,84 @@ module SessionStubTests =
 
                     told
                     |> Expect.equal "told once" (SessionResponse.SessionEnded SessionEnding.WrongPinLimit)
+                }
+
+                testAsync "two browsers on one patient: B signs, A is blocked with B's head (Rule 20)" {
+                    let directory, env = envWithStub ()
+                    let cookieA, _ = memoryCookie None
+                    let cookieB, _ = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+
+                    let! _ =
+                        openVia
+                            directory
+                            env
+                            cookieA
+                            stateCookie
+                            (noEnrolment ())
+                            (mintFor "n-a" "stub-patient")
+                            keyA
+                            "prescriber"
+
+                    let! _ =
+                        openVia
+                            directory
+                            env
+                            cookieB
+                            stateCookie
+                            (noEnrolment ())
+                            (mintFor "n-b" "stub-patient")
+                            keyB
+                            "prescriber-b"
+
+                    let! openedA = sessionOf env cookieA
+                    let! openedB = sessionOf env cookieB
+
+                    openedB.User
+                    |> Option.map _.DisplayName
+                    |> Expect.equal "B" (Some "Stub Prescriber B")
+
+                    let challenge cookie opened =
+                        async {
+                            match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                            | SigningResponse.ChallengeIssued nonce -> return nonce
+                            | other -> return failtest $"expected ChallengeIssued, got {other}"
+                        }
+
+                    let! forA = challenge cookieA openedA
+                    let! forB = challenge cookieB openedB
+
+                    let submission (opened: SessionOpened) nonce key : Submission =
+                        {
+                            Plan = OrderPlan.create Shared.Models.Patient.empty [||]
+                            Opened = opened.OpenedToken.Value
+                            Challenge = nonce
+                            Pin = StubCredentials.stubPin
+                            IdemKey = key
+                        }
+
+                    let! head =
+                        async {
+                            match!
+                                CompositionRoot.processSigning
+                                    env
+                                    cookieB
+                                    (SigningCommand.Submit(submission openedB forB "k-b"))
+                            with
+                            | SigningResponse.Submitted(signed, _) -> return signed.Head
+                            | other -> return failtest $"expected Submitted, got {other}"
+                        }
+
+                    head.By.UserId |> Expect.equal "B signed" "prescriber-b"
+
+                    let! answer =
+                        CompositionRoot.processSigning
+                            env
+                            cookieA
+                            (SigningCommand.Submit(submission openedA forA "k-a"))
+
+                    answer
+                    |> Expect.equal "A blocked by B" (SigningResponse.Refused(SigningRefusal.Blocked head))
                 }
 
                 testAsync "a Reader's Session is refused" {
