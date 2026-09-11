@@ -1,5 +1,5 @@
 ---
-last_commit_released: 73fdfcf45f7a4bdd918dd304b397f818e5a71bb8
+last_commit_released: cb796b265040c6914042349e3ab93f11ea4b6c59
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,21 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.20 - 2026-09-11
+
+### 🚀 Features
+
+* *(server)* Draft the signed patient at open (#640) ([10ba9a69](https://github.com/informedica/GenPRES/commit/10ba9a692970b5b2a10372bd3f59a1137388e4b3))
+* *(server)* Open the Session on the signed patient data (#640) ([1753049f](https://github.com/informedica/GenPRES/commit/1753049f4a0c4ac971748e29f523a3b867ff9f08))
+* *(server)* Draft the signed patient at the commit (#640) ([e9a85966](https://github.com/informedica/GenPRES/commit/e9a8596665afdd4258e85b4eab3e7a2e91918e95))
+* *(server)* Keep the signed patient at the commit (#640) ([636aacc1](https://github.com/informedica/GenPRES/commit/636aacc12ead1b566cf949e32e57a8e855382313))
+
+### 🐞 Bug Fixes
+
+* *(server)* Take the reading at the challenge into the Session (#640) ([103b987c](https://github.com/informedica/GenPRES/commit/103b987c717e671f7740a0839b6c48a9b2803617))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/73fdfcf45f7a4bdd918dd304b397f818e5a71bb8..cb796b265040c6914042349e3ab93f11ea4b6c59)</small></strong>
 
 ## 0.1.2-alpha.19 - 2026-09-11
 
