@@ -149,11 +149,12 @@ module Hop640 =
         |> Option.defaultValue Patient.empty
 
 
-    /// #640, at the commit: the Session's patient after a signature. With a reading at the
-    /// challenge (`Verified`) the reading stands, as the Session opened on it; without one the
-    /// data just signed, so a resume in this Session shows what a relaunch would.
-    let commitPatient (verified: bool) (opened: Patient) (signed: Patient) : Patient =
-        if verified then opened else signed
+    /// #640, at the commit: the Session's patient after a signature. The platform's reading at
+    /// the challenge (Rule 44; the newest, should it have changed and been accepted at the
+    /// notice), else the data just signed, so a resume in this Session shows what a relaunch
+    /// would.
+    let commitPatient (reading: Patient option) (signed: Patient) : Patient =
+        reading |> Option.defaultValue signed
 
 
 /// The PatientDataPlatform stub: a fixed patient for every PatientId, none at all for
@@ -261,7 +262,7 @@ let challenged sid : ServerApi.Hop.Challenge =
         Nonce = $"c-{sid}"
         Patient = Patient.empty
         Scenarios = [||]
-        Verified = true
+        Reading = Some Patient.empty
         Expiry = t0.AddMinutes 2.0
     }
 
@@ -382,11 +383,12 @@ let patientTests =
                 Hop640.sessionPatient none "no-data" None |> Expect.equal "empty" Patient.empty
             }
 
-            test "at the commit: verified keeps the reading, unverified takes the data signed" {
-                Hop640.commitPatient true StubPatientData640.patient entered
+            test "at the commit: the reading at the challenge, else the data signed" {
+                Hop640.commitPatient (Some StubPatientData640.patient) entered
                 |> Expect.equal "the reading" StubPatientData640.patient
 
-                Hop640.commitPatient false Patient.empty entered |> Expect.equal "the signed" entered
+                Hop640.commitPatient (Some entered) Patient.empty |> Expect.equal "a changed reading, accepted" entered
+                Hop640.commitPatient None entered |> Expect.equal "the signed" entered
             }
 
             test "the stub: a fixed patient for every id, none for no-data" {

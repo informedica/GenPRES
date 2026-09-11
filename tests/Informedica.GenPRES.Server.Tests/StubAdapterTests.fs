@@ -2213,7 +2213,7 @@ module SessionStubTests =
                     Nonce = $"c-{sid}"
                     Patient = Shared.Models.Patient.empty
                     Scenarios = [||]
-                    Verified = true
+                    Reading = Some Shared.Models.Patient.empty
                     Expiry = t0.AddMinutes 2.0
                 }
 
@@ -2618,7 +2618,10 @@ module SessionStubTests =
                             askWith "n-1" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
 
                         answer |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-2")
-                        state.Challenges["s-1"].Verified |> Expect.isTrue "the platform's reading"
+
+                        state.Challenges["s-1"].Reading
+                        |> Expect.equal "the platform's reading" (Some stubPatient)
+
                         state.Challenges["s-1"].Patient |> Expect.equal "over the data told" stubPatient
                         state.Notices |> Expect.isEmpty "the notice is spent"
 
@@ -2633,7 +2636,7 @@ module SessionStubTests =
                         answer
                         |> Expect.equal "issued unverified" (SigningResponse.ChallengeIssued "n-4")
 
-                        state.Challenges["s-2"].Verified |> Expect.isFalse "unverified"
+                        state.Challenges["s-2"].Reading |> Expect.isNone "unverified"
                     }
 
                     test "a wrong, spent, expired or unfitting notice token is a fresh notice, never a refusal" {
@@ -2770,7 +2773,7 @@ module SessionStubTests =
                                 Nonce = "n-1"
                                 Patient = stubPatient
                                 Scenarios = [||]
-                                Verified = true
+                                Reading = Some stubPatient
                                 Expiry = t0 + minutes 2.0
                             }
                     }
@@ -2867,7 +2870,7 @@ module SessionStubTests =
                     Nonce = $"c-{sid}"
                     Patient = stubPatient
                     Scenarios = [||]
-                    Verified = true
+                    Reading = Some stubPatient
                     Expiry = at + Hop.challengeLifetime
                 }
 
@@ -3105,7 +3108,7 @@ module SessionStubTests =
                                     sid,
                                     { unverified with
                                         Patient = otherData
-                                        Verified = false
+                                        Reading = None
                                     }
                                 ]
 
@@ -3128,6 +3131,37 @@ module SessionStubTests =
                                         PatientId = "no-data"
                                         Patient = otherData
                                     })
+                        | other -> failtest $"expected Submitted, got {other}"
+                    }
+
+                    test "a changed reading accepted at the notice: the Session's patient is that reading (#640)" {
+                        let sid, over = challenged "s-1" t0
+
+                        let ready =
+                            stateOf
+                                [ opened ]
+                                []
+                                [
+                                    sid,
+                                    { over with
+                                        Patient = otherData
+                                        Reading = Some otherData
+                                    }
+                                ]
+
+                        let state, answer =
+                            submit
+                                ready
+                                "s-1"
+                                { submission "s-1" "1234" "k-1" with Plan = OrderPlan.create otherData [||] }
+
+                        match answer with
+                        | SigningResponse.Submitted(signed, _) ->
+                            signed.Verified |> Expect.isTrue "the reading"
+
+                            state.Sessions["s-1"].Session.PatientContext
+                            |> Option.map _.Patient
+                            |> Expect.equal "the newer reading, not the one opened on" (Some otherData)
                         | other -> failtest $"expected Submitted, got {other}"
                     }
 
