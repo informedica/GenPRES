@@ -21,6 +21,7 @@ module SessionGatePolicyTests =
             PatientContext = None
             OpenedToken = None
             KeyThumbprint = None
+            Head = None
         }
 
 

@@ -611,8 +611,36 @@ module Types =
         }
 
 
+    /// What identifies a signed version of an order plan (Concept 9): its id, its place in
+    /// the patient's record (`No` orders the record: a clock cannot say which of two landed
+    /// first, Rule 20), who signed it and when. Enough for Rule 21's notice: whose, and when.
+    type OrderPlanHead =
+        {
+            Id: string
+            No: int
+            By: UserContext
+            SignedAt: DateTime
+        }
+
+
+    /// A signed version of an order plan, as the record holds it (the integration design's
+    /// OrderPlan): the head, the patient, the version it was signed over (`Base`, `None`
+    /// for the first), the orders as shown at the signature, the patient data the User saw
+    /// and whether it was the platform's reading at the challenge (Rule 44).
+    type SignedOrderPlan =
+        {
+            Head: OrderPlanHead
+            PatientId: string
+            Base: string option
+            Scenarios: OrderScenario[]
+            Patient: Patient
+            Verified: bool
+        }
+
+
     /// What the client keeps of an open Session (launch step 6). No SessionId: it lives in
-    /// the cookie (Rule 12).
+    /// the cookie (Rule 12). `Head` is the version of the record it opened with (Rule 19): its
+    /// orders go into the cart, Rule 20 is checked against its id; `None` from nothing.
     type SessionOpened =
         {
             // None = anonymous session (Rule 14)
@@ -623,6 +651,7 @@ module Types =
             // RFC 7638 thumbprint of the public key this Session signs with (step 7);
             // the client keeps that private key and prunes the others
             KeyThumbprint: string option
+            Head: SignedOrderPlan option
         }
 
 
@@ -652,33 +681,6 @@ module Types =
         | SupersededByLaunch
         // Rule 28: the third wrong PIN at a signature (UC-3)
         | WrongPinLimit
-
-
-    /// What identifies a signed version of an order plan (Concept 9): its id, its place in
-    /// the patient's record (`No` orders the record: a clock cannot say which of two landed
-    /// first, Rule 20), who signed it and when. Enough for Rule 21's notice: whose, and when.
-    type OrderPlanHead =
-        {
-            Id: string
-            No: int
-            By: UserContext
-            SignedAt: DateTime
-        }
-
-
-    /// A signed version of an order plan, as the record holds it (the integration design's
-    /// OrderPlan): the head, the patient, the version it was signed over (`Base`, `None`
-    /// for the first), the orders as shown at the signature, the patient data the User saw
-    /// and whether it was the platform's reading at the challenge (Rule 44).
-    type SignedOrderPlan =
-        {
-            Head: OrderPlanHead
-            PatientId: string
-            Base: string option
-            Scenarios: OrderScenario[]
-            Patient: Patient
-            Verified: bool
-        }
 
 
     /// What the client learns when its launch is waiting on a PIN (UC-2): whom to greet and

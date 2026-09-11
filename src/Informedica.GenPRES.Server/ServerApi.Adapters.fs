@@ -598,6 +598,7 @@ module Hop =
         (state: State)
         =
         let id = newId ()
+        let head = headOf patientId state
 
         let session =
             {
@@ -610,6 +611,7 @@ module Hop =
                         }
                 OpenedToken = Some(OpenedToken $"opened-{id}")
                 KeyThumbprint = Some(PublicKey.thumbprint key)
+                Head = head
             }
 
         let login = Some user.UserId
@@ -629,7 +631,7 @@ module Hop =
                     {
                         Session = session
                         Login = login
-                        OpenedWith = headOf patientId state |> Option.map _.Head.Id
+                        OpenedWith = head |> Option.map _.Head.Id
                         Seen = now
                     }
             Endings =
@@ -1160,7 +1162,11 @@ module Hop =
 
                                         let opened =
                                             { record with
-                                                Session = { record.Session with OpenedToken = Some token }
+                                                Session =
+                                                    { record.Session with
+                                                        OpenedToken = Some token
+                                                        Head = Some plan
+                                                    }
                                                 OpenedWith = Some id
                                             }
 

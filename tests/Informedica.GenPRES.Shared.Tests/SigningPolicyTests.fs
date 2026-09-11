@@ -35,6 +35,7 @@ module Fixtures =
                     None
             OpenedToken = Some(OpenedToken "t")
             KeyThumbprint = Some "thumb"
+            Head = None
         }
 
     let head =

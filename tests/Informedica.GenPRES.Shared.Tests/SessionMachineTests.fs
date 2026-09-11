@@ -34,6 +34,7 @@ module SessionMachineTests =
                 )
             OpenedToken = Some(OpenedToken "t")
             KeyThumbprint = thumbprint
+            Head = None
         }
 
     let patient = Shared.Models.Patient.empty
@@ -113,6 +114,49 @@ module SessionMachineTests =
                              SessionEffect.SetPatient(Some patient)
                              SessionEffect.KeepKey "thumb"
                          ])
+                }
+
+                test "Opened over a record loads its head into the cart, after the patient (Rule 19)" {
+                    let head: SignedOrderPlan =
+                        {
+                            Head =
+                                {
+                                    Id = "plan-1"
+                                    No = 1
+                                    By = full.User.Value
+                                    SignedAt = System.DateTime(2026, 9, 11, 12, 0, 0, System.DateTimeKind.Utc)
+                                }
+                            PatientId = "p"
+                            Base = None
+                            Scenarios = [||]
+                            Patient = patient
+                            Verified = true
+                        }
+
+                    let over = { full with Head = Some head }
+
+                    transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened over))) launching
+                    |> Expect.equal
+                        "open"
+                        (Session.Open over,
+                         [
+                             SessionEffect.SetPatient(Some patient)
+                             SessionEffect.KeepKey "thumb"
+                             SessionEffect.LoadCart(patient, head)
+                         ])
+
+                    // a resume opens the same way
+                    transition (SessionMsg.Resumed(Ok(ResumeResult.Found over))) Session.Resuming
+                    |> snd
+                    |> List.contains (SessionEffect.LoadCart(patient, head))
+                    |> Expect.isTrue "loaded at resume"
+
+                    // no patient, no cart to load, whatever the head says
+                    let bare = { sessionWith None None with Head = Some head }
+
+                    transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened bare))) launching
+                    |> snd
+                    |> Expect.equal "nothing to load" [ SessionEffect.SetPatient None ]
                 }
 
                 test "Opened without a patient sets None; without a thumbprint prunes nothing" {

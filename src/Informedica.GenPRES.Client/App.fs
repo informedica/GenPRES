@@ -679,6 +679,10 @@ module private Elmish =
             |> Cmd.fromAsync
         | SessionEffect.GoTo url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         | SessionEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient patient)
+        // Rule 19: the cart starts as the version the Session opened with; FilterOrderPlan
+        // sends it through the server so totals and filters are computed as for any cart
+        | SessionEffect.LoadCart(patient, head) ->
+            Cmd.ofMsg (OrderPlanMsg(Api.FilterOrderPlan(OrderPlan.create patient head.Scenarios)))
         | SessionEffect.KeepKey thumbprint ->
             Cmd.ofEffect (fun _ ->
                 async {
