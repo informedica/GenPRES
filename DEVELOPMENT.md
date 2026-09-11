@@ -76,8 +76,10 @@ every launch as invalid until the scope switch
 1. Start the application with `GENPRES_PROD=0` (the `.env.example` default): `dotnet run`.
 2. Open `http://localhost:5173/stub/launch`. This is the stub LaunchScript page, served by the
    server on port 8085 and reached through the Vite proxy. It has two fields:
-   - **PatientId**, default `stub-patient`. Any text works; `no-data` stands for a patient the
-     PatientDataPlatform has no record for (ext 6a).
+   - **PatientId**, default `stub-patient`, which the stub PatientDataPlatform reads as a
+     ten-year-old of 32 kg. Any text works; `no-data` stands for a patient the platform has no
+     record for (ext 6a): the Session then opens on the data the last version was signed on, or
+     on nothing (#640).
    - **Identity at the browser**: who the stub IdentityProvider will say is signed on. The
      table below lists the choices.
 3. Press **Launch**. The server mints a Launch sealed under a key it made at start-up, valid for
@@ -142,8 +144,8 @@ record ([uc-03](docs/scenarios/integration/uc-03-prescribe-and-sign.md), Rules 4
 demo keeps the record in memory
 ([plan 622](docs/implementation-plans/622-signing-with-server-stubs.md)):
 
-1. Launch with the identity `prescriber`. The stub patient has no data, so give it an age in the
-   patient panel (a weight is estimated from it).
+1. Launch with the identity `prescriber`. The patient panel shows the stub platform's reading, a
+   ten-year-old of 32 kg; change it if you like.
 2. Open **Voorschrijven** from the menu, pick a medication, a route, a form and an indication
    (paracetamol, oral, tablet, mild pain will do), and press **Voorschrijven** on a scenario.
 3. Open **Order Plan**: the order is in the plan, with an **Ondertekenen** button above it.
@@ -158,7 +160,8 @@ Things worth trying here:
   is refused as locked until a time, after that it signs. Every wrong entry past the third
   doubles the delay, up to a day.
 - **Launch again**: the cart opens on the version just signed, before anything is entered
-  (Rule 19); so does a reload.
+  (Rule 19); so does a reload. The patient panel shows the platform's reading again: a hand edit
+  over a reading is not kept (Concept 2), and the next sign tells that the data changed (Rule 44).
 - **Two browsers on one patient** ([uc-04](docs/scenarios/integration/uc-04-two-users.md),
   [plan 635](docs/implementation-plans/635-session-bound-compute.md)): launch `prescriber-b` in
   another browser profile, prescribe and sign there. The first browser's next action that
@@ -176,6 +179,8 @@ Things worth trying here:
 - **The patient without data**: launch with the PatientId `no-data`. The first **Ondertekenen**
   is a notice instead of the dialog: the data could not be verified. **Doorgaan** asks the
   challenge again with the notice accepted, and the version is signed as unverified (Rule 44).
+  Launch `no-data` again, or reload: the panel shows the data the version was signed on, since
+  the platform has none (#640); the first sign of the new Session shows the notice again.
 - **A Reader**: `reader` sees no Sign button.
 - **Watch the wire**: `RequestSignChallenge` answers `ChallengeIssued`, `Submit` answers
   `Submitted` with the version and a fresh OpenedToken; the PIN travels in the Submission and
