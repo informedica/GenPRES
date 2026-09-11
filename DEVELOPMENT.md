@@ -146,7 +146,7 @@ demo keeps the record in memory
    patient panel (a weight is estimated from it).
 2. Open **Voorschrijven** from the menu, pick a medication, a route, a form and an indication
    (paracetamol, oral, tablet, mild pain will do), and press **Voorschrijven** on a scenario.
-3. Open **Behandel Plan**: the order is in the plan, with an **Ondertekenen** button above it.
+3. Open **Order Plan**: the order is in the plan, with an **Ondertekenen** button above it.
    Press it. The dialog lists the orders exactly as they will be signed and asks the PIN.
 4. Enter a wrong PIN: the dialog stays and says two tries are left. Enter `1234`: the dialog
    closes and the snackbar says version 1 was signed by Stub Prescriber. Sign again: version 2.
