@@ -601,7 +601,56 @@ module SessionStubTests =
                             record.Session.KeyThumbprint
                             |> Expect.equal "thumbprint" (Some(PublicKey.thumbprint keyA))
 
+                            record.OpenedWith |> Expect.isNone "opened from nothing (Rule 19)"
                             state.Launches["n-1"].Outcome |> Expect.isSome "outcome appended"
+                        | other -> failtest $"expected Opened, got {other}"
+                    }
+
+                    test "prescriber over a record: the Session opens with the newest version as its head (Rule 19)" {
+                        let ids, d = fixture ()
+
+                        let signedAs userId no : SignedOrderPlan =
+                            {
+                                Head =
+                                    {
+                                        Id = $"plan-{no}"
+                                        No = no
+                                        By =
+                                            {
+                                                UserId = userId
+                                                DisplayName = userId
+                                                Role = UserRole.Prescriber
+                                            }
+                                        SignedAt = t0
+                                    }
+                                PatientId = "patient-1"
+                                Base = (if no > 1 then Some $"plan-{no - 1}" else None)
+                                Scenarios = [||]
+                                Patient = Shared.Models.Patient.empty
+                            }
+
+                        let record =
+                            { seeded with
+                                Records =
+                                    Map.ofList
+                                        [
+                                            "patient-1", [ signedAs "prescriber-b" 2; signedAs "prescriber" 1 ]
+                                            "patient-2", [ signedAs "prescriber" 1 ]
+                                        ]
+                            }
+
+                        Hop.headOf "patient-1" record
+                        |> Option.map _.Head.Id
+                        |> Expect.equal "newest first" (Some "plan-2")
+
+                        Hop.headOf "patient-3" record |> Expect.isNone "no record"
+
+                        let state, cb = hop ids d record launch1 keyA "prescriber"
+                        let state, result = run ids d state cb
+
+                        match result with
+                        | CallbackResult.Opened(id, _) ->
+                            state.Sessions[id].OpenedWith |> Expect.equal "the head at open" (Some "plan-2")
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -970,17 +1019,36 @@ module SessionStubTests =
 
 
         let credentialTests =
+            let minutes (n: float) = TimeSpan.FromMinutes n
+            let withPin = Credential.withPin salts "1234"
+
+            /// Wrong entries in a row, each a minute after the last; the credential and the
+            /// time of the next entry.
+            let wrong (n: int) (start: DateTime) (credential: Credential) =
+                [ 1..n ]
+                |> List.fold
+                    (fun (c, at) _ -> Credential.verify at "0000" c |> snd, at + minutes 1.0)
+                    (credential, start)
+
             testList
                 "Credential"
                 [
                     test "an empty credential has no PIN set (Rule 24)" {
                         Credential.empty |> Credential.pinSet |> Expect.isFalse "no PIN"
+                        Credential.empty.LockedUntil |> Expect.isNone "no lock"
                     }
 
-                    test "withPin sets the PIN and a count of zero (Rule 28)" {
+                    test "withPin sets the PIN, a count of zero and no lock (Rules 28, 37)" {
                         let c = Credential.withPin salts "1234"
                         c |> Credential.pinSet |> Expect.isTrue "set"
                         c.WrongCount |> Expect.equal "zero" 0
+                        c.LockedUntil |> Expect.isNone "no lock"
+
+                        let locked, _ = wrong 4 t0 withPin
+                        locked.WrongCount |> Expect.equal "(four wrong entries)" 4
+                        let reset = Credential.withPin salts "2468"
+                        reset.WrongCount |> Expect.equal "a new PIN zeroes the count" 0
+                        reset.LockedUntil |> Expect.isNone "and clears the lock"
 
                         c.PinHash
                         |> Option.map (PinHash.verify "1234")
@@ -999,6 +1067,79 @@ module SessionStubTests =
 
                         seed["no-pin"] |> Credential.pinSet |> Expect.isFalse "no-pin unset"
                         seed |> Map.containsKey "reader" |> Expect.isFalse "a Reader has no credential"
+                    }
+
+                    test "the delay is one minute at the limit and doubles with each further entry (Rule 28)" {
+                        Credential.lockFor 0 |> Expect.equal "below the limit: the base" (minutes 1.0)
+                        Credential.lockFor 3 |> Expect.equal "at the limit" (minutes 1.0)
+                        Credential.lockFor 4 |> Expect.equal "one past" (minutes 2.0)
+                        Credential.lockFor 5 |> Expect.equal "two past" (minutes 4.0)
+
+                        Credential.lockFor 13
+                        |> Expect.equal "ten past: just under the cap" (minutes 1024.0)
+
+                        Credential.lockFor 14 |> Expect.equal "capped at a day" Credential.lockMax
+
+                        Credential.lockFor Int32.MaxValue
+                        |> Expect.equal "no overflow" Credential.lockMax
+
+                        let _, c =
+                            Credential.verify t0 "0000" { withPin with WrongCount = Int32.MaxValue - 1 }
+
+                        c.LockedUntil |> Expect.equal "a day from now" (Some(t0 + Credential.lockMax))
+                    }
+
+                    test "a right PIN is accepted, zeroes the count and clears the lock" {
+                        let twoWrong, at = wrong 2 t0 withPin
+                        twoWrong.WrongCount |> Expect.equal "two" 2
+                        twoWrong.LockedUntil |> Expect.isNone "not locked yet"
+                        twoWrong |> Credential.attemptsLeft |> Expect.equal "one left" 1
+
+                        let ok, after = Credential.verify at "1234" twoWrong
+                        ok |> Expect.isTrue "accepted"
+                        after.WrongCount |> Expect.equal "zeroed" 0
+                        after.LockedUntil |> Expect.isNone "no lock"
+                    }
+
+                    test "the third wrong PIN locks for a minute; a right PIN inside it is refused and counts nothing" {
+                        let limit, at = wrong 3 t0 withPin
+                        limit.WrongCount |> Expect.equal "three" 3
+                        limit.LockedUntil |> Expect.equal "a minute from the third entry" (Some at)
+
+                        limit
+                        |> Credential.isLocked (at - minutes 0.5)
+                        |> Expect.isTrue "locked inside the minute"
+
+                        limit |> Credential.attemptsLeft |> Expect.equal "none left" 0
+
+                        let ok, same = Credential.verify (at - minutes 0.5) "1234" limit
+                        ok |> Expect.isFalse "refused while locked"
+                        same |> Expect.equal "unchanged" limit
+
+                        let ok, after = Credential.verify at "1234" limit
+                        ok |> Expect.isTrue "accepted once the minute passed"
+                        after.WrongCount |> Expect.equal "zeroed" 0
+                    }
+
+                    test "a wrong PIN while locked counts, and pushes the delay out and doubles it" {
+                        let limit, at = wrong 3 t0 withPin
+                        let inside = at - minutes 0.5
+
+                        let ok, fourth = Credential.verify inside "0000" limit
+                        ok |> Expect.isFalse "refused"
+                        fourth.WrongCount |> Expect.equal "four" 4
+
+                        fourth.LockedUntil
+                        |> Expect.equal "two minutes from this entry" (Some(inside + minutes 2.0))
+
+                        let _, fifth = Credential.verify inside "0000" fourth
+                        fifth.LockedUntil |> Expect.equal "four minutes" (Some(inside + minutes 4.0))
+                    }
+
+                    test "a credential without a PIN accepts nothing and counts the entry" {
+                        let ok, after = Credential.verify t0 "1234" Credential.empty
+                        ok |> Expect.isFalse "no PIN"
+                        after.WrongCount |> Expect.equal "counted" 1
                     }
 
                     test "credentialOf answers the empty credential for a person the store does not know" {

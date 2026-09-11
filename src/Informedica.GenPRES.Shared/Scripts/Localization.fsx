@@ -54,6 +54,8 @@ type SessionTerms =
     // the gate after the server ended the Session (Rule 11, plan 605 PR 4)
     | ``Session Gate Ended``
     | ``Session Ending Superseded``
+    // Rule 28 (UC-3, plan 622 PR 1): the Session ended at the third wrong PIN
+    | ``Session Ending Pin Limit``
     // the enrolment form (UC-2, plan 615 PR 3): title, body with {0} the name and {1} the
     // hinted mail address, the three field labels, the button, and one sentence per refusal
     | ``Session Gate Enrolment``
@@ -100,6 +102,7 @@ let english term =
     | ``Session Gate Ended`` -> "Your session was ended"
     | ``Session Ending Superseded`` ->
         "Another launch of yours opened a newer session, and this one was closed."
+    | ``Session Ending Pin Limit`` -> "The PIN was entered wrong three times, and signing is locked for a while."
     | ``Session Gate Enrolment`` -> "Set a PIN to continue"
     | ``Session Gate Enrolment Text`` ->
         "Welcome, {0}. A confirmation code was mailed to {1}. Enter it together with the PIN of your choice: four to six digits."
@@ -146,6 +149,7 @@ let dutch term =
     | ``Session Gate Ended`` -> "Uw sessie is beëindigd"
     | ``Session Ending Superseded`` ->
         "Een andere start van u heeft een nieuwere sessie geopend; deze sessie is gesloten."
+    | ``Session Ending Pin Limit`` -> "De pincode is drie keer verkeerd ingevoerd; ondertekenen is een tijdje geblokkeerd."
     | ``Session Gate Enrolment`` -> "Stel een pincode in om verder te gaan"
     | ``Session Gate Enrolment Text`` ->
         "Welkom, {0}. Er is een bevestigingscode gemaild naar {1}. Voer die in samen met de pincode van uw keuze: vier tot zes cijfers."

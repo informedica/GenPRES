@@ -87,6 +87,7 @@ module SessionGatePolicyTests =
                                 "Unreachable", Session.Unreachable(launch, key, 3)
                                 "Refused", Session.Refused(LaunchRefusal.NoRole, None)
                                 "Ended", Session.Ended SessionEnding.SupersededByLaunch
+                                "Ended at the PIN limit", Session.Ended SessionEnding.WrongPinLimit
                                 "Enrolling", Session.Enrolling(pending, None)
                                 "SupplyingPin", Session.SupplyingPin pending
                                 "EnrolmentFailed", Session.EnrolmentFailed PinRefusal.CodeVoid
@@ -168,6 +169,9 @@ module SessionGatePolicyTests =
 
                     named.Body
                     |> Expect.equal "body terms" "<Session Ending Superseded> <Session Relaunch>"
+
+                    (namedGateOf (Session.Ended SessionEnding.WrongPinLimit)).Body
+                    |> Expect.equal "the PIN limit (Rule 28)" "<Session Ending Pin Limit> <Session Relaunch>"
                 }
 
                 test "Launching is busy, names the attempt, offers nothing" {
@@ -324,6 +328,7 @@ module SessionGatePolicyTests =
                             Terms.``Session Role Reader``
                             Terms.``Session Gate Ended``
                             Terms.``Session Ending Superseded``
+                            Terms.``Session Ending Pin Limit``
                         ] do
                         english term |> Expect.notEqual $"default for {term}" $"{term}"
 
