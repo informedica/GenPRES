@@ -132,6 +132,7 @@ module CompositionRoot =
                 match cmd with
                 | SigningCommand.RequestSignChallenge(plan, opened, notice) ->
                     return! env.session.challenge id (plan, opened, notice)
+                | SigningCommand.Submit submission -> return! env.session.submit id submission
         }
 
 

@@ -172,6 +172,8 @@ type SessionPort =
         dropEnrolment: string -> Async<unit>
         // UC-3 step 2: a challenge over the plan as shown, for the Session the cookie names
         challenge: string -> OrderPlan * OpenedToken * string option -> Async<SigningResponse>
+        // UC-3 step 3: the signature, for the Session the cookie names
+        submit: string -> Submission -> Async<SigningResponse>
     }
 
 

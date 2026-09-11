@@ -70,6 +70,7 @@ module StubAdapters =
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
+            submit = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
         }
 
 
@@ -628,6 +629,7 @@ module SessionStubTests =
                                 Base = (if no > 1 then Some $"plan-{no - 1}" else None)
                                 Scenarios = [||]
                                 Patient = Shared.Models.Patient.empty
+                                Verified = true
                             }
 
                         let record =
@@ -1889,6 +1891,7 @@ module SessionStubTests =
                     Base = (if no > 1 then Some $"plan-{no - 1}" else None)
                     Scenarios = [||]
                     Patient = stubPatient
+                    Verified = true
                 }
 
             let stateOf sessions records =
@@ -2254,6 +2257,388 @@ module SessionStubTests =
                 ]
 
 
+        let commitTests =
+            let minutes (n: float) = TimeSpan.FromMinutes n
+            let seconds (n: float) = TimeSpan.FromSeconds n
+            let stubPatient = Shared.Models.Patient.empty
+            let otherData = { stubPatient with Department = Some "ICU" }
+            let token sid = OpenedToken $"opened-{sid}"
+            let plan = OrderPlan.create stubPatient [||]
+
+            let userOf id role : UserContext =
+                {
+                    UserId = id
+                    DisplayName = id
+                    Role = role
+                }
+
+            let prescriber = userOf "prescriber" UserRole.Prescriber
+            let other = userOf "prescriber-b" UserRole.Prescriber
+
+            let session sid (user: UserContext) patientId openedWith =
+                sid,
+                ({
+                    Session =
+                        {
+                            User = Some user
+                            PatientContext =
+                                Some
+                                    {
+                                        PatientId = patientId
+                                        Patient = stubPatient
+                                    }
+                            OpenedToken = Some(token sid)
+                            KeyThumbprint = Some "t"
+                        }
+                    Login = Some user.UserId
+                    OpenedWith = openedWith
+                }
+                : Hop.SessionRecord)
+
+            let signedBy (user: UserContext) no (at: DateTime) : SignedOrderPlan =
+                {
+                    Head =
+                        {
+                            Id = $"plan-{no}"
+                            No = no
+                            By = user
+                            SignedAt = at
+                        }
+                    PatientId = "stub-patient"
+                    Base = (if no > 1 then Some $"plan-{no - 1}" else None)
+                    Scenarios = [||]
+                    Patient = stubPatient
+                    Verified = true
+                }
+
+            let challenged sid (at: DateTime) : string * Hop.Challenge =
+                sid,
+                {
+                    Nonce = $"c-{sid}"
+                    Patient = stubPatient
+                    Scenarios = [||]
+                    Verified = true
+                    Expiry = at + Hop.challengeLifetime
+                }
+
+            /// The registry as the stub has it, for the logins these tests use; `demoted` is a
+            /// Prescriber whose Role was withdrawn since the launch.
+            let registry (identity: BrowserIdentity) =
+                let standing role =
+                    Some
+                        {
+                            User =
+                                {
+                                    UserId = identity.Login
+                                    DisplayName = identity.DisplayName
+                                    Role = role
+                                }
+                            ActivePatientId = Some "stub-patient"
+                            MailAddress = $"{identity.Login}@stub.example"
+                        }
+
+                match identity.Login with
+                | "prescriber"
+                | "prescriber-b" -> standing UserRole.Prescriber
+                | "demoted" -> standing UserRole.Reader
+                | _ -> None
+
+            let outbox () =
+                let sent = ref []
+                (fun (m: Mail) -> sent.Value <- m :: sent.Value), sent
+
+            let stateOf sessions records challenges =
+                { seeded with
+                    Sessions = Map.ofList sessions
+                    Records = Map.ofList records
+                    Challenges = Map.ofList challenges
+                }
+
+            let submission sid pin key : Submission =
+                {
+                    Plan = plan
+                    Opened = token sid
+                    Challenge = $"c-{sid}"
+                    Pin = pin
+                    IdemKey = key
+                }
+
+            let submitAt now ids send state sid (s: Submission) =
+                Hop.commit now ids registry send sid s state
+
+            let submit state sid s =
+                submitAt t0 (counter "id") ignore state sid s
+
+            let opened = session "s-1" prescriber "stub-patient" None
+            let ready = stateOf [ opened ] [] [ challenged "s-1" t0 ]
+
+            testList
+                "Hop.commit"
+                [
+                    test
+                        "commits the version: head, base, by and patient from the Session, the plan from the challenge (Rules 33, 34, 42, 45)" {
+                        let ids = counter "id"
+
+                        let state, answer =
+                            submitAt t0 ids ignore ready "s-1" (submission "s-1" "1234" "k-1")
+
+                        match answer with
+                        | SigningResponse.Submitted(signed, fresh) ->
+                            signed.Head
+                            |> Expect.equal
+                                "head"
+                                {
+                                    Id = "id-1"
+                                    No = 1
+                                    By = prescriber
+                                    SignedAt = t0
+                                }
+
+                            signed.PatientId |> Expect.equal "the Session's patient" "stub-patient"
+                            signed.Base |> Expect.isNone "from nothing"
+                            signed.Verified |> Expect.isTrue "the challenge's reading"
+                            fresh |> Expect.equal "re-minted" (OpenedToken "opened-id-2")
+                            state.Records["stub-patient"] |> Expect.equal "appended" [ signed ]
+                            state.Challenges |> Expect.isEmpty "spent"
+                            state.Sessions["s-1"].OpenedWith |> Expect.equal "the new head" (Some "id-1")
+                            state.Sessions["s-1"].Session.OpenedToken |> Expect.equal "held" (Some fresh)
+                            state.Answered[("s-1", "k-1")] |> fst |> Expect.equal "remembered" answer
+                        | other -> failtest $"expected Submitted, got {other}"
+
+                        // a second version over the first, on a new challenge and the re-minted token
+                        let state =
+                            { state with Challenges = Map.ofList [ challenged "s-1" (t0 + minutes 1.0) ] }
+
+                        let again =
+                            { submission "s-1" "1234" "k-2" with
+                                Opened = state.Sessions["s-1"].Session.OpenedToken.Value
+                            }
+
+                        match submitAt (t0 + minutes 1.0) ids ignore state "s-1" again |> snd with
+                        | SigningResponse.Submitted(signed, _) ->
+                            signed.Head.No |> Expect.equal "second" 2
+                            signed.Base |> Expect.equal "over the first" (Some "id-1")
+                        | other -> failtest $"expected Submitted, got {other}"
+
+                        // the old token is stale once re-minted (Rule 34)
+                        let state = { state with Challenges = Map.ofList [ challenged "s-1" t0 ] }
+
+                        submitAt t0 ids ignore state "s-1" (submission "s-1" "1234" "k-3")
+                        |> snd
+                        |> Expect.equal "stale" (SigningResponse.Refused SigningRefusal.StaleToken)
+                    }
+
+                    test
+                        "the same key again: the same answer, nothing twice; a refusal too, without counting; another Session's key finds nothing (Rule 45)" {
+                        let ids = counter "id"
+
+                        let state, first =
+                            submitAt t0 ids ignore ready "s-1" (submission "s-1" "1234" "k-1")
+
+                        let state, again =
+                            submitAt (t0 + seconds 5.0) ids ignore state "s-1" (submission "s-1" "1234" "k-1")
+
+                        again |> Expect.equal "the first answer" first
+                        state.Records["stub-patient"] |> List.length |> Expect.equal "one version" 1
+
+                        let state, wrong = submit ready "s-1" (submission "s-1" "0000" "k-1")
+
+                        wrong
+                        |> Expect.equal "wrong" (SigningResponse.Refused(SigningRefusal.PinWrong 2))
+
+                        let state, wrongAgain = submit state "s-1" (submission "s-1" "0000" "k-1")
+                        wrongAgain |> Expect.equal "the same" wrong
+
+                        (Hop.credentialOf "prescriber" state).WrongCount
+                        |> Expect.equal "counted once" 1
+
+                        let s2 = session "s-2" other "stub-patient" None
+                        let state = { state with Sessions = state.Sessions |> Map.add (fst s2) (snd s2) }
+
+                        submit state "s-2" { submission "s-2" "1234" "k-1" with Challenge = "none" }
+                        |> snd
+                        |> Expect.equal "their own ladder" (SigningResponse.Refused SigningRefusal.ChallengeExpired)
+                    }
+
+                    test
+                        "refuses: no Session; the Role withdrawn or the registry silent (Rule 38); a stale token; the block (Rule 20), with the PIN never looked at" {
+                        submit ready "s-9" (submission "s-9" "1234" "k")
+                        |> snd
+                        |> Expect.equal "no session" (SigningResponse.Refused SigningRefusal.NoSession)
+
+                        let demoted =
+                            session "s-1" (userOf "demoted" UserRole.Prescriber) "stub-patient" None
+
+                        let state, answer =
+                            submit (stateOf [ demoted ] [] [ challenged "s-1" t0 ]) "s-1" (submission "s-1" "1234" "k")
+
+                        answer
+                        |> Expect.equal "not a prescriber" (SigningResponse.Refused SigningRefusal.NotPrescriber)
+
+                        state.Records |> Expect.isEmpty "nothing committed"
+
+                        let unknown = session "s-1" (userOf "gone" UserRole.Prescriber) "stub-patient" None
+
+                        submit (stateOf [ unknown ] [] [ challenged "s-1" t0 ]) "s-1" (submission "s-1" "1234" "k")
+                        |> snd
+                        |> Expect.equal "fails closed" (SigningResponse.Refused SigningRefusal.NotPrescriber)
+
+                        let byOther = signedBy other 1 t0
+
+                        let moved =
+                            stateOf [ opened ] [ "stub-patient", [ byOther ] ] [ challenged "s-1" t0 ]
+
+                        submit moved "s-1" { submission "s-1" "1234" "k" with Opened = OpenedToken "old" }
+                        |> snd
+                        |> Expect.equal "stale before the head" (SigningResponse.Refused SigningRefusal.StaleToken)
+
+                        let state, answer = submit moved "s-1" (submission "s-1" "0000" "k")
+
+                        answer
+                        |> Expect.equal "blocked" (SigningResponse.Refused(SigningRefusal.Blocked byOther.Head))
+
+                        (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "not counted" 0
+
+                        state.Challenges
+                        |> Map.containsKey "s-1"
+                        |> Expect.isTrue "the challenge stands"
+                    }
+
+                    test
+                        "refuses on the challenge: none, expired, another nonce, another plan (Rule 43), with the PIN never looked at" {
+                        submit (stateOf [ opened ] [] []) "s-1" (submission "s-1" "1234" "k")
+                        |> snd
+                        |> Expect.equal "none" (SigningResponse.Refused SigningRefusal.ChallengeExpired)
+
+                        submitAt (t0 + minutes 3.0) (counter "id") ignore ready "s-1" (submission "s-1" "1234" "k")
+                        |> snd
+                        |> Expect.equal "expired" (SigningResponse.Refused SigningRefusal.ChallengeExpired)
+
+                        submit ready "s-1" { submission "s-1" "1234" "k" with Challenge = "c-other" }
+                        |> snd
+                        |> Expect.equal "another nonce" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+
+                        let state, answer =
+                            submit
+                                ready
+                                "s-1"
+                                { submission "s-1" "0000" "k" with Plan = OrderPlan.create otherData [||] }
+
+                        answer
+                        |> Expect.equal "another plan" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+
+                        (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "not counted" 0
+                    }
+
+                    test
+                        "a wrong PIN counts and keeps the challenge; the third ends the Session, locks and mails (Rules 10, 27, 28)" {
+                        let send, sent = outbox ()
+
+                        let state, first =
+                            submitAt t0 (counter "id") send ready "s-1" (submission "s-1" "0000" "k-1")
+
+                        first
+                        |> Expect.equal "two left" (SigningResponse.Refused(SigningRefusal.PinWrong 2))
+
+                        state.Challenges
+                        |> Map.containsKey "s-1"
+                        |> Expect.isTrue "the challenge stands"
+
+                        match
+                            submitAt t0 (counter "id") send state "s-1" (submission "s-1" "1234" "k-2")
+                            |> snd
+                        with
+                        | SigningResponse.Submitted _ -> ()
+                        | other -> failtest $"expected Submitted on the same challenge, got {other}"
+
+                        let state, second =
+                            submitAt (t0 + seconds 10.0) (counter "id") send state "s-1" (submission "s-1" "0000" "k-2")
+
+                        second
+                        |> Expect.equal "one left" (SigningResponse.Refused(SigningRefusal.PinWrong 1))
+
+                        let state, third =
+                            submitAt (t0 + seconds 20.0) (counter "id") send state "s-1" (submission "s-1" "0000" "k-3")
+
+                        third
+                        |> Expect.equal "the limit" (SigningResponse.Refused SigningRefusal.PinLimit)
+
+                        state.Sessions |> Map.containsKey "s-1" |> Expect.isFalse "the Session is gone"
+
+                        state.Endings
+                        |> Map.tryFind "s-1"
+                        |> Option.map fst
+                        |> Expect.equal "marked" (Some SessionEnding.WrongPinLimit)
+
+                        state.Challenges |> Expect.isEmpty "the challenge is gone"
+                        let c = Hop.credentialOf "prescriber" state
+                        c.WrongCount |> Expect.equal "three" 3
+                        c.LockedUntil |> Expect.equal "a minute" (Some(t0 + seconds 20.0 + minutes 1.0))
+                        sent.Value |> List.length |> Expect.equal "one mail" 1
+
+                        sent.Value.Head.To
+                        |> Expect.equal "to the registry's address" "prescriber@stub.example"
+
+                        sent.Value.Head.Subject |> Expect.equal "subject" "GenPRES: signing is locked"
+                    }
+
+                    test
+                        "after a relaunch: a right PIN while locked is refused without counting, a wrong one pushes the lock out, and after the lock it signs" {
+                        let send, _ = outbox ()
+
+                        let locked, _ =
+                            [ "k-1"; "k-2"; "k-3" ]
+                            |> List.fold
+                                (fun (s, at) k ->
+                                    submitAt at (counter "id") send s "s-1" (submission "s-1" "0000" k) |> fst,
+                                    at + seconds 10.0
+                                )
+                                (ready, t0)
+
+                        let until = (Hop.credentialOf "prescriber" locked).LockedUntil.Value
+                        let s2 = session "s-2" prescriber "stub-patient" None
+
+                        let relaunched =
+                            { locked with
+                                Sessions = Map.ofList [ s2 ]
+                                Challenges = Map.ofList [ challenged "s-2" until ]
+                            }
+
+                        let inside = until - seconds 30.0
+
+                        let state, answer =
+                            submitAt inside (counter "id") send relaunched "s-2" (submission "s-2" "1234" "k-4")
+
+                        answer
+                        |> Expect.equal "locked" (SigningResponse.Refused(SigningRefusal.Locked until))
+
+                        (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "not counted" 3
+
+                        state.Sessions
+                        |> Map.containsKey "s-2"
+                        |> Expect.isTrue "this Session did nothing wrong"
+
+                        let state, pushed =
+                            submitAt inside (counter "id") send state "s-2" (submission "s-2" "0000" "k-5")
+
+                        pushed
+                        |> Expect.equal
+                            "locked longer"
+                            (SigningResponse.Refused(SigningRefusal.Locked(inside + minutes 2.0)))
+
+                        (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "counted" 4
+
+                        let later = inside + minutes 2.0
+                        let state = { state with Challenges = Map.ofList [ challenged "s-2" later ] }
+
+                        match submitAt later (counter "id") send state "s-2" (submission "s-2" "1234" "k-6") with
+                        | state, SigningResponse.Submitted _ ->
+                            (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "zeroed" 0
+                        | _, other -> failtest $"expected Submitted, got {other}"
+                    }
+                ]
+
+
         let tests =
             testList
                 "Hop"
@@ -2274,6 +2659,7 @@ module SessionStubTests =
                     supplyTests
                     dropTests
                     challengeTests
+                    commitTests
                 ]
 
 
@@ -3219,6 +3605,89 @@ module SessionStubTests =
                         | SigningResponse.ChallengeIssued nonce -> nonce |> Expect.isNotEmpty "issued"
                         | other -> failtest $"expected ChallengeIssued, got {other}"
                     | other -> failtest $"expected DataNotice, got {other}"
+                }
+
+                testAsync
+                    "Submit: the signature through the real hop; three wrong PINs end the Session and GetSession says so" {
+                    let directory, env = envWithStub ()
+                    let cookie, _ = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+
+                    let! _ =
+                        openVia
+                            directory
+                            env
+                            cookie
+                            stateCookie
+                            (noEnrolment ())
+                            (mintFor "n-1" "stub-patient")
+                            keyA
+                            "prescriber"
+
+                    let! opened = sessionOf env cookie
+
+                    let! challenge =
+                        async {
+                            match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                            | SigningResponse.ChallengeIssued nonce -> return nonce
+                            | other -> return failtest $"expected ChallengeIssued, got {other}"
+                        }
+
+                    let submission pin key : Submission =
+                        {
+                            Plan = OrderPlan.create Shared.Models.Patient.empty [||]
+                            Opened = opened.OpenedToken.Value
+                            Challenge = challenge
+                            Pin = pin
+                            IdemKey = key
+                        }
+
+                    match!
+                        CompositionRoot.processSigning env cookie (SigningCommand.Submit(submission "0000" "k-1"))
+                    with
+                    | SigningResponse.Refused(SigningRefusal.PinWrong 2) -> ()
+                    | other -> failtest $"expected PinWrong 2, got {other}"
+
+                    match!
+                        CompositionRoot.processSigning
+                            env
+                            cookie
+                            (SigningCommand.Submit(submission StubCredentials.stubPin "k-2"))
+                    with
+                    | SigningResponse.Submitted(signed, fresh) ->
+                        signed.Head.No |> Expect.equal "the first version" 1
+                        signed.Head.By.UserId |> Expect.equal "by the Session's user" "prescriber"
+                        fresh |> Expect.notEqual "re-minted" opened.OpenedToken.Value
+                    | other -> failtest $"expected Submitted, got {other}"
+
+                    // the ending: three wrong PINs on a fresh challenge and the re-minted token
+                    let! opened = sessionOf env cookie
+
+                    let! challenge =
+                        async {
+                            match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                            | SigningResponse.ChallengeIssued nonce -> return nonce
+                            | other -> return failtest $"expected ChallengeIssued, got {other}"
+                        }
+
+                    let wrong key =
+                        SigningCommand.Submit
+                            { submission "0000" key with
+                                Opened = opened.OpenedToken.Value
+                                Challenge = challenge
+                            }
+
+                    let! _ = CompositionRoot.processSigning env cookie (wrong "k-3")
+                    let! _ = CompositionRoot.processSigning env cookie (wrong "k-4")
+                    let! third = CompositionRoot.processSigning env cookie (wrong "k-5")
+
+                    third
+                    |> Expect.equal "the limit" (SigningResponse.Refused SigningRefusal.PinLimit)
+
+                    let! told = CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession
+
+                    told
+                    |> Expect.equal "told once" (SessionResponse.SessionEnded SessionEnding.WrongPinLimit)
                 }
 
                 testAsync "a Reader's Session is refused" {

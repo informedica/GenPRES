@@ -668,8 +668,8 @@ module Types =
 
     /// A signed version of an order plan, as the record holds it (the integration design's
     /// TreatmentPlan): the head, the patient, the version it was signed over (`Base`, `None`
-    /// for the first), the orders as shown at the signature and the patient data the User
-    /// saw (Rule 44).
+    /// for the first), the orders as shown at the signature, the patient data the User saw
+    /// and whether it was the platform's reading at the challenge (Rule 44).
     type SignedOrderPlan =
         {
             Head: OrderPlanHead
@@ -677,6 +677,7 @@ module Types =
             Base: string option
             Scenarios: OrderScenario[]
             Patient: Patient
+            Verified: bool
         }
 
 
@@ -746,6 +747,19 @@ module Types =
         }
 
 
+    /// uc-03 step 3: the plan as shown, the OpenedToken the Session holds (Rule 34), the
+    /// challenge it was issued (Rule 43), the PIN (Rule 23), and a key of the client's own so
+    /// that the commit takes effect once (Rule 45). Never logged.
+    type Submission =
+        {
+            Plan: OrderPlan
+            Opened: OpenedToken
+            Challenge: string
+            Pin: string
+            IdemKey: string
+        }
+
+
     /// The answer to a signing command. A payload like `LaunchOutcome`: the session port
     /// answers it, so it lives with the types, not the api.
     [<RequireQualifiedAccess>]
@@ -754,4 +768,6 @@ module Types =
         | ChallengeIssued of challenge: string
         // Rule 44: no challenge yet; the data as it stands, to show and to accept or not
         | DataNotice of DataNotice
+        // step 3: the version committed, and a fresh OpenedToken over it (Rule 34)
+        | Submitted of SignedOrderPlan * OpenedToken
         | Refused of SigningRefusal

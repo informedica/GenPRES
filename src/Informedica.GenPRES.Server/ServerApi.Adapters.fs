@@ -369,6 +369,12 @@ module Mails =
         $"Hello {displayName},\n\nA PIN was set for your GenPRES account just now. If that was not you, tell your administrator."
 
 
+    /// Rule 27: the third wrong PIN ended a Session and locked signing.
+    let pinLimit (displayName: string) : string * string =
+        "GenPRES: signing is locked",
+        $"Hello {displayName},\n\nThe PIN was entered wrong three times at a signature just now. Your session was ended and signing is locked for a while. If that was not you, tell your administrator."
+
+
 /// Launch steps 4 and 5 over server-hosted stubs (plan 605): the LaunchRecord keyed by the
 /// nonce (4.2), the redirect to the IdentityProvider, the callback (4.5) with the step-5 ladder,
 /// the Rule 45 replay and the Rule 40 single act with the Rule 8 closes; the credential half of
@@ -481,6 +487,8 @@ module Hop =
             Notices: Map<string, Notice>
             // UC-3: the live challenge per Session
             Challenges: Map<string, Challenge>
+            // UC-3, Rule 45: what a Submission was answered, by Session and by the client's key
+            Answered: Map<string * string, SigningResponse * DateTime>
         }
 
 
@@ -495,6 +503,7 @@ module Hop =
             Records = Map.empty
             Notices = Map.empty
             Challenges = Map.empty
+            Answered = Map.empty
         }
 
 
@@ -533,6 +542,7 @@ module Hop =
             Enrolments = state.Enrolments |> Map.filter (fun _ e -> codes |> Map.containsKey e.UserId)
             Notices = state.Notices |> Map.filter (fun _ n -> now <= n.Expiry)
             Challenges = state.Challenges |> Map.filter (fun _ c -> now <= c.Expiry)
+            Answered = state.Answered |> Map.filter (fun _ (_, at) -> now <= at + challengeLifetime)
         }
 
 
@@ -1016,6 +1026,155 @@ module Hop =
                             SigningResponse.ChallengeIssued nonce
 
 
+    /// uc-03 step 3, one act in the model's order (`dbCommit`): the Session with a User and a
+    /// Patient; the answer already given to this Session's key (Rule 45); the Role re-taken
+    /// from the registry (Rule 38, fails closed); the OpenedToken this Session holds (Rule 34);
+    /// the record not moved on (Rule 20); the challenge this Session was issued, over exactly
+    /// this plan (Rule 43); and last the PIN (Rules 23, 28), so that a Submission that was
+    /// never going to land costs no attempt. Then the version is appended, the challenge
+    /// spent, the OpenedToken re-minted over the new head, and the answer remembered under the
+    /// key, refusals too. Three wrong PINs end the Session (`WrongPinLimit`), lock signing and
+    /// mail the User (Rule 27); a wrong PIN while locked pushes the lock out; a right PIN while
+    /// locked is refused and counts nothing.
+    let commit
+        (now: DateTime)
+        (newId: unit -> string)
+        (standing: BrowserIdentity -> UserStanding option)
+        (send: Mail -> unit)
+        (sid: string)
+        (submission: Submission)
+        (state: State)
+        : State * SigningResponse
+        =
+        let state = dropExpired now state
+        let refuse refusal = state, SigningResponse.Refused refusal
+
+        match state.Sessions |> Map.tryFind sid with
+        | None -> refuse SigningRefusal.NoSession
+        | Some record ->
+            match record.Session.User, record.Session.PatientContext with
+            | None, _ -> refuse SigningRefusal.NotPrescriber
+            | Some _, None -> refuse SigningRefusal.NoPatient
+            | Some user, Some patient ->
+                match state.Answered |> Map.tryFind (sid, submission.IdemKey) with
+                | Some(answer, _) -> state, answer
+                | None ->
+                    // the answer is remembered from here on, under this Session and the key
+                    let remember (state: State) answer =
+                        { state with Answered = state.Answered |> Map.add (sid, submission.IdemKey) (answer, now) },
+                        answer
+
+                    let refuse refusal =
+                        remember state (SigningResponse.Refused refusal)
+
+                    let identity =
+                        {
+                            Login = record.Login |> Option.defaultValue user.UserId
+                            DisplayName = user.DisplayName
+                        }
+
+                    match standing identity with
+                    | Some fresh when fresh.User.Role = UserRole.Prescriber ->
+                        if record.Session.OpenedToken <> Some submission.Opened then
+                            refuse SigningRefusal.StaleToken
+                        else
+                            match blockedBy record patient.PatientId state with
+                            | Some head -> refuse (SigningRefusal.Blocked head)
+                            | None ->
+                                match state.Challenges |> Map.tryFind sid with
+                                | None -> refuse SigningRefusal.ChallengeExpired
+                                | Some challenge when
+                                    challenge.Nonce <> submission.Challenge
+                                    || challenge.Patient <> submission.Plan.Patient
+                                    || challenge.Scenarios <> submission.Plan.Scenarios
+                                    ->
+                                    refuse SigningRefusal.ChallengeMismatch
+                                | Some challenge ->
+                                    let credential = credentialOf user.UserId state
+                                    let wasLocked = Credential.isLocked now credential
+                                    let right, credential = Credential.verify now submission.Pin credential
+
+                                    let state =
+                                        { state with Credentials = state.Credentials |> Map.add user.UserId credential }
+
+                                    if right then
+                                        let id = newId ()
+
+                                        let plan =
+                                            {
+                                                Head =
+                                                    {
+                                                        Id = id
+                                                        No =
+                                                            1
+                                                            + (state.Records
+                                                               |> Map.tryFind patient.PatientId
+                                                               |> Option.map List.length
+                                                               |> Option.defaultValue 0)
+                                                        By = user
+                                                        SignedAt = now
+                                                    }
+                                                PatientId = patient.PatientId
+                                                Base = record.OpenedWith
+                                                Scenarios = challenge.Scenarios
+                                                Patient = challenge.Patient
+                                                Verified = challenge.Verified
+                                            }
+
+                                        let token = OpenedToken $"opened-{newId ()}"
+
+                                        let opened =
+                                            { record with
+                                                Session = { record.Session with OpenedToken = Some token }
+                                                OpenedWith = Some id
+                                            }
+
+                                        remember
+                                            { state with
+                                                Records =
+                                                    state.Records
+                                                    |> Map.change
+                                                        patient.PatientId
+                                                        (fun versions ->
+                                                            Some(plan :: (versions |> Option.defaultValue []))
+                                                        )
+                                                Challenges = state.Challenges |> Map.remove sid
+                                                Sessions = state.Sessions |> Map.add sid opened
+                                            }
+                                            (SigningResponse.Submitted(plan, token))
+                                    elif wasLocked then
+                                        // this Session did nothing wrong; the lock is the credential's
+                                        remember
+                                            state
+                                            (SigningResponse.Refused(SigningRefusal.Locked credential.LockedUntil.Value))
+                                    elif credential |> Credential.attemptsLeft = 0 then
+                                        // Rule 28: the limit is reached now; the Session ends (Rule 10)
+                                        let subject, body = Mails.pinLimit user.DisplayName
+
+                                        send
+                                            {
+                                                To = fresh.MailAddress
+                                                Subject = subject
+                                                Body = body
+                                            }
+
+                                        remember
+                                            { state with
+                                                Sessions = state.Sessions |> Map.remove sid
+                                                Endings =
+                                                    state.Endings |> Map.add sid (SessionEnding.WrongPinLimit, now)
+                                                Challenges = state.Challenges |> Map.remove sid
+                                            }
+                                            (SigningResponse.Refused SigningRefusal.PinLimit)
+                                    else
+                                        remember
+                                            state
+                                            (SigningResponse.Refused(
+                                                SigningRefusal.PinWrong(credential |> Credential.attemptsLeft)
+                                            ))
+                    | _ -> refuse SigningRefusal.NotPrescriber
+
+
     /// Six digits from a random source (the CSPRNG in the host).
     let newCode (randomBelow: int -> int) () = (randomBelow 1_000_000).ToString "D6"
 
@@ -1098,6 +1257,11 @@ module Hop =
             challenge =
                 fun sid request ->
                     async { return update (fun s -> challenge (now ()) newId patientData.read sid request s) }
+            submit =
+                fun sid submission ->
+                    async {
+                        return update (fun s -> commit (now ()) newId registry.standing mail.send sid submission s)
+                    }
         }
 
 
@@ -1571,6 +1735,7 @@ module Adapters =
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
+            submit = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
         }
 
 
