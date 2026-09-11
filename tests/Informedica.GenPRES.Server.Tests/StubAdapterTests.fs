@@ -69,6 +69,7 @@ module StubAdapters =
             findEnrolment = fun _ -> async { return None }
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
+            challenge = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
         }
 
 
@@ -1834,6 +1835,392 @@ module SessionStubTests =
                 ]
 
 
+        let challengeTests =
+            let minutes (n: float) = TimeSpan.FromMinutes n
+            let seconds (n: float) = TimeSpan.FromSeconds n
+            let stubPatient = Shared.Models.Patient.empty
+            let otherData = { stubPatient with Department = Some "ICU" }
+            let token sid = OpenedToken $"opened-{sid}"
+
+            let userOf id role : UserContext =
+                {
+                    UserId = id
+                    DisplayName = id
+                    Role = role
+                }
+
+            let prescriber = userOf "prescriber" UserRole.Prescriber
+            let other = userOf "prescriber-b" UserRole.Prescriber
+            let reader = userOf "reader" UserRole.Reader
+
+            /// A Session as the store holds it after an open.
+            let session sid (user: UserContext option) (patient: (string * Patient) option) openedWith =
+                sid,
+                ({
+                    Session =
+                        {
+                            User = user
+                            PatientContext =
+                                patient
+                                |> Option.map (fun (pid, data) ->
+                                    {
+                                        PatientId = pid
+                                        Patient = data
+                                    }
+                                )
+                            OpenedToken = Some(token sid)
+                            KeyThumbprint = Some "t"
+                        }
+                    Login = user |> Option.map _.UserId
+                    OpenedWith = openedWith
+                }
+                : Hop.SessionRecord)
+
+            let signedBy (user: UserContext) no (at: DateTime) : SignedOrderPlan =
+                {
+                    Head =
+                        {
+                            Id = $"plan-{no}"
+                            No = no
+                            By = user
+                            SignedAt = at
+                        }
+                    PatientId = "stub-patient"
+                    Base = (if no > 1 then Some $"plan-{no - 1}" else None)
+                    Scenarios = [||]
+                    Patient = stubPatient
+                }
+
+            let stateOf sessions records =
+                { seeded with
+                    Sessions = Map.ofList sessions
+                    Records = Map.ofList records
+                }
+
+            let plan = OrderPlan.create stubPatient [||]
+
+            let opened =
+                session "s-1" (Some prescriber) (Some("stub-patient", stubPatient)) None
+
+            let ask now nonces state sid (plan, opened) =
+                Hop.challenge now nonces StubPatientData.port.read sid (plan, opened, None) state
+
+            let askWith notice now nonces state sid (plan, opened) =
+                Hop.challenge now nonces StubPatientData.port.read sid (plan, opened, Some notice) state
+
+            testList
+                "Hop.challenge"
+                [
+                    test "refuses: no Session, the anonymous Session, no Patient, other patient data (Rule 33)" {
+                        stateOf [] [] |> ask t0 (counter "n") <| "s-9" <| (plan, token "s-9")
+                        |> snd
+                        |> Expect.equal "no session" (SigningResponse.Refused SigningRefusal.NoSession)
+
+                        stateOf [ session "s-1" None None None ] [] |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (plan, token "s-1")
+                        |> snd
+                        |> Expect.equal "nobody to sign as" (SigningResponse.Refused SigningRefusal.NotPrescriber)
+
+                        stateOf [ session "s-1" (Some prescriber) None None ] [] |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (plan, token "s-1")
+                        |> snd
+                        |> Expect.equal "no patient" (SigningResponse.Refused SigningRefusal.NoPatient)
+
+                        stateOf [ opened ] [] |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (OrderPlan.create otherData [||], token "s-1")
+                        |> snd
+                        |> Expect.equal "other data" (SigningResponse.Refused SigningRefusal.NoPatient)
+                    }
+
+                    test "refuses a Reader (Rule 26) before the token is looked at, and a stale token (Rule 34)" {
+                        stateOf
+                            [
+                                session "s-1" (Some reader) (Some("stub-patient", stubPatient)) None
+                            ]
+                            []
+                        |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (plan, token "stale")
+                        |> snd
+                        |> Expect.equal "not a prescriber" (SigningResponse.Refused SigningRefusal.NotPrescriber)
+
+                        stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (plan, token "s-2")
+                        |> snd
+                        |> Expect.equal "stale" (SigningResponse.Refused SigningRefusal.StaleToken)
+                    }
+
+                    test
+                        "changed or unreadable data is a notice, not a refusal (Rule 44), after the token and before the block" {
+                        let state, answer =
+                            stateOf
+                                [
+                                    session "s-1" (Some prescriber) (Some("stub-patient", otherData)) None
+                                ]
+                                []
+                            |> ask t0 (counter "n")
+                            <| "s-1"
+                            <| (OrderPlan.create otherData [||], token "s-1")
+
+                        answer
+                        |> Expect.equal
+                            "changed: told"
+                            (SigningResponse.DataNotice
+                                {
+                                    Data = Some stubPatient
+                                    Token = "n-1"
+                                })
+
+                        state.Challenges |> Expect.isEmpty "no challenge yet"
+
+                        state.Notices["s-1"]
+                        |> Expect.equal
+                            "stored"
+                            {
+                                Nonce = "n-1"
+                                Data = Some stubPatient
+                                Expiry = t0 + minutes 2.0
+                            }
+
+                        stateOf
+                            [
+                                session "s-1" (Some prescriber) (Some("no-data", stubPatient)) None
+                            ]
+                            []
+                        |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (plan, token "s-1")
+                        |> snd
+                        |> Expect.equal
+                            "unreadable: unverified"
+                            (SigningResponse.DataNotice
+                                {
+                                    Data = None
+                                    Token = "n-1"
+                                })
+
+                        stateOf
+                            [
+                                session "s-1" (Some prescriber) (Some("no-data", stubPatient)) None
+                            ]
+                            [ "no-data", [ signedBy other 1 t0 ] ]
+                        |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (plan, token "s-1")
+                        |> snd
+                        |> Expect.equal
+                            "before the block"
+                            (SigningResponse.DataNotice
+                                {
+                                    Data = None
+                                    Token = "n-1"
+                                })
+
+                        stateOf
+                            [
+                                session "s-1" (Some prescriber) (Some("no-data", stubPatient)) None
+                            ]
+                            []
+                        |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (plan, token "stale")
+                        |> snd
+                        |> Expect.equal "after the token" (SigningResponse.Refused SigningRefusal.StaleToken)
+                    }
+
+                    test
+                        "an accepted notice: the challenge over the data as it stands, unverified when unreadable (Rule 44)" {
+                        let nonces = counter "n"
+                        let changed = session "s-1" (Some prescriber) (Some("stub-patient", otherData)) None
+
+                        let state, _ =
+                            stateOf [ changed ] [] |> ask t0 nonces
+                            <| "s-1"
+                            <| (OrderPlan.create otherData [||], token "s-1")
+
+                        askWith
+                            "n-1"
+                            (t0 + seconds 5.0)
+                            nonces
+                            state
+                            "s-1"
+                            (OrderPlan.create otherData [||], token "s-1")
+                        |> snd
+                        |> Expect.equal "not over the data told" (SigningResponse.Refused SigningRefusal.NoPatient)
+
+                        let state, answer =
+                            askWith "n-1" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
+
+                        answer |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-2")
+                        state.Challenges["s-1"].Verified |> Expect.isTrue "the platform's reading"
+                        state.Challenges["s-1"].Patient |> Expect.equal "over the data told" stubPatient
+                        state.Notices |> Expect.isEmpty "the notice is spent"
+
+                        let unreadable = session "s-2" (Some prescriber) (Some("no-data", stubPatient)) None
+
+                        let state, _ =
+                            stateOf [ unreadable ] [] |> ask t0 nonces <| "s-2" <| (plan, token "s-2")
+
+                        let state, answer =
+                            askWith "n-3" (t0 + seconds 5.0) nonces state "s-2" (plan, token "s-2")
+
+                        answer
+                        |> Expect.equal "issued unverified" (SigningResponse.ChallengeIssued "n-4")
+
+                        state.Challenges["s-2"].Verified |> Expect.isFalse "unverified"
+                    }
+
+                    test "a wrong, spent, expired or unfitting notice token is a fresh notice, never a refusal" {
+                        let nonces = counter "n"
+                        let changed = session "s-1" (Some prescriber) (Some("stub-patient", otherData)) None
+
+                        let state, _ =
+                            stateOf [ changed ] [] |> ask t0 nonces <| "s-1" <| (plan, token "s-1")
+
+                        askWith "n-9" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
+                        |> snd
+                        |> Expect.equal
+                            "wrong"
+                            (SigningResponse.DataNotice
+                                {
+                                    Data = Some stubPatient
+                                    Token = "n-2"
+                                })
+
+                        askWith "n-1" (t0 + minutes 3.0) nonces state "s-1" (plan, token "s-1")
+                        |> snd
+                        |> Expect.equal
+                            "expired"
+                            (SigningResponse.DataNotice
+                                {
+                                    Data = Some stubPatient
+                                    Token = "n-3"
+                                })
+
+                        let spent, _ =
+                            askWith "n-1" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
+
+                        askWith "n-1" (t0 + seconds 10.0) nonces spent "s-1" (plan, token "s-1")
+                        |> snd
+                        |> Expect.equal
+                            "spent"
+                            (SigningResponse.DataNotice
+                                {
+                                    Data = Some stubPatient
+                                    Token = "n-5"
+                                })
+
+                        // a notice over another reading than the platform's now does not fit
+                        let other =
+                            { state with
+                                Notices = state.Notices |> Map.add "s-1" { state.Notices["s-1"] with Data = None }
+                            }
+
+                        askWith "n-1" (t0 + seconds 5.0) nonces other "s-1" (plan, token "s-1")
+                        |> snd
+                        |> Expect.equal
+                            "unfitting"
+                            (SigningResponse.DataNotice
+                                {
+                                    Data = Some stubPatient
+                                    Token = "n-6"
+                                })
+                    }
+
+                    test "refuses when the record moved on (Rule 20): whose version, and when" {
+                        let byOther = signedBy other 1 (t0 - minutes 5.0)
+
+                        stateOf [ opened ] [ "stub-patient", [ byOther ] ] |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (plan, token "s-1")
+                        |> snd
+                        |> Expect.equal
+                            "opened from nothing"
+                            (SigningResponse.Refused(SigningRefusal.Blocked byOther.Head))
+
+                        let v2 = signedBy other 2 (t0 - minutes 1.0)
+
+                        stateOf
+                            [
+                                session "s-1" (Some prescriber) (Some("stub-patient", stubPatient)) (Some "plan-1")
+                            ]
+                            [
+                                "stub-patient", [ v2; signedBy prescriber 1 (t0 - minutes 5.0) ]
+                            ]
+                        |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (plan, token "s-1")
+                        |> snd
+                        |> Expect.equal "opened with v1" (SigningResponse.Refused(SigningRefusal.Blocked v2.Head))
+
+                        stateOf
+                            [
+                                session "s-1" (Some prescriber) (Some("stub-patient", stubPatient)) (Some "plan-1")
+                            ]
+                            [ "stub-patient", [ signedBy other 1 (t0 - minutes 5.0) ] ]
+                        |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (plan, token "s-1")
+                        |> snd
+                        |> Expect.equal "opened with the head" (SigningResponse.ChallengeIssued "n-1")
+                    }
+
+                    test
+                        "a refusal stores nothing; an issue stores the challenge over this plan for two minutes (Rules 43, 44)" {
+                        let refused, _ =
+                            stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (plan, token "s-2")
+
+                        refused.Challenges |> Expect.isEmpty "nothing stored"
+
+                        let state, answer =
+                            stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (plan, token "s-1")
+
+                        answer |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
+
+                        state.Challenges["s-1"]
+                        |> Expect.equal
+                            "stored"
+                            {
+                                Nonce = "n-1"
+                                Patient = stubPatient
+                                Scenarios = [||]
+                                Verified = true
+                                Expiry = t0 + minutes 2.0
+                            }
+                    }
+
+                    test
+                        "a second request replaces the Session's challenge, another Session has its own, and both go after two minutes" {
+                        let nonces = counter "n"
+                        let s2 = session "s-2" (Some other) (Some("stub-patient", stubPatient)) None
+
+                        let state, _ =
+                            stateOf [ opened; s2 ] [] |> ask t0 nonces <| "s-1" <| (plan, token "s-1")
+
+                        let state, again = ask (t0 + seconds 10.0) nonces state "s-1" (plan, token "s-1")
+                        let state, theirs = ask (t0 + seconds 20.0) nonces state "s-2" (plan, token "s-2")
+
+                        again |> Expect.equal "replaced" (SigningResponse.ChallengeIssued "n-2")
+                        theirs |> Expect.equal "their own" (SigningResponse.ChallengeIssued "n-3")
+                        state.Challenges |> Map.count |> Expect.equal "one per Session" 2
+
+                        let state, _ =
+                            ask (t0 + seconds 10.0 + minutes 2.0) nonces state "s-2" (plan, token "s-2")
+
+                        state.Challenges
+                        |> Map.containsKey "s-1"
+                        |> Expect.isTrue "s-1 still there at two minutes"
+
+                        let state, _ =
+                            ask (t0 + seconds 11.0 + minutes 2.0) nonces state "s-2" (plan, token "s-2")
+
+                        state.Challenges |> Map.containsKey "s-1" |> Expect.isFalse "gone after"
+                    }
+                ]
+
+
         let tests =
             testList
                 "Hop"
@@ -1853,6 +2240,7 @@ module SessionStubTests =
                     findTests
                     supplyTests
                     dropTests
+                    challengeTests
                 ]
 
 
@@ -1926,7 +2314,10 @@ module SessionStubTests =
 
     /// Runs the whole hop for `choice`: present, the stub IdentityProvider, the callback.
     /// Returns the redirect the callback answered with.
-    let openVia
+    /// The whole hop for `choice`, the stub IdentityProvider issuing its code for `patientId`
+    /// (the launch page's PatientId, which the Launch must name too).
+    let openViaFor
+        (patientId: string)
         (directory: StubDirectory.Directory)
         env
         (cookie: SessionCookie)
@@ -1956,13 +2347,18 @@ module SessionStubTests =
                         {
                             State = state
                             StateCookie = None
-                            Code = Some(directory.issue choice "stub-patient")
+                            Code = Some(directory.issue choice patientId)
                             Error = None
                         }
 
                 return! CompositionRoot.processCallback env cookie stateCookie enrolment cb
             | other -> return failtest $"expected RedirectTo, got {other}"
         }
+
+
+    /// The whole hop for the stub patient.
+    let openVia directory env cookie stateCookie enrolment launch key choice =
+        openViaFor "stub-patient" directory env cookie stateCookie enrolment launch key choice
 
 
     /// A fresh sealed Launch under `nonce` for the stub patient.
@@ -2678,6 +3074,174 @@ module SessionStubTests =
             ]
 
 
+    let signingCompositionTests =
+        /// The Session the cookie names, as the client holds it.
+        let sessionOf env cookie =
+            async {
+                match! CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession with
+                | SessionResponse.SessionResp(Some opened) -> return opened
+                | other -> return failtest $"expected an open Session, got {other}"
+            }
+
+        let challengeOver (opened: SessionOpened) =
+            let patient =
+                opened.PatientContext
+                |> Option.map _.Patient
+                |> Option.defaultValue Shared.Models.Patient.empty
+
+            SigningCommand.RequestSignChallenge(OrderPlan.create patient [||], opened.OpenedToken.Value, None)
+
+        testList
+            "processSigning"
+            [
+                testAsync "without a cookie: refused, the port never asked" {
+                    let _, env = envWithStub ()
+                    let cookie, _ = memoryCookie None
+
+                    let! answer =
+                        CompositionRoot.processSigning
+                            env
+                            cookie
+                            (SigningCommand.RequestSignChallenge(
+                                OrderPlan.create Shared.Models.Patient.empty [||],
+                                OpenedToken "x",
+                                None
+                            ))
+
+                    answer
+                    |> Expect.equal "no session" (SigningResponse.Refused SigningRefusal.NoSession)
+                }
+
+                testAsync
+                    "a Prescriber's Session: the challenge is issued over the plan as shown; the cookie is untouched" {
+                    let directory, env = envWithStub ()
+                    let cookie, held = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+
+                    let! _ =
+                        openVia
+                            directory
+                            env
+                            cookie
+                            stateCookie
+                            (noEnrolment ())
+                            (mintFor "n-1" "stub-patient")
+                            keyA
+                            "prescriber"
+
+                    let! opened = sessionOf env cookie
+                    let! answer = CompositionRoot.processSigning env cookie (challengeOver opened)
+
+                    match answer with
+                    | SigningResponse.ChallengeIssued nonce -> nonce |> Expect.isNotEmpty "a nonce"
+                    | other -> failtest $"expected ChallengeIssued, got {other}"
+
+                    held.Value |> Expect.isSome "cookie kept"
+
+                    let! stale =
+                        CompositionRoot.processSigning
+                            env
+                            cookie
+                            (SigningCommand.RequestSignChallenge(
+                                OrderPlan.create Shared.Models.Patient.empty [||],
+                                OpenedToken "stale",
+                                None
+                            ))
+
+                    stale
+                    |> Expect.equal "stale token" (SigningResponse.Refused SigningRefusal.StaleToken)
+                }
+
+                testAsync "a Prescriber over the no-data patient: a notice, then the challenge, unverified" {
+                    let directory, env = envWithStub ()
+                    let cookie, _ = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+
+                    let! _ =
+                        openViaFor
+                            "no-data"
+                            directory
+                            env
+                            cookie
+                            stateCookie
+                            (noEnrolment ())
+                            (mintFor "n-1" "no-data")
+                            keyA
+                            "prescriber"
+
+                    let! opened = sessionOf env cookie
+
+                    match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                    | SigningResponse.DataNotice notice ->
+                        notice.Data |> Expect.isNone "unreadable"
+
+                        let accepted =
+                            SigningCommand.RequestSignChallenge(
+                                OrderPlan.create Shared.Models.Patient.empty [||],
+                                opened.OpenedToken.Value,
+                                Some notice.Token
+                            )
+
+                        match! CompositionRoot.processSigning env cookie accepted with
+                        | SigningResponse.ChallengeIssued nonce -> nonce |> Expect.isNotEmpty "issued"
+                        | other -> failtest $"expected ChallengeIssued, got {other}"
+                    | other -> failtest $"expected DataNotice, got {other}"
+                }
+
+                testAsync "a Reader's Session is refused" {
+                    let directory, env = envWithStub ()
+                    let cookie, _ = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+
+                    let! _ =
+                        openVia
+                            directory
+                            env
+                            cookie
+                            stateCookie
+                            (noEnrolment ())
+                            (mintFor "n-1" "stub-patient")
+                            keyA
+                            "reader"
+
+                    let! opened = sessionOf env cookie
+                    let! answer = CompositionRoot.processSigning env cookie (challengeOver opened)
+
+                    answer
+                    |> Expect.equal "not a prescriber" (SigningResponse.Refused SigningRefusal.NotPrescriber)
+                }
+
+                testAsync "the production port refuses whatever the cookie says" {
+                    let _, env = envWithStub ()
+                    let env = { env with session = Adapters.sessionDisabled }
+                    let cookie, _ = memoryCookie (Some "s-1")
+
+                    let! answer =
+                        CompositionRoot.processSigning
+                            env
+                            cookie
+                            (SigningCommand.RequestSignChallenge(
+                                OrderPlan.create Shared.Models.Patient.empty [||],
+                                OpenedToken "opened-s-1",
+                                None
+                            ))
+
+                    answer
+                    |> Expect.equal "refused" (SigningResponse.Refused SigningRefusal.NoSession)
+                }
+
+                test "the log never sees the plan" {
+                    SigningCommand.RequestSignChallenge(
+                        OrderPlan.create Shared.Models.Patient.empty [||],
+                        OpenedToken "x",
+                        None
+                    )
+                    |> SigningCommand.toString
+                    |> Expect.equal "name only" "RequestSignChallenge"
+                }
+            ]
+
+
     let tests =
         testList
             "Session"
@@ -2688,6 +3252,7 @@ module SessionStubTests =
                 stubLaunchTests
                 compositionTests
                 enrolmentCompositionTests
+                signingCompositionTests
             ]
 
 

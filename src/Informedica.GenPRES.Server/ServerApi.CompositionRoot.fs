@@ -122,6 +122,19 @@ module CompositionRoot =
         }
 
 
+    /// A signing command for the Session the cookie names (uc-03 step 2). No cookie, no
+    /// Session: refused before the port is asked. Writes no cookie.
+    let processSigning (env: AppEnv) (cookie: SessionCookie) (cmd: SigningCommand) =
+        async {
+            match cookie.read () with
+            | None -> return SigningResponse.Refused SigningRefusal.NoSession
+            | Some id ->
+                match cmd with
+                | SigningCommand.RequestSignChallenge(plan, opened, notice) ->
+                    return! env.session.challenge id (plan, opened, notice)
+        }
+
+
     /// The api of one request: the settings and the env are built once per host, the cookie
     /// once per request.
     let compose
@@ -161,6 +174,15 @@ module CompositionRoot =
                         writeInfoMessage $"Processing session: {cmd |> SessionCommand.toString}"
                         let! response = processSession env cookie enrolment cmd
                         writeInfoMessage $"Finished processing session: {cmd |> SessionCommand.toString}"
+                        return response
+                    }
+
+            processSigning =
+                fun cmd ->
+                    async {
+                        writeInfoMessage $"Processing signing: {cmd |> SigningCommand.toString}"
+                        let! response = processSigning env cookie cmd
+                        writeInfoMessage $"Finished processing signing: {cmd |> SigningCommand.toString}"
                         return response
                     }
 
