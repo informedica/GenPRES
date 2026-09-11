@@ -657,7 +657,7 @@ module SessionMachineTests =
                          ])
                 }
 
-                test "MovedOn.receive: news once per version, a newer version replaces the kept one (Rules 21, 22)" {
+                test "MovedOn.receive: news once per version, ordered by No, not by arrival (Rules 20 to 22)" {
                     let first = head.Head
 
                     let second =
@@ -674,8 +674,26 @@ module SessionMachineTests =
                     MovedOn.receive (Some first) second
                     |> Expect.equal "newer: news" (Some second, true)
 
+                    // replies land out of order: an older version told last is not news and is not kept
                     MovedOn.receive (Some second) first
-                    |> Expect.equal "another id: news too" (Some first, true)
+                    |> Expect.equal "older: nothing" (Some second, false)
+                }
+
+                test "MovedOn.opened: the notice is spent by a version at least as new, a newer notice stays" {
+                    let two = head.Head
+
+                    let three =
+                        { two with
+                            Id = "plan-3"
+                            No = 3
+                        }
+
+                    MovedOn.opened (Some two) two |> Expect.isNone "the version told is open"
+                    MovedOn.opened (Some two) three |> Expect.isNone "a newer one is open"
+                    MovedOn.opened None two |> Expect.isNone "nothing kept"
+
+                    MovedOn.opened (Some three) two
+                    |> Expect.equal "version 3 told while 2 was opening: the offer stays" (Some three)
                 }
 
                 test "Reopened with nothing to open, or a transport failure, leaves the Session as it was" {

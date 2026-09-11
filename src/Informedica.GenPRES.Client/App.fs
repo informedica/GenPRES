@@ -127,7 +127,16 @@ module private Elmish =
         | LoadLogAnalysisResult of ApiResponse
 
 
-    and ApiResponse = AsyncOperationStatus<Result<Api.Reply, string[]>>
+    and ApiResponse = AsyncOperationStatus<Result<Answer, string[]>>
+
+    /// A computing reply with the OpenedToken the request started from, so that what the reply
+    /// tells about the Session (Rules 11, 21) lands only on the Session that asked: a request
+    /// of a Session since closed or replaced must not end or warn the current one.
+    and Answer =
+        {
+            From: OpenedToken option
+            Reply: Api.Reply
+        }
 
 
     let serverApi =
@@ -177,7 +186,16 @@ module private Elmish =
                     : Api.Request
                 )
 
-            return Finished result |> msg
+            return
+                result
+                |> Result.map (fun reply ->
+                    {
+                        From = opened
+                        Reply = reply
+                    }
+                )
+                |> Finished
+                |> msg
         }
         |> Cmd.fromAsync
 
@@ -239,15 +257,24 @@ module private Elmish =
 
 
     /// The result, and what the Session is told with it: the record moved on (Rules 21, 22) or
-    /// the Session ended (Rule 11), each as its own message so the machines decide.
-    let processApiMsg (state: State) (reply: Api.Reply) =
+    /// the Session ended (Rule 11), each as its own message so the machines decide. The
+    /// stale-request guard: the notice counts only when the request started from the token the
+    /// open Session holds now; a reply of a Session since closed, replaced or re-minted says
+    /// nothing about this one (the next request repeats what still holds, Rule 21 is stateless).
+    let processApiMsg (state: State) (answer: Answer) =
+        let current =
+            match state.Session with
+            | Session.Open opened -> Some opened.OpenedToken
+            | _ -> None
+
         let told =
-            match reply.Notice with
+            match answer.Reply.Notice with
+            | Some _ when current <> Some answer.From -> Cmd.none
             | Some(RecordNotice.NewerVersion head) -> Cmd.ofMsg (RecordMovedOn head)
             | Some(RecordNotice.Ended ending) -> Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
             | None -> Cmd.none
 
-        let state, cmd = processResponse state reply.Response
+        let state, cmd = processResponse state answer.Reply.Response
         state, Cmd.batch [ cmd; told ]
 
 
@@ -1156,7 +1183,8 @@ module private Elmish =
                                 SnackbarOpen = true
                                 SnackbarSeverity = "success"
                             },
-                            None
+                            // a newer notice told meanwhile stays, with its offer
+                            MovedOn.opened movedOn head
                         | _ -> state, movedOn
                     )
                     (state, movedOn)
