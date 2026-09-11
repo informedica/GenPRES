@@ -645,6 +645,7 @@ module SessionStubTests =
                             |> Expect.equal "thumbprint" (Some(PublicKey.thumbprint keyA))
 
                             record.OpenedWith |> Expect.isNone "opened from nothing (Rule 19)"
+                            record.Session.Head |> Expect.isNone "no version to load"
                             state.Launches["n-1"].Outcome |> Expect.isSome "outcome appended"
                         | other -> failtest $"expected Opened, got {other}"
                     }
@@ -695,6 +696,9 @@ module SessionStubTests =
                         match result with
                         | CallbackResult.Opened(id, _) ->
                             state.Sessions[id].OpenedWith |> Expect.equal "the head at open" (Some "plan-2")
+
+                            state.Sessions[id].Session.Head
+                            |> Expect.equal "the version itself, for the cart" (Some(signedAs "prescriber-b" 2))
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -1931,6 +1935,7 @@ module SessionStubTests =
                                 )
                             OpenedToken = Some(OpenedToken $"opened-{sid}")
                             KeyThumbprint = Some "t"
+                            Head = None
                         }
                     Login = user |> Option.map _.UserId
                     OpenedWith = openedWith
@@ -2098,6 +2103,7 @@ module SessionStubTests =
                                 )
                             OpenedToken = Some(token sid)
                             KeyThumbprint = Some "t"
+                            Head = None
                         }
                     Login = user |> Option.map _.UserId
                     OpenedWith = openedWith
@@ -2528,6 +2534,7 @@ module SessionStubTests =
                                     }
                             OpenedToken = Some(token sid)
                             KeyThumbprint = Some "t"
+                            Head = None
                         }
                     Login = Some user.UserId
                     OpenedWith = openedWith
@@ -2642,6 +2649,10 @@ module SessionStubTests =
                             state.Challenges |> Expect.isEmpty "spent"
                             state.Sessions["s-1"].OpenedWith |> Expect.equal "the new head" (Some "id-1")
                             state.Sessions["s-1"].Session.OpenedToken |> Expect.equal "held" (Some fresh)
+
+                            state.Sessions["s-1"].Session.Head
+                            |> Expect.equal "a resume opens on the version just signed" (Some signed)
+
                             state.Answered[("s-1", "k-1")] |> fst |> Expect.equal "remembered" answer
                         | other -> failtest $"expected Submitted, got {other}"
 
