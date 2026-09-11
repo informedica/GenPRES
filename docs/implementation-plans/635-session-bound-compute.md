@@ -77,11 +77,14 @@ the version opened, `None` where there is no Session, no User or no Patient (Rul
 ### The server (`Hop`, pure over `State`)
 
 `SessionRecord` gains `Seen: DateTime` (Rule 9), set at open. `Hop.touch now sid state` sets it to
-`now` when the Session is open, and every port member that acts on the cookie's Session applies
-it before its own ladder: `find` (`GetSession`), `supplyPin`, `challenge`, `submit`,
-`openVersion` and `seen`; `close` excepted, as the model's `updateServerFromDatabaseRequest`
-excepts `CloseSession`. So every request but the closing one refreshes the idle clock, whichever
-API member carries it. Nothing acts on `Seen` yet (Rule 10's lifetimes stay out).
+`now` when the Session is open, and every port member that takes the session cookie's id applies
+it before its own ladder: `find` (`GetSession`), `challenge`, `submit`, `openVersion` and `seen`;
+`close` excepted, as the model's `updateServerFromDatabaseRequest` excepts `CloseSession`. The
+boundary is the session cookie: `present`, `callback` and `supplyPin` run before a Session exists
+(the launch and enrolment cookies), so a Session they open starts with `Seen` at open and is
+touched from its first cookie-bound request on. So every request in a Session but the closing
+one refreshes the idle clock, whichever API member carries it. Nothing acts on `Seen` yet
+(Rule 10's lifetimes stay out).
 
 `Hop.seen now sid opened state : State * RecordNotice option`, the ladder of uc-03 step 1 and the
 model's `updateServerFromDatabaseRequest`:
