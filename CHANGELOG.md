@@ -1,5 +1,5 @@
 ---
-last_commit_released: cb796b265040c6914042349e3ab93f11ea4b6c59
+last_commit_released: 46c3af931733a5e440d89e7751cd116e6f69b472
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,14 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.21 - 2026-09-11
+
+### 🐞 Bug Fixes
+
+* Ignore claude generated patch files ([20a004da](https://github.com/informedica/GenPRES/commit/20a004da30ebbb54aaf5a1b6cc2e5766ba37b58d))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/cb796b265040c6914042349e3ab93f11ea4b6c59..46c3af931733a5e440d89e7751cd116e6f69b472)</small></strong>
 
 ## 0.1.2-alpha.20 - 2026-09-11
 
