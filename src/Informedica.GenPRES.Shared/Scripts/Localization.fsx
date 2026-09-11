@@ -92,6 +92,12 @@ type SessionTerms =
     | ``Signing Refusal Pin Limit``
     | ``Signing Refusal Locked``
     | ``Signing Send Failed``
+    // Rules 21, 22 (plan 635 PR 4): the record moved on, told once per version with {0} who
+    // signed it and {1} when; the button that takes the version up (UC-4 step 4); and what
+    // is told once it is open, {0} the version number and {1} who signed it
+    | ``Session Newer Version``
+    | ``Session Open Newest``
+    | ``Session Version Opened``
 
 
 /// The English defaults: the strings the client shows today, verbatim.
@@ -161,6 +167,9 @@ let english term =
         "The PIN was entered wrong three times. Your session was ended and signing is locked for a while."
     | ``Signing Refusal Locked`` -> "Signing is locked until {0}."
     | ``Signing Send Failed`` -> "The signature could not be sent. Try again."
+    | ``Session Newer Version`` -> "{0} signed a newer version at {1}."
+    | ``Session Open Newest`` -> "Open the newest version"
+    | ``Session Version Opened`` -> "Version {0} by {1} is now open."
 
 
 /// Dutch, for the sheet; the other four languages stay empty and fall back to English.
@@ -232,6 +241,9 @@ let dutch term =
         "De pincode is drie keer verkeerd ingevoerd. Uw sessie is beëindigd en ondertekenen is een tijdje geblokkeerd."
     | ``Signing Refusal Locked`` -> "Ondertekenen is geblokkeerd tot {0}."
     | ``Signing Send Failed`` -> "De handtekening kon niet worden verstuurd. Probeer het opnieuw."
+    | ``Session Newer Version`` -> "{0} heeft om {1} een nieuwere versie ondertekend."
+    | ``Session Open Newest`` -> "Open de nieuwste versie"
+    | ``Session Version Opened`` -> "Versie {0} van {1} is nu geopend."
 
 
 let all =
@@ -378,6 +390,8 @@ let tests =
                         ``Signing Refusal Blocked``
                         ``Signing Refusal Pin Wrong``
                         ``Signing Refusal Locked``
+                        ``Session Newer Version``
+                        ``Session Version Opened``
                      |]
                      |> Array.sort)
 
@@ -387,6 +401,8 @@ let tests =
                         ``Session Gate Enrolment Text``
                         ``Signing Signed``
                         ``Signing Refusal Blocked``
+                        ``Session Newer Version``
+                        ``Session Version Opened``
                     ] do
                     (english t).Contains "{1}" |> Expect.isTrue $"{{1}} en {t}"
                     (dutch t).Contains "{1}" |> Expect.isTrue $"{{1}} nl {t}"

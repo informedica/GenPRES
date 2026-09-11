@@ -382,6 +382,36 @@ module OrderPlan =
                 """
             | _ -> null
 
+        // Rules 21, 22 (plan 635): the record moved on while this Session is on an older version;
+        // the bar says whose and when, and offers the newest version (UC-4 step 4). Rule 20 stays
+        // the guard: nothing is blocked here
+        let movedOnBar =
+            match session.MovedOn with
+            | Some head ->
+                let onOpenNewest = fun _ -> session.OpenVersion head.Id
+
+                let openNewest =
+                    JSX.jsx
+                        $"""
+                    import Button from '@mui/material/Button';
+
+                    <Button color="inherit" size="small" onClick={onOpenNewest}>
+                        {tr Terms.``Session Open Newest``}
+                    </Button>
+                    """
+
+                JSX.jsx
+                    $"""
+                import Alert from '@mui/material/Alert';
+
+                <Box sx={ {| marginTop = 2 |} }>
+                    <Alert severity="warning" action={openNewest}>
+                        {SigningPolicy.movedOnSentence tr head}
+                    </Alert>
+                </Box>
+                """
+            | None -> null
+
         let signDialog = SignDialog.View {| appEnv = props.appEnv |}
 
         let responsiveTable =
@@ -420,7 +450,7 @@ module OrderPlan =
         import Modal from '@mui/material/Modal';
 
         <Box sx={ {| height = "100%" |} }>
-            {signBtn}
+            {movedOnBar}{signBtn}
             {deleteBtn}
             {responsiveTable}
             <Modal open={modalOpen} onClose={handleModalClose} >

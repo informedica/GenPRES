@@ -111,6 +111,8 @@ type SessionEffect =
     | LoadCart of SignedOrderPlan
     // UC-4 step 4: processSession OpenVersion; `from` comes back in Reopened
     | CallOpenVersion of id: string * from: OpenedToken option
+    // UC-4 step 4: the version is open; told once, and the moved-on notice is cleared
+    | TellVersionOpened of OrderPlanHead
 
 
 module Session =
@@ -261,7 +263,33 @@ module Session =
             Session.Open session,
             [
                 match session.PatientContext, session.Head with
-                | Some _, Some head -> SessionEffect.LoadCart head
+                | Some _, Some head ->
+                    SessionEffect.LoadCart head
+                    SessionEffect.TellVersionOpened head.Head
                 | _ -> ()
             ]
         | SessionMsg.Reopened _, _ -> state, []
+
+
+/// Rules 21, 22: the notice that the record moved on, as the client keeps it next to its open
+/// Session: the newest head it was told, so that it is told once per version, and the bar can
+/// offer that version (UC-4 step 4). Cleared when the version is opened or the Session ends.
+module MovedOn =
+
+    /// A notice arrived: the head to keep, and whether it is news. Versions are ordered by
+    /// `No` (Rule 20), not by arrival: replies to concurrent requests can land out of order, so
+    /// a notice of a version no newer than the one kept is not news and keeps nothing, and only
+    /// a newer version replaces the kept one.
+    let receive (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option * bool =
+        match current with
+        | Some kept when kept.No >= head.No -> current, false
+        | _ -> Some head, true
+
+
+    /// A version was opened (UC-4 step 4): the notice is spent when the version opened is at
+    /// least as new as the one kept; a newer notice, told while the request was in flight,
+    /// stays, so the offer to open it stays too.
+    let opened (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option =
+        match current with
+        | Some kept when kept.No > head.No -> current
+        | _ -> None
