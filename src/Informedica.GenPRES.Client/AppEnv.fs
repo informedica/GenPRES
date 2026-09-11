@@ -70,34 +70,33 @@ type IResources =
     abstract ReloadResources: string -> unit
 
 
-/// The launch Session (plan 409): its phase, and the actions the UI offers on it
+/// The launch Session: its phase, and the actions the UI offers on it
 [<Interface>]
 type ISession =
     abstract Session: SessionMachine.Session
-    // Rule 10: explicit close, from an open Session
+    // explicit close, from an open Session
     abstract Close: unit -> unit
     // from Unreachable, or a refusal worth retrying
     abstract Retry: unit -> unit
-    // ext 5a: a fresh anonymous open that carries nothing over
+    // a fresh anonymous open that carries nothing over
     abstract OpenAnonymously: unit -> unit
-    // UC-2: the confirmation code and the chosen PIN, from the gate's form
+    // the confirmation code and the chosen PIN, from the gate's form
     abstract SupplyPin: string -> string -> unit
-    // Rules 21, 22: the newest version the server told of, while the Session is on an older one
+    // the newest version the server told of, while the Session is on an older one
     abstract MovedOn: OrderPlanHead option
-    // UC-4 step 4: take up that version
+    // take up that version
     abstract OpenVersion: string -> unit
 
 
-/// The signing phase of the open Session (UC-3, plan 622): its state, and the actions the
-/// dialog offers on it
+/// The signing phase of the open Session: its state, and the actions the dialog offers on it
 [<Interface>]
 type ISigning =
     abstract Signing: SigningMachine.Signing
-    // uc-03 step 2: the plan as shown
+    // ask a challenge over the plan as shown
     abstract Sign: OrderPlan -> unit
-    // Rule 44: the data notice accepted
+    // the data notice accepted
     abstract Accept: unit -> unit
-    // uc-03 step 3: the PIN; the idempotency key is minted here, once per confirmation
+    // the PIN; the idempotency key is minted here, once per confirmation
     abstract Confirm: string -> unit
     abstract Cancel: unit -> unit
 

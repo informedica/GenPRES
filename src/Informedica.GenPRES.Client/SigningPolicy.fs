@@ -1,4 +1,4 @@
-/// What the signing UI says and offers (uc-03 steps 2 and 3), decided from the Session and
+/// What the signing UI says and offers, decided from the Session and
 /// the signing phase: every text a `Terms` case, so the view only renders.
 module SigningPolicy
 
@@ -66,19 +66,19 @@ let signedSentence (tr: Terms -> string) (signed: SignedOrderPlan) =
     |> SessionGatePolicy.fill [ string signed.Head.No; signed.Head.By.DisplayName ]
 
 
-/// Rules 21, 22: the record moved on; whose version, and when.
+/// The record moved on; whose version, and when.
 let movedOnSentence (tr: Terms -> string) (head: OrderPlanHead) =
     tr Terms.``Session Newer Version``
     |> SessionGatePolicy.fill [ head.By.DisplayName; time head.SignedAt ]
 
 
-/// UC-4 step 4: the version taken up is open.
+/// The version taken up is open.
 let versionOpenedSentence (tr: Terms -> string) (head: OrderPlanHead) =
     tr Terms.``Session Version Opened``
     |> SessionGatePolicy.fill [ string head.No; head.By.DisplayName ]
 
 
-/// Rule 44: what the notice says, with or without a reading.
+/// What the data notice says, with or without a reading.
 let noticeSentence (tr: Terms -> string) (notice: DataNotice) =
     match notice.Data with
     | Some _ -> tr Terms.``Signing Data Changed``
@@ -94,7 +94,7 @@ let pinError (tr: Terms -> string) (pin: string) =
 
 
 /// Whether the plan can be signed: an open Session as Prescriber for a patient, and at least
-/// one order (Rules 13, 26).
+/// one order. Without a patient nothing can be submitted; a Reader never signs.
 let canSign (session: Session) (plan: OrderPlan) =
     match session with
     | Session.Open opened ->

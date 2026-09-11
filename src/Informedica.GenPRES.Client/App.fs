@@ -51,11 +51,11 @@ module private Elmish =
             AuthToken: string
             LogFiles: Deferred<LogFileInfo[]>
             LogAnalysisReport: Deferred<string>
-            // the launch Session (plan 409); Anonymous is the state every URL patient runs in
+            // the launch Session; Anonymous is the state every URL patient runs in
             Session: Session
-            // the signing phase of the open Session (plan 622); Idle whenever no Session is open
+            // the signing phase of the open Session; Idle whenever no Session is open
             Signing: Signing
-            // Rules 21, 22 (plan 635): the newest version told while the Session is on an older
+            // the newest version told while the Session is on an older
             // one; None whenever no Session is open
             MovedOn: OrderPlanHead option
             // what the server was configured with: the default language, the demo flag
@@ -74,9 +74,9 @@ module private Elmish =
 
         | UpdatePage of Global.Pages
         | UpdatePatient of Patient option
-        // Rule 19: the version the Session opened with, into the cart over the patient in state
+        // the version the Session opened with, into the cart over the patient in state
         | LoadCart of SignedOrderPlan
-        // Rules 21, 22: a reply said the record moved on
+        // a reply said the record moved on
         | RecordMovedOn of OrderPlanHead
 
         | LoadNormalValues of AsyncOperationStatus<Result<NormalValues, string>>
@@ -130,7 +130,7 @@ module private Elmish =
     and ApiResponse = AsyncOperationStatus<Result<Answer, string[]>>
 
     /// A computing reply with the OpenedToken the request started from, so that what the reply
-    /// tells about the Session (Rules 11, 21) lands only on the Session that asked: a request
+    /// tells about the Session (moved on, ended) lands only on the Session that asked: a request
     /// of a Session since closed or replaced must not end or warn the current one.
     and Answer =
         {
@@ -167,7 +167,7 @@ module private Elmish =
         |> Cmd.fromAsync
 
 
-    /// The OpenedToken the Session holds, sent with every computing request (Rule 34); none
+    /// The OpenedToken the Session holds, sent with every computing request; none
     /// without an open Session.
     let tokenOf (session: Session) =
         match session with
@@ -256,11 +256,11 @@ module private Elmish =
             { state with LogAnalysisReport = Resolved report }, Cmd.none
 
 
-    /// The result, and what the Session is told with it: the record moved on (Rules 21, 22) or
-    /// the Session ended (Rule 11), each as its own message so the machines decide. The
+    /// The result, and what the Session is told with it: the record moved on or the Session
+    /// ended, each as its own message so the machines decide. The
     /// stale-request guard: the notice counts only when the request started from the token the
     /// open Session holds now; a reply of a Session since closed, replaced or re-minted says
-    /// nothing about this one (the next request repeats what still holds, Rule 21 is stateless).
+    /// nothing about this one (the next request repeats what still holds; the notice is stateless).
     let processApiMsg (state: State) (answer: Answer) =
         let current =
             match state.Session with
@@ -327,7 +327,7 @@ module private Elmish =
 
     // The patient, page, language, disclaimer and medication carried by an
     // anonymous "#/patient?..." url. A "#/session..." url carries none of these:
-    // the session supplies the patient (plan 409), so it yields the defaults
+    // the session supplies the patient, so it yields the defaults
     // without a warning.
     let parsePatient sl =
         match sl with
@@ -446,8 +446,8 @@ module private Elmish =
             None, None, None, true, None
 
 
-    /// What a "#/session?..." url carries: the Launch MainEHR opened GenPRES with (launch
-    /// sequence step 1), or the reason the IdentityProvider return refused it (step 4.5).
+    /// What a "#/session?..." url carries: the Launch MainEHR opened GenPRES with, or the
+    /// reason the return from the IdentityProvider refused it.
     [<RequireQualifiedAccess>]
     type LaunchUrl =
         | Launch of Launch
@@ -481,7 +481,7 @@ module private Elmish =
         | _ -> None
 
 
-    /// Launch sequence step 2: replace the launch url with "#/session" in the
+    /// Erase the Launch: replace the launch url with "#/session" in the
     /// address bar and the history entry, so the token survives neither a
     /// reload, the back button nor a copied url. Goes through the History API
     /// directly: Router.navigate would dispatch the navigation event and
@@ -572,7 +572,7 @@ module private Elmish =
         }
 
 
-    /// Launch step 3 then 4: make the key pair, then present the Launch with its public key.
+    /// Make the key pair, then present the Launch with its public key.
     /// A browser that cannot make a key cannot launch; that is reported as a missing browser
     /// identity, the refusal whose text asks for a retry and then a relaunch.
     let presentLaunch (launch: Launch) : Cmd<Msg> =
@@ -660,7 +660,7 @@ module private Elmish =
             | _ -> base', Cmd.ofMsg (LoadOrderContextResult(cmd, Started))
 
 
-    /// One command per session effect (plan 409, "Wiring in App.fs"). A transport failure
+    /// One command per session effect. A transport failure
     /// is a message, never an exception: an Error outcome for a presentation, CloseFailed for
     /// a close that did not reach the server.
     let interpretSessionEffect (effect: SessionEffect) : Cmd<Msg> =
@@ -736,7 +736,7 @@ module private Elmish =
             |> Cmd.fromAsync
         | SessionEffect.GoTo url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         | SessionEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient patient)
-        // Rule 19: the cart starts as the version the Session opened with; built in update, over
+        // the cart starts as the version the Session opened with; built in update, over
         // the patient as UpdatePatient left it (normal values applied)
         | SessionEffect.LoadCart head -> Cmd.ofMsg (LoadCart head)
         | SessionEffect.KeepKey thumbprint ->
@@ -750,9 +750,9 @@ module private Elmish =
             )
 
 
-    /// One command per signing effect (plan 622). The machine names the plan, the challenge,
-    /// the PIN, the request id and the key; the OpenedToken comes from the open Session here
-    /// (Rule 34), and every answer carries the request id or the key it answers, so the machine
+    /// One command per signing effect. The machine names the plan, the challenge, the PIN,
+    /// the request id and the key; the OpenedToken comes from the open Session here, and
+    /// every answer carries the request id or the key it answers, so the machine
     /// can drop one that belongs to an earlier Session. Without an open Session nothing is sent:
     /// the answer is a refusal. What is told (signed, refused, an error) is put on the snackbar
     /// by `update`, not here.
@@ -1010,7 +1010,7 @@ module private Elmish =
 
         // FilterOrderPlan sends the cart through the server so totals and filters are computed
         // as for any cart; the patient is the one every other part of the state uses
-        // told once per version (Rule 22: it gates nothing); the bar on the order plan offers it
+        // told once per version (it gates nothing); the bar on the order plan offers it
         | RecordMovedOn head ->
             let movedOn, news = MovedOn.receive state.MovedOn head
             let state = { state with MovedOn = movedOn }
@@ -1086,7 +1086,7 @@ module private Elmish =
             let pat, page, lang, discl, med = sl |> parsePatient
 
             // an open Session supplies the patient: url patient parameters count only while
-            // no Session holds one (plan 409, "Patient is never assigned directly"). The
+            // no Session holds one: a launched patient is never assigned from the url. The
             // router fires UrlChanged on mount too, while a Resume may still be in flight,
             // so only Open and Closing block the url patient
             let anonymous =
@@ -1157,14 +1157,14 @@ module private Elmish =
                     }
                 | _ -> state
 
-            // a signature belongs to an open Session: whatever ends the Session drops it (ext 3e);
+            // a signature belongs to an open Session: whatever ends the Session drops it;
             // so does the moved-on notice
             let signing, movedOn =
                 match session with
                 | Session.Open _ -> state.Signing, state.MovedOn
                 | _ -> Signing.Idle, None
 
-            // UC-4 step 4: the version is open; said once, and the notice is spent
+            // the version is open; said once, and the notice is spent
             let state, movedOn =
                 effects
                 |> List.fold
@@ -1216,8 +1216,8 @@ module private Elmish =
                         match effect with
                         | SigningEffect.TellSigned signed ->
                             state |> tell (SigningPolicy.signedSentence tr signed) "success"
-                        // a refusal because the record moved on (Rule 20) is the notice too
-                        // (Rule 22); the sentence is told here, the bar offers the version
+                        // a refusal because the record moved on is the notice too; the
+                        // sentence is told here, the bar offers the version
                         | SigningEffect.TellRefused(SigningRefusal.Blocked head as refusal) ->
                             { state with MovedOn = MovedOn.receive state.MovedOn head |> fst }
                             |> tell (SigningPolicy.refusalSentence tr refusal) "warning"
@@ -1684,7 +1684,7 @@ type private ConcreteAppEnv
         member _.Accept() =
             SigningMsg SigningMsg.Accept |> dispatch
 
-        // Rule 45: one key per confirmation; the machine keeps it for a retry
+        // one key per confirmation, so the commit takes effect once; the machine keeps it for a retry
         member _.Confirm pin =
             SigningMsg(SigningMsg.Confirm(pin, Guid.NewGuid().ToString())) |> dispatch
 
@@ -1831,7 +1831,7 @@ let View () =
     let genPresProps =
         {|
             appEnv = appEnv
-            // the disclaimer is for anonymous use only (plan 409): a launched, resuming or
+            // the disclaimer is for anonymous use only: a launched, resuming or
             // refused session never sees it; an anonymous open after a refusal does
             showDisclaimer =
                 state.ShowDisclaimer

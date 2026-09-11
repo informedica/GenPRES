@@ -1,7 +1,7 @@
 namespace Informedica.GenPRES.Shared.Tests
 
 
-/// The client's session state machine, linked in from the client project (plan 409 step 3a).
+/// The client's session state machine, linked in from the client project.
 module SessionMachineTests =
 
     open Expecto

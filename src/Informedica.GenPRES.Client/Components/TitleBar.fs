@@ -25,7 +25,7 @@ module TitleBar =
                 isAuthenticated: bool
                 onLogin: string -> unit
                 onLogout: unit -> unit
-                // the launch Session (plan 409) is read through the env, not threaded as props
+                // the launch Session is read through the env, not threaded as props
                 appEnv: obj
             |})
         =
@@ -207,7 +207,7 @@ module TitleBar =
             | UserRole.Reader -> tr Terms.``Session Role Reader``
 
         // who is in this Session, next to the hospital: only for an open Session with a user;
-        // nothing for anonymous use (plan 409, UI)
+        // nothing for anonymous use
         let sessionView =
             let userOf (opened: SessionOpened) closing =
                 opened.User

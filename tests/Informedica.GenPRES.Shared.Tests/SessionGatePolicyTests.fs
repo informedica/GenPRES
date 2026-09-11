@@ -1,7 +1,7 @@
 namespace Informedica.GenPRES.Shared.Tests
 
 
-/// The session gate's policy, linked in from the client project (plan 409 step 4b).
+/// The session gate's policy, linked in from the client project.
 module SessionGatePolicyTests =
 
     open Expecto

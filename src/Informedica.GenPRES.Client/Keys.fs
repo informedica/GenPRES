@@ -1,10 +1,10 @@
 /// <summary>
-/// The browser key pair of launch step 3 (plan 409, uc-01): a non-extractable ECDSA P-256
-/// signing key made at the launch, whose private key stays in IndexedDB under the public key's
-/// RFC 7638 thumbprint and whose public key goes to the server with the Launch. The server
-/// stores the public key in the SessionRecord and answers the thumbprint; <c>keep</c> then
-/// prunes the private keys of earlier launches (Rule 8). Signing (launch step 7, DPoP) comes
-/// later; the key is made now so the SessionRecord already holds it.
+/// The browser key pair of the launch: a non-extractable ECDSA P-256 signing key made at the
+/// launch, whose private key stays in IndexedDB under the public key's RFC 7638 thumbprint and
+/// whose public key goes to the server with the Launch. The server stores the public key in
+/// the SessionRecord and answers the thumbprint; <c>keep</c> then prunes the private keys of
+/// earlier launches once they are older than the grace period. Signing every request with it
+/// (launch step 7, DPoP) comes later; the key is made now so the SessionRecord already holds it.
 /// </summary>
 /// <remarks>
 /// WebCrypto and IndexedDB are promise- and event-based browser APIs, so the interop is one
@@ -12,7 +12,7 @@
 /// Keys are kept per thumbprint, not as a single entry, so a second launch in another tab
 /// that is refused cannot take away the key of the first tab's open Session. Pruning is by
 /// age, not by identity: <c>keep</c> deletes only keys older than the Launch lifetime, so two
-/// launches racing in two tabs (uc-01, ext 8b) cannot delete each other's fresh key and leave
+/// launches racing in two tabs cannot delete each other's fresh key and leave
 /// the winning Session unable to sign. The loser's key lingers until the next launch prunes it.
 /// </remarks>
 module Keys
@@ -28,7 +28,8 @@ let private keysDef =
 (() => {
     const DB = "genpres";
     const STORE = "keys";
-    // no launch still in flight can own a key older than this (Rule 29); keys younger than
+    // no launch still in flight can own a key older than this, the Launch lifetime with a
+    // margin; keys younger than
     // it are left alone by keep, whoever calls it
     const GRACE_MS = 10 * 60 * 1000;
 

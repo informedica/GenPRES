@@ -360,7 +360,7 @@ module OrderPlan =
                 """
             | _ -> null
 
-        // UC-3: a Prescriber with an open Session signs the plan as shown (plan 622)
+        // a Prescriber with an open Session signs the plan as shown
         let onSign =
             fun _ ->
                 match orderPlan with
@@ -382,9 +382,9 @@ module OrderPlan =
                 """
             | _ -> null
 
-        // Rules 21, 22 (plan 635): the record moved on while this Session is on an older version;
-        // the bar says whose and when, and offers the newest version (UC-4 step 4). Rule 20 stays
-        // the guard: nothing is blocked here
+        // the record moved on while this Session is on an older version; the bar says whose
+        // and when, and offers the newest version. Nothing is blocked here: the guard is the
+        // refusal at the signature
         let movedOnBar =
             match session.MovedOn with
             | Some head ->

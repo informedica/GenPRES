@@ -1,5 +1,5 @@
 /// <summary>
-/// The client's session state machine (plan 409, uc-01 steps 2 to 6): the <c>Session</c> phases,
+/// The client's session state machine, from the Launch in the url to an open Session: the <c>Session</c> phases,
 /// the messages that move between them and the effects App.fs interprets into commands.
 /// Pure F#, opens Shared.Types only, no React, so it runs under Expecto in .NET as well as
 /// under Fable.
@@ -16,7 +16,7 @@ module SessionMachine
 open Shared.Types
 
 
-/// The client's view of its Session, one phase at a time (uc-01 steps 2 to 6).
+/// The client's view of its Session, one phase at a time.
 [<RequireQualifiedAccess>]
 type Session =
     | Anonymous
@@ -29,18 +29,18 @@ type Session =
     | Closing of SessionOpened
     // no Session; the Launch and key are kept only when a retry is meaningful
     | Refused of LaunchRefusal * retry: (Launch * PublicKey) option
-    // ext 3a: server down after the page was served
+    // server down after the page was served
     | Unreachable of Launch * PublicKey * attempts: int
-    // no Session: the server ended it (Rule 11) and said so once; the User continues
+    // no Session: the server ended it and said so once; the User continues
     // anonymously or relaunches
     | Ended of SessionEnding
-    // no Session yet: the launch waits on a PIN (UC-2); the browser holds the attempt in a
+    // no Session yet: the launch waits on a PIN; the browser holds the attempt in a
     // cookie, the gate shows the form, and the last refusal of the form if any
     | Enrolling of EnrolmentPending * refusal: PinRefusal option
     // SupplyPin in flight
     | SupplyingPin of EnrolmentPending
     // no Session: the enrolment ended without a PIN (the code void or expired) or, the PIN
-    // set, with another Patient active (Rule 6); a relaunch is the only way on
+    // set, with another Patient active in MainEHR; a relaunch is the only way on
     | EnrolmentFailed of PinRefusal
 
 
@@ -70,22 +70,22 @@ type SessionMsg =
     | Retry
     | Resume
     | Resumed of Result<ResumeResult, string>
-    // UC-2: the confirmation code and the chosen PIN, from the gate's form
+    // the confirmation code and the chosen PIN, from the gate's form
     | SupplyPin of code: string * pin: string
     // Error = transport failure
     | PinAnswered of Result<PinOutcome, string>
-    // from #/session?refused={reason}, launch step 4.5
+    // from #/session?refused={reason}, the answer to the identity callback
     | RefusedAtCallback of LaunchRefusal
     | OpenAnonymous
     | Close
     | Closed
     // the close request did not reach the server: the cookie is still there, so is the Session
     | CloseFailed of reason: string
-    // UC-3: a signing answer said the server ended the Session (Rule 28)
+    // a signing answer said the server ended the Session at the wrong-PIN limit
     | EndedByServer of SessionEnding
-    // UC-3: a signature re-minted the OpenedToken over the new head (Rule 34)
+    // a signature re-minted the OpenedToken over the new head
     | TokenRenewed of OpenedToken
-    // UC-4 step 4: take up the version the notice named (Rules 18 to 20)
+    // take up the version the notice named: it becomes what the Session opened with
     | OpenVersion of id: string
     // the answer: the Session as it now is (Some), nothing to open (None), or a transport
     // failure; `from` is the OpenedToken the request started from, so that an answer lands
@@ -105,13 +105,13 @@ type SessionEffect =
     | SetPatient of Patient option
     // Keys.keep: prune the other private keys
     | KeepKey of thumbprint: string
-    // Rule 19: the orders of the version the Session opened with go into the cart, over the
+    // the orders of the version the Session opened with go into the cart, over the
     // patient as the client holds it after SetPatient (normal values applied); interpreted as
     // a FilterOrderPlan over them
     | LoadCart of SignedOrderPlan
-    // UC-4 step 4: processSession OpenVersion; `from` comes back in Reopened
+    // processSession OpenVersion; `from` comes back in Reopened
     | CallOpenVersion of id: string * from: OpenedToken option
-    // UC-4 step 4: the version is open; told once, and the moved-on notice is cleared
+    // the version is open; told once, and the moved-on notice is cleared
     | TellVersionOpened of OrderPlanHead
 
 
@@ -122,7 +122,7 @@ module Session =
 
 
     /// Whether a refusal answered by presentLaunch itself is worth retrying with the same
-    /// Launch and key: only a missing browser identity is (ext 3c).
+    /// Launch and key: only a missing browser identity is.
     let retryable refusal =
         match refusal with
         | LaunchRefusal.NoBrowserIdentity -> true
@@ -136,7 +136,7 @@ module Session =
 
     /// The state and effects of a Session that just opened: the patient goes through
     /// UpdatePatient, the key of this Session is the one to keep, and the orders of the version
-    /// it opened with go into the cart (Rule 19), after the patient so that the cart is built
+    /// it opened with go into the cart, after the patient so that the cart is built
     /// over it.
     let opened (session: SessionOpened) =
         Session.Open session,
@@ -178,7 +178,8 @@ module Session =
             | Error _ -> Session.Unreachable(launch, key, attempt), []
         | SessionMsg.Outcome _, _ -> state, []
 
-        // a retry always carries the same Launch and the same key (Rule 2)
+        // a retry always carries the same Launch and the same key, so the server answers it
+        // as it answered the first presentation
         | SessionMsg.Retry, Session.Unreachable(launch, key, _) -> present launch key
         | SessionMsg.Retry, Session.Refused(_, Some(launch, key)) -> present launch key
         | SessionMsg.Retry, _ -> state, []
@@ -187,11 +188,11 @@ module Session =
         | SessionMsg.Resume, _ -> state, []
 
         | SessionMsg.Resumed(Ok(ResumeResult.Found session)), Session.Resuming -> opened session
-        // told once (Rule 11): the cookie is gone, the gate says why, the User chooses
+        // told once: the cookie is gone, the gate says why, the User chooses
         // the close acknowledges the ending: the server deletes the cookie and drops the mark
         | SessionMsg.Resumed(Ok(ResumeResult.Ended ending)), Session.Resuming ->
             Session.Ended ending, [ SessionEffect.CallCloseSession ]
-        // the launch waits on a PIN (UC-2): the gate shows the form
+        // the launch waits on a PIN: the gate shows the form
         | SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)), Session.Resuming ->
             Session.Enrolling(pending, None), []
         | SessionMsg.Resumed _, Session.Resuming -> Session.Anonymous, []
@@ -200,24 +201,24 @@ module Session =
         // the Launch was consumed server-side; nothing is left to retry with
         | SessionMsg.RefusedAtCallback refusal, _ -> Session.Refused(refusal, None), []
 
-        // UC-2: the form is sent once at a time; the answer lands only on the request in flight
+        // the form is sent once at a time; the answer lands only on the request in flight
         | SessionMsg.SupplyPin(code, pin), Session.Enrolling(pending, _) ->
             Session.SupplyingPin pending, [ SessionEffect.CallSupplyPin(code, pin) ]
         | SessionMsg.SupplyPin _, _ -> state, []
         | SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)), Session.SupplyingPin _ -> opened session
-        // the form stays open with what went wrong (ext 2b, a try left; a PIN out of format)
+        // the form stays open with what went wrong (a wrong code with a try left; a PIN out of format)
         | SessionMsg.PinAnswered(Ok(PinOutcome.Refused(PinRefusal.WrongCode _ as refusal))),
           Session.SupplyingPin pending
         | SessionMsg.PinAnswered(Ok(PinOutcome.Refused(PinRefusal.PinFormat as refusal))), Session.SupplyingPin pending ->
             Session.Enrolling(pending, Some refusal), []
-        // terminal: the code is void or expired, or the Patient moved (Rule 6); relaunch
+        // terminal: the code is void or expired, or the active Patient moved; relaunch
         | SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)), Session.SupplyingPin _ ->
             Session.EnrolmentFailed refusal, []
         // the request never got there: the attempt stands, the form comes back as it was
         | SessionMsg.PinAnswered(Error _), Session.SupplyingPin pending -> Session.Enrolling(pending, None), []
         | SessionMsg.PinAnswered _, _ -> state, []
 
-        // an anonymous open carries nothing over (Rule 7)
+        // an anonymous open carries nothing over from the launch
         | SessionMsg.OpenAnonymous, Session.Refused _
         | SessionMsg.OpenAnonymous, Session.Unreachable _
         | SessionMsg.OpenAnonymous, Session.Ended _ -> Session.Anonymous, [ SessionEffect.SetPatient None ]
@@ -237,26 +238,26 @@ module Session =
         | SessionMsg.CloseFailed _, Session.Closing session -> Session.Open session, []
         | SessionMsg.CloseFailed _, _ -> state, []
 
-        // UC-3: the server ended the Session at a signature (Rule 28); the gate says why and
+        // the server ended the Session at a signature; the gate says why and
         // the close acknowledges it, as a Resumed ending does
         | SessionMsg.EndedByServer ending, Session.Open _ -> Session.Ended ending, [ SessionEffect.CallCloseSession ]
         | SessionMsg.EndedByServer _, _ -> state, []
 
-        // UC-3: the token the next signature has to present (Rule 34)
+        // the token the next signature has to present
         | SessionMsg.TokenRenewed token, Session.Open session ->
             Session.Open { session with OpenedToken = Some token }, []
         | SessionMsg.TokenRenewed _, _ -> state, []
 
-        // UC-4 step 4: only an open Session has a version to take up; the request remembers
+        // only an open Session has a version to take up; the request remembers
         // the token it started from
         | SessionMsg.OpenVersion id, Session.Open session ->
             state, [ SessionEffect.CallOpenVersion(id, session.OpenedToken) ]
         | SessionMsg.OpenVersion _, _ -> state, []
 
         // the Session as the server now holds it: the token over the version opened, and its
-        // orders into the cart (Rule 19); the patient is unchanged, so no SetPatient. Nothing to
+        // orders into the cart; the patient is unchanged, so no SetPatient. Nothing to
         // open, or the request never got there: the Session stays as it was, and the next
-        // request tells what the head is (Rule 21). The stale-request guard: an answer lands
+        // request tells what the head is. The stale-request guard: an answer lands
         // only on the open Session that still holds the token the request started from; a
         // Session closed, relaunched or reopened meanwhile drops it
         | SessionMsg.Reopened(from, Ok(Some session)), Session.Open current when current.OpenedToken = from ->
@@ -271,13 +272,13 @@ module Session =
         | SessionMsg.Reopened _, _ -> state, []
 
 
-/// Rules 21, 22: the notice that the record moved on, as the client keeps it next to its open
-/// Session: the newest head it was told, so that it is told once per version, and the bar can
-/// offer that version (UC-4 step 4). Cleared when the version is opened or the Session ends.
+/// The notice that the record moved on, as the client keeps it next to its open Session: the
+/// newest head it was told, so that it is told once per version, and the bar can offer that
+/// version. Cleared when the version is opened or the Session ends.
 module MovedOn =
 
     /// A notice arrived: the head to keep, and whether it is news. Versions are ordered by
-    /// `No` (Rule 20), not by arrival: replies to concurrent requests can land out of order, so
+    /// `No`, their place in the record, not by arrival: replies to concurrent requests can land out of order, so
     /// a notice of a version no newer than the one kept is not news and keeps nothing, and only
     /// a newer version replaces the kept one.
     let receive (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option * bool =
@@ -286,7 +287,7 @@ module MovedOn =
         | _ -> Some head, true
 
 
-    /// A version was opened (UC-4 step 4): the notice is spent when the version opened is at
+    /// A version was opened: the notice is spent when the version opened is at
     /// least as new as the one kept; a newer notice, told while the request was in flight,
     /// stays, so the offer to open it stays too.
     let opened (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option =

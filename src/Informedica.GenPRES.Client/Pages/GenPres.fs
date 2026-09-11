@@ -330,7 +330,7 @@ module GenPres =
                     localizationTerms = localizationTerms
                 |}
 
-        // the session gate (plan 409): over the app while a launch is presented or resumed,
+        // the session gate: over the app while a launch is presented or resumed,
         // and after a refusal; it cannot be dismissed, the machine decides when it goes
         let sessionGateOpen =
             (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session

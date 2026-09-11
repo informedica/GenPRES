@@ -150,7 +150,7 @@ module LaunchSeal =
         Launch $"{toBase64Url bytes}.{toBase64Url (mac key bytes)}"
 
 
-    /// Verifies the seal (constant-time), then the lifetime (Rule 3). Anything that is not a
+    /// Verifies the seal (constant-time), then the lifetime. Anything that is not a
     /// Launch sealed under the key is `LaunchInvalid`; a Launch past its expiry is
     /// `LaunchExpired`.
     let verify (now: DateTime) (key: Key) (Launch text) : Result<Claims, LaunchRefusal> =
@@ -230,14 +230,14 @@ module PinHash =
         System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(derive hash.Salt pin, hash.Hash)
 
 
-/// Concept 7, the UserCredential: what the Database holds per person (keyed by UserId, not by
-/// login). No PIN yet is a credential without one; the wrong-count is Rule 28's, counted across
-/// Sessions and reset to zero when the PIN is set.
+/// The credential the store holds per person (keyed by UserId, not by login). No PIN yet is a
+/// credential without one; the wrong-PIN count is per credential, counted across Sessions and
+/// reset to zero when the PIN is set.
 type Credential =
     {
         PinHash: PinHash option
         WrongCount: int
-        // Rule 28: signing is locked until this moment; a delay, not a state
+        // signing is locked until this moment; a delay, not a state
         LockedUntil: DateTime option
     }
 
@@ -252,12 +252,11 @@ module Credential =
         }
 
 
-    /// Rule 24: whether a PIN is set.
+    /// Whether a PIN is set.
     let pinSet (credential: Credential) = credential.PinHash.IsSome
 
 
-    /// A credential with this PIN, a count of zero and no lock (Rules 28, 37: setting the PIN
-    /// resets both).
+    /// A credential with this PIN, a count of zero and no lock: setting the PIN resets both.
     let withPin (newSalt: int -> byte[]) (pin: string) : Credential =
         {
             PinHash = Some(PinHash.make newSalt pin)
@@ -266,36 +265,37 @@ module Credential =
         }
 
 
-    /// Wrong PINs before the Session ends and signing locks (Rule 28).
+    /// Wrong PINs before the Session ends and signing locks.
     let wrongPinLimit = 3
 
-    /// The first lock (plan 622: one minute; the model counts in ticks).
+    /// The first lock: one minute.
     let lockBase = TimeSpan.FromMinutes 1.0
 
 
-    /// The longest lock. The model's delay only grows and decays with time; the decay is not
-    /// built, so the stub caps the delay instead (review on #624: an unbounded doubling
-    /// overflows the arithmetic long before it overflows anyone's patience).
+    /// The longest lock. Rule 28's delay decays with time; the decay is not built, so the
+    /// stub caps the delay instead: an unbounded doubling overflows the arithmetic long before
+    /// it overflows anyone's patience.
     let lockMax = TimeSpan.FromHours 24.0
 
 
-    /// Rule 28: the delay after `count` wrong entries. The entry that reaches the limit locks
-    /// for `lockBase`; each one after it doubles that, up to `lockMax`.
+    /// The delay after `count` wrong entries. The entry that reaches the limit locks for
+    /// `lockBase`; each one after it doubles that, up to `lockMax`.
     let lockFor (count: int) =
         // 2^11 minutes is already past a day; the bound keeps `pown` in range
         let doublings = min 11 (max 0 (count - wrongPinLimit))
         min lockMax (lockBase * float (pown 2 doublings))
 
 
-    /// Rule 28: whether signing is locked at this moment.
+    /// Whether signing is locked at this moment.
     let isLocked (now: DateTime) (credential: Credential) =
         match credential.LockedUntil with
         | Some until -> now < until
         | None -> false
 
 
-    /// Rules 23, 28: whether the PIN is accepted, and the credential as it stands after the
-    /// entry. A right PIN while unlocked zeroes the count and clears the lock; a right PIN
+    /// Whether the PIN is accepted, and the credential as it stands after the entry. The PIN
+    /// is verified here and nowhere else. A right PIN while unlocked zeroes the count and
+    /// clears the lock; a right PIN
     /// while locked is refused and counts nothing; a wrong PIN adds one and, at the limit or
     /// beyond it, locks for `lockFor` from now, so a wrong entry while locked pushes the
     /// delay out and doubles it.
@@ -331,14 +331,14 @@ module Credential =
             }
 
 
-    /// Rule 28: the wrong entries left before the limit.
+    /// The wrong entries left before the limit.
     let attemptsLeft (credential: Credential) =
         max 0 (wrongPinLimit - credential.WrongCount)
 
 
 module Pin =
 
-    /// Four to six digits. V8 names no format; this is the assumption plan 615 records.
+    /// Four to six digits: an assumption; no format has been specified for the PIN.
     let isValid (pin: string) =
         not (isNull pin)
         && pin.Length >= 4
@@ -356,7 +356,8 @@ module MailHint =
         | _ -> "***"
 
 
-/// The two mails of UC-2 (Rule 27). English only; the mail language is a later concern.
+/// The mails the server sends a User: the confirmation code, the notice that a PIN was set,
+/// the notice at the wrong-PIN limit. English only; the mail language is a later concern.
 module Mails =
 
     let confirmationCode (displayName: string) (code: string) (minutes: int) : string * string =
@@ -369,17 +370,18 @@ module Mails =
         $"Hello {displayName},\n\nA PIN was set for your GenPRES account just now. If that was not you, tell your administrator."
 
 
-    /// Rule 27: the third wrong PIN ended a Session and locked signing.
+    /// The third wrong PIN ended a Session and locked signing.
     let pinLimit (displayName: string) : string * string =
         "GenPRES: signing is locked",
         $"Hello {displayName},\n\nThe PIN was entered wrong three times at a signature just now. Your session was ended and signing is locked for a while. If that was not you, tell your administrator."
 
 
-/// Launch steps 4 and 5 over server-hosted stubs (plan 605): the LaunchRecord keyed by the
-/// nonce (4.2), the redirect to the IdentityProvider, the callback (4.5) with the step-5 ladder,
-/// the Rule 45 replay and the Rule 40 single act with the Rule 8 closes; the credential half of
-/// the Database and the suspended launch of UC-2 (plan 615). Pure over a state record;
-/// `makeSessionPort` wraps it in a lock over the actor ports.
+/// The launch from the presentation to the open Session, over server-hosted stubs: the
+/// LaunchRecord keyed by the nonce, the redirect to the IdentityProvider, the callback with
+/// its ladder of checks (identity, Role, active Patient, PIN), a reloaded callback answered
+/// as the first time, and the open as one act that closes the User's other Sessions; the
+/// credential half of the store and the launch suspended at the PIN question. Pure over a
+/// state record; `makeSessionPort` wraps it in a lock over the actor ports.
 module Hop =
 
     /// The refusal words of `#/session?refused=<word>`; the client's `parseRefusal` reads them.
@@ -400,10 +402,10 @@ module Hop =
         $"/#/session?refused={refusalWord refusal}"
 
 
-    /// A Session as the store holds it: what the client learns, the login it belongs to
-    /// (Rule 8: a User has at most one open Session), the head of the record it opened with
-    /// (Rule 19; `None` from nothing), which a Submission is checked against (Rule 20), and
-    /// when it was last seen (Rule 9; nothing acts on it yet, Rule 10's lifetimes are not built).
+    /// A Session as the store holds it: what the client learns, the login it belongs to (a User
+    /// has at most one open Session), the head of the record it opened with (`None` from
+    /// nothing), which a Submission is checked against, and when it was last seen (nothing
+    /// acts on it yet; the idle and absolute lifetimes of Rule 10 are not built).
     type SessionRecord =
         {
             Session: SessionOpened
@@ -413,7 +415,7 @@ module Hop =
         }
 
 
-    /// A confirmation code as the Database keeps it (Rule 37, "the code as a mac"): one per
+    /// A confirmation code as the store keeps it, as a mac and never as the digits: one per
     /// credential, with the address it went to, its expiry and the wrong tries so far.
     type PendingCode =
         {
@@ -425,7 +427,7 @@ module Hop =
         }
 
 
-    /// One suspended launch (UC-2): what the open needs once the PIN is set, and the public key
+    /// One launch suspended at the PIN question: what the open needs once the PIN is set, and the public key
     /// of the browser that made it, so the Session opens on the key the supplying browser holds.
     /// No lifetime of its own: it lives as long as the code it is bound to.
     type Enrolment =
@@ -439,8 +441,8 @@ module Hop =
         }
 
 
-    /// A data notice as the store holds it (Rule 44): one per Session, the platform's reading
-    /// it was told over (`None`: unreadable), for two minutes.
+    /// A data notice as the store holds it: one per Session, the platform's reading it was
+    /// told over (`None`: unreadable), for two minutes.
     type Notice =
         {
             Nonce: string
@@ -449,15 +451,15 @@ module Hop =
         }
 
 
-    /// A signing challenge as the store holds it (Concept 17): one per Session, over exactly
-    /// the patient data and the orders shown (Rule 43), whether that data was the platform's
-    /// reading when it was issued (Rule 44), for two minutes.
+    /// A signing challenge as the store holds it: one per Session, over exactly the patient
+    /// data and the orders shown, whether that data was the platform's reading when it was
+    /// issued, for two minutes.
     type Challenge =
         {
             Nonce: string
             Patient: Patient
             Scenarios: OrderScenario[]
-            // the platform's reading at the challenge, none when it could not be read (Rule 44)
+            // the platform's reading at the challenge, none when it could not be read
             Reading: Patient option
             Expiry: DateTime
         }
@@ -480,17 +482,18 @@ module Hop =
             Sessions: Map<string, SessionRecord>
             Endings: Map<string, SessionEnding * DateTime>
             Credentials: Map<string, Credential>
-            // UC-2: the live confirmation code per person
+            // the live confirmation code per person
             Codes: Map<string, PendingCode>
-            // UC-2: the suspended launches by attempt
+            // the launches suspended at the PIN question, by attempt
             Enrolments: Map<string, Enrolment>
-            // UC-3: the signed versions of each patient's order plan, newest first
+            // the signed versions of each patient's order plan, newest first
             Records: Map<string, SignedOrderPlan list>
-            // UC-3: the live data notice per Session
+            // the live data notice per Session
             Notices: Map<string, Notice>
-            // UC-3: the live challenge per Session
+            // the live challenge per Session
             Challenges: Map<string, Challenge>
-            // UC-3, Rule 45: what a Submission was answered, by Session and by the client's key
+            // what a Submission was answered, by Session and by the client's key, so that a
+            // retry gets the same answer
             Answered: Map<string * string, SigningResponse * DateTime>
         }
 
@@ -514,15 +517,15 @@ module Hop =
         { emptyState with Credentials = credentials }
 
 
-    /// How long a confirmation code lives: a mail round trip, not Rule 30's gap. Bounds the
-    /// half-finished launch too (plan 615's deviation from the model).
+    /// How long a confirmation code lives: a mail round trip, not a Session's idle gap. Bounds
+    /// the half-finished launch too, which lives as long as its code.
     let codeLifetime = TimeSpan.FromMinutes 15.0
 
-    /// Wrong codes before the code is void (ext 2b).
+    /// Wrong codes before the code is void.
     let maxTries = 3
 
-    /// How long a challenge lives: the launch's two minutes, the time to read the modal and
-    /// enter a PIN, so what is signed was checked against the platform moments ago (Rule 44).
+    /// How long a challenge lives: the Launch's two minutes, the time to read the modal and
+    /// enter a PIN, so what is signed was checked against the platform moments ago.
     let challengeLifetime = TimeSpan.FromMinutes 2.0
 
 
@@ -530,7 +533,7 @@ module Hop =
         state.Credentials |> Map.tryFind userId |> Option.defaultValue Credential.empty
 
 
-    /// Rule 19: the most recent signed version of a patient's record, if any.
+    /// The most recent signed version of a patient's record, if any: what a Session starts from.
     let headOf (patientId: string) (state: State) =
         state.Records |> Map.tryFind patientId |> Option.bind List.tryHead
 
@@ -586,9 +589,9 @@ module Hop =
                 { state with Launches = state.Launches |> Map.add claims.Nonce record }, answerOf authorizeUrl record
 
 
-    /// The patient a Session opens on (#640): the PatientDataPlatform's reading (Concept 2, the
-    /// source of truth); without one, the patient data of the head of the record, the last
-    /// seen (Rule 19); from nothing, an empty patient (ext 6a).
+    /// The patient a Session opens on: the PatientDataPlatform's reading, the source of truth;
+    /// without one, the patient data of the head of the record, the last seen; from nothing,
+    /// an empty patient, so that a data outage does not block prescribing.
     let sessionPatient
         (patientData: string -> Patient option)
         (patientId: string)
@@ -600,10 +603,10 @@ module Hop =
         |> Option.defaultValue Shared.Models.Patient.empty
 
 
-    /// Step 5.7, one act (Rule 40), from whatever carried the launch this far: a LaunchRecord
-    /// at the callback, an Enrolment once the PIN is set. The Session is written from the head
-    /// of the record (Rule 19), on the platform's reading, else the head's patient data (#640);
-    /// the login's other Sessions are closed and marked (Rule 8).
+    /// The open, one act, from whatever carried the launch this far: a LaunchRecord at the
+    /// callback, an Enrolment once the PIN is set. The Session is written from the head of the
+    /// record, on the platform's reading, else the head's patient data; the login's other
+    /// Sessions are closed and marked, so that a User has at most one open Session.
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
@@ -672,10 +675,10 @@ module Hop =
         recordOutcome record (LaunchResult.Refused refusal) state, CallbackResult.Refused(refusal, refusedUrl refusal)
 
 
-    /// UC-2: the launch suspends at the PIN question. One live code per credential (Rule 37,
-    /// ext 2a): a code that still stands is reused and nothing is mailed; else a fresh code is
-    /// mailed to the address the registry gave on this request (Rule 27). The attempt is this
-    /// launch's own, with its browser's key.
+    /// The launch suspends at the PIN question. One live code per credential: a code that
+    /// still stands is reused and nothing is mailed; else a fresh code is mailed to the
+    /// address the registry gave on this request. The attempt is this launch's own, with its
+    /// browser's key.
     let private suspend
         (now: DateTime)
         (newId: unit -> string)
@@ -738,9 +741,11 @@ module Hop =
         CallbackResult.Enrolling(attempt, openedUrl, until)
 
 
-    /// Step 4.5 and step 5. As before, except at 5.4: a Prescriber whose credential has no PIN
-    /// is not refused, the launch suspends (Rules 7, 25). A callback reload while the attempt
-    /// stands is answered with it again (Rule 45); once it is gone, a relaunch is asked for.
+    /// The callback from the IdentityProvider and the checks that follow it: the state against
+    /// the cookie, the code redeemed for the identity, the registry asked for the Role and the
+    /// active Patient, the credential read. A Prescriber whose credential has no PIN is not
+    /// refused: the launch suspends until the PIN is set. A callback reload while the attempt
+    /// stands is answered with it again; once it is gone, a relaunch is asked for.
     let callback
         (now: DateTime)
         (newId: unit -> string)
@@ -842,13 +847,13 @@ module Hop =
                 dropCode e.UserId state
 
 
-    /// UC-2, the PIN comes back with the code. In order: the attempt (and its code) must stand;
-    /// the PIN must have the format, else no try is spent; a wrong code counts, and the third
-    /// voids the code for every attempt (ext 2b); else one act (Rules 37, 40): the PIN is set
-    /// with a count of zero (Rule 28), the code and its attempts are dropped, the User is
-    /// told (Rule 27, at the address the registry answers now, else the one the code went to),
-    /// and the launch continues at 5.5 to 5.7 on the supplying attempt's key, with the Role the
-    /// registry answers now and only if the launch's Patient is still the active one (Rule 6).
+    /// The PIN comes back with the code. In order: the attempt (and its code) must stand; the
+    /// PIN must have the format, else no try is spent; a wrong code counts, and the third voids
+    /// the code for every attempt; else one act: the PIN is set with a count of zero, the code
+    /// and its attempts are dropped, the User is told (at the address the registry answers
+    /// now, else the one the code went to), and the launch continues to the open on the
+    /// supplying attempt's key, with the Role the registry answers now and only if the
+    /// launch's Patient is still the active one.
     let supplyPin
         (now: DateTime)
         (newId: unit -> string)
@@ -891,10 +896,10 @@ module Hop =
                         DisplayName = e.DisplayName
                     }
 
-                // 5.3 again, fresh: the address for the mail (Rule 27), the Role re-taken and
-                // the active Patient (Rule 6), because the registry may have moved on during
-                // the wait. When it cannot answer, the code settles the PIN (Rule 37, uc-02 last
-                // bullet) and the launch continues on what it had.
+                // the registry asked again, fresh: the address for the mail, the Role re-taken
+                // and the active Patient, because the registry may have moved on during the
+                // wait. When it cannot answer, the code has already proved the mailbox, so it
+                // settles the PIN and the launch continues on what it had.
                 let fresh = standing identity
 
                 let address =
@@ -926,7 +931,7 @@ module Hop =
                 match fresh with
                 | Some s when s.ActivePatientId <> Some e.PatientId ->
                     // the PIN is set and told; no Session opens for a Patient that is no longer
-                    // the active one (Rule 6): a relaunch is asked for
+                    // the active one: a relaunch is asked for
                     state, SupplyPinResult.Refused PinRefusal.WrongActivePatient
                 | _ ->
                     let state, (id, session) =
@@ -935,9 +940,9 @@ module Hop =
                     state, SupplyPinResult.Opened(id, session)
 
 
-    /// Rule 9: a request from the Session refreshes its idle clock. Applied by every member that
-    /// takes the session cookie's id, `close` excepted (the model excepts `CloseSession`).
-    /// Nothing to refresh when there is no such Session.
+    /// A request from the Session refreshes its idle clock. Applied by every member that takes
+    /// the session cookie's id, `close` excepted: a close ends the Session, it does not keep
+    /// it alive. Nothing to refresh when there is no such Session.
     let touch (now: DateTime) (sid: string) (state: State) : State =
         { state with Sessions = state.Sessions |> Map.change sid (Option.map (fun r -> { r with Seen = now })) }
 
@@ -958,19 +963,20 @@ module Hop =
         }
 
 
-    /// Rule 20: the head of the record, when it is not the version the Session opened with.
+    /// The head of the record, when it is not the version the Session opened with: a
+    /// Submission is refused as long as such a newer version exists.
     let blockedBy (record: SessionRecord) (patientId: string) (state: State) =
         match headOf patientId state with
         | Some head when Some head.Head.Id <> record.OpenedWith -> Some head.Head
         | _ -> None
 
 
-    /// uc-03 step 1, for every computing request that names a Session: no Session under this
-    /// id and an ending recorded for it, the ending (Rule 11); a Session, touched, and Rule 21's
-    /// comparison when the token is the Session's own: a version newer than the one it opened
-    /// with, whose and when (Rule 22: told, never enforced; Rule 20 stays the only guard). An
-    /// anonymous Session, one without a Patient, no head, or a token that is not the Session's:
-    /// nothing to say.
+    /// For every computing request that names a Session: no Session under this id and an
+    /// ending recorded for it, the ending; a Session, touched, and, when the token is the
+    /// Session's own, the head compared against the version it opened with: a newer version,
+    /// whose and when. The notice informs and gates nothing; the refusal at a Submission stays
+    /// the only guard. An anonymous Session, one without a Patient, no head, or a token that
+    /// is not the Session's: nothing to say.
     let seen (now: DateTime) (sid: string) (opened: OpenedToken option) (state: State) : State * RecordNotice option =
         match state.Sessions |> Map.tryFind sid with
         | None -> state, state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended)
@@ -983,14 +989,13 @@ module Hop =
             | _ -> state, None
 
 
-    /// Rules 18 to 20, UC-4 step 4: version `id` becomes what the Session opened with. No
-    /// Session, an anonymous one or one without a Patient: nothing to open (Rule 13). An id the
-    /// record does not hold for the Session's Patient (a stale button, a restart): nothing
-    /// opens, the Session as it is; the next request tells what the head is (Rule 21). The
-    /// version already open: the token stands. Another version: the OpenedToken is re-minted
-    /// over it (Rule 34) and the standing challenge and notice of this Session are dropped (a
-    /// challenge over the old baseline must not be answerable). Any version may be opened
-    /// (Rule 18); one that is not the head leaves Submission blocked (Rule 20).
+    /// Version `id` becomes what the Session opened with. No Session, an anonymous one or one
+    /// without a Patient: nothing to open. An id the record does not hold for the Session's
+    /// Patient (a stale button, a restart): nothing opens, the Session as it is; the next
+    /// request tells what the head is. The version already open: the token stands. Another
+    /// version: the OpenedToken is re-minted over it and the standing challenge and notice of
+    /// this Session are dropped (a challenge over the old baseline must not be answerable).
+    /// Any version may be opened; one that is not the head leaves Submission blocked.
     let openVersion
         (now: DateTime)
         (newId: unit -> string)
@@ -1042,20 +1047,20 @@ module Hop =
                     Some session
 
 
-    /// Concept 10: an order appears once in a plan.
+    /// An order appears once in a plan.
     let duplicateOrders (scenarios: OrderScenario[]) =
         scenarios |> Array.countBy _.Order.Id |> Array.exists (fun (_, n) -> n > 1)
 
 
-    /// uc-03 step 2, in order: the Session with a User and a Patient; the Role Prescriber; the
-    /// OpenedToken this Session holds (Rule 34); the patient data re-read (Rule 44): when it is
-    /// not what the Session opened with and no notice over this reading was accepted, no
+    /// The challenge request, checked in order: the Session with a User and a Patient; the
+    /// Role Prescriber; the OpenedToken this Session holds; the patient data re-read: when it
+    /// is not what the Session opened with and no notice over this reading was accepted, no
     /// challenge yet but a `DataNotice`, replacing any earlier notice and dropping any earlier
-    /// challenge (it was over the data before the change); the record not moved on (Rule 20).
-    /// Then a challenge over exactly this plan (Rule 43), replacing the Session's earlier one
-    /// and spending the notice. The plan's own patient data is what the User saw, entered or
-    /// read, and is recorded as such (Rule 44); the Patient is the Session's (Rule 33). The
-    /// PIN is not involved: a refusal here costs no attempt (Rule 28).
+    /// challenge (it was over the data before the change); the record not moved on. Then a
+    /// challenge over exactly this plan, replacing the Session's earlier one and spending the
+    /// notice. The plan's own patient data is what the User saw, entered or read, and is
+    /// recorded as such; the Patient is the Session's, never the request's. The PIN is not
+    /// involved: a refusal here costs no attempt.
     let challenge
         (now: DateTime)
         (newId: unit -> string)
@@ -1111,7 +1116,7 @@ module Hop =
                                 Data = current
                                 Token = nonce
                             }
-                    // Concept 10: no challenge over a plan that names an order twice
+                    // no challenge over a plan that names an order twice
                     elif duplicateOrders plan.Scenarios then
                         refuse SigningRefusal.ChallengeMismatch
                     else
@@ -1137,17 +1142,17 @@ module Hop =
                             SigningResponse.ChallengeIssued nonce
 
 
-    /// uc-03 step 3, one act in the model's order (`dbCommit`): the Session with a User and a
-    /// Patient; the answer already given to this Session's key (Rule 45); the Role re-taken
-    /// from the registry (Rule 38, fails closed); the OpenedToken this Session holds (Rule 34);
-    /// the record not moved on (Rule 20); the challenge this Session was issued, over exactly
-    /// this plan (Rule 43); and last the PIN (Rules 23, 28), so that a Submission that was
-    /// never going to land costs no attempt. Then the version is appended, the challenge
-    /// spent, the OpenedToken re-minted over the new head, the Session's patient set to the
-    /// reading at the challenge, else the data signed (#640), and the answer remembered under
-    /// the key, refusals too. Three wrong PINs end the Session (`WrongPinLimit`), lock signing and
-    /// mail the User (Rule 27); a wrong PIN while locked pushes the lock out; a right PIN while
-    /// locked is refused and counts nothing.
+    /// The commit of a signature, one act, checked in order: the Session with a User and a
+    /// Patient; the answer already given to this Session's key; the Role re-taken from the
+    /// registry (fails closed when it cannot answer; Rule 38's bounded grace is not built);
+    /// the OpenedToken this Session holds; the
+    /// record not moved on; the challenge this Session was issued, over exactly this plan; and
+    /// last the PIN, so that a Submission that was never going to land costs no attempt. Then
+    /// the version is appended, the challenge spent, the OpenedToken re-minted over the new
+    /// head, the Session's patient set to the reading at the challenge, else the data signed,
+    /// and the answer remembered under the key, refusals too. Three wrong PINs end the Session
+    /// (`WrongPinLimit`), lock signing and mail the User; a wrong PIN while locked pushes the
+    /// lock out; a right PIN while locked is refused and counts nothing.
     let commit
         (now: DateTime)
         (newId: unit -> string)
@@ -1236,7 +1241,7 @@ module Hop =
 
                                         let token = OpenedToken $"opened-{newId ()}"
 
-                                        // #640: the Session's patient is the platform's reading at the
+                                        // the Session's patient is the platform's reading at the
                                         // challenge, else the data just signed, so a resume shows what
                                         // a relaunch would
                                         let opened =
@@ -1275,7 +1280,7 @@ module Hop =
                                             state
                                             (SigningResponse.Refused(SigningRefusal.Locked credential.LockedUntil.Value))
                                     elif credential |> Credential.attemptsLeft = 0 then
-                                        // Rule 28: the limit is reached now; the Session ends (Rule 10)
+                                        // the wrong-PIN limit is reached now; the Session ends
                                         let subject, body = Mails.pinLimit user.DisplayName
 
                                         // best effort (MailPort: fire and forget): the ending and the lock
@@ -1311,7 +1316,7 @@ module Hop =
     let newCode (randomBelow: int -> int) () = (randomBelow 1_000_000).ToString "D6"
 
 
-    /// The mac of a code under the host key (Rule 37).
+    /// The mac of a code under the host key: what the store keeps instead of the digits.
     let codeMac (key: LaunchSeal.Key) (code: string) =
         LaunchSeal.mac key (Text.Encoding.UTF8.GetBytes code)
 
@@ -1424,7 +1429,8 @@ module StubDirectory =
             DisplayName =
                 match choice with
                 | "prescriber" -> "Stub Prescriber"
-                // UC-3: a second Prescriber on the same patient (Rule 20)
+                // a second Prescriber on the same patient, so that the record can move on
+                // under another Session
                 | "prescriber-b" -> "Stub Prescriber B"
                 | "reader" -> "Stub Reader"
                 | "prescriber-other-patient" -> "Stub Prescriber (other patient)"
@@ -1433,13 +1439,13 @@ module StubDirectory =
         }
 
 
-    /// Rule 27: the address the registry gives for a login. The stub's is derived from it.
+    /// The address the registry gives for a login. The stub's is derived from it.
     let mailAddressOf (identity: BrowserIdentity) = $"{identity.Login}@stub.example"
 
 
     /// The registry's answer for a login, given the Patient the launch page made active. Whether
-    /// a PIN is set is not the registry's to say (Rule 24): `no-pin` differs from `prescriber`
-    /// only in the credential store's seed.
+    /// a PIN is set is not the registry's to say: `no-pin` differs from `prescriber` only in
+    /// the credential store's seed.
     let standingOf (activePatientId: string) (identity: BrowserIdentity) : UserStanding option =
         let standing role activePatientId =
             Some
@@ -1474,12 +1480,12 @@ module StubDirectory =
         }
 
 
-    /// A code lives as long as a Launch (Rule 29); older ones are pruned on the next issue.
+    /// A code lives as long as a Launch; older ones are pruned on the next issue.
     let codeLifetime = TimeSpan.FromMinutes 2.0
 
 
     /// One active Patient per login, as MainEHR has: a later launch of the same login for
-    /// another Patient makes an earlier, still open launch wrong-patient (ext 5b).
+    /// another Patient makes an earlier, still open launch wrong-patient.
     let make (now: unit -> DateTime) (newCode: unit -> string) : Directory =
         let gate = obj ()
         let codes = Collections.Generic.Dictionary<string, BrowserIdentity * DateTime>()
@@ -1538,8 +1544,8 @@ module StubDirectory =
 
 
 /// The PatientDataPlatform stub: one fixed patient for every PatientId, so a launch fills the
-/// patient panel from the platform, except that `no-data` has no record at all (ext 6a), so
-/// the Session opens on what was signed last, or on nothing (#640).
+/// patient panel from the platform, except that `no-data` has no record at all, so the
+/// Session opens on what was signed last, or on nothing.
 module StubPatientData =
 
     /// The stub's reading: ten years, 32 kg, 140 cm, nothing else known.
@@ -1565,8 +1571,8 @@ module StubPatientData =
 
 
 /// The credential half of the Database, seeded for the stub logins: the Prescribers that sign
-/// have the PIN `1234`, `no-pin` has none and enrols (UC-2), a Reader has no credential
-/// (Rule 26). Per host start; a PIN set by enrolment lives as long as the host.
+/// have the PIN `1234`, `no-pin` has none and enrols, a Reader has no credential because a
+/// Reader never signs. Per host start; a PIN set by enrolment lives as long as the host.
 module StubCredentials =
 
     /// The PIN every seeded stub Prescriber has. Development and test servers only.
@@ -1583,7 +1589,7 @@ module StubCredentials =
         |> Map.ofList
 
 
-/// The MailService stub (Actor M): an outbox behind a lock and a page that shows it, newest
+/// The MailService stub: an outbox behind a lock and a page that shows it, newest
 /// first, so the tester reads a confirmation code where a User would read their mail.
 /// `Server.fs` mounts `GET /stub/mail` in full scope only.
 module StubMail =
@@ -1641,7 +1647,7 @@ newest first. Development and test servers only.</p>
 </html>"""
 
 
-/// The stub LaunchScript (uc-01 step 1) as a page the server serves in full scope: it mints a
+/// The stub LaunchScript as a page the server serves in full scope: it mints a
 /// sealed Launch for a chosen PatientId and opens the client on it. Pure here; `Server.fs`
 /// mounts `GET /stub/launch` (the page) and `POST /stub/launch` (mint + redirect).
 module StubLaunch =
@@ -1649,13 +1655,13 @@ module StubLaunch =
     let path = "/stub/launch"
 
 
-    /// The Launch lifetime (Rule 29): a page load, the identity round trip, a retry or two.
+    /// The Launch lifetime: a page load, the identity round trip, a retry or two.
     let lifetime = TimeSpan.FromMinutes 2.0
 
 
     /// The form for a list of identity choices (the stub directory's). No inline script or
     /// style, so the CSP (`default-src 'self'`) holds. The PatientId `no-data` opens a Session
-    /// without imported data (ext 6a).
+    /// without imported data.
     let pageFor (choices: string list) =
         let options =
             choices
@@ -1687,7 +1693,8 @@ below and opens GenPRES on it. Development and test servers only.</p>
     let page = pageFor StubDirectory.choices
 
 
-    /// Where the browser goes after minting: the hash form of decision D1.
+    /// Where the browser goes after minting: the Launch travels in the url hash, which never
+    /// reaches the server as a request.
     let launchUrl (launch: Launch) =
         match launch with
         | Launch text -> $"/#/session?launch={Uri.EscapeDataString text}"
@@ -1953,14 +1960,14 @@ module Adapters =
                         None
                     else
                         info.Messages |> Array.map (fun msg -> FormLogging.formatMessage msg) |> Some
-            // plan 409 step 2: an in-memory stub with a two-minute Launch lifetime (Rule 29);
-            // its sessions live as long as this AppEnv
+            // an in-memory stub with a two-minute Launch lifetime; its sessions live as long
+            // as this AppEnv
             session =
                 Hop.makeSessionPort
                     (fun () -> DateTime.UtcNow)
                     PublicKey.randomId
                     // the confirmation code and the salt from the CSPRNG, the code mac under
-                    // the host key (UC-2, Rule 37)
+                    // the host key
                     (Hop.newCode System.Security.Cryptography.RandomNumberGenerator.GetInt32)
                     System.Security.Cryptography.RandomNumberGenerator.GetBytes
                     (Hop.codeMac launchKey)
@@ -1969,7 +1976,7 @@ module Adapters =
                     directory.registry
                     StubPatientData.port
                     mail
-                    // the credential store, seeded per stub login (plan 615)
+                    // the credential store, seeded per stub login
                     (Hop.initialState (StubCredentials.seed System.Security.Cryptography.RandomNumberGenerator.GetBytes))
         }
 

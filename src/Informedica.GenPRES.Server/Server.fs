@@ -291,7 +291,7 @@ module Http =
     let sessionCookieName = "genpres_session"
 
 
-    /// The attributes of the session cookie (uc-01 step 6, Rule 12): HttpOnly, SameSite=Strict,
+    /// The attributes of the session cookie, a bearer credential: HttpOnly, SameSite=Strict,
     /// Path=/, Secure when the request came in over HTTPS. Behind the TLS-terminating proxy
     /// that is Request.IsHttps as set by ForwardedHeadersMiddleware from X-Forwarded-Proto
     /// (Host.build). Host-only on purpose: no Domain, so the Vite dev proxy passes it
@@ -305,9 +305,9 @@ module Http =
     let launchStateCookieName (state: string) = $"genpres_launch_state.{state}"
 
 
-    /// The state cookie of the identity hop (uc-01 step 4.2): HttpOnly, SameSite=Lax so that
-    /// the redirect back from the IdentityProvider carries it, Path=/callback so that nothing
-    /// else sees it, Max-Age the Launch lifetime (Rule 29), Secure when the request came in
+    /// The state cookie of the identity hop: HttpOnly, SameSite=Lax so that the redirect back
+    /// from the IdentityProvider carries it, Path=/callback so that nothing else sees it,
+    /// Max-Age the Launch lifetime, Secure when the request came in
     /// over HTTPS. Not a bearer for anything: it proves the browser that started the hop.
     let launchStateCookieOptions (isHttps: bool) =
         CookieOptions(
@@ -352,10 +352,10 @@ module Http =
     let enrolmentCookieName = "genpres_enrolment"
 
 
-    /// The enrolment cookie (UC-2): the attempt a suspended launch left in this browser. HttpOnly
-    /// and Strict (only the app's own calls carry it), Path=/, Max-Age what remains of the
-    /// confirmation code's lifetime, Secure over HTTPS. Not a bearer for anything without the
-    /// mailed code.
+    /// The enrolment cookie: the attempt a launch suspended at the PIN question left in this
+    /// browser. HttpOnly and Strict (only the app's own calls carry it), Path=/, Max-Age what
+    /// remains of the confirmation code's lifetime, Secure over HTTPS. Not a bearer for
+    /// anything without the mailed code.
     let enrolmentCookieOptions (isHttps: bool) (now: System.DateTime) (until: System.DateTime) =
         CookieOptions(
             HttpOnly = true,
@@ -641,17 +641,17 @@ module Host =
     let build (settings: Config.Settings) (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
         // Built once per host: the session stub's state lives in it. Remoting.fromContext
         // runs its function per request, so the env must not be built in there.
-        // the key the stub LaunchScript seals Launches under (plan 605): per host start, so a
+        // the key the stub LaunchScript seals Launches under: per host start, so a
         // token from an earlier run is "not sealed under the key"
         let launchKey =
             LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes
 
-        // the stub IdentityProvider and UserRegistry (plan 605): one-time codes and the active
+        // the stub IdentityProvider and UserRegistry: one-time codes and the active
         // patient per identity choice, issued by /authorize and redeemed at the callback
         let directory =
             StubDirectory.make (fun () -> System.DateTime.UtcNow) PublicKey.randomId
 
-        // the stub MailService (plan 615): an outbox the /stub/mail page shows, so the tester
+        // the stub MailService: an outbox the /stub/mail page shows, so the tester
         // reads a confirmation code where a User would read their mail
         let mail = StubMail.make ()
 
@@ -685,7 +685,7 @@ module Host =
         // below), so this stays handler-only. The 404 arm replaces a legacy
         // "GenInteractions App. Use localhost: 8080 for the GUI" string that
         // leaked an old app name and hinted at port 8080 (L2 / B5).
-        // the stub LaunchScript page (uc-01 step 1 stand-in, plan 605): full scope only, so a
+        // the stub LaunchScript page, standing in for MainEHR's: full scope only, so a
         // production server never mints a Launch. GET shows the form, POST mints and redirects.
         let stubLaunch =
             if settings.IsProd then
@@ -693,7 +693,7 @@ module Host =
             else
                 [
                     GET >=> route StubLaunch.path >=> htmlString StubLaunch.page
-                    // the stub MailService outbox (uc-02, Rule 27 stand-in, plan 615)
+                    // the stub MailService outbox, where the tester reads the mails a User would
                     GET
                     >=> route StubMail.path
                     >=> fun next ctx -> htmlString (StubMail.page (mail.sent ())) next ctx
@@ -726,7 +726,7 @@ module Host =
 
                             return! redirectTo false (StubLaunch.launchUrl launch) next ctx
                         }
-                    // the stub IdentityProvider (uc-01 step 4.3): signs the browser on from the
+                    // the stub IdentityProvider: signs the browser on from the
                     // identity chosen on the stub page, or reports no identity, and sends it back
                     // with the state it received
                     GET
@@ -751,7 +751,7 @@ module Host =
                         redirectTo false url next ctx
                 ]
 
-        // uc-01 step 4.5: the browser is back from the IdentityProvider. Mounted always; with the
+        // the browser is back from the IdentityProvider. Mounted always; with the
         // session port disabled it refuses as invalid.
         let callback =
             GET

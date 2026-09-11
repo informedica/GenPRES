@@ -97,7 +97,7 @@ module Api =
         | DrugNamesLoaded of string[]
 
 
-    /// Every computing request: the command and the OpenedToken the Session holds (Rule 34).
+    /// Every computing request: the command and the OpenedToken the Session holds.
     /// `None` where there is none to send: no Session, an anonymous one, or a client acting
     /// before its first token arrived.
     type Request =
@@ -107,7 +107,8 @@ module Api =
         }
 
 
-    /// Every computing reply: the result, and what the Session is told with it (Rules 11, 21).
+    /// Every computing reply: the result, and what the Session is told with it (the record
+    /// moved on, or the Session ended).
     type Reply =
         {
             Response: Response
@@ -171,29 +172,28 @@ module Api =
             | LogAnalyzerCmd(AnalyzeLogFile(_, f)) -> $"AnalyzeLogFile %s{f}"
 
 
-    /// The launch command family (launch sequence step 4). Cut from the session family at the
-    /// authentication boundary: a launch command arrives without a cookie. Room to grow: the
-    /// identity callback.
+    /// The launch command family. Cut from the session family at the authentication boundary:
+    /// a launch command arrives without a cookie. Room to grow: the identity callback.
     [<RequireQualifiedAccess>]
     type LaunchCommand =
-        // idempotent per public key (Rule 2); sets the session cookie on Opened
+        // idempotent per public key: a repeat from the same browser is answered as the first
+        // was; sets the session cookie on Opened
         | PresentLaunch of Launch * PublicKey
 
 
-    /// The session command family (launch step 6 and later): always cookie-authenticated.
-    /// Room to grow: Rule 11 endings, resume, PIN.
+    /// The session command family, from the open Session on: always cookie-authenticated.
     [<RequireQualifiedAccess>]
     type SessionCommand =
         // the Session of this browser, if any (reload, IdP return)
         | GetSession
-        // Rule 10: explicit close; always removes the cookie
+        // explicit close; always removes the cookie
         | CloseSession
-        // UC-2: the confirmation code from the mail and the chosen PIN, for the attempt the
+        // the confirmation code from the mail and the chosen PIN, for the attempt the
         // enrolment cookie names
         | SupplyPin of code: string * pin: string
-        // UC-4 step 4 (Rules 18 to 20): the version named becomes what the Session opened with;
-        // answered with the Session as it then is, `SessionResp None` where there is no Session,
-        // no User or no Patient
+        // the version named becomes what the Session opened with, which lifts the block on
+        // signing when it is the head; answered with the Session as it then is,
+        // `SessionResp None` where there is no Session, no User or no Patient
         | OpenVersion of id: string
 
 
@@ -201,21 +201,20 @@ module Api =
     type SessionResponse =
         | SessionResp of SessionOpened option
         | SessionClosed
-        // the server ended the Session the cookie named, and deleted the cookie (Rule 11)
+        // the server ended the Session the cookie named, and deleted the cookie
         | SessionEnded of SessionEnding
-        // the launch waits on a PIN (UC-2); answered to GetSession while the attempt stands
+        // the launch waits on a PIN; answered to GetSession while the attempt stands
         | EnrolmentPending of EnrolmentPending
         | PinRefused of PinRefusal
 
 
-    /// The signing command family (uc-03 steps 2 and 3): always cookie-authenticated, like
-    /// the session family. Room to grow: the Submission.
+    /// The signing command family: always cookie-authenticated, like the session family.
     [<RequireQualifiedAccess>]
     type SigningCommand =
-        // step 2: the plan as shown, the OpenedToken the Session holds (Rule 34), and the
-        // token of the data notice the User accepted, if one was told (Rule 44)
+        // the plan as shown, the OpenedToken the Session holds, and the token of the data
+        // notice the User accepted, if one was told
         | RequestSignChallenge of OrderPlan * OpenedToken * dataNotice: string option
-        // step 3: the signature
+        // the signature: the challenge comes back with the PIN
         | Submit of Submission
 
 
