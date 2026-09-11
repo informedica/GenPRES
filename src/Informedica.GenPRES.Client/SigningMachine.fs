@@ -1,10 +1,12 @@
 /// The signing phase of an open Session (uc-03 steps 2 and 3): a pure state machine next to
-/// the Session's, with effects for the App to interpret. The machine holds no OpenedToken and
-/// no idempotency key: the effects name what it knows (the plan, the challenge, the PIN), and
+/// the Session's, with effects for the App to interpret. The machine holds no OpenedToken: the
+/// effects name what it knows (the plan, the challenge, the PIN, the idempotency key), and
 /// the interpreter completes each call from the open Session.
 ///
-/// Two invariants (ext 3b, 3c): what is submitted is the plan the challenge was issued over,
-/// held in the state, never the live cart; and one request is in flight at a time.
+/// Three invariants (ext 3b, 3c, 3d): what is submitted is the plan the challenge was issued
+/// over, held in the state, never the live cart; one request is in flight at a time; and a
+/// Submission whose answer was lost is sent again under the same key (Rule 45), so the server
+/// answers what it already did, landed or not.
 module SigningMachine
 
 open Shared.Types
@@ -19,7 +21,10 @@ type Signing =
     | Noticed of OrderPlan * DataNotice
     // step 3: the dialog asks the PIN over this plan; the last refusal, if any
     | Challenged of challenge: string * OrderPlan * SigningRefusal option
-    | Submitting of challenge: string * OrderPlan
+    // the Submission in flight, under its key
+    | Submitting of challenge: string * OrderPlan * key: string
+    // the answer was lost (a transport error): the dialog asks again, the key is kept (Rule 45)
+    | Unsent of challenge: string * OrderPlan * key: string
 
 
 [<RequireQualifiedAccess>]
@@ -29,7 +34,8 @@ type SigningMsg =
     | ChallengeAnswered of Result<SigningResponse, string>
     // the data notice accepted: sign over the data as it stands
     | Accept
-    | Confirm of pin: string
+    // the PIN, and a fresh idempotency key the caller minted; ignored on a retry
+    | Confirm of pin: string * key: string
     | Cancel
     // Error = transport failure
     | SubmitAnswered of Result<SigningResponse, string>
@@ -39,8 +45,8 @@ type SigningMsg =
 type SigningEffect =
     // RequestSignChallenge, completed with the open Session's OpenedToken
     | CallChallenge of OrderPlan * notice: string option
-    // Submit, completed with the open Session's OpenedToken and a fresh idempotency key
-    | CallSubmit of OrderPlan * challenge: string * pin: string
+    // Submit, completed with the open Session's OpenedToken
+    | CallSubmit of OrderPlan * challenge: string * pin: string * key: string
     // the Session's token, re-minted over the new head (Rule 34)
     | RenewToken of OpenedToken
     // the server ended the Session (Rule 28)
@@ -92,15 +98,20 @@ module Signing =
                 Signing.Requesting(plan, Some notice.Token), [ SigningEffect.CallChallenge(plan, Some notice.Token) ]
         | SigningMsg.Accept, _ -> state, []
 
-        // step 3: the plan submitted is the plan challenged (ext 3b, 3c)
-        | SigningMsg.Confirm pin, Signing.Challenged(challenge, plan, _) ->
-            Signing.Submitting(challenge, plan), [ SigningEffect.CallSubmit(plan, challenge, pin) ]
+        // step 3: the plan submitted is the plan challenged (ext 3b, 3c), under the caller's key
+        | SigningMsg.Confirm(pin, key), Signing.Challenged(challenge, plan, _) ->
+            Signing.Submitting(challenge, plan, key), [ SigningEffect.CallSubmit(plan, challenge, pin, key) ]
+        // a retry after a lost answer goes out under the key it had (Rule 45): the server
+        // answers what it already did, whether the signature landed or not
+        | SigningMsg.Confirm(pin, _), Signing.Unsent(challenge, plan, key) ->
+            Signing.Submitting(challenge, plan, key), [ SigningEffect.CallSubmit(plan, challenge, pin, key) ]
         | SigningMsg.Confirm _, _ -> state, []
 
         // the challenge is dropped, and the dialog with it; a request in flight cannot be cancelled
         | SigningMsg.Cancel, Signing.Requesting _
         | SigningMsg.Cancel, Signing.Noticed _
-        | SigningMsg.Cancel, Signing.Challenged _ -> Signing.Idle, []
+        | SigningMsg.Cancel, Signing.Challenged _
+        | SigningMsg.Cancel, Signing.Unsent _ -> Signing.Idle, []
         | SigningMsg.Cancel, _ -> state, []
 
         | SigningMsg.SubmitAnswered(Ok(SigningResponse.Submitted(signed, token))), Signing.Submitting _ ->
@@ -111,9 +122,9 @@ module Signing =
             ]
         // the dialog stays open with what went wrong (Rule 28: tries left, or locked)
         | SigningMsg.SubmitAnswered(Ok(SigningResponse.Refused(SigningRefusal.PinWrong _ as refusal))),
-          Signing.Submitting(challenge, plan)
+          Signing.Submitting(challenge, plan, _)
         | SigningMsg.SubmitAnswered(Ok(SigningResponse.Refused(SigningRefusal.Locked _ as refusal))),
-          Signing.Submitting(challenge, plan) -> Signing.Challenged(challenge, plan, Some refusal), []
+          Signing.Submitting(challenge, plan, _) -> Signing.Challenged(challenge, plan, Some refusal), []
         | SigningMsg.SubmitAnswered(Ok(SigningResponse.Refused SigningRefusal.PinLimit)), Signing.Submitting _ ->
             Signing.Idle, [ SigningEffect.EndSession SessionEnding.WrongPinLimit ]
         | SigningMsg.SubmitAnswered(Ok(SigningResponse.Refused refusal)), Signing.Submitting _ ->
@@ -121,7 +132,8 @@ module Signing =
         // never an answer to a Submission
         | SigningMsg.SubmitAnswered(Ok(SigningResponse.ChallengeIssued _)), Signing.Submitting _
         | SigningMsg.SubmitAnswered(Ok(SigningResponse.DataNotice _)), Signing.Submitting _ -> Signing.Idle, []
-        // the request never got there: the challenge stands, the dialog comes back as it was
-        | SigningMsg.SubmitAnswered(Error reason), Signing.Submitting(challenge, plan) ->
-            Signing.Challenged(challenge, plan, None), [ SigningEffect.TellError reason ]
+        // the answer was lost: whether the signature landed is unknown, so the dialog comes
+        // back and the next Confirm retries under the same key (Rule 45)
+        | SigningMsg.SubmitAnswered(Error reason), Signing.Submitting(challenge, plan, key) ->
+            Signing.Unsent(challenge, plan, key), [ SigningEffect.TellError reason ]
         | SigningMsg.SubmitAnswered _, _ -> state, []

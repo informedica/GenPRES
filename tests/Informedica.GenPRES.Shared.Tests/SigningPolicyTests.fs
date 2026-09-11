@@ -210,6 +210,7 @@ let tests =
                 |> Expect.isTrue "noticed"
 
                 dialogOpen (Signing.Challenged("c", plan, None)) |> Expect.isTrue "challenged"
-                dialogOpen (Signing.Submitting("c", plan)) |> Expect.isTrue "submitting"
+                dialogOpen (Signing.Submitting("c", plan, "k")) |> Expect.isTrue "submitting"
+                dialogOpen (Signing.Unsent("c", plan, "k")) |> Expect.isTrue "unsent"
             }
         ]

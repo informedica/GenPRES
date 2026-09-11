@@ -91,11 +91,13 @@ let canSign (session: Session) (plan: OrderPlan) =
     | _ -> false
 
 
-/// Whether the dialog is up: the notice, the PIN question, or the Submission in flight.
+/// Whether the dialog is up: the notice, the PIN question, the Submission in flight, or the
+/// retry after a lost answer.
 let dialogOpen (signing: Signing) =
     match signing with
     | Signing.Noticed _
     | Signing.Challenged _
-    | Signing.Submitting _ -> true
+    | Signing.Submitting _
+    | Signing.Unsent _ -> true
     | Signing.Idle
     | Signing.Requesting _ -> false

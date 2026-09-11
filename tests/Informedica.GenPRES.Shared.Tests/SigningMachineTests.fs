@@ -37,7 +37,8 @@ module Fixtures =
         }
 
     let challenged = Signing.Challenged("c-1", plan, None)
-    let submitting = Signing.Submitting("c-1", plan)
+    let submitting = Signing.Submitting("c-1", plan, "k-1")
+    let unsent = Signing.Unsent("c-1", plan, "k-1")
     let requesting = Signing.Requesting(plan, None)
 
     let transition = Signing.transition
@@ -60,6 +61,7 @@ let tests =
                         requesting
                         challenged
                         submitting
+                        unsent
                         Signing.Noticed(
                             plan,
                             {
@@ -99,7 +101,7 @@ let tests =
                 |> Expect.equal "transport" (Signing.Idle, [ SigningEffect.TellError "down" ])
 
                 // an answer lands only on the request in flight
-                for state in [ Signing.Idle; challenged; submitting ] do
+                for state in [ Signing.Idle; challenged; submitting; unsent ] do
                     transition (SigningMsg.ChallengeAnswered(Ok(SigningResponse.ChallengeIssued "c-9"))) state
                     |> Expect.equal $"{state}" (state, [])
             }
@@ -133,25 +135,26 @@ let tests =
                     "over the opened data"
                     (Signing.Requesting(plan, Some "d-2"), [ SigningEffect.CallChallenge(plan, Some "d-2") ])
 
-                for state in [ Signing.Idle; requesting; challenged; submitting ] do
+                for state in [ Signing.Idle; requesting; challenged; submitting; unsent ] do
                     transition SigningMsg.Accept state |> Expect.equal $"{state}" (state, [])
             }
 
             test
-                "Confirm sends the PIN over the challenged plan, once at a time; Cancel drops the challenge but not a request in flight" {
-                transition (SigningMsg.Confirm "1234") challenged
-                |> Expect.equal "sent" (submitting, [ SigningEffect.CallSubmit(plan, "c-1", "1234") ])
+                "Confirm sends the PIN over the challenged plan under the caller's key, once at a time; Cancel drops the challenge but not a request in flight" {
+                transition (SigningMsg.Confirm("1234", "k-1")) challenged
+                |> Expect.equal "sent" (submitting, [ SigningEffect.CallSubmit(plan, "c-1", "1234", "k-1") ])
 
-                transition (SigningMsg.Confirm "1234") submitting
+                transition (SigningMsg.Confirm("1234", "k-2")) submitting
                 |> Expect.equal "not twice" (submitting, [])
 
-                transition (SigningMsg.Confirm "1234") Signing.Idle
+                transition (SigningMsg.Confirm("1234", "k-2")) Signing.Idle
                 |> Expect.equal "nothing to confirm" (Signing.Idle, [])
 
                 for state in
                     [
                         requesting
                         challenged
+                        unsent
                         Signing.Noticed(
                             plan,
                             {
@@ -212,14 +215,33 @@ let tests =
                     transition (SigningMsg.SubmitAnswered(Ok(SigningResponse.Refused refusal))) submitting
                     |> Expect.equal $"{refusal}" (Signing.Idle, [ SigningEffect.TellRefused refusal ])
 
-                transition (SigningMsg.SubmitAnswered(Error "down")) submitting
-                |> Expect.equal "dialog back" (challenged, [ SigningEffect.TellError "down" ])
-
-                for state in [ Signing.Idle; requesting; challenged ] do
+                for state in [ Signing.Idle; requesting; challenged; unsent ] do
                     transition
                         (SigningMsg.SubmitAnswered(Ok(SigningResponse.Submitted(signed, OpenedToken "t2"))))
                         state
                     |> Expect.equal $"{state}" (state, [])
+            }
+
+            test
+                "a lost answer: the dialog comes back and the retry goes out under the same key, so the server answers what it did (Rule 45, ext 3d)" {
+                transition (SigningMsg.SubmitAnswered(Error "down")) submitting
+                |> Expect.equal "unsent, told" (unsent, [ SigningEffect.TellError "down" ])
+
+                // the caller mints a fresh key; the machine keeps the one the lost Submission had
+                transition (SigningMsg.Confirm("1234", "k-fresh")) unsent
+                |> Expect.equal "same key" (submitting, [ SigningEffect.CallSubmit(plan, "c-1", "1234", "k-1") ])
+
+                // the signature had landed: the remembered answer is what comes back
+                transition
+                    (SigningMsg.SubmitAnswered(Ok(SigningResponse.Submitted(signed, OpenedToken "t2"))))
+                    submitting
+                |> Expect.equal
+                    "signed after all"
+                    (Signing.Idle,
+                     [
+                         SigningEffect.RenewToken(OpenedToken "t2")
+                         SigningEffect.TellSigned signed
+                     ])
             }
 
             test "the plan submitted is the plan challenged, whatever the cart did meanwhile (ext 3b, 3c)" {
@@ -228,9 +250,9 @@ let tests =
                 let state, _ =
                     transition (SigningMsg.ChallengeAnswered(Ok(SigningResponse.ChallengeIssued "c-1"))) state
                 // the cart moved on: the machine never sees it
-                let _, effects = transition (SigningMsg.Confirm "1234") state
+                let _, effects = transition (SigningMsg.Confirm("1234", "k-1")) state
 
                 effects
-                |> Expect.equal "the challenged plan" [ SigningEffect.CallSubmit(plan, "c-1", "1234") ]
+                |> Expect.equal "the challenged plan" [ SigningEffect.CallSubmit(plan, "c-1", "1234", "k-1") ]
             }
         ]
