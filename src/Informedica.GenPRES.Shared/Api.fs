@@ -97,6 +97,24 @@ module Api =
         | DrugNamesLoaded of string[]
 
 
+    /// Every computing request: the command and the OpenedToken the Session holds (Rule 34).
+    /// `None` where there is none to send: no Session, an anonymous one, or a client acting
+    /// before its first token arrived.
+    type Request =
+        {
+            Opened: OpenedToken option
+            Command: Command
+        }
+
+
+    /// Every computing reply: the result, and what the Session is told with it (Rules 11, 21).
+    type Reply =
+        {
+            Response: Response
+            Notice: RecordNotice option
+        }
+
+
     module Command =
 
         let toString =
@@ -242,7 +260,7 @@ module Api =
     /// to learn more read the docs at https://zaid-ajaj.github.io/Fable.Remoting/src/basics.html
     type IServerApi =
         {
-            processCommand: Command -> Async<Result<Response, string[]>>
+            processCommand: Request -> Async<Result<Reply, string[]>>
             processLaunch: LaunchCommand -> Async<LaunchOutcome>
             processSession: SessionCommand -> Async<SessionResponse>
             processSigning: SigningCommand -> Async<SigningResponse>

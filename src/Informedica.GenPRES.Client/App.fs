@@ -120,7 +120,7 @@ module private Elmish =
         | LoadLogAnalysisResult of ApiResponse
 
 
-    and ApiResponse = AsyncOperationStatus<Result<Api.Response, string[]>>
+    and ApiResponse = AsyncOperationStatus<Result<Api.Reply, string[]>>
 
 
     let serverApi =
@@ -151,16 +151,36 @@ module private Elmish =
         |> Cmd.fromAsync
 
 
-    let createApiMsg msg cmd =
+    /// The OpenedToken the Session holds, sent with every computing request (Rule 34); none
+    /// without an open Session.
+    let tokenOf (session: Session) =
+        match session with
+        | Session.Open opened -> opened.OpenedToken
+        | _ -> None
+
+
+    let createApiMsg (opened: OpenedToken option) msg cmd =
         async {
-            let! result = serverApi.processCommand cmd
+            let! result =
+                serverApi.processCommand (
+                    {
+                        Opened = opened
+                        Command = cmd
+                    }
+                    : Api.Request
+                )
+
             return Finished result |> msg
         }
         |> Cmd.fromAsync
 
 
-    let processApiMsg (state: State) msg =
-        match msg with
+    let processApiMsg (state: State) (reply: Api.Reply) =
+        // plan 635 PR 1: the notice is carried and logged, not shown yet
+        reply.Notice
+        |> Option.iter (fun notice -> Logging.warning "record notice" notice)
+
+        match reply.Response with
         | Api.OrderContextResp(Api.OrderContextResult ctx) -> { state with OrderContext = Resolved ctx }, Cmd.none
         | Api.OrderPlanResp(Api.OrderPlanFiltered tp)
         | Api.OrderPlanResp(Api.OrderPlanUpdated tp) ->
@@ -215,17 +235,20 @@ module private Elmish =
             { state with LogAnalysisReport = Resolved report }, Cmd.none
 
 
-    let loadOrderContext resp =
-        Api.OrderContextCmd >> createApiMsg resp
+    let loadOrderContext opened resp =
+        Api.OrderContextCmd >> createApiMsg opened resp
 
 
-    let loadOrderPlan resp = Api.OrderPlanCmd >> createApiMsg resp
+    let loadOrderPlan opened resp =
+        Api.OrderPlanCmd >> createApiMsg opened resp
 
 
-    let loadFormuarly = Api.FormularyCmd >> createApiMsg LoadFormulary
+    let loadFormuarly opened =
+        Api.FormularyCmd >> createApiMsg opened LoadFormulary
 
 
-    let loadParenteralia = Api.ParenteraliaCmd >> createApiMsg LoadParenteralia
+    let loadParenteralia opened =
+        Api.ParenteraliaCmd >> createApiMsg opened LoadParenteralia
 
 
     // url needs to be in format: http://localhost:8080/#patient?by=2&bm=0&bd=1
@@ -674,10 +697,7 @@ module private Elmish =
     /// the answer is a refusal. What is told (signed, refused, an error) is put on the snackbar
     /// by `update`, not here.
     let interpretSigningEffect (session: Session) (effect: SigningEffect) : Cmd<Msg> =
-        let token =
-            match session with
-            | Session.Open opened -> opened.OpenedToken
-            | _ -> None
+        let token = tokenOf session
 
         match effect with
         | SigningEffect.CallChallenge(plan, notice, request) ->
@@ -828,7 +848,7 @@ module private Elmish =
         | Login password ->
             state,
             Api.LogAnalyzerCmd(Api.ValidatePassword password)
-            |> createApiMsg LoadLoginResult
+            |> createApiMsg (tokenOf state.Session) LoadLoginResult
 
         | LoadLoginResult(Finished(Ok resp)) -> processOk resp
 
@@ -855,7 +875,7 @@ module private Elmish =
         | ListLogFiles ->
             { state with LogFiles = InProgress },
             Api.LogAnalyzerCmd(Api.ListLogFiles state.AuthToken)
-            |> createApiMsg LoadLogFilesResult
+            |> createApiMsg (tokenOf state.Session) LoadLogFilesResult
 
         | LoadLogFilesResult(Finished(Ok resp)) -> processOk resp
 
@@ -867,7 +887,7 @@ module private Elmish =
         | AnalyzeLogFile fileName ->
             { state with LogAnalysisReport = InProgress },
             Api.LogAnalyzerCmd(Api.AnalyzeLogFile(state.AuthToken, fileName))
-            |> createApiMsg LoadLogAnalysisResult
+            |> createApiMsg (tokenOf state.Session) LoadLogAnalysisResult
 
         | LoadLogAnalysisResult(Finished(Ok resp)) -> processOk resp
 
@@ -1200,7 +1220,7 @@ module private Elmish =
                 | Api.ReloadResources pw ->
                     { state with OrderContext = HasNotStartedYet },
                     (Api.ReloadResources pw, OrderContext.empty)
-                    |> loadOrderContext (fun resp -> LoadOrderContextResult(cmd, resp))
+                    |> loadOrderContext (tokenOf state.Session) (fun resp -> LoadOrderContextResult(cmd, resp))
                 | _ -> { state with OrderContext = HasNotStartedYet }, Cmd.none
             | Some pat ->
                 match state.OrderContext with
@@ -1209,11 +1229,11 @@ module private Elmish =
                 | HasNotStartedYet ->
                     { state with OrderContext = InProgress },
                     (cmd, OrderContext.empty |> OrderContext.setPatient pat)
-                    |> loadOrderContext (fun resp -> LoadOrderContextResult(cmd, resp))
+                    |> loadOrderContext (tokenOf state.Session) (fun resp -> LoadOrderContextResult(cmd, resp))
                 | Resolved ctx ->
                     { state with OrderContext = Recalculating ctx },
                     (cmd, { ctx with Patient = pat })
-                    |> loadOrderContext (fun resp -> LoadOrderContextResult(cmd, resp))
+                    |> loadOrderContext (tokenOf state.Session) (fun resp -> LoadOrderContextResult(cmd, resp))
 
         | LoadOrderContextResult(_, Finished(Ok msg)) -> msg |> processOk
         | LoadOrderContextResult(_, Finished(Error err)) ->
@@ -1243,7 +1263,7 @@ module private Elmish =
                 | _ ->
                     { state with OrderPlan = Recalculating tp },
                     Api.OrderPlanCmd(Api.UpdateOrderPlan(tp, Some(ctxCmd, ctx)))
-                    |> createApiMsg (fun resp -> LoadOrderPlanResult(tpCmd, resp))
+                    |> createApiMsg (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(tpCmd, resp))
             | Api.UpdateOrderPlan(tp, None) ->
                 let onlySetOrderContext =
                     state.OrderPlan
@@ -1295,7 +1315,8 @@ module private Elmish =
                         | Api.UpdateOrderPlan(_, ctxOpt) -> Api.UpdateOrderPlan(OrderPlan.create pat [||], ctxOpt)
 
                     { state with OrderPlan = InProgress },
-                    apiCmd |> loadOrderPlan (fun resp -> LoadOrderPlanResult(cmd, resp))
+                    apiCmd
+                    |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
                 | Resolved tp ->
                     let apiCmd =
                         match cmd with
@@ -1303,7 +1324,8 @@ module private Elmish =
                         | Api.UpdateOrderPlan(_, ctxOpt) -> Api.UpdateOrderPlan(tp, ctxOpt)
 
                     { state with OrderPlan = InProgress },
-                    apiCmd |> loadOrderPlan (fun resp -> LoadOrderPlanResult(cmd, resp))
+                    apiCmd
+                    |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
 
         | LoadOrderPlanResult(_, Finished(Ok msg)) -> msg |> processOk
         | LoadOrderPlanResult(_, Finished(Error err)) ->
@@ -1317,7 +1339,7 @@ module private Elmish =
 
             { state with NutritionPlan = planState },
             Api.NutritionPlanCmd npCmd
-            |> createApiMsg (fun resp -> LoadNutritionPlanResult(npCmd, resp))
+            |> createApiMsg (tokenOf state.Session) (fun resp -> LoadNutritionPlanResult(npCmd, resp))
 
         | LoadNutritionPlanResult(_, Started) -> state, Cmd.none
         | LoadNutritionPlanResult(_, Finished(Ok msg)) -> msg |> processOk
@@ -1333,7 +1355,7 @@ module private Elmish =
                     | Resolved form -> { form with Patient = state.Patient }
                     | _ -> Formulary.empty
 
-                let cmd = form |> loadFormuarly
+                let cmd = form |> loadFormuarly (tokenOf state.Session)
 
                 { state with Formulary = InProgress }, cmd
 
@@ -1373,7 +1395,7 @@ module private Elmish =
                 let cmd =
                     let par = state.Parenteralia |> Deferred.defaultValue Parenteralia.empty
 
-                    loadParenteralia par
+                    loadParenteralia (tokenOf state.Session) par
 
                 { state with Parenteralia = InProgress }, cmd
 
@@ -1419,7 +1441,7 @@ module private Elmish =
             else
                 { state with Interactions = InProgress },
                 Api.InteractionCmd(Api.CheckInteractions drugs)
-                |> createApiMsg LoadInteractionsResult
+                |> createApiMsg (tokenOf state.Session) LoadInteractionsResult
 
         | LoadInteractionsResult(Finished(Ok msg)) -> msg |> processOk
         | LoadInteractionsResult(Finished(Error err)) ->
@@ -1431,7 +1453,8 @@ module private Elmish =
             | InProgress -> state, Cmd.none
             | _ ->
                 { state with InteractionDrugNames = InProgress },
-                Api.InteractionCmd Api.GetDrugNames |> createApiMsg LoadInteractionDrugNames
+                Api.InteractionCmd Api.GetDrugNames
+                |> createApiMsg (tokenOf state.Session) LoadInteractionDrugNames
 
         | LoadInteractionDrugNames(Finished(Ok msg)) ->
             let state, cmd = msg |> processOk

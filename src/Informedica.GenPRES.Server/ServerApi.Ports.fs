@@ -174,6 +174,9 @@ type SessionPort =
         challenge: string -> OrderPlan * OpenedToken * string option -> Async<SigningResponse>
         // UC-3 step 3: the signature, for the Session the cookie names
         submit: string -> Submission -> Async<SigningResponse>
+        // uc-03 step 1, every computing request: the Session the cookie names is marked seen
+        // (Rule 9) and told whether the record moved on (Rule 21) or the Session ended (Rule 11)
+        seen: string -> OpenedToken option -> Async<RecordNotice option>
     }
 
 

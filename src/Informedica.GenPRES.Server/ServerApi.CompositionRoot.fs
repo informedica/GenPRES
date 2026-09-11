@@ -147,14 +147,41 @@ module CompositionRoot =
         : IServerApi
         =
         {
+            // uc-03 step 1: the Session the cookie names is marked seen and told what it is
+            // told (Rules 9, 11, 21) before the command is computed; without a cookie the
+            // request computes as it always did (UC-7). The token is never logged.
             processCommand =
-                fun cmd ->
+                fun request ->
                     async {
+                        let cmd = request.Command
+
                         try
                             writeInfoMessage $"Processing command: {cmd |> Command.toString}"
+
+                            let! notice =
+                                match cookie.read () with
+                                | None -> async { return None }
+                                | Some id -> env.session.seen id request.Opened
+
                             let! result = Command.processCmd env cmd
-                            writeInfoMessage $"Finished processing command: {cmd |> Command.toString}"
-                            return result
+
+                            let told =
+                                match notice with
+                                | Some(RecordNotice.NewerVersion _) -> ", the record moved on"
+                                | Some(RecordNotice.Ended _) -> ", the Session ended"
+                                | None -> ""
+
+                            writeInfoMessage $"Finished processing command: {cmd |> Command.toString}{told}"
+
+                            return
+                                result
+                                |> Result.map (fun response ->
+                                    ({
+                                        Response = response
+                                        Notice = notice
+                                    }
+                                    : Reply)
+                                )
                         with ex ->
                             writeErrorMessage $"Error processing command: {cmd |> Command.toString}\n{ex}"
                             return Error [| ex.Message |]
