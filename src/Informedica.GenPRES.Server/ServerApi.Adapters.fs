@@ -946,9 +946,10 @@ module Hop =
     /// OpenedToken this Session holds (Rule 34); the patient data re-read (Rule 44): when it is
     /// not what the Session opened with and no notice over this reading was accepted, no
     /// challenge yet but a `DataNotice`, replacing any earlier notice and dropping any earlier
-    /// challenge (it was over the data before the change); the plan over the data as
-    /// it stands (Rule 33); the record not moved on (Rule 20). Then a challenge over exactly
-    /// this plan (Rule 43), replacing the Session's earlier one and spending the notice. The
+    /// challenge (it was over the data before the change); the record not moved on (Rule 20).
+    /// Then a challenge over exactly this plan (Rule 43), replacing the Session's earlier one
+    /// and spending the notice. The plan's own patient data is what the User saw, entered or
+    /// read, and is recorded as such (Rule 44); the Patient is the Session's (Rule 33). The
     /// PIN is not involved: a refusal here costs no attempt (Rule 28).
     let challenge
         (now: DateTime)
@@ -1005,9 +1006,6 @@ module Hop =
                                 Data = current
                                 Token = nonce
                             }
-                    // unverified data: the plan stays over what the Session opened with
-                    elif plan.Patient <> (current |> Option.defaultValue patient.Patient) then
-                        refuse SigningRefusal.NoPatient
                     // Concept 10: no challenge over a plan that names an order twice
                     elif duplicateOrders plan.Scenarios then
                         refuse SigningRefusal.ChallengeMismatch

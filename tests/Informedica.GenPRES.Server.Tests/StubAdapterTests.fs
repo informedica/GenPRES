@@ -1954,7 +1954,8 @@ module SessionStubTests =
             testList
                 "Hop.challenge"
                 [
-                    test "refuses: no Session, the anonymous Session, no Patient, other patient data (Rule 33)" {
+                    test
+                        "refuses: no Session, the anonymous Session, no Patient; the plan's own data is the User's (Rules 33, 44)" {
                         stateOf [] [] |> ask t0 (counter "n") <| "s-9" <| (plan, token "s-9")
                         |> snd
                         |> Expect.equal "no session" (SigningResponse.Refused SigningRefusal.NoSession)
@@ -1971,11 +1972,12 @@ module SessionStubTests =
                         |> snd
                         |> Expect.equal "no patient" (SigningResponse.Refused SigningRefusal.NoPatient)
 
+                        // the data the User entered or saw is what the plan carries; the Patient is the Session's
                         stateOf [ opened ] [] |> ask t0 (counter "n")
                         <| "s-1"
                         <| (OrderPlan.create otherData [||], token "s-1")
                         |> snd
-                        |> Expect.equal "other data" (SigningResponse.Refused SigningRefusal.NoPatient)
+                        |> Expect.equal "entered data: issued" (SigningResponse.ChallengeIssued "n-1")
                     }
 
                     test "refuses a Reader (Rule 26) before the token is looked at, and a stale token (Rule 34)" {
@@ -2115,16 +2117,6 @@ module SessionStubTests =
                             stateOf [ changed ] [] |> ask t0 nonces
                             <| "s-1"
                             <| (OrderPlan.create otherData [||], token "s-1")
-
-                        askWith
-                            "n-1"
-                            (t0 + seconds 5.0)
-                            nonces
-                            state
-                            "s-1"
-                            (OrderPlan.create otherData [||], token "s-1")
-                        |> snd
-                        |> Expect.equal "not over the data told" (SigningResponse.Refused SigningRefusal.NoPatient)
 
                         let state, answer =
                             askWith "n-1" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")

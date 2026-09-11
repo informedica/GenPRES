@@ -720,7 +720,7 @@ module Types =
     type SigningRefusal =
         // no Session for the cookie, or none at all
         | NoSession
-        // the Session has no Patient, or the plan names other patient data (Rule 33)
+        // the Session has no Patient (ext 1a): nothing to sign for
         | NoPatient
         // nobody to sign as, or the Role is not Prescriber (Concept 7, Rule 38)
         | NotPrescriber

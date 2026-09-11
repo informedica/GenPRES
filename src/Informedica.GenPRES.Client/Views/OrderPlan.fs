@@ -16,6 +16,8 @@ module OrderPlan =
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
         let orderPlanCommand = envOrderPlan.OrderPlanCommand
+        let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
+        let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv
 
         let updateOrderPlan tp =
             orderPlanCommand (Api.UpdateOrderPlan(tp, None))
@@ -52,6 +54,10 @@ module OrderPlan =
 
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
+
+        // the sheet's translation in the User's language, else the policy's English
+        let tr term =
+            Global.getLocalizedTerm localizationTerms lang (SigningPolicy.english term) term
 
         let columns =
             [|
@@ -354,6 +360,30 @@ module OrderPlan =
                 """
             | _ -> null
 
+        // UC-3: a Prescriber with an open Session signs the plan as shown (plan 622)
+        let onSign =
+            fun _ ->
+                match orderPlan with
+                | Resolved tp -> signing.Sign tp
+                | _ -> ()
+
+        let signBtn =
+            match orderPlan with
+            | Resolved tp when SigningPolicy.canSign session.Session tp ->
+                JSX.jsx
+                    $"""
+                import Button from '@mui/material/Button';
+
+                <Box sx={ {| marginTop = 2 |} }>
+                    <Button variant="contained" onClick={onSign} startIcon={Mui.Icons.Assignment} >
+                        {tr Terms.``Signing Sign``}
+                    </Button>
+                </Box>
+                """
+            | _ -> null
+
+        let signDialog = SignDialog.View {| appEnv = props.appEnv |}
+
         let responsiveTable =
             Components.ResponsiveTable.View
                 {|
@@ -390,6 +420,7 @@ module OrderPlan =
         import Modal from '@mui/material/Modal';
 
         <Box sx={ {| height = "100%" |} }>
+            {signBtn}
             {deleteBtn}
             {responsiveTable}
             <Modal open={modalOpen} onClose={handleModalClose} >
@@ -397,5 +428,6 @@ module OrderPlan =
                     {orderView}
                 </Box>
             </Modal>
+            {signDialog}
         </Box>
         """

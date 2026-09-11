@@ -35,6 +35,7 @@ let english (term: Terms) : string =
     | Terms.``Signing Refusal Pin Limit`` ->
         "The PIN was entered wrong three times. Your session was ended and signing is locked for a while."
     | Terms.``Signing Refusal Locked`` -> "Signing is locked until {0}."
+    | Terms.``Signing Send Failed`` -> "The signature could not be sent. Try again."
     | _ -> SessionGatePolicy.english term
 
 

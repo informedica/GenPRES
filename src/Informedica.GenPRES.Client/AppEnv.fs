@@ -84,6 +84,20 @@ type ISession =
     abstract SupplyPin: string -> string -> unit
 
 
+/// The signing phase of the open Session (UC-3, plan 622): its state, and the actions the
+/// dialog offers on it
+[<Interface>]
+type ISigning =
+    abstract Signing: SigningMachine.Signing
+    // uc-03 step 2: the plan as shown
+    abstract Sign: OrderPlan -> unit
+    // Rule 44: the data notice accepted
+    abstract Accept: unit -> unit
+    // uc-03 step 3: the PIN; the idempotency key is minted here, once per confirmation
+    abstract Confirm: string -> unit
+    abstract Cancel: unit -> unit
+
+
 /// Authentication state and commands
 [<Interface>]
 type IAuthentication =

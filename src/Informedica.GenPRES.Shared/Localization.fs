@@ -198,6 +198,7 @@ type Terms =
     | ``Signing Refusal Pin Wrong``
     | ``Signing Refusal Pin Limit``
     | ``Signing Refusal Locked``
+    | ``Signing Send Failed``
 
 
 module Localization =
