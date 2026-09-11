@@ -193,6 +193,8 @@ module Api =
         // step 2: the plan as shown, the OpenedToken the Session holds (Rule 34), and the
         // token of the data notice the User accepted, if one was told (Rule 44)
         | RequestSignChallenge of OrderPlan * OpenedToken * dataNotice: string option
+        // step 3: the signature
+        | Submit of Submission
 
 
     module LaunchCommand =
@@ -215,10 +217,11 @@ module Api =
 
     module SigningCommand =
 
-        /// For the log. Never the plan (long) or, later, the PIN.
+        /// For the log. Never the plan (long) or the PIN.
         let toString cmd =
             match cmd with
             | SigningCommand.RequestSignChallenge _ -> "RequestSignChallenge"
+            | SigningCommand.Submit _ -> "Submit"
 
 
     /// Defines how routes are generated on server and mapped from the client
