@@ -199,6 +199,11 @@ type Terms =
     | ``Signing Refusal Pin Limit``
     | ``Signing Refusal Locked``
     | ``Signing Send Failed``
+    // Rules 21, 22 (plan 635): the record moved on, told once per version; the button that
+    // takes the version up (UC-4 step 4); what is told once it is open
+    | ``Session Newer Version``
+    | ``Session Open Newest``
+    | ``Session Version Opened``
 
 
 module Localization =

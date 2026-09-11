@@ -55,6 +55,9 @@ module private Elmish =
             Session: Session
             // the signing phase of the open Session (plan 622); Idle whenever no Session is open
             Signing: Signing
+            // Rules 21, 22 (plan 635): the newest version told while the Session is on an older
+            // one; None whenever no Session is open
+            MovedOn: OrderPlanHead option
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -73,6 +76,8 @@ module private Elmish =
         | UpdatePatient of Patient option
         // Rule 19: the version the Session opened with, into the cart over the patient in state
         | LoadCart of SignedOrderPlan
+        // Rules 21, 22: a reply said the record moved on
+        | RecordMovedOn of OrderPlanHead
 
         | LoadNormalValues of AsyncOperationStatus<Result<NormalValues, string>>
 
@@ -177,12 +182,8 @@ module private Elmish =
         |> Cmd.fromAsync
 
 
-    let processApiMsg (state: State) (reply: Api.Reply) =
-        // plan 635 PR 1: the notice is carried and logged, not shown yet
-        reply.Notice
-        |> Option.iter (fun notice -> Logging.warning "record notice" notice)
-
-        match reply.Response with
+    let processResponse (state: State) (response: Api.Response) =
+        match response with
         | Api.OrderContextResp(Api.OrderContextResult ctx) -> { state with OrderContext = Resolved ctx }, Cmd.none
         | Api.OrderPlanResp(Api.OrderPlanFiltered tp)
         | Api.OrderPlanResp(Api.OrderPlanUpdated tp) ->
@@ -235,6 +236,19 @@ module private Elmish =
         | Api.LogAnalyzerResp(Api.LogFilesListed files) -> { state with LogFiles = Resolved files }, Cmd.none
         | Api.LogAnalyzerResp(Api.LogFileAnalyzed report) ->
             { state with LogAnalysisReport = Resolved report }, Cmd.none
+
+
+    /// The result, and what the Session is told with it: the record moved on (Rules 21, 22) or
+    /// the Session ended (Rule 11), each as its own message so the machines decide.
+    let processApiMsg (state: State) (reply: Api.Reply) =
+        let told =
+            match reply.Notice with
+            | Some(RecordNotice.NewerVersion head) -> Cmd.ofMsg (RecordMovedOn head)
+            | Some(RecordNotice.Ended ending) -> Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
+            | None -> Cmd.none
+
+        let state, cmd = processResponse state reply.Response
+        state, Cmd.batch [ cmd; told ]
 
 
     let loadOrderContext opened resp =
@@ -510,6 +524,7 @@ module private Elmish =
             LogAnalysisReport = HasNotStartedYet
             Session = Session.Anonymous
             Signing = Signing.Idle
+            MovedOn = None
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -652,6 +667,8 @@ module private Elmish =
                     return SessionMsg(SessionMsg.Resumed(Error ex.Message))
             }
             |> Cmd.fromAsync
+        // told in update, where the sentence and the notice live
+        | SessionEffect.TellVersionOpened _ -> Cmd.none
         | SessionEffect.CallOpenVersion(id, from) ->
             async {
                 try
@@ -966,6 +983,28 @@ module private Elmish =
 
         // FilterOrderPlan sends the cart through the server so totals and filters are computed
         // as for any cart; the patient is the one every other part of the state uses
+        // told once per version (Rule 22: it gates nothing); the bar on the order plan offers it
+        | RecordMovedOn head ->
+            let movedOn, news = MovedOn.receive state.MovedOn head
+            let state = { state with MovedOn = movedOn }
+
+            if news then
+                let tr term =
+                    Global.getLocalizedTerm
+                        state.Localization
+                        state.Context.Localization
+                        (SigningPolicy.english term)
+                        term
+
+                { state with
+                    SnackbarMsg = SigningPolicy.movedOnSentence tr head
+                    SnackbarOpen = true
+                    SnackbarSeverity = "warning"
+                },
+                Cmd.none
+            else
+                state, Cmd.none
+
         | LoadCart head ->
             match state.Patient with
             | Some pat -> state, Cmd.ofMsg (OrderPlanMsg(Api.FilterOrderPlan(OrderPlan.create pat head.Scenarios)))
@@ -1091,15 +1130,41 @@ module private Elmish =
                     }
                 | _ -> state
 
-            // a signature belongs to an open Session: whatever ends the Session drops it (ext 3e)
-            let signing =
+            // a signature belongs to an open Session: whatever ends the Session drops it (ext 3e);
+            // so does the moved-on notice
+            let signing, movedOn =
                 match session with
-                | Session.Open _ -> state.Signing
-                | _ -> Signing.Idle
+                | Session.Open _ -> state.Signing, state.MovedOn
+                | _ -> Signing.Idle, None
+
+            // UC-4 step 4: the version is open; said once, and the notice is spent
+            let state, movedOn =
+                effects
+                |> List.fold
+                    (fun (state, movedOn) effect ->
+                        match effect with
+                        | SessionEffect.TellVersionOpened head ->
+                            let tr term =
+                                Global.getLocalizedTerm
+                                    state.Localization
+                                    state.Context.Localization
+                                    (SigningPolicy.english term)
+                                    term
+
+                            { state with
+                                SnackbarMsg = SigningPolicy.versionOpenedSentence tr head
+                                SnackbarOpen = true
+                                SnackbarSeverity = "success"
+                            },
+                            None
+                        | _ -> state, movedOn
+                    )
+                    (state, movedOn)
 
             { state with
                 Session = session
                 Signing = signing
+                MovedOn = movedOn
             },
             effects |> List.map interpretSessionEffect |> Cmd.batch
 
@@ -1123,6 +1188,11 @@ module private Elmish =
                         match effect with
                         | SigningEffect.TellSigned signed ->
                             state |> tell (SigningPolicy.signedSentence tr signed) "success"
+                        // a refusal because the record moved on (Rule 20) is the notice too
+                        // (Rule 22); the sentence is told here, the bar offers the version
+                        | SigningEffect.TellRefused(SigningRefusal.Blocked head as refusal) ->
+                            { state with MovedOn = MovedOn.receive state.MovedOn head |> fst }
+                            |> tell (SigningPolicy.refusalSentence tr refusal) "warning"
                         | SigningEffect.TellRefused refusal ->
                             state |> tell (SigningPolicy.refusalSentence tr refusal) "warning"
                         | SigningEffect.TellError reason ->
@@ -1570,6 +1640,11 @@ type private ConcreteAppEnv
 
         member _.SupplyPin code pin =
             SessionMsg(SessionMsg.SupplyPin(code, pin)) |> dispatch
+
+        member _.MovedOn = state.MovedOn
+
+        member _.OpenVersion id =
+            SessionMsg(SessionMsg.OpenVersion id) |> dispatch
 
     interface AppEnv.ISigning with
         member _.Signing = state.Signing

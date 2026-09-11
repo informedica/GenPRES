@@ -645,9 +645,37 @@ module SessionMachineTests =
                     |> Expect.equal "dropped" (Session.Anonymous, [])
                 }
 
-                test "Reopened with the Session replaces it and loads the version into the cart, no SetPatient" {
+                test
+                    "Reopened with the Session replaces it, loads the version into the cart and tells it, no SetPatient" {
                     transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) (Session.Open full)
-                    |> Expect.equal "reopened" (Session.Open reopened, [ SessionEffect.LoadCart head ])
+                    |> Expect.equal
+                        "reopened"
+                        (Session.Open reopened,
+                         [
+                             SessionEffect.LoadCart head
+                             SessionEffect.TellVersionOpened head.Head
+                         ])
+                }
+
+                test "MovedOn.receive: news once per version, a newer version replaces the kept one (Rules 21, 22)" {
+                    let first = head.Head
+
+                    let second =
+                        { first with
+                            Id = "plan-3"
+                            No = 3
+                        }
+
+                    MovedOn.receive None first |> Expect.equal "first: news" (Some first, true)
+
+                    MovedOn.receive (Some first) first
+                    |> Expect.equal "again: not news" (Some first, false)
+
+                    MovedOn.receive (Some first) second
+                    |> Expect.equal "newer: news" (Some second, true)
+
+                    MovedOn.receive (Some second) first
+                    |> Expect.equal "another id: news too" (Some first, true)
                 }
 
                 test "Reopened with nothing to open, or a transport failure, leaves the Session as it was" {

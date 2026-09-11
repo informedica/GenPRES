@@ -66,6 +66,18 @@ let signedSentence (tr: Terms -> string) (signed: SignedOrderPlan) =
     |> SessionGatePolicy.fill [ string signed.Head.No; signed.Head.By.DisplayName ]
 
 
+/// Rules 21, 22: the record moved on; whose version, and when.
+let movedOnSentence (tr: Terms -> string) (head: OrderPlanHead) =
+    tr Terms.``Session Newer Version``
+    |> SessionGatePolicy.fill [ head.By.DisplayName; time head.SignedAt ]
+
+
+/// UC-4 step 4: the version taken up is open.
+let versionOpenedSentence (tr: Terms -> string) (head: OrderPlanHead) =
+    tr Terms.``Session Version Opened``
+    |> SessionGatePolicy.fill [ string head.No; head.By.DisplayName ]
+
+
 /// Rule 44: what the notice says, with or without a reading.
 let noticeSentence (tr: Terms -> string) (notice: DataNotice) =
     match notice.Data with

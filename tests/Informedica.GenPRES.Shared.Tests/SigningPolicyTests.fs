@@ -88,6 +88,38 @@ let tests =
                 |> Expect.equal
                     "the session terms fall through"
                     (SessionGatePolicy.english Terms.``Session Ending Pin Limit``)
+
+                for term in
+                    [
+                        Terms.``Session Newer Version``
+                        Terms.``Session Open Newest``
+                        Terms.``Session Version Opened``
+                    ] do
+                    english term |> Expect.notEqual $"default for {term}" $"{term}"
+            }
+
+            test
+                "the moved-on and version-opened sentences name whose version, when and which (Rules 21, 22; UC-4 step 4)" {
+                let at = System.DateTime(2026, 9, 11, 12, 30, 0, System.DateTimeKind.Utc)
+
+                let head: OrderPlanHead =
+                    {
+                        Id = "plan-2"
+                        No = 2
+                        By =
+                            {
+                                UserId = "b"
+                                DisplayName = "Stub Prescriber B"
+                                Role = UserRole.Prescriber
+                            }
+                        SignedAt = at
+                    }
+
+                movedOnSentence english head
+                |> Expect.equal "moved on" $"Stub Prescriber B signed a newer version at {time at}."
+
+                versionOpenedSentence english head
+                |> Expect.equal "opened" "Version 2 by Stub Prescriber B is now open."
             }
 
             test "one term per refusal; the block names the signer and the time, the tries and the lock are filled" {

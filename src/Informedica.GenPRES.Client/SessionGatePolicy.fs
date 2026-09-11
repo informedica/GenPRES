@@ -87,6 +87,9 @@ let english (term: Terms) =
     | Terms.``Session Enrolment Wrong Code`` -> "The code is not right. {0} tries left."
     | Terms.``Session Enrolment Code Void`` -> "The code is void after three wrong tries."
     | Terms.``Session Enrolment Expired`` -> "The enrolment has expired."
+    | Terms.``Session Newer Version`` -> "{0} signed a newer version at {1}."
+    | Terms.``Session Open Newest`` -> "Open the newest version"
+    | Terms.``Session Version Opened`` -> "Version {0} by {1} is now open."
     | _ -> $"{term}"
 
 

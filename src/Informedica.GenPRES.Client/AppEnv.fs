@@ -82,6 +82,10 @@ type ISession =
     abstract OpenAnonymously: unit -> unit
     // UC-2: the confirmation code and the chosen PIN, from the gate's form
     abstract SupplyPin: string -> string -> unit
+    // Rules 21, 22: the newest version the server told of, while the Session is on an older one
+    abstract MovedOn: OrderPlanHead option
+    // UC-4 step 4: take up that version
+    abstract OpenVersion: string -> unit
 
 
 /// The signing phase of the open Session (UC-3, plan 622): its state, and the actions the
