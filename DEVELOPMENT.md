@@ -182,7 +182,8 @@ Things worth trying here:
   nowhere else, and never appears in the log. A Submission sent twice under the same key is
   answered the same way once. Every `processCommand` call sends `{ Opened; Command }` and gets
   `{ Response; Notice }`: the notice names the newer version or the ending, and is empty
-  otherwise; `OpenVersion` answers the Session with a fresh OpenedToken over the version.
+  otherwise; `OpenVersion` answers the Session with a fresh OpenedToken when it switches versions
+  (the token stands when the version named is the one already open).
 - **Restart the server**: the record is gone with everything else; the next signature is
   version 1 again.
 
