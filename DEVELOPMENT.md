@@ -157,10 +157,22 @@ Things worth trying here:
   the Sign button and the person menu are gone. Launch again: a right PIN inside the next minute
   is refused as locked until a time, after that it signs. Every wrong entry past the third
   doubles the delay, up to a day.
-- **Two browsers on one patient**: launch `prescriber-b` in another browser profile, prescribe
-  and sign there. The first browser's next **Ondertekenen** is refused: Stub Prescriber B signed
-  a newer version at that time (Rule 20). Launching the first identity again opens on the new
-  head, and signing works again.
+- **Launch again**: the cart opens on the version just signed, before anything is entered
+  (Rule 19); so does a reload.
+- **Two browsers on one patient** ([uc-04](docs/scenarios/integration/uc-04-two-users.md),
+  [plan 635](docs/implementation-plans/635-session-bound-compute.md)): launch `prescriber-b` in
+  another browser profile, prescribe and sign there. The first browser's next action that
+  reaches the server (a change in the patient panel, a scenario) shows a snackbar once: Stub
+  Prescriber B signed a newer version at that time, and the **Order Plan** page a bar with
+  **Open the newest version** (Rule 21). Nothing is blocked by it (Rule 22): pressing
+  **Ondertekenen** instead is refused with the same words (Rule 20) and shows the same bar. The
+  button loads B's orders into the cart, says version N by Stub Prescriber B is now open, and
+  signing works again: version N+1 has B's as its base. A page switch alone sends nothing, so
+  it tells nothing.
+- **The same identity twice**: launch `prescriber` again in another browser profile. The first
+  browser's next action shows the gate: a newer launch ended the Session (Rule 11). In the same
+  profile the second launch replaces the session cookie instead, and the older tab simply
+  continues on the new Session.
 - **The patient without data**: launch with the PatientId `no-data`. The first **Ondertekenen**
   is a notice instead of the dialog: the data could not be verified. **Doorgaan** asks the
   challenge again with the notice accepted, and the version is signed as unverified (Rule 44).
@@ -168,7 +180,10 @@ Things worth trying here:
 - **Watch the wire**: `RequestSignChallenge` answers `ChallengeIssued`, `Submit` answers
   `Submitted` with the version and a fresh OpenedToken; the PIN travels in the Submission and
   nowhere else, and never appears in the log. A Submission sent twice under the same key is
-  answered the same way once.
+  answered the same way once. Every `processCommand` call sends `{ Opened; Command }` and gets
+  `{ Response; Notice }`: the notice names the newer version or the ending, and is empty
+  otherwise; `OpenVersion` answers the Session with a fresh OpenedToken when it switches versions
+  (the token stands when the version named is the one already open).
 - **Restart the server**: the record is gone with everything else; the next signature is
   version 1 again.
 

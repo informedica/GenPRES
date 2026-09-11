@@ -304,10 +304,13 @@ The PIN detour of 5.4 is built too: a Prescriber without a PIN suspends into
 
 Since [plan 622](../../implementation-plans/622-signing-with-server-stubs.md) the Session
 opens with the head of the record (5.6, Rule 19) and the OpenedToken is checked and re-minted
-at a signature (Rule 34); the head's orders are not yet loaded into the cart at open.
+at a signature (Rule 34). Since [plan 635](../../implementation-plans/635-session-bound-compute.md)
+the head's orders are loaded into the cart at open and at a resume, every computing request
+carries the OpenedToken and every reply says whether the record moved on (Rule 21) or the
+Session ended (Rule 11), and the Session is marked seen at every request (Rule 9).
 
-Not built: step 7 (the signed request), the audit (Rule 46), and the absolute lifetime and idle
-endings of Rule 10.
+Not built: step 7 itself (the DPoP proof over the request envelope plan 635 built), the audit
+(Rule 46), and the absolute lifetime and idle endings of Rule 10 (nothing acts on `Seen` yet).
 
 ## Left out
 
