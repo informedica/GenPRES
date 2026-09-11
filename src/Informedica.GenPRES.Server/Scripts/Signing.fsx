@@ -2,8 +2,9 @@
 // (uc-03 step 2; Rules 20, 33, 34, 43, 44).
 //
 // Script-first draft (script-only policy) of:
-//   - the wire: `SigningRefusal`, `SigningCommand.RequestSignChallenge`, `SigningResponse`
-//     → `Shared/Api.fs`, `Shared/Types.fs`; `IServerApi.processSigning`;
+//   - the wire: `SigningRefusal`, `SigningResponse` → `Shared/Types.fs` (the port answers
+//     it, like `LaunchOutcome`); `SigningCommand.RequestSignChallenge`,
+//     `IServerApi.processSigning` → `Shared/Api.fs`;
 //   - the port: `SessionPort.challenge` → `Ports.fs`;
 //   - `Hop`: `Challenge`, `State.Challenges` (one per Session, two minutes), `challenge` as
 //     the ladder of uc-03 step 2 → `Adapters.fs`; `sessionDisabled` refusing;
