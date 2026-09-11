@@ -81,6 +81,10 @@ type SessionMsg =
     | Closed
     // the close request did not reach the server: the cookie is still there, so is the Session
     | CloseFailed of reason: string
+    // UC-3: a signing answer said the server ended the Session (Rule 28)
+    | EndedByServer of SessionEnding
+    // UC-3: a signature re-minted the OpenedToken over the new head (Rule 34)
+    | TokenRenewed of OpenedToken
 
 
 [<RequireQualifiedAccess>]
@@ -213,3 +217,13 @@ module Session =
         // with its patient, and the UI says so; the same guard as Closed
         | SessionMsg.CloseFailed _, Session.Closing session -> Session.Open session, []
         | SessionMsg.CloseFailed _, _ -> state, []
+
+        // UC-3: the server ended the Session at a signature (Rule 28); the gate says why and
+        // the close acknowledges it, as a Resumed ending does
+        | SessionMsg.EndedByServer ending, Session.Open _ -> Session.Ended ending, [ SessionEffect.CallCloseSession ]
+        | SessionMsg.EndedByServer _, _ -> state, []
+
+        // UC-3: the token the next signature has to present (Rule 34)
+        | SessionMsg.TokenRenewed token, Session.Open session ->
+            Session.Open { session with OpenedToken = Some token }, []
+        | SessionMsg.TokenRenewed _, _ -> state, []

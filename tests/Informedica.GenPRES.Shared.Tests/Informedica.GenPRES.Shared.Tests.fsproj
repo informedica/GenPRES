@@ -21,6 +21,10 @@
     <Compile Include="SessionMachineTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SessionGatePolicy.fs" />
     <Compile Include="SessionGatePolicyTests.fs" />
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\SigningMachine.fs" />
+    <Compile Include="SigningMachineTests.fs" />
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\SigningPolicy.fs" />
+    <Compile Include="SigningPolicyTests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="scripts\CalcYearsOracle.fsx" />

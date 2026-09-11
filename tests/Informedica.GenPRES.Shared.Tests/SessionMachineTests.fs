@@ -508,6 +508,33 @@ module SessionMachineTests =
                         ]
                 }
 
+                test
+                    "EndedByServer from Open is Ended and acknowledges it with a close; elsewhere dropped (UC-3, Rule 28)" {
+                    transition (SessionMsg.EndedByServer SessionEnding.WrongPinLimit) (Session.Open full)
+                    |> Expect.equal
+                        "ended"
+                        (Session.Ended SessionEnding.WrongPinLimit, [ SessionEffect.CallCloseSession ])
+
+                    for state in
+                        [
+                            Session.Anonymous
+                            Session.Closing full
+                            Session.Resuming
+                            launching
+                        ] do
+                        transition (SessionMsg.EndedByServer SessionEnding.WrongPinLimit) state
+                        |> Expect.equal $"{state}" (state, [])
+                }
+
+                test "TokenRenewed from Open replaces the token; elsewhere dropped (UC-3, Rule 34)" {
+                    transition (SessionMsg.TokenRenewed(OpenedToken "t2")) (Session.Open full)
+                    |> Expect.equal "renewed" (Session.Open { full with OpenedToken = Some(OpenedToken "t2") }, [])
+
+                    for state in [ Session.Anonymous; Session.Closing full; launching ] do
+                        transition (SessionMsg.TokenRenewed(OpenedToken "t2")) state
+                        |> Expect.equal $"{state}" (state, [])
+                }
+
                 test "the happy path: present, open, close" {
                     let state, effects =
                         run

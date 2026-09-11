@@ -177,6 +177,27 @@ type Terms =
     | ``Session Enrolment Wrong Code``
     | ``Session Enrolment Code Void``
     | ``Session Enrolment Expired``
+    // signing (UC-3, plan 622): the button, the dialog, the data notice (Rule 44), the signed
+    // sentence with {0} the version and {1} the signer, and one sentence per refusal
+    | ``Signing Sign``
+    | ``Signing Dialog Title``
+    | ``Signing Dialog Text``
+    | ``Signing Pin``
+    | ``Signing Cancel``
+    | ``Signing Proceed``
+    | ``Signing Signed``
+    | ``Signing Data Changed``
+    | ``Signing Data Unverified``
+    | ``Signing Refusal No Session``
+    | ``Signing Refusal No Patient``
+    | ``Signing Refusal Not Prescriber``
+    | ``Signing Refusal Blocked``
+    | ``Signing Refusal Stale Token``
+    | ``Signing Refusal Challenge Mismatch``
+    | ``Signing Refusal Challenge Expired``
+    | ``Signing Refusal Pin Wrong``
+    | ``Signing Refusal Pin Limit``
+    | ``Signing Refusal Locked``
 
 
 module Localization =
