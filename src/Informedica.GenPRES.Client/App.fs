@@ -652,6 +652,17 @@ module private Elmish =
                     return SessionMsg(SessionMsg.Resumed(Error ex.Message))
             }
             |> Cmd.fromAsync
+        | SessionEffect.CallOpenVersion id ->
+            async {
+                try
+                    match! serverApi.processSession (Api.SessionCommand.OpenVersion id) with
+                    | Api.SessionResponse.SessionResp opened -> return SessionMsg(SessionMsg.Reopened(Ok opened))
+                    // never an answer to OpenVersion
+                    | _ -> return SessionMsg(SessionMsg.Reopened(Ok None))
+                with ex ->
+                    return SessionMsg(SessionMsg.Reopened(Error ex.Message))
+            }
+            |> Cmd.fromAsync
         | SessionEffect.CallCloseSession ->
             async {
                 // the server deletes the cookie whatever its close returns (finally), so an

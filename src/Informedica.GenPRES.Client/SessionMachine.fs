@@ -85,6 +85,11 @@ type SessionMsg =
     | EndedByServer of SessionEnding
     // UC-3: a signature re-minted the OpenedToken over the new head (Rule 34)
     | TokenRenewed of OpenedToken
+    // UC-4 step 4: take up the version the notice named (Rules 18 to 20)
+    | OpenVersion of id: string
+    // the answer: the Session as it now is (Some), nothing to open (None), or a transport
+    // failure
+    | Reopened of Result<SessionOpened option, string>
 
 
 [<RequireQualifiedAccess>]
@@ -103,6 +108,8 @@ type SessionEffect =
     // patient as the client holds it after SetPatient (normal values applied); interpreted as
     // a FilterOrderPlan over them
     | LoadCart of SignedOrderPlan
+    // UC-4 step 4: processSession OpenVersion
+    | CallOpenVersion of id: string
 
 
 module Session =
@@ -236,3 +243,20 @@ module Session =
         | SessionMsg.TokenRenewed token, Session.Open session ->
             Session.Open { session with OpenedToken = Some token }, []
         | SessionMsg.TokenRenewed _, _ -> state, []
+
+        // UC-4 step 4: only an open Session has a version to take up
+        | SessionMsg.OpenVersion id, Session.Open _ -> state, [ SessionEffect.CallOpenVersion id ]
+        | SessionMsg.OpenVersion _, _ -> state, []
+
+        // the Session as the server now holds it: the token over the version opened, and its
+        // orders into the cart (Rule 19); the patient is unchanged, so no SetPatient. Nothing to
+        // open, or the request never got there: the Session stays as it was, and the next
+        // request tells what the head is (Rule 21). Lands only on an open Session.
+        | SessionMsg.Reopened(Ok(Some session)), Session.Open _ ->
+            Session.Open session,
+            [
+                match session.PatientContext, session.Head with
+                | Some _, Some head -> SessionEffect.LoadCart head
+                | _ -> ()
+            ]
+        | SessionMsg.Reopened _, _ -> state, []

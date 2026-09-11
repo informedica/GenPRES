@@ -177,6 +177,8 @@ type SessionPort =
         // uc-03 step 1, every computing request: the Session the cookie names is marked seen
         // (Rule 9) and told whether the record moved on (Rule 21) or the Session ended (Rule 11)
         seen: string -> OpenedToken option -> Async<RecordNotice option>
+        // UC-4 step 4: the version named becomes what the Session the cookie names opened with
+        openVersion: string -> string -> Async<SessionOpened option>
     }
 
 

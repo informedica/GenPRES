@@ -606,6 +606,60 @@ module SessionMachineTests =
             ]
 
 
+    let openVersionTests =
+        let head: SignedOrderPlan =
+            {
+                Head =
+                    {
+                        Id = "plan-2"
+                        No = 2
+                        By = full.User.Value
+                        SignedAt = System.DateTime(2026, 9, 11, 12, 0, 0, System.DateTimeKind.Utc)
+                    }
+                PatientId = "p"
+                Base = Some "plan-1"
+                Scenarios = [||]
+                Patient = patient
+                Verified = true
+            }
+
+        let reopened =
+            { full with
+                OpenedToken = Some(OpenedToken "t-2")
+                Head = Some head
+            }
+
+        testList
+            "OpenVersion (UC-4 step 4)"
+            [
+                test "OpenVersion from Open calls the server; elsewhere it is dropped" {
+                    transition (SessionMsg.OpenVersion "plan-2") (Session.Open full)
+                    |> Expect.equal "call" (Session.Open full, [ SessionEffect.CallOpenVersion "plan-2" ])
+
+                    transition (SessionMsg.OpenVersion "plan-2") Session.Anonymous
+                    |> Expect.equal "dropped" (Session.Anonymous, [])
+                }
+
+                test "Reopened with the Session replaces it and loads the version into the cart, no SetPatient" {
+                    transition (SessionMsg.Reopened(Ok(Some reopened))) (Session.Open full)
+                    |> Expect.equal "reopened" (Session.Open reopened, [ SessionEffect.LoadCart head ])
+                }
+
+                test "Reopened with nothing to open, or a transport failure, leaves the Session as it was" {
+                    transition (SessionMsg.Reopened(Ok None)) (Session.Open full)
+                    |> Expect.equal "nothing to open" (Session.Open full, [])
+
+                    transition (SessionMsg.Reopened(Error "offline")) (Session.Open full)
+                    |> Expect.equal "failed" (Session.Open full, [])
+                }
+
+                test "Reopened lands only on an open Session" {
+                    transition (SessionMsg.Reopened(Ok(Some reopened))) Session.Anonymous
+                    |> Expect.equal "dropped" (Session.Anonymous, [])
+                }
+            ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -616,4 +670,5 @@ module SessionMachineTests =
                 retryTests
                 resumeTests
                 endingTests
+                openVersionTests
             ]
