@@ -61,9 +61,10 @@ type SigningRefusal =
     | StaleToken | ChallengeMismatch | ChallengeExpired                      // Rules 34, 43
     | PinWrong of attemptsLeft: int | PinLimit | Locked of until: DateTime   // Rule 28
 
-type Submission = { Plan: OrderPlan; Challenge: string; Pin: string; IdemKey: string }  // Rule 45
+type Submission =                                                              // Rules 34, 43, 45
+    { Plan: OrderPlan; Opened: OpenedToken; Challenge: string; Pin: string; IdemKey: string }
 
-type SigningCommand = RequestSignChallenge of OrderPlan | Submit of Submission
+type SigningCommand = RequestSignChallenge of OrderPlan * OpenedToken | Submit of Submission
 type SigningResponse =
     | ChallengeIssued of challenge: string
     | Submitted of SignedOrderPlan * OpenedToken                             // over the new baseline
@@ -80,9 +81,11 @@ server reads `Patient` and `Scenarios` of the submitted `OrderPlan` and ignores 
 
 - `State` gains `Records: Map<patientId, SignedOrderPlan list>` (newest first);
   `Challenges: Map<sessionId, Challenge>` with `Challenge = { Nonce; Patient; Scenarios; Expiry }`,
-  one per Session, a re-request replacing it, spent by removal at the commit, the lifetime
-  fifteen minutes as the enrolment code's; `Answered: Map<idemKey, SigningResponse * DateTime>`
-  (Rule 45), refusals remembered too, pruned with the same lifetime.
+  one per Session, a re-request replacing it, spent by removal at the commit, the lifetime two
+  minutes (the launch's: the time to read the modal and enter a PIN, so what is signed was
+  checked against the platform moments ago, Rule 44); `Answered: Map<sessionId * idemKey,
+  SigningResponse * DateTime>` (Rule 45), keyed by the Session as well as the key so that no
+  other Session's key finds an answer, refusals remembered too, pruned with the same lifetime.
 - `SessionRecord` gains `OpenedWith: string option`, the id of the head at open (Rule 19), `None`
   when the record is empty; `openWith` reads `Records` for it. The wire `OpenedToken` stays
   `opened-<id>`; a Submission must present the token the Session holds now (Rule 34), and the
@@ -96,10 +99,12 @@ server reads `Patient` and `Scenarios` of the submitted `OrderPlan` and ignores 
 
 ### The challenge
 
-`Hop.challenge now patientData sid plan state`, in order: the Session found with a User and a
-Patient (else `NoSession`, `NoPatient`); `plan.Patient` equal to the Session's patient data
-(Rule 33, else `NoPatient`); the Role Prescriber (else `NotPrescriber`, also for the anonymous
-Session and a Reader); the patient data re-read and equal to the Session's (Rule 44, else
+`Hop.challenge now patientData sid (plan, opened) state`, in order: the Session found with a
+User and a Patient (else `NoSession`, `NoPatient`); `plan.Patient` equal to the Session's
+patient data (Rule 33, else `NoPatient`); the Role Prescriber (else `NotPrescriber`, also for
+the anonymous Session and a Reader); the OpenedToken presented equal to the Session's current
+one (Rule 34, else `StaleToken`, so a stale tab is told before it is asked for a PIN); the
+patient data re-read and equal to the Session's (Rule 44, else
 `DataChanged`, the DataNotice round trip deferred); the head of the record equal to the one the
 Session opened with (Rule 20, else `Blocked head`); then a nonce is minted and the challenge
 stored for the Session, answering `ChallengeIssued nonce`.
@@ -109,8 +114,10 @@ stored for the Session, answering `ChallengeIssued nonce`.
 `Hop.commit now newId standing send sid submission state`, the ladder in the model's order
 (`dbCommit`), the PIN last so a Submission that was never going to land costs no attempt:
 
-1. `Answered` holds the idempotency key: the remembered answer, whatever it was.
-2. The Session open with a User and a Patient; `Plan.Patient` equal to the Session's (Rule 33).
+1. The Session open with a User and a Patient; `Plan.Patient` equal to the Session's (Rule 33).
+2. `Answered` holds this Session's idempotency key: the remembered answer, whatever it was.
+   Looked up only once the Session is found, and under its id, so a key replayed from another
+   browser finds nothing; the cookie names the Session and a client never learns another's.
 3. The Role re-taken from the registry for the record's login (Rule 38); only the Role is
    compared, and it must be Prescriber.
 4. The OpenedToken presented equals the Session's current one (Rule 34, else `StaleToken`).
@@ -128,7 +135,13 @@ stored for the Session, answering `ChallengeIssued nonce`.
    the Session opened with, `By` and `PatientId` from the session record, never from the
    payload, `SignedAt` now, `Patient` and `Scenarios` from the challenged plan; prepended to
    `Records`; the challenge dropped; the Session's `OpenedToken` re-minted and `OpenedWith` set
-   to the new head; the answer remembered under the key; `Submitted (plan, token)`.
+   to the new head; the answer remembered under the Session and the key;
+   `Submitted (plan, token)`.
+
+What the commit re-verifies is Rule 42's list: the Session, the Role, the tokens, the head, the
+challenge and the PIN. The platform is read before the challenge (Rule 44), not inside the
+commit, as in the model's `dbCommit`; the two-minute challenge keeps that reading recent, and a
+Submission on an older challenge is `ChallengeExpired` and signs again, which reads again.
 
 ### Ports, stubs, edge
 
@@ -153,8 +166,8 @@ active, PIN `1234`).
   cart (ext 3b, 3c). `PinWrong` and `Locked` keep the dialog with the refusal; `Blocked`,
   `StaleToken`, `ChallengeMismatch`, `ChallengeExpired`, `DataChanged`, `NotPrescriber` and
   `NoSession` return to `Idle` with the refusal told once; `PinLimit` ends the Session.
-- `App.fs`: the signing phase in the state, the effect interpreter over `processSigning`,
-  `AppEnv.ISigning`. `Views/OrderPlan.fs`: a Sign button for a Prescriber with at least one
+- `App.fs`: the signing phase in the state, the effect interpreter over `processSigning`, which
+  takes the OpenedToken from the open Session for both calls, `AppEnv.ISigning`. `Views/OrderPlan.fs`: a Sign button for a Prescriber with at least one
   order. A new `Views/SignDialog.fs`: an MUI `Dialog` open while challenged or submitting,
   listing each order's prescription text as shown, a PIN field checked locally (four to six
   digits, as the enrolment form), the refusal sentence, Cancel and Sign. On `Signed` the
