@@ -1142,8 +1142,9 @@ module Hop =
     /// the record not moved on (Rule 20); the challenge this Session was issued, over exactly
     /// this plan (Rule 43); and last the PIN (Rules 23, 28), so that a Submission that was
     /// never going to land costs no attempt. Then the version is appended, the challenge
-    /// spent, the OpenedToken re-minted over the new head, and the answer remembered under the
-    /// key, refusals too. Three wrong PINs end the Session (`WrongPinLimit`), lock signing and
+    /// spent, the OpenedToken re-minted over the new head, the Session's patient set to the
+    /// data signed where the platform had no reading (#640), and the answer remembered under
+    /// the key, refusals too. Three wrong PINs end the Session (`WrongPinLimit`), lock signing and
     /// mail the User (Rule 27); a wrong PIN while locked pushes the lock out; a right PIN while
     /// locked is refused and counts nothing.
     let commit
@@ -1234,12 +1235,23 @@ module Hop =
 
                                         let token = OpenedToken $"opened-{newId ()}"
 
+                                        // #640: without a reading, the Session's patient is the data
+                                        // just signed, so a resume shows it as a relaunch would
                                         let opened =
                                             { record with
                                                 Session =
                                                     { record.Session with
                                                         OpenedToken = Some token
                                                         Head = Some plan
+                                                        PatientContext =
+                                                            Some
+                                                                { patient with
+                                                                    Patient =
+                                                                        if challenge.Verified then
+                                                                            patient.Patient
+                                                                        else
+                                                                            plan.Patient
+                                                                }
                                                     }
                                                 OpenedWith = Some id
                                             }

@@ -2956,6 +2956,12 @@ module SessionStubTests =
                             state.Sessions["s-1"].Session.Head
                             |> Expect.equal "a resume opens on the version just signed" (Some signed)
 
+                            state.Sessions["s-1"].Session.PatientContext
+                            |> Option.map _.Patient
+                            |> Expect.equal
+                                "verified: the Session's patient is the reading, unchanged (#640)"
+                                (Some stubPatient)
+
                             state.Answered[("s-1", "k-1")] |> fst |> Expect.equal "remembered" answer
                         | other -> failtest $"expected Submitted, got {other}"
 
@@ -3085,6 +3091,43 @@ module SessionStubTests =
                             |> snd
                         with
                         | SigningResponse.Submitted(signed, _) -> signed.Scenarios |> Expect.equal "two orders" once
+                        | other -> failtest $"expected Submitted, got {other}"
+                    }
+
+                    test "unverified: the Session's patient becomes the data signed, so a resume shows it (#640)" {
+                        let sid, unverified = challenged "s-1" t0
+
+                        let ready =
+                            stateOf
+                                [ session "s-1" prescriber "no-data" None ]
+                                []
+                                [
+                                    sid,
+                                    { unverified with
+                                        Patient = otherData
+                                        Verified = false
+                                    }
+                                ]
+
+                        let state, answer =
+                            submit
+                                ready
+                                "s-1"
+                                { submission "s-1" "1234" "k-1" with Plan = OrderPlan.create otherData [||] }
+
+                        match answer with
+                        | SigningResponse.Submitted(signed, _) ->
+                            signed.Patient |> Expect.equal "the data signed" otherData
+                            signed.Verified |> Expect.isFalse "no reading"
+
+                            state.Sessions["s-1"].Session.PatientContext
+                            |> Expect.equal
+                                "the Session's patient, for the resume"
+                                (Some
+                                    {
+                                        PatientId = "no-data"
+                                        Patient = otherData
+                                    })
                         | other -> failtest $"expected Submitted, got {other}"
                     }
 
