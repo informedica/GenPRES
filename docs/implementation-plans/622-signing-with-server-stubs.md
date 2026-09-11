@@ -161,13 +161,17 @@ active, PIN `1234`).
   Requesting of OrderPlan | Challenged of challenge * OrderPlan * SigningRefusal option |
   Submitting of challenge * OrderPlan | Signed of SignedOrderPlan`; messages `Sign`,
   `ChallengeAnswered`, `Confirm of pin`, `Cancel`, `SubmitAnswered`, `Dismiss`; effects
-  `CallChallenge`, `CallSubmit of Submission` (the idempotency key minted once per `Confirm`),
-  `RenewToken`, `EndSession`. `Submitting` sends the plan it was challenged over, never the live
+  `CallChallenge of OrderPlan`, `CallSubmit of OrderPlan * challenge: string * pin: string`,
+  `RenewToken`, `EndSession`. The effects name what the machine knows; the interpreter
+  completes each call with the OpenedToken of the open Session and, for a Submission, an
+  idempotency key minted once per `Confirm`, so the machine stays pure and its tests cover the
+  whole path up to the wire. `Submitting` sends the plan it was challenged over, never the live
   cart (ext 3b, 3c). `PinWrong` and `Locked` keep the dialog with the refusal; `Blocked`,
   `StaleToken`, `ChallengeMismatch`, `ChallengeExpired`, `DataChanged`, `NotPrescriber` and
   `NoSession` return to `Idle` with the refusal told once; `PinLimit` ends the Session.
 - `App.fs`: the signing phase in the state, the effect interpreter over `processSigning`, which
-  takes the OpenedToken from the open Session for both calls, `AppEnv.ISigning`. `Views/OrderPlan.fs`: a Sign button for a Prescriber with at least one
+  builds `RequestSignChallenge` and `Submission` from the effect, the OpenedToken of the open
+  Session and a fresh idempotency key, `AppEnv.ISigning`. `Views/OrderPlan.fs`: a Sign button for a Prescriber with at least one
   order. A new `Views/SignDialog.fs`: an MUI `Dialog` open while challenged or submitting,
   listing each order's prescription text as shown, a PIN field checked locally (four to six
   digits, as the enrolment form), the refusal sentence, Cancel and Sign. On `Signed` the
