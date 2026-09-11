@@ -967,6 +967,65 @@ module Hop =
             | _ -> state, None
 
 
+    /// Rules 18 to 20, UC-4 step 4: version `id` becomes what the Session opened with. No
+    /// Session, an anonymous one or one without a Patient: nothing to open (Rule 13). An id the
+    /// record does not hold for the Session's Patient (a stale button, a restart): nothing
+    /// opens, the Session as it is; the next request tells what the head is (Rule 21). The
+    /// version already open: the token stands. Another version: the OpenedToken is re-minted
+    /// over it (Rule 34) and the standing challenge and notice of this Session are dropped (a
+    /// challenge over the old baseline must not be answerable). Any version may be opened
+    /// (Rule 18); one that is not the head leaves Submission blocked (Rule 20).
+    let openVersion
+        (now: DateTime)
+        (newId: unit -> string)
+        (sid: string)
+        (id: string)
+        (state: State)
+        : State * SessionOpened option
+        =
+        match state.Sessions |> Map.tryFind sid with
+        | None -> state, None
+        | Some record ->
+            let state = touch now sid state
+
+            match record.Session.User, record.Session.PatientContext with
+            | None, _
+            | _, None -> state, None
+            | Some _, Some patient ->
+                let version =
+                    state.Records
+                    |> Map.tryFind patient.PatientId
+                    |> Option.bind (List.tryFind (fun v -> v.Head.Id = id))
+
+                match version with
+                | None -> state, Some record.Session
+                | Some version when record.OpenedWith = Some id ->
+                    let session = { record.Session with Head = Some version }
+
+                    { state with Sessions = state.Sessions |> Map.add sid { record with Session = session } },
+                    Some session
+                | Some version ->
+                    let session =
+                        { record.Session with
+                            OpenedToken = Some(OpenedToken $"opened-{newId ()}")
+                            Head = Some version
+                        }
+
+                    { state with
+                        Sessions =
+                            state.Sessions
+                            |> Map.add
+                                sid
+                                { record with
+                                    Session = session
+                                    OpenedWith = Some id
+                                }
+                        Challenges = state.Challenges |> Map.remove sid
+                        Notices = state.Notices |> Map.remove sid
+                    },
+                    Some session
+
+
     /// Concept 10: an order appears once in a plan.
     let duplicateOrders (scenarios: OrderScenario[]) =
         scenarios |> Array.countBy _.Order.Id |> Array.exists (fun (_, n) -> n > 1)
@@ -1309,6 +1368,7 @@ module Hop =
                         return update (fun s -> commit (now ()) newId registry.standing mail.send sid submission s)
                     }
             seen = fun sid opened -> async { return update (seen (now ()) sid opened) }
+            openVersion = fun sid id -> async { return update (openVersion (now ()) newId sid id) }
         }
 
 
@@ -1789,6 +1849,7 @@ module Adapters =
             challenge = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
             seen = fun _ _ -> async { return None }
+            openVersion = fun _ _ -> async { return None }
         }
 
 

@@ -105,6 +105,14 @@ module CompositionRoot =
                         enrolment.delete ()
                         return SessionResponse.PinRefused refusal
                     | SupplyPinResult.Refused refusal -> return SessionResponse.PinRefused refusal
+            // UC-4 step 4: for the Session the cookie names; without a cookie there is nothing to
+            // open. Writes no cookie.
+            | SessionCommand.OpenVersion id ->
+                match cookie.read () with
+                | None -> return SessionResponse.SessionResp None
+                | Some sid ->
+                    let! opened = env.session.openVersion sid id
+                    return SessionResponse.SessionResp opened
             | SessionCommand.CloseSession ->
                 try
                     match cookie.read () with

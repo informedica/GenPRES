@@ -191,6 +191,10 @@ module Api =
         // UC-2: the confirmation code from the mail and the chosen PIN, for the attempt the
         // enrolment cookie names
         | SupplyPin of code: string * pin: string
+        // UC-4 step 4 (Rules 18 to 20): the version named becomes what the Session opened with;
+        // answered with the Session as it then is, `SessionResp None` where there is no Session,
+        // no User or no Patient
+        | OpenVersion of id: string
 
 
     [<RequireQualifiedAccess>]
@@ -231,6 +235,7 @@ module Api =
             | SessionCommand.CloseSession -> "CloseSession"
             // never the code or the PIN
             | SessionCommand.SupplyPin _ -> "SupplyPin"
+            | SessionCommand.OpenVersion _ -> "OpenVersion"
 
 
     module SigningCommand =

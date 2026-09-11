@@ -606,6 +606,79 @@ module SessionMachineTests =
             ]
 
 
+    let openVersionTests =
+        let head: SignedOrderPlan =
+            {
+                Head =
+                    {
+                        Id = "plan-2"
+                        No = 2
+                        By = full.User.Value
+                        SignedAt = System.DateTime(2026, 9, 11, 12, 0, 0, System.DateTimeKind.Utc)
+                    }
+                PatientId = "p"
+                Base = Some "plan-1"
+                Scenarios = [||]
+                Patient = patient
+                Verified = true
+            }
+
+        let reopened =
+            { full with
+                OpenedToken = Some(OpenedToken "t-2")
+                Head = Some head
+            }
+
+        testList
+            "OpenVersion (UC-4 step 4)"
+            [
+                test "OpenVersion from Open calls the server with the token it starts from; elsewhere dropped" {
+                    transition (SessionMsg.OpenVersion "plan-2") (Session.Open full)
+                    |> Expect.equal
+                        "call"
+                        (Session.Open full,
+                         [
+                             SessionEffect.CallOpenVersion("plan-2", full.OpenedToken)
+                         ])
+
+                    transition (SessionMsg.OpenVersion "plan-2") Session.Anonymous
+                    |> Expect.equal "dropped" (Session.Anonymous, [])
+                }
+
+                test "Reopened with the Session replaces it and loads the version into the cart, no SetPatient" {
+                    transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) (Session.Open full)
+                    |> Expect.equal "reopened" (Session.Open reopened, [ SessionEffect.LoadCart head ])
+                }
+
+                test "Reopened with nothing to open, or a transport failure, leaves the Session as it was" {
+                    transition (SessionMsg.Reopened(full.OpenedToken, Ok None)) (Session.Open full)
+                    |> Expect.equal "nothing to open" (Session.Open full, [])
+
+                    transition (SessionMsg.Reopened(full.OpenedToken, Error "offline")) (Session.Open full)
+                    |> Expect.equal "failed" (Session.Open full, [])
+                }
+
+                test "Reopened lands only on the open Session that still holds the token it started from" {
+                    transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) Session.Anonymous
+                    |> Expect.equal "not open: dropped" (Session.Anonymous, [])
+
+                    // a relaunch or an earlier OpenVersion changed the token meanwhile
+                    let newer = { full with OpenedToken = Some(OpenedToken "t-newer") }
+
+                    transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) (Session.Open newer)
+                    |> Expect.equal "stale: dropped" (Session.Open newer, [])
+
+                    // two quick selections: the first answer lands, the second started from the same
+                    // token and is dropped, so the User sees the version the first one opened
+                    let afterFirst, _ =
+                        transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) (Session.Open full)
+
+                    transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some full))) afterFirst
+                    |> Expect.equal "second dropped" (Session.Open reopened, [])
+                }
+            ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -616,4 +689,5 @@ module SessionMachineTests =
                 retryTests
                 resumeTests
                 endingTests
+                openVersionTests
             ]
