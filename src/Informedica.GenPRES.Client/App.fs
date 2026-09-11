@@ -13,6 +13,7 @@ open Shared.Types
 open Shared.Models
 open Global
 open SessionMachine
+open SigningMachine
 
 
 module private Elmish =
@@ -52,6 +53,8 @@ module private Elmish =
             LogAnalysisReport: Deferred<string>
             // the launch Session (plan 409); Anonymous is the state every URL patient runs in
             Session: Session
+            // the signing phase of the open Session (plan 622); Idle whenever no Session is open
+            Signing: Signing
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -64,6 +67,7 @@ module private Elmish =
         | UrlChanged of string list
         | AcceptDisclaimer
         | SessionMsg of SessionMsg
+        | SigningMsg of SigningMsg
 
         | UpdatePage of Global.Pages
         | UpdatePatient of Patient option
@@ -480,6 +484,7 @@ module private Elmish =
             LogFiles = HasNotStartedYet
             LogAnalysisReport = HasNotStartedYet
             Session = Session.Anonymous
+            Signing = Signing.Idle
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -660,6 +665,66 @@ module private Elmish =
                 }
                 |> Async.StartImmediate
             )
+
+
+    /// One command per signing effect (plan 622). The machine names the plan, the challenge,
+    /// the PIN and the key; the OpenedToken comes from the open Session here (Rule 34). Without
+    /// an open Session nothing is sent: the answer is a refusal. What is told (signed, refused,
+    /// an error) is put on the snackbar by `update`, not here.
+    let interpretSigningEffect (session: Session) (effect: SigningEffect) : Cmd<Msg> =
+        let token =
+            match session with
+            | Session.Open opened -> opened.OpenedToken
+            | _ -> None
+
+        match effect with
+        | SigningEffect.CallChallenge(plan, notice) ->
+            match token with
+            | None ->
+                Cmd.ofMsg (
+                    SigningMsg(SigningMsg.ChallengeAnswered(Ok(SigningResponse.Refused SigningRefusal.NoSession)))
+                )
+            | Some opened ->
+                async {
+                    try
+                        let! answer =
+                            serverApi.processSigning (Api.SigningCommand.RequestSignChallenge(plan, opened, notice))
+
+                        return SigningMsg(SigningMsg.ChallengeAnswered(Ok answer))
+                    with ex ->
+                        return SigningMsg(SigningMsg.ChallengeAnswered(Error ex.Message))
+                }
+                |> Cmd.fromAsync
+        | SigningEffect.CallSubmit(plan, challenge, pin, key) ->
+            match token with
+            | None ->
+                Cmd.ofMsg (SigningMsg(SigningMsg.SubmitAnswered(Ok(SigningResponse.Refused SigningRefusal.NoSession))))
+            | Some opened ->
+                async {
+                    try
+                        let! answer =
+                            serverApi.processSigning (
+                                Api.SigningCommand.Submit
+                                    {
+                                        Plan = plan
+                                        Opened = opened
+                                        Challenge = challenge
+                                        Pin = pin
+                                        IdemKey = key
+                                    }
+                            )
+
+                        return SigningMsg(SigningMsg.SubmitAnswered(Ok answer))
+                    with ex ->
+                        return SigningMsg(SigningMsg.SubmitAnswered(Error ex.Message))
+                }
+                |> Cmd.fromAsync
+        | SigningEffect.RenewToken token -> Cmd.ofMsg (SessionMsg(SessionMsg.TokenRenewed token))
+        | SigningEffect.EndSession ending -> Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
+        | SigningEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient(Some patient))
+        | SigningEffect.TellSigned _
+        | SigningEffect.TellRefused _
+        | SigningEffect.TellError _ -> Cmd.none
 
 
     let update (msg: Msg) (state: State) =
@@ -977,7 +1042,50 @@ module private Elmish =
                     }
                 | _ -> state
 
-            { state with Session = session }, effects |> List.map interpretSessionEffect |> Cmd.batch
+            // a signature belongs to an open Session: whatever ends the Session drops it (ext 3e)
+            let signing =
+                match session with
+                | Session.Open _ -> state.Signing
+                | _ -> Signing.Idle
+
+            { state with
+                Session = session
+                Signing = signing
+            },
+            effects |> List.map interpretSessionEffect |> Cmd.batch
+
+        | SigningMsg msg ->
+            let signing, effects = Signing.transition msg state.Signing
+
+            let tr term =
+                Global.getLocalizedTerm state.Localization state.Context.Localization (SigningPolicy.english term) term
+
+            let tell message severity (state: State) =
+                { state with
+                    SnackbarMsg = message
+                    SnackbarOpen = true
+                    SnackbarSeverity = severity
+                }
+
+            let state =
+                effects
+                |> List.fold
+                    (fun state effect ->
+                        match effect with
+                        | SigningEffect.TellSigned signed ->
+                            state |> tell (SigningPolicy.signedSentence tr signed) "success"
+                        | SigningEffect.TellRefused refusal ->
+                            state |> tell (SigningPolicy.refusalSentence tr refusal) "warning"
+                        | SigningEffect.TellError reason ->
+                            Logging.error "could not send the signature to the server" reason
+
+                            state
+                            |> tell "De handtekening kon niet worden verstuurd. Probeer het opnieuw." "error"
+                        | _ -> state
+                    )
+                    state
+
+            { state with Signing = signing }, effects |> List.map (interpretSigningEffect state.Session) |> Cmd.batch
 
         | LoadLocalization Started ->
             { state with Localization = InProgress }, Cmd.fromAsync (GoogleDocs.loadLocalization LoadLocalization)
@@ -1411,6 +1519,22 @@ type private ConcreteAppEnv
 
         member _.SupplyPin code pin =
             SessionMsg(SessionMsg.SupplyPin(code, pin)) |> dispatch
+
+    interface AppEnv.ISigning with
+        member _.Signing = state.Signing
+
+        member _.Sign plan =
+            SigningMsg(SigningMsg.Sign plan) |> dispatch
+
+        member _.Accept() =
+            SigningMsg SigningMsg.Accept |> dispatch
+
+        // Rule 45: one key per confirmation; the machine keeps it for a retry
+        member _.Confirm pin =
+            SigningMsg(SigningMsg.Confirm(pin, Guid.NewGuid().ToString())) |> dispatch
+
+        member _.Cancel() =
+            SigningMsg SigningMsg.Cancel |> dispatch
 
     interface AppEnv.IAuthentication with
         member _.IsAuthenticated = state.IsAuthenticated

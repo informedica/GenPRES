@@ -44,6 +44,7 @@
     <Compile Include="./Views/Totals.fs" />
     <Compile Include="./Views/Prescribe.fs" />
     <Compile Include="./Views/Nutrition.fs" />
+    <Compile Include="./Views/SignDialog.fs" />
     <Compile Include="./Views/OrderPlan.fs" />
     <Compile Include="./Views/Formulary.fs" />
     <Compile Include="./Views/Parenteralia.fs" />
