@@ -88,8 +88,9 @@ type SessionMsg =
     // UC-4 step 4: take up the version the notice named (Rules 18 to 20)
     | OpenVersion of id: string
     // the answer: the Session as it now is (Some), nothing to open (None), or a transport
-    // failure
-    | Reopened of Result<SessionOpened option, string>
+    // failure; `from` is the OpenedToken the request started from, so that an answer lands
+    // only on the Session that asked (the guard of Outcome and of the signing answers)
+    | Reopened of from: OpenedToken option * Result<SessionOpened option, string>
 
 
 [<RequireQualifiedAccess>]
@@ -108,8 +109,8 @@ type SessionEffect =
     // patient as the client holds it after SetPatient (normal values applied); interpreted as
     // a FilterOrderPlan over them
     | LoadCart of SignedOrderPlan
-    // UC-4 step 4: processSession OpenVersion
-    | CallOpenVersion of id: string
+    // UC-4 step 4: processSession OpenVersion; `from` comes back in Reopened
+    | CallOpenVersion of id: string * from: OpenedToken option
 
 
 module Session =
@@ -244,15 +245,19 @@ module Session =
             Session.Open { session with OpenedToken = Some token }, []
         | SessionMsg.TokenRenewed _, _ -> state, []
 
-        // UC-4 step 4: only an open Session has a version to take up
-        | SessionMsg.OpenVersion id, Session.Open _ -> state, [ SessionEffect.CallOpenVersion id ]
+        // UC-4 step 4: only an open Session has a version to take up; the request remembers
+        // the token it started from
+        | SessionMsg.OpenVersion id, Session.Open session ->
+            state, [ SessionEffect.CallOpenVersion(id, session.OpenedToken) ]
         | SessionMsg.OpenVersion _, _ -> state, []
 
         // the Session as the server now holds it: the token over the version opened, and its
         // orders into the cart (Rule 19); the patient is unchanged, so no SetPatient. Nothing to
         // open, or the request never got there: the Session stays as it was, and the next
-        // request tells what the head is (Rule 21). Lands only on an open Session.
-        | SessionMsg.Reopened(Ok(Some session)), Session.Open _ ->
+        // request tells what the head is (Rule 21). The stale-request guard: an answer lands
+        // only on the open Session that still holds the token the request started from; a
+        // Session closed, relaunched or reopened meanwhile drops it
+        | SessionMsg.Reopened(from, Ok(Some session)), Session.Open current when current.OpenedToken = from ->
             Session.Open session,
             [
                 match session.PatientContext, session.Head with
