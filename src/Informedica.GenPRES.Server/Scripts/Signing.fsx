@@ -112,9 +112,18 @@ module Credential =
     let lockBase = TimeSpan.FromMinutes 1.0
 
 
+    /// The longest lock. The model's delay only grows and decays with time; the decay is not
+    /// built, so the stub caps the delay instead (review on #624: an unbounded doubling
+    /// overflows the arithmetic long before it overflows anyone's patience).
+    let lockMax = TimeSpan.FromHours 24.0
+
+
     /// Rule 28: the delay after `count` wrong entries. The entry that reaches the limit locks
-    /// for `lockBase`; each one after it doubles that.
-    let lockFor (count: int) = lockBase * float (pown 2 (max 0 (count - wrongPinLimit)))
+    /// for `lockBase`; each one after it doubles that, up to `lockMax`.
+    let lockFor (count: int) =
+        // 2^11 minutes is already past a day; the bound keeps `pown` in range
+        let doublings = min 11 (max 0 (count - wrongPinLimit))
+        min lockMax (lockBase * float (pown 2 doublings))
 
 
     /// Rule 28: whether signing is locked at this moment.
@@ -345,6 +354,12 @@ let credentialTests =
                 Credential.lockFor 3 |> Expect.equal "at the limit" (minutes 1.0)
                 Credential.lockFor 4 |> Expect.equal "one past" (minutes 2.0)
                 Credential.lockFor 5 |> Expect.equal "two past" (minutes 4.0)
+                Credential.lockFor 13 |> Expect.equal "ten past: just under the cap" (minutes 1024.0)
+                Credential.lockFor 14 |> Expect.equal "capped at a day" Credential.lockMax
+                Credential.lockFor Int32.MaxValue |> Expect.equal "no overflow" Credential.lockMax
+
+                let _, c = Credential.verify t0 "0000" { withPin with WrongCount = Int32.MaxValue - 1 }
+                c.LockedUntil |> Expect.equal "a day from now" (Some(t0 + Credential.lockMax))
             }
 
             test "a right PIN is accepted, zeroes the count and clears the lock" {

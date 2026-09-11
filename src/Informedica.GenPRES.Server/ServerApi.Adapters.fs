@@ -273,10 +273,18 @@ module Credential =
     let lockBase = TimeSpan.FromMinutes 1.0
 
 
+    /// The longest lock. The model's delay only grows and decays with time; the decay is not
+    /// built, so the stub caps the delay instead (review on #624: an unbounded doubling
+    /// overflows the arithmetic long before it overflows anyone's patience).
+    let lockMax = TimeSpan.FromHours 24.0
+
+
     /// Rule 28: the delay after `count` wrong entries. The entry that reaches the limit locks
-    /// for `lockBase`; each one after it doubles that.
+    /// for `lockBase`; each one after it doubles that, up to `lockMax`.
     let lockFor (count: int) =
-        lockBase * float (pown 2 (max 0 (count - wrongPinLimit)))
+        // 2^11 minutes is already past a day; the bound keeps `pown` in range
+        let doublings = min 11 (max 0 (count - wrongPinLimit))
+        min lockMax (lockBase * float (pown 2 doublings))
 
 
     /// Rule 28: whether signing is locked at this moment.

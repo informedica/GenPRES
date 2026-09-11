@@ -1074,6 +1074,19 @@ module SessionStubTests =
                         Credential.lockFor 3 |> Expect.equal "at the limit" (minutes 1.0)
                         Credential.lockFor 4 |> Expect.equal "one past" (minutes 2.0)
                         Credential.lockFor 5 |> Expect.equal "two past" (minutes 4.0)
+
+                        Credential.lockFor 13
+                        |> Expect.equal "ten past: just under the cap" (minutes 1024.0)
+
+                        Credential.lockFor 14 |> Expect.equal "capped at a day" Credential.lockMax
+
+                        Credential.lockFor Int32.MaxValue
+                        |> Expect.equal "no overflow" Credential.lockMax
+
+                        let _, c =
+                            Credential.verify t0 "0000" { withPin with WrongCount = Int32.MaxValue - 1 }
+
+                        c.LockedUntil |> Expect.equal "a day from now" (Some(t0 + Credential.lockMax))
                     }
 
                     test "a right PIN is accepted, zeroes the count and clears the lock" {
