@@ -237,6 +237,8 @@ type Credential =
     {
         PinHash: PinHash option
         WrongCount: int
+        // Rule 28: signing is locked until this moment; a delay, not a state
+        LockedUntil: DateTime option
     }
 
 
@@ -246,6 +248,7 @@ module Credential =
         {
             PinHash = None
             WrongCount = 0
+            LockedUntil = None
         }
 
 
@@ -253,12 +256,76 @@ module Credential =
     let pinSet (credential: Credential) = credential.PinHash.IsSome
 
 
-    /// A credential with this PIN and a count of zero (Rule 28: setting the PIN resets it).
+    /// A credential with this PIN, a count of zero and no lock (Rules 28, 37: setting the PIN
+    /// resets both).
     let withPin (newSalt: int -> byte[]) (pin: string) : Credential =
         {
             PinHash = Some(PinHash.make newSalt pin)
             WrongCount = 0
+            LockedUntil = None
         }
+
+
+    /// Wrong PINs before the Session ends and signing locks (Rule 28).
+    let wrongPinLimit = 3
+
+    /// The first lock (plan 622: one minute; the model counts in ticks).
+    let lockBase = TimeSpan.FromMinutes 1.0
+
+
+    /// Rule 28: the delay after `count` wrong entries. The entry that reaches the limit locks
+    /// for `lockBase`; each one after it doubles that.
+    let lockFor (count: int) =
+        lockBase * float (pown 2 (max 0 (count - wrongPinLimit)))
+
+
+    /// Rule 28: whether signing is locked at this moment.
+    let isLocked (now: DateTime) (credential: Credential) =
+        match credential.LockedUntil with
+        | Some until -> now < until
+        | None -> false
+
+
+    /// Rules 23, 28: whether the PIN is accepted, and the credential as it stands after the
+    /// entry. A right PIN while unlocked zeroes the count and clears the lock; a right PIN
+    /// while locked is refused and counts nothing; a wrong PIN adds one and, at the limit or
+    /// beyond it, locks for `lockFor` from now, so a wrong entry while locked pushes the
+    /// delay out and doubles it.
+    let verify (now: DateTime) (pin: string) (credential: Credential) : bool * Credential =
+        let locked = isLocked now credential
+
+        let right =
+            match credential.PinHash with
+            | Some hash -> PinHash.verify pin hash
+            | None -> false
+
+        if right && not locked then
+            true,
+            { credential with
+                WrongCount = 0
+                LockedUntil = None
+            }
+        elif right then
+            false, credential
+        else
+            let count = credential.WrongCount + 1
+
+            let until =
+                if count >= wrongPinLimit then
+                    Some(now + lockFor count)
+                else
+                    None
+
+            false,
+            { credential with
+                WrongCount = count
+                LockedUntil = until
+            }
+
+
+    /// Rule 28: the wrong entries left before the limit.
+    let attemptsLeft (credential: Credential) =
+        max 0 (wrongPinLimit - credential.WrongCount)
 
 
 module Pin =
@@ -319,12 +386,14 @@ module Hop =
         $"/#/session?refused={refusalWord refusal}"
 
 
-    /// A Session as the store holds it: what the client learns, plus the login it belongs to
-    /// (Rule 8: a User has at most one open Session).
+    /// A Session as the store holds it: what the client learns, the login it belongs to
+    /// (Rule 8: a User has at most one open Session), and the head of the record it opened
+    /// with (Rule 19; `None` from nothing), which a Submission is checked against (Rule 20).
     type SessionRecord =
         {
             Session: SessionOpened
             Login: string option
+            OpenedWith: string option
         }
 
 
@@ -375,6 +444,8 @@ module Hop =
             Codes: Map<string, PendingCode>
             // UC-2: the suspended launches by attempt
             Enrolments: Map<string, Enrolment>
+            // UC-3: the signed versions of each patient's order plan, newest first
+            Records: Map<string, SignedOrderPlan list>
         }
 
 
@@ -386,6 +457,7 @@ module Hop =
             Credentials = Map.empty
             Codes = Map.empty
             Enrolments = Map.empty
+            Records = Map.empty
         }
 
 
@@ -403,6 +475,11 @@ module Hop =
 
     let credentialOf (userId: string) (state: State) =
         state.Credentials |> Map.tryFind userId |> Option.defaultValue Credential.empty
+
+
+    /// Rule 19: the most recent signed version of a patient's record, if any.
+    let headOf (patientId: string) (state: State) =
+        state.Records |> Map.tryFind patientId |> Option.bind List.tryHead
 
 
     let private dropExpired (now: DateTime) (state: State) =
@@ -454,8 +531,8 @@ module Hop =
 
 
     /// Step 5.7, one act (Rule 40), from whatever carried the launch this far: a LaunchRecord
-    /// at the callback, an Enrolment once the PIN is set. The Session is written, the login's
-    /// other Sessions are closed and marked (Rule 8).
+    /// at the callback, an Enrolment once the PIN is set. The Session is written from the head
+    /// of the record (Rule 19), the login's other Sessions are closed and marked (Rule 8).
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
@@ -497,6 +574,7 @@ module Hop =
                     {
                         Session = session
                         Login = login
+                        OpenedWith = headOf patientId state |> Option.map _.Head.Id
                     }
             Endings =
                 superseded

@@ -645,10 +645,39 @@ module Types =
 
 
     /// Why a Session ended other than by the User closing it (Rule 11). The server says it
-    /// once, at the next request, and the client shows it. One case now; idle and absolute
-    /// lifetime (Rule 10) come with their own plan.
+    /// once, at the next request, and the client shows it. Idle and absolute lifetime
+    /// (Rule 10) come with their own plan.
     [<RequireQualifiedAccess>]
-    type SessionEnding = SupersededByLaunch
+    type SessionEnding =
+        | SupersededByLaunch
+        // Rule 28: the third wrong PIN at a signature (UC-3)
+        | WrongPinLimit
+
+
+    /// What identifies a signed version of an order plan (Concept 9): its id, its place in
+    /// the patient's record (`No` orders the record: a clock cannot say which of two landed
+    /// first, Rule 20), who signed it and when. Enough for Rule 21's notice: whose, and when.
+    type OrderPlanHead =
+        {
+            Id: string
+            No: int
+            By: UserContext
+            SignedAt: DateTime
+        }
+
+
+    /// A signed version of an order plan, as the record holds it (the integration design's
+    /// TreatmentPlan): the head, the patient, the version it was signed over (`Base`, `None`
+    /// for the first), the orders as shown at the signature and the patient data the User
+    /// saw (Rule 44).
+    type SignedOrderPlan =
+        {
+            Head: OrderPlanHead
+            PatientId: string
+            Base: string option
+            Scenarios: OrderScenario[]
+            Patient: Patient
+        }
 
 
     /// What the client learns when its launch is waiting on a PIN (UC-2): whom to greet and

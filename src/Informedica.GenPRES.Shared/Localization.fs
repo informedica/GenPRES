@@ -161,6 +161,8 @@ type Terms =
     // the gate after the server ended the Session (Rule 11)
     | ``Session Gate Ended``
     | ``Session Ending Superseded``
+    // Rule 28 (UC-3, plan 622): the Session ended at the third wrong PIN
+    | ``Session Ending Pin Limit``
     // the enrolment form (UC-2, plan 615): title, body with {0} the name and {1} the hinted
     // mail address, the three field labels, the button, and one sentence per refusal
     | ``Session Gate Enrolment``
