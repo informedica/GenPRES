@@ -122,8 +122,9 @@ Where the code departs from the text above, on purpose:
 - **The Client's form** does the cheap checks first (six digits, four to six digits, the repeat
   agrees) and shows the server's answer as the field's error until the User edits it.
 
-Not built: the audit (Rule 46), and the wrong-PIN limit at signing (Rule 28's count is kept and
-reset, nothing reads it yet).
+Not built: the audit (Rule 46). The wrong-PIN limit at signing (Rule 28) is built by
+[plan 622](../../implementation-plans/622-signing-with-server-stubs.md); see
+[uc-03](uc-03-prescribe-and-sign.md#as-built-against-stubs).
 
 ---
 

@@ -121,7 +121,7 @@ for the MailService too ([plan 615](docs/implementation-plans/615-enrolment-with
    Session opens as **Stub Prescriber (no PIN)**, and the outbox shows a second mail, "GenPRES:
    your PIN was set".
 4. Launch `no-pin` again, in this or another browser: the Session opens directly. The PIN lives
-   as long as the server runs. The seeded Prescribers (`prescriber`,
+   as long as the server runs. The seeded Prescribers (`prescriber`, `prescriber-b`,
    `prescriber-other-patient`) start with the PIN `1234`.
 
 Things worth trying here:
@@ -134,6 +134,43 @@ Things worth trying here:
   and a fresh launch mails a new code.
 - **Leaving**: **Close session** is not offered while enrolling; a relaunch replaces the
   attempt, and closing the tab abandons it.
+
+#### Signing an order plan
+
+A Prescriber signs the order plan with the PIN; signing is the only way anything reaches the
+record ([uc-03](docs/scenarios/integration/uc-03-prescribe-and-sign.md), Rules 42, 43). The
+demo keeps the record in memory
+([plan 622](docs/implementation-plans/622-signing-with-server-stubs.md)):
+
+1. Launch with the identity `prescriber`. The stub patient has no data, so give it an age in the
+   patient panel (a weight is estimated from it).
+2. Open **Voorschrijven** from the menu, pick a medication, a route, a form and an indication
+   (paracetamol, oral, tablet, mild pain will do), and press **Voorschrijven** on a scenario.
+3. Open **Behandel Plan**: the order is in the plan, with an **Ondertekenen** button above it.
+   Press it. The dialog lists the orders exactly as they will be signed and asks the PIN.
+4. Enter a wrong PIN: the dialog stays and says two tries are left. Enter `1234`: the dialog
+   closes and the snackbar says version 1 was signed by Stub Prescriber. Sign again: version 2.
+
+Things worth trying here:
+
+- **Three wrong PINs**: the dialog closes and the gate says the Session ended at the PIN limit;
+  the Sign button and the person menu are gone. Launch again: a right PIN inside the next minute
+  is refused as locked until a time, after that it signs. Every wrong entry past the third
+  doubles the delay, up to a day.
+- **Two browsers on one patient**: launch `prescriber-b` in another browser profile, prescribe
+  and sign there. The first browser's next **Ondertekenen** is refused: Stub Prescriber B signed
+  a newer version at that time (Rule 20). Launching the first identity again opens on the new
+  head, and signing works again.
+- **The patient without data**: launch with the PatientId `no-data`. The first **Ondertekenen**
+  is a notice instead of the dialog: the data could not be verified. **Doorgaan** asks the
+  challenge again with the notice accepted, and the version is signed as unverified (Rule 44).
+- **A Reader**: `reader` sees no Sign button.
+- **Watch the wire**: `RequestSignChallenge` answers `ChallengeIssued`, `Submit` answers
+  `Submitted` with the version and a fresh OpenedToken; the PIN travels in the Submission and
+  nowhere else, and never appears in the log. A Submission sent twice under the same key is
+  answered the same way once.
+- **Restart the server**: the record is gone with everything else; the next signature is
+  version 1 again.
 
 #### Things worth trying
 
@@ -154,8 +191,9 @@ Things worth trying here:
   and `/authorize` are 404, `/callback` redirects to `refused=invalid`.
 
 The stand-ins keep everything in memory: launches by nonce, sessions, endings, one-time codes,
-credentials and confirmation codes, the outbox. A restart forgets all of it: the browser's
-session cookie no longer finds a Session, and `no-pin` has to enrol again.
+credentials and confirmation codes, the outbox, the signed versions of every order plan. A
+restart forgets all of it: the browser's session cookie no longer finds a Session, `no-pin` has
+to enrol again, and the record starts from nothing.
 
 #### Cookies and the development proxy
 
