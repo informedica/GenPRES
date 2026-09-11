@@ -21,9 +21,9 @@ sequenceDiagram
     Note over A,S: step 2 - A signs (UC-3)
     A->>CA: Signs, ConfirmsSign
     CA->>S: Submission
-    S->>D: CommitTreatmentPlan
-    D-->>S: TreatmentPlanCommitted (plan-0010)
-    S-->>CA: TreatmentPlanSubmitted
+    S->>D: CommitOrderPlan
+    D-->>S: OrderPlanCommitted (plan-0010)
+    S-->>CA: OrderPlanSubmitted
     Note over D: A's plan now counts clinically (Rule 17)
 
     Note over B,S: step 3 - B acts. Any request will do.
@@ -36,18 +36,18 @@ sequenceDiagram
     Note over CB: Rule 21 tells B whose plan it is and when.<br/>Rule 22: it gates nothing - B keeps working if B chooses.
 
     Note over B,S: step 4 - B takes up A's plan
-    B->>CB: OpensTreatmentPlan
-    CB->>S: OpenTreatmentPlan
+    B->>CB: OpensOrderPlan
+    CB->>S: OpenOrderPlan
     S->>D: ReadRecord
     D-->>S: RecordRead
-    S-->>CB: TreatmentPlanOpened (+ a fresh OpenedToken over A's plan)
+    S-->>CB: OrderPlanOpened (+ a fresh OpenedToken over A's plan)
     Note over CB: opening it makes it what this Session opened with,<br/>so Rule 20 no longer blocks
 
     B->>CB: Prescribes, Signs, ConfirmsSign
     CB->>S: Submission
-    S->>D: CommitTreatmentPlan
-    D-->>S: TreatmentPlanCommitted (plan-0011)
-    S-->>CB: TreatmentPlanSubmitted
+    S->>D: CommitOrderPlan
+    D-->>S: OrderPlanCommitted (plan-0011)
+    S-->>CB: OrderPlanSubmitted
     Note over D: changed OrderContexts carry B's stamp,<br/>untouched ones keep A's (Rule 15)
 ```
 
@@ -103,15 +103,15 @@ sequenceDiagram
     D-->>S: SessionRecordRead (A, open)
     D-->>S: SessionRecordRead (B, open)
 
-    S->>D: CommitTreatmentPlan (A)
-    S->>D: CommitTreatmentPlan (B)
+    S->>D: CommitOrderPlan (A)
+    S->>D: CommitOrderPlan (B)
 
     Note over D: Rule 36: the Rule 20 check and the append are one act.<br/>A's lands first and moves the head, so B's base is now stale.
 
-    D-->>S: TreatmentPlanCommitted (plan-0010, A's)
+    D-->>S: OrderPlanCommitted (plan-0010, A's)
     D-->>S: CommitRefused (B: BlockedBy dr.a)
 
-    S-->>CA: TreatmentPlanSubmitted
+    S-->>CA: OrderPlanSubmitted
     S-->>CB: SubmissionBlocked by dr.a
     Note over CB: B continues as step 3 - open A's plan, reapply, sign
 ```

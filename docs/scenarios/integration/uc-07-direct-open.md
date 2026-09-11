@@ -27,8 +27,8 @@ sequenceDiagram
 
     U->>C: Signs
     C->>S: RequestSignChallenge
-    S-->>C: NoTreatmentPlanHere
-    Note over C: no Patient, so no TreatmentPlan can be opened or<br/>submitted (Rule 13) - and nobody to sign as (Concept 7)
+    S-->>C: NoOrderPlanHere
+    Note over C: no Patient, so no OrderPlan can be opened or<br/>submitted (Rule 13) - and nobody to sign as (Concept 7)
 ```
 
 ## Reading it

@@ -9,13 +9,14 @@ GenPRES can yet be signed: the client's cart (`OrderPlan.Scenarios`) has add and
 plan reaches a record, `OpenedToken` is a placeholder no request consumes,
 `Credential.WrongCount` is carried but never counted, and `SessionEnding` knows only
 `SupersededByLaunch`. [uc-03](../scenarios/integration/uc-03-prescribe-and-sign.md) is "the whole
-of how a TreatmentPlan comes into being": a signing challenge over exactly what was shown, the
+of how an OrderPlan comes into being": a signing challenge over exactly what was shown, the
 PIN asked modally, and one transaction that re-verifies everything and appends the plan
 (Rules 42, 43 of the [integration design](../scenarios/integration/GenPRES-MainEHR-Integration-V8.md)),
 with the wrong-PIN count and lock of Rule 28. Issue
 [#622](https://github.com/informedica/GenPRES/issues/622) asks for UC-3 end to end against stubs.
 
-Naming: the integration design's TreatmentPlan is the code's `OrderPlan`. The type exists as
+Naming: the integration design's OrderPlan (called TreatmentPlan there until the rename that
+followed this plan) is the code's `OrderPlan`. The type exists as
 the cart (`Patient`, `Selected`, `Filtered`, `Scenarios`, `Totals`); a signed version of it is a
 `SignedOrderPlan`. This plan uses the code's names.
 

@@ -2,7 +2,7 @@
 
 UC-3. User A records orders for Patient 2 and takes responsibility for them. Signing is
 the only way anything reaches the record — there is no saving — so this diagram is the
-whole of how a TreatmentPlan comes into being.
+whole of how an OrderPlan comes into being.
 
 Precondition: UC-1 has left an open Session for Patient 2, started from its head, with the
 Prescriber Role.
@@ -48,10 +48,10 @@ sequenceDiagram
     D-->>S: SessionRecordRead (open)
     S->>R: ResolveUser (Rule 38: the Role, re-taken)
     R-->>S: UserResolved (Prescriber)
-    S->>D: CommitTreatmentPlan
+    S->>D: CommitOrderPlan
     Note over D: one transaction (Rule 42): Session, Role, tokens,<br/>head, challenge and PIN - all of it, or nothing
-    D-->>S: TreatmentPlanCommitted (with the rule set it was checked under)
-    S-->>C: TreatmentPlanSubmitted (and a fresh OpenedToken over the new baseline)
+    D-->>S: OrderPlanCommitted (with the rule set it was checked under)
+    S-->>C: OrderPlanSubmitted (and a fresh OpenedToken over the new baseline)
 ```
 
 ## Reading it
@@ -84,7 +84,7 @@ token — is refused before the PIN is looked at, so it costs the User no attemp
 - **The Patient Data changing** (ext 2b). No challenge is issued until the User has seen
   the data as it now stands, or been told it could not be checked, and accepted it. Built as
   a notice with a token (below).
-- **The wrong PIN** (ext 3a). No TreatmentPlan is committed and no token is spent. Wrong entries
+- **The wrong PIN** (ext 3a). No OrderPlan is committed and no token is spent. Wrong entries
   count across Sessions; at the limit the Session ends and signing locks for a growing
   delay. Built, with the delay capped (below).
 - **Canceling and editing** (ext 3b), **someone else at the keyboard** (ext 3c), **a late
@@ -128,8 +128,8 @@ Steps 2 and 3 run in the demo server since
 plus the record half of the Database: the signed versions per patient, in memory, and a
 second stub Prescriber, `prescriber-b`, so that the record can move on under a Session. The
 stub registry is asked again at every commit (Rule 38). The walkthrough is in
-[DEVELOPMENT.md](../../../DEVELOPMENT.md#signing-an-order-plan). In the code the TreatmentPlan
-is the `OrderPlan`, and a signed version of it a `SignedOrderPlan`.
+[DEVELOPMENT.md](../../../DEVELOPMENT.md#signing-an-order-plan). The code uses the design's
+name: `OrderPlan` is the cart, and a signed version of it a `SignedOrderPlan`.
 
 Where the code departs from the text above, on purpose:
 

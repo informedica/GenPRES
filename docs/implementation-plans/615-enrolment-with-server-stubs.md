@@ -17,7 +17,7 @@ refusing.
 ## Approaches considered
 
 1. **The signed request of uc-01 step 7 first.** Rejected for now: it has no rule number and
-   no model in `Integration.fsx`; its Rule 21 comparison needs a TreatmentPlan head that does
+   no model in `Integration.fsx`; its Rule 21 comparison needs an OrderPlan head that does
    not exist; and a proof over `processCommand` protects nothing until that API is tied to the
    Session, which is a decision of its own (UC-7's direct open must keep working). Its client
    side also needs `Keys.sign` and an async signing hook that Fable.Remoting's synchronous

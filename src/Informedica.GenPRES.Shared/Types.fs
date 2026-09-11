@@ -585,7 +585,7 @@ module Types =
     type PublicKey = PublicKey of string
 
 
-    /// Names the TreatmentPlan the Session opened with (Rule 34). Stored now, sent later
+    /// Names the OrderPlan the Session opened with (Rule 34). Stored now, sent later
     /// inside the signed request of launch step 7.
     type OpenedToken = OpenedToken of string
 
@@ -667,7 +667,7 @@ module Types =
 
 
     /// A signed version of an order plan, as the record holds it (the integration design's
-    /// TreatmentPlan): the head, the patient, the version it was signed over (`Base`, `None`
+    /// OrderPlan): the head, the patient, the version it was signed over (`Base`, `None`
     /// for the first), the orders as shown at the signature, the patient data the User saw
     /// and whether it was the platform's reading at the challenge (Rule 44).
     type SignedOrderPlan =
