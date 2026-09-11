@@ -415,8 +415,9 @@ let tests =
 // Issue #633: the page term ``Treatment Plan`` becomes ``Order Plan``. The code's type has been
 // `OrderPlan` since 9c0d573e and the integration design followed (#632); the term key of the
 // page title is the last place with the old word. The key is the case name, so the `Terms`
-// case, the `Global.pageToString` arm and the sheet row all change together. Only the English
-// value changes; the other five are the old row's, verbatim.
+// case, the `Global.pageToString` arm and the sheet row all change together. The English and
+// the Dutch value change (the page title is "Order Plan" in both); the other four are the old
+// row's, verbatim.
 // ---------------------------------------------------------------------------------------------
 
 /// The row as the sheet and `data/localization/*.tsv` should read after the rename.
@@ -424,7 +425,7 @@ let orderPlanRow =
     [|
         "Order Plan"
         "Order Plan"
-        "Behandel Plan"
+        "Order Plan"
         "Plan de traitement"
         "Behandlungsplan"
         "Plan de tratamiento"
@@ -433,7 +434,15 @@ let orderPlanRow =
 
 
 /// The row it replaces.
-let treatmentPlanRow = orderPlanRow |> Array.mapi (fun i s -> if i < 2 then "Treatment Plan" else s)
+let treatmentPlanRow =
+    orderPlanRow
+    |> Array.mapi (fun i s ->
+        match i with
+        | 0
+        | 1 -> "Treatment Plan"
+        | 2 -> "Behandel Plan"
+        | _ -> s
+    )
 
 
 let renameTests =
@@ -446,12 +455,12 @@ let renameTests =
                     |> Expect.isSome $"Order Plan in {l}"
             }
 
-            test "the new row differs from the old one in the key and the English value only" {
+            test "the new row differs from the old one in the key, the English and the Dutch value only" {
                 Array.zip treatmentPlanRow orderPlanRow
                 |> Array.indexed
                 |> Array.filter (fun (_, (a, b)) -> a <> b)
                 |> Array.map fst
-                |> Expect.equal "changed columns" [| 0; 1 |]
+                |> Expect.equal "changed columns" [| 0; 1; 2 |]
             }
 
             test "the old key no longer resolves once the row is replaced" {
