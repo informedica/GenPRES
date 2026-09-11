@@ -585,9 +585,24 @@ module Hop =
                 { state with Launches = state.Launches |> Map.add claims.Nonce record }, answerOf authorizeUrl record
 
 
+    /// The patient a Session opens on (#640): the PatientDataPlatform's reading (Concept 2, the
+    /// source of truth); without one, the patient data of the head of the record, the last
+    /// seen (Rule 19); from nothing, an empty patient (ext 6a).
+    let sessionPatient
+        (patientData: string -> Patient option)
+        (patientId: string)
+        (head: SignedOrderPlan option)
+        : Patient
+        =
+        patientData patientId
+        |> Option.orElse (head |> Option.map _.Patient)
+        |> Option.defaultValue Shared.Models.Patient.empty
+
+
     /// Step 5.7, one act (Rule 40), from whatever carried the launch this far: a LaunchRecord
     /// at the callback, an Enrolment once the PIN is set. The Session is written from the head
-    /// of the record (Rule 19), the login's other Sessions are closed and marked (Rule 8).
+    /// of the record (Rule 19), on the platform's reading, else the head's patient data (#640);
+    /// the login's other Sessions are closed and marked (Rule 8).
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
@@ -607,7 +622,7 @@ module Hop =
                     Some
                         {
                             PatientId = patientId
-                            Patient = patientData patientId |> Option.defaultValue Shared.Models.Patient.empty
+                            Patient = sessionPatient patientData patientId head
                         }
                 OpenedToken = Some(OpenedToken $"opened-{id}")
                 KeyThumbprint = Some(PublicKey.thumbprint key)
@@ -1510,19 +1525,31 @@ module StubDirectory =
         }
 
 
-/// The PatientDataPlatform stub: nothing to import, except that `no-data` has no record at all
-/// (ext 6a).
+/// The PatientDataPlatform stub: one fixed patient for every PatientId, so a launch fills the
+/// patient panel from the platform, except that `no-data` has no record at all (ext 6a), so
+/// the Session opens on what was signed last, or on nothing (#640).
 module StubPatientData =
 
+    /// The stub's reading: ten years, 32 kg, 140 cm, nothing else known.
+    let patient: Patient =
+        Shared.Models.Patient.create
+            (Some(Shared.Measures.toYear 10))
+            None
+            None
+            None
+            (Some 32000)
+            (Some 140)
+            None
+            None
+            UnknownGender
+            []
+            None
+            None
+        |> Option.defaultValue Shared.Models.Patient.empty
+
+
     let port: PatientDataPort =
-        {
-            read =
-                fun pid ->
-                    if pid = "no-data" then
-                        None
-                    else
-                        Some Shared.Models.Patient.empty
-        }
+        { read = fun pid -> if pid = "no-data" then None else Some patient }
 
 
 /// The credential half of the Database, seeded for the stub logins: the Prescribers that sign
