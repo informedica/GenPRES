@@ -133,9 +133,10 @@ name: `OrderPlan` is the cart, and a signed version of it a `SignedOrderPlan`.
 
 Where the code departs from the text above, on purpose:
 
-- **Step 1 is not session-bound.** Compute reads no SessionRecord and touches nothing
-  (Rule 9 belongs to the idle lifetime, not built); it keeps working without a launch (UC-7).
-  Only steps 2 and 3 need the Session the cookie names.
+- **Step 1 is session-bound since [plan 635](../../implementation-plans/635-session-bound-compute.md).**
+  Compute marks the Session the cookie names seen (Rule 9; nothing acts on it yet) and its reply
+  says whether the record moved on (Rule 21) or the Session ended (Rule 11); without a cookie it
+  keeps working as before (UC-7). Steps 2 and 3 refuse without the Session.
 - **The challenge is kept, not sealed.** One per Session on the server's state, two minutes,
   replaced by a re-request and dropped by a data notice; a Submission must name its nonce and
   carry exactly the plan it was issued over (Rule 43: the orders and the patient data compared
@@ -160,8 +161,8 @@ Where the code departs from the text above, on purpose:
   PIN or a lock keeps it open, the PIN limit ends the Session and the gate says why, every
   other refusal is told once. An answer lands only on the request it answers.
 
-Not built: the audit (Rule 46), and Rule 21's notice on every response (the record moving on is
-told at the challenge and at the commit only).
+Not built: the audit (Rule 46). Rule 21's notice on every response, and taking up the newer
+version, are [uc-04](uc-04-two-users.md#as-built-against-stubs).
 
 ---
 

@@ -467,13 +467,12 @@ are listed per step with the reason.
 
 ### Still open
 
-- Step 7, the signed request (`Keys.sign`, the DPoP proof, the OpenedToken inside it).
+- Step 7, the signed request: the DPoP proof (`Keys.sign`) over the request envelope that
+  plan 635 built, which already carries the OpenedToken.
 - WorkPlan carry-over (#518); decision D1 (#599).
 - The scope switch (#580), which retires the `IsProd` stop-gap.
 - On a launch URL the gate hides the language switcher; the language itself follows the
   server default since #601.
-- The head's orders into the cart at open (the second half of Rule 19) and Rule 21's notice
-  on every response.
 
 Closed since this list was written: the identity hop (`RedirectTo`, the callback, the `state`
 cookie), the Rule 8 and 11 endings, and the sealed Launch, all against server-hosted stubs
@@ -481,4 +480,6 @@ cookie), the Rule 8 and 11 endings, and the sealed Launch, all against server-ho
 in-memory credential store ([plan 615](615-enrolment-with-server-stubs.md)); UC-3 signing
 against an in-memory record, the OpenedToken checked and re-minted at a signature and the
 Session opened with the head of the record
-([plan 622](622-signing-with-server-stubs.md)).
+([plan 622](622-signing-with-server-stubs.md)); Compute bound to the Session, the head's orders
+into the cart at open, Rule 21's notice on every reply and UC-4 end to end
+([plan 635](635-session-bound-compute.md)).

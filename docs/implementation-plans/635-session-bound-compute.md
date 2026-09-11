@@ -206,3 +206,51 @@ migration by the maintainer after review.
   `Request { Opened; Command }` answering `Reply { Response; Notice }` with `Notice` empty.
   With `GENPRES_PROD=1` every reply's notice is empty and `OpenVersion` answers no Session.
 - `dotnet run ServerTests`, the Fable compile and Fantomas stay green after every step.
+
+## As built
+
+Script-first for the server and Shared code (`Server/Scripts/Compute.fsx`, rewritten per step,
+and `Shared/Scripts/Localization.fsx`), the client edited directly, every step one PR against
+`master`, migrated after review.
+
+| Step | PR | Landed |
+|---|---|---|
+| plan | #636 | the doc; review: the touch applied by every member that takes the session cookie's id, `OpenVersion of id` in place of an `OpenNewest` |
+| 1 | #637 | `Request { Opened; Command }`, `Reply { Response; Notice }`, `RecordNotice`, `SessionRecord.Seen`, `Hop.touch` and `Hop.seen`, `processCommand` reading the cookie, the client sending the token from its one call site |
+| 2 | #639 | `SessionOpened.Head` filled at open and at the commit, `SessionEffect.LoadCart`, the cart loaded at a launch, a resume and an enrolment; review: the cart built over the patient as `UpdatePatient` left it |
+| 3 | #641 | `SessionCommand.OpenVersion`, `Hop.openVersion`, the port and the arm, the machine's `OpenVersion` and `Reopened`; review: the answer correlated by the token the request started from |
+| 4 | #642 | `MovedOn` next to the Session, the bar and its button, `TellVersionOpened`, an `Ended` notice to the gate, three terms; review: the notice correlated by token, ordered by version number, spent only by a version at least as new |
+| 5 | this PR | the docs |
+
+### Deviations from the text above
+
+- **The touch is every port member's, not `processCommand`'s.** `Hop.touch` is applied by every
+  member that takes the session cookie's id (`find`, `challenge`, `submit`, `openVersion`,
+  `seen`), `close` excepted; `present`, `callback` and `supplyPin` run before a Session exists,
+  and a Session they open starts with `Seen` set.
+- **`OpenVersion of id`, not `OpenNewest`.** The button opens the version the notice named,
+  the model's `OpenOrderPlan of OrderPlanId`; any version may be opened (Rule 18), one that is
+  no longer the head stays blocked (Rule 20) and is told again (Rule 21). An id the record does
+  not hold opens nothing and keeps the token.
+- **The port answers `SessionOpened option`** for `openVersion`, as `find` answers a
+  `SessionLookup`: the adapter does not see `Shared.Api`; the composition root wraps it in
+  `SessionResp`.
+- **`LoadCart of SignedOrderPlan`**, emitted only when the Session has a patient and a head, and
+  built into the cart in `update` over the patient as `UpdatePatient` left it, normal values
+  applied, through `FilterOrderPlan`.
+- **The notice lives in `App.State.MovedOn`**, not inside `Session.Open`, which has 54 match
+  sites. `SessionMachine.MovedOn.receive` and `opened` are the pure helpers: ordered by version
+  number (Rule 20's order), news once per version, spent only by a version at least as new.
+- **Every answer is correlated.** `Reopened` and a reply's notice carry the OpenedToken the
+  request started from and land only on the open Session that still holds it; a Session closed,
+  replaced or re-minted meanwhile drops them.
+- **The Blocked refusal sets the bar**; the dialog closes as before, told once, and the offer to
+  open the newest version is in one place.
+- **No `SetPatient` at a reopen.** The Session's patient is unchanged; which patient data a
+  Session opens on when the platform has none is
+  [#640](https://github.com/informedica/GenPRES/issues/640).
+- **The Ended notice** reaches the gate through the existing `EndedByServer`; a second launch of
+  the same identity from another browser profile shows it at the older browser's next request.
+  In the same profile the second launch replaces the session cookie, so the older tab's
+  requests carry the new cookie and no ending is told there.
+
