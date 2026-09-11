@@ -1,5 +1,5 @@
 ---
-last_commit_released: e52af269e03c63b98afd41e901d08dbfc75c945e
+last_commit_released: 73fdfcf45f7a4bdd918dd304b397f818e5a71bb8
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,27 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.19 - 2026-09-11
+
+### 🚀 Features
+
+* *(client)* Draft the moved-on notice terms (#635) ([b7e2be12](https://github.com/informedica/GenPRES/commit/b7e2be12eeae7848201efc302c512977fefa5b3f))
+* *(client)* Tell that the record moved on and offer the newest version (#635) ([95615286](https://github.com/informedica/GenPRES/commit/95615286770550acf017dbdd3b74042c3a72d20e))
+* *(server)* Draft the request and reply envelopes (#635) ([ce46cf90](https://github.com/informedica/GenPRES/commit/ce46cf90dddd5697d44928c9b1efd7d6e4d9ce10))
+* *(server)* Carry the OpenedToken and the notice on Compute (#635) ([c15999a0](https://github.com/informedica/GenPRES/commit/c15999a0f7a4ade934caaa0cfdfe97a1f91ac9da))
+* *(server)* Draft the head into the cart at open (#635) ([fed6c7f7](https://github.com/informedica/GenPRES/commit/fed6c7f7e29cecb698183bf42243be689717ca0d))
+* *(server)* Open the Session on the record's version (#635) ([3383ae47](https://github.com/informedica/GenPRES/commit/3383ae473b32cf541fa3713f51ebf181d73317b1))
+* *(server)* Draft opening the version the notice named (#635) ([6eb67748](https://github.com/informedica/GenPRES/commit/6eb67748fa9b55bf609cc00204201bed8175c9a5))
+* *(server)* Open the version the notice named (#635) ([c08b5e4f](https://github.com/informedica/GenPRES/commit/c08b5e4fb6fccefcec3fa32bbef27d715312825a))
+
+### 🐞 Bug Fixes
+
+* *(client)* Build the restored cart over the normalized patient (#635) ([c2e7f21f](https://github.com/informedica/GenPRES/commit/c2e7f21fa1e25fa04374474ac585595dc91fa453))
+* *(client)* Land a Reopened answer only on the Session that asked (#635) ([31fafdd5](https://github.com/informedica/GenPRES/commit/31fafdd5454c920928f654daace7bc156968b8cf))
+* *(client)* Order the moved-on notice by version, correlate it by token (#635) ([a7c59be9](https://github.com/informedica/GenPRES/commit/a7c59be9180d0b4f6c84e19b09da004eb31dfe12))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/e52af269e03c63b98afd41e901d08dbfc75c945e..73fdfcf45f7a4bdd918dd304b397f818e5a71bb8)</small></strong>
 
 ## 0.1.2-alpha.18 - 2026-09-11
 
