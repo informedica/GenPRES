@@ -91,6 +91,7 @@ type SessionTerms =
     | ``Signing Refusal Pin Wrong``
     | ``Signing Refusal Pin Limit``
     | ``Signing Refusal Locked``
+    | ``Signing Send Failed``
 
 
 /// The English defaults: the strings the client shows today, verbatim.
@@ -159,6 +160,7 @@ let english term =
     | ``Signing Refusal Pin Limit`` ->
         "The PIN was entered wrong three times. Your session was ended and signing is locked for a while."
     | ``Signing Refusal Locked`` -> "Signing is locked until {0}."
+    | ``Signing Send Failed`` -> "The signature could not be sent. Try again."
 
 
 /// Dutch, for the sheet; the other four languages stay empty and fall back to English.
@@ -229,6 +231,7 @@ let dutch term =
     | ``Signing Refusal Pin Limit`` ->
         "De pincode is drie keer verkeerd ingevoerd. Uw sessie is beëindigd en ondertekenen is een tijdje geblokkeerd."
     | ``Signing Refusal Locked`` -> "Ondertekenen is geblokkeerd tot {0}."
+    | ``Signing Send Failed`` -> "De handtekening kon niet worden verstuurd. Probeer het opnieuw."
 
 
 let all =

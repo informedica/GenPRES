@@ -79,6 +79,7 @@ let tests =
                         Terms.``Signing Refusal Pin Wrong``
                         Terms.``Signing Refusal Pin Limit``
                         Terms.``Signing Refusal Locked``
+                        Terms.``Signing Send Failed``
                     ] do
                     english term |> Expect.notEqual $"default for {term}" $"{term}"
 
@@ -196,7 +197,7 @@ let tests =
             test "the dialog is up while noticed, challenged or submitting" {
                 let plan = Shared.Models.OrderPlan.create patient [||]
                 dialogOpen Signing.Idle |> Expect.isFalse "idle"
-                dialogOpen (Signing.Requesting(plan, None)) |> Expect.isFalse "requesting"
+                dialogOpen (Signing.Requesting(plan, None, "r")) |> Expect.isFalse "requesting"
 
                 dialogOpen (
                     Signing.Noticed(

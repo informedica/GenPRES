@@ -668,9 +668,11 @@ module private Elmish =
 
 
     /// One command per signing effect (plan 622). The machine names the plan, the challenge,
-    /// the PIN and the key; the OpenedToken comes from the open Session here (Rule 34). Without
-    /// an open Session nothing is sent: the answer is a refusal. What is told (signed, refused,
-    /// an error) is put on the snackbar by `update`, not here.
+    /// the PIN, the request id and the key; the OpenedToken comes from the open Session here
+    /// (Rule 34), and every answer carries the request id or the key it answers, so the machine
+    /// can drop one that belongs to an earlier Session. Without an open Session nothing is sent:
+    /// the answer is a refusal. What is told (signed, refused, an error) is put on the snackbar
+    /// by `update`, not here.
     let interpretSigningEffect (session: Session) (effect: SigningEffect) : Cmd<Msg> =
         let token =
             match session with
@@ -678,11 +680,13 @@ module private Elmish =
             | _ -> None
 
         match effect with
-        | SigningEffect.CallChallenge(plan, notice) ->
+        | SigningEffect.CallChallenge(plan, notice, request) ->
             match token with
             | None ->
                 Cmd.ofMsg (
-                    SigningMsg(SigningMsg.ChallengeAnswered(Ok(SigningResponse.Refused SigningRefusal.NoSession)))
+                    SigningMsg(
+                        SigningMsg.ChallengeAnswered(request, Ok(SigningResponse.Refused SigningRefusal.NoSession))
+                    )
                 )
             | Some opened ->
                 async {
@@ -690,15 +694,17 @@ module private Elmish =
                         let! answer =
                             serverApi.processSigning (Api.SigningCommand.RequestSignChallenge(plan, opened, notice))
 
-                        return SigningMsg(SigningMsg.ChallengeAnswered(Ok answer))
+                        return SigningMsg(SigningMsg.ChallengeAnswered(request, Ok answer))
                     with ex ->
-                        return SigningMsg(SigningMsg.ChallengeAnswered(Error ex.Message))
+                        return SigningMsg(SigningMsg.ChallengeAnswered(request, Error ex.Message))
                 }
                 |> Cmd.fromAsync
         | SigningEffect.CallSubmit(plan, challenge, pin, key) ->
             match token with
             | None ->
-                Cmd.ofMsg (SigningMsg(SigningMsg.SubmitAnswered(Ok(SigningResponse.Refused SigningRefusal.NoSession))))
+                Cmd.ofMsg (
+                    SigningMsg(SigningMsg.SubmitAnswered(key, Ok(SigningResponse.Refused SigningRefusal.NoSession)))
+                )
             | Some opened ->
                 async {
                     try
@@ -714,9 +720,9 @@ module private Elmish =
                                     }
                             )
 
-                        return SigningMsg(SigningMsg.SubmitAnswered(Ok answer))
+                        return SigningMsg(SigningMsg.SubmitAnswered(key, Ok answer))
                     with ex ->
-                        return SigningMsg(SigningMsg.SubmitAnswered(Error ex.Message))
+                        return SigningMsg(SigningMsg.SubmitAnswered(key, Error ex.Message))
                 }
                 |> Cmd.fromAsync
         | SigningEffect.RenewToken token -> Cmd.ofMsg (SessionMsg(SessionMsg.TokenRenewed token))
@@ -1079,8 +1085,7 @@ module private Elmish =
                         | SigningEffect.TellError reason ->
                             Logging.error "could not send the signature to the server" reason
 
-                            state
-                            |> tell "De handtekening kon niet worden verstuurd. Probeer het opnieuw." "error"
+                            state |> tell (tr Terms.``Signing Send Failed``) "error"
                         | _ -> state
                     )
                     state
@@ -1523,8 +1528,9 @@ type private ConcreteAppEnv
     interface AppEnv.ISigning with
         member _.Signing = state.Signing
 
+        // one request id per Sign, so the answer lands on this request and no other
         member _.Sign plan =
-            SigningMsg(SigningMsg.Sign plan) |> dispatch
+            SigningMsg(SigningMsg.Sign(plan, Guid.NewGuid().ToString())) |> dispatch
 
         member _.Accept() =
             SigningMsg SigningMsg.Accept |> dispatch
