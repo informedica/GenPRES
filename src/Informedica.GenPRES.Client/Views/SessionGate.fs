@@ -2,12 +2,12 @@ namespace Views
 
 
 /// <summary>
-/// The session gate (plan 409, uc-01 Refusals): a modal over the app while a launch is being
-/// presented or resumed, and after a refusal or an unreachable server. Every refusal ends the
-/// same way, no Session opens (Rule 7); the gate says why and what the User can do: retry
-/// (ext 3a, and a missing browser identity answered before the identity hop, ext 3c),
-/// continue without a launch (no Role, ext 5a), or relaunch from MainEHR (everything else).
-/// While the launch waits on a PIN (UC-2) the gate is the enrolment form: the mailed
+/// The session gate: a modal over the app while a launch is being presented or resumed, and
+/// after a refusal or an unreachable server. Every refusal ends the same way, no Session
+/// opens; the gate says why and what the User can do: retry (an unreachable server, and a
+/// missing browser identity answered before the identity hop), continue without a launch
+/// (no Role), or relaunch from MainEHR (everything else). While the launch waits on a PIN
+/// the gate is the enrolment form: the mailed
 /// confirmation code and the chosen PIN, twice. The gate cannot be dismissed: the edge from
 /// MainEHR is one-way, so the Client cannot relaunch by itself.
 /// </summary>

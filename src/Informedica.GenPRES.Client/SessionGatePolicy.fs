@@ -1,5 +1,5 @@
 /// <summary>
-/// The session gate's policy (plan 409, uc-01 Refusals): for every session phase, what the gate
+/// The session gate's policy: for every session phase, what the gate
 /// says and what it offers. Pure F#, no React, so it runs under Expecto next to the machine;
 /// Views/SessionGate.fs renders it. The texts are `Terms`, translated by the caller: the view
 /// passes the sheet lookup, the tests pass `english`.
@@ -18,7 +18,7 @@ type Action =
     | ContinueWithoutLaunch
 
 
-/// The enrolment form (UC-2): the labels of its three fields and its button, and what the
+/// The enrolment form: the labels of its three fields and its button, and what the
 /// server said about the last submission, if anything.
 type EnrolmentForm =
     {
@@ -138,7 +138,7 @@ let digits (min: int) (max: int) (s: string) =
     && s |> Seq.forall (fun c -> c >= '0' && c <= '9')
 
 
-/// The form's own check before a submission (UC-2): the code has six digits, the PIN four to
+/// The form's own check before a submission: the code has six digits, the PIN four to
 /// six, and the repeat agrees. The first thing wrong, as a translated sentence; None when the
 /// submission can go.
 let formError (tr: Terms -> string) (code: string) (pin: string) (repeat: string) : string option =
@@ -254,7 +254,7 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
                 Actions = [ Action.ContinueWithoutLaunch ]
                 Form = None
             }
-    // UC-2: the launch waits on a PIN; the form asks for the mailed code and the PIN twice
+    // the launch waits on a PIN; the form asks for the mailed code and the PIN twice
     | Session.Enrolling(pending, refusal) ->
         Some
             {

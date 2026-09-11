@@ -2,10 +2,10 @@ namespace Views
 
 
 /// <summary>
-/// The signing dialog (uc-03 steps 2 and 3, plan 622): modal over the order plan while a
-/// challenge stands. It shows the orders exactly as they will be signed (Rule 43) and asks the
-/// PIN; sign as shown, or cancel and edit (ext 3b). Before a challenge, when the patient data
-/// changed or cannot be read, it is the data notice instead (Rule 44): continue over the data
+/// The signing dialog: modal over the order plan while a challenge stands. It shows the
+/// orders exactly as they will be signed and asks the PIN; sign as shown, or cancel and
+/// edit. Before a challenge, when the patient data changed or cannot be read, it is the data
+/// notice instead: continue over the data
 /// as it stands, or cancel. Every text is a Terms case; what the dialog offers comes from
 /// SigningPolicy, and what happens from the signing machine.
 /// </summary>
