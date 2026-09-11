@@ -703,6 +703,85 @@ module SessionStubTests =
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
+                    test "no-data over a record: the Session opens on the patient the head was signed on (#640)" {
+                        let ids, d = fixture ()
+                        let entered = { Shared.Models.Patient.empty with Department = Some "ICU" }
+
+                        let signed: SignedOrderPlan =
+                            {
+                                Head =
+                                    {
+                                        Id = "plan-1"
+                                        No = 1
+                                        By =
+                                            {
+                                                UserId = "prescriber"
+                                                DisplayName = "prescriber"
+                                                Role = UserRole.Prescriber
+                                            }
+                                        SignedAt = t0
+                                    }
+                                PatientId = "no-data"
+                                Base = None
+                                Scenarios = [||]
+                                Patient = entered
+                                Verified = false
+                            }
+
+                        let record = { seeded with Records = Map.ofList [ "no-data", [ signed ] ] }
+
+                        let launch = mintFor "n-nd" "no-data"
+                        let state, cb = hop ids d record launch keyA "prescriber"
+                        let cb = { cb with Code = Some(d.issue "prescriber" "no-data") }
+                        let state, result = run ids d state cb
+
+                        match result with
+                        | CallbackResult.Opened(id, _) ->
+                            let ctx = state.Sessions[id].Session.PatientContext
+                            ctx |> Option.map _.PatientId |> Expect.equal "patient id" (Some "no-data")
+                            ctx |> Option.map _.Patient |> Expect.equal "the signed patient" (Some entered)
+                            state.Sessions[id].Session.Head |> Expect.equal "the version" (Some signed)
+                        | other -> failtest $"expected Opened, got {other}"
+                    }
+
+                    test "a reading wins over the patient the head was signed on (Concept 2, #640)" {
+                        let ids, d = fixture ()
+                        let entered = { Shared.Models.Patient.empty with Department = Some "ICU" }
+
+                        let signed: SignedOrderPlan =
+                            {
+                                Head =
+                                    {
+                                        Id = "plan-1"
+                                        No = 1
+                                        By =
+                                            {
+                                                UserId = "prescriber"
+                                                DisplayName = "prescriber"
+                                                Role = UserRole.Prescriber
+                                            }
+                                        SignedAt = t0
+                                    }
+                                PatientId = "patient-1"
+                                Base = None
+                                Scenarios = [||]
+                                Patient = entered
+                                Verified = true
+                            }
+
+                        let record = { seeded with Records = Map.ofList [ "patient-1", [ signed ] ] }
+
+                        let state, cb = hop ids d record launch1 keyA "prescriber"
+                        let state, result = run ids d state cb
+
+                        match result with
+                        | CallbackResult.Opened(id, _) ->
+                            state.Sessions[id].Session.PatientContext
+                            |> Option.map _.Patient
+                            |> Expect.equal "the platform's" (Some StubPatientData.patient)
+                        | other -> failtest $"expected Opened, got {other}"
+                    }
+
                     test "reader: opens without a PIN (ext 5c)" {
                         let ids, d = fixture ()
                         let state, cb = hop ids d seeded launch1 keyA "reader"
@@ -2134,7 +2213,7 @@ module SessionStubTests =
                     Nonce = $"c-{sid}"
                     Patient = Shared.Models.Patient.empty
                     Scenarios = [||]
-                    Verified = true
+                    Reading = Some Shared.Models.Patient.empty
                     Expiry = t0.AddMinutes 2.0
                 }
 
@@ -2272,7 +2351,7 @@ module SessionStubTests =
         let challengeTests =
             let minutes (n: float) = TimeSpan.FromMinutes n
             let seconds (n: float) = TimeSpan.FromSeconds n
-            let stubPatient = Shared.Models.Patient.empty
+            let stubPatient = StubPatientData.patient
             let otherData = { stubPatient with Department = Some "ICU" }
             let token sid = OpenedToken $"opened-{sid}"
 
@@ -2372,6 +2451,29 @@ module SessionStubTests =
                         <| (OrderPlan.create otherData [||], token "s-1")
                         |> snd
                         |> Expect.equal "entered data: issued" (SigningResponse.ChallengeIssued "n-1")
+                    }
+
+                    test "a Session opened on the signed patient, no reading: told unverified as before (Rule 44, #640)" {
+                        let state, answer =
+                            stateOf
+                                [
+                                    session "s-1" (Some prescriber) (Some("no-data", otherData)) None
+                                ]
+                                []
+                            |> ask t0 (counter "n")
+                            <| "s-1"
+                            <| (OrderPlan.create otherData [||], token "s-1")
+
+                        answer
+                        |> Expect.equal
+                            "unverified: told"
+                            (SigningResponse.DataNotice
+                                {
+                                    Data = None
+                                    Token = "n-1"
+                                })
+
+                        state.Challenges |> Expect.isEmpty "no challenge yet"
                     }
 
                     test "refuses a Reader (Rule 26) before the token is looked at, and a stale token (Rule 34)" {
@@ -2516,7 +2618,10 @@ module SessionStubTests =
                             askWith "n-1" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
 
                         answer |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-2")
-                        state.Challenges["s-1"].Verified |> Expect.isTrue "the platform's reading"
+
+                        state.Challenges["s-1"].Reading
+                        |> Expect.equal "the platform's reading" (Some stubPatient)
+
                         state.Challenges["s-1"].Patient |> Expect.equal "over the data told" stubPatient
                         state.Notices |> Expect.isEmpty "the notice is spent"
 
@@ -2531,7 +2636,7 @@ module SessionStubTests =
                         answer
                         |> Expect.equal "issued unverified" (SigningResponse.ChallengeIssued "n-4")
 
-                        state.Challenges["s-2"].Verified |> Expect.isFalse "unverified"
+                        state.Challenges["s-2"].Reading |> Expect.isNone "unverified"
                     }
 
                     test "a wrong, spent, expired or unfitting notice token is a fresh notice, never a refusal" {
@@ -2668,7 +2773,7 @@ module SessionStubTests =
                                 Nonce = "n-1"
                                 Patient = stubPatient
                                 Scenarios = [||]
-                                Verified = true
+                                Reading = Some stubPatient
                                 Expiry = t0 + minutes 2.0
                             }
                     }
@@ -2706,7 +2811,7 @@ module SessionStubTests =
         let commitTests =
             let minutes (n: float) = TimeSpan.FromMinutes n
             let seconds (n: float) = TimeSpan.FromSeconds n
-            let stubPatient = Shared.Models.Patient.empty
+            let stubPatient = StubPatientData.patient
             let otherData = { stubPatient with Department = Some "ICU" }
             let token sid = OpenedToken $"opened-{sid}"
             let plan = OrderPlan.create stubPatient [||]
@@ -2765,7 +2870,7 @@ module SessionStubTests =
                     Nonce = $"c-{sid}"
                     Patient = stubPatient
                     Scenarios = [||]
-                    Verified = true
+                    Reading = Some stubPatient
                     Expiry = at + Hop.challengeLifetime
                 }
 
@@ -2853,6 +2958,12 @@ module SessionStubTests =
 
                             state.Sessions["s-1"].Session.Head
                             |> Expect.equal "a resume opens on the version just signed" (Some signed)
+
+                            state.Sessions["s-1"].Session.PatientContext
+                            |> Option.map _.Patient
+                            |> Expect.equal
+                                "verified: the Session's patient is the reading, unchanged (#640)"
+                                (Some stubPatient)
 
                             state.Answered[("s-1", "k-1")] |> fst |> Expect.equal "remembered" answer
                         | other -> failtest $"expected Submitted, got {other}"
@@ -2983,6 +3094,74 @@ module SessionStubTests =
                             |> snd
                         with
                         | SigningResponse.Submitted(signed, _) -> signed.Scenarios |> Expect.equal "two orders" once
+                        | other -> failtest $"expected Submitted, got {other}"
+                    }
+
+                    test "unverified: the Session's patient becomes the data signed, so a resume shows it (#640)" {
+                        let sid, unverified = challenged "s-1" t0
+
+                        let ready =
+                            stateOf
+                                [ session "s-1" prescriber "no-data" None ]
+                                []
+                                [
+                                    sid,
+                                    { unverified with
+                                        Patient = otherData
+                                        Reading = None
+                                    }
+                                ]
+
+                        let state, answer =
+                            submit
+                                ready
+                                "s-1"
+                                { submission "s-1" "1234" "k-1" with Plan = OrderPlan.create otherData [||] }
+
+                        match answer with
+                        | SigningResponse.Submitted(signed, _) ->
+                            signed.Patient |> Expect.equal "the data signed" otherData
+                            signed.Verified |> Expect.isFalse "no reading"
+
+                            state.Sessions["s-1"].Session.PatientContext
+                            |> Expect.equal
+                                "the Session's patient, for the resume"
+                                (Some
+                                    {
+                                        PatientId = "no-data"
+                                        Patient = otherData
+                                    })
+                        | other -> failtest $"expected Submitted, got {other}"
+                    }
+
+                    test "a changed reading accepted at the notice: the Session's patient is that reading (#640)" {
+                        let sid, over = challenged "s-1" t0
+
+                        let ready =
+                            stateOf
+                                [ opened ]
+                                []
+                                [
+                                    sid,
+                                    { over with
+                                        Patient = otherData
+                                        Reading = Some otherData
+                                    }
+                                ]
+
+                        let state, answer =
+                            submit
+                                ready
+                                "s-1"
+                                { submission "s-1" "1234" "k-1" with Plan = OrderPlan.create otherData [||] }
+
+                        match answer with
+                        | SigningResponse.Submitted(signed, _) ->
+                            signed.Verified |> Expect.isTrue "the reading"
+
+                            state.Sessions["s-1"].Session.PatientContext
+                            |> Option.map _.Patient
+                            |> Expect.equal "the newer reading, not the one opened on" (Some otherData)
                         | other -> failtest $"expected Submitted, got {other}"
                     }
 
@@ -4139,7 +4318,7 @@ module SessionStubTests =
 
                     let submission pin key : Submission =
                         {
-                            Plan = OrderPlan.create Shared.Models.Patient.empty [||]
+                            Plan = OrderPlan.create StubPatientData.patient [||]
                             Opened = opened.OpenedToken.Value
                             Challenge = challenge
                             Pin = pin
@@ -4241,7 +4420,7 @@ module SessionStubTests =
 
                     let submission (opened: SessionOpened) nonce key : Submission =
                         {
-                            Plan = OrderPlan.create Shared.Models.Patient.empty [||]
+                            Plan = OrderPlan.create StubPatientData.patient [||]
                             Opened = opened.OpenedToken.Value
                             Challenge = nonce
                             Pin = StubCredentials.stubPin

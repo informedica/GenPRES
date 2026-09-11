@@ -279,7 +279,7 @@ will make those calls over the back channel without the port changing shape. The
 | MainEHR LaunchScript (step 1) | the `/stub/launch` page | mints a Launch sealed under a key made at server start, two minutes, and opens the browser on `#/session?launch=…`; the identity choice made on the page travels in a cookie to the stub IdentityProvider |
 | IdentityProvider (4.3, 4.4) | `/authorize` and an in-memory code store | issues a one-time code for the chosen identity, or reports `no-identity`; the code is redeemed on the server's side of the callback and pruned after the Launch lifetime |
 | UserRegistry (5.3, 5.4) | the stub directory | answers Role, active Patient and PIN state per identity choice: `prescriber`, `reader`, `prescriber-other-patient`, `no-pin`, `unknown` |
-| PatientDataPlatform (5.5) | the stub patient data | answers an empty patient for every PatientId, none for `no-data` |
+| PatientDataPlatform (5.5) | the stub patient data | answers one fixed patient (ten years, 32 kg, 140 cm) for every PatientId, none for `no-data` |
 | GenPRES Database | one in-memory state per server start | LaunchRecords by nonce, SessionRecords, endings; every transition is a pure function over it, run under one lock, so 5.2 and 5.7 cannot interleave |
 
 Where the code departs from the text above, on purpose:
@@ -296,7 +296,9 @@ Where the code departs from the text above, on purpose:
   is discharged by the telling.
 - **A Reader needs no PIN.** 5.4 binds Prescribers only (Rule 25, ext 5c).
 - **No patient data is not a refusal.** When 5.5 finds nothing, the Session opens with the
-  Launch's PatientId and an empty patient (ext 6a); a data outage does not block prescribing.
+  Launch's PatientId and the patient data of the head of the record, the last seen (Rule 19), or
+  an empty patient where there is no record (ext 6a); a data outage does not block prescribing
+  ([#640](https://github.com/informedica/GenPRES/issues/640)).
 - **The key pair's thumbprint** is stored in the SessionRecord at 5.7, ready for step 7.
 
 The PIN detour of 5.4 is built too: a Prescriber without a PIN suspends into

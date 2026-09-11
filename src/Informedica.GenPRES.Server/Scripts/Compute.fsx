@@ -13,6 +13,8 @@
 //
 // Only what changes is re-stated: the state has the four fields `openVersion` touches. Run:
 // `dotnet fsi Compute.fsx` from this directory (build first).
+//
+// A second section drafts #640, the patient a Session opens on when the platform has none.
 
 #I __SOURCE_DIRECTORY__
 #r "nuget: Expecto, 10.2.3"
@@ -119,6 +121,71 @@ module Hop =
 
 
 // ---------------------------------------------------------------------------------------------
+// The patient at open (#640) (→ ServerApi.Adapters.fs, `Hop.sessionPatient` and `StubPatientData`)
+// ---------------------------------------------------------------------------------------------
+
+// Script-first draft of #640: since #639 a Session opens with the head of the record in the
+// cart, but where the PatientDataPlatform has no reading (ext 6a) the Session opened on
+// `Patient.empty`, and the data the head was signed on (`SignedOrderPlan.Patient`, Rule 44)
+// was not shown. At open, in this order: the platform's reading (Concept 2: the source of
+// truth), else the head's patient (Rule 19: the last patient context seen), else empty. The
+// change is one line in `openWith`, made a public pure function so it can be tested alone.
+// `openVersion` is left as it is (plan 635: no SetPatient at a reopen), and Rule 44 is
+// unaffected: the challenge re-reads the platform and compares with what the User saw.
+//
+// The stub platform used to answer `Patient.empty` for every PatientId but `no-data`; an
+// empty record is a reading, so the fallback never applied to `stub-patient`, and a hand
+// entered age was lost at every reload. It now answers a fixed patient, so the panel is filled
+// from the platform at launch and the fallback is exercised with `no-data`.
+
+module Hop640 =
+
+    /// #640: the patient a Session opens on. The platform's reading (Concept 2) wins; without
+    /// one, the patient data of the head of the record, the last seen (Rule 19); from nothing,
+    /// an empty patient (ext 6a).
+    let sessionPatient (patientData: string -> Patient option) (patientId: string) (head: SignedOrderPlan option) : Patient =
+        patientData patientId
+        |> Option.orElse (head |> Option.map _.Patient)
+        |> Option.defaultValue Patient.empty
+
+
+    /// #640, at the commit: the Session's patient after a signature. The platform's reading at
+    /// the challenge (Rule 44; the newest, should it have changed and been accepted at the
+    /// notice), else the data just signed, so a resume in this Session shows what a relaunch
+    /// would.
+    let commitPatient (reading: Patient option) (signed: Patient) : Patient =
+        reading |> Option.defaultValue signed
+
+
+/// The PatientDataPlatform stub: a fixed patient for every PatientId, none at all for
+/// `no-data` (ext 6a).
+module StubPatientData640 =
+
+    /// The stub's reading: ten years, 32 kg, 140 cm, nothing else known.
+    let patient: Patient =
+        Patient.create
+            (Some(Shared.Measures.toYear 10))
+            None
+            None
+            None
+            (Some 32000)
+            (Some 140)
+            None
+            None
+            UnknownGender
+            []
+            None
+            None
+        |> Option.defaultValue Patient.empty
+
+
+    let port: ServerApi.PatientDataPort =
+        {
+            read = fun pid -> if pid = "no-data" then None else Some patient
+        }
+
+
+// ---------------------------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------------------------
 
@@ -195,7 +262,7 @@ let challenged sid : ServerApi.Hop.Challenge =
         Nonce = $"c-{sid}"
         Patient = Patient.empty
         Scenarios = [||]
-        Verified = true
+        Reading = Some Patient.empty
         Expiry = t0.AddMinutes 2.0
     }
 
@@ -294,4 +361,45 @@ let tests =
         ]
 
 
-runTestsWithCLIArgs [] [||] tests |> ignore
+let patientTests =
+    let signedOn (patient: Patient) = Some { signedBy prescriber 1 with Patient = patient }
+    let entered = { Patient.empty with Department = Some "ICU" }
+    let none (_: string) = None
+
+    testList
+        "the patient at open (#640)"
+        [
+            test "a reading wins over the signed patient (Concept 2)" {
+                Hop640.sessionPatient StubPatientData640.port.read "stub-patient" (signedOn entered)
+                |> Expect.equal "the platform's" StubPatientData640.patient
+            }
+
+            test "no reading: the patient the head was signed on (Rule 19)" {
+                Hop640.sessionPatient none "no-data" (signedOn entered)
+                |> Expect.equal "the signed" entered
+            }
+
+            test "no reading, no record: an empty patient (ext 6a)" {
+                Hop640.sessionPatient none "no-data" None |> Expect.equal "empty" Patient.empty
+            }
+
+            test "at the commit: the reading at the challenge, else the data signed" {
+                Hop640.commitPatient (Some StubPatientData640.patient) entered
+                |> Expect.equal "the reading" StubPatientData640.patient
+
+                Hop640.commitPatient (Some entered) Patient.empty |> Expect.equal "a changed reading, accepted" entered
+                Hop640.commitPatient None entered |> Expect.equal "the signed" entered
+            }
+
+            test "the stub: a fixed patient for every id, none for no-data" {
+                StubPatientData640.port.read "stub-patient"
+                |> Expect.equal "a reading" (Some StubPatientData640.patient)
+
+                StubPatientData640.patient |> Expect.notEqual "not empty" Patient.empty
+                StubPatientData640.patient.Age |> Option.map _.Years |> Expect.equal "ten" (Some(Shared.Measures.toYear 10))
+                StubPatientData640.port.read "no-data" |> Expect.isNone "no data"
+            }
+        ]
+
+
+runTestsWithCLIArgs [] [||] (testList "Compute" [ tests; patientTests ]) |> ignore

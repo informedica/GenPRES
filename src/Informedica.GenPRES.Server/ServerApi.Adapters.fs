@@ -457,7 +457,8 @@ module Hop =
             Nonce: string
             Patient: Patient
             Scenarios: OrderScenario[]
-            Verified: bool
+            // the platform's reading at the challenge, none when it could not be read (Rule 44)
+            Reading: Patient option
             Expiry: DateTime
         }
 
@@ -585,9 +586,24 @@ module Hop =
                 { state with Launches = state.Launches |> Map.add claims.Nonce record }, answerOf authorizeUrl record
 
 
+    /// The patient a Session opens on (#640): the PatientDataPlatform's reading (Concept 2, the
+    /// source of truth); without one, the patient data of the head of the record, the last
+    /// seen (Rule 19); from nothing, an empty patient (ext 6a).
+    let sessionPatient
+        (patientData: string -> Patient option)
+        (patientId: string)
+        (head: SignedOrderPlan option)
+        : Patient
+        =
+        patientData patientId
+        |> Option.orElse (head |> Option.map _.Patient)
+        |> Option.defaultValue Shared.Models.Patient.empty
+
+
     /// Step 5.7, one act (Rule 40), from whatever carried the launch this far: a LaunchRecord
     /// at the callback, an Enrolment once the PIN is set. The Session is written from the head
-    /// of the record (Rule 19), the login's other Sessions are closed and marked (Rule 8).
+    /// of the record (Rule 19), on the platform's reading, else the head's patient data (#640);
+    /// the login's other Sessions are closed and marked (Rule 8).
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
@@ -607,7 +623,7 @@ module Hop =
                     Some
                         {
                             PatientId = patientId
-                            Patient = patientData patientId |> Option.defaultValue Shared.Models.Patient.empty
+                            Patient = sessionPatient patientData patientId head
                         }
                 OpenedToken = Some(OpenedToken $"opened-{id}")
                 KeyThumbprint = Some(PublicKey.thumbprint key)
@@ -1114,7 +1130,7 @@ module Hop =
                                             Nonce = nonce
                                             Patient = plan.Patient
                                             Scenarios = plan.Scenarios
-                                            Verified = current.IsSome
+                                            Reading = current
                                             Expiry = now + challengeLifetime
                                         }
                             },
@@ -1127,8 +1143,9 @@ module Hop =
     /// the record not moved on (Rule 20); the challenge this Session was issued, over exactly
     /// this plan (Rule 43); and last the PIN (Rules 23, 28), so that a Submission that was
     /// never going to land costs no attempt. Then the version is appended, the challenge
-    /// spent, the OpenedToken re-minted over the new head, and the answer remembered under the
-    /// key, refusals too. Three wrong PINs end the Session (`WrongPinLimit`), lock signing and
+    /// spent, the OpenedToken re-minted over the new head, the Session's patient set to the
+    /// reading at the challenge, else the data signed (#640), and the answer remembered under
+    /// the key, refusals too. Three wrong PINs end the Session (`WrongPinLimit`), lock signing and
     /// mail the User (Rule 27); a wrong PIN while locked pushes the lock out; a right PIN while
     /// locked is refused and counts nothing.
     let commit
@@ -1214,17 +1231,27 @@ module Hop =
                                                 Base = record.OpenedWith
                                                 Scenarios = challenge.Scenarios
                                                 Patient = challenge.Patient
-                                                Verified = challenge.Verified
+                                                Verified = challenge.Reading.IsSome
                                             }
 
                                         let token = OpenedToken $"opened-{newId ()}"
 
+                                        // #640: the Session's patient is the platform's reading at the
+                                        // challenge, else the data just signed, so a resume shows what
+                                        // a relaunch would
                                         let opened =
                                             { record with
                                                 Session =
                                                     { record.Session with
                                                         OpenedToken = Some token
                                                         Head = Some plan
+                                                        PatientContext =
+                                                            Some
+                                                                { patient with
+                                                                    Patient =
+                                                                        challenge.Reading
+                                                                        |> Option.defaultValue plan.Patient
+                                                                }
                                                     }
                                                 OpenedWith = Some id
                                             }
@@ -1510,19 +1537,31 @@ module StubDirectory =
         }
 
 
-/// The PatientDataPlatform stub: nothing to import, except that `no-data` has no record at all
-/// (ext 6a).
+/// The PatientDataPlatform stub: one fixed patient for every PatientId, so a launch fills the
+/// patient panel from the platform, except that `no-data` has no record at all (ext 6a), so
+/// the Session opens on what was signed last, or on nothing (#640).
 module StubPatientData =
 
+    /// The stub's reading: ten years, 32 kg, 140 cm, nothing else known.
+    let patient: Patient =
+        Shared.Models.Patient.create
+            (Some(Shared.Measures.toYear 10))
+            None
+            None
+            None
+            (Some 32000)
+            (Some 140)
+            None
+            None
+            UnknownGender
+            []
+            None
+            None
+        |> Option.defaultValue Shared.Models.Patient.empty
+
+
     let port: PatientDataPort =
-        {
-            read =
-                fun pid ->
-                    if pid = "no-data" then
-                        None
-                    else
-                        Some Shared.Models.Patient.empty
-        }
+        { read = fun pid -> if pid = "no-data" then None else Some patient }
 
 
 /// The credential half of the Database, seeded for the stub logins: the Prescribers that sign
