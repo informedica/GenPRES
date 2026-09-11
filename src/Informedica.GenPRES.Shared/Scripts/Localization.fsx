@@ -70,6 +70,27 @@ type SessionTerms =
     | ``Session Enrolment Wrong Code``
     | ``Session Enrolment Code Void``
     | ``Session Enrolment Expired``
+    // signing (UC-3, plan 622 PR 5): the button, the dialog, the data notice (Rule 44), the
+    // signed sentence with {0} the version and {1} the signer, and one sentence per refusal
+    | ``Signing Sign``
+    | ``Signing Dialog Title``
+    | ``Signing Dialog Text``
+    | ``Signing Pin``
+    | ``Signing Cancel``
+    | ``Signing Proceed``
+    | ``Signing Signed``
+    | ``Signing Data Changed``
+    | ``Signing Data Unverified``
+    | ``Signing Refusal No Session``
+    | ``Signing Refusal No Patient``
+    | ``Signing Refusal Not Prescriber``
+    | ``Signing Refusal Blocked``
+    | ``Signing Refusal Stale Token``
+    | ``Signing Refusal Challenge Mismatch``
+    | ``Signing Refusal Challenge Expired``
+    | ``Signing Refusal Pin Wrong``
+    | ``Signing Refusal Pin Limit``
+    | ``Signing Refusal Locked``
 
 
 /// The English defaults: the strings the client shows today, verbatim.
@@ -116,6 +137,28 @@ let english term =
     | ``Session Enrolment Wrong Code`` -> "The code is not right. {0} tries left."
     | ``Session Enrolment Code Void`` -> "The code is void after three wrong tries."
     | ``Session Enrolment Expired`` -> "The enrolment has expired."
+    | ``Signing Sign`` -> "Sign"
+    | ``Signing Dialog Title`` -> "Sign the order plan"
+    | ``Signing Dialog Text`` -> "Sign the orders as shown with your PIN, or cancel and edit."
+    | ``Signing Pin`` -> "PIN"
+    | ``Signing Cancel`` -> "Cancel"
+    | ``Signing Proceed`` -> "Continue"
+    | ``Signing Signed`` -> "Version {0} was signed by {1}."
+    | ``Signing Data Changed`` ->
+        "The patient data changed since the session opened. It is shown as it stands now; continue to sign over it, or cancel."
+    | ``Signing Data Unverified`` ->
+        "The patient data could not be verified. Continue to sign over the data the session opened with, or cancel."
+    | ``Signing Refusal No Session`` -> "There is no session to sign in. Open GenPRES again from MainEHR."
+    | ``Signing Refusal No Patient`` -> "The plan is not over this session's patient."
+    | ``Signing Refusal Not Prescriber`` -> "Only a Prescriber can sign."
+    | ``Signing Refusal Blocked`` -> "{0} signed a newer version at {1}. Open the patient again to continue from it."
+    | ``Signing Refusal Stale Token`` -> "The session is not current. Reload the page."
+    | ``Signing Refusal Challenge Mismatch`` -> "The plan changed since it was shown. Sign again."
+    | ``Signing Refusal Challenge Expired`` -> "The signature took too long. Sign again."
+    | ``Signing Refusal Pin Wrong`` -> "The PIN is not right. {0} tries left."
+    | ``Signing Refusal Pin Limit`` ->
+        "The PIN was entered wrong three times. Your session was ended and signing is locked for a while."
+    | ``Signing Refusal Locked`` -> "Signing is locked until {0}."
 
 
 /// Dutch, for the sheet; the other four languages stay empty and fall back to English.
@@ -163,6 +206,29 @@ let dutch term =
     | ``Session Enrolment Wrong Code`` -> "De code klopt niet. Nog {0} pogingen."
     | ``Session Enrolment Code Void`` -> "De code is na drie verkeerde pogingen niet meer geldig."
     | ``Session Enrolment Expired`` -> "De inschrijving is verlopen."
+    | ``Signing Sign`` -> "Ondertekenen"
+    | ``Signing Dialog Title`` -> "Onderteken het voorschrijfplan"
+    | ``Signing Dialog Text`` -> "Onderteken de voorschriften zoals getoond met uw pincode, of annuleer en pas aan."
+    | ``Signing Pin`` -> "Pincode"
+    | ``Signing Cancel`` -> "Annuleren"
+    | ``Signing Proceed`` -> "Doorgaan"
+    | ``Signing Signed`` -> "Versie {0} is ondertekend door {1}."
+    | ``Signing Data Changed`` ->
+        "De patiëntgegevens zijn gewijzigd sinds de sessie werd geopend. Ze worden getoond zoals ze nu zijn; ga door om daarover te ondertekenen, of annuleer."
+    | ``Signing Data Unverified`` ->
+        "De patiëntgegevens konden niet worden geverifieerd. Ga door om te ondertekenen over de gegevens waarmee de sessie is geopend, of annuleer."
+    | ``Signing Refusal No Session`` -> "Er is geen sessie om in te ondertekenen. Open GenPRES opnieuw vanuit MainEHR."
+    | ``Signing Refusal No Patient`` -> "Het plan hoort niet bij de patiënt van deze sessie."
+    | ``Signing Refusal Not Prescriber`` -> "Alleen een voorschrijver kan ondertekenen."
+    | ``Signing Refusal Blocked`` ->
+        "{0} heeft om {1} een nieuwere versie ondertekend. Open de patiënt opnieuw om daarvan verder te gaan."
+    | ``Signing Refusal Stale Token`` -> "De sessie is niet actueel. Laad de pagina opnieuw."
+    | ``Signing Refusal Challenge Mismatch`` -> "Het plan is gewijzigd sinds het werd getoond. Onderteken opnieuw."
+    | ``Signing Refusal Challenge Expired`` -> "Het ondertekenen duurde te lang. Onderteken opnieuw."
+    | ``Signing Refusal Pin Wrong`` -> "De pincode klopt niet. Nog {0} pogingen."
+    | ``Signing Refusal Pin Limit`` ->
+        "De pincode is drie keer verkeerd ingevoerd. Uw sessie is beëindigd en ondertekenen is een tijdje geblokkeerd."
+    | ``Signing Refusal Locked`` -> "Ondertekenen is geblokkeerd tot {0}."
 
 
 let all =
@@ -291,7 +357,7 @@ let tests =
                 |> Expect.equal "distinct keys" all.Length
             }
 
-            test "placeholders appear only in the attempt, enrolment and wrong-code texts, in both languages" {
+            test "placeholders appear only in the attempt, enrolment, wrong-code and signing texts, in both languages" {
                 let withPlaceholders =
                     all
                     |> Array.filter (fun t -> (english t).Contains "{0}" || (dutch t).Contains "{0}")
@@ -305,10 +371,20 @@ let tests =
                         ``Session Gate Unreachable Text``
                         ``Session Gate Enrolment Text``
                         ``Session Enrolment Wrong Code``
+                        ``Signing Signed``
+                        ``Signing Refusal Blocked``
+                        ``Signing Refusal Pin Wrong``
+                        ``Signing Refusal Locked``
                      |]
                      |> Array.sort)
 
-                for t in [ ``Session Gate Opening Text``; ``Session Gate Enrolment Text`` ] do
+                for t in
+                    [
+                        ``Session Gate Opening Text``
+                        ``Session Gate Enrolment Text``
+                        ``Signing Signed``
+                        ``Signing Refusal Blocked``
+                    ] do
                     (english t).Contains "{1}" |> Expect.isTrue $"{{1}} en {t}"
                     (dutch t).Contains "{1}" |> Expect.isTrue $"{{1}} nl {t}"
             }

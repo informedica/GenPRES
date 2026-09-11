@@ -11,6 +11,8 @@
     <Compile Include="LanguagePolicy.fs" />
     <Compile Include="SessionMachine.fs" />
     <Compile Include="SessionGatePolicy.fs" />
+    <Compile Include="SigningMachine.fs" />
+    <Compile Include="SigningPolicy.fs" />
     <Compile Include="Keys.fs" />
     <Compile Include="AppEnv.fs" />
     <Compile Include="MUI.fs" />
