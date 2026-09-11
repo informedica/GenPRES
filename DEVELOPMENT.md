@@ -95,6 +95,7 @@ What each identity choice ends in:
 | Identity | Stands for | Ends in | uc-01 |
 |---|---|---|---|
 | `prescriber` | a Prescriber whose active patient is the launched one | an open Session as Prescriber | main path |
+| `prescriber-b` | a second Prescriber on the same patient, for two browsers (UC-3, Rule 20) | an open Session as Stub Prescriber B | main path |
 | `reader` | a Reader; no PIN needed | an open Session as Reader | ext 5c |
 | `prescriber-other-patient` | a Prescriber with another patient active in MainEHR | the gate: wrong patient, relaunch | ext 5b |
 | `no-pin` | a Prescriber without a PIN | the enrolment form: a confirmation code by mail, then a PIN (UC-2, below) | ext 5d |

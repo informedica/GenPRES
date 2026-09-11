@@ -1289,6 +1289,7 @@ module StubDirectory =
     let choices =
         [
             "prescriber"
+            "prescriber-b"
             "reader"
             "prescriber-other-patient"
             "no-pin"
@@ -1303,6 +1304,8 @@ module StubDirectory =
             DisplayName =
                 match choice with
                 | "prescriber" -> "Stub Prescriber"
+                // UC-3: a second Prescriber on the same patient (Rule 20)
+                | "prescriber-b" -> "Stub Prescriber B"
                 | "reader" -> "Stub Reader"
                 | "prescriber-other-patient" -> "Stub Prescriber (other patient)"
                 | "no-pin" -> "Stub Prescriber (no PIN)"
@@ -1333,6 +1336,7 @@ module StubDirectory =
 
         match identity.Login with
         | "prescriber"
+        | "prescriber-b"
         | "no-pin" -> standing UserRole.Prescriber activePatientId
         | "reader" -> standing UserRole.Reader activePatientId
         | "prescriber-other-patient" -> standing UserRole.Prescriber "other-patient"
@@ -1440,6 +1444,7 @@ module StubCredentials =
     let seed (newSalt: int -> byte[]) : Map<string, Credential> =
         [
             "prescriber", Credential.withPin newSalt stubPin
+            "prescriber-b", Credential.withPin newSalt stubPin
             "prescriber-other-patient", Credential.withPin newSalt stubPin
             "no-pin", Credential.empty
         ]
