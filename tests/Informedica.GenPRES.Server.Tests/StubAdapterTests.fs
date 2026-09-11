@@ -322,7 +322,7 @@ module SessionStubTests =
     /// A deterministic salt source for the tests.
     let salts (n: int) = Array.init n byte
 
-    /// The state a stub host starts from: the seeded credentials (plan 615).
+    /// The state a stub host starts from: the seeded credentials.
     let seeded = Hop.initialState (StubCredentials.seed salts)
 
 
@@ -1615,7 +1615,7 @@ module SessionStubTests =
                         |> Expect.equal
                             "enrolment"
                             (CallbackResult.Refused(LaunchRefusal.EnrolmentRequired, "/#/session?refused=enrolment"))
-                        // after the code's lifetime the LaunchRecord is long gone too (Rule 29): invalid
+                        // after the code's lifetime the LaunchRecord is long gone too: invalid
                         let late = t0 + Hop.codeLifetime + TimeSpan.FromSeconds 1.0
                         let _, gone = runAt late f state cb
 
@@ -1925,7 +1925,8 @@ module SessionStubTests =
                         let f = enrolFixture ()
                         // a PIN set by an earlier enrolment, then a Session, then a launch that... cannot
                         // suspend any more. So: enrol in one browser while another Session of the same
-                        // person, opened before the PIN existed, cannot exist. The Rule 8 close still
+                        // person, opened before the PIN existed, cannot exist. The close of the
+                        // person's other Sessions still
                         // runs in the same act; exercise it with a seeded prescriber turned no-pin.
                         let state =
                             { seeded with Credentials = seeded.Credentials |> Map.add "prescriber" Credential.empty }
@@ -2983,7 +2984,7 @@ module SessionStubTests =
                             signed.Base |> Expect.equal "over the first" (Some "id-1")
                         | other -> failtest $"expected Submitted, got {other}"
 
-                        // the old token is stale once re-minted (Rule 34)
+                        // the old token is stale once re-minted
                         let state = { state with Challenges = Map.ofList [ challenged "s-1" t0 ] }
 
                         submitAt t0 ids ignore state "s-1" (submission "s-1" "1234" "k-3")
@@ -4505,7 +4506,7 @@ module SessionStubTests =
             ]
 
 
-    /// `processCommand` over the cookie (plan 635 PR 1): the request computes as before, and
+    /// `processCommand` over the cookie: the request computes as before, and
     /// the reply carries what the Session is told.
     let computeCompositionTests =
         let settings =

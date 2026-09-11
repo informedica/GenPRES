@@ -8,8 +8,8 @@ module CompositionRoot =
     open Shared.Api
 
 
-    /// Launch step 4 over the session port. The session id goes into the cookie and nowhere
-    /// else (Rule 12); a refusal is a value. A server exception is not a refusal: it propagates,
+    /// The presentation of a Launch over the session port. The session id goes into the cookie
+    /// and nowhere else; a refusal is a value. A server exception is not a refusal: it propagates,
     /// Fable.Remoting answers 500 and the client's transport-error path retries.
     let processLaunch (env: AppEnv) (cookie: SessionCookie) (stateCookie: LaunchStateCookie) (cmd: LaunchCommand) =
         async {
@@ -29,9 +29,9 @@ module CompositionRoot =
         }
 
 
-    /// Launch step 4.5 over the session port: the browser is back from the IdentityProvider.
+    /// The callback over the session port: the browser is back from the IdentityProvider.
     /// Answers where it goes next; the session cookie is set when a Session opened, the
-    /// enrolment cookie when the launch suspended (UC-2).
+    /// enrolment cookie when the launch suspended at the PIN question.
     let processCallback
         (env: AppEnv)
         (cookie: SessionCookie)
@@ -46,8 +46,8 @@ module CompositionRoot =
                 return redirect
             | CallbackResult.Enrolling(attempt, redirect, until) ->
                 // the new launch replaces whatever Session this browser still held, as an open
-                // would (session-endings: ReplacedInBrowser owes nothing); left in place, its
-                // cookie would hide the enrolment at the next GetSession
+                // would, and a Session replaced in its own browser is not told of its ending;
+                // left in place, its cookie would hide the enrolment at the next GetSession
                 match cookie.read () with
                 | Some id -> do! env.session.close id
                 | None -> ()
@@ -61,10 +61,10 @@ module CompositionRoot =
 
 
     /// Cookie-authenticated session commands over both cookies. GetSession answers the Session
-    /// first; without one, a standing attempt (UC-2); a gone attempt loses its cookie. SupplyPin
-    /// works on the attempt in the cookie, never on one the client names. CloseSession drops
-    /// both, even when nothing is found and even when the server-side close throws: an explicit
-    /// close (Rule 10) always leaves the browser without a credential. The exception still
+    /// first; without one, a standing enrolment attempt; a gone attempt loses its cookie.
+    /// SupplyPin works on the attempt in the cookie, never on one the client names. CloseSession
+    /// drops both, even when nothing is found and even when the server-side close throws: an
+    /// explicit close always leaves the browser without a credential. The exception still
     /// propagates after the delete, so the failure stays visible.
     let processSession (env: AppEnv) (cookie: SessionCookie) (enrolment: EnrolmentCookie) (cmd: SessionCommand) =
         async {
@@ -105,8 +105,8 @@ module CompositionRoot =
                         enrolment.delete ()
                         return SessionResponse.PinRefused refusal
                     | SupplyPinResult.Refused refusal -> return SessionResponse.PinRefused refusal
-            // UC-4 step 4: for the Session the cookie names; without a cookie there is nothing to
-            // open. Writes no cookie.
+            // a version is taken up for the Session the cookie names; without a cookie there is
+            // nothing to open. Writes no cookie.
             | SessionCommand.OpenVersion id ->
                 match cookie.read () with
                 | None -> return SessionResponse.SessionResp None
@@ -130,8 +130,8 @@ module CompositionRoot =
         }
 
 
-    /// A signing command for the Session the cookie names (uc-03 step 2). No cookie, no
-    /// Session: refused before the port is asked. Writes no cookie.
+    /// A signing command for the Session the cookie names. No cookie, no Session: refused
+    /// before the port is asked. Writes no cookie.
     let processSigning (env: AppEnv) (cookie: SessionCookie) (cmd: SigningCommand) =
         async {
             match cookie.read () with
@@ -155,9 +155,9 @@ module CompositionRoot =
         : IServerApi
         =
         {
-            // uc-03 step 1: the Session the cookie names is marked seen and told what it is
-            // told (Rules 9, 11, 21) before the command is computed; without a cookie the
-            // request computes as it always did (UC-7). The token is never logged.
+            // the Session the cookie names is marked seen and told whether the record moved on
+            // or the Session ended, before the command is computed; without a cookie the
+            // request computes as it always did. The token is never logged.
             processCommand =
                 fun request ->
                     async {

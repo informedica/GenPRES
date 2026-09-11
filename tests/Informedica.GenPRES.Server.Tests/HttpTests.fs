@@ -47,7 +47,7 @@ let setCookieHeader (ctx: HttpContext) =
     ctx.Response.Headers.SetCookie.ToString()
 
 
-/// The session cookie adapter over a bare HttpContext (uc-01 step 6, Rule 12).
+/// The session cookie adapter over a bare HttpContext.
 let sessionCookieTests =
     testList
         "sessionCookie"
@@ -169,7 +169,7 @@ let launchStateCookieTests =
         ]
 
 
-/// The enrolment cookie adapter (UC-2): the attempt a suspended launch left in the browser.
+/// The enrolment cookie adapter: the attempt a suspended launch left in the browser.
 let enrolmentCookieTests =
     testList
         "enrolmentCookie"
