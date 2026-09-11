@@ -771,3 +771,13 @@ module Types =
         // step 3: the version committed, and a fresh OpenedToken over it (Rule 34)
         | Submitted of SignedOrderPlan * OpenedToken
         | Refused of SigningRefusal
+
+
+    /// What a reply says about the Session next to its result. Rules 21, 22: a version newer
+    /// than the one the request's OpenedToken names exists, whose and when; it gates nothing.
+    /// Rule 11: the server ended this Session, told at the next request. Lives here, like
+    /// `SigningResponse`: the session port answers it.
+    [<RequireQualifiedAccess>]
+    type RecordNotice =
+        | NewerVersion of OrderPlanHead
+        | Ended of SessionEnding

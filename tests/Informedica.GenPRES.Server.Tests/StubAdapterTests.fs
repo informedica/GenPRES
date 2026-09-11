@@ -71,6 +71,7 @@ module StubAdapters =
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
+            seen = fun _ _ -> async { return None }
         }
 
 
@@ -895,14 +896,14 @@ module SessionStubTests =
                             | CallbackResult.Opened(id, _) -> id
                             | other -> failtest $"{other}"
 
-                        let state, told = Hop.find id1 state
+                        let state, told = Hop.find t0 id1 state
 
                         told
                         |> Expect.equal "told" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
 
                         // the answer was lost, or the tab comes back much later: the cookie came
                         // again, so is the ending
-                        let _, again = Hop.find id1 state
+                        let _, again = Hop.find t0 id1 state
 
                         again
                         |> Expect.equal "told again" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
@@ -1877,6 +1878,191 @@ module SessionStubTests =
                 ]
 
 
+        let seenTests =
+            let t1 = t0.AddMinutes 5.0
+
+            let prescriber =
+                {
+                    UserId = "prescriber"
+                    DisplayName = "Stub Prescriber"
+                    Role = UserRole.Prescriber
+                }
+
+            let other =
+                { prescriber with
+                    UserId = "prescriber-b"
+                    DisplayName = "Stub Prescriber B"
+                }
+
+            let signedBy (user: UserContext) no (at: DateTime) : SignedOrderPlan =
+                {
+                    Head =
+                        {
+                            Id = $"plan-{no}"
+                            No = no
+                            By = user
+                            SignedAt = at
+                        }
+                    PatientId = "pat-1"
+                    Base = if no > 1 then Some $"plan-{no - 1}" else None
+                    Scenarios = [||]
+                    Patient = Shared.Models.Patient.empty
+                    Verified = true
+                }
+
+            let session
+                (user: UserContext option)
+                (patientId: string option)
+                (sid: string)
+                (openedWith: string option)
+                : Hop.SessionRecord
+                =
+                {
+                    Session =
+                        {
+                            User = user
+                            PatientContext =
+                                patientId
+                                |> Option.map (fun pid ->
+                                    {
+                                        PatientId = pid
+                                        Patient = Shared.Models.Patient.empty
+                                    }
+                                )
+                            OpenedToken = Some(OpenedToken $"opened-{sid}")
+                            KeyThumbprint = Some "t"
+                        }
+                    Login = user |> Option.map _.UserId
+                    OpenedWith = openedWith
+                    Seen = t0
+                }
+
+            let withSession (record: Hop.SessionRecord) sid (state: Hop.State) =
+                { state with Sessions = state.Sessions |> Map.add sid record }
+
+            let withRecord patientId (versions: SignedOrderPlan list) (state: Hop.State) =
+                { state with Records = state.Records |> Map.add patientId versions }
+
+            let own sid = Some(OpenedToken $"opened-{sid}")
+
+            let movedOn =
+                Hop.emptyState
+                |> withRecord "pat-1" [ signedBy other 2 t1; signedBy prescriber 1 t0 ]
+                |> withSession (session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")) "s-1"
+
+            testList
+                "Hop.seen"
+                [
+                    test "an unknown Session with no ending: nothing to say, nothing touched" {
+                        let state, notice = Hop.emptyState |> Hop.seen t1 "s-1" (own "s-1")
+                        notice |> Expect.isNone "no notice"
+                        state |> Expect.equal "unchanged" Hop.emptyState
+                    }
+
+                    test "an unknown Session with an ending recorded: the ending (Rule 11)" {
+                        let state =
+                            { Hop.emptyState with
+                                Endings = Map.ofList [ "s-1", (SessionEnding.SupersededByLaunch, t0) ]
+                            }
+
+                        let _, notice = state |> Hop.seen t1 "s-1" (own "s-1")
+
+                        notice
+                        |> Expect.equal "ended" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
+                    }
+
+                    test "a Session is touched by every seen request, with or without a token (Rule 9)" {
+                        let state =
+                            Hop.emptyState
+                            |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
+
+                        let state, _ = state |> Hop.seen t1 "s-1" None
+                        state.Sessions["s-1"].Seen |> Expect.equal "seen now" t1
+
+                        let state, _ = state |> Hop.seen (t1.AddMinutes 1.0) "s-1" (own "s-1")
+                        state.Sessions["s-1"].Seen |> Expect.equal "seen again" (t1.AddMinutes 1.0)
+                    }
+
+                    test "touching an unknown Session changes nothing" {
+                        Hop.emptyState |> Hop.touch t1 "s-9" |> Expect.equal "unchanged" Hop.emptyState
+                    }
+
+                    test "the Session's own token, no head or the head it opened with: nothing to say" {
+                        let fromNothing =
+                            Hop.emptyState
+                            |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
+
+                        fromNothing |> Hop.seen t1 "s-1" (own "s-1") |> snd |> Expect.isNone "no head"
+
+                        let onHead =
+                            Hop.emptyState
+                            |> withRecord "pat-1" [ signedBy prescriber 1 t0 ]
+                            |> withSession (session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")) "s-1"
+
+                        onHead |> Hop.seen t1 "s-1" (own "s-1") |> snd |> Expect.isNone "on the head"
+                    }
+
+                    test "the Session's own token, a newer head: whose and when, nothing opened (Rules 21, 22)" {
+                        let state, notice = movedOn |> Hop.seen t1 "s-1" (own "s-1")
+
+                        notice
+                        |> Expect.equal "newer version" (Some(RecordNotice.NewerVersion (signedBy other 2 t1).Head))
+
+                        state.Sessions["s-1"].OpenedWith
+                        |> Expect.equal "Rule 20 stays the guard" (Some "plan-1")
+                    }
+
+                    test "a Session opened from nothing, a first version signed elsewhere: a notice" {
+                        Hop.emptyState
+                        |> withRecord "pat-1" [ signedBy other 1 t1 ]
+                        |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
+                        |> Hop.seen t1 "s-1" (own "s-1")
+                        |> snd
+                        |> Expect.isSome "newer version"
+                    }
+
+                    test "a token that is not the Session's, or none: nothing to say, still touched" {
+                        let state, notice = movedOn |> Hop.seen t1 "s-1" (own "s-2")
+                        notice |> Expect.isNone "foreign token"
+                        state.Sessions["s-1"].Seen |> Expect.equal "seen" t1
+
+                        movedOn |> Hop.seen t1 "s-1" None |> snd |> Expect.isNone "no token"
+                    }
+
+                    test "an anonymous Session, or one without a Patient: nothing to say" {
+                        let state =
+                            Hop.emptyState
+                            |> withRecord "pat-1" [ signedBy other 2 t1 ]
+                            |> withSession (session None (Some "pat-1") "s-a" None) "s-a"
+                            |> withSession (session (Some prescriber) None "s-n" None) "s-n"
+
+                        state |> Hop.seen t1 "s-a" (own "s-a") |> snd |> Expect.isNone "anonymous"
+                        state |> Hop.seen t1 "s-n" (own "s-n") |> snd |> Expect.isNone "no patient"
+                    }
+
+                    test "the notice is stateless: the same request says it again" {
+                        let state, first = movedOn |> Hop.seen t1 "s-1" (own "s-1")
+                        let _, second = state |> Hop.seen (t1.AddMinutes 1.0) "s-1" (own "s-1")
+                        second |> Expect.equal "again" first
+                    }
+
+                    test "find touches the Session too; close does not need to (Rule 9)" {
+                        let state =
+                            Hop.emptyState
+                            |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
+
+                        let state, found = state |> Hop.find t1 "s-1"
+
+                        (match found with
+                         | SessionLookup.Found _ -> true
+                         | _ -> false)
+                        |> Expect.isTrue "found"
+
+                        state.Sessions["s-1"].Seen |> Expect.equal "seen at find" t1
+                    }
+                ]
+
+
         let challengeTests =
             let minutes (n: float) = TimeSpan.FromMinutes n
             let seconds (n: float) = TimeSpan.FromSeconds n
@@ -1915,6 +2101,7 @@ module SessionStubTests =
                         }
                     Login = user |> Option.map _.UserId
                     OpenedWith = openedWith
+                    Seen = t0
                 }
                 : Hop.SessionRecord)
 
@@ -2344,6 +2531,7 @@ module SessionStubTests =
                         }
                     Login = Some user.UserId
                     OpenedWith = openedWith
+                    Seen = t0
                 }
                 : Hop.SessionRecord)
 
@@ -2760,6 +2948,7 @@ module SessionStubTests =
                     findTests
                     supplyTests
                     dropTests
+                    seenTests
                     challengeTests
                     commitTests
                 ]
@@ -3924,6 +4113,116 @@ module SessionStubTests =
             ]
 
 
+    /// `processCommand` over the cookie (plan 635 PR 1): the request computes as before, and
+    /// the reply carries what the Session is told.
+    let computeCompositionTests =
+        let settings =
+            {
+                ServerSettings.Language = Shared.Localization.Dutch
+                IsDemo = true
+            }
+
+        let request opened : Request =
+            {
+                Opened = opened
+                Command = Api.FormularyCmd Formulary.empty
+            }
+
+        let sessionOf env cookie =
+            async {
+                match! CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession with
+                | SessionResponse.SessionResp(Some opened) -> return opened
+                | other -> return failtest $"expected an open Session, got {other}"
+            }
+
+        testList
+            "processCommand in a Session"
+            [
+                testAsync "without a cookie: computed as before, nothing told (UC-7)" {
+                    let _, env = envWithStub ()
+                    let cookie, _ = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+                    let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
+
+                    match! api.processCommand (request None) with
+                    | Ok reply ->
+                        reply.Notice |> Expect.isNone "nothing told"
+
+                        match reply.Response with
+                        | Api.FormularyResp _ -> ()
+                        | other -> failtest $"expected FormularyResp, got {other}"
+                    | Error errs -> failtest $"expected Ok, got {errs}"
+                }
+
+                testAsync "an open Session with its own token and no head: computed, nothing told" {
+                    let directory, env = envWithStub ()
+                    let cookie, _ = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+
+                    let! _ =
+                        openVia
+                            directory
+                            env
+                            cookie
+                            stateCookie
+                            (noEnrolment ())
+                            (mintFor "n-1" "stub-patient")
+                            keyA
+                            "prescriber"
+
+                    let! opened = sessionOf env cookie
+                    let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
+
+                    match! api.processCommand (request opened.OpenedToken) with
+                    | Ok reply -> reply.Notice |> Expect.isNone "nothing told"
+                    | Error errs -> failtest $"expected Ok, got {errs}"
+                }
+
+                testAsync "a Session superseded by a newer launch: computed, and the ending told (Rule 11)" {
+                    let directory, env = envWithStub ()
+                    let cookieA, _ = memoryCookie None
+                    let cookieB, _ = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+
+                    let! _ =
+                        openVia
+                            directory
+                            env
+                            cookieA
+                            stateCookie
+                            (noEnrolment ())
+                            (mintFor "n-1" "stub-patient")
+                            keyA
+                            "prescriber"
+
+                    let! openedA = sessionOf env cookieA
+
+                    let! _ =
+                        openVia
+                            directory
+                            env
+                            cookieB
+                            stateCookie
+                            (noEnrolment ())
+                            (mintFor "n-2" "stub-patient")
+                            keyB
+                            "prescriber"
+
+                    let api = CompositionRoot.compose settings env cookieA stateCookie (noEnrolment ())
+
+                    match! api.processCommand (request openedA.OpenedToken) with
+                    | Ok reply ->
+                        reply.Notice
+                        |> Expect.equal "ended" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
+
+                        match reply.Response with
+                        | Api.FormularyResp _ -> ()
+                        | other -> failtest $"still computed, got {other}"
+                    | Error errs -> failtest $"expected Ok, got {errs}"
+                }
+            ]
+
+
     let tests =
         testList
             "Session"
@@ -3935,6 +4234,7 @@ module SessionStubTests =
                 compositionTests
                 enrolmentCompositionTests
                 signingCompositionTests
+                computeCompositionTests
             ]
 
 

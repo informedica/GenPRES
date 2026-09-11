@@ -401,13 +401,15 @@ module Hop =
 
 
     /// A Session as the store holds it: what the client learns, the login it belongs to
-    /// (Rule 8: a User has at most one open Session), and the head of the record it opened
-    /// with (Rule 19; `None` from nothing), which a Submission is checked against (Rule 20).
+    /// (Rule 8: a User has at most one open Session), the head of the record it opened with
+    /// (Rule 19; `None` from nothing), which a Submission is checked against (Rule 20), and
+    /// when it was last seen (Rule 9; nothing acts on it yet, Rule 10's lifetimes are not built).
     type SessionRecord =
         {
             Session: SessionOpened
             Login: string option
             OpenedWith: string option
+            Seen: DateTime
         }
 
 
@@ -628,6 +630,7 @@ module Hop =
                         Session = session
                         Login = login
                         OpenedWith = headOf patientId state |> Option.map _.Head.Id
+                        Seen = now
                     }
             Endings =
                 superseded
@@ -914,9 +917,16 @@ module Hop =
                     state, SupplyPinResult.Opened(id, session)
 
 
-    let find (id: string) (state: State) : State * SessionLookup =
+    /// Rule 9: a request from the Session refreshes its idle clock. Applied by every member that
+    /// takes the session cookie's id, `close` excepted (the model excepts `CloseSession`).
+    /// Nothing to refresh when there is no such Session.
+    let touch (now: DateTime) (sid: string) (state: State) : State =
+        { state with Sessions = state.Sessions |> Map.change sid (Option.map (fun r -> { r with Seen = now })) }
+
+
+    let find (now: DateTime) (id: string) (state: State) : State * SessionLookup =
         match state.Sessions |> Map.tryFind id with
-        | Some record -> state, SessionLookup.Found record.Session
+        | Some record -> touch now id state, SessionLookup.Found record.Session
         | None ->
             match state.Endings |> Map.tryFind id with
             | Some(ending, _) -> state, SessionLookup.Ended ending
@@ -935,6 +945,24 @@ module Hop =
         match headOf patientId state with
         | Some head when Some head.Head.Id <> record.OpenedWith -> Some head.Head
         | _ -> None
+
+
+    /// uc-03 step 1, for every computing request that names a Session: no Session under this
+    /// id and an ending recorded for it, the ending (Rule 11); a Session, touched, and Rule 21's
+    /// comparison when the token is the Session's own: a version newer than the one it opened
+    /// with, whose and when (Rule 22: told, never enforced; Rule 20 stays the only guard). An
+    /// anonymous Session, one without a Patient, no head, or a token that is not the Session's:
+    /// nothing to say.
+    let seen (now: DateTime) (sid: string) (opened: OpenedToken option) (state: State) : State * RecordNotice option =
+        match state.Sessions |> Map.tryFind sid with
+        | None -> state, state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended)
+        | Some record ->
+            let state = touch now sid state
+
+            match record.Session.User, record.Session.PatientContext with
+            | Some _, Some patient when opened.IsSome && opened = record.Session.OpenedToken ->
+                state, blockedBy record patient.PatientId state |> Option.map RecordNotice.NewerVersion
+            | _ -> state, None
 
 
     /// Concept 10: an order appears once in a plan.
@@ -960,7 +988,7 @@ module Hop =
         (state: State)
         : State * SigningResponse
         =
-        let state = dropExpired now state
+        let state = dropExpired now state |> touch now sid
         let refuse refusal = state, SigningResponse.Refused refusal
 
         match state.Sessions |> Map.tryFind sid with
@@ -1052,7 +1080,7 @@ module Hop =
         (state: State)
         : State * SigningResponse
         =
-        let state = dropExpired now state
+        let state = dropExpired now state |> touch now sid
         let refuse refusal = state, SigningResponse.Refused refusal
 
         match state.Sessions |> Map.tryFind sid with
@@ -1243,7 +1271,7 @@ module Hop =
                                     cb
                             )
                     }
-            find = fun id -> async { return update (find id) }
+            find = fun id -> async { return update (find (now ()) id) }
             close = fun id -> async { return update (fun s -> close id s, ()) }
             findEnrolment = fun attempt -> async { return update (findEnrolment (now ()) attempt) }
             supplyPin =
@@ -1274,6 +1302,7 @@ module Hop =
                     async {
                         return update (fun s -> commit (now ()) newId registry.standing mail.send sid submission s)
                     }
+            seen = fun sid opened -> async { return update (seen (now ()) sid opened) }
         }
 
 
@@ -1753,6 +1782,7 @@ module Adapters =
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
+            seen = fun _ _ -> async { return None }
         }
 
 
