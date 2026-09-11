@@ -302,15 +302,21 @@ Where the code departs from the text above, on purpose:
 The PIN detour of 5.4 is built too: a Prescriber without a PIN suspends into
 [uc-02](uc-02-enrolment.md) and continues once the PIN is set (its as-built note is there).
 
-Not built: step 7 (the signed request and the OpenedToken check), the audit (Rule 46), the
-newest TreatmentPlan of 5.6, and the absolute lifetime and idle endings of Rule 10.
+Since [plan 622](../../implementation-plans/622-signing-with-server-stubs.md) the Session
+opens with the head of the record (5.6, Rule 19) and the OpenedToken is checked and re-minted
+at a signature (Rule 34); the head's orders are not yet loaded into the cart at open.
+
+Not built: step 7 (the signed request), the audit (Rule 46), and the absolute lifetime and idle
+endings of Rule 10.
 
 ## Left out
 
 - **The PIN detour.** A Prescriber with no PIN is not refused: the launch suspends into UC-2
   and continues at 5.5 once the PIN is set.
 - **The audit.** Every launch, honored or refused, is appended to the audit (Rule 46).
-- **Everything after the launch**: prescribing and signing, and the ten other use cases.
+- **Everything after the launch**: prescribing and signing
+  ([uc-03](uc-03-prescribe-and-sign.md), built against stubs since plan 622), and the nine
+  other use cases.
 - **The confirmation code.** UC-2 and UC-6 mail a code to set or replace a PIN. It is not the
   authorization code of step 4, which never leaves the browser and the two servers.
 

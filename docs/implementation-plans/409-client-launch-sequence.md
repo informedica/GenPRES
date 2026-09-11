@@ -472,8 +472,13 @@ are listed per step with the reason.
 - The scope switch (#580), which retires the `IsProd` stop-gap.
 - On a launch URL the gate hides the language switcher; the language itself follows the
   server default since #601.
+- The head's orders into the cart at open (the second half of Rule 19) and Rule 21's notice
+  on every response.
 
 Closed since this list was written: the identity hop (`RedirectTo`, the callback, the `state`
 cookie), the Rule 8 and 11 endings, and the sealed Launch, all against server-hosted stubs
 ([plan 605](605-launch-with-server-stubs.md)); UC-2 enrolment against a stub MailService and an
-in-memory credential store ([plan 615](615-enrolment-with-server-stubs.md)).
+in-memory credential store ([plan 615](615-enrolment-with-server-stubs.md)); UC-3 signing
+against an in-memory record, the OpenedToken checked and re-minted at a signature and the
+Session opened with the head of the record
+([plan 622](622-signing-with-server-stubs.md)).

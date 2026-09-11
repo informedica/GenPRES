@@ -184,9 +184,8 @@ active, PIN `1234`).
 
 `processCommand` unbound; `Keys.fs` without `sign`; the OpenedToken opaque on the wire; the
 head's orders not loaded into the cart at open (the second half of Rule 19) and Rule 21's
-notice on every response, both a follow-up plan; the DataNotice round trip (Rule 44, ext 2b)
-refused as `DataChanged`; Rule 41's out-of-time Session; the audit (Rule 46);
-`Integration.fsx`.
+notice on every response, both a follow-up plan; the KnowledgeRuleSet of Rule 44 (Concept 18);
+Rule 41's out-of-time Session; the audit (Rule 46); `Integration.fsx`.
 
 ## Confidence
 
@@ -245,3 +244,52 @@ the client, migration by the maintainer after review.
   blocked Submission leaves `WrongCount` unchanged. The version committed is the plan
   challenged, not the cart at the time of the PIN.
 - `dotnet run ServerTests`, the Fable compile and Fantomas stay green after every step.
+
+## As built
+
+Every step landed as one PR from a fork branch against `master`, script-first for the server
+and Shared code (`Server/Scripts/Signing.fsx`, rewritten for each step, and
+`Shared/Scripts/Localization.fsx`), reviewed and migrated by the maintainer, client edits
+direct. Every review round changed the design below; the deviations follow the table.
+
+| Step | PR | Landed |
+|------|----|--------|
+| plan | [#623](https://github.com/informedica/GenPRES/pull/623) | this document; review: the Submission carries the OpenedToken, the remembered answers are keyed by Session, the challenge lives two minutes, the machine's effects carry no token |
+| 1 | [#624](https://github.com/informedica/GenPRES/pull/624) | `OrderPlanHead`, `SignedOrderPlan`, `SessionEnding.WrongPinLimit`, the credential's lock, `Records`, `OpenedWith` at open; no change in behaviour; review: the lock capped at a day |
+| 2 | [#626](https://github.com/informedica/GenPRES/pull/626) | the challenge ladder, `SigningRefusal`, `DataNotice`, `SessionPort.challenge`, `processSigning`; review: a notice drops the standing challenge |
+| 3 | [#627](https://github.com/informedica/GenPRES/pull/627) | `Submission`, `Submitted`, `Hop.commit` in the model's order with the PIN last, the ending and its mail; review: a plan naming an order twice refused, the mail best effort |
+| 4 | [#628](https://github.com/informedica/GenPRES/pull/628) | `prescriber-b` |
+| 5 | [#629](https://github.com/informedica/GenPRES/pull/629) | `SigningMachine`, `SigningPolicy`, `EndedByServer` and `TokenRenewed`, nineteen `Terms`; review: `Unsent` and the kept key |
+| 6 | [#630](https://github.com/informedica/GenPRES/pull/630) | the wiring, the Sign button, `Views/SignDialog.fs`, a server fix found in the browser; review: answers land only on their request, a twentieth term |
+| 7 | this PR | uc-03 as-built note, uc-01, uc-02 and plan 409 updated, `DEVELOPMENT.md` signing walkthrough, this table |
+
+### Deviations from the text above
+
+- **Rule 44 is a notice, not a refusal.** Decided in review of step 2: a `DataChanged` refusal
+  would have left a Session unsignable for good, since the Session keeps the data it opened
+  with. The challenge answers `DataNotice { Data; Token }` with the data as it stands (`None`
+  when unreadable), the User proceeds by returning the token with the next request, and the
+  challenge records `Verified`. A wrong, spent, expired or unfitting notice token is a fresh
+  notice. The KnowledgeRuleSet is still not built.
+- **No equality between the plan's data and the Session's (Rule 33).** The challenge compared
+  them and refused `NoPatient`; in the demo the User enters age and weight because the stub
+  platform has none, so nothing could be signed (found in the browser walk of step 6). Rule 33
+  is the Patient's identity, which is the Session's; the data the User saw, entered or read, is
+  what the signed version records. `NoPatient` is only a Session without a Patient.
+- **The duplicate `Order.Id` check** was left out of step 3 for want of a fixture, then built on
+  review, at the challenge and at the commit, with a scenario the tests build by reflection.
+- **The lock is capped** at 24 hours (`Credential.lockMax`, review on #624): the model's delay
+  only grows because it decays with time, and the decay is not built.
+- **A notice drops the Session's standing challenge** (review on #626): it was over the data
+  before the change.
+- **The PIN-limit mail is best effort** (review on #627): the ending and the lock land whatever
+  the MailService does.
+- **The machine owns the request id and the key.** `Sign` and `Confirm` carry ids the App
+  mints; `Unsent` keeps the key of a Submission whose answer was lost, and the next `Confirm`
+  retries under it (Rule 45, review on #629); every answer names the request id or the key it
+  answers and lands only there, so a signature of an earlier Session never touches a later one
+  (review on #630). `CallSubmit` carries the key; the interpreter adds only the OpenedToken.
+- **The cart follows a notice's reading.** `Accept` with a reading sets the patient, so the
+  plan the User signs is over the data they were shown.
+- **Twenty terms, not about twelve**: one per refusal, the notice in both cases, the signed
+  sentence, and one for a transport failure at a signature.
