@@ -135,7 +135,7 @@ type Terms =
     | ``Nutrition Remove Enteral Text``
     // Interactions
     | ``Interactions Medication``
-    // Session (plan 409): the gate and the session menu
+    // Session: the gate and the session menu
     | ``Session Gate Opening``
     | ``Session Gate Opening Text``
     | ``Session Gate Resuming``
@@ -158,12 +158,12 @@ type Terms =
     | ``Session Close``
     | ``Session Role Prescriber``
     | ``Session Role Reader``
-    // the gate after the server ended the Session (Rule 11)
+    // the gate after the server ended the Session
     | ``Session Gate Ended``
     | ``Session Ending Superseded``
-    // Rule 28 (UC-3, plan 622): the Session ended at the third wrong PIN
+    // the Session ended at the third wrong PIN
     | ``Session Ending Pin Limit``
-    // the enrolment form (UC-2, plan 615): title, body with {0} the name and {1} the hinted
+    // the enrolment form: title, body with {0} the name and {1} the hinted
     // mail address, the three field labels, the button, and one sentence per refusal
     | ``Session Gate Enrolment``
     | ``Session Gate Enrolment Text``
@@ -177,7 +177,7 @@ type Terms =
     | ``Session Enrolment Wrong Code``
     | ``Session Enrolment Code Void``
     | ``Session Enrolment Expired``
-    // signing (UC-3, plan 622): the button, the dialog, the data notice (Rule 44), the signed
+    // signing: the button, the dialog, the data notice, the signed
     // sentence with {0} the version and {1} the signer, and one sentence per refusal
     | ``Signing Sign``
     | ``Signing Dialog Title``
@@ -199,8 +199,8 @@ type Terms =
     | ``Signing Refusal Pin Limit``
     | ``Signing Refusal Locked``
     | ``Signing Send Failed``
-    // Rules 21, 22 (plan 635): the record moved on, told once per version; the button that
-    // takes the version up (UC-4 step 4); what is told once it is open
+    // the record moved on, told once per version; the button that takes the version up;
+    // what is told once it is open
     | ``Session Newer Version``
     | ``Session Open Newest``
     | ``Session Version Opened``
