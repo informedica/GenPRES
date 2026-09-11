@@ -39,7 +39,7 @@ Session so that UC-4, two users on one patient, runs end to end against the stub
    token out (`Token.verifyOpened`). A token that is not the Session's yields no notice, never a
    refusal: Compute gates nothing.
 5. **Compute bound to the Session through the cookie, a request envelope with the token, a reply
-   envelope with the notice, the head on `SessionOpened`, and `OpenNewest` as a session
+   envelope with the notice, the head on `SessionOpened`, and `OpenVersion` as a session
    command.** Chosen.
 
 ## Chosen approach
@@ -60,7 +60,7 @@ type RecordNotice =
 type Request = { Opened: OpenedToken option; Command: Command }   // Rule 34: the token rides along
 type Reply = { Response: Response; Notice: RecordNotice option }
 
-type SessionCommand = ... | OpenNewest                             // Rules 18 to 20, UC-4 step 4
+type SessionCommand = ... | OpenVersion of id: string             // Rules 18 to 20, UC-4 step 4
 
 processCommand: Request -> Async<Result<Reply, string[]>>
 ```
@@ -68,30 +68,42 @@ processCommand: Request -> Async<Result<Reply, string[]>>
 `Request.Opened` is `None` where there is none to send: an anonymous Session, a URL patient
 without a launch, or a client acting before its first token arrived (the model's
 `SessionRequest`). `Reply.Notice` is `None` on every reply that has nothing to say. The
-`Command.toString` log line names the notice kind, never the token. `OpenNewest` answers the
-existing `SessionResp of SessionOpened option`: `Some` with the re-minted token and the head,
-`None` where there is no Session, no User or no Patient (Rule 13).
+`Command.toString` log line names the notice kind, never the token. `OpenVersion` carries the id
+of the version the notice named (`OrderPlanHead.Id`), as the model's `OpenOrderPlan of
+OrderPlanId` does, so a version signed between the notice and the button is never opened
+unasked. It answers the existing `SessionResp of SessionOpened option`: `Some` with the token and
+the version opened, `None` where there is no Session, no User or no Patient (Rule 13).
 
 ### The server (`Hop`, pure over `State`)
 
-`SessionRecord` gains `Seen: DateTime` (Rule 9), set at open and at every seen request; nothing
-acts on it yet (Rule 10's lifetimes stay out).
+`SessionRecord` gains `Seen: DateTime` (Rule 9), set at open. `Hop.touch now sid state` sets it to
+`now` when the Session is open, and every port member that acts on the cookie's Session applies
+it before its own ladder: `find` (`GetSession`), `supplyPin`, `challenge`, `submit`,
+`openVersion` and `seen`; `close` excepted, as the model's `updateServerFromDatabaseRequest`
+excepts `CloseSession`. So every request but the closing one refreshes the idle clock, whichever
+API member carries it. Nothing acts on `Seen` yet (Rule 10's lifetimes stay out).
 
 `Hop.seen now sid opened state : State * RecordNotice option`, the ladder of uc-03 step 1 and the
 model's `updateServerFromDatabaseRequest`:
 
 1. No Session under `sid`: an ending recorded for it answers `Ended`; none, `None`.
-2. The Session is open: `Seen = now`. The notice is `NewerVersion` when `opened` is the Session's
-   own token and `blockedBy record patientId state` names a head; in every other case `None`
-   (an anonymous Session, no Patient, no head, a token that is not the Session's).
+2. The Session is open: touched. The notice is `NewerVersion` when `opened` is the Session's own
+   token and `blockedBy record patientId state` names a head; in every other case `None` (an
+   anonymous Session, no Patient, no head, a token that is not the Session's).
 
-`Hop.openNewest now newId sid state : State * SessionResponse`:
+`Hop.openVersion now newId sid id state : State * SessionResponse`:
 
 1. No Session, anonymous, or no Patient: `SessionResp None`.
-2. Otherwise the head of the record becomes `OpenedWith`; when it differs from the current one
-   the OpenedToken is re-minted (`opened-<newId>`) and the standing challenge and notice of this
-   Session are dropped (a challenge over the old baseline must not be answerable); when it is the
-   same, the token stands. The answer is the Session's `SessionOpened` with the head.
+2. The record holds no version `id` for the Session's Patient (a stale button, or a restart):
+   nothing opens, the token stands, the answer is the Session as it is; the client's next
+   request tells it what the head is (Rule 21).
+3. Otherwise version `id` becomes `OpenedWith`: when it differs from the current one the
+   OpenedToken is re-minted (`opened-<newId>`) and the standing challenge and notice of this
+   Session are dropped (a challenge over the old baseline must not be answerable); when it is
+   the same, the token stands. The answer is the Session's `SessionOpened` with that version.
+   Any version may be opened (Rule 18); one that is no longer the head leaves Submission
+   blocked (Rule 20) and the next reply says so again (Rule 21), so a version signed between
+   the notice and the button is never taken up silently.
 
 `Hop.openWith` fills `SessionOpened.Head` from `headOf` at open, so `GetSession` returns it at
 resume too. `Hop.commit` sets `Head` to the version it appended, so a resume after a signature
@@ -100,12 +112,12 @@ opens on it.
 ### Ports, edge
 
 `SessionPort` gains `seen: string -> OpenedToken option -> Async<RecordNotice option>` and
-`openNewest: string -> Async<SessionResponse>`; `sessionDisabled` answers `None` and
+`openVersion: string -> string -> Async<SessionResponse>`; `sessionDisabled` answers `None` and
 `SessionResp None`. `CompositionRoot.processCommand` reads the cookie as `processSigning` does:
 without one it computes as today with `Notice = None`; with one it calls `seen` first, then
 computes, and answers both. An exception in the computation still answers `Error` and loses the
 notice; the next request repeats it (Rule 21 is stateless). `processSession` gains the
-`OpenNewest` arm.
+`OpenVersion` arm.
 
 ### Client (direct edits)
 
@@ -115,8 +127,9 @@ notice; the next request repeats it (Rule 21 is stateless). `processSession` gai
   `SessionMsg.RecordMovedOn head`, `Ended e` as the existing `SessionMsg.EndedByServer e`.
 - `SessionMachine`: `Session.Open` keeps `MovedOn: OrderPlanHead option` next to the
   `SessionOpened`; `RecordMovedOn` sets it and tells it once per head id (`TellMovedOn` effect,
-  a snackbar); `OpenNewest` is an effect `CallOpenNewest`, its answer `Reopened opened`
-  replaces the `SessionOpened`, clears `MovedOn` and emits `LoadCart of SignedOrderPlan option`.
+  a snackbar); `OpenVersion` is an effect `CallOpenVersion of id`, sent with the id `MovedOn`
+  holds, its answer `Reopened opened` replaces the `SessionOpened`, clears `MovedOn` and emits
+  `LoadCart of SignedOrderPlan option`.
   The same `LoadCart` is emitted when the Session enters `Open` from a launch or a resume.
 - `App.fs` interprets `LoadCart`: the cart's `Scenarios` become the head's, `Patient` stays the
   Session's PatientContext, and `FilterOrderPlan` recomputes the rest. No head, an empty cart.
@@ -151,18 +164,22 @@ migration by the maintainer after review.
 
 1. **The envelope and the notice, no visible change.** `Request`, `Reply`, `RecordNotice`,
    `SessionRecord.Seen`, `Hop.seen`, `SessionPort.seen`, `sessionDisabled`, `processCommand`
-   reading the cookie; the client sending the token and logging the notice. Tests: no cookie,
-   an unknown Session with and without an ending, an anonymous Session, the Session's own
-   token with and without a newer head, a foreign token with a newer head (no notice), `Seen`
-   advanced, and `processCommand` end to end through the test environment.
+   reading the cookie; `Hop.touch` applied by every port member but `close`; the client sending
+   the token and logging the notice. Tests: no cookie, an unknown Session with and without an
+   ending, an anonymous Session, the Session's own token with and without a newer head, a
+   foreign token with a newer head (no notice), `Seen` advanced by a compute, a `GetSession`, a
+   challenge and a Submission and not by `CloseSession`, and `processCommand` end to end
+   through the test environment.
 2. **The head into the cart.** `SessionOpened.Head` filled at open and at commit; the client's
    `LoadCart` at open and at resume, `FilterOrderPlan` after it. Tests: open on a head, open
    from nothing, resume after a signature; the machine's effect.
-3. **Open the newest version.** `SessionCommand.OpenNewest`, `Hop.openNewest`, the port and
-   the `processSession` arm; the machine's `CallOpenNewest` and `Reopened`. Tests: no Session,
-   anonymous, no Patient, the head unchanged (token kept), the head moved on (token re-minted,
-   the old one stale at the next challenge, the challenge and notice dropped), then a commit
-   over the new baseline succeeding.
+3. **Open the version the notice named.** `SessionCommand.OpenVersion`, `Hop.openVersion`, the
+   port and the `processSession` arm; the machine's `CallOpenVersion` and `Reopened`. Tests: no
+   Session, anonymous, no Patient, an id the record does not hold (nothing opened, token kept),
+   the version already open (token kept), the head (token re-minted, the old one stale at the
+   next challenge, the challenge and notice dropped), then a commit over the new baseline
+   succeeding; a version that is no longer the head (opened, the commit still `Blocked`, the
+   next `seen` a notice again).
 4. **The notice in the client.** `RecordMovedOn` told once per head, the bar and the button on
    the order plan, the button on the `Blocked` refusal, `Ended` to the gate, the three terms.
 5. **Docs.** uc-04 gets an as-built note; uc-01's and uc-03's not-built lines and plan 409's
@@ -176,11 +193,13 @@ migration by the maintainer after review.
 - Two browsers: `prescriber` (A) and `prescriber-b` (B) on the same patient. B signs. A's next
   prescribing action shows "A newer version was signed by Stub Prescriber B at hh:mm" once, with
   "Open the newest version"; A keeps prescribing meanwhile (Rule 22); pressing the button loads
-  B's orders into A's cart and says version N by Stub Prescriber B is open; A signs version N+1
-  with B's as its base. Without pressing it, A's Sign is still refused as blocked.
+  the version the notice named, B's orders, into A's cart and says version N by Stub Prescriber
+  B is open; A signs version N+1 with B's as its base. Without pressing it, A's Sign is still
+  refused as blocked. If B signs again between the notice and the button, A gets B's first
+  version, the notice again, and a blocked Sign until the newer one is opened too.
 - Launch `prescriber` in tab 1, then again in tab 2: tab 1's next prescribing action shows the
   gate with the superseded ending, as `GetSession` does today.
 - A URL patient without a launch and `reader` compute as today; the Network tab shows
   `Request { Opened; Command }` answering `Reply { Response; Notice }` with `Notice` empty.
-  With `GENPRES_PROD=1` every reply's notice is empty and `OpenNewest` answers no Session.
+  With `GENPRES_PROD=1` every reply's notice is empty and `OpenVersion` answers no Session.
 - `dotnet run ServerTests`, the Fable compile and Fantomas stay green after every step.
