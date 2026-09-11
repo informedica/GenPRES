@@ -1,17 +1,19 @@
-// Compute bound to the Session (plan 635), PR 1: the request and reply envelopes, the Session
-// marked seen, and the notice that the record moved on. No visible change yet: the client sends
-// the token and logs the notice.
+// Compute bound to the Session (plan 635), PR 2: the head of the record into the cart at open
+// (Rule 19, second half). The Session already opens with the head's id (`OpenedWith`, plan 622);
+// now the version itself travels to the client, which loads its orders into the cart at a
+// launch, a resume and an enrolment, and after a signature the version just signed is what a
+// resume opens on.
 //
 // Script-first draft (script-only policy) of:
-//   - the wire: `RecordNotice` → `Shared/Types.fs`; `Request`, `Reply` and
-//     `IServerApi.processCommand: Request -> Async<Result<Reply, string[]>>` → `Shared/Api.fs`;
-//   - `Hop`: `SessionRecord.Seen` (Rule 9), `touch`, `seen` (Rules 11, 21, 22) → `Adapters.fs`,
-//     with `touch` applied by every port member that takes the session cookie's id (`find`,
-//     `challenge`, `submit`, `seen`; `close` excepted, as the model excepts `CloseSession`);
-//   - `SessionPort.seen` → `Ports.fs`; `processCommand` reading the cookie → `CompositionRoot.fs`.
+//   - the wire: `SessionOpened.Head: SignedOrderPlan option` → `Shared/Types.fs` (the head
+//     types move above `SessionOpened`, which now refers to them);
+//   - `Hop.openWith` filling `Head` from `headOf`, and `Hop.commit` setting it to the version
+//     appended → `Adapters.fs`.
+// The client side (`SessionEffect.LoadCart`, emitted by `Session.opened`; App.fs loading the
+// cart through `FilterOrderPlan`) is edited directly, as UI code.
 //
-// Only what changes is re-stated: the state here has the three fields `seen` reads. Run:
-// `dotnet fsi Compute.fsx` from this directory (build first).
+// Only what changes is re-stated: the two places the head is written. Run: `dotnet fsi
+// Compute.fsx` from this directory (build first).
 
 #I __SOURCE_DIRECTORY__
 #r "nuget: Expecto, 10.2.3"
@@ -21,109 +23,44 @@
 open System
 open Shared.Types
 open Shared.Models
-open ServerApi
 
 
 // ---------------------------------------------------------------------------------------------
-// Wire (→ Shared/Types.fs, Shared/Api.fs)
+// Wire (→ Shared/Types.fs)
 // ---------------------------------------------------------------------------------------------
 
-/// What a reply says about the Session next to its result. Rules 21, 22: a version newer than
-/// the one the request's OpenedToken names exists, whose and when; it gates nothing. Rule 11:
-/// the server ended this Session, told at the next request.
-[<RequireQualifiedAccess>]
-type RecordNotice =
-    | NewerVersion of OrderPlanHead
-    | Ended of SessionEnding
-
-
-/// Every computing request: the command and the OpenedToken the Session holds (Rule 34).
-/// `None` where there is none to send: no Session, an anonymous one, or a client acting before
-/// its first token arrived.
-type Request =
+/// What the client keeps of an open Session (launch step 6), now with the version of the
+/// record it opened with (Rule 19): its orders go into the cart, and Rule 20 is checked against
+/// its id. `None` from nothing.
+type SessionOpened =
     {
-        Opened: OpenedToken option
-        Command: Shared.Api.Command
-    }
-
-
-/// Every computing reply: the result, and what the Session is told with it.
-type Reply =
-    {
-        Response: Shared.Api.Response
-        Notice: RecordNotice option
+        User: UserContext option
+        PatientContext: PatientContext option
+        OpenedToken: OpenedToken option
+        KeyThumbprint: string option
+        Head: SignedOrderPlan option
     }
 
 
 // ---------------------------------------------------------------------------------------------
-// The Session seen, and the notice (→ ServerApi.Adapters.fs, `Hop`)
+// The head written at open and at commit (→ ServerApi.Adapters.fs, `Hop`)
 // ---------------------------------------------------------------------------------------------
 
 module Hop =
 
-    /// A Session as the store holds it: what the client learns, the login it belongs to
-    /// (Rule 8), the head of the record it opened with (Rule 19), and when it was last seen
-    /// (Rule 9; nothing acts on it yet).
-    type SessionRecord =
-        {
-            Session: SessionOpened
-            Login: string option
-            OpenedWith: string option
-            Seen: DateTime
+    /// The two fields `openWith` derives from the record (Rule 19): the version and its id.
+    let headAtOpen (headOf: string -> SignedOrderPlan option) (patientId: string) =
+        let head = headOf patientId
+        head, head |> Option.map _.Head.Id
+
+
+    /// What `commit` writes on the Session once the version is appended (Rule 34): the fresh
+    /// token, and the version just signed as the one the Session opened with.
+    let afterCommit (token: OpenedToken) (plan: SignedOrderPlan) (session: SessionOpened) =
+        { session with
+            OpenedToken = Some token
+            Head = Some plan
         }
-
-
-    /// The state of PR 1: only the fields `seen` reads.
-    type State =
-        {
-            Sessions: Map<string, SessionRecord>
-            Endings: Map<string, SessionEnding * DateTime>
-            Records: Map<string, SignedOrderPlan list>
-        }
-
-
-    let emptyState =
-        {
-            Sessions = Map.empty
-            Endings = Map.empty
-            Records = Map.empty
-        }
-
-
-    /// Rule 19: the most recent signed version of a patient's record, if any.
-    let headOf (patientId: string) (state: State) =
-        state.Records |> Map.tryFind patientId |> Option.bind List.tryHead
-
-
-    /// Rule 20: the head of the record, when it is not the version the Session opened with.
-    let blockedBy (record: SessionRecord) (patientId: string) (state: State) =
-        match headOf patientId state with
-        | Some head when Some head.Head.Id <> record.OpenedWith -> Some head.Head
-        | _ -> None
-
-
-    /// Rule 9: a request from the Session refreshes its idle clock. Nothing to refresh when
-    /// there is no such Session.
-    let touch (now: DateTime) (sid: string) (state: State) : State =
-        { state with Sessions = state.Sessions |> Map.change sid (Option.map (fun r -> { r with Seen = now })) }
-
-
-    /// uc-03 step 1, for every computing request that names a Session: no Session under this
-    /// id and an ending recorded for it, the ending (Rule 11); a Session, touched, and Rule 21's
-    /// comparison when the token is the Session's own: a newer version than the one it opened
-    /// with, whose and when (Rule 22: told, never enforced). An anonymous Session, one without
-    /// a Patient, no head, or a token that is not the Session's: nothing to say.
-    let seen (now: DateTime) (sid: string) (opened: OpenedToken option) (state: State) : State * RecordNotice option =
-        match state.Sessions |> Map.tryFind sid with
-        | None ->
-            state, state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended)
-        | Some record ->
-            let state = touch now sid state
-
-            match record.Session.User, record.Session.PatientContext with
-            | Some _, Some patient when opened.IsSome && opened = record.Session.OpenedToken ->
-                state, blockedBy record patient.PatientId state |> Option.map RecordNotice.NewerVersion
-            | _ -> state, None
 
 
 // ---------------------------------------------------------------------------------------------
@@ -135,7 +72,6 @@ open Expecto.Flip
 
 
 let t0 = DateTime(2026, 9, 11, 12, 0, 0, DateTimeKind.Utc)
-let t1 = t0.AddMinutes 5.0
 
 let prescriber =
     {
@@ -144,21 +80,15 @@ let prescriber =
         Role = UserRole.Prescriber
     }
 
-let other =
-    { prescriber with
-        UserId = "prescriber-b"
-        DisplayName = "Stub Prescriber B"
-    }
 
-
-let signedBy (user: UserContext) no (at: DateTime) : SignedOrderPlan =
+let signed no : SignedOrderPlan =
     {
         Head =
             {
                 Id = $"plan-{no}"
                 No = no
-                By = user
-                SignedAt = at
+                By = prescriber
+                SignedAt = t0
             }
         PatientId = "pat-1"
         Base = if no > 1 then Some $"plan-{no - 1}" else None
@@ -168,153 +98,42 @@ let signedBy (user: UserContext) no (at: DateTime) : SignedOrderPlan =
     }
 
 
-let session (user: UserContext option) (patientId: string option) (sid: string) (openedWith: string option) : Hop.SessionRecord =
+let records = Map.ofList [ "pat-1", [ signed 2; signed 1 ] ]
+let headOf patientId = records |> Map.tryFind patientId |> Option.bind List.tryHead
+
+let opened: SessionOpened =
     {
-        Session =
-            {
-                User = user
-                PatientContext =
-                    patientId
-                    |> Option.map (fun pid ->
-                        {
-                            PatientId = pid
-                            Patient = Patient.empty
-                        }
-                    )
-                OpenedToken = Some(OpenedToken $"opened-{sid}")
-                KeyThumbprint = Some "t"
-            }
-        Login = user |> Option.map _.UserId
-        OpenedWith = openedWith
-        Seen = t0
+        User = Some prescriber
+        PatientContext =
+            Some
+                {
+                    PatientId = "pat-1"
+                    Patient = Patient.empty
+                }
+        OpenedToken = Some(OpenedToken "opened-1")
+        KeyThumbprint = Some "t"
+        Head = None
     }
-
-
-let withSession (record: Hop.SessionRecord) sid (state: Hop.State) =
-    { state with Sessions = state.Sessions |> Map.add sid record }
-
-let withRecord patientId (versions: SignedOrderPlan list) (state: Hop.State) =
-    { state with Records = state.Records |> Map.add patientId versions }
-
-let own sid = Some(OpenedToken $"opened-{sid}")
 
 
 let tests =
     testList
-        "seen (Rules 9, 11, 21, 22)"
+        "the head into the cart (Rule 19)"
         [
-            test "an unknown Session with no ending: nothing to say, nothing touched" {
-                let state, notice = Hop.emptyState |> Hop.seen t1 "s-1" (own "s-1")
-                notice |> Expect.isNone "no notice"
-                state |> Expect.equal "unchanged" Hop.emptyState
+            test "a Session over a record opens with the newest version and its id" {
+                Hop.headAtOpen headOf "pat-1"
+                |> Expect.equal "the head" (Some(signed 2), Some "plan-2")
             }
 
-            test "an unknown Session with an ending recorded: the ending (Rule 11)" {
-                let state =
-                    { Hop.emptyState with
-                        Endings = Map.ofList [ "s-1", (SessionEnding.SupersededByLaunch, t0) ]
-                    }
-
-                let _, notice = state |> Hop.seen t1 "s-1" (own "s-1")
-
-                notice
-                |> Expect.equal "ended" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
+            test "a Session over no record opens from nothing" {
+                Hop.headAtOpen headOf "pat-9" |> Expect.equal "nothing" (None, None)
             }
 
-            test "a Session is touched by every seen request (Rule 9)" {
-                let state =
-                    Hop.emptyState
-                    |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
-
-                let state, _ = state |> Hop.seen t1 "s-1" None
-                state.Sessions["s-1"].Seen |> Expect.equal "seen now" t1
-            }
-
-            test "touching an unknown Session changes nothing" {
-                Hop.emptyState |> Hop.touch t1 "s-9" |> Expect.equal "unchanged" Hop.emptyState
-            }
-
-            test "the Session's own token, no head: nothing to say" {
-                let state =
-                    Hop.emptyState
-                    |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
-
-                let _, notice = state |> Hop.seen t1 "s-1" (own "s-1")
-                notice |> Expect.isNone "no notice"
-            }
-
-            test "the Session's own token, the head it opened with: nothing to say" {
-                let state =
-                    Hop.emptyState
-                    |> withRecord "pat-1" [ signedBy prescriber 1 t0 ]
-                    |> withSession (session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")) "s-1"
-
-                let _, notice = state |> Hop.seen t1 "s-1" (own "s-1")
-                notice |> Expect.isNone "no notice"
-            }
-
-            test "the Session's own token, a newer head: whose and when (Rules 21, 22)" {
-                let state =
-                    Hop.emptyState
-                    |> withRecord "pat-1" [ signedBy other 2 t1; signedBy prescriber 1 t0 ]
-                    |> withSession (session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")) "s-1"
-
-                let state, notice = state |> Hop.seen t1 "s-1" (own "s-1")
-
-                notice
-                |> Expect.equal "newer version" (Some(RecordNotice.NewerVersion (signedBy other 2 t1).Head))
-
-                state.Sessions["s-1"].OpenedWith
-                |> Expect.equal "nothing opened: Rule 20 stays the guard" (Some "plan-1")
-            }
-
-            test "a Session opened from nothing, a first version signed elsewhere: a notice" {
-                let state =
-                    Hop.emptyState
-                    |> withRecord "pat-1" [ signedBy other 1 t1 ]
-                    |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
-
-                let _, notice = state |> Hop.seen t1 "s-1" (own "s-1")
-                notice |> Expect.isSome "newer version"
-            }
-
-            test "a token that is not the Session's, a newer head: nothing to say, still touched" {
-                let state =
-                    Hop.emptyState
-                    |> withRecord "pat-1" [ signedBy other 2 t1; signedBy prescriber 1 t0 ]
-                    |> withSession (session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")) "s-1"
-
-                let state, notice = state |> Hop.seen t1 "s-1" (own "s-2")
-                notice |> Expect.isNone "no notice"
-                state.Sessions["s-1"].Seen |> Expect.equal "seen" t1
-
-                let _, notice = state |> Hop.seen t1 "s-1" None
-                notice |> Expect.isNone "no token, no notice"
-            }
-
-            test "an anonymous Session, or one without a Patient: nothing to say" {
-                let state =
-                    Hop.emptyState
-                    |> withRecord "pat-1" [ signedBy other 2 t1 ]
-                    |> withSession (session None (Some "pat-1") "s-a" None) "s-a"
-                    |> withSession (session (Some prescriber) None "s-n" None) "s-n"
-
-                let _, notice = state |> Hop.seen t1 "s-a" (own "s-a")
-                notice |> Expect.isNone "anonymous"
-
-                let _, notice = state |> Hop.seen t1 "s-n" (own "s-n")
-                notice |> Expect.isNone "no patient"
-            }
-
-            test "the notice is stateless: the same request says it again" {
-                let state =
-                    Hop.emptyState
-                    |> withRecord "pat-1" [ signedBy other 2 t1; signedBy prescriber 1 t0 ]
-                    |> withSession (session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")) "s-1"
-
-                let state, first = state |> Hop.seen t1 "s-1" (own "s-1")
-                let _, second = state |> Hop.seen (t1.AddMinutes 1.0) "s-1" (own "s-1")
-                second |> Expect.equal "again" first
+            test "after a signature the Session holds the fresh token and the version just signed" {
+                let after = opened |> Hop.afterCommit (OpenedToken "opened-2") (signed 3)
+                after.OpenedToken |> Expect.equal "re-minted" (Some(OpenedToken "opened-2"))
+                after.Head |> Expect.equal "the version signed" (Some(signed 3))
+                after.User |> Expect.equal "the rest untouched" opened.User
             }
         ]
 
