@@ -41,118 +41,52 @@ let tests =
     testList
         "Totals Tests"
         [
-            testAsync "updateOrderPlan doesn't cache totals" {
+            testAsync "recalculate doesn't cache totals" {
                 let spy = TotalsSpy()
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
-                let! _ = sut.orderPlan.updateOrderPlan emptyPlan None
+                let! _ = sut.plan.recalculate emptyPlan
 
                 let countAfter = spy.CallCount
                 countBefore <! countAfter
             }
 
-            testAsync "filterOrderPlan doesn't cache totals" {
-                let spy = TotalsSpy()
-                let sut = ServerApi.Adapters.makeAppEnv spy
-                let countBefore = spy.CallCount
-
-                let! _ = sut.orderPlan.filterOrderPlan emptyPlan
-
-                let countAfter = spy.CallCount
-                countBefore <! countAfter
-            }
-
-            testAsync "initNutritionPlan doesn't cache totals" {
-                let spy = TotalsSpy()
-                let sut = ServerApi.Adapters.makeAppEnv spy
-                let countBefore = spy.CallCount
-
-                let! _ = sut.nutritionPlan.initNutritionPlan Models.Patient.empty
-
-                let countAfter = spy.CallCount
-                countBefore <! countAfter
-            }
-
-            testAsync "addNutritionContext doesn't cache totals" {
-                let spy = TotalsSpy()
-                let sut = ServerApi.Adapters.makeAppEnv spy
-                let countBefore = spy.CallCount
-
-                let dummyCategory = NutritionCategory.TPN
-                let! _ = sut.nutritionPlan.addNutritionContext (Models.NutritionPlan.empty, dummyCategory)
-
-                let countAfter = spy.CallCount
-                // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
-                // provider.GetTotals():
-                countBefore + 1 <! countAfter
-            }
-
-            testAsync "removeNutritionContext doesn't cache totals" {
-                let spy = TotalsSpy()
-                let sut = ServerApi.Adapters.makeAppEnv spy
-                let countBefore = spy.CallCount
-
-                let! _ = sut.nutritionPlan.removeNutritionContext (Models.NutritionPlan.empty, "dummy ID")
-
-                let countAfter = spy.CallCount
-                countBefore <! countAfter
-            }
-
-            testAsync "updateNutritionOrderContext doesn't cache totals" {
-                let spy = TotalsSpy()
-                let sut = ServerApi.Adapters.makeAppEnv spy
-                let countBefore = spy.CallCount
-
-                let! _ =
-                    sut.nutritionPlan.updateNutritionOrderContext (
-                        Models.NutritionPlan.empty,
-                        "dummy label",
-                        Models.OrderContext.empty
-                    )
-
-                let countAfter = spy.CallCount
-                // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
-                // provider.GetTotals():
-                countBefore + 1 <! countAfter
-            }
-
-            testAsync "selectNutritionOrderScenario doesn't cache totals" {
-                let spy = TotalsSpy()
-                let sut = ServerApi.Adapters.makeAppEnv spy
-                let countBefore = spy.CallCount
-
-                let! _ =
-                    sut.nutritionPlan.selectNutritionOrderScenario (
-                        Models.NutritionPlan.empty,
-                        "dummy label",
-                        Models.OrderContext.empty
-                    )
-
-                let countAfter = spy.CallCount
-                // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
-                // provider.GetTotals():
-                countBefore + 1 <! countAfter
-            }
-
-            testAsync "navigateNutritionOrderContext doesn't cache totals" {
+            testAsync "navigate doesn't cache totals" {
                 let spy = TotalsSpy()
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
                 let dummyCmd = Shared.Api.OrderContextCommand.UpdateOrderContext
-
-                let! _ =
-                    sut.nutritionPlan.navigateNutritionOrderContext (
-                        Models.NutritionPlan.empty,
-                        "dummy label",
-                        dummyCmd,
-                        Models.OrderContext.empty
-                    )
+                let! _ = sut.plan.navigate emptyPlan None dummyCmd Models.OrderContext.empty
 
                 let countAfter = spy.CallCount
                 // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
                 // provider.GetTotals():
                 countBefore + 1 <! countAfter
+            }
+
+            testAsync "addContext doesn't cache totals" {
+                let spy = TotalsSpy()
+                let sut = ServerApi.Adapters.makeAppEnv spy
+                let countBefore = spy.CallCount
+
+                let! _ = sut.plan.addContext emptyPlan NutritionCategory.TPN
+
+                let countAfter = spy.CallCount
+                // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
+                // provider.GetTotals():
+                countBefore + 1 <! countAfter
+            }
+
+            testAsync "removeContext doesn't cache totals" {
+                let spy = TotalsSpy()
+                let sut = ServerApi.Adapters.makeAppEnv spy
+                let countBefore = spy.CallCount
+
+                let! _ = sut.plan.removeContext emptyPlan "dummy ID"
+
+                let countAfter = spy.CallCount
+                countBefore <! countAfter
             }
         ]

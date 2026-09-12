@@ -530,14 +530,6 @@ module Types =
         }
 
 
-    type NutritionPlan =
-        {
-            Patient: Patient
-            NutritionContexts: NutritionContext[]
-            Totals: Totals
-        }
-
-
     type Formulary =
         {
             Generics: string[]

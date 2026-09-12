@@ -443,64 +443,6 @@ DoseType : {filter.DoseType
             Error [| e.Message |]
 
 
-module OrderPlanService =
-
-    open Shared
-    open Shared.Types
-
-    module OrderLogger = Informedica.GenOrder.Lib.OrderLogging
-
-
-    let updateOrderPlan
-        (orderCtxPort: OrderContextPort)
-        (tp: OrderPlan)
-        (cmdOpt: (Api.OrderContextCommand * OrderContext) option)
-        =
-        match cmdOpt with
-        | None -> async { return tp }
-        | Some(cmd, ctx) ->
-            async {
-                let! result = orderCtxPort.evaluate cmd ctx
-
-                return
-                    result
-                    |> Result.map (fun newCtx ->
-                        let newOsc = newCtx.Scenarios |> Array.tryExactlyOne
-
-                        { tp with
-                            Selected = newOsc
-                            Scenarios =
-                                match newOsc with
-                                | None -> tp.Scenarios
-                                | Some newOsc ->
-                                    tp.Scenarios
-                                    |> Array.map (fun sc ->
-                                        if sc |> Models.OrderScenario.eqs newOsc then newOsc else sc
-                                    )
-                        }
-                    )
-                    |> Result.defaultValue tp
-            }
-
-
-    let calculateTotals (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (tp: OrderPlan) =
-        { tp with
-            Totals =
-                let w = tp.Patient |> Models.Patient.getWeight |> Option.map int
-                let a = tp.Patient |> Models.Patient.getAgeInDays |> Option.map int
-
-                // by order id: a scenario replaced in Scenarios still counts under its filter
-                let scs =
-                    if tp.Filtered |> Array.isEmpty then
-                        tp.Scenarios
-                    else
-                        tp.Scenarios
-                        |> Array.filter (fun sc -> tp.Filtered |> Array.exists (fun f -> f.Order.Id = sc.Order.Id))
-
-                scs |> Array.map _.Order |> OrderService.getTotals totals a w
-        }
-
-
 module NutritionPlanService =
 
     open Shared
@@ -647,18 +589,6 @@ module NutritionPlanService =
         | NutritionCategory.ElectrolyteGlucose -> electrolyteGlucoseDoseRuleSet
 
 
-    let calculateNutritionTotals (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: NutritionPlan) =
-        { plan with
-            Totals =
-                let w = plan.Patient |> Models.Patient.getWeight |> Option.map int
-                let a = plan.Patient |> Models.Patient.getAgeInDays |> Option.map int
-
-                plan.NutritionContexts
-                |> Array.collect (fun nc -> nc.OrderContext.Scenarios |> Array.map _.Order)
-                |> OrderService.getTotals totals a w
-        }
-
-
     /// Discovers available filter options for a given OrderContext.
     /// Evaluates the context via the OrderContext port and intersects
     /// the resolved options with the configured values.
@@ -688,13 +618,6 @@ module NutritionPlanService =
         }
 
 
-    let initNutritionPlan _logger totals (patient: Patient) : Result<NutritionPlan, string[]> =
-        [||]
-        |> Models.NutritionPlan.create patient
-        |> calculateNutritionTotals totals
-        |> Ok
-
-
     /// Filters a resolved OrderContext's filter arrays against the configured
     /// dose rule set. If a configured array is non-empty, only matching values
     /// are kept; if empty, no restriction is applied.
@@ -717,130 +640,6 @@ module NutritionPlanService =
                     DoseTypes = resolved.Filter.DoseTypes
                 }
         }
-
-
-    let updateContext totals id resolved (plan: NutritionPlan) =
-        let updatedContexts =
-            plan.NutritionContexts
-            |> Array.map (fun nc ->
-                if nc.Id = id then
-                    let drs = getDoseRuleSet nc.Category
-                    { nc with OrderContext = resolved |> filterByDoseRuleSet drs }
-                else
-                    nc
-            )
-
-        { plan with NutritionContexts = updatedContexts }
-        |> calculateNutritionTotals totals
-
-
-    let updateNutritionOrderContext
-        totals
-        (orderCtxPort: OrderContextPort)
-        (plan: NutritionPlan, id: string, ctx: OrderContext)
-        : Async<Result<NutritionPlan, string[]>>
-        =
-        async {
-            let! result = orderCtxPort.evaluate Api.UpdateOrderContext ctx
-
-            return
-                match result with
-                | Ok resolved -> plan |> updateContext totals id resolved |> Ok
-                | Error errs -> Error errs
-        }
-
-
-    let navigateNutritionOrderContext
-        totals
-        (orderCtxPort: OrderContextPort)
-        (plan: NutritionPlan, id: string, ctxCmd: Api.OrderContextCommand, ctx: OrderContext)
-        : Async<Result<NutritionPlan, string[]>>
-        =
-        async {
-            let! result = orderCtxPort.evaluate ctxCmd ctx
-
-            return
-                match result with
-                | Ok resolved -> plan |> updateContext totals id resolved |> Ok
-                | Error errs -> Error errs
-        }
-
-
-    let selectNutritionOrderScenario
-        totals
-        (orderCtxPort: OrderContextPort)
-        (plan: NutritionPlan, id: string, ctx: OrderContext)
-        : Async<Result<NutritionPlan, string[]>>
-        =
-        async {
-            let! result = orderCtxPort.evaluate Api.SelectOrderScenario ctx
-
-            return
-                match result with
-                | Ok resolved -> plan |> updateContext totals id resolved |> Ok
-                | Error errs -> Error errs
-        }
-
-
-    let addNutritionContext
-        totals
-        (orderCtxPort: OrderContextPort)
-        (plan: NutritionPlan, category: NutritionCategory)
-        : Async<Result<NutritionPlan, string[]>>
-        =
-        async {
-            let drs = getDoseRuleSet category
-
-            let ctx =
-                Models.OrderContext.empty
-                |> Models.OrderContext.setPatient plan.Patient
-                |> fun c ->
-                    { c with
-                        Filter =
-                            { c.Filter with
-                                Indications = drs.Indications
-                                Generics = drs.Generics
-                            }
-                    }
-
-            let! filterResult = discoverFilterOptions orderCtxPort ctx
-
-            return
-                match filterResult with
-                | Some resolved ->
-                    let id = System.Guid.NewGuid().ToString()
-                    let nc = Models.NutritionContext.create id drs.Label category true resolved
-
-                    { plan with NutritionContexts = Array.append plan.NutritionContexts [| nc |] }
-                    |> calculateNutritionTotals totals
-                    |> Ok
-                | None ->
-                    Error
-                        [|
-                            "Could not discover filter options for nutrition context"
-                        |]
-        }
-
-
-    let removeNutritionContext totals (plan: NutritionPlan, id: string) : Result<NutritionPlan, string[]> =
-        let removedCtx = plan.NutritionContexts |> Array.tryFind (fun nc -> nc.Id = id)
-
-        let cascadeRemoveSupplements =
-            removedCtx
-            |> Option.map (fun nc -> nc.Category = NutritionCategory.EnteralFeeding)
-            |> Option.defaultValue false
-
-        { plan with
-            NutritionContexts =
-                plan.NutritionContexts
-                |> Array.filter (fun nc ->
-                    nc.Id <> id
-                    && (not cascadeRemoveSupplements
-                        || nc.Category <> NutritionCategory.EnteralSupplement)
-                )
-        }
-        |> calculateNutritionTotals totals
-        |> Ok
 
 
 /// The one plan, nutrition included: the nutrition workbenches produce orders by category, and
@@ -935,8 +734,24 @@ module PlanService =
         |> Array.fold (fun p nc -> p |> withOrders (contribution nc) None) { plan with NutritionContexts = kept }
 
 
-    let recalculate totals (plan: OrderPlan) =
-        plan |> OrderPlanService.calculateTotals totals
+    /// The plan with its totals recomputed over its orders: the filtered ones, by order id, when
+    /// a filter is set, else all of them.
+    let recalculate (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: OrderPlan) =
+        { plan with
+            Totals =
+                let w = plan.Patient |> Models.Patient.getWeight |> Option.map int
+                let a = plan.Patient |> Models.Patient.getAgeInDays |> Option.map int
+
+                // by order id: a scenario replaced in Scenarios still counts under its filter
+                let scs =
+                    if plan.Filtered |> Array.isEmpty then
+                        plan.Scenarios
+                    else
+                        plan.Scenarios
+                        |> Array.filter (fun sc -> plan.Filtered |> Array.exists (fun f -> f.Order.Id = sc.Order.Id))
+
+                scs |> Array.map _.Order |> OrderService.getTotals totals a w
+        }
 
 
     /// A command into the nutrition context named, or into the selected scenario when none is;

@@ -39,30 +39,12 @@ module StubAdapters =
         { evaluate = fun _ _ -> async { return Error msgs } }
 
 
-    let orderPlanAlwaysOk (returnPlan: OrderPlan) : OrderPlanPort =
-        {
-            updateOrderPlan = fun _ _ -> async { return Ok returnPlan }
-            filterOrderPlan = fun _ -> async { return Ok returnPlan }
-        }
-
-
     let planAlwaysOk (returnPlan: OrderPlan) : PlanPort =
         {
             recalculate = fun _ -> async { return Ok returnPlan }
             navigate = fun _ _ _ _ -> async { return Ok returnPlan }
             addContext = fun _ _ -> async { return Ok returnPlan }
             removeContext = fun _ _ -> async { return Ok returnPlan }
-        }
-
-
-    let nutritionPlanAlwaysOk (returnPlan: NutritionPlan) : NutritionPlanPort =
-        {
-            initNutritionPlan = fun _ -> async { return Ok returnPlan }
-            addNutritionContext = fun _ -> async { return Ok returnPlan }
-            removeNutritionContext = fun _ -> async { return Ok returnPlan }
-            updateNutritionOrderContext = fun _ -> async { return Ok returnPlan }
-            selectNutritionOrderScenario = fun _ -> async { return Ok returnPlan }
-            navigateNutritionOrderContext = fun _ -> async { return Ok returnPlan }
         }
 
 
@@ -96,18 +78,10 @@ module StubAdapters =
         }
 
 
-    let makeEnv
-        (formulary: FormularyPort)
-        (orderContext: OrderContextPort)
-        (orderPlan: OrderPlanPort)
-        (nutritionPlan: NutritionPlanPort)
-        : AppEnv
-        =
+    let makeEnv (formulary: FormularyPort) (orderContext: OrderContextPort) : AppEnv =
         {
             formulary = formulary
             orderContext = orderContext
-            orderPlan = orderPlan
-            nutritionPlan = nutritionPlan
             plan = planAlwaysOk (OrderPlan.create Models.Patient.empty [||])
             interaction =
                 {
@@ -124,20 +98,6 @@ module StubAdapters =
         {
             formulary = formularyAlwaysFails [| "not loaded" |]
             orderContext = orderContextAlwaysFails [| "not loaded" |]
-            orderPlan =
-                {
-                    updateOrderPlan = fun _ _ -> async { return Error [| "not loaded" |] }
-                    filterOrderPlan = fun _ -> async { return Error [| "not loaded" |] }
-                }
-            nutritionPlan =
-                {
-                    initNutritionPlan = fun _ -> async { return Error [| "not loaded" |] }
-                    addNutritionContext = fun _ -> async { return Error [| "not loaded" |] }
-                    removeNutritionContext = fun _ -> async { return Error [| "not loaded" |] }
-                    updateNutritionOrderContext = fun _ -> async { return Error [| "not loaded" |] }
-                    selectNutritionOrderScenario = fun _ -> async { return Error [| "not loaded" |] }
-                    navigateNutritionOrderContext = fun _ -> async { return Error [| "not loaded" |] }
-                }
             plan =
                 {
                     recalculate = fun _ -> async { return Error [| "not loaded" |] }
@@ -162,8 +122,6 @@ let emptyCtx = Models.OrderContext.empty
 
 let emptyPlan = OrderPlan.empty
 
-let emptyNutritionPlan = Models.NutritionPlan.create Models.Patient.empty [||]
-
 
 let commandRoutingTests =
     testList
@@ -173,12 +131,7 @@ let commandRoutingTests =
             testAsync "processFormulary dispatches to formulary.getFormulary, typed" {
                 let returnForm = { Formulary.empty with Markdown = "stubbed" }
 
-                let env =
-                    makeEnv
-                        (formularyAlwaysOk returnForm)
-                        (orderContextAlwaysOk emptyCtx)
-                        (orderPlanAlwaysOk emptyPlan)
-                        (nutritionPlanAlwaysOk emptyNutritionPlan)
+                let env = makeEnv (formularyAlwaysOk returnForm) (orderContextAlwaysOk emptyCtx)
 
                 let! result = FormularyCommand.processCmd env Formulary.empty
 
@@ -189,11 +142,7 @@ let commandRoutingTests =
 
             testAsync "processParenteralia dispatches to formulary.getParenteralia, typed" {
                 let env =
-                    makeEnv
-                        (formularyAlwaysOk Formulary.empty)
-                        (orderContextAlwaysOk emptyCtx)
-                        (orderPlanAlwaysOk emptyPlan)
-                        (nutritionPlanAlwaysOk emptyNutritionPlan)
+                    makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
                 let! result = ParenteraliaCommand.processCmd env Parenteralia.empty
 
@@ -204,47 +153,13 @@ let commandRoutingTests =
 
             testAsync "OrderContextCmd dispatches to orderContext.evaluate" {
                 let env =
-                    makeEnv
-                        (formularyAlwaysOk Formulary.empty)
-                        (orderContextAlwaysOk emptyCtx)
-                        (orderPlanAlwaysOk emptyPlan)
-                        (nutritionPlanAlwaysOk emptyNutritionPlan)
+                    makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
                 let! result = Command.processCmd env (Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx))
 
                 match result with
                 | Ok(Api.OrderContextResp(Api.OrderContextResult _)) -> ()
                 | other -> failtest $"expected Ok OrderContextResp, got {other}"
-            }
-
-            testAsync "NutritionPlanCmd InitNutritionPlan dispatches to nutritionPlan port" {
-                let env =
-                    makeEnv
-                        (formularyAlwaysOk Formulary.empty)
-                        (orderContextAlwaysOk emptyCtx)
-                        (orderPlanAlwaysOk emptyPlan)
-                        (nutritionPlanAlwaysOk emptyNutritionPlan)
-
-                let! result = Command.processCmd env (Api.NutritionPlanCmd(Api.InitNutritionPlan Models.Patient.empty))
-
-                match result with
-                | Ok(Api.NutritionPlanResp(Api.NutritionPlanInitialised _)) -> ()
-                | other -> failtest $"expected Ok NutritionPlanInitialised, got {other}"
-            }
-
-            testAsync "OrderPlanCmd FilterOrderPlan dispatches to orderPlan port" {
-                let env =
-                    makeEnv
-                        (formularyAlwaysOk Formulary.empty)
-                        (orderContextAlwaysOk emptyCtx)
-                        (orderPlanAlwaysOk emptyPlan)
-                        (nutritionPlanAlwaysOk emptyNutritionPlan)
-
-                let! result = Command.processCmd env (Api.OrderPlanCmd(Api.FilterOrderPlan emptyPlan))
-
-                match result with
-                | Ok(Api.OrderPlanResp(Api.OrderPlanFiltered _)) -> ()
-                | other -> failtest $"expected Ok OrderPlanFiltered, got {other}"
             }
         ]
 
@@ -256,11 +171,7 @@ let errorPropagationTests =
 
             testAsync "processFormulary propagates port error" {
                 let env =
-                    makeEnv
-                        (formularyAlwaysFails [| "test error" |])
-                        (orderContextAlwaysOk emptyCtx)
-                        (orderPlanAlwaysOk emptyPlan)
-                        (nutritionPlanAlwaysOk emptyNutritionPlan)
+                    makeEnv (formularyAlwaysFails [| "test error" |]) (orderContextAlwaysOk emptyCtx)
 
                 let! result = FormularyCommand.processCmd env Formulary.empty
 
@@ -271,11 +182,7 @@ let errorPropagationTests =
 
             testAsync "OrderContextCmd propagates port error" {
                 let env =
-                    makeEnv
-                        (formularyAlwaysOk Formulary.empty)
-                        (orderContextAlwaysFails [| "ctx error" |])
-                        (orderPlanAlwaysOk emptyPlan)
-                        (nutritionPlanAlwaysOk emptyNutritionPlan)
+                    makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysFails [| "ctx error" |])
 
                 let! result = Command.processCmd env (Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx))
 
@@ -324,11 +231,7 @@ let requireLoadedTests =
 
             testAsync "requireLoaded passes when loaded" {
                 let env =
-                    makeEnv
-                        (formularyAlwaysOk Formulary.empty)
-                        (orderContextAlwaysOk emptyCtx)
-                        (orderPlanAlwaysOk emptyPlan)
-                        (nutritionPlanAlwaysOk emptyNutritionPlan)
+                    makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
                 let! result = bound env (Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx))
 
@@ -3472,13 +3375,7 @@ module SessionStubTests =
         directory,
         outbox,
 
-        { makeEnv
-              (formularyAlwaysOk Formulary.empty)
-              (orderContextAlwaysOk OrderContext.empty)
-              (orderPlanAlwaysOk (OrderPlan.create Patient.empty [||]))
-              (nutritionPlanAlwaysOk (NutritionPlan.create Patient.empty [||])) with
-            session = port
-        }
+        { makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk OrderContext.empty) with session = port }
 
 
     let envWithStub () =
@@ -4750,13 +4647,7 @@ module AdminTests =
 
 
     let envWith admin =
-        { makeEnv
-              (formularyAlwaysOk Formulary.empty)
-              (orderContextAlwaysOk emptyCtx)
-              (orderPlanAlwaysOk emptyPlan)
-              (nutritionPlanAlwaysOk emptyNutritionPlan) with
-            admin = admin
-        }
+        { makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx) with admin = admin }
 
 
     let run env cmd =
@@ -4952,11 +4843,7 @@ module BoundTests =
     /// A stub env: the formulary answers, the Session's answer given, loaded or not.
     let envWith (loaded: bool) (told: RecordNotice option) =
         let env =
-            makeEnv
-                (formularyAlwaysOk { Formulary.empty with Markdown = "stubbed" })
-                (orderContextAlwaysOk emptyCtx)
-                (orderPlanAlwaysOk emptyPlan)
-                (nutritionPlanAlwaysOk emptyNutritionPlan)
+            makeEnv (formularyAlwaysOk { Formulary.empty with Markdown = "stubbed" }) (orderContextAlwaysOk emptyCtx)
 
         { env with
             requireLoaded = (fun () -> if loaded then None else Some [| "not loaded" |])
@@ -5010,9 +4897,9 @@ module BoundTests =
                     | Ok reply ->
                         reply.Notice |> Expect.isNone "nothing told without a cookie"
 
+                        // the one case left in Response: the order context
                         match reply.Response with
                         | Api.OrderContextResp _ -> ()
-                        | other -> failtest $"expected OrderContextResp, got {other}"
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
@@ -5024,9 +4911,9 @@ module BoundTests =
                         reply.Notice
                         |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
+                        // the one case left in Response: the order context
                         match reply.Response with
                         | Api.OrderContextResp _ -> ()
-                        | other -> failtest $"expected OrderContextResp, got {other}"
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
@@ -5347,13 +5234,7 @@ module PlanTests =
                         }
 
                     let env =
-                        { makeEnv
-                              (formularyAlwaysOk Formulary.empty)
-                              (orderContextAlwaysOk emptyCtx)
-                              (orderPlanAlwaysOk emptyPlan)
-                              (nutritionPlanAlwaysOk emptyNutritionPlan) with
-                            plan = port
-                        }
+                        { makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx) with plan = port }
 
                     let p = OrderPlan.empty
                     let! _ = PlanCommand.processCmd env (PlanCommand.Recalculate p)

@@ -2363,23 +2363,6 @@ module Models =
             }
 
 
-    module NutritionPlan =
-
-        let empty: NutritionPlan =
-            {
-                Patient = Patient.empty
-                NutritionContexts = [||]
-                Totals = Totals.empty
-            }
-
-        let create patient contexts : NutritionPlan =
-            {
-                Patient = patient
-                NutritionContexts = contexts
-                Totals = Totals.empty
-            }
-
-
     module Formulary =
 
         let empty: Formulary =
