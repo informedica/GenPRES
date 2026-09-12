@@ -4,7 +4,6 @@ namespace Views
 module Settings =
 
     open Fable.Core
-    open Fable.Core.JsInterop
     open Feliz
     open Shared
     open Shared.Types
@@ -21,8 +20,7 @@ module Settings =
 
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
-        let reloadResources = (AppEnv.asEnv<AppEnv.IResources> props.appEnv).ReloadResources
-        let orderContext = (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
+        let resources = AppEnv.asEnv<AppEnv.IResources> props.appEnv
 
         let logAnalyzer = (AppEnv.asEnv<AppEnv.ILogAnalyzer> props.appEnv)
         let auth = (AppEnv.asEnv<AppEnv.IAuthentication> props.appEnv)
@@ -37,20 +35,13 @@ module Settings =
 
         let refreshIcon = Mui.Icons.RefreshIcon
 
-        let reloading, setReloading = React.useState false
-        let dialogOpen, setDialogOpen = React.useState false
-        let password, setPassword = React.useState ""
-        let passwordError, setPasswordError = React.useState false
-        let wasInProgress = React.useRef false
-
         // Log analyzer local state
         let reportDialogOpen, setReportDialogOpen = React.useState false
 
         let isLoading =
-            reloading
-            && match orderContext with
-               | Resolved _ -> false
-               | _ -> true
+            match resources.Reload with
+            | InProgress -> true
+            | _ -> false
 
         // Load log files on mount only when authenticated
         React.useEffect (
@@ -58,26 +49,6 @@ module Settings =
                 if auth.IsAuthenticated then
                     logAnalyzer.ListLogFiles()
             , [||]
-        )
-
-        React.useEffect (
-            fun () ->
-                if reloading then
-                    match orderContext with
-                    | InProgress
-                    | Recalculating _ -> wasInProgress.current <- true
-                    | Resolved _ ->
-                        wasInProgress.current <- false
-                        setReloading false
-                        setDialogOpen false
-                        setPassword ""
-                    | HasNotStartedYet when wasInProgress.current ->
-                        wasInProgress.current <- false
-                        setReloading false
-                        setDialogOpen true
-                        setPasswordError true
-                    | _ -> ()
-            , [| box reloading; box orderContext |]
         )
 
         // When analysis report resolves, open the report dialog
@@ -92,31 +63,8 @@ module Settings =
         let backdrop =
             ViewHelpers.backdropProgress isLoading (Terms.``Reload resources`` |> getTerm "Reloading resources...")
 
-        let handleOpen =
-            fun _ ->
-                setPassword ""
-                setPasswordError false
-                setDialogOpen true
-
-        let handleClose =
-            fun _ ->
-                setDialogOpen false
-                setPassword ""
-                setPasswordError false
-
-        let handleConfirm =
-            fun _ ->
-                setReloading true
-                setPasswordError false
-                reloadResources password
-
-        let handleKeyDown (e: Browser.Types.KeyboardEvent) =
-            if e.key = "Enter" then
-                handleConfirm ()
-
-        let handlePasswordChange (e: Browser.Types.Event) =
-            setPassword (e.target?value: string)
-            setPasswordError false
+        // the page is only reached signed in, so the token stands in for the password
+        let handleReload = fun _ -> resources.ReloadResources()
 
         let handleRefreshLogs = fun _ -> logAnalyzer.ListLogFiles()
 
@@ -255,7 +203,6 @@ module Settings =
         import DialogTitle from '@mui/material/DialogTitle';
         import DialogContent from '@mui/material/DialogContent';
         import DialogActions from '@mui/material/DialogActions';
-        import TextField from '@mui/material/TextField';
         import Table from '@mui/material/Table';
         import TableBody from '@mui/material/TableBody';
         import TableCell from '@mui/material/TableCell';
@@ -275,45 +222,12 @@ module Settings =
                     variant="contained"
                     disabled={isLoading}
                     startIcon={refreshIcon}
-                    onClick={handleOpen}>
+                    onClick={handleReload}>
                     {Terms.``Reload resources`` |> getTerm "Reload resources"}
                 </Button>
             </Box>
             {backdrop}
             {analysisBackdrop}
-            <Dialog open={dialogOpen} onClose={handleClose}>
-                <DialogTitle>
-                    {Terms.``Enter password`` |> getTerm "Enter password"}
-                </DialogTitle>
-                <DialogContent>
-                    <TextField
-                        id="settings-password"
-                        name="password"
-                        autoFocus={true}
-                        margin="dense"
-                        label={Terms.Password |> getTerm "Password"}
-                        type="password"
-                        fullWidth={true}
-                        variant="outlined"
-                        value={password}
-                        onChange={handlePasswordChange}
-                        error={passwordError}
-                        helperText={if passwordError then
-                                        Terms.``Invalid password`` |> getTerm "Invalid password"
-                                    else
-                                        ""}
-                        onKeyDown={handleKeyDown}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleClose}>
-                        {Terms.Cancel |> getTerm "Cancel"}
-                    </Button>
-                    <Button onClick={handleConfirm} variant="contained">
-                        {Terms.Confirm |> getTerm "Confirm"}
-                    </Button>
-                </DialogActions>
-            </Dialog>
             <Box sx={logHeaderSx}>
                 <Typography variant="subtitle1">{"Log Files"}</Typography>
                 <IconButton size="small" onClick={handleRefreshLogs} title="Refresh">
