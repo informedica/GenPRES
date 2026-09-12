@@ -21,18 +21,13 @@ type IOrderContext =
     abstract OrderContextMsg: Api.OrderContextCommand * OrderContext -> unit
 
 
-/// Order plan data and commands
+/// The one plan, nutrition included, and the commands on it
 [<Interface>]
 type IOrderPlan =
     abstract OrderPlan: Deferred<OrderPlan>
-    abstract OrderPlanCommand: Api.OrderPlanCommand -> unit
-
-
-/// Nutrition plan data and commands
-[<Interface>]
-type INutritionPlan =
-    abstract NutritionPlan: Deferred<NutritionPlan>
-    abstract NutritionPlanMsg: Api.NutritionPlanCommand -> unit
+    abstract PlanCommand: Api.PlanCommand -> unit
+    // the plan as shown: opens the order-plan page on it and recomputes its totals
+    abstract ShowOrderPlan: OrderPlan -> unit
 
 
 /// Patient data and updates

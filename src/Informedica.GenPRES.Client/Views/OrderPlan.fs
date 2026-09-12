@@ -15,20 +15,20 @@ module OrderPlan =
     let View (props: {| appEnv: obj |}) =
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
-        let orderPlanCommand = envOrderPlan.OrderPlanCommand
+        let planCommand = envOrderPlan.PlanCommand
         let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
         let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv
 
-        let updateOrderPlan tp =
-            orderPlanCommand (Api.UpdateOrderPlan(tp, None))
+        let updateOrderPlan tp = envOrderPlan.ShowOrderPlan tp
 
         let filterOrderPlan tp =
-            orderPlanCommand (Api.FilterOrderPlan tp)
+            planCommand (Api.PlanCommand.Recalculate tp)
 
+        // an order-context command over the selected scenario
         let orderContextMsg (cmd, ctx) =
             match orderPlan with
             | Resolved tp
-            | Recalculating tp -> orderPlanCommand (Api.UpdateOrderPlan(tp, Some(cmd, ctx)))
+            | Recalculating tp -> planCommand (Api.PlanCommand.Navigate(tp, None, cmd, ctx))
             | _ -> ()
 
         let localizationTerms =

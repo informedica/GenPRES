@@ -360,7 +360,7 @@ module Nutrition =
     let private ParenteralPrintView
         (props:
             {|
-                plan: NutritionPlan
+                plan: OrderPlan
                 onClose: unit -> unit
             |})
         =
@@ -607,8 +607,8 @@ module Nutrition =
         (props:
             {|
                 nutritionContext: NutritionContext
-                plan: NutritionPlan
-                nutritionPlanMsg: Api.NutritionPlanCommand -> unit
+                plan: OrderPlan
+                planCommand: Api.PlanCommand -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
                 wrapInAccordion: bool
@@ -666,22 +666,22 @@ module Nutrition =
                 // In Nutrition, Generic is upstream of Indication.
                 // Clear Indication selection (but NOT the Indications list — server repopulates it).
                 { updCtx with OrderContext.Filter.Indication = None }
-            |> fun updCtx -> Api.NavigateNutritionOrderContext(planRef.current, ncId, Api.UpdateOrderContext, updCtx)
-            |> props.nutritionPlanMsg
+            |> fun updCtx -> Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.UpdateOrderContext, updCtx)
+            |> props.planCommand
 
         let indicationChange s =
             ctx
             |> OrderContext.indicationChange s
-            |> fun updCtx -> Api.NavigateNutritionOrderContext(planRef.current, ncId, Api.UpdateOrderContext, updCtx)
-            |> props.nutritionPlanMsg
+            |> fun updCtx -> Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.UpdateOrderContext, updCtx)
+            |> props.planCommand
 
         let doseTypeChange s =
             let dt = s |> Option.map DoseType.doseTypeFromString
 
             ctx
             |> OrderContext.doseTypeChange dt
-            |> fun updCtx -> Api.NavigateNutritionOrderContext(planRef.current, ncId, Api.UpdateOrderContext, updCtx)
-            |> props.nutritionPlanMsg
+            |> fun updCtx -> Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.UpdateOrderContext, updCtx)
+            |> props.planCommand
 
         let updateOrderScenario (ol: OrderLoader) =
             { ctx with
@@ -699,12 +699,12 @@ module Nutrition =
                     )
             }
             |> fun updCtx ->
-                Api.NavigateNutritionOrderContext(planRef.current, ncId, Api.UpdateOrderScenario, updCtx)
-                |> props.nutritionPlanMsg
+                Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.UpdateOrderScenario, updCtx)
+                |> props.planCommand
 
         let resetOrderScenario (_ol: OrderLoader) =
-            Api.NavigateNutritionOrderContext(planRef.current, ncId, Api.ResetOrderScenario, ctx)
-            |> props.nutritionPlanMsg
+            Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.ResetOrderScenario, ctx)
+            |> props.planCommand
 
         let stepper =
             let create nav =
@@ -795,23 +795,23 @@ module Nutrition =
 
             let navRate cmd =
                 fun updCtx ->
-                    Api.NavigateNutritionOrderContext(planRef.current, ncId, cmd, updCtx)
-                    |> props.nutritionPlanMsg
+                    Api.PlanCommand.Navigate(planRef.current, Some ncId, cmd, updCtx)
+                    |> props.planCommand
 
             let navRateN cmd =
                 fun (updCtx, n, uc) ->
-                    Api.NavigateNutritionOrderContext(planRef.current, ncId, cmd (n, uc), updCtx)
-                    |> props.nutritionPlanMsg
+                    Api.PlanCommand.Navigate(planRef.current, Some ncId, cmd (n, uc), updCtx)
+                    |> props.planCommand
 
             let navCmpQty cmd =
                 fun (updCtx, cmp) ->
-                    Api.NavigateNutritionOrderContext(planRef.current, ncId, cmd cmp, updCtx)
-                    |> props.nutritionPlanMsg
+                    Api.PlanCommand.Navigate(planRef.current, Some ncId, cmd cmp, updCtx)
+                    |> props.planCommand
 
             let navCmpQtyN cmd =
                 fun (updCtx, cmp, n, uc) ->
-                    Api.NavigateNutritionOrderContext(planRef.current, ncId, cmd (cmp, n, uc), updCtx)
-                    |> props.nutritionPlanMsg
+                    Api.PlanCommand.Navigate(planRef.current, Some ncId, cmd (cmp, n, uc), updCtx)
+                    |> props.planCommand
 
             {|
                 // Dose Rate
@@ -1350,9 +1350,11 @@ module Nutrition =
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let patient = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Patient
-        let envNutritionPlan = AppEnv.asEnv<AppEnv.INutritionPlan> props.appEnv
-        let nutritionPlan = envNutritionPlan.NutritionPlan
-        let nutritionPlanMsg = envNutritionPlan.NutritionPlanMsg
+        // the one plan: the nutrition workbenches live in the order plan, which is there
+        // with the patient
+        let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
+        let orderPlan = envOrderPlan.OrderPlan
+        let planCommand = envOrderPlan.PlanCommand
 
         let localizationTerms =
             (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
@@ -1363,26 +1365,17 @@ module Nutrition =
 
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
-        React.useEffect (
-            (fun () ->
-                match patient, nutritionPlan with
-                | Some pat, HasNotStartedYet -> nutritionPlanMsg (Api.InitNutritionPlan pat)
-                | _ -> ()
-            ),
-            [| box patient; box nutritionPlan |]
-        )
-
         let progress =
-            match nutritionPlan with
+            match orderPlan with
             | HasNotStartedYet when patient.IsNone ->
                 let msg =
                     Terms.``Patient enter patient data`` |> getTerm "Voer patient gegevens in ..."
 
                 JSX.jsx $"<>{msg}</>"
-            | _ -> ViewHelpers.progressOrEmpty nutritionPlan
+            | _ -> ViewHelpers.progressOrEmpty orderPlan
 
         let isRecalculating =
-            match nutritionPlan with
+            match orderPlan with
             | Recalculating _ -> true
             | _ -> false
 
@@ -1390,7 +1383,7 @@ module Nutrition =
         let enteralExpanded, setEnteralExpanded = React.useState true
         let printOpen, setPrintOpen = React.useState false
 
-        let makeSlot wrapInAccordion plan nc =
+        let makeSlot wrapInAccordion (plan: OrderPlan) nc =
             let onRemove =
                 if nc.Removable then
                     let hasSupplements =
@@ -1402,7 +1395,7 @@ module Nutrition =
                         if hasSupplements then
                             setConfirmDeleteTarget (Some nc.Id)
                         else
-                            Api.RemoveNutritionContext(plan, nc.Id) |> nutritionPlanMsg
+                            Api.PlanCommand.RemoveContext(plan, nc.Id) |> planCommand
                     )
                 else
                     None
@@ -1411,21 +1404,21 @@ module Nutrition =
                 {|
                     nutritionContext = nc
                     plan = plan
-                    nutritionPlanMsg = nutritionPlanMsg
+                    planCommand = planCommand
                     localizationTerms = localizationTerms
                     onRemove = onRemove
                     wrapInAccordion = wrapInAccordion
                     isRecalculating = isRecalculating
                 |}
 
-        let addContext plan category =
-            Api.AddNutritionContext(plan, category) |> nutritionPlanMsg
+        let addContext (plan: OrderPlan) category =
+            Api.PlanCommand.AddContext(plan, category) |> planCommand
 
-        let hasCategory plan cat =
+        let hasCategory (plan: OrderPlan) cat =
             plan.NutritionContexts |> Array.exists (fun nc -> nc.Category = cat)
 
         let content =
-            match nutritionPlan with
+            match orderPlan with
             | Resolved plan
             | Recalculating plan ->
                 let enteralContexts =
@@ -1571,9 +1564,9 @@ module Nutrition =
 
             let handleConfirm =
                 fun _ ->
-                    match confirmDeleteTarget, nutritionPlan with
+                    match confirmDeleteTarget, orderPlan with
                     | Some ncId, (Resolved plan | Recalculating plan) ->
-                        Api.RemoveNutritionContext(plan, ncId) |> nutritionPlanMsg
+                        Api.PlanCommand.RemoveContext(plan, ncId) |> planCommand
                     | _ -> ()
 
                     setConfirmDeleteTarget None
@@ -1605,7 +1598,7 @@ module Nutrition =
             """
 
         let printDialog =
-            match printOpen, nutritionPlan with
+            match printOpen, orderPlan with
             | true, (Resolved plan | Recalculating plan) ->
                 ParenteralPrintView
                     {|
