@@ -276,6 +276,32 @@ module Api =
             | InteractionCommand.GetDrugNames -> "GetDrugNames"
 
 
+    /// The plan command family: the order plan, nutrition included.
+    [<RequireQualifiedAccess>]
+    type PlanCommand =
+        // the plan as it is, totals recomputed over its orders
+        | Recalculate of OrderPlan
+        // an order-context command evaluated and folded into the plan: into the nutrition
+        // context named, or into the selected scenario when None
+        | Navigate of OrderPlan * contextId: string option * OrderContextCommand * OrderContext
+        // a nutrition context for the category, its filter discovered
+        | AddContext of OrderPlan * NutritionCategory
+        // the nutrition context removed with its order; a feeding takes its supplements with it
+        | RemoveContext of OrderPlan * contextId: string
+
+
+    module PlanCommand =
+
+        /// For the log: never the plan.
+        let toString cmd =
+            match cmd with
+            | PlanCommand.Recalculate _ -> "Recalculate"
+            | PlanCommand.Navigate(_, None, ctxCmd, _) -> $"Navigate {ctxCmd}"
+            | PlanCommand.Navigate(_, Some _, ctxCmd, _) -> $"Navigate context {ctxCmd}"
+            | PlanCommand.AddContext(_, category) -> $"AddContext {category}"
+            | PlanCommand.RemoveContext _ -> "RemoveContext"
+
+
     /// Defines how routes are generated on server and mapped from the client
     let routerPaths typeName method = $"/api/%s{typeName}/%s{method}"
 
@@ -300,6 +326,8 @@ module Api =
             processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
             processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
             processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>
+            // the one plan, nutrition included; the old plan families stay until the client moved
+            processOrderPlan: Request<PlanCommand> -> Async<Result<Reply<OrderPlan>, string[]>>
             processLaunch: LaunchCommand -> Async<LaunchOutcome>
             processSession: SessionCommand -> Async<SessionResponse>
             processSigning: SigningCommand -> Async<SigningResponse>

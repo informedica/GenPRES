@@ -46,6 +46,15 @@ module StubAdapters =
         }
 
 
+    let planAlwaysOk (returnPlan: OrderPlan) : PlanPort =
+        {
+            recalculate = fun _ -> async { return Ok returnPlan }
+            navigate = fun _ _ _ _ -> async { return Ok returnPlan }
+            addContext = fun _ _ -> async { return Ok returnPlan }
+            removeContext = fun _ _ -> async { return Ok returnPlan }
+        }
+
+
     let nutritionPlanAlwaysOk (returnPlan: NutritionPlan) : NutritionPlanPort =
         {
             initNutritionPlan = fun _ -> async { return Ok returnPlan }
@@ -99,6 +108,7 @@ module StubAdapters =
             orderContext = orderContext
             orderPlan = orderPlan
             nutritionPlan = nutritionPlan
+            plan = planAlwaysOk (OrderPlan.create Models.Patient.empty [||])
             interaction =
                 {
                     checkInteractions = fun _ -> async { return Ok [] }
@@ -128,6 +138,13 @@ module StubAdapters =
                     selectNutritionOrderScenario = fun _ -> async { return Error [| "not loaded" |] }
                     navigateNutritionOrderContext = fun _ -> async { return Error [| "not loaded" |] }
                 }
+            plan =
+                {
+                    recalculate = fun _ -> async { return Error [| "not loaded" |] }
+                    navigate = fun _ _ _ _ -> async { return Error [| "not loaded" |] }
+                    addContext = fun _ _ -> async { return Error [| "not loaded" |] }
+                    removeContext = fun _ _ -> async { return Error [| "not loaded" |] }
+                }
             interaction =
                 {
                     checkInteractions = fun _ -> async { return Error [| "not loaded" |] }
@@ -143,16 +160,7 @@ open StubAdapters
 
 let emptyCtx = Models.OrderContext.empty
 
-// Copied to TotalsTests. One more copy/paste, and by the rule of three we should consider deduplication.
-// An OrderPlan.empty value seems reasonable.
-let emptyPlan: OrderPlan =
-    {
-        Patient = Models.Patient.empty
-        Scenarios = [||]
-        Selected = None
-        Filtered = [||]
-        Totals = Models.Totals.empty
-    }
+let emptyPlan = OrderPlan.empty
 
 let emptyNutritionPlan = Models.NutritionPlan.create Models.Patient.empty [||]
 
@@ -2751,6 +2759,31 @@ module SessionStubTests =
                         |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
                     }
 
+                    test "a plan holding a nutrition context's order is challenged with that order" {
+                        let tpn =
+                            NutritionContext.create "c-1" "TPN" NutritionCategory.TPN true OrderContext.empty
+
+                        let resolved =
+                            { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn" |] }
+
+                        let plan =
+                            { OrderPlan.create stubPatient [| scenarioWithOrder "o-drug" |] with
+                                NutritionContexts = [| tpn |]
+                            }
+                            |> PlanService.updateContext "c-1" resolved
+                            |> Result.defaultWith (fun errs -> failtest $"{errs}")
+
+                        let state, answer =
+                            stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (plan, token "s-1")
+
+                        answer |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
+
+                        state.Challenges
+                        |> Map.toList
+                        |> List.map (snd >> _.Scenarios >> Array.map _.Order.Id)
+                        |> Expect.equal "the drug and the tpn order under the challenge" [ [| "o-drug"; "o-tpn" |] ]
+                    }
+
                     test "refuses when the record moved on (Rule 20): whose version, and when" {
                         let byOther = signedBy other 1 (t0 - minutes 5.0)
 
@@ -5099,6 +5132,179 @@ module BoundTests =
             ]
 
 
+/// The one plan: the rules that put a nutrition context's order among the plan's orders, and
+/// the member over the port.
+module PlanTests =
+
+    open Shared.Api
+
+    let scenarioWithOrder = SessionStubTests.scenarioWithOrder
+
+    let context id category (scenarios: OrderScenario[]) =
+        NutritionContext.create id (string category) category true { OrderContext.empty with Scenarios = scenarios }
+
+    let plan contexts scenarios =
+        { OrderPlan.create Models.Patient.empty scenarios with NutritionContexts = contexts }
+
+    let ids (p: OrderPlan) = p.Scenarios |> Array.map _.Order.Id
+
+    let tests =
+        testList
+            "the one plan"
+            [
+                test "a context narrowed to one scenario has it in the plan's orders, once" {
+                    let tpn = context "c-1" NutritionCategory.TPN [||]
+
+                    let resolved =
+                        { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn" |] }
+
+                    match
+                        plan [| tpn |] [| scenarioWithOrder "o-drug" |]
+                        |> PlanService.updateContext "c-1" resolved
+                    with
+                    | Ok p ->
+                        ids p |> Expect.equal "the drug and the tpn" [| "o-drug"; "o-tpn" |]
+
+                        match p |> PlanService.updateContext "c-1" resolved with
+                        | Ok p -> ids p |> Expect.equal "once" [| "o-drug"; "o-tpn" |]
+                        | Error errs -> failtest $"{errs}"
+                    | Error errs -> failtest $"{errs}"
+                }
+
+                test "a context re-narrowed to another order replaces its contribution" {
+                    let tpn = context "c-1" NutritionCategory.TPN [| scenarioWithOrder "o-tpn" |]
+                    let p = plan [| tpn |] [| scenarioWithOrder "o-drug"; scenarioWithOrder "o-tpn" |]
+
+                    let other =
+                        { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn-2" |] }
+
+                    match p |> PlanService.updateContext "c-1" other with
+                    | Ok p -> ids p |> Expect.equal "the other in place of the old" [| "o-drug"; "o-tpn-2" |]
+                    | Error errs -> failtest $"{errs}"
+                }
+
+                test "several candidates contribute nothing; widening again takes the order out" {
+                    let tpn = context "c-1" NutritionCategory.TPN [| scenarioWithOrder "o-tpn" |]
+                    let p = plan [| tpn |] [| scenarioWithOrder "o-drug"; scenarioWithOrder "o-tpn" |]
+
+                    let widened =
+                        { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-a"; scenarioWithOrder "o-b" |] }
+
+                    match p |> PlanService.updateContext "c-1" widened with
+                    | Ok p -> ids p |> Expect.equal "the drug only" [| "o-drug" |]
+                    | Error errs -> failtest $"{errs}"
+
+                    plan [||] [||]
+                    |> PlanService.updateContext "c-9" widened
+                    |> Result.isError
+                    |> Expect.isTrue "no such context"
+                }
+
+                test "a removed context takes its order; a feeding takes its supplements and theirs" {
+                    let feeding =
+                        context "c-f" NutritionCategory.EnteralFeeding [| scenarioWithOrder "o-f" |]
+
+                    let supplement =
+                        context "c-s" NutritionCategory.EnteralSupplement [| scenarioWithOrder "o-s" |]
+
+                    let tpn = context "c-t" NutritionCategory.TPN [| scenarioWithOrder "o-t" |]
+
+                    let p =
+                        plan
+                            [| feeding; supplement; tpn |]
+                            [|
+                                scenarioWithOrder "o-drug"
+                                scenarioWithOrder "o-f"
+                                scenarioWithOrder "o-s"
+                                scenarioWithOrder "o-t"
+                            |]
+
+                    let p = p |> PlanService.removeContext "c-f"
+
+                    p.NutritionContexts
+                    |> Array.map _.Id
+                    |> Expect.equal "the tpn stays" [| "c-t" |]
+
+                    ids p |> Expect.equal "the drug and the tpn order" [| "o-drug"; "o-t" |]
+
+                    let p = p |> PlanService.removeContext "c-t"
+                    p.NutritionContexts |> Expect.isEmpty "none left"
+                    ids p |> Expect.equal "the drug only" [| "o-drug" |]
+                }
+
+                testAsync "navigate into a context evaluates it and folds the order in" {
+                    let evaluated =
+                        { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn" |] }
+
+                    let port: OrderContextPort = { evaluate = fun _ _ -> async { return Ok evaluated } }
+
+                    let p =
+                        plan [| context "c-1" NutritionCategory.TPN [||] |] [| scenarioWithOrder "o-drug" |]
+
+                    // the totals are the adapter's; here the answer is left as folded
+                    match! PlanService.navigate id port p (Some "c-1") Api.UpdateOrderContext OrderContext.empty with
+                    | Ok p -> ids p |> Expect.equal "folded in" [| "o-drug"; "o-tpn" |]
+                    | Error errs -> failtest $"{errs}"
+
+                    match! PlanService.navigate id port p (Some "c-9") Api.UpdateOrderContext OrderContext.empty with
+                    | Error _ -> ()
+                    | Ok _ -> failtest "no such context"
+                }
+
+                testAsync "processOrderPlan dispatches each case to the plan port" {
+                    let answered = ref []
+
+                    let answering name p =
+                        async {
+                            answered.Value <- name :: answered.Value
+                            return Ok p
+                        }
+
+                    let port: PlanPort =
+                        {
+                            recalculate = answering "recalculate"
+                            navigate = fun p _ _ _ -> answering "navigate" p
+                            addContext = fun p _ -> answering "addContext" p
+                            removeContext = fun p _ -> answering "removeContext" p
+                        }
+
+                    let env =
+                        { makeEnv
+                              (formularyAlwaysOk Formulary.empty)
+                              (orderContextAlwaysOk emptyCtx)
+                              (orderPlanAlwaysOk emptyPlan)
+                              (nutritionPlanAlwaysOk emptyNutritionPlan) with
+                            plan = port
+                        }
+
+                    let p = OrderPlan.empty
+                    let! _ = PlanCommand.processCmd env (PlanCommand.Recalculate p)
+
+                    let! _ =
+                        PlanCommand.processCmd env (PlanCommand.Navigate(p, None, Api.UpdateOrderContext, emptyCtx))
+
+                    let! _ = PlanCommand.processCmd env (PlanCommand.AddContext(p, NutritionCategory.TPN))
+                    let! _ = PlanCommand.processCmd env (PlanCommand.RemoveContext(p, "c-1"))
+
+                    answered.Value
+                    |> List.rev
+                    |> Expect.equal "each to its port" [ "recalculate"; "navigate"; "addContext"; "removeContext" ]
+                }
+
+                test "the log names the command, never the plan" {
+                    let p = OrderPlan.empty
+
+                    PlanCommand.toString (
+                        PlanCommand.Navigate(p, Some "c-1", Api.UpdateOrderContext, OrderContext.empty)
+                    )
+                    |> Expect.equal "context" "Navigate context UpdateOrderContext"
+
+                    PlanCommand.toString (PlanCommand.AddContext(p, NutritionCategory.TPN))
+                    |> Expect.equal "category" "AddContext TPN"
+                }
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -5110,4 +5316,5 @@ let tests =
             SessionStubTests.tests
             AdminTests.tests
             BoundTests.tests
+            PlanTests.tests
         ]

@@ -38,6 +38,15 @@ module CompositionRoot =
                     (fun _ -> Gate.RequiresLoaded)
                     (ParenteraliaCommand.processCmd env)
 
+            // the one plan, nutrition included
+            processOrderPlan =
+                Compute.bound
+                    env
+                    cookie
+                    PlanCommand.toString
+                    (fun _ -> Gate.RequiresLoaded)
+                    (PlanCommand.processCmd env)
+
             // the one member whose gate differs per command: the drug names run open
             processInteraction =
                 Compute.bound

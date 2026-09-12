@@ -34,16 +34,7 @@ type TotalsSpy() =
         member _.GetUnitMappings() = raise (NotImplementedException())
         member _.GetValidForms() = raise (NotImplementedException())
 
-// Copied from StubAdapterTests. One more copy/paste, and by the rule of three we should consider deduplication.
-// An OrderPlan.empty value seems reasonable.
-let emptyPlan: OrderPlan =
-    {
-        Patient = Models.Patient.empty
-        Scenarios = [||]
-        Selected = None
-        Filtered = [||]
-        Totals = Models.Totals.empty
-    }
+let emptyPlan = Models.OrderPlan.empty
 
 [<Tests>]
 let tests =
