@@ -95,23 +95,23 @@ module private Elmish =
         | UpdateContinuousMedsFilter of string[]
 
         | OrderContextMsg of Api.OrderContextCommand * OrderContext
-        | LoadOrderContextResult of Api.OrderContextCommand * ApiResponse
+        | LoadOrderContextResult of Api.OrderContextCommand * ApiResponse<Api.Response>
 
         | OrderPlanMsg of Api.OrderPlanCommand
-        | LoadOrderPlanResult of Api.OrderPlanCommand * ApiResponse
+        | LoadOrderPlanResult of Api.OrderPlanCommand * ApiResponse<Api.Response>
 
         | NutritionPlanMsg of Api.NutritionPlanCommand
-        | LoadNutritionPlanResult of Api.NutritionPlanCommand * ApiResponse
+        | LoadNutritionPlanResult of Api.NutritionPlanCommand * ApiResponse<Api.Response>
 
         | UpdateFormulary of Formulary
-        | LoadFormulary of ApiResponse
+        | LoadFormulary of ApiResponse<Formulary>
 
         | UpdateParenteralia of Parenteralia
-        | LoadParenteralia of ApiResponse
+        | LoadParenteralia of ApiResponse<Parenteralia>
 
         | CheckInteractions of string list
-        | LoadInteractionsResult of ApiResponse
-        | LoadInteractionDrugNames of ApiResponse
+        | LoadInteractionsResult of ApiResponse<Api.Response>
+        | LoadInteractionDrugNames of ApiResponse<Api.Response>
 
         | UpdateLanguage of Localization.Locales
         | LoadLocalization of AsyncOperationStatus<Result<string[][], string>>
@@ -136,7 +136,8 @@ module private Elmish =
         | LoadReloadResult of token: string * AdminResult
 
 
-    and ApiResponse = AsyncOperationStatus<Result<Answer, string[]>>
+    /// A computing answer of a member, typed by what the member answers
+    and ApiResponse<'r> = AsyncOperationStatus<Result<Answer<'r>, string[]>>
 
     /// An admin answer: no envelope, so no token it started from and no notice
     and AdminResult = AsyncOperationStatus<Result<Api.AdminResponse, string[]>>
@@ -144,10 +145,10 @@ module private Elmish =
     /// A computing reply with the OpenedToken the request started from, so that what the reply
     /// tells about the Session (moved on, ended) lands only on the Session that asked: a request
     /// of a Session since closed or replaced must not end or warn the current one.
-    and Answer =
+    and Answer<'r> =
         {
             From: OpenedToken option
-            Reply: Api.Reply
+            Reply: Api.Reply<'r>
         }
 
 
@@ -187,16 +188,21 @@ module private Elmish =
         | _ -> None
 
 
-    let createApiMsg (opened: OpenedToken option) msg cmd =
+    /// A computing request through the member given, with the OpenedToken the Session holds;
+    /// the answer comes back with the token it started from.
+    let createApiMsg
+        (call: Api.Request<'cmd> -> Async<Result<Api.Reply<'resp>, string[]>>)
+        (opened: OpenedToken option)
+        msg
+        (cmd: 'cmd)
+        =
         async {
             let! result =
-                serverApi.processCommand (
+                call
                     {
                         Opened = opened
                         Command = cmd
                     }
-                    : Api.Request
-                )
 
             return
                 result
@@ -235,8 +241,6 @@ module private Elmish =
                     Cmd.none
 
             { state with OrderPlan = Resolved tp }, cmd
-        | Api.FormularyResp form -> { state with Formulary = Resolved form }, Cmd.none
-        | Api.ParenteraliaResp par -> { state with Parenteralia = Resolved par }, Cmd.none
         | Api.NutritionPlanResp(Api.NutritionPlanInitialised plan)
         | Api.NutritionPlanResp(Api.NutritionPlanUpdated plan) -> { state with NutritionPlan = Resolved plan }, Cmd.none
         | Api.InteractionResp(Api.InteractionsChecked interactions) ->
@@ -310,7 +314,7 @@ module private Elmish =
     /// stale-request guard: the notice counts only when the request started from the token the
     /// open Session holds now; a reply of a Session since closed, replaced or re-minted says
     /// nothing about this one (the next request repeats what still holds; the notice is stateless).
-    let processApiMsg (state: State) (answer: Answer) =
+    let processApiMsg (state: State) (answer: Answer<'r>) (apply: State -> 'r -> State * Cmd<Msg>) =
         let current =
             match state.Session with
             | Session.Open opened -> Some opened.OpenedToken
@@ -323,24 +327,32 @@ module private Elmish =
             | Some(RecordNotice.Ended ending) -> Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
             | None -> Cmd.none
 
-        let state, cmd = processResponse state answer.Reply.Response
+        let state, cmd = apply state answer.Reply.Response
         state, Cmd.batch [ cmd; told ]
 
 
+    let applyFormulary (state: State) (form: Formulary) =
+        { state with Formulary = Resolved form }, Cmd.none
+
+
+    let applyParenteralia (state: State) (par: Parenteralia) =
+        { state with Parenteralia = Resolved par }, Cmd.none
+
+
     let loadOrderContext opened resp =
-        Api.OrderContextCmd >> createApiMsg opened resp
+        Api.OrderContextCmd >> createApiMsg serverApi.processCommand opened resp
 
 
     let loadOrderPlan opened resp =
-        Api.OrderPlanCmd >> createApiMsg opened resp
+        Api.OrderPlanCmd >> createApiMsg serverApi.processCommand opened resp
 
 
-    let loadFormuarly opened =
-        Api.FormularyCmd >> createApiMsg opened LoadFormulary
+    let loadFormulary opened =
+        createApiMsg serverApi.processFormulary opened LoadFormulary
 
 
     let loadParenteralia opened =
-        Api.ParenteraliaCmd >> createApiMsg opened LoadParenteralia
+        createApiMsg serverApi.processParenteralia opened LoadParenteralia
 
 
     // url needs to be in format: http://localhost:8080/#patient?by=2&bm=0&bd=1
@@ -864,7 +876,8 @@ module private Elmish =
 
 
     let update (msg: Msg) (state: State) =
-        let processOk = processApiMsg state
+        let processOk answer =
+            processApiMsg state answer processResponse
 
         let processError err (state, cmd) =
             let errMsg =
@@ -1440,7 +1453,7 @@ module private Elmish =
                     (cmd, { ctx with Patient = pat })
                     |> loadOrderContext (tokenOf state.Session) (fun resp -> LoadOrderContextResult(cmd, resp))
 
-        | LoadOrderContextResult(_, Finished(Ok msg)) -> msg |> processApiMsg (settleReload state)
+        | LoadOrderContextResult(_, Finished(Ok msg)) -> processApiMsg (settleReload state) msg processResponse
         | LoadOrderContextResult(_, Finished(Error err)) ->
             Logging.warning "order context error, resetting" err
             let state = settleReload state
@@ -1469,7 +1482,10 @@ module private Elmish =
                 | _ ->
                     { state with OrderPlan = Recalculating tp },
                     Api.OrderPlanCmd(Api.UpdateOrderPlan(tp, Some(ctxCmd, ctx)))
-                    |> createApiMsg (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(tpCmd, resp))
+                    |> createApiMsg
+                        serverApi.processCommand
+                        (tokenOf state.Session)
+                        (fun resp -> LoadOrderPlanResult(tpCmd, resp))
             | Api.UpdateOrderPlan(tp, None) ->
                 let onlySetOrderContext =
                     state.OrderPlan
@@ -1545,7 +1561,10 @@ module private Elmish =
 
             { state with NutritionPlan = planState },
             Api.NutritionPlanCmd npCmd
-            |> createApiMsg (tokenOf state.Session) (fun resp -> LoadNutritionPlanResult(npCmd, resp))
+            |> createApiMsg
+                serverApi.processCommand
+                (tokenOf state.Session)
+                (fun resp -> LoadNutritionPlanResult(npCmd, resp))
 
         | LoadNutritionPlanResult(_, Started) -> state, Cmd.none
         | LoadNutritionPlanResult(_, Finished(Ok msg)) -> msg |> processOk
@@ -1561,14 +1580,14 @@ module private Elmish =
                     | Resolved form -> { form with Patient = state.Patient }
                     | _ -> Formulary.empty
 
-                let cmd = form |> loadFormuarly (tokenOf state.Session)
+                let cmd = form |> loadFormulary (tokenOf state.Session)
 
                 { state with Formulary = InProgress }, cmd
 
         // without a patient the formulary is what a reload refreshes, so it settles the reload
         | LoadFormulary(Finished(Ok msg)) ->
             let state = if state.Patient.IsNone then settleReload state else state
-            processApiMsg state msg
+            processApiMsg state msg applyFormulary
 
         | LoadFormulary(Finished(Error err)) ->
             let state = if state.Patient.IsNone then settleReload state else state
@@ -1609,7 +1628,7 @@ module private Elmish =
 
                 { state with Parenteralia = InProgress }, cmd
 
-        | LoadParenteralia(Finished(Ok msg)) -> msg |> processOk
+        | LoadParenteralia(Finished(Ok msg)) -> processApiMsg state msg applyParenteralia
 
         | LoadParenteralia(Finished(Error err)) ->
             ({ state with Parenteralia = HasNotStartedYet }, Cmd.none) |> processError err
@@ -1651,7 +1670,7 @@ module private Elmish =
             else
                 { state with Interactions = InProgress },
                 Api.InteractionCmd(Api.CheckInteractions drugs)
-                |> createApiMsg (tokenOf state.Session) LoadInteractionsResult
+                |> createApiMsg serverApi.processCommand (tokenOf state.Session) LoadInteractionsResult
 
         | LoadInteractionsResult(Finished(Ok msg)) -> msg |> processOk
         | LoadInteractionsResult(Finished(Error err)) ->
@@ -1664,7 +1683,7 @@ module private Elmish =
             | _ ->
                 { state with InteractionDrugNames = InProgress },
                 Api.InteractionCmd Api.GetDrugNames
-                |> createApiMsg (tokenOf state.Session) LoadInteractionDrugNames
+                |> createApiMsg serverApi.processCommand (tokenOf state.Session) LoadInteractionDrugNames
 
         | LoadInteractionDrugNames(Finished(Ok msg)) ->
             let state, cmd = msg |> processOk

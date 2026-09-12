@@ -15,7 +15,7 @@ let cacheControlCases =
         200, "/", "no-cache"
         200, "/index.html", "no-cache"
         200, "/genpres.png", "no-cache"
-        200, "/api/IServerApi/processCommand", "no-cache"
+        200, "/api/IServerApi/processFormulary", "no-cache"
         200, "/assets/index-abc123.js", immutable
         200, "/assets/index-abc123.css", immutable
         200, "/ASSETS/x.js", immutable

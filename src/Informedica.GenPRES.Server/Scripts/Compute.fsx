@@ -1,25 +1,22 @@
-// The computing wrapper (plan 654, step 5): what `compose` does around `processCommand` today,
-// as one function every computing member goes through. `bound` logs the command, marks the
-// Session the cookie names seen and takes what it is told (the record moved on, the Session
-// ended), applies the gate (the formulary loaded, or not needed), runs the handler and answers
-// the reply with the notice; an exception is an `Error` with its message. `logged` wraps the
-// members that are not computing (launch, session, signing, admin) with the same two log
-// lines. The gate moves out of `Command.processCmd`, which becomes a plain dispatcher, into a
-// `Command.gate` that `compose` passes: the drug names open, everything else behind the
-// formulary. No visible change.
+// The first two members peeled off processCommand (plan 654, step 6): `processFormulary` and
+// `processParenteralia`, each a `Request<_>` of its own command answered with a `Reply<_>` of
+// its own answer, built through `Compute.bound` like every computing member. The smallest
+// families first, so the generic envelope is seen on the browser's wire before the big ones
+// move. `FormularyCmd`, `ParenteraliaCmd`, `FormularyResp` and `ParenteraliaResp` leave
+// `Command` and `Response` with the migration.
 //
 // Script-first draft (script-only policy) of:
-//   - `Gate`, `Compute.bound`, `Compute.logged` → new `ServerApi.Compute.fs`, compiled after
-//     `Adapters.fs`, before `AdminCommand.fs` (fsproj and both `Scripts/load.fsx`);
-//   - `Command.gate` and `processCmd` without its own gating → `ServerApi.Command.fs`;
-//   - `compose` building `processCommand` with `bound` and the four others with `logged`
-//     → `CompositionRoot.fs`;
-//   - `Request<'cmd>` / `Reply<'resp>` with abbreviations → `Shared/Api.fs` (drafted and
-//     round-tripped through Fable.Remoting.Json in `Shared/Scripts/Api.fsx`).
+//   - `FormularyCommand` and `ParenteraliaCommand` (`toString`, `processCmd`) → new
+//     `ServerApi.FormularyCommand.fs`, compiled after `Compute.fs` (fsproj, both loaders);
+//   - `processFormulary` and `processParenteralia` on `IServerApi` → `Shared/Api.fs`, the four
+//     cases and their `toString` arms deleted there and the two arms in `Command.fs`;
+//   - the two members in `compose` → `CompositionRoot.fs`;
+//   - the client: `createApiMsg` over the member, `Answer<'r>`/`ApiResponse<'r>`,
+//     `processApiMsg` with an `apply` per family, `LoadFormulary`/`LoadParenteralia` on the new
+//     members (in the migration patch, since the client cannot compile against members that do
+//     not exist yet).
 //
-// The shared envelope is not generic while this script runs, so `bound` is drafted over the
-// abbreviated shape with an unbox at each end; the migration makes it generic and the body
-// does not change. Run: `dotnet fsi Compute.fsx` from this directory (build first).
+// Run: `dotnet fsi Compute.fsx` from this directory (build first).
 
 #I __SOURCE_DIRECTORY__
 #r "nuget: Expecto, 10.2.3"
@@ -29,110 +26,39 @@
 open Shared.Types
 open Shared.Api
 open ServerApi
-open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
 
 // ---------------------------------------------------------------------------------------------
-// The wrapper (→ ServerApi.Compute.fs)
+// The members (→ ServerApi.FormularyCommand.fs)
 // ---------------------------------------------------------------------------------------------
 
-/// Whether a command needs the formulary loaded.
-[<RequireQualifiedAccess>]
-type Gate =
-    | RequiresLoaded
-    | Open
+module FormularyCommand =
+
+    /// For the log: the record is long and says nothing a log needs.
+    let toString (_: Formulary) = "Formulary"
+
+    let processCmd (env: AppEnv) (form: Formulary) = env.formulary.getFormulary form
 
 
-module Compute =
+module ParenteraliaCommand =
 
-    /// Every computing member: the Session the cookie names is marked seen and told whether the
-    /// record moved on or the Session ended, before the command is computed; without a cookie
-    /// the request computes as it always did. The gate refuses a command that needs the
-    /// formulary while it is not loaded, with the provider's messages. An exception is an
-    /// Error with its message. The token is never logged.
-    let bound
-        (env: AppEnv)
-        (cookie: SessionCookie)
-        (name: 'cmd -> string)
-        (gate: 'cmd -> Gate)
-        (handler: 'cmd -> Async<Result<'resp, string[]>>)
-        (request: Request)
-        : Async<Result<Reply, string[]>>
-        =
-        // the migration makes the envelope generic: `request: Request<'cmd>`, `Reply<'resp>`
-        let cmd: 'cmd = unbox request.Command
+    let toString (_: Parenteralia) = "Parenteralia"
 
-        async {
-            try
-                writeInfoMessage $"Processing command: {name cmd}"
-
-                let! notice =
-                    match cookie.read () with
-                    | None -> async { return None }
-                    | Some id -> env.session.seen id request.Opened
-
-                // an open command never asks the provider: asking may load
-                let! result =
-                    match gate cmd with
-                    | Gate.Open -> handler cmd
-                    | Gate.RequiresLoaded ->
-                        match env.requireLoaded () with
-                        | Some msgs -> async { return Error msgs }
-                        | None -> handler cmd
-
-                let told =
-                    match notice with
-                    | Some(RecordNotice.NewerVersion _) -> ", the record moved on"
-                    | Some(RecordNotice.Ended _) -> ", the Session ended"
-                    | None -> ""
-
-                writeInfoMessage $"Finished processing command: {name cmd}{told}"
-
-                return
-                    result
-                    |> Result.map (fun response ->
-                        {
-                            Response = unbox<Response> response
-                            Notice = notice
-                        }
-                    )
-            with ex ->
-                writeErrorMessage $"Error processing command: {name cmd}\n{ex}"
-                return Error [| ex.Message |]
-        }
+    let processCmd (env: AppEnv) (par: Parenteralia) = env.formulary.getParenteralia par
 
 
-    /// A member that is not computing: the same two log lines around it, nothing else.
-    let logged (what: string) (name: 'cmd -> string) (run: 'cmd -> Async<'resp>) (cmd: 'cmd) =
-        async {
-            writeInfoMessage $"Processing {what}: {name cmd}"
-            let! response = run cmd
-            writeInfoMessage $"Finished processing {what}: {name cmd}"
-            return response
-        }
-
-
-// ---------------------------------------------------------------------------------------------
-// The gate (→ ServerApi.Command.fs; processCmd loses its `gated` and becomes a plain dispatcher)
-// ---------------------------------------------------------------------------------------------
-
-module Command =
-
-    /// The drug names come from the interaction source, not the formulary; everything else
-    /// needs the formulary loaded.
-    let gate =
-        function
-        | InteractionCmd GetDrugNames -> Gate.Open
-        | _ -> Gate.RequiresLoaded
-
-
-// and in `compose` (→ CompositionRoot.fs):
+// and in `compose` (→ CompositionRoot.fs), next to processCommand:
 //
-//     processCommand = Compute.bound env cookie Command.toString Command.gate (Command.processCmd env)
-//     processLaunch = Compute.logged "launch" LaunchCommand.toString (LaunchCommand.processCmd env cookie stateCookie)
-//     processSession = Compute.logged "session" SessionCommand.toString (SessionCommand.processCmd env cookie enrolment)
-//     processSigning = Compute.logged "signing" SigningCommand.toString (SigningCommand.processCmd env cookie)
-//     processAdmin = Compute.logged "admin" AdminCommand.toString (AdminCommand.processCmd env)
+//     processFormulary =
+//         Compute.bound env cookie FormularyCommand.toString (fun _ -> Gate.RequiresLoaded) (FormularyCommand.processCmd env)
+//
+//     processParenteralia =
+//         Compute.bound env cookie ParenteraliaCommand.toString (fun _ -> Gate.RequiresLoaded) (ParenteraliaCommand.processCmd env)
+//
+// on `IServerApi` (→ Shared/Api.fs):
+//
+//     processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
+//     processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
 
 
 // ---------------------------------------------------------------------------------------------
@@ -152,7 +78,7 @@ let cookieOf (id: string option) : SessionCookie =
     }
 
 
-/// An env over a provider whose load failed, the formulary stubbed, the Session's answer given.
+/// An env over a provider whose load failed, the formulary port stubbed, the Session's answer given.
 let envWith (loaded: bool) (told: RecordNotice option) =
     let env =
         Adapters.makeAppEnv (
@@ -167,7 +93,7 @@ let envWith (loaded: bool) (told: RecordNotice option) =
         formulary =
             {
                 getFormulary = fun f -> async { return Ok { f with Markdown = "stubbed" } }
-                getParenteralia = fun _ -> async { return Ok Shared.Models.Parenteralia.empty }
+                getParenteralia = fun p -> async { return Ok { p with Generic = Some "stubbed" } }
             }
         session =
             { env.session with
@@ -176,93 +102,64 @@ let envWith (loaded: bool) (told: RecordNotice option) =
     }
 
 
-let request cmd : Request = { Opened = None; Command = cmd }
-
-
-/// A handler that is not a dispatcher: the formulary only.
-let formularyOnly (env: AppEnv) cmd =
-    match cmd with
-    | FormularyCmd f ->
-        async {
-            let! result = env.formulary.getFormulary f
-            return result |> Result.map FormularyResp
-        }
-    | other -> failwithf "not under test: %A" other
-
-
-let run env cookie gate handler cmd =
-    Compute.bound env cookie Command.toString gate handler (request cmd)
+let processFormulary env cookie (request: Request<Formulary>) =
+    Compute.bound env cookie FormularyCommand.toString (fun _ -> Gate.RequiresLoaded) (FormularyCommand.processCmd env) request
     |> Async.RunSynchronously
 
 
-let formulary = FormularyCmd Shared.Models.Formulary.empty
+let processParenteralia env cookie (request: Request<Parenteralia>) =
+    Compute.bound env cookie ParenteraliaCommand.toString (fun _ -> Gate.RequiresLoaded) (ParenteraliaCommand.processCmd env) request
+    |> Async.RunSynchronously
 
 
 let tests =
     testList
-        "Compute.bound"
+        "processFormulary and processParenteralia"
         [
-            test "without a cookie: computed, nothing told" {
-                let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
-
-                match run env (cookieOf None) Command.gate (formularyOnly env) formulary with
-                | Ok reply ->
-                    reply.Notice |> Expect.isNone "nothing told without a cookie"
-
-                    match reply.Response with
-                    | FormularyResp f -> f.Markdown |> Expect.equal "computed" "stubbed"
-                    | other -> failtest $"expected FormularyResp, got {other}"
-                | Error errs -> failtest $"expected Ok, got {errs}"
-            }
-
-            test "with a cookie: what the Session is told rides on the reply, still computed" {
-                let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
-
-                match run env (cookieOf (Some "s-1")) Command.gate (formularyOnly env) formulary with
-                | Ok reply ->
-                    reply.Notice
-                    |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
-
-                    match reply.Response with
-                    | FormularyResp f -> f.Markdown |> Expect.equal "still computed" "stubbed"
-                    | other -> failtest $"expected FormularyResp, got {other}"
-                | Error errs -> failtest $"expected Ok, got {errs}"
-            }
-
-            test "a command that needs the formulary is refused while it is not loaded" {
-                let env = envWith false None
-
-                match run env (cookieOf None) Command.gate (formularyOnly env) formulary with
-                | Error msgs -> msgs |> Array.exists (fun m -> m.Contains "load failed") |> Expect.isTrue "the messages"
-                | Ok _ -> failtest "expected Error"
-            }
-
-            test "an open command runs while the formulary is not loaded" {
-                let env = envWith false None
-                let names _ = async { return Ok(InteractionResp(DrugNamesLoaded [| "paracetamol" |])) }
-
-                match run env (cookieOf None) Command.gate names (InteractionCmd GetDrugNames) with
-                | Ok reply ->
-                    reply.Response
-                    |> Expect.equal "the names" (InteractionResp(DrugNamesLoaded [| "paracetamol" |]))
-                | Error errs -> failtest $"expected Ok, got {errs}"
-
-                Command.gate (InteractionCmd GetDrugNames) |> Expect.equal "open" Gate.Open
-                Command.gate (InteractionCmd(CheckInteractions [])) |> Expect.equal "gated" Gate.RequiresLoaded
-            }
-
-            test "a throwing handler answers an Error with its message" {
+            test "the formulary answers its own envelope, typed" {
                 let env = envWith true None
-                let throwing _ = async { return invalidOp "boom" }
 
-                run env (cookieOf None) Command.gate throwing formulary
-                |> Expect.equal "the message" (Error [| "boom" |])
+                match processFormulary env (cookieOf None) { Opened = None; Command = Shared.Models.Formulary.empty } with
+                | Ok reply ->
+                    // no family to match on: the answer is a Formulary
+                    reply.Response.Markdown |> Expect.equal "computed" "stubbed"
+                    reply.Notice |> Expect.isNone "nothing told"
+                | Error errs -> failtest $"expected Ok, got {errs}"
             }
 
-            test "logged: the answer passes through" {
-                Compute.logged "admin" AdminCommand.toString (fun _ -> async { return 42 }) (AdminCommand.ValidatePassword "x")
-                |> Async.RunSynchronously
-                |> Expect.equal "through" 42
+            test "the parenteralia answers its own envelope, typed" {
+                let env = envWith true None
+
+                match processParenteralia env (cookieOf None) { Opened = None; Command = Shared.Models.Parenteralia.empty } with
+                | Ok reply -> reply.Response.Generic |> Expect.equal "computed" (Some "stubbed")
+                | Error errs -> failtest $"expected Ok, got {errs}"
+            }
+
+            test "with a cookie: what the Session is told rides on the reply" {
+                let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
+
+                match processFormulary env (cookieOf (Some "s-1")) { Opened = None; Command = Shared.Models.Formulary.empty } with
+                | Ok reply ->
+                    reply.Notice |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
+                    reply.Response.Markdown |> Expect.equal "still computed" "stubbed"
+                | Error errs -> failtest $"expected Ok, got {errs}"
+            }
+
+            test "both are behind the formulary being loaded" {
+                let env = envWith false None
+
+                processFormulary env (cookieOf None) { Opened = None; Command = Shared.Models.Formulary.empty }
+                |> Result.isError
+                |> Expect.isTrue "formulary refused"
+
+                processParenteralia env (cookieOf None) { Opened = None; Command = Shared.Models.Parenteralia.empty }
+                |> Result.isError
+                |> Expect.isTrue "parenteralia refused"
+            }
+
+            test "the log names the family, never the record" {
+                FormularyCommand.toString Shared.Models.Formulary.empty |> Expect.equal "name" "Formulary"
+                ParenteraliaCommand.toString Shared.Models.Parenteralia.empty |> Expect.equal "name" "Parenteralia"
             }
         ]
 

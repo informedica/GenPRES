@@ -265,11 +265,9 @@ let processCmdGuardTests =
         "Compute.bound IsLoaded guard"
         [
 
-            test "FormularyCmd returns Error when provider IsLoaded = false" {
+            test "processFormulary returns Error when provider IsLoaded = false" {
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
-
-                let cmd = Shared.Api.FormularyCmd Formulary.empty
 
                 let env = ServerApi.Adapters.makeAppEnv provider
 
@@ -277,25 +275,23 @@ let processCmdGuardTests =
                     ServerApi.Compute.bound
                         env
                         noCookie
-                        Shared.Api.Command.toString
-                        ServerApi.Command.gate
-                        (ServerApi.Command.processCmd env)
+                        ServerApi.FormularyCommand.toString
+                        (fun _ -> ServerApi.Gate.RequiresLoaded)
+                        (ServerApi.FormularyCommand.processCmd env)
                         {
                             Opened = None
-                            Command = cmd
+                            Command = Formulary.empty
                         }
                     |> Async.RunSynchronously
 
                 result
                 |> Result.isError
-                |> Expect.isTrue "should return Error for FormularyCmd when not loaded"
+                |> Expect.isTrue "should return Error for processFormulary when not loaded"
             }
 
-            test "ParenteraliaCmd returns Error when provider IsLoaded = false" {
+            test "processParenteralia returns Error when provider IsLoaded = false" {
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
-
-                let cmd = Shared.Api.ParenteraliaCmd Parenteralia.empty
 
                 let env = ServerApi.Adapters.makeAppEnv provider
 
@@ -303,18 +299,18 @@ let processCmdGuardTests =
                     ServerApi.Compute.bound
                         env
                         noCookie
-                        Shared.Api.Command.toString
-                        ServerApi.Command.gate
-                        (ServerApi.Command.processCmd env)
+                        ServerApi.ParenteraliaCommand.toString
+                        (fun _ -> ServerApi.Gate.RequiresLoaded)
+                        (ServerApi.ParenteraliaCommand.processCmd env)
                         {
                             Opened = None
-                            Command = cmd
+                            Command = Parenteralia.empty
                         }
                     |> Async.RunSynchronously
 
                 result
                 |> Result.isError
-                |> Expect.isTrue "should return Error for ParenteraliaCmd when not loaded"
+                |> Expect.isTrue "should return Error for processParenteralia when not loaded"
             }
         ]
 

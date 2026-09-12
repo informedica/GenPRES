@@ -10,8 +10,6 @@ module Api =
     type Command =
         | OrderContextCmd of OrderContextCommand * OrderContext
         | OrderPlanCmd of OrderPlanCommand
-        | FormularyCmd of Formulary
-        | ParenteraliaCmd of Parenteralia
         | NutritionPlanCmd of NutritionPlanCommand
         | InteractionCmd of InteractionCommand
 
@@ -64,8 +62,6 @@ module Api =
     type Response =
         | OrderContextResp of OrderContextResponse
         | OrderPlanResp of OrderPlanResponse
-        | FormularyResp of Formulary
-        | ParenteraliaResp of Parenteralia
         | NutritionPlanResp of NutritionPlanResponse
         | InteractionResp of InteractionResponse
 
@@ -150,8 +146,6 @@ module Api =
 
             | OrderPlanCmd(UpdateOrderPlan _) -> "UpdatedOrderPlan"
             | OrderPlanCmd(FilterOrderPlan _) -> "FilterOrderPlan"
-            | FormularyCmd _ -> "FormularyCmd"
-            | ParenteraliaCmd _ -> "ParenteraliaCmd"
             | NutritionPlanCmd(InitNutritionPlan _) -> "InitNutritionPlan"
             | NutritionPlanCmd(UpdateNutritionOrderContext _) -> "UpdateNutritionOrderContext"
             | NutritionPlanCmd(SelectNutritionOrderScenario _) -> "SelectNutritionOrderScenario"
@@ -289,6 +283,10 @@ module Api =
     type IServerApi =
         {
             processCommand: Request -> Async<Result<Reply, string[]>>
+            // one member per use case, each on the same envelope: the formulary and the
+            // parenteralia views ask their own
+            processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
+            processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
             processLaunch: LaunchCommand -> Async<LaunchOutcome>
             processSession: SessionCommand -> Async<SessionResponse>
             processSigning: SigningCommand -> Async<SigningResponse>
