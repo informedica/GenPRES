@@ -87,20 +87,27 @@ module Api =
     /// Every computing request: the command and the OpenedToken the Session holds.
     /// `None` where there is none to send: no Session, an anonymous one, or a client acting
     /// before its first token arrived.
-    type Request =
+    type Request<'cmd> =
         {
             Opened: OpenedToken option
-            Command: Command
+            Command: 'cmd
         }
 
 
-    /// Every computing reply: the result, and what the Session is told with it (the record
+    /// Every computing reply: the answer, and what the Session is told with it (the record
     /// moved on, or the Session ended).
-    type Reply =
+    type Reply<'resp> =
         {
-            Response: Response
+            Response: 'resp
             Notice: RecordNotice option
         }
+
+
+    // until the families move to their own members, processCommand keeps its shape under
+    // these names
+    type Request = Request<Command>
+
+    type Reply = Reply<Response>
 
 
     module Command =

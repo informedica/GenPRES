@@ -278,15 +278,36 @@ let errorPropagationTests =
         ]
 
 
+/// The gate is Compute.bound's, so the guard is tested through it, over a cookie that names
+/// no Session.
 let requireLoadedTests =
+    let noCookie: SessionCookie =
+        {
+            read = fun () -> None
+            write = ignore
+            delete = ignore
+        }
+
+    let bound env cmd =
+        Compute.bound
+            env
+            noCookie
+            Api.Command.toString
+            Command.gate
+            (Command.processCmd env)
+            {
+                Opened = None
+                Command = cmd
+            }
+
     testList
-        "Stub adapter requireLoaded guard"
+        "Compute.bound requireLoaded guard"
         [
 
             testAsync "requireLoaded returns Error when not loaded" {
                 let env = makeEnvNotLoaded [| "not ready" |]
 
-                let! result = Command.processCmd env (Api.FormularyCmd Formulary.empty)
+                let! result = bound env (Api.FormularyCmd Formulary.empty)
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should return requireLoaded error" [| "not ready" |]
@@ -301,7 +322,7 @@ let requireLoadedTests =
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
 
-                let! result = Command.processCmd env (Api.FormularyCmd Formulary.empty)
+                let! result = bound env (Api.FormularyCmd Formulary.empty)
 
                 match result with
                 | Ok _ -> ()
@@ -4885,6 +4906,187 @@ module AdminTests =
             ]
 
 
+/// `Compute.bound`: what every computing member goes through.
+module BoundTests =
+
+    open Shared.Api
+    open Newtonsoft.Json
+    open Fable.Remoting.Json
+
+    let cookieOf (id: string option) : SessionCookie =
+        {
+            read = fun () -> id
+            write = ignore
+            delete = ignore
+        }
+
+    /// A stub env: the formulary answers, the Session's answer given, loaded or not.
+    let envWith (loaded: bool) (told: RecordNotice option) =
+        let env =
+            makeEnv
+                (formularyAlwaysOk { Formulary.empty with Markdown = "stubbed" })
+                (orderContextAlwaysOk emptyCtx)
+                (orderPlanAlwaysOk emptyPlan)
+                (nutritionPlanAlwaysOk emptyNutritionPlan)
+
+        { env with
+            requireLoaded = (fun () -> if loaded then None else Some [| "not loaded" |])
+            session = { env.session with seen = fun _ _ -> async { return told } }
+        }
+
+    let run env cookie handler cmd =
+        Compute.bound
+            env
+            cookie
+            Command.toString
+            Command.gate
+            handler
+            {
+                Opened = None
+                Command = cmd
+            }
+        |> Async.RunSynchronously
+
+    let formulary = Api.FormularyCmd Formulary.empty
+
+    let converters = [| FableJsonConverter() :> JsonConverter |]
+
+    let toJson (v: 'a) =
+        JsonConvert.SerializeObject(v, converters)
+
+    let ofJson<'a> (json: string) =
+        JsonConvert.DeserializeObject<'a>(json, converters)
+
+    let tests =
+        testList
+            "Compute.bound"
+            [
+                test "without a cookie: computed, nothing told" {
+                    let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
+
+                    match run env (cookieOf None) (Command.processCmd env) formulary with
+                    | Ok reply ->
+                        reply.Notice |> Expect.isNone "nothing told without a cookie"
+
+                        match reply.Response with
+                        | Api.FormularyResp f -> f.Markdown |> Expect.equal "computed" "stubbed"
+                        | other -> failtest $"expected FormularyResp, got {other}"
+                    | Error errs -> failtest $"expected Ok, got {errs}"
+                }
+
+                test "with a cookie: what the Session is told rides on the reply, still computed" {
+                    let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
+
+                    match run env (cookieOf (Some "s-1")) (Command.processCmd env) formulary with
+                    | Ok reply ->
+                        reply.Notice
+                        |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
+
+                        match reply.Response with
+                        | Api.FormularyResp f -> f.Markdown |> Expect.equal "still computed" "stubbed"
+                        | other -> failtest $"expected FormularyResp, got {other}"
+                    | Error errs -> failtest $"expected Ok, got {errs}"
+                }
+
+                test "a command that needs the formulary is refused while it is not loaded" {
+                    let env = envWith false None
+
+                    run env (cookieOf None) (Command.processCmd env) formulary
+                    |> Expect.equal "refused with the messages" (Error [| "not loaded" |])
+                }
+
+                test "an open command runs while the formulary is not loaded" {
+                    let env = envWith false None
+
+                    match run env (cookieOf None) (Command.processCmd env) (Api.InteractionCmd Api.GetDrugNames) with
+                    | Ok reply ->
+                        reply.Response
+                        |> Expect.equal "the names" (Api.InteractionResp(Api.DrugNamesLoaded [||]))
+                    | Error errs -> failtest $"expected Ok, got {errs}"
+
+                    Command.gate (Api.InteractionCmd Api.GetDrugNames)
+                    |> Expect.equal "open" Gate.Open
+
+                    Command.gate (Api.InteractionCmd(Api.CheckInteractions []))
+                    |> Expect.equal "gated" Gate.RequiresLoaded
+                }
+
+                test "an open command never asks the provider whether it is loaded" {
+                    let asked = ref 0
+
+                    let env =
+                        { envWith true None with
+                            requireLoaded =
+                                fun () ->
+                                    asked.Value <- asked.Value + 1
+                                    None
+                        }
+
+                    run env (cookieOf None) (Command.processCmd env) (Api.InteractionCmd Api.GetDrugNames)
+                    |> Result.isOk
+                    |> Expect.isTrue "computed"
+
+                    asked.Value |> Expect.equal "never asked: asking may load" 0
+
+                    run env (cookieOf None) (Command.processCmd env) formulary
+                    |> Result.isOk
+                    |> Expect.isTrue "computed"
+
+                    asked.Value |> Expect.equal "asked once for a gated command" 1
+                }
+
+                test "a throwing handler answers an Error with its message" {
+                    let env = envWith true None
+                    let throwing _ = async { return invalidOp "boom" }
+
+                    run env (cookieOf None) throwing formulary
+                    |> Expect.equal "the message" (Error [| "boom" |])
+                }
+
+                test "logged: the answer passes through" {
+                    Compute.logged
+                        "admin"
+                        AdminCommand.toString
+                        (fun _ -> async { return 42 })
+                        (AdminCommand.ValidatePassword "x")
+                    |> Async.RunSynchronously
+                    |> Expect.equal "through" 42
+                }
+
+                test "the generic envelope round-trips through the server's JSON converter" {
+                    let request: Request<Formulary> =
+                        {
+                            Opened = Some(OpenedToken "opened-1")
+                            Command = { Formulary.empty with Generics = [| "paracetamol" |] }
+                        }
+
+                    request
+                    |> toJson
+                    |> ofJson<Request<Formulary>>
+                    |> Expect.equal "the request" request
+
+                    let reply: Result<Reply<Formulary>, string[]> =
+                        Ok
+                            {
+                                Response = { Formulary.empty with Generics = [| "paracetamol" |] }
+                                Notice = Some(RecordNotice.Ended SessionEnding.SupersededByLaunch)
+                            }
+
+                    reply
+                    |> toJson
+                    |> ofJson<Result<Reply<Formulary>, string[]>>
+                    |> Expect.equal "the reply" reply
+
+                    let refused: Result<Reply<Formulary>, string[]> = Error [| "not loaded" |]
+
+                    refused
+                    |> toJson
+                    |> ofJson<Result<Reply<Formulary>, string[]>>
+                    |> Expect.equal "an error" refused
+                }
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -4895,4 +5097,5 @@ let tests =
             requireLoadedTests
             SessionStubTests.tests
             AdminTests.tests
+            BoundTests.tests
         ]

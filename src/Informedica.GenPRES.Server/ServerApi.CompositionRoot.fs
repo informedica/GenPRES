@@ -4,7 +4,6 @@ namespace ServerApi
 module CompositionRoot =
 
     open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
-    open Shared.Types
     open Shared.Api
 
 
@@ -19,82 +18,20 @@ module CompositionRoot =
         : IServerApi
         =
         {
-            // the Session the cookie names is marked seen and told whether the record moved on
-            // or the Session ended, before the command is computed; without a cookie the
-            // request computes as it always did. The token is never logged.
-            processCommand =
-                fun request ->
-                    async {
-                        let cmd = request.Command
-
-                        try
-                            writeInfoMessage $"Processing command: {cmd |> Command.toString}"
-
-                            let! notice =
-                                match cookie.read () with
-                                | None -> async { return None }
-                                | Some id -> env.session.seen id request.Opened
-
-                            let! result = Command.processCmd env cmd
-
-                            let told =
-                                match notice with
-                                | Some(RecordNotice.NewerVersion _) -> ", the record moved on"
-                                | Some(RecordNotice.Ended _) -> ", the Session ended"
-                                | None -> ""
-
-                            writeInfoMessage $"Finished processing command: {cmd |> Command.toString}{told}"
-
-                            return
-                                result
-                                |> Result.map (fun response ->
-                                    ({
-                                        Response = response
-                                        Notice = notice
-                                    }
-                                    : Reply)
-                                )
-                        with ex ->
-                            writeErrorMessage $"Error processing command: {cmd |> Command.toString}\n{ex}"
-                            return Error [| ex.Message |]
-                    }
+            // every computing member goes through Compute.bound: the log, the Session marked seen
+            // and told, the gate, the exception as an Error
+            processCommand = Compute.bound env cookie Command.toString Command.gate (Command.processCmd env)
 
             processLaunch =
-                fun cmd ->
-                    async {
-                        writeInfoMessage $"Processing launch: {cmd |> LaunchCommand.toString}"
-                        let! outcome = LaunchCommand.processCmd env cookie stateCookie cmd
-                        writeInfoMessage $"Finished processing launch: {cmd |> LaunchCommand.toString}"
-                        return outcome
-                    }
+                Compute.logged "launch" LaunchCommand.toString (LaunchCommand.processCmd env cookie stateCookie)
 
             processSession =
-                fun cmd ->
-                    async {
-                        writeInfoMessage $"Processing session: {cmd |> SessionCommand.toString}"
-                        let! response = SessionCommand.processCmd env cookie enrolment cmd
-                        writeInfoMessage $"Finished processing session: {cmd |> SessionCommand.toString}"
-                        return response
-                    }
+                Compute.logged "session" SessionCommand.toString (SessionCommand.processCmd env cookie enrolment)
 
-            processSigning =
-                fun cmd ->
-                    async {
-                        writeInfoMessage $"Processing signing: {cmd |> SigningCommand.toString}"
-                        let! response = SigningCommand.processCmd env cookie cmd
-                        writeInfoMessage $"Finished processing signing: {cmd |> SigningCommand.toString}"
-                        return response
-                    }
+            processSigning = Compute.logged "signing" SigningCommand.toString (SigningCommand.processCmd env cookie)
 
             // never Session-bound: no cookie read, no notice, and not behind requireLoaded
-            processAdmin =
-                fun cmd ->
-                    async {
-                        writeInfoMessage $"Processing admin: {cmd |> AdminCommand.toString}"
-                        let! response = AdminCommand.processCmd env cmd
-                        writeInfoMessage $"Finished processing admin: {cmd |> AdminCommand.toString}"
-                        return response
-                    }
+            processAdmin = Compute.logged "admin" AdminCommand.toString (AdminCommand.processCmd env)
 
             getSettings =
                 fun () ->

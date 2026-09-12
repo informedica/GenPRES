@@ -250,9 +250,19 @@ let cachingBehaviorTests =
         ]
 
 
+/// The gate lives in Compute.bound, so the guard is tested through it, over a cookie that
+/// names no Session.
+let noCookie: ServerApi.SessionCookie =
+    {
+        read = fun () -> None
+        write = ignore
+        delete = ignore
+    }
+
+
 let processCmdGuardTests =
     testList
-        "processCmd IsLoaded guard"
+        "Compute.bound IsLoaded guard"
         [
 
             test "FormularyCmd returns Error when provider IsLoaded = false" {
@@ -261,8 +271,19 @@ let processCmdGuardTests =
 
                 let cmd = Shared.Api.FormularyCmd Formulary.empty
 
+                let env = ServerApi.Adapters.makeAppEnv provider
+
                 let result =
-                    ServerApi.Command.processCmd (ServerApi.Adapters.makeAppEnv provider) cmd
+                    ServerApi.Compute.bound
+                        env
+                        noCookie
+                        Shared.Api.Command.toString
+                        ServerApi.Command.gate
+                        (ServerApi.Command.processCmd env)
+                        {
+                            Opened = None
+                            Command = cmd
+                        }
                     |> Async.RunSynchronously
 
                 result
@@ -276,8 +297,19 @@ let processCmdGuardTests =
 
                 let cmd = Shared.Api.ParenteraliaCmd Parenteralia.empty
 
+                let env = ServerApi.Adapters.makeAppEnv provider
+
                 let result =
-                    ServerApi.Command.processCmd (ServerApi.Adapters.makeAppEnv provider) cmd
+                    ServerApi.Compute.bound
+                        env
+                        noCookie
+                        Shared.Api.Command.toString
+                        ServerApi.Command.gate
+                        (ServerApi.Command.processCmd env)
+                        {
+                            Opened = None
+                            Command = cmd
+                        }
                     |> Async.RunSynchronously
 
                 result
