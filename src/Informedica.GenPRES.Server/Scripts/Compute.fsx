@@ -214,7 +214,12 @@ module AdminCommand =
 //                     async {
 //                         try
 //                             Informedica.GenForm.Lib.Api.reloadCache logger provider
-//                             return Ok()
+//                             // reloadCache records a failed load and returns normally, so the
+//                             // provider is asked: unloaded is Error with its messages
+//                             return
+//                                 match notLoaded provider with
+//                                 | None -> Ok()
+//                                 | Some msgs -> Error msgs
 //                         with ex ->
 //                             return Error [| ex.Message |]
 //                     }

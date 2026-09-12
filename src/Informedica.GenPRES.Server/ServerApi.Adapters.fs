@@ -165,6 +165,16 @@ module Adapters =
         }
 
 
+    /// The messages of a provider that did not load; None when it did.
+    let private notLoaded (provider: Resources.IResourceProvider) =
+        let info = provider.GetResourceInfo()
+
+        if info.IsLoaded then
+            None
+        else
+            info.Messages |> Array.map (fun msg -> FormLogging.formatMessage msg) |> Some
+
+
     let makeAppEnvWith
         (launchKey: LaunchSeal.Key)
         (directory: StubDirectory.Directory)
@@ -223,24 +233,23 @@ module Adapters =
                                     return Error [| ex.Message |]
                             }
                     analyzeLogFile = fun fileName -> async { return LogAnalyzer.analyzeFile fileName }
+                    // a reload that leaves the provider unloaded is a failure with its messages,
+                    // not a success: reloadCache records the state and returns normally
                     reloadResources =
                         fun () ->
                             async {
                                 try
                                     Informedica.GenForm.Lib.Api.reloadCache logger provider
-                                    return Ok()
+
+                                    return
+                                        match notLoaded provider with
+                                        | None -> Ok()
+                                        | Some msgs -> Error msgs
                                 with ex ->
                                     return Error [| ex.Message |]
                             }
                 }
-            requireLoaded =
-                fun () ->
-                    let info = provider.GetResourceInfo()
-
-                    if info.IsLoaded then
-                        None
-                    else
-                        info.Messages |> Array.map (fun msg -> FormLogging.formatMessage msg) |> Some
+            requireLoaded = fun () -> notLoaded provider
             // an in-memory stub with a two-minute Launch lifetime; its sessions live as long
             // as this AppEnv
             session =
