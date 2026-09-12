@@ -494,18 +494,6 @@ module Types =
         }
 
 
-    type OrderPlan =
-        {
-            Patient: Patient
-            Selected: OrderScenario option
-            Filtered: OrderScenario[]
-            // NOTE: maybe use ordercontext to preserve full info
-            // so, OrderContexts: OrderContext []
-            Scenarios: OrderScenario[]
-            Totals: Totals
-        }
-
-
     [<RequireQualifiedAccess>]
     type NutritionCategory =
         | EnteralFeeding
@@ -515,6 +503,9 @@ module Types =
         | ElectrolyteGlucose
 
 
+    /// A nutrition workbench of the plan: one per category added, an order context narrowed
+    /// down to the product and dose; once it holds exactly one scenario, that scenario is an
+    /// order of the plan.
     type NutritionContext =
         {
             Id: string
@@ -522,6 +513,20 @@ module Types =
             Category: NutritionCategory
             Removable: bool
             OrderContext: OrderContext
+        }
+
+
+    /// The one plan: every order for the patient, nutrition included, which is what is signed.
+    type OrderPlan =
+        {
+            Patient: Patient
+            Selected: OrderScenario option
+            Filtered: OrderScenario[]
+            // every order in the plan, the nutrition orders included
+            Scenarios: OrderScenario[]
+            // the nutrition workbenches; a context narrowed to one scenario has it in Scenarios
+            NutritionContexts: NutritionContext[]
+            Totals: Totals
         }
 
 

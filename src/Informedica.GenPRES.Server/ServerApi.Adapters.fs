@@ -138,6 +138,36 @@ module Adapters =
         }
 
 
+    let private makePlanPort agent (provider: Resources.IResourceProvider) (orderCtxPort: OrderContextPort) : PlanPort =
+        {
+            recalculate =
+                fun plan ->
+                    async {
+                        do! setComponentName "OrderPlan" agent
+                        return plan |> PlanService.recalculate (provider.GetTotals()) |> Ok
+                    }
+            navigate =
+                fun plan contextId ctxCmd ctx ->
+                    async {
+                        do! setComponentName "OrderPlan" agent
+                        let recalc = PlanService.recalculate (provider.GetTotals())
+                        return! PlanService.navigate recalc orderCtxPort plan contextId ctxCmd ctx
+                    }
+            addContext =
+                fun plan category ->
+                    PlanService.addContext (PlanService.recalculate (provider.GetTotals())) orderCtxPort plan category
+            removeContext =
+                fun plan id ->
+                    async {
+                        return
+                            plan
+                            |> PlanService.removeContext id
+                            |> PlanService.recalculate (provider.GetTotals())
+                            |> Ok
+                    }
+        }
+
+
     /// The session port of a server that does not launch: every Launch is refused as
     /// invalid and no session is ever found. Used in production until the scope switch (#580)
     /// decides what a production server exposes.
@@ -190,6 +220,7 @@ module Adapters =
             orderContext = orderCtxPort
             orderPlan = makeOrderPlanPort agent provider orderCtxPort
             nutritionPlan = makeNutritionPlanPort orderCtxPort logger provider
+            plan = makePlanPort agent provider orderCtxPort
             interaction =
                 {
                     checkInteractions =

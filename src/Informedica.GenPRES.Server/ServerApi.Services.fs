@@ -489,11 +489,13 @@ module OrderPlanService =
                 let w = tp.Patient |> Models.Patient.getWeight |> Option.map int
                 let a = tp.Patient |> Models.Patient.getAgeInDays |> Option.map int
 
+                // by order id: a scenario replaced in Scenarios still counts under its filter
                 let scs =
                     if tp.Filtered |> Array.isEmpty then
                         tp.Scenarios
                     else
-                        tp.Scenarios |> Array.filter (fun sc -> tp.Filtered |> Array.exists ((=) sc))
+                        tp.Scenarios
+                        |> Array.filter (fun sc -> tp.Filtered |> Array.exists (fun f -> f.Order.Id = sc.Order.Id))
 
                 scs |> Array.map _.Order |> OrderService.getTotals totals a w
         }
@@ -839,3 +841,185 @@ module NutritionPlanService =
         }
         |> calculateNutritionTotals totals
         |> Ok
+
+
+/// The one plan, nutrition included: the nutrition workbenches produce orders by category, and
+/// a context narrowed to exactly one scenario has that scenario among the plan's orders, so one
+/// signature covers it. Totals are computed once, over the orders.
+module PlanService =
+
+    open Shared
+    open Shared.Types
+
+
+    /// The order a nutrition context contributes to the plan: its scenario, once the context
+    /// is narrowed to exactly one; nothing while it holds several candidates or none.
+    let contribution (nc: NutritionContext) =
+        nc.OrderContext.Scenarios |> Array.tryExactlyOne
+
+
+    /// The plan's orders with one context's contribution replaced: the one it contributed
+    /// before goes out by order id, the one it contributes now comes in; the same order in
+    /// place, a different one at the end.
+    let withContribution (before: OrderScenario option) (after: OrderScenario option) (scenarios: OrderScenario[]) =
+        match before, after with
+        | Some old, Some sc when old.Order.Id = sc.Order.Id ->
+            scenarios |> Array.map (fun s -> if s.Order.Id = sc.Order.Id then sc else s)
+        | _ ->
+            let without =
+                match before with
+                | None -> scenarios
+                | Some old -> scenarios |> Array.filter (fun s -> s.Order.Id <> old.Order.Id)
+
+            match after with
+            | None -> without
+            | Some sc -> Array.append without [| sc |]
+
+
+    /// A derived view (the filter, the selection) follows a replaced order only where it held
+    /// the old one: replaced in place, or gone with it; never gains an order on its own.
+    let private follow (before: OrderScenario option) (after: OrderScenario option) (view: OrderScenario[]) =
+        match before with
+        | Some old when view |> Array.exists (fun s -> s.Order.Id = old.Order.Id) ->
+            view |> withContribution before after
+        | _ -> view
+
+
+    /// The plan's orders with one contribution replaced, and the filter and the selection
+    /// following it, so that a replaced order keeps counting in the totals and a removed one
+    /// is nowhere.
+    let withOrders (before: OrderScenario option) (after: OrderScenario option) (plan: OrderPlan) =
+        { plan with
+            Scenarios = plan.Scenarios |> withContribution before after
+            Filtered = plan.Filtered |> follow before after
+            Selected =
+                match plan.Selected, before with
+                | Some sel, Some old when sel.Order.Id = old.Order.Id -> after
+                | sel, _ -> sel
+        }
+
+
+    /// The resolved order context into the context named, filtered to the category's dose rule
+    /// set, and its contribution into the plan's orders.
+    let updateContext id (resolved: OrderContext) (plan: OrderPlan) =
+        match plan.NutritionContexts |> Array.tryFind (fun nc -> nc.Id = id) with
+        | None -> Error [| $"The plan holds no nutrition context %s{id}" |]
+        | Some nc ->
+            let drs = NutritionPlanService.getDoseRuleSet nc.Category
+
+            let updated =
+                { nc with OrderContext = resolved |> NutritionPlanService.filterByDoseRuleSet drs }
+
+            { plan with
+                NutritionContexts = plan.NutritionContexts |> Array.map (fun c -> if c.Id = id then updated else c)
+            }
+            |> withOrders (contribution nc) (contribution updated)
+            |> Ok
+
+
+    /// The context removed, and every supplement with a feeding; each takes its order with it.
+    let removeContext id (plan: OrderPlan) =
+        let removed = plan.NutritionContexts |> Array.tryFind (fun nc -> nc.Id = id)
+
+        let cascade =
+            removed
+            |> Option.map (fun nc -> nc.Category = NutritionCategory.EnteralFeeding)
+            |> Option.defaultValue false
+
+        let goes (nc: NutritionContext) =
+            nc.Id = id || (cascade && nc.Category = NutritionCategory.EnteralSupplement)
+
+        let gone, kept = plan.NutritionContexts |> Array.partition goes
+
+        gone
+        |> Array.fold (fun p nc -> p |> withOrders (contribution nc) None) { plan with NutritionContexts = kept }
+
+
+    let recalculate totals (plan: OrderPlan) =
+        plan |> OrderPlanService.calculateTotals totals
+
+
+    /// A command into the nutrition context named, or into the selected scenario when none is;
+    /// `recalc` ends the answer in its totals (the adapter's `recalculate` over the provider's
+    /// totals data).
+    let navigate
+        (recalc: OrderPlan -> OrderPlan)
+        (orderCtxPort: OrderContextPort)
+        (plan: OrderPlan)
+        (contextId: string option)
+        (ctxCmd: Api.OrderContextCommand)
+        (ctx: OrderContext)
+        =
+        async {
+            match contextId with
+            // the selected scenario re-evaluated: the plan's copy replaced by order id, the
+            // selection on the result; an evaluation that fails is the answer, not the plan as it was
+            | None ->
+                let! result = orderCtxPort.evaluate ctxCmd ctx
+
+                return
+                    result
+                    |> Result.map (fun evaluated ->
+                        match evaluated.Scenarios |> Array.tryExactlyOne with
+                        | None -> { plan with Selected = None }
+                        | Some sc ->
+                            let before = plan.Scenarios |> Array.tryFind (fun s -> s.Order.Id = sc.Order.Id)
+
+                            { (match before with
+                               | Some _ -> plan |> withOrders before (Some sc)
+                               | None -> plan) with
+                                Selected = Some sc
+                            }
+                    )
+                    |> Result.map recalc
+            | Some id ->
+                let! result = orderCtxPort.evaluate ctxCmd ctx
+
+                return
+                    result
+                    |> Result.bind (fun resolved -> plan |> updateContext id resolved)
+                    |> Result.map recalc
+        }
+
+
+    /// A nutrition context for the category, its filter discovered, appended to the plan with
+    /// whatever it contributes.
+    let addContext
+        (recalc: OrderPlan -> OrderPlan)
+        (orderCtxPort: OrderContextPort)
+        (plan: OrderPlan)
+        (category: NutritionCategory)
+        =
+        async {
+            let drs = NutritionPlanService.getDoseRuleSet category
+
+            let ctx =
+                Models.OrderContext.empty
+                |> Models.OrderContext.setPatient plan.Patient
+                |> fun c ->
+                    { c with
+                        Filter =
+                            { c.Filter with
+                                Indications = drs.Indications
+                                Generics = drs.Generics
+                            }
+                    }
+
+            let! discovered = NutritionPlanService.discoverFilterOptions orderCtxPort ctx
+
+            return
+                match discovered with
+                | Some resolved ->
+                    let id = System.Guid.NewGuid().ToString()
+                    let nc = Models.NutritionContext.create id drs.Label category true resolved
+
+                    { plan with NutritionContexts = Array.append plan.NutritionContexts [| nc |] }
+                    |> withOrders None (contribution nc)
+                    |> recalc
+                    |> Ok
+                | None ->
+                    Error
+                        [|
+                            "Could not discover filter options for nutrition context"
+                        |]
+        }

@@ -33,6 +33,18 @@ type NutritionPlanPort =
     }
 
 
+/// The one plan: every member answers the plan with its totals recomputed over its orders.
+type PlanPort =
+    {
+        recalculate: OrderPlan -> Async<Result<OrderPlan, string[]>>
+        // the command into the nutrition context named, or into the selected scenario when None
+        navigate:
+            OrderPlan -> string option -> OrderContextCommand -> OrderContext -> Async<Result<OrderPlan, string[]>>
+        addContext: OrderPlan -> NutritionCategory -> Async<Result<OrderPlan, string[]>>
+        removeContext: OrderPlan -> string -> Async<Result<OrderPlan, string[]>>
+    }
+
+
 type InteractionPort =
     {
         checkInteractions: string list -> Async<Result<DrugInteraction list, string[]>>
@@ -226,6 +238,7 @@ type AppEnv =
         orderContext: OrderContextPort
         orderPlan: OrderPlanPort
         nutritionPlan: NutritionPlanPort
+        plan: PlanPort
         interaction: InteractionPort
         admin: AdminPort
         requireLoaded: unit -> string[] option
