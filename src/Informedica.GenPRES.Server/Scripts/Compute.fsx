@@ -71,10 +71,14 @@ module Compute =
                     | None -> async { return None }
                     | Some id -> env.session.seen id request.Opened
 
+                // an open command never asks the provider: asking may load
                 let! result =
-                    match gate cmd, env.requireLoaded () with
-                    | Gate.RequiresLoaded, Some msgs -> async { return Error msgs }
-                    | _ -> handler cmd
+                    match gate cmd with
+                    | Gate.Open -> handler cmd
+                    | Gate.RequiresLoaded ->
+                        match env.requireLoaded () with
+                        | Some msgs -> async { return Error msgs }
+                        | None -> handler cmd
 
                 let told =
                     match notice with

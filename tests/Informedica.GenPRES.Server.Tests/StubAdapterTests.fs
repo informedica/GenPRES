@@ -5011,6 +5011,30 @@ module BoundTests =
                     |> Expect.equal "gated" Gate.RequiresLoaded
                 }
 
+                test "an open command never asks the provider whether it is loaded" {
+                    let asked = ref 0
+
+                    let env =
+                        { envWith true None with
+                            requireLoaded =
+                                fun () ->
+                                    asked.Value <- asked.Value + 1
+                                    None
+                        }
+
+                    run env (cookieOf None) (Command.processCmd env) (Api.InteractionCmd Api.GetDrugNames)
+                    |> Result.isOk
+                    |> Expect.isTrue "computed"
+
+                    asked.Value |> Expect.equal "never asked: asking may load" 0
+
+                    run env (cookieOf None) (Command.processCmd env) formulary
+                    |> Result.isOk
+                    |> Expect.isTrue "computed"
+
+                    asked.Value |> Expect.equal "asked once for a gated command" 1
+                }
+
                 test "a throwing handler answers an Error with its message" {
                     let env = envWith true None
                     let throwing _ = async { return invalidOp "boom" }
