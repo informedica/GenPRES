@@ -489,11 +489,13 @@ module OrderPlanService =
                 let w = tp.Patient |> Models.Patient.getWeight |> Option.map int
                 let a = tp.Patient |> Models.Patient.getAgeInDays |> Option.map int
 
+                // by order id: a scenario replaced in Scenarios still counts under its filter
                 let scs =
                     if tp.Filtered |> Array.isEmpty then
                         tp.Scenarios
                     else
-                        tp.Scenarios |> Array.filter (fun sc -> tp.Filtered |> Array.exists ((=) sc))
+                        tp.Scenarios
+                        |> Array.filter (fun sc -> tp.Filtered |> Array.exists (fun f -> f.Order.Id = sc.Order.Id))
 
                 scs |> Array.map _.Order |> OrderService.getTotals totals a w
         }
@@ -874,6 +876,29 @@ module PlanService =
             | Some sc -> Array.append without [| sc |]
 
 
+    /// A derived view (the filter, the selection) follows a replaced order only where it held
+    /// the old one: replaced in place, or gone with it; never gains an order on its own.
+    let private follow (before: OrderScenario option) (after: OrderScenario option) (view: OrderScenario[]) =
+        match before with
+        | Some old when view |> Array.exists (fun s -> s.Order.Id = old.Order.Id) ->
+            view |> withContribution before after
+        | _ -> view
+
+
+    /// The plan's orders with one contribution replaced, and the filter and the selection
+    /// following it, so that a replaced order keeps counting in the totals and a removed one
+    /// is nowhere.
+    let withOrders (before: OrderScenario option) (after: OrderScenario option) (plan: OrderPlan) =
+        { plan with
+            Scenarios = plan.Scenarios |> withContribution before after
+            Filtered = plan.Filtered |> follow before after
+            Selected =
+                match plan.Selected, before with
+                | Some sel, Some old when sel.Order.Id = old.Order.Id -> after
+                | sel, _ -> sel
+        }
+
+
     /// The resolved order context into the context named, filtered to the category's dose rule
     /// set, and its contribution into the plan's orders.
     let updateContext id (resolved: OrderContext) (plan: OrderPlan) =
@@ -887,8 +912,8 @@ module PlanService =
 
             { plan with
                 NutritionContexts = plan.NutritionContexts |> Array.map (fun c -> if c.Id = id then updated else c)
-                Scenarios = plan.Scenarios |> withContribution (contribution nc) (contribution updated)
             }
+            |> withOrders (contribution nc) (contribution updated)
             |> Ok
 
 
@@ -906,12 +931,8 @@ module PlanService =
 
         let gone, kept = plan.NutritionContexts |> Array.partition goes
 
-        { plan with
-            NutritionContexts = kept
-            Scenarios =
-                gone
-                |> Array.fold (fun scs nc -> scs |> withContribution (contribution nc) None) plan.Scenarios
-        }
+        gone
+        |> Array.fold (fun p nc -> p |> withOrders (contribution nc) None) { plan with NutritionContexts = kept }
 
 
     let recalculate totals (plan: OrderPlan) =
@@ -931,9 +952,26 @@ module PlanService =
         =
         async {
             match contextId with
+            // the selected scenario re-evaluated: the plan's copy replaced by order id, the
+            // selection on the result; an evaluation that fails is the answer, not the plan as it was
             | None ->
-                let! updated = OrderPlanService.updateOrderPlan orderCtxPort plan (Some(ctxCmd, ctx))
-                return updated |> recalc |> Ok
+                let! result = orderCtxPort.evaluate ctxCmd ctx
+
+                return
+                    result
+                    |> Result.map (fun evaluated ->
+                        match evaluated.Scenarios |> Array.tryExactlyOne with
+                        | None -> { plan with Selected = None }
+                        | Some sc ->
+                            let before = plan.Scenarios |> Array.tryFind (fun s -> s.Order.Id = sc.Order.Id)
+
+                            { (match before with
+                               | Some _ -> plan |> withOrders before (Some sc)
+                               | None -> plan) with
+                                Selected = Some sc
+                            }
+                    )
+                    |> Result.map recalc
             | Some id ->
                 let! result = orderCtxPort.evaluate ctxCmd ctx
 
@@ -975,10 +1013,8 @@ module PlanService =
                     let id = System.Guid.NewGuid().ToString()
                     let nc = Models.NutritionContext.create id drs.Label category true resolved
 
-                    { plan with
-                        NutritionContexts = Array.append plan.NutritionContexts [| nc |]
-                        Scenarios = plan.Scenarios |> withContribution None (contribution nc)
-                    }
+                    { plan with NutritionContexts = Array.append plan.NutritionContexts [| nc |] }
+                    |> withOrders None (contribution nc)
                     |> recalc
                     |> Ok
                 | None ->

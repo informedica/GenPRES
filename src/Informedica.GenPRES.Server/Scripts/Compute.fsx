@@ -110,6 +110,28 @@ module PlanService =
             | Some sc -> Array.append without [| sc |]
 
 
+    /// A derived view (the filter, the selection) follows a replaced order only where it held
+    /// the old one: replaced in place, or gone with it; never gains an order on its own.
+    let private follow (before: OrderScenario option) (after: OrderScenario option) (view: OrderScenario[]) =
+        match before with
+        | Some old when view |> Array.exists (fun s -> s.Order.Id = old.Order.Id) -> view |> withContribution before after
+        | _ -> view
+
+
+    /// The plan's orders with one contribution replaced, and the filter and the selection
+    /// following it, so that a replaced order keeps counting in the totals (which count by
+    /// order id) and a removed one is nowhere.
+    let withOrders (before: OrderScenario option) (after: OrderScenario option) (plan: Plan654) =
+        { plan with
+            Scenarios = plan.Scenarios |> withContribution before after
+            Filtered = plan.Filtered |> follow before after
+            Selected =
+                match plan.Selected, before with
+                | Some sel, Some old when sel.Order.Id = old.Order.Id -> after
+                | sel, _ -> sel
+        }
+
+
     /// The resolved order context into the context named, filtered to the category's dose rule
     /// set as before, and its contribution into the plan's orders.
     let updateContext id (resolved: OrderContext) (plan: Plan654) =
@@ -121,8 +143,8 @@ module PlanService =
 
             { plan with
                 NutritionContexts = plan.NutritionContexts |> Array.map (fun c -> if c.Id = id then updated else c)
-                Scenarios = plan.Scenarios |> withContribution (contribution nc) (contribution updated)
             }
+            |> withOrders (contribution nc) (contribution updated)
             |> Ok
 
 
@@ -140,10 +162,8 @@ module PlanService =
 
         let gone, kept = plan.NutritionContexts |> Array.partition goes
 
-        { plan with
-            NutritionContexts = kept
-            Scenarios = gone |> Array.fold (fun scs nc -> scs |> withContribution (contribution nc) None) plan.Scenarios
-        }
+        gone
+        |> Array.fold (fun p nc -> p |> withOrders (contribution nc) None) { plan with NutritionContexts = kept }
 
 
 // and the totals (→ Services.fs): `OrderPlanService.calculateTotals totals plan`, once, over
@@ -159,7 +179,8 @@ module PlanService =
 //             removeContext: OrderPlan -> string -> Async<Result<OrderPlan, string[]>>
 //         }
 //
-// `navigate plan None cmd ctx` is today's `OrderPlanService.updateOrderPlan plan (Some(cmd, ctx))`;
+// `navigate plan None cmd ctx` evaluates the context and folds the selected scenario in by
+// order id (an evaluation that fails is the answer, not the plan as it was);
 // `navigate plan (Some id) cmd ctx` evaluates the context through the order-context port and
 // applies `updateContext`; `addContext` is today's `addNutritionContext` over the plan (the
 // discovered context appended, its contribution in); every answer ends in the totals.

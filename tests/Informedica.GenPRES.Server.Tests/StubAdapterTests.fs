@@ -5232,6 +5232,84 @@ module PlanTests =
                     ids p |> Expect.equal "the drug only" [| "o-drug" |]
                 }
 
+                test "a replaced contribution follows into the filter and the selection; a removed one leaves them" {
+                    let tpn = context "c-1" NutritionCategory.TPN [| scenarioWithOrder "o-tpn" |]
+
+                    let p =
+                        { plan [| tpn |] [| scenarioWithOrder "o-drug"; scenarioWithOrder "o-tpn" |] with
+                            Filtered = [| scenarioWithOrder "o-tpn" |]
+                            Selected = Some(scenarioWithOrder "o-tpn")
+                        }
+
+                    let other =
+                        { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn-2" |] }
+
+                    match p |> PlanService.updateContext "c-1" other with
+                    | Ok p ->
+                        p.Filtered
+                        |> Array.map _.Order.Id
+                        |> Expect.equal "the filter follows" [| "o-tpn-2" |]
+
+                        p.Selected
+                        |> Option.map _.Order.Id
+                        |> Expect.equal "the selection follows" (Some "o-tpn-2")
+
+                        let p = p |> PlanService.removeContext "c-1"
+                        p.Filtered |> Expect.isEmpty "gone from the filter"
+                        p.Selected |> Expect.isNone "gone from the selection"
+                    | Error errs -> failtest $"{errs}"
+
+                    // a view that did not hold the old order gains nothing
+                    let unfiltered =
+                        plan [| tpn |] [| scenarioWithOrder "o-drug"; scenarioWithOrder "o-tpn" |]
+
+                    match unfiltered |> PlanService.updateContext "c-1" other with
+                    | Ok p -> p.Filtered |> Expect.isEmpty "still unfiltered"
+                    | Error errs -> failtest $"{errs}"
+                }
+
+                testAsync "navigate without a context folds the selected scenario in, and keeps an evaluation's error" {
+                    let p =
+                        { plan
+                              [||]
+                              [|
+                                  scenarioWithOrder "o-drug"
+                                  scenarioWithOrder "o-other"
+                              |] with
+                            Filtered = [| scenarioWithOrder "o-drug" |]
+                        }
+
+                    let evaluated =
+                        { OrderContext.empty with
+                            Scenarios =
+                                [|
+                                    { scenarioWithOrder "o-drug" with Name = "re-evaluated" }
+                                |]
+                        }
+
+                    let port: OrderContextPort = { evaluate = fun _ _ -> async { return Ok evaluated } }
+
+                    match! PlanService.navigate id port p None Api.UpdateOrderContext OrderContext.empty with
+                    | Ok p ->
+                        p.Selected |> Option.map _.Name |> Expect.equal "selected" (Some "re-evaluated")
+
+                        p.Scenarios
+                        |> Array.map _.Name
+                        |> Expect.equal "replaced in place" [| "re-evaluated"; "" |]
+
+                        p.Filtered
+                        |> Array.map _.Name
+                        |> Expect.equal "the filter follows" [| "re-evaluated" |]
+                    | Error errs -> failtest $"{errs}"
+
+                    let failing: OrderContextPort =
+                        { evaluate = fun _ _ -> async { return Error [| "no dose rules" |] } }
+
+                    match! PlanService.navigate id failing p None Api.UpdateOrderContext OrderContext.empty with
+                    | Error errs -> errs |> Expect.equal "the error, not the plan as it was" [| "no dose rules" |]
+                    | Ok _ -> failtest "expected Error"
+                }
+
                 testAsync "navigate into a context evaluates it and folds the order in" {
                     let evaluated =
                         { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn" |] }
