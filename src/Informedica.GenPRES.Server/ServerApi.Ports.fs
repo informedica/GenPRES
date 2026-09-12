@@ -40,10 +40,17 @@ type InteractionPort =
     }
 
 
-type LogAnalyzerPort =
+/// What the admin commands need from the edge. The secret and the clock are values the DMZ
+/// reads and passes in, so the command module never touches the environment.
+type AdminPort =
     {
+        // GENPRES_PASSWORD; None when unset, empty or whitespace, so every check fails closed
+        secret: unit -> string option
+        now: unit -> System.DateTimeOffset
         listLogFiles: unit -> Async<Result<LogFileInfo[], string[]>>
         analyzeLogFile: string -> Async<Result<string, string[]>>
+        // the resource provider reloaded: the formulary and, later, the knowledge sheets
+        reloadResources: unit -> Async<Result<unit, string[]>>
     }
 
 
@@ -220,7 +227,7 @@ type AppEnv =
         orderPlan: OrderPlanPort
         nutritionPlan: NutritionPlanPort
         interaction: InteractionPort
-        logAnalyzer: LogAnalyzerPort
+        admin: AdminPort
         requireLoaded: unit -> string[] option
         session: SessionPort
     }

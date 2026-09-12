@@ -246,6 +246,40 @@ module Api =
             | SigningCommand.Submit _ -> "Submit"
 
 
+    /// The admin command family: the password once, then the token it bought. Never
+    /// cookie-authenticated, and never behind the formulary being loaded, so a failed load can
+    /// be retried from the settings page.
+    [<RequireQualifiedAccess>]
+    type AdminCommand =
+        // answered with a token when the password is the server's; with nothing when the
+        // server has no password
+        | ValidatePassword of password: string
+        | ListLogFiles of token: string
+        | AnalyzeLogFile of token: string * fileName: string
+        // reloads everything the resource provider holds
+        | ReloadResources of token: string
+
+
+    [<RequireQualifiedAccess>]
+    type AdminResponse =
+        // isValid false comes with an empty token
+        | PasswordValidated of isValid: bool * token: string
+        | LogFilesListed of LogFileInfo[]
+        | LogFileAnalyzed of string
+        | ResourcesReloaded
+
+
+    module AdminCommand =
+
+        /// For the log. Never the password or the token; the file name is not a secret.
+        let toString cmd =
+            match cmd with
+            | AdminCommand.ValidatePassword _ -> "ValidatePassword"
+            | AdminCommand.ListLogFiles _ -> "ListLogFiles"
+            | AdminCommand.AnalyzeLogFile(_, f) -> $"AnalyzeLogFile %s{f}"
+            | AdminCommand.ReloadResources _ -> "ReloadResources"
+
+
     /// Defines how routes are generated on server and mapped from the client
     let routerPaths typeName method = $"/api/%s{typeName}/%s{method}"
 
@@ -268,6 +302,8 @@ module Api =
             processLaunch: LaunchCommand -> Async<LaunchOutcome>
             processSession: SessionCommand -> Async<SessionResponse>
             processSigning: SigningCommand -> Async<SigningResponse>
+            // no envelope: an admin request has no OpenedToken to send and no notice to receive
+            processAdmin: AdminCommand -> Async<Result<AdminResponse, string[]>>
             getSettings: unit -> Async<ServerSettings>
             testApi: unit -> Async<string>
         }

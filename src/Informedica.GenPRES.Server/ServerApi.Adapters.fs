@@ -206,8 +206,14 @@ module Adapters =
                                     return Error [| ex.Message |]
                             }
                 }
-            logAnalyzer =
+            admin =
                 {
+                    // the setting as the DMZ reads it: blank is no secret
+                    secret =
+                        fun () ->
+                            Informedica.Utils.Lib.Env.getItem "GENPRES_PASSWORD"
+                            |> Option.filter (String.IsNullOrWhiteSpace >> not)
+                    now = fun () -> DateTimeOffset.UtcNow
                     listLogFiles =
                         fun () ->
                             async {
@@ -217,6 +223,15 @@ module Adapters =
                                     return Error [| ex.Message |]
                             }
                     analyzeLogFile = fun fileName -> async { return LogAnalyzer.analyzeFile fileName }
+                    reloadResources =
+                        fun () ->
+                            async {
+                                try
+                                    Informedica.GenForm.Lib.Api.reloadCache logger provider
+                                    return Ok()
+                                with ex ->
+                                    return Error [| ex.Message |]
+                            }
                 }
             requireLoaded =
                 fun () ->

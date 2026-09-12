@@ -76,6 +76,17 @@ module StubAdapters =
         }
 
 
+    /// An admin port without a secret: every password and every token is refused.
+    let adminNone: AdminPort =
+        {
+            secret = fun () -> None
+            now = fun () -> DateTimeOffset.UtcNow
+            listLogFiles = fun () -> async { return Ok [||] }
+            analyzeLogFile = fun _ -> async { return Ok "" }
+            reloadResources = fun () -> async { return Ok() }
+        }
+
+
     let makeEnv
         (formulary: FormularyPort)
         (orderContext: OrderContextPort)
@@ -93,11 +104,7 @@ module StubAdapters =
                     checkInteractions = fun _ -> async { return Ok [] }
                     getDrugNames = fun () -> async { return Ok [] }
                 }
-            logAnalyzer =
-                {
-                    listLogFiles = fun () -> async { return Ok [||] }
-                    analyzeLogFile = fun _ -> async { return Ok "" }
-                }
+            admin = adminNone
             requireLoaded = fun () -> None
             session = sessionNone
         }
@@ -126,11 +133,7 @@ module StubAdapters =
                     checkInteractions = fun _ -> async { return Error [| "not loaded" |] }
                     getDrugNames = fun () -> async { return Error [| "not loaded" |] }
                 }
-            logAnalyzer =
-                {
-                    listLogFiles = fun () -> async { return Ok [||] }
-                    analyzeLogFile = fun _ -> async { return Ok "" }
-                }
+            admin = adminNone
             requireLoaded = fun () -> Some msgs
             session = sessionNone
         }
@@ -4656,6 +4659,232 @@ module SessionStubTests =
             ]
 
 
+/// `processAdmin`: the password buys a token, the token opens the log and the reload; never
+/// behind `requireLoaded`.
+module AdminTests =
+
+    open Shared.Api
+
+    let secret = Some "a-sixteen-char-secret!"
+    let t0 = DateTimeOffset(2026, 9, 12, 12, 0, 0, TimeSpan.Zero)
+
+    /// An admin port over a fixed secret and clock that counts its reloads.
+    let adminPort (secret: string option) (now: DateTimeOffset) =
+        let reloads = ref 0
+
+        reloads,
+        {
+            secret = fun () -> secret
+            now = fun () -> now
+            listLogFiles =
+                fun () ->
+                    async {
+                        return
+                            Ok
+                                [|
+                                    {
+                                        FileName = "server.log"
+                                        SizeBytes = 12L
+                                        LastModifiedAt = "2026-09-12"
+                                    }
+                                |]
+                    }
+            analyzeLogFile = fun name -> async { return Ok $"report of %s{name}" }
+            reloadResources =
+                fun () ->
+                    async {
+                        reloads.Value <- reloads.Value + 1
+                        return Ok()
+                    }
+        }
+
+
+    let envWith admin =
+        { makeEnv
+              (formularyAlwaysOk Formulary.empty)
+              (orderContextAlwaysOk emptyCtx)
+              (orderPlanAlwaysOk emptyPlan)
+              (nutritionPlanAlwaysOk emptyNutritionPlan) with
+            admin = admin
+        }
+
+
+    let run env cmd =
+        AdminCommand.processCmd env cmd |> Async.RunSynchronously
+
+
+    let tokenOf (env: AppEnv) =
+        match run env (AdminCommand.ValidatePassword (env.admin.secret ()).Value) with
+        | Ok(AdminResponse.PasswordValidated(true, token)) -> token
+        | other -> failtest $"expected a token, got {other}"
+
+
+    /// The same payload under a different signature.
+    let forge (token: string) =
+        match token.Split '.' with
+        | [| payload; signature |] ->
+            let bytes = Convert.FromBase64String signature
+            bytes[0] <- bytes[0] ^^^ 1uy
+            $"%s{payload}.%s{Convert.ToBase64String bytes}"
+        | _ -> failtest "not a token"
+
+
+    let tests =
+        testList
+            "processAdmin"
+            [
+                test "the server's password buys a token that verifies" {
+                    let _, admin = adminPort secret t0
+                    let token = tokenOf (envWith admin)
+                    token |> Expect.isNotEmpty "a token"
+                    AdminCommand.validateToken secret t0 token |> Expect.isTrue "verifies"
+                }
+
+                test "a wrong password: not valid, no token" {
+                    let _, admin = adminPort secret t0
+
+                    run (envWith admin) (AdminCommand.ValidatePassword "wrong")
+                    |> Expect.equal "refused" (Ok(AdminResponse.PasswordValidated(false, "")))
+                }
+
+                test "no password on the server: nothing is valid, not even an empty one" {
+                    for none in [ None; Some ""; Some "   " ] do
+                        let _, admin = adminPort none t0
+
+                        run (envWith admin) (AdminCommand.ValidatePassword "")
+                        |> Expect.equal "refused" (Ok(AdminResponse.PasswordValidated(false, "")))
+
+                        AdminCommand.generateToken none t0 |> Expect.equal "no token" ""
+                        AdminCommand.validateToken none t0 "" |> Expect.isFalse "empty never verifies"
+                }
+
+                test "a valid token lists, analyzes and reloads" {
+                    let reloads, admin = adminPort secret t0
+                    let env = envWith admin
+                    let token = tokenOf env
+
+                    match run env (AdminCommand.ListLogFiles token) with
+                    | Ok(AdminResponse.LogFilesListed files) -> files.Length |> Expect.equal "one file" 1
+                    | other -> failtest $"expected the files, got {other}"
+
+                    run env (AdminCommand.AnalyzeLogFile(token, "server.log"))
+                    |> Expect.equal "the report" (Ok(AdminResponse.LogFileAnalyzed "report of server.log"))
+
+                    run env (AdminCommand.ReloadResources token)
+                    |> Expect.equal "reloaded" (Ok AdminResponse.ResourcesReloaded)
+
+                    reloads.Value |> Expect.equal "the port reloaded once" 1
+                }
+
+                test "a forged, an expired, a malformed and an empty token are refused, and nothing reloads" {
+                    let reloads, admin = adminPort secret t0
+                    let env = envWith admin
+                    let token = tokenOf env
+                    let later = t0.Add(AdminCommand.tokenLifetime).AddSeconds 1.0
+                    let _, expiredAdmin = adminPort secret later
+
+                    for env, token in
+                        [
+                            env, forge token
+                            envWith expiredAdmin, token
+                            env, "not.a.token"
+                            env, "abc"
+                            env, ""
+                        ] do
+                        run env (AdminCommand.ReloadResources token)
+                        |> Expect.equal "refused" (Error [| "Invalid token" |])
+
+                        run env (AdminCommand.ListLogFiles token)
+                        |> Expect.equal "refused" (Error [| "Invalid token" |])
+
+                        run env (AdminCommand.AnalyzeLogFile(token, "server.log"))
+                        |> Expect.equal "refused" (Error [| "Invalid token" |])
+
+                    reloads.Value |> Expect.equal "nothing reloaded" 0
+                }
+
+                test "a token lives an hour" {
+                    let _, admin = adminPort secret t0
+                    let token = tokenOf (envWith admin)
+
+                    AdminCommand.validateToken secret (t0.Add AdminCommand.tokenLifetime) token
+                    |> Expect.isTrue "at the hour"
+
+                    AdminCommand.validateToken secret (t0.Add(AdminCommand.tokenLifetime).AddSeconds 1.0) token
+                    |> Expect.isFalse "past it"
+                }
+
+                test "a token of another secret is refused" {
+                    let _, other = adminPort (Some "another-secret-of-16!") t0
+                    let _, admin = adminPort secret t0
+
+                    run (envWith admin) (AdminCommand.ReloadResources(tokenOf (envWith other)))
+                    |> Expect.equal "refused" (Error [| "Invalid token" |])
+                }
+
+                test "a failing reload answers the port's error" {
+                    let _, admin = adminPort secret t0
+                    let token = tokenOf (envWith admin)
+
+                    let failing =
+                        { admin with reloadResources = fun () -> async { return Error [| "sheet unreachable" |] } }
+
+                    run (envWith failing) (AdminCommand.ReloadResources token)
+                    |> Expect.equal "the error" (Error [| "sheet unreachable" |])
+                }
+
+                test "the reload is not behind requireLoaded: a failed load can be retried" {
+                    let reloads, admin = adminPort secret t0
+                    let notLoaded = { makeEnvNotLoaded [| "sheet unreachable" |] with admin = admin }
+                    let token = tokenOf notLoaded
+
+                    run notLoaded (AdminCommand.ReloadResources token)
+                    |> Expect.equal "reloaded" (Ok AdminResponse.ResourcesReloaded)
+
+                    reloads.Value |> Expect.equal "the port reloaded once" 1
+                }
+
+                test "the log line never names the password or the token" {
+                    let _, admin = adminPort secret t0
+                    let token = tokenOf (envWith admin)
+
+                    [
+                        AdminCommand.ValidatePassword secret.Value
+                        AdminCommand.ListLogFiles token
+                        AdminCommand.AnalyzeLogFile(token, "server.log")
+                        AdminCommand.ReloadResources token
+                    ]
+                    |> List.map AdminCommand.toString
+                    |> List.iter (fun line ->
+                        line.Contains secret.Value |> Expect.isFalse "no password"
+                        line.Contains token |> Expect.isFalse "no token"
+                    )
+                }
+
+                testAsync "through the api: the same answers, no cookie read" {
+                    let _, admin = adminPort secret t0
+                    let env = envWith admin
+                    let cookie, _ = SessionStubTests.memoryCookie None
+                    let stateCookie, _ = SessionStubTests.memoryStateCookie None
+
+                    let settings =
+                        {
+                            ServerSettings.Language = Shared.Localization.Dutch
+                            IsDemo = true
+                        }
+
+                    let api =
+                        CompositionRoot.compose settings env cookie stateCookie (SessionStubTests.noEnrolment ())
+
+                    match! api.processAdmin (AdminCommand.ValidatePassword secret.Value) with
+                    | Ok(AdminResponse.PasswordValidated(true, token)) ->
+                        let! reloaded = api.processAdmin (AdminCommand.ReloadResources token)
+                        reloaded |> Expect.equal "reloaded" (Ok AdminResponse.ResourcesReloaded)
+                    | other -> failtest $"expected a token, got {other}"
+                }
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -4665,4 +4894,5 @@ let tests =
             errorPropagationTests
             requireLoadedTests
             SessionStubTests.tests
+            AdminTests.tests
         ]

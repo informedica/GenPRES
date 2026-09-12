@@ -23,6 +23,7 @@
 #load "../ServerApi.Session.fs"
 #load "../ServerApi.StubAdapters.fs"
 #load "../ServerApi.Adapters.fs"
+#load "../ServerApi.AdminCommand.fs"
 #load "../ServerApi.Command.fs"
 #load "../ServerApi.LaunchCommand.fs"
 #load "../ServerApi.SessionCommand.fs"

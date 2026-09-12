@@ -20,6 +20,7 @@
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Session.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.StubAdapters.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Adapters.fs"
+#load "../../../src/Informedica.GenPRES.Server/ServerApi.AdminCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Command.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.LaunchCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.SessionCommand.fs"
