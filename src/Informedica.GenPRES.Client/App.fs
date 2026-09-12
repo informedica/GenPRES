@@ -1554,15 +1554,19 @@ module private Elmish =
                 match state.OrderPlan with
                 | InProgress
                 | Recalculating _ -> state, Cmd.none
+                // the answer carries the command as sent, over the plan the state held, so
+                // that a refusal restores that plan and not the one the command was made with
                 | HasNotStartedYet ->
+                    let cmd = cmd |> withPlan (OrderPlan.create pat [||])
+
                     { state with OrderPlan = InProgress },
                     cmd
-                    |> withPlan (OrderPlan.create pat [||])
                     |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
                 | Resolved tp ->
+                    let cmd = cmd |> withPlan tp
+
                     { state with OrderPlan = InProgress },
                     cmd
-                    |> withPlan tp
                     |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
 
         | LoadOrderPlanResult(_, Finished(Ok msg)) -> processApiMsg state msg applyPlan
