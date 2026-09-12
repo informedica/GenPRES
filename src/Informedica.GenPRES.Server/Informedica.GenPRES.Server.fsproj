@@ -12,6 +12,8 @@
     <Compile Include="ServerApi.Mappers.fs" />
     <Compile Include="ServerApi.Ports.fs" />
     <Compile Include="ServerApi.Services.fs" />
+    <Compile Include="ServerApi.Session.fs" />
+    <Compile Include="ServerApi.StubAdapters.fs" />
     <Compile Include="ServerApi.Adapters.fs" />
     <Compile Include="ServerApi.Command.fs" />
     <Compile Include="ServerApi.CompositionRoot.fs" />

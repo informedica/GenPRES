@@ -20,6 +20,8 @@
 #load "../ServerApi.Mappers.fs"
 #load "../ServerApi.Ports.fs"
 #load "../ServerApi.Services.fs"
+#load "../ServerApi.Session.fs"
+#load "../ServerApi.StubAdapters.fs"
 #load "../ServerApi.Adapters.fs"
 #load "../ServerApi.Command.fs"
 #load "../ServerApi.CompositionRoot.fs"

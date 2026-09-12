@@ -25,7 +25,7 @@ module CompositionRoot =
                 | LaunchResult.Refused refusal -> return LaunchOutcome.Refused refusal
                 // a retry of a launch that suspended: the browser holds the attempt already, the
                 // app tells it at the next GetSession
-                | LaunchResult.Enrolling _ -> return LaunchOutcome.RedirectTo Hop.openedUrl
+                | LaunchResult.Enrolling _ -> return LaunchOutcome.RedirectTo Session.openedUrl
         }
 
 
