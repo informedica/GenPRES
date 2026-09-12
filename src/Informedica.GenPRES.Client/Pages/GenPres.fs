@@ -129,7 +129,6 @@ module GenPres =
 
         let orderContext = (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
         let orderPlan = (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan
-        let nutritionPlan = (AppEnv.asEnv<AppEnv.INutritionPlan> props.appEnv).NutritionPlan
         let auth = AppEnv.asEnv<AppEnv.IAuthentication> props.appEnv
 
         let updatePageRef = React.useRef props.updatePage
@@ -309,11 +308,8 @@ module GenPres =
                 | Resolved pr
                 | Recalculating pr -> Views.Totals.View {| intake = pr.Intake |} |> Some
                 | _ -> None
-            | Global.Pages.Nutrition ->
-                match nutritionPlan with
-                | Resolved np
-                | Recalculating np -> Views.Totals.View {| intake = np.Totals |} |> Some
-                | _ -> None
+            // the one plan: the nutrition page shows the plan's totals, nutrition included
+            | Global.Pages.Nutrition
             | Global.Pages.OrderPlan ->
                 match orderPlan with
                 | Resolved tp

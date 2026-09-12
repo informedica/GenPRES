@@ -27,10 +27,8 @@ module Prescribe =
         let orderContextMsg = envOrderContext.OrderContextMsg
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
-        let orderPlanCommand = envOrderPlan.OrderPlanCommand
 
-        let updateOrderPlan tp =
-            orderPlanCommand (Api.UpdateOrderPlan(tp, None))
+        let updateOrderPlan tp = envOrderPlan.ShowOrderPlan tp
 
         let localizationTerms =
             (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
