@@ -79,6 +79,10 @@ Two facts established while writing this plan, by fetching the public demo workb
 
 A new command family in `src/Informedica.GenPRES.Shared/Api.fs`:
 
+> Since [plan 654](654-api-per-use-case.md) there is no `Command` DU to extend: this family becomes
+> its own member, `processKnowledge: Request<KnowledgeCommand> -> Async<Result<Reply<KnowledgeResponse>, string[]>>`,
+> with its own `ServerApi.KnowledgeCommand.fs`, and the scope gate sits in `Compute.bound`.
+
 ```fsharp
     | KnowledgeCmd of KnowledgeCommand
 

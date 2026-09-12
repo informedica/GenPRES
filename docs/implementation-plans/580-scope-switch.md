@@ -89,6 +89,10 @@ module Feature =
     let ofCommand: Api.Command -> Feature = ...
 ```
 
+> Since [plan 654](654-api-per-use-case.md) `Command` is gone: each `IServerApi` member is one
+> `Feature`, passed as a constant into `Compute.bound`, so `ofCommand` and its totality test are
+> not needed. Build this plan after 654 lands.
+
 `Admin` stays permitted in both scopes because the settings page, log analysis and resource
 reload are operations tooling, not clinical function. If the MDR file says otherwise, it is one
 line in the list.
