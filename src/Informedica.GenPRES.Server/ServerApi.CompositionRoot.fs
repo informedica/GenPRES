@@ -8,142 +8,6 @@ module CompositionRoot =
     open Shared.Api
 
 
-    /// The presentation of a Launch over the session port. The session id goes into the cookie
-    /// and nowhere else; a refusal is a value. A server exception is not a refusal: it propagates,
-    /// Fable.Remoting answers 500 and the client's transport-error path retries.
-    let processLaunch (env: AppEnv) (cookie: SessionCookie) (stateCookie: LaunchStateCookie) (cmd: LaunchCommand) =
-        async {
-            match cmd with
-            | LaunchCommand.PresentLaunch(launch, key) ->
-                match! env.session.present (launch, key) with
-                | LaunchResult.Opened(id, opened) ->
-                    cookie.write id
-                    return LaunchOutcome.Opened opened
-                | LaunchResult.RedirectTo(url, state) ->
-                    stateCookie.write state
-                    return LaunchOutcome.RedirectTo url
-                | LaunchResult.Refused refusal -> return LaunchOutcome.Refused refusal
-                // a retry of a launch that suspended: the browser holds the attempt already, the
-                // app tells it at the next GetSession
-                | LaunchResult.Enrolling _ -> return LaunchOutcome.RedirectTo Hop.openedUrl
-        }
-
-
-    /// The callback over the session port: the browser is back from the IdentityProvider.
-    /// Answers where it goes next; the session cookie is set when a Session opened, the
-    /// enrolment cookie when the launch suspended at the PIN question.
-    let processCallback
-        (env: AppEnv)
-        (cookie: SessionCookie)
-        (stateCookie: LaunchStateCookie)
-        (enrolment: EnrolmentCookie)
-        (cb: Callback)
-        =
-        async {
-            match! env.session.callback { cb with StateCookie = stateCookie.read cb.State } with
-            | CallbackResult.Opened(id, redirect) ->
-                cookie.write id
-                return redirect
-            | CallbackResult.Enrolling(attempt, redirect, until) ->
-                // the new launch replaces whatever Session this browser still held, as an open
-                // would, and a Session replaced in its own browser is not told of its ending;
-                // left in place, its cookie would hide the enrolment at the next GetSession
-                match cookie.read () with
-                | Some id -> do! env.session.close id
-                | None -> ()
-
-                cookie.delete ()
-                enrolment.write attempt until
-                return redirect
-            | CallbackResult.Refused(_, redirect)
-            | CallbackResult.Superseded redirect -> return redirect
-        }
-
-
-    /// Cookie-authenticated session commands over both cookies. GetSession answers the Session
-    /// first; without one, a standing enrolment attempt; a gone attempt loses its cookie.
-    /// SupplyPin works on the attempt in the cookie, never on one the client names. CloseSession
-    /// drops both, even when nothing is found and even when the server-side close throws: an
-    /// explicit close always leaves the browser without a credential. The exception still
-    /// propagates after the delete, so the failure stays visible.
-    let processSession (env: AppEnv) (cookie: SessionCookie) (enrolment: EnrolmentCookie) (cmd: SessionCommand) =
-        async {
-            match cmd with
-            | SessionCommand.GetSession ->
-                let! bySession =
-                    async {
-                        match cookie.read () with
-                        | None -> return None
-                        | Some id ->
-                            match! env.session.find id with
-                            | SessionLookup.Found opened -> return Some(SessionResponse.SessionResp(Some opened))
-                            | SessionLookup.NotFound -> return None
-                            | SessionLookup.Ended ending -> return Some(SessionResponse.SessionEnded ending)
-                    }
-
-                match bySession, enrolment.read () with
-                | Some response, _ -> return response
-                | None, None -> return SessionResponse.SessionResp None
-                | None, Some attempt ->
-                    match! env.session.findEnrolment attempt with
-                    | Some pending -> return SessionResponse.EnrolmentPending pending
-                    | None ->
-                        enrolment.delete ()
-                        return SessionResponse.SessionResp None
-            | SessionCommand.SupplyPin(code, pin) ->
-                match enrolment.read () with
-                | None -> return SessionResponse.PinRefused PinRefusal.AttemptExpired
-                | Some attempt ->
-                    match! env.session.supplyPin attempt code pin with
-                    | SupplyPinResult.Opened(id, opened) ->
-                        enrolment.delete ()
-                        cookie.write id
-                        return SessionResponse.SessionResp(Some opened)
-                    | SupplyPinResult.Refused(PinRefusal.CodeVoid as refusal)
-                    | SupplyPinResult.Refused(PinRefusal.AttemptExpired as refusal)
-                    | SupplyPinResult.Refused(PinRefusal.WrongActivePatient as refusal) ->
-                        enrolment.delete ()
-                        return SessionResponse.PinRefused refusal
-                    | SupplyPinResult.Refused refusal -> return SessionResponse.PinRefused refusal
-            // a version is taken up for the Session the cookie names; without a cookie there is
-            // nothing to open. Writes no cookie.
-            | SessionCommand.OpenVersion id ->
-                match cookie.read () with
-                | None -> return SessionResponse.SessionResp None
-                | Some sid ->
-                    let! opened = env.session.openVersion sid id
-                    return SessionResponse.SessionResp opened
-            | SessionCommand.CloseSession ->
-                try
-                    match cookie.read () with
-                    | Some id -> do! env.session.close id
-                    | None -> ()
-
-                    match enrolment.read () with
-                    | Some attempt -> do! env.session.dropEnrolment attempt
-                    | None -> ()
-                finally
-                    cookie.delete ()
-                    enrolment.delete ()
-
-                return SessionResponse.SessionClosed
-        }
-
-
-    /// A signing command for the Session the cookie names. No cookie, no Session: refused
-    /// before the port is asked. Writes no cookie.
-    let processSigning (env: AppEnv) (cookie: SessionCookie) (cmd: SigningCommand) =
-        async {
-            match cookie.read () with
-            | None -> return SigningResponse.Refused SigningRefusal.NoSession
-            | Some id ->
-                match cmd with
-                | SigningCommand.RequestSignChallenge(plan, opened, notice) ->
-                    return! env.session.challenge id (plan, opened, notice)
-                | SigningCommand.Submit submission -> return! env.session.submit id submission
-        }
-
-
     /// The api of one request: the settings and the env are built once per host, the cookie
     /// once per request.
     let compose
@@ -199,7 +63,7 @@ module CompositionRoot =
                 fun cmd ->
                     async {
                         writeInfoMessage $"Processing launch: {cmd |> LaunchCommand.toString}"
-                        let! outcome = processLaunch env cookie stateCookie cmd
+                        let! outcome = LaunchCommand.processCmd env cookie stateCookie cmd
                         writeInfoMessage $"Finished processing launch: {cmd |> LaunchCommand.toString}"
                         return outcome
                     }
@@ -208,7 +72,7 @@ module CompositionRoot =
                 fun cmd ->
                     async {
                         writeInfoMessage $"Processing session: {cmd |> SessionCommand.toString}"
-                        let! response = processSession env cookie enrolment cmd
+                        let! response = SessionCommand.processCmd env cookie enrolment cmd
                         writeInfoMessage $"Finished processing session: {cmd |> SessionCommand.toString}"
                         return response
                     }
@@ -217,7 +81,7 @@ module CompositionRoot =
                 fun cmd ->
                     async {
                         writeInfoMessage $"Processing signing: {cmd |> SigningCommand.toString}"
-                        let! response = processSigning env cookie cmd
+                        let! response = SigningCommand.processCmd env cookie cmd
                         writeInfoMessage $"Finished processing signing: {cmd |> SigningCommand.toString}"
                         return response
                     }

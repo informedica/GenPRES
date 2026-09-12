@@ -323,7 +323,7 @@ module SessionStubTests =
     let salts (n: int) = Array.init n byte
 
     /// The state a stub host starts from: the seeded credentials.
-    let seeded = Hop.initialState (StubCredentials.seed salts)
+    let seeded = Session.initialState (StubCredentials.seed salts)
 
 
     /// An OrderScenario with only its order id set, every other field a default (built by
@@ -387,7 +387,7 @@ module SessionStubTests =
     let launch2 = mintFor "n-2" "p-2"
 
 
-    let codeMac = Hop.codeMac sealKey
+    let codeMac = Session.codeMac sealKey
 
 
     /// Confirmation codes are numbered, so that a test can name the one that was mailed.
@@ -409,7 +409,7 @@ module SessionStubTests =
             StubDirectory.make (fun () -> clock.Value) (fun () -> $"code-{Guid.NewGuid()}")
 
         let port =
-            Hop.makeSessionPort
+            StubDatabase.makeSessionPort
                 (fun () -> clock.Value)
                 (fun () ->
                     count.Value <- count.Value + 1
@@ -471,7 +471,7 @@ module SessionStubTests =
 
 
     /// The hop over the stubs: the script tests of Server/Scripts/Hop.fsx, unchanged.
-    module HopTests =
+    module SessionTests =
 
         let verifyAt (now: DateTime) = LaunchSeal.verify now sealKey
         let launch1 = mintFor "n-1" "patient-1"
@@ -495,7 +495,7 @@ module SessionStubTests =
         /// Presents, then plays the stub IdP for `choice`, and returns the callback the browser brings.
         let hop (ids: unit -> string) (directory: StubDirectory.Directory) state launch key choice =
             let state, result =
-                Hop.present t0 ids (verifyAt t0) directory.idp.authorizeUrl state (launch, key)
+                Session.present t0 ids (verifyAt t0) directory.idp.authorizeUrl state (launch, key)
 
             match result with
             | LaunchResult.RedirectTo(_, st) ->
@@ -521,7 +521,7 @@ module SessionStubTests =
 
         /// The callback at t0 with a throwaway outbox: for the tests that never suspend.
         let run (ids: unit -> string) (directory: StubDirectory.Directory) state cb =
-            Hop.callback
+            Session.callback
                 t0
                 ids
                 (codes ())
@@ -536,13 +536,13 @@ module SessionStubTests =
 
         let presentTests =
             testList
-                "Hop.present"
+                "Session.present"
                 [
                     test "a sealed Launch is recorded under its nonce and sent to the IdentityProvider" {
                         let ids, d = fixture ()
 
                         let state, result =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
+                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         match result with
                         | LaunchResult.RedirectTo(url, st) ->
@@ -558,10 +558,10 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let state, first =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
+                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         let state2, again =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyA)
+                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyA)
 
                         again |> Expect.equal "same redirect" first
                         state2 |> Expect.equal "same state" state
@@ -571,10 +571,10 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let state, _ =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
+                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         let _, other =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyB)
+                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyB)
 
                         other |> Expect.equal "spent" (LaunchResult.Refused LaunchRefusal.LaunchSpent)
                     }
@@ -585,7 +585,7 @@ module SessionStubTests =
                         let state, opened = run ids d state cb
 
                         let _, again =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyA)
+                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyA)
 
                         match opened, again with
                         | CallbackResult.Opened(id, _), LaunchResult.Opened(id', session) ->
@@ -601,7 +601,7 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let _, invalid =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (Launch "junk", keyA)
+                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (Launch "junk", keyA)
 
                         invalid
                         |> Expect.equal "invalid" (LaunchResult.Refused LaunchRefusal.LaunchInvalid)
@@ -609,7 +609,7 @@ module SessionStubTests =
                         let late = t0 + lifetime + TimeSpan.FromSeconds 1.0
 
                         let state, expired =
-                            Hop.present late ids (verifyAt late) d.idp.authorizeUrl seeded (launch1, keyA)
+                            Session.present late ids (verifyAt late) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         expired
                         |> Expect.equal "expired" (LaunchResult.Refused LaunchRefusal.LaunchExpired)
@@ -621,7 +621,7 @@ module SessionStubTests =
 
         let callbackTests =
             testList
-                "Hop.callback"
+                "Session.callback"
                 [
                     test "prescriber: the Session opens for the Launch's Patient, the outcome is recorded" {
                         let ids, d = fixture ()
@@ -685,11 +685,11 @@ module SessionStubTests =
                                         ]
                             }
 
-                        Hop.headOf "patient-1" record
+                        Session.headOf "patient-1" record
                         |> Option.map _.Head.Id
                         |> Expect.equal "newest first" (Some "plan-2")
 
-                        Hop.headOf "patient-3" record |> Expect.isNone "no record"
+                        Session.headOf "patient-3" record |> Expect.isNone "no record"
 
                         let state, cb = hop ids d record launch1 keyA "prescriber"
                         let state, result = run ids d state cb
@@ -814,7 +814,7 @@ module SessionStubTests =
                                         "refused"
                                         (CallbackResult.Refused(
                                             refusal,
-                                            $"/#/session?refused={Hop.refusalWord refusal}"
+                                            $"/#/session?refused={Session.refusalWord refusal}"
                                         ))
 
                                     state.Sessions |> Map.isEmpty |> Expect.isTrue "no session (Rule 7)"
@@ -887,7 +887,7 @@ module SessionStubTests =
                         let late = t0 + lifetime + TimeSpan.FromSeconds 1.0
 
                         let state2, result =
-                            Hop.callback
+                            Session.callback
                                 late
                                 ids
                                 (codes ())
@@ -912,7 +912,7 @@ module SessionStubTests =
                         let launch = mintFor "n-nd" "no-data"
 
                         let state, result =
-                            Hop.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch, keyA)
+                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch, keyA)
 
                         let st =
                             match result with
@@ -980,14 +980,14 @@ module SessionStubTests =
                             | CallbackResult.Opened(id, _) -> id
                             | other -> failtest $"{other}"
 
-                        let state, told = Hop.find t0 id1 state
+                        let state, told = Session.find t0 id1 state
 
                         told
                         |> Expect.equal "told" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
 
                         // the answer was lost, or the tab comes back much later: the cookie came
                         // again, so is the ending
-                        let _, again = Hop.find t0 id1 state
+                        let _, again = Session.find t0 id1 state
 
                         again
                         |> Expect.equal "told again" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
@@ -1013,7 +1013,7 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let port =
-                            Hop.makeSessionPort
+                            StubDatabase.makeSessionPort
                                 (fun () -> t0)
                                 ids
                                 (codes ())
@@ -1271,10 +1271,10 @@ module SessionStubTests =
                     }
 
                     test "credentialOf answers the empty credential for a person the store does not know" {
-                        Hop.credentialOf "nobody" seeded |> Expect.equal "empty" Credential.empty
-                        Hop.credentialOf "no-pin" seeded |> Expect.equal "seeded" Credential.empty
+                        Session.credentialOf "nobody" seeded |> Expect.equal "empty" Credential.empty
+                        Session.credentialOf "no-pin" seeded |> Expect.equal "seeded" Credential.empty
 
-                        Hop.credentialOf "prescriber" seeded
+                        Session.credentialOf "prescriber" seeded
                         |> Credential.pinSet
                         |> Expect.isTrue "seeded with PIN"
                     }
@@ -1309,11 +1309,11 @@ module SessionStubTests =
 
         let credentialStoreTests =
             testList
-                "Hop.callback over the credential store"
+                "Session.callback over the credential store"
                 [
                     test "a Prescriber the store does not know at all has no PIN either, and suspends" {
                         let ids, d = fixture ()
-                        let state, cb = hop ids d Hop.emptyState launch1 keyA "prescriber"
+                        let state, cb = hop ids d Session.emptyState launch1 keyA "prescriber"
                         let _, result = run ids d state cb
 
                         match result with
@@ -1323,7 +1323,7 @@ module SessionStubTests =
 
                     test "a Reader is never asked for a PIN (Rule 26)" {
                         let ids, d = fixture ()
-                        let state, cb = hop ids d Hop.emptyState launch1 keyA "reader"
+                        let state, cb = hop ids d Session.emptyState launch1 keyA "reader"
                         let _, result = run ids d state cb
 
                         match result with
@@ -1417,7 +1417,7 @@ module SessionStubTests =
 
         let hopE (f: Fixture) state launch key choice =
             let state, result =
-                Hop.present t0 f.ids (verifyAt t0) f.d.idp.authorizeUrl state (launch, key)
+                Session.present t0 f.ids (verifyAt t0) f.d.idp.authorizeUrl state (launch, key)
 
             match result with
             | LaunchResult.RedirectTo(_, st) ->
@@ -1432,7 +1432,7 @@ module SessionStubTests =
 
 
         let runAt now (f: Fixture) state cb =
-            Hop.callback
+            Session.callback
                 now
                 f.ids
                 f.newCode
@@ -1456,13 +1456,13 @@ module SessionStubTests =
             match result with
             | CallbackResult.Enrolling(attempt, redirect, until) ->
                 redirect |> Expect.equal "to the app" "/#/session"
-                until |> Expect.equal "until the code expires" (t0 + Hop.codeLifetime)
+                until |> Expect.equal "until the code expires" (t0 + Session.codeLifetime)
                 state, attempt
             | other -> failtest $"expected Enrolling, got {other}"
 
 
         let supplyAt now (f: Fixture) state attempt code pin =
-            Hop.supplyPin
+            Session.supplyPin
                 now
                 f.ids
                 salts
@@ -1508,13 +1508,15 @@ module SessionStubTests =
                     }
 
                     test "codes are six digits" {
-                        Hop.newCode (fun _ -> 42) () |> Expect.equal "padded" "000042"
-                        Hop.newCode (fun _ -> 999_999) () |> Expect.equal "max" "999999"
+                        Session.newCode (fun _ -> 42) () |> Expect.equal "padded" "000042"
+                        Session.newCode (fun _ -> 999_999) () |> Expect.equal "max" "999999"
                     }
 
                     test "the code mac is keyed" {
                         codeMac "123456"
-                        |> Expect.notEqual "another key" (Hop.codeMac (LaunchSeal.Key(Array.zeroCreate 32)) "123456")
+                        |> Expect.notEqual
+                            "another key"
+                            (Session.codeMac (LaunchSeal.Key(Array.zeroCreate 32)) "123456")
 
                         codeMac "123456" |> Expect.equal "deterministic" (codeMac "123456")
                     }
@@ -1535,7 +1537,7 @@ module SessionStubTests =
                         e.PublicKey |> Expect.equal "the browser's key" keyA
 
                         state.Codes["no-pin"].Expiry
-                        |> Expect.equal "code lifetime" (t0 + Hop.codeLifetime)
+                        |> Expect.equal "code lifetime" (t0 + Session.codeLifetime)
 
                         state.Launches["n-1"].Outcome
                         |> Expect.equal "recorded" (Some(LaunchResult.Enrolling attempt))
@@ -1608,7 +1610,7 @@ module SessionStubTests =
                             | other -> failtest $"{other}"
 
                         // within the Launch lifetime, the attempt dropped: enrolment, relaunch
-                        let state = Hop.dropEnrolment attempt state
+                        let state = Session.dropEnrolment attempt state
                         let _, relaunch = runE f state cb
 
                         relaunch
@@ -1616,7 +1618,7 @@ module SessionStubTests =
                             "enrolment"
                             (CallbackResult.Refused(LaunchRefusal.EnrolmentRequired, "/#/session?refused=enrolment"))
                         // after the code's lifetime the LaunchRecord is long gone too: invalid
-                        let late = t0 + Hop.codeLifetime + TimeSpan.FromSeconds 1.0
+                        let late = t0 + Session.codeLifetime + TimeSpan.FromSeconds 1.0
                         let _, gone = runAt late f state cb
 
                         gone
@@ -1630,7 +1632,7 @@ module SessionStubTests =
                         let state, _ = suspendVia f seeded launch1 keyA "no-pin"
 
                         let _, again =
-                            Hop.present t0 f.ids (verifyAt t0) f.d.idp.authorizeUrl state (launch1, keyA)
+                            Session.present t0 f.ids (verifyAt t0) f.d.idp.authorizeUrl state (launch1, keyA)
 
                         match again with
                         | LaunchResult.Enrolling _ -> ()
@@ -1646,7 +1648,7 @@ module SessionStubTests =
                     test "a standing attempt tells whom and the hinted address" {
                         let f = enrolFixture ()
                         let state, attempt = suspendVia f seeded launch1 keyA "no-pin"
-                        let _, pending = Hop.findEnrolment t0 attempt state
+                        let _, pending = Session.findEnrolment t0 attempt state
 
                         pending
                         |> Expect.equal
@@ -1659,15 +1661,15 @@ module SessionStubTests =
                     }
 
                     test "an unknown attempt is nothing" {
-                        let _, pending = Hop.findEnrolment t0 "nope" seeded
+                        let _, pending = Session.findEnrolment t0 "nope" seeded
                         pending |> Expect.isNone "nothing"
                     }
 
                     test "after the code's lifetime the attempt is gone with it" {
                         let f = enrolFixture ()
                         let state, attempt = suspendVia f seeded launch1 keyA "no-pin"
-                        let late = t0 + Hop.codeLifetime + TimeSpan.FromSeconds 1.0
-                        let state, pending = Hop.findEnrolment late attempt state
+                        let late = t0 + Session.codeLifetime + TimeSpan.FromSeconds 1.0
+                        let state, pending = Session.findEnrolment late attempt state
                         pending |> Expect.isNone "gone"
                         state.Codes |> Map.isEmpty |> Expect.isTrue "code dropped"
                         state.Enrolments |> Map.isEmpty |> Expect.isTrue "attempt dropped"
@@ -1812,7 +1814,7 @@ module SessionStubTests =
                         let f = enrolFixture ()
                         let state, attempt = suspendVia f seeded launch1 keyA "no-pin"
                         let code = mailedCode f
-                        let late = t0 + Hop.codeLifetime + TimeSpan.FromSeconds 1.0
+                        let late = t0 + Session.codeLifetime + TimeSpan.FromSeconds 1.0
                         let state, result = supplyAt late f state attempt code "2468"
 
                         result
@@ -1841,7 +1843,7 @@ module SessionStubTests =
                             |> Option.map (fun s -> { s with ActivePatientId = Some "other-patient" })
 
                         let state, result =
-                            Hop.supplyPin
+                            Session.supplyPin
                                 t0
                                 f.ids
                                 salts
@@ -1873,7 +1875,7 @@ module SessionStubTests =
                             |> Option.map (fun s -> { s with User = { s.User with Role = UserRole.Reader } })
 
                         let _, result =
-                            Hop.supplyPin
+                            Session.supplyPin
                                 t0
                                 f.ids
                                 salts
@@ -1900,7 +1902,7 @@ module SessionStubTests =
                         let code = mailedCode f
 
                         let _, result =
-                            Hop.supplyPin
+                            Session.supplyPin
                                 t0
                                 f.ids
                                 salts
@@ -1954,11 +1956,11 @@ module SessionStubTests =
                         let f = enrolFixture ()
                         let state, a1 = suspendVia f seeded launch1 keyA "no-pin"
                         let state, a2 = suspendVia f state (mintFor "n-2" "patient-1") keyB "no-pin"
-                        let state = Hop.dropEnrolment a1 state
+                        let state = Session.dropEnrolment a1 state
                         state.Codes |> Map.containsKey "no-pin" |> Expect.isTrue "code stands for a2"
-                        let state = Hop.dropEnrolment a2 state
+                        let state = Session.dropEnrolment a2 state
                         state.Codes |> Map.isEmpty |> Expect.isTrue "code gone with the last attempt"
-                        Hop.dropEnrolment "nope" state |> Expect.equal "unknown is nothing" state
+                        Session.dropEnrolment "nope" state |> Expect.equal "unknown is nothing" state
                     }
                 ]
 
@@ -2000,7 +2002,7 @@ module SessionStubTests =
                 (patientId: string option)
                 (sid: string)
                 (openedWith: string option)
-                : Hop.SessionRecord
+                : Session.SessionRecord
                 =
                 {
                     Session =
@@ -2023,35 +2025,35 @@ module SessionStubTests =
                     Seen = t0
                 }
 
-            let withSession (record: Hop.SessionRecord) sid (state: Hop.State) =
+            let withSession (record: Session.SessionRecord) sid (state: Session.State) =
                 { state with Sessions = state.Sessions |> Map.add sid record }
 
-            let withRecord patientId (versions: SignedOrderPlan list) (state: Hop.State) =
+            let withRecord patientId (versions: SignedOrderPlan list) (state: Session.State) =
                 { state with Records = state.Records |> Map.add patientId versions }
 
             let own sid = Some(OpenedToken $"opened-{sid}")
 
             let movedOn =
-                Hop.emptyState
+                Session.emptyState
                 |> withRecord "pat-1" [ signedBy other 2 t1; signedBy prescriber 1 t0 ]
                 |> withSession (session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")) "s-1"
 
             testList
-                "Hop.seen"
+                "Session.seen"
                 [
                     test "an unknown Session with no ending: nothing to say, nothing touched" {
-                        let state, notice = Hop.emptyState |> Hop.seen t1 "s-1" (own "s-1")
+                        let state, notice = Session.emptyState |> Session.seen t1 "s-1" (own "s-1")
                         notice |> Expect.isNone "no notice"
-                        state |> Expect.equal "unchanged" Hop.emptyState
+                        state |> Expect.equal "unchanged" Session.emptyState
                     }
 
                     test "an unknown Session with an ending recorded: the ending (Rule 11)" {
                         let state =
-                            { Hop.emptyState with
+                            { Session.emptyState with
                                 Endings = Map.ofList [ "s-1", (SessionEnding.SupersededByLaunch, t0) ]
                             }
 
-                        let _, notice = state |> Hop.seen t1 "s-1" (own "s-1")
+                        let _, notice = state |> Session.seen t1 "s-1" (own "s-1")
 
                         notice
                         |> Expect.equal "ended" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
@@ -2059,37 +2061,45 @@ module SessionStubTests =
 
                     test "a Session is touched by every seen request, with or without a token (Rule 9)" {
                         let state =
-                            Hop.emptyState
+                            Session.emptyState
                             |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
 
-                        let state, _ = state |> Hop.seen t1 "s-1" None
+                        let state, _ = state |> Session.seen t1 "s-1" None
                         state.Sessions["s-1"].Seen |> Expect.equal "seen now" t1
 
-                        let state, _ = state |> Hop.seen (t1.AddMinutes 1.0) "s-1" (own "s-1")
+                        let state, _ = state |> Session.seen (t1.AddMinutes 1.0) "s-1" (own "s-1")
                         state.Sessions["s-1"].Seen |> Expect.equal "seen again" (t1.AddMinutes 1.0)
                     }
 
                     test "touching an unknown Session changes nothing" {
-                        Hop.emptyState |> Hop.touch t1 "s-9" |> Expect.equal "unchanged" Hop.emptyState
+                        Session.emptyState
+                        |> Session.touch t1 "s-9"
+                        |> Expect.equal "unchanged" Session.emptyState
                     }
 
                     test "the Session's own token, no head or the head it opened with: nothing to say" {
                         let fromNothing =
-                            Hop.emptyState
+                            Session.emptyState
                             |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
 
-                        fromNothing |> Hop.seen t1 "s-1" (own "s-1") |> snd |> Expect.isNone "no head"
+                        fromNothing
+                        |> Session.seen t1 "s-1" (own "s-1")
+                        |> snd
+                        |> Expect.isNone "no head"
 
                         let onHead =
-                            Hop.emptyState
+                            Session.emptyState
                             |> withRecord "pat-1" [ signedBy prescriber 1 t0 ]
                             |> withSession (session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")) "s-1"
 
-                        onHead |> Hop.seen t1 "s-1" (own "s-1") |> snd |> Expect.isNone "on the head"
+                        onHead
+                        |> Session.seen t1 "s-1" (own "s-1")
+                        |> snd
+                        |> Expect.isNone "on the head"
                     }
 
                     test "the Session's own token, a newer head: whose and when, nothing opened (Rules 21, 22)" {
-                        let state, notice = movedOn |> Hop.seen t1 "s-1" (own "s-1")
+                        let state, notice = movedOn |> Session.seen t1 "s-1" (own "s-1")
 
                         notice
                         |> Expect.equal "newer version" (Some(RecordNotice.NewerVersion (signedBy other 2 t1).Head))
@@ -2099,45 +2109,45 @@ module SessionStubTests =
                     }
 
                     test "a Session opened from nothing, a first version signed elsewhere: a notice" {
-                        Hop.emptyState
+                        Session.emptyState
                         |> withRecord "pat-1" [ signedBy other 1 t1 ]
                         |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
-                        |> Hop.seen t1 "s-1" (own "s-1")
+                        |> Session.seen t1 "s-1" (own "s-1")
                         |> snd
                         |> Expect.isSome "newer version"
                     }
 
                     test "a token that is not the Session's, or none: nothing to say, still touched" {
-                        let state, notice = movedOn |> Hop.seen t1 "s-1" (own "s-2")
+                        let state, notice = movedOn |> Session.seen t1 "s-1" (own "s-2")
                         notice |> Expect.isNone "foreign token"
                         state.Sessions["s-1"].Seen |> Expect.equal "seen" t1
 
-                        movedOn |> Hop.seen t1 "s-1" None |> snd |> Expect.isNone "no token"
+                        movedOn |> Session.seen t1 "s-1" None |> snd |> Expect.isNone "no token"
                     }
 
                     test "an anonymous Session, or one without a Patient: nothing to say" {
                         let state =
-                            Hop.emptyState
+                            Session.emptyState
                             |> withRecord "pat-1" [ signedBy other 2 t1 ]
                             |> withSession (session None (Some "pat-1") "s-a" None) "s-a"
                             |> withSession (session (Some prescriber) None "s-n" None) "s-n"
 
-                        state |> Hop.seen t1 "s-a" (own "s-a") |> snd |> Expect.isNone "anonymous"
-                        state |> Hop.seen t1 "s-n" (own "s-n") |> snd |> Expect.isNone "no patient"
+                        state |> Session.seen t1 "s-a" (own "s-a") |> snd |> Expect.isNone "anonymous"
+                        state |> Session.seen t1 "s-n" (own "s-n") |> snd |> Expect.isNone "no patient"
                     }
 
                     test "the notice is stateless: the same request says it again" {
-                        let state, first = movedOn |> Hop.seen t1 "s-1" (own "s-1")
-                        let _, second = state |> Hop.seen (t1.AddMinutes 1.0) "s-1" (own "s-1")
+                        let state, first = movedOn |> Session.seen t1 "s-1" (own "s-1")
+                        let _, second = state |> Session.seen (t1.AddMinutes 1.0) "s-1" (own "s-1")
                         second |> Expect.equal "again" first
                     }
 
                     test "find touches the Session too; close does not need to (Rule 9)" {
                         let state =
-                            Hop.emptyState
+                            Session.emptyState
                             |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
 
-                        let state, found = state |> Hop.find t1 "s-1"
+                        let state, found = state |> Session.find t1 "s-1"
 
                         (match found with
                          | SessionLookup.Found _ -> true
@@ -2186,7 +2196,7 @@ module SessionStubTests =
                 (patientId: string option)
                 (sid: string)
                 (openedWith: string option)
-                : Hop.SessionRecord
+                : Session.SessionRecord
                 =
                 {
                     Session =
@@ -2209,7 +2219,7 @@ module SessionStubTests =
                     Seen = t0
                 }
 
-            let challenged sid : Hop.Challenge =
+            let challenged sid : Session.Challenge =
                 {
                     Nonce = $"c-{sid}"
                     Patient = Shared.Models.Patient.empty
@@ -2220,7 +2230,7 @@ module SessionStubTests =
 
             // A opened on plan-1; B signed plan-2 meanwhile; A has a challenge and a notice standing
             let movedOn =
-                { Hop.emptyState with
+                { Session.emptyState with
                     Sessions =
                         Map.ofList
                             [
@@ -2241,13 +2251,13 @@ module SessionStubTests =
                 }
 
             let openAt sid id state =
-                Hop.openVersion t1 (counter "id") sid id state
+                Session.openVersion t1 (counter "id") sid id state
 
             testList
-                "Hop.openVersion"
+                "Session.openVersion"
                 [
                     test "no Session: nothing to open" {
-                        Hop.emptyState |> openAt "s-9" "plan-2" |> snd |> Expect.equal "none" None
+                        Session.emptyState |> openAt "s-9" "plan-2" |> snd |> Expect.equal "none" None
                     }
 
                     test "an anonymous Session, or one without a Patient: nothing to open (Rule 13)" {
@@ -2306,12 +2316,12 @@ module SessionStubTests =
                         state.Challenges |> Expect.isEmpty "challenge dropped"
                         state.Notices |> Expect.isEmpty "notice dropped"
 
-                        Hop.blockedBy state.Sessions["s-1"] "pat-1" state
+                        Session.blockedBy state.Sessions["s-1"] "pat-1" state
                         |> Expect.isNone "Rule 20 no longer blocks"
 
                         // the notice is gone with it
                         state
-                        |> Hop.seen t1 "s-1" (Some(OpenedToken "opened-id-1"))
+                        |> Session.seen t1 "s-1" (Some(OpenedToken "opened-id-1"))
                         |> snd
                         |> Expect.isNone "no notice"
                     }
@@ -2337,12 +2347,12 @@ module SessionStubTests =
                         | Some opened -> opened.Head |> Expect.equal "plan-2" (Some(signedBy other 2))
                         | other -> failtest $"expected the Session, got {other}"
 
-                        Hop.blockedBy state.Sessions["s-1"] "pat-1" state
+                        Session.blockedBy state.Sessions["s-1"] "pat-1" state
                         |> Option.map _.Id
                         |> Expect.equal "the head still blocks" (Some "plan-3")
 
                         state
-                        |> Hop.seen t1 "s-1" state.Sessions["s-1"].Session.OpenedToken
+                        |> Session.seen t1 "s-1" state.Sessions["s-1"].Session.OpenedToken
                         |> snd
                         |> Expect.isSome "and the notice says so again (Rule 21)"
                     }
@@ -2390,7 +2400,7 @@ module SessionStubTests =
                     OpenedWith = openedWith
                     Seen = t0
                 }
-                : Hop.SessionRecord)
+                : Session.SessionRecord)
 
             let signedBy (user: UserContext) no (at: DateTime) : SignedOrderPlan =
                 {
@@ -2420,13 +2430,13 @@ module SessionStubTests =
                 session "s-1" (Some prescriber) (Some("stub-patient", stubPatient)) None
 
             let ask now nonces state sid (plan, opened) =
-                Hop.challenge now nonces StubPatientData.port.read sid (plan, opened, None) state
+                Session.challenge now nonces StubPatientData.port.read sid (plan, opened, None) state
 
             let askWith notice now nonces state sid (plan, opened) =
-                Hop.challenge now nonces StubPatientData.port.read sid (plan, opened, Some notice) state
+                Session.challenge now nonces StubPatientData.port.read sid (plan, opened, Some notice) state
 
             testList
-                "Hop.challenge"
+                "Session.challenge"
                 [
                     test
                         "refuses: no Session, the anonymous Session, no Patient; the plan's own data is the User's (Rules 33, 44)" {
@@ -2847,7 +2857,7 @@ module SessionStubTests =
                     OpenedWith = openedWith
                     Seen = t0
                 }
-                : Hop.SessionRecord)
+                : Session.SessionRecord)
 
             let signedBy (user: UserContext) no (at: DateTime) : SignedOrderPlan =
                 {
@@ -2865,14 +2875,14 @@ module SessionStubTests =
                     Verified = true
                 }
 
-            let challenged sid (at: DateTime) : string * Hop.Challenge =
+            let challenged sid (at: DateTime) : string * Session.Challenge =
                 sid,
                 {
                     Nonce = $"c-{sid}"
                     Patient = stubPatient
                     Scenarios = [||]
                     Reading = Some stubPatient
-                    Expiry = at + Hop.challengeLifetime
+                    Expiry = at + Session.challengeLifetime
                 }
 
             /// The registry as the stub has it, for the logins these tests use; `demoted` is a
@@ -2918,7 +2928,7 @@ module SessionStubTests =
                 }
 
             let submitAt now ids send state sid (s: Submission) =
-                Hop.commit now ids registry send sid s state
+                Session.commit now ids registry send sid s state
 
             let submit state sid s =
                 submitAt t0 (counter "id") ignore state sid s
@@ -2927,7 +2937,7 @@ module SessionStubTests =
             let ready = stateOf [ opened ] [] [ challenged "s-1" t0 ]
 
             testList
-                "Hop.commit"
+                "Session.commit"
                 [
                     test
                         "commits the version: head, base, by and patient from the Session, the plan from the challenge (Rules 33, 34, 42, 45)" {
@@ -3013,7 +3023,7 @@ module SessionStubTests =
                         let state, wrongAgain = submit state "s-1" (submission "s-1" "0000" "k-1")
                         wrongAgain |> Expect.equal "the same" wrong
 
-                        (Hop.credentialOf "prescriber" state).WrongCount
+                        (Session.credentialOf "prescriber" state).WrongCount
                         |> Expect.equal "counted once" 1
 
                         let s2 = session "s-2" other "stub-patient" None
@@ -3061,7 +3071,8 @@ module SessionStubTests =
                         answer
                         |> Expect.equal "blocked" (SigningResponse.Refused(SigningRefusal.Blocked byOther.Head))
 
-                        (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "not counted" 0
+                        (Session.credentialOf "prescriber" state).WrongCount
+                        |> Expect.equal "not counted" 0
 
                         state.Challenges
                         |> Map.containsKey "s-1"
@@ -3082,7 +3093,8 @@ module SessionStubTests =
                         answer
                         |> Expect.equal "mismatch" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
 
-                        (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "not counted" 0
+                        (Session.credentialOf "prescriber" state).WrongCount
+                        |> Expect.equal "not counted" 0
 
                         let once = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
                         let planted = { planted with Scenarios = once }
@@ -3183,7 +3195,7 @@ module SessionStubTests =
                         |> Expect.equal "the limit" (SigningResponse.Refused SigningRefusal.PinLimit)
 
                         state.Sessions |> Map.containsKey "s-1" |> Expect.isFalse "ended"
-                        (Hop.credentialOf "prescriber" state).LockedUntil |> Expect.isSome "locked"
+                        (Session.credentialOf "prescriber" state).LockedUntil |> Expect.isSome "locked"
                     }
 
                     test
@@ -3209,7 +3221,8 @@ module SessionStubTests =
                         answer
                         |> Expect.equal "another plan" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
 
-                        (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "not counted" 0
+                        (Session.credentialOf "prescriber" state).WrongCount
+                        |> Expect.equal "not counted" 0
                     }
 
                     test
@@ -3253,7 +3266,7 @@ module SessionStubTests =
                         |> Expect.equal "marked" (Some SessionEnding.WrongPinLimit)
 
                         state.Challenges |> Expect.isEmpty "the challenge is gone"
-                        let c = Hop.credentialOf "prescriber" state
+                        let c = Session.credentialOf "prescriber" state
                         c.WrongCount |> Expect.equal "three" 3
                         c.LockedUntil |> Expect.equal "a minute" (Some(t0 + seconds 20.0 + minutes 1.0))
                         sent.Value |> List.length |> Expect.equal "one mail" 1
@@ -3277,7 +3290,7 @@ module SessionStubTests =
                                 )
                                 (ready, t0)
 
-                        let until = (Hop.credentialOf "prescriber" locked).LockedUntil.Value
+                        let until = (Session.credentialOf "prescriber" locked).LockedUntil.Value
                         let s2 = session "s-2" prescriber "stub-patient" None
 
                         let relaunched =
@@ -3294,7 +3307,8 @@ module SessionStubTests =
                         answer
                         |> Expect.equal "locked" (SigningResponse.Refused(SigningRefusal.Locked until))
 
-                        (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "not counted" 3
+                        (Session.credentialOf "prescriber" state).WrongCount
+                        |> Expect.equal "not counted" 3
 
                         state.Sessions
                         |> Map.containsKey "s-2"
@@ -3308,14 +3322,14 @@ module SessionStubTests =
                             "locked longer"
                             (SigningResponse.Refused(SigningRefusal.Locked(inside + minutes 2.0)))
 
-                        (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "counted" 4
+                        (Session.credentialOf "prescriber" state).WrongCount |> Expect.equal "counted" 4
 
                         let later = inside + minutes 2.0
                         let state = { state with Challenges = Map.ofList [ challenged "s-2" later ] }
 
                         match submitAt later (counter "id") send state "s-2" (submission "s-2" "1234" "k-6") with
                         | state, SigningResponse.Submitted _ ->
-                            (Hop.credentialOf "prescriber" state).WrongCount |> Expect.equal "zeroed" 0
+                            (Session.credentialOf "prescriber" state).WrongCount |> Expect.equal "zeroed" 0
                         | _, other -> failtest $"expected Submitted, got {other}"
                     }
                 ]
@@ -3323,7 +3337,7 @@ module SessionStubTests =
 
         let tests =
             testList
-                "Hop"
+                "Session"
                 [
                     presentTests
                     callbackTests
@@ -3431,8 +3445,7 @@ module SessionStubTests =
         choice
         =
         async {
-            let! outcome =
-                CompositionRoot.processLaunch env cookie stateCookie (LaunchCommand.PresentLaunch(launch, key))
+            let! outcome = LaunchCommand.processCmd env cookie stateCookie (LaunchCommand.PresentLaunch(launch, key))
 
             match outcome with
             | LaunchOutcome.RedirectTo url ->
@@ -3454,7 +3467,7 @@ module SessionStubTests =
                             Error = None
                         }
 
-                return! CompositionRoot.processCallback env cookie stateCookie enrolment cb
+                return! LaunchCommand.processCallback env cookie stateCookie enrolment cb
             | other -> return failtest $"expected RedirectTo, got {other}"
         }
 
@@ -3612,7 +3625,7 @@ module SessionStubTests =
                     let cookie, held = memoryCookie None
                     let stateCookie, heldState = memoryStateCookie None
 
-                    match! CompositionRoot.processLaunch env cookie stateCookie (present "1" keyA) with
+                    match! LaunchCommand.processCmd env cookie stateCookie (present "1" keyA) with
                     | LaunchOutcome.RedirectTo url ->
                         url |> Expect.stringStarts "to the IdentityProvider" "/authorize?state="
                         heldState.Value |> Expect.isSome "state cookie written"
@@ -3627,7 +3640,7 @@ module SessionStubTests =
                     let stateCookie, heldState = memoryStateCookie None
 
                     let! outcome =
-                        CompositionRoot.processLaunch
+                        LaunchCommand.processCmd
                             env
                             cookie
                             stateCookie
@@ -3692,7 +3705,7 @@ module SessionStubTests =
                     let cookie, held = memoryCookie None
                     let stateCookie, heldState = memoryStateCookie None
 
-                    let! outcome = CompositionRoot.processLaunch env cookie stateCookie (present "1" keyA)
+                    let! outcome = LaunchCommand.processCmd env cookie stateCookie (present "1" keyA)
 
                     let state =
                         match outcome with
@@ -3703,7 +3716,7 @@ module SessionStubTests =
                     let noCookie, _ = memoryStateCookie None
 
                     let! redirect =
-                        CompositionRoot.processCallback
+                        LaunchCommand.processCallback
                             env
                             cookie
                             noCookie
@@ -3727,7 +3740,7 @@ module SessionStubTests =
                     let stateCookie, _ = memoryStateCookie None
 
                     let! outcome =
-                        CompositionRoot.processLaunch
+                        LaunchCommand.processCmd
                             env
                             cookie
                             stateCookie
@@ -3746,7 +3759,7 @@ module SessionStubTests =
                             Error = None
                         }
 
-                    let! _ = CompositionRoot.processCallback env cookie stateCookie (noEnrolment ()) cb1
+                    let! _ = LaunchCommand.processCallback env cookie stateCookie (noEnrolment ()) cb1
                     let first = held.Value.Value
 
                     // the same login launches again in another tab: the first Session is replaced
@@ -3767,7 +3780,7 @@ module SessionStubTests =
                     second |> Expect.notEqual "a newer session" first
 
                     // the first tab reloads its callback
-                    let! redirect = CompositionRoot.processCallback env cookie stateCookie (noEnrolment ()) cb1
+                    let! redirect = LaunchCommand.processCallback env cookie stateCookie (noEnrolment ()) cb1
                     redirect |> Expect.equal "to the app" "/#/session"
                     held.Value |> Expect.equal "the newer cookie stays" (Some second)
                 }
@@ -3775,7 +3788,7 @@ module SessionStubTests =
                 testAsync "GetSession: no cookie is None" {
                     let _, env = envWithStub ()
                     let cookie, _ = memoryCookie None
-                    let! response = CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession
+                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession
                     response |> Expect.equal "none" (SessionResponse.SessionResp None)
                 }
 
@@ -3797,7 +3810,7 @@ module SessionStubTests =
 
                     let later, _ = memoryCookie held.Value
 
-                    match! CompositionRoot.processSession env later (noEnrolment ()) SessionCommand.GetSession with
+                    match! SessionCommand.processCmd env later (noEnrolment ()) SessionCommand.GetSession with
                     | SessionResponse.SessionResp(Some session) ->
                         session.User
                         |> Option.map _.DisplayName
@@ -3841,8 +3854,7 @@ module SessionStubTests =
                     // the first browser still holds its cookie
                     let firstBrowser, heldFirst = memoryCookie (Some first)
 
-                    let! told =
-                        CompositionRoot.processSession env firstBrowser (noEnrolment ()) SessionCommand.GetSession
+                    let! told = SessionCommand.processCmd env firstBrowser (noEnrolment ()) SessionCommand.GetSession
 
                     told
                     |> Expect.equal "told" (SessionResponse.SessionEnded SessionEnding.SupersededByLaunch)
@@ -3850,28 +3862,27 @@ module SessionStubTests =
                     heldFirst.Value |> Expect.equal "cookie kept until acknowledged" (Some first)
 
                     // the answer was lost: the browser asks again and is told again
-                    let! second =
-                        CompositionRoot.processSession env firstBrowser (noEnrolment ()) SessionCommand.GetSession
+                    let! second = SessionCommand.processCmd env firstBrowser (noEnrolment ()) SessionCommand.GetSession
 
                     second
                     |> Expect.equal "told again" (SessionResponse.SessionEnded SessionEnding.SupersededByLaunch)
 
                     // the client acknowledges with a close: cookie deleted, ending dropped
                     let! closed =
-                        CompositionRoot.processSession env firstBrowser (noEnrolment ()) SessionCommand.CloseSession
+                        SessionCommand.processCmd env firstBrowser (noEnrolment ()) SessionCommand.CloseSession
 
                     closed |> Expect.equal "closed" SessionResponse.SessionClosed
                     heldFirst.Value |> Expect.isNone "cookie deleted"
 
                     let stale, _ = memoryCookie (Some first)
-                    let! third = CompositionRoot.processSession env stale (noEnrolment ()) SessionCommand.GetSession
+                    let! third = SessionCommand.processCmd env stale (noEnrolment ()) SessionCommand.GetSession
                     third |> Expect.equal "nothing left to tell" (SessionResponse.SessionResp None)
                 }
 
                 testAsync "GetSession: a cookie for an unknown session is None" {
                     let _, env = envWithStub ()
                     let cookie, _ = memoryCookie (Some "stale")
-                    let! response = CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession
+                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession
                     response |> Expect.equal "none" (SessionResponse.SessionResp None)
                 }
 
@@ -3893,8 +3904,7 @@ module SessionStubTests =
 
                     let id = held.Value.Value
 
-                    let! response =
-                        CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.CloseSession
+                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.CloseSession
 
                     response |> Expect.equal "closed" SessionResponse.SessionClosed
                     held.Value |> Expect.isNone "cookie deleted"
@@ -3906,8 +3916,7 @@ module SessionStubTests =
                     let _, env = envWithStub ()
                     let cookie, held = memoryCookie None
 
-                    let! response =
-                        CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.CloseSession
+                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.CloseSession
 
                     response |> Expect.equal "closed" SessionResponse.SessionClosed
                     held.Value |> Expect.isNone "still none"
@@ -3927,7 +3936,7 @@ module SessionStubTests =
                     let cookie, held = memoryCookie (Some "session-1")
 
                     let! result =
-                        CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.CloseSession
+                        SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.CloseSession
                         |> Async.Catch
 
                     match result with
@@ -3941,13 +3950,13 @@ module SessionStubTests =
                     let cookie, held = memoryCookie (Some "any")
                     let stateCookie, _ = memoryStateCookie (Some "st")
 
-                    let! outcome = CompositionRoot.processLaunch env cookie stateCookie (present "1" keyA)
+                    let! outcome = LaunchCommand.processCmd env cookie stateCookie (present "1" keyA)
 
                     outcome
                     |> Expect.equal "invalid" (LaunchOutcome.Refused LaunchRefusal.LaunchInvalid)
 
                     let! redirect =
-                        CompositionRoot.processCallback
+                        LaunchCommand.processCallback
                             env
                             cookie
                             stateCookie
@@ -3962,7 +3971,7 @@ module SessionStubTests =
                     redirect |> Expect.equal "invalid" "/#/session?refused=invalid"
                     held.Value |> Expect.equal "cookie untouched" (Some "any")
 
-                    let! response = CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession
+                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession
                     response |> Expect.equal "nothing" (SessionResponse.SessionResp None)
                 }
             ]
@@ -3996,9 +4005,9 @@ module SessionStubTests =
                     attempt.Value |> Expect.isSome "enrolment cookie"
 
                     until.Value
-                    |> Expect.equal "until the code expires" (Some(t0 + Hop.codeLifetime))
+                    |> Expect.equal "until the code expires" (Some(t0 + Session.codeLifetime))
 
-                    let! pending = CompositionRoot.processSession env cookie enrolment SessionCommand.GetSession
+                    let! pending = SessionCommand.processCmd env cookie enrolment SessionCommand.GetSession
 
                     pending
                     |> Expect.equal
@@ -4010,7 +4019,7 @@ module SessionStubTests =
                             })
 
                     let! wrong =
-                        CompositionRoot.processSession env cookie enrolment (SessionCommand.SupplyPin("000000", "2468"))
+                        SessionCommand.processCmd env cookie enrolment (SessionCommand.SupplyPin("000000", "2468"))
 
                     wrong
                     |> Expect.equal "wrong code" (SessionResponse.PinRefused(PinRefusal.WrongCode 2))
@@ -4018,7 +4027,7 @@ module SessionStubTests =
                     attempt.Value |> Expect.isSome "cookie kept"
 
                     let! opened =
-                        CompositionRoot.processSession
+                        SessionCommand.processCmd
                             env
                             cookie
                             enrolment
@@ -4033,7 +4042,7 @@ module SessionStubTests =
                     attempt.Value |> Expect.isNone "enrolment cookie deleted"
                     outbox.sent () |> List.length |> Expect.equal "two mails" 2
 
-                    let! found = CompositionRoot.processSession env cookie enrolment SessionCommand.GetSession
+                    let! found = SessionCommand.processCmd env cookie enrolment SessionCommand.GetSession
 
                     match found with
                     | SessionResponse.SessionResp(Some _) -> ()
@@ -4051,22 +4060,18 @@ module SessionStubTests =
 
                     for _ in 1..2 do
                         let! _ =
-                            CompositionRoot.processSession
-                                env
-                                cookie
-                                enrolment
-                                (SessionCommand.SupplyPin("000000", "2468"))
+                            SessionCommand.processCmd env cookie enrolment (SessionCommand.SupplyPin("000000", "2468"))
 
                         ()
 
                     let! void' =
-                        CompositionRoot.processSession env cookie enrolment (SessionCommand.SupplyPin("000000", "2468"))
+                        SessionCommand.processCmd env cookie enrolment (SessionCommand.SupplyPin("000000", "2468"))
 
                     void' |> Expect.equal "void" (SessionResponse.PinRefused PinRefusal.CodeVoid)
                     attempt.Value |> Expect.isNone "cookie deleted"
 
                     let stale, attemptRef, _ = memoryEnrolmentCookie (Some "gone")
-                    let! nothing = CompositionRoot.processSession env cookie stale SessionCommand.GetSession
+                    let! nothing = SessionCommand.processCmd env cookie stale SessionCommand.GetSession
                     nothing |> Expect.equal "nothing" (SessionResponse.SessionResp None)
                     attemptRef.Value |> Expect.isNone "stale cookie deleted"
                 }
@@ -4078,7 +4083,7 @@ module SessionStubTests =
                     let stateCookie, _ = memoryStateCookie None
 
                     let! expired =
-                        CompositionRoot.processSession
+                        SessionCommand.processCmd
                             env
                             cookie
                             (noEnrolment ())
@@ -4093,11 +4098,11 @@ module SessionStubTests =
                         openVia directory env cookie stateCookie enrolment (mintFor "n-1" "stub-patient") keyA "no-pin"
 
                     let held = attempt.Value
-                    let! closed = CompositionRoot.processSession env cookie enrolment SessionCommand.CloseSession
+                    let! closed = SessionCommand.processCmd env cookie enrolment SessionCommand.CloseSession
                     closed |> Expect.equal "closed" SessionResponse.SessionClosed
                     attempt.Value |> Expect.isNone "cookie deleted"
                     let stale, _, _ = memoryEnrolmentCookie held
-                    let! nothing = CompositionRoot.processSession env cookie stale SessionCommand.GetSession
+                    let! nothing = SessionCommand.processCmd env cookie stale SessionCommand.GetSession
                     nothing |> Expect.equal "the attempt is gone" (SessionResponse.SessionResp None)
                 }
 
@@ -4118,7 +4123,7 @@ module SessionStubTests =
                             keyA
                             "prescriber"
 
-                    let! found = CompositionRoot.processSession env cookie enrolment SessionCommand.GetSession
+                    let! found = SessionCommand.processCmd env cookie enrolment SessionCommand.GetSession
 
                     match found with
                     | SessionResponse.SessionResp(Some _) -> ()
@@ -4150,7 +4155,7 @@ module SessionStubTests =
 
                     held.Value |> Expect.isNone "session cookie gone"
                     attempt.Value |> Expect.isSome "enrolment cookie"
-                    let! pending = CompositionRoot.processSession env cookie enrolment SessionCommand.GetSession
+                    let! pending = SessionCommand.processCmd env cookie enrolment SessionCommand.GetSession
 
                     match pending with
                     | SessionResponse.EnrolmentPending _ -> ()
@@ -4167,7 +4172,7 @@ module SessionStubTests =
                     let env = { snd (envWithStub ()) with session = Adapters.sessionDisabled }
 
                     let! refused =
-                        CompositionRoot.processSession env cookie enrolment (SessionCommand.SupplyPin("123456", "2468"))
+                        SessionCommand.processCmd env cookie enrolment (SessionCommand.SupplyPin("123456", "2468"))
 
                     refused
                     |> Expect.equal "expired" (SessionResponse.PinRefused PinRefusal.AttemptExpired)
@@ -4181,7 +4186,7 @@ module SessionStubTests =
         /// The Session the cookie names, as the client holds it.
         let sessionOf env cookie =
             async {
-                match! CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession with
+                match! SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession with
                 | SessionResponse.SessionResp(Some opened) -> return opened
                 | other -> return failtest $"expected an open Session, got {other}"
             }
@@ -4202,7 +4207,7 @@ module SessionStubTests =
                     let cookie, _ = memoryCookie None
 
                     let! answer =
-                        CompositionRoot.processSigning
+                        SigningCommand.processCmd
                             env
                             cookie
                             (SigningCommand.RequestSignChallenge(
@@ -4233,7 +4238,7 @@ module SessionStubTests =
                             "prescriber"
 
                     let! opened = sessionOf env cookie
-                    let! answer = CompositionRoot.processSigning env cookie (challengeOver opened)
+                    let! answer = SigningCommand.processCmd env cookie (challengeOver opened)
 
                     match answer with
                     | SigningResponse.ChallengeIssued nonce -> nonce |> Expect.isNotEmpty "a nonce"
@@ -4242,7 +4247,7 @@ module SessionStubTests =
                     held.Value |> Expect.isSome "cookie kept"
 
                     let! stale =
-                        CompositionRoot.processSigning
+                        SigningCommand.processCmd
                             env
                             cookie
                             (SigningCommand.RequestSignChallenge(
@@ -4274,7 +4279,7 @@ module SessionStubTests =
 
                     let! opened = sessionOf env cookie
 
-                    match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                    match! SigningCommand.processCmd env cookie (challengeOver opened) with
                     | SigningResponse.DataNotice notice ->
                         notice.Data |> Expect.isNone "unreadable"
 
@@ -4285,7 +4290,7 @@ module SessionStubTests =
                                 Some notice.Token
                             )
 
-                        match! CompositionRoot.processSigning env cookie accepted with
+                        match! SigningCommand.processCmd env cookie accepted with
                         | SigningResponse.ChallengeIssued nonce -> nonce |> Expect.isNotEmpty "issued"
                         | other -> failtest $"expected ChallengeIssued, got {other}"
                     | other -> failtest $"expected DataNotice, got {other}"
@@ -4312,7 +4317,7 @@ module SessionStubTests =
 
                     let! challenge =
                         async {
-                            match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                            match! SigningCommand.processCmd env cookie (challengeOver opened) with
                             | SigningResponse.ChallengeIssued nonce -> return nonce
                             | other -> return failtest $"expected ChallengeIssued, got {other}"
                         }
@@ -4326,14 +4331,12 @@ module SessionStubTests =
                             IdemKey = key
                         }
 
-                    match!
-                        CompositionRoot.processSigning env cookie (SigningCommand.Submit(submission "0000" "k-1"))
-                    with
+                    match! SigningCommand.processCmd env cookie (SigningCommand.Submit(submission "0000" "k-1")) with
                     | SigningResponse.Refused(SigningRefusal.PinWrong 2) -> ()
                     | other -> failtest $"expected PinWrong 2, got {other}"
 
                     match!
-                        CompositionRoot.processSigning
+                        SigningCommand.processCmd
                             env
                             cookie
                             (SigningCommand.Submit(submission StubCredentials.stubPin "k-2"))
@@ -4349,7 +4352,7 @@ module SessionStubTests =
 
                     let! challenge =
                         async {
-                            match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                            match! SigningCommand.processCmd env cookie (challengeOver opened) with
                             | SigningResponse.ChallengeIssued nonce -> return nonce
                             | other -> return failtest $"expected ChallengeIssued, got {other}"
                         }
@@ -4361,14 +4364,14 @@ module SessionStubTests =
                                 Challenge = challenge
                             }
 
-                    let! _ = CompositionRoot.processSigning env cookie (wrong "k-3")
-                    let! _ = CompositionRoot.processSigning env cookie (wrong "k-4")
-                    let! third = CompositionRoot.processSigning env cookie (wrong "k-5")
+                    let! _ = SigningCommand.processCmd env cookie (wrong "k-3")
+                    let! _ = SigningCommand.processCmd env cookie (wrong "k-4")
+                    let! third = SigningCommand.processCmd env cookie (wrong "k-5")
 
                     third
                     |> Expect.equal "the limit" (SigningResponse.Refused SigningRefusal.PinLimit)
 
-                    let! told = CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession
+                    let! told = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession
 
                     told
                     |> Expect.equal "told once" (SessionResponse.SessionEnded SessionEnding.WrongPinLimit)
@@ -4411,7 +4414,7 @@ module SessionStubTests =
 
                     let challenge cookie opened =
                         async {
-                            match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                            match! SigningCommand.processCmd env cookie (challengeOver opened) with
                             | SigningResponse.ChallengeIssued nonce -> return nonce
                             | other -> return failtest $"expected ChallengeIssued, got {other}"
                         }
@@ -4431,7 +4434,7 @@ module SessionStubTests =
                     let! head =
                         async {
                             match!
-                                CompositionRoot.processSigning
+                                SigningCommand.processCmd
                                     env
                                     cookieB
                                     (SigningCommand.Submit(submission openedB forB "k-b"))
@@ -4443,10 +4446,7 @@ module SessionStubTests =
                     head.By.UserId |> Expect.equal "B signed" "prescriber-b"
 
                     let! answer =
-                        CompositionRoot.processSigning
-                            env
-                            cookieA
-                            (SigningCommand.Submit(submission openedA forA "k-a"))
+                        SigningCommand.processCmd env cookieA (SigningCommand.Submit(submission openedA forA "k-a"))
 
                     answer
                     |> Expect.equal "A blocked by B" (SigningResponse.Refused(SigningRefusal.Blocked head))
@@ -4469,7 +4469,7 @@ module SessionStubTests =
                             "reader"
 
                     let! opened = sessionOf env cookie
-                    let! answer = CompositionRoot.processSigning env cookie (challengeOver opened)
+                    let! answer = SigningCommand.processCmd env cookie (challengeOver opened)
 
                     answer
                     |> Expect.equal "not a prescriber" (SigningResponse.Refused SigningRefusal.NotPrescriber)
@@ -4481,7 +4481,7 @@ module SessionStubTests =
                     let cookie, _ = memoryCookie (Some "s-1")
 
                     let! answer =
-                        CompositionRoot.processSigning
+                        SigningCommand.processCmd
                             env
                             cookie
                             (SigningCommand.RequestSignChallenge(
@@ -4523,7 +4523,7 @@ module SessionStubTests =
 
         let sessionOf env cookie =
             async {
-                match! CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession with
+                match! SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession with
                 | SessionResponse.SessionResp(Some opened) -> return opened
                 | other -> return failtest $"expected an open Session, got {other}"
             }
@@ -4647,7 +4647,7 @@ module SessionStubTests =
             [
                 thumbprintTests
                 sealTests
-                HopTests.tests
+                SessionTests.tests
                 stubLaunchTests
                 compositionTests
                 enrolmentCompositionTests
