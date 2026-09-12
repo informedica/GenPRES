@@ -1,5 +1,5 @@
 ---
-last_commit_released: cb796b265040c6914042349e3ab93f11ea4b6c59
+last_commit_released: edfa4e893e931b13bf32d676e6ee62c828302fe8
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,33 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.21 - 2026-09-12
+
+### 🚀 Features
+
+* *(client)* Log in, read logs and reload through processAdmin ([3b7604e4](https://github.com/informedica/GenPRES/commit/3b7604e4361a2cd3112bf8dfd76cb44986c67e60))
+* *(client)* The nutrition page on the one plan ([a1f8463b](https://github.com/informedica/GenPRES/commit/a1f8463bbad19c09038db63142381314da77de7c))
+* *(server)* Draft the admin command family under the token ([36908ffa](https://github.com/informedica/GenPRES/commit/36908ffa961725a364cc4f17fd12f50f6efdb360))
+* *(server)* Serve the admin commands under the token ([7e56b7e9](https://github.com/informedica/GenPRES/commit/7e56b7e920b3aacd7d74dd8b9bb1ed3455a9d132))
+* *(server)* Draft the generic envelope and the computing wrapper ([834dc110](https://github.com/informedica/GenPRES/commit/834dc11063e511aeeab31882a90b1ef8bf99e49a))
+* *(server)* Draft the formulary and parenteralia members ([f5a1c5fe](https://github.com/informedica/GenPRES/commit/f5a1c5fe37df92151c5e523ac79f0f0ee4ebf599))
+* *(server)* Draft the interaction member with its own gate ([83fe7d28](https://github.com/informedica/GenPRES/commit/83fe7d28b4bf25fb17d9baa9222ca8baf329ede0))
+* *(server)* Draft the one plan, nutrition included ([2a32b880](https://github.com/informedica/GenPRES/commit/2a32b8805bfa0783cc5d3979a49054b866211399))
+* *(server)* Serve the one plan, nutrition included ([74eda6d1](https://github.com/informedica/GenPRES/commit/74eda6d116bf2e0c529bbe131f1958f45b00f161))
+
+### 🐞 Bug Fixes
+
+* Ignore claude generated patch files ([20a004da](https://github.com/informedica/GenPRES/commit/20a004da30ebbb54aaf5a1b6cc2e5766ba37b58d))
+* *(client)* Correlate admin answers and settle the reload on its refresh ([cda5ad63](https://github.com/informedica/GenPRES/commit/cda5ad637239261656486b3180c74af293a68a38))
+* *(client)* Keep the plan a refused change was made with ([fbf9e9b6](https://github.com/informedica/GenPRES/commit/fbf9e9b637a0f98f9528c3f3d6cbdfb00535354c))
+* *(client)* Report the plan command as sent, not as made ([8f73a777](https://github.com/informedica/GenPRES/commit/8f73a7779db57488945a3daf44962b3ace19a534))
+* *(server)* Answer a failed reload with its messages ([2e0716c5](https://github.com/informedica/GenPRES/commit/2e0716c5cff615f23988ae5263fcb9fdb8864863))
+* *(server)* Let an open command pass without asking the provider ([963e02f1](https://github.com/informedica/GenPRES/commit/963e02f1481c808bac9919d94b748a7e35dd898b))
+* *(server)* Keep the plan's views in step and an evaluation's error ([f0f8adbe](https://github.com/informedica/GenPRES/commit/f0f8adbedb9c44f1c362b268e5384549347850b9))
+* *(ui)* Disable the plan's delete while a change is under way ([009fa66a](https://github.com/informedica/GenPRES/commit/009fa66adab2fe8ff71af57f892d13e0e0b79453))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/cb796b265040c6914042349e3ab93f11ea4b6c59..edfa4e893e931b13bf32d676e6ee62c828302fe8)</small></strong>
 
 ## 0.1.2-alpha.20 - 2026-09-11
 
