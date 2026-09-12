@@ -28,7 +28,7 @@
 #load "../ServerApi.InteractionCommand.fs"
 #load "../ServerApi.PlanCommand.fs"
 #load "../ServerApi.AdminCommand.fs"
-#load "../ServerApi.Command.fs"
+#load "../ServerApi.OrderContextCommand.fs"
 #load "../ServerApi.LaunchCommand.fs"
 #load "../ServerApi.SessionCommand.fs"
 #load "../ServerApi.SigningCommand.fs"

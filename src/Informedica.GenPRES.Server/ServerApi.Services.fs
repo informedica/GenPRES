@@ -736,6 +736,28 @@ module PlanService =
 
     /// The plan with its totals recomputed over its orders: the filtered ones, by order id, when
     /// a filter is set, else all of them.
+    /// The orders named removed from the plan: each with the workbench that contributed it, a
+    /// feeding with its supplements and theirs, the rest by order id; the filter and the
+    /// selection follow.
+    let removeOrders (ids: string[]) (plan: OrderPlan) =
+        let contributed (nc: NutritionContext) =
+            contribution nc |> Option.exists (fun sc -> ids |> Array.contains sc.Order.Id)
+
+        let plan =
+            plan.NutritionContexts
+            |> Array.filter contributed
+            |> Array.fold (fun (p: OrderPlan) (nc: NutritionContext) -> p |> removeContext nc.Id) plan
+
+        ids
+        |> Array.fold
+            (fun (p: OrderPlan) id ->
+                match p.Scenarios |> Array.tryFind (fun sc -> sc.Order.Id = id) with
+                | Some sc -> p |> withOrders (Some sc) None
+                | None -> p
+            )
+            plan
+
+
     let recalculate (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: OrderPlan) =
         { plan with
             Totals =

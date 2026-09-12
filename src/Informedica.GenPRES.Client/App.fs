@@ -94,7 +94,7 @@ module private Elmish =
         | UpdateContinuousMedsFilter of string[]
 
         | OrderContextMsg of Api.OrderContextCommand * OrderContext
-        | LoadOrderContextResult of Api.OrderContextCommand * ApiResponse<Api.Response>
+        | LoadOrderContextResult of Api.OrderContextCommand * ApiResponse<OrderContext>
 
         // the one plan, nutrition included
         | OrderPlanMsg of Api.PlanCommand
@@ -226,9 +226,8 @@ module private Elmish =
         |> Cmd.fromAsync
 
 
-    let processResponse (state: State) (response: Api.Response) =
-        match response with
-        | Api.OrderContextResp(Api.OrderContextResult ctx) -> { state with OrderContext = Resolved ctx }, Cmd.none
+    let applyOrderContext (state: State) (ctx: OrderContext) =
+        { state with OrderContext = Resolved ctx }, Cmd.none
 
 
     /// A reload settles when the refresh it started has answered: the order context over a
@@ -343,7 +342,7 @@ module private Elmish =
 
 
     let loadOrderContext opened resp =
-        Api.OrderContextCmd >> createApiMsg serverApi.processCommand opened resp
+        createApiMsg serverApi.processOrderContext opened resp
 
 
     let loadOrderPlan opened resp =
@@ -356,7 +355,8 @@ module private Elmish =
         | Api.PlanCommand.Recalculate plan
         | Api.PlanCommand.Navigate(plan, _, _, _)
         | Api.PlanCommand.AddContext(plan, _)
-        | Api.PlanCommand.RemoveContext(plan, _) -> plan
+        | Api.PlanCommand.RemoveContext(plan, _)
+        | Api.PlanCommand.RemoveOrders(plan, _) -> plan
 
 
     /// The command over the plan the state holds instead of the one it was made with.
@@ -366,6 +366,7 @@ module private Elmish =
         | Api.PlanCommand.Navigate(_, contextId, ctxCmd, ctx) -> Api.PlanCommand.Navigate(plan, contextId, ctxCmd, ctx)
         | Api.PlanCommand.AddContext(_, category) -> Api.PlanCommand.AddContext(plan, category)
         | Api.PlanCommand.RemoveContext(_, id) -> Api.PlanCommand.RemoveContext(plan, id)
+        | Api.PlanCommand.RemoveOrders(_, ids) -> Api.PlanCommand.RemoveOrders(plan, ids)
 
 
     let loadFormulary opened =
@@ -896,9 +897,6 @@ module private Elmish =
 
 
     let update (msg: Msg) (state: State) =
-        let processOk answer =
-            processApiMsg state answer processResponse
-
         let processError err (state, cmd) =
             let errMsg =
                 err
@@ -1473,7 +1471,7 @@ module private Elmish =
                     (cmd, { ctx with Patient = pat })
                     |> loadOrderContext (tokenOf state.Session) (fun resp -> LoadOrderContextResult(cmd, resp))
 
-        | LoadOrderContextResult(_, Finished(Ok msg)) -> processApiMsg (settleReload state) msg processResponse
+        | LoadOrderContextResult(_, Finished(Ok msg)) -> processApiMsg (settleReload state) msg applyOrderContext
         | LoadOrderContextResult(_, Finished(Error err)) ->
             Logging.warning "order context error, resetting" err
             let state = settleReload state
@@ -1535,7 +1533,8 @@ module private Elmish =
             // a change to the plan: one at a time, over the plan as it is
             | Api.PlanCommand.Navigate(tp, _, _, _)
             | Api.PlanCommand.AddContext(tp, _)
-            | Api.PlanCommand.RemoveContext(tp, _) ->
+            | Api.PlanCommand.RemoveContext(tp, _)
+            | Api.PlanCommand.RemoveOrders(tp, _) ->
                 match state.OrderPlan with
                 | InProgress
                 | Recalculating _ -> state, Cmd.none

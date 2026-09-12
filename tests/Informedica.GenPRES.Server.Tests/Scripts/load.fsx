@@ -25,7 +25,7 @@
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.InteractionCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.PlanCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.AdminCommand.fs"
-#load "../../../src/Informedica.GenPRES.Server/ServerApi.Command.fs"
+#load "../../../src/Informedica.GenPRES.Server/ServerApi.OrderContextCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.LaunchCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.SessionCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.SigningCommand.fs"

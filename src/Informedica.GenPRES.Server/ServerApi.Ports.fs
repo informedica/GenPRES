@@ -23,6 +23,8 @@ type PlanPort =
             OrderPlan -> string option -> OrderContextCommand -> OrderContext -> Async<Result<OrderPlan, string[]>>
         addContext: OrderPlan -> NutritionCategory -> Async<Result<OrderPlan, string[]>>
         removeContext: OrderPlan -> string -> Async<Result<OrderPlan, string[]>>
+        // the orders named, each with the workbench that contributed it
+        removeOrders: OrderPlan -> string[] -> Async<Result<OrderPlan, string[]>>
     }
 
 

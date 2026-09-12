@@ -7,9 +7,9 @@ module Api =
     open Types
 
 
-    type Command = OrderContextCmd of OrderContextCommand * OrderContext
-
-    and OrderContextCommand =
+    /// The order-context command family: the selection, the reset, and the stepping of the
+    /// frequency, the dose quantity, the dose rate and a component quantity.
+    type OrderContextCommand =
         | UpdateOrderContext
         | SelectOrderScenario
         | UpdateOrderScenario
@@ -39,10 +39,6 @@ module Api =
         | SetMaxComponentOrderableQuantityProperty of cmp: string
         | SetMedianComponentOrderableQuantityProperty of cmp: string
 
-    type Response = OrderContextResp of OrderContextResponse
-
-    and OrderContextResponse = OrderContextResult of OrderContext
-
     /// Every computing request: the command and the OpenedToken the Session holds.
     /// `None` where there is none to send: no Session, an anonymous one, or a client acting
     /// before its first token arrived.
@@ -62,50 +58,41 @@ module Api =
         }
 
 
-    // until the families move to their own members, processCommand keeps its shape under
-    // these names
-    type Request = Request<Command>
+    module OrderContextCommand =
 
-    type Reply = Reply<Response>
-
-
-    module Command =
-
-        let toString =
-            function
-            | OrderContextCmd(UpdateOrderContext, _) -> "UpdateOrderContext"
-            | OrderContextCmd(SelectOrderScenario, _) -> "SelectOrderScenario"
-            | OrderContextCmd(UpdateOrderScenario, _) -> "UpdateOrderScenario"
-            | OrderContextCmd(ResetOrderScenario, _) -> "ResetOrderScenario"
-            | OrderContextCmd(DecreaseScheduleFrequencyProperty, _) -> "DecreaseScheduleFrequencyProperty"
-            | OrderContextCmd(IncreaseScheduleFrequencyProperty, _) -> "IncreaseScheduleFrequencyProperty"
-            | OrderContextCmd(SetMinScheduleFrequencyProperty, _) -> "SetMinScheduleFrequencyProperty"
-            | OrderContextCmd(SetMaxScheduleFrequencyProperty, _) -> "SetMaxScheduleFrequencyProperty"
-            | OrderContextCmd(SetMedianScheduleFrequencyProperty, _) -> "SetMedianScheduleFrequencyProperty"
-            | OrderContextCmd(DecreaseOrderableDoseQuantityProperty(ntimes, useCalc), _) ->
+        /// For the log: the command alone, never the context.
+        let toString (cmd: OrderContextCommand, _: OrderContext) =
+            match cmd with
+            | UpdateOrderContext -> "UpdateOrderContext"
+            | SelectOrderScenario -> "SelectOrderScenario"
+            | UpdateOrderScenario -> "UpdateOrderScenario"
+            | ResetOrderScenario -> "ResetOrderScenario"
+            | DecreaseScheduleFrequencyProperty -> "DecreaseScheduleFrequencyProperty"
+            | IncreaseScheduleFrequencyProperty -> "IncreaseScheduleFrequencyProperty"
+            | SetMinScheduleFrequencyProperty -> "SetMinScheduleFrequencyProperty"
+            | SetMaxScheduleFrequencyProperty -> "SetMaxScheduleFrequencyProperty"
+            | SetMedianScheduleFrequencyProperty -> "SetMedianScheduleFrequencyProperty"
+            | DecreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
                 $"DecreaseOrderableDoseQuantityProperty ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCmd(IncreaseOrderableDoseQuantityProperty(ntimes, useCalc), _) ->
+            | IncreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
                 $"IncreaseOrderableDoseQuantityProperty ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCmd(SetMinOrderableDoseQuantityProperty, _) -> "SetMinOrderableDoseQuantityProperty"
-            | OrderContextCmd(SetMaxOrderableDoseQuantityProperty, _) -> "SetMaxOrderableDoseQuantityProperty"
-            | OrderContextCmd(SetMedianOrderableDoseQuantityProperty, _) -> "SetMedianOrderableDoseQuantityProperty"
-            | OrderContextCmd(DecreaseOrderableDoseRateProperty(ntimes, useCalc), _) ->
+            | SetMinOrderableDoseQuantityProperty -> "SetMinOrderableDoseQuantityProperty"
+            | SetMaxOrderableDoseQuantityProperty -> "SetMaxOrderableDoseQuantityProperty"
+            | SetMedianOrderableDoseQuantityProperty -> "SetMedianOrderableDoseQuantityProperty"
+            | DecreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 $"DecreaseOrderableDoseRateProperty ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCmd(IncreaseOrderableDoseRateProperty(ntimes, useCalc), _) ->
+            | IncreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 $"IncreaseOrderableDoseRateProperty ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCmd(SetMinOrderableDoseRateProperty, _) -> "SetMinOrderableDoseRateProperty"
-            | OrderContextCmd(SetMaxOrderableDoseRateProperty, _) -> "SetMaxOrderableDoseRateProperty"
-            | OrderContextCmd(SetMedianOrderableDoseRateProperty, _) -> "SetMedianOrderableDoseRateProperty"
-            | OrderContextCmd(DecreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc), _) ->
+            | SetMinOrderableDoseRateProperty -> "SetMinOrderableDoseRateProperty"
+            | SetMaxOrderableDoseRateProperty -> "SetMaxOrderableDoseRateProperty"
+            | SetMedianOrderableDoseRateProperty -> "SetMedianOrderableDoseRateProperty"
+            | DecreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
                 $"DecreaseComponentQuantityProperty cmp={cmp} ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCmd(IncreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc), _) ->
+            | IncreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
                 $"IncreaseComponentQuantityProperty cmp={cmp} ntimes={ntimes} useCalc={useCalc}"
-            | OrderContextCmd(SetMinComponentOrderableQuantityProperty cmp, _) ->
-                $"SetMinComponentQuantityProperty cmp={cmp}"
-            | OrderContextCmd(SetMaxComponentOrderableQuantityProperty cmp, _) ->
-                $"SetMaxComponentQuantityProperty cmp={cmp}"
-            | OrderContextCmd(SetMedianComponentOrderableQuantityProperty cmp, _) ->
-                $"SetMedianComponentQuantityProperty cmp={cmp}"
+            | SetMinComponentOrderableQuantityProperty cmp -> $"SetMinComponentQuantityProperty cmp={cmp}"
+            | SetMaxComponentOrderableQuantityProperty cmp -> $"SetMaxComponentQuantityProperty cmp={cmp}"
+            | SetMedianComponentOrderableQuantityProperty cmp -> $"SetMedianComponentQuantityProperty cmp={cmp}"
 
 
     /// The launch command family. Cut from the session family at the authentication boundary:
@@ -252,6 +239,8 @@ module Api =
         | AddContext of OrderPlan * NutritionCategory
         // the nutrition context removed with its order; a feeding takes its supplements with it
         | RemoveContext of OrderPlan * contextId: string
+        // the orders named removed, each with the workbench that contributed it
+        | RemoveOrders of OrderPlan * ids: string[]
 
 
     module PlanCommand =
@@ -264,6 +253,7 @@ module Api =
             | PlanCommand.Navigate(_, Some _, ctxCmd, _) -> $"Navigate context {ctxCmd}"
             | PlanCommand.AddContext(_, category) -> $"AddContext {category}"
             | PlanCommand.RemoveContext _ -> "RemoveContext"
+            | PlanCommand.RemoveOrders(_, ids) -> $"RemoveOrders %i{ids.Length}"
 
 
     /// Defines how routes are generated on server and mapped from the client
@@ -284,9 +274,9 @@ module Api =
     /// to learn more read the docs at https://zaid-ajaj.github.io/Fable.Remoting/src/basics.html
     type IServerApi =
         {
-            processCommand: Request -> Async<Result<Reply, string[]>>
-            // one member per use case, each on the same envelope: the formulary and the
-            // parenteralia views ask their own
+            // one member per use case, each on the same envelope
+            processOrderContext:
+                Request<OrderContextCommand * OrderContext> -> Async<Result<Reply<OrderContext>, string[]>>
             processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
             processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
             processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>

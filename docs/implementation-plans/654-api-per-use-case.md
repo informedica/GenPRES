@@ -271,3 +271,48 @@ Against `GENPRES_PROD=0 dotnet run`:
   request.
 - `GENPRES_PROD=1`: every reply's notice empty, admin still gated by the password.
 - `dotnet run ServerTests`, the Fable compile and Fantomas stay green after every step.
+
+## As built
+
+Script-first for the Shared and Server code (`Shared/Scripts/Api.fsx`, `Server/Scripts/Compute.fsx`,
+rewritten per step), the client edited directly, every step one PR against `master`, migrated
+after review.
+
+| Step | PR | Landed |
+|---|---|---|
+| plan | #655 | this document; notes in plans 580 and 582 |
+| 2, admin server | #656 | `AdminCommand`/`AdminResponse`/`processAdmin`, `AdminPort` with the secret and the clock as values, `ServerApi.AdminCommand.fs`; review: a reload that leaves the provider unloaded answers its messages |
+| 3, admin client | #657 | login, logs and reload on `processAdmin`, no password dialog; review: answers correlated by login attempt and by token, the reload pending until its refresh answered |
+| 4, delete old admin | #658 | `LogAnalyzerCmd` and `ReloadResources of password` gone, the dispatcher total; D4 closed in `SECURITY.md` and the review |
+| 5, envelope and bound | #659 | `Request<'cmd>`/`Reply<'resp>`, `ServerApi.Compute.fs` (`bound`, `logged`, `Gate`), `Command.gate`; review: an open command never asks the provider |
+| 6, formulary and parenteralia | #660 | the first members; `createApiMsg` over the member, `Answer<'r>`, `apply` per family |
+| 7, interaction | #661 | `processInteraction` with the per-command gate |
+| 8a, the one plan, server | #662 | `OrderPlan.NutritionContexts`, `PlanCommand`, `PlanPort`, `PlanService`, `processOrderPlan`; review: the filter and the selection follow a replaced order, the totals count by order id, a failed evaluation is the answer |
+| 8b, the one plan, client | #663 | the nutrition page on the order plan, `ShowOrderPlan`; review: a refused change leaves the plan the request was sent over |
+| 8c, delete old plan families | #664 | `OrderPlanCmd`, `NutritionPlanCmd`, `NutritionPlan` and their ports and services gone; the totals `PlanService`'s own |
+| 9, order context; old shape gone | this PR | `processOrderContext`; `processCommand`, `Command`, `Response`, `ServerApi.Command.fs` deleted; `PlanCommand.RemoveOrders` |
+
+### Deviations from the text above
+
+- **`PlanCommand.RemoveOrders`.** Deleting orders on the order-plan page was a client-side
+  filter over `Scenarios`; with nutrition orders in the plan, a deleted nutrition order came back
+  at its workbench's next move. The delete is a server command: the orders named go by id, each
+  with the workbench that contributed it, a feeding with its supplements.
+- **`PlanCommand.Navigate` without a context evaluates itself.** The plan text reused
+  `updateOrderPlan`, which answered the plan as it was when the evaluation failed (review of #662).
+- **`Init` dropped from `PlanCommand`.** The plan exists once a patient is set.
+- **The recalculation is a seam.** `PlanService.navigate` and `addContext` take the
+  recalculation as a function the adapter fills with the provider's totals, so the rules are
+  testable over reflection-built scenarios the solver cannot price.
+- **Qualified access on `OrderContextCommand`** (step 10) is not done; the names are unique and
+  the churn is not earned.
+
+### Left open
+
+- After a reopen the signed nutrition orders are in the plan and its totals, but the workbenches
+  are empty. Rebuilding them from the signed orders is a follow-up issue.
+- A drug order's context is not kept in the plan (its scenario is; the page rebuilds a context
+  around it), a nutrition order's is (its workbench). Keeping a context per order, with the
+  prescribing workbench as a context not yet in the plan, is the natural next design step and
+  needs an issue and a plan of its own.
+- Plan 580's scope gate becomes one more parameter of `Compute.bound`.

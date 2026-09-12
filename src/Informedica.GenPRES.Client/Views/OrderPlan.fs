@@ -275,18 +275,18 @@ module OrderPlan =
             | Recalculating tp -> tp.Filtered |> Array.map _.Order |> Array.map _.Id
             | _ -> [||]
 
+        // a plan change is one at a time: while one is under way the button is disabled,
+        // so a click never sends a command that would be discarded
+        let isRecalculating =
+            match orderPlan with
+            | Recalculating _ -> true
+            | _ -> false
+
+        // the selected orders go by id, each with the workbench that contributed it
         let onDelete =
             fun () ->
                 match orderPlan with
-                | Resolved tp
-                | Recalculating tp ->
-                    { tp with
-                        Scenarios =
-                            tp.Scenarios
-                            |> Array.filter (fun sc -> tp.Filtered |> Array.exists ((=) sc) |> not)
-
-                    }
-                    |> updateOrderPlan
+                | Resolved tp -> planCommand (Api.PlanCommand.RemoveOrders(tp, selectedRows))
                 | _ -> ()
 
         let updateOrderScenario (ctx: OrderContext) =
@@ -353,7 +353,7 @@ module OrderPlan =
                 import Button from '@mui/material/Button';
 
                 <Box sx={ {| marginTop = 2 |} }>
-                    <Button variant="text" onClick={onDelete} fullWidth startIcon={Mui.Icons.Delete} >
+                    <Button variant="text" onClick={onDelete} disabled={isRecalculating} fullWidth startIcon={Mui.Icons.Delete} >
                         Verwijder Geselecteerde Voorschriften
                     </Button>
                 </Box>

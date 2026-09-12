@@ -96,6 +96,15 @@ module Adapters =
                             |> PlanService.recalculate (provider.GetTotals())
                             |> Ok
                     }
+            removeOrders =
+                fun plan ids ->
+                    async {
+                        return
+                            plan
+                            |> PlanService.removeOrders ids
+                            |> PlanService.recalculate (provider.GetTotals())
+                            |> Ok
+                    }
         }
 
 
