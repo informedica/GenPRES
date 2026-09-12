@@ -22,6 +22,7 @@
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Adapters.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Compute.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.FormularyCommand.fs"
+#load "../../../src/Informedica.GenPRES.Server/ServerApi.InteractionCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.AdminCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Command.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.LaunchCommand.fs"

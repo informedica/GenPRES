@@ -110,8 +110,8 @@ module private Elmish =
         | LoadParenteralia of ApiResponse<Parenteralia>
 
         | CheckInteractions of string list
-        | LoadInteractionsResult of ApiResponse<Api.Response>
-        | LoadInteractionDrugNames of ApiResponse<Api.Response>
+        | LoadInteractionsResult of ApiResponse<Api.InteractionResponse>
+        | LoadInteractionDrugNames of ApiResponse<Api.InteractionResponse>
 
         | UpdateLanguage of Localization.Locales
         | LoadLocalization of AsyncOperationStatus<Result<string[][], string>>
@@ -243,23 +243,6 @@ module private Elmish =
             { state with OrderPlan = Resolved tp }, cmd
         | Api.NutritionPlanResp(Api.NutritionPlanInitialised plan)
         | Api.NutritionPlanResp(Api.NutritionPlanUpdated plan) -> { state with NutritionPlan = Resolved plan }, Cmd.none
-        | Api.InteractionResp(Api.InteractionsChecked interactions) ->
-            let newState =
-                if interactions.Length > 0 then
-                    { state with
-                        SnackbarMsg = $"Er zijn %i{interactions.Length} interactie(s) gevonden"
-                        SnackbarOpen = true
-                        SnackbarSeverity = "warning"
-                    }
-                else
-                    { state with
-                        SnackbarMsg = ""
-                        SnackbarOpen = false
-                    }
-
-            { newState with Interactions = Resolved interactions }, Cmd.none
-        | Api.InteractionResp(Api.DrugNamesLoaded names) ->
-            { state with InteractionDrugNames = Resolved names }, Cmd.none
 
 
     /// A reload settles when the refresh it started has answered: the order context over a
@@ -337,6 +320,27 @@ module private Elmish =
 
     let applyParenteralia (state: State) (par: Parenteralia) =
         { state with Parenteralia = Resolved par }, Cmd.none
+
+
+    let applyInteraction (state: State) (response: Api.InteractionResponse) =
+        match response with
+        | Api.InteractionResponse.InteractionsChecked interactions ->
+            let newState =
+                if interactions.Length > 0 then
+                    { state with
+                        SnackbarMsg = $"Er zijn %i{interactions.Length} interactie(s) gevonden"
+                        SnackbarOpen = true
+                        SnackbarSeverity = "warning"
+                    }
+                else
+                    { state with
+                        SnackbarMsg = ""
+                        SnackbarOpen = false
+                    }
+
+            { newState with Interactions = Resolved interactions }, Cmd.none
+        | Api.InteractionResponse.DrugNamesLoaded names ->
+            { state with InteractionDrugNames = Resolved names }, Cmd.none
 
 
     let loadOrderContext opened resp =
@@ -1669,10 +1673,10 @@ module private Elmish =
                 Cmd.none
             else
                 { state with Interactions = InProgress },
-                Api.InteractionCmd(Api.CheckInteractions drugs)
-                |> createApiMsg serverApi.processCommand (tokenOf state.Session) LoadInteractionsResult
+                Api.InteractionCommand.CheckInteractions drugs
+                |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionsResult
 
-        | LoadInteractionsResult(Finished(Ok msg)) -> msg |> processOk
+        | LoadInteractionsResult(Finished(Ok msg)) -> processApiMsg state msg applyInteraction
         | LoadInteractionsResult(Finished(Error err)) ->
             ({ state with Interactions = HasNotStartedYet }, Cmd.none) |> processError err
         | LoadInteractionsResult _ -> state, Cmd.none
@@ -1682,11 +1686,11 @@ module private Elmish =
             | InProgress -> state, Cmd.none
             | _ ->
                 { state with InteractionDrugNames = InProgress },
-                Api.InteractionCmd Api.GetDrugNames
-                |> createApiMsg serverApi.processCommand (tokenOf state.Session) LoadInteractionDrugNames
+                Api.InteractionCommand.GetDrugNames
+                |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionDrugNames
 
         | LoadInteractionDrugNames(Finished(Ok msg)) ->
-            let state, cmd = msg |> processOk
+            let state, cmd = processApiMsg state msg applyInteraction
             { state with DrugNameRetries = 0 }, cmd
         | LoadInteractionDrugNames(Finished(Error _)) ->
             let retries = state.DrugNameRetries + 1

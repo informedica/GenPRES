@@ -38,6 +38,15 @@ module CompositionRoot =
                     (fun _ -> Gate.RequiresLoaded)
                     (ParenteraliaCommand.processCmd env)
 
+            // the one member whose gate differs per command: the drug names run open
+            processInteraction =
+                Compute.bound
+                    env
+                    cookie
+                    InteractionCommand.toString
+                    InteractionCommand.gate
+                    (InteractionCommand.processCmd env)
+
             processLaunch =
                 Compute.logged "launch" LaunchCommand.toString (LaunchCommand.processCmd env cookie stateCookie)
 
