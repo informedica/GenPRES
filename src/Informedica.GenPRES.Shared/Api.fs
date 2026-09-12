@@ -7,10 +7,7 @@ module Api =
     open Types
 
 
-    type Command =
-        | OrderContextCmd of OrderContextCommand * OrderContext
-        | OrderPlanCmd of OrderPlanCommand
-        | NutritionPlanCmd of NutritionPlanCommand
+    type Command = OrderContextCmd of OrderContextCommand * OrderContext
 
     and OrderContextCommand =
         | UpdateOrderContext
@@ -42,33 +39,9 @@ module Api =
         | SetMaxComponentOrderableQuantityProperty of cmp: string
         | SetMedianComponentOrderableQuantityProperty of cmp: string
 
-    and OrderPlanCommand =
-        | UpdateOrderPlan of OrderPlan * (OrderContextCommand * OrderContext) option
-        | FilterOrderPlan of OrderPlan
-
-    and NutritionPlanCommand =
-        | InitNutritionPlan of Patient
-        | UpdateNutritionOrderContext of NutritionPlan * string * OrderContext
-        | SelectNutritionOrderScenario of NutritionPlan * string * OrderContext
-        | NavigateNutritionOrderContext of NutritionPlan * string * OrderContextCommand * OrderContext
-        | AddNutritionContext of NutritionPlan * NutritionCategory
-        | RemoveNutritionContext of NutritionPlan * string
-
-    type Response =
-        | OrderContextResp of OrderContextResponse
-        | OrderPlanResp of OrderPlanResponse
-        | NutritionPlanResp of NutritionPlanResponse
+    type Response = OrderContextResp of OrderContextResponse
 
     and OrderContextResponse = OrderContextResult of OrderContext
-
-    and OrderPlanResponse =
-        | OrderPlanFiltered of OrderPlan
-        | OrderPlanUpdated of OrderPlan
-
-    and NutritionPlanResponse =
-        | NutritionPlanInitialised of NutritionPlan
-        | NutritionPlanUpdated of NutritionPlan
-
 
     /// Every computing request: the command and the OpenedToken the Session holds.
     /// `None` where there is none to send: no Session, an anonymous one, or a client acting
@@ -133,15 +106,6 @@ module Api =
                 $"SetMaxComponentQuantityProperty cmp={cmp}"
             | OrderContextCmd(SetMedianComponentOrderableQuantityProperty cmp, _) ->
                 $"SetMedianComponentQuantityProperty cmp={cmp}"
-
-            | OrderPlanCmd(UpdateOrderPlan _) -> "UpdatedOrderPlan"
-            | OrderPlanCmd(FilterOrderPlan _) -> "FilterOrderPlan"
-            | NutritionPlanCmd(InitNutritionPlan _) -> "InitNutritionPlan"
-            | NutritionPlanCmd(UpdateNutritionOrderContext _) -> "UpdateNutritionOrderContext"
-            | NutritionPlanCmd(SelectNutritionOrderScenario _) -> "SelectNutritionOrderScenario"
-            | NutritionPlanCmd(NavigateNutritionOrderContext _) -> "NavigateNutritionOrderContext"
-            | NutritionPlanCmd(AddNutritionContext _) -> "AddNutritionContext"
-            | NutritionPlanCmd(RemoveNutritionContext _) -> "RemoveNutritionContext"
 
 
     /// The launch command family. Cut from the session family at the authentication boundary:
@@ -326,7 +290,7 @@ module Api =
             processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
             processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
             processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>
-            // the one plan, nutrition included; the old plan families stay until the client moved
+            // the one plan, nutrition included
             processOrderPlan: Request<PlanCommand> -> Async<Result<Reply<OrderPlan>, string[]>>
             processLaunch: LaunchCommand -> Async<LaunchOutcome>
             processSession: SessionCommand -> Async<SessionResponse>

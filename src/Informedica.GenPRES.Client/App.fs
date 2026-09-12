@@ -229,9 +229,6 @@ module private Elmish =
     let processResponse (state: State) (response: Api.Response) =
         match response with
         | Api.OrderContextResp(Api.OrderContextResult ctx) -> { state with OrderContext = Resolved ctx }, Cmd.none
-        // the plan families answer processOrderPlan now; these cases go with them
-        | Api.OrderPlanResp _
-        | Api.NutritionPlanResp _ -> state, Cmd.none
 
 
     /// A reload settles when the refresh it started has answered: the order context over a
