@@ -353,6 +353,15 @@ module private Elmish =
         createApiMsg serverApi.processOrderPlan opened resp
 
 
+    /// The plan a command was made with.
+    let planOf (cmd: Api.PlanCommand) =
+        match cmd with
+        | Api.PlanCommand.Recalculate plan
+        | Api.PlanCommand.Navigate(plan, _, _, _)
+        | Api.PlanCommand.AddContext(plan, _)
+        | Api.PlanCommand.RemoveContext(plan, _) -> plan
+
+
     /// The command over the plan the state holds instead of the one it was made with.
     let withPlan plan (cmd: Api.PlanCommand) =
         match cmd with
@@ -1557,8 +1566,15 @@ module private Elmish =
                     |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
 
         | LoadOrderPlanResult(_, Finished(Ok msg)) -> processApiMsg state msg applyPlan
-        | LoadOrderPlanResult(_, Finished(Error err)) ->
-            ({ state with OrderPlan = HasNotStartedYet }, Cmd.none) |> processError err
+        // a refused change leaves the plan as the request found it, so the pages keep their
+        // controls and the next action is the retry; without a patient there is no plan
+        | LoadOrderPlanResult(cmd, Finished(Error err)) ->
+            let plan =
+                match state.Patient with
+                | None -> HasNotStartedYet
+                | Some _ -> Resolved(planOf cmd)
+
+            ({ state with OrderPlan = plan }, Cmd.none) |> processError err
 
         | LoadFormulary Started ->
             match state.Formulary with
