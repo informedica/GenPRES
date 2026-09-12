@@ -22,6 +22,22 @@ module CompositionRoot =
             // and told, the gate, the exception as an Error
             processCommand = Compute.bound env cookie Command.toString Command.gate (Command.processCmd env)
 
+            processFormulary =
+                Compute.bound
+                    env
+                    cookie
+                    FormularyCommand.toString
+                    (fun _ -> Gate.RequiresLoaded)
+                    (FormularyCommand.processCmd env)
+
+            processParenteralia =
+                Compute.bound
+                    env
+                    cookie
+                    ParenteraliaCommand.toString
+                    (fun _ -> Gate.RequiresLoaded)
+                    (ParenteraliaCommand.processCmd env)
+
             processLaunch =
                 Compute.logged "launch" LaunchCommand.toString (LaunchCommand.processCmd env cookie stateCookie)
 

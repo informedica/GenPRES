@@ -43,16 +43,6 @@ module Command =
                 let! result = env.orderPlan.filterOrderPlan tp
                 return result |> Result.map (OrderPlanFiltered >> OrderPlanResp)
             }
-        | FormularyCmd form ->
-            async {
-                let! result = env.formulary.getFormulary form
-                return result |> Result.map FormularyResp
-            }
-        | ParenteraliaCmd par ->
-            async {
-                let! result = env.formulary.getParenteralia par
-                return result |> Result.map ParenteraliaResp
-            }
         | NutritionPlanCmd(InitNutritionPlan patient) ->
             async {
                 let! result = env.nutritionPlan.initNutritionPlan patient

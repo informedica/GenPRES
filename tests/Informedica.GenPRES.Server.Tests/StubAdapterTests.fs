@@ -162,7 +162,7 @@ let commandRoutingTests =
         "Stub adapter command routing"
         [
 
-            testAsync "FormularyCmd dispatches to formulary.getFormulary" {
+            testAsync "processFormulary dispatches to formulary.getFormulary, typed" {
                 let returnForm = { Formulary.empty with Markdown = "stubbed" }
 
                 let env =
@@ -172,14 +172,14 @@ let commandRoutingTests =
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
 
-                let! result = Command.processCmd env (Api.FormularyCmd Formulary.empty)
+                let! result = FormularyCommand.processCmd env Formulary.empty
 
                 match result with
-                | Ok(Api.FormularyResp f) -> f.Markdown |> Expect.equal "should return stubbed formulary" "stubbed"
-                | other -> failtest $"expected Ok FormularyResp, got {other}"
+                | Ok f -> f.Markdown |> Expect.equal "should return stubbed formulary" "stubbed"
+                | Error errs -> failtest $"expected Ok, got {errs}"
             }
 
-            testAsync "ParenteraliaCmd dispatches to formulary.getParenteralia" {
+            testAsync "processParenteralia dispatches to formulary.getParenteralia, typed" {
                 let env =
                     makeEnv
                         (formularyAlwaysOk Formulary.empty)
@@ -187,11 +187,11 @@ let commandRoutingTests =
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
 
-                let! result = Command.processCmd env (Api.ParenteraliaCmd Parenteralia.empty)
+                let! result = ParenteraliaCommand.processCmd env Parenteralia.empty
 
                 match result with
-                | Ok(Api.ParenteraliaResp _) -> ()
-                | other -> failtest $"expected Ok ParenteraliaResp, got {other}"
+                | Ok _ -> ()
+                | Error errs -> failtest $"expected Ok, got {errs}"
             }
 
             testAsync "OrderContextCmd dispatches to orderContext.evaluate" {
@@ -246,7 +246,7 @@ let errorPropagationTests =
         "Stub adapter error propagation"
         [
 
-            testAsync "FormularyCmd propagates port error" {
+            testAsync "processFormulary propagates port error" {
                 let env =
                     makeEnv
                         (formularyAlwaysFails [| "test error" |])
@@ -254,7 +254,7 @@ let errorPropagationTests =
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
 
-                let! result = Command.processCmd env (Api.FormularyCmd Formulary.empty)
+                let! result = FormularyCommand.processCmd env Formulary.empty
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should propagate error messages" [| "test error" |]
@@ -307,7 +307,7 @@ let requireLoadedTests =
             testAsync "requireLoaded returns Error when not loaded" {
                 let env = makeEnvNotLoaded [| "not ready" |]
 
-                let! result = bound env (Api.FormularyCmd Formulary.empty)
+                let! result = bound env (Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx))
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should return requireLoaded error" [| "not ready" |]
@@ -322,7 +322,7 @@ let requireLoadedTests =
                         (orderPlanAlwaysOk emptyPlan)
                         (nutritionPlanAlwaysOk emptyNutritionPlan)
 
-                let! result = bound env (Api.FormularyCmd Formulary.empty)
+                let! result = bound env (Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx))
 
                 match result with
                 | Ok _ -> ()
@@ -4539,10 +4539,10 @@ module SessionStubTests =
                 IsDemo = true
             }
 
-        let request opened : Request =
+        let request opened : Request<Formulary> =
             {
                 Opened = opened
-                Command = Api.FormularyCmd Formulary.empty
+                Command = Formulary.empty
             }
 
         let sessionOf env cookie =
@@ -4553,7 +4553,7 @@ module SessionStubTests =
             }
 
         testList
-            "processCommand in a Session"
+            "a computing member in a Session"
             [
                 testAsync "without a cookie: computed as before, nothing told (UC-7)" {
                     let _, env = envWithStub ()
@@ -4561,13 +4561,11 @@ module SessionStubTests =
                     let stateCookie, _ = memoryStateCookie None
                     let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
 
-                    match! api.processCommand (request None) with
+                    match! api.processFormulary (request None) with
                     | Ok reply ->
                         reply.Notice |> Expect.isNone "nothing told"
 
-                        match reply.Response with
-                        | Api.FormularyResp _ -> ()
-                        | other -> failtest $"expected FormularyResp, got {other}"
+                        reply.Response |> Expect.equal "computed" Formulary.empty
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
@@ -4590,7 +4588,7 @@ module SessionStubTests =
                     let! opened = sessionOf env cookie
                     let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
 
-                    match! api.processCommand (request opened.OpenedToken) with
+                    match! api.processFormulary (request opened.OpenedToken) with
                     | Ok reply -> reply.Notice |> Expect.isNone "nothing told"
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
@@ -4627,14 +4625,12 @@ module SessionStubTests =
 
                     let api = CompositionRoot.compose settings env cookieA stateCookie (noEnrolment ())
 
-                    match! api.processCommand (request openedA.OpenedToken) with
+                    match! api.processFormulary (request openedA.OpenedToken) with
                     | Ok reply ->
                         reply.Notice
                         |> Expect.equal "ended" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
-                        match reply.Response with
-                        | Api.FormularyResp _ -> ()
-                        | other -> failtest $"still computed, got {other}"
+                        reply.Response |> Expect.equal "still computed" Formulary.empty
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
@@ -4947,7 +4943,7 @@ module BoundTests =
             }
         |> Async.RunSynchronously
 
-    let formulary = Api.FormularyCmd Formulary.empty
+    let formulary = Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx)
 
     let converters = [| FableJsonConverter() :> JsonConverter |]
 
@@ -4969,8 +4965,8 @@ module BoundTests =
                         reply.Notice |> Expect.isNone "nothing told without a cookie"
 
                         match reply.Response with
-                        | Api.FormularyResp f -> f.Markdown |> Expect.equal "computed" "stubbed"
-                        | other -> failtest $"expected FormularyResp, got {other}"
+                        | Api.OrderContextResp _ -> ()
+                        | other -> failtest $"expected OrderContextResp, got {other}"
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
@@ -4983,8 +4979,8 @@ module BoundTests =
                         |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
                         match reply.Response with
-                        | Api.FormularyResp f -> f.Markdown |> Expect.equal "still computed" "stubbed"
-                        | other -> failtest $"expected FormularyResp, got {other}"
+                        | Api.OrderContextResp _ -> ()
+                        | other -> failtest $"expected OrderContextResp, got {other}"
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
