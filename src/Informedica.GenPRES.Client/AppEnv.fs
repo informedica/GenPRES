@@ -64,10 +64,12 @@ type IInteractions =
     abstract CheckInteractions: string list -> unit
 
 
-/// Resource reloading (admin/settings)
+/// Resource reloading (admin/settings): under the token the login bought, so no password here
 [<Interface>]
 type IResources =
-    abstract ReloadResources: string -> unit
+    // InProgress while the server reloads; Resolved once it answered
+    abstract Reload: Deferred<unit>
+    abstract ReloadResources: unit -> unit
 
 
 /// The launch Session: its phase, and the actions the UI offers on it

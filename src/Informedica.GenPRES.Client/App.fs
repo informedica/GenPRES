@@ -51,6 +51,8 @@ module private Elmish =
             AuthToken: string
             LogFiles: Deferred<LogFileInfo[]>
             LogAnalysisReport: Deferred<string>
+            // the resource reload from the settings page: InProgress while the server reloads
+            Reloading: Deferred<unit>
             // the launch Session; Anonymous is the state every URL patient runs in
             Session: Session
             // the signing phase of the open Session; Idle whenever no Session is open
@@ -118,16 +120,21 @@ module private Elmish =
         | LoadSettings of AsyncOperationStatus<Result<Api.ServerSettings, exn>>
 
         | Login of password: string
-        | LoadLoginResult of ApiResponse
+        | LoadLoginResult of AdminResult
         | Logout
 
         | ListLogFiles
-        | LoadLogFilesResult of ApiResponse
+        | LoadLogFilesResult of AdminResult
         | AnalyzeLogFile of string
-        | LoadLogAnalysisResult of ApiResponse
+        | LoadLogAnalysisResult of AdminResult
+        | ReloadResources
+        | LoadReloadResult of AdminResult
 
 
     and ApiResponse = AsyncOperationStatus<Result<Answer, string[]>>
+
+    /// An admin answer: no envelope, so no token it started from and no notice
+    and AdminResult = AsyncOperationStatus<Result<Api.AdminResponse, string[]>>
 
     /// A computing reply with the OpenedToken the request started from, so that what the reply
     /// tells about the Session (moved on, ended) lands only on the Session that asked: a request
@@ -200,6 +207,15 @@ module private Elmish =
         |> Cmd.fromAsync
 
 
+    /// An admin command over the token the login bought; never Session-bound.
+    let createAdminMsg msg cmd =
+        async {
+            let! result = serverApi.processAdmin cmd
+            return result |> Finished |> msg
+        }
+        |> Cmd.fromAsync
+
+
     let processResponse (state: State) (response: Api.Response) =
         match response with
         | Api.OrderContextResp(Api.OrderContextResult ctx) -> { state with OrderContext = Resolved ctx }, Cmd.none
@@ -235,7 +251,16 @@ module private Elmish =
             { newState with Interactions = Resolved interactions }, Cmd.none
         | Api.InteractionResp(Api.DrugNamesLoaded names) ->
             { state with InteractionDrugNames = Resolved names }, Cmd.none
-        | Api.LogAnalyzerResp(Api.PasswordValidated(isValid, token)) ->
+        // the admin family answers processAdmin; nothing arrives here any more
+        | Api.LogAnalyzerResp _ -> state, Cmd.none
+
+
+    /// An admin answer applied. A reload done reloads what the pages show: the order context
+    /// over the patient, which takes the formulary and the parenteralia with it, or those two
+    /// alone when there is no patient.
+    let applyAdmin (state: State) (response: Api.AdminResponse) =
+        match response with
+        | Api.AdminResponse.PasswordValidated(isValid, token) ->
             if isValid then
                 { state with
                     IsAuthenticated = true
@@ -251,9 +276,22 @@ module private Elmish =
                     SnackbarSeverity = "error"
                 },
                 Cmd.none
-        | Api.LogAnalyzerResp(Api.LogFilesListed files) -> { state with LogFiles = Resolved files }, Cmd.none
-        | Api.LogAnalyzerResp(Api.LogFileAnalyzed report) ->
-            { state with LogAnalysisReport = Resolved report }, Cmd.none
+        | Api.AdminResponse.LogFilesListed files -> { state with LogFiles = Resolved files }, Cmd.none
+        | Api.AdminResponse.LogFileAnalyzed report -> { state with LogAnalysisReport = Resolved report }, Cmd.none
+        | Api.AdminResponse.ResourcesReloaded ->
+            let refresh =
+                match state.Patient, state.OrderContext with
+                | Some _, Resolved ctx
+                | Some _, Recalculating ctx -> Cmd.ofMsg (OrderContextMsg(Api.UpdateOrderContext, ctx))
+                | Some _, _ -> Cmd.ofMsg (OrderContextMsg(Api.UpdateOrderContext, OrderContext.empty))
+                | None, _ ->
+                    Cmd.batch
+                        [
+                            Cmd.ofMsg (LoadFormulary Started)
+                            Cmd.ofMsg (LoadParenteralia Started)
+                        ]
+
+            { state with Reloading = Resolved() }, refresh
 
 
     /// The result, and what the Session is told with it: the record moved on or the Session
@@ -549,6 +587,7 @@ module private Elmish =
             AuthToken = ""
             LogFiles = HasNotStartedYet
             LogAnalysisReport = HasNotStartedYet
+            Reloading = HasNotStartedYet
             Session = Session.Anonymous
             Signing = Signing.Idle
             MovedOn = None
@@ -833,6 +872,15 @@ module private Elmish =
             },
             cmd
 
+        // a token the server no longer takes (expired, or a restart): the login is over
+        let tokenError err (state, cmd) =
+            let state, cmd = processError err (state, cmd)
+
+            if err |> Array.contains "Invalid token" then
+                state, Cmd.batch [ cmd; Cmd.ofMsg Logout ]
+            else
+                state, cmd
+
         let selectMedicationItem generic indication route doseType state =
             let nonEmpty s = if s = "" then None else Some s
 
@@ -905,12 +953,9 @@ module private Elmish =
             Logging.error "cannot load the server settings" err
             { state with Settings = HasNotStartedYet }, Cmd.none
 
-        | Login password ->
-            state,
-            Api.LogAnalyzerCmd(Api.ValidatePassword password)
-            |> createApiMsg (tokenOf state.Session) LoadLoginResult
+        | Login password -> state, Api.AdminCommand.ValidatePassword password |> createAdminMsg LoadLoginResult
 
-        | LoadLoginResult(Finished(Ok resp)) -> processOk resp
+        | LoadLoginResult(Finished(Ok resp)) -> applyAdmin state resp
 
         | LoadLoginResult(Finished(Error err)) ->
             ({ state with
@@ -928,34 +973,47 @@ module private Elmish =
                 AuthToken = ""
                 LogFiles = HasNotStartedYet
                 LogAnalysisReport = HasNotStartedYet
+                Reloading = HasNotStartedYet
                 Page = if state.Page = Settings then LifeSupport else state.Page
             },
             Cmd.none
 
         | ListLogFiles ->
             { state with LogFiles = InProgress },
-            Api.LogAnalyzerCmd(Api.ListLogFiles state.AuthToken)
-            |> createApiMsg (tokenOf state.Session) LoadLogFilesResult
+            Api.AdminCommand.ListLogFiles state.AuthToken
+            |> createAdminMsg LoadLogFilesResult
 
-        | LoadLogFilesResult(Finished(Ok resp)) -> processOk resp
+        | LoadLogFilesResult(Finished(Ok resp)) -> applyAdmin state resp
 
         | LoadLogFilesResult(Finished(Error err)) ->
-            ({ state with LogFiles = HasNotStartedYet }, Cmd.none) |> processError err
+            ({ state with LogFiles = HasNotStartedYet }, Cmd.none) |> tokenError err
 
         | LoadLogFilesResult Started -> state, Cmd.none
 
         | AnalyzeLogFile fileName ->
             { state with LogAnalysisReport = InProgress },
-            Api.LogAnalyzerCmd(Api.AnalyzeLogFile(state.AuthToken, fileName))
-            |> createApiMsg (tokenOf state.Session) LoadLogAnalysisResult
+            Api.AdminCommand.AnalyzeLogFile(state.AuthToken, fileName)
+            |> createAdminMsg LoadLogAnalysisResult
 
-        | LoadLogAnalysisResult(Finished(Ok resp)) -> processOk resp
+        | LoadLogAnalysisResult(Finished(Ok resp)) -> applyAdmin state resp
 
         | LoadLogAnalysisResult(Finished(Error err)) ->
             ({ state with LogAnalysisReport = HasNotStartedYet }, Cmd.none)
-            |> processError err
+            |> tokenError err
 
         | LoadLogAnalysisResult Started -> state, Cmd.none
+
+        | ReloadResources ->
+            { state with Reloading = InProgress },
+            Api.AdminCommand.ReloadResources state.AuthToken
+            |> createAdminMsg LoadReloadResult
+
+        | LoadReloadResult(Finished(Ok resp)) -> applyAdmin state resp
+
+        | LoadReloadResult(Finished(Error err)) ->
+            ({ state with Reloading = HasNotStartedYet }, Cmd.none) |> tokenError err
+
+        | LoadReloadResult Started -> state, Cmd.none
 
         | AcceptDisclaimer -> { state with ShowDisclaimer = false }, Cmd.none
 
@@ -1655,8 +1713,8 @@ type private ConcreteAppEnv
         member _.CheckInteractions drugs = CheckInteractions drugs |> dispatch
 
     interface AppEnv.IResources with
-        member _.ReloadResources pw =
-            OrderContextMsg(Api.ReloadResources pw, OrderContext.empty) |> dispatch
+        member _.Reload = state.Reloading
+        member _.ReloadResources() = ReloadResources |> dispatch
 
     interface AppEnv.ISession with
         member _.Session = state.Session
