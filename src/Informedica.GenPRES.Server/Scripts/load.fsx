@@ -24,6 +24,9 @@
 #load "../ServerApi.StubAdapters.fs"
 #load "../ServerApi.Adapters.fs"
 #load "../ServerApi.Command.fs"
+#load "../ServerApi.LaunchCommand.fs"
+#load "../ServerApi.SessionCommand.fs"
+#load "../ServerApi.SigningCommand.fs"
 #load "../ServerApi.CompositionRoot.fs"
 #load "../ServerApi.ApiImpl.fs"
 

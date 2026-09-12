@@ -769,7 +769,7 @@ module Host =
                         }
 
                     let! redirect =
-                        CompositionRoot.processCallback
+                        LaunchCommand.processCallback
                             env
                             (Http.sessionCookie ctx)
                             (Http.launchStateCookie ctx)

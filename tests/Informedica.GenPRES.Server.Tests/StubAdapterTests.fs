@@ -3445,8 +3445,7 @@ module SessionStubTests =
         choice
         =
         async {
-            let! outcome =
-                CompositionRoot.processLaunch env cookie stateCookie (LaunchCommand.PresentLaunch(launch, key))
+            let! outcome = LaunchCommand.processCmd env cookie stateCookie (LaunchCommand.PresentLaunch(launch, key))
 
             match outcome with
             | LaunchOutcome.RedirectTo url ->
@@ -3468,7 +3467,7 @@ module SessionStubTests =
                             Error = None
                         }
 
-                return! CompositionRoot.processCallback env cookie stateCookie enrolment cb
+                return! LaunchCommand.processCallback env cookie stateCookie enrolment cb
             | other -> return failtest $"expected RedirectTo, got {other}"
         }
 
@@ -3626,7 +3625,7 @@ module SessionStubTests =
                     let cookie, held = memoryCookie None
                     let stateCookie, heldState = memoryStateCookie None
 
-                    match! CompositionRoot.processLaunch env cookie stateCookie (present "1" keyA) with
+                    match! LaunchCommand.processCmd env cookie stateCookie (present "1" keyA) with
                     | LaunchOutcome.RedirectTo url ->
                         url |> Expect.stringStarts "to the IdentityProvider" "/authorize?state="
                         heldState.Value |> Expect.isSome "state cookie written"
@@ -3641,7 +3640,7 @@ module SessionStubTests =
                     let stateCookie, heldState = memoryStateCookie None
 
                     let! outcome =
-                        CompositionRoot.processLaunch
+                        LaunchCommand.processCmd
                             env
                             cookie
                             stateCookie
@@ -3706,7 +3705,7 @@ module SessionStubTests =
                     let cookie, held = memoryCookie None
                     let stateCookie, heldState = memoryStateCookie None
 
-                    let! outcome = CompositionRoot.processLaunch env cookie stateCookie (present "1" keyA)
+                    let! outcome = LaunchCommand.processCmd env cookie stateCookie (present "1" keyA)
 
                     let state =
                         match outcome with
@@ -3717,7 +3716,7 @@ module SessionStubTests =
                     let noCookie, _ = memoryStateCookie None
 
                     let! redirect =
-                        CompositionRoot.processCallback
+                        LaunchCommand.processCallback
                             env
                             cookie
                             noCookie
@@ -3741,7 +3740,7 @@ module SessionStubTests =
                     let stateCookie, _ = memoryStateCookie None
 
                     let! outcome =
-                        CompositionRoot.processLaunch
+                        LaunchCommand.processCmd
                             env
                             cookie
                             stateCookie
@@ -3760,7 +3759,7 @@ module SessionStubTests =
                             Error = None
                         }
 
-                    let! _ = CompositionRoot.processCallback env cookie stateCookie (noEnrolment ()) cb1
+                    let! _ = LaunchCommand.processCallback env cookie stateCookie (noEnrolment ()) cb1
                     let first = held.Value.Value
 
                     // the same login launches again in another tab: the first Session is replaced
@@ -3781,7 +3780,7 @@ module SessionStubTests =
                     second |> Expect.notEqual "a newer session" first
 
                     // the first tab reloads its callback
-                    let! redirect = CompositionRoot.processCallback env cookie stateCookie (noEnrolment ()) cb1
+                    let! redirect = LaunchCommand.processCallback env cookie stateCookie (noEnrolment ()) cb1
                     redirect |> Expect.equal "to the app" "/#/session"
                     held.Value |> Expect.equal "the newer cookie stays" (Some second)
                 }
@@ -3789,7 +3788,7 @@ module SessionStubTests =
                 testAsync "GetSession: no cookie is None" {
                     let _, env = envWithStub ()
                     let cookie, _ = memoryCookie None
-                    let! response = CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession
+                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession
                     response |> Expect.equal "none" (SessionResponse.SessionResp None)
                 }
 
@@ -3811,7 +3810,7 @@ module SessionStubTests =
 
                     let later, _ = memoryCookie held.Value
 
-                    match! CompositionRoot.processSession env later (noEnrolment ()) SessionCommand.GetSession with
+                    match! SessionCommand.processCmd env later (noEnrolment ()) SessionCommand.GetSession with
                     | SessionResponse.SessionResp(Some session) ->
                         session.User
                         |> Option.map _.DisplayName
@@ -3855,8 +3854,7 @@ module SessionStubTests =
                     // the first browser still holds its cookie
                     let firstBrowser, heldFirst = memoryCookie (Some first)
 
-                    let! told =
-                        CompositionRoot.processSession env firstBrowser (noEnrolment ()) SessionCommand.GetSession
+                    let! told = SessionCommand.processCmd env firstBrowser (noEnrolment ()) SessionCommand.GetSession
 
                     told
                     |> Expect.equal "told" (SessionResponse.SessionEnded SessionEnding.SupersededByLaunch)
@@ -3864,28 +3862,27 @@ module SessionStubTests =
                     heldFirst.Value |> Expect.equal "cookie kept until acknowledged" (Some first)
 
                     // the answer was lost: the browser asks again and is told again
-                    let! second =
-                        CompositionRoot.processSession env firstBrowser (noEnrolment ()) SessionCommand.GetSession
+                    let! second = SessionCommand.processCmd env firstBrowser (noEnrolment ()) SessionCommand.GetSession
 
                     second
                     |> Expect.equal "told again" (SessionResponse.SessionEnded SessionEnding.SupersededByLaunch)
 
                     // the client acknowledges with a close: cookie deleted, ending dropped
                     let! closed =
-                        CompositionRoot.processSession env firstBrowser (noEnrolment ()) SessionCommand.CloseSession
+                        SessionCommand.processCmd env firstBrowser (noEnrolment ()) SessionCommand.CloseSession
 
                     closed |> Expect.equal "closed" SessionResponse.SessionClosed
                     heldFirst.Value |> Expect.isNone "cookie deleted"
 
                     let stale, _ = memoryCookie (Some first)
-                    let! third = CompositionRoot.processSession env stale (noEnrolment ()) SessionCommand.GetSession
+                    let! third = SessionCommand.processCmd env stale (noEnrolment ()) SessionCommand.GetSession
                     third |> Expect.equal "nothing left to tell" (SessionResponse.SessionResp None)
                 }
 
                 testAsync "GetSession: a cookie for an unknown session is None" {
                     let _, env = envWithStub ()
                     let cookie, _ = memoryCookie (Some "stale")
-                    let! response = CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession
+                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession
                     response |> Expect.equal "none" (SessionResponse.SessionResp None)
                 }
 
@@ -3907,8 +3904,7 @@ module SessionStubTests =
 
                     let id = held.Value.Value
 
-                    let! response =
-                        CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.CloseSession
+                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.CloseSession
 
                     response |> Expect.equal "closed" SessionResponse.SessionClosed
                     held.Value |> Expect.isNone "cookie deleted"
@@ -3920,8 +3916,7 @@ module SessionStubTests =
                     let _, env = envWithStub ()
                     let cookie, held = memoryCookie None
 
-                    let! response =
-                        CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.CloseSession
+                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.CloseSession
 
                     response |> Expect.equal "closed" SessionResponse.SessionClosed
                     held.Value |> Expect.isNone "still none"
@@ -3941,7 +3936,7 @@ module SessionStubTests =
                     let cookie, held = memoryCookie (Some "session-1")
 
                     let! result =
-                        CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.CloseSession
+                        SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.CloseSession
                         |> Async.Catch
 
                     match result with
@@ -3955,13 +3950,13 @@ module SessionStubTests =
                     let cookie, held = memoryCookie (Some "any")
                     let stateCookie, _ = memoryStateCookie (Some "st")
 
-                    let! outcome = CompositionRoot.processLaunch env cookie stateCookie (present "1" keyA)
+                    let! outcome = LaunchCommand.processCmd env cookie stateCookie (present "1" keyA)
 
                     outcome
                     |> Expect.equal "invalid" (LaunchOutcome.Refused LaunchRefusal.LaunchInvalid)
 
                     let! redirect =
-                        CompositionRoot.processCallback
+                        LaunchCommand.processCallback
                             env
                             cookie
                             stateCookie
@@ -3976,7 +3971,7 @@ module SessionStubTests =
                     redirect |> Expect.equal "invalid" "/#/session?refused=invalid"
                     held.Value |> Expect.equal "cookie untouched" (Some "any")
 
-                    let! response = CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession
+                    let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession
                     response |> Expect.equal "nothing" (SessionResponse.SessionResp None)
                 }
             ]
@@ -4012,7 +4007,7 @@ module SessionStubTests =
                     until.Value
                     |> Expect.equal "until the code expires" (Some(t0 + Session.codeLifetime))
 
-                    let! pending = CompositionRoot.processSession env cookie enrolment SessionCommand.GetSession
+                    let! pending = SessionCommand.processCmd env cookie enrolment SessionCommand.GetSession
 
                     pending
                     |> Expect.equal
@@ -4024,7 +4019,7 @@ module SessionStubTests =
                             })
 
                     let! wrong =
-                        CompositionRoot.processSession env cookie enrolment (SessionCommand.SupplyPin("000000", "2468"))
+                        SessionCommand.processCmd env cookie enrolment (SessionCommand.SupplyPin("000000", "2468"))
 
                     wrong
                     |> Expect.equal "wrong code" (SessionResponse.PinRefused(PinRefusal.WrongCode 2))
@@ -4032,7 +4027,7 @@ module SessionStubTests =
                     attempt.Value |> Expect.isSome "cookie kept"
 
                     let! opened =
-                        CompositionRoot.processSession
+                        SessionCommand.processCmd
                             env
                             cookie
                             enrolment
@@ -4047,7 +4042,7 @@ module SessionStubTests =
                     attempt.Value |> Expect.isNone "enrolment cookie deleted"
                     outbox.sent () |> List.length |> Expect.equal "two mails" 2
 
-                    let! found = CompositionRoot.processSession env cookie enrolment SessionCommand.GetSession
+                    let! found = SessionCommand.processCmd env cookie enrolment SessionCommand.GetSession
 
                     match found with
                     | SessionResponse.SessionResp(Some _) -> ()
@@ -4065,22 +4060,18 @@ module SessionStubTests =
 
                     for _ in 1..2 do
                         let! _ =
-                            CompositionRoot.processSession
-                                env
-                                cookie
-                                enrolment
-                                (SessionCommand.SupplyPin("000000", "2468"))
+                            SessionCommand.processCmd env cookie enrolment (SessionCommand.SupplyPin("000000", "2468"))
 
                         ()
 
                     let! void' =
-                        CompositionRoot.processSession env cookie enrolment (SessionCommand.SupplyPin("000000", "2468"))
+                        SessionCommand.processCmd env cookie enrolment (SessionCommand.SupplyPin("000000", "2468"))
 
                     void' |> Expect.equal "void" (SessionResponse.PinRefused PinRefusal.CodeVoid)
                     attempt.Value |> Expect.isNone "cookie deleted"
 
                     let stale, attemptRef, _ = memoryEnrolmentCookie (Some "gone")
-                    let! nothing = CompositionRoot.processSession env cookie stale SessionCommand.GetSession
+                    let! nothing = SessionCommand.processCmd env cookie stale SessionCommand.GetSession
                     nothing |> Expect.equal "nothing" (SessionResponse.SessionResp None)
                     attemptRef.Value |> Expect.isNone "stale cookie deleted"
                 }
@@ -4092,7 +4083,7 @@ module SessionStubTests =
                     let stateCookie, _ = memoryStateCookie None
 
                     let! expired =
-                        CompositionRoot.processSession
+                        SessionCommand.processCmd
                             env
                             cookie
                             (noEnrolment ())
@@ -4107,11 +4098,11 @@ module SessionStubTests =
                         openVia directory env cookie stateCookie enrolment (mintFor "n-1" "stub-patient") keyA "no-pin"
 
                     let held = attempt.Value
-                    let! closed = CompositionRoot.processSession env cookie enrolment SessionCommand.CloseSession
+                    let! closed = SessionCommand.processCmd env cookie enrolment SessionCommand.CloseSession
                     closed |> Expect.equal "closed" SessionResponse.SessionClosed
                     attempt.Value |> Expect.isNone "cookie deleted"
                     let stale, _, _ = memoryEnrolmentCookie held
-                    let! nothing = CompositionRoot.processSession env cookie stale SessionCommand.GetSession
+                    let! nothing = SessionCommand.processCmd env cookie stale SessionCommand.GetSession
                     nothing |> Expect.equal "the attempt is gone" (SessionResponse.SessionResp None)
                 }
 
@@ -4132,7 +4123,7 @@ module SessionStubTests =
                             keyA
                             "prescriber"
 
-                    let! found = CompositionRoot.processSession env cookie enrolment SessionCommand.GetSession
+                    let! found = SessionCommand.processCmd env cookie enrolment SessionCommand.GetSession
 
                     match found with
                     | SessionResponse.SessionResp(Some _) -> ()
@@ -4164,7 +4155,7 @@ module SessionStubTests =
 
                     held.Value |> Expect.isNone "session cookie gone"
                     attempt.Value |> Expect.isSome "enrolment cookie"
-                    let! pending = CompositionRoot.processSession env cookie enrolment SessionCommand.GetSession
+                    let! pending = SessionCommand.processCmd env cookie enrolment SessionCommand.GetSession
 
                     match pending with
                     | SessionResponse.EnrolmentPending _ -> ()
@@ -4181,7 +4172,7 @@ module SessionStubTests =
                     let env = { snd (envWithStub ()) with session = Adapters.sessionDisabled }
 
                     let! refused =
-                        CompositionRoot.processSession env cookie enrolment (SessionCommand.SupplyPin("123456", "2468"))
+                        SessionCommand.processCmd env cookie enrolment (SessionCommand.SupplyPin("123456", "2468"))
 
                     refused
                     |> Expect.equal "expired" (SessionResponse.PinRefused PinRefusal.AttemptExpired)
@@ -4195,7 +4186,7 @@ module SessionStubTests =
         /// The Session the cookie names, as the client holds it.
         let sessionOf env cookie =
             async {
-                match! CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession with
+                match! SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession with
                 | SessionResponse.SessionResp(Some opened) -> return opened
                 | other -> return failtest $"expected an open Session, got {other}"
             }
@@ -4216,7 +4207,7 @@ module SessionStubTests =
                     let cookie, _ = memoryCookie None
 
                     let! answer =
-                        CompositionRoot.processSigning
+                        SigningCommand.processCmd
                             env
                             cookie
                             (SigningCommand.RequestSignChallenge(
@@ -4247,7 +4238,7 @@ module SessionStubTests =
                             "prescriber"
 
                     let! opened = sessionOf env cookie
-                    let! answer = CompositionRoot.processSigning env cookie (challengeOver opened)
+                    let! answer = SigningCommand.processCmd env cookie (challengeOver opened)
 
                     match answer with
                     | SigningResponse.ChallengeIssued nonce -> nonce |> Expect.isNotEmpty "a nonce"
@@ -4256,7 +4247,7 @@ module SessionStubTests =
                     held.Value |> Expect.isSome "cookie kept"
 
                     let! stale =
-                        CompositionRoot.processSigning
+                        SigningCommand.processCmd
                             env
                             cookie
                             (SigningCommand.RequestSignChallenge(
@@ -4288,7 +4279,7 @@ module SessionStubTests =
 
                     let! opened = sessionOf env cookie
 
-                    match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                    match! SigningCommand.processCmd env cookie (challengeOver opened) with
                     | SigningResponse.DataNotice notice ->
                         notice.Data |> Expect.isNone "unreadable"
 
@@ -4299,7 +4290,7 @@ module SessionStubTests =
                                 Some notice.Token
                             )
 
-                        match! CompositionRoot.processSigning env cookie accepted with
+                        match! SigningCommand.processCmd env cookie accepted with
                         | SigningResponse.ChallengeIssued nonce -> nonce |> Expect.isNotEmpty "issued"
                         | other -> failtest $"expected ChallengeIssued, got {other}"
                     | other -> failtest $"expected DataNotice, got {other}"
@@ -4326,7 +4317,7 @@ module SessionStubTests =
 
                     let! challenge =
                         async {
-                            match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                            match! SigningCommand.processCmd env cookie (challengeOver opened) with
                             | SigningResponse.ChallengeIssued nonce -> return nonce
                             | other -> return failtest $"expected ChallengeIssued, got {other}"
                         }
@@ -4340,14 +4331,12 @@ module SessionStubTests =
                             IdemKey = key
                         }
 
-                    match!
-                        CompositionRoot.processSigning env cookie (SigningCommand.Submit(submission "0000" "k-1"))
-                    with
+                    match! SigningCommand.processCmd env cookie (SigningCommand.Submit(submission "0000" "k-1")) with
                     | SigningResponse.Refused(SigningRefusal.PinWrong 2) -> ()
                     | other -> failtest $"expected PinWrong 2, got {other}"
 
                     match!
-                        CompositionRoot.processSigning
+                        SigningCommand.processCmd
                             env
                             cookie
                             (SigningCommand.Submit(submission StubCredentials.stubPin "k-2"))
@@ -4363,7 +4352,7 @@ module SessionStubTests =
 
                     let! challenge =
                         async {
-                            match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                            match! SigningCommand.processCmd env cookie (challengeOver opened) with
                             | SigningResponse.ChallengeIssued nonce -> return nonce
                             | other -> return failtest $"expected ChallengeIssued, got {other}"
                         }
@@ -4375,14 +4364,14 @@ module SessionStubTests =
                                 Challenge = challenge
                             }
 
-                    let! _ = CompositionRoot.processSigning env cookie (wrong "k-3")
-                    let! _ = CompositionRoot.processSigning env cookie (wrong "k-4")
-                    let! third = CompositionRoot.processSigning env cookie (wrong "k-5")
+                    let! _ = SigningCommand.processCmd env cookie (wrong "k-3")
+                    let! _ = SigningCommand.processCmd env cookie (wrong "k-4")
+                    let! third = SigningCommand.processCmd env cookie (wrong "k-5")
 
                     third
                     |> Expect.equal "the limit" (SigningResponse.Refused SigningRefusal.PinLimit)
 
-                    let! told = CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession
+                    let! told = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession
 
                     told
                     |> Expect.equal "told once" (SessionResponse.SessionEnded SessionEnding.WrongPinLimit)
@@ -4425,7 +4414,7 @@ module SessionStubTests =
 
                     let challenge cookie opened =
                         async {
-                            match! CompositionRoot.processSigning env cookie (challengeOver opened) with
+                            match! SigningCommand.processCmd env cookie (challengeOver opened) with
                             | SigningResponse.ChallengeIssued nonce -> return nonce
                             | other -> return failtest $"expected ChallengeIssued, got {other}"
                         }
@@ -4445,7 +4434,7 @@ module SessionStubTests =
                     let! head =
                         async {
                             match!
-                                CompositionRoot.processSigning
+                                SigningCommand.processCmd
                                     env
                                     cookieB
                                     (SigningCommand.Submit(submission openedB forB "k-b"))
@@ -4457,10 +4446,7 @@ module SessionStubTests =
                     head.By.UserId |> Expect.equal "B signed" "prescriber-b"
 
                     let! answer =
-                        CompositionRoot.processSigning
-                            env
-                            cookieA
-                            (SigningCommand.Submit(submission openedA forA "k-a"))
+                        SigningCommand.processCmd env cookieA (SigningCommand.Submit(submission openedA forA "k-a"))
 
                     answer
                     |> Expect.equal "A blocked by B" (SigningResponse.Refused(SigningRefusal.Blocked head))
@@ -4483,7 +4469,7 @@ module SessionStubTests =
                             "reader"
 
                     let! opened = sessionOf env cookie
-                    let! answer = CompositionRoot.processSigning env cookie (challengeOver opened)
+                    let! answer = SigningCommand.processCmd env cookie (challengeOver opened)
 
                     answer
                     |> Expect.equal "not a prescriber" (SigningResponse.Refused SigningRefusal.NotPrescriber)
@@ -4495,7 +4481,7 @@ module SessionStubTests =
                     let cookie, _ = memoryCookie (Some "s-1")
 
                     let! answer =
-                        CompositionRoot.processSigning
+                        SigningCommand.processCmd
                             env
                             cookie
                             (SigningCommand.RequestSignChallenge(
@@ -4537,7 +4523,7 @@ module SessionStubTests =
 
         let sessionOf env cookie =
             async {
-                match! CompositionRoot.processSession env cookie (noEnrolment ()) SessionCommand.GetSession with
+                match! SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession with
                 | SessionResponse.SessionResp(Some opened) -> return opened
                 | other -> return failtest $"expected an open Session, got {other}"
             }

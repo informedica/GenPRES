@@ -21,5 +21,8 @@
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.StubAdapters.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Adapters.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Command.fs"
+#load "../../../src/Informedica.GenPRES.Server/ServerApi.LaunchCommand.fs"
+#load "../../../src/Informedica.GenPRES.Server/ServerApi.SessionCommand.fs"
+#load "../../../src/Informedica.GenPRES.Server/ServerApi.SigningCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.CompositionRoot.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.ApiImpl.fs"
