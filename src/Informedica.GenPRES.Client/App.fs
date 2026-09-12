@@ -256,8 +256,6 @@ module private Elmish =
             { newState with Interactions = Resolved interactions }, Cmd.none
         | Api.InteractionResp(Api.DrugNamesLoaded names) ->
             { state with InteractionDrugNames = Resolved names }, Cmd.none
-        // the admin family answers processAdmin; nothing arrives here any more
-        | Api.LogAnalyzerResp _ -> state, Cmd.none
 
 
     /// A reload settles when the refresh it started has answered: the order context over a
@@ -696,8 +694,7 @@ module private Elmish =
             let base' = { state with OrderContext = Resolved ctx }
 
             match cmd with
-            | Api.UpdateOrderContext
-            | Api.ReloadResources _ ->
+            | Api.UpdateOrderContext ->
                 { base' with
                     Formulary = base'.Formulary |> Deferred.map (OrderContext.syncFilterToFormulary ctx.Filter)
                     Parenteralia =
@@ -1429,13 +1426,7 @@ module private Elmish =
 
         | LoadOrderContextResult(cmd, Started) ->
             match state.Patient with
-            | None ->
-                match cmd with
-                | Api.ReloadResources pw ->
-                    { state with OrderContext = HasNotStartedYet },
-                    (Api.ReloadResources pw, OrderContext.empty)
-                    |> loadOrderContext (tokenOf state.Session) (fun resp -> LoadOrderContextResult(cmd, resp))
-                | _ -> { state with OrderContext = HasNotStartedYet }, Cmd.none
+            | None -> { state with OrderContext = HasNotStartedYet }, Cmd.none
             | Some pat ->
                 match state.OrderContext with
                 | InProgress
