@@ -1,20 +1,25 @@
-// Compute bound to the Session (plan 635), PR 3: opening the version the notice named
-// (Rules 18 to 20; UC-4 step 4, the model's `OpenOrderPlan of OrderPlanId`). A User told that
-// the record moved on (Rule 21) takes up that version: it becomes what the Session opened
-// with, the OpenedToken is re-minted over it, and a challenge over the old baseline is dropped.
+// The admin command family (plan 654, step 2): ValidatePassword, ListLogFiles, AnalyzeLogFile
+// and ReloadResources as one `IServerApi` member, `processAdmin`, under the HMAC token that the
+// password buys. Never Session-bound (no cookie, no OpenedToken, no record notice) and never
+// behind the formulary being loaded, so a failed initial load can be retried from the
+// settings page. `ReloadResources` no longer carries the password: it carries the token, like
+// the log commands.
 //
 // Script-first draft (script-only policy) of:
-//   - `SessionCommand.OpenVersion of id: string` → `Shared/Api.fs`;
-//   - `Hop.openVersion` → `Adapters.fs`, `SessionPort.openVersion` → `Ports.fs`, both answering
-//     `SessionOpened option` (the adapter does not see `Shared.Api`, as `find` answers a
-//     `SessionLookup`); the `processSession` arm wraps it in `SessionResp` → `CompositionRoot.fs`.
-// The client side (`SessionMsg.OpenVersion`, `Reopened`, `SessionEffect.CallOpenVersion`) is
-// edited directly, as UI code.
+//   - `AdminCommand`, `AdminResponse`, `AdminCommand.toString`, `processAdmin` → `Shared/Api.fs`
+//     (drafted in `Shared/Scripts/Api.fsx`; restated here under `Api654` because a script
+//     cannot extend `Shared.Api`);
+//   - `AdminPort`, replacing `LogAnalyzerPort` as `AppEnv.admin` → `Ports.fs`;
+//   - the port's adapter: the secret read from GENPRES_PASSWORD, the clock, the reload through
+//     `Informedica.GenForm.Lib.Api.reloadCache` → `Adapters.fs`;
+//   - `AdminCommand.processCmd` with the password and token functions moved out of
+//     `Command.fs`, over explicit values instead of the environment → new
+//     `ServerApi.AdminCommand.fs`, compiled before `Command.fs` so the old `LogAnalyzerCmd`
+//     arms share them until they go;
+//   - `processAdmin` in `compose` → `CompositionRoot.fs`.
 //
-// Only what changes is re-stated: the state has the four fields `openVersion` touches. Run:
-// `dotnet fsi Compute.fsx` from this directory (build first).
-//
-// A second section drafts #640, the patient a Session opens on when the platform has none.
+// The script takes the port where the source takes `AppEnv` (a record cannot gain a field in
+// a script). Run: `dotnet fsi Compute.fsx` from this directory (build first).
 
 #I __SOURCE_DIRECTORY__
 #r "nuget: Expecto, 10.2.3"
@@ -23,166 +28,216 @@
 
 open System
 open Shared.Types
-open Shared.Models
-open ServerApi
 
 
 // ---------------------------------------------------------------------------------------------
-// Opening a version (→ ServerApi.Adapters.fs, `Hop`)
+// The wire (→ Shared/Api.fs)
 // ---------------------------------------------------------------------------------------------
 
-module Hop =
+module Api654 =
 
-    open ServerApi.Hop
-
-    /// The state of PR 3: only the fields `openVersion` reads or writes.
-    type State =
-        {
-            Sessions: Map<string, SessionRecord>
-            Records: Map<string, SignedOrderPlan list>
-            Notices: Map<string, Notice>
-            Challenges: Map<string, Challenge>
-        }
+    /// The admin command family: the password once, then the token it bought.
+    [<RequireQualifiedAccess>]
+    type AdminCommand =
+        | ValidatePassword of password: string
+        | ListLogFiles of token: string
+        | AnalyzeLogFile of token: string * fileName: string
+        | ReloadResources of token: string
 
 
-    let emptyState =
-        {
-            Sessions = Map.empty
-            Records = Map.empty
-            Notices = Map.empty
-            Challenges = Map.empty
-        }
+    [<RequireQualifiedAccess>]
+    type AdminResponse =
+        | PasswordValidated of isValid: bool * token: string
+        | LogFilesListed of LogFileInfo[]
+        | LogFileAnalyzed of string
+        | ResourcesReloaded
 
 
-    /// Rule 9, as in the source.
-    let touch (now: DateTime) (sid: string) (state: State) : State =
-        { state with
-            Sessions = state.Sessions |> Map.change sid (Option.map (fun r -> { r with Seen = now }))
-        }
+    module AdminCommand =
 
-
-    /// Rules 18 to 20, UC-4 step 4: version `id` becomes what the Session opened with. No
-    /// Session, an anonymous one or one without a Patient: nothing to open (Rule 13). An id the
-    /// record does not hold for the Session's Patient (a stale button, a restart): nothing
-    /// opens, the Session as it is; the next request tells what the head is (Rule 21). The
-    /// version already open: the token stands. Another version: the OpenedToken is re-minted
-    /// over it (Rule 34) and the standing challenge and notice of this Session are dropped (a
-    /// challenge over the old baseline must not be answerable). Any version may be opened
-    /// (Rule 18); one that is not the head leaves Submission blocked (Rule 20).
-    let openVersion
-        (now: DateTime)
-        (newId: unit -> string)
-        (sid: string)
-        (id: string)
-        (state: State)
-        : State * SessionOpened option
-        =
-        match state.Sessions |> Map.tryFind sid with
-        | None -> state, None
-        | Some record ->
-            let state = touch now sid state
-
-            match record.Session.User, record.Session.PatientContext with
-            | None, _
-            | _, None -> state, None
-            | Some _, Some patient ->
-                let version =
-                    state.Records
-                    |> Map.tryFind patient.PatientId
-                    |> Option.bind (List.tryFind (fun v -> v.Head.Id = id))
-
-                match version with
-                | None -> state, Some record.Session
-                | Some version when record.OpenedWith = Some id ->
-                    let session = { record.Session with Head = Some version }
-
-                    { state with Sessions = state.Sessions |> Map.add sid { record with Session = session } },
-                    Some session
-                | Some version ->
-                    let session =
-                        { record.Session with
-                            OpenedToken = Some(OpenedToken $"opened-{newId ()}")
-                            Head = Some version
-                        }
-
-                    { state with
-                        Sessions =
-                            state.Sessions
-                            |> Map.add
-                                sid
-                                { record with
-                                    Session = session
-                                    OpenedWith = Some id
-                                }
-                        Challenges = state.Challenges |> Map.remove sid
-                        Notices = state.Notices |> Map.remove sid
-                    },
-                    Some session
+        /// For the log. Never the password or the token.
+        let toString cmd =
+            match cmd with
+            | AdminCommand.ValidatePassword _ -> "ValidatePassword"
+            | AdminCommand.ListLogFiles _ -> "ListLogFiles"
+            | AdminCommand.AnalyzeLogFile(_, f) -> $"AnalyzeLogFile %s{f}"
+            | AdminCommand.ReloadResources _ -> "ReloadResources"
 
 
 // ---------------------------------------------------------------------------------------------
-// The patient at open (#640) (→ ServerApi.Adapters.fs, `Hop.sessionPatient` and `StubPatientData`)
+// The port (→ Ports.fs, in place of LogAnalyzerPort; AppEnv.logAnalyzer becomes AppEnv.admin)
 // ---------------------------------------------------------------------------------------------
 
-// Script-first draft of #640: since #639 a Session opens with the head of the record in the
-// cart, but where the PatientDataPlatform has no reading (ext 6a) the Session opened on
-// `Patient.empty`, and the data the head was signed on (`SignedOrderPlan.Patient`, Rule 44)
-// was not shown. At open, in this order: the platform's reading (Concept 2: the source of
-// truth), else the head's patient (Rule 19: the last patient context seen), else empty. The
-// change is one line in `openWith`, made a public pure function so it can be tested alone.
-// `openVersion` is left as it is (plan 635: no SetPatient at a reopen), and Rule 44 is
-// unaffected: the challenge re-reads the platform and compares with what the User saw.
+/// What the admin commands need from the edge. The secret and the clock are values the DMZ
+/// reads and passes in, so the command module never touches the environment.
+type AdminPort =
+    {
+        // GENPRES_PASSWORD; None when unset, empty or whitespace, so every check fails closed
+        secret: unit -> string option
+        now: unit -> DateTimeOffset
+        listLogFiles: unit -> Async<Result<LogFileInfo[], string[]>>
+        analyzeLogFile: string -> Async<Result<string, string[]>>
+        // the resource provider reloaded: the formulary and, later, the knowledge sheets
+        reloadResources: unit -> Async<Result<unit, string[]>>
+    }
+
+
+// ---------------------------------------------------------------------------------------------
+// The command (→ ServerApi.AdminCommand.fs)
+// ---------------------------------------------------------------------------------------------
+
+module AdminCommand =
+
+    open System.Security.Cryptography
+    open System.Text
+    open Api654
+
+
+    let tokenLifetime = TimeSpan.FromHours 1.0
+
+
+    /// An empty or whitespace secret is no secret. `Env.getItem` answers `Some ""` for a
+    /// setting that is set but empty (the Dockerfile's `ENV GENPRES_PASSWORD=`), and an empty
+    /// password compared with an empty secret would match, so blanks fail closed here as well
+    /// as at the port.
+    let private nonBlank (secret: string option) =
+        secret |> Option.filter (String.IsNullOrWhiteSpace >> not)
+
+
+    /// SECURITY: `FixedTimeEquals` so equal-length comparisons do not leak through per-byte
+    /// timing. It short-circuits on a length mismatch; that leak is accepted because production
+    /// enforces a 16-character minimum and the password travels only at ValidatePassword.
+    let validatePassword (secret: string option) (password: string) =
+        match nonBlank secret with
+        | None -> false
+        | Some expected -> CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes password, Encoding.UTF8.GetBytes expected)
+
+
+    /// `base64(expiresAt:nonce).base64(hmacsha256(secret, expiresAt:nonce))`; empty without a
+    /// secret, so that nothing signed with an empty key can ever verify.
+    let generateToken (secret: string option) (now: DateTimeOffset) =
+        match nonBlank secret with
+        | None -> ""
+        | Some secret ->
+            let expiresAt = now.Add(tokenLifetime).ToUnixTimeSeconds()
+            let nonce = RandomNumberGenerator.GetBytes 32 |> Convert.ToBase64String
+            let payload = Encoding.UTF8.GetBytes $"%d{expiresAt}:%s{nonce}"
+            use hmac = new HMACSHA256(Encoding.UTF8.GetBytes secret)
+            let signature = hmac.ComputeHash payload
+            $"%s{Convert.ToBase64String payload}.%s{Convert.ToBase64String signature}"
+
+
+    let validateToken (secret: string option) (now: DateTimeOffset) (token: string) =
+        match nonBlank secret with
+        | None -> false
+        | Some secret ->
+            if String.IsNullOrWhiteSpace token then
+                false
+            else
+                match token.Split '.' with
+                | [| payload; signature |] ->
+                    try
+                        let payload = Convert.FromBase64String payload
+                        let provided = Convert.FromBase64String signature
+                        use hmac = new HMACSHA256(Encoding.UTF8.GetBytes secret)
+                        let expected = hmac.ComputeHash payload
+
+                        CryptographicOperations.FixedTimeEquals(provided, expected)
+                        && (match (Encoding.UTF8.GetString payload).Split(':', 2) with
+                            | [| expiresAt; _ |] ->
+                                match Int64.TryParse expiresAt with
+                                | true, expiresAt -> now.ToUnixTimeSeconds() <= expiresAt
+                                | false, _ -> false
+                            | _ -> false)
+                    with _ ->
+                        false
+                | _ -> false
+
+
+    /// The source takes `env: AppEnv` and reads `env.admin`.
+    let processCmd (admin: AdminPort) (cmd: AdminCommand) : Async<Result<AdminResponse, string[]>> =
+        let withToken token (run: unit -> Async<Result<AdminResponse, string[]>>) =
+            if validateToken (admin.secret ()) (admin.now ()) token then
+                run ()
+            else
+                async { return Error [| "Invalid token" |] }
+
+        match cmd with
+        | AdminCommand.ValidatePassword password ->
+            async {
+                let secret = admin.secret ()
+
+                return
+                    if validatePassword secret password then
+                        Ok(AdminResponse.PasswordValidated(true, generateToken secret (admin.now ())))
+                    else
+                        Ok(AdminResponse.PasswordValidated(false, ""))
+            }
+        | AdminCommand.ListLogFiles token ->
+            withToken token (fun () ->
+                async {
+                    let! files = admin.listLogFiles ()
+                    return files |> Result.map AdminResponse.LogFilesListed
+                }
+            )
+        | AdminCommand.AnalyzeLogFile(token, fileName) ->
+            withToken token (fun () ->
+                async {
+                    let! report = admin.analyzeLogFile fileName
+                    return report |> Result.map AdminResponse.LogFileAnalyzed
+                }
+            )
+        | AdminCommand.ReloadResources token ->
+            withToken token (fun () ->
+                async {
+                    let! reloaded = admin.reloadResources ()
+                    return reloaded |> Result.map (fun () -> AdminResponse.ResourcesReloaded)
+                }
+            )
+
+
+// ---------------------------------------------------------------------------------------------
+// The adapter (→ Adapters.fs, in makeAppEnvWith)
+// ---------------------------------------------------------------------------------------------
 //
-// The stub platform used to answer `Patient.empty` for every PatientId but `no-data`; an
-// empty record is a reading, so the fallback never applied to `stub-patient`, and a hand
-// entered age was lost at every reload. It now answers a fixed patient, so the panel is filled
-// from the platform at launch and the fallback is exercised with `no-data`.
-
-module Hop640 =
-
-    /// #640: the patient a Session opens on. The platform's reading (Concept 2) wins; without
-    /// one, the patient data of the head of the record, the last seen (Rule 19); from nothing,
-    /// an empty patient (ext 6a).
-    let sessionPatient (patientData: string -> Patient option) (patientId: string) (head: SignedOrderPlan option) : Patient =
-        patientData patientId
-        |> Option.orElse (head |> Option.map _.Patient)
-        |> Option.defaultValue Patient.empty
-
-
-    /// #640, at the commit: the Session's patient after a signature. The platform's reading at
-    /// the challenge (Rule 44; the newest, should it have changed and been accepted at the
-    /// notice), else the data just signed, so a resume in this Session shows what a relaunch
-    /// would.
-    let commitPatient (reading: Patient option) (signed: Patient) : Patient =
-        reading |> Option.defaultValue signed
-
-
-/// The PatientDataPlatform stub: a fixed patient for every PatientId, none at all for
-/// `no-data` (ext 6a).
-module StubPatientData640 =
-
-    /// The stub's reading: ten years, 32 kg, 140 cm, nothing else known.
-    let patient: Patient =
-        Patient.create
-            (Some(Shared.Measures.toYear 10))
-            None
-            None
-            None
-            (Some 32000)
-            (Some 140)
-            None
-            None
-            UnknownGender
-            []
-            None
-            None
-        |> Option.defaultValue Patient.empty
-
-
-    let port: ServerApi.PatientDataPort =
-        {
-            read = fun pid -> if pid = "no-data" then None else Some patient
-        }
+//     admin =
+//         {
+//             secret =
+//                 fun () ->
+//                     Informedica.Utils.Lib.Env.getItem "GENPRES_PASSWORD"
+//                     |> Option.filter (String.IsNullOrWhiteSpace >> not)
+//             now = fun () -> DateTimeOffset.UtcNow
+//             listLogFiles = (as today)
+//             analyzeLogFile = (as today)
+//             reloadResources =
+//                 fun () ->
+//                     async {
+//                         try
+//                             Informedica.GenForm.Lib.Api.reloadCache logger provider
+//                             // reloadCache records a failed load and returns normally, so the
+//                             // provider is asked: unloaded is Error with its messages
+//                             return
+//                                 match notLoaded provider with
+//                                 | None -> Ok()
+//                                 | Some msgs -> Error msgs
+//                         with ex ->
+//                             return Error [| ex.Message |]
+//                     }
+//         }
+//
+// and in `compose` (→ CompositionRoot.fs), with the same logging as the session members:
+//
+//     processAdmin =
+//         fun cmd ->
+//             async {
+//                 writeInfoMessage $"Processing admin: {cmd |> AdminCommand.toString}"
+//                 let! response = AdminCommand.processCmd env cmd
+//                 writeInfoMessage $"Finished processing admin: {cmd |> AdminCommand.toString}"
+//                 return response
+//             }
+//
+// `processAdmin` does not consult `requireLoaded`: the reload is what makes a failed load
+// loadable again.
 
 
 // ---------------------------------------------------------------------------------------------
@@ -191,215 +246,177 @@ module StubPatientData640 =
 
 open Expecto
 open Expecto.Flip
+open Api654
 
 
-let t0 = DateTime(2026, 9, 11, 12, 0, 0, DateTimeKind.Utc)
-let t1 = t0.AddMinutes 5.0
+let secret = Some "a-sixteen-char-secret!"
+let t0 = DateTimeOffset(2026, 9, 12, 12, 0, 0, TimeSpan.Zero)
 
-let counter prefix =
-    let n = ref 0
 
-    fun () ->
-        n.Value <- n.Value + 1
-        $"{prefix}-{n.Value}"
+/// A port over a fixed secret and clock that counts its reloads.
+let port (secret: string option) (now: DateTimeOffset) =
+    let reloads = ref 0
 
-let prescriber =
+    reloads,
     {
-        UserId = "prescriber"
-        DisplayName = "Stub Prescriber"
-        Role = UserRole.Prescriber
-    }
-
-let other =
-    { prescriber with
-        UserId = "prescriber-b"
-        DisplayName = "Stub Prescriber B"
-    }
-
-
-let signedBy (user: UserContext) no : SignedOrderPlan =
-    {
-        Head =
-            {
-                Id = $"plan-{no}"
-                No = no
-                By = user
-                SignedAt = t0
-            }
-        PatientId = "pat-1"
-        Base = if no > 1 then Some $"plan-{no - 1}" else None
-        Scenarios = [||]
-        Patient = Patient.empty
-        Verified = true
+        secret = fun () -> secret
+        now = fun () -> now
+        listLogFiles = fun () -> async { return Ok [| { FileName = "server.log"; SizeBytes = 12L; LastModifiedAt = "2026-09-12" } |] }
+        analyzeLogFile = fun name -> async { return Ok $"report of %s{name}" }
+        reloadResources =
+            fun () ->
+                async {
+                    reloads.Value <- reloads.Value + 1
+                    return Ok()
+                }
     }
 
 
-let session (user: UserContext option) (patientId: string option) (sid: string) (openedWith: string option) : ServerApi.Hop.SessionRecord =
-    {
-        Session =
-            {
-                User = user
-                PatientContext =
-                    patientId
-                    |> Option.map (fun pid ->
-                        {
-                            PatientId = pid
-                            Patient = Patient.empty
-                        }
-                    )
-                OpenedToken = Some(OpenedToken $"opened-{sid}")
-                KeyThumbprint = Some "t"
-                Head = None
-            }
-        Login = user |> Option.map _.UserId
-        OpenedWith = openedWith
-        Seen = t0
-    }
+let run admin cmd =
+    AdminCommand.processCmd admin cmd |> Async.RunSynchronously
 
 
-let challenged sid : ServerApi.Hop.Challenge =
-    {
-        Nonce = $"c-{sid}"
-        Patient = Patient.empty
-        Scenarios = [||]
-        Reading = Some Patient.empty
-        Expiry = t0.AddMinutes 2.0
-    }
+let tokenOf admin =
+    match run admin (AdminCommand.ValidatePassword (admin.secret ()).Value) with
+    | Ok(AdminResponse.PasswordValidated(true, token)) -> token
+    | other -> failtest $"expected a token, got {other}"
 
 
-/// A opened on plan-1; B signed plan-2 meanwhile; A has a challenge standing over plan-1.
-let movedOn =
-    { Hop.emptyState with
-        Sessions = Map.ofList [ "s-1", session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1") ]
-        Records = Map.ofList [ "pat-1", [ signedBy other 2; signedBy prescriber 1 ] ]
-        Challenges = Map.ofList [ "s-1", challenged "s-1" ]
-        Notices = Map.ofList [ "s-1", { Nonce = "n"; Data = None; Expiry = t0.AddMinutes 2.0 } ]
-    }
-
-let openAt sid id state =
-    Hop.openVersion t1 (counter "id") sid id state
+/// The same payload under a different signature.
+let forge (token: string) =
+    match token.Split '.' with
+    | [| payload; signature |] ->
+        let bytes = Convert.FromBase64String signature
+        bytes[0] <- bytes[0] ^^^ 1uy
+        $"%s{payload}.%s{Convert.ToBase64String bytes}"
+    | _ -> failtest "not a token"
 
 
-let tests =
+let passwordTests =
     testList
-        "openVersion (Rules 18 to 20, UC-4 step 4)"
+        "ValidatePassword"
         [
-            test "no Session: nothing to open" {
-                Hop.emptyState |> openAt "s-9" "plan-2" |> snd |> Expect.equal "none" None
+            test "the server's password buys a token that verifies" {
+                let _, admin = port secret t0
+                let token = tokenOf admin
+                token |> Expect.isNotEmpty "a token"
+                AdminCommand.validateToken secret t0 token |> Expect.isTrue "verifies"
             }
 
-            test "an anonymous Session, or one without a Patient: nothing to open (Rule 13)" {
-                let state =
-                    { movedOn with
-                        Sessions =
-                            Map.ofList
-                                [
-                                    "s-a", session None (Some "pat-1") "s-a" None
-                                    "s-n", session (Some prescriber) None "s-n" None
-                                ]
-                    }
+            test "a wrong password: not valid, no token" {
+                let _, admin = port secret t0
 
-                state |> openAt "s-a" "plan-2" |> snd |> Expect.equal "anonymous" None
-                state |> openAt "s-n" "plan-2" |> snd |> Expect.equal "no patient" None
+                run admin (AdminCommand.ValidatePassword "wrong")
+                |> Expect.equal "refused" (Ok(AdminResponse.PasswordValidated(false, "")))
             }
 
-            test "an id the record does not hold: nothing opens, the Session as it is, token kept" {
-                let state, answer = movedOn |> openAt "s-1" "plan-9"
-                answer |> Expect.equal "as it is" (Some movedOn.Sessions["s-1"].Session)
-                state.Sessions["s-1"].OpenedWith |> Expect.equal "unchanged" (Some "plan-1")
-                state.Challenges |> Map.containsKey "s-1" |> Expect.isTrue "challenge kept"
-                state.Sessions["s-1"].Seen |> Expect.equal "touched" t1
-            }
+            test "no password on the server: nothing is valid, not even an empty one" {
+                for none in [ None; Some ""; Some "   " ] do
+                    let _, admin = port none t0
 
-            test "the version already open: the token stands, the version is answered" {
-                let state, answer = movedOn |> openAt "s-1" "plan-1"
+                    run admin (AdminCommand.ValidatePassword "")
+                    |> Expect.equal "refused" (Ok(AdminResponse.PasswordValidated(false, "")))
 
-                match answer with
-                | Some opened ->
-                    opened.OpenedToken |> Expect.equal "kept" (Some(OpenedToken "opened-s-1"))
-                    opened.Head |> Expect.equal "the version" (Some(signedBy prescriber 1))
-                | other -> failtest $"expected the Session, got {other}"
-
-                state.Challenges |> Map.containsKey "s-1" |> Expect.isTrue "challenge kept"
-            }
-
-            test "the head: opened, the token re-minted, the challenge and notice dropped (Rules 19, 34)" {
-                let state, answer = movedOn |> openAt "s-1" "plan-2"
-
-                match answer with
-                | Some opened ->
-                    opened.OpenedToken |> Expect.equal "re-minted" (Some(OpenedToken "opened-id-1"))
-                    opened.Head |> Expect.equal "B's version" (Some(signedBy other 2))
-                | other -> failtest $"expected the Session, got {other}"
-
-                state.Sessions["s-1"].OpenedWith |> Expect.equal "opened with the head" (Some "plan-2")
-                state.Sessions["s-1"].Session.OpenedToken |> Expect.equal "held" (Some(OpenedToken "opened-id-1"))
-                state.Challenges |> Expect.isEmpty "challenge dropped"
-                state.Notices |> Expect.isEmpty "notice dropped"
-
-                // Rule 20 no longer blocks; the old token is stale (Rule 34)
-                ServerApi.Hop.blockedBy state.Sessions["s-1"] "pat-1" { ServerApi.Hop.emptyState with Records = state.Records }
-                |> Expect.isNone "not blocked"
-            }
-
-            test "an older version: opened, still blocked by the head (Rules 18, 20)" {
-                let three =
-                    { movedOn with
-                        Records = Map.ofList [ "pat-1", [ signedBy prescriber 3; signedBy other 2; signedBy prescriber 1 ] ]
-                    }
-
-                let state, answer = three |> openAt "s-1" "plan-2"
-
-                match answer with
-                | Some opened -> opened.Head |> Expect.equal "plan-2" (Some(signedBy other 2))
-                | other -> failtest $"expected the Session, got {other}"
-
-                ServerApi.Hop.blockedBy state.Sessions["s-1"] "pat-1" { ServerApi.Hop.emptyState with Records = state.Records }
-                |> Option.map _.Id
-                |> Expect.equal "the head still blocks" (Some "plan-3")
+                    AdminCommand.generateToken none t0 |> Expect.equal "no token" ""
+                    AdminCommand.validateToken none t0 "" |> Expect.isFalse "empty never verifies"
             }
         ]
 
 
-let patientTests =
-    let signedOn (patient: Patient) = Some { signedBy prescriber 1 with Patient = patient }
-    let entered = { Patient.empty with Department = Some "ICU" }
-    let none (_: string) = None
-
+let tokenTests =
     testList
-        "the patient at open (#640)"
+        "the token"
         [
-            test "a reading wins over the signed patient (Concept 2)" {
-                Hop640.sessionPatient StubPatientData640.port.read "stub-patient" (signedOn entered)
-                |> Expect.equal "the platform's" StubPatientData640.patient
+            test "a valid token lists, analyzes and reloads" {
+                let reloads, admin = port secret t0
+                let token = tokenOf admin
+
+                match run admin (AdminCommand.ListLogFiles token) with
+                | Ok(AdminResponse.LogFilesListed files) -> files.Length |> Expect.equal "one file" 1
+                | other -> failtest $"expected the files, got {other}"
+
+                run admin (AdminCommand.AnalyzeLogFile(token, "server.log"))
+                |> Expect.equal "the report" (Ok(AdminResponse.LogFileAnalyzed "report of server.log"))
+
+                run admin (AdminCommand.ReloadResources token)
+                |> Expect.equal "reloaded" (Ok AdminResponse.ResourcesReloaded)
+
+                reloads.Value |> Expect.equal "the port reloaded once" 1
             }
 
-            test "no reading: the patient the head was signed on (Rule 19)" {
-                Hop640.sessionPatient none "no-data" (signedOn entered)
-                |> Expect.equal "the signed" entered
+            test "a forged, an expired, a malformed and an empty token are refused, and nothing reloads" {
+                let reloads, admin = port secret t0
+                let token = tokenOf admin
+                let later = t0.Add(AdminCommand.tokenLifetime).AddSeconds 1.0
+                let _, expiredAdmin = port secret later
+
+                for admin, token in
+                    [
+                        admin, forge token
+                        expiredAdmin, token
+                        admin, "not.a.token"
+                        admin, "abc"
+                        admin, ""
+                    ] do
+                    run admin (AdminCommand.ReloadResources token) |> Expect.equal "refused" (Error [| "Invalid token" |])
+                    run admin (AdminCommand.ListLogFiles token) |> Expect.equal "refused" (Error [| "Invalid token" |])
+
+                    run admin (AdminCommand.AnalyzeLogFile(token, "server.log"))
+                    |> Expect.equal "refused" (Error [| "Invalid token" |])
+
+                reloads.Value |> Expect.equal "nothing reloaded" 0
             }
 
-            test "no reading, no record: an empty patient (ext 6a)" {
-                Hop640.sessionPatient none "no-data" None |> Expect.equal "empty" Patient.empty
+            test "a token lives an hour" {
+                let _, admin = port secret t0
+                let token = tokenOf admin
+                AdminCommand.validateToken secret (t0.Add AdminCommand.tokenLifetime) token |> Expect.isTrue "at the hour"
+
+                AdminCommand.validateToken secret (t0.Add(AdminCommand.tokenLifetime).AddSeconds 1.0) token
+                |> Expect.isFalse "past it"
             }
 
-            test "at the commit: the reading at the challenge, else the data signed" {
-                Hop640.commitPatient (Some StubPatientData640.patient) entered
-                |> Expect.equal "the reading" StubPatientData640.patient
-
-                Hop640.commitPatient (Some entered) Patient.empty |> Expect.equal "a changed reading, accepted" entered
-                Hop640.commitPatient None entered |> Expect.equal "the signed" entered
+            test "a token of another secret is refused" {
+                let _, other = port (Some "another-secret-of-16!") t0
+                let _, admin = port secret t0
+                run admin (AdminCommand.ReloadResources(tokenOf other)) |> Expect.equal "refused" (Error [| "Invalid token" |])
             }
 
-            test "the stub: a fixed patient for every id, none for no-data" {
-                StubPatientData640.port.read "stub-patient"
-                |> Expect.equal "a reading" (Some StubPatientData640.patient)
+            test "a failing reload answers the port's error" {
+                let _, admin = port secret t0
+                let token = tokenOf admin
 
-                StubPatientData640.patient |> Expect.notEqual "not empty" Patient.empty
-                StubPatientData640.patient.Age |> Option.map _.Years |> Expect.equal "ten" (Some(Shared.Measures.toYear 10))
-                StubPatientData640.port.read "no-data" |> Expect.isNone "no data"
+                let failing =
+                    { admin with
+                        reloadResources = fun () -> async { return Error [| "sheet unreachable" |] }
+                    }
+
+                run failing (AdminCommand.ReloadResources token) |> Expect.equal "the error" (Error [| "sheet unreachable" |])
             }
         ]
 
 
-runTestsWithCLIArgs [] [||] (testList "Compute" [ tests; patientTests ]) |> ignore
+let logTests =
+    testList
+        "AdminCommand.toString"
+        [
+            test "never the password or the token" {
+                let _, admin = port secret t0
+                let token = tokenOf admin
+
+                [
+                    AdminCommand.ValidatePassword secret.Value
+                    AdminCommand.ListLogFiles token
+                    AdminCommand.AnalyzeLogFile(token, "server.log")
+                    AdminCommand.ReloadResources token
+                ]
+                |> List.map AdminCommand.toString
+                |> List.iter (fun line ->
+                    line.Contains secret.Value |> Expect.isFalse "no password"
+                    line.Contains token |> Expect.isFalse "no token"
+                )
+            }
+        ]
+
+
+runTestsWithCLIArgs [] [||] (testList "Admin" [ passwordTests; tokenTests; logTests ]) |> ignore

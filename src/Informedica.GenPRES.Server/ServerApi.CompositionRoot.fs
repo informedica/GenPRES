@@ -86,6 +86,16 @@ module CompositionRoot =
                         return response
                     }
 
+            // never Session-bound: no cookie read, no notice, and not behind requireLoaded
+            processAdmin =
+                fun cmd ->
+                    async {
+                        writeInfoMessage $"Processing admin: {cmd |> AdminCommand.toString}"
+                        let! response = AdminCommand.processCmd env cmd
+                        writeInfoMessage $"Finished processing admin: {cmd |> AdminCommand.toString}"
+                        return response
+                    }
+
             getSettings =
                 fun () ->
                     async {

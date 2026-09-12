@@ -287,6 +287,30 @@ let processCmdGuardTests =
         ]
 
 
+/// The admin reload over a provider whose loader fails: reloadCache records the failed state
+/// and returns normally, so the port must ask the provider and answer its messages.
+let adminReloadTests =
+    testList
+        "admin reload over a failing provider"
+        [
+            test "a reload that leaves the provider unloaded answers its messages, not success" {
+                let provider =
+                    CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+
+                let env = ServerApi.Adapters.makeAppEnv provider
+
+                match env.admin.reloadResources () |> Async.RunSynchronously with
+                | Error msgs ->
+                    msgs
+                    |> Array.exists (fun m -> m.Contains "load failed")
+                    |> Expect.isTrue "the loader's message"
+                | Ok() -> failtest "expected Error"
+
+                env.requireLoaded () |> Expect.isSome "still not loaded"
+            }
+        ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -297,4 +321,5 @@ let tests =
             cachedProviderErrorStateTests
             cachingBehaviorTests
             processCmdGuardTests
+            adminReloadTests
         ]
