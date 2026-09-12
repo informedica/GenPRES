@@ -45,6 +45,7 @@ module StubAdapters =
             navigate = fun _ _ _ _ -> async { return Ok returnPlan }
             addContext = fun _ _ -> async { return Ok returnPlan }
             removeContext = fun _ _ -> async { return Ok returnPlan }
+            removeOrders = fun _ _ -> async { return Ok returnPlan }
         }
 
 
@@ -104,6 +105,7 @@ module StubAdapters =
                     navigate = fun _ _ _ _ -> async { return Error [| "not loaded" |] }
                     addContext = fun _ _ -> async { return Error [| "not loaded" |] }
                     removeContext = fun _ _ -> async { return Error [| "not loaded" |] }
+                    removeOrders = fun _ _ -> async { return Error [| "not loaded" |] }
                 }
             interaction =
                 {
@@ -151,15 +153,15 @@ let commandRoutingTests =
                 | Error errs -> failtest $"expected Ok, got {errs}"
             }
 
-            testAsync "OrderContextCmd dispatches to orderContext.evaluate" {
+            testAsync "processOrderContext dispatches to orderContext.evaluate, typed" {
                 let env =
                     makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
-                let! result = Command.processCmd env (Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx))
+                let! result = OrderContextCommand.processCmd env (Api.UpdateOrderContext, emptyCtx)
 
                 match result with
-                | Ok(Api.OrderContextResp(Api.OrderContextResult _)) -> ()
-                | other -> failtest $"expected Ok OrderContextResp, got {other}"
+                | Ok _ -> ()
+                | Error errs -> failtest $"expected Ok, got {errs}"
             }
         ]
 
@@ -180,11 +182,11 @@ let errorPropagationTests =
                 | Ok _ -> failtest "expected Error, got Ok"
             }
 
-            testAsync "OrderContextCmd propagates port error" {
+            testAsync "processOrderContext propagates port error" {
                 let env =
                     makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysFails [| "ctx error" |])
 
-                let! result = Command.processCmd env (Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx))
+                let! result = OrderContextCommand.processCmd env (Api.UpdateOrderContext, emptyCtx)
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should propagate order context error" [| "ctx error" |]
@@ -207,9 +209,9 @@ let requireLoadedTests =
         Compute.bound
             env
             noCookie
-            Api.Command.toString
-            Command.gate
-            (Command.processCmd env)
+            Api.OrderContextCommand.toString
+            (fun _ -> Gate.RequiresLoaded)
+            (OrderContextCommand.processCmd env)
             {
                 Opened = None
                 Command = cmd
@@ -222,7 +224,7 @@ let requireLoadedTests =
             testAsync "requireLoaded returns Error when not loaded" {
                 let env = makeEnvNotLoaded [| "not ready" |]
 
-                let! result = bound env (Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx))
+                let! result = bound env (Api.UpdateOrderContext, emptyCtx)
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should return requireLoaded error" [| "not ready" |]
@@ -233,7 +235,7 @@ let requireLoadedTests =
                 let env =
                     makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
-                let! result = bound env (Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx))
+                let! result = bound env (Api.UpdateOrderContext, emptyCtx)
 
                 match result with
                 | Ok _ -> ()
@@ -4460,7 +4462,7 @@ module SessionStubTests =
             ]
 
 
-    /// `processCommand` over the cookie: the request computes as before, and
+    /// A computing member over the cookie: the request computes as before, and
     /// the reply carries what the Session is told.
     let computeCompositionTests =
         let settings =
@@ -4854,8 +4856,8 @@ module BoundTests =
         Compute.bound
             env
             cookie
-            Command.toString
-            Command.gate
+            OrderContextCommand.toString
+            (fun _ -> Gate.RequiresLoaded)
             handler
             {
                 Opened = None
@@ -4863,7 +4865,7 @@ module BoundTests =
             }
         |> Async.RunSynchronously
 
-    let formulary = Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx)
+    let formulary = (Api.UpdateOrderContext, emptyCtx)
 
     let runInteraction env cookie cmd =
         Compute.bound
@@ -4893,34 +4895,30 @@ module BoundTests =
                 test "without a cookie: computed, nothing told" {
                     let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
-                    match run env (cookieOf None) (Command.processCmd env) formulary with
+                    match run env (cookieOf None) (OrderContextCommand.processCmd env) formulary with
                     | Ok reply ->
                         reply.Notice |> Expect.isNone "nothing told without a cookie"
 
-                        // the one case left in Response: the order context
-                        match reply.Response with
-                        | Api.OrderContextResp _ -> ()
+                        reply.Response |> Expect.equal "computed" emptyCtx
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
                 test "with a cookie: what the Session is told rides on the reply, still computed" {
                     let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
-                    match run env (cookieOf (Some "s-1")) (Command.processCmd env) formulary with
+                    match run env (cookieOf (Some "s-1")) (OrderContextCommand.processCmd env) formulary with
                     | Ok reply ->
                         reply.Notice
                         |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
-                        // the one case left in Response: the order context
-                        match reply.Response with
-                        | Api.OrderContextResp _ -> ()
+                        reply.Response |> Expect.equal "computed" emptyCtx
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
                 test "a command that needs the formulary is refused while it is not loaded" {
                     let env = envWith false None
 
-                    run env (cookieOf None) (Command.processCmd env) formulary
+                    run env (cookieOf None) (OrderContextCommand.processCmd env) formulary
                     |> Expect.equal "refused with the messages" (Error [| "not loaded" |])
                 }
 
@@ -4938,9 +4936,6 @@ module BoundTests =
 
                     InteractionCommand.gate (InteractionCommand.CheckInteractions [])
                     |> Expect.equal "gated" Gate.RequiresLoaded
-
-                    Command.gate formulary
-                    |> Expect.equal "every command left is gated" Gate.RequiresLoaded
                 }
 
                 test "an open command never asks the provider whether it is loaded" {
@@ -4960,7 +4955,7 @@ module BoundTests =
 
                     asked.Value |> Expect.equal "never asked: asking may load" 0
 
-                    run env (cookieOf None) (Command.processCmd env) formulary
+                    run env (cookieOf None) (OrderContextCommand.processCmd env) formulary
                     |> Result.isOk
                     |> Expect.isTrue "computed"
 
@@ -5197,6 +5192,46 @@ module PlanTests =
                     | Ok _ -> failtest "expected Error"
                 }
 
+                test "deleting orders: a nutrition order takes its workbench, a drug goes by id, the filter follows" {
+                    let tpn = context "c-t" NutritionCategory.TPN [| scenarioWithOrder "o-t" |]
+
+                    let feeding =
+                        context "c-f" NutritionCategory.EnteralFeeding [| scenarioWithOrder "o-f" |]
+
+                    let supplement =
+                        context "c-s" NutritionCategory.EnteralSupplement [| scenarioWithOrder "o-s" |]
+
+                    let p =
+                        { plan
+                              [| tpn; feeding; supplement |]
+                              [|
+                                  scenarioWithOrder "o-drug"
+                                  scenarioWithOrder "o-t"
+                                  scenarioWithOrder "o-f"
+                                  scenarioWithOrder "o-s"
+                              |] with
+                            Filtered = [| scenarioWithOrder "o-drug"; scenarioWithOrder "o-t" |]
+                        }
+
+                    let p = p |> PlanService.removeOrders [| "o-drug"; "o-t" |]
+                    ids p |> Expect.equal "the feeding and its supplement stay" [| "o-f"; "o-s" |]
+
+                    p.NutritionContexts
+                    |> Array.map _.Id
+                    |> Expect.equal "the tpn workbench went with its order" [| "c-f"; "c-s" |]
+
+                    p.Filtered |> Expect.isEmpty "the filter followed"
+
+                    let p = p |> PlanService.removeOrders [| "o-f" |]
+                    ids p |> Expect.isEmpty "the feeding took its supplement's order too"
+                    p.NutritionContexts |> Expect.isEmpty "and both workbenches"
+
+                    p
+                    |> PlanService.removeOrders [| "o-none" |]
+                    |> ids
+                    |> Expect.isEmpty "an unknown id: nothing"
+                }
+
                 testAsync "navigate into a context evaluates it and folds the order in" {
                     let evaluated =
                         { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn" |] }
@@ -5231,6 +5266,7 @@ module PlanTests =
                             navigate = fun p _ _ _ -> answering "navigate" p
                             addContext = fun p _ -> answering "addContext" p
                             removeContext = fun p _ -> answering "removeContext" p
+                            removeOrders = fun p _ -> answering "removeOrders" p
                         }
 
                     let env =
@@ -5244,10 +5280,19 @@ module PlanTests =
 
                     let! _ = PlanCommand.processCmd env (PlanCommand.AddContext(p, NutritionCategory.TPN))
                     let! _ = PlanCommand.processCmd env (PlanCommand.RemoveContext(p, "c-1"))
+                    let! _ = PlanCommand.processCmd env (PlanCommand.RemoveOrders(p, [| "o-1" |]))
 
                     answered.Value
                     |> List.rev
-                    |> Expect.equal "each to its port" [ "recalculate"; "navigate"; "addContext"; "removeContext" ]
+                    |> Expect.equal
+                        "each to its port"
+                        [
+                            "recalculate"
+                            "navigate"
+                            "addContext"
+                            "removeContext"
+                            "removeOrders"
+                        ]
                 }
 
                 test "the log names the command, never the plan" {
@@ -5260,6 +5305,9 @@ module PlanTests =
 
                     PlanCommand.toString (PlanCommand.AddContext(p, NutritionCategory.TPN))
                     |> Expect.equal "category" "AddContext TPN"
+
+                    PlanCommand.toString (PlanCommand.RemoveOrders(p, [| "o-1"; "o-2" |]))
+                    |> Expect.equal "the count, never the ids" "RemoveOrders 2"
                 }
             ]
 

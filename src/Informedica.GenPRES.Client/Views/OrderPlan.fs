@@ -275,18 +275,12 @@ module OrderPlan =
             | Recalculating tp -> tp.Filtered |> Array.map _.Order |> Array.map _.Id
             | _ -> [||]
 
+        // the selected orders go by id, each with the workbench that contributed it
         let onDelete =
             fun () ->
                 match orderPlan with
                 | Resolved tp
-                | Recalculating tp ->
-                    { tp with
-                        Scenarios =
-                            tp.Scenarios
-                            |> Array.filter (fun sc -> tp.Filtered |> Array.exists ((=) sc) |> not)
-
-                    }
-                    |> updateOrderPlan
+                | Recalculating tp -> planCommand (Api.PlanCommand.RemoveOrders(tp, selectedRows))
                 | _ -> ()
 
         let updateOrderScenario (ctx: OrderContext) =

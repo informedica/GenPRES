@@ -20,7 +20,13 @@ module CompositionRoot =
         {
             // every computing member goes through Compute.bound: the log, the Session marked seen
             // and told, the gate, the exception as an Error
-            processCommand = Compute.bound env cookie Command.toString Command.gate (Command.processCmd env)
+            processOrderContext =
+                Compute.bound
+                    env
+                    cookie
+                    OrderContextCommand.toString
+                    (fun _ -> Gate.RequiresLoaded)
+                    (OrderContextCommand.processCmd env)
 
             processFormulary =
                 Compute.bound

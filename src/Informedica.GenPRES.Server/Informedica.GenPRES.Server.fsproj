@@ -20,7 +20,7 @@
     <Compile Include="ServerApi.InteractionCommand.fs" />
     <Compile Include="ServerApi.PlanCommand.fs" />
     <Compile Include="ServerApi.AdminCommand.fs" />
-    <Compile Include="ServerApi.Command.fs" />
+    <Compile Include="ServerApi.OrderContextCommand.fs" />
     <Compile Include="ServerApi.LaunchCommand.fs" />
     <Compile Include="ServerApi.SessionCommand.fs" />
     <Compile Include="ServerApi.SigningCommand.fs" />

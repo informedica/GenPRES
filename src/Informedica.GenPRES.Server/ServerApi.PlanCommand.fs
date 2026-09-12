@@ -13,3 +13,4 @@ module PlanCommand =
         | PlanCommand.Navigate(plan, contextId, ctxCmd, ctx) -> env.plan.navigate plan contextId ctxCmd ctx
         | PlanCommand.AddContext(plan, category) -> env.plan.addContext plan category
         | PlanCommand.RemoveContext(plan, id) -> env.plan.removeContext plan id
+        | PlanCommand.RemoveOrders(plan, ids) -> env.plan.removeOrders plan ids
