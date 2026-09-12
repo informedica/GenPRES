@@ -1,20 +1,25 @@
-// Deleting the old admin paths (plan 654, step 4): the LogAnalyzerCmd family and
-// OrderContextCommand.ReloadResources leave the shared contract now that the client asks
-// `processAdmin`, and with them the arms that let four commands bypass `requireLoaded`. What
-// remains of `Command.processCmd` is one total match: `GetDrugNames` runs open, every other
-// command runs gated, and there is no arm the compiler demands but nothing reaches.
+// The computing wrapper (plan 654, step 5): what `compose` does around `processCommand` today,
+// as one function every computing member goes through. `bound` logs the command, marks the
+// Session the cookie names seen and takes what it is told (the record moved on, the Session
+// ended), applies the gate (the formulary loaded, or not needed), runs the handler and answers
+// the reply with the notice; an exception is an `Error` with its message. `logged` wraps the
+// members that are not computing (launch, session, signing, admin) with the same two log
+// lines. The gate moves out of `Command.processCmd`, which becomes a plain dispatcher, into a
+// `Command.gate` that `compose` passes: the drug names open, everything else behind the
+// formulary. No visible change.
 //
 // Script-first draft (script-only policy) of:
-//   - `Command.processCmd` as one total match with a `gated` helper → `ServerApi.Command.fs`;
-//   - the deletions are stated, not drafted (a script cannot remove cases): `LogAnalyzerCmd`,
-//     `LogAnalyzerCommand`, `LogAnalyzerResp`, `LogAnalyzerResponse`,
-//     `OrderContextCommand.ReloadResources` and their `toString` arms → `Shared/Api.fs`; the
-//     `ReloadResources` arm and the password guard of `OrderContextService.evaluate` →
-//     `Services.fs`; the dead `ReloadResources` arms of the client → `App.fs`.
+//   - `Gate`, `Compute.bound`, `Compute.logged` → new `ServerApi.Compute.fs`, compiled after
+//     `Adapters.fs`, before `AdminCommand.fs` (fsproj and both `Scripts/load.fsx`);
+//   - `Command.gate` and `processCmd` without its own gating → `ServerApi.Command.fs`;
+//   - `compose` building `processCommand` with `bound` and the four others with `logged`
+//     → `CompositionRoot.fs`;
+//   - `Request<'cmd>` / `Reply<'resp>` with abbreviations → `Shared/Api.fs` (drafted and
+//     round-tripped through Fable.Remoting.Json in `Shared/Scripts/Api.fsx`).
 //
-// The shared DU still has the doomed cases while this script runs, so the draft answers them
-// with an error that the migration removes together with the cases. Run:
-// `dotnet fsi Compute.fsx` from this directory (build first).
+// The shared envelope is not generic while this script runs, so `bound` is drafted over the
+// abbreviated shape with an unbox at each end; the migration makes it generic and the body
+// does not change. Run: `dotnet fsi Compute.fsx` from this directory (build first).
 
 #I __SOURCE_DIRECTORY__
 #r "nuget: Expecto, 10.2.3"
@@ -24,118 +29,106 @@
 open Shared.Types
 open Shared.Api
 open ServerApi
+open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
 
 // ---------------------------------------------------------------------------------------------
-// The dispatcher (→ ServerApi.Command.fs)
+// The wrapper (→ ServerApi.Compute.fs)
+// ---------------------------------------------------------------------------------------------
+
+/// Whether a command needs the formulary loaded.
+[<RequireQualifiedAccess>]
+type Gate =
+    | RequiresLoaded
+    | Open
+
+
+module Compute =
+
+    /// Every computing member: the Session the cookie names is marked seen and told whether the
+    /// record moved on or the Session ended, before the command is computed; without a cookie
+    /// the request computes as it always did. The gate refuses a command that needs the
+    /// formulary while it is not loaded, with the provider's messages. An exception is an
+    /// Error with its message. The token is never logged.
+    let bound
+        (env: AppEnv)
+        (cookie: SessionCookie)
+        (name: 'cmd -> string)
+        (gate: 'cmd -> Gate)
+        (handler: 'cmd -> Async<Result<'resp, string[]>>)
+        (request: Request)
+        : Async<Result<Reply, string[]>>
+        =
+        // the migration makes the envelope generic: `request: Request<'cmd>`, `Reply<'resp>`
+        let cmd: 'cmd = unbox request.Command
+
+        async {
+            try
+                writeInfoMessage $"Processing command: {name cmd}"
+
+                let! notice =
+                    match cookie.read () with
+                    | None -> async { return None }
+                    | Some id -> env.session.seen id request.Opened
+
+                let! result =
+                    match gate cmd, env.requireLoaded () with
+                    | Gate.RequiresLoaded, Some msgs -> async { return Error msgs }
+                    | _ -> handler cmd
+
+                let told =
+                    match notice with
+                    | Some(RecordNotice.NewerVersion _) -> ", the record moved on"
+                    | Some(RecordNotice.Ended _) -> ", the Session ended"
+                    | None -> ""
+
+                writeInfoMessage $"Finished processing command: {name cmd}{told}"
+
+                return
+                    result
+                    |> Result.map (fun response ->
+                        {
+                            Response = unbox<Response> response
+                            Notice = notice
+                        }
+                    )
+            with ex ->
+                writeErrorMessage $"Error processing command: {name cmd}\n{ex}"
+                return Error [| ex.Message |]
+        }
+
+
+    /// A member that is not computing: the same two log lines around it, nothing else.
+    let logged (what: string) (name: 'cmd -> string) (run: 'cmd -> Async<'resp>) (cmd: 'cmd) =
+        async {
+            writeInfoMessage $"Processing {what}: {name cmd}"
+            let! response = run cmd
+            writeInfoMessage $"Finished processing {what}: {name cmd}"
+            return response
+        }
+
+
+// ---------------------------------------------------------------------------------------------
+// The gate (→ ServerApi.Command.fs; processCmd loses its `gated` and becomes a plain dispatcher)
 // ---------------------------------------------------------------------------------------------
 
 module Command =
 
-    /// A command that needs the formulary: refused with the provider's messages while it is not
-    /// loaded, else run.
-    let private gated (env: AppEnv) (run: unit -> Async<Result<Response, string[]>>) =
-        match env.requireLoaded () with
-        | Some msgs -> async { return Error msgs }
-        | None -> run ()
+    /// The drug names come from the interaction source, not the formulary; everything else
+    /// needs the formulary loaded.
+    let gate =
+        function
+        | InteractionCmd GetDrugNames -> Gate.Open
+        | _ -> Gate.RequiresLoaded
 
 
-    let processCmd (env: AppEnv) cmd =
-        let gated = gated env
-
-        match cmd with
-        // the drug names come from the interaction source, not the formulary
-        | InteractionCmd GetDrugNames ->
-            async {
-                let! result = env.interaction.getDrugNames ()
-                return result |> Result.map (List.toArray >> DrugNamesLoaded >> InteractionResp)
-            }
-        | InteractionCmd(CheckInteractions drugs) ->
-            gated (fun () ->
-                async {
-                    let! result = env.interaction.checkInteractions drugs
-                    return result |> Result.map (List.toArray >> InteractionsChecked >> InteractionResp)
-                }
-            )
-        | OrderContextCmd(ctxCmd, ctx) ->
-            gated (fun () ->
-                async {
-                    let! result = env.orderContext.evaluate ctxCmd ctx
-                    return result |> Result.map (OrderContextResult >> OrderContextResp)
-                }
-            )
-        | OrderPlanCmd(UpdateOrderPlan(tp, cmdOpt)) ->
-            gated (fun () ->
-                async {
-                    let! result = env.orderPlan.updateOrderPlan tp cmdOpt
-                    return result |> Result.map (OrderPlanUpdated >> OrderPlanResp)
-                }
-            )
-        | OrderPlanCmd(FilterOrderPlan tp) ->
-            gated (fun () ->
-                async {
-                    let! result = env.orderPlan.filterOrderPlan tp
-                    return result |> Result.map (OrderPlanFiltered >> OrderPlanResp)
-                }
-            )
-        | FormularyCmd form ->
-            gated (fun () ->
-                async {
-                    let! result = env.formulary.getFormulary form
-                    return result |> Result.map FormularyResp
-                }
-            )
-        | ParenteraliaCmd par ->
-            gated (fun () ->
-                async {
-                    let! result = env.formulary.getParenteralia par
-                    return result |> Result.map ParenteraliaResp
-                }
-            )
-        | NutritionPlanCmd(InitNutritionPlan patient) ->
-            gated (fun () ->
-                async {
-                    let! result = env.nutritionPlan.initNutritionPlan patient
-                    return result |> Result.map (NutritionPlanInitialised >> NutritionPlanResp)
-                }
-            )
-        | NutritionPlanCmd(UpdateNutritionOrderContext(plan, label, ctx)) ->
-            gated (fun () ->
-                async {
-                    let! result = env.nutritionPlan.updateNutritionOrderContext (plan, label, ctx)
-                    return result |> Result.map (NutritionPlanUpdated >> NutritionPlanResp)
-                }
-            )
-        | NutritionPlanCmd(SelectNutritionOrderScenario(plan, label, ctx)) ->
-            gated (fun () ->
-                async {
-                    let! result = env.nutritionPlan.selectNutritionOrderScenario (plan, label, ctx)
-                    return result |> Result.map (NutritionPlanUpdated >> NutritionPlanResp)
-                }
-            )
-        | NutritionPlanCmd(NavigateNutritionOrderContext(plan, label, ctxCmd, ctx)) ->
-            gated (fun () ->
-                async {
-                    let! result = env.nutritionPlan.navigateNutritionOrderContext (plan, label, ctxCmd, ctx)
-                    return result |> Result.map (NutritionPlanUpdated >> NutritionPlanResp)
-                }
-            )
-        | NutritionPlanCmd(AddNutritionContext(plan, category)) ->
-            gated (fun () ->
-                async {
-                    let! result = env.nutritionPlan.addNutritionContext (plan, category)
-                    return result |> Result.map (NutritionPlanUpdated >> NutritionPlanResp)
-                }
-            )
-        | NutritionPlanCmd(RemoveNutritionContext(plan, id)) ->
-            gated (fun () ->
-                async {
-                    let! result = env.nutritionPlan.removeNutritionContext (plan, id)
-                    return result |> Result.map (NutritionPlanUpdated >> NutritionPlanResp)
-                }
-            )
-        // gone with the migration, together with these cases
-        | LogAnalyzerCmd _ -> async { return Error [| "LogAnalyzerCmd answers processAdmin" |] }
+// and in `compose` (→ CompositionRoot.fs):
+//
+//     processCommand = Compute.bound env cookie Command.toString Command.gate (Command.processCmd env)
+//     processLaunch = Compute.logged "launch" LaunchCommand.toString (LaunchCommand.processCmd env cookie stateCookie)
+//     processSession = Compute.logged "session" SessionCommand.toString (SessionCommand.processCmd env cookie enrolment)
+//     processSigning = Compute.logged "signing" SigningCommand.toString (SigningCommand.processCmd env cookie)
+//     processAdmin = Compute.logged "admin" AdminCommand.toString (AdminCommand.processCmd env)
 
 
 // ---------------------------------------------------------------------------------------------
@@ -147,62 +140,125 @@ open Expecto.Flip
 open Informedica.GenForm.Lib
 
 
-/// An env over a provider whose load failed, with the ports stubbed.
-let notLoaded =
-    Adapters.makeAppEnv (Resources.CachedResourceProvider((fun () -> Error [ Informedica.GenForm.Lib.Types.ErrorMsg("load failed", None) ]), None))
+let cookieOf (id: string option) : SessionCookie =
+    {
+        read = fun () -> id
+        write = ignore
+        delete = ignore
+    }
 
 
-let loaded =
-    { notLoaded with
-        requireLoaded = fun () -> None
+/// An env over a provider whose load failed, the formulary stubbed, the Session's answer given.
+let envWith (loaded: bool) (told: RecordNotice option) =
+    let env =
+        Adapters.makeAppEnv (
+            Resources.CachedResourceProvider(
+                (fun () -> Error [ Informedica.GenForm.Lib.Types.ErrorMsg("load failed", None) ]),
+                None
+            )
+        )
+
+    { env with
+        requireLoaded = if loaded then (fun () -> None) else env.requireLoaded
         formulary =
             {
                 getFormulary = fun f -> async { return Ok { f with Markdown = "stubbed" } }
                 getParenteralia = fun _ -> async { return Ok Shared.Models.Parenteralia.empty }
             }
-        interaction =
-            {
-                checkInteractions = fun _ -> async { return Ok [] }
-                getDrugNames = fun () -> async { return Ok [ "paracetamol" ] }
+        session =
+            { env.session with
+                seen = fun _ _ -> async { return told }
             }
     }
 
 
-let run env cmd =
-    Command.processCmd env cmd |> Async.RunSynchronously
+let request cmd : Request = { Opened = None; Command = cmd }
+
+
+/// A handler that is not a dispatcher: the formulary only.
+let formularyOnly (env: AppEnv) cmd =
+    match cmd with
+    | FormularyCmd f ->
+        async {
+            let! result = env.formulary.getFormulary f
+            return result |> Result.map FormularyResp
+        }
+    | other -> failwithf "not under test: %A" other
+
+
+let run env cookie gate handler cmd =
+    Compute.bound env cookie Command.toString gate handler (request cmd)
+    |> Async.RunSynchronously
+
+
+let formulary = FormularyCmd Shared.Models.Formulary.empty
 
 
 let tests =
     testList
-        "Command.processCmd, total"
+        "Compute.bound"
         [
-            test "a loaded provider: the formulary answers" {
-                match run loaded (FormularyCmd Shared.Models.Formulary.empty) with
-                | Ok(FormularyResp f) -> f.Markdown |> Expect.equal "stubbed" "stubbed"
-                | other -> failtest $"expected FormularyResp, got {other}"
+            test "without a cookie: computed, nothing told" {
+                let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
+
+                match run env (cookieOf None) Command.gate (formularyOnly env) formulary with
+                | Ok reply ->
+                    reply.Notice |> Expect.isNone "nothing told without a cookie"
+
+                    match reply.Response with
+                    | FormularyResp f -> f.Markdown |> Expect.equal "computed" "stubbed"
+                    | other -> failtest $"expected FormularyResp, got {other}"
+                | Error errs -> failtest $"expected Ok, got {errs}"
             }
 
-            test "a provider that did not load: the formulary is refused with its messages" {
-                match run notLoaded (FormularyCmd Shared.Models.Formulary.empty) with
+            test "with a cookie: what the Session is told rides on the reply, still computed" {
+                let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
+
+                match run env (cookieOf (Some "s-1")) Command.gate (formularyOnly env) formulary with
+                | Ok reply ->
+                    reply.Notice
+                    |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
+
+                    match reply.Response with
+                    | FormularyResp f -> f.Markdown |> Expect.equal "still computed" "stubbed"
+                    | other -> failtest $"expected FormularyResp, got {other}"
+                | Error errs -> failtest $"expected Ok, got {errs}"
+            }
+
+            test "a command that needs the formulary is refused while it is not loaded" {
+                let env = envWith false None
+
+                match run env (cookieOf None) Command.gate (formularyOnly env) formulary with
                 | Error msgs -> msgs |> Array.exists (fun m -> m.Contains "load failed") |> Expect.isTrue "the messages"
                 | Ok _ -> failtest "expected Error"
             }
 
-            test "the drug names are not behind the formulary" {
-                let env =
-                    { notLoaded with
-                        interaction =
-                            {
-                                checkInteractions = fun _ -> async { return Ok [] }
-                                getDrugNames = fun () -> async { return Ok [ "paracetamol" ] }
-                            }
-                    }
+            test "an open command runs while the formulary is not loaded" {
+                let env = envWith false None
+                let names _ = async { return Ok(InteractionResp(DrugNamesLoaded [| "paracetamol" |])) }
 
-                match run env (InteractionCmd GetDrugNames) with
-                | Ok(InteractionResp(DrugNamesLoaded names)) -> names |> Expect.equal "the names" [| "paracetamol" |]
-                | other -> failtest $"expected the names, got {other}"
+                match run env (cookieOf None) Command.gate names (InteractionCmd GetDrugNames) with
+                | Ok reply ->
+                    reply.Response
+                    |> Expect.equal "the names" (InteractionResp(DrugNamesLoaded [| "paracetamol" |]))
+                | Error errs -> failtest $"expected Ok, got {errs}"
 
-                run env (InteractionCmd(CheckInteractions [ "a"; "b" ])) |> Result.isError |> Expect.isTrue "checking is"
+                Command.gate (InteractionCmd GetDrugNames) |> Expect.equal "open" Gate.Open
+                Command.gate (InteractionCmd(CheckInteractions [])) |> Expect.equal "gated" Gate.RequiresLoaded
+            }
+
+            test "a throwing handler answers an Error with its message" {
+                let env = envWith true None
+                let throwing _ = async { return invalidOp "boom" }
+
+                run env (cookieOf None) Command.gate throwing formulary
+                |> Expect.equal "the message" (Error [| "boom" |])
+            }
+
+            test "logged: the answer passes through" {
+                Compute.logged "admin" AdminCommand.toString (fun _ -> async { return 42 }) (AdminCommand.ValidatePassword "x")
+                |> Async.RunSynchronously
+                |> Expect.equal "through" 42
             }
         ]
 

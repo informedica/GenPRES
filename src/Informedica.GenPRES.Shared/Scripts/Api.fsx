@@ -1,17 +1,18 @@
-// The admin command family (plan 654, step 2): the settings page's four operations as one
-// `IServerApi` member, `processAdmin`, token-authenticated and never Session-bound.
+// The computing envelope, generic (plan 654, step 5): `Request<'cmd>` and `Reply<'resp>` in
+// place of the `Request`/`Reply` records over `Command`/`Response`, so that every computing
+// member can carry its own command and answer inside the same envelope. Abbreviations keep the
+// client compiling unchanged until the families move.
 //
-// Script-first draft of what goes to `Shared/Api.fs`: `AdminCommand`, `AdminResponse`,
-// `AdminCommand.toString` and the `IServerApi` member. A script cannot add cases to
-// `Shared.Api` or a field to `IServerApi`, so the types are proposed here under `Api654` and
-// the member is stated as a signature. `ReloadResources` carries the token the login issued,
-// not the password: the password travels once, at `ValidatePassword`.
+// Script-first draft of what goes to `Shared/Api.fs`. The one risk is the wire: no generic
+// record crosses it yet. Both sides serialize JSON, the server through Fable.Remoting.Json, so
+// the round trip below runs `Request<Formulary>` and `Result<Reply<Formulary>, string[]>`
+// through that converter, both ways.
 //
-// Run: `dotnet fsi Api.fsx` from this directory, or via the FSI MCP after
-// `#I "<this directory>"`.
+// Run: `dotnet fsi Api.fsx` from this directory.
 
 #I __SOURCE_DIRECTORY__
 #r "nuget: Expecto, 10.2.3"
+#r "nuget: Fable.Remoting.Json, 3.0"
 
 #load "../Types.fs"
 #load "../Calculations.fs"
@@ -23,80 +24,94 @@
 open Shared.Types
 
 
-/// → `Shared/Api.fs`, after `SigningCommand`.
+/// → `Shared/Api.fs`, in place of `Request` and `Reply`.
 module Api654 =
 
-    /// The admin command family: the password once, then the token it bought. Never
-    /// cookie-authenticated, never behind the formulary being loaded, so a failed load can be
-    /// retried from the settings page.
-    [<RequireQualifiedAccess>]
-    type AdminCommand =
-        // answered with a token when the password is the server's; a token nobody can forge
-        // when the server has no password
-        | ValidatePassword of password: string
-        | ListLogFiles of token: string
-        | AnalyzeLogFile of token: string * fileName: string
-        // reloads the formulary and everything else the resource provider holds
-        | ReloadResources of token: string
+    open Shared.Api
+
+    /// Every computing request: the command and the OpenedToken the Session holds. `None`
+    /// where there is none to send: no Session, an anonymous one, or a client acting before
+    /// its first token arrived.
+    type Request<'cmd> =
+        {
+            Opened: OpenedToken option
+            Command: 'cmd
+        }
 
 
-    [<RequireQualifiedAccess>]
-    type AdminResponse =
-        // isValid false comes with an empty token
-        | PasswordValidated of isValid: bool * token: string
-        | LogFilesListed of LogFileInfo[]
-        | LogFileAnalyzed of string
-        | ResourcesReloaded
+    /// Every computing reply: the answer, and what the Session is told with it (the record
+    /// moved on, or the Session ended).
+    type Reply<'resp> =
+        {
+            Response: 'resp
+            Notice: RecordNotice option
+        }
 
 
-    module AdminCommand =
-
-        /// For the log. Never the password or the token; the file name is not a secret.
-        let toString cmd =
-            match cmd with
-            | AdminCommand.ValidatePassword _ -> "ValidatePassword"
-            | AdminCommand.ListLogFiles _ -> "ListLogFiles"
-            | AdminCommand.AnalyzeLogFile(_, f) -> $"AnalyzeLogFile %s{f}"
-            | AdminCommand.ReloadResources _ -> "ReloadResources"
-
-
-    // `IServerApi` gains, next to `processSigning`:
-    //
-    //     processAdmin: AdminCommand -> Async<Result<AdminResponse, string[]>>
-    //
-    // No `Request`/`Reply` envelope: an admin request has no OpenedToken to send and no
-    // record notice to receive.
+    // until the families move, processCommand keeps its shape under these names:
+    type Request = Request<Command>
+    type Reply = Reply<Response>
 
 
 open Expecto
 open Expecto.Flip
+open Newtonsoft.Json
+open Fable.Remoting.Json
 open Api654
+
+
+let converters = [| FableJsonConverter() :> JsonConverter |]
+let toJson (v: 'a) = JsonConvert.SerializeObject(v, converters)
+let ofJson<'a> (json: string) = JsonConvert.DeserializeObject<'a>(json, converters)
 
 
 let tests =
     testList
-        "AdminCommand.toString"
+        "the generic envelope on the wire"
         [
-            test "names the command, never the password" {
-                AdminCommand.ValidatePassword "hunter2-hunter2-1"
-                |> AdminCommand.toString
-                |> Expect.equal "name only" "ValidatePassword"
+            test "Request<Formulary> round-trips and reads as today's Request" {
+                let request: Request<Formulary> =
+                    {
+                        Opened = Some(OpenedToken "opened-1")
+                        Command = { Shared.Models.Formulary.empty with Generics = [| "paracetamol" |] }
+                    }
+
+                let json = toJson request
+                (json.Contains "\"Opened\"" && json.Contains "\"Command\"") |> Expect.isTrue "the same two fields"
+                ofJson<Request<Formulary>> json |> Expect.equal "the same request back" request
             }
 
-            test "names the command, never the token" {
-                let token = "eyJwYXlsb2FkIn0=.c2lnbmF0dXJl"
+            test "Result<Reply<Formulary>, string[]> round-trips with and without a notice" {
+                let reply: Result<Reply<Formulary>, string[]> =
+                    Ok
+                        {
+                            Response = { Shared.Models.Formulary.empty with Generics = [| "paracetamol" |] }
+                            Notice = Some(RecordNotice.Ended SessionEnding.SupersededByLaunch)
+                        }
 
-                AdminCommand.ListLogFiles token
-                |> AdminCommand.toString
-                |> Expect.equal "name only" "ListLogFiles"
+                reply |> toJson |> ofJson<Result<Reply<Formulary>, string[]>> |> Expect.equal "with a notice" reply
 
-                AdminCommand.ReloadResources token
-                |> AdminCommand.toString
-                |> Expect.equal "name only" "ReloadResources"
+                let quiet: Result<Reply<Formulary>, string[]> =
+                    Ok
+                        {
+                            Response = Shared.Models.Formulary.empty
+                            Notice = None
+                        }
 
-                let logged = AdminCommand.AnalyzeLogFile(token, "server.log") |> AdminCommand.toString
-                logged |> Expect.equal "name and file" "AnalyzeLogFile server.log"
-                logged.Contains token |> Expect.isFalse "no token"
+                quiet |> toJson |> ofJson<Result<Reply<Formulary>, string[]>> |> Expect.equal "without" quiet
+
+                let refused: Result<Reply<Formulary>, string[]> = Error [| "not loaded" |]
+                refused |> toJson |> ofJson<Result<Reply<Formulary>, string[]>> |> Expect.equal "an error" refused
+            }
+
+            test "the abbreviation is today's Request over Command" {
+                let request: Request =
+                    {
+                        Opened = None
+                        Command = Shared.Api.FormularyCmd Shared.Models.Formulary.empty
+                    }
+
+                request |> toJson |> ofJson<Request> |> Expect.equal "back" request
             }
         ]
 
