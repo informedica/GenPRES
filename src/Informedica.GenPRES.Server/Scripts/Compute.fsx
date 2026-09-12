@@ -1,243 +1,141 @@
-// The admin command family (plan 654, step 2): ValidatePassword, ListLogFiles, AnalyzeLogFile
-// and ReloadResources as one `IServerApi` member, `processAdmin`, under the HMAC token that the
-// password buys. Never Session-bound (no cookie, no OpenedToken, no record notice) and never
-// behind the formulary being loaded, so a failed initial load can be retried from the
-// settings page. `ReloadResources` no longer carries the password: it carries the token, like
-// the log commands.
+// Deleting the old admin paths (plan 654, step 4): the LogAnalyzerCmd family and
+// OrderContextCommand.ReloadResources leave the shared contract now that the client asks
+// `processAdmin`, and with them the arms that let four commands bypass `requireLoaded`. What
+// remains of `Command.processCmd` is one total match: `GetDrugNames` runs open, every other
+// command runs gated, and there is no arm the compiler demands but nothing reaches.
 //
 // Script-first draft (script-only policy) of:
-//   - `AdminCommand`, `AdminResponse`, `AdminCommand.toString`, `processAdmin` → `Shared/Api.fs`
-//     (drafted in `Shared/Scripts/Api.fsx`; restated here under `Api654` because a script
-//     cannot extend `Shared.Api`);
-//   - `AdminPort`, replacing `LogAnalyzerPort` as `AppEnv.admin` → `Ports.fs`;
-//   - the port's adapter: the secret read from GENPRES_PASSWORD, the clock, the reload through
-//     `Informedica.GenForm.Lib.Api.reloadCache` → `Adapters.fs`;
-//   - `AdminCommand.processCmd` with the password and token functions moved out of
-//     `Command.fs`, over explicit values instead of the environment → new
-//     `ServerApi.AdminCommand.fs`, compiled before `Command.fs` so the old `LogAnalyzerCmd`
-//     arms share them until they go;
-//   - `processAdmin` in `compose` → `CompositionRoot.fs`.
+//   - `Command.processCmd` as one total match with a `gated` helper → `ServerApi.Command.fs`;
+//   - the deletions are stated, not drafted (a script cannot remove cases): `LogAnalyzerCmd`,
+//     `LogAnalyzerCommand`, `LogAnalyzerResp`, `LogAnalyzerResponse`,
+//     `OrderContextCommand.ReloadResources` and their `toString` arms → `Shared/Api.fs`; the
+//     `ReloadResources` arm and the password guard of `OrderContextService.evaluate` →
+//     `Services.fs`; the dead `ReloadResources` arms of the client → `App.fs`.
 //
-// The script takes the port where the source takes `AppEnv` (a record cannot gain a field in
-// a script). Run: `dotnet fsi Compute.fsx` from this directory (build first).
+// The shared DU still has the doomed cases while this script runs, so the draft answers them
+// with an error that the migration removes together with the cases. Run:
+// `dotnet fsi Compute.fsx` from this directory (build first).
 
 #I __SOURCE_DIRECTORY__
 #r "nuget: Expecto, 10.2.3"
 
 #load "load.fsx"
 
-open System
 open Shared.Types
+open Shared.Api
+open ServerApi
 
 
 // ---------------------------------------------------------------------------------------------
-// The wire (→ Shared/Api.fs)
+// The dispatcher (→ ServerApi.Command.fs)
 // ---------------------------------------------------------------------------------------------
 
-module Api654 =
+module Command =
 
-    /// The admin command family: the password once, then the token it bought.
-    [<RequireQualifiedAccess>]
-    type AdminCommand =
-        | ValidatePassword of password: string
-        | ListLogFiles of token: string
-        | AnalyzeLogFile of token: string * fileName: string
-        | ReloadResources of token: string
-
-
-    [<RequireQualifiedAccess>]
-    type AdminResponse =
-        | PasswordValidated of isValid: bool * token: string
-        | LogFilesListed of LogFileInfo[]
-        | LogFileAnalyzed of string
-        | ResourcesReloaded
+    /// A command that needs the formulary: refused with the provider's messages while it is not
+    /// loaded, else run.
+    let private gated (env: AppEnv) (run: unit -> Async<Result<Response, string[]>>) =
+        match env.requireLoaded () with
+        | Some msgs -> async { return Error msgs }
+        | None -> run ()
 
 
-    module AdminCommand =
-
-        /// For the log. Never the password or the token.
-        let toString cmd =
-            match cmd with
-            | AdminCommand.ValidatePassword _ -> "ValidatePassword"
-            | AdminCommand.ListLogFiles _ -> "ListLogFiles"
-            | AdminCommand.AnalyzeLogFile(_, f) -> $"AnalyzeLogFile %s{f}"
-            | AdminCommand.ReloadResources _ -> "ReloadResources"
-
-
-// ---------------------------------------------------------------------------------------------
-// The port (→ Ports.fs, in place of LogAnalyzerPort; AppEnv.logAnalyzer becomes AppEnv.admin)
-// ---------------------------------------------------------------------------------------------
-
-/// What the admin commands need from the edge. The secret and the clock are values the DMZ
-/// reads and passes in, so the command module never touches the environment.
-type AdminPort =
-    {
-        // GENPRES_PASSWORD; None when unset, empty or whitespace, so every check fails closed
-        secret: unit -> string option
-        now: unit -> DateTimeOffset
-        listLogFiles: unit -> Async<Result<LogFileInfo[], string[]>>
-        analyzeLogFile: string -> Async<Result<string, string[]>>
-        // the resource provider reloaded: the formulary and, later, the knowledge sheets
-        reloadResources: unit -> Async<Result<unit, string[]>>
-    }
-
-
-// ---------------------------------------------------------------------------------------------
-// The command (→ ServerApi.AdminCommand.fs)
-// ---------------------------------------------------------------------------------------------
-
-module AdminCommand =
-
-    open System.Security.Cryptography
-    open System.Text
-    open Api654
-
-
-    let tokenLifetime = TimeSpan.FromHours 1.0
-
-
-    /// An empty or whitespace secret is no secret. `Env.getItem` answers `Some ""` for a
-    /// setting that is set but empty (the Dockerfile's `ENV GENPRES_PASSWORD=`), and an empty
-    /// password compared with an empty secret would match, so blanks fail closed here as well
-    /// as at the port.
-    let private nonBlank (secret: string option) =
-        secret |> Option.filter (String.IsNullOrWhiteSpace >> not)
-
-
-    /// SECURITY: `FixedTimeEquals` so equal-length comparisons do not leak through per-byte
-    /// timing. It short-circuits on a length mismatch; that leak is accepted because production
-    /// enforces a 16-character minimum and the password travels only at ValidatePassword.
-    let validatePassword (secret: string option) (password: string) =
-        match nonBlank secret with
-        | None -> false
-        | Some expected -> CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes password, Encoding.UTF8.GetBytes expected)
-
-
-    /// `base64(expiresAt:nonce).base64(hmacsha256(secret, expiresAt:nonce))`; empty without a
-    /// secret, so that nothing signed with an empty key can ever verify.
-    let generateToken (secret: string option) (now: DateTimeOffset) =
-        match nonBlank secret with
-        | None -> ""
-        | Some secret ->
-            let expiresAt = now.Add(tokenLifetime).ToUnixTimeSeconds()
-            let nonce = RandomNumberGenerator.GetBytes 32 |> Convert.ToBase64String
-            let payload = Encoding.UTF8.GetBytes $"%d{expiresAt}:%s{nonce}"
-            use hmac = new HMACSHA256(Encoding.UTF8.GetBytes secret)
-            let signature = hmac.ComputeHash payload
-            $"%s{Convert.ToBase64String payload}.%s{Convert.ToBase64String signature}"
-
-
-    let validateToken (secret: string option) (now: DateTimeOffset) (token: string) =
-        match nonBlank secret with
-        | None -> false
-        | Some secret ->
-            if String.IsNullOrWhiteSpace token then
-                false
-            else
-                match token.Split '.' with
-                | [| payload; signature |] ->
-                    try
-                        let payload = Convert.FromBase64String payload
-                        let provided = Convert.FromBase64String signature
-                        use hmac = new HMACSHA256(Encoding.UTF8.GetBytes secret)
-                        let expected = hmac.ComputeHash payload
-
-                        CryptographicOperations.FixedTimeEquals(provided, expected)
-                        && (match (Encoding.UTF8.GetString payload).Split(':', 2) with
-                            | [| expiresAt; _ |] ->
-                                match Int64.TryParse expiresAt with
-                                | true, expiresAt -> now.ToUnixTimeSeconds() <= expiresAt
-                                | false, _ -> false
-                            | _ -> false)
-                    with _ ->
-                        false
-                | _ -> false
-
-
-    /// The source takes `env: AppEnv` and reads `env.admin`.
-    let processCmd (admin: AdminPort) (cmd: AdminCommand) : Async<Result<AdminResponse, string[]>> =
-        let withToken token (run: unit -> Async<Result<AdminResponse, string[]>>) =
-            if validateToken (admin.secret ()) (admin.now ()) token then
-                run ()
-            else
-                async { return Error [| "Invalid token" |] }
+    let processCmd (env: AppEnv) cmd =
+        let gated = gated env
 
         match cmd with
-        | AdminCommand.ValidatePassword password ->
+        // the drug names come from the interaction source, not the formulary
+        | InteractionCmd GetDrugNames ->
             async {
-                let secret = admin.secret ()
-
-                return
-                    if validatePassword secret password then
-                        Ok(AdminResponse.PasswordValidated(true, generateToken secret (admin.now ())))
-                    else
-                        Ok(AdminResponse.PasswordValidated(false, ""))
+                let! result = env.interaction.getDrugNames ()
+                return result |> Result.map (List.toArray >> DrugNamesLoaded >> InteractionResp)
             }
-        | AdminCommand.ListLogFiles token ->
-            withToken token (fun () ->
+        | InteractionCmd(CheckInteractions drugs) ->
+            gated (fun () ->
                 async {
-                    let! files = admin.listLogFiles ()
-                    return files |> Result.map AdminResponse.LogFilesListed
+                    let! result = env.interaction.checkInteractions drugs
+                    return result |> Result.map (List.toArray >> InteractionsChecked >> InteractionResp)
                 }
             )
-        | AdminCommand.AnalyzeLogFile(token, fileName) ->
-            withToken token (fun () ->
+        | OrderContextCmd(ctxCmd, ctx) ->
+            gated (fun () ->
                 async {
-                    let! report = admin.analyzeLogFile fileName
-                    return report |> Result.map AdminResponse.LogFileAnalyzed
+                    let! result = env.orderContext.evaluate ctxCmd ctx
+                    return result |> Result.map (OrderContextResult >> OrderContextResp)
                 }
             )
-        | AdminCommand.ReloadResources token ->
-            withToken token (fun () ->
+        | OrderPlanCmd(UpdateOrderPlan(tp, cmdOpt)) ->
+            gated (fun () ->
                 async {
-                    let! reloaded = admin.reloadResources ()
-                    return reloaded |> Result.map (fun () -> AdminResponse.ResourcesReloaded)
+                    let! result = env.orderPlan.updateOrderPlan tp cmdOpt
+                    return result |> Result.map (OrderPlanUpdated >> OrderPlanResp)
                 }
             )
-
-
-// ---------------------------------------------------------------------------------------------
-// The adapter (→ Adapters.fs, in makeAppEnvWith)
-// ---------------------------------------------------------------------------------------------
-//
-//     admin =
-//         {
-//             secret =
-//                 fun () ->
-//                     Informedica.Utils.Lib.Env.getItem "GENPRES_PASSWORD"
-//                     |> Option.filter (String.IsNullOrWhiteSpace >> not)
-//             now = fun () -> DateTimeOffset.UtcNow
-//             listLogFiles = (as today)
-//             analyzeLogFile = (as today)
-//             reloadResources =
-//                 fun () ->
-//                     async {
-//                         try
-//                             Informedica.GenForm.Lib.Api.reloadCache logger provider
-//                             // reloadCache records a failed load and returns normally, so the
-//                             // provider is asked: unloaded is Error with its messages
-//                             return
-//                                 match notLoaded provider with
-//                                 | None -> Ok()
-//                                 | Some msgs -> Error msgs
-//                         with ex ->
-//                             return Error [| ex.Message |]
-//                     }
-//         }
-//
-// and in `compose` (→ CompositionRoot.fs), with the same logging as the session members:
-//
-//     processAdmin =
-//         fun cmd ->
-//             async {
-//                 writeInfoMessage $"Processing admin: {cmd |> AdminCommand.toString}"
-//                 let! response = AdminCommand.processCmd env cmd
-//                 writeInfoMessage $"Finished processing admin: {cmd |> AdminCommand.toString}"
-//                 return response
-//             }
-//
-// `processAdmin` does not consult `requireLoaded`: the reload is what makes a failed load
-// loadable again.
+        | OrderPlanCmd(FilterOrderPlan tp) ->
+            gated (fun () ->
+                async {
+                    let! result = env.orderPlan.filterOrderPlan tp
+                    return result |> Result.map (OrderPlanFiltered >> OrderPlanResp)
+                }
+            )
+        | FormularyCmd form ->
+            gated (fun () ->
+                async {
+                    let! result = env.formulary.getFormulary form
+                    return result |> Result.map FormularyResp
+                }
+            )
+        | ParenteraliaCmd par ->
+            gated (fun () ->
+                async {
+                    let! result = env.formulary.getParenteralia par
+                    return result |> Result.map ParenteraliaResp
+                }
+            )
+        | NutritionPlanCmd(InitNutritionPlan patient) ->
+            gated (fun () ->
+                async {
+                    let! result = env.nutritionPlan.initNutritionPlan patient
+                    return result |> Result.map (NutritionPlanInitialised >> NutritionPlanResp)
+                }
+            )
+        | NutritionPlanCmd(UpdateNutritionOrderContext(plan, label, ctx)) ->
+            gated (fun () ->
+                async {
+                    let! result = env.nutritionPlan.updateNutritionOrderContext (plan, label, ctx)
+                    return result |> Result.map (NutritionPlanUpdated >> NutritionPlanResp)
+                }
+            )
+        | NutritionPlanCmd(SelectNutritionOrderScenario(plan, label, ctx)) ->
+            gated (fun () ->
+                async {
+                    let! result = env.nutritionPlan.selectNutritionOrderScenario (plan, label, ctx)
+                    return result |> Result.map (NutritionPlanUpdated >> NutritionPlanResp)
+                }
+            )
+        | NutritionPlanCmd(NavigateNutritionOrderContext(plan, label, ctxCmd, ctx)) ->
+            gated (fun () ->
+                async {
+                    let! result = env.nutritionPlan.navigateNutritionOrderContext (plan, label, ctxCmd, ctx)
+                    return result |> Result.map (NutritionPlanUpdated >> NutritionPlanResp)
+                }
+            )
+        | NutritionPlanCmd(AddNutritionContext(plan, category)) ->
+            gated (fun () ->
+                async {
+                    let! result = env.nutritionPlan.addNutritionContext (plan, category)
+                    return result |> Result.map (NutritionPlanUpdated >> NutritionPlanResp)
+                }
+            )
+        | NutritionPlanCmd(RemoveNutritionContext(plan, id)) ->
+            gated (fun () ->
+                async {
+                    let! result = env.nutritionPlan.removeNutritionContext (plan, id)
+                    return result |> Result.map (NutritionPlanUpdated >> NutritionPlanResp)
+                }
+            )
+        // gone with the migration, together with these cases
+        | LogAnalyzerCmd _ -> async { return Error [| "LogAnalyzerCmd answers processAdmin" |] }
 
 
 // ---------------------------------------------------------------------------------------------
@@ -246,177 +144,67 @@ module AdminCommand =
 
 open Expecto
 open Expecto.Flip
-open Api654
+open Informedica.GenForm.Lib
 
 
-let secret = Some "a-sixteen-char-secret!"
-let t0 = DateTimeOffset(2026, 9, 12, 12, 0, 0, TimeSpan.Zero)
+/// An env over a provider whose load failed, with the ports stubbed.
+let notLoaded =
+    Adapters.makeAppEnv (Resources.CachedResourceProvider((fun () -> Error [ Informedica.GenForm.Lib.Types.ErrorMsg("load failed", None) ]), None))
 
 
-/// A port over a fixed secret and clock that counts its reloads.
-let port (secret: string option) (now: DateTimeOffset) =
-    let reloads = ref 0
-
-    reloads,
-    {
-        secret = fun () -> secret
-        now = fun () -> now
-        listLogFiles = fun () -> async { return Ok [| { FileName = "server.log"; SizeBytes = 12L; LastModifiedAt = "2026-09-12" } |] }
-        analyzeLogFile = fun name -> async { return Ok $"report of %s{name}" }
-        reloadResources =
-            fun () ->
-                async {
-                    reloads.Value <- reloads.Value + 1
-                    return Ok()
-                }
+let loaded =
+    { notLoaded with
+        requireLoaded = fun () -> None
+        formulary =
+            {
+                getFormulary = fun f -> async { return Ok { f with Markdown = "stubbed" } }
+                getParenteralia = fun _ -> async { return Ok Shared.Models.Parenteralia.empty }
+            }
+        interaction =
+            {
+                checkInteractions = fun _ -> async { return Ok [] }
+                getDrugNames = fun () -> async { return Ok [ "paracetamol" ] }
+            }
     }
 
 
-let run admin cmd =
-    AdminCommand.processCmd admin cmd |> Async.RunSynchronously
+let run env cmd =
+    Command.processCmd env cmd |> Async.RunSynchronously
 
 
-let tokenOf admin =
-    match run admin (AdminCommand.ValidatePassword (admin.secret ()).Value) with
-    | Ok(AdminResponse.PasswordValidated(true, token)) -> token
-    | other -> failtest $"expected a token, got {other}"
-
-
-/// The same payload under a different signature.
-let forge (token: string) =
-    match token.Split '.' with
-    | [| payload; signature |] ->
-        let bytes = Convert.FromBase64String signature
-        bytes[0] <- bytes[0] ^^^ 1uy
-        $"%s{payload}.%s{Convert.ToBase64String bytes}"
-    | _ -> failtest "not a token"
-
-
-let passwordTests =
+let tests =
     testList
-        "ValidatePassword"
+        "Command.processCmd, total"
         [
-            test "the server's password buys a token that verifies" {
-                let _, admin = port secret t0
-                let token = tokenOf admin
-                token |> Expect.isNotEmpty "a token"
-                AdminCommand.validateToken secret t0 token |> Expect.isTrue "verifies"
+            test "a loaded provider: the formulary answers" {
+                match run loaded (FormularyCmd Shared.Models.Formulary.empty) with
+                | Ok(FormularyResp f) -> f.Markdown |> Expect.equal "stubbed" "stubbed"
+                | other -> failtest $"expected FormularyResp, got {other}"
             }
 
-            test "a wrong password: not valid, no token" {
-                let _, admin = port secret t0
-
-                run admin (AdminCommand.ValidatePassword "wrong")
-                |> Expect.equal "refused" (Ok(AdminResponse.PasswordValidated(false, "")))
+            test "a provider that did not load: the formulary is refused with its messages" {
+                match run notLoaded (FormularyCmd Shared.Models.Formulary.empty) with
+                | Error msgs -> msgs |> Array.exists (fun m -> m.Contains "load failed") |> Expect.isTrue "the messages"
+                | Ok _ -> failtest "expected Error"
             }
 
-            test "no password on the server: nothing is valid, not even an empty one" {
-                for none in [ None; Some ""; Some "   " ] do
-                    let _, admin = port none t0
-
-                    run admin (AdminCommand.ValidatePassword "")
-                    |> Expect.equal "refused" (Ok(AdminResponse.PasswordValidated(false, "")))
-
-                    AdminCommand.generateToken none t0 |> Expect.equal "no token" ""
-                    AdminCommand.validateToken none t0 "" |> Expect.isFalse "empty never verifies"
-            }
-        ]
-
-
-let tokenTests =
-    testList
-        "the token"
-        [
-            test "a valid token lists, analyzes and reloads" {
-                let reloads, admin = port secret t0
-                let token = tokenOf admin
-
-                match run admin (AdminCommand.ListLogFiles token) with
-                | Ok(AdminResponse.LogFilesListed files) -> files.Length |> Expect.equal "one file" 1
-                | other -> failtest $"expected the files, got {other}"
-
-                run admin (AdminCommand.AnalyzeLogFile(token, "server.log"))
-                |> Expect.equal "the report" (Ok(AdminResponse.LogFileAnalyzed "report of server.log"))
-
-                run admin (AdminCommand.ReloadResources token)
-                |> Expect.equal "reloaded" (Ok AdminResponse.ResourcesReloaded)
-
-                reloads.Value |> Expect.equal "the port reloaded once" 1
-            }
-
-            test "a forged, an expired, a malformed and an empty token are refused, and nothing reloads" {
-                let reloads, admin = port secret t0
-                let token = tokenOf admin
-                let later = t0.Add(AdminCommand.tokenLifetime).AddSeconds 1.0
-                let _, expiredAdmin = port secret later
-
-                for admin, token in
-                    [
-                        admin, forge token
-                        expiredAdmin, token
-                        admin, "not.a.token"
-                        admin, "abc"
-                        admin, ""
-                    ] do
-                    run admin (AdminCommand.ReloadResources token) |> Expect.equal "refused" (Error [| "Invalid token" |])
-                    run admin (AdminCommand.ListLogFiles token) |> Expect.equal "refused" (Error [| "Invalid token" |])
-
-                    run admin (AdminCommand.AnalyzeLogFile(token, "server.log"))
-                    |> Expect.equal "refused" (Error [| "Invalid token" |])
-
-                reloads.Value |> Expect.equal "nothing reloaded" 0
-            }
-
-            test "a token lives an hour" {
-                let _, admin = port secret t0
-                let token = tokenOf admin
-                AdminCommand.validateToken secret (t0.Add AdminCommand.tokenLifetime) token |> Expect.isTrue "at the hour"
-
-                AdminCommand.validateToken secret (t0.Add(AdminCommand.tokenLifetime).AddSeconds 1.0) token
-                |> Expect.isFalse "past it"
-            }
-
-            test "a token of another secret is refused" {
-                let _, other = port (Some "another-secret-of-16!") t0
-                let _, admin = port secret t0
-                run admin (AdminCommand.ReloadResources(tokenOf other)) |> Expect.equal "refused" (Error [| "Invalid token" |])
-            }
-
-            test "a failing reload answers the port's error" {
-                let _, admin = port secret t0
-                let token = tokenOf admin
-
-                let failing =
-                    { admin with
-                        reloadResources = fun () -> async { return Error [| "sheet unreachable" |] }
+            test "the drug names are not behind the formulary" {
+                let env =
+                    { notLoaded with
+                        interaction =
+                            {
+                                checkInteractions = fun _ -> async { return Ok [] }
+                                getDrugNames = fun () -> async { return Ok [ "paracetamol" ] }
+                            }
                     }
 
-                run failing (AdminCommand.ReloadResources token) |> Expect.equal "the error" (Error [| "sheet unreachable" |])
+                match run env (InteractionCmd GetDrugNames) with
+                | Ok(InteractionResp(DrugNamesLoaded names)) -> names |> Expect.equal "the names" [| "paracetamol" |]
+                | other -> failtest $"expected the names, got {other}"
+
+                run env (InteractionCmd(CheckInteractions [ "a"; "b" ])) |> Result.isError |> Expect.isTrue "checking is"
             }
         ]
 
 
-let logTests =
-    testList
-        "AdminCommand.toString"
-        [
-            test "never the password or the token" {
-                let _, admin = port secret t0
-                let token = tokenOf admin
-
-                [
-                    AdminCommand.ValidatePassword secret.Value
-                    AdminCommand.ListLogFiles token
-                    AdminCommand.AnalyzeLogFile(token, "server.log")
-                    AdminCommand.ReloadResources token
-                ]
-                |> List.map AdminCommand.toString
-                |> List.iter (fun line ->
-                    line.Contains secret.Value |> Expect.isFalse "no password"
-                    line.Contains token |> Expect.isFalse "no token"
-                )
-            }
-        ]
-
-
-runTestsWithCLIArgs [] [||] (testList "Admin" [ passwordTests; tokenTests; logTests ]) |> ignore
+runTestsWithCLIArgs [] [||] tests |> ignore

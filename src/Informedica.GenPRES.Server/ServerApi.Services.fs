@@ -391,7 +391,6 @@ DoseType : {filter.DoseType
             | Api.SelectOrderScenario -> serverCtx |> GenOrderContext.SelectOrderScenario
             | Api.UpdateOrderScenario -> serverCtx |> GenOrderContext.UpdateOrderScenario
             | Api.ResetOrderScenario -> serverCtx |> GenOrderContext.ResetOrderScenario
-            | Api.ReloadResources _ -> serverCtx |> GenOrderContext.ReloadResources
             // Frequency property commands
             | Api.DecreaseScheduleFrequencyProperty -> serverCtx |> GenOrderContext.DecreaseScheduleFrequencyProperty
             | Api.IncreaseScheduleFrequencyProperty -> serverCtx |> GenOrderContext.IncreaseScheduleFrequencyProperty
@@ -427,66 +426,21 @@ DoseType : {filter.DoseType
             | Api.SetMedianComponentOrderableQuantityProperty cmp ->
                 GenOrderContext.SetMedianComponentQuantityProperty(serverCtx, cmp)
 
-        match cmd with
-        | Api.ReloadResources password when
-            // SECURITY: use CryptographicOperations.FixedTimeEquals so equal-
-            // length password comparisons do not leak information through
-            // per-byte timing differences. Per .NET docs, FixedTimeEquals
-            // SHORT-CIRCUITS and returns `false` immediately when the byte
-            // arrays differ in length — fixed-time behavior is only
-            // guaranteed for equal-length inputs. The byte length of
-            // `expected` may therefore leak through wall-clock timing of
-            // length-mismatch rejections; this is acceptable for now because
-            // the production startup check enforces a ≥ 16-character
-            // GENPRES_PASSWORD and the proper fix is to drop raw-password-
-            // on-the-wire entirely (see TODO(D4 follow-up) below).
-            //
-            // The `Option.filter (IsNullOrWhiteSpace >> not)` step is essential:
-            // `Env.getItem` returns `Some ""` when an env var is set but empty,
-            // which is exactly what `Dockerfile` does with `ENV GENPRES_PASSWORD=`
-            // for Plesk-style runtime injection. Without the filter,
-            // `FixedTimeEquals(getBytes(""), getBytes(""))` would evaluate to
-            // `true` and an empty-string ReloadResources request would
-            // authenticate. The filter coerces empty/whitespace to `None`, so
-            // the fail-closed `Option.defaultValue true` branch fires.
-            //
-            // Default-reject (fail-closed) when GENPRES_PASSWORD is unset,
-            // empty, or whitespace-only. Mirrors `Server.fs`
-            // `validateProductionPassword` and `ServerApi.Command.fs`
-            // `validatePassword`.
-            //
-            // TODO(D4 follow-up): migrate ReloadResources to the HMAC token
-            // system used by LogAnalyzerCmd so this command no longer needs
-            // the raw password on the wire.
-            Env.getItem "GENPRES_PASSWORD"
-            |> Option.filter (System.String.IsNullOrWhiteSpace >> not)
-            |> Option.map (fun expected ->
-                not (
-                    System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
-                        System.Text.Encoding.UTF8.GetBytes(password: string),
-                        System.Text.Encoding.UTF8.GetBytes(expected: string)
-                    )
-                )
+        try
+            ctx
+            |> mapFromShared logger provider pat
+            |> toServerCmd
+            |> GenOrderContext.logOrderContext logger "start eval"
+            |> GenOrderContext.evaluate logger provider
+            |> Result.map (GenOrderContext.logOrderContext logger "finish eval" >> extractServerCtx >> map)
+            |> Result.mapError (
+                List.map OrderLogging.formatOrderMessage
+                >> String.concat "\n"
+                >> Array.singleton
             )
-            |> Option.defaultValue true
-            -> // no env var (or empty/whitespace) = always reject
-            Error [| "Invalid password" |]
-        | _ ->
-            try
-                ctx
-                |> mapFromShared logger provider pat
-                |> toServerCmd
-                |> GenOrderContext.logOrderContext logger "start eval"
-                |> GenOrderContext.evaluate logger provider
-                |> Result.map (GenOrderContext.logOrderContext logger "finish eval" >> extractServerCtx >> map)
-                |> Result.mapError (
-                    List.map OrderLogging.formatOrderMessage
-                    >> String.concat "\n"
-                    >> Array.singleton
-                )
-            with e ->
-                writeErrorMessage $"errored:\n{e}"
-                Error [| e.Message |]
+        with e ->
+            writeErrorMessage $"errored:\n{e}"
+            Error [| e.Message |]
 
 
 module OrderPlanService =

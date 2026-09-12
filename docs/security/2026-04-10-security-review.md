@@ -77,7 +77,7 @@ than upgraded.
 | ID | Title | Resolved |
 |---|---|---|
 | **C1** | `Newtonsoft.Json TypeNameHandling` flipped to `None` + 3 regression tests | 2026-04-10 |
-| **D4** | Constant-time password comparison via `FixedTimeEquals` (token migration still tracked by `TODO(D4 follow-up)`) | 2026-04-10 (partial) |
+| **D4** | Constant-time password comparison via `FixedTimeEquals`; `ReloadResources` moved onto the HMAC token as an `AdminCommand` (#654) | 2026-04-10 (partial), 2026-09-12 (complete) |
 | **E2** | Production password policy + startup `validateProductionPassword` (≥16 chars, fail-closed) | 2026-04-10 |
 | **E3** | `GENPRES_URL_ID` removed from Dockerfile `ARG/ENV`; runtime injection only; banner masks Sheet ID; ID rotated | 2026-04-10 |
 | **L1** | `Fable.Remoting.Giraffe 5.24` ABI mismatch on .NET 10 resolved by upgrading to `Fable.Remoting.Giraffe 6.1.0` (requires `Giraffe >= 8.2.0`); `Giraffe = 6.4.0` pin removed; `safeWebApi` wrapper retained as defense-in-depth | 2026-04-18 |
@@ -164,7 +164,7 @@ severity delta.
 | ID | Status | Change | Files |
 |---|---|---|---|
 | **C1** | ✅ Fixed | `TypeNameHandling` flipped from `Auto` to `None` with a SECURITY block-comment explaining the gadget-chain risk. Three Expecto regression tests added under a new `JsonSecurity` sub-module: (i) `deSerialize<obj>` ignores a malicious `$type` payload, (ii) plain-record round-trip stays lossless, (iii) serialized output never contains `$type`. Verified by running the full server test suite (5408 passed). | `src/Informedica.Utils.Lib/Json.fs:38-56`, `tests/Informedica.Utils.Tests/Tests.fs` (new `JsonSecurity` sub-module) |
-| **D4** | ✅ Partially fixed | Plain `<>` string equality replaced with `CryptographicOperations.FixedTimeEquals` on UTF-8 bytes. Fail-closed default (`Option.defaultValue true` when `GENPRES_PASSWORD` is unset) preserved. The deeper structural fix — migrate `ReloadResources` onto the HMAC token system used by `LogAnalyzerCmd` so the raw password no longer travels on the wire — is tracked by an inline `TODO(D4 follow-up)` comment. | `src/Informedica.GenPRES.Server/ServerApi.Services.fs:347-373` |
+| **D4** | ✅ Fixed | Plain `<>` string equality replaced with `CryptographicOperations.FixedTimeEquals` on UTF-8 bytes. Fail-closed default (`Option.defaultValue true` when `GENPRES_PASSWORD` is unset) preserved. The deeper structural fix — migrate `ReloadResources` onto the HMAC token system used by `LogAnalyzerCmd` so the raw password no longer travels on the wire — is tracked by an inline `TODO(D4 follow-up)` comment. **Resolved 2026-09-12 (#654):** `ReloadResources` is an `AdminCommand` under the HMAC token; the password guard in the order-context service is gone. | `src/Informedica.GenPRES.Server/ServerApi.AdminCommand.fs` |
 | **E2** | ✅ Fixed | Production password policy added to `.env.example` and to a new "Password policy" subsection in `DEVELOPMENT.md`. New startup check `validateProductionPassword` in `Server.fs` runs before any HTTP listener is bound and refuses to start when `GENPRES_PROD=1` and `GENPRES_PASSWORD` is missing, empty, whitespace-only, or shorter than 16 characters. Demo mode (`GENPRES_PROD≠1`) is unaffected. | `src/Informedica.GenPRES.Server/Server.fs:60-94`, `.env.example`, `DEVELOPMENT.md` (Password policy section) |
 | **E3** | ✅ Fixed | `ARG GENPRES_URL_ARG` / `ENV GENPRES_URL_ID=$GENPRES_URL_ARG` removed from `Dockerfile`. Replaced with empty `ENV GENPRES_URL_ID=` / `ENV GENPRES_PASSWORD=` defaults so the variables remain discoverable in container management UIs (Plesk, Portainer, Rancher, Kubernetes manifests) while operators inject the real values at runtime via `docker run -e`, Docker secret, or Kubernetes secret. All docs that referenced the old `--build-arg GENPRES_URL_ARG` pattern updated. | `Dockerfile`, `README.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `docs/adr/0001-system-architecture.md`, `DEVELOPMENT.md` |
 
@@ -990,6 +990,8 @@ Three issues:
 ### D4 — `ReloadResources` bypasses the token system
 
 > ✅ **Partially resolved 2026-04-10.** Constant-time comparison via `CryptographicOperations.FixedTimeEquals` is now used in `src/Informedica.GenPRES.Server/ServerApi.Services.fs:347-373`, eliminating the timing-attack surface and the empty-string regression introduced by the new Dockerfile defaults. The deeper structural fix — migrate `ReloadResources` onto the HMAC token system — remains tracked by an inline `TODO(D4 follow-up)` comment.
+>
+> ✅ **Resolved 2026-09-12 (#654).** `ReloadResources` is `AdminCommand.ReloadResources of token`, served by `processAdmin` in `ServerApi.AdminCommand.fs`; the raw password travels once, at `ValidatePassword`.
 
 **Severity:** C1 Med · C2 Med · C3 Med *(escalated from Low after verification)*
 
@@ -1286,7 +1288,7 @@ A grep across `src/` for `audit`, `tamper`, `integrity`, `signature` returns no 
 1. ✅ **C1** — Change `Json.fs` default to `TypeNameHandling.None`. Add a regression test. *(Done. Three Expecto tests in `JsonSecurity` sub-module.)*
 2. ✅ **E3** — Remove `ARG GENPRES_URL_ARG`/`ENV GENPRES_URL_ID` from the Dockerfile. Inject at runtime. Rotate the Sheet ID if any image has been pushed. *(Done — except the Sheet-ID rotation, which requires operator action against the Google Workspace.)*
 3. ✅ **E2** — Document the production password policy in `DEVELOPMENT.md` and `.env.example`. Add a startup check that refuses weak passwords when `GENPRES_PROD=1`. *(Done. `validateProductionPassword` runs before any HTTP listener binds.)*
-4. ⚠️ **D4** — Replace the `=` password comparison in `ServerApi.Services.fs:347-353` with `FixedTimeEquals`. Plan the migration of `ReloadResources` to the token system. *(Constant-time comparison done. Token migration tracked by inline `TODO(D4 follow-up)` comment.)*
+4. ✅ **D4** — Replace the `=` password comparison in `ServerApi.Services.fs:347-353` with `FixedTimeEquals`. Plan the migration of `ReloadResources` to the token system. *(Constant-time comparison done 2026-04-10. Token migration done 2026-09-12: `AdminCommand.ReloadResources of token`, #654.)*
 
 ### 7.2 Before any C2 (on-prem) rollout
 
