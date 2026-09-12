@@ -11,7 +11,6 @@ module Api =
         | OrderContextCmd of OrderContextCommand * OrderContext
         | OrderPlanCmd of OrderPlanCommand
         | NutritionPlanCmd of NutritionPlanCommand
-        | InteractionCmd of InteractionCommand
 
     and OrderContextCommand =
         | UpdateOrderContext
@@ -55,15 +54,10 @@ module Api =
         | AddNutritionContext of NutritionPlan * NutritionCategory
         | RemoveNutritionContext of NutritionPlan * string
 
-    and InteractionCommand =
-        | CheckInteractions of string list
-        | GetDrugNames
-
     type Response =
         | OrderContextResp of OrderContextResponse
         | OrderPlanResp of OrderPlanResponse
         | NutritionPlanResp of NutritionPlanResponse
-        | InteractionResp of InteractionResponse
 
     and OrderContextResponse = OrderContextResult of OrderContext
 
@@ -74,10 +68,6 @@ module Api =
     and NutritionPlanResponse =
         | NutritionPlanInitialised of NutritionPlan
         | NutritionPlanUpdated of NutritionPlan
-
-    and InteractionResponse =
-        | InteractionsChecked of DrugInteraction[]
-        | DrugNamesLoaded of string[]
 
 
     /// Every computing request: the command and the OpenedToken the Session holds.
@@ -152,8 +142,6 @@ module Api =
             | NutritionPlanCmd(NavigateNutritionOrderContext _) -> "NavigateNutritionOrderContext"
             | NutritionPlanCmd(AddNutritionContext _) -> "AddNutritionContext"
             | NutritionPlanCmd(RemoveNutritionContext _) -> "RemoveNutritionContext"
-            | InteractionCmd(CheckInteractions _) -> "CheckInteractions"
-            | InteractionCmd GetDrugNames -> "GetDrugNames"
 
 
     /// The launch command family. Cut from the session family at the authentication boundary:
@@ -264,6 +252,30 @@ module Api =
             | AdminCommand.ReloadResources _ -> "ReloadResources"
 
 
+    /// The interaction family: the drug names of the interaction source, and a check over the
+    /// drugs of a plan.
+    [<RequireQualifiedAccess>]
+    type InteractionCommand =
+        | CheckInteractions of string list
+        // from the interaction source, not the formulary: served while the formulary is not loaded
+        | GetDrugNames
+
+
+    [<RequireQualifiedAccess>]
+    type InteractionResponse =
+        | InteractionsChecked of DrugInteraction[]
+        | DrugNamesLoaded of string[]
+
+
+    module InteractionCommand =
+
+        /// For the log: never the drug list.
+        let toString cmd =
+            match cmd with
+            | InteractionCommand.CheckInteractions _ -> "CheckInteractions"
+            | InteractionCommand.GetDrugNames -> "GetDrugNames"
+
+
     /// Defines how routes are generated on server and mapped from the client
     let routerPaths typeName method = $"/api/%s{typeName}/%s{method}"
 
@@ -287,6 +299,7 @@ module Api =
             // parenteralia views ask their own
             processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
             processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
+            processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>
             processLaunch: LaunchCommand -> Async<LaunchOutcome>
             processSession: SessionCommand -> Async<SessionResponse>
             processSigning: SigningCommand -> Async<SigningResponse>

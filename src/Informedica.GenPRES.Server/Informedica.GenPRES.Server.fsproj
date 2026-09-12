@@ -17,6 +17,7 @@
     <Compile Include="ServerApi.Adapters.fs" />
     <Compile Include="ServerApi.Compute.fs" />
     <Compile Include="ServerApi.FormularyCommand.fs" />
+    <Compile Include="ServerApi.InteractionCommand.fs" />
     <Compile Include="ServerApi.AdminCommand.fs" />
     <Compile Include="ServerApi.Command.fs" />
     <Compile Include="ServerApi.LaunchCommand.fs" />

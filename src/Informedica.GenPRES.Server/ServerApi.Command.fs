@@ -6,28 +6,14 @@ module Command =
     open Shared.Api
 
 
-    /// The drug names come from the interaction source, not the formulary; everything else
-    /// needs the formulary loaded. Applied by Compute.bound, not here.
-    let gate =
-        function
-        | InteractionCmd GetDrugNames -> Gate.Open
-        | _ -> Gate.RequiresLoaded
+    /// Every command left here needs the formulary loaded. Applied by Compute.bound, not here.
+    let gate (_: Command) = Gate.RequiresLoaded
 
 
     /// The dispatcher: each command to its port. Gating, logging and the Session notice are
     /// Compute.bound's.
     let processCmd (env: AppEnv) cmd =
         match cmd with
-        | InteractionCmd GetDrugNames ->
-            async {
-                let! result = env.interaction.getDrugNames ()
-                return result |> Result.map (List.toArray >> DrugNamesLoaded >> InteractionResp)
-            }
-        | InteractionCmd(CheckInteractions drugs) ->
-            async {
-                let! result = env.interaction.checkInteractions drugs
-                return result |> Result.map (List.toArray >> InteractionsChecked >> InteractionResp)
-            }
         | OrderContextCmd(ctxCmd, ctx) ->
             async {
                 let! result = env.orderContext.evaluate ctxCmd ctx

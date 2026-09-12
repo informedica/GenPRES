@@ -4945,6 +4945,19 @@ module BoundTests =
 
     let formulary = Api.OrderContextCmd(Api.UpdateOrderContext, emptyCtx)
 
+    let runInteraction env cookie cmd =
+        Compute.bound
+            env
+            cookie
+            InteractionCommand.toString
+            InteractionCommand.gate
+            (InteractionCommand.processCmd env)
+            {
+                Opened = None
+                Command = cmd
+            }
+        |> Async.RunSynchronously
+
     let converters = [| FableJsonConverter() :> JsonConverter |]
 
     let toJson (v: 'a) =
@@ -4994,17 +5007,20 @@ module BoundTests =
                 test "an open command runs while the formulary is not loaded" {
                     let env = envWith false None
 
-                    match run env (cookieOf None) (Command.processCmd env) (Api.InteractionCmd Api.GetDrugNames) with
+                    match runInteraction env (cookieOf None) InteractionCommand.GetDrugNames with
                     | Ok reply ->
                         reply.Response
-                        |> Expect.equal "the names" (Api.InteractionResp(Api.DrugNamesLoaded [||]))
+                        |> Expect.equal "the names" (InteractionResponse.DrugNamesLoaded [||])
                     | Error errs -> failtest $"expected Ok, got {errs}"
 
-                    Command.gate (Api.InteractionCmd Api.GetDrugNames)
+                    InteractionCommand.gate InteractionCommand.GetDrugNames
                     |> Expect.equal "open" Gate.Open
 
-                    Command.gate (Api.InteractionCmd(Api.CheckInteractions []))
+                    InteractionCommand.gate (InteractionCommand.CheckInteractions [])
                     |> Expect.equal "gated" Gate.RequiresLoaded
+
+                    Command.gate formulary
+                    |> Expect.equal "every command left is gated" Gate.RequiresLoaded
                 }
 
                 test "an open command never asks the provider whether it is loaded" {
@@ -5018,7 +5034,7 @@ module BoundTests =
                                     None
                         }
 
-                    run env (cookieOf None) (Command.processCmd env) (Api.InteractionCmd Api.GetDrugNames)
+                    runInteraction env (cookieOf None) InteractionCommand.GetDrugNames
                     |> Result.isOk
                     |> Expect.isTrue "computed"
 

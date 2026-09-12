@@ -1,20 +1,19 @@
-// The first two members peeled off processCommand (plan 654, step 6): `processFormulary` and
-// `processParenteralia`, each a `Request<_>` of its own command answered with a `Reply<_>` of
-// its own answer, built through `Compute.bound` like every computing member. The smallest
-// families first, so the generic envelope is seen on the browser's wire before the big ones
-// move. `FormularyCmd`, `ParenteraliaCmd`, `FormularyResp` and `ParenteraliaResp` leave
-// `Command` and `Response` with the migration.
+// The interaction member (plan 654, step 7): `processInteraction`, a `Request<InteractionCommand>`
+// answered with a `Reply<InteractionResponse>` through `Compute.bound`. This family carries the
+// one gate that differs per command: the drug names come from the interaction source and are
+// served while the formulary is not loaded, a check over a plan's drugs needs it. With this
+// family gone from `Command`, every command left there needs the formulary, and `Command.gate`
+// says so without a match.
 //
 // Script-first draft (script-only policy) of:
-//   - `FormularyCommand` and `ParenteraliaCommand` (`toString`, `processCmd`) → new
-//     `ServerApi.FormularyCommand.fs`, compiled after `Compute.fs` (fsproj, both loaders);
-//   - `processFormulary` and `processParenteralia` on `IServerApi` → `Shared/Api.fs`, the four
-//     cases and their `toString` arms deleted there and the two arms in `Command.fs`;
-//   - the two members in `compose` → `CompositionRoot.fs`;
-//   - the client: `createApiMsg` over the member, `Answer<'r>`/`ApiResponse<'r>`,
-//     `processApiMsg` with an `apply` per family, `LoadFormulary`/`LoadParenteralia` on the new
-//     members (in the migration patch, since the client cannot compile against members that do
-//     not exist yet).
+//   - `InteractionCommand` and `InteractionResponse` as qualified-access types with
+//     `InteractionCommand.toString`, and `processInteraction` on `IServerApi` → `Shared/Api.fs`
+//     (restated here under `Api654`: a script cannot add or qualify cases of `Shared.Api`);
+//   - `InteractionCommand.gate` and `processCmd` → new `ServerApi.InteractionCommand.fs`,
+//     compiled after `FormularyCommand.fs` (fsproj, both loaders);
+//   - `Command.gate` constant, the two arms gone → `ServerApi.Command.fs`;
+//   - the member in `compose` → `CompositionRoot.fs`;
+//   - the client's `applyInteraction` and the two loads on the member (in the patch).
 //
 // Run: `dotnet fsi Compute.fsx` from this directory (build first).
 
@@ -29,36 +28,79 @@ open ServerApi
 
 
 // ---------------------------------------------------------------------------------------------
-// The members (→ ServerApi.FormularyCommand.fs)
+// The wire (→ Shared/Api.fs)
 // ---------------------------------------------------------------------------------------------
 
-module FormularyCommand =
+module Api654 =
 
-    /// For the log: the record is long and says nothing a log needs.
-    let toString (_: Formulary) = "Formulary"
-
-    let processCmd (env: AppEnv) (form: Formulary) = env.formulary.getFormulary form
-
-
-module ParenteraliaCommand =
-
-    let toString (_: Parenteralia) = "Parenteralia"
-
-    let processCmd (env: AppEnv) (par: Parenteralia) = env.formulary.getParenteralia par
+    /// The interaction family: the drug names of the interaction source, and a check over the
+    /// drugs of a plan.
+    [<RequireQualifiedAccess>]
+    type InteractionCommand =
+        | CheckInteractions of string list
+        // from the interaction source, not the formulary: served while the formulary is not loaded
+        | GetDrugNames
 
 
-// and in `compose` (→ CompositionRoot.fs), next to processCommand:
+    [<RequireQualifiedAccess>]
+    type InteractionResponse =
+        | InteractionsChecked of DrugInteraction[]
+        | DrugNamesLoaded of string[]
+
+
+    module InteractionCommand =
+
+        /// For the log: never the drug list.
+        let toString cmd =
+            match cmd with
+            | InteractionCommand.CheckInteractions _ -> "CheckInteractions"
+            | InteractionCommand.GetDrugNames -> "GetDrugNames"
+
+
+    // on `IServerApi`:
+    //
+    //     processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>
+
+
+// ---------------------------------------------------------------------------------------------
+// The member (→ ServerApi.InteractionCommand.fs)
+// ---------------------------------------------------------------------------------------------
+
+module InteractionCommand =
+
+    open Api654
+
+    /// The drug names come from the interaction source, not the formulary; a check over a
+    /// plan's drugs needs the formulary loaded.
+    let gate =
+        function
+        | InteractionCommand.GetDrugNames -> Gate.Open
+        | InteractionCommand.CheckInteractions _ -> Gate.RequiresLoaded
+
+
+    let processCmd (env: AppEnv) (cmd: InteractionCommand) =
+        match cmd with
+        | InteractionCommand.GetDrugNames ->
+            async {
+                let! result = env.interaction.getDrugNames ()
+                return result |> Result.map (List.toArray >> InteractionResponse.DrugNamesLoaded)
+            }
+        | InteractionCommand.CheckInteractions drugs ->
+            async {
+                let! result = env.interaction.checkInteractions drugs
+                return result |> Result.map (List.toArray >> InteractionResponse.InteractionsChecked)
+            }
+
+
+// and (→ ServerApi.Command.fs), once no open command is left in Command:
 //
-//     processFormulary =
-//         Compute.bound env cookie FormularyCommand.toString (fun _ -> Gate.RequiresLoaded) (FormularyCommand.processCmd env)
+//     /// Every command left here needs the formulary loaded. Applied by Compute.bound.
+//     let gate (_: Command) = Gate.RequiresLoaded
 //
-//     processParenteralia =
-//         Compute.bound env cookie ParenteraliaCommand.toString (fun _ -> Gate.RequiresLoaded) (ParenteraliaCommand.processCmd env)
+// and in `compose` (→ CompositionRoot.fs):
 //
-// on `IServerApi` (→ Shared/Api.fs):
-//
-//     processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
-//     processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
+//     processInteraction =
+//         Compute.bound env cookie InteractionCommand.toString InteractionCommand.gate (InteractionCommand.processCmd env)
 
 
 // ---------------------------------------------------------------------------------------------
@@ -68,6 +110,7 @@ module ParenteraliaCommand =
 open Expecto
 open Expecto.Flip
 open Informedica.GenForm.Lib
+open Api654
 
 
 let cookieOf (id: string option) : SessionCookie =
@@ -78,8 +121,10 @@ let cookieOf (id: string option) : SessionCookie =
     }
 
 
-/// An env over a provider whose load failed, the formulary port stubbed, the Session's answer given.
-let envWith (loaded: bool) (told: RecordNotice option) =
+/// An env over a provider whose load failed, the interaction port stubbed and counted.
+let envWith (loaded: bool) =
+    let asked = ref 0
+
     let env =
         Adapters.makeAppEnv (
             Resources.CachedResourceProvider(
@@ -88,78 +133,66 @@ let envWith (loaded: bool) (told: RecordNotice option) =
             )
         )
 
+    asked,
     { env with
-        requireLoaded = if loaded then (fun () -> None) else env.requireLoaded
-        formulary =
+        requireLoaded =
+            fun () ->
+                asked.Value <- asked.Value + 1
+                if loaded then None else env.requireLoaded ()
+        interaction =
             {
-                getFormulary = fun f -> async { return Ok { f with Markdown = "stubbed" } }
-                getParenteralia = fun p -> async { return Ok { p with Generic = Some "stubbed" } }
-            }
-        session =
-            { env.session with
-                seen = fun _ _ -> async { return told }
+                checkInteractions = fun drugs -> async { return Ok [] }
+                getDrugNames = fun () -> async { return Ok [ "paracetamol"; "ibuprofen" ] }
             }
     }
 
 
-let processFormulary env cookie (request: Request<Formulary>) =
-    Compute.bound env cookie FormularyCommand.toString (fun _ -> Gate.RequiresLoaded) (FormularyCommand.processCmd env) request
-    |> Async.RunSynchronously
-
-
-let processParenteralia env cookie (request: Request<Parenteralia>) =
-    Compute.bound env cookie ParenteraliaCommand.toString (fun _ -> Gate.RequiresLoaded) (ParenteraliaCommand.processCmd env) request
+let processInteraction env cookie (request: Request<InteractionCommand>) =
+    Compute.bound env cookie InteractionCommand.toString InteractionCommand.gate (InteractionCommand.processCmd env) request
     |> Async.RunSynchronously
 
 
 let tests =
     testList
-        "processFormulary and processParenteralia"
+        "processInteraction"
         [
-            test "the formulary answers its own envelope, typed" {
-                let env = envWith true None
+            test "the drug names are served while the formulary is not loaded, and the provider is not asked" {
+                let asked, env = envWith false
 
-                match processFormulary env (cookieOf None) { Opened = None; Command = Shared.Models.Formulary.empty } with
+                match processInteraction env (cookieOf None) { Opened = None; Command = InteractionCommand.GetDrugNames } with
                 | Ok reply ->
-                    // no family to match on: the answer is a Formulary
-                    reply.Response.Markdown |> Expect.equal "computed" "stubbed"
-                    reply.Notice |> Expect.isNone "nothing told"
+                    reply.Response
+                    |> Expect.equal "the names" (InteractionResponse.DrugNamesLoaded [| "paracetamol"; "ibuprofen" |])
                 | Error errs -> failtest $"expected Ok, got {errs}"
+
+                asked.Value |> Expect.equal "never asked: asking may load" 0
             }
 
-            test "the parenteralia answers its own envelope, typed" {
-                let env = envWith true None
+            test "a check needs the formulary: refused while not loaded, computed when loaded" {
+                let asked, env = envWith false
 
-                match processParenteralia env (cookieOf None) { Opened = None; Command = Shared.Models.Parenteralia.empty } with
-                | Ok reply -> reply.Response.Generic |> Expect.equal "computed" (Some "stubbed")
-                | Error errs -> failtest $"expected Ok, got {errs}"
-            }
-
-            test "with a cookie: what the Session is told rides on the reply" {
-                let env = envWith true (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
-
-                match processFormulary env (cookieOf (Some "s-1")) { Opened = None; Command = Shared.Models.Formulary.empty } with
-                | Ok reply ->
-                    reply.Notice |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
-                    reply.Response.Markdown |> Expect.equal "still computed" "stubbed"
-                | Error errs -> failtest $"expected Ok, got {errs}"
-            }
-
-            test "both are behind the formulary being loaded" {
-                let env = envWith false None
-
-                processFormulary env (cookieOf None) { Opened = None; Command = Shared.Models.Formulary.empty }
+                processInteraction env (cookieOf None) { Opened = None; Command = InteractionCommand.CheckInteractions [ "a"; "b" ] }
                 |> Result.isError
-                |> Expect.isTrue "formulary refused"
+                |> Expect.isTrue "refused"
 
-                processParenteralia env (cookieOf None) { Opened = None; Command = Shared.Models.Parenteralia.empty }
-                |> Result.isError
-                |> Expect.isTrue "parenteralia refused"
+                asked.Value |> Expect.equal "asked once" 1
+
+                let _, env = envWith true
+
+                match processInteraction env (cookieOf None) { Opened = None; Command = InteractionCommand.CheckInteractions [ "a"; "b" ] } with
+                | Ok reply -> reply.Response |> Expect.equal "checked" (InteractionResponse.InteractionsChecked [||])
+                | Error errs -> failtest $"expected Ok, got {errs}"
             }
 
-            test "the log names the family, never the record" {
-                FormularyCommand.toString Shared.Models.Formulary.empty |> Expect.equal "name" "Formulary"
-                ParenteraliaCommand.toString Shared.Models.Parenteralia.empty |> Expect.equal "name" "Parenteralia"
+            test "the gate per command" {
+                InteractionCommand.gate InteractionCommand.GetDrugNames |> Expect.equal "open" Gate.Open
+                InteractionCommand.gate (InteractionCommand.CheckInteractions []) |> Expect.equal "gated" Gate.RequiresLoaded
+            }
+
+            test "the log names the command, never the drugs" {
+                let line = InteractionCommand.toString (InteractionCommand.CheckInteractions [ "secret-drug" ])
+                line |> Expect.equal "name" "CheckInteractions"
+                InteractionCommand.toString InteractionCommand.GetDrugNames |> Expect.equal "name" "GetDrugNames"
             }
         ]
 
