@@ -23,7 +23,7 @@ numbering.
 |---|---|---|
 | UC-1 | [User launches GenPRES](uc-01-launch.md) | the Launch, the identity, the Role and the active Patient |
 | UC-2 | [First launch as a Prescriber](uc-02-enrolment.md) | no PIN yet: the launch suspends into enrolment |
-| UC-3 | [Prescribe and sign](uc-03-prescribe-and-sign.md) | the only way a TreatmentPlan comes into being |
+| UC-3 | [Prescribe and sign](uc-03-prescribe-and-sign.md) | the only way an OrderPlan comes into being |
 | UC-4 | [Two Users, one Patient](uc-04-two-users.md) | the first to sign wins; the other is told |
 | UC-5 | [Someone else takes over the workstation](uc-05-workstation-takeover.md) | look and explore, attest nothing |
 | UC-6 | [A User forgets their PIN](uc-06-forgotten-pin.md) | replaced, never removed |

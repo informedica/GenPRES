@@ -1,5 +1,5 @@
 ---
-last_commit_released: 0b45499c06cfd59afc84db0914e7453df2119e9c
+last_commit_released: edfa4e893e931b13bf32d676e6ee62c828302fe8
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,178 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.21 - 2026-09-12
+
+### 🚀 Features
+
+* *(client)* Log in, read logs and reload through processAdmin ([3b7604e4](https://github.com/informedica/GenPRES/commit/3b7604e4361a2cd3112bf8dfd76cb44986c67e60))
+* *(client)* The nutrition page on the one plan ([a1f8463b](https://github.com/informedica/GenPRES/commit/a1f8463bbad19c09038db63142381314da77de7c))
+* *(server)* Draft the admin command family under the token ([36908ffa](https://github.com/informedica/GenPRES/commit/36908ffa961725a364cc4f17fd12f50f6efdb360))
+* *(server)* Serve the admin commands under the token ([7e56b7e9](https://github.com/informedica/GenPRES/commit/7e56b7e920b3aacd7d74dd8b9bb1ed3455a9d132))
+* *(server)* Draft the generic envelope and the computing wrapper ([834dc110](https://github.com/informedica/GenPRES/commit/834dc11063e511aeeab31882a90b1ef8bf99e49a))
+* *(server)* Draft the formulary and parenteralia members ([f5a1c5fe](https://github.com/informedica/GenPRES/commit/f5a1c5fe37df92151c5e523ac79f0f0ee4ebf599))
+* *(server)* Draft the interaction member with its own gate ([83fe7d28](https://github.com/informedica/GenPRES/commit/83fe7d28b4bf25fb17d9baa9222ca8baf329ede0))
+* *(server)* Draft the one plan, nutrition included ([2a32b880](https://github.com/informedica/GenPRES/commit/2a32b8805bfa0783cc5d3979a49054b866211399))
+* *(server)* Serve the one plan, nutrition included ([74eda6d1](https://github.com/informedica/GenPRES/commit/74eda6d116bf2e0c529bbe131f1958f45b00f161))
+
+### 🐞 Bug Fixes
+
+* Ignore claude generated patch files ([20a004da](https://github.com/informedica/GenPRES/commit/20a004da30ebbb54aaf5a1b6cc2e5766ba37b58d))
+* *(client)* Correlate admin answers and settle the reload on its refresh ([cda5ad63](https://github.com/informedica/GenPRES/commit/cda5ad637239261656486b3180c74af293a68a38))
+* *(client)* Keep the plan a refused change was made with ([fbf9e9b6](https://github.com/informedica/GenPRES/commit/fbf9e9b637a0f98f9528c3f3d6cbdfb00535354c))
+* *(client)* Report the plan command as sent, not as made ([8f73a777](https://github.com/informedica/GenPRES/commit/8f73a7779db57488945a3daf44962b3ace19a534))
+* *(server)* Answer a failed reload with its messages ([2e0716c5](https://github.com/informedica/GenPRES/commit/2e0716c5cff615f23988ae5263fcb9fdb8864863))
+* *(server)* Let an open command pass without asking the provider ([963e02f1](https://github.com/informedica/GenPRES/commit/963e02f1481c808bac9919d94b748a7e35dd898b))
+* *(server)* Keep the plan's views in step and an evaluation's error ([f0f8adbe](https://github.com/informedica/GenPRES/commit/f0f8adbedb9c44f1c362b268e5384549347850b9))
+* *(ui)* Disable the plan's delete while a change is under way ([009fa66a](https://github.com/informedica/GenPRES/commit/009fa66adab2fe8ff71af57f892d13e0e0b79453))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/cb796b265040c6914042349e3ab93f11ea4b6c59..edfa4e893e931b13bf32d676e6ee62c828302fe8)</small></strong>
+
+## 0.1.2-alpha.20 - 2026-09-11
+
+### 🚀 Features
+
+* *(server)* Draft the signed patient at open (#640) ([10ba9a69](https://github.com/informedica/GenPRES/commit/10ba9a692970b5b2a10372bd3f59a1137388e4b3))
+* *(server)* Open the Session on the signed patient data (#640) ([1753049f](https://github.com/informedica/GenPRES/commit/1753049f4a0c4ac971748e29f523a3b867ff9f08))
+* *(server)* Draft the signed patient at the commit (#640) ([e9a85966](https://github.com/informedica/GenPRES/commit/e9a8596665afdd4258e85b4eab3e7a2e91918e95))
+* *(server)* Keep the signed patient at the commit (#640) ([636aacc1](https://github.com/informedica/GenPRES/commit/636aacc12ead1b566cf949e32e57a8e855382313))
+
+### 🐞 Bug Fixes
+
+* *(server)* Take the reading at the challenge into the Session (#640) ([103b987c](https://github.com/informedica/GenPRES/commit/103b987c717e671f7740a0839b6c48a9b2803617))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/73fdfcf45f7a4bdd918dd304b397f818e5a71bb8..cb796b265040c6914042349e3ab93f11ea4b6c59)</small></strong>
+
+## 0.1.2-alpha.19 - 2026-09-11
+
+### 🚀 Features
+
+* *(client)* Draft the moved-on notice terms (#635) ([b7e2be12](https://github.com/informedica/GenPRES/commit/b7e2be12eeae7848201efc302c512977fefa5b3f))
+* *(client)* Tell that the record moved on and offer the newest version (#635) ([95615286](https://github.com/informedica/GenPRES/commit/95615286770550acf017dbdd3b74042c3a72d20e))
+* *(server)* Draft the request and reply envelopes (#635) ([ce46cf90](https://github.com/informedica/GenPRES/commit/ce46cf90dddd5697d44928c9b1efd7d6e4d9ce10))
+* *(server)* Carry the OpenedToken and the notice on Compute (#635) ([c15999a0](https://github.com/informedica/GenPRES/commit/c15999a0f7a4ade934caaa0cfdfe97a1f91ac9da))
+* *(server)* Draft the head into the cart at open (#635) ([fed6c7f7](https://github.com/informedica/GenPRES/commit/fed6c7f7e29cecb698183bf42243be689717ca0d))
+* *(server)* Open the Session on the record's version (#635) ([3383ae47](https://github.com/informedica/GenPRES/commit/3383ae473b32cf541fa3713f51ebf181d73317b1))
+* *(server)* Draft opening the version the notice named (#635) ([6eb67748](https://github.com/informedica/GenPRES/commit/6eb67748fa9b55bf609cc00204201bed8175c9a5))
+* *(server)* Open the version the notice named (#635) ([c08b5e4f](https://github.com/informedica/GenPRES/commit/c08b5e4fb6fccefcec3fa32bbef27d715312825a))
+
+### 🐞 Bug Fixes
+
+* *(client)* Build the restored cart over the normalized patient (#635) ([c2e7f21f](https://github.com/informedica/GenPRES/commit/c2e7f21fa1e25fa04374474ac585595dc91fa453))
+* *(client)* Land a Reopened answer only on the Session that asked (#635) ([31fafdd5](https://github.com/informedica/GenPRES/commit/31fafdd5454c920928f654daace7bc156968b8cf))
+* *(client)* Order the moved-on notice by version, correlate it by token (#635) ([a7c59be9](https://github.com/informedica/GenPRES/commit/a7c59be9180d0b4f6c84e19b09da004eb31dfe12))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/e52af269e03c63b98afd41e901d08dbfc75c945e..73fdfcf45f7a4bdd918dd304b397f818e5a71bb8)</small></strong>
+
+## 0.1.2-alpha.18 - 2026-09-11
+
+### 🚀 Features
+
+* *(api)* The signing terms (#622) ([220df51d](https://github.com/informedica/GenPRES/commit/220df51dc76404fc3c0a6bafc950aec15ba4ce27))
+* *(client)* The signing machine and its texts (#622) ([25252cff](https://github.com/informedica/GenPRES/commit/25252cff2c6dcec08827b01f5b264c81d5953983))
+* *(client)* Sign the order plan with the PIN (#622) ([4a8f4c6e](https://github.com/informedica/GenPRES/commit/4a8f4c6e09df1160773437bd6c61ce011bda3fc3))
+* *(server)* Draft the record and the credential lock (#622) ([4a12ab01](https://github.com/informedica/GenPRES/commit/4a12ab0164f8ec55df94e5293240abe21db55230))
+* *(server)* Keep the record and lock the credential (#622) ([12d2d2fa](https://github.com/informedica/GenPRES/commit/12d2d2fac66bd42476944955510b726fb84f443f))
+* *(server)* Draft the signing challenge (#622) ([6c1c22b4](https://github.com/informedica/GenPRES/commit/6c1c22b4ad6bb4db3811cca296071faa58ee4d4b))
+* *(server)* Tell changed patient data as a notice (#622) ([8e928224](https://github.com/informedica/GenPRES/commit/8e92822400a8512cbf8e5cc2571cae1bf3579440))
+* *(server)* Issue the signing challenge (#622) ([2483b701](https://github.com/informedica/GenPRES/commit/2483b701d1de70e80fd9100672dc8bf6e3cb9fa1))
+* *(server)* Draft the commit of a signature (#622) ([294bc896](https://github.com/informedica/GenPRES/commit/294bc896fce68437d9d7882f849a2e8e0b7c92fb))
+* *(server)* Commit a signature (#622) ([454467ea](https://github.com/informedica/GenPRES/commit/454467ea9f7795ed2dafbe18e04abbe57a687601))
+* *(server)* Draft a second stub Prescriber (#622) ([799cb7ee](https://github.com/informedica/GenPRES/commit/799cb7ee9876c3ebbe423c1faf9365c62555e413))
+* *(server)* A second stub Prescriber for Rule 20 (#622) ([0f073995](https://github.com/informedica/GenPRES/commit/0f073995621f9b49e05165c025368a13eeebaab8))
+
+### 🐞 Bug Fixes
+
+* *(client)* Retry a lost Submission under the same key (#622) ([16f8d6f4](https://github.com/informedica/GenPRES/commit/16f8d6f4108aa7e111d94d443ab48a1870aa2a33))
+* *(client)* Land a signing answer only on its request (#622) ([1dfdcf39](https://github.com/informedica/GenPRES/commit/1dfdcf39a3206bc54e196bd3ea28fa0fbde6f98c))
+* *(server)* Cap the credential lock at a day (#622) ([a75fde28](https://github.com/informedica/GenPRES/commit/a75fde28d1a299125fe10c65fe798ddbc2b662b5))
+* *(server)* A data notice drops the standing challenge (#622) ([75ceaafd](https://github.com/informedica/GenPRES/commit/75ceaafd576269cf13c3e91b6c90ae9e66c6d6e3))
+* *(server)* Refuse a plan naming an order twice, mail best effort (#622) ([1c17ff0c](https://github.com/informedica/GenPRES/commit/1c17ff0cf8c837b8901e46c9db4c404c06cf7672))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/e7a6aa839014b2d735cca587cc42001af83789ab..e52af269e03c63b98afd41e901d08dbfc75c945e)</small></strong>
+
+## 0.1.2-alpha.17 - 2026-09-10
+
+### 🚀 Features
+
+* *(client)* The enrolment form on the session gate ([4bc7c13a](https://github.com/informedica/GenPRES/commit/4bc7c13a8cd753c43887f0422c00b2aab39d2767))
+* *(server)* Draft the credential store and the mail stub ([4c42108c](https://github.com/informedica/GenPRES/commit/4c42108c046243d2e9c78e8b6fc442f58ca35e15))
+* *(server)* Keep the PIN in a credential store, add the mail stub ([c6ee6571](https://github.com/informedica/GenPRES/commit/c6ee657129cf55ccdec8643cbe4c62801035e274))
+* *(server)* Draft the suspended launch and the PIN supply ([1779532f](https://github.com/informedica/GenPRES/commit/1779532f0b5e948de8460d48cd86cf8d9f6863be))
+* *(server)* Suspend the launch at the PIN question and take the PIN ([3a2ae13d](https://github.com/informedica/GenPRES/commit/3a2ae13dbcfb65aee0f71194fb37cd23578532c8))
+
+### 🐞 Bug Fixes
+
+* *(server)* Ask the registry again when the PIN is supplied ([acf1ce7c](https://github.com/informedica/GenPRES/commit/acf1ce7c1d3f89f56ae91fcf1146ae4e82817966))
+* *(ui)* Clear the enrolment fields, hide a stale refusal on edit ([374cb301](https://github.com/informedica/GenPRES/commit/374cb30196a026098f7a186ded521a14cd0d4ee1))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/ca55f59b8a6e16a11376a03479f034311955c405..e7a6aa839014b2d735cca587cc42001af83789ab)</small></strong>
+
+## 0.1.2-alpha.16 - 2026-09-10
+
+### 🚀 Features
+
+* *(api)* Initial session interaction scaffold ([d33a5127](https://github.com/informedica/GenPRES/commit/d33a5127e11f6e64fb17a2a4d5835c388eaaf80e))
+* *(api)* Implement token redeem logic ([dab4f763](https://github.com/informedica/GenPRES/commit/dab4f7637f5b9c2f838266089a21dd89d4fedd5e))
+* *(api)* Better docs for parseSessionInfo ([62cce32a](https://github.com/informedica/GenPRES/commit/62cce32a8c911ffdf947196436673ea4f25b8615))
+* *(api)* Restructure token exchange and show progress in UI ([7175f1fe](https://github.com/informedica/GenPRES/commit/7175f1fe0dc3be123904443741de4a76f8865906))
+* *(api)* Add launch and session commands with a session cookie ([2271ee90](https://github.com/informedica/GenPRES/commit/2271ee904fd5ba174f461bd54dba7be9f0ae17c9))
+* *(client)* Erase the launch from URL and history ([927a324c](https://github.com/informedica/GenPRES/commit/927a324cb398e7d9236f76c48ba7f781b17cc3a2))
+* *(client)* Draft the session state machine ([85b6b482](https://github.com/informedica/GenPRES/commit/85b6b482f947310b4b26cd943edb7de4fd988128))
+* *(client)* Add the session state machine ([c202f8ca](https://github.com/informedica/GenPRES/commit/c202f8ca675f6d66200ae44a07ebdb7de93d3474))
+* *(client)* Add the browser key pair for the launch ([34b159ef](https://github.com/informedica/GenPRES/commit/34b159efd8c6786d1d9aa1011a44e9d55e7e2678))
+* *(client)* Wire the launch session into the app ([8696b077](https://github.com/informedica/GenPRES/commit/8696b077de8c3b9c7d44eac68ebe5b065bcdd68c))
+* *(client)* Localise the session gate and session menu ([1f44c305](https://github.com/informedica/GenPRES/commit/1f44c305396dd3e9d19d03e4eeb2a385236be5ec))
+
+    The session gate and the session menu are localised through the
+    Localization sheet (22 new terms, English and Dutch rows).
+* *(server)* Draft session contract and in-memory launch stub ([7cfd9687](https://github.com/informedica/GenPRES/commit/7cfd9687e8743aea45fa20bbba8ddc00534108a8))
+* *(server)* Migrate session contract and launch stub to source ([ec34470b](https://github.com/informedica/GenPRES/commit/ec34470b6167fc8e89a16907f12c395d49b56522))
+* *(server)* Draft launch and session command families ([7ccd710b](https://github.com/informedica/GenPRES/commit/7ccd710b70386f2c7e76fc2ffbebdaaf37e03d5b))
+* *(server)* Default UI language from GENPRES_LANG ([5e3c638d](https://github.com/informedica/GenPRES/commit/5e3c638d528b06c22a2995d78e519c05e425358d))
+
+    `GENPRES_LANG` sets the default UI language; the client keeps the
+    chosen language across navigations and shows the demo suffix again.
+* *(server)* Seal the Launch and serve a stub LaunchScript page ([484a1744](https://github.com/informedica/GenPRES/commit/484a1744ee6d64fe4686fad9a28bef16cde91e24))
+
+    Development servers serve a stub LaunchScript page at /stub/launch
+    that mints a sealed Launch; the session stub verifies the seal, the
+    lifetime and the nonce.
+* *(server)* Run the identity hop over a stub IdentityProvider ([9f50d3cf](https://github.com/informedica/GenPRES/commit/9f50d3cfc8da0377c1e54af1316628e652280492))
+
+    Development servers run the launch's identity hop end to end through a
+    stub IdentityProvider and UserRegistry.
+* *(server)* Choose the identity on the stub launch page ([5c8c03b1](https://github.com/informedica/GenPRES/commit/5c8c03b188fa426610de0d399e337a3ca09cc06d))
+* *(server)* Tell the user once when a newer launch ended their session ([7cc21ff1](https://github.com/informedica/GenPRES/commit/7cc21ff1f8cc9fde967f456ed06db11e68f0178b))
+
+    A user whose session was replaced by a newer launch is told so once at
+    the next request, and can continue without a launch.
+* *(ui)* Show the session user in the title bar with a close action ([414b17de](https://github.com/informedica/GenPRES/commit/414b17de95750f99597cef7f69944c991468e7c2))
+* *(ui)* Add the session gate modal ([d16a68a8](https://github.com/informedica/GenPRES/commit/d16a68a849bf3af71c81f699cbad10c5fbe60e39))
+
+### 🐞 Bug Fixes
+
+* *(client)* Land Closed only on a Closing session ([c6b03a2a](https://github.com/informedica/GenPRES/commit/c6b03a2ab5ded6b625136300cf236440e89f7246))
+* *(client)* Prune private keys by age, not by identity ([9ae54bc1](https://github.com/informedica/GenPRES/commit/9ae54bc19995228313ed6da90ec8f3d3736e8782))
+* *(client)* Keep the session open when a close never reaches the server ([9e453aa3](https://github.com/informedica/GenPRES/commit/9e453aa374898a12d1f9242c7979757358478a2a))
+* *(client)* Report a failed close only for the closing session ([d359a72f](https://github.com/informedica/GenPRES/commit/d359a72fe401d7b38c706f94a23df19119028dbd))
+* *(server)* Read session stub state under the lock ([4a115319](https://github.com/informedica/GenPRES/commit/4a1153199bf6de3c25a8a6727d21627ee1fe510a))
+* *(server)* Secure the session cookie behind the proxy, delete on failed close ([f0011083](https://github.com/informedica/GenPRES/commit/f0011083ebd213e6de522c2e94239f8e6d5093fd))
+* *(server)* Start production without a password ([8d65941a](https://github.com/informedica/GenPRES/commit/8d65941aec141b12ae1986d2ef3a4461bf7ac267))
+
+    Production mode without an admin password starts with admin operations
+    disabled and a warning instead of refusing to start; a password
+    shorter than 16 characters still refuses.
+* *(server)* Log the stub launch page like the api ([0a89c299](https://github.com/informedica/GenPRES/commit/0a89c29961b4cfe3bd1bd1809810c11a5fd8571d))
+* *(server)* Log each request once ([aca218e4](https://github.com/informedica/GenPRES/commit/aca218e446b9d2e472b7c08c5c292a76ff48aa93))
+* *(server)* One state cookie per hop, no dead cookie on replay ([f0a9d210](https://github.com/informedica/GenPRES/commit/f0a9d210981b4b7135b553b3dad4296d17661c86))
+* *(server)* Keep an ending until the browser stops asking ([1afb3146](https://github.com/informedica/GenPRES/commit/1afb3146996418ddb4280a960eabb299376764fa))
+* *(server)* Keep an ending as long as the sessions ([1cb9e34d](https://github.com/informedica/GenPRES/commit/1cb9e34d2e0822543539197b92b47b880fde5899))
+* *(server)* The client acknowledges an ending with a close ([0fcd1cc8](https://github.com/informedica/GenPRES/commit/0fcd1cc8ee754387e52fee76f5b27e4a449e29df))
+* *(ui)* Make the session trigger a labeled, clipped button ([756f66e3](https://github.com/informedica/GenPRES/commit/756f66e3b3f35942ac51ada71ed090e382f42140))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/0b45499c06cfd59afc84db0914e7453df2119e9c..ca55f59b8a6e16a11376a03479f034311955c405)</small></strong>
 
 ## 0.1.2-alpha.15 - 2026-09-07
 

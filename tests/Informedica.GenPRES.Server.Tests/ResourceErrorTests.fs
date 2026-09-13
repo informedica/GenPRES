@@ -250,39 +250,91 @@ let cachingBehaviorTests =
         ]
 
 
+/// The gate lives in Compute.bound, so the guard is tested through it, over a cookie that
+/// names no Session.
+let noCookie: ServerApi.SessionCookie =
+    {
+        read = fun () -> None
+        write = ignore
+        delete = ignore
+    }
+
+
 let processCmdGuardTests =
     testList
-        "processCmd IsLoaded guard"
+        "Compute.bound IsLoaded guard"
         [
 
-            test "FormularyCmd returns Error when provider IsLoaded = false" {
+            test "processFormulary returns Error when provider IsLoaded = false" {
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
-                let cmd = Shared.Api.FormularyCmd Formulary.empty
+                let env = ServerApi.Adapters.makeAppEnv provider
 
                 let result =
-                    ServerApi.Command.processCmd (ServerApi.Adapters.makeAppEnv provider) cmd
+                    ServerApi.Compute.bound
+                        env
+                        noCookie
+                        ServerApi.FormularyCommand.toString
+                        (fun _ -> ServerApi.Gate.RequiresLoaded)
+                        (ServerApi.FormularyCommand.processCmd env)
+                        {
+                            Opened = None
+                            Command = Formulary.empty
+                        }
                     |> Async.RunSynchronously
 
                 result
                 |> Result.isError
-                |> Expect.isTrue "should return Error for FormularyCmd when not loaded"
+                |> Expect.isTrue "should return Error for processFormulary when not loaded"
             }
 
-            test "ParenteraliaCmd returns Error when provider IsLoaded = false" {
+            test "processParenteralia returns Error when provider IsLoaded = false" {
                 let provider =
                     CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
-                let cmd = Shared.Api.ParenteraliaCmd Parenteralia.empty
+                let env = ServerApi.Adapters.makeAppEnv provider
 
                 let result =
-                    ServerApi.Command.processCmd (ServerApi.Adapters.makeAppEnv provider) cmd
+                    ServerApi.Compute.bound
+                        env
+                        noCookie
+                        ServerApi.ParenteraliaCommand.toString
+                        (fun _ -> ServerApi.Gate.RequiresLoaded)
+                        (ServerApi.ParenteraliaCommand.processCmd env)
+                        {
+                            Opened = None
+                            Command = Parenteralia.empty
+                        }
                     |> Async.RunSynchronously
 
                 result
                 |> Result.isError
-                |> Expect.isTrue "should return Error for ParenteraliaCmd when not loaded"
+                |> Expect.isTrue "should return Error for processParenteralia when not loaded"
+            }
+        ]
+
+
+/// The admin reload over a provider whose loader fails: reloadCache records the failed state
+/// and returns normally, so the port must ask the provider and answer its messages.
+let adminReloadTests =
+    testList
+        "admin reload over a failing provider"
+        [
+            test "a reload that leaves the provider unloaded answers its messages, not success" {
+                let provider =
+                    CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+
+                let env = ServerApi.Adapters.makeAppEnv provider
+
+                match env.admin.reloadResources () |> Async.RunSynchronously with
+                | Error msgs ->
+                    msgs
+                    |> Array.exists (fun m -> m.Contains "load failed")
+                    |> Expect.isTrue "the loader's message"
+                | Ok() -> failtest "expected Error"
+
+                env.requireLoaded () |> Expect.isSome "still not loaded"
             }
         ]
 
@@ -297,4 +349,5 @@ let tests =
             cachedProviderErrorStateTests
             cachingBehaviorTests
             processCmdGuardTests
+            adminReloadTests
         ]

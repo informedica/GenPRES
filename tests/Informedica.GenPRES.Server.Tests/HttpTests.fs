@@ -15,7 +15,7 @@ let cacheControlCases =
         200, "/", "no-cache"
         200, "/index.html", "no-cache"
         200, "/genpres.png", "no-cache"
-        200, "/api/IServerApi/processCommand", "no-cache"
+        200, "/api/IServerApi/processFormulary", "no-cache"
         200, "/assets/index-abc123.js", immutable
         200, "/assets/index-abc123.css", immutable
         200, "/ASSETS/x.js", immutable
@@ -47,7 +47,7 @@ let setCookieHeader (ctx: HttpContext) =
     ctx.Response.Headers.SetCookie.ToString()
 
 
-/// The session cookie adapter over a bare HttpContext (uc-01 step 6, Rule 12).
+/// The session cookie adapter over a bare HttpContext.
 let sessionCookieTests =
     testList
         "sessionCookie"
@@ -100,5 +100,141 @@ let sessionCookieTests =
         ]
 
 
+let launchStateCookieTests =
+    let state = "AbC-_123"
+
+    testList
+        "launchStateCookie"
+        [
+            test
+                "write names the cookie by its state, HttpOnly, SameSite=Lax, Path=/callback, one Launch lifetime, no Secure over http" {
+                let ctx = DefaultHttpContext()
+                (Server.Http.launchStateCookie ctx).write state
+                let header = setCookieHeader ctx
+
+                header
+                |> Expect.stringStarts "name=value" $"genpres_launch_state.{state}={state}"
+
+                header |> Expect.stringContains "httponly" "httponly"
+                header |> Expect.stringContains "lax" "samesite=lax"
+                header |> Expect.stringContains "path" "path=/callback"
+                header |> Expect.stringContains "lifetime" "max-age=120"
+
+                header.Contains("secure", StringComparison.OrdinalIgnoreCase)
+                |> Expect.isFalse "not secure over http"
+            }
+
+            test "write sets Secure over https" {
+                let ctx = DefaultHttpContext()
+                ctx.Request.IsHttps <- true
+                (Server.Http.launchStateCookie ctx).write state
+
+                setCookieHeader ctx |> Expect.stringContains "secure" "secure"
+            }
+
+            test "read answers the cookie of the asked state only" {
+                let withCookie (value: string) (asked: string) =
+                    let ctx = DefaultHttpContext()
+                    ctx.Request.Headers.Cookie <- Microsoft.Extensions.Primitives.StringValues value
+                    (Server.Http.launchStateCookie ctx).read asked
+
+                withCookie $"genpres_launch_state.{state}={state}; other=1" state
+                |> Expect.equal "own state" (Some state)
+
+                withCookie $"genpres_launch_state.{state}={state}" "other-state"
+                |> Expect.isNone "another tab's state"
+
+                withCookie $"genpres_launch_state.{state}=" state |> Expect.isNone "blank"
+
+                (Server.Http.launchStateCookie (DefaultHttpContext())).read state
+                |> Expect.isNone "no header"
+            }
+
+            test "the stub identity cookie is HttpOnly, SameSite=Lax, Path=/, one Launch lifetime" {
+                let ctx = DefaultHttpContext()
+
+                ctx.Response.Cookies.Append(
+                    "genpres_stub_identity",
+                    "prescriber.p",
+                    Server.Http.stubIdentityCookieOptions false
+                )
+
+                let header = setCookieHeader ctx
+
+                header |> Expect.stringContains "httponly" "httponly"
+                header |> Expect.stringContains "lax" "samesite=lax"
+                header |> Expect.stringContains "path" "path=/"
+                header |> Expect.stringContains "lifetime" "max-age=120"
+            }
+        ]
+
+
+/// The enrolment cookie adapter: the attempt a suspended launch left in the browser.
+let enrolmentCookieTests =
+    testList
+        "enrolmentCookie"
+        [
+            test "write is HttpOnly, SameSite=Strict, Path=/, Max-Age what remains of the code, no Secure over http" {
+                let ctx = DefaultHttpContext()
+                let now = DateTime.UtcNow
+                (Server.Http.enrolmentCookie ctx).write "attempt-1" (now + TimeSpan.FromMinutes 15.0)
+                let header = setCookieHeader ctx
+
+                header |> Expect.stringStarts "name=value" "genpres_enrolment=attempt-1"
+                header |> Expect.stringContains "httponly" "httponly"
+                header |> Expect.stringContains "strict" "samesite=strict"
+                header |> Expect.stringContains "path" "path=/"
+
+                let maxAge =
+                    header.Split(';')
+                    |> Array.map _.Trim()
+                    |> Array.pick (fun part ->
+                        if part.StartsWith("max-age=", StringComparison.OrdinalIgnoreCase) then
+                            Some(int (part.Substring 8))
+                        else
+                            None
+                    )
+
+                (maxAge > 14 * 60 && maxAge <= 15 * 60)
+                |> Expect.isTrue $"about 15 minutes, was {maxAge}"
+
+                header.Contains("secure", StringComparison.OrdinalIgnoreCase)
+                |> Expect.isFalse "not secure over http"
+            }
+
+            test "a code already expired writes a Max-Age of zero, never a negative one" {
+                let ctx = DefaultHttpContext()
+                (Server.Http.enrolmentCookie ctx).write "attempt-1" (DateTime.UtcNow - TimeSpan.FromMinutes 1.0)
+                setCookieHeader ctx |> Expect.stringContains "zero" "max-age=0"
+            }
+
+            test "write sets Secure over https; read and delete work on the named cookie" {
+                let ctx = DefaultHttpContext()
+                ctx.Request.IsHttps <- true
+                (Server.Http.enrolmentCookie ctx).write "attempt-1" (DateTime.UtcNow + TimeSpan.FromMinutes 15.0)
+                setCookieHeader ctx |> Expect.stringContains "secure" "secure"
+
+                let ctx = DefaultHttpContext()
+
+                ctx.Request.Headers.Cookie <-
+                    Microsoft.Extensions.Primitives.StringValues "genpres_enrolment=a-1; other=1"
+
+                (Server.Http.enrolmentCookie ctx).read () |> Expect.equal "read" (Some "a-1")
+                (Server.Http.enrolmentCookie ctx).delete ()
+
+                setCookieHeader ctx
+                |> Expect.stringContains "deleted" "genpres_enrolment=; expires="
+            }
+        ]
+
+
 [<Tests>]
-let tests = testList "Http Tests" [ cacheControlTests; sessionCookieTests ]
+let tests =
+    testList
+        "Http Tests"
+        [
+            cacheControlTests
+            sessionCookieTests
+            launchStateCookieTests
+            enrolmentCookieTests
+        ]

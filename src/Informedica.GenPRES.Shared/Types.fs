@@ -494,18 +494,6 @@ module Types =
         }
 
 
-    type OrderPlan =
-        {
-            Patient: Patient
-            Selected: OrderScenario option
-            Filtered: OrderScenario[]
-            // NOTE: maybe use ordercontext to preserve full info
-            // so, OrderContexts: OrderContext []
-            Scenarios: OrderScenario[]
-            Totals: Totals
-        }
-
-
     [<RequireQualifiedAccess>]
     type NutritionCategory =
         | EnteralFeeding
@@ -515,6 +503,9 @@ module Types =
         | ElectrolyteGlucose
 
 
+    /// A nutrition workbench of the plan: one per category added, an order context narrowed
+    /// down to the product and dose; once it holds exactly one scenario, that scenario is an
+    /// order of the plan.
     type NutritionContext =
         {
             Id: string
@@ -525,9 +516,15 @@ module Types =
         }
 
 
-    type NutritionPlan =
+    /// The one plan: every order for the patient, nutrition included, which is what is signed.
+    type OrderPlan =
         {
             Patient: Patient
+            Selected: OrderScenario option
+            Filtered: OrderScenario[]
+            // every order in the plan, the nutrition orders included
+            Scenarios: OrderScenario[]
+            // the nutrition workbenches; a context narrowed to one scenario has it in Scenarios
             NutritionContexts: NutritionContext[]
             Totals: Totals
         }
@@ -576,17 +573,17 @@ module Types =
         }
 
 
-    /// Opaque launch token, sealed by the MainEHR LaunchScript (launch sequence step 1);
-    /// the client never reads it.
+    /// Opaque launch token, sealed by the MainEHR LaunchScript; the client never reads it.
     type Launch = Launch of string
 
 
-    /// Public JWK (JSON text) of the browser key pair made at launch step 3.
+    /// Public JWK (JSON text) of the browser key pair made at the launch.
     type PublicKey = PublicKey of string
 
 
-    /// Names the TreatmentPlan the Session opened with (Rule 34). Stored now, sent later
-    /// inside the signed request of launch step 7.
+    /// Names the OrderPlan the Session opened with. Sent with every computing request and
+    /// checked at every signature; later it travels inside the signed request of launch
+    /// step 7, which is not built yet.
     type OpenedToken = OpenedToken of string
 
 
@@ -611,43 +608,178 @@ module Types =
         }
 
 
-    /// What the client keeps of an open Session (launch step 6). No SessionId: it lives in
-    /// the cookie (Rule 12).
-    type SessionOpened =
+    /// What identifies a signed version of an order plan: its id, its place in the patient's
+    /// record (`No` orders the record: a clock cannot say which of two landed first), who
+    /// signed it and when. Enough for the notice that the record moved on: whose, and when.
+    type OrderPlanHead =
         {
-            // None = anonymous session (Rule 14)
-            User: UserContext option
-            // None = launch without an active patient (ext 1a)
-            PatientContext: PatientContext option
-            OpenedToken: OpenedToken option
-            // RFC 7638 thumbprint of the public key this Session signs with (step 7);
-            // the client keeps that private key and prunes the others
-            KeyThumbprint: string option
+            Id: string
+            No: int
+            By: UserContext
+            SignedAt: DateTime
         }
 
 
-    /// Every refusal ends the same: no Session opens (Rule 7). The case says what the client
-    /// offers next (uc-01, Refusals table).
+    /// A signed version of an order plan, as the record holds it: the head, the patient, the
+    /// version it was signed over (`Base`, `None` for the first), the orders as shown at the
+    /// signature, the patient data the User saw and whether it was the platform's reading at
+    /// the challenge.
+    type SignedOrderPlan =
+        {
+            Head: OrderPlanHead
+            PatientId: string
+            Base: string option
+            Scenarios: OrderScenario[]
+            Patient: Patient
+            Verified: bool
+        }
+
+
+    /// What the client keeps of an open Session. No SessionId: it lives in the cookie, a
+    /// bearer credential that never reaches script. `Head` is the version of the record it
+    /// opened with: its orders go into the cart, and a Submission is refused when a newer
+    /// version than it exists; `None` from nothing.
+    type SessionOpened =
+        {
+            // None = anonymous session: opened without a launch, no User, no Role
+            User: UserContext option
+            // None = launch without an active patient
+            PatientContext: PatientContext option
+            OpenedToken: OpenedToken option
+            // RFC 7638 thumbprint of the public key this Session will sign requests with
+            // (launch step 7, not built yet); the client keeps that private key and prunes
+            // the others
+            KeyThumbprint: string option
+            Head: SignedOrderPlan option
+        }
+
+
+    /// Every refusal ends the same: no Session opens. The case says what the client offers
+    /// next.
     [<RequireQualifiedAccess>]
     type LaunchRefusal =
-        // ext 4a: ask for a relaunch
+        // ask for a relaunch
         | LaunchExpired
         | LaunchSpent
         | LaunchInvalid
-        // ext 3c: retry, then relaunch
+        // retry, then relaunch
         | NoBrowserIdentity
-        // ext 5a: offer an anonymous open
+        // offer an anonymous open
         | NoRole
-        // ext 5b: relaunch after fixing MainEHR
+        // relaunch after activating the right patient in MainEHR
         | WrongActivePatient
-        // UC-2, shown as text only for now
+        // the enrolment attempt is gone (UC-2); shown as text only for now
         | EnrolmentRequired
+
+
+    /// Why a Session ended other than by the User closing it. The server says it once, at
+    /// the next request, and the client shows it. The idle and absolute lifetimes (Rule 10)
+    /// are not built yet.
+    [<RequireQualifiedAccess>]
+    type SessionEnding =
+        | SupersededByLaunch
+        // the third wrong PIN at a signature
+        | WrongPinLimit
+
+
+    /// What the client learns when its launch is waiting on a PIN: whom to greet and
+    /// where the confirmation code went, hinted so that a shoulder cannot read the address.
+    type EnrolmentPending =
+        {
+            DisplayName: string
+            MailHint: string
+        }
+
+
+    /// Why a supplied PIN opened no Session. `WrongCode` leaves the form open with the tries
+    /// left; `PinFormat` spends no try; `CodeVoid` and `AttemptExpired` are terminal: the
+    /// launch has to start over. `WrongActivePatient` is terminal too, and the PIN is set:
+    /// the registry no longer has the launch's Patient active.
+    [<RequireQualifiedAccess>]
+    type PinRefusal =
+        | WrongCode of attemptsLeft: int
+        | CodeVoid
+        | AttemptExpired
+        | PinFormat
+        | WrongActivePatient
 
 
     [<RequireQualifiedAccess>]
     type LaunchOutcome =
         | Opened of SessionOpened
-        // step 4.2 as a payload: Fable.Remoting's XHR would follow a 302 and try to parse
-        // the IdentityProvider's HTML. The stub never returns it.
+        // the redirect to the IdentityProvider as a payload: Fable.Remoting's XHR would
+        // follow a 302 and try to parse the IdentityProvider's HTML. The stub never returns it.
         | RedirectTo of url: string
         | Refused of LaunchRefusal
+
+
+    /// Why a signature did not proceed, at the challenge request or at the Submission. The
+    /// first seven end the signing and are told once; `PinWrong` and `Locked` keep the PIN
+    /// dialog open; `PinLimit` ends the Session. Changed patient data is not a refusal but a
+    /// `DataNotice`. The PIN cases arrive with the Submission.
+    [<RequireQualifiedAccess>]
+    type SigningRefusal =
+        // no Session for the cookie, or none at all
+        | NoSession
+        // the Session has no Patient: nothing to sign for
+        | NoPatient
+        // nobody to sign as, or the Role, re-taken from the registry, is not Prescriber
+        | NotPrescriber
+        // the record moved on since the Session opened its version; whose version, and when
+        | Blocked of OrderPlanHead
+        // not the OpenedToken this Session holds
+        | StaleToken
+        // not the plan the challenge was issued over, or no challenge
+        | ChallengeMismatch
+        | ChallengeExpired
+        // the wrong-PIN count: tries left, the limit reached (the Session ends), or locked
+        // until a moment
+        | PinWrong of attemptsLeft: int
+        | PinLimit
+        | Locked of until: DateTime
+
+
+    /// The patient data as it stands, told before a challenge is issued when it is not what
+    /// the Session opened with. `Data = None`: the platform cannot be read, the data is
+    /// unverified. The User proceeds by returning the token with the next request.
+    type DataNotice =
+        {
+            Data: Patient option
+            Token: string
+        }
+
+
+    /// The signature: the plan as shown, the OpenedToken the Session holds, the challenge it
+    /// was issued, the PIN, and a key of the client's own so that the commit takes effect
+    /// once. Never logged.
+    type Submission =
+        {
+            Plan: OrderPlan
+            Opened: OpenedToken
+            Challenge: string
+            Pin: string
+            IdemKey: string
+        }
+
+
+    /// The answer to a signing command. A payload like `LaunchOutcome`: the session port
+    /// answers it, so it lives with the types, not the api.
+    [<RequireQualifiedAccess>]
+    type SigningResponse =
+        // the challenge over exactly this plan; comes back with the PIN
+        | ChallengeIssued of challenge: string
+        // no challenge yet; the data as it stands, to show and to accept or not
+        | DataNotice of DataNotice
+        // the version committed, and a fresh OpenedToken over it
+        | Submitted of SignedOrderPlan * OpenedToken
+        | Refused of SigningRefusal
+
+
+    /// What a reply says about the Session next to its result. `NewerVersion`: a version
+    /// newer than the one the request's OpenedToken names exists, whose and when; it gates
+    /// nothing. `Ended`: the server ended this Session, told at the next request. Lives here,
+    /// like `SigningResponse`: the session port answers it.
+    [<RequireQualifiedAccess>]
+    type RecordNotice =
+        | NewerVersion of OrderPlanHead
+        | Ended of SessionEnding

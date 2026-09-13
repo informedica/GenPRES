@@ -12,12 +12,19 @@
 
   <ItemGroup>
     <Compile Include="AgeTests.fs" />
+    <Compile Include="LocalizationTests.fs" />
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\LanguagePolicy.fs" />
+    <Compile Include="LanguagePolicyTests.fs" />
     <Compile Include="Tests.fs" />
     <!-- the client session state machine is pure F#; linked in so it runs under Expecto -->
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SessionMachine.fs" />
     <Compile Include="SessionMachineTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SessionGatePolicy.fs" />
     <Compile Include="SessionGatePolicyTests.fs" />
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\SigningMachine.fs" />
+    <Compile Include="SigningMachineTests.fs" />
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\SigningPolicy.fs" />
+    <Compile Include="SigningPolicyTests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="scripts\CalcYearsOracle.fsx" />

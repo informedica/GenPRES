@@ -13,6 +13,7 @@ open Shared.Types
 open Shared.Models
 open Global
 open SessionMachine
+open SigningMachine
 
 
 module private Elmish =
@@ -31,7 +32,6 @@ module private Elmish =
             Interactions: Deferred<DrugInteraction[]>
             InteractionDrugNames: Deferred<string[]>
             DrugNameRetries: int
-            NutritionPlan: Deferred<NutritionPlan>
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
             Localization: Deferred<string[][]>
@@ -50,8 +50,23 @@ module private Elmish =
             AuthToken: string
             LogFiles: Deferred<LogFileInfo[]>
             LogAnalysisReport: Deferred<string>
-            // the launch Session (plan 409); Anonymous is the state every URL patient runs in
+            // the resource reload from the settings page: InProgress from the request until the
+            // pages have refreshed over the reloaded resources
+            Reloading: Deferred<unit>
+            // counts logins and logouts, so that a login answer of an earlier attempt is dropped
+            LoginAttempt: int
+            // the launch Session; Anonymous is the state every URL patient runs in
             Session: Session
+            // the signing phase of the open Session; Idle whenever no Session is open
+            Signing: Signing
+            // the newest version told while the Session is on an older
+            // one; None whenever no Session is open
+            MovedOn: OrderPlanHead option
+            // what the server was configured with: the default language, the demo flag
+            Settings: Deferred<Api.ServerSettings>
+            // the url or the User chose the language (LanguagePolicy); the server default no
+            // longer applies. The language itself lives in Context, where the views read it
+            LanguageChosen: bool
         }
 
 
@@ -59,9 +74,14 @@ module private Elmish =
         | UrlChanged of string list
         | AcceptDisclaimer
         | SessionMsg of SessionMsg
+        | SigningMsg of SigningMsg
 
         | UpdatePage of Global.Pages
         | UpdatePatient of Patient option
+        // the version the Session opened with, into the cart over the patient in state
+        | LoadCart of SignedOrderPlan
+        // a reply said the record moved on
+        | RecordMovedOn of OrderPlanHead
 
         | LoadNormalValues of AsyncOperationStatus<Result<NormalValues, string>>
 
@@ -74,23 +94,23 @@ module private Elmish =
         | UpdateContinuousMedsFilter of string[]
 
         | OrderContextMsg of Api.OrderContextCommand * OrderContext
-        | LoadOrderContextResult of Api.OrderContextCommand * ApiResponse
+        | LoadOrderContextResult of Api.OrderContextCommand * ApiResponse<OrderContext>
 
-        | OrderPlanMsg of Api.OrderPlanCommand
-        | LoadOrderPlanResult of Api.OrderPlanCommand * ApiResponse
-
-        | NutritionPlanMsg of Api.NutritionPlanCommand
-        | LoadNutritionPlanResult of Api.NutritionPlanCommand * ApiResponse
+        // the one plan, nutrition included
+        | OrderPlanMsg of Api.PlanCommand
+        | LoadOrderPlanResult of Api.PlanCommand * ApiResponse<OrderPlan>
+        // the plan as shown: the order-plan page opens on it and its totals are recomputed
+        | ShowOrderPlan of OrderPlan
 
         | UpdateFormulary of Formulary
-        | LoadFormulary of ApiResponse
+        | LoadFormulary of ApiResponse<Formulary>
 
         | UpdateParenteralia of Parenteralia
-        | LoadParenteralia of ApiResponse
+        | LoadParenteralia of ApiResponse<Parenteralia>
 
         | CheckInteractions of string list
-        | LoadInteractionsResult of ApiResponse
-        | LoadInteractionDrugNames of ApiResponse
+        | LoadInteractionsResult of ApiResponse<Api.InteractionResponse>
+        | LoadInteractionDrugNames of ApiResponse<Api.InteractionResponse>
 
         | UpdateLanguage of Localization.Locales
         | LoadLocalization of AsyncOperationStatus<Result<string[][], string>>
@@ -99,18 +119,36 @@ module private Elmish =
         | CloseSnackbar
         | CheckServer of AsyncOperationStatus<Result<string, exn>>
         | DismissServerError
+        | LoadSettings of AsyncOperationStatus<Result<Api.ServerSettings, exn>>
 
         | Login of password: string
-        | LoadLoginResult of ApiResponse
+        // the attempt the answer belongs to: an answer of an earlier attempt is dropped
+        | LoadLoginResult of attempt: int * AdminResult
         | Logout
 
+        // the token the request was made with: an answer to a token no longer held is dropped
         | ListLogFiles
-        | LoadLogFilesResult of ApiResponse
+        | LoadLogFilesResult of token: string * AdminResult
         | AnalyzeLogFile of string
-        | LoadLogAnalysisResult of ApiResponse
+        | LoadLogAnalysisResult of token: string * AdminResult
+        | ReloadResources
+        | LoadReloadResult of token: string * AdminResult
 
 
-    and ApiResponse = AsyncOperationStatus<Result<Api.Response, string[]>>
+    /// A computing answer of a member, typed by what the member answers
+    and ApiResponse<'r> = AsyncOperationStatus<Result<Answer<'r>, string[]>>
+
+    /// An admin answer: no envelope, so no token it started from and no notice
+    and AdminResult = AsyncOperationStatus<Result<Api.AdminResponse, string[]>>
+
+    /// A computing reply with the OpenedToken the request started from, so that what the reply
+    /// tells about the Session (moved on, ended) lands only on the Session that asked: a request
+    /// of a Session since closed or replaced must not end or warn the current one.
+    and Answer<'r> =
+        {
+            From: OpenedToken option
+            Reply: Api.Reply<'r>
+        }
 
 
     let serverApi =
@@ -130,50 +168,82 @@ module private Elmish =
         |> Cmd.fromAsync
 
 
-    let createApiMsg msg cmd =
+    let loadSettings =
         async {
-            let! result = serverApi.processCommand cmd
-            return Finished result |> msg
+            try
+                let! settings = serverApi.getSettings ()
+                return LoadSettings(Finished(Ok settings))
+            with ex ->
+                return LoadSettings(Finished(Error ex))
         }
         |> Cmd.fromAsync
 
 
-    let processApiMsg (state: State) msg =
-        match msg with
-        | Api.OrderContextResp(Api.OrderContextResult ctx) -> { state with OrderContext = Resolved ctx }, Cmd.none
-        | Api.OrderPlanResp(Api.OrderPlanFiltered tp)
-        | Api.OrderPlanResp(Api.OrderPlanUpdated tp) ->
-            let drugs = tp.Scenarios |> Array.map _.Name |> Array.distinct |> Array.toList
+    /// The OpenedToken the Session holds, sent with every computing request; none
+    /// without an open Session.
+    let tokenOf (session: Session) =
+        match session with
+        | Session.Open opened -> opened.OpenedToken
+        | _ -> None
 
-            let cmd =
-                if drugs.Length >= 2 then
-                    Cmd.ofMsg (CheckInteractions drugs)
-                else
-                    Cmd.none
 
-            { state with OrderPlan = Resolved tp }, cmd
-        | Api.FormularyResp form -> { state with Formulary = Resolved form }, Cmd.none
-        | Api.ParenteraliaResp par -> { state with Parenteralia = Resolved par }, Cmd.none
-        | Api.NutritionPlanResp(Api.NutritionPlanInitialised plan)
-        | Api.NutritionPlanResp(Api.NutritionPlanUpdated plan) -> { state with NutritionPlan = Resolved plan }, Cmd.none
-        | Api.InteractionResp(Api.InteractionsChecked interactions) ->
-            let newState =
-                if interactions.Length > 0 then
-                    { state with
-                        SnackbarMsg = $"Er zijn %i{interactions.Length} interactie(s) gevonden"
-                        SnackbarOpen = true
-                        SnackbarSeverity = "warning"
-                    }
-                else
-                    { state with
-                        SnackbarMsg = ""
-                        SnackbarOpen = false
+    /// A computing request through the member given, with the OpenedToken the Session holds;
+    /// the answer comes back with the token it started from.
+    let createApiMsg
+        (call: Api.Request<'cmd> -> Async<Result<Api.Reply<'resp>, string[]>>)
+        (opened: OpenedToken option)
+        msg
+        (cmd: 'cmd)
+        =
+        async {
+            let! result =
+                call
+                    {
+                        Opened = opened
+                        Command = cmd
                     }
 
-            { newState with Interactions = Resolved interactions }, Cmd.none
-        | Api.InteractionResp(Api.DrugNamesLoaded names) ->
-            { state with InteractionDrugNames = Resolved names }, Cmd.none
-        | Api.LogAnalyzerResp(Api.PasswordValidated(isValid, token)) ->
+            return
+                result
+                |> Result.map (fun reply ->
+                    {
+                        From = opened
+                        Reply = reply
+                    }
+                )
+                |> Finished
+                |> msg
+        }
+        |> Cmd.fromAsync
+
+
+    /// An admin command over the token the login bought; never Session-bound.
+    let createAdminMsg msg cmd =
+        async {
+            let! result = serverApi.processAdmin cmd
+            return result |> Finished |> msg
+        }
+        |> Cmd.fromAsync
+
+
+    let applyOrderContext (state: State) (ctx: OrderContext) =
+        { state with OrderContext = Resolved ctx }, Cmd.none
+
+
+    /// A reload settles when the refresh it started has answered: the order context over a
+    /// patient, else the formulary.
+    let settleReload (state: State) =
+        match state.Reloading with
+        | InProgress -> { state with Reloading = Resolved() }
+        | _ -> state
+
+
+    /// An admin answer applied. A reload done reloads what the pages show: the order context
+    /// over the patient, which takes the formulary and the parenteralia with it, or those two
+    /// alone when there is no patient; the reload stays pending until that refresh answered.
+    let applyAdmin (state: State) (response: Api.AdminResponse) =
+        match response with
+        | Api.AdminResponse.PasswordValidated(isValid, token) ->
             if isValid then
                 { state with
                     IsAuthenticated = true
@@ -189,22 +259,122 @@ module private Elmish =
                     SnackbarSeverity = "error"
                 },
                 Cmd.none
-        | Api.LogAnalyzerResp(Api.LogFilesListed files) -> { state with LogFiles = Resolved files }, Cmd.none
-        | Api.LogAnalyzerResp(Api.LogFileAnalyzed report) ->
-            { state with LogAnalysisReport = Resolved report }, Cmd.none
+        | Api.AdminResponse.LogFilesListed files -> { state with LogFiles = Resolved files }, Cmd.none
+        | Api.AdminResponse.LogFileAnalyzed report -> { state with LogAnalysisReport = Resolved report }, Cmd.none
+        | Api.AdminResponse.ResourcesReloaded ->
+            let refresh =
+                match state.Patient, state.OrderContext with
+                | Some _, Resolved ctx
+                | Some _, Recalculating ctx -> Cmd.ofMsg (OrderContextMsg(Api.UpdateOrderContext, ctx))
+                | Some _, _ -> Cmd.ofMsg (OrderContextMsg(Api.UpdateOrderContext, OrderContext.empty))
+                | None, _ ->
+                    Cmd.batch
+                        [
+                            Cmd.ofMsg (LoadFormulary Started)
+                            Cmd.ofMsg (LoadParenteralia Started)
+                        ]
+
+            state, refresh
 
 
-    let loadOrderContext resp =
-        Api.OrderContextCmd >> createApiMsg resp
+    /// The result, and what the Session is told with it: the record moved on or the Session
+    /// ended, each as its own message so the machines decide. The
+    /// stale-request guard: the notice counts only when the request started from the token the
+    /// open Session holds now; a reply of a Session since closed, replaced or re-minted says
+    /// nothing about this one (the next request repeats what still holds; the notice is stateless).
+    let processApiMsg (state: State) (answer: Answer<'r>) (apply: State -> 'r -> State * Cmd<Msg>) =
+        let current =
+            match state.Session with
+            | Session.Open opened -> Some opened.OpenedToken
+            | _ -> None
+
+        let told =
+            match answer.Reply.Notice with
+            | Some _ when current <> Some answer.From -> Cmd.none
+            | Some(RecordNotice.NewerVersion head) -> Cmd.ofMsg (RecordMovedOn head)
+            | Some(RecordNotice.Ended ending) -> Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
+            | None -> Cmd.none
+
+        let state, cmd = apply state answer.Reply.Response
+        state, Cmd.batch [ cmd; told ]
 
 
-    let loadOrderPlan resp = Api.OrderPlanCmd >> createApiMsg resp
+    let applyFormulary (state: State) (form: Formulary) =
+        { state with Formulary = Resolved form }, Cmd.none
 
 
-    let loadFormuarly = Api.FormularyCmd >> createApiMsg LoadFormulary
+    let applyParenteralia (state: State) (par: Parenteralia) =
+        { state with Parenteralia = Resolved par }, Cmd.none
 
 
-    let loadParenteralia = Api.ParenteraliaCmd >> createApiMsg LoadParenteralia
+    /// The plan answered: shown, and its drugs checked for interactions when there are two.
+    let applyPlan (state: State) (tp: OrderPlan) =
+        let drugs = tp.Scenarios |> Array.map _.Name |> Array.distinct |> Array.toList
+
+        let cmd =
+            if drugs.Length >= 2 then
+                Cmd.ofMsg (CheckInteractions drugs)
+            else
+                Cmd.none
+
+        { state with OrderPlan = Resolved tp }, cmd
+
+
+    let applyInteraction (state: State) (response: Api.InteractionResponse) =
+        match response with
+        | Api.InteractionResponse.InteractionsChecked interactions ->
+            let newState =
+                if interactions.Length > 0 then
+                    { state with
+                        SnackbarMsg = $"Er zijn %i{interactions.Length} interactie(s) gevonden"
+                        SnackbarOpen = true
+                        SnackbarSeverity = "warning"
+                    }
+                else
+                    { state with
+                        SnackbarMsg = ""
+                        SnackbarOpen = false
+                    }
+
+            { newState with Interactions = Resolved interactions }, Cmd.none
+        | Api.InteractionResponse.DrugNamesLoaded names ->
+            { state with InteractionDrugNames = Resolved names }, Cmd.none
+
+
+    let loadOrderContext opened resp =
+        createApiMsg serverApi.processOrderContext opened resp
+
+
+    let loadOrderPlan opened resp =
+        createApiMsg serverApi.processOrderPlan opened resp
+
+
+    /// The plan a command was made with.
+    let planOf (cmd: Api.PlanCommand) =
+        match cmd with
+        | Api.PlanCommand.Recalculate plan
+        | Api.PlanCommand.Navigate(plan, _, _, _)
+        | Api.PlanCommand.AddContext(plan, _)
+        | Api.PlanCommand.RemoveContext(plan, _)
+        | Api.PlanCommand.RemoveOrders(plan, _) -> plan
+
+
+    /// The command over the plan the state holds instead of the one it was made with.
+    let withPlan plan (cmd: Api.PlanCommand) =
+        match cmd with
+        | Api.PlanCommand.Recalculate _ -> Api.PlanCommand.Recalculate plan
+        | Api.PlanCommand.Navigate(_, contextId, ctxCmd, ctx) -> Api.PlanCommand.Navigate(plan, contextId, ctxCmd, ctx)
+        | Api.PlanCommand.AddContext(_, category) -> Api.PlanCommand.AddContext(plan, category)
+        | Api.PlanCommand.RemoveContext(_, id) -> Api.PlanCommand.RemoveContext(plan, id)
+        | Api.PlanCommand.RemoveOrders(_, ids) -> Api.PlanCommand.RemoveOrders(plan, ids)
+
+
+    let loadFormulary opened =
+        createApiMsg serverApi.processFormulary opened LoadFormulary
+
+
+    let loadParenteralia opened =
+        createApiMsg serverApi.processParenteralia opened LoadParenteralia
 
 
     // url needs to be in format: http://localhost:8080/#patient?by=2&bm=0&bd=1
@@ -240,7 +410,7 @@ module private Elmish =
 
     // The patient, page, language, disclaimer and medication carried by an
     // anonymous "#/patient?..." url. A "#/session..." url carries none of these:
-    // the session supplies the patient (plan 409), so it yields the defaults
+    // the session supplies the patient, so it yields the defaults
     // without a warning.
     let parsePatient sl =
         match sl with
@@ -332,16 +502,8 @@ module private Elmish =
                 | Some s when s = "pe" -> Some Parenteralia
                 | _ -> None
 
-            let lang =
-                match paramsMap |> Map.tryFind "la" with
-                | Some s when s = "en" -> Some Localization.English
-                | Some s when s = "du" -> Some Localization.Dutch
-                | Some s when s = "fr" -> Some Localization.French
-                | Some s when s = "gr" -> Some Localization.German
-                | Some s when s = "sp" -> Some Localization.Spanish
-                | Some s when s = "it" -> Some Localization.Italian
-                //                | Some s when s = "ch" -> Some Localization.Chinees // refact: to Chinese
-                | _ -> None
+            // ISO code, display name or the legacy codes (du, gr, sp): one parser with the server
+            let lang = paramsMap |> Map.tryFind "la" |> Option.bind Localization.tryParse
 
             let discl =
                 match paramsMap |> Map.tryFind "dc" with
@@ -367,8 +529,8 @@ module private Elmish =
             None, None, None, true, None
 
 
-    /// What a "#/session?..." url carries: the Launch MainEHR opened GenPRES with (launch
-    /// sequence step 1), or the reason the IdentityProvider return refused it (step 4.5).
+    /// What a "#/session?..." url carries: the Launch MainEHR opened GenPRES with, or the
+    /// reason the return from the IdentityProvider refused it.
     [<RequireQualifiedAccess>]
     type LaunchUrl =
         | Launch of Launch
@@ -380,6 +542,7 @@ module private Elmish =
         match reason with
         | "expired" -> LaunchRefusal.LaunchExpired
         | "spent" -> LaunchRefusal.LaunchSpent
+        | "invalid" -> LaunchRefusal.LaunchInvalid
         | "no-identity" -> LaunchRefusal.NoBrowserIdentity
         | "no-role" -> LaunchRefusal.NoRole
         | "wrong-patient" -> LaunchRefusal.WrongActivePatient
@@ -401,7 +564,7 @@ module private Elmish =
         | _ -> None
 
 
-    /// Launch sequence step 2: replace the launch url with "#/session" in the
+    /// Erase the Launch: replace the launch url with "#/session" in the
     /// address bar and the history entry, so the token survives neither a
     /// reload, the back button nor a copied url. Goes through the History API
     /// directly: Router.navigate would dispatch the navigation event and
@@ -443,7 +606,6 @@ module private Elmish =
                 match pat with
                 | None -> HasNotStartedYet
                 | Some p -> OrderPlan.create p [||] |> Resolved
-            NutritionPlan = HasNotStartedYet
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
             Interactions = HasNotStartedYet
@@ -453,7 +615,8 @@ module private Elmish =
             Hospitals = HasNotStartedYet
             Context =
                 {
-                    Localization = lang |> Option.defaultValue Localization.Dutch
+                    // the server default replaces this once LoadSettings resolves, unless the url chose
+                    Localization = (LanguagePolicy.Language.initial lang).Current
                     Hospital = "UMCU"
                 }
             IsDemo = false
@@ -468,11 +631,32 @@ module private Elmish =
             AuthToken = ""
             LogFiles = HasNotStartedYet
             LogAnalysisReport = HasNotStartedYet
+            Reloading = HasNotStartedYet
+            LoginAttempt = 0
             Session = Session.Anonymous
+            Signing = Signing.Idle
+            MovedOn = None
+            Settings = HasNotStartedYet
+            LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
 
 
-    /// Launch step 3 then 4: make the key pair, then present the Launch with its public key.
+    /// The language as LanguagePolicy sees it, and the state after the policy answered.
+    let languageOf (state: State) : LanguagePolicy.Language =
+        {
+            Current = state.Context.Localization
+            Chosen = state.LanguageChosen
+        }
+
+
+    let withLanguage (language: LanguagePolicy.Language) (state: State) =
+        { state with
+            State.Context.Localization = language.Current
+            LanguageChosen = language.Chosen
+        }
+
+
+    /// Make the key pair, then present the Launch with its public key.
     /// A browser that cannot make a key cannot launch; that is reported as a missing browser
     /// identity, the refusal whose text asks for a retry and then a relaunch.
     let presentLaunch (launch: Launch) : Cmd<Msg> =
@@ -511,6 +695,7 @@ module private Elmish =
                     | None -> Cmd.ofMsg (SessionMsg SessionMsg.Resume)
                     | Some _ -> launchCmd launchUrl
                     checkServer
+                    Cmd.ofMsg (LoadSettings Started)
                     Cmd.ofMsg (LoadNormalValues Started)
                     Cmd.ofMsg (LoadBolusMedication Started)
                     Cmd.ofMsg (LoadContinuousMedication Started)
@@ -542,8 +727,7 @@ module private Elmish =
             let base' = { state with OrderContext = Resolved ctx }
 
             match cmd with
-            | Api.UpdateOrderContext
-            | Api.ReloadResources _ ->
+            | Api.UpdateOrderContext ->
                 { base' with
                     Formulary = base'.Formulary |> Deferred.map (OrderContext.syncFilterToFormulary ctx.Filter)
                     Parenteralia =
@@ -559,7 +743,7 @@ module private Elmish =
             | _ -> base', Cmd.ofMsg (LoadOrderContextResult(cmd, Started))
 
 
-    /// One command per session effect (plan 409, "Wiring in App.fs"). A transport failure
+    /// One command per session effect. A transport failure
     /// is a message, never an exception: an Error outcome for a presentation, CloseFailed for
     /// a close that did not reach the server.
     let interpretSessionEffect (effect: SessionEffect) : Cmd<Msg> =
@@ -577,10 +761,33 @@ module private Elmish =
             async {
                 try
                     match! serverApi.processSession Api.SessionCommand.GetSession with
-                    | Api.SessionResponse.SessionResp session -> return SessionMsg(SessionMsg.Resumed(Ok session))
-                    | Api.SessionResponse.SessionClosed -> return SessionMsg(SessionMsg.Resumed(Ok None))
+                    | Api.SessionResponse.SessionResp(Some session) ->
+                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Found session)))
+                    | Api.SessionResponse.SessionResp None
+                    | Api.SessionResponse.SessionClosed ->
+                        return SessionMsg(SessionMsg.Resumed(Ok ResumeResult.NotFound))
+                    | Api.SessionResponse.SessionEnded ending ->
+                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Ended ending)))
+                    | Api.SessionResponse.EnrolmentPending pending ->
+                        return SessionMsg(SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)))
+                    // never an answer to GetSession
+                    | Api.SessionResponse.PinRefused _ ->
+                        return SessionMsg(SessionMsg.Resumed(Ok ResumeResult.NotFound))
                 with ex ->
                     return SessionMsg(SessionMsg.Resumed(Error ex.Message))
+            }
+            |> Cmd.fromAsync
+        // told in update, where the sentence and the notice live
+        | SessionEffect.TellVersionOpened _ -> Cmd.none
+        | SessionEffect.CallOpenVersion(id, from) ->
+            async {
+                try
+                    match! serverApi.processSession (Api.SessionCommand.OpenVersion id) with
+                    | Api.SessionResponse.SessionResp opened -> return SessionMsg(SessionMsg.Reopened(from, Ok opened))
+                    // never an answer to OpenVersion
+                    | _ -> return SessionMsg(SessionMsg.Reopened(from, Ok None))
+                with ex ->
+                    return SessionMsg(SessionMsg.Reopened(from, Error ex.Message))
             }
             |> Cmd.fromAsync
         | SessionEffect.CallCloseSession ->
@@ -592,8 +799,29 @@ module private Elmish =
                 | Choice2Of2 ex -> return SessionMsg(SessionMsg.CloseFailed ex.Message)
             }
             |> Cmd.fromAsync
+        | SessionEffect.CallSupplyPin(code, pin) ->
+            async {
+                try
+                    match! serverApi.processSession (Api.SessionCommand.SupplyPin(code, pin)) with
+                    | Api.SessionResponse.SessionResp(Some session) ->
+                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)))
+                    | Api.SessionResponse.PinRefused refusal ->
+                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)))
+                    // never an answer to SupplyPin: the attempt is gone, whatever happened
+                    | Api.SessionResponse.SessionResp None
+                    | Api.SessionResponse.SessionClosed
+                    | Api.SessionResponse.SessionEnded _
+                    | Api.SessionResponse.EnrolmentPending _ ->
+                        return SessionMsg(SessionMsg.PinAnswered(Ok(PinOutcome.Refused PinRefusal.AttemptExpired)))
+                with ex ->
+                    return SessionMsg(SessionMsg.PinAnswered(Error ex.Message))
+            }
+            |> Cmd.fromAsync
         | SessionEffect.GoTo url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         | SessionEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient patient)
+        // the cart starts as the version the Session opened with; built in update, over
+        // the patient as UpdatePatient left it (normal values applied)
+        | SessionEffect.LoadCart head -> Cmd.ofMsg (LoadCart head)
         | SessionEffect.KeepKey thumbprint ->
             Cmd.ofEffect (fun _ ->
                 async {
@@ -605,9 +833,70 @@ module private Elmish =
             )
 
 
-    let update (msg: Msg) (state: State) =
-        let processOk = processApiMsg state
+    /// One command per signing effect. The machine names the plan, the challenge, the PIN,
+    /// the request id and the key; the OpenedToken comes from the open Session here, and
+    /// every answer carries the request id or the key it answers, so the machine
+    /// can drop one that belongs to an earlier Session. Without an open Session nothing is sent:
+    /// the answer is a refusal. What is told (signed, refused, an error) is put on the snackbar
+    /// by `update`, not here.
+    let interpretSigningEffect (session: Session) (effect: SigningEffect) : Cmd<Msg> =
+        let token = tokenOf session
 
+        match effect with
+        | SigningEffect.CallChallenge(plan, notice, request) ->
+            match token with
+            | None ->
+                Cmd.ofMsg (
+                    SigningMsg(
+                        SigningMsg.ChallengeAnswered(request, Ok(SigningResponse.Refused SigningRefusal.NoSession))
+                    )
+                )
+            | Some opened ->
+                async {
+                    try
+                        let! answer =
+                            serverApi.processSigning (Api.SigningCommand.RequestSignChallenge(plan, opened, notice))
+
+                        return SigningMsg(SigningMsg.ChallengeAnswered(request, Ok answer))
+                    with ex ->
+                        return SigningMsg(SigningMsg.ChallengeAnswered(request, Error ex.Message))
+                }
+                |> Cmd.fromAsync
+        | SigningEffect.CallSubmit(plan, challenge, pin, key) ->
+            match token with
+            | None ->
+                Cmd.ofMsg (
+                    SigningMsg(SigningMsg.SubmitAnswered(key, Ok(SigningResponse.Refused SigningRefusal.NoSession)))
+                )
+            | Some opened ->
+                async {
+                    try
+                        let! answer =
+                            serverApi.processSigning (
+                                Api.SigningCommand.Submit
+                                    {
+                                        Plan = plan
+                                        Opened = opened
+                                        Challenge = challenge
+                                        Pin = pin
+                                        IdemKey = key
+                                    }
+                            )
+
+                        return SigningMsg(SigningMsg.SubmitAnswered(key, Ok answer))
+                    with ex ->
+                        return SigningMsg(SigningMsg.SubmitAnswered(key, Error ex.Message))
+                }
+                |> Cmd.fromAsync
+        | SigningEffect.RenewToken token -> Cmd.ofMsg (SessionMsg(SessionMsg.TokenRenewed token))
+        | SigningEffect.EndSession ending -> Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
+        | SigningEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient(Some patient))
+        | SigningEffect.TellSigned _
+        | SigningEffect.TellRefused _
+        | SigningEffect.TellError _ -> Cmd.none
+
+
+    let update (msg: Msg) (state: State) =
         let processError err (state, cmd) =
             let errMsg =
                 err
@@ -624,6 +913,15 @@ module private Elmish =
                 ServerError = Some $"Server fout: {errMsg}"
             },
             cmd
+
+        // a token the server no longer takes (expired, or a restart): the login is over
+        let tokenError err (state, cmd) =
+            let state, cmd = processError err (state, cmd)
+
+            if err |> Array.contains "Invalid token" then
+                state, Cmd.batch [ cmd; Cmd.ofMsg Logout ]
+            else
+                state, cmd
 
         let selectMedicationItem generic indication route doseType state =
             let nonEmpty s = if s = "" then None else Some s
@@ -680,14 +978,36 @@ module private Elmish =
 
         | DismissServerError -> { state with ServerError = None }, Cmd.none
 
+        | LoadSettings Started -> { state with Settings = InProgress }, loadSettings
+
+        | LoadSettings(Finished(Ok settings)) ->
+            // the server default counts until the url or the User chooses; a choice made while
+            // the settings were in flight wins (LanguagePolicy.onServerDefault)
+            { state with
+                Settings = Resolved settings
+                IsDemo = settings.IsDemo
+            }
+            |> withLanguage (languageOf state |> LanguagePolicy.Language.onServerDefault settings.Language),
+            Cmd.none
+
+        | LoadSettings(Finished(Error err)) ->
+            // no settings: the client keeps its own defaults, which is what it did before
+            Logging.error "cannot load the server settings" err
+            { state with Settings = HasNotStartedYet }, Cmd.none
+
         | Login password ->
-            state,
-            Api.LogAnalyzerCmd(Api.ValidatePassword password)
-            |> createApiMsg LoadLoginResult
+            let attempt = state.LoginAttempt + 1
 
-        | LoadLoginResult(Finished(Ok resp)) -> processOk resp
+            { state with LoginAttempt = attempt },
+            Api.AdminCommand.ValidatePassword password
+            |> createAdminMsg (fun result -> LoadLoginResult(attempt, result))
 
-        | LoadLoginResult(Finished(Error err)) ->
+        // an answer of an earlier attempt: a login since logged out, or asked again
+        | LoadLoginResult(attempt, Finished _) when attempt <> state.LoginAttempt -> state, Cmd.none
+
+        | LoadLoginResult(_, Finished(Ok resp)) -> applyAdmin state resp
+
+        | LoadLoginResult(_, Finished(Error err)) ->
             ({ state with
                 IsAuthenticated = false
                 AuthToken = ""
@@ -695,50 +1015,74 @@ module private Elmish =
              Cmd.none)
             |> processError err
 
-        | LoadLoginResult Started -> state, Cmd.none
+        | LoadLoginResult(_, Started) -> state, Cmd.none
 
         | Logout ->
             { state with
                 IsAuthenticated = false
                 AuthToken = ""
+                LoginAttempt = state.LoginAttempt + 1
                 LogFiles = HasNotStartedYet
                 LogAnalysisReport = HasNotStartedYet
+                Reloading = HasNotStartedYet
                 Page = if state.Page = Settings then LifeSupport else state.Page
             },
             Cmd.none
 
+        // an answer to a token no longer held (logged out, or logged in again since): dropped,
+        // so a late refusal cannot end the new login and a late answer cannot revive the old
+        | LoadLogFilesResult(token, Finished _)
+        | LoadLogAnalysisResult(token, Finished _)
+        | LoadReloadResult(token, Finished _) when token <> state.AuthToken -> state, Cmd.none
+
         | ListLogFiles ->
+            let token = state.AuthToken
+
             { state with LogFiles = InProgress },
-            Api.LogAnalyzerCmd(Api.ListLogFiles state.AuthToken)
-            |> createApiMsg LoadLogFilesResult
+            Api.AdminCommand.ListLogFiles token
+            |> createAdminMsg (fun result -> LoadLogFilesResult(token, result))
 
-        | LoadLogFilesResult(Finished(Ok resp)) -> processOk resp
+        | LoadLogFilesResult(_, Finished(Ok resp)) -> applyAdmin state resp
 
-        | LoadLogFilesResult(Finished(Error err)) ->
-            ({ state with LogFiles = HasNotStartedYet }, Cmd.none) |> processError err
+        | LoadLogFilesResult(_, Finished(Error err)) ->
+            ({ state with LogFiles = HasNotStartedYet }, Cmd.none) |> tokenError err
 
-        | LoadLogFilesResult Started -> state, Cmd.none
+        | LoadLogFilesResult(_, Started) -> state, Cmd.none
 
         | AnalyzeLogFile fileName ->
+            let token = state.AuthToken
+
             { state with LogAnalysisReport = InProgress },
-            Api.LogAnalyzerCmd(Api.AnalyzeLogFile(state.AuthToken, fileName))
-            |> createApiMsg LoadLogAnalysisResult
+            Api.AdminCommand.AnalyzeLogFile(token, fileName)
+            |> createAdminMsg (fun result -> LoadLogAnalysisResult(token, result))
 
-        | LoadLogAnalysisResult(Finished(Ok resp)) -> processOk resp
+        | LoadLogAnalysisResult(_, Finished(Ok resp)) -> applyAdmin state resp
 
-        | LoadLogAnalysisResult(Finished(Error err)) ->
+        | LoadLogAnalysisResult(_, Finished(Error err)) ->
             ({ state with LogAnalysisReport = HasNotStartedYet }, Cmd.none)
-            |> processError err
+            |> tokenError err
 
-        | LoadLogAnalysisResult Started -> state, Cmd.none
+        | LoadLogAnalysisResult(_, Started) -> state, Cmd.none
+
+        | ReloadResources ->
+            let token = state.AuthToken
+
+            { state with Reloading = InProgress },
+            Api.AdminCommand.ReloadResources token
+            |> createAdminMsg (fun result -> LoadReloadResult(token, result))
+
+        | LoadReloadResult(_, Finished(Ok resp)) -> applyAdmin state resp
+
+        | LoadReloadResult(_, Finished(Error err)) ->
+            ({ state with Reloading = HasNotStartedYet }, Cmd.none) |> tokenError err
+
+        | LoadReloadResult(_, Started) -> state, Cmd.none
 
         | AcceptDisclaimer -> { state with ShowDisclaimer = false }, Cmd.none
 
         | UpdateLanguage lang ->
-            { state with
-                ShowDisclaimer = true
-                State.Context.Localization = lang
-            },
+            { state with ShowDisclaimer = true }
+            |> withLanguage (languageOf state |> LanguagePolicy.Language.choose lang),
             Cmd.none
 
         | UpdateHospital hosp ->
@@ -785,6 +1129,36 @@ module private Elmish =
 
                 { state with Page = page }, Cmd.batch (retryDrugNames :: loadCmds)
 
+        // FilterOrderPlan sends the cart through the server so totals and filters are computed
+        // as for any cart; the patient is the one every other part of the state uses
+        // told once per version (it gates nothing); the bar on the order plan offers it
+        | RecordMovedOn head ->
+            let movedOn, news = MovedOn.receive state.MovedOn head
+            let state = { state with MovedOn = movedOn }
+
+            if news then
+                let tr term =
+                    Global.getLocalizedTerm
+                        state.Localization
+                        state.Context.Localization
+                        (SigningPolicy.english term)
+                        term
+
+                { state with
+                    SnackbarMsg = SigningPolicy.movedOnSentence tr head
+                    SnackbarOpen = true
+                    SnackbarSeverity = "warning"
+                },
+                Cmd.none
+            else
+                state, Cmd.none
+
+        | LoadCart head ->
+            match state.Patient with
+            | Some pat ->
+                state, Cmd.ofMsg (OrderPlanMsg(Api.PlanCommand.Recalculate(OrderPlan.create pat head.Scenarios)))
+            | None -> state, Cmd.none
+
         | UpdatePatient pat ->
             let pat = pat |> applyNormalValues state.NormalValues
 
@@ -809,7 +1183,6 @@ module private Elmish =
                         |> Deferred.map (fun tp -> { tp with Patient = p })
                         |> Deferred.defaultValue tp
                         |> Resolved
-                NutritionPlan = HasNotStartedYet
                 Formulary = { Formulary.empty with Patient = pat } |> Resolved
                 Parenteralia = Parenteralia.empty |> Resolved
                 EmergencyListFilter = [||]
@@ -819,7 +1192,7 @@ module private Elmish =
                 [
                     Cmd.ofMsg (LoadOrderContextResult(Api.UpdateOrderContext, Started))
                     Cmd.ofMsg (
-                        LoadOrderPlanResult(Api.UpdateOrderPlan(OrderPlan.create Patient.empty [||], None), Started)
+                        LoadOrderPlanResult(Api.PlanCommand.Recalculate(OrderPlan.create Patient.empty [||]), Started)
                     )
                     Cmd.ofMsg (LoadFormulary Started)
                     Cmd.ofMsg (LoadParenteralia Started)
@@ -834,7 +1207,7 @@ module private Elmish =
             let pat, page, lang, discl, med = sl |> parsePatient
 
             // an open Session supplies the patient: url patient parameters count only while
-            // no Session holds one (plan 409, "Patient is never assigned directly"). The
+            // no Session holds one: a launched patient is never assigned from the url. The
             // router fires UrlChanged on mount too, while a Resume may still be in flight,
             // so only Open and Closing block the url patient
             let anonymous =
@@ -844,6 +1217,9 @@ module private Elmish =
                 | _ -> true
 
             let pat = if anonymous then pat else state.Patient
+
+            // only an `la` parameter changes the language; a navigation keeps the current one
+            let language = languageOf state |> LanguagePolicy.Language.onUrl lang
 
             { state with
                 ShowDisclaimer = discl
@@ -865,7 +1241,8 @@ module private Elmish =
                             |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
                             |> Resolved
                 // State. prefix needed: disambiguates State.Context field from Global.Context type
-                State.Context.Localization = lang |> Option.defaultValue Localization.English
+                State.Context.Localization = language.Current
+                LanguageChosen = language.Chosen
             },
             Cmd.batch
                 [
@@ -890,9 +1267,92 @@ module private Elmish =
                         SnackbarOpen = true
                         SnackbarSeverity = "error"
                     }
+                // the same for a PIN that never reached the server: the form comes back as it was
+                | SessionMsg.PinAnswered(Error reason), Session.SupplyingPin _ ->
+                    Logging.error "could not send the PIN to the server" reason
+
+                    { state with
+                        SnackbarMsg = "De pincode kon niet worden verstuurd. Probeer het opnieuw."
+                        SnackbarOpen = true
+                        SnackbarSeverity = "error"
+                    }
                 | _ -> state
 
-            { state with Session = session }, effects |> List.map interpretSessionEffect |> Cmd.batch
+            // a signature belongs to an open Session: whatever ends the Session drops it;
+            // so does the moved-on notice
+            let signing, movedOn =
+                match session with
+                | Session.Open _ -> state.Signing, state.MovedOn
+                | _ -> Signing.Idle, None
+
+            // the version is open; said once, and the notice is spent
+            let state, movedOn =
+                effects
+                |> List.fold
+                    (fun (state, movedOn) effect ->
+                        match effect with
+                        | SessionEffect.TellVersionOpened head ->
+                            let tr term =
+                                Global.getLocalizedTerm
+                                    state.Localization
+                                    state.Context.Localization
+                                    (SigningPolicy.english term)
+                                    term
+
+                            { state with
+                                SnackbarMsg = SigningPolicy.versionOpenedSentence tr head
+                                SnackbarOpen = true
+                                SnackbarSeverity = "success"
+                            },
+                            // a newer notice told meanwhile stays, with its offer
+                            MovedOn.opened movedOn head
+                        | _ -> state, movedOn
+                    )
+                    (state, movedOn)
+
+            { state with
+                Session = session
+                Signing = signing
+                MovedOn = movedOn
+            },
+            effects |> List.map interpretSessionEffect |> Cmd.batch
+
+        | SigningMsg msg ->
+            let signing, effects = Signing.transition msg state.Signing
+
+            let tr term =
+                Global.getLocalizedTerm state.Localization state.Context.Localization (SigningPolicy.english term) term
+
+            let tell message severity (state: State) =
+                { state with
+                    SnackbarMsg = message
+                    SnackbarOpen = true
+                    SnackbarSeverity = severity
+                }
+
+            let state =
+                effects
+                |> List.fold
+                    (fun state effect ->
+                        match effect with
+                        | SigningEffect.TellSigned signed ->
+                            state |> tell (SigningPolicy.signedSentence tr signed) "success"
+                        // a refusal because the record moved on is the notice too; the
+                        // sentence is told here, the bar offers the version
+                        | SigningEffect.TellRefused(SigningRefusal.Blocked head as refusal) ->
+                            { state with MovedOn = MovedOn.receive state.MovedOn head |> fst }
+                            |> tell (SigningPolicy.refusalSentence tr refusal) "warning"
+                        | SigningEffect.TellRefused refusal ->
+                            state |> tell (SigningPolicy.refusalSentence tr refusal) "warning"
+                        | SigningEffect.TellError reason ->
+                            Logging.error "could not send the signature to the server" reason
+
+                            state |> tell (tr Terms.``Signing Send Failed``) "error"
+                        | _ -> state
+                    )
+                    state
+
+            { state with Signing = signing }, effects |> List.map (interpretSigningEffect state.Session) |> Cmd.batch
 
         | LoadLocalization Started ->
             { state with Localization = InProgress }, Cmd.fromAsync (GoogleDocs.loadLocalization LoadLocalization)
@@ -997,13 +1457,7 @@ module private Elmish =
 
         | LoadOrderContextResult(cmd, Started) ->
             match state.Patient with
-            | None ->
-                match cmd with
-                | Api.ReloadResources pw ->
-                    { state with OrderContext = HasNotStartedYet },
-                    (Api.ReloadResources pw, OrderContext.empty)
-                    |> loadOrderContext (fun resp -> LoadOrderContextResult(cmd, resp))
-                | _ -> { state with OrderContext = HasNotStartedYet }, Cmd.none
+            | None -> { state with OrderContext = HasNotStartedYet }, Cmd.none
             | Some pat ->
                 match state.OrderContext with
                 | InProgress
@@ -1011,15 +1465,16 @@ module private Elmish =
                 | HasNotStartedYet ->
                     { state with OrderContext = InProgress },
                     (cmd, OrderContext.empty |> OrderContext.setPatient pat)
-                    |> loadOrderContext (fun resp -> LoadOrderContextResult(cmd, resp))
+                    |> loadOrderContext (tokenOf state.Session) (fun resp -> LoadOrderContextResult(cmd, resp))
                 | Resolved ctx ->
                     { state with OrderContext = Recalculating ctx },
                     (cmd, { ctx with Patient = pat })
-                    |> loadOrderContext (fun resp -> LoadOrderContextResult(cmd, resp))
+                    |> loadOrderContext (tokenOf state.Session) (fun resp -> LoadOrderContextResult(cmd, resp))
 
-        | LoadOrderContextResult(_, Finished(Ok msg)) -> msg |> processOk
+        | LoadOrderContextResult(_, Finished(Ok msg)) -> processApiMsg (settleReload state) msg applyOrderContext
         | LoadOrderContextResult(_, Finished(Error err)) ->
             Logging.warning "order context error, resetting" err
+            let state = settleReload state
 
             let isNoRulesError = err |> Array.exists _.ToLower().Contains("geen doseerregels")
 
@@ -1036,52 +1491,57 @@ module private Elmish =
                 Cmd.none
 
 
-        | OrderPlanMsg tpCmd ->
-            match tpCmd with
-            | Api.UpdateOrderPlan(tp, Some(ctxCmd, ctx)) ->
+        // the plan as shown: the page opens on it; its totals are recomputed unless the only
+        // change is a scenario selected for the dialog
+        | ShowOrderPlan tp ->
+            let onlySetOrderContext =
+                state.OrderPlan
+                |> Deferred.map (fun st -> st.Selected.IsNone && tp.Selected.IsSome)
+                |> Deferred.defaultValue false
+
+            let tpState =
+                match state.OrderPlan with
+                | Recalculating _ -> Recalculating tp
+                | _ -> Resolved tp
+
+            let recalculate =
+                Cmd.ofMsg (LoadOrderPlanResult(Api.PlanCommand.Recalculate tp, Started))
+
+            // CheckInteractions is dispatched when the plan answers, so not here
+            let cmd =
+                if state.Page = OrderPlan then
+                    match state.OrderPlan with
+                    | Recalculating _ -> Cmd.none
+                    | _ -> if onlySetOrderContext then Cmd.none else recalculate
+                else
+                    Cmd.batch
+                        [
+                            Cmd.ofMsg (OrderContextMsg(Api.UpdateOrderContext, OrderContext.empty))
+                            recalculate
+                        ]
+
+            { state with
+                Page = OrderPlan
+                OrderPlan = tpState
+            },
+            cmd
+
+        | OrderPlanMsg cmd ->
+            match cmd with
+            | Api.PlanCommand.Recalculate tp ->
+                { state with OrderPlan = Resolved tp }, Cmd.ofMsg (LoadOrderPlanResult(cmd, Started))
+            // a change to the plan: one at a time, over the plan as it is
+            | Api.PlanCommand.Navigate(tp, _, _, _)
+            | Api.PlanCommand.AddContext(tp, _)
+            | Api.PlanCommand.RemoveContext(tp, _)
+            | Api.PlanCommand.RemoveOrders(tp, _) ->
                 match state.OrderPlan with
                 | InProgress
                 | Recalculating _ -> state, Cmd.none
                 | _ ->
                     { state with OrderPlan = Recalculating tp },
-                    Api.OrderPlanCmd(Api.UpdateOrderPlan(tp, Some(ctxCmd, ctx)))
-                    |> createApiMsg (fun resp -> LoadOrderPlanResult(tpCmd, resp))
-            | Api.UpdateOrderPlan(tp, None) ->
-                let onlySetOrderContext =
-                    state.OrderPlan
-                    |> Deferred.map (fun st -> st.Selected.IsNone && tp.Selected.IsSome)
-                    |> Deferred.defaultValue false
-
-                let tpState =
-                    match state.OrderPlan with
-                    | Recalculating _ -> Recalculating tp
-                    | _ -> Resolved tp
-
-                // CheckInteractions is dispatched by processApiMsg when the API response
-                // arrives, so we don't duplicate it here.
-                let cmd =
-                    if state.Page = OrderPlan then
-                        match state.OrderPlan with
-                        | Recalculating _ -> Cmd.none
-                        | _ ->
-                            if onlySetOrderContext then
-                                Cmd.none
-                            else
-                                Cmd.ofMsg (LoadOrderPlanResult(tpCmd, Started))
-                    else
-                        Cmd.batch
-                            [
-                                Cmd.ofMsg (OrderContextMsg(Api.UpdateOrderContext, OrderContext.empty))
-                                Cmd.ofMsg (LoadOrderPlanResult(tpCmd, Started))
-                            ]
-
-                { state with
-                    Page = OrderPlan
-                    OrderPlan = tpState
-                },
-                cmd
-            | Api.FilterOrderPlan tp ->
-                { state with OrderPlan = Resolved tp }, Cmd.ofMsg (LoadOrderPlanResult(tpCmd, Started))
+                    cmd
+                    |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
 
         | LoadOrderPlanResult(cmd, Started) ->
             match state.Patient with
@@ -1090,41 +1550,31 @@ module private Elmish =
                 match state.OrderPlan with
                 | InProgress
                 | Recalculating _ -> state, Cmd.none
+                // the answer carries the command as sent, over the plan the state held, so
+                // that a refusal restores that plan and not the one the command was made with
                 | HasNotStartedYet ->
-                    let apiCmd =
-                        match cmd with
-                        | Api.FilterOrderPlan _ -> Api.FilterOrderPlan(OrderPlan.create pat [||])
-                        | Api.UpdateOrderPlan(_, ctxOpt) -> Api.UpdateOrderPlan(OrderPlan.create pat [||], ctxOpt)
+                    let cmd = cmd |> withPlan (OrderPlan.create pat [||])
 
                     { state with OrderPlan = InProgress },
-                    apiCmd |> loadOrderPlan (fun resp -> LoadOrderPlanResult(cmd, resp))
+                    cmd
+                    |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
                 | Resolved tp ->
-                    let apiCmd =
-                        match cmd with
-                        | Api.FilterOrderPlan _ -> Api.FilterOrderPlan tp
-                        | Api.UpdateOrderPlan(_, ctxOpt) -> Api.UpdateOrderPlan(tp, ctxOpt)
+                    let cmd = cmd |> withPlan tp
 
                     { state with OrderPlan = InProgress },
-                    apiCmd |> loadOrderPlan (fun resp -> LoadOrderPlanResult(cmd, resp))
+                    cmd
+                    |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
 
-        | LoadOrderPlanResult(_, Finished(Ok msg)) -> msg |> processOk
-        | LoadOrderPlanResult(_, Finished(Error err)) ->
-            ({ state with OrderPlan = HasNotStartedYet }, Cmd.none) |> processError err
+        | LoadOrderPlanResult(_, Finished(Ok msg)) -> processApiMsg state msg applyPlan
+        // a refused change leaves the plan as the request found it, so the pages keep their
+        // controls and the next action is the retry; without a patient there is no plan
+        | LoadOrderPlanResult(cmd, Finished(Error err)) ->
+            let plan =
+                match state.Patient with
+                | None -> HasNotStartedYet
+                | Some _ -> Resolved(planOf cmd)
 
-        | NutritionPlanMsg npCmd ->
-            let planState =
-                match state.NutritionPlan with
-                | Resolved plan -> Recalculating plan
-                | _ -> InProgress
-
-            { state with NutritionPlan = planState },
-            Api.NutritionPlanCmd npCmd
-            |> createApiMsg (fun resp -> LoadNutritionPlanResult(npCmd, resp))
-
-        | LoadNutritionPlanResult(_, Started) -> state, Cmd.none
-        | LoadNutritionPlanResult(_, Finished(Ok msg)) -> msg |> processOk
-        | LoadNutritionPlanResult(_, Finished(Error err)) ->
-            ({ state with NutritionPlan = HasNotStartedYet }, Cmd.none) |> processError err
+            ({ state with OrderPlan = plan }, Cmd.none) |> processError err
 
         | LoadFormulary Started ->
             match state.Formulary with
@@ -1135,13 +1585,17 @@ module private Elmish =
                     | Resolved form -> { form with Patient = state.Patient }
                     | _ -> Formulary.empty
 
-                let cmd = form |> loadFormuarly
+                let cmd = form |> loadFormulary (tokenOf state.Session)
 
                 { state with Formulary = InProgress }, cmd
 
-        | LoadFormulary(Finished(Ok msg)) -> processOk msg
+        // without a patient the formulary is what a reload refreshes, so it settles the reload
+        | LoadFormulary(Finished(Ok msg)) ->
+            let state = if state.Patient.IsNone then settleReload state else state
+            processApiMsg state msg applyFormulary
 
         | LoadFormulary(Finished(Error err)) ->
+            let state = if state.Patient.IsNone then settleReload state else state
             ({ state with Formulary = HasNotStartedYet }, Cmd.none) |> processError err
 
         | UpdateFormulary form ->
@@ -1175,11 +1629,11 @@ module private Elmish =
                 let cmd =
                     let par = state.Parenteralia |> Deferred.defaultValue Parenteralia.empty
 
-                    loadParenteralia par
+                    loadParenteralia (tokenOf state.Session) par
 
                 { state with Parenteralia = InProgress }, cmd
 
-        | LoadParenteralia(Finished(Ok msg)) -> msg |> processOk
+        | LoadParenteralia(Finished(Ok msg)) -> processApiMsg state msg applyParenteralia
 
         | LoadParenteralia(Finished(Error err)) ->
             ({ state with Parenteralia = HasNotStartedYet }, Cmd.none) |> processError err
@@ -1220,10 +1674,10 @@ module private Elmish =
                 Cmd.none
             else
                 { state with Interactions = InProgress },
-                Api.InteractionCmd(Api.CheckInteractions drugs)
-                |> createApiMsg LoadInteractionsResult
+                Api.InteractionCommand.CheckInteractions drugs
+                |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionsResult
 
-        | LoadInteractionsResult(Finished(Ok msg)) -> msg |> processOk
+        | LoadInteractionsResult(Finished(Ok msg)) -> processApiMsg state msg applyInteraction
         | LoadInteractionsResult(Finished(Error err)) ->
             ({ state with Interactions = HasNotStartedYet }, Cmd.none) |> processError err
         | LoadInteractionsResult _ -> state, Cmd.none
@@ -1233,10 +1687,11 @@ module private Elmish =
             | InProgress -> state, Cmd.none
             | _ ->
                 { state with InteractionDrugNames = InProgress },
-                Api.InteractionCmd Api.GetDrugNames |> createApiMsg LoadInteractionDrugNames
+                Api.InteractionCommand.GetDrugNames
+                |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionDrugNames
 
         | LoadInteractionDrugNames(Finished(Ok msg)) ->
-            let state, cmd = msg |> processOk
+            let state, cmd = processApiMsg state msg applyInteraction
             { state with DrugNameRetries = 0 }, cmd
         | LoadInteractionDrugNames(Finished(Error _)) ->
             let retries = state.DrugNameRetries + 1
@@ -1289,11 +1744,8 @@ type private ConcreteAppEnv
 
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = state.OrderPlan
-        member _.OrderPlanCommand cmd = OrderPlanMsg cmd |> dispatch
-
-    interface AppEnv.INutritionPlan with
-        member _.NutritionPlan = state.NutritionPlan
-        member _.NutritionPlanMsg cmd = NutritionPlanMsg cmd |> dispatch
+        member _.PlanCommand cmd = OrderPlanMsg cmd |> dispatch
+        member _.ShowOrderPlan tp = ShowOrderPlan tp |> dispatch
 
     interface AppEnv.IPatient with
         member _.Patient = state.Patient
@@ -1313,8 +1765,8 @@ type private ConcreteAppEnv
         member _.CheckInteractions drugs = CheckInteractions drugs |> dispatch
 
     interface AppEnv.IResources with
-        member _.ReloadResources pw =
-            OrderContextMsg(Api.ReloadResources pw, OrderContext.empty) |> dispatch
+        member _.Reload = state.Reloading
+        member _.ReloadResources() = ReloadResources |> dispatch
 
     interface AppEnv.ISession with
         member _.Session = state.Session
@@ -1323,6 +1775,31 @@ type private ConcreteAppEnv
 
         member _.OpenAnonymously() =
             SessionMsg SessionMsg.OpenAnonymous |> dispatch
+
+        member _.SupplyPin code pin =
+            SessionMsg(SessionMsg.SupplyPin(code, pin)) |> dispatch
+
+        member _.MovedOn = state.MovedOn
+
+        member _.OpenVersion id =
+            SessionMsg(SessionMsg.OpenVersion id) |> dispatch
+
+    interface AppEnv.ISigning with
+        member _.Signing = state.Signing
+
+        // one request id per Sign, so the answer lands on this request and no other
+        member _.Sign plan =
+            SigningMsg(SigningMsg.Sign(plan, Guid.NewGuid().ToString())) |> dispatch
+
+        member _.Accept() =
+            SigningMsg SigningMsg.Accept |> dispatch
+
+        // one key per confirmation, so the commit takes effect once; the machine keeps it for a retry
+        member _.Confirm pin =
+            SigningMsg(SigningMsg.Confirm(pin, Guid.NewGuid().ToString())) |> dispatch
+
+        member _.Cancel() =
+            SigningMsg SigningMsg.Cancel |> dispatch
 
     interface AppEnv.IAuthentication with
         member _.IsAuthenticated = state.IsAuthenticated
@@ -1464,7 +1941,7 @@ let View () =
     let genPresProps =
         {|
             appEnv = appEnv
-            // the disclaimer is for anonymous use only (plan 409): a launched, resuming or
+            // the disclaimer is for anonymous use only: a launched, resuming or
             // refused session never sees it; an anonymous open after a refusal does
             showDisclaimer =
                 state.ShowDisclaimer

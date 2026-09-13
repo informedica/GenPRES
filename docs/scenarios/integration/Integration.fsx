@@ -42,7 +42,7 @@
 // What authority a User holds. The UserRegistry decides it; MainEHR and GenPRES
 // enforce it separately, each within itself.
 //
-//  1. Prescriber  may read, and may create TreatmentPlans.
+//  1. Prescriber  may read, and may create OrderPlans.
 //  2. Reader      may prescribe within a Session like anyone, but may sign none of it.
 //
 // ── Concepts ───────────────────────────────────────────────────────────────────
@@ -66,14 +66,14 @@
 // 10. OrderContext            a PatientContext with its OrderScenarios, keeping its identity across plans
 //                             and carrying the stamp of whoever last changed it.
 // 11. OrderScenario           one proposed Order with the prescribing information that gives it meaning.
-// 12. GenPRES PatientRecord   a Patient's append-only history in GenPRES: a sequence of TreatmentPlans,
+// 12. GenPRES PatientRecord   a Patient's append-only history in GenPRES: a sequence of OrderPlans,
 //                             every one of them signed.
-// 13. TreatmentPlan           the plan as it stood when signed: orders, author, Session, base, the Patient
+// 13. OrderPlan           the plan as it stood when signed: orders, author, Session, base, the Patient
 //                             Data it was built on, and the rule set it was checked under.
 // 14. Submission              submitting is signing. It carries the Session User's PIN, and it is the only
-//                             way a TreatmentPlan comes into being.
+//                             way an OrderPlan comes into being.
 // 15. Prescribing             changing the WorkPlan within a Session; nothing reaches the record until a
-//                             TreatmentPlan is signed.
+//                             OrderPlan is signed.
 // 16. WorkPlan                the plan under the User's hands in the Client. It dies with the browser
 //                             unless it is signed.
 // 17. Token                   a note the Server signs and the Client returns unaltered: the OpenedToken,
@@ -156,19 +156,19 @@
 //      Client still holding the SessionId is only refused, with the reason.
 //  12. The SessionId rides in an HttpOnly, Secure, SameSite=Strict cookie, and a changing request needs
 //      GenPRES's own Origin.
-//  13. A Session without a PatientId may prescribe, but may open or create no TreatmentPlan.
+//  13. A Session without a PatientId may prescribe, but may open or create no OrderPlan.
 //  14. A launchless Session is anonymous — no User, no Role, no Patient — capped in number and ended by
 //      an absolute limit.
 //
 // Record
-//  15. Every TreatmentPlan is created under one User's credentials, and every OrderContext changed in
+//  15. Every OrderPlan is created under one User's credentials, and every OrderContext changed in
 //      the Session carries that stamp.
-//  16. A TreatmentPlan never changes: it is corrected only by a newer one whose base it is, and every
+//  16. An OrderPlan never changes: it is corrected only by a newer one whose base it is, and every
 //      later version of GenPRES must still open it.
-//  17. Only the most recent TreatmentPlan counts clinically.
-//  18. Every TreatmentPlan is open to read, but only the most recent can be built on.
-//  19. A User starts from the most recent TreatmentPlan; where none exists, from nothing.
-//  20. A User may submit unless a TreatmentPlan newer than the one they opened with exists; opening that
+//  17. Only the most recent OrderPlan counts clinically.
+//  18. Every OrderPlan is open to read, but only the most recent can be built on.
+//  19. A User starts from the most recent OrderPlan; where none exists, from nothing.
+//  20. A User may submit unless an OrderPlan newer than the one they opened with exists; opening that
 //      one lifts the block.
 //
 // Notification
@@ -180,7 +180,7 @@
 //  23. The Server alone verifies a UserCredential; the PIN never leaves GenPRES.
 //  24. Every launch checks whether a PIN is set for the login.
 //  25. A Prescriber with no PIN sets one before the launch goes on, and only once the registry knows them.
-//  26. A Reader is never asked for a PIN: they never create a TreatmentPlan.
+//  26. A Reader is never asked for a PIN: they never create an OrderPlan.
 //  27. Every PIN set or replaced is mailed to the User and recorded — as is reaching the wrong-PIN limit.
 //      - The address comes from the UserRegistry, freshly, on the request that sends the mail.
 //      - The audit names the address the mail went to.
@@ -433,7 +433,7 @@
 //                     is minted only once the standing one is void or expired.
 //   Monotonic id      every new value greater than every value issued before — what
 //                     "newer than" needs (Rules 20, 21, 36). Here:
-//                     `TreatmentPlanNo`, standing in for the storage's own key.
+//                     `OrderPlanNo`, standing in for the storage's own key.
 //   Auto-increment    one mechanism for that, with caveats worth knowing: allocated at
 //                     insert and not at commit, cached in per-session blocks, gaps on
 //                     rollback, per-node only when sharded.
@@ -445,7 +445,7 @@
 //                     `racing` runner, which explores one deliberately.
 //   Fail-open         when a check cannot decide and permits anyway — the wrong
 //                     direction for a safety rule, which must fail closed. Why
-//                     `TreatmentPlan.At` is never the ordering key.
+//                     `OrderPlan.At` is never the ordering key.
 //   Eager vs lazy     expiry checked when a request arrives, or by a background sweep.
 //                     Rule 41 does both: the sweep for Sessions nobody returns to, the
 //                     arriving request for the rest.
@@ -477,8 +477,8 @@ type PatientId        = PatientId of string
 type BrowserId        = BrowserId of int            // [model]: one browser, named
 type SessionId        = SessionId of string         // Rule 12: bearer, never in a URL
 type SessionNo        = SessionNo of int            // traces and ui only, never a key
-type TreatmentPlanId  = TreatmentPlanId of string
-type TreatmentPlanNo  = TreatmentPlanNo of int      // ordering within one PatientRecord
+type OrderPlanId  = OrderPlanId of string
+type OrderPlanNo  = OrderPlanNo of int      // ordering within one PatientRecord
 type OrderContextId   = OrderContextId of string    // Concept 10: persists across plans
 type AttemptId        = AttemptId of int            // [model]: one launch, mid-flight
 /// [model] Ties the legs of one request together, standing in for a call stack.
@@ -591,7 +591,7 @@ type OrderContext =
 type WorkPlan =
     {
         Data   : PatientData option
-        /// Concept 13. Where that data came from, carried so the TreatmentPlan created
+        /// Concept 13. Where that data came from, carried so the OrderPlan created
         /// from this WorkPlan can record it.
         From   : DataSource option
         Orders : OrderContext list
@@ -599,13 +599,13 @@ type WorkPlan =
 
 /// Concept 13. The plan as it stood when signed: the Patient's OrderContexts, by one
 /// User (Rule 15), over the plan it was created from, if any.
-type TreatmentPlan =
+type OrderPlan =
     {
-        Id      : TreatmentPlanId
-        No      : TreatmentPlanNo
+        Id      : OrderPlanId
+        No      : OrderPlanNo
         Patient : PatientId
         By      : UserContext
-        Base    : TreatmentPlanId option
+        Base    : OrderPlanId option
         Orders  : OrderContext list
         /// Concept 13. The Patient Data it was built on, and where that came from. A
         /// plan is explained by what it holds, not by asking the platform again.
@@ -622,11 +622,11 @@ type TreatmentPlan =
     }
 
 /// Concept 12. Append-only, newest first. The PatientId is the one thing no
-/// TreatmentPlan may change (Guarantee 1).
+/// OrderPlan may change (Guarantee 1).
 type PatientRecord =
     {
         Patient : PatientId
-        Plans   : TreatmentPlan list
+        Plans   : OrderPlan list
     }
 
 // ───────────────────────────── the tokens ─────────────────────────────  [ships]
@@ -635,7 +635,7 @@ type PatientRecord =
 /// spent as another: it fails by key, before any field is compared.
 [<RequireQualifiedAccess>]
 type TokenPurpose =
-    /// Rule 34. The TreatmentPlan a Session opened with.
+    /// Rule 34. The OrderPlan a Session opened with.
     | Opened
     /// Rule 43. The exact WorkPlan a signature would attest to.
     | Challenge
@@ -690,7 +690,7 @@ type Submission =
         Challenge : SigningChallenge option
         DataOk    : DataNoticeToken option
         /// Rule 42. Optional in the type so a Submission without one can be built and
-        /// refused; there is no way to create a TreatmentPlan without it (Concept 14).
+        /// refused; there is no way to create an OrderPlan without it (Concept 14).
         Pin       : Pin option
         Key       : IdemKey
     }
@@ -790,7 +790,7 @@ type CommitRefusal =
     | RoleRefused
     /// Rules 33, 34, 43, 44. A token that does not verify, or does not name this.
     | TokenRefused of string
-    /// Rules 20, 36. Whose work stands in the way, never which TreatmentPlan it is.
+    /// Rules 20, 36. Whose work stands in the way, never which OrderPlan it is.
     | BlockedBy of UserContext
     /// Rules 23, 28.
     | PinWrong of left: int
@@ -851,12 +851,12 @@ type SessionCmd =
     /// to be computed. The answer comes from the payload and the Server keeps none.
     | Compute of OrderContext list
     /// Concept 14. The whole WorkPlan travels, with every token issued about it.
-    | SubmitTreatmentPlan of Submission
+    | SubmitOrderPlan of Submission
     /// Rule 43. Asks for the challenge a signature will have to carry. Rule 20 is
     /// answered here, before the User is ever asked for a PIN (UC-3 ext 2a), and the
     /// challenge names the exact WorkPlan it was asked about.
     | RequestSignChallenge of WorkPlan * OpenedToken * DataNoticeToken option
-    | OpenTreatmentPlan of TreatmentPlanId        // Rules 18, 19
+    | OpenOrderPlan of OrderPlanId        // Rules 18, 19
     /// UC-6. Rule 37: this removes nothing. It asks for a code to be mailed.
     | ResetPin
     /// Rule 37. The mailed code and the new PIN. Verified and replaced in one act, so
@@ -878,7 +878,7 @@ type UserAct =
     | ConfirmsSign of Pin
     /// Rule 43. The User leaves the signature modal without signing.
     | CancelsSign
-    | OpensTreatmentPlan of TreatmentPlanId       // Rules 18, 19
+    | OpensOrderPlan of OrderPlanId       // Rules 18, 19
     | AsksPinReset                      // UC-6
     /// UC-6 step 2. The User has read the mail and chooses the new PIN.
     | EntersResetCode of ConfirmationCode * Pin
@@ -968,8 +968,8 @@ type Msg =
     | ReadRecord of LegTag * PatientId
     | RecordRead of LegTag * PatientRecord
     /// Rule 42, with Rule 36 inside it: the check and the append are one act.
-    | CommitTreatmentPlan of LegTag * Commit
-    | TreatmentPlanCommitted of LegTag * TreatmentPlan
+    | CommitOrderPlan of LegTag * Commit
+    | OrderPlanCommitted of LegTag * OrderPlan
     | CommitRefused of LegTag * CommitRefusal
     /// Rule 40. The Server never writes back a record it read; it names the change
     /// and the Database decides. Rule 8's two limits are kept in this same act, and so
@@ -989,7 +989,7 @@ type Msg =
     | ReadSessionRecord of LegTag * SessionId
     /// Rule 21. The record, and the head of that Session's Patient's PatientRecord.
     /// Read in the same leg, so comparing them costs the Server no second read.
-    | SessionRecordRead of LegTag * SessionRecord option * TreatmentPlan option
+    | SessionRecordRead of LegTag * SessionRecord option * OrderPlan option
     | ReadSessionRecords of LegTag
     | SessionRecordsRead of LegTag * SessionRecord list
     /// Rule 2. A read, and nothing more: is this nonce spent, and if so which Session
@@ -1032,16 +1032,16 @@ type Msg =
     | PriorSessionNotice of (SessionNo * SessionState * SessionId) list
     /// Rule 32. The answer to `Compute`, computed from the payload and kept nowhere.
     | Computed of OrderContext list
-    /// Rules 20, 36. Whose work stands in the way. Never which TreatmentPlan it is.
+    /// Rules 20, 36. Whose work stands in the way. Never which OrderPlan it is.
     | SubmissionBlocked of UserContext
-    /// Rules 21, 22. A TreatmentPlan newer than the one this Session opened with
+    /// Rules 21, 22. An OrderPlan newer than the one this Session opened with
     /// exists: whose it is, and when it was signed. It rides along with a response and
     /// gates nothing. Rule 20 is the only guard.
     | NewerPlanNotice of UserContext * int
     /// Rules 33, 34. The payload contradicted the SessionRecord, or a token did not
     /// verify. The reason is for the trace; the Client shows only a refusal.
     | SubmissionRefused of string
-    | TreatmentPlanSubmitted of TreatmentPlanId * OpenedToken
+    | OrderPlanSubmitted of OrderPlanId * OpenedToken
     /// Rule 43. The challenge to sign with, over the WorkPlan it was asked about.
     | SignChallengeIssued of SigningChallenge
     /// Rule 44. The Patient Data has changed since the launch read it (Concept 2).
@@ -1050,10 +1050,10 @@ type Msg =
     /// Rule 44. The platform could not be asked, so the data is unchecked. Accepted
     /// by returning this token, the same way a change is.
     | PatientDataUnverified of DataNoticeToken
-    | TreatmentPlanOpened of TreatmentPlanId * OrderContext list * OpenedToken
+    | OrderPlanOpened of OrderPlanId * OrderContext list * OpenedToken
     | PinRejected of int                // Rule 28: attempts left
-    | NoTreatmentPlanHere                    // Rule 13
-    | NotPermitted                      // Roles: a Reader never creates a TreatmentPlan
+    | NoOrderPlanHere                    // Rule 13
+    | NotPermitted                      // Roles: a Reader never creates an OrderPlan
     /// Rule 38. Not `AuthorityUnavailable`, which belongs to a launch and offers an
     /// anonymous open. Here a Session exists already, and it stands.
     | SigningUnavailable
@@ -1124,8 +1124,8 @@ type PlatformState =
 /// has to remember to apply.
 type ClinicalStore =
     {
-        /// Concept 12. Every TreatmentPlan, newest first per Patient.
-        Signed : Map<PatientId, TreatmentPlan list>
+        /// Concept 12. Every OrderPlan, newest first per Patient.
+        Signed : Map<PatientId, OrderPlan list>
     }
 
 /// Rule 46. One line of the audit: what was done, and when. The tick is the
@@ -1158,7 +1158,7 @@ type PrivateStore =
         /// guessed away.
         Resets       : Map<UserId, PinReset>
         /// Rule 45. What each key has already been answered with.
-        Answered     : Map<IdemKey, Result<TreatmentPlan, CommitRefusal>>
+        Answered     : Map<IdemKey, Result<OrderPlan, CommitRefusal>>
         /// Rule 2. The LaunchRecords, keyed by nonce. A Launch is spent when its record
         /// is here; the record names the Session that spent it, which is what the
         /// replay clause answers from. A record past the Launch's lifetime is dropped
@@ -1223,14 +1223,14 @@ type PendingLaunch =
     | AwaitingPinWritten  of LaunchCtx * UserContext * MailAddress
     | AwaitingPatientData of LaunchCtx * UserContext * MailAddress
     | AwaitingRecord      of LaunchCtx * UserContext * MailAddress * PatientContext
-    /// Rule 19. The TreatmentPlan the Session will open from, if the record has one.
+    /// Rule 19. The OrderPlan the Session will open from, if the record has one.
     | AwaitingPriors      of
-        LaunchCtx * UserContext * MailAddress * PatientContext * TreatmentPlan option
+        LaunchCtx * UserContext * MailAddress * PatientContext * OrderPlan option
     /// Rules 2, 40. The open is at the Database, which is where the nonce is spent, so
     /// what the Client will be told waits here until it answers. The open can still be
     /// refused: another presentation may have won the race since the early check.
     | AwaitingOpen        of
-        LaunchCtx * SessionRecord * PatientContext * TreatmentPlan option * SessionRecord list
+        LaunchCtx * SessionRecord * PatientContext * OrderPlan option * SessionRecord list
     /// Rule 14. The same, for an open with no Launch. Nothing can refuse it — there is
     /// no nonce to be spent — but the Client is told from the same place.
     | AwaitingAnonymousOpen of ActorId * SessionRecord * PatientContext
@@ -1294,7 +1294,7 @@ type ServerState =
         /// One entry per launch attempt, gone with the launch.
         Pending       : Map<AttemptId, PendingEntry>
         /// Separate id spaces, so separate counters. All monotonic: an id is never
-        /// reissued. The TreatmentPlan counter is the Database's, because Rule 36 makes
+        /// reissued. The OrderPlan counter is the Database's, because Rule 36 makes
         /// the Database the party that orders a PatientRecord.
         NextAttempt   : int
         NextRequest   : int
@@ -1525,20 +1525,20 @@ module WorkPlan =
 
 // ───────────────────────────── the record rules ─────────────────────────────  [ships]
 
-/// Rules 17 to 21. Small total functions over a TreatmentPlan list held newest first,
-/// so "most recent" is `List.tryHead` and "newer than" compares TreatmentPlanNo.
+/// Rules 17 to 21. Small total functions over an OrderPlan list held newest first,
+/// so "most recent" is `List.tryHead` and "newer than" compares OrderPlanNo.
 module PatientRecord =
 
     let empty patient = { Patient = patient; Plans = [] }
 
-    let private no (s: TreatmentPlan) = let (TreatmentPlanNo n) = s.No in n
+    let private no (s: OrderPlan) = let (OrderPlanNo n) = s.No in n
 
     /// Rule 36's half of the check: what the Server saw as the head when it decided.
     let head (r: PatientRecord) = r.Plans |> List.tryHead |> Option.map _.Id
 
-    /// "newer than the TreatmentPlan the User opened with". Where the User opened with
-    /// nothing, any TreatmentPlan counts as newer.
-    let private newerThan (openedWith: TreatmentPlanId option) (s: TreatmentPlan) (r: PatientRecord) =
+    /// "newer than the OrderPlan the User opened with". Where the User opened with
+    /// nothing, any OrderPlan counts as newer.
+    let private newerThan (openedWith: OrderPlanId option) (s: OrderPlan) (r: PatientRecord) =
         match openedWith with
         | None -> true
         | Some id ->
@@ -1546,38 +1546,38 @@ module PatientRecord =
             | Some baseline -> no s > no baseline
             | None -> true              // the baseline is not in this record at all
 
-    /// Rule 17. The only TreatmentPlan that counts clinically: the most recent one.
+    /// Rule 17. The only OrderPlan that counts clinically: the most recent one.
     /// Nothing is removed to make it so: the record is append-only (Concept 12).
     let latest (r: PatientRecord) = r.Plans |> List.tryHead
 
-    /// Rule 19. A User starts from the most recent TreatmentPlan; where none exists,
+    /// Rule 19. A User starts from the most recent OrderPlan; where none exists,
     /// from nothing.
     let startsFrom (r: PatientRecord) = latest r
 
-    /// Rule 18. Every TreatmentPlan is open to read. Opening an older one makes it
+    /// Rule 18. Every OrderPlan is open to read. Opening an older one makes it
     /// what the Session opened with, and Rule 20 then blocks the Submission. So
     /// read-only falls out of the baseline rather than being a second mechanism.
-    let mayOpen (id: TreatmentPlanId) (r: PatientRecord) =
+    let mayOpen (id: OrderPlanId) (r: PatientRecord) =
         r.Plans |> List.tryFind (fun s -> s.Id = id)
 
-    /// Rules 20, 21. The TreatmentPlan that is newer than the one the User opened
+    /// Rules 20, 21. The OrderPlan that is newer than the one the User opened
     /// with, if there is one. Rule 20 refuses a Submission on it; Rule 21 reports it
     /// with every response and gates nothing.
-    let blocking (openedWith: TreatmentPlanId option) (r: PatientRecord) =
+    let blocking (openedWith: OrderPlanId option) (r: PatientRecord) =
         latest r |> Option.filter (fun s -> newerThan openedWith s r)
 
-    /// Concept 12: append-only. The newest TreatmentPlan goes on the front, and no
+    /// Concept 12: append-only. The newest OrderPlan goes on the front, and no
     /// existing one is ever touched.
-    let append (s: TreatmentPlan) (r: PatientRecord) =
+    let append (s: OrderPlan) (r: PatientRecord) =
         { r with Plans = s :: r.Plans }
 
 // ───────────────────────────── the two stores ─────────────────────────────  [ships]
 
-/// Actor 5. The clinical store holds every TreatmentPlan; the private store holds
+/// Actor 5. The clinical store holds every OrderPlan; the private store holds
 /// everything else. Nothing outside this module knows which half a thing came from.
 module Database =
 
-    let private no (s: TreatmentPlan) = let (TreatmentPlanNo n) = s.No in n
+    let private no (s: OrderPlan) = let (OrderPlanNo n) = s.No in n
 
     let signedOf patient (db: DatabaseState) =
         db.Clinical.Signed |> Map.tryFind patient |> Option.defaultValue []
@@ -1596,7 +1596,7 @@ module Database =
 
     /// Concept 12: append-only, into the clinical store. `Session` is dropped from the
     /// copy: it is a bearer credential and points into the private store (Guarantee 4).
-    let append (plan: TreatmentPlan) (db: DatabaseState) =
+    let append (plan: OrderPlan) (db: DatabaseState) =
         let plan = { plan with Session = None }
 
         { db with
@@ -1808,10 +1808,10 @@ module Token =
         { Claim = claim; Mac = macAs purpose claim }
 
     /// Rule 34. Minted at the opening of a Session, and re-minted whenever the
-    /// baseline moves: an open (Rule 18) or a Submission both make a new TreatmentPlan
+    /// baseline moves: an open (Rule 18) or a Submission both make a new OrderPlan
     /// the one Rules 20 and 21 are measured from.
-    let mintOpened now s p (n: TreatmentPlanId option) : OpenedToken =
-        mint TokenPurpose.Opened now s p (n |> Option.toList |> List.map (fun (TreatmentPlanId i) -> i))
+    let mintOpened now s p (n: OrderPlanId option) : OpenedToken =
+        mint TokenPurpose.Opened now s p (n |> Option.toList |> List.map (fun (OrderPlanId i) -> i))
 
     /// Rules 43, 44. Minted after the Rule 20 pre-check, naming the digest of the
     /// WorkPlan the User was shown and the KnowledgeRuleSet it was checked under.
@@ -1836,8 +1836,8 @@ module Token =
 
     let verifyDataNotice (t: DataNoticeToken) = verifyAs TokenPurpose.DataNotice t
 
-    /// Rule 34's one name: the TreatmentPlan the Session opened with, if any.
-    let plan (t: OpenedToken) = t.Claim.Names |> List.tryHead |> Option.map TreatmentPlanId
+    /// Rule 34's one name: the OrderPlan the Session opened with, if any.
+    let plan (t: OpenedToken) = t.Claim.Names |> List.tryHead |> Option.map OrderPlanId
 
     /// Rules 43 and 44: the one digest the token names.
     let digest (t: Token) = t.Claim.Names |> List.tryHead
@@ -1980,7 +1980,7 @@ module Hospital =
     /// Rules 14, 35. With the cart in the Client there is no Session to ask what
     /// changed, so the Server diffs the payload against the base by OrderContextId.
     /// Whatever stamp arrived is discarded unread.
-    let private stampAgainst (uc: UserContext) (basePlan: TreatmentPlan option) (orders: OrderContext list) =
+    let private stampAgainst (uc: UserContext) (basePlan: OrderPlan option) (orders: OrderContext list) =
         let baseline = basePlan |> Option.map _.Orders |> Option.defaultValue []
         orders
         |> List.map (fun o ->
@@ -1991,7 +1991,7 @@ module Hospital =
     // ── the launch, and what ends it ──
 
     /// UC-1 steps 8 and 9, and the last step of the anonymous open. Rule 19 has picked
-    /// the TreatmentPlan the Session starts from, if there is one, and Rule 8's other
+    /// the OrderPlan the Session starts from, if there is one, and Rule 8's other
     /// Sessions of this User have been read back from the Database, because the Server
     /// keeps no copy of them (Rule 32).
     /// UC-1 steps 8 and 9, and the last step of the anonymous open. `ctx` is the
@@ -2005,7 +2005,7 @@ module Hospital =
         (user: UserContext option)
         (mail: MailAddress option)
         (pctx: PatientContext)
-        (start: TreatmentPlan option)
+        (start: OrderPlan option)
         (others: SessionRecord list)
         (replacing: SessionId option)
         (h: Hospital) =
@@ -2075,7 +2075,7 @@ module Hospital =
         (client: ActorId)
         (record: SessionRecord)
         (pctx: PatientContext)
-        (start: TreatmentPlan option)
+        (start: OrderPlan option)
         (h: Hospital) =
 
         let orders = start |> Option.map _.Orders |> Option.defaultValue []
@@ -2120,7 +2120,7 @@ module Hospital =
             send GenPresServer client reply
         ]
 
-    // ── creating a TreatmentPlan: the Server's part, which is small ──
+    // ── creating an OrderPlan: the Server's part, which is small ──
 
     /// Rule 42. The Server gathers what only it can know (the re-taken Role, the
     /// re-read data) and decides nothing itself.
@@ -2128,7 +2128,7 @@ module Hospital =
         h |> putFlight rid { ctx with Stage = AwaitingCommit r },
         [
             send GenPresServer GenPresDatabase
-                (CommitTreatmentPlan(ForRequest rid, { Sid = r.Id; Req = req; Role = role }))
+                (CommitOrderPlan(ForRequest rid, { Sid = r.Id; Req = req; Role = role }))
         ]
 
     /// The SessionRecord has come back, the Session is open, and Rule 9's clock has
@@ -2149,13 +2149,13 @@ module Hospital =
             ]
 
         // Rule 13: a Session without a PatientId lets the User prescribe, Patient
-        // Data included, but a TreatmentPlan cannot be opened or created.
+        // Data included, but an OrderPlan cannot be opened or created.
         let withPatient f =
             match r.Patient with
-            | None -> refuse NoTreatmentPlanHere
+            | None -> refuse NoOrderPlanHere
             | Some p -> f p
 
-        // Roles: a Reader may never create a TreatmentPlan. Rule 14: an anonymous Session
+        // Roles: a Reader may never create an OrderPlan. Rule 14: an anonymous Session
         // has no User at all, so there is nobody to create as and nobody to sign as.
         let withPrescriber f =
             match r.User with
@@ -2201,7 +2201,7 @@ module Hospital =
                 h |> putFlight rid { ctx with Stage = AwaitingPinAddress(r, code, pin) },
                 [ send GenPresServer UserRegistry (ResolveUser(ForRequest rid, uc.Login)) ]
 
-        | OpenTreatmentPlan _ ->
+        | OpenOrderPlan _ ->
             withPatient (fun p ->
                 match r.User with
                 | None -> refuse NotPermitted            // Rule 13
@@ -2218,7 +2218,7 @@ module Hospital =
                     h |> putFlight rid { ctx with Stage = AwaitingPatientRecord r },
                     [ send GenPresServer GenPresDatabase (ReadRecord(ForRequest rid, p)) ]))
 
-        | SubmitTreatmentPlan req ->
+        | SubmitOrderPlan req ->
             withPatient (fun p ->
                 withPrescriber (fun uc ->
                     match req.Pin with
@@ -2420,7 +2420,7 @@ module Hospital =
     let private dbCommit (h: Hospital) (env: Envelope) tag (c: Commit) =
         let reply outcome =
             match outcome with
-            | Ok plan -> send GenPresDatabase env.From (TreatmentPlanCommitted(tag, plan))
+            | Ok plan -> send GenPresDatabase env.From (OrderPlanCommitted(tag, plan))
             | Error refusal -> send GenPresDatabase env.From (CommitRefused(tag, refusal))
 
         // Rule 45. A key that has been answered is answered again, and nothing is
@@ -2510,7 +2510,7 @@ module Hospital =
                 refuse h (TokenRefused "the opened-with token was already spent (Rule 34)")
 
             // Rule 33 and Guarantee 1. The PatientId is the one thing no
-            // TreatmentPlan may change, and the payload does not get a vote on it.
+            // OrderPlan may change, and the payload does not get a vote on it.
             elif req.Work.Orders |> List.exists (fun o -> o.Patient <> None && o.Patient <> Some patient) then
                 refuse h (TokenRefused "an OrderContext names another Patient (Rule 33)")
 
@@ -2530,7 +2530,7 @@ module Hospital =
             elif not dataTokenStands then
                 refuse h (TokenRefused "the Patient Data token does not name this data (Rule 44)")
 
-            // Concept 14. Signing is the only way a TreatmentPlan is created, so a
+            // Concept 14. Signing is the only way an OrderPlan is created, so a
             // Submission without a PIN creates nothing.
             elif req.Pin.IsNone then
                 refuse h (TokenRefused "a Submission is a signature, and carries a PIN (Concept 14)")
@@ -2587,8 +2587,8 @@ module Hospital =
                 else
                     let plan =
                         {
-                            Id = TreatmentPlanId $"plan-%04i{h.Database.NextPlan}"
-                            No = TreatmentPlanNo h.Database.NextPlan
+                            Id = OrderPlanId $"plan-%04i{h.Database.NextPlan}"
+                            No = OrderPlanNo h.Database.NextPlan
                             Patient = patient                                  // Guarantee 1
                             By = uc                                            // Rule 15
                             Base = basePlan |> Option.map _.Id                 // Concept 13
@@ -2609,7 +2609,7 @@ module Hospital =
 
                     let h = withCredential h
 
-                    let (TreatmentPlanId planId) = plan.Id
+                    let (OrderPlanId planId) = plan.Id
                     let (UserId by) = uc.UserId
 
                     // Concept 17. The tokens this Submission rested on are spent here,
@@ -2741,7 +2741,7 @@ module Hospital =
 
         | GenPresServer, GenPresDatabase, ReadRecord(tag, p) ->
             h, [ send GenPresDatabase env.From (RecordRead(tag, h.Database |> Database.recordOf p)) ]
-        | GenPresServer, GenPresDatabase, CommitTreatmentPlan(tag, c) -> dbCommit h env tag c
+        | GenPresServer, GenPresDatabase, CommitOrderPlan(tag, c) -> dbCommit h env tag c
 
         | GenPresServer, GenPresDatabase, OpenSessionClosingOthers(tag, r, replacing) ->
             dbOpenSession h env tag r replacing
@@ -3439,16 +3439,16 @@ module Hospital =
             match h.GenPres.InFlight |> Map.tryFind rid with
             | Some({ Stage = AwaitingPatientRecord r } as ctx) ->
                 match ctx.Cmd, r.User with
-                // Rules 17 and 18. Opening the most recent TreatmentPlan is also how
+                // Rules 17 and 18. Opening the most recent OrderPlan is also how
                 // a blocked User gets unblocked: Rule 34's token is re-minted over it,
-                // so it becomes the TreatmentPlan the Session opened with and Rule 20 no
+                // so it becomes the OrderPlan the Session opened with and Rule 20 no
                 // longer bites.
-                | OpenTreatmentPlan id, Some _ ->
+                | OpenOrderPlan id, Some _ ->
                     match record |> PatientRecord.mayOpen id with
                     | Some s ->
                         dropFlight rid h,
                         [ send GenPresServer ctx.Client
-                            (TreatmentPlanOpened(
+                            (OrderPlanOpened(
                                 s.Id, s.Orders, Token.mintOpened h.Env.Now ctx.Sid r.Patient (Some s.Id))) ]
                     | None ->
                         dropFlight rid h, [ send GenPresServer ctx.Client NotPermitted ]
@@ -3465,7 +3465,7 @@ module Hospital =
                     else
 
                     match PatientRecord.blocking (Token.plan opened) record with
-                    // Rule 20. The remedy is to open that TreatmentPlan (Rule 18),
+                    // Rule 20. The remedy is to open that OrderPlan (Rule 18),
                     // which makes it the one the Session opened with.
                     | Some blocker ->
                         dropFlight rid h, [ send GenPresServer ctx.Client (SubmissionBlocked blocker.By) ]
@@ -3483,20 +3483,20 @@ module Hospital =
 
         // Rule 42. The one act said yes. Rule 34: the Session now stands on what it
         // just created, so a fresh token goes back with the answer. Rules 20 and 21
-        // are measured from this TreatmentPlan from here on.
-        | GenPresDatabase, GenPresServer, TreatmentPlanCommitted(ForRequest rid, plan) ->
+        // are measured from this OrderPlan from here on.
+        | GenPresDatabase, GenPresServer, OrderPlanCommitted(ForRequest rid, plan) ->
             match h.GenPres.InFlight |> Map.tryFind rid with
             | Some({ Stage = AwaitingCommit r } as ctx) ->
                 dropFlight rid h,
                 [ send GenPresServer ctx.Client
-                    (TreatmentPlanSubmitted(
+                    (OrderPlanSubmitted(
                         plan.Id,
                         Token.mintOpened h.Env.Now ctx.Sid r.Patient (Some plan.Id))) ]
             | _ -> h, []
 
         // Rule 42. The one act said no, and nothing happened. Each refusal is turned
         // into what the Client already understands, and into nothing more: Rule 20's
-        // block names whose work stands in the way, never which TreatmentPlan it is.
+        // block names whose work stands in the way, never which OrderPlan it is.
         | GenPresDatabase, GenPresServer, CommitRefused(ForRequest rid, refusal) ->
             match h.GenPres.InFlight |> Map.tryFind rid with
             | Some({ Stage = AwaitingCommit r } as ctx) ->
@@ -3569,7 +3569,7 @@ module Hospital =
             | None -> h, []
 
         // Written, and nothing more to say.
-        | GenPresDatabase, GenPresServer, TreatmentPlanCommitted _
+        | GenPresDatabase, GenPresServer, OrderPlanCommitted _
 
         | GenPresDatabase, GenPresServer, CommitRefused _
 
@@ -3803,13 +3803,13 @@ module Hospital =
                     [ send GenPresServer ctx.Client (ResetDenied failure) ]
             | _ -> h, []
 
-        // Step 7. Rule 19 picks the TreatmentPlan the Session starts from: the most
+        // Step 7. Rule 19 picks the OrderPlan the Session starts from: the most
         // recent one, or nothing where the record is empty. Then Rule 8's other
         // Sessions, which the Server does not mirror and so must read (Rule 32).
         | GenPresDatabase, GenPresServer, RecordRead(ForLaunch att, record) ->
             match h.GenPres.Pending |> Map.tryFind att |> Option.map _.Stage with
             | Some(AwaitingRecord(ctx, uc, mail, pctx)) ->
-                // Rule 19. The most recent TreatmentPlan, or nothing where the record
+                // Rule 19. The most recent OrderPlan, or nothing where the record
                 // is empty. It is what Rules 20 and 21 are measured from.
                 let start = record |> PatientRecord.startsFrom
                 { h with
@@ -3955,7 +3955,7 @@ module Hospital =
                 | Some challenge, Some opened ->
                     h |> onClient b (fun s -> { s with Modal = None; Signing = false; Showing = None }),
                     toServer (
-                        SubmitTreatmentPlan
+                        SubmitOrderPlan
                             {
                                 Work = st.Work
                                 Opened = opened
@@ -3978,7 +3978,7 @@ module Hospital =
             // about one that has not.
             | AcknowledgesNotice -> h, []
 
-            | OpensTreatmentPlan id -> h, toServer (OpenTreatmentPlan id)
+            | OpensOrderPlan id -> h, toServer (OpenOrderPlan id)
             | AsksPinReset -> h, toServer ResetPin
             | EntersResetCode(code, pin) -> h, toServer (SupplyResetCode(code, pin))
 
@@ -4259,20 +4259,20 @@ module Hospital =
                     DataOk = Some token
                     Showing = Some "the Patient Data could not be checked — sign again to sign on it as it stands" }), []
 
-        | GenPresServer, GenPresClient b, TreatmentPlanSubmitted(_, token) ->
+        | GenPresServer, GenPresClient b, OrderPlanSubmitted(_, token) ->
             h |> onClient b (fun s ->
                 { s with Opened = Some token; Modal = None }), []
 
         // Rule 18. The opened plan becomes the cart and the new baseline, so a plan
         // that was blocking under Rule 20 stops blocking once it is opened.
-        | GenPresServer, GenPresClient b, TreatmentPlanOpened(_, orders, token) ->
+        | GenPresServer, GenPresClient b, OrderPlanOpened(_, orders, token) ->
             h |> onClient b (fun s ->
                 { s with Work.Orders = orders; Opened = Some token }), []
 
         | GenPresServer, GenPresClient b, PinRejected left ->
             h |> onClient b (fun s -> { s with Showing = Some $"wrong PIN — %i{left} left" }), []
 
-        | GenPresServer, GenPresClient b, NoTreatmentPlanHere ->
+        | GenPresServer, GenPresClient b, NoOrderPlanHere ->
             h |> onClient b (fun s -> { s with Showing = Some "no patient: nothing can be saved" }), []
 
         | GenPresServer, GenPresClient b, NotPermitted ->
@@ -4427,12 +4427,12 @@ module Envelope =
         | ForRequest(RequestId r) -> $"req-%i{r}"
         | ForSweep -> "sweep"
 
-    let private planName = function Some(TreatmentPlanId s) -> s | None -> "(nothing)"
+    let private planName = function Some(OrderPlanId s) -> s | None -> "(nothing)"
 
     let private cmdName =
         function
         | Compute os -> $"Compute (%i{os.Length} order contexts)"
-        | SubmitTreatmentPlan req ->
+        | SubmitOrderPlan req ->
             let what = match req.Pin with Some(Pin p) -> $"Sign (pin %s{p})" | None -> "Sign (no pin)"
             let c = match req.Challenge with Some _ -> " +challenge" | None -> ""
             let d = match req.DataOk with Some _ -> " +data" | None -> ""
@@ -4440,7 +4440,7 @@ module Envelope =
             $"%s{what} (%i{os.Length} order contexts, opened-with %s{planName (Token.plan req.Opened)}%s{c}%s{d})"
         | RequestSignChallenge(work, tok, _) ->
             $"RequestSignChallenge (%i{work.Orders.Length} order contexts, opened-with %s{planName (Token.plan tok)})"
-        | OpenTreatmentPlan(TreatmentPlanId s) -> $"OpenTreatmentPlan %s{s}"
+        | OpenOrderPlan(OrderPlanId s) -> $"OpenOrderPlan %s{s}"
         | ResetPin -> "ResetPin"
         | SupplyResetCode(ConfirmationCode c, _) -> $"SupplyResetCode %s{c}"
         | CloseSession -> "CloseSession"
@@ -4450,7 +4450,7 @@ module Envelope =
         | Prescribes(OrderContextId o) -> $"Prescribes %s{o}"
         | EntersPatientData(PatientData d) -> $"EntersPatientData \"%s{d}\""
         | Signs -> "Signs"
-        | OpensTreatmentPlan(TreatmentPlanId s) -> $"OpensTreatmentPlan %s{s}"
+        | OpensOrderPlan(OrderPlanId s) -> $"OpensOrderPlan %s{s}"
         | ConfirmsSign(Pin p) -> $"ConfirmsSign (pin %s{p})"
         | CancelsSign -> "CancelsSign"
         | AcknowledgesNotice -> "AcknowledgesNotice"
@@ -4515,13 +4515,13 @@ module Envelope =
         | ResetRefused(t, f) -> $"ResetRefused %s{tagName t} %A{f}"
         | ReadRecord(t, PatientId p) -> $"ReadRecord %s{tagName t} %s{p}"
         | RecordRead(t, r) -> $"RecordRead %s{tagName t} (%i{r.Plans.Length} plans)"
-        | CommitTreatmentPlan(t, c) ->
+        | CommitOrderPlan(t, c) ->
             let (IdemKey k) = c.Req.Key
-            $"CommitTreatmentPlan %s{tagName t} key=%s{k}"
-        | TreatmentPlanCommitted(_, s) ->
-            let (TreatmentPlanId i) = s.Id
+            $"CommitOrderPlan %s{tagName t} key=%s{k}"
+        | OrderPlanCommitted(_, s) ->
+            let (OrderPlanId i) = s.Id
             let (RuleSetVersion v) = s.RuleSet
-            $"TreatmentPlanCommitted %s{i} (rule set v%i{v})"
+            $"OrderPlanCommitted %s{i} (rule set v%i{v})"
         | CommitRefused(t, r) -> $"CommitRefused %s{tagName t} %A{r}"
         | OpenSessionClosingOthers(t, r, replacing) ->
             let (SessionNo n) = r.No
@@ -4568,10 +4568,10 @@ module Envelope =
             let (LoginName l) = uc.Login
             $"NewerPlanNotice (%s{l}, signed at %i{at})"
         | SubmissionRefused why -> $"SubmissionRefused \"%s{why}\""
-        | TreatmentPlanSubmitted(TreatmentPlanId s, _) -> $"TreatmentPlanSubmitted %s{s}"
-        | TreatmentPlanOpened(TreatmentPlanId s, os, _) -> $"TreatmentPlanOpened %s{s} (%i{os.Length} order contexts)"
+        | OrderPlanSubmitted(OrderPlanId s, _) -> $"OrderPlanSubmitted %s{s}"
+        | OrderPlanOpened(OrderPlanId s, os, _) -> $"OrderPlanOpened %s{s} (%i{os.Length} order contexts)"
         | PinRejected n -> $"PinRejected (%i{n} left)"
-        | NoTreatmentPlanHere -> "NoTreatmentPlanHere"
+        | NoOrderPlanHere -> "NoOrderPlanHere"
         | NotPermitted -> "NotPermitted"
         | SigningUnavailable -> "SigningUnavailable"
         | SigningLocked -> "SigningLocked"
@@ -4623,7 +4623,7 @@ let mutable private handKey = 0
 
 let handCreate (work: WorkPlan) (opened: OpenedToken) (pin: Pin option) =
     handKey <- handKey + 1
-    SubmitTreatmentPlan
+    SubmitOrderPlan
         {
             Work = work
             Opened = opened
@@ -4665,8 +4665,8 @@ let pinA = Pin "1111"
 let pinB = Pin "2222"
 
 let pat1 = PatientId "pat-1"      // no GenPRES PatientRecord yet
-let pat2 = PatientId "pat-2"      // head is a TreatmentPlan of A's
-let pat3 = PatientId "pat-3"      // head is a TreatmentPlan of B's, over one of A's
+let pat2 = PatientId "pat-2"      // head is an OrderPlan of A's
+let pat3 = PatientId "pat-3"      // head is an OrderPlan of B's, over one of A's
 
 let oc id pat by =
     { Id = OrderContextId id; Patient = Some pat; Content = $"%s{id}/as-signed"; Stamp = Some by }
@@ -4675,8 +4675,8 @@ let oc id pat by =
 /// Session, which is how a plan from before this record began looks.
 let mkPlan n patient by baseOn orders =
     {
-        Id = TreatmentPlanId $"plan-%04i{n}"
-        No = TreatmentPlanNo n
+        Id = OrderPlanId $"plan-%04i{n}"
+        No = OrderPlanNo n
         Patient = patient
         By = by
         Base = baseOn
@@ -4732,7 +4732,7 @@ let world =
                 { db with
                     Clinical.Signed =
                         Map.ofList [ pat2, [ p2Signed ]; pat3, [ p3Head; p3First ] ] } }
-    // The Cast's TreatmentPlans occupy plan-0001 to plan-0003, so the Database mints from
+    // The Cast's OrderPlans occupy plan-0001 to plan-0003, so the Database mints from
     // above them. Ids are never reissued.
     { h with Database.NextPlan = 10 }
 
@@ -4809,7 +4809,7 @@ let openOfUser (uc: UserContext) h =
 
 let recordFor p (h: Hospital) = h.Database |> Database.recordOf p
 
-/// Every Patient the Database holds a TreatmentPlan for.
+/// Every Patient the Database holds an OrderPlan for.
 let patientsInRecord (h: Hospital) =
     h.Database.Clinical.Signed |> Map.toList |> List.map fst |> List.distinct
 let headOf p h = (recordFor p h).Plans |> List.tryHead
@@ -4824,7 +4824,7 @@ let patientAt b h = clientOf b h |> Option.bind _.Patient
 let workOf b h = clientOf b h |> Option.map _.Work |> Option.defaultValue WorkPlan.empty
 let dataAt b h = clientOf b h |> Option.bind _.Work.Data
 let workingAt b h = workOf b h |> _.Orders
-/// Rule 34: the TreatmentPlan the Session opened with, as the Client holds it.
+/// Rule 34: the OrderPlan the Session opened with, as the Client holds it.
 let openedAt b h = clientOf b h |> Option.bind _.Opened |> Option.bind Token.plan
 
 let mailsTo (addr: MailAddress) (h: Hospital) = h.Mail |> List.filter (fst >> (=) addr)
@@ -4854,7 +4854,7 @@ let private planChain (r: PatientRecord) =
     r.Plans
     |> List.rev
     |> List.map (fun s ->
-        let (TreatmentPlanId i) = s.Id
+        let (OrderPlanId i) = s.Id
         let (LoginName l) = s.By.Login
         $"%s{i}/%s{l}")
     |> String.concat " -> "
@@ -4866,12 +4866,12 @@ let private planChains (h: Hospital) =
     |> List.map (fun (PatientId p as pid) -> p, planChain (recordFor pid h))
     |> List.filter (snd >> (<>) "")
 
-/// What the Patients' treatment plans looked like going in. Printed above the trace so
+/// What the Patients' order plans looked like going in. Printed above the trace so
 /// that the state printed below it can be read as a difference rather than as a fact:
 /// a scenario touches one Patient, and without the baseline the others read as though
 /// they had moved too.
 let plansBefore (h: Hospital) =
-    printfn "    treatment plans before (oldest first, -> = and then):"
+    printfn "    order plans before (oldest first, -> = and then):"
     for p, chain in planChains h do
         printfn $"      %s{p}: %s{chain}"
 
@@ -4894,7 +4894,7 @@ let dump (before: Hospital) (h: Hospital) =
             | NotOwed -> ""
         printfn $"    ses-%03i{n}  %-10s{who}  %-11s{pat}  %A{r.State}%s{told}")
     let was = planChains before |> Map.ofList
-    printfn "    treatment plans after:"
+    printfn "    order plans after:"
     for p, chain in planChains h do
         let mark = if was.TryFind p = Some chain then "  (unchanged)" else "  (appended)"
         printfn $"      %s{p}: %s{chain}%s{mark}"
@@ -4920,11 +4920,11 @@ let mutable allRecords : SessionRecord list = []
 let private noteRecords (h: Hospital) =
     allRecords <- allRecords @ h.Database.Private.Sessions
 
-/// Rule 16. Every TreatmentPlan the Database held, at the end of every step of every
+/// Rule 16. Every OrderPlan the Database held, at the end of every step of every
 /// scenario, kept one snapshot at a time. Scenarios all replay from the same world,
 /// so a plan id names one plan within a snapshot but not across the run. That is why
 /// the snapshots are not flattened.
-let mutable allPlans : TreatmentPlan list list = []
+let mutable allPlans : OrderPlan list list = []
 
 /// Rules 8 and 40. Every *set* of SessionRecords the Database has held, kept whole
 /// rather than flattened: the limits are about what stands open together, so they can
@@ -5072,7 +5072,7 @@ let uc1 () =
          | None -> false)
 
     // ── UC-1 ext 1a — no Patient is active in the MainEHR Session ──
-    // GenPRES opens and A can prescribe, but a TreatmentPlan cannot be opened or signed.
+    // GenPRES opens and A can prescribe, but an OrderPlan cannot be opened or signed.
     let noPatient = step "UC-1 ext 1a — no Patient active" world (launchAs ucA.Login None)
 
     expect "1a a Session opens without a Patient"
@@ -5083,13 +5083,13 @@ let uc1 () =
          && never (function ReadRecord _ -> true | _ -> false))
 
     let _ =
-        step "UC-1 ext 1a — and a TreatmentPlan cannot be created (Rule 13)" noPatient
+        step "UC-1 ext 1a — and an OrderPlan cannot be created (Rule 13)" noPatient
              ([ act 1 (Prescribes(OrderContextId "oc-9")) ] @ signs 1 pinA)
 
     expect "1a prescribing works; signing does not"
         (saw (function Computed _ -> true | _ -> false)
-         && saw (function NoTreatmentPlanHere -> true | _ -> false)
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false))
+         && saw (function NoOrderPlanHere -> true | _ -> false)
+         && never (function OrderPlanSubmitted _ -> true | _ -> false))
 
     // ── UC-1 ext 1b — the button is not A's to press ──
     // Rule 1. How MainEHR decides is its own affair. What is ours to state is the
@@ -5400,7 +5400,7 @@ let uc1 () =
          && recordCount replayed = recordCount openedOnce)
 
     // And the replayed answer is a whole answer: a fresh OpenedToken over the same
-    // TreatmentPlan, because the first one may have been spent by a Submission (Rule 34).
+    // OrderPlan, because the first one may have been spent by a Submission (Rule 34).
     expect "Rule 2 the replay hands back a fresh, verifying OpenedToken (Rule 34)"
         ((clientOf 1 replayed |> Option.bind _.Opened |> Option.map Token.verifyOpened) = Some true)
 
@@ -5508,7 +5508,7 @@ let uc1 () =
         (never (function ReadCredential _ -> true | _ -> false)
          && never (function PinRequired _ -> true | _ -> false))
 
-    expect "5c and starts from the most recent TreatmentPlan (Rules 18, 19)"
+    expect "5c and starts from the most recent OrderPlan (Rules 18, 19)"
         (openedAt 1 asReader = Some p3Head.Id)
 
     // ── UC-1 ext 5d — User A has no PIN yet ──
@@ -5525,7 +5525,7 @@ let uc1 () =
          && (newestRecord noPlatform |> Option.bind _.Patient) = Some pat2
          && dataAt 1 noPlatform = None)
 
-    expect "6a TreatmentPlans work as normal — the PatientId is there (Rule 12)"
+    expect "6a OrderPlans work as normal — the PatientId is there (Rule 12)"
         (openedAt 1 noPlatform = Some p2Signed.Id)
 
     // ── UC-1 ext 8a / 9a — A already has an open Session, or the wrong Patient ──
@@ -5847,7 +5847,7 @@ let uc3 () =
         (never (function SubmissionBlocked _ -> true | _ -> false)
          && never (function NewerPlanNotice _ -> true | _ -> false))
 
-    expect "UC-3 step 3: a TreatmentPlan is appended, carrying A's UserContext (Rule 15)"
+    expect "UC-3 step 3: an OrderPlan is appended, carrying A's UserContext (Rule 15)"
         (planCount pat2 signed = 2
          && (headOf pat2 signed |> Option.map _.By) = Some ucA)
 
@@ -5862,11 +5862,11 @@ let uc3 () =
 
     expect "UC-3 Rule 34: the Submission carried the opened-with token, and a new one came back"
         (saw (function
-              | SessionRequest(_, _, SubmitTreatmentPlan req) -> Token.plan req.Opened = Some p2Signed.Id
+              | SessionRequest(_, _, SubmitOrderPlan req) -> Token.plan req.Opened = Some p2Signed.Id
               | _ -> false)
          && openedAt 1 signed = (headOf pat2 signed |> Option.map _.Id))
 
-    expect "UC-3 step 3: it is now the most recent TreatmentPlan and counts clinically (Rule 17)"
+    expect "UC-3 step 3: it is now the most recent OrderPlan and counts clinically (Rule 17)"
         ((recordFor pat2 signed |> PatientRecord.latest |> Option.map _.Id)
             = (headOf pat2 signed |> Option.map _.Id))
 
@@ -5912,7 +5912,7 @@ let uc3 () =
     // ── UC-3 ext 3a — A gives the wrong PIN ──
     let wrongOnce = step "UC-3 ext 3a — A gives the wrong PIN" prescribed [ yield! signs 1 (Pin "0000") ]
 
-    expect "3a verification fails and no TreatmentPlan is created"
+    expect "3a verification fails and no OrderPlan is created"
         (planCount pat2 wrongOnce = 1
          && saw (function PinRejected _ -> true | _ -> false))
 
@@ -5958,7 +5958,7 @@ let uc3 () =
 
     expect "3a within the delay the correct PIN does not sign either (Rule 28)"
         (saw (function SigningLocked -> true | _ -> false)
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false)
+         && never (function OrderPlanSubmitted _ -> true | _ -> false)
          && planCount pat2 stillLocked = planCount pat2 relaunchedAfterLimit
          && openCount stillLocked = 1)
 
@@ -6013,7 +6013,7 @@ let uc3 () =
             = (credentialOf ucA stillLocked |> Option.map _.AttemptCount)
          && (credentialOf ucA rightPinWhileLocked |> Option.bind _.LockedUntil)
             = (credentialOf ucA stillLocked |> Option.bind _.LockedUntil)
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false))
+         && never (function OrderPlanSubmitted _ -> true | _ -> false))
 
     // Rule 37 is still a way out, and a faster one: a code by mail, a new PIN, one act.
     let askedForReset = quiet "3b — A asks for a reset" stillLocked [ act 2 AsksPinReset ]
@@ -6072,7 +6072,7 @@ let uc3 () =
     expect "3b the challenge is shown and nothing is submitted: the modal gates the signature (Rule 43)"
         (saw (function SignChallengeIssued _ -> true | _ -> false)
          && (clientOf 1 modalUp |> Option.bind _.Modal |> Option.map Token.verifyChallenge) = Some true
-         && never (function SessionRequest(_, _, SubmitTreatmentPlan _) -> true | _ -> false)
+         && never (function SessionRequest(_, _, SubmitOrderPlan _) -> true | _ -> false)
          && planCount pat2 modalUp = planCount pat2 signed
          && showingOf 1 modalUp = Some "sign the plan as shown, or cancel and edit")
 
@@ -6151,7 +6151,7 @@ let uc3 () =
                      (SessionRequest(
                          sid,
                          None,
-                         SubmitTreatmentPlan
+                         SubmitOrderPlan
                              {
                                  Work = changed
                                  Opened = opened
@@ -6182,7 +6182,7 @@ let uc3 () =
             SessionRequest(
                 sid,
                 st.Opened,
-                SubmitTreatmentPlan
+                SubmitOrderPlan
                     {
                         Work = st.Work
                         Opened = st.Opened.Value
@@ -6194,11 +6194,11 @@ let uc3 () =
         step "UC-3 ext 3d — the same Submission arrives twice" readyToSign
              [ fromClient 1 again; fromClient 1 again ]
 
-    expect "3d one TreatmentPlan, and the same answer both times (Rule 45)"
+    expect "3d one OrderPlan, and the same answer both times (Rule 45)"
         (planCount pat2 duplicated = planCount pat2 readyToSign + 1
-         && countOf (function TreatmentPlanSubmitted _ -> true | _ -> false) = 2
+         && countOf (function OrderPlanSubmitted _ -> true | _ -> false) = 2
          && (lastTrace
-             |> List.choose (function { Msg = TreatmentPlanSubmitted(id, _) } -> Some id | _ -> None)
+             |> List.choose (function { Msg = OrderPlanSubmitted(id, _) } -> Some id | _ -> None)
              |> List.distinct
              |> List.length) = 1)
 
@@ -6222,7 +6222,7 @@ let uc3 () =
                      (SessionRequest(
                          sid,
                          None,
-                         SubmitTreatmentPlan
+                         SubmitOrderPlan
                              {
                                  Work = workOf 1 landed
                                  Opened = opened
@@ -6235,7 +6235,7 @@ let uc3 () =
 
     expect "3d a spent SigningChallenge signs nothing a second time (Rules 43, 45)"
         (saw (function SubmissionRefused _ -> true | _ -> false)
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false))
+         && never (function OrderPlanSubmitted _ -> true | _ -> false))
 
     // ── UC-3 ext 3e — A does not sign ──
     // Nothing enters the record: the WorkPlan is only ever in the browser (Concept 16).
@@ -6248,7 +6248,7 @@ let uc3 () =
     expect "3e the record is where it was, and the work went with the browser (Concept 16)"
         (planCount pat2 neverSigned = planCount pat2 signedAfresh
          && (workingAt 1 neverSigned).IsEmpty
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false))
+         && never (function OrderPlanSubmitted _ -> true | _ -> false))
 
     // ── UC-3 ext 2b, Rule 44 — the Patient Data moved under the Session ──
     // Concept 2 reads the data once, at the launch. A signature is where that stops
@@ -6265,7 +6265,7 @@ let uc3 () =
 
     expect "2b the signature does not land: the User is shown what the platform now holds"
         (saw (function PatientDataChanged _ -> true | _ -> false)
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false)
+         && never (function OrderPlanSubmitted _ -> true | _ -> false)
          && planCount pat2 stoppedAtData = planCount pat2 signedAfresh
          && dataAt 1 stoppedAtData = Some(PatientData "pat-2: 7y, 26kg — revised"))
 
@@ -6300,7 +6300,7 @@ let uc3 () =
     expect "2b no challenge is issued, and the User is told the data is unverified"
         (saw (function PatientDataUnverified _ -> true | _ -> false)
          && never (function SignChallengeIssued _ -> true | _ -> false)
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false)
+         && never (function OrderPlanSubmitted _ -> true | _ -> false)
          && planCount pat2 platformSilent = planCount pat2 signedAfresh)
 
     let signedUnchecked =
@@ -6342,7 +6342,7 @@ let uc4 () =
                  yield! signs 1 pinA
              ]
 
-    expect "UC-4 step 2: a TreatmentPlan in A's name, which now counts (Rule 17)"
+    expect "UC-4 step 2: an OrderPlan in A's name, which now counts (Rule 17)"
         (planCount pat2 aSigned = 2
          && (headOf pat2 aSigned |> Option.map _.By) = Some ucA)
 
@@ -6363,16 +6363,16 @@ let uc4 () =
         step "UC-4 ext 3a — B signs anyway, and the Submission is refused" bTold
              [ yield! signs 2 pinB ]
 
-    expect "3a a TreatmentPlan newer than the one B opened with blocks the Submission (Rule 20)"
+    expect "3a an OrderPlan newer than the one B opened with blocks the Submission (Rule 20)"
         (saw (function SubmissionBlocked _ -> true | _ -> false)
          && planCount pat2 bBlocked = 2)
 
     let bTookOver =
-        step "UC-4 step 4 — B opens A's TreatmentPlan, which lifts the block (Rule 18)" bBlocked
-             [ act 2 (OpensTreatmentPlan (headOf pat2 bBlocked).Value.Id) ]
+        step "UC-4 step 4 — B opens A's OrderPlan, which lifts the block (Rule 18)" bBlocked
+             [ act 2 (OpensOrderPlan (headOf pat2 bBlocked).Value.Id) ]
 
     expect "UC-4 step 4: opening it re-mints the token, so it is what the Session opened with (Rule 34)"
-        (saw (function TreatmentPlanOpened _ -> true | _ -> false)
+        (saw (function OrderPlanOpened _ -> true | _ -> false)
          && openedAt 2 bTookOver = (headOf pat2 bBlocked |> Option.map _.Id))
 
     let bReapplied =
@@ -6386,7 +6386,7 @@ let uc4 () =
         ((headOf pat2 bReapplied |> Option.map _.By) = Some ucB)
 
     // Rule 15, the half that only shows here, and Rule 35, which is how the Server
-    // knows: it diffed the payload against the base TreatmentPlan rather than believing
+    // knows: it diffed the payload against the base OrderPlan rather than believing
     // any stamp the Client sent.
     let orders = headOf pat2 bReapplied |> Option.map _.Orders |> Option.defaultValue []
 
@@ -6399,7 +6399,7 @@ let uc4 () =
 
     // Nothing signed is ever lost: the PatientRecord is append-only (Concept 12), so
     // A's plan survives B's.
-    expect "UC-4 nothing signed is lost: A's TreatmentPlan survives B's (Concept 12)"
+    expect "UC-4 nothing signed is lost: A's OrderPlan survives B's (Concept 12)"
         (recordFor pat2 bReapplied |> _.Plans |> List.exists (fun s -> s.By = ucA))
 
     // ── UC-4 ext 3b — both sign at once ──
@@ -6420,26 +6420,26 @@ let uc4 () =
                [ act 1 (ConfirmsSign pinA); act 2 (ConfirmsSign pinB) ]
 
     expect "3b exactly one signature landed, and the record moved once (Rules 36, 42)"
-        (countOf (function TreatmentPlanSubmitted _ -> true | _ -> false) = 1
+        (countOf (function OrderPlanSubmitted _ -> true | _ -> false) = 1
          && planCount pat2 bothSign = planCount pat2 bothChallenged + 1)
 
-    expect "3b the loser is told whose work stands in the way, never which TreatmentPlan (Rule 20)"
+    expect "3b the loser is told whose work stands in the way, never which OrderPlan (Rule 20)"
         (countOf (function SubmissionBlocked _ -> true | _ -> false) = 1
          && saw (function SubmissionBlocked uc -> uc = ucA || uc = ucB | _ -> false))
 
-    // ── Rule 18 — an older TreatmentPlan is readable, and not a place to build ──
+    // ── Rule 18 — an older OrderPlan is readable, and not a place to build ──
     let history =
-        quiet "Rule 18 precondition — a record with several TreatmentPlans" bReapplied
+        quiet "Rule 18 precondition — a record with several OrderPlans" bReapplied
               (launchAs ucA.Login (Some pat2))
 
     let older = recordFor pat2 history |> _.Plans |> List.skip 1 |> List.tryHead
 
     let readingHistory =
-        step "Rule 18 — A opens an older TreatmentPlan" history
-             [ act 3 (OpensTreatmentPlan older.Value.Id) ]
+        step "Rule 18 — A opens an older OrderPlan" history
+             [ act 3 (OpensOrderPlan older.Value.Id) ]
 
     expect "Rule 18 the whole history is readable by anyone who may see the Patient"
-        (saw (function TreatmentPlanOpened _ -> true | _ -> false)
+        (saw (function OrderPlanOpened _ -> true | _ -> false)
          && openedAt 3 readingHistory = Some older.Value.Id)
 
     let buildingOnIt =
@@ -6818,9 +6818,9 @@ let uc7 () =
 
     let noSaving = step "UC-7 step 3 — nothing can be signed" prescribing (signs 1 pinA)
 
-    expect "UC-7 step 3: no TreatmentPlan can be opened or created (Rule 13)"
-        (saw (function NoTreatmentPlanHere -> true | _ -> false)
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false))
+    expect "UC-7 step 3: no OrderPlan can be opened or created (Rule 13)"
+        (saw (function NoOrderPlanHere -> true | _ -> false)
+         && never (function OrderPlanSubmitted _ -> true | _ -> false))
 
     expect "UC-7 neither the PatientRecord nor the PatientDataPlatform is ever touched"
         (never (function ReadRecord _ -> true | _ -> false)
@@ -7113,7 +7113,7 @@ let uc8 () =
         step "UC-8 step 3 — A carries the surviving work into the new Session" relaunched
              ([ act 3 (CarriesOverFrom(BrowserId 1)) ] @ signs 3 pinA)
 
-    expect "UC-8 step 3: the unsigned OrderContext from before the idle-out lands in the next TreatmentPlan"
+    expect "UC-8 step 3: the unsigned OrderContext from before the idle-out lands in the next OrderPlan"
         (headOf pat2 carried
          |> Option.map _.Orders
          |> Option.defaultValue []
@@ -7143,7 +7143,7 @@ let uc8 () =
 
     // The carry-over is within one User's own work and one Patient's, and no further.
     // Rule 33 takes both from the SessionRecord and Guarantee 1 makes the PatientId the
-    // one thing no TreatmentPlan may change, so a cart cannot walk from one User to
+    // one thing no OrderPlan may change, so a cart cannot walk from one User to
     // another, or from one Patient to another.
     let notMine =
         step "UC-8 step 3 — B tries to carry A's surviving work into B's own Session" told
@@ -7297,7 +7297,7 @@ let uc9 () =
 
     let reading = step "UC-9 step 1 — C launches for Patient 2" aWorking (launchAs ucC.Login (Some pat2))
 
-    expect "UC-9 step 1: the Session opens from the most recent TreatmentPlan (Rules 18, 19)"
+    expect "UC-9 step 1: the Session opens from the most recent OrderPlan (Rules 18, 19)"
         (openedAt 2 reading = Some p2Signed.Id)
 
     expect "UC-9 step 1: C reads the plan that counts clinically (Rule 17)"
@@ -7319,13 +7319,13 @@ let uc9 () =
 
     let cOpenedIt =
         step "UC-9 step 2 — and C opens it (Rule 18)" cTold
-             [ act 2 (OpensTreatmentPlan (headOf pat2 cTold).Value.Id) ]
+             [ act 2 (OpensOrderPlan (headOf pat2 cTold).Value.Id) ]
 
     expect "UC-9 step 2: the whole history is open to a Reader too (Rule 18)"
         (openedAt 2 cOpenedIt = (headOf pat2 cTold |> Option.map _.Id))
 
     // Step 3. A Reader may prescribe like anyone (Concept 15); what they may never do
-    // is create a TreatmentPlan (Roles, Rule 26).
+    // is create an OrderPlan (Roles, Rule 26).
     let exploring =
         step "UC-9 step 3 — C prescribes to explore, and signing is not offered" cOpenedIt
              ([ act 2 (Prescribes(OrderContextId "oc-what-if-2")) ] @ signs 2 (Pin "0000"))
@@ -7474,7 +7474,7 @@ let uc11 () =
         step "UC-11 step 3 — and B signs over it as normal" bWorksPast
              [ act 4 (Prescribes(OrderContextId "oc-e")); yield! signs 4 pinB ]
 
-    expect "UC-11 step 3: B's TreatmentPlan now counts (Rule 17)"
+    expect "UC-11 step 3: B's OrderPlan now counts (Rule 17)"
         ((headOf pat2 superseded |> Option.map _.By) = Some ucB)
 
     // ── UC-11 ext 1a — the withdrawal happens while A's Session is open ──
@@ -7512,7 +7512,7 @@ let uc11 () =
              [ yield! signs 1 pinA ]
 
     expect "1a within the grace the signature lands on the Role the launch took, and it is audited (Rule 38)"
-        (saw (function TreatmentPlanSubmitted _ -> true | _ -> false)
+        (saw (function OrderPlanSubmitted _ -> true | _ -> false)
          && never (function SigningUnavailable -> true | _ -> false)
          && registryDown |> audited "under grace"
          && openCount registryDown = openCount stillWorks)
@@ -7529,7 +7529,7 @@ let uc11 () =
 
     expect "1a past the grace no answer means no signature, and the Session is untouched (Rule 38)"
         (saw (function SigningUnavailable -> true | _ -> false)
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false)
+         && never (function OrderPlanSubmitted _ -> true | _ -> false)
          && openCount staleRole = openCount stillWorks)
 
     superseded
@@ -7567,7 +7567,7 @@ let tokensAndArbitration () =
          && never (function SubmissionRefused _ -> true | _ -> false)
          && planCount pat2 honestStale = planCount pat2 bWon)
 
-    // Now A edits the token to name the newest TreatmentPlan, which would lift the
+    // Now A edits the token to name the newest OrderPlan, which would lift the
     // Rule 20 block, and guesses at the mac.
     let forged =
         let sid = (sidAt 1 bWon).Value
@@ -7578,19 +7578,19 @@ let tokensAndArbitration () =
                         Purpose = TokenPurpose.Opened
                         Sid = sid
                         Patient = Some pat2
-                        Names = [ let (TreatmentPlanId i) = newestPlan in i ]
+                        Names = [ let (OrderPlanId i) = newestPlan in i ]
                         Nonce = "guessed"
                         IssuedAt = 0
                         ExpiresAt = 9_999
                     }
                 Mac = "mac|guessed"
             }
-        step "Rule 34 — A edits the token to name the newest TreatmentPlan" bWon
+        step "Rule 34 — A edits the token to name the newest OrderPlan" bWon
              [ fromClient 1 (SessionRequest(sid, None, handCreate (workOf 1 bWon) tok None)) ]
 
     expect "Rule 34 the token does not verify, so the Submission is refused — not merely blocked"
         (saw (function SubmissionRefused _ -> true | _ -> false)
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false)
+         && never (function OrderPlanSubmitted _ -> true | _ -> false)
          && planCount pat2 forged = planCount pat2 bWon)
 
     // ── Concept 17: a genuine token, offered for the wrong purpose ──
@@ -7611,7 +7611,7 @@ let tokensAndArbitration () =
 
     expect "Concept 17 a token minted for another purpose fails by key, not by luck"
         (saw (function SubmissionRefused why -> why.Contains "does not verify" | _ -> false)
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false))
+         && never (function OrderPlanSubmitted _ -> true | _ -> false))
 
     // ── Rules 21, 22: the notice informs and gates nothing ──
     // A signs while B holds an open Session over the same Patient. B is told at B's
@@ -7682,7 +7682,7 @@ let tokensAndArbitration () =
                      (SessionRequest(
                          sid,
                          None,
-                         SubmitTreatmentPlan
+                         SubmitOrderPlan
                              {
                                  Work = { st.Work with Orders = claimed }
                                  Opened = st.Opened.Value
@@ -7721,15 +7721,15 @@ let tokensAndArbitration () =
                [ act 1 (ConfirmsSign pinA); act 2 (ConfirmsSign pinB) ]
 
     expect "Rule 42 both signatures reached the Database as whole acts"
-        (countOf (function CommitTreatmentPlan _ -> true | _ -> false) = 2)
+        (countOf (function CommitOrderPlan _ -> true | _ -> false) = 2)
 
     expect "Rule 36 exactly one landed; the other was refused, and the record moved once"
-        (countOf (function TreatmentPlanCommitted _ -> true | _ -> false) = 1
+        (countOf (function OrderPlanCommitted _ -> true | _ -> false) = 1
          && countOf (function CommitRefused _ -> true | _ -> false) = 1
          && planCount pat2 raced = planCount pat2 bothChallenged + 1)
 
     // Rule 20 is what refuses the loser, and it names whose work stands in the way
-    // rather than which TreatmentPlan it is.
+    // rather than which OrderPlan it is.
     expect "Rule 20 the loser is told whose work landed first, and nothing more"
         (countOf (function SubmissionBlocked uc -> uc = ucA || uc = ucB | _ -> false) = 1)
 
@@ -7853,7 +7853,7 @@ let adversarialReview () =
         SessionRequest(
             (sidAt 1 h).Value,
             None,
-            SubmitTreatmentPlan
+            SubmitOrderPlan
                 {
                     Work = workOf 1 h
                     Opened = (clientOf 1 h).Value.Opened.Value
@@ -7870,7 +7870,7 @@ let adversarialReview () =
 
     expect "6 the signature is refused at its commit, and nothing is appended (Rule 38)"
         (saw (function NotPermitted -> true | _ -> false)
-         && never (function TreatmentPlanSubmitted _ -> true | _ -> false)
+         && never (function OrderPlanSubmitted _ -> true | _ -> false)
          && planCount pat2 withdrawnMidSignature = planCount pat2 challenged)
 
     // ── 7. A request that began before the Session ended cannot append after it ──
@@ -7880,7 +7880,7 @@ let adversarialReview () =
              [ fromClient 1 (commitAfterWithdrawal challenged "adv-7") ]
 
     expect "7 nothing is appended: the Session is re-established at the commit (Rules 40, 41, 42)"
-        (never (function TreatmentPlanSubmitted _ -> true | _ -> false)
+        (never (function OrderPlanSubmitted _ -> true | _ -> false)
          && planCount pat2 closedMidSignature = planCount pat2 challenged)
 
     // ── 8. Two wrong PINs at once count twice, not once ──
@@ -7905,7 +7905,7 @@ let adversarialReview () =
             SessionRequest(
                 sid,
                 None,
-                SubmitTreatmentPlan
+                SubmitOrderPlan
                     {
                         Work = workOf 1 twoChallenges
                         Opened = (clientOf 1 twoChallenges).Value.Opened.Value
@@ -7994,7 +7994,7 @@ let adversarialReview () =
             SessionRequest(
                 (sidAt 1 lostToADownServer).Value,
                 None,
-                SubmitTreatmentPlan
+                SubmitOrderPlan
                     {
                         Work = workOf 1 backUp
                         Opened = (clientOf 1 backUp).Value.Opened.Value
@@ -8009,7 +8009,7 @@ let adversarialReview () =
 
     expect "17 the retry lands, and the retry of the retry does not (Rule 45)"
         (planCount pat2 retriedAfterwards = planCount pat2 lostToADownServer + 1
-         && countOf (function TreatmentPlanSubmitted _ -> true | _ -> false) = 2)
+         && countOf (function OrderPlanSubmitted _ -> true | _ -> false) = 2)
 
     // ── 18. A restart collides no identifier and loses nothing acknowledged ──
     let restarted =
@@ -8247,7 +8247,7 @@ let consequences () =
         match m with
         | ChoosePin _ | SupplyPin _ -> true
         | Act(ConfirmsSign _) -> true
-        | SessionRequest(_, _, SubmitTreatmentPlan { Pin = Some _ }) -> true
+        | SessionRequest(_, _, SubmitOrderPlan { Pin = Some _ }) -> true
         | Act(EntersResetCode _) -> true
         | SessionRequest(_, _, SupplyResetCode _) -> true
         | ReplacePinIfCode _ -> true
@@ -8317,8 +8317,8 @@ let consequences () =
                     | RedeemLaunch(_, Some who, _) -> who = uc.Login
                     | _ -> false)))
 
-    // ── Rule 16, over every version of every TreatmentPlan the run ever held ──
-    // A TreatmentPlan never changes. Scenarios all replay from the same world, so a
+    // ── Rule 16, over every version of every OrderPlan the run ever held ──
+    // An OrderPlan never changes. Scenarios all replay from the same world, so a
     // plan id alone does not name one plan across the run. But a plan written twice
     // with the same id and different content would show up here as two sightings
     // sharing an id, which is what Rule 16 forbids within one record.
@@ -8403,7 +8403,7 @@ let consequences () =
         (allTrace
          |> List.exists (fun e ->
              match e.Msg with
-             | SessionRequest(_, _, SubmitTreatmentPlan req) ->
+             | SessionRequest(_, _, SubmitOrderPlan req) ->
                  not req.Work.Orders.IsEmpty && req.Work.Data.IsSome
              | _ -> false))
 
@@ -8418,7 +8418,7 @@ let consequences () =
 
     ignore readARecordFor
 
-    expect "Rule 33 every TreatmentPlan's User came off a SessionRecord, never off the payload"
+    expect "Rule 33 every OrderPlan's User came off a SessionRecord, never off the payload"
         (allRecords
          |> List.map _.Id
          |> Set.ofList
@@ -8428,7 +8428,7 @@ let consequences () =
                  match e.Msg with
                  // Rule 42: the User is read inside the act, off the SessionRecord the
                  // commit names, and never off the payload, which carries no User.
-                 | CommitTreatmentPlan(_, c) -> known.Contains c.Sid
+                 | CommitOrderPlan(_, c) -> known.Contains c.Sid
                  | _ -> true))
 
     // ── Rules 21, 22 and 34 ──
@@ -8437,8 +8437,8 @@ let consequences () =
          |> List.forall (fun e ->
              match e.Msg with
              | SessionOpened(_, _, _, _, _, t) -> Token.verifyOpened t
-             | TreatmentPlanSubmitted(_, t) -> Token.verifyOpened t
-             | TreatmentPlanOpened(_, _, t) -> Token.verifyOpened t
+             | OrderPlanSubmitted(_, t) -> Token.verifyOpened t
+             | OrderPlanOpened(_, _, t) -> Token.verifyOpened t
              | _ -> true))
 
     // Rule 22, over the whole run: the notice carries no token and nothing was ever
@@ -8452,13 +8452,13 @@ let consequences () =
                 | _ -> true))
 
     // ── Rules 36 and 42 ──
-    // There is no message that appends a TreatmentPlan at all: `CommitTreatmentPlan` is
+    // There is no message that appends an OrderPlan at all: `CommitOrderPlan` is
     // the only way in, it goes to the one party that arbitrates, and what comes back
     // is either the whole thing or nothing.
-    let commits = allTrace |> List.filter (fun e -> match e.Msg with CommitTreatmentPlan _ -> true | _ -> false)
-    let landed = allTrace |> List.filter (fun e -> match e.Msg with TreatmentPlanCommitted _ -> true | _ -> false)
+    let commits = allTrace |> List.filter (fun e -> match e.Msg with CommitOrderPlan _ -> true | _ -> false)
+    let landed = allTrace |> List.filter (fun e -> match e.Msg with OrderPlanCommitted _ -> true | _ -> false)
 
-    expect "Rule 42 every TreatmentPlan that landed came through one commit, and there were more commits than plans"
+    expect "Rule 42 every OrderPlan that landed came through one commit, and there were more commits than plans"
         (landed.Length <= commits.Length && landed.Length > 0)
 
     expect "Rule 36 and every commit went to the Database, the one arbiter"
@@ -8522,7 +8522,7 @@ let guarantees () =
     let g3 = quiet "G" g2 (launchAs ucB.Login (Some pat2))
     // B is blocked first (Rule 20), takes over A's plan (Rule 18), and then signs.
     let g4a = quiet "G" g3 [ act 2 (Prescribes(OrderContextId "g-3")); yield! signs 2 pinB ]
-    let g4b = quiet "G" g4a [ act 2 (OpensTreatmentPlan (headOf pat2 g4a).Value.Id) ]
+    let g4b = quiet "G" g4a [ act 2 (OpensOrderPlan (headOf pat2 g4a).Value.Id) ]
     let g4 = quiet "G" g4b [ act 2 (Prescribes(OrderContextId "g-3")); yield! signs 2 pinB ]
     // And one Submission that does not land, so the audit has a refusal in it to find.
     let g5 = quiet "G" g4 [ act 2 (Prescribes(OrderContextId "g-4")); yield! signs 2 (Pin "0000") ]
@@ -8530,7 +8530,7 @@ let guarantees () =
     let record = recordFor pat2 g4
 
     // ── Guarantee 1: one constant ──
-    expect "G1 the PatientId is the one thing no TreatmentPlan may change"
+    expect "G1 the PatientId is the one thing no OrderPlan may change"
         (record.Plans |> List.forall (fun s -> s.Patient = pat2))
 
     expect "G1 and only a launch supplies one, so no hand ever set it (Rules 13, 14, 33)"
@@ -8539,10 +8539,10 @@ let guarantees () =
          |> List.forall (fun p -> (recordFor p g4).Plans |> List.forall (fun s -> s.Patient = p)))
 
     // ── Guarantee 2: one version ──
-    expect "G2 exactly one TreatmentPlan is the visible version: the most recent (Rules 17, 19)"
+    expect "G2 exactly one OrderPlan is the visible version: the most recent (Rules 17, 19)"
         ((PatientRecord.latest record |> Option.map _.Id) = (record.Plans |> List.tryHead |> Option.map _.Id))
 
-    // Reading is wider than building. Every TreatmentPlan is readable (Rule 18), but
+    // Reading is wider than building. Every OrderPlan is readable (Rule 18), but
     // only the most recent can be built on: opening an older one makes it the
     // Session's baseline and Rule 20 then blocks the Submission.
     expect "G2 reading is wider than building: the whole history is open to read (Rule 18)"
@@ -8562,7 +8562,7 @@ let guarantees () =
     // The cart is private by construction: it lives in the User's own Client and the
     // Server keeps none of it (Rule 32). The checkout is single by construction too:
     // the Database arbitrates the append (Rule 36).
-    expect "G3 signing is the only checkout: every TreatmentPlan in the run was signed by a Prescriber"
+    expect "G3 signing is the only checkout: every OrderPlan in the run was signed by a Prescriber"
         (not allPlans.IsEmpty
          && allPlans |> List.forall (List.forall (fun s -> s.By.Role = Prescriber)))
 
@@ -8571,10 +8571,10 @@ let guarantees () =
          |> patientsInRecord
          |> List.forall (fun p -> (recordFor p g4).Plans |> List.forall (fun s -> s.By.Role <> Reader)))
 
-    // Concept 13. Every TreatmentPlan this run created was built on one before it.
-    expect "G3 every TreatmentPlan created here stands on a base (Concept 13)"
+    // Concept 13. Every OrderPlan this run created was built on one before it.
+    expect "G3 every OrderPlan created here stands on a base (Concept 13)"
         (record.Plans
-         |> List.filter (fun s -> s.No >= TreatmentPlanNo 10)
+         |> List.filter (fun s -> s.No >= OrderPlanNo 10)
          |> List.forall (fun s -> s.Base.IsSome))
 
     expect "G3 the two carts never met in the Server: it held neither (Rule 32)"
@@ -8583,19 +8583,19 @@ let guarantees () =
 
     // ── Rule 46: the audit ──
     // The record of what was done lives in the private store, written by the party
-    // that did it, in the same act (Rule 42). Every TreatmentPlan in the final
+    // that did it, in the same act (Rule 42). Every OrderPlan in the final
     // Patient's record has its line, and every line names the User.
     let auditLines = auditOf g5
 
-    // The Cast's own TreatmentPlans were placed, not created, so nothing recorded
+    // The Cast's own OrderPlans were placed, not created, so nothing recorded
     // them: what the audit answers for is every Submission this run actually made.
-    let createdHere = record.Plans |> List.filter (fun s -> s.No >= TreatmentPlanNo 10)
+    let createdHere = record.Plans |> List.filter (fun s -> s.No >= OrderPlanNo 10)
 
-    expect "Rule 46 every TreatmentPlan created here is in the audit, exactly once, with its User"
+    expect "Rule 46 every OrderPlan created here is in the audit, exactly once, with its User"
         (not createdHere.IsEmpty
          && createdHere
             |> List.forall (fun s ->
-                let (TreatmentPlanId i) = s.Id
+                let (OrderPlanId i) = s.Id
                 let (UserId u) = s.By.UserId
                 (auditLines
                  |> List.filter (fun a -> a.What.Contains i && a.What.Contains "signed" && a.What.Contains u))
@@ -8625,7 +8625,7 @@ let guarantees () =
     // code, no spent key.
     let exported = g5.Database.Clinical
 
-    expect "Actor 5 the Clinical store holds TreatmentPlans, every one of them signed"
+    expect "Actor 5 the Clinical store holds OrderPlans, every one of them signed"
         (exported.Signed |> Map.forall (fun _ plans -> not plans.IsEmpty))
 
     expect "Actor 5 an export of it carries no credential, no code and no key"
@@ -8639,7 +8639,7 @@ let guarantees () =
     // plan, which is a bearer credential. The append drops it. So a plan records its
     // Session only until it lands: Concept 13 asks for it, and Actor 5 and Guarantee 4
     // forbid carrying it into the copy, which is what ships.
-    expect "Actor 5 no exported TreatmentPlan carries a SessionId (Rule 12, Guarantee 4)"
+    expect "Actor 5 no exported OrderPlan carries a SessionId (Rule 12, Guarantee 4)"
         (exported.Signed |> Map.forall (fun _ plans -> plans |> List.forall (fun s -> s.Session = None)))
 
     expect "Actor 5 an export of it mentions no SessionId at all, however it is rendered"
@@ -8673,10 +8673,10 @@ let guarantees () =
                 = (g5.Database |> Database.signedOf p |> List.sortBy _.No)))
 
     // ── Guarantee 4: audit ──
-    expect "G4 a TreatmentPlan carries the User who signed it (Concepts 13, 14; Rule 15)"
+    expect "G4 an OrderPlan carries the User who signed it (Concepts 13, 14; Rule 15)"
         (record.Plans |> List.forall (fun s -> s.By.UserId = ucA.UserId || s.By.UserId = ucB.UserId))
 
-    expect "G4 every OrderContext in every TreatmentPlan carries the User whose Session last changed it"
+    expect "G4 every OrderContext in every OrderPlan carries the User whose Session last changed it"
         (g4
          |> patientsInRecord
          |> List.forall (fun p ->
@@ -8704,18 +8704,18 @@ let guarantees () =
              && later.Plans |> List.skip (later.Plans.Length - earlier.Plans.Length)
                     = earlier.Plans))
 
-    // Stated as the claim rather than as a count: every TreatmentPlan that existed at
+    // Stated as the claim rather than as a count: every OrderPlan that existed at
     // any point in the history is still in the record at the end of it.
     let everSigned = history |> List.collect _.Plans |> List.distinct
 
-    expect "G4 nothing signed is ever lost: every TreatmentPlan ever made is still there"
+    expect "G4 nothing signed is ever lost: every OrderPlan ever made is still there"
         (everSigned <> []
          && everSigned |> List.forall (fun s -> record.Plans |> List.contains s))
 
     // What is not protected is unsigned work, which never existed to the record at
     // all: it lived only in its own browser and died with it (Concept 16).
     expect "G4 an older plan is not a place to build: Rule 20 blocks on anything newer"
-        (record |> PatientRecord.blocking (Some(TreatmentPlanId "plan-0010"))).IsSome
+        (record |> PatientRecord.blocking (Some(OrderPlanId "plan-0010"))).IsSome
 
     // ── Guarantee 5: a stolen Launch steals no authority ──
     // Whoever presents a Launch is identified as themselves (Rule 4), gets their own

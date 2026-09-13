@@ -1,7 +1,7 @@
 namespace Informedica.GenPRES.Shared.Tests
 
 
-/// The client's session state machine, linked in from the client project (plan 409 step 3a).
+/// The client's session state machine, linked in from the client project.
 module SessionMachineTests =
 
     open Expecto
@@ -34,6 +34,7 @@ module SessionMachineTests =
                 )
             OpenedToken = Some(OpenedToken "t")
             KeyThumbprint = thumbprint
+            Head = None
         }
 
     let patient = Shared.Models.Patient.empty
@@ -113,6 +114,49 @@ module SessionMachineTests =
                              SessionEffect.SetPatient(Some patient)
                              SessionEffect.KeepKey "thumb"
                          ])
+                }
+
+                test "Opened over a record loads its head into the cart, after the patient (Rule 19)" {
+                    let head: SignedOrderPlan =
+                        {
+                            Head =
+                                {
+                                    Id = "plan-1"
+                                    No = 1
+                                    By = full.User.Value
+                                    SignedAt = System.DateTime(2026, 9, 11, 12, 0, 0, System.DateTimeKind.Utc)
+                                }
+                            PatientId = "p"
+                            Base = None
+                            Scenarios = [||]
+                            Patient = patient
+                            Verified = true
+                        }
+
+                    let over = { full with Head = Some head }
+
+                    transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened over))) launching
+                    |> Expect.equal
+                        "open"
+                        (Session.Open over,
+                         [
+                             SessionEffect.SetPatient(Some patient)
+                             SessionEffect.KeepKey "thumb"
+                             SessionEffect.LoadCart head
+                         ])
+
+                    // a resume opens the same way
+                    transition (SessionMsg.Resumed(Ok(ResumeResult.Found over))) Session.Resuming
+                    |> snd
+                    |> List.contains (SessionEffect.LoadCart head)
+                    |> Expect.isTrue "loaded at resume"
+
+                    // no patient, no cart to load, whatever the head says
+                    let bare = { sessionWith None None with Head = Some head }
+
+                    transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened bare))) launching
+                    |> snd
+                    |> Expect.equal "nothing to load" [ SessionEffect.SetPatient None ]
                 }
 
                 test "Opened without a patient sets None; without a thumbprint prunes nothing" {
@@ -301,13 +345,90 @@ module SessionMachineTests =
                 }
 
                 test "Resumed with a session opens it like a launch" {
-                    transition (SessionMsg.Resumed(Ok(Some full))) Session.Resuming
+                    transition (SessionMsg.Resumed(Ok(ResumeResult.Found full))) Session.Resuming
                     |> Expect.equal "open" (Session.opened full)
                 }
 
                 test "Resumed without a session is Anonymous and keeps the url patient (no SetPatient)" {
-                    transition (SessionMsg.Resumed(Ok None)) Session.Resuming
+                    transition (SessionMsg.Resumed(Ok ResumeResult.NotFound)) Session.Resuming
                     |> Expect.equal "anonymous" (Session.Anonymous, [])
+                }
+
+                test "Resumed with an ending is Ended and acknowledges it with a close (Rule 11)" {
+                    transition
+                        (SessionMsg.Resumed(Ok(ResumeResult.Ended SessionEnding.SupersededByLaunch)))
+                        Session.Resuming
+                    |> Expect.equal
+                        "ended, acknowledged"
+                        (Session.Ended SessionEnding.SupersededByLaunch, [ SessionEffect.CallCloseSession ])
+                }
+
+                test "Resumed with a pending enrolment is Enrolling, and a new launch presents (UC-2)" {
+                    let pending: EnrolmentPending =
+                        {
+                            DisplayName = "Stub Prescriber (no PIN)"
+                            MailHint = "n***@stub.example"
+                        }
+
+                    transition (SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending))) Session.Resuming
+                    |> Expect.equal "enrolling" (Session.Enrolling(pending, None), [])
+
+                    transition (SessionMsg.Present(launchB, keyB)) (Session.Enrolling(pending, None))
+                    |> Expect.equal "presents" (Session.present launchB keyB)
+                }
+
+                test "the form is sent once at a time, and the answer opens, keeps the form, or ends it (UC-2)" {
+                    let pending: EnrolmentPending =
+                        {
+                            DisplayName = "Stub Prescriber (no PIN)"
+                            MailHint = "n***@stub.example"
+                        }
+
+                    let enrolling = Session.Enrolling(pending, None)
+                    let supplying = Session.SupplyingPin pending
+
+                    transition (SessionMsg.SupplyPin("123456", "2468")) enrolling
+                    |> Expect.equal "sent" (supplying, [ SessionEffect.CallSupplyPin("123456", "2468") ])
+
+                    transition (SessionMsg.SupplyPin("123456", "2468")) supplying
+                    |> Expect.equal "not twice" (supplying, [])
+
+                    let session = sessionWith (Some "t") (Some patient)
+
+                    transition (SessionMsg.PinAnswered(Ok(PinOutcome.Opened session))) supplying
+                    |> Expect.equal "opened" (Session.opened session)
+
+                    transition (SessionMsg.PinAnswered(Ok(PinOutcome.Refused(PinRefusal.WrongCode 2)))) supplying
+                    |> Expect.equal "form kept" (Session.Enrolling(pending, Some(PinRefusal.WrongCode 2)), [])
+
+                    transition (SessionMsg.PinAnswered(Ok(PinOutcome.Refused PinRefusal.PinFormat))) supplying
+                    |> Expect.equal "form kept" (Session.Enrolling(pending, Some PinRefusal.PinFormat), [])
+
+                    for terminal in
+                        [
+                            PinRefusal.CodeVoid
+                            PinRefusal.AttemptExpired
+                            PinRefusal.WrongActivePatient
+                        ] do
+                        transition (SessionMsg.PinAnswered(Ok(PinOutcome.Refused terminal))) supplying
+                        |> Expect.equal $"{terminal}" (Session.EnrolmentFailed terminal, [])
+
+                    transition (SessionMsg.PinAnswered(Error "down")) supplying
+                    |> Expect.equal "form back" (enrolling, [])
+
+                    // an answer lands only on the request in flight
+                    transition (SessionMsg.PinAnswered(Ok(PinOutcome.Opened session))) enrolling
+                    |> Expect.equal "dropped" (enrolling, [])
+                }
+
+                test "from Ended the anonymous open carries nothing over, and a new launch presents" {
+                    let ended = Session.Ended SessionEnding.SupersededByLaunch
+
+                    transition SessionMsg.OpenAnonymous ended
+                    |> Expect.equal "anonymous" (Session.Anonymous, [ SessionEffect.SetPatient None ])
+
+                    transition (SessionMsg.Present(launchB, keyB)) ended
+                    |> Expect.equal "presents" (Session.present launchB keyB)
                 }
 
                 test "Resumed with a transport error is Anonymous" {
@@ -317,7 +438,7 @@ module SessionMachineTests =
 
                 test "Resumed outside Resuming is dropped" {
                     for state in [ Session.Anonymous; launching; Session.Open full ] do
-                        transition (SessionMsg.Resumed(Ok(Some full))) state
+                        transition (SessionMsg.Resumed(Ok(ResumeResult.Found full))) state
                         |> Expect.equal "unchanged" (state, [])
                 }
             ]
@@ -431,6 +552,33 @@ module SessionMachineTests =
                         ]
                 }
 
+                test
+                    "EndedByServer from Open is Ended and acknowledges it with a close; elsewhere dropped (UC-3, Rule 28)" {
+                    transition (SessionMsg.EndedByServer SessionEnding.WrongPinLimit) (Session.Open full)
+                    |> Expect.equal
+                        "ended"
+                        (Session.Ended SessionEnding.WrongPinLimit, [ SessionEffect.CallCloseSession ])
+
+                    for state in
+                        [
+                            Session.Anonymous
+                            Session.Closing full
+                            Session.Resuming
+                            launching
+                        ] do
+                        transition (SessionMsg.EndedByServer SessionEnding.WrongPinLimit) state
+                        |> Expect.equal $"{state}" (state, [])
+                }
+
+                test "TokenRenewed from Open replaces the token; elsewhere dropped (UC-3, Rule 34)" {
+                    transition (SessionMsg.TokenRenewed(OpenedToken "t2")) (Session.Open full)
+                    |> Expect.equal "renewed" (Session.Open { full with OpenedToken = Some(OpenedToken "t2") }, [])
+
+                    for state in [ Session.Anonymous; Session.Closing full; launching ] do
+                        transition (SessionMsg.TokenRenewed(OpenedToken "t2")) state
+                        |> Expect.equal $"{state}" (state, [])
+                }
+
                 test "the happy path: present, open, close" {
                     let state, effects =
                         run
@@ -458,6 +606,125 @@ module SessionMachineTests =
             ]
 
 
+    let openVersionTests =
+        let head: SignedOrderPlan =
+            {
+                Head =
+                    {
+                        Id = "plan-2"
+                        No = 2
+                        By = full.User.Value
+                        SignedAt = System.DateTime(2026, 9, 11, 12, 0, 0, System.DateTimeKind.Utc)
+                    }
+                PatientId = "p"
+                Base = Some "plan-1"
+                Scenarios = [||]
+                Patient = patient
+                Verified = true
+            }
+
+        let reopened =
+            { full with
+                OpenedToken = Some(OpenedToken "t-2")
+                Head = Some head
+            }
+
+        testList
+            "OpenVersion (UC-4 step 4)"
+            [
+                test "OpenVersion from Open calls the server with the token it starts from; elsewhere dropped" {
+                    transition (SessionMsg.OpenVersion "plan-2") (Session.Open full)
+                    |> Expect.equal
+                        "call"
+                        (Session.Open full,
+                         [
+                             SessionEffect.CallOpenVersion("plan-2", full.OpenedToken)
+                         ])
+
+                    transition (SessionMsg.OpenVersion "plan-2") Session.Anonymous
+                    |> Expect.equal "dropped" (Session.Anonymous, [])
+                }
+
+                test
+                    "Reopened with the Session replaces it, loads the version into the cart and tells it, no SetPatient" {
+                    transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) (Session.Open full)
+                    |> Expect.equal
+                        "reopened"
+                        (Session.Open reopened,
+                         [
+                             SessionEffect.LoadCart head
+                             SessionEffect.TellVersionOpened head.Head
+                         ])
+                }
+
+                test "MovedOn.receive: news once per version, ordered by No, not by arrival (Rules 20 to 22)" {
+                    let first = head.Head
+
+                    let second =
+                        { first with
+                            Id = "plan-3"
+                            No = 3
+                        }
+
+                    MovedOn.receive None first |> Expect.equal "first: news" (Some first, true)
+
+                    MovedOn.receive (Some first) first
+                    |> Expect.equal "again: not news" (Some first, false)
+
+                    MovedOn.receive (Some first) second
+                    |> Expect.equal "newer: news" (Some second, true)
+
+                    // replies land out of order: an older version told last is not news and is not kept
+                    MovedOn.receive (Some second) first
+                    |> Expect.equal "older: nothing" (Some second, false)
+                }
+
+                test "MovedOn.opened: the notice is spent by a version at least as new, a newer notice stays" {
+                    let two = head.Head
+
+                    let three =
+                        { two with
+                            Id = "plan-3"
+                            No = 3
+                        }
+
+                    MovedOn.opened (Some two) two |> Expect.isNone "the version told is open"
+                    MovedOn.opened (Some two) three |> Expect.isNone "a newer one is open"
+                    MovedOn.opened None two |> Expect.isNone "nothing kept"
+
+                    MovedOn.opened (Some three) two
+                    |> Expect.equal "version 3 told while 2 was opening: the offer stays" (Some three)
+                }
+
+                test "Reopened with nothing to open, or a transport failure, leaves the Session as it was" {
+                    transition (SessionMsg.Reopened(full.OpenedToken, Ok None)) (Session.Open full)
+                    |> Expect.equal "nothing to open" (Session.Open full, [])
+
+                    transition (SessionMsg.Reopened(full.OpenedToken, Error "offline")) (Session.Open full)
+                    |> Expect.equal "failed" (Session.Open full, [])
+                }
+
+                test "Reopened lands only on the open Session that still holds the token it started from" {
+                    transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) Session.Anonymous
+                    |> Expect.equal "not open: dropped" (Session.Anonymous, [])
+
+                    // a relaunch or an earlier OpenVersion changed the token meanwhile
+                    let newer = { full with OpenedToken = Some(OpenedToken "t-newer") }
+
+                    transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) (Session.Open newer)
+                    |> Expect.equal "stale: dropped" (Session.Open newer, [])
+
+                    // two quick selections: the first answer lands, the second started from the same
+                    // token and is dropped, so the User sees the version the first one opened
+                    let afterFirst, _ =
+                        transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) (Session.Open full)
+
+                    transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some full))) afterFirst
+                    |> Expect.equal "second dropped" (Session.Open reopened, [])
+                }
+            ]
+
+
     [<Tests>]
     let tests =
         testList
@@ -468,4 +735,5 @@ module SessionMachineTests =
                 retryTests
                 resumeTests
                 endingTests
+                openVersionTests
             ]

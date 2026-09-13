@@ -20,7 +20,7 @@ What the User does, and what they see. Each use case gives its goal, preconditio
 
 4. Patient 1: no GenPRES PatientRecord yet  
 
-5. Patient 2: has a GenPRES PatientRecord; its head is the most recent TreatmentPlan
+5. Patient 2: has a GenPRES PatientRecord; its head is the most recent OrderPlan
 
 ### UC-1 User launches GenPRES
 
@@ -44,7 +44,7 @@ What the User does, and what they see. Each use case gives its goal, preconditio
 
 6. GenPRES Server reads Patient 1's data from the PatientDataPlatform, once (Concept 2).  
 
-7. GenPRES Server reads the GenPRES PatientRecord and picks the TreatmentPlan to start from (Rule 19). Patient 1 has none: the Session starts from nothing.  
+7. GenPRES Server reads the GenPRES PatientRecord and picks the OrderPlan to start from (Rule 19). Patient 1 has none: the Session starts from nothing.  
 
 8. GenPRES Server opens the Session, writes its SessionRecord, and closes any other Session of User A's or of this browser's, in one act (Rules 8, 40).  
 
@@ -52,7 +52,7 @@ What the User does, and what they see. Each use case gives its goal, preconditio
 
 **Extensions**
 
-*1a No Patient is active.* The Launch carries none; steps 6–7 are skipped. User A can prescribe with hand-entered data but not open or submit a TreatmentPlan (Rule 13).
+*1a No Patient is active.* The Launch carries none; steps 6–7 are skipped. User A can prescribe with hand-entered data but not open or submit an OrderPlan (Rule 13).
 
 *1b The button is not User A's to press.* MainEHR LaunchScript refuses (Rule 1); nothing leaves the workstation.
 
@@ -72,11 +72,11 @@ What the User does, and what they see. Each use case gives its goal, preconditio
 
 *5b The UserRegistry names another active Patient than the Launch's, or none.* No launch (Rules 6, 7). User A activates the right Patient in MainEHR and relaunches.
 
-*5c The User is a Reader.* A Session opens from the most recent TreatmentPlan; signing is not offered, no PIN is asked (Rules 18, 19, 26).
+*5c The User is a Reader.* A Session opens from the most recent OrderPlan; signing is not offered, no PIN is asked (Rules 18, 19, 26).
 
 *5d User A has no PIN yet.* UC-2.
 
-*6a The PatientDataPlatform is unreachable or empty.* The launch continues without data; User A enters it by hand (Concepts 2, 15). TreatmentPlans open and submit as normal: the PatientId is there (Rule 13).
+*6a The PatientDataPlatform is unreachable or empty.* The launch continues without data; User A enters it by hand (Concepts 2, 15). OrderPlans open and submit as normal: the PatientId is there (Rule 13).
 
 *8a User A already has an open Session.* It is closed and User A is told at this launch (Rules 8, 11\) — unless it was in this same browser, which owes nothing (Rule 8).
 
@@ -116,7 +116,7 @@ The confirmation code goes to the address the UserRegistry holds, so an unrecogn
 
 **Precondition** UC-1: an open Session for Patient 2 from its head, Prescriber Role.
 
-**Main path** User A builds up the orders and signs; the TreatmentPlan is committed.
+**Main path** User A builds up the orders and signs; the OrderPlan is committed.
 
 **Trace**
 
@@ -124,19 +124,19 @@ The confirmation code goes to the address the UserRegistry holds, so an unrecogn
 
 2. User A signs: the whole WorkPlan goes with the OpenedToken (Rules 33, 34). Nothing newer exists, so nothing blocks (Rule 20). GenPRES Server re-reads the Patient Data (Rule 44\) and issues the SigningChallenge (Rule 43).  
 
-3. GenPRES Client shows the challenge modally and asks the PIN (Rule 43). The commit verifies PIN, challenge and tokens, re-takes the Role, and appends the TreatmentPlan, in one transaction (Rules 23, 28, 38, 42). It now counts clinically (Rule 17).
+3. GenPRES Client shows the challenge modally and asks the PIN (Rule 43). The commit verifies PIN, challenge and tokens, re-takes the Role, and appends the OrderPlan, in one transaction (Rules 23, 28, 38, 42). It now counts clinically (Rule 17).
 
 **Extensions**
 
-*1a The record moved on while User A works.* A response says a newer TreatmentPlan exists — whose, and when it was signed (Rule 21). Nothing is blocked yet (Rule 22); A opens the newer plan and reapplies when ready (UC-4).
+*1a The record moved on while User A works.* A response says a newer OrderPlan exists — whose, and when it was signed (Rule 21). Nothing is blocked yet (Rule 22); A opens the newer plan and reapplies when ready (UC-4).
 
 *1b A new KnowledgeRuleSet is published while User A works.* The next computation runs under it (Concept 18): what no longer fits is shown. The challenge, too, is issued under the current set, and the signed plan records it (Rule 44).
 
-*2a The record moved on unseen.* No response happened to tell A first: the Submission itself is refused (Rule 20), which is the notice; A opens the newest TreatmentPlan and reapplies (UC-4 step 4).
+*2a The record moved on unseen.* No response happened to tell A first: the Submission itself is refused (Rule 20), which is the notice; A opens the newest OrderPlan and reapplies (UC-4 step 4).
 
 *2b The Patient Data changed, or cannot be read.* No challenge yet: User A is shown the data as it stands, or that it is unverified, and proceeds by returning the DataNoticeToken (Rule 44).
 
-*3a Wrong PIN, or cancel.* No TreatmentPlan is committed and no token is spent (Rule 34). Wrong entries count across Sessions; at the limit the Session ends and signing locks for a growing delay (Rules 10, 28).
+*3a Wrong PIN, or cancel.* No OrderPlan is committed and no token is spent (Rule 34). Wrong entries count across Sessions; at the limit the Session ends and signing locks for a growing delay (Rules 10, 28).
 
 *3b A dose needs fixing on the challenge.* User A cancels, edits, and signs against a fresh challenge (Rule 43).
 
@@ -160,7 +160,7 @@ The confirmation code goes to the address the UserRegistry holds, so an unrecogn
 
 2. User A signs (UC-3); the plan counts (Rule 17).  
 
-3. User B acts — any request — and the response says a newer TreatmentPlan exists: A's, signed at such a time (Rule 21). Nothing is blocked yet (Rule 22); B keeps working if B chooses.  
+3. User B acts — any request — and the response says a newer OrderPlan exists: A's, signed at such a time (Rule 21). Nothing is blocked yet (Rule 22); B keeps working if B chooses.  
 
 4. User B opens A's plan (Rules 18, 20), reapplies, and signs. Changed OrderContexts carry B's stamp, untouched ones keep A's (Rule 15).
 
@@ -236,7 +236,7 @@ Nothing signed is ever lost: the record is append-only and every base is kept (C
 
 2. User A prescribes by hand (Concept 15); the Server computes and keeps nothing (Rule 32).  
 
-3. No TreatmentPlan can be opened or submitted, and there is nobody to sign as (Rule 13; Concepts 7, 14). The WorkPlan dies with the browser (Concept 16).
+3. No OrderPlan can be opened or submitted, and there is nobody to sign as (Rule 13; Concepts 7, 14). The WorkPlan dies with the browser (Concept 16).
 
 Neither the GenPRES PatientRecord nor the PatientDataPlatform is touched, and no UserRegistry check is made. Anonymous use is rate-limited and capped, and ends at an absolute limit (Rule 14). CDS for anyone; order management only through a launch.
 
@@ -286,9 +286,9 @@ The carry-over of step 3 is a hand-off between tabs of the same browser: the rel
 
 **Trace**
 
-1. The Session opens from the most recent TreatmentPlan (Rules 18, 19); User C reads the plan that counts (Rule 17).  
+1. The Session opens from the most recent OrderPlan (Rules 18, 19); User C reads the plan that counts (Rule 17).  
 
-2. User A signs a new plan meanwhile. At C's next action the response says a newer TreatmentPlan exists — whose, and when (Rule 21). C opens it (Rule 18).  
+2. User A signs a new plan meanwhile. At C's next action the response says a newer OrderPlan exists — whose, and when (Rule 21). C opens it (Rule 18).  
 
 3. User C prescribes to explore (Concept 15); signing and the PIN are not offered (Rule 26).
 
@@ -357,7 +357,7 @@ The kinds of participants that appear in the use cases. \[ours\] \= under constr
 
 5. GenPRES Database \[ours\]: two stores, one writer — GenPRES Server.  
 
-   - The clinical store holds the TreatmentPlans of the GenPRES PatientRecords, each with its base (Concept 13), and is what the PatientDataPlatform copies.  
+   - The clinical store holds the OrderPlans of the GenPRES PatientRecords, each with its base (Concept 13), and is what the PatientDataPlatform copies.  
    - The private store holds everything else — SessionRecords, UserCredentials, the LaunchRecords that carry the spent-state of Launches (Rule 2; UC-1 steps 4 and 5), the spent-state of Tokens (Concept 17) and of signed request proofs (UC-1 step 7), the audit — and is never copied anywhere.  
    - Both stores are append-only, by definition: rows are added, never changed — the record by its nature (Concept 12), Sessions and UserCredentials as chains of events, spent-marks and request keys as rows written once. What may be forgotten (an old idle heartbeat) is dropped whole, never rewritten.
 
@@ -382,9 +382,9 @@ The kinds of participants that appear in the use cases. \[ours\] \= under constr
 
 The kinds of authority a User can hold; what each may do. The UserRegistry decides the Role. MainEHR and GenPRES enforce it independently, each within its own application.
 
-1. Prescriber: may read and write — writing meaning creating TreatmentPlans.  
+1. Prescriber: may read and write — writing meaning creating OrderPlans.  
 
-2. Reader: may never create a TreatmentPlan. Like any User they may prescribe within their Session (Concept 15), but nothing of it can be signed.
+2. Reader: may never create an OrderPlan. Like any User they may prescribe within their Session (Concept 15), but nothing of it can be signed.
 
 ### Concepts
 
@@ -429,7 +429,7 @@ The things passed between actors, or held by them, and what each one means.
 
 8. **GenPRES Session**: the interaction of a User with GenPRES — for a Patient if the launch supplied one, otherwise for no Patient.  
 
-   - Opened without a launch it is anonymous (Rule 14); only a Session with a Patient allows opening or submitting TreatmentPlans (Rule 13).  
+   - Opened without a launch it is anonymous (Rule 14); only a Session with a Patient allows opening or submitting OrderPlans (Rule 13).  
    - It has no state in GenPRES Server between requests: its identity and standing live in its SessionRecord, its work in GenPRES Client (Rule 32).
 
 
@@ -446,41 +446,41 @@ The things passed between actors, or held by them, and what each one means.
 
 10. **OrderContext**: a PatientContext together with the OrderScenarios currently under consideration for that Patient.  
 
-    - Its identity persists across TreatmentPlans.  
+    - Its identity persists across OrderPlans.  
     - Carries the UserContext of the User whose Session last changed it — stamped at each Submission (Rule 15), so one that is never submitted carries none.
 
 
 
 11. **OrderScenario**: one proposed Order together with the prescribing information that gives it meaning but is not part of the Order itself.  
 
-12. **GenPRES PatientRecord**: the append-only history of a Patient in GenPRES — a sequence of TreatmentPlans, every one signed and carrying that Patient's PatientId: the one thing no TreatmentPlan may change.  
+12. **GenPRES PatientRecord**: the append-only history of a Patient in GenPRES — a sequence of OrderPlans, every one signed and carrying that Patient's PatientId: the one thing no OrderPlan may change.  
 
-13. **TreatmentPlan**: the Patient's treatment plan as it stood when signed — a set of the Patient's OrderContexts.  
+13. **OrderPlan**: the Patient's order plan as it stood when signed — a set of the Patient's OrderContexts. Called TreatmentPlan in earlier versions of this design; the code's `OrderPlan` gave the name.  
 
-    - Carries the UserContext of the User who signed it, the Session it was created in, and a reference to the TreatmentPlan it was created from — its base — if any.  
+    - Carries the UserContext of the User who signed it, the Session it was created in, and a reference to the OrderPlan it was created from — its base — if any.  
     - Records the Patient Data it was built on: the values, where each came from (the PatientDataPlatform, or entered by hand) and when they were read (Concept 2\) — so every plan can be explained from its own record.  
     - Records the KnowledgeRuleSet it was checked under (Concept 18; Rule 44).  
     - Never changes (Rule 16).
 
 
 
-14. **Submission**: submitting is signing — the WorkPlan goes to GenPRES Server with the PIN of the Session's User and becomes a TreatmentPlan.  
+14. **Submission**: submitting is signing — the WorkPlan goes to GenPRES Server with the PIN of the Session's User and becomes an OrderPlan.  
 
-    - There is no other way a TreatmentPlan comes into being, and no saving without signing.  
+    - There is no other way an OrderPlan comes into being, and no saving without signing.  
     - None is ever changed or saved again: changing means creating a new one whose base is the old.
 
 
 
 15. **Prescribing**: changing, within a GenPRES Session, the Patient Data of the PatientContext and adding, removing or changing OrderContexts.  
 
-    - Touches only the WorkPlan (Concept 16): nothing reaches the GenPRES PatientRecord until a TreatmentPlan is signed.  
+    - Touches only the WorkPlan (Concept 16): nothing reaches the GenPRES PatientRecord until an OrderPlan is signed.  
     - GenPRES Server computes on what the Client sends — Patient Data included — and keeps none of it.
 
 
 
 16. **WorkPlan**: the plan being composed in GenPRES Client — the Patient Data and the OrderContexts under the User's hands (Concept 15).  
 
-    - Changeable, carries no attribution, sits in no record: it becomes a TreatmentPlan only by being signed (Concept 14), and otherwise dies with the browser.  
+    - Changeable, carries no attribution, sits in no record: it becomes an OrderPlan only by being signed (Concept 14), and otherwise dies with the browser.  
     - Held only by its own Client (Rule 32), which may carry it into the next Session of the same User for the same Patient (UC-8).  
     - The cart of the shopping-cart metaphor (Guarantee 3).
 
@@ -489,7 +489,7 @@ The things passed between actors, or held by them, and what each one means.
 17. **Token**: a short-lived note GenPRES Server writes to itself and hands to GenPRES Client, which returns it unaltered — the Server's memory across requests, where it keeps none of its own (Rule 32).  
 
     - Bound to what it names, impossible for a Client to make, and spent by the Submission it accompanies; a refused Submission spends none (Rule 34).  
-    - Three exist: the OpenedToken — which TreatmentPlan the Session opened (Rule 34); the SigningChallenge — the exact plan a signature would approve (Rule 43); the DataNoticeToken — the Patient Data the User was shown had changed (Rule 44).  
+    - Three exist: the OpenedToken — which OrderPlan the Session opened (Rule 34); the SigningChallenge — the exact plan a signature would approve (Rule 43); the DataNoticeToken — the Patient Data the User was shown had changed (Rule 44).  
     - The OpenedToken travels with every request, so every response can say whether the record moved on (Rule 21), and every Submission proves it: has anything appeared since the User started (Rule 20)?  
     - A signing Submission carries the SigningChallenge besides: is the plan committed the plan the User last saw (Rule 43)?  
     - One guards where the User began, the other what the User reviewed; between them the Server needs no memory of the Session at all. The Client holds a token just long enough to return it; the Server holds only the key that verifies them and the spent-marks of those already used (Actor 5).
@@ -658,7 +658,7 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
 
 
-13. A GenPRES Session without a PatientId lets the User prescribe (Concept 15), Patient Data included, but a TreatmentPlan cannot be opened or submitted.  
+13. A GenPRES Session without a PatientId lets the User prescribe (Concept 15), Patient Data included, but an OrderPlan cannot be opened or submitted.  
 
 14. A Session opened without a launch is anonymous: no User, no Role, no PatientId.  
 
@@ -668,31 +668,31 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
 **Record**
 
-15. Every TreatmentPlan is created under the credentials of exactly one User — the Session's — and carries that User's identity.  
+15. Every OrderPlan is created under the credentials of exactly one User — the Session's — and carries that User's identity.  
 
     - Within it, every OrderContext changed in the Session is stamped with that same UserContext; an unchanged OrderContext keeps the stamp it had.
 
 
 
-16. A TreatmentPlan never changes: it is corrected only by a newer one whose base it is.  
+16. An OrderPlan never changes: it is corrected only by a newer one whose base it is.  
 
     - And it never goes unreadable: every later version of GenPRES must still open every plan ever signed — an old plan can be tomorrow's base, and the record must stay explainable (Concept 13).
 
 
 
-17. Only the most recent TreatmentPlan counts clinically.  
+17. Only the most recent OrderPlan counts clinically.  
 
-18. TreatmentPlans are open to every User, to read: any of them may be opened, but only the most recent can be built upon — opening an older one leaves Submission blocked (Rule 20).  
+18. OrderPlans are open to every User, to read: any of them may be opened, but only the most recent can be built upon — opening an older one leaves Submission blocked (Rule 20).  
 
-19. A User starts with the most recent TreatmentPlan; where none exists, from nothing.  
+19. A User starts with the most recent OrderPlan; where none exists, from nothing.  
 
-20. A User may submit a new TreatmentPlan, unless a TreatmentPlan exists that is newer than the one the User opened with.  
+20. A User may submit a new OrderPlan, unless an OrderPlan exists that is newer than the one the User opened with.  
 
-    - Opening that newest TreatmentPlan makes it the one the Session opened with — after that, Submission is possible again (UC-4).
+    - Opening that newest OrderPlan makes it the one the Session opened with — after that, Submission is possible again (UC-4).
 
 **Notification**
 
-21. With every response, GenPRES Server compares the head of the GenPRES PatientRecord against the TreatmentPlan named by the request's OpenedToken (Rule 34): if a newer one exists, the response says so — whose it is and when it was signed.  
+21. With every response, GenPRES Server compares the head of the GenPRES PatientRecord against the OrderPlan named by the request's OpenedToken (Rule 34): if a newer one exists, the response says so — whose it is and when it was signed.  
 
     - Two references compared — quick, cheap, no state.
 
@@ -710,7 +710,7 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
 25. A Prescriber with no PIN must set one before the launch continues, and only after the UserRegistry has recognized their login.  
 
-26. A Reader is never asked for a PIN: a Reader never creates a TreatmentPlan (Roles), so they have nothing to prove.  
+26. A Reader is never asked for a PIN: a Reader never creates an OrderPlan (Roles), so they have nothing to prove.  
 
 27. GenPRES Server mails the User and records the change on every setting of a PIN and every replacement of one, the first setting included — and when the wrong-PIN limit is reached (Rule 28).  
 
@@ -749,7 +749,7 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
 33. GenPRES Server takes the User and the Patient of a request from the SessionRecord, never from what the request carries — and a Submission whose OrderContexts name another Patient than the SessionRecord's is refused whole (Guarantee 1).  
 
-34. The TreatmentPlan a Session opened with travels as the OpenedToken (Concept 17\) — bound to the Session, the Patient and the TreatmentPlan.  
+34. The OrderPlan a Session opened with travels as the OpenedToken (Concept 17\) — bound to the Session, the Patient and the OrderPlan.  
 
     - Returned by GenPRES Client with every request, so that every response can say whether the record moved on (Rule 21), and verified at every Submission (Rules 19, 20).  
     - It works exactly once as a Submission's proof: consumed by the Submission that is committed and re-issued over the new baseline; a refused Submission consumes nothing.  
@@ -757,9 +757,9 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
 
 
-35. The stamps of Rule 15 are computed by GenPRES Server against the base TreatmentPlan; a stamp arriving from GenPRES Client is never accepted.  
+35. The stamps of Rule 15 are computed by GenPRES Server against the base OrderPlan; a stamp arriving from GenPRES Client is never accepted.  
 
-36. The Rule 20 check and the append are one act at the GenPRES Database: a TreatmentPlan is appended only if none newer than the one its Session opened with has appeared meanwhile.  
+36. The Rule 20 check and the append are one act at the GenPRES Database: an OrderPlan is appended only if none newer than the one its Session opened with has appeared meanwhile.  
 
     - More than one GenPRES Server may run; the Database decides which is committed.
 
@@ -835,14 +835,14 @@ What the \[ours\] components must enforce. Chosen, and changeable by decision. O
 
 What the Rules add up to. Derived, not asserted: each holds because the Rules cited enforce it, and none is negotiable without changing a Rule.
 
-1. **One constant.** A GenPRES PatientRecord is a sequence of TreatmentPlans in which the PatientId is the only constant.  
+1. **One constant.** A GenPRES PatientRecord is a sequence of OrderPlans in which the PatientId is the only constant.  
 
-   - The Patient Data, the orders and the ordering User may all differ from TreatmentPlan to TreatmentPlan (Concepts 12, 13, 15).  
+   - The Patient Data, the orders and the ordering User may all differ from OrderPlan to OrderPlan (Concepts 12, 13, 15).  
    - Only a launch supplies a PatientId (Concept 2\) and no Session signs without one (Rules 13, 14), so no hand ever changes it.
 
 
 
-2. **One version.** At any moment exactly one TreatmentPlan is the visible version of the PatientRecord and the only starting point for updating it: the most recent (Rules 17–19).  
+2. **One version.** At any moment exactly one OrderPlan is the visible version of the PatientRecord and the only starting point for updating it: the most recent (Rules 17–19).  
 
    - Nothing else can be built upon (Rule 20), and nothing unsigned exists outside its own browser (Concept 16).  
    - Reading is wider than building: the whole history is open to read (Rule 18\) — old versions the record keeps, from which nothing grows.
@@ -859,8 +859,8 @@ What the Rules add up to. Derived, not asserted: each holds because the Rules ci
 
 4. **Audit.** Every version of every order and every act around the record is on the record — and nothing secret rides along with the copy.  
 
-   - A TreatmentPlan carries the User who signed it (Concepts 13, 14; Rule 15), and every OrderContext in it carries the User whose Session last changed it (Concept 10; Rule 15).  
-   - The record keeps every version: append-only, each TreatmentPlan with its base (Concepts 12, 13\) — a full audit trail of every version of every OrderContext, held in the clinical store.  
+   - An OrderPlan carries the User who signed it (Concepts 13, 14; Rule 15), and every OrderContext in it carries the User whose Session last changed it (Concept 10; Rule 15).  
+   - The record keeps every version: append-only, each OrderPlan with its base (Concepts 12, 13\) — a full audit trail of every version of every OrderContext, held in the clinical store.  
    - The copy the PatientDataPlatform takes names nothing in the private store (Actors 5, 6): SessionRecords, UserCredentials and tokens are never copied.  
    - Beside it stands the security audit (Rule 46): who launched, opened, submitted, signed, failed and changed what, and when.  
    - Reading either is out of scope for this document: no Session shows them (Rule 18).  
@@ -925,7 +925,7 @@ Decisions not yet made. Each one blocks something.
 
 
 
-7. **Patient identity across systems.** The PatientId is the one thing no TreatmentPlan may change (Guarantee 1), so a MainEHR patient merge or duplicate registration cannot be reflected.  
+7. **Patient identity across systems.** The PatientId is the one thing no OrderPlan may change (Guarantee 1), so a MainEHR patient merge or duplicate registration cannot be reflected.  
 
    - A corrective plan fixes a wrong plan, not a wrong Patient.  
    - Needs the PatientDataPlatform to carry merge history, which is \[given\].  

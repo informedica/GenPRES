@@ -391,7 +391,6 @@ DoseType : {filter.DoseType
             | Api.SelectOrderScenario -> serverCtx |> GenOrderContext.SelectOrderScenario
             | Api.UpdateOrderScenario -> serverCtx |> GenOrderContext.UpdateOrderScenario
             | Api.ResetOrderScenario -> serverCtx |> GenOrderContext.ResetOrderScenario
-            | Api.ReloadResources _ -> serverCtx |> GenOrderContext.ReloadResources
             // Frequency property commands
             | Api.DecreaseScheduleFrequencyProperty -> serverCtx |> GenOrderContext.DecreaseScheduleFrequencyProperty
             | Api.IncreaseScheduleFrequencyProperty -> serverCtx |> GenOrderContext.IncreaseScheduleFrequencyProperty
@@ -427,122 +426,21 @@ DoseType : {filter.DoseType
             | Api.SetMedianComponentOrderableQuantityProperty cmp ->
                 GenOrderContext.SetMedianComponentQuantityProperty(serverCtx, cmp)
 
-        match cmd with
-        | Api.ReloadResources password when
-            // SECURITY: use CryptographicOperations.FixedTimeEquals so equal-
-            // length password comparisons do not leak information through
-            // per-byte timing differences. Per .NET docs, FixedTimeEquals
-            // SHORT-CIRCUITS and returns `false` immediately when the byte
-            // arrays differ in length — fixed-time behavior is only
-            // guaranteed for equal-length inputs. The byte length of
-            // `expected` may therefore leak through wall-clock timing of
-            // length-mismatch rejections; this is acceptable for now because
-            // the production startup check enforces a ≥ 16-character
-            // GENPRES_PASSWORD and the proper fix is to drop raw-password-
-            // on-the-wire entirely (see TODO(D4 follow-up) below).
-            //
-            // The `Option.filter (IsNullOrWhiteSpace >> not)` step is essential:
-            // `Env.getItem` returns `Some ""` when an env var is set but empty,
-            // which is exactly what `Dockerfile` does with `ENV GENPRES_PASSWORD=`
-            // for Plesk-style runtime injection. Without the filter,
-            // `FixedTimeEquals(getBytes(""), getBytes(""))` would evaluate to
-            // `true` and an empty-string ReloadResources request would
-            // authenticate. The filter coerces empty/whitespace to `None`, so
-            // the fail-closed `Option.defaultValue true` branch fires.
-            //
-            // Default-reject (fail-closed) when GENPRES_PASSWORD is unset,
-            // empty, or whitespace-only. Mirrors `Server.fs`
-            // `validateProductionPassword` and `ServerApi.Command.fs`
-            // `validatePassword`.
-            //
-            // TODO(D4 follow-up): migrate ReloadResources to the HMAC token
-            // system used by LogAnalyzerCmd so this command no longer needs
-            // the raw password on the wire.
-            Env.getItem "GENPRES_PASSWORD"
-            |> Option.filter (System.String.IsNullOrWhiteSpace >> not)
-            |> Option.map (fun expected ->
-                not (
-                    System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
-                        System.Text.Encoding.UTF8.GetBytes(password: string),
-                        System.Text.Encoding.UTF8.GetBytes(expected: string)
-                    )
-                )
+        try
+            ctx
+            |> mapFromShared logger provider pat
+            |> toServerCmd
+            |> GenOrderContext.logOrderContext logger "start eval"
+            |> GenOrderContext.evaluate logger provider
+            |> Result.map (GenOrderContext.logOrderContext logger "finish eval" >> extractServerCtx >> map)
+            |> Result.mapError (
+                List.map OrderLogging.formatOrderMessage
+                >> String.concat "\n"
+                >> Array.singleton
             )
-            |> Option.defaultValue true
-            -> // no env var (or empty/whitespace) = always reject
-            Error [| "Invalid password" |]
-        | _ ->
-            try
-                ctx
-                |> mapFromShared logger provider pat
-                |> toServerCmd
-                |> GenOrderContext.logOrderContext logger "start eval"
-                |> GenOrderContext.evaluate logger provider
-                |> Result.map (GenOrderContext.logOrderContext logger "finish eval" >> extractServerCtx >> map)
-                |> Result.mapError (
-                    List.map OrderLogging.formatOrderMessage
-                    >> String.concat "\n"
-                    >> Array.singleton
-                )
-            with e ->
-                writeErrorMessage $"errored:\n{e}"
-                Error [| e.Message |]
-
-
-module OrderPlanService =
-
-    open Shared
-    open Shared.Types
-
-    module OrderLogger = Informedica.GenOrder.Lib.OrderLogging
-
-
-    let updateOrderPlan
-        (orderCtxPort: OrderContextPort)
-        (tp: OrderPlan)
-        (cmdOpt: (Api.OrderContextCommand * OrderContext) option)
-        =
-        match cmdOpt with
-        | None -> async { return tp }
-        | Some(cmd, ctx) ->
-            async {
-                let! result = orderCtxPort.evaluate cmd ctx
-
-                return
-                    result
-                    |> Result.map (fun newCtx ->
-                        let newOsc = newCtx.Scenarios |> Array.tryExactlyOne
-
-                        { tp with
-                            Selected = newOsc
-                            Scenarios =
-                                match newOsc with
-                                | None -> tp.Scenarios
-                                | Some newOsc ->
-                                    tp.Scenarios
-                                    |> Array.map (fun sc ->
-                                        if sc |> Models.OrderScenario.eqs newOsc then newOsc else sc
-                                    )
-                        }
-                    )
-                    |> Result.defaultValue tp
-            }
-
-
-    let calculateTotals (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (tp: OrderPlan) =
-        { tp with
-            Totals =
-                let w = tp.Patient |> Models.Patient.getWeight |> Option.map int
-                let a = tp.Patient |> Models.Patient.getAgeInDays |> Option.map int
-
-                let scs =
-                    if tp.Filtered |> Array.isEmpty then
-                        tp.Scenarios
-                    else
-                        tp.Scenarios |> Array.filter (fun sc -> tp.Filtered |> Array.exists ((=) sc))
-
-                scs |> Array.map _.Order |> OrderService.getTotals totals a w
-        }
+        with e ->
+            writeErrorMessage $"errored:\n{e}"
+            Error [| e.Message |]
 
 
 module NutritionPlanService =
@@ -691,18 +589,6 @@ module NutritionPlanService =
         | NutritionCategory.ElectrolyteGlucose -> electrolyteGlucoseDoseRuleSet
 
 
-    let calculateNutritionTotals (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: NutritionPlan) =
-        { plan with
-            Totals =
-                let w = plan.Patient |> Models.Patient.getWeight |> Option.map int
-                let a = plan.Patient |> Models.Patient.getAgeInDays |> Option.map int
-
-                plan.NutritionContexts
-                |> Array.collect (fun nc -> nc.OrderContext.Scenarios |> Array.map _.Order)
-                |> OrderService.getTotals totals a w
-        }
-
-
     /// Discovers available filter options for a given OrderContext.
     /// Evaluates the context via the OrderContext port and intersects
     /// the resolved options with the configured values.
@@ -732,13 +618,6 @@ module NutritionPlanService =
         }
 
 
-    let initNutritionPlan _logger totals (patient: Patient) : Result<NutritionPlan, string[]> =
-        [||]
-        |> Models.NutritionPlan.create patient
-        |> calculateNutritionTotals totals
-        |> Ok
-
-
     /// Filters a resolved OrderContext's filter arrays against the configured
     /// dose rule set. If a configured array is non-empty, only matching values
     /// are kept; if empty, no restriction is applied.
@@ -763,77 +642,193 @@ module NutritionPlanService =
         }
 
 
-    let updateContext totals id resolved (plan: NutritionPlan) =
-        let updatedContexts =
+/// The one plan, nutrition included: the nutrition workbenches produce orders by category, and
+/// a context narrowed to exactly one scenario has that scenario among the plan's orders, so one
+/// signature covers it. Totals are computed once, over the orders.
+module PlanService =
+
+    open Shared
+    open Shared.Types
+
+
+    /// The order a nutrition context contributes to the plan: its scenario, once the context
+    /// is narrowed to exactly one; nothing while it holds several candidates or none.
+    let contribution (nc: NutritionContext) =
+        nc.OrderContext.Scenarios |> Array.tryExactlyOne
+
+
+    /// The plan's orders with one context's contribution replaced: the one it contributed
+    /// before goes out by order id, the one it contributes now comes in; the same order in
+    /// place, a different one at the end.
+    let withContribution (before: OrderScenario option) (after: OrderScenario option) (scenarios: OrderScenario[]) =
+        match before, after with
+        | Some old, Some sc when old.Order.Id = sc.Order.Id ->
+            scenarios |> Array.map (fun s -> if s.Order.Id = sc.Order.Id then sc else s)
+        | _ ->
+            let without =
+                match before with
+                | None -> scenarios
+                | Some old -> scenarios |> Array.filter (fun s -> s.Order.Id <> old.Order.Id)
+
+            match after with
+            | None -> without
+            | Some sc -> Array.append without [| sc |]
+
+
+    /// A derived view (the filter, the selection) follows a replaced order only where it held
+    /// the old one: replaced in place, or gone with it; never gains an order on its own.
+    let private follow (before: OrderScenario option) (after: OrderScenario option) (view: OrderScenario[]) =
+        match before with
+        | Some old when view |> Array.exists (fun s -> s.Order.Id = old.Order.Id) ->
+            view |> withContribution before after
+        | _ -> view
+
+
+    /// The plan's orders with one contribution replaced, and the filter and the selection
+    /// following it, so that a replaced order keeps counting in the totals and a removed one
+    /// is nowhere.
+    let withOrders (before: OrderScenario option) (after: OrderScenario option) (plan: OrderPlan) =
+        { plan with
+            Scenarios = plan.Scenarios |> withContribution before after
+            Filtered = plan.Filtered |> follow before after
+            Selected =
+                match plan.Selected, before with
+                | Some sel, Some old when sel.Order.Id = old.Order.Id -> after
+                | sel, _ -> sel
+        }
+
+
+    /// The resolved order context into the context named, filtered to the category's dose rule
+    /// set, and its contribution into the plan's orders.
+    let updateContext id (resolved: OrderContext) (plan: OrderPlan) =
+        match plan.NutritionContexts |> Array.tryFind (fun nc -> nc.Id = id) with
+        | None -> Error [| $"The plan holds no nutrition context %s{id}" |]
+        | Some nc ->
+            let drs = NutritionPlanService.getDoseRuleSet nc.Category
+
+            let updated =
+                { nc with OrderContext = resolved |> NutritionPlanService.filterByDoseRuleSet drs }
+
+            { plan with
+                NutritionContexts = plan.NutritionContexts |> Array.map (fun c -> if c.Id = id then updated else c)
+            }
+            |> withOrders (contribution nc) (contribution updated)
+            |> Ok
+
+
+    /// The context removed, and every supplement with a feeding; each takes its order with it.
+    let removeContext id (plan: OrderPlan) =
+        let removed = plan.NutritionContexts |> Array.tryFind (fun nc -> nc.Id = id)
+
+        let cascade =
+            removed
+            |> Option.map (fun nc -> nc.Category = NutritionCategory.EnteralFeeding)
+            |> Option.defaultValue false
+
+        let goes (nc: NutritionContext) =
+            nc.Id = id || (cascade && nc.Category = NutritionCategory.EnteralSupplement)
+
+        let gone, kept = plan.NutritionContexts |> Array.partition goes
+
+        gone
+        |> Array.fold (fun p nc -> p |> withOrders (contribution nc) None) { plan with NutritionContexts = kept }
+
+
+    /// The plan with its totals recomputed over its orders: the filtered ones, by order id, when
+    /// a filter is set, else all of them.
+    /// The orders named removed from the plan: each with the workbench that contributed it, a
+    /// feeding with its supplements and theirs, the rest by order id; the filter and the
+    /// selection follow.
+    let removeOrders (ids: string[]) (plan: OrderPlan) =
+        let contributed (nc: NutritionContext) =
+            contribution nc |> Option.exists (fun sc -> ids |> Array.contains sc.Order.Id)
+
+        let plan =
             plan.NutritionContexts
-            |> Array.map (fun nc ->
-                if nc.Id = id then
-                    let drs = getDoseRuleSet nc.Category
-                    { nc with OrderContext = resolved |> filterByDoseRuleSet drs }
-                else
-                    nc
+            |> Array.filter contributed
+            |> Array.fold (fun (p: OrderPlan) (nc: NutritionContext) -> p |> removeContext nc.Id) plan
+
+        ids
+        |> Array.fold
+            (fun (p: OrderPlan) id ->
+                match p.Scenarios |> Array.tryFind (fun sc -> sc.Order.Id = id) with
+                | Some sc -> p |> withOrders (Some sc) None
+                | None -> p
             )
-
-        { plan with NutritionContexts = updatedContexts }
-        |> calculateNutritionTotals totals
+            plan
 
 
-    let updateNutritionOrderContext
-        totals
-        (orderCtxPort: OrderContextPort)
-        (plan: NutritionPlan, id: string, ctx: OrderContext)
-        : Async<Result<NutritionPlan, string[]>>
-        =
-        async {
-            let! result = orderCtxPort.evaluate Api.UpdateOrderContext ctx
+    let recalculate (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: OrderPlan) =
+        { plan with
+            Totals =
+                let w = plan.Patient |> Models.Patient.getWeight |> Option.map int
+                let a = plan.Patient |> Models.Patient.getAgeInDays |> Option.map int
 
-            return
-                match result with
-                | Ok resolved -> plan |> updateContext totals id resolved |> Ok
-                | Error errs -> Error errs
+                // by order id: a scenario replaced in Scenarios still counts under its filter
+                let scs =
+                    if plan.Filtered |> Array.isEmpty then
+                        plan.Scenarios
+                    else
+                        plan.Scenarios
+                        |> Array.filter (fun sc -> plan.Filtered |> Array.exists (fun f -> f.Order.Id = sc.Order.Id))
+
+                scs |> Array.map _.Order |> OrderService.getTotals totals a w
         }
 
 
-    let navigateNutritionOrderContext
-        totals
+    /// A command into the nutrition context named, or into the selected scenario when none is;
+    /// `recalc` ends the answer in its totals (the adapter's `recalculate` over the provider's
+    /// totals data).
+    let navigate
+        (recalc: OrderPlan -> OrderPlan)
         (orderCtxPort: OrderContextPort)
-        (plan: NutritionPlan, id: string, ctxCmd: Api.OrderContextCommand, ctx: OrderContext)
-        : Async<Result<NutritionPlan, string[]>>
+        (plan: OrderPlan)
+        (contextId: string option)
+        (ctxCmd: Api.OrderContextCommand)
+        (ctx: OrderContext)
         =
         async {
-            let! result = orderCtxPort.evaluate ctxCmd ctx
+            match contextId with
+            // the selected scenario re-evaluated: the plan's copy replaced by order id, the
+            // selection on the result; an evaluation that fails is the answer, not the plan as it was
+            | None ->
+                let! result = orderCtxPort.evaluate ctxCmd ctx
 
-            return
-                match result with
-                | Ok resolved -> plan |> updateContext totals id resolved |> Ok
-                | Error errs -> Error errs
+                return
+                    result
+                    |> Result.map (fun evaluated ->
+                        match evaluated.Scenarios |> Array.tryExactlyOne with
+                        | None -> { plan with Selected = None }
+                        | Some sc ->
+                            let before = plan.Scenarios |> Array.tryFind (fun s -> s.Order.Id = sc.Order.Id)
+
+                            { (match before with
+                               | Some _ -> plan |> withOrders before (Some sc)
+                               | None -> plan) with
+                                Selected = Some sc
+                            }
+                    )
+                    |> Result.map recalc
+            | Some id ->
+                let! result = orderCtxPort.evaluate ctxCmd ctx
+
+                return
+                    result
+                    |> Result.bind (fun resolved -> plan |> updateContext id resolved)
+                    |> Result.map recalc
         }
 
 
-    let selectNutritionOrderScenario
-        totals
+    /// A nutrition context for the category, its filter discovered, appended to the plan with
+    /// whatever it contributes.
+    let addContext
+        (recalc: OrderPlan -> OrderPlan)
         (orderCtxPort: OrderContextPort)
-        (plan: NutritionPlan, id: string, ctx: OrderContext)
-        : Async<Result<NutritionPlan, string[]>>
+        (plan: OrderPlan)
+        (category: NutritionCategory)
         =
         async {
-            let! result = orderCtxPort.evaluate Api.SelectOrderScenario ctx
-
-            return
-                match result with
-                | Ok resolved -> plan |> updateContext totals id resolved |> Ok
-                | Error errs -> Error errs
-        }
-
-
-    let addNutritionContext
-        totals
-        (orderCtxPort: OrderContextPort)
-        (plan: NutritionPlan, category: NutritionCategory)
-        : Async<Result<NutritionPlan, string[]>>
-        =
-        async {
-            let drs = getDoseRuleSet category
+            let drs = NutritionPlanService.getDoseRuleSet category
 
             let ctx =
                 Models.OrderContext.empty
@@ -847,16 +842,17 @@ module NutritionPlanService =
                             }
                     }
 
-            let! filterResult = discoverFilterOptions orderCtxPort ctx
+            let! discovered = NutritionPlanService.discoverFilterOptions orderCtxPort ctx
 
             return
-                match filterResult with
+                match discovered with
                 | Some resolved ->
                     let id = System.Guid.NewGuid().ToString()
                     let nc = Models.NutritionContext.create id drs.Label category true resolved
 
                     { plan with NutritionContexts = Array.append plan.NutritionContexts [| nc |] }
-                    |> calculateNutritionTotals totals
+                    |> withOrders None (contribution nc)
+                    |> recalc
                     |> Ok
                 | None ->
                     Error
@@ -864,24 +860,3 @@ module NutritionPlanService =
                             "Could not discover filter options for nutrition context"
                         |]
         }
-
-
-    let removeNutritionContext totals (plan: NutritionPlan, id: string) : Result<NutritionPlan, string[]> =
-        let removedCtx = plan.NutritionContexts |> Array.tryFind (fun nc -> nc.Id = id)
-
-        let cascadeRemoveSupplements =
-            removedCtx
-            |> Option.map (fun nc -> nc.Category = NutritionCategory.EnteralFeeding)
-            |> Option.defaultValue false
-
-        { plan with
-            NutritionContexts =
-                plan.NutritionContexts
-                |> Array.filter (fun nc ->
-                    nc.Id <> id
-                    && (not cascadeRemoveSupplements
-                        || nc.Category <> NutritionCategory.EnteralSupplement)
-                )
-        }
-        |> calculateNutritionTotals totals
-        |> Ok

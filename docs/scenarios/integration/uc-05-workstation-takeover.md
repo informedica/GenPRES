@@ -34,7 +34,7 @@ sequenceDiagram
     D-->>S: SessionRecordRead (the Session's User is A)
     S->>R: ResolveUser (dr.a - the record's User, not B)
     R-->>S: UserResolved
-    S->>D: CommitTreatmentPlan
+    S->>D: CommitOrderPlan
     Note over D: the PIN is checked against A's credential,<br/>because the Session is A's (Rules 23, 33)
     D-->>S: CommitRefused (PinWrong)
     S-->>C: PinRejected

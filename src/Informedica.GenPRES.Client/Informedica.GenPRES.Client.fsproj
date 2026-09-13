@@ -8,8 +8,11 @@
     <Compile Include="Extensions.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Global.fs" />
+    <Compile Include="LanguagePolicy.fs" />
     <Compile Include="SessionMachine.fs" />
     <Compile Include="SessionGatePolicy.fs" />
+    <Compile Include="SigningMachine.fs" />
+    <Compile Include="SigningPolicy.fs" />
     <Compile Include="Keys.fs" />
     <Compile Include="AppEnv.fs" />
     <Compile Include="MUI.fs" />
@@ -41,6 +44,7 @@
     <Compile Include="./Views/Totals.fs" />
     <Compile Include="./Views/Prescribe.fs" />
     <Compile Include="./Views/Nutrition.fs" />
+    <Compile Include="./Views/SignDialog.fs" />
     <Compile Include="./Views/OrderPlan.fs" />
     <Compile Include="./Views/Formulary.fs" />
     <Compile Include="./Views/Parenteralia.fs" />

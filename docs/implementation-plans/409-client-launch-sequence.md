@@ -417,6 +417,7 @@ are listed per step with the reason.
 | 3c | [#593](https://github.com/informedica/GenPRES/pull/593) | `App.fs` wiring: `State.Session`, effect interpreter, `Resume` on load, `ISession` on `ConcreteAppEnv` |
 | 4a | [#595](https://github.com/informedica/GenPRES/pull/595) | title bar: user and role behind a person button, "Close session" |
 | 4b | [#596](https://github.com/informedica/GenPRES/pull/596) | `SessionGatePolicy.fs` (pure, tested) and `Views/SessionGate.fs` |
+| follow-up | [#600](https://github.com/informedica/GenPRES/pull/600) | localisation: 22 `Terms` cases for the gate and the session menu, `gateFor` takes a translator, English and Dutch sheet rows |
 
 ### Deviations from the text above
 
@@ -459,15 +460,26 @@ are listed per step with the reason.
 - **Disclaimer.** Gated at the view, `ShowDisclaimer && Session is Anonymous`, not in state, for
   the same reason (`Resuming` is transient) and so that an anonymous open after a refusal still
   sees it.
-- **Gate texts.** The title bar and gate strings are English, in one place each. Turning them into
-  `Terms` cases means editing `Shared/Localization.fs` (non-UI source) plus sheet rows; that is a
-  script-first follow-up, not part of these PRs.
+- **Gate texts.** The title bar and gate strings landed as English literals, in one place each,
+  because turning them into `Terms` cases means editing `Shared/Localization.fs` (non-UI source)
+  plus sheet rows. The script-first follow-up (#600) did that: the policy takes a translator
+  (`Terms -> string`), every sentence is one term, numbers are filled through `{0}`/`{1}`.
 
 ### Still open
 
-- The identity hop (`RedirectTo`, the callback, the `state` cookie): the client handles the payload
-  and the `refused` return; the server stub never redirects.
-- Step 7, the signed request (`Keys.sign`, the DPoP proof, the OpenedToken inside it).
-- Session endings and the Rule 11 notice; UC-2 enrolment; WorkPlan carry-over (#518); decision D1.
+- Step 7, the signed request: the DPoP proof (`Keys.sign`) over the request envelope that
+  plan 635 built, which already carries the OpenedToken.
+- WorkPlan carry-over (#518); decision D1 (#599).
 - The scope switch (#580), which retires the `IsProd` stop-gap.
-- Localisation terms for the title bar and the gate.
+- On a launch URL the gate hides the language switcher; the language itself follows the
+  server default since #601.
+
+Closed since this list was written: the identity hop (`RedirectTo`, the callback, the `state`
+cookie), the Rule 8 and 11 endings, and the sealed Launch, all against server-hosted stubs
+([plan 605](605-launch-with-server-stubs.md)); UC-2 enrolment against a stub MailService and an
+in-memory credential store ([plan 615](615-enrolment-with-server-stubs.md)); UC-3 signing
+against an in-memory record, the OpenedToken checked and re-minted at a signature and the
+Session opened with the head of the record
+([plan 622](622-signing-with-server-stubs.md)); Compute bound to the Session, the head's orders
+into the cart at open, Rule 21's notice on every reply and UC-4 end to end
+([plan 635](635-session-bound-compute.md)).

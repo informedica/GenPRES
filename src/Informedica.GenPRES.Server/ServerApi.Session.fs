@@ -1,0 +1,1323 @@
+namespace ServerApi
+
+open System
+open Shared.Types
+
+
+module PublicKey =
+
+    open System.Text
+    open System.Text.Json
+    open System.Security.Cryptography
+
+
+    let private base64Url (bytes: byte[]) =
+        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+
+
+    let private sha256 (s: string) =
+        s |> Encoding.UTF8.GetBytes |> SHA256.HashData
+
+
+    /// The required members of a JWK per key type, in the lexicographic order RFC 7638
+    /// section 3 prescribes. Empty for a key type the thumbprint does not cover.
+    let private requiredMembers kty =
+        match kty with
+        | "EC" -> [ "crv"; "kty"; "x"; "y" ]
+        | "RSA" -> [ "e"; "kty"; "n" ]
+        | "OKP" -> [ "crv"; "kty"; "x" ]
+        | _ -> []
+
+
+    /// The string members RFC 7638 hashes, or None when the text is not such a JWK.
+    let private jwkMembers (text: string) =
+        try
+            use doc = JsonDocument.Parse text
+            let root = doc.RootElement
+
+            if root.ValueKind <> JsonValueKind.Object then
+                None
+            else
+                let get (name: string) =
+                    match root.TryGetProperty name with
+                    | true, v when v.ValueKind = JsonValueKind.String -> Some(name, v.GetString())
+                    | _ -> None
+
+                match get "kty" with
+                | None -> None
+                | Some(_, kty) ->
+                    let members = requiredMembers kty |> List.map get
+
+                    if members.IsEmpty || members |> List.exists Option.isNone then
+                        None
+                    else
+                        members |> List.choose id |> Some
+        with :? JsonException ->
+            None
+
+
+    /// RFC 7638 thumbprint of a public JWK: SHA-256 over the required members serialised
+    /// without whitespace in lexicographic order, base64url without padding. Text that is
+    /// not a JWK of a covered key type gets the hash of the text itself, so the stub can
+    /// correlate any key the client sends; the client computes the same value only for a
+    /// real JWK.
+    let thumbprint (PublicKey text) =
+        match jwkMembers text with
+        | Some members ->
+            members
+            |> List.map (fun (name, value) -> $"\"{name}\":{JsonSerializer.Serialize value}")
+            |> String.concat ","
+            |> fun body -> "{" + body + "}"
+            |> sha256
+            |> base64Url
+        | None -> text |> sha256 |> base64Url
+
+
+    /// A random, unguessable id for a session cookie: 256 bits from the CSPRNG, base64url.
+    let randomId () =
+        RandomNumberGenerator.GetBytes 32 |> base64Url
+
+
+module LaunchSeal =
+
+    /// The key the Launch is sealed under. 32 bytes from a CSPRNG (`newKey`); shared with the
+    /// LaunchScript in the real integration, made per host start for the stub.
+    type Key = Key of byte[]
+
+
+    /// What a Launch says once the seal is verified.
+    type Claims =
+        {
+            PatientId: string
+            Nonce: string
+            Expiry: DateTime
+        }
+
+
+    /// The sealed payload on the wire. Field names are the contract; keep them short.
+    type Payload =
+        {
+            pid: string
+            nonce: string
+            // unix seconds, UTC
+            exp: int64
+        }
+
+
+    let keyLength = 32
+
+
+    let newKey (random: int -> byte[]) = Key(random keyLength)
+
+
+    let toBase64Url (bytes: byte[]) =
+        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+
+
+    let fromBase64Url (s: string) =
+        try
+            let padded = s.Replace('-', '+').Replace('_', '/')
+
+            let padded =
+                match padded.Length % 4 with
+                | 2 -> padded + "=="
+                | 3 -> padded + "="
+                | 0 -> padded
+                | _ -> raise (FormatException "bad length")
+
+            Some(Convert.FromBase64String padded)
+        with _ ->
+            None
+
+
+    let mac (Key key) (data: byte[]) =
+        System.Security.Cryptography.HMACSHA256.HashData(key, data)
+
+
+    let private json = System.Text.Json.JsonSerializerOptions()
+
+
+    /// Seals the claims: `base64url(json) + "." + base64url(HMAC-SHA256(key, json))`.
+    let mint (key: Key) (claims: Claims) : Launch =
+        let payload =
+            {
+                pid = claims.PatientId
+                nonce = claims.Nonce
+                exp = DateTimeOffset(claims.Expiry, TimeSpan.Zero).ToUnixTimeSeconds()
+            }
+
+        let bytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(payload, json)
+        Launch $"{toBase64Url bytes}.{toBase64Url (mac key bytes)}"
+
+
+    /// Verifies the seal (constant-time), then the lifetime. Anything that is not a
+    /// Launch sealed under the key is `LaunchInvalid`; a Launch past its expiry is
+    /// `LaunchExpired`.
+    let verify (now: DateTime) (key: Key) (Launch text) : Result<Claims, LaunchRefusal> =
+        let parts = if isNull text then [||] else text.Split('.')
+
+        match parts with
+        | [| payload; signature |] ->
+            match fromBase64Url payload, fromBase64Url signature with
+            | Some bytes, Some given when
+                System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(mac key bytes, given)
+                ->
+                try
+                    let p = System.Text.Json.JsonSerializer.Deserialize<Payload>(bytes, json)
+
+                    if isNull p.pid || isNull p.nonce || p.pid = "" || p.nonce = "" then
+                        Error LaunchRefusal.LaunchInvalid
+                    else
+                        let expiry = DateTimeOffset.FromUnixTimeSeconds(p.exp).UtcDateTime
+
+                        if now > expiry then
+                            Error LaunchRefusal.LaunchExpired
+                        else
+                            Ok
+                                {
+                                    PatientId = p.pid
+                                    Nonce = p.nonce
+                                    Expiry = expiry
+                                }
+                with _ ->
+                    Error LaunchRefusal.LaunchInvalid
+            | _ -> Error LaunchRefusal.LaunchInvalid
+        | _ -> Error LaunchRefusal.LaunchInvalid
+
+
+/// A PIN as the Database keeps it: never the PIN, a PBKDF2-SHA256 derivation under a salt of
+/// its own, so that two Users with the same PIN have nothing in common on disk.
+type PinHash =
+    {
+        Salt: byte[]
+        Hash: byte[]
+    }
+
+
+module PinHash =
+
+    /// Enough rounds to make guessing a four-to-six-digit PIN offline slow, few enough for a
+    /// signing check to feel immediate. One place to tune.
+    let iterations = 100_000
+
+    let saltLength = 16
+
+    let hashLength = 32
+
+
+    let private derive (salt: byte[]) (pin: string) =
+        System.Security.Cryptography.Rfc2898DeriveBytes.Pbkdf2(
+            pin,
+            salt,
+            iterations,
+            System.Security.Cryptography.HashAlgorithmName.SHA256,
+            hashLength
+        )
+
+
+    /// Derives the hash of a PIN under a fresh salt from `newSalt` (the CSPRNG in the host).
+    let make (newSalt: int -> byte[]) (pin: string) : PinHash =
+        let salt = newSalt saltLength
+
+        {
+            Salt = salt
+            Hash = derive salt pin
+        }
+
+
+    /// Whether the PIN derives to the stored hash, compared in constant time.
+    let verify (pin: string) (hash: PinHash) =
+        System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(derive hash.Salt pin, hash.Hash)
+
+
+/// The credential the store holds per person (keyed by UserId, not by login). No PIN yet is a
+/// credential without one; the wrong-PIN count is per credential, counted across Sessions and
+/// reset to zero when the PIN is set.
+type Credential =
+    {
+        PinHash: PinHash option
+        WrongCount: int
+        // signing is locked until this moment; a delay, not a state
+        LockedUntil: DateTime option
+    }
+
+
+module Credential =
+
+    let empty =
+        {
+            PinHash = None
+            WrongCount = 0
+            LockedUntil = None
+        }
+
+
+    /// Whether a PIN is set.
+    let pinSet (credential: Credential) = credential.PinHash.IsSome
+
+
+    /// A credential with this PIN, a count of zero and no lock: setting the PIN resets both.
+    let withPin (newSalt: int -> byte[]) (pin: string) : Credential =
+        {
+            PinHash = Some(PinHash.make newSalt pin)
+            WrongCount = 0
+            LockedUntil = None
+        }
+
+
+    /// Wrong PINs before the Session ends and signing locks.
+    let wrongPinLimit = 3
+
+    /// The first lock: one minute.
+    let lockBase = TimeSpan.FromMinutes 1.0
+
+
+    /// The longest lock. Rule 28's delay decays with time; the decay is not built, so the
+    /// stub caps the delay instead: an unbounded doubling overflows the arithmetic long before
+    /// it overflows anyone's patience.
+    let lockMax = TimeSpan.FromHours 24.0
+
+
+    /// The delay after `count` wrong entries. The entry that reaches the limit locks for
+    /// `lockBase`; each one after it doubles that, up to `lockMax`.
+    let lockFor (count: int) =
+        // 2^11 minutes is already past a day; the bound keeps `pown` in range
+        let doublings = min 11 (max 0 (count - wrongPinLimit))
+        min lockMax (lockBase * float (pown 2 doublings))
+
+
+    /// Whether signing is locked at this moment.
+    let isLocked (now: DateTime) (credential: Credential) =
+        match credential.LockedUntil with
+        | Some until -> now < until
+        | None -> false
+
+
+    /// Whether the PIN is accepted, and the credential as it stands after the entry. The PIN
+    /// is verified here and nowhere else. A right PIN while unlocked zeroes the count and
+    /// clears the lock; a right PIN
+    /// while locked is refused and counts nothing; a wrong PIN adds one and, at the limit or
+    /// beyond it, locks for `lockFor` from now, so a wrong entry while locked pushes the
+    /// delay out and doubles it.
+    let verify (now: DateTime) (pin: string) (credential: Credential) : bool * Credential =
+        let locked = isLocked now credential
+
+        let right =
+            match credential.PinHash with
+            | Some hash -> PinHash.verify pin hash
+            | None -> false
+
+        if right && not locked then
+            true,
+            { credential with
+                WrongCount = 0
+                LockedUntil = None
+            }
+        elif right then
+            false, credential
+        else
+            let count = credential.WrongCount + 1
+
+            let until =
+                if count >= wrongPinLimit then
+                    Some(now + lockFor count)
+                else
+                    None
+
+            false,
+            { credential with
+                WrongCount = count
+                LockedUntil = until
+            }
+
+
+    /// The wrong entries left before the limit.
+    let attemptsLeft (credential: Credential) =
+        max 0 (wrongPinLimit - credential.WrongCount)
+
+
+module Pin =
+
+    /// Four to six digits: an assumption; no format has been specified for the PIN.
+    let isValid (pin: string) =
+        not (isNull pin)
+        && pin.Length >= 4
+        && pin.Length <= 6
+        && pin |> Seq.forall Char.IsAsciiDigit
+
+
+module MailHint =
+
+    /// `n***@stub.example`: enough for the User to know which mailbox, not enough for a
+    /// shoulder to read the address.
+    let ofAddress (address: string) =
+        match address.IndexOf '@' with
+        | i when i > 0 -> $"{address[0]}***{address.Substring i}"
+        | _ -> "***"
+
+
+/// The mails the server sends a User: the confirmation code, the notice that a PIN was set,
+/// the notice at the wrong-PIN limit. English only; the mail language is a later concern.
+module Mails =
+
+    let confirmationCode (displayName: string) (code: string) (minutes: int) : string * string =
+        "GenPRES: your confirmation code",
+        $"Hello {displayName},\n\nYour confirmation code is {code}. It is valid for {minutes} minutes. Enter it in GenPRES together with the PIN of your choice.\n\nIf you did not open GenPRES just now, somebody tried to enrol in your name; nothing was set."
+
+
+    let pinSet (displayName: string) : string * string =
+        "GenPRES: your PIN was set",
+        $"Hello {displayName},\n\nA PIN was set for your GenPRES account just now. If that was not you, tell your administrator."
+
+
+    /// The third wrong PIN ended a Session and locked signing.
+    let pinLimit (displayName: string) : string * string =
+        "GenPRES: signing is locked",
+        $"Hello {displayName},\n\nThe PIN was entered wrong three times at a signature just now. Your session was ended and signing is locked for a while. If that was not you, tell your administrator."
+
+
+/// The session lifecycle, from the presented Launch to the signed version: the LaunchRecord
+/// keyed by the nonce, the redirect to the IdentityProvider, the callback with its ladder of
+/// checks (identity, Role, active Patient, PIN), a reloaded callback answered as the first
+/// time, the open as one act that closes the User's other Sessions, the launch suspended at
+/// the PIN question and the enrolment that lifts it, the credential with its wrong-PIN lock,
+/// the signing challenge and the commit of a version, and what a Session is told when the
+/// record moved on. Pure over a `State` record: the clock, the ids, the codes and the ports
+/// are parameters. `StubDatabase.makeSessionPort` runs it over an in-memory store.
+module Session =
+
+    /// The refusal words of `#/session?refused=<word>`; the client's `parseRefusal` reads them.
+    let refusalWord refusal =
+        match refusal with
+        | LaunchRefusal.LaunchExpired -> "expired"
+        | LaunchRefusal.LaunchSpent -> "spent"
+        | LaunchRefusal.LaunchInvalid -> "invalid"
+        | LaunchRefusal.NoBrowserIdentity -> "no-identity"
+        | LaunchRefusal.NoRole -> "no-role"
+        | LaunchRefusal.WrongActivePatient -> "wrong-patient"
+        | LaunchRefusal.EnrolmentRequired -> "enrolment"
+
+
+    let openedUrl = "/#/session"
+
+    let refusedUrl refusal =
+        $"/#/session?refused={refusalWord refusal}"
+
+
+    /// A Session as the store holds it: what the client learns, the login it belongs to (a User
+    /// has at most one open Session), the head of the record it opened with (`None` from
+    /// nothing), which a Submission is checked against, and when it was last seen (nothing
+    /// acts on it yet; the idle and absolute lifetimes of Rule 10 are not built).
+    type SessionRecord =
+        {
+            Session: SessionOpened
+            Login: string option
+            OpenedWith: string option
+            Seen: DateTime
+        }
+
+
+    /// A confirmation code as the store keeps it, as a mac and never as the digits: one per
+    /// credential, with the address it went to, its expiry and the wrong tries so far.
+    type PendingCode =
+        {
+            UserId: string
+            MailAddress: string
+            CodeMac: byte[]
+            Expiry: DateTime
+            Tries: int
+        }
+
+
+    /// One launch suspended at the PIN question: what the open needs once the PIN is set, and the public key
+    /// of the browser that made it, so the Session opens on the key the supplying browser holds.
+    /// No lifetime of its own: it lives as long as the code it is bound to.
+    type Enrolment =
+        {
+            Attempt: string
+            UserId: string
+            Login: string
+            DisplayName: string
+            PatientId: string
+            PublicKey: PublicKey
+        }
+
+
+    /// A data notice as the store holds it: one per Session, the platform's reading it was
+    /// told over (`None`: unreadable), for two minutes.
+    type Notice =
+        {
+            Nonce: string
+            Data: Patient option
+            Expiry: DateTime
+        }
+
+
+    /// A signing challenge as the store holds it: one per Session, over exactly the patient
+    /// data and the orders shown, whether that data was the platform's reading when it was
+    /// issued, for two minutes.
+    type Challenge =
+        {
+            Nonce: string
+            Patient: Patient
+            Scenarios: OrderScenario[]
+            // the platform's reading at the challenge, none when it could not be read
+            Reading: Patient option
+            Expiry: DateTime
+        }
+
+
+    type LaunchRecord =
+        {
+            Nonce: string
+            State: string
+            PatientId: string
+            PublicKey: PublicKey
+            Expiry: DateTime
+            Outcome: LaunchResult option
+        }
+
+
+    type State =
+        {
+            Launches: Map<string, LaunchRecord>
+            Sessions: Map<string, SessionRecord>
+            Endings: Map<string, SessionEnding * DateTime>
+            Credentials: Map<string, Credential>
+            // the live confirmation code per person
+            Codes: Map<string, PendingCode>
+            // the launches suspended at the PIN question, by attempt
+            Enrolments: Map<string, Enrolment>
+            // the signed versions of each patient's order plan, newest first
+            Records: Map<string, SignedOrderPlan list>
+            // the live data notice per Session
+            Notices: Map<string, Notice>
+            // the live challenge per Session
+            Challenges: Map<string, Challenge>
+            // what a Submission was answered, by Session and by the client's key, so that a
+            // retry gets the same answer
+            Answered: Map<string * string, SigningResponse * DateTime>
+        }
+
+
+    let emptyState =
+        {
+            Launches = Map.empty
+            Sessions = Map.empty
+            Endings = Map.empty
+            Credentials = Map.empty
+            Codes = Map.empty
+            Enrolments = Map.empty
+            Records = Map.empty
+            Notices = Map.empty
+            Challenges = Map.empty
+            Answered = Map.empty
+        }
+
+
+    let initialState (credentials: Map<string, Credential>) =
+        { emptyState with Credentials = credentials }
+
+
+    /// How long a confirmation code lives: a mail round trip, not a Session's idle gap. Bounds
+    /// the half-finished launch too, which lives as long as its code.
+    let codeLifetime = TimeSpan.FromMinutes 15.0
+
+    /// Wrong codes before the code is void.
+    let maxTries = 3
+
+    /// How long a challenge lives: the Launch's two minutes, the time to read the modal and
+    /// enter a PIN, so what is signed was checked against the platform moments ago.
+    let challengeLifetime = TimeSpan.FromMinutes 2.0
+
+
+    let credentialOf (userId: string) (state: State) =
+        state.Credentials |> Map.tryFind userId |> Option.defaultValue Credential.empty
+
+
+    /// The most recent signed version of a patient's record, if any: what a Session starts from.
+    let headOf (patientId: string) (state: State) =
+        state.Records |> Map.tryFind patientId |> Option.bind List.tryHead
+
+
+    let private dropExpired (now: DateTime) (state: State) =
+        let codes = state.Codes |> Map.filter (fun _ c -> now <= c.Expiry)
+
+        { state with
+            Launches = state.Launches |> Map.filter (fun _ r -> now <= r.Expiry)
+            Codes = codes
+            // an attempt lives as long as its code
+            Enrolments = state.Enrolments |> Map.filter (fun _ e -> codes |> Map.containsKey e.UserId)
+            Notices = state.Notices |> Map.filter (fun _ n -> now <= n.Expiry)
+            Challenges = state.Challenges |> Map.filter (fun _ c -> now <= c.Expiry)
+            Answered = state.Answered |> Map.filter (fun _ (_, at) -> now <= at + challengeLifetime)
+        }
+
+
+    let private answerOf (authorizeUrl: string -> string) (record: LaunchRecord) =
+        match record.Outcome with
+        | Some outcome -> outcome
+        | None -> LaunchResult.RedirectTo(authorizeUrl record.State, record.State)
+
+
+    let present
+        (now: DateTime)
+        (newId: unit -> string)
+        (verify: Launch -> Result<LaunchSeal.Claims, LaunchRefusal>)
+        (authorizeUrl: string -> string)
+        (state: State)
+        (launch, key)
+        : State * LaunchResult
+        =
+        let state = dropExpired now state
+
+        match verify launch with
+        | Error refusal -> state, LaunchResult.Refused refusal
+        | Ok claims ->
+            match state.Launches |> Map.tryFind claims.Nonce with
+            | Some record when record.PublicKey = key -> state, answerOf authorizeUrl record
+            | Some _ -> state, LaunchResult.Refused LaunchRefusal.LaunchSpent
+            | None ->
+                let record =
+                    {
+                        Nonce = claims.Nonce
+                        State = newId ()
+                        PatientId = claims.PatientId
+                        PublicKey = key
+                        Expiry = claims.Expiry
+                        Outcome = None
+                    }
+
+                { state with Launches = state.Launches |> Map.add claims.Nonce record }, answerOf authorizeUrl record
+
+
+    /// The patient a Session opens on: the PatientDataPlatform's reading, the source of truth;
+    /// without one, the patient data of the head of the record, the last seen; from nothing,
+    /// an empty patient, so that a data outage does not block prescribing.
+    let sessionPatient
+        (patientData: string -> Patient option)
+        (patientId: string)
+        (head: SignedOrderPlan option)
+        : Patient
+        =
+        patientData patientId
+        |> Option.orElse (head |> Option.map _.Patient)
+        |> Option.defaultValue Shared.Models.Patient.empty
+
+
+    /// The open, one act, from whatever carried the launch this far: a LaunchRecord at the
+    /// callback, an Enrolment once the PIN is set. The Session is written from the head of the
+    /// record, on the platform's reading, else the head's patient data; the login's other
+    /// Sessions are closed and marked, so that a User has at most one open Session.
+    let private openWith
+        (now: DateTime)
+        (newId: unit -> string)
+        (patientData: string -> Patient option)
+        (patientId: string)
+        (key: PublicKey)
+        (user: UserContext)
+        (state: State)
+        =
+        let id = newId ()
+        let head = headOf patientId state
+
+        let session =
+            {
+                User = Some user
+                PatientContext =
+                    Some
+                        {
+                            PatientId = patientId
+                            Patient = sessionPatient patientData patientId head
+                        }
+                OpenedToken = Some(OpenedToken $"opened-{id}")
+                KeyThumbprint = Some(PublicKey.thumbprint key)
+                Head = head
+            }
+
+        let login = Some user.UserId
+
+        let superseded =
+            state.Sessions
+            |> Map.filter (fun sid s -> sid <> id && s.Login = login)
+            |> Map.toList
+            |> List.map fst
+
+        { state with
+            Sessions =
+                superseded
+                |> List.fold (fun m sid -> Map.remove sid m) state.Sessions
+                |> Map.add
+                    id
+                    {
+                        Session = session
+                        Login = login
+                        OpenedWith = head |> Option.map _.Head.Id
+                        Seen = now
+                    }
+            Endings =
+                superseded
+                |> List.fold (fun m sid -> Map.add sid (SessionEnding.SupersededByLaunch, now) m) state.Endings
+        },
+        (id, session)
+
+
+    let private recordOutcome (record: LaunchRecord) outcome (state: State) =
+        { state with Launches = state.Launches |> Map.add record.Nonce { record with Outcome = Some outcome } }
+
+
+    let private openSession now newId patientData (record: LaunchRecord) (standing: UserStanding) (state: State) =
+        let state, (id, session) =
+            openWith now newId patientData record.PatientId record.PublicKey standing.User state
+
+        recordOutcome record (LaunchResult.Opened(id, session)) state, CallbackResult.Opened(id, openedUrl)
+
+
+    let private refuse (record: LaunchRecord) refusal (state: State) =
+        recordOutcome record (LaunchResult.Refused refusal) state, CallbackResult.Refused(refusal, refusedUrl refusal)
+
+
+    /// The launch suspends at the PIN question. One live code per credential: a code that
+    /// still stands is reused and nothing is mailed; else a fresh code is mailed to the
+    /// address the registry gave on this request. The attempt is this launch's own, with its
+    /// browser's key.
+    let private suspend
+        (now: DateTime)
+        (newId: unit -> string)
+        (newCode: unit -> string)
+        (codeMac: string -> byte[])
+        (send: Mail -> unit)
+        (record: LaunchRecord)
+        (identity: BrowserIdentity)
+        (standing: UserStanding)
+        (state: State)
+        =
+        let userId = standing.User.UserId
+
+        let state =
+            match state.Codes |> Map.tryFind userId with
+            | Some _ -> state
+            | None ->
+                let code = newCode ()
+
+                let subject, body =
+                    Mails.confirmationCode identity.DisplayName code (int codeLifetime.TotalMinutes)
+
+                send
+                    {
+                        To = standing.MailAddress
+                        Subject = subject
+                        Body = body
+                    }
+
+                { state with
+                    Codes =
+                        state.Codes
+                        |> Map.add
+                            userId
+                            {
+                                UserId = userId
+                                MailAddress = standing.MailAddress
+                                CodeMac = codeMac code
+                                Expiry = now + codeLifetime
+                                Tries = 0
+                            }
+                }
+
+        let attempt = newId ()
+
+        let enrolment =
+            {
+                Attempt = attempt
+                UserId = userId
+                Login = identity.Login
+                DisplayName = identity.DisplayName
+                PatientId = record.PatientId
+                PublicKey = record.PublicKey
+            }
+
+        let until = state.Codes[userId].Expiry
+
+        { state with Enrolments = state.Enrolments |> Map.add attempt enrolment }
+        |> recordOutcome record (LaunchResult.Enrolling attempt),
+        CallbackResult.Enrolling(attempt, openedUrl, until)
+
+
+    /// The callback from the IdentityProvider and the checks that follow it: the state against
+    /// the cookie, the code redeemed for the identity, the registry asked for the Role and the
+    /// active Patient, the credential read. A Prescriber whose credential has no PIN is not
+    /// refused: the launch suspends until the PIN is set. A callback reload while the attempt
+    /// stands is answered with it again; once it is gone, a relaunch is asked for.
+    let callback
+        (now: DateTime)
+        (newId: unit -> string)
+        (newCode: unit -> string)
+        (codeMac: string -> byte[])
+        (redeem: string -> BrowserIdentity option)
+        (standing: BrowserIdentity -> UserStanding option)
+        (patientData: string -> Patient option)
+        (send: Mail -> unit)
+        (state: State)
+        (cb: Callback)
+        : State * CallbackResult
+        =
+        let state = dropExpired now state
+
+        let byState =
+            state.Launches
+            |> Map.toSeq
+            |> Seq.map snd
+            |> Seq.tryFind (fun r -> r.State = cb.State)
+
+        let invalid =
+            CallbackResult.Refused(LaunchRefusal.LaunchInvalid, refusedUrl LaunchRefusal.LaunchInvalid)
+
+        match cb.StateCookie, byState with
+        | Some cookie, Some record when cookie = cb.State && cb.State <> "" ->
+            match record.Outcome with
+            | Some(LaunchResult.Opened(id, _)) when state.Sessions |> Map.containsKey id ->
+                state, CallbackResult.Opened(id, openedUrl)
+            | Some(LaunchResult.Opened _) -> state, CallbackResult.Superseded openedUrl
+            | Some(LaunchResult.Refused refusal) -> state, CallbackResult.Refused(refusal, refusedUrl refusal)
+            | Some(LaunchResult.Enrolling attempt) ->
+                match state.Enrolments |> Map.tryFind attempt with
+                | Some e -> state, CallbackResult.Enrolling(attempt, openedUrl, state.Codes[e.UserId].Expiry)
+                | None ->
+                    state,
+                    CallbackResult.Refused(LaunchRefusal.EnrolmentRequired, refusedUrl LaunchRefusal.EnrolmentRequired)
+            | Some(LaunchResult.RedirectTo _)
+            | None ->
+                let identity =
+                    match cb.Error, cb.Code with
+                    | None, Some code -> redeem code
+                    | _ -> None
+
+                match identity with
+                | None -> refuse record LaunchRefusal.NoBrowserIdentity state
+                | Some identity ->
+                    match standing identity with
+                    | None -> refuse record LaunchRefusal.NoRole state
+                    | Some standing when standing.ActivePatientId <> Some record.PatientId ->
+                        refuse record LaunchRefusal.WrongActivePatient state
+                    | Some standing when
+                        standing.User.Role = UserRole.Prescriber
+                        && not (credentialOf standing.User.UserId state |> Credential.pinSet)
+                        ->
+                        suspend now newId newCode codeMac send record identity standing state
+                    | Some standing -> openSession now newId patientData record standing state
+        | _, None -> state, invalid
+        | _ -> state, invalid
+
+
+    /// What a browser holding an attempt is told at GetSession: whom the launch is for and where
+    /// the code went, while the attempt (that is, its code) stands; nothing once it is gone.
+    let findEnrolment (now: DateTime) (attempt: string) (state: State) : State * EnrolmentPending option =
+        let state = dropExpired now state
+
+        match state.Enrolments |> Map.tryFind attempt with
+        | Some e ->
+            state,
+            Some
+                {
+                    DisplayName = e.DisplayName
+                    MailHint = MailHint.ofAddress state.Codes[e.UserId].MailAddress
+                }
+        | None -> state, None
+
+
+    /// The code and every attempt bound to it, gone (the PIN was set, the code is void, or
+    /// the browser gave up).
+    let private dropCode (userId: string) (state: State) =
+        { state with
+            Codes = state.Codes |> Map.remove userId
+            Enrolments = state.Enrolments |> Map.filter (fun _ e -> e.UserId <> userId)
+        }
+
+
+    /// The browser gave up on its attempt (CloseSession while enrolling). The code stands for
+    /// any other attempt bound to it; when this was the last one it goes too, so that the next
+    /// launch mails a fresh code.
+    let dropEnrolment (attempt: string) (state: State) : State =
+        match state.Enrolments |> Map.tryFind attempt with
+        | None -> state
+        | Some e ->
+            let state = { state with Enrolments = state.Enrolments |> Map.remove attempt }
+
+            if state.Enrolments |> Map.exists (fun _ o -> o.UserId = e.UserId) then
+                state
+            else
+                dropCode e.UserId state
+
+
+    /// The PIN comes back with the code. In order: the attempt (and its code) must stand; the
+    /// PIN must have the format, else no try is spent; a wrong code counts, and the third voids
+    /// the code for every attempt; else one act: the PIN is set with a count of zero, the code
+    /// and its attempts are dropped, the User is told (at the address the registry answers
+    /// now, else the one the code went to), and the launch continues to the open on the
+    /// supplying attempt's key, with the Role the registry answers now and only if the
+    /// launch's Patient is still the active one.
+    let supplyPin
+        (now: DateTime)
+        (newId: unit -> string)
+        (newSalt: int -> byte[])
+        (codeMac: string -> byte[])
+        (standing: BrowserIdentity -> UserStanding option)
+        (patientData: string -> Patient option)
+        (send: Mail -> unit)
+        (attempt: string)
+        (code: string)
+        (pin: string)
+        (state: State)
+        : State * SupplyPinResult
+        =
+        let state = dropExpired now state
+
+        match state.Enrolments |> Map.tryFind attempt with
+        | None -> state, SupplyPinResult.Refused PinRefusal.AttemptExpired
+        | Some e ->
+            let pending = state.Codes[e.UserId]
+
+            if not (Pin.isValid pin) then
+                state, SupplyPinResult.Refused PinRefusal.PinFormat
+            elif
+                not (
+                    System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(codeMac code, pending.CodeMac)
+                )
+            then
+                let tries = pending.Tries + 1
+
+                if tries >= maxTries then
+                    dropCode e.UserId state, SupplyPinResult.Refused PinRefusal.CodeVoid
+                else
+                    { state with Codes = state.Codes |> Map.add e.UserId { pending with Tries = tries } },
+                    SupplyPinResult.Refused(PinRefusal.WrongCode(maxTries - tries))
+            else
+                let identity =
+                    {
+                        Login = e.Login
+                        DisplayName = e.DisplayName
+                    }
+
+                // the registry asked again, fresh: the address for the mail, the Role re-taken
+                // and the active Patient, because the registry may have moved on during the
+                // wait. When it cannot answer, the code has already proved the mailbox, so it
+                // settles the PIN and the launch continues on what it had.
+                let fresh = standing identity
+
+                let address =
+                    fresh |> Option.map _.MailAddress |> Option.defaultValue pending.MailAddress
+
+                let user =
+                    fresh
+                    |> Option.map _.User
+                    |> Option.defaultValue
+                        {
+                            UserId = e.UserId
+                            DisplayName = e.DisplayName
+                            Role = UserRole.Prescriber
+                        }
+
+                let subject, body = Mails.pinSet e.DisplayName
+
+                send
+                    {
+                        To = address
+                        Subject = subject
+                        Body = body
+                    }
+
+                let state =
+                    { state with Credentials = state.Credentials |> Map.add e.UserId (Credential.withPin newSalt pin) }
+                    |> dropCode e.UserId
+
+                match fresh with
+                | Some s when s.ActivePatientId <> Some e.PatientId ->
+                    // the PIN is set and told; no Session opens for a Patient that is no longer
+                    // the active one: a relaunch is asked for
+                    state, SupplyPinResult.Refused PinRefusal.WrongActivePatient
+                | _ ->
+                    let state, (id, session) =
+                        openWith now newId patientData e.PatientId e.PublicKey user state
+
+                    state, SupplyPinResult.Opened(id, session)
+
+
+    /// A request from the Session refreshes its idle clock. Applied by every member that takes
+    /// the session cookie's id, `close` excepted: a close ends the Session, it does not keep
+    /// it alive. Nothing to refresh when there is no such Session.
+    let touch (now: DateTime) (sid: string) (state: State) : State =
+        { state with Sessions = state.Sessions |> Map.change sid (Option.map (fun r -> { r with Seen = now })) }
+
+
+    let find (now: DateTime) (id: string) (state: State) : State * SessionLookup =
+        match state.Sessions |> Map.tryFind id with
+        | Some record -> touch now id state, SessionLookup.Found record.Session
+        | None ->
+            match state.Endings |> Map.tryFind id with
+            | Some(ending, _) -> state, SessionLookup.Ended ending
+            | None -> state, SessionLookup.NotFound
+
+
+    let close (id: string) (state: State) : State =
+        { state with
+            Sessions = state.Sessions |> Map.remove id
+            Endings = state.Endings |> Map.remove id
+        }
+
+
+    /// The head of the record, when it is not the version the Session opened with: a
+    /// Submission is refused as long as such a newer version exists.
+    let blockedBy (record: SessionRecord) (patientId: string) (state: State) =
+        match headOf patientId state with
+        | Some head when Some head.Head.Id <> record.OpenedWith -> Some head.Head
+        | _ -> None
+
+
+    /// For every computing request that names a Session: no Session under this id and an
+    /// ending recorded for it, the ending; a Session, touched, and, when the token is the
+    /// Session's own, the head compared against the version it opened with: a newer version,
+    /// whose and when. The notice informs and gates nothing; the refusal at a Submission stays
+    /// the only guard. An anonymous Session, one without a Patient, no head, or a token that
+    /// is not the Session's: nothing to say.
+    let seen (now: DateTime) (sid: string) (opened: OpenedToken option) (state: State) : State * RecordNotice option =
+        match state.Sessions |> Map.tryFind sid with
+        | None -> state, state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended)
+        | Some record ->
+            let state = touch now sid state
+
+            match record.Session.User, record.Session.PatientContext with
+            | Some _, Some patient when opened.IsSome && opened = record.Session.OpenedToken ->
+                state, blockedBy record patient.PatientId state |> Option.map RecordNotice.NewerVersion
+            | _ -> state, None
+
+
+    /// Version `id` becomes what the Session opened with. No Session, an anonymous one or one
+    /// without a Patient: nothing to open. An id the record does not hold for the Session's
+    /// Patient (a stale button, a restart): nothing opens, the Session as it is; the next
+    /// request tells what the head is. The version already open: the token stands. Another
+    /// version: the OpenedToken is re-minted over it and the standing challenge and notice of
+    /// this Session are dropped (a challenge over the old baseline must not be answerable).
+    /// Any version may be opened; one that is not the head leaves Submission blocked.
+    let openVersion
+        (now: DateTime)
+        (newId: unit -> string)
+        (sid: string)
+        (id: string)
+        (state: State)
+        : State * SessionOpened option
+        =
+        match state.Sessions |> Map.tryFind sid with
+        | None -> state, None
+        | Some record ->
+            let state = touch now sid state
+
+            match record.Session.User, record.Session.PatientContext with
+            | None, _
+            | _, None -> state, None
+            | Some _, Some patient ->
+                let version =
+                    state.Records
+                    |> Map.tryFind patient.PatientId
+                    |> Option.bind (List.tryFind (fun v -> v.Head.Id = id))
+
+                match version with
+                | None -> state, Some record.Session
+                | Some version when record.OpenedWith = Some id ->
+                    let session = { record.Session with Head = Some version }
+
+                    { state with Sessions = state.Sessions |> Map.add sid { record with Session = session } },
+                    Some session
+                | Some version ->
+                    let session =
+                        { record.Session with
+                            OpenedToken = Some(OpenedToken $"opened-{newId ()}")
+                            Head = Some version
+                        }
+
+                    { state with
+                        Sessions =
+                            state.Sessions
+                            |> Map.add
+                                sid
+                                { record with
+                                    Session = session
+                                    OpenedWith = Some id
+                                }
+                        Challenges = state.Challenges |> Map.remove sid
+                        Notices = state.Notices |> Map.remove sid
+                    },
+                    Some session
+
+
+    /// An order appears once in a plan.
+    let duplicateOrders (scenarios: OrderScenario[]) =
+        scenarios |> Array.countBy _.Order.Id |> Array.exists (fun (_, n) -> n > 1)
+
+
+    /// The challenge request, checked in order: the Session with a User and a Patient; the
+    /// Role Prescriber; the OpenedToken this Session holds; the patient data re-read: when it
+    /// is not what the Session opened with and no notice over this reading was accepted, no
+    /// challenge yet but a `DataNotice`, replacing any earlier notice and dropping any earlier
+    /// challenge (it was over the data before the change); the record not moved on. Then a
+    /// challenge over exactly this plan, replacing the Session's earlier one and spending the
+    /// notice. The plan's own patient data is what the User saw, entered or read, and is
+    /// recorded as such; the Patient is the Session's, never the request's. The PIN is not
+    /// involved: a refusal here costs no attempt.
+    let challenge
+        (now: DateTime)
+        (newId: unit -> string)
+        (patientData: string -> Patient option)
+        (sid: string)
+        (plan: OrderPlan, opened: OpenedToken, notice: string option)
+        (state: State)
+        : State * SigningResponse
+        =
+        let state = dropExpired now state |> touch now sid
+        let refuse refusal = state, SigningResponse.Refused refusal
+
+        match state.Sessions |> Map.tryFind sid with
+        | None -> refuse SigningRefusal.NoSession
+        | Some record ->
+            match record.Session.User, record.Session.PatientContext with
+            | None, _ -> refuse SigningRefusal.NotPrescriber
+            | Some _, None -> refuse SigningRefusal.NoPatient
+            | Some user, Some patient ->
+                if user.Role <> UserRole.Prescriber then
+                    refuse SigningRefusal.NotPrescriber
+                elif record.Session.OpenedToken <> Some opened then
+                    refuse SigningRefusal.StaleToken
+                else
+                    let current = patientData patient.PatientId
+
+                    let accepted =
+                        notice
+                        |> Option.bind (fun token ->
+                            state.Notices
+                            |> Map.tryFind sid
+                            |> Option.filter (fun n -> n.Nonce = token && n.Data = current)
+                        )
+
+                    if current <> Some patient.Patient && accepted.IsNone then
+                        let nonce = newId ()
+
+                        { state with
+                            Notices =
+                                state.Notices
+                                |> Map.add
+                                    sid
+                                    {
+                                        Nonce = nonce
+                                        Data = current
+                                        Expiry = now + challengeLifetime
+                                    }
+                            // a challenge over the data before the change must not be signed
+                            Challenges = state.Challenges |> Map.remove sid
+                        },
+                        SigningResponse.DataNotice
+                            {
+                                Data = current
+                                Token = nonce
+                            }
+                    // no challenge over a plan that names an order twice
+                    elif duplicateOrders plan.Scenarios then
+                        refuse SigningRefusal.ChallengeMismatch
+                    else
+                        match blockedBy record patient.PatientId state with
+                        | Some head -> refuse (SigningRefusal.Blocked head)
+                        | None ->
+                            let nonce = newId ()
+
+                            { state with
+                                Notices = state.Notices |> Map.remove sid
+                                Challenges =
+                                    state.Challenges
+                                    |> Map.add
+                                        sid
+                                        {
+                                            Nonce = nonce
+                                            Patient = plan.Patient
+                                            Scenarios = plan.Scenarios
+                                            Reading = current
+                                            Expiry = now + challengeLifetime
+                                        }
+                            },
+                            SigningResponse.ChallengeIssued nonce
+
+
+    /// The commit of a signature, one act, checked in order: the Session with a User and a
+    /// Patient; the answer already given to this Session's key; the Role re-taken from the
+    /// registry (fails closed when it cannot answer; Rule 38's bounded grace is not built);
+    /// the OpenedToken this Session holds; the
+    /// record not moved on; the challenge this Session was issued, over exactly this plan; and
+    /// last the PIN, so that a Submission that was never going to land costs no attempt. Then
+    /// the version is appended, the challenge spent, the OpenedToken re-minted over the new
+    /// head, the Session's patient set to the reading at the challenge, else the data signed,
+    /// and the answer remembered under the key, refusals too. Three wrong PINs end the Session
+    /// (`WrongPinLimit`), lock signing and mail the User; a wrong PIN while locked pushes the
+    /// lock out; a right PIN while locked is refused and counts nothing.
+    let commit
+        (now: DateTime)
+        (newId: unit -> string)
+        (standing: BrowserIdentity -> UserStanding option)
+        (send: Mail -> unit)
+        (sid: string)
+        (submission: Submission)
+        (state: State)
+        : State * SigningResponse
+        =
+        let state = dropExpired now state |> touch now sid
+        let refuse refusal = state, SigningResponse.Refused refusal
+
+        match state.Sessions |> Map.tryFind sid with
+        | None -> refuse SigningRefusal.NoSession
+        | Some record ->
+            match record.Session.User, record.Session.PatientContext with
+            | None, _ -> refuse SigningRefusal.NotPrescriber
+            | Some _, None -> refuse SigningRefusal.NoPatient
+            | Some user, Some patient ->
+                match state.Answered |> Map.tryFind (sid, submission.IdemKey) with
+                | Some(answer, _) -> state, answer
+                | None ->
+                    // the answer is remembered from here on, under this Session and the key
+                    let remember (state: State) answer =
+                        { state with Answered = state.Answered |> Map.add (sid, submission.IdemKey) (answer, now) },
+                        answer
+
+                    let refuse refusal =
+                        remember state (SigningResponse.Refused refusal)
+
+                    let identity =
+                        {
+                            Login = record.Login |> Option.defaultValue user.UserId
+                            DisplayName = user.DisplayName
+                        }
+
+                    match standing identity with
+                    | Some fresh when fresh.User.Role = UserRole.Prescriber ->
+                        if record.Session.OpenedToken <> Some submission.Opened then
+                            refuse SigningRefusal.StaleToken
+                        else
+                            match blockedBy record patient.PatientId state with
+                            | Some head -> refuse (SigningRefusal.Blocked head)
+                            | None ->
+                                match state.Challenges |> Map.tryFind sid with
+                                | None -> refuse SigningRefusal.ChallengeExpired
+                                | Some challenge when
+                                    challenge.Nonce <> submission.Challenge
+                                    || challenge.Patient <> submission.Plan.Patient
+                                    || challenge.Scenarios <> submission.Plan.Scenarios
+                                    || duplicateOrders submission.Plan.Scenarios
+                                    ->
+                                    refuse SigningRefusal.ChallengeMismatch
+                                | Some challenge ->
+                                    let credential = credentialOf user.UserId state
+                                    let wasLocked = Credential.isLocked now credential
+                                    let right, credential = Credential.verify now submission.Pin credential
+
+                                    let state =
+                                        { state with Credentials = state.Credentials |> Map.add user.UserId credential }
+
+                                    if right then
+                                        let id = newId ()
+
+                                        let plan =
+                                            {
+                                                Head =
+                                                    {
+                                                        Id = id
+                                                        No =
+                                                            1
+                                                            + (state.Records
+                                                               |> Map.tryFind patient.PatientId
+                                                               |> Option.map List.length
+                                                               |> Option.defaultValue 0)
+                                                        By = user
+                                                        SignedAt = now
+                                                    }
+                                                PatientId = patient.PatientId
+                                                Base = record.OpenedWith
+                                                Scenarios = challenge.Scenarios
+                                                Patient = challenge.Patient
+                                                Verified = challenge.Reading.IsSome
+                                            }
+
+                                        let token = OpenedToken $"opened-{newId ()}"
+
+                                        // the Session's patient is the platform's reading at the
+                                        // challenge, else the data just signed, so a resume shows what
+                                        // a relaunch would
+                                        let opened =
+                                            { record with
+                                                Session =
+                                                    { record.Session with
+                                                        OpenedToken = Some token
+                                                        Head = Some plan
+                                                        PatientContext =
+                                                            Some
+                                                                { patient with
+                                                                    Patient =
+                                                                        challenge.Reading
+                                                                        |> Option.defaultValue plan.Patient
+                                                                }
+                                                    }
+                                                OpenedWith = Some id
+                                            }
+
+                                        remember
+                                            { state with
+                                                Records =
+                                                    state.Records
+                                                    |> Map.change
+                                                        patient.PatientId
+                                                        (fun versions ->
+                                                            Some(plan :: (versions |> Option.defaultValue []))
+                                                        )
+                                                Challenges = state.Challenges |> Map.remove sid
+                                                Sessions = state.Sessions |> Map.add sid opened
+                                            }
+                                            (SigningResponse.Submitted(plan, token))
+                                    elif wasLocked then
+                                        // this Session did nothing wrong; the lock is the credential's
+                                        remember
+                                            state
+                                            (SigningResponse.Refused(SigningRefusal.Locked credential.LockedUntil.Value))
+                                    elif credential |> Credential.attemptsLeft = 0 then
+                                        // the wrong-PIN limit is reached now; the Session ends
+                                        let subject, body = Mails.pinLimit user.DisplayName
+
+                                        // best effort (MailPort: fire and forget): the ending and the lock
+                                        // land whatever the mail does
+                                        try
+                                            send
+                                                {
+                                                    To = fresh.MailAddress
+                                                    Subject = subject
+                                                    Body = body
+                                                }
+                                        with _ ->
+                                            ()
+
+                                        remember
+                                            { state with
+                                                Sessions = state.Sessions |> Map.remove sid
+                                                Endings =
+                                                    state.Endings |> Map.add sid (SessionEnding.WrongPinLimit, now)
+                                                Challenges = state.Challenges |> Map.remove sid
+                                            }
+                                            (SigningResponse.Refused SigningRefusal.PinLimit)
+                                    else
+                                        remember
+                                            state
+                                            (SigningResponse.Refused(
+                                                SigningRefusal.PinWrong(credential |> Credential.attemptsLeft)
+                                            ))
+                    | _ -> refuse SigningRefusal.NotPrescriber
+
+
+    /// Six digits from a random source (the CSPRNG in the host).
+    let newCode (randomBelow: int -> int) () = (randomBelow 1_000_000).ToString "D6"
+
+
+    /// The mac of a code under the host key: what the store keeps instead of the digits.
+    let codeMac (key: LaunchSeal.Key) (code: string) =
+        LaunchSeal.mac key (Text.Encoding.UTF8.GetBytes code)

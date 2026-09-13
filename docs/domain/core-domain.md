@@ -117,11 +117,14 @@ Across the **client/server API boundary**, the system uses a concrete transport 
 
 **API request/response wrapper**
 
-Requests are `Shared.Api.Command` values and responses are `Shared.Api.Response` values, both
-defined in `src/Informedica.GenPRES.Shared/Api.fs`. Order-context traffic travels as
-`OrderContextCmd of OrderContextCommand * OrderContext` and comes back as
-`OrderContextResp`. Alongside it the same channel carries the order-plan, nutrition-plan,
-interaction and log-analyzer command families.
+Every computing member of `IServerApi` (`src/Informedica.GenPRES.Shared/Api.fs`) takes a
+`Request<'cmd>` (the command and the OpenedToken the Session holds) and answers a
+`Reply<'resp>` (the answer and what the Session is told). Order-context traffic still travels
+as `OrderContextCmd of OrderContextCommand * OrderContext` under `processCommand` and comes
+back as `OrderContextResp`. The other use cases have their own members: `processOrderPlan`
+over `PlanCommand` for the one plan, nutrition included; `processFormulary` and
+`processParenteralia`; `processInteraction`; and `processAdmin`, token-authenticated and
+without the envelope.
 
 The individual cases are not restated here: `OrderContextCommand` alone has around thirty of
 them (selection, reset, and the increase/decrease/min/max/median stepping commands for

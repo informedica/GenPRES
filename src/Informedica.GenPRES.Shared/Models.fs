@@ -2337,14 +2337,18 @@ module Models =
 
     module OrderPlan =
 
-        let create pat srs =
+        let create pat srs : OrderPlan =
             {
                 Patient = pat
                 Selected = None
                 Filtered = [||]
                 Scenarios = srs
+                NutritionContexts = [||]
                 Totals = Totals.empty
             }
+
+
+        let empty = create Patient.empty [||]
 
 
     module NutritionContext =
@@ -2356,23 +2360,6 @@ module Models =
                 Category = category
                 Removable = removable
                 OrderContext = ctx
-            }
-
-
-    module NutritionPlan =
-
-        let empty: NutritionPlan =
-            {
-                Patient = Patient.empty
-                NutritionContexts = [||]
-                Totals = Totals.empty
-            }
-
-        let create patient contexts : NutritionPlan =
-            {
-                Patient = patient
-                NutritionContexts = contexts
-                Totals = Totals.empty
             }
 
 

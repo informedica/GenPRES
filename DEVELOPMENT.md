@@ -59,6 +59,177 @@ dotnet run
 
 Open your browser to `http://localhost:5173`
 
+### Simulating the launch sequence
+
+In production a User reaches GenPRES from MainEHR: the LaunchScript opens the browser on a
+sealed Launch, the browser is signed on at the IdentityProvider, and the server opens a Session
+for the launched patient (steps 1 to 6 of [uc-01](docs/scenarios/integration/uc-01-launch.md)).
+In demo mode the server hosts stand-ins for every party outside GenPRES, so the whole sequence
+runs on one machine with nothing to install
+([plan 605](docs/implementation-plans/605-launch-with-server-stubs.md)). The stand-ins are
+mounted only when `GENPRES_PROD=0`; a production server answers 404 on their routes and refuses
+every launch as invalid until the scope switch
+([#580](https://github.com/informedica/GenPRES/issues/580)) decides what production exposes.
+
+#### Walkthrough
+
+1. Start the application with `GENPRES_PROD=0` (the `.env.example` default): `dotnet run`.
+2. Open `http://localhost:5173/stub/launch`. This is the stub LaunchScript page, served by the
+   server on port 8085 and reached through the Vite proxy. It has two fields:
+   - **PatientId**, default `stub-patient`, which the stub PatientDataPlatform reads as a
+     ten-year-old of 32 kg. Any text works; `no-data` stands for a patient the platform has no
+     record for (ext 6a): the Session then opens on the data the last version was signed on, or
+     on nothing (#640).
+   - **Identity at the browser**: who the stub IdentityProvider will say is signed on. The
+     table below lists the choices.
+3. Press **Launch**. The server mints a Launch sealed under a key it made at start-up, valid for
+   two minutes, and redirects to `#/session?launch=<token>`. The client erases the token from
+   the address bar and history, generates a key pair, and presents the Launch.
+4. The server answers with a redirect to `/authorize` (the stub IdentityProvider), which sends
+   the browser straight back to `/callback` with a one-time code. The server redeems the code,
+   asks the stub UserRegistry for the role and the active patient, reads the patient data, and
+   opens the Session in one act.
+5. The browser lands on `#/session`. With `prescriber` the title bar shows a person button with
+   **Stub Prescriber** and the role; the session menu offers **Close session**.
+
+What each identity choice ends in:
+
+| Identity | Stands for | Ends in | uc-01 |
+|---|---|---|---|
+| `prescriber` | a Prescriber whose active patient is the launched one | an open Session as Prescriber | main path |
+| `prescriber-b` | a second Prescriber on the same patient, for two browsers (UC-3, Rule 20) | an open Session as Stub Prescriber B | main path |
+| `reader` | a Reader; no PIN needed | an open Session as Reader | ext 5c |
+| `prescriber-other-patient` | a Prescriber with another patient active in MainEHR | the gate: wrong patient, relaunch | ext 5b |
+| `no-pin` | a Prescriber without a PIN | the enrolment form: a confirmation code by mail, then a PIN (UC-2, below) | ext 5d |
+| `unknown` | a login the UserRegistry does not know | the gate: no role, with "continue without launch" | ext 5a |
+| `none` | nobody signed on at the browser | the gate: no browser identity, relaunch only | ext 3c |
+
+A refusal arrives as `#/session?refused=<word>` with the words `expired`, `spent`, `invalid`,
+`no-identity`, `no-role`, `wrong-patient` and `enrolment`; the client erases the parameter and
+shows the gate for it.
+
+#### Enrolment: the first launch of a Prescriber without a PIN
+
+A Prescriber has to set a PIN before prescribing
+([uc-02](docs/scenarios/integration/uc-02-enrolment.md), Rules 24, 25, 37). The demo stands in
+for the MailService too ([plan 615](docs/implementation-plans/615-enrolment-with-server-stubs.md)):
+
+1. Launch with the identity `no-pin`. The hop runs as above, but instead of opening a Session
+   the server mails a six-digit confirmation code and the browser lands on the gate **Set a PIN
+   to continue**, which greets the user and says where the code went (`n***@stub.example`).
+2. Open `http://localhost:5173/stub/mail` in another tab: the stub MailService's outbox, newest
+   mail first. Copy the code from "GenPRES: your confirmation code".
+3. Enter the code, a PIN of four to six digits, and the PIN again, and press **Set PIN**. The
+   Session opens as **Stub Prescriber (no PIN)**, and the outbox shows a second mail, "GenPRES:
+   your PIN was set".
+4. Launch `no-pin` again, in this or another browser: the Session opens directly. The PIN lives
+   as long as the server runs. The seeded Prescribers (`prescriber`, `prescriber-b`,
+   `prescriber-other-patient`) start with the PIN `1234`.
+
+Things worth trying here:
+
+- **A wrong code**: the form stays, with the tries left. The third wrong code voids it; a fresh
+  launch mails a fresh one.
+- **A second launch while the code stands** (another tab or browser, `no-pin` again): no second
+  mail; either browser can enter the code, and the Session opens in the one that did.
+- **Waiting**: the code lives fifteen minutes; after that the form is gone at the next reload
+  and a fresh launch mails a new code.
+- **Leaving**: **Close session** is not offered while enrolling; a relaunch replaces the
+  attempt, and closing the tab abandons it.
+
+#### Signing an order plan
+
+A Prescriber signs the order plan with the PIN; signing is the only way anything reaches the
+record ([uc-03](docs/scenarios/integration/uc-03-prescribe-and-sign.md), Rules 42, 43). The
+demo keeps the record in memory
+([plan 622](docs/implementation-plans/622-signing-with-server-stubs.md)):
+
+1. Launch with the identity `prescriber`. The patient panel shows the stub platform's reading, a
+   ten-year-old of 32 kg; change it if you like.
+2. Open **Voorschrijven** from the menu, pick a medication, a route, a form and an indication
+   (paracetamol, oral, tablet, mild pain will do), and press **Voorschrijven** on a scenario.
+3. Open **Order Plan**: the order is in the plan, with an **Ondertekenen** button above it.
+   Press it. The dialog lists the orders exactly as they will be signed and asks the PIN.
+4. Enter a wrong PIN: the dialog stays and says two tries are left. Enter `1234`: the dialog
+   closes and the snackbar says version 1 was signed by Stub Prescriber. Sign again: version 2.
+
+Things worth trying here:
+
+- **Three wrong PINs**: the dialog closes and the gate says the Session ended at the PIN limit;
+  the Sign button and the person menu are gone. Launch again: a right PIN inside the next minute
+  is refused as locked until a time, after that it signs. Every wrong entry past the third
+  doubles the delay, up to a day.
+- **Launch again**: the cart opens on the version just signed, before anything is entered
+  (Rule 19); so does a reload. The patient panel shows the platform's reading again: a hand edit
+  over a reading is not kept (Concept 2), and the next sign tells that the data changed (Rule 44).
+- **Two browsers on one patient** ([uc-04](docs/scenarios/integration/uc-04-two-users.md),
+  [plan 635](docs/implementation-plans/635-session-bound-compute.md)): launch `prescriber-b` in
+  another browser profile, prescribe and sign there. The first browser's next action that
+  reaches the server (a change in the patient panel, a scenario) shows a snackbar once: Stub
+  Prescriber B signed a newer version at that time, and the **Order Plan** page a bar with
+  **Open the newest version** (Rule 21). Nothing is blocked by it (Rule 22): pressing
+  **Ondertekenen** instead is refused with the same words (Rule 20) and shows the same bar. The
+  button loads B's orders into the cart, says version N by Stub Prescriber B is now open, and
+  signing works again: version N+1 has B's as its base. A page switch alone sends nothing, so
+  it tells nothing.
+- **The same identity twice**: launch `prescriber` again in another browser profile. The first
+  browser's next action shows the gate: a newer launch ended the Session (Rule 11). In the same
+  profile the second launch replaces the session cookie instead, and the older tab simply
+  continues on the new Session.
+- **The patient without data**: launch with the PatientId `no-data`. The first **Ondertekenen**
+  is a notice instead of the dialog: the data could not be verified. **Doorgaan** asks the
+  challenge again with the notice accepted, and the version is signed as unverified (Rule 44).
+  Launch `no-data` again, or reload: the panel shows the data the version was signed on, since
+  the platform has none (#640); the first sign of the new Session shows the notice again.
+- **A Reader**: `reader` sees no Sign button.
+- **Watch the wire**: `RequestSignChallenge` answers `ChallengeIssued`, `Submit` answers
+  `Submitted` with the version and a fresh OpenedToken; the PIN travels in the Submission and
+  nowhere else, and never appears in the log. A Submission sent twice under the same key is
+  answered the same way once. Every computing member (`processOrderContext`, `processOrderPlan`,
+  `processFormulary`, `processParenteralia`, `processInteraction`) sends `{ Opened; Command }`
+  and gets `{ Response; Notice }`: the notice names the newer version or the ending, and is
+  empty otherwise; `OpenVersion` answers the Session with a fresh OpenedToken when it switches versions
+  (the token stands when the version named is the one already open).
+- **Restart the server**: the record is gone with everything else; the next signature is
+  version 1 again.
+
+#### Things worth trying
+
+- **Reload after the launch**: the Session resumes from the `genpres_session` cookie.
+- **Replay the Launch**: copy the `#/session?launch=…` URL from the Network tab (it never stays
+  in the address bar) and open it in another browser profile or an incognito window within two
+  minutes: `spent`. After two minutes: `expired`. A token from an earlier server run: `invalid`,
+  the key is new at every start.
+- **Reload the callback**: reload `/callback?code=…&state=…` from the Network tab within two
+  minutes: the same answer as the first time (Rule 45), no second Session.
+- **Two launches of the same user**: launch as `prescriber` in tab A, then again in tab B. B is
+  open; A's next request is told that a newer launch ended its Session and offers to continue
+  without a launch (Rules 8 and 11). Once A acknowledged, the notice is gone.
+- **Watch the wire**: in the Network tab, the `PresentLaunch` call answers `RedirectTo`, then
+  two 302s (`/authorize`, `/callback`), then `GetSession`. The Launch appears in none of the
+  responses after the first request.
+- **Production**: `GENPRES_PROD=1 GENPRES_PASSWORD=<16+ chars> dotnet run`; `/stub/launch`
+  and `/authorize` are 404, `/callback` redirects to `refused=invalid`.
+
+The stand-ins keep everything in memory: launches by nonce, sessions, endings, one-time codes,
+credentials and confirmation codes, the outbox, the signed versions of every order plan. A
+restart forgets all of it: the browser's session cookie no longer finds a Session, `no-pin` has
+to enrol again, and the record starts from nothing.
+
+#### Cookies and the development proxy
+
+| Cookie | Set by | Attributes | Purpose |
+|---|---|---|---|
+| `genpres_session` | the callback, on an open | HttpOnly, Strict, `Path=/`, Secure over HTTPS | names the Session (Rule 12) |
+| `genpres_launch_state.<state>` | the answer to `PresentLaunch` | HttpOnly, Lax, `Path=/callback`, `Max-Age` 2 min | proves the callback comes from the browser that started the hop; one per hop so two tabs can launch at once |
+| `genpres_stub_identity` | the stub launch page | HttpOnly, Lax, `Path=/`, `Max-Age` 2 min | carries the identity choice and the PatientId to the stub IdentityProvider; demo only |
+| `genpres_enrolment` | the callback, when the launch suspends into enrolment | HttpOnly, Strict, `Path=/`, `Max-Age` what remains of the code's fifteen minutes | names the enrolment attempt this browser made; the form's `SupplyPin` works on it and nothing else (UC-2) |
+
+`vite.config.js` proxies `/api`, `/stub`, `/authorize` and `/callback` to the server on port
+8085, so in development the browser talks to one origin (`localhost:5173`) and the cookies,
+which are host-only and port-agnostic, reach both. In production the server serves the client
+itself and no proxy is involved.
+
 ## Build System Architecture
 
 ### How `dotnet run` Interacts with FAKE
@@ -449,13 +620,14 @@ docker compose logs -f genpres
 
 The image is published by `tag-release.yml` a few minutes *after* the release PR merges, so a `docker compose pull` in that window fails with "manifest unknown"; retry shortly after.
 
-Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID`, a 16+ character `GENPRES_PASSWORD`, and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
+Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID` and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. A 16+ character `GENPRES_PASSWORD` enables the admin operations; without one the server starts with them disabled and warns (issue #590). `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
 
 **Process 1 and exit codes** — the image runs [`tini`](https://github.com/krallin/tini) as PID 1
 and starts `dotnet` under it (issue [#572](https://github.com/informedica/GenPRES/issues/572)).
 With `dotnet` itself as PID 1, the `SIGABRT` the runtime sends itself after an unhandled exception
 was dropped, so a container whose server refused to start stayed "running" with nothing listening.
-Now a refused start-up (the production password policy, or no `GENPRES_URL_ID`) prints one message
+Now a refused start-up (a production password shorter than 16 characters, an unknown
+`GENPRES_LANG`, or no `GENPRES_URL_ID`) prints one message
 and exits `1`, a crash exits `134`, and `docker stop` still reaches Kestrel for a graceful shutdown.
 `compose.yaml`'s `restart: unless-stopped` and any orchestrator act on those codes; read them with
 `docker ps -a`. No `--init` or `init: true` is needed. The release workflow proves this on every
@@ -1016,8 +1188,21 @@ GENPRES_URL_ID=<your-url-id>   # Google Sheets data URL ID (required; .env.examp
 GENPRES_LOG=i                  # Logging level: 0=off, d=debug, i=info, w=warning, e=error
 GENPRES_PROD=0                 # Production mode: 0=demo (safe default), 1=production data
 GENPRES_DEBUG=1                # Debug mode: 0=off, 1=on
+GENPRES_LANG=nl                # Default UI language: en, nl, fr, de, es, it — see below
 GENPRES_PASSWORD=<password>    # Admin password — see policy below
 ```
+
+#### Default language
+
+`GENPRES_LANG` is the UI language a browser starts in. The client asks the server for it at
+start-up (`getSettings`); until then, and when the server cannot be reached, the client falls
+back to Dutch, as it always did. Accepted values are the ISO 639-1 codes `en`, `nl`, `fr`, `de`,
+`es`, `it` in any case (the display names such as `Nederlands` work too). Unset or blank means
+`nl`; any other value makes the server refuse to start with a message naming the setting.
+
+The server default is the lowest rung: an `la=` parameter in the url wins over it, and so does a
+language the user picks in the title bar or the disclaimer. Navigating between pages keeps the
+current language; only a new `la=` changes it.
 
 #### Password policy
 
@@ -1027,10 +1212,13 @@ resource reload). The server enforces a length policy at startup:
 - **Development (`GENPRES_PROD=0`)**: any value is accepted, including the
   trivial `genpres` used by some local setups. Convenient for development;
   unsafe anywhere else.
-- **Production (`GENPRES_PROD=1`)**: the server **refuses to start** when
-  `GENPRES_PASSWORD` is missing or shorter than 16 characters. Generate a
-  strong value with a CSPRNG, e.g. `openssl rand -base64 32`, and inject it
-  via a secret store (Docker secret, Kubernetes secret, vault, ...).
+- **Production (`GENPRES_PROD=1`)**: when `GENPRES_PASSWORD` is missing or
+  blank the server **starts with admin operations disabled** and prints a
+  warning saying so (issue #590); the data set is still the production one.
+  When the password is set but shorter than 16 characters the server
+  **refuses to start**: a weak secret would stay live. Generate a strong
+  value with a CSPRNG, e.g. `openssl rand -base64 32`, and inject it via a
+  secret store (Docker secret, Kubernetes secret, vault, ...).
 
 Never reuse a development password in production. Never commit a real
 password to the repository — `.env` is gitignored.

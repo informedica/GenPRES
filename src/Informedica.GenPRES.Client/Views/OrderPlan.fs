@@ -15,18 +15,20 @@ module OrderPlan =
     let View (props: {| appEnv: obj |}) =
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
-        let orderPlanCommand = envOrderPlan.OrderPlanCommand
+        let planCommand = envOrderPlan.PlanCommand
+        let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
+        let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv
 
-        let updateOrderPlan tp =
-            orderPlanCommand (Api.UpdateOrderPlan(tp, None))
+        let updateOrderPlan tp = envOrderPlan.ShowOrderPlan tp
 
         let filterOrderPlan tp =
-            orderPlanCommand (Api.FilterOrderPlan tp)
+            planCommand (Api.PlanCommand.Recalculate tp)
 
+        // an order-context command over the selected scenario
         let orderContextMsg (cmd, ctx) =
             match orderPlan with
             | Resolved tp
-            | Recalculating tp -> orderPlanCommand (Api.UpdateOrderPlan(tp, Some(cmd, ctx)))
+            | Recalculating tp -> planCommand (Api.PlanCommand.Navigate(tp, None, cmd, ctx))
             | _ -> ()
 
         let localizationTerms =
@@ -52,6 +54,10 @@ module OrderPlan =
 
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
+
+        // the sheet's translation in the User's language, else the policy's English
+        let tr term =
+            Global.getLocalizedTerm localizationTerms lang (SigningPolicy.english term) term
 
         let columns =
             [|
@@ -269,18 +275,18 @@ module OrderPlan =
             | Recalculating tp -> tp.Filtered |> Array.map _.Order |> Array.map _.Id
             | _ -> [||]
 
+        // a plan change is one at a time: while one is under way the button is disabled,
+        // so a click never sends a command that would be discarded
+        let isRecalculating =
+            match orderPlan with
+            | Recalculating _ -> true
+            | _ -> false
+
+        // the selected orders go by id, each with the workbench that contributed it
         let onDelete =
             fun () ->
                 match orderPlan with
-                | Resolved tp
-                | Recalculating tp ->
-                    { tp with
-                        Scenarios =
-                            tp.Scenarios
-                            |> Array.filter (fun sc -> tp.Filtered |> Array.exists ((=) sc) |> not)
-
-                    }
-                    |> updateOrderPlan
+                | Resolved tp -> planCommand (Api.PlanCommand.RemoveOrders(tp, selectedRows))
                 | _ -> ()
 
         let updateOrderScenario (ctx: OrderContext) =
@@ -347,12 +353,66 @@ module OrderPlan =
                 import Button from '@mui/material/Button';
 
                 <Box sx={ {| marginTop = 2 |} }>
-                    <Button variant="text" onClick={onDelete} fullWidth startIcon={Mui.Icons.Delete} >
+                    <Button variant="text" onClick={onDelete} disabled={isRecalculating} fullWidth startIcon={Mui.Icons.Delete} >
                         Verwijder Geselecteerde Voorschriften
                     </Button>
                 </Box>
                 """
             | _ -> null
+
+        // a Prescriber with an open Session signs the plan as shown
+        let onSign =
+            fun _ ->
+                match orderPlan with
+                | Resolved tp -> signing.Sign tp
+                | _ -> ()
+
+        let signBtn =
+            match orderPlan with
+            | Resolved tp when SigningPolicy.canSign session.Session tp ->
+                JSX.jsx
+                    $"""
+                import Button from '@mui/material/Button';
+
+                <Box sx={ {| marginTop = 2 |} }>
+                    <Button variant="contained" onClick={onSign} startIcon={Mui.Icons.Assignment} >
+                        {tr Terms.``Signing Sign``}
+                    </Button>
+                </Box>
+                """
+            | _ -> null
+
+        // the record moved on while this Session is on an older version; the bar says whose
+        // and when, and offers the newest version. Nothing is blocked here: the guard is the
+        // refusal at the signature
+        let movedOnBar =
+            match session.MovedOn with
+            | Some head ->
+                let onOpenNewest = fun _ -> session.OpenVersion head.Id
+
+                let openNewest =
+                    JSX.jsx
+                        $"""
+                    import Button from '@mui/material/Button';
+
+                    <Button color="inherit" size="small" onClick={onOpenNewest}>
+                        {tr Terms.``Session Open Newest``}
+                    </Button>
+                    """
+
+                JSX.jsx
+                    $"""
+                import Alert from '@mui/material/Alert';
+
+                <Box sx={ {| marginTop = 2 |} }>
+                    <Alert severity="warning" action={openNewest}>
+                        {SigningPolicy.movedOnSentence tr head}
+                    </Alert>
+                </Box>
+                """
+            | None -> null
+
+        let signDialog = SignDialog.View {| appEnv = props.appEnv |}
 
         let responsiveTable =
             Components.ResponsiveTable.View
@@ -390,6 +450,7 @@ module OrderPlan =
         import Modal from '@mui/material/Modal';
 
         <Box sx={ {| height = "100%" |} }>
+            {movedOnBar}{signBtn}
             {deleteBtn}
             {responsiveTable}
             <Modal open={modalOpen} onClose={handleModalClose} >
@@ -397,5 +458,6 @@ module OrderPlan =
                     {orderView}
                 </Box>
             </Modal>
+            {signDialog}
         </Box>
         """

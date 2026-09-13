@@ -44,7 +44,7 @@ sequenceDiagram
 | 4 | Identity | The Client presents the Launch and the public key. The Server verifies the Launch, keeps its contents in a LaunchRecord, and sends the browser to the IdentityProvider and gets it back with a signed BrowserIdentity over its own connection, never through the Client's hands. See [Step 4](#step-4-the-identity-round-trip). |
 | 5 | Check and open | The Server checks that the Launch is unspent, asks the UserRegistry for the Role and the active Patient, reads the patient data and the record, and opens the Session in one act that stores the public key in the SessionRecord. See [Step 5](#step-5-check-and-open). |
 | 6 | Session open | The response sets the SessionId as an HttpOnly, Secure, SameSite=Strict cookie (Rule 12) and returns UserContext, PatientContext, the OrderContexts to start from, the OpenedToken (Rule 34) and the thumbprint of the Session's public key. The Client deletes the private keys of other launches; the Session they belonged to is closed by this open (Rule 8). The Client keeps these in memory and shows the patient. |
-| 7 | Every later request | The cookie says which Session, a proof signed with the private key says which browser, the OpenedToken says which TreatmentPlan was opened. See [Step 7](#step-7-a-signed-request). |
+| 7 | Every later request | The cookie says which Session, a proof signed with the private key says which browser, the OpenedToken says which OrderPlan was opened. See [Step 7](#step-7-a-signed-request). |
 
 Two questions, two answers: *who is this* is the IdentityProvider's answer (step 4), *what may
 they do, and on which Patient* is the UserRegistry's (step 5). The Server asks both at every
@@ -141,7 +141,7 @@ sequenceDiagram
     S->>P: 5.5 ReadPatientData (PatientId)
     P-->>S: PatientData
     S->>D: 5.6 ReadRecord (PatientId), ReadSessionRecords (User)
-    D-->>S: newest TreatmentPlan, this User's other Sessions
+    D-->>S: newest OrderPlan, this User's other Sessions
     Note over S,D: 5.7 one conditional act: spend the Launch, close the other Sessions,<br/>write SessionRecord {SessionId, User, Role, Patient, public key}
     S->>D: OpenSessionClosingOthers
     D-->>S: SessionWasOpened
@@ -156,7 +156,7 @@ sequenceDiagram
 - **5.4** Check that a PIN is set (Rule 24). A Prescriber without one goes through UC-2 and
   the launch continues at 5.5 afterwards.
 - **5.5** Read the patient data from the PatientDataPlatform, once (Concept 2).
-- **5.6** Read the newest TreatmentPlan to start from (Rule 19) and this User's other open
+- **5.6** Read the newest OrderPlan to start from (Rule 19) and this User's other open
   Sessions (Rule 8).
 - **5.7** Open the Session in one conditional act (Rule 40): spend the Launch, close the other
   Sessions, write the SessionRecord with the public key. All of it commits, or none. The
@@ -176,12 +176,12 @@ Every request after the launch carries two things:
 - the SessionId cookie, which names the Session;
 - a proof signed with the private key from step 3, which names the browser. It covers the
   HTTP method, the URL, a hash of the body, the time, a unique id, and the OpenedToken, which
-  names the TreatmentPlan the Session opened with (Rule 34). This is the DPoP pattern
+  names the OrderPlan the Session opened with (Rule 34). This is the DPoP pattern
   ([RFC 9449](https://www.rfc-editor.org/rfc/rfc9449)).
 
 The Server reads the SessionRecord by SessionId, verifies the signature against the stored
 public key, checks method, URL, body hash, time and uniqueness, and compares the OpenedToken
-with the head of the record. If a newer TreatmentPlan exists, the response says so (Rule 21).
+with the head of the record. If a newer OrderPlan exists, the response says so (Rule 21).
 
 Implementing the signed proof is a later plan. The key pair is generated at the launch so
 that the SessionRecord already holds the public key when that plan lands. Keys are kept per
@@ -262,12 +262,66 @@ different race from two presentations of the *same* Launch: there the spend insi
 (5.7) settles it and exactly one Session opens; here two Launches contend for the per-User
 limit.
 
+## As built against stubs
+
+Steps 1 to 6 run end to end in the demo server since
+[plan 605](../../implementation-plans/605-launch-with-server-stubs.md). What crosses the
+browser goes over HTTP as it will with MainEHR and the IdentityProvider: the Launch of step 1,
+the presentation of 4.1, the redirects of 4.2 and 4.3, the callback of 4.4 and the answer of
+4.5 and 6, with the cookies each sets. What the Server does on its own side (redeeming the code
+in 4.4, the UserRegistry and PatientDataPlatform reads of step 5, the Database) is an in-process
+call through a port, answered by a stand-in mounted when `GENPRES_PROD=0`; the real adapters
+will make those calls over the back channel without the port changing shape. The walkthrough is in
+[DEVELOPMENT.md](../../../DEVELOPMENT.md#simulating-the-launch-sequence).
+
+| Party | Stand-in | What it does |
+|-------|----------|--------------|
+| MainEHR LaunchScript (step 1) | the `/stub/launch` page | mints a Launch sealed under a key made at server start, two minutes, and opens the browser on `#/session?launch=…`; the identity choice made on the page travels in a cookie to the stub IdentityProvider |
+| IdentityProvider (4.3, 4.4) | `/authorize` and an in-memory code store | issues a one-time code for the chosen identity, or reports `no-identity`; the code is redeemed on the server's side of the callback and pruned after the Launch lifetime |
+| UserRegistry (5.3, 5.4) | the stub directory | answers Role, active Patient and PIN state per identity choice: `prescriber`, `reader`, `prescriber-other-patient`, `no-pin`, `unknown` |
+| PatientDataPlatform (5.5) | the stub patient data | answers one fixed patient (ten years, 32 kg, 140 cm) for every PatientId, none for `no-data` |
+| GenPRES Database | one in-memory state per server start | LaunchRecords by nonce, SessionRecords, endings; every transition is a pure function over it, run under one lock, so 5.2 and 5.7 cannot interleave |
+
+Where the code departs from the text above, on purpose:
+
+- **One state cookie per hop.** The cookie of 4.2 is named `genpres_launch_state.<state>`, not
+  a single `state` cookie, so that two tabs launching at once (ext 8b) do not overwrite each
+  other's proof.
+- **A replay whose Session is gone.** A reloaded callback within the lifetime is answered as
+  the first time (4.5, Rule 45). When the Session it opened has since been superseded, the
+  answer is the same redirect to `#/session`, and the next `GetSession` tells the ending.
+- **The ending is acknowledged, not told once.** A Client whose Session ended is told at every
+  `GetSession` until it acknowledges with `CloseSession`, which drops the mark; a notice lost in
+  transit is repeated instead of lost. [session-endings.md](session-endings.md) stands: nothing
+  is discharged by the telling.
+- **A Reader needs no PIN.** 5.4 binds Prescribers only (Rule 25, ext 5c).
+- **No patient data is not a refusal.** When 5.5 finds nothing, the Session opens with the
+  Launch's PatientId and the patient data of the head of the record, the last seen (Rule 19), or
+  an empty patient where there is no record (ext 6a); a data outage does not block prescribing
+  ([#640](https://github.com/informedica/GenPRES/issues/640)).
+- **The key pair's thumbprint** is stored in the SessionRecord at 5.7, ready for step 7.
+
+The PIN detour of 5.4 is built too: a Prescriber without a PIN suspends into
+[uc-02](uc-02-enrolment.md) and continues once the PIN is set (its as-built note is there).
+
+Since [plan 622](../../implementation-plans/622-signing-with-server-stubs.md) the Session
+opens with the head of the record (5.6, Rule 19) and the OpenedToken is checked and re-minted
+at a signature (Rule 34). Since [plan 635](../../implementation-plans/635-session-bound-compute.md)
+the head's orders are loaded into the cart at open and at a resume, every computing request
+carries the OpenedToken and every reply says whether the record moved on (Rule 21) or the
+Session ended (Rule 11), and the Session is marked seen at every request (Rule 9).
+
+Not built: step 7 itself (the DPoP proof over the request envelope plan 635 built), the audit
+(Rule 46), and the absolute lifetime and idle endings of Rule 10 (nothing acts on `Seen` yet).
+
 ## Left out
 
 - **The PIN detour.** A Prescriber with no PIN is not refused: the launch suspends into UC-2
   and continues at 5.5 once the PIN is set.
 - **The audit.** Every launch, honored or refused, is appended to the audit (Rule 46).
-- **Everything after the launch**: prescribing and signing, and the ten other use cases.
+- **Everything after the launch**: prescribing and signing
+  ([uc-03](uc-03-prescribe-and-sign.md), built against stubs since plan 622), and the nine
+  other use cases.
 - **The confirmation code.** UC-2 and UC-6 mail a code to set or replace a PIN. It is not the
   authorization code of step 4, which never leaves the browser and the two servers.
 

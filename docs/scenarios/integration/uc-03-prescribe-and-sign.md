@@ -2,7 +2,7 @@
 
 UC-3. User A records orders for Patient 2 and takes responsibility for them. Signing is
 the only way anything reaches the record — there is no saving — so this diagram is the
-whole of how a TreatmentPlan comes into being.
+whole of how an OrderPlan comes into being.
 
 Precondition: UC-1 has left an open Session for Patient 2, started from its head, with the
 Prescriber Role.
@@ -48,10 +48,10 @@ sequenceDiagram
     D-->>S: SessionRecordRead (open)
     S->>R: ResolveUser (Rule 38: the Role, re-taken)
     R-->>S: UserResolved (Prescriber)
-    S->>D: CommitTreatmentPlan
+    S->>D: CommitOrderPlan
     Note over D: one transaction (Rule 42): Session, Role, tokens,<br/>head, challenge and PIN - all of it, or nothing
-    D-->>S: TreatmentPlanCommitted (with the rule set it was checked under)
-    S-->>C: TreatmentPlanSubmitted (and a fresh OpenedToken over the new baseline)
+    D-->>S: OrderPlanCommitted (with the rule set it was checked under)
+    S-->>C: OrderPlanSubmitted (and a fresh OpenedToken over the new baseline)
 ```
 
 ## Reading it
@@ -82,10 +82,11 @@ token — is refused before the PIN is looked at, so it costs the User no attemp
 - **A new KnowledgeRuleSet** (ext 1b). Published mid-Session, it reaches the next
   computation, and the challenge is issued under it. The signed plan records which set.
 - **The Patient Data changing** (ext 2b). No challenge is issued until the User has seen
-  the data as it now stands, or been told it could not be checked, and accepted it.
-- **The wrong PIN** (ext 3a). No TreatmentPlan is committed and no token is spent. Wrong entries
+  the data as it now stands, or been told it could not be checked, and accepted it. Built as
+  a notice with a token (below).
+- **The wrong PIN** (ext 3a). No OrderPlan is committed and no token is spent. Wrong entries
   count across Sessions; at the limit the Session ends and signing locks for a growing
-  delay.
+  delay. Built, with the delay capped (below).
 - **Canceling and editing** (ext 3b), **someone else at the keyboard** (ext 3c), **a late
   or repeated Submission** (ext 3d), and **never signing at all** (ext 3e).
 - **The audit.** Every Submission, committed or refused, is appended (Rule 46).
@@ -118,6 +119,50 @@ sequenceDiagram
     S-->>C: Computed
     Note over U,C: editing is possible again, and the next signature<br/>asks for a challenge of its own
 ```
+
+## As built against stubs
+
+Steps 2 and 3 run in the demo server since
+[plan 622](../../implementation-plans/622-signing-with-server-stubs.md), on the stand-ins of
+[uc-01](uc-01-launch.md#as-built-against-stubs) and [uc-02](uc-02-enrolment.md#as-built-against-stubs)
+plus the record half of the Database: the signed versions per patient, in memory, and a
+second stub Prescriber, `prescriber-b`, so that the record can move on under a Session. The
+stub registry is asked again at every commit (Rule 38). The walkthrough is in
+[DEVELOPMENT.md](../../../DEVELOPMENT.md#signing-an-order-plan). The code uses the design's
+name: `OrderPlan` is the cart, and a signed version of it a `SignedOrderPlan`.
+
+Where the code departs from the text above, on purpose:
+
+- **Step 1 is session-bound since [plan 635](../../implementation-plans/635-session-bound-compute.md).**
+  Compute marks the Session the cookie names seen (Rule 9; nothing acts on it yet) and its reply
+  says whether the record moved on (Rule 21) or the Session ended (Rule 11); without a cookie it
+  keeps working as before (UC-7). Steps 2 and 3 refuse without the Session.
+- **The challenge is kept, not sealed.** One per Session on the server's state, two minutes,
+  replaced by a re-request and dropped by a data notice; a Submission must name its nonce and
+  carry exactly the plan it was issued over (Rule 43: the orders and the patient data compared
+  as values). The OpenedToken is opaque too: a Submission must present the one the Session
+  holds, and the commit re-mints it over the new head (Rule 34). Both are sealed when the
+  store leaves the process.
+- **The data notice has no token type of its own.** When the platform reads other data than
+  the Session opened with, or none, the answer is a notice with the data as it stands and a
+  token; the User proceeds by returning it, and the challenge records whether the data was the
+  platform's reading. The KnowledgeRuleSet (Concept 18) is not built.
+- **The plan's data is the User's.** What the User entered or was shown is what the signed
+  version records; the Patient is the Session's (Rule 33). Nothing compares the plan's data
+  with the Session's.
+- **The lock is one minute, doubling, capped at a day.** The model's delay decays with time;
+  the cap stands in for the decay.
+- **The Role re-take fails closed.** A registry that cannot answer refuses the signature;
+  Rule 38's bounded grace is not built.
+- **Rule 45 by Session and key.** The remembered answers are looked up under the Session and
+  the client's key, refusals too, for two minutes; the Client keeps the key of a Submission
+  whose answer was lost and retries under it.
+- **The Client's dialog** shows the orders as they will be signed and asks the PIN; a wrong
+  PIN or a lock keeps it open, the PIN limit ends the Session and the gate says why, every
+  other refusal is told once. An answer lands only on the request it answers.
+
+Not built: the audit (Rule 46). Rule 21's notice on every response, and taking up the newer
+version, are [uc-04](uc-04-two-users.md#as-built-against-stubs).
 
 ---
 

@@ -5,8 +5,8 @@
 // indices that map to each language are hardcoded in `getTerm`, which means
 // **reordering columns in the spreadsheet silently breaks all translations**.
 //
-// An improved, more idiomatic approach is demonstrated in
-// `Scripts/Localization.fsx`.  Key improvements proposed there:
+// An improved, more idiomatic approach is the `TranslationMap` API further down in this file
+// (`parseCSV`, `getTermFromMap`, `mergeTranslations`), not yet used by the client:
 //   - Parse the CSV by column *headers* (language display names) so the
 //     implementation is robust to spreadsheet column reordering.
 //   - Store translations as `TranslationMap` (`Map<string, Map<Locales, string>>`)
@@ -21,7 +21,8 @@ namespace Shared
 
 /// Compile-time-safe enumeration of all localizable UI strings.
 /// Add a new case here whenever a new UI label is introduced, and update the
-/// Localization sheet (and `Scripts/Localization.fsx` static fallback) accordingly.
+/// Localization sheet accordingly. New cases are drafted script-first in
+/// `Scripts/Localization.fsx` (the script-only policy), which also prints the sheet rows.
 type Terms =
     | ``Patient enter patient data``
     | ``Patient Age``
@@ -74,7 +75,7 @@ type Terms =
     | ``Order Drip rate``
     | ``Order Administration time``
     | ``Nutrition``
-    | ``Treatment Plan``
+    | ``Order Plan``
     | ``Formulary``
     | ``Formulary Medications``
     | ``Formulary Indications``
@@ -134,15 +135,83 @@ type Terms =
     | ``Nutrition Remove Enteral Text``
     // Interactions
     | ``Interactions Medication``
+    // Session: the gate and the session menu
+    | ``Session Gate Opening``
+    | ``Session Gate Opening Text``
+    | ``Session Gate Resuming``
+    | ``Session Gate Resuming Text``
+    | ``Session Gate Unreachable``
+    | ``Session Gate Unreachable Text``
+    | ``Session Gate Refused``
+    | ``Session Gate Try Again Or Relaunch``
+    | ``Session Relaunch``
+    | ``Session Retry``
+    | ``Session Refusal Expired``
+    | ``Session Refusal Spent``
+    | ``Session Refusal Invalid``
+    | ``Session Refusal No Browser Identity``
+    | ``Session Refusal No Role``
+    | ``Session Refusal Wrong Patient``
+    | ``Session Refusal Enrolment``
+    | ``Session Try Again``
+    | ``Session Continue Without Launch``
+    | ``Session Close``
+    | ``Session Role Prescriber``
+    | ``Session Role Reader``
+    // the gate after the server ended the Session
+    | ``Session Gate Ended``
+    | ``Session Ending Superseded``
+    // the Session ended at the third wrong PIN
+    | ``Session Ending Pin Limit``
+    // the enrolment form: title, body with {0} the name and {1} the hinted
+    // mail address, the three field labels, the button, and one sentence per refusal
+    | ``Session Gate Enrolment``
+    | ``Session Gate Enrolment Text``
+    | ``Session Enrolment Code``
+    | ``Session Enrolment Pin``
+    | ``Session Enrolment Pin Repeat``
+    | ``Session Enrolment Submit``
+    | ``Session Enrolment Code Format``
+    | ``Session Enrolment Pin Format``
+    | ``Session Enrolment Pins Differ``
+    | ``Session Enrolment Wrong Code``
+    | ``Session Enrolment Code Void``
+    | ``Session Enrolment Expired``
+    // signing: the button, the dialog, the data notice, the signed
+    // sentence with {0} the version and {1} the signer, and one sentence per refusal
+    | ``Signing Sign``
+    | ``Signing Dialog Title``
+    | ``Signing Dialog Text``
+    | ``Signing Pin``
+    | ``Signing Cancel``
+    | ``Signing Proceed``
+    | ``Signing Signed``
+    | ``Signing Data Changed``
+    | ``Signing Data Unverified``
+    | ``Signing Refusal No Session``
+    | ``Signing Refusal No Patient``
+    | ``Signing Refusal Not Prescriber``
+    | ``Signing Refusal Blocked``
+    | ``Signing Refusal Stale Token``
+    | ``Signing Refusal Challenge Mismatch``
+    | ``Signing Refusal Challenge Expired``
+    | ``Signing Refusal Pin Wrong``
+    | ``Signing Refusal Pin Limit``
+    | ``Signing Refusal Locked``
+    | ``Signing Send Failed``
+    // the record moved on, told once per version; the button that takes the version up;
+    // what is told once it is open
+    | ``Session Newer Version``
+    | ``Session Open Newest``
+    | ``Session Version Opened``
 
 
 module Localization =
 
 
     /// Supported UI languages.  Add a case here when a new language is
-    /// introduced, then update `toString`, `fromString`, `languages`, the
-    /// Localization spreadsheet, and the static fallback in
-    /// `Scripts/Localization.fsx`.
+    /// introduced, then update `toString`, `fromString`, `languages`, `getTerm`
+    /// and the Localization spreadsheet.
     type Locales =
         | English
         | Dutch
@@ -191,9 +260,8 @@ module Localization =
 
     /// Converts a display name string to a `Locales` value.
     ///
-    /// ⚠️  This function **throws** for unknown input.  Consider using the
-    /// `tryLocaleFromString` function from `Scripts/Localization.fsx` which
-    /// returns `Option<Locales>` instead.
+    /// ⚠️  This function **throws** for unknown input.  Consider using
+    /// `tryFromString` below, which returns `Option<Locales>` instead.
     let fromString (s: string) =
         let s = s.Trim().ToLower()
 
@@ -216,9 +284,9 @@ module Localization =
     ///
     /// ⚠️  Column positions are **hardcoded** (English = 1, Dutch = 2, …).
     /// Reordering columns in the spreadsheet will silently return wrong
-    /// translations.  See `Scripts/Localization.fsx` for a header-based parser
-    /// (`parseLocalizationCSV`) that is robust to column reordering and uses a
-    /// typed `TranslationMap` instead of `string[][]`.
+    /// translations.  See `parseCSV` below for a header-based parser that is
+    /// robust to column reordering and uses a typed `TranslationMap` instead of
+    /// `string[][]`.
     let getTerm (terms: string[][]) locale term =
         let term = $"{term}".Trim()
 
@@ -262,6 +330,31 @@ module Localization =
         | "deutsch" -> Some German
         | "italiano" -> Some Italian
         | _ -> None
+
+
+    /// <summary>
+    /// Parses a language given as an ISO 639-1 code (<c>en</c>, <c>nl</c>, <c>fr</c>, <c>de</c>,
+    /// <c>es</c>, <c>it</c>), a display name (<c>English</c>, <c>Nederlands</c>, ...) or one of
+    /// the client's legacy url codes (<c>du</c>, <c>gr</c>, <c>sp</c>). Case and surrounding
+    /// whitespace do not matter; anything else, including null, is <c>None</c>. One parser for
+    /// the <c>GENPRES_LANG</c> setting and the <c>la</c> url parameter. The sheet header keeps
+    /// <c>tryFromString</c>: display names only.
+    /// </summary>
+    let tryParse (s: string) : Locales option =
+        if isNull s then
+            None
+        else
+            match s.Trim().ToLower() with
+            | "en" -> Some English
+            | "nl"
+            | "du" -> Some Dutch
+            | "fr" -> Some French
+            | "de"
+            | "gr" -> Some German
+            | "es"
+            | "sp" -> Some Spanish
+            | "it" -> Some Italian
+            | s -> tryFromString s
 
 
     /// Parses a `string[][]` from `Csv.parseCSV` into a `TranslationMap`.
