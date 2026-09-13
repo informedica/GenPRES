@@ -48,8 +48,8 @@ address) is the one rate limit, and it applies to every request alike.
 
 **A launch replaces it.** The same browser launching later sets the session cookie and the
 Client loads the head's orders into the cart; what was typed anonymously goes with the page.
-A gate that offers *continue without launch* (a refusal `no-role`, an unreachable Server, an
-ended Session) lands here too, carrying nothing over.
+A gate that offers *continue without launch* (a refusal `no-role`, or an ended Session) lands
+here too, carrying nothing over.
 
 ## Not built
 

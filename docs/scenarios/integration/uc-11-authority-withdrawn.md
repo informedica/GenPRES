@@ -61,8 +61,8 @@ holds exactly what A signed and nothing else. That is why a withdrawal needs no 
 
 **The anonymous open is offered here and not everywhere.** Relaunching would give the same
 answer however often it is asked, so the gate offers to continue without a launch, and only
-for this refusal, an unreachable Server and an ended Session. A forged or spent Launch gets a
-refusal with no offer, because a relaunch would cure it.
+for this refusal and an ended Session. A forged or spent Launch gets a refusal with no offer,
+because a relaunch would cure it; an unreachable Server offers only a retry.
 
 **Mid-Session, only the signature fails, and it fails closed.** Computing requests never ask
 the registry, so reading and prescribing ride on the Role the launch established. Every commit

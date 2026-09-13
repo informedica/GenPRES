@@ -174,7 +174,7 @@ reason.
 | `expired` | 4.2 | a Launch past its two minutes | a relaunch from MainEHR |
 | `spent` | 4.2 | the same Launch presented from another browser, or with another key | a relaunch |
 | `invalid` | 4.2, 4.4 | a Launch sealed under another key (an earlier server run), a callback without a matching state cookie or after the lifetime, any launch in production | a relaunch |
-| `no-identity` | 4.3 | the identity `none`; the IdentityProvider reported no one signed on | a relaunch (a retry while the Client still holds the Launch, before the redirect) |
+| `no-identity` | 4.3 | the identity `none`; the IdentityProvider reported no one signed on | a relaunch; the refusal arrives through the callback, after the redirect unloaded the Client, so no Launch is left to retry with |
 | `no-role` | 5.1 | the identity `unknown` | a relaunch, or *continue without launch*: an anonymous open that carries nothing over ([uc-11](uc-11-authority-withdrawn.md)) |
 | `wrong-patient` | 5.2 | the identity `prescriber-other-patient` | a relaunch after activating the right Patient |
 | `enrolment` | callback reload | a reload of the callback after the enrolment attempt it started is gone | a relaunch |
