@@ -49,10 +49,13 @@ Rules 32 and 36 rule out memory.
 
 ### 2. Append-only, as the design states
 
-Every table is insert-only. The open Session of a User, and of a browser, is the newest row for
-that key by the table's own monotonic id that has no ending; an opening may name the Session it
-replaces, but the ordering decides (Rule 40; UC-1 ext 8b). A first opening needs no predecessor,
-and an ended Session cannot be written back to open. Heartbeats, data notices, challenges,
+Every table is insert-only. For a User, and for a browser, only the newest row for that key by
+the table's own monotonic id can be the open Session: it is open unless an ending names it, and
+every older row for the key is superseded by it, whatever became of it. The newest row is chosen
+first and its ending read second, never the other way round, so that closing the newest cannot
+surface an older one. An opening may name the Session it replaces, but the ordering decides
+(Rule 40; UC-1 ext 8b). A first opening needs no predecessor, and an ended Session cannot be
+written back to open. Heartbeats, data notices, challenges,
 answered Submissions and LaunchRecords are dropped whole after their lifetime, never rewritten.
 No `UPDATE`, no row lock. A commit that touches two chains (Rule 42) runs serializable and is
 retried once.

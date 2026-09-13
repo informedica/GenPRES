@@ -77,8 +77,8 @@ shape and the machine over it, and nothing about the final engine's isolation.
 ### The storage shape
 
 1. Current-state rows, updated in place, with locks to decide the races.
-2. Append-only rows; the open Session per key is the newest row with no ending; the ordering
-   decides the races.
+2. Append-only rows; per key only the newest row can be open, and it is unless an ending names
+   it; the ordering decides the races.
 
 Actor 5 and Rule 40 as amended on 2026-09-09 say 2. The first draft of this plan said 1 and
 argued that Rule 8's two keys and the first open with no predecessor needed locks; the amended
@@ -102,10 +102,10 @@ and the final engine runs the write serializable with one retry (Rule 42).
 | ------------- | ------ | --------------- | ------------ |
 | `Launches` | `launch_record`, `launch_outcome` | the record by nonce or by `state`, with its outcome | the record at the first presentation; the outcome once, at the callback |
 | `Sessions` | `session`, `session_opened_with`, `session_seen` | the row by session id, the newest row for its login, the newest opened-with, the newest heartbeat | a session at an open; an opened-with at an open, at `openVersion` and at a commit; a heartbeat at every `touch` |
-| `Endings` | `session_ending`, `session_acknowledged`, and `session` itself | a session row whose login has a newer session row is `SupersededByLaunch` at that row's `opened_at`; `wrong-pin-limit` is a row; an acknowledged ending is hidden; a `closed` row loads as no Session at all | `wrong-pin-limit` at the third wrong PIN; `closed` at `close`, with the acknowledgement |
+| `Endings` | `session_ending`, `session_acknowledged`, and `session` itself | a session row whose login has a newer session row is `SupersededByLaunch` at that row's `opened_at`, whatever became of the newer row; the newest row for the login is open unless an ending names it; `wrong-pin-limit` is a row; an acknowledged ending is hidden; a `closed` row loads as no Session at all | `wrong-pin-limit` at the third wrong PIN; `closed` at `close`, with the acknowledgement |
 | `Credentials` | `credential_event` | the newest event for the user id | an event at every change: PIN set, wrong entry, lock, right entry |
 | `Codes` | `confirmation_code`, `code_try`, `code_spent` | the newest unspent code for the user id, with its tries counted | a code when mailed; a try per wrong code; spent when the PIN is set, the tries run out, or the last attempt is dropped |
-| `Enrolments` | `enrolment`, `enrolment_dropped` | the attempt, if its code stands and it is not dropped | an attempt when the launch suspends; dropped at `dropEnrolment` |
+| `Enrolments` | `enrolment`, `enrolment_dropped` | the attempt by id, then the user id it names, then every undropped attempt and the code of that user: `dropEnrolment` spends the code only when no other attempt stands, and `supplyPin` drops every attempt bound to the code | an attempt when the launch suspends; dropped at `dropEnrolment`; all of a user's attempts dropped when the PIN is set or the code is void |
 | `Records` | `order_plan` | every version for the patient id, newest first | a version at a commit |
 | `Notices`, `Challenges` | `data_notice`, `challenge`, `challenge_spent` | the newest unexpired row for the session id | a row when issued; a newer row replaces; spent at a commit or an `openVersion` |
 | `Answered` | `submission_answer` | the row for the session id and the idempotency key | the answer, once, refusals included (Rule 45) |
@@ -113,8 +113,18 @@ and the final engine runs the write serializable with one retry (Rule 42).
 
 Supersession is the one ending with no row of its own. That is Rule 40 as the design states it:
 the ordering of the `session` table decides which Session of a login stands, and the loser is
-told at its next request because the loader reads its ending off the newer row. The stub's
-`close`, which removes both the Session and its ending, becomes two rows the loader hides.
+told at its next request because the loader reads its ending off the newer row. The order of the
+two reads matters: the loader takes the newest row for the login first and only then asks
+whether an ending names it. It never filters ended rows before choosing the newest, since that
+would surface a superseded row again once the newer one is closed. A row with a newer row for
+its login is superseded whatever became of that newer row. The stub's `close`, which removes
+both the Session and its ending, becomes two rows the loader hides.
+
+The slice of an enrolment is wider than its attempt. `dropEnrolment` spends the shared code only
+when no other attempt of the user stands, and `supplyPin` drops every attempt bound to the code,
+so both load the attempt, then every undropped attempt and the code of the user it names. Two
+suspended launches of one User therefore behave as they do on the stub: dropping one leaves the
+code to the other, and setting the PIN in one ends both.
 
 What is dropped whole, and when: a launch record and its outcome after the Launch's expiry; a
 heartbeat older than the newest for its Session; a data notice and a challenge after two
@@ -171,8 +181,9 @@ create table launch_outcome (
     at          integer not null
 );
 
--- Concept 9. One row per open, never changed. The open Session of a login is the newest
--- row for that login with no ending (Rule 40): ordered by id, never by a clock.
+-- Concept 9. One row per open, never changed. Only the newest row for a login can be its
+-- open Session, and it is unless an ending names it (Rule 40): newest by id, never by a
+-- clock, chosen before the ending is read.
 create table session (
     id             integer primary key,  -- the engine's monotonic id
     session_id     text not null unique,
@@ -273,7 +284,9 @@ orders them and the outcome is the same.
 
 **An ended Session cannot reopen.** There is no row whose insertion makes an ended Session open
 again: `session` is written once per open, and an ending, a newer row for the login or a
-`wrong-pin-limit` row, is never removed.
+`wrong-pin-limit` row, is never removed. Closing the newest Session of a login does not hand the
+login back to an older one either: the older row still has a newer row above it, so it stays
+superseded, and the login has no open Session until the next open appends a row.
 
 ## Open decisions
 
