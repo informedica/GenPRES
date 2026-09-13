@@ -1,81 +1,48 @@
 # A User forgets their PIN
 
-UC-6. User A cannot remember their PIN. They get a new one — and learn if somebody else
-tried. The old PIN stands until the moment the new one replaces it, so there is never a
-window in which A's credential is one that anybody at the workstation could claim.
+UC-6. **Not built.** The design has a User get a new PIN inside their Session, by a mailed
+confirmation code, and learn from a second mail if somebody else tried; the old PIN stands
+until the new one replaces it. The code has no such path.
 
-Precondition: UC-1 has left an open Session, and a PIN is set but forgotten.
+## What the code does today
 
-```mermaid
-sequenceDiagram
-    actor A as User A
-    participant C as GenPRES Client
-    participant S as GenPRES Server
-    participant R as UserRegistry
-    participant D as GenPRES Database
-    participant M as MailService
+A PIN is set once, at enrolment ([uc-02](uc-02-enrolment.md)), and only while the credential
+has none: the callback suspends into enrolment when the Role is Prescriber and no PIN is set,
+and nowhere else is `Credential.withPin` called. `SessionCommand` has `GetSession`,
+`CloseSession`, `SupplyPin` and `OpenVersion`; there is no reset. `AdminCommand` covers the log
+files and the resource reload; it cannot clear a credential.
 
-    Note over A,D: UC-1: an open Session, and a PIN set but forgotten
+A User who has forgotten their PIN can therefore sign nothing, and every guess counts against
+the credential: three wrong entries end the Session and lock signing for one minute, doubling
+with each further wrong entry up to a day ([uc-03](uc-03-prescribe-and-sign.md)).
 
-    A->>C: AsksPinReset
-    C->>S: ResetPin
-    S->>D: ReadSessionRecord
-    D-->>S: SessionRecordRead (open)
-    S->>R: ResolveUser (Rule 27: the address, fresh)
-    R-->>S: UserResolved (mail address)
-    S->>D: StartReset (the code as a mac, Rule 37)
-    D-->>S: ResetStarted
-    S->>M: SendMail (the confirmation code)
-    S->>D: NoteMailUsed (Rule 27: the fallback address)
-    S-->>C: ResetCodeMailed
-    Note over D: the old PIN still stands
+The one thing that resets a PIN today is a restart of the demo server. Credentials live in the
+same in-memory state as the Sessions and the record, and a restart forgets all of it: the
+seeded `1234` of the stub Prescribers is back, and an enrolled identity such as `no-pin` has to
+enrol again.
 
-    A->>C: EntersResetCode (code + new PIN)
-    C->>S: SupplyResetCode
-    S->>D: ReadSessionRecord
-    D-->>S: SessionRecordRead (open)
-    S->>R: ResolveUser (the address again, for the notice)
-    R-->>S: UserResolved
-    S->>D: ReplacePinIfCode (Rule 37: verify and replace, one act)
-    D-->>S: PinReplaced (count of zero, Rule 28)
-    S->>M: SendMail (the PIN was replaced, Rule 27)
-    S->>D: NoteMailUsed
-    S-->>C: PinChanged
+## What a build would need
 
-    Note over A,D: step 3 - A signs with the new PIN, in the same Session
-```
+The design's sequence, in words: the User asks for a reset from within the Session; the Server
+asks the registry for the address, fresh, parks a confirmation code as a mac, mails the code,
+and answers that it was mailed, the old PIN still standing; the User returns the code with a
+new PIN; the Server asks the registry again, verifies the code and replaces the PIN in one act
+with a wrong-count of zero, and mails that the PIN was replaced. The second mail is the point:
+if the User did not ask for it, it is how they learn somebody else did. A wrong code counts
+against the code, not the credential, and a few wrong codes void it.
 
-## Reading it
-
-**Two mails, and the second is the point.** The first carries the confirmation code; the
-second says the PIN changed. If A did not ask for it, the second mail is how A finds out
-somebody else did — which is ext 1a.
-
-**Nothing is removed, only replaced.** There is no state in which the credential has no
-PIN. Asking for a reset does not clear the old one; it parks a code, and the code plus a
-new PIN replace it in one act at the Database.
-
-**The address is asked for on each request that mails.** Not read from anywhere GenPRES
-keeps it. A changed address takes effect at once, and no copy goes stale.
-
-**Nothing had to be relaunched.** The reset happens inside the Session A already has, and
-A signs with the new PIN without leaving it.
-
-## What it leaves out
-
-- **Somebody else triggering the reset at A's workstation** (ext 1a). The code goes to
-  A's mail, which they do not control. The PIN stands, and the mail tells A someone asked.
-  A's own reset then waits until that code is void — one code at a time.
-- **A never returning the code** (ext 1b). Nothing changes; the code expires.
-- **The wrong code** (ext 2a). A few tries, then void. The count is the code's own, not
-  the credential's: guessing at a code cannot lock a PIN that is still good.
-- **A registry that cannot answer.** A notice may fall back on the address the
-  SessionRecord holds, and the audit says it did. A confirmation code never does: no fresh
-  answer, no code, and the PIN stands.
-- **The audit.** Every PIN change is recorded, naming the address the mail went to
-  (Rule 46).
+The pieces are in place from enrolment and would be reused: `PendingCode` (one live code per
+person, its mac, expiry and tries), `Session.newCode` and `Session.codeMac`, `Credential.withPin`,
+`Mails.confirmationCode` and `Mails.pinSet`, the `MailPort` and its stub outbox at `/stub/mail`.
+What is missing is a command on the wire, the transition over a Session that already has a
+PIN, and the lock being lifted by the replacement. The MVP overview lists it as an issue to
+file, together with the decay of the wrong-count
+([mvpap2019-gap-overview.md](../../roadmap/mvpap2019-gap-overview.md), row 2.1.7).
 
 ---
 
-Drawn from UC-6 in [`Integration.fsx`](Integration.fsx). The full trace of all eleven use
-cases is written to `Integration.run.txt` beside it when the script runs.
+Read off `Session.supplyPin` and `Credential` in
+`src/Informedica.GenPRES.Server/ServerApi.Session.fs` and `SessionCommand` in
+`src/Informedica.GenPRES.Shared/Api.fs`. The design is UC-6 in
+[`Integration.fsx`](Integration.fsx), whose `ResetPin` and `SupplyResetCode` have no
+counterpart in the code.
