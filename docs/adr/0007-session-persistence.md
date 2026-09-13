@@ -1,0 +1,128 @@
+# ADR-0007: Session Persistence
+
+**Date**: 2026-09-08
+
+**Status**: Proposed (rewritten 2026-09-13; the engine is deferred to an amendment, Decision 4)
+
+**Related Issues**: [#516 — GenPRES SessionRecord Store](https://github.com/informedica/GenPRES/issues/516),
+[#580 — Scope switch to expose only the accredited parts in production](https://github.com/informedica/GenPRES/issues/580)
+
+**Related plan**: [`docs/implementation-plans/516-sessionrecord-store.md`](../implementation-plans/516-sessionrecord-store.md)
+
+## Context
+
+The MainEHR integration design ([`docs/scenarios/integration/`](../scenarios/integration/))
+requires GenPRES Server to hold no Session state between requests (Rule 32): a Session's identity
+and standing live in its SessionRecord in the GenPRES Database, so that more than one server can
+run and an upgrade drains the old instances rather than breaking them (Rule 36). The Database is
+Actor 5: two stores, one writer, both append-only. It decides the launch races (one open Session
+per User and per browser, Rule 8; a Launch spent once, Rule 2; an ended Session that never
+reopens, Rule 40) and holds the audit (Rule 46).
+
+GenPRES has no datastore. Since plans
+[605](../implementation-plans/605-launch-with-server-stubs.md),
+[615](../implementation-plans/615-enrolment-with-server-stubs.md),
+[622](../implementation-plans/622-signing-with-server-stubs.md) and
+[635](../implementation-plans/635-session-bound-compute.md) the launch, the enrolment, the
+signing and the session-bound compute run against a stand-in: the pure `Session` machine in
+`src/Informedica.GenPRES.Server/ServerApi.Session.fs`, a set of functions over one `State`
+value (launches, sessions, endings, credentials, confirmation codes, enrolments, signed
+OrderPlans, data notices, challenges, answered Submissions), run by
+`StubDatabase.makeSessionPort` behind one lock and forgotten at restart. Its records carry the
+contract types the client and the server share.
+
+Adding a store GenPRES owns is a decision of the kind ADR-0000 §2 reserves for an ADR: a
+storage mechanism and a third-party dependency. Which engine runs it in production is such a
+decision too, and it is not ready to be made: the hospital's operations have not been asked, and
+nothing in the first plan depends on the answer. This ADR records what is decided now and names
+what is deferred.
+
+## Decision
+
+### 1. GenPRES owns a relational store
+
+One store for the private data (SessionRecords, LaunchRecords, credentials, confirmation codes,
+the audit) and the clinical data (signed OrderPlans): Actor 5's two stores in one instance,
+GenPRES Server the only writer, reached through SQL. Relational and not key-value or server
+memory: Rule 42 commits a Session check and a clinical append in one multi-row transaction, and
+Rules 32 and 36 rule out memory.
+
+### 2. Append-only, as the design states
+
+Every table is insert-only. The open Session of a User, and of a browser, is the newest row for
+that key by the table's own monotonic id that has no ending; an opening may name the Session it
+replaces, but the ordering decides (Rule 40; UC-1 ext 8b). A first opening needs no predecessor,
+and an ended Session cannot be written back to open. Heartbeats, data notices, challenges,
+answered Submissions and LaunchRecords are dropped whole after their lifetime, never rewritten.
+No `UPDATE`, no row lock. A commit that touches two chains (Rule 42) runs serializable and is
+retried once.
+
+This restates the design's rule so that a schema review can point at it; it decides nothing new.
+
+### 3. The store is an adapter of the `Session` machine
+
+The SQL adapter implements `SessionPort` next to the stub, in the Server project (the
+Presentation ring), and runs the same pure functions: it loads the rows a request can touch into
+a `State`, runs the function, and appends what changed. It reads `GENPRES_DB_CONNECTION`, which
+the DMZ may.
+
+No new Core project. The machine's records carry `SessionOpened`, `OpenedToken`, `Submission`
+and the other contract types, and ADR-0001's ring rule keeps the contract out of Core and
+Infrastructure. A session domain free of the contract is a refactor with a plan of its own, not
+a precondition for a store.
+
+### 4. The engine is deferred; SQLite is the interim
+
+Development and tests run on SQLite, in-process, through `Microsoft.Data.Sqlite`. That is what
+lets the schema, the adapter and the race tests exist before an engine is chosen. It is an
+interim, not a candidate: one file, one writer, one server, so it cannot serve Rule 36 and never
+runs in production. Production keeps the session subsystem disabled until the scope switch
+(#580) decides what it exposes.
+
+The production engine, the access library and the migration tooling are one linked decision,
+recorded as a dated amendment to this ADR before #580 exposes Sessions in production. The
+amendment answers: which engine, and whether operations run it; hand-written SQL, a mapper or an
+ORM; a migration runner or the scripts as they are; what the interim SQL has to change (id
+generation, JSON, timestamps). The interim proves the append-only shape and the machine over it.
+The engine's own isolation behavior is proven by running the same test suite on it.
+
+## Consequences
+
+- First database dependency in the repository: `Microsoft.Data.Sqlite`, in the `Main` Paket
+  group, interim.
+- `GENPRES_DB_CONNECTION` is the one switch: set, the SQL adapter; unset, the in-memory stub.
+  For now the value is a SQLite connection string. The fail-closed rule for production lands
+  with #580.
+- Demo and a bare `dotnet run` keep the stub unless the key is set; a demo on SQLite keeps its
+  Sessions across a restart, as Rule 32 says.
+- The integration tests run in the normal CI matrix, on every OS, against a temporary file. No
+  container job until the engine amendment.
+- The SQL stays within the portable core: an integer id the engine generates, `TEXT` for JSON,
+  no engine-specific syntax, so that the amendment reviews a per-engine diff rather than a
+  rewrite.
+- Schema changes are versioned scripts from the first one. Once two server versions run side by
+  side (Rule 32's drain on upgrade), a change is expand then contract.
+- Within GenPRES a changed row is tampering by definition (V8, open question 5); the store's
+  administrator stays outside that guarantee.
+
+## Alternatives considered
+
+| Alternative | Reason rejected |
+| ----------- | --------------- |
+| No database: server memory, sticky sessions | Rules 32 and 36: several servers, drain on upgrade. |
+| A key-value store | Rule 42's multi-row transaction across the two stores; the audit is relational. |
+| Choose the production engine now | Nothing in plan 516 depends on it; the operations question is open; an engine chosen without the answer would be chosen twice. |
+| A guarded projection with fixed-order row locks | The first draft of this ADR. Rule 40 as amended 2026-09-09: the ordering decides, no lock and no rewrite. |
+| A session library in Core | Its types carry the contract, which the ring rule keeps out of Core. |
+| An ORM, a mapper, an event store, a migration library | Not rejected: deferred to the engine amendment, which they depend on. |
+
+## References
+
+- [ADR-0000: Documentation Rules](0000-documentation-rules.md) — §2, when a decision is an ADR
+- [ADR-0001: System Architecture](0001-system-architecture.md) — the dependency rule and the DMZ
+- [`docs/scenarios/integration/GenPRES-MainEHR-Integration-V8.md`](../scenarios/integration/GenPRES-MainEHR-Integration-V8.md)
+  — Actor 5, Concept 9, Rules 2, 8, 32, 36, 40, 42, 46
+- [`docs/scenarios/integration/uc-01-launch.md`](../scenarios/integration/uc-01-launch.md)
+  — the launch sequence, the LaunchRecord, and the two launches at once
+- [`docs/implementation-plans/516-sessionrecord-store.md`](../implementation-plans/516-sessionrecord-store.md)
+  — the schema, the adapter and the step sequence
