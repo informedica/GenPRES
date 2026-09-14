@@ -394,7 +394,7 @@ dependency-rule check green.
 | 7, the plan in two stages | #698 | `Plan`, `PlanMsg`, `PlanIntent`, `Plan.step`, the record with `InFlight` and `Selected`, the dialog's rules in the composer, `toDeferred` in the machine; 13 tests preserved, 4 added; review: the record's fields private, built through constructors |
 | the workbench the same | #699 | `OrderContextState`'s fields private, `noPatient`, `seeded`, `opening`, `held`, `changing`; review: `changing` normalizes the context sent to the patient held |
 | 8, docs | this PR | the stepping-flow document's machine section and case table; this section |
-| 9, `Provisional` | #TBD | `Recalculating` renamed `Provisional`, one word at 40 code sites (the machine cases of that name had gone with steps 6 and 7), the stepping-flow document's references with it |
+| 9, `Provisional` | #701 | `Recalculating` renamed `Provisional`, one word at 40 code sites (the machine cases of that name had gone with steps 6 and 7), the stepping-flow document's references with it |
 
 ### Deviations from the text above
 
