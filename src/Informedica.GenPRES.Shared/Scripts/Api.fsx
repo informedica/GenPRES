@@ -1,12 +1,11 @@
-// Scenarios and Selected off the plan, Filtered as context ids (plan 667, step 7). The plan is
-// its contexts and nothing beside them: its orders are what the narrowed contexts contribute,
-// derived wherever they are read; the dialog's selection is the client's own; the row filter
-// names contexts by id, which stays valid when a context is re-evaluated and its order changes.
-// The server's projection bookkeeping (a stored `Scenarios` kept in step, a filter and a
-// selection following a replaced order) goes with the fields.
+// The old cases deleted and the names settled (plan 667, step 8). The plan command family in
+// its final shape: every case names the order context it acts on, since every one acts on the
+// plan's `OrderContexts`. `Navigate` names its context always; `RemoveContext` and
+// `RemoveOrders` go; `AddOrder`, `AddContext` and `RemoveContexts` become `AddOrderContext`,
+// `NewOrderContext` and `RemoveOrderContexts`. A rename and a deletion, no behaviour change.
 //
-// Script-first draft (script-only policy) of what goes to `Shared/Types.fs` and
-// `Shared/Models.fs`: the plan's final shape, `create` over contexts, `filtered`.
+// Script-first draft (script-only policy) of the family and its log names, → `Shared/Api.fs`;
+// the port members and service functions follow the same names in the migration.
 //
 // Run: `dotnet fsi Api.fsx` from this directory.
 
@@ -21,45 +20,39 @@
 #load "../Api.fs"
 
 open Shared.Types
+open Shared.Api
 
 
-/// → `Shared/Types.fs`, in place of `OrderPlan`.
-type OrderPlan667 =
-    {
-        Patient: Patient
-        // the contexts shown and counted, by id; empty for all of them
-        Filtered: string[]
-        // the order contexts of the plan, drug and nutrition alike, each saying what it holds
-        // and carrying its id; the plan's orders are what the narrowed ones contribute
-        OrderContexts: OrderContext[]
-        Totals: Totals
-    }
+/// → `Shared/Api.fs`, `PlanCommand` final.
+[<RequireQualifiedAccess>]
+type PlanCommand667 =
+    // the totals recomputed over the orders of the filtered contexts
+    | Recalculate of OrderPlan
+    // the signed version as it was, nothing evaluated: the contexts as given, their orders
+    // derived; the patient with no contexts is the empty plan
+    | Open of Patient * OrderContext[]
+    // a workbench evaluated elsewhere, narrowed to one scenario, into the plan as it is
+    | AddOrderContext of OrderPlan * OrderContext
+    // a fresh workbench for a nutrition category, its filter discovered
+    | NewOrderContext of OrderPlan * NutritionCategory
+    // an order-context command evaluated over the context named, in that context's own
+    // patient, its order following
+    | Navigate of OrderPlan * contextId: string * OrderContextCommand * OrderContext
+    // the contexts named removed, every kind; a feeding takes its supplements with it
+    | RemoveOrderContexts of OrderPlan * ids: string[]
 
 
-/// → `Shared/Models.fs`, `module OrderPlan`.
-module OrderPlan667 =
+module PlanCommand667 =
 
-    let create pat contexts : OrderPlan667 =
-        {
-            Patient = pat
-            Filtered = [||]
-            OrderContexts = contexts
-            Totals = Shared.Models.Totals.empty
-        }
-
-
-    /// The orders the plan's contexts contribute: the one scenario of every context narrowed
-    /// to one, in context order.
-    let orders (plan: OrderPlan667) =
-        plan.OrderContexts |> Array.choose Shared.Models.OrderContext.contribution
-
-
-    /// The contexts the filter keeps: those named by id, all of them when it is empty.
-    let filtered (plan: OrderPlan667) =
-        if plan.Filtered |> Array.isEmpty then
-            plan.OrderContexts
-        else
-            plan.OrderContexts |> Array.filter (fun c -> plan.Filtered |> Array.contains c.Id)
+    /// For the log: never the plan, never a workbench.
+    let toString cmd =
+        match cmd with
+        | PlanCommand667.Recalculate _ -> "Recalculate"
+        | PlanCommand667.Open(_, contexts) -> $"Open %i{contexts.Length}"
+        | PlanCommand667.AddOrderContext _ -> "AddOrderContext"
+        | PlanCommand667.NewOrderContext(_, category) -> $"NewOrderContext {category}"
+        | PlanCommand667.Navigate(_, _, ctxCmd, _) -> $"Navigate {ctxCmd}"
+        | PlanCommand667.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
 
 
 open Expecto
@@ -67,37 +60,24 @@ open Expecto.Flip
 open Shared.Models
 
 
-let ctx id = { OrderContext.empty with Id = id }
-
-
 let tests =
     testList
-        "the plan is its contexts and nothing beside them"
+        "the plan commands, final"
         [
-            test "the filter names contexts by id; empty keeps all" {
-                let plan = OrderPlan667.create Patient.empty [| ctx "c-1"; ctx "c-2"; ctx "c-3" |]
+            test "every case names the order context it acts on; the log names the command alone" {
+                let plan = OrderPlan.empty
+                let ctx = { OrderContext.empty with Id = "secret" }
 
-                plan |> OrderPlan667.filtered |> Array.map _.Id |> Expect.equal "all" [| "c-1"; "c-2"; "c-3" |]
-
-                { plan with Filtered = [| "c-3"; "c-1" |] }
-                |> OrderPlan667.filtered
-                |> Array.map _.Id
-                |> Expect.equal "the named ones, in plan order" [| "c-1"; "c-3" |]
-
-                { plan with Filtered = [| "c-9" |] }
-                |> OrderPlan667.filtered
-                |> Expect.isEmpty "an id the plan does not hold keeps nothing"
-            }
-
-            test "a context re-evaluated keeps its place in the filter, whatever its order becomes" {
-                let plan = { OrderPlan667.create Patient.empty [| ctx "c-1"; ctx "c-2" |] with Filtered = [| "c-2" |] }
-
-                let replaced =
-                    { plan with
-                        OrderContexts = plan.OrderContexts |> Array.map (fun c -> if c.Id = "c-2" then { c with DemoVersion = true } else c)
-                    }
-
-                replaced |> OrderPlan667.filtered |> Array.map _.Id |> Expect.equal "still c-2" [| "c-2" |]
+                [
+                    PlanCommand667.Recalculate plan, "Recalculate"
+                    PlanCommand667.Open(Patient.empty, [| ctx; ctx |]), "Open 2"
+                    PlanCommand667.AddOrderContext(plan, ctx), "AddOrderContext"
+                    PlanCommand667.NewOrderContext(plan, NutritionCategory.TPN), "NewOrderContext TPN"
+                    PlanCommand667.Navigate(plan, "c-1", OrderContextCommand.UpdateOrderContext, ctx),
+                    "Navigate UpdateOrderContext"
+                    PlanCommand667.RemoveOrderContexts(plan, [| "c-1"; "c-2" |]), "RemoveOrderContexts 2"
+                ]
+                |> List.iter (fun (cmd, expected) -> cmd |> PlanCommand667.toString |> Expect.equal expected expected)
             }
         ]
 
