@@ -685,14 +685,14 @@ module Nutrition =
                 // Clear Indication selection (but NOT the Indications list — server repopulates it).
                 { updCtx with OrderContext.Filter.Indication = None }
             |> fun updCtx ->
-                Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
+                Api.PlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
             |> props.planCommand
 
         let indicationChange s =
             ctx
             |> OrderContext.indicationChange s
             |> fun updCtx ->
-                Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
+                Api.PlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
             |> props.planCommand
 
         let doseTypeChange s =
@@ -701,7 +701,7 @@ module Nutrition =
             ctx
             |> OrderContext.doseTypeChange dt
             |> fun updCtx ->
-                Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
+                Api.PlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
             |> props.planCommand
 
         let updateOrderScenario (ol: OrderLoader) =
@@ -720,16 +720,11 @@ module Nutrition =
                     )
             }
             |> fun updCtx ->
-                Api.PlanCommand.Navigate(
-                    planRef.current,
-                    Some ncId,
-                    Api.OrderContextCommand.UpdateOrderScenario,
-                    updCtx
-                )
+                Api.PlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderScenario, updCtx)
                 |> props.planCommand
 
         let resetOrderScenario (_ol: OrderLoader) =
-            Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.OrderContextCommand.ResetOrderScenario, ctx)
+            Api.PlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.ResetOrderScenario, ctx)
             |> props.planCommand
 
         let stepper =
@@ -821,22 +816,22 @@ module Nutrition =
 
             let navRate cmd =
                 fun updCtx ->
-                    Api.PlanCommand.Navigate(planRef.current, Some ncId, cmd, updCtx)
+                    Api.PlanCommand.Navigate(planRef.current, ncId, cmd, updCtx)
                     |> props.planCommand
 
             let navRateN cmd =
                 fun (updCtx, n, uc) ->
-                    Api.PlanCommand.Navigate(planRef.current, Some ncId, cmd (n, uc), updCtx)
+                    Api.PlanCommand.Navigate(planRef.current, ncId, cmd (n, uc), updCtx)
                     |> props.planCommand
 
             let navCmpQty cmd =
                 fun (updCtx, cmp) ->
-                    Api.PlanCommand.Navigate(planRef.current, Some ncId, cmd cmp, updCtx)
+                    Api.PlanCommand.Navigate(planRef.current, ncId, cmd cmp, updCtx)
                     |> props.planCommand
 
             let navCmpQtyN cmd =
                 fun (updCtx, cmp, n, uc) ->
-                    Api.PlanCommand.Navigate(planRef.current, Some ncId, cmd (cmp, n, uc), updCtx)
+                    Api.PlanCommand.Navigate(planRef.current, ncId, cmd (cmp, n, uc), updCtx)
                     |> props.planCommand
 
             {|
@@ -1423,7 +1418,7 @@ module Nutrition =
                     if hasSupplements then
                         setConfirmDeleteTarget (Some nc.Id)
                     else
-                        Api.PlanCommand.RemoveContexts(plan, [| nc.Id |]) |> planCommand
+                        Api.PlanCommand.RemoveOrderContexts(plan, [| nc.Id |]) |> planCommand
                 )
 
             NutritionSlot
@@ -1437,8 +1432,8 @@ module Nutrition =
                     isRecalculating = isRecalculating
                 |}
 
-        let addContext (plan: OrderPlan) category =
-            Api.PlanCommand.AddContext(plan, category) |> planCommand
+        let newOrderContext (plan: OrderPlan) category =
+            Api.PlanCommand.NewOrderContext(plan, category) |> planCommand
 
         let hasCategory (plan: OrderPlan) cat =
             plan.OrderContexts |> Array.exists (isOneOf [ cat ])
@@ -1463,7 +1458,7 @@ module Nutrition =
                         AddButton
                             {|
                                 label = Terms.``Nutrition Enteral Feeding`` |> getTerm "Enterale Voeding"
-                                onClick = fun () -> addContext plan NutritionCategory.EnteralFeeding
+                                onClick = fun () -> newOrderContext plan NutritionCategory.EnteralFeeding
                             |}
                     else
                         null
@@ -1473,7 +1468,7 @@ module Nutrition =
                         AddButton
                             {|
                                 label = Terms.``Nutrition Add Supplement`` |> getTerm "Supplement toevoegen"
-                                onClick = fun () -> addContext plan NutritionCategory.EnteralSupplement
+                                onClick = fun () -> newOrderContext plan NutritionCategory.EnteralSupplement
                             |}
                     else
                         null
@@ -1484,18 +1479,18 @@ module Nutrition =
                             AddButton
                                 {|
                                     label = Terms.``Nutrition TPN`` |> getTerm "TPN"
-                                    onClick = fun () -> addContext plan NutritionCategory.TPN
+                                    onClick = fun () -> newOrderContext plan NutritionCategory.TPN
                                 |}
                         if not hasLipid then
                             AddButton
                                 {|
                                     label = Terms.``Nutrition Lipids`` |> getTerm "Vetten"
-                                    onClick = fun () -> addContext plan NutritionCategory.Lipid
+                                    onClick = fun () -> newOrderContext plan NutritionCategory.Lipid
                                 |}
                         AddButton
                             {|
                                 label = Terms.``Nutrition Electrolytes Glucose`` |> getTerm "Elektrolyten/Glucose"
-                                onClick = fun () -> addContext plan NutritionCategory.ElectrolyteGlucose
+                                onClick = fun () -> newOrderContext plan NutritionCategory.ElectrolyteGlucose
                             |}
                     |]
 
@@ -1580,7 +1575,7 @@ module Nutrition =
                 fun _ ->
                     match confirmDeleteTarget, orderPlan with
                     | Some ncId, (Resolved plan | Recalculating plan) ->
-                        Api.PlanCommand.RemoveContexts(plan, [| ncId |]) |> planCommand
+                        Api.PlanCommand.RemoveOrderContexts(plan, [| ncId |]) |> planCommand
                     | _ -> ()
 
                     setConfirmDeleteTarget None

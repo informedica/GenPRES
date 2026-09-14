@@ -43,11 +43,9 @@ module StubAdapters =
         {
             recalculate = fun _ -> async { return Ok returnPlan }
             navigate = fun _ _ _ _ -> async { return Ok returnPlan }
-            addContext = fun _ _ -> async { return Ok returnPlan }
-            removeContext = fun _ _ -> async { return Ok returnPlan }
-            removeOrders = fun _ _ -> async { return Ok returnPlan }
-            addOrder = fun _ _ -> async { return Ok returnPlan }
-            removeContexts = fun _ _ -> async { return Ok returnPlan }
+            addOrderContext = fun _ _ -> async { return Ok returnPlan }
+            newOrderContext = fun _ _ -> async { return Ok returnPlan }
+            removeOrderContexts = fun _ _ -> async { return Ok returnPlan }
             openWith = fun _ _ -> async { return Ok returnPlan }
         }
 
@@ -106,11 +104,9 @@ module StubAdapters =
                 {
                     recalculate = fun _ -> async { return Error [| "not loaded" |] }
                     navigate = fun _ _ _ _ -> async { return Error [| "not loaded" |] }
-                    addContext = fun _ _ -> async { return Error [| "not loaded" |] }
-                    removeContext = fun _ _ -> async { return Error [| "not loaded" |] }
-                    removeOrders = fun _ _ -> async { return Error [| "not loaded" |] }
-                    addOrder = fun _ _ -> async { return Error [| "not loaded" |] }
-                    removeContexts = fun _ _ -> async { return Error [| "not loaded" |] }
+                    addOrderContext = fun _ _ -> async { return Error [| "not loaded" |] }
+                    newOrderContext = fun _ _ -> async { return Error [| "not loaded" |] }
+                    removeOrderContexts = fun _ _ -> async { return Error [| "not loaded" |] }
                     openWith = fun _ _ -> async { return Error [| "not loaded" |] }
                 }
             interaction =
@@ -5168,7 +5164,7 @@ module PlanTests =
                     let tpn = context "c-t" NutritionCategory.TPN [| scenarioWithOrder "o-t" |]
                     let p = plan [| drugContext "c-d" "o-drug"; feeding; supplement; tpn |]
 
-                    let p = p |> PlanService.removeContext "c-f"
+                    let p = p |> PlanService.removeOrderContext "c-f"
 
                     p.OrderContexts
                     |> Array.map _.Id
@@ -5176,7 +5172,7 @@ module PlanTests =
 
                     ids p |> Expect.equal "with their orders" [| "o-drug"; "o-t" |]
 
-                    let p = p |> PlanService.removeContext "c-t"
+                    let p = p |> PlanService.removeOrderContext "c-t"
                     ids p |> Expect.equal "the drug only" [| "o-drug" |]
                 }
 
@@ -5197,7 +5193,7 @@ module PlanTests =
                         |> Array.map _.Order.Id
                         |> Expect.equal "the new order counts" [| "o-tpn-2" |]
 
-                        let p = p |> PlanService.removeContext "c-1"
+                        let p = p |> PlanService.removeOrderContext "c-1"
                         p.Filtered |> Expect.isEmpty "gone from the filter"
                     | Error errs -> failtest $"{errs}"
 
@@ -5205,106 +5201,6 @@ module PlanTests =
                     |> OrderPlan.filtered
                     |> Array.map _.Id
                     |> Expect.equal "no filter: all" [| "c-1" |]
-                }
-
-                testAsync
-                    "navigate without a context id finds the context by the evaluated order, and keeps an evaluation's error" {
-                    let p =
-                        plan
-                            [|
-                                drugContext "c-d" "o-drug"
-                                drugContext "c-o" "o-other"
-                            |]
-
-                    let evaluated =
-                        { OrderContext.empty with
-                            Scenarios =
-                                [|
-                                    { scenarioWithOrder "o-drug" with Name = "re-evaluated" }
-                                |]
-                        }
-
-                    let port: OrderContextPort = { evaluate = fun _ _ -> async { return Ok evaluated } }
-
-                    match!
-                        PlanService.navigate
-                            id
-                            port
-                            p
-                            None
-                            Api.OrderContextCommand.UpdateOrderContext
-                            OrderContext.empty
-                    with
-                    | Ok p ->
-                        p
-                        |> OrderPlan.orders
-                        |> Array.map _.Name
-                        |> Expect.equal "replaced in place" [| "re-evaluated"; "" |]
-
-                        p.OrderContexts[0].Id |> Expect.equal "in its context" "c-d"
-                    | Error errs -> failtest $"{errs}"
-
-                    let stranger =
-                        { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-none" |] }
-
-                    let strangerPort: OrderContextPort =
-                        { evaluate = fun _ _ -> async { return Ok stranger } }
-
-                    match!
-                        PlanService.navigate
-                            id
-                            strangerPort
-                            p
-                            None
-                            Api.OrderContextCommand.UpdateOrderContext
-                            OrderContext.empty
-                    with
-                    | Error errs ->
-                        errs
-                        |> Expect.equal "no context for the order" [| "The plan holds no context for the order" |]
-                    | Ok _ -> failtest "expected Error"
-
-                    let failing: OrderContextPort =
-                        { evaluate = fun _ _ -> async { return Error [| "no dose rules" |] } }
-
-                    match!
-                        PlanService.navigate
-                            id
-                            failing
-                            p
-                            None
-                            Api.OrderContextCommand.UpdateOrderContext
-                            OrderContext.empty
-                    with
-                    | Error errs -> errs |> Expect.equal "the error, not the plan as it was" [| "no dose rules" |]
-                    | Ok _ -> failtest "expected Error"
-                }
-
-                test "deleting orders by id: each takes its context, a feeding its supplements, the filter follows" {
-                    let tpn = context "c-t" NutritionCategory.TPN [| scenarioWithOrder "o-t" |]
-
-                    let feeding =
-                        context "c-f" NutritionCategory.EnteralFeeding [| scenarioWithOrder "o-f" |]
-
-                    let supplement =
-                        context "c-s" NutritionCategory.EnteralSupplement [| scenarioWithOrder "o-s" |]
-
-                    let p =
-                        { plan [| drugContext "c-d" "o-drug"; tpn; feeding; supplement |] with
-                            Filtered = [| "c-d"; "c-t" |]
-                        }
-
-                    let p = p |> PlanService.removeOrders [| "o-drug"; "o-t" |]
-                    ids p |> Expect.equal "the feeding and its supplement stay" [| "o-f"; "o-s" |]
-                    p.Filtered |> Expect.isEmpty "the filter followed"
-
-                    let p = p |> PlanService.removeOrders [| "o-f" |]
-                    p.OrderContexts |> Expect.isEmpty "the feeding took its supplement"
-
-                    p
-                    |> PlanService.removeOrders [| "o-none" |]
-                    |> ids
-                    |> Expect.isEmpty "an unknown id: nothing"
                 }
 
                 testAsync "navigate into a context evaluates it and its order follows" {
@@ -5326,7 +5222,7 @@ module PlanTests =
                             id
                             port
                             p
-                            (Some "c-1")
+                            "c-1"
                             Api.OrderContextCommand.UpdateOrderContext
                             OrderContext.empty
                     with
@@ -5338,7 +5234,7 @@ module PlanTests =
                             id
                             port
                             p
-                            (Some "c-9")
+                            "c-9"
                             Api.OrderContextCommand.UpdateOrderContext
                             OrderContext.empty
                     with
@@ -5350,10 +5246,10 @@ module PlanTests =
                     // the discovery answers the context as sent; what is asserted is the stamp
                     let port: OrderContextPort = { evaluate = fun _ ctx -> async { return Ok ctx } }
 
-                    let! result = PlanService.addContext id port (plan [||]) NutritionCategory.TPN
+                    let! result = PlanService.newOrderContext id port (plan [||]) NutritionCategory.TPN
 
                     match result with
-                    | Error e -> failtest $"addContext refused: %A{e}"
+                    | Error e -> failtest $"newOrderContext refused: %A{e}"
                     | Ok p ->
                         let ctx = p.OrderContexts |> Array.exactlyOne
                         ctx.Id |> Expect.isNotEmpty "an id minted"
@@ -5366,21 +5262,23 @@ module PlanTests =
                     let port: OrderContextPort = { evaluate = fun _ ctx -> async { return Ok ctx } }
                     let feeding = context "c-f" NutritionCategory.EnteralFeeding [||]
 
-                    let! second = PlanService.addContext id port (plan [| feeding |]) NutritionCategory.EnteralFeeding
+                    let! second =
+                        PlanService.newOrderContext id port (plan [| feeding |]) NutritionCategory.EnteralFeeding
 
                     second
                     |> Expect.equal
                         "a second feeding refused"
                         (Error [| "The plan already holds a Enterale Voeding context" |])
 
-                    let! orphan = PlanService.addContext id port (plan [||]) NutritionCategory.EnteralSupplement
+                    let! orphan = PlanService.newOrderContext id port (plan [||]) NutritionCategory.EnteralSupplement
 
                     orphan
                     |> Expect.equal
                         "a supplement without a feeding refused"
                         (Error [| "A supplement needs a feeding in the plan" |])
 
-                    let! under = PlanService.addContext id port (plan [| feeding |]) NutritionCategory.EnteralSupplement
+                    let! under =
+                        PlanService.newOrderContext id port (plan [| feeding |]) NutritionCategory.EnteralSupplement
 
                     match under with
                     | Error e -> failtest $"a supplement under a feeding refused: %A{e}"
@@ -5394,13 +5292,14 @@ module PlanTests =
                                 NutritionCategory.EnteralSupplement
                             |]
 
-                    let! third = PlanService.addContext id port (plan [| feeding |]) NutritionCategory.TPN
+                    let! third = PlanService.newOrderContext id port (plan [| feeding |]) NutritionCategory.TPN
                     third |> Result.isOk |> Expect.isTrue "another category still admitted"
 
                     // electrolyte and glucose lines: one per generic, so any number of them
                     let line = context "c-e" NutritionCategory.ElectrolyteGlucose [||]
 
-                    let! another = PlanService.addContext id port (plan [| line |]) NutritionCategory.ElectrolyteGlucose
+                    let! another =
+                        PlanService.newOrderContext id port (plan [| line |]) NutritionCategory.ElectrolyteGlucose
 
                     another |> Result.isOk |> Expect.isTrue "a second electrolyte line admitted"
                 }
@@ -5416,7 +5315,7 @@ module PlanTests =
 
                     let p =
                         plan [| drugContext "c-d" "o-drug" |]
-                        |> PlanService.addOrder newId workbench
+                        |> PlanService.addOrderContext newId workbench
                         |> Result.defaultWith (fun errs -> failtest $"{errs}")
 
                     let added = p.OrderContexts[1]
@@ -5429,14 +5328,14 @@ module PlanTests =
                     ids p |> Expect.equal "its order after the others" [| "o-drug"; "o-p" |]
 
                     p
-                    |> PlanService.addOrder newId workbench
+                    |> PlanService.addOrderContext newId workbench
                     |> Expect.equal "the same order twice refused" (Error [| "The plan already holds this order" |])
 
                     let wide =
                         { workbench with Scenarios = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |] }
 
                     plan [||]
-                    |> PlanService.addOrder newId wide
+                    |> PlanService.addOrderContext newId wide
                     |> Expect.equal
                         "a workbench not narrowed refused"
                         (Error [| "The workbench holds 2 candidates, not one order" |])
@@ -5453,7 +5352,7 @@ module PlanTests =
 
                     let p =
                         plan [| drugContext "c-d" "o-d"; feeding; supplement; tpn |]
-                        |> PlanService.removeContexts [| "c-d"; "c-f" |]
+                        |> PlanService.removeOrderContexts [| "c-d"; "c-f" |]
 
                     p.OrderContexts |> Array.map _.Id |> Expect.equal "the tpn stays" [| "c-t" |]
                     ids p |> Expect.equal "with its order" [| "o-t" |]
@@ -5495,11 +5394,9 @@ module PlanTests =
                         {
                             recalculate = answering "recalculate"
                             navigate = fun p _ _ _ -> answering "navigate" p
-                            addContext = fun p _ -> answering "addContext" p
-                            removeContext = fun p _ -> answering "removeContext" p
-                            removeOrders = fun p _ -> answering "removeOrders" p
-                            addOrder = fun p _ -> answering "addOrder" p
-                            removeContexts = fun p _ -> answering "removeContexts" p
+                            addOrderContext = fun p _ -> answering "addOrderContext" p
+                            newOrderContext = fun p _ -> answering "newOrderContext" p
+                            removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
                             openWith = fun _ _ -> answering "openWith" OrderPlan.empty
                         }
 
@@ -5512,13 +5409,11 @@ module PlanTests =
                     let! _ =
                         PlanCommand.processCmd
                             env
-                            (PlanCommand.Navigate(p, None, Api.OrderContextCommand.UpdateOrderContext, emptyCtx))
+                            (PlanCommand.Navigate(p, "c-1", Api.OrderContextCommand.UpdateOrderContext, emptyCtx))
 
-                    let! _ = PlanCommand.processCmd env (PlanCommand.AddContext(p, NutritionCategory.TPN))
-                    let! _ = PlanCommand.processCmd env (PlanCommand.RemoveContext(p, "c-1"))
-                    let! _ = PlanCommand.processCmd env (PlanCommand.RemoveOrders(p, [| "o-1" |]))
-                    let! _ = PlanCommand.processCmd env (PlanCommand.AddOrder(p, emptyCtx))
-                    let! _ = PlanCommand.processCmd env (PlanCommand.RemoveContexts(p, [| "c-1" |]))
+                    let! _ = PlanCommand.processCmd env (PlanCommand.AddOrderContext(p, emptyCtx))
+                    let! _ = PlanCommand.processCmd env (PlanCommand.NewOrderContext(p, NutritionCategory.TPN))
+                    let! _ = PlanCommand.processCmd env (PlanCommand.RemoveOrderContexts(p, [| "c-1" |]))
                     let! _ = PlanCommand.processCmd env (PlanCommand.Open(Models.Patient.empty, [||]))
 
                     answered.Value
@@ -5528,11 +5423,9 @@ module PlanTests =
                         [
                             "recalculate"
                             "navigate"
-                            "addContext"
-                            "removeContext"
-                            "removeOrders"
-                            "addOrder"
-                            "removeContexts"
+                            "addOrderContext"
+                            "newOrderContext"
+                            "removeOrderContexts"
                             "openWith"
                         ]
                 }
@@ -5541,29 +5434,21 @@ module PlanTests =
                     let p = OrderPlan.empty
 
                     PlanCommand.toString (
-                        PlanCommand.Navigate(
-                            p,
-                            Some "c-1",
-                            Api.OrderContextCommand.UpdateOrderContext,
-                            OrderContext.empty
-                        )
+                        PlanCommand.Navigate(p, "c-1", Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty)
                     )
-                    |> Expect.equal "context" "Navigate context UpdateOrderContext"
+                    |> Expect.equal "the command, not the context" "Navigate UpdateOrderContext"
 
-                    PlanCommand.toString (PlanCommand.AddContext(p, NutritionCategory.TPN))
-                    |> Expect.equal "category" "AddContext TPN"
+                    PlanCommand.toString (PlanCommand.NewOrderContext(p, NutritionCategory.TPN))
+                    |> Expect.equal "category" "NewOrderContext TPN"
 
-                    PlanCommand.toString (PlanCommand.AddOrder(p, OrderContext.empty))
-                    |> Expect.equal "never the workbench" "AddOrder"
+                    PlanCommand.toString (PlanCommand.AddOrderContext(p, OrderContext.empty))
+                    |> Expect.equal "never the workbench" "AddOrderContext"
 
-                    PlanCommand.toString (PlanCommand.RemoveContexts(p, [| "c-1"; "c-2" |]))
-                    |> Expect.equal "the count" "RemoveContexts 2"
+                    PlanCommand.toString (PlanCommand.RemoveOrderContexts(p, [| "c-1"; "c-2" |]))
+                    |> Expect.equal "the count" "RemoveOrderContexts 2"
 
                     PlanCommand.toString (PlanCommand.Open(Models.Patient.empty, [| OrderContext.empty |]))
                     |> Expect.equal "the count, never the contexts" "Open 1"
-
-                    PlanCommand.toString (PlanCommand.RemoveOrders(p, [| "o-1"; "o-2" |]))
-                    |> Expect.equal "the count, never the ids" "RemoveOrders 2"
                 }
             ]
 

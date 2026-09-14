@@ -236,19 +236,15 @@ module Api =
     type PlanCommand =
         // the plan as it is, totals recomputed over its orders
         | Recalculate of OrderPlan
-        // an order-context command evaluated and folded into the plan: into the nutrition
-        // context named, or into the selected scenario when None
-        | Navigate of OrderPlan * contextId: string option * OrderContextCommand * OrderContext
-        // a nutrition context for the category, its filter discovered
-        | AddContext of OrderPlan * NutritionCategory
-        // the nutrition context removed with its order; a feeding takes its supplements with it
-        | RemoveContext of OrderPlan * contextId: string
-        // the orders named removed, each with the workbench that contributed it
-        | RemoveOrders of OrderPlan * ids: string[]
-        // the prescribing workbench, narrowed to one scenario, into the plan as a drug context
-        | AddOrder of OrderPlan * OrderContext
+        // an order-context command evaluated over the context named, in that context's own
+        // patient, its order following
+        | Navigate of OrderPlan * contextId: string * OrderContextCommand * OrderContext
+        // a workbench evaluated elsewhere, narrowed to one scenario, into the plan as it is
+        | AddOrderContext of OrderPlan * OrderContext
+        // a fresh workbench for a nutrition category, its filter discovered
+        | NewOrderContext of OrderPlan * NutritionCategory
         // the contexts named removed, every kind; a feeding takes its supplements with it
-        | RemoveContexts of OrderPlan * ids: string[]
+        | RemoveOrderContexts of OrderPlan * ids: string[]
         // the signed version as it was, nothing evaluated: the contexts as given, their orders
         // derived; the patient with no contexts is the empty plan
         | Open of Patient * OrderContext[]
@@ -260,13 +256,10 @@ module Api =
         let toString cmd =
             match cmd with
             | PlanCommand.Recalculate _ -> "Recalculate"
-            | PlanCommand.Navigate(_, None, ctxCmd, _) -> $"Navigate {ctxCmd}"
-            | PlanCommand.Navigate(_, Some _, ctxCmd, _) -> $"Navigate context {ctxCmd}"
-            | PlanCommand.AddContext(_, category) -> $"AddContext {category}"
-            | PlanCommand.RemoveContext _ -> "RemoveContext"
-            | PlanCommand.RemoveOrders(_, ids) -> $"RemoveOrders %i{ids.Length}"
-            | PlanCommand.AddOrder _ -> "AddOrder"
-            | PlanCommand.RemoveContexts(_, ids) -> $"RemoveContexts %i{ids.Length}"
+            | PlanCommand.Navigate(_, _, ctxCmd, _) -> $"Navigate {ctxCmd}"
+            | PlanCommand.AddOrderContext _ -> "AddOrderContext"
+            | PlanCommand.NewOrderContext(_, category) -> $"NewOrderContext {category}"
+            | PlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
             | PlanCommand.Open(_, contexts) -> $"Open %i{contexts.Length}"
 
 

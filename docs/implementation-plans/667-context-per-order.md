@@ -125,11 +125,9 @@ session and signing machines.
       | RemoveOrderContexts of OrderPlan * ids: string[]
   ```
 
-  Every case names an order context, since every one acts on the plan's `OrderContexts`. Until
-  the deletion step the new cases carry interim names next to the old ones: `AddOrder` (for
-  `AddOrderContext`), `AddContext` (for `NewOrderContext`) and `RemoveContexts` (for
-  `RemoveOrderContexts`); the deletion step renames them, a qualified-access rename with no
-  behaviour change.
+  Every case names an order context, since every one acts on the plan's `OrderContexts`. The
+  steps that added them carried interim names next to the old cases (`AddOrder`, `AddContext`,
+  `RemoveContexts`); the deletion step settled them, a rename with no behaviour change.
 
   `RemoveOrders`, `RemoveContext` and the `None` branch of `Navigate` go. New cases are added
   beside the old ones and the old ones deleted in a later step, so that every step compiles on
@@ -391,7 +389,8 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 | 4, `AddOrder` and `RemoveContexts` | #677 | the two commands beside the old ones, the port, the adapter, the dispatch, the client arms; review: the client's plan dispatch routes them too |
 | 5, the views on the new commands | #678 | Prescribe sends `AddOrder`, the button greyed on an order the plan holds; the order-plan dialog navigates into the order's context, deletion by `RemoveContexts`; the nutrition page on `RemoveContexts`; review: a plan answer over another patient is dropped, no prescribe while the plan is busy |
 | 6, the signed record stores the contexts | #679 | `SignedOrderPlan.OrderContexts`, the challenge and the commit over contexts, `Open`, `LoadCart` sends `Open`; #666 closed; review: orders must be the contexts' own until `Scenarios` goes, the newest open wins |
-| 7, `Scenarios` and `Selected` off the plan | this PR | `OrderPlan = { Patient; Filtered: ids; OrderContexts; Totals }`, the orders derived everywhere, the selection and the filter the client's own on `IOrderPlan`, `ShowOrderPlan` retired, the server's projection bookkeeping gone |
+| 7, `Scenarios` and `Selected` off the plan | #680 | `OrderPlan = { Patient; Filtered: ids; OrderContexts; Totals }`, the orders derived everywhere, the selection and the filter the client's own on `IOrderPlan`, `ShowOrderPlan` retired, the server's projection bookkeeping gone; review: the row checkboxes greyed while the plan is busy |
+| 8, the old cases deleted, the names settled | this PR | `Navigate` by id only; `RemoveContext`, `RemoveOrders`, `removeOrders`, `fromOrderScenario` gone; `AddOrderContext`, `NewOrderContext`, `RemoveOrderContexts` with their port members and service functions |
 
 ### Deviations from the text above
 

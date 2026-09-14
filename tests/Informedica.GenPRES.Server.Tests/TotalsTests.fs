@@ -58,7 +58,7 @@ let tests =
                 let countBefore = spy.CallCount
 
                 let dummyCmd = Shared.Api.OrderContextCommand.UpdateOrderContext
-                let! _ = sut.plan.navigate emptyPlan None dummyCmd Models.OrderContext.empty
+                let! _ = sut.plan.navigate emptyPlan "dummy ID" dummyCmd Models.OrderContext.empty
 
                 let countAfter = spy.CallCount
                 // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
@@ -66,12 +66,12 @@ let tests =
                 countBefore + 1 <! countAfter
             }
 
-            testAsync "addContext doesn't cache totals" {
+            testAsync "newOrderContext doesn't cache totals" {
                 let spy = TotalsSpy()
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
-                let! _ = sut.plan.addContext emptyPlan NutritionCategory.TPN
+                let! _ = sut.plan.newOrderContext emptyPlan NutritionCategory.TPN
 
                 let countAfter = spy.CallCount
                 // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
@@ -79,12 +79,12 @@ let tests =
                 countBefore + 1 <! countAfter
             }
 
-            testAsync "removeContext doesn't cache totals" {
+            testAsync "removeOrderContexts doesn't cache totals" {
                 let spy = TotalsSpy()
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
-                let! _ = sut.plan.removeContext emptyPlan "dummy ID"
+                let! _ = sut.plan.removeOrderContexts emptyPlan [| "dummy ID" |]
 
                 let countAfter = spy.CallCount
                 countBefore <! countAfter
