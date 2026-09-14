@@ -262,6 +262,13 @@ handlers; the machines then replace the handlers behind a surface that no longer
 - An order added from Prescribe, or reopened, keeps its full workbench: pick lists, candidates
   and stepped values.
 - The session and signing machines are unchanged; the plan machine takes their conventions.
+- A patient edit with orders in the plan behaves as today: the plan's patient and the totals
+  follow the edit, the orders stay as calculated for the patient their context was created
+  with, and a signature records the patient as shown. That the two can differ is not new;
+  today the plan's patient is rewritten and the totals recomputed while every scenario keeps
+  its order. This plan makes the difference visible, since each context now carries its
+  patient, and leaves closing it to #672, where a replacement of the affected orders or a
+  guard at the signature is decided.
 
 ## Confidence
 
