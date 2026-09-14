@@ -197,9 +197,13 @@ let tests =
 
             test "canSign: an open Session as Prescriber for a patient with at least one order" {
                 let withOrders =
-                    { Shared.Models.OrderPlan.create patient [||] with
-                        Scenarios = [| Unchecked.defaultof<OrderScenario> |]
-                    }
+                    Shared.Models.OrderPlan.create
+                        patient
+                        [|
+                            { Shared.Models.OrderContext.empty with
+                                Scenarios = [| Unchecked.defaultof<OrderScenario> |]
+                            }
+                        |]
 
                 let empty = Shared.Models.OrderPlan.create patient [||]
 

@@ -26,8 +26,11 @@ type IOrderContext =
 type IOrderPlan =
     abstract OrderPlan: Deferred<OrderPlan>
     abstract PlanCommand: Api.PlanCommand -> unit
-    // the plan as shown: opens the order-plan page on it and recomputes its totals
-    abstract ShowOrderPlan: OrderPlan -> unit
+    // the context whose order the dialog shows, by id; the client's own, no round trip
+    abstract Selected: string option
+    abstract Select: string option -> unit
+    // the contexts the rows keep, by id; the totals follow
+    abstract Filter: string[] -> unit
 
 
 /// Patient data and updates

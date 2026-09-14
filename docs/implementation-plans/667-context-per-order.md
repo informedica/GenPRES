@@ -70,8 +70,8 @@ stores the contexts, so a reopen is the signed plan as it was, nothing rebuilt a
 guessed. The prescribing workbench is the same type, a context not yet in the plan, on its own
 lane; the prescribe button moves it into the plan. `Navigate` always names a context and
 evaluates it over the context's own patient. Removal is one command for every kind. On the
-client, a pure `PlanMachine` and a pure
-`ContextMachine` replace the `Deferred` handling, with the same shape and the same tests as the
+client, a pure `OrderPlanMachine` and a pure
+`OrderContextMachine` replace the `Deferred` handling, with the same shape and the same tests as the
 session and signing machines.
 
 ### Wire (`Shared/Types.fs`, `Shared/Api.fs`, `Shared/Models.fs`)
@@ -192,17 +192,19 @@ handlers; the machines then replace the handlers behind a surface that no longer
   the nutrition contexts filtered by category from `OrderContexts`.
 - The patient panel: editable as today; an edit sends `Recalculate` over the plan with the new
   patient, the contexts untouched.
-- `PlanMachine.fs`, pure, before `AppEnv.fs` in the client project, linked into
-  `Informedica.GenPRES.Shared.Tests` like `SessionMachine.fs`:
+- `OrderPlanMachine.fs`, pure, before `AppEnv.fs` in the client project, linked into
+  `Informedica.GenPRES.Shared.Tests` like `SessionMachine.fs`. The names say what they hold:
+  the machine's state is `OrderPlanState` (a `type OrderPlan` would collide with the shared
+  record the state carries), its messages `OrderPlanMsg`, its effects `OrderPlanEffect`:
 
   ```fsharp
-  type Plan =
+  type OrderPlanState =
       | NoPatient
       | Loading of Patient * request: string
       | Shown of OrderPlan * selected: string option
       | Recalculating of OrderPlan * selected: string option * inFlight: string
 
-  type PlanMsg =
+  type OrderPlanMsg =
       | PatientChanged of Patient option
       | Cart of SignedOrderPlan
       | Command of PlanCommand * request: string
@@ -210,7 +212,7 @@ handlers; the machines then replace the handlers behind a surface that no longer
       | Select of string option
       | Filter of string[]
 
-  type PlanEffect =
+  type OrderPlanEffect =
       | CallPlan of PlanCommand * request: string
       | CheckInteractions of string list
       | GoToPlanPage
@@ -226,11 +228,12 @@ handlers; the machines then replace the handlers behind a surface that no longer
   so a reopen arriving while a nutrition step is in flight wins. A refused change restores the plan the request was sent
   over; a refused `Open` lands on the empty plan for the patient. `Select` and `Filter` are
   pure: no round trip to open or close the dialog. The OpenedToken check on the reply's notice
-  stays in the interpreter (`processApiMsg`), as for signing. `Plan.toDeferred` feeds the env.
-- `ContextMachine.fs`, the prescribing workbench:
+  stays in the interpreter (`processApiMsg`), as for signing. `OrderPlanState.toDeferred` feeds
+  the env.
+- `OrderContextMachine.fs`, the prescribing workbench, named the same way:
 
   ```fsharp
-  type Context =
+  type OrderContextState =
       | NoPatient
       // from the url, before a patient is set
       | Seeded of OrderContext
@@ -238,14 +241,14 @@ handlers; the machines then replace the handlers behind a surface that no longer
       | Shown of OrderContext
       | Recalculating of OrderContext * inFlight: string
 
-  type ContextMsg =
+  type OrderContextMsg =
       | PatientChanged of Patient option
       | Seed of OrderContext
       | Command of OrderContextCommand * OrderContext * request: string
       | Answered of request: string * Result<OrderContext, string[]>
       | Reset
 
-  type ContextEffect =
+  type OrderContextEffect =
       | CallContext of OrderContextCommand * OrderContext * request: string
       | SyncFormulary of Filter
       | SyncParenteralia of Filter
@@ -254,9 +257,10 @@ handlers; the machines then replace the handlers behind a surface that no longer
       | TellError of string[]
   ```
 
-- `App.fs`: `State.Plan` and `State.Context` replace the two `Deferred` fields;
-  `interpretPlanEffect` and `interpretContextEffect` in the shape of `interpretSessionEffect`;
-  `SessionEffect.LoadCart` becomes `PlanMsg.Cart`; the machines' `SetPatient` effects still go
+- `App.fs`: `State.OrderPlan: OrderPlanState` and `State.OrderContext: OrderContextState`
+  replace the two `Deferred` fields; `interpretOrderPlanEffect` and
+  `interpretOrderContextEffect` in the shape of `interpretSessionEffect`;
+  `SessionEffect.LoadCart` becomes `OrderPlanMsg.Cart`; the machines' `SetPatient` effects still go
   through `UpdatePatient`, which now sends `PatientChanged` to both; the six handlers and
   `planOf`, `withPlan`, `applyPlan`, `handleOrderContext` are deleted.
 
@@ -331,16 +335,17 @@ Fable compile and Fantomas green. Wire changes are additive first and deleted la
    the nutrition page's `Some ncId` becomes `ncId`; `AddOrder`, `AddContext` and
    `RemoveContexts` renamed `AddOrderContext`, `NewOrderContext` and `RemoveOrderContexts`, with
    their port members and service functions. About 150 lines. Tests: the dispatch case, the log.
-9. **`PlanMachine.fs` and its tests**, not wired. About 190 lines. Tests: the lifecycle; a stale
+9. **`OrderPlanMachine.fs` and its tests**, not wired. About 190 lines. Tests: the lifecycle; a stale
    answer dropped by request id; a patient change while in flight; `Cart` to `Open`;
    `PatientChanged` to `Open` or `Recalculate`; a refused change restores the plan; `Select`
    and `Filter` without effects.
-10. **Wire the plan machine.** `State.Plan`, `interpretPlanEffect`, `Plan.toDeferred`; the plan
+10. **Wire the order-plan machine.** `State.OrderPlan`, `interpretOrderPlanEffect`,
+    `OrderPlanState.toDeferred`; the plan
     handlers and helpers deleted. About 200 lines, deletion heavy. Acceptance below.
-11. **`ContextMachine.fs` and its tests**, not wired. About 190 lines. Tests: a seed before a
+11. **`OrderContextMachine.fs` and its tests**, not wired. About 190 lines. Tests: a seed before a
     patient; the patient change; the sync effects on an update; the no-rules reset; a stale
     answer.
-12. **Wire the context machine.** `State.Context`, `interpretContextEffect`;
+12. **Wire the order-context machine.** `State.OrderContext`, `interpretOrderContextEffect`;
     `handleOrderContext` and `LoadOrderContextResult` deleted; the prescribing page's Elmish
     deps on the projection. About 180 lines. Acceptance below.
 13. **Docs.** `docs/domain/core-domain.md`'s API paragraph, which still names `processCommand`
@@ -385,7 +390,8 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 | 3, the plan is its contexts | #676 | `OrderPlan.OrderContexts`, the wrapper gone, the admission rule on the server; review: electrolyte and glucose lines any number |
 | 4, `AddOrder` and `RemoveContexts` | #677 | the two commands beside the old ones, the port, the adapter, the dispatch, the client arms; review: the client's plan dispatch routes them too |
 | 5, the views on the new commands | #678 | Prescribe sends `AddOrder`, the button greyed on an order the plan holds; the order-plan dialog navigates into the order's context, deletion by `RemoveContexts`; the nutrition page on `RemoveContexts`; review: a plan answer over another patient is dropped, no prescribe while the plan is busy |
-| 6, the signed record stores the contexts | this PR | `SignedOrderPlan.OrderContexts`, the challenge and the commit over contexts, `Open`, `LoadCart` sends `Open`; #666 closed |
+| 6, the signed record stores the contexts | #679 | `SignedOrderPlan.OrderContexts`, the challenge and the commit over contexts, `Open`, `LoadCart` sends `Open`; #666 closed; review: orders must be the contexts' own until `Scenarios` goes, the newest open wins |
+| 7, `Scenarios` and `Selected` off the plan | this PR | `OrderPlan = { Patient; Filtered: ids; OrderContexts; Totals }`, the orders derived everywhere, the selection and the filter the client's own on `IOrderPlan`, `ShowOrderPlan` retired, the server's projection bookkeeping gone |
 
 ### Deviations from the text above
 
@@ -393,6 +399,11 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
   leaving the plan before `AddOrder` existed; a drug order added from the prescribing page has
   no context until then, so both would have dropped drug orders. `AddOrder` and
   `RemoveContexts` now come first, the views next, the signed record and the wire cleanup after.
+- **The machines say "order plan" and "order context".** `OrderPlanMachine.fs` and
+  `OrderContextMachine.fs`, with `OrderPlanState`/`OrderPlanMsg`/`OrderPlanEffect` and
+  `OrderContextState`/`OrderContextMsg`/`OrderContextEffect`, in place of the shorter names the
+  text first used; the state is `...State` because a `type OrderPlan` in the machine would
+  collide with the shared record it holds. A rename only.
 - **The command names say "order context".** Review of step 4 found `AddOrder` next to
   `AddContext` for two ways of adding a context to the plan. The final family names every case
   after what it acts on: `AddOrderContext`, `NewOrderContext`, `RemoveOrderContexts`. The interim

@@ -664,50 +664,9 @@ module PlanService =
     let contribution = Models.OrderContext.contribution
 
 
-    /// The plan's orders with one context's contribution replaced: the one it contributed
-    /// before goes out by order id, the one it contributes now comes in; the same order in
-    /// place, a different one at the end.
-    let withContribution (before: OrderScenario option) (after: OrderScenario option) (scenarios: OrderScenario[]) =
-        match before, after with
-        | Some old, Some sc when old.Order.Id = sc.Order.Id ->
-            scenarios |> Array.map (fun s -> if s.Order.Id = sc.Order.Id then sc else s)
-        | _ ->
-            let without =
-                match before with
-                | None -> scenarios
-                | Some old -> scenarios |> Array.filter (fun s -> s.Order.Id <> old.Order.Id)
-
-            match after with
-            | None -> without
-            | Some sc -> Array.append without [| sc |]
-
-
-    /// A derived view (the filter, the selection) follows a replaced order only where it held
-    /// the old one: replaced in place, or gone with it; never gains an order on its own.
-    let private follow (before: OrderScenario option) (after: OrderScenario option) (view: OrderScenario[]) =
-        match before with
-        | Some old when view |> Array.exists (fun s -> s.Order.Id = old.Order.Id) ->
-            view |> withContribution before after
-        | _ -> view
-
-
-    /// The plan's orders with one contribution replaced, and the filter and the selection
-    /// following it, so that a replaced order keeps counting in the totals and a removed one
-    /// is nowhere.
-    let withOrders (before: OrderScenario option) (after: OrderScenario option) (plan: OrderPlan) =
-        { plan with
-            Scenarios = plan.Scenarios |> withContribution before after
-            Filtered = plan.Filtered |> follow before after
-            Selected =
-                match plan.Selected, before with
-                | Some sel, Some old when sel.Order.Id = old.Order.Id -> after
-                | sel, _ -> sel
-        }
-
-
     /// The resolved order context into the context named, keeping the id and the category the
-    /// plan gave it and filtered to its category's dose rule set, and its contribution into the
-    /// plan's orders.
+    /// plan gave it and filtered to its category's dose rule set. The plan's orders follow, since
+    /// they are what its contexts contribute.
     let updateContext id (resolved: OrderContext) (plan: OrderPlan) =
         match plan.OrderContexts |> Array.tryFind (fun c -> c.Id = id) with
         | None -> Error [| $"The plan holds no context %s{id}" |]
@@ -726,7 +685,6 @@ module PlanService =
                 }
 
             { plan with OrderContexts = plan.OrderContexts |> Array.map (fun c -> if c.Id = id then updated else c) }
-            |> withOrders (contribution ctx) (contribution updated)
             |> Ok
 
 
@@ -737,7 +695,7 @@ module PlanService =
 
     /// The context removed, and every enteral supplement with a feeding: the plan holds one
     /// feeding at most and a supplement only under it, so the feeding's supplements are all of
-    /// them. Each takes its order with it.
+    /// them. Each takes its order with it, and leaves the filter.
     let removeContext id (plan: OrderPlan) =
         let removed = plan.OrderContexts |> Array.tryFind (fun c -> c.Id = id)
 
@@ -751,39 +709,26 @@ module PlanService =
                 && c.Category = OrderCategory.Nutrition NutritionCategory.EnteralSupplement)
 
         let gone, kept = plan.OrderContexts |> Array.partition goes
+        let goneIds = gone |> Array.map _.Id
 
-        gone
-        |> Array.fold (fun p c -> p |> withOrders (contribution c) None) { plan with OrderContexts = kept }
-
-
-    /// The plan with its totals recomputed over its orders: the filtered ones, by order id, when
-    /// a filter is set, else all of them.
-    /// The orders named removed from the plan: each with the workbench that contributed it, a
-    /// feeding with its supplements and theirs, the rest by order id; the filter and the
-    /// selection follow.
-    let removeOrders (ids: string[]) (plan: OrderPlan) =
-        let contributed (c: OrderContext) =
-            contribution c |> Option.exists (fun sc -> ids |> Array.contains sc.Order.Id)
-
-        let plan =
-            plan.OrderContexts
-            |> Array.filter contributed
-            |> Array.fold (fun (p: OrderPlan) (c: OrderContext) -> p |> removeContext c.Id) plan
-
-        ids
-        |> Array.fold
-            (fun (p: OrderPlan) id ->
-                match p.Scenarios |> Array.tryFind (fun sc -> sc.Order.Id = id) with
-                | Some sc -> p |> withOrders (Some sc) None
-                | None -> p
-            )
-            plan
+        { plan with
+            OrderContexts = kept
+            Filtered = plan.Filtered |> Array.filter (fun f -> goneIds |> Array.contains f |> not)
+        }
 
 
     /// The contexts named removed, every kind, each with its order; a feeding takes its
     /// supplements with it.
     let removeContexts (ids: string[]) (plan: OrderPlan) =
         ids |> Array.fold (fun p id -> p |> removeContext id) plan
+
+
+    /// The orders named removed: each with the context that contributes it.
+    let removeOrders (ids: string[]) (plan: OrderPlan) =
+        plan.OrderContexts
+        |> Array.filter (fun c -> contribution c |> Option.exists (fun sc -> ids |> Array.contains sc.Order.Id))
+        |> Array.map _.Id
+        |> fun contextIds -> plan |> removeContexts contextIds
 
 
     /// The prescribing workbench into the plan as a drug context with a minted id, its one
@@ -797,48 +742,44 @@ module PlanService =
                 [|
                     $"The workbench holds %i{ctx.Scenarios.Length} candidates, not one order"
                 |]
-        | Some sc when plan.Scenarios |> Array.exists (fun s -> s.Order.Id = sc.Order.Id) ->
+        | Some sc when Models.OrderPlan.orders plan |> Array.exists (fun s -> s.Order.Id = sc.Order.Id) ->
             Error [| "The plan already holds this order" |]
-        | Some sc ->
+        | Some _ ->
             let added =
                 { ctx with
                     Id = newId ()
                     Category = OrderCategory.Drug
                 }
 
-            { plan with OrderContexts = Array.append plan.OrderContexts [| added |] }
-            |> withOrders None (Some sc)
-            |> Ok
+            { plan with OrderContexts = Array.append plan.OrderContexts [| added |] } |> Ok
 
 
     /// The plan opened on a signed version: the contexts as they were, nothing evaluated, so the
-    /// pick lists, the candidates and the stepped values are what was signed; the orders derived
-    /// from them. The patient with no contexts is the empty plan.
-    let openWith (pat: Patient) (contexts: OrderContext[]) : OrderPlan =
-        { Models.OrderPlan.create pat (contexts |> Array.choose contribution) with OrderContexts = contexts }
+    /// pick lists, the candidates and the stepped values are what was signed. The patient with no
+    /// contexts is the empty plan.
+    let openWith (pat: Patient) (contexts: OrderContext[]) : OrderPlan = Models.OrderPlan.create pat contexts
 
 
+    /// The plan with its totals recomputed over the orders of the contexts the filter keeps, all
+    /// of them when it is empty.
     let recalculate (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: OrderPlan) =
         { plan with
             Totals =
                 let w = plan.Patient |> Models.Patient.getWeight |> Option.map int
                 let a = plan.Patient |> Models.Patient.getAgeInDays |> Option.map int
 
-                // by order id: a scenario replaced in Scenarios still counts under its filter
-                let scs =
-                    if plan.Filtered |> Array.isEmpty then
-                        plan.Scenarios
-                    else
-                        plan.Scenarios
-                        |> Array.filter (fun sc -> plan.Filtered |> Array.exists (fun f -> f.Order.Id = sc.Order.Id))
-
-                scs |> Array.map _.Order |> OrderService.getTotals totals a w
+                plan
+                |> Models.OrderPlan.filtered
+                |> Array.choose contribution
+                |> Array.map _.Order
+                |> OrderService.getTotals totals a w
         }
 
 
-    /// A command into the nutrition context named, or into the selected scenario when none is;
-    /// `recalc` ends the answer in its totals (the adapter's `recalculate` over the provider's
-    /// totals data).
+    /// A command into the context named, or, when none is named, into the context that
+    /// contributes the evaluated order; `recalc` ends the answer in its totals (the adapter's
+    /// `recalculate` over the provider's totals data). An evaluation that fails is the answer,
+    /// not the plan as it was.
     let navigate
         (recalc: OrderPlan -> OrderPlan)
         (orderCtxPort: OrderContextPort)
@@ -848,34 +789,29 @@ module PlanService =
         (ctx: OrderContext)
         =
         async {
-            match contextId with
-            // the selected scenario re-evaluated: the plan's copy replaced by order id, the
-            // selection on the result; an evaluation that fails is the answer, not the plan as it was
-            | None ->
-                let! result = orderCtxPort.evaluate ctxCmd ctx
+            let! result = orderCtxPort.evaluate ctxCmd ctx
 
-                return
-                    result
-                    |> Result.map (fun evaluated ->
-                        match evaluated.Scenarios |> Array.tryExactlyOne with
-                        | None -> { plan with Selected = None }
-                        | Some sc ->
-                            let before = plan.Scenarios |> Array.tryFind (fun s -> s.Order.Id = sc.Order.Id)
+            return
+                result
+                |> Result.bind (fun resolved ->
+                    let id =
+                        match contextId with
+                        | Some id -> Some id
+                        | None ->
+                            contribution resolved
+                            |> Option.bind (fun sc ->
+                                plan.OrderContexts
+                                |> Array.tryFind (fun c ->
+                                    contribution c |> Option.exists (fun s -> s.Order.Id = sc.Order.Id)
+                                )
+                            )
+                            |> Option.map _.Id
 
-                            { (match before with
-                               | Some _ -> plan |> withOrders before (Some sc)
-                               | None -> plan) with
-                                Selected = Some sc
-                            }
-                    )
-                    |> Result.map recalc
-            | Some id ->
-                let! result = orderCtxPort.evaluate ctxCmd ctx
-
-                return
-                    result
-                    |> Result.bind (fun resolved -> plan |> updateContext id resolved)
-                    |> Result.map recalc
+                    match id with
+                    | Some id -> plan |> updateContext id resolved
+                    | None -> Error [| "The plan holds no context for the order" |]
+                )
+                |> Result.map recalc
         }
 
 
@@ -897,8 +833,7 @@ module PlanService =
         | _ -> Ok()
 
 
-    /// A nutrition context for the category, its filter discovered, appended to the plan with
-    /// whatever it contributes.
+    /// A nutrition context for the category, its filter discovered, appended to the plan.
     let addContext
         (recalc: OrderPlan -> OrderPlan)
         (orderCtxPort: OrderContextPort)
@@ -936,7 +871,6 @@ module PlanService =
                             }
 
                         { plan with OrderContexts = Array.append plan.OrderContexts [| resolved |] }
-                        |> withOrders None (contribution resolved)
                         |> recalc
                         |> Ok
                     | None ->

@@ -103,7 +103,7 @@ module SignDialog =
             | Signing.Noticed(plan, _)
             | Signing.Challenged(_, plan, _)
             | Signing.Submitting(_, plan, _)
-            | Signing.Unsent(_, plan, _) -> plan.Scenarios
+            | Signing.Unsent(_, plan, _) -> OrderPlan.orders plan
             | _ -> [||]
 
         let body =

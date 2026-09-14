@@ -62,6 +62,8 @@ module private Elmish =
             // the newest version told while the Session is on an older
             // one; None whenever no Session is open
             MovedOn: OrderPlanHead option
+            // the context whose order the order-plan dialog shows, by id; None when it is closed
+            SelectedContext: string option
             // the context ids of the open in flight: a signed version being opened replaces
             // whatever plan there was, so every other plan answer, and an older open, is stale
             // until it answers; None whenever no open is in flight
@@ -104,7 +106,10 @@ module private Elmish =
         | OrderPlanMsg of Api.PlanCommand
         | LoadOrderPlanResult of Api.PlanCommand * ApiResponse<OrderPlan>
         // the plan as shown: the order-plan page opens on it and its totals are recomputed
-        | ShowOrderPlan of OrderPlan
+        // the dialog's selection: a context by id, the client's own
+        | SelectContext of string option
+        // the contexts the rows keep, by id
+        | FilterContexts of string[]
 
         | UpdateFormulary of Formulary
         | LoadFormulary of ApiResponse<Formulary>
@@ -313,9 +318,11 @@ module private Elmish =
         { state with Parenteralia = Resolved par }, Cmd.none
 
 
-    /// The plan answered: shown, and its drugs checked for interactions when there are two.
+    /// The plan answered: shown, its drugs checked for interactions when there are two, and
+    /// the dialog's selection kept only while its context is still in the plan.
     let applyPlan (state: State) (tp: OrderPlan) =
-        let drugs = tp.Scenarios |> Array.map _.Name |> Array.distinct |> Array.toList
+        let drugs =
+            OrderPlan.orders tp |> Array.map _.Name |> Array.distinct |> Array.toList
 
         let cmd =
             if drugs.Length >= 2 then
@@ -323,7 +330,13 @@ module private Elmish =
             else
                 Cmd.none
 
-        { state with OrderPlan = Resolved tp }, cmd
+        { state with
+            OrderPlan = Resolved tp
+            SelectedContext =
+                state.SelectedContext
+                |> Option.filter (fun id -> tp.OrderContexts |> Array.exists (fun c -> c.Id = id))
+        },
+        cmd
 
 
     let applyInteraction (state: State) (response: Api.InteractionResponse) =
@@ -659,6 +672,7 @@ module private Elmish =
             Session = Session.Anonymous
             Signing = Signing.Idle
             MovedOn = None
+            SelectedContext = None
             PendingOpen = None
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
@@ -1189,6 +1203,7 @@ module private Elmish =
                 Patient = pat
                 // an open in flight answers over the patient it was sent for: stale now
                 PendingOpen = None
+                SelectedContext = None
                 OrderContext =
                     match pat with
                     | None -> HasNotStartedYet
@@ -1516,40 +1531,15 @@ module private Elmish =
                 Cmd.none
 
 
-        // the plan as shown: the page opens on it; its totals are recomputed unless the only
-        // change is a scenario selected for the dialog
-        | ShowOrderPlan tp ->
-            let onlySetOrderContext =
-                state.OrderPlan
-                |> Deferred.map (fun st -> st.Selected.IsNone && tp.Selected.IsSome)
-                |> Deferred.defaultValue false
+        | SelectContext id -> { state with SelectedContext = id }, Cmd.none
 
-            let tpState =
-                match state.OrderPlan with
-                | Recalculating _ -> Recalculating tp
-                | _ -> Resolved tp
-
-            let recalculate =
-                Cmd.ofMsg (LoadOrderPlanResult(Api.PlanCommand.Recalculate tp, Started))
-
-            // CheckInteractions is dispatched when the plan answers, so not here
-            let cmd =
-                if state.Page = OrderPlan then
-                    match state.OrderPlan with
-                    | Recalculating _ -> Cmd.none
-                    | _ -> if onlySetOrderContext then Cmd.none else recalculate
-                else
-                    Cmd.batch
-                        [
-                            Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty))
-                            recalculate
-                        ]
-
-            { state with
-                Page = OrderPlan
-                OrderPlan = tpState
-            },
-            cmd
+        // the rows chosen: the totals recomputed over them, the dialog closed
+        | FilterContexts ids ->
+            match state.OrderPlan with
+            | Resolved tp ->
+                { state with SelectedContext = None },
+                Cmd.ofMsg (OrderPlanMsg(Api.PlanCommand.Recalculate { tp with Filtered = ids }))
+            | _ -> state, Cmd.none
 
         | OrderPlanMsg cmd ->
             match cmd with
@@ -1809,7 +1799,9 @@ type private ConcreteAppEnv
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = state.OrderPlan
         member _.PlanCommand cmd = OrderPlanMsg cmd |> dispatch
-        member _.ShowOrderPlan tp = ShowOrderPlan tp |> dispatch
+        member _.Selected = state.SelectedContext
+        member _.Select id = SelectContext id |> dispatch
+        member _.Filter ids = FilterContexts ids |> dispatch
 
     interface AppEnv.IPatient with
         member _.Patient = state.Patient

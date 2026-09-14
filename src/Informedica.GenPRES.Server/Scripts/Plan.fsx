@@ -1,15 +1,16 @@
-// The signed record stores the contexts (plan 667, step 6), the server half.
-//   - `PlanService.openWith`: the plan opened on a signed version, the contexts as they were,
-//     nothing evaluated, their orders derived; the patient with no contexts is the empty plan.
-//     (`open` is a keyword, hence the name.)
-//   - the signing challenge (`ServerApi.Session.fs`): `Challenge.OrderContexts` next to
-//     `Scenarios`, stored at the challenge, compared at the submission as the orders are, and
-//     written into the version in place of the scenarios. Not drafted here: the session is a
-//     state machine over its record; the server tests cover it.
+// Scenarios and Selected off the plan, Filtered as context ids (plan 667, step 7), the server
+// half: `PlanService` without a stored projection. What goes:
+//   - `withContribution`, `follow`, `withOrders`: there is no `Scenarios` to keep in step and
+//     no `Filtered`/`Selected` of scenarios to make follow a replaced order;
+//   - the signing challenge's `Scenarios` and the check that the orders match the contexts:
+//     the contexts are compared, and the duplicate check runs over the derived orders.
+// What changes: `removeContext` takes the removed ids out of the filter; `recalculate` counts
+// the orders of the contexts the filter keeps; `navigate` without a context id finds the
+// context by the evaluated order; `addOrder` checks the duplicate over the derived orders.
 //
-// Script-first draft (script-only policy) of what goes to `ServerApi.Services.fs`, with the
-// port member, the adapter, the dispatch arm and the client's `LoadCart` sending `Open` in the
-// migration.
+// Script-first draft (script-only policy) over a record shaped like `OrderPlan` after the step
+// (the compiled Shared still has `Scenarios`); the rules below are the ones migrated to
+// `ServerApi.Services.fs`, with the port and the client in the migration.
 //
 // Run: `dotnet fsi Plan.fsx` from this directory (build first).
 
@@ -21,18 +22,65 @@
 open System
 open Shared.Types
 open Shared.Models
-open ServerApi
+
+
+type OrderPlan667 =
+    {
+        Filtered: string[]
+        OrderContexts: OrderContext[]
+    }
 
 
 module PlanService667 =
 
-    /// The plan opened on a signed version: the contexts as they were, nothing evaluated, so the
-    /// pick lists, the candidates and the stepped values are what was signed; the orders derived
-    /// from them. The patient with no contexts is the empty plan.
-    let openWith (pat: Patient) (contexts: OrderContext[]) =
-        { OrderPlan.create pat (contexts |> Array.choose OrderContext.contribution) with
-            OrderContexts = contexts
+    let contribution = OrderContext.contribution
+
+    let orders (plan: OrderPlan667) =
+        plan.OrderContexts |> Array.choose contribution
+
+
+    let filtered (plan: OrderPlan667) =
+        if plan.Filtered |> Array.isEmpty then
+            plan.OrderContexts
+        else
+            plan.OrderContexts |> Array.filter (fun c -> plan.Filtered |> Array.contains c.Id)
+
+
+    /// The context removed, and every enteral supplement with a feeding; each leaves the filter.
+    let removeContext id (plan: OrderPlan667) =
+        let cascade =
+            plan.OrderContexts
+            |> Array.tryFind (fun c -> c.Id = id)
+            |> Option.exists (fun c -> c.Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
+
+        let goes (c: OrderContext) =
+            c.Id = id
+            || (cascade
+                && c.Category = OrderCategory.Nutrition NutritionCategory.EnteralSupplement)
+
+        let gone, kept = plan.OrderContexts |> Array.partition goes
+        let goneIds = gone |> Array.map _.Id
+
+        { plan with
+            OrderContexts = kept
+            Filtered = plan.Filtered |> Array.filter (fun f -> goneIds |> Array.contains f |> not)
         }
+
+
+    /// The orders counted: those of the contexts the filter keeps.
+    let counted (plan: OrderPlan667) =
+        plan |> filtered |> Array.choose contribution |> Array.map _.Order.Id
+
+
+    /// The context a command without a context id lands in: the one contributing the
+    /// evaluated order.
+    let contextForEvaluated (resolved: OrderContext) (plan: OrderPlan667) =
+        contribution resolved
+        |> Option.bind (fun sc ->
+            plan.OrderContexts
+            |> Array.tryFind (fun c -> contribution c |> Option.exists (fun s -> s.Order.Id = sc.Order.Id))
+        )
+        |> Option.map _.Id
 
 
 open Expecto
@@ -65,33 +113,50 @@ let scenarioWithOrder (id: string) : OrderScenario =
     { scenario with Order = { scenario.Order with Id = id } }
 
 
+let context id category orderIds =
+    { OrderContext.empty with
+        Id = id
+        Category = category
+        Scenarios = orderIds |> Array.map scenarioWithOrder
+    }
+
+
+let drug id orderId = context id OrderCategory.Drug [| orderId |]
+let nutrition id cat orderIds = context id (OrderCategory.Nutrition cat) orderIds
+
+
 let tests =
     testList
-        "Open"
+        "the plan without a projection"
         [
-            test "the contexts as they were, their orders derived, nothing evaluated" {
-                let stepped =
-                    { OrderContext.empty with
-                        Id = "c-p"
-                        OrderContext.Filter.Generic = Some "paracetamol"
-                        OrderContext.Filter.Generics = [| "paracetamol"; "ibuprofen" |]
-                        Scenarios = [| scenarioWithOrder "o-p" |]
-                    }
+            test "the orders counted are those of the contexts the filter keeps" {
+                let plan =
+                    { Filtered = [||]
+                      OrderContexts = [| drug "c-d" "o-d"; nutrition "c-w" NutritionCategory.TPN [| "o-1"; "o-2" |]; drug "c-e" "o-e" |] }
 
-                let wide =
-                    { OrderContext.empty with
-                        Id = "c-w"
-                        Category = OrderCategory.Nutrition NutritionCategory.TPN
-                        Scenarios = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
-                    }
+                plan |> counted |> Expect.equal "all narrowed" [| "o-d"; "o-e" |]
+                { plan with Filtered = [| "c-e" |] } |> counted |> Expect.equal "the filtered one" [| "o-e" |]
+                { plan with Filtered = [| "c-w" |] } |> counted |> Expect.isEmpty "a wide context counts nothing"
+            }
 
-                let p = openWith Patient.empty [| stepped; wide |]
+            test "a removed context leaves the filter; a feeding takes its supplements out of it too" {
+                let plan =
+                    { Filtered = [| "c-f"; "c-s"; "c-t" |]
+                      OrderContexts =
+                        [| nutrition "c-f" NutritionCategory.EnteralFeeding [| "o-f" |]
+                           nutrition "c-s" NutritionCategory.EnteralSupplement [| "o-s" |]
+                           nutrition "c-t" NutritionCategory.TPN [| "o-t" |] |] }
 
-                p.OrderContexts |> Expect.equal "the contexts as given, pick lists and all" [| stepped; wide |]
-                p.Scenarios |> Array.map _.Order.Id |> Expect.equal "the narrowed one's order" [| "o-p" |]
+                let p = plan |> removeContext "c-f"
+                p.OrderContexts |> Array.map _.Id |> Expect.equal "the tpn stays" [| "c-t" |]
+                p.Filtered |> Expect.equal "and is what the filter still names" [| "c-t" |]
+            }
 
-                openWith Patient.empty [||]
-                |> Expect.equal "no contexts: the empty plan" (OrderPlan.create Patient.empty [||])
+            test "a command without a context id lands in the context contributing the evaluated order" {
+                let plan = { Filtered = [||]; OrderContexts = [| drug "c-d" "o-d"; drug "c-e" "o-e" |] }
+                plan |> contextForEvaluated (drug "" "o-e") |> Expect.equal "c-e" (Some "c-e")
+                plan |> contextForEvaluated (drug "" "o-x") |> Expect.equal "unknown order: none" None
+                plan |> contextForEvaluated (nutrition "" NutritionCategory.TPN [| "o-1"; "o-2" |]) |> Expect.equal "wide: none" None
             }
         ]
 
