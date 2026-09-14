@@ -391,7 +391,8 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 | 6, the signed record stores the contexts | #679 | `SignedOrderPlan.OrderContexts`, the challenge and the commit over contexts, `Open`, `LoadCart` sends `Open`; #666 closed; review: orders must be the contexts' own until `Scenarios` goes, the newest open wins |
 | 7, `Scenarios` and `Selected` off the plan | #680 | `OrderPlan = { Patient; Filtered: ids; OrderContexts; Totals }`, the orders derived everywhere, the selection and the filter the client's own on `IOrderPlan`, `ShowOrderPlan` retired, the server's projection bookkeeping gone; review: the row checkboxes greyed while the plan is busy |
 | 8, the old cases deleted, the names settled | #681 | `Navigate` by id only; `RemoveContext`, `RemoveOrders`, `removeOrders`, `fromOrderScenario` gone; `AddOrderContext`, `NewOrderContext`, `RemoveOrderContexts` with their port members and service functions |
-| 9, `OrderPlanMachine.fs` and its tests | this PR | `OrderPlanState`, `OrderPlanMsg`, `OrderPlanEffect`, `OrderPlanState.transition`, linked into the shared tests; not wired |
+| 9, `OrderPlanMachine.fs` and its tests | #683 | `OrderPlanState`, `OrderPlanMsg`, `OrderPlanEffect`, `OrderPlanState.transition`, linked into the shared tests; not wired; review: the interactions checked on every answer |
+| 10, the order-plan machine wired | this PR | `State.OrderPlan: OrderPlanState`, `interpretOrderPlanEffect`, the answer told to the Session and handed to the machine under its request; the six plan handlers, the patient check and the pending-open marker gone |
 
 ### Deviations from the text above
 

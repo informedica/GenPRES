@@ -69,6 +69,15 @@ module OrderPlanState =
         | OrderPlanState.Recalculating(tp, _, _, _) -> Some tp
 
 
+    /// The context the dialog shows, by id; none while it is closed or there is no plan.
+    let selected (state: OrderPlanState) =
+        match state with
+        | OrderPlanState.NoPatient
+        | OrderPlanState.Loading _ -> None
+        | OrderPlanState.Shown(_, selected)
+        | OrderPlanState.Recalculating(_, selected, _, _) -> selected
+
+
     /// The patient the plan is for, none without one.
     let patient (state: OrderPlanState) =
         match state with
