@@ -70,8 +70,8 @@ stores the contexts, so a reopen is the signed plan as it was, nothing rebuilt a
 guessed. The prescribing workbench is the same type, a context not yet in the plan, on its own
 lane; the prescribe button moves it into the plan. `Navigate` always names a context and
 evaluates it over the context's own patient. Removal is one command for every kind. On the
-client, a pure `PlanMachine` and a pure
-`ContextMachine` replace the `Deferred` handling, with the same shape and the same tests as the
+client, a pure `OrderPlanMachine` and a pure
+`OrderContextMachine` replace the `Deferred` handling, with the same shape and the same tests as the
 session and signing machines.
 
 ### Wire (`Shared/Types.fs`, `Shared/Api.fs`, `Shared/Models.fs`)
@@ -260,7 +260,7 @@ handlers; the machines then replace the handlers behind a surface that no longer
 - `App.fs`: `State.OrderPlan: OrderPlanState` and `State.OrderContext: OrderContextState`
   replace the two `Deferred` fields; `interpretOrderPlanEffect` and
   `interpretOrderContextEffect` in the shape of `interpretSessionEffect`;
-  `SessionEffect.LoadCart` becomes `PlanMsg.Cart`; the machines' `SetPatient` effects still go
+  `SessionEffect.LoadCart` becomes `OrderPlanMsg.Cart`; the machines' `SetPatient` effects still go
   through `UpdatePatient`, which now sends `PatientChanged` to both; the six handlers and
   `planOf`, `withPlan`, `applyPlan`, `handleOrderContext` are deleted.
 
