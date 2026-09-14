@@ -1,15 +1,15 @@
-// AddOrder and RemoveContexts (plan 667, step 4, reordered before the signed record and the
-// wire cleanup: a drug order needs a context first), the server half.
-//   - `addOrder`: the prescribing workbench into the plan as a drug context with a minted id,
-//     its one scenario the order it contributes; refused when the workbench is not narrowed to
-//     one scenario, and when the plan already holds that order (the signing challenge would
-//     refuse the plan later, so it is said now);
-//   - `removeContexts`: every kind by id, each with its order, a feeding with its supplements.
-// Both over the real types (the plan is its contexts since step 3).
+// The signed record stores the contexts (plan 667, step 6), the server half.
+//   - `PlanService.openWith`: the plan opened on a signed version, the contexts as they were,
+//     nothing evaluated, their orders derived; the patient with no contexts is the empty plan.
+//     (`open` is a keyword, hence the name.)
+//   - the signing challenge (`ServerApi.Session.fs`): `Challenge.OrderContexts` next to
+//     `Scenarios`, stored at the challenge, compared at the submission as the orders are, and
+//     written into the version in place of the scenarios. Not drafted here: the session is a
+//     state machine over its record; the server tests cover it.
 //
-// Script-first draft (script-only policy) of what goes to `ServerApi.Services.fs`
-// (`PlanService`), with the port members, the adapter, the dispatch arms and the client's
-// `planOf`/`withPlan` arms in the migration.
+// Script-first draft (script-only policy) of what goes to `ServerApi.Services.fs`, with the
+// port member, the adapter, the dispatch arm and the client's `LoadCart` sending `Open` in the
+// migration.
 //
 // Run: `dotnet fsi Plan.fsx` from this directory (build first).
 
@@ -26,31 +26,13 @@ open ServerApi
 
 module PlanService667 =
 
-    let contribution = OrderContext.contribution
-
-    /// The contexts named removed, every kind, each with its order; a feeding takes its
-    /// supplements with it.
-    let removeContexts (ids: string[]) (plan: OrderPlan) =
-        ids |> Array.fold (fun p id -> p |> PlanService.removeContext id) plan
-
-
-    /// The prescribing workbench into the plan as a drug context with a minted id, its one
-    /// scenario the order it contributes.
-    let addOrder (newId: unit -> string) (ctx: OrderContext) (plan: OrderPlan) =
-        match contribution ctx with
-        | None -> Error [| $"The workbench holds %i{ctx.Scenarios.Length} candidates, not one order" |]
-        | Some sc when plan.Scenarios |> Array.exists (fun s -> s.Order.Id = sc.Order.Id) ->
-            Error [| "The plan already holds this order" |]
-        | Some sc ->
-            let added =
-                { ctx with
-                    Id = newId ()
-                    Category = OrderCategory.Drug
-                }
-
-            { plan with OrderContexts = Array.append plan.OrderContexts [| added |] }
-            |> PlanService.withOrders None (Some sc)
-            |> Ok
+    /// The plan opened on a signed version: the contexts as they were, nothing evaluated, so the
+    /// pick lists, the candidates and the stepped values are what was signed; the orders derived
+    /// from them. The patient with no contexts is the empty plan.
+    let openWith (pat: Patient) (contexts: OrderContext[]) =
+        { OrderPlan.create pat (contexts |> Array.choose OrderContext.contribution) with
+            OrderContexts = contexts
+        }
 
 
 open Expecto
@@ -83,68 +65,33 @@ let scenarioWithOrder (id: string) : OrderScenario =
     { scenario with Order = { scenario.Order with Id = id } }
 
 
-let context id category (scenarios: OrderScenario[]) =
-    { OrderContext.empty with
-        Id = id
-        Category = OrderCategory.Nutrition category
-        Scenarios = scenarios
-    }
-
-
-let plan contexts scenarios =
-    { OrderPlan.create Patient.empty scenarios with OrderContexts = contexts }
-
-
-let ids (p: OrderPlan) = p.Scenarios |> Array.map _.Order.Id
-
-
 let tests =
     testList
-        "AddOrder and RemoveContexts"
+        "Open"
         [
-            test "the workbench into the plan as a drug context, once, and only narrowed to one order" {
-                let newId () = "c-new"
-
-                let workbench =
+            test "the contexts as they were, their orders derived, nothing evaluated" {
+                let stepped =
                     { OrderContext.empty with
+                        Id = "c-p"
                         OrderContext.Filter.Generic = Some "paracetamol"
+                        OrderContext.Filter.Generics = [| "paracetamol"; "ibuprofen" |]
                         Scenarios = [| scenarioWithOrder "o-p" |]
                     }
 
-                let p =
-                    plan [||] [| scenarioWithOrder "o-drug" |]
-                    |> addOrder newId workbench
-                    |> Result.defaultWith (fun errs -> failtest $"{errs}")
+                let wide =
+                    { OrderContext.empty with
+                        Id = "c-w"
+                        Category = OrderCategory.Nutrition NutritionCategory.TPN
+                        Scenarios = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
+                    }
 
-                let added = p.OrderContexts |> Array.exactlyOne
-                added.Id |> Expect.equal "the minted id" "c-new"
-                added.Category |> Expect.equal "a drug" OrderCategory.Drug
-                added.Filter.Generic |> Expect.equal "the workbench as it was" (Some "paracetamol")
-                ids p |> Expect.equal "its order after the others" [| "o-drug"; "o-p" |]
+                let p = openWith Patient.empty [| stepped; wide |]
 
-                p
-                |> addOrder newId workbench
-                |> Expect.equal "the same order twice refused" (Error [| "The plan already holds this order" |])
+                p.OrderContexts |> Expect.equal "the contexts as given, pick lists and all" [| stepped; wide |]
+                p.Scenarios |> Array.map _.Order.Id |> Expect.equal "the narrowed one's order" [| "o-p" |]
 
-                plan [||] [||]
-                |> addOrder newId { workbench with Scenarios = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |] }
-                |> Expect.equal "not narrowed refused" (Error [| "The workbench holds 2 candidates, not one order" |])
-            }
-
-            test "removing contexts of every kind: each takes its order, a feeding its supplements" {
-                let drug = { OrderContext.empty with Id = "c-d"; Scenarios = [| scenarioWithOrder "o-d" |] }
-                let feeding = context "c-f" NutritionCategory.EnteralFeeding [| scenarioWithOrder "o-f" |]
-                let supplement = context "c-s" NutritionCategory.EnteralSupplement [| scenarioWithOrder "o-s" |]
-                let tpn = context "c-t" NutritionCategory.TPN [| scenarioWithOrder "o-t" |]
-
-                let p =
-                    plan
-                        [| drug; feeding; supplement; tpn |]
-                        [| scenarioWithOrder "o-d"; scenarioWithOrder "o-f"; scenarioWithOrder "o-s"; scenarioWithOrder "o-t" |]
-                    |> removeContexts [| "c-d"; "c-f" |]
-
-                p.OrderContexts |> Array.map _.Id |> Expect.equal "the tpn stays" [| "c-t" |]
-                ids p |> Expect.equal "with its order" [| "o-t" |]
+                openWith Patient.empty [||]
+                |> Expect.equal "no contexts: the empty plan" (OrderPlan.create Patient.empty [||])
             }
         ]
 

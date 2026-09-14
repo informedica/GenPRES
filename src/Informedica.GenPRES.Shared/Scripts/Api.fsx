@@ -1,15 +1,17 @@
-// AddOrder and RemoveContexts (plan 667, step 4, reordered: a drug order needs a context before
-// the signed record can store contexts and before `Scenarios` can leave the plan, so these two
-// commands come before both). `AddOrder` moves the prescribing workbench into the plan as a
-// drug context; `RemoveContexts` removes contexts of every kind by id. Both beside the old
-// cases, which go in the deletion step.
+// The signed record stores the contexts (plan 667, step 6): a signed version holds every order
+// context of the plan as it was at the signature, its order inside, instead of the scenarios
+// alone. A reopen is then the plan as it was: `PlanCommand.Open` hands the contexts back with
+// nothing evaluated, the pick lists, the candidates and the stepped values included. The
+// signing challenge compares the contexts as it compares the orders. Closes #666.
 //
-// Script-first draft (script-only policy) of the two cases and their log names, → `Shared/Api.fs`.
+// Script-first draft (script-only policy) of what goes to `Shared/Types.fs` and `Shared/Api.fs`;
+// the server half is in `Server/Scripts/Plan.fsx`.
 //
 // Run: `dotnet fsi Api.fsx` from this directory.
 
 #I __SOURCE_DIRECTORY__
 #r "nuget: Expecto, 10.2.3"
+#r "nuget: Fable.Remoting.Json, 3.0"
 
 #load "../Types.fs"
 #load "../Calculations.fs"
@@ -19,55 +21,88 @@
 #load "../Api.fs"
 
 open Shared.Types
-open Shared.Api
 
 
-/// → `Shared/Api.fs`, `PlanCommand` with the two new cases.
+/// → `Shared/Types.fs`, in place of `SignedOrderPlan`.
+type SignedOrderPlan667 =
+    {
+        Head: OrderPlanHead
+        PatientId: string
+        Base: string option
+        // every context of the plan as signed: a reopen is the plan as it was
+        OrderContexts: OrderContext[]
+        Patient: Patient
+        Verified: bool
+    }
+
+
+/// → `Shared/Api.fs`, one more `PlanCommand` case and its log name.
 [<RequireQualifiedAccess>]
 type PlanCommand667 =
-    | Recalculate of OrderPlan
-    | Navigate of OrderPlan * contextId: string option * OrderContextCommand * OrderContext
-    | AddContext of OrderPlan * NutritionCategory
-    | RemoveContext of OrderPlan * contextId: string
-    | RemoveOrders of OrderPlan * ids: string[]
-    // the prescribing workbench, narrowed to one scenario, into the plan as a drug context
-    | AddOrder of OrderPlan * OrderContext
-    // the contexts named removed, every kind; a feeding takes its supplements with it
-    | RemoveContexts of OrderPlan * ids: string[]
+    // the signed version as it was, nothing evaluated: the contexts as given, their orders
+    // derived; the patient with no contexts is the empty plan
+    | Open of Patient * OrderContext[]
 
 
 module PlanCommand667 =
 
-    /// For the log: never the plan, never the workbench.
     let toString cmd =
         match cmd with
-        | PlanCommand667.Recalculate _ -> "Recalculate"
-        | PlanCommand667.Navigate(_, None, ctxCmd, _) -> $"Navigate {ctxCmd}"
-        | PlanCommand667.Navigate(_, Some _, ctxCmd, _) -> $"Navigate context {ctxCmd}"
-        | PlanCommand667.AddContext(_, category) -> $"AddContext {category}"
-        | PlanCommand667.RemoveContext _ -> "RemoveContext"
-        | PlanCommand667.RemoveOrders(_, ids) -> $"RemoveOrders %i{ids.Length}"
-        | PlanCommand667.AddOrder _ -> "AddOrder"
-        | PlanCommand667.RemoveContexts(_, ids) -> $"RemoveContexts %i{ids.Length}"
+        | PlanCommand667.Open(_, contexts) -> $"Open %i{contexts.Length}"
 
 
 open Expecto
 open Expecto.Flip
+open Newtonsoft.Json
+open Fable.Remoting.Json
 open Shared.Models
+
+
+let converters = [| FableJsonConverter() :> JsonConverter |]
+let toJson (v: 'a) = JsonConvert.SerializeObject(v, converters)
+let ofJson<'a> (json: string) = JsonConvert.DeserializeObject<'a>(json, converters)
 
 
 let tests =
     testList
-        "the two new plan commands"
+        "the signed record stores the contexts"
         [
-            test "the log names the command, never the workbench nor the plan" {
-                PlanCommand667.AddOrder(OrderPlan.empty, { OrderContext.empty with Id = "secret" })
-                |> PlanCommand667.toString
-                |> Expect.equal "the name" "AddOrder"
+            test "a version with two contexts round-trips on the wire, contexts and all" {
+                let signed: SignedOrderPlan667 =
+                    {
+                        Head =
+                            {
+                                Id = "plan-1"
+                                No = 1
+                                By =
+                                    {
+                                        UserId = "u"
+                                        DisplayName = "Stub Prescriber"
+                                        Role = UserRole.Prescriber
+                                    }
+                                SignedAt = System.DateTime(2026, 9, 14, 12, 0, 0, System.DateTimeKind.Utc)
+                            }
+                        PatientId = "p"
+                        Base = None
+                        OrderContexts =
+                            [|
+                                { OrderContext.empty with Id = "c-1" }
+                                { OrderContext.empty with
+                                    Id = "c-2"
+                                    Category = OrderCategory.Nutrition NutritionCategory.TPN
+                                }
+                            |]
+                        Patient = Patient.empty
+                        Verified = true
+                    }
 
-                PlanCommand667.RemoveContexts(OrderPlan.empty, [| "c-1"; "c-2" |])
+                signed |> toJson |> ofJson<SignedOrderPlan667> |> Expect.equal "the same version back" signed
+            }
+
+            test "the log names the count, never the contexts" {
+                PlanCommand667.Open(Patient.empty, [| OrderContext.empty; OrderContext.empty |])
                 |> PlanCommand667.toString
-                |> Expect.equal "the count" "RemoveContexts 2"
+                |> Expect.equal "the count" "Open 2"
             }
         ]
 
