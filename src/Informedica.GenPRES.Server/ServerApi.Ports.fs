@@ -27,6 +27,7 @@ type PlanPort =
         removeOrders: OrderPlan -> string[] -> Async<Result<OrderPlan, string[]>>
         addOrder: OrderPlan -> OrderContext -> Async<Result<OrderPlan, string[]>>
         removeContexts: OrderPlan -> string[] -> Async<Result<OrderPlan, string[]>>
+        openWith: Patient -> OrderContext[] -> Async<Result<OrderPlan, string[]>>
     }
 
 

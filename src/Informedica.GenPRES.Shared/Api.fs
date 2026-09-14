@@ -249,6 +249,9 @@ module Api =
         | AddOrder of OrderPlan * OrderContext
         // the contexts named removed, every kind; a feeding takes its supplements with it
         | RemoveContexts of OrderPlan * ids: string[]
+        // the signed version as it was, nothing evaluated: the contexts as given, their orders
+        // derived; the patient with no contexts is the empty plan
+        | Open of Patient * OrderContext[]
 
 
     module PlanCommand =
@@ -264,6 +267,7 @@ module Api =
             | PlanCommand.RemoveOrders(_, ids) -> $"RemoveOrders %i{ids.Length}"
             | PlanCommand.AddOrder _ -> "AddOrder"
             | PlanCommand.RemoveContexts(_, ids) -> $"RemoveContexts %i{ids.Length}"
+            | PlanCommand.Open(_, contexts) -> $"Open %i{contexts.Length}"
 
 
     /// Defines how routes are generated on server and mapped from the client

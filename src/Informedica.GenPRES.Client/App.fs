@@ -361,6 +361,8 @@ module private Elmish =
         | Api.PlanCommand.RemoveOrders(plan, _)
         | Api.PlanCommand.AddOrder(plan, _)
         | Api.PlanCommand.RemoveContexts(plan, _) -> plan
+        // a refused open lands on the empty plan for the patient
+        | Api.PlanCommand.Open(pat, _) -> OrderPlan.create pat [||]
 
 
     /// The command over the plan the state holds instead of the one it was made with.
@@ -373,6 +375,8 @@ module private Elmish =
         | Api.PlanCommand.RemoveOrders(_, ids) -> Api.PlanCommand.RemoveOrders(plan, ids)
         | Api.PlanCommand.AddOrder(_, ctx) -> Api.PlanCommand.AddOrder(plan, ctx)
         | Api.PlanCommand.RemoveContexts(_, ids) -> Api.PlanCommand.RemoveContexts(plan, ids)
+        // carries no plan to rebase
+        | Api.PlanCommand.Open _ -> cmd
 
 
     let loadFormulary opened =
@@ -1161,8 +1165,7 @@ module private Elmish =
 
         | LoadCart head ->
             match state.Patient with
-            | Some pat ->
-                state, Cmd.ofMsg (OrderPlanMsg(Api.PlanCommand.Recalculate(OrderPlan.create pat head.Scenarios)))
+            | Some pat -> state, Cmd.ofMsg (OrderPlanMsg(Api.PlanCommand.Open(pat, head.OrderContexts)))
             | None -> state, Cmd.none
 
         | UpdatePatient pat ->
@@ -1536,6 +1539,10 @@ module private Elmish =
             match cmd with
             | Api.PlanCommand.Recalculate tp ->
                 { state with OrderPlan = Resolved tp }, Cmd.ofMsg (LoadOrderPlanResult(cmd, Started))
+            // the signed version replaces whatever plan there was
+            | Api.PlanCommand.Open(pat, _) ->
+                { state with OrderPlan = Resolved(OrderPlan.create pat [||]) },
+                Cmd.ofMsg (LoadOrderPlanResult(cmd, Started))
             // a change to the plan: one at a time, over the plan as it is
             | Api.PlanCommand.Navigate(tp, _, _, _)
             | Api.PlanCommand.AddContext(tp, _)

@@ -623,15 +623,16 @@ module Types =
 
 
     /// A signed version of an order plan, as the record holds it: the head, the patient, the
-    /// version it was signed over (`Base`, `None` for the first), the orders as shown at the
-    /// signature, the patient data the User saw and whether it was the platform's reading at
-    /// the challenge.
+    /// version it was signed over (`Base`, `None` for the first), the order contexts as they
+    /// were at the signature with their orders inside, the patient data the User saw and
+    /// whether it was the platform's reading at the challenge.
     type SignedOrderPlan =
         {
             Head: OrderPlanHead
             PatientId: string
             Base: string option
-            Scenarios: OrderScenario[]
+            // every context of the plan as signed: a reopen is the plan as it was
+            OrderContexts: OrderContext[]
             Patient: Patient
             Verified: bool
         }

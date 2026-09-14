@@ -128,7 +128,7 @@ module SessionMachineTests =
                                 }
                             PatientId = "p"
                             Base = None
-                            Scenarios = [||]
+                            OrderContexts = [||]
                             Patient = patient
                             Verified = true
                         }
@@ -618,7 +618,7 @@ module SessionMachineTests =
                     }
                 PatientId = "p"
                 Base = Some "plan-1"
-                Scenarios = [||]
+                OrderContexts = [||]
                 Patient = patient
                 Verified = true
             }

@@ -461,6 +461,8 @@ module Session =
             Nonce: string
             Patient: Patient
             Scenarios: OrderScenario[]
+            // the contexts as challenged: what the version stores, compared as the orders are
+            OrderContexts: OrderContext[]
             // the platform's reading at the challenge, none when it could not be read
             Reading: Patient option
             Expiry: DateTime
@@ -1137,6 +1139,7 @@ module Session =
                                             Nonce = nonce
                                             Patient = plan.Patient
                                             Scenarios = plan.Scenarios
+                                            OrderContexts = plan.OrderContexts
                                             Reading = current
                                             Expiry = now + challengeLifetime
                                         }
@@ -1206,6 +1209,7 @@ module Session =
                                     challenge.Nonce <> submission.Challenge
                                     || challenge.Patient <> submission.Plan.Patient
                                     || challenge.Scenarios <> submission.Plan.Scenarios
+                                    || challenge.OrderContexts <> submission.Plan.OrderContexts
                                     || duplicateOrders submission.Plan.Scenarios
                                     ->
                                     refuse SigningRefusal.ChallengeMismatch
@@ -1236,7 +1240,7 @@ module Session =
                                                     }
                                                 PatientId = patient.PatientId
                                                 Base = record.OpenedWith
-                                                Scenarios = challenge.Scenarios
+                                                OrderContexts = challenge.OrderContexts
                                                 Patient = challenge.Patient
                                                 Verified = challenge.Reading.IsSome
                                             }

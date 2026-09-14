@@ -31,7 +31,7 @@ module Fixtures =
                 }
             PatientId = "stub-patient"
             Base = None
-            Scenarios = [||]
+            OrderContexts = [||]
             Patient = patient
             Verified = true
         }

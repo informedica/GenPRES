@@ -384,7 +384,8 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 | 2, the category on the context | #674 | `OrderCategory`, `OrderContext.Id`/`Category`, the derived label, `addContext` stamping |
 | 3, the plan is its contexts | #676 | `OrderPlan.OrderContexts`, the wrapper gone, the admission rule on the server; review: electrolyte and glucose lines any number |
 | 4, `AddOrder` and `RemoveContexts` | #677 | the two commands beside the old ones, the port, the adapter, the dispatch, the client arms; review: the client's plan dispatch routes them too |
-| 5, the views on the new commands | this PR | Prescribe sends `AddOrder`, the button greyed on an order the plan holds; the order-plan dialog navigates into the order's context, deletion by `RemoveContexts`; the nutrition page on `RemoveContexts` |
+| 5, the views on the new commands | #678 | Prescribe sends `AddOrder`, the button greyed on an order the plan holds; the order-plan dialog navigates into the order's context, deletion by `RemoveContexts`; the nutrition page on `RemoveContexts`; review: a plan answer over another patient is dropped, no prescribe while the plan is busy |
+| 6, the signed record stores the contexts | this PR | `SignedOrderPlan.OrderContexts`, the challenge and the commit over contexts, `Open`, `LoadCart` sends `Open`; #666 closed |
 
 ### Deviations from the text above
 
