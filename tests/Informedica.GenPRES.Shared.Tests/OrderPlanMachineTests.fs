@@ -291,6 +291,19 @@ let tests =
                             "the plan held, rows and totals in step"
                             (OrderPlanState.Shown(one, None), [ OrderPlanEffect.TellError [| "no dose rules" |] ])
 
+                        // a page's recalculation, the dialog open: back to the plan held, the dialog kept
+                        let filtered = { one with Filtered = [| "c-1" |] }
+
+                        let recalculating, _ =
+                            transition
+                                (OrderPlanMsg.Command(OrderPlanCommand.Recalculate filtered, "r-1"))
+                                (OrderPlanState.Shown(one, Some "c-1"))
+
+                        transition (OrderPlanMsg.Answered("r-1", Error [| "no dose rules" |])) recalculating
+                        |> Expect.equal
+                            "the plan held, the selection kept"
+                            (OrderPlanState.Shown(one, Some "c-1"), [ OrderPlanEffect.TellError [| "no dose rules" |] ])
+
                         let opening = OrderPlanState.Loading(patient, [||], "r-1")
 
                         transition (OrderPlanMsg.Answered("r-1", Error [| "not loaded" |])) opening
