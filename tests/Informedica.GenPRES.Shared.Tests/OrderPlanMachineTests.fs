@@ -112,7 +112,7 @@ let tests =
                         let loading, effects =
                             transition (OrderPlanMsg.PatientChanged(Some patient, "r-1")) OrderPlanState.NoPatient
 
-                        loading |> Expect.equal "loading" (OrderPlanState.Loading(patient, "r-1"))
+                        loading |> Expect.equal "loading" (OrderPlanState.Loading(patient, [||], "r-1"))
 
                         effects
                         |> Expect.equal
@@ -173,12 +173,16 @@ let tests =
                         let first, _ = transition (OrderPlanMsg.Cart(head, "r-1")) shown
 
                         first
-                        |> Expect.equal "loading the version" (OrderPlanState.Loading(patient, "r-1"))
+                        |> Expect.equal
+                            "loading the version"
+                            (OrderPlanState.Loading(patient, two.OrderContexts, "r-1"))
 
                         let second, effects = transition (OrderPlanMsg.Cart(head, "r-2")) first
 
                         second
-                        |> Expect.equal "the newer open in flight" (OrderPlanState.Loading(patient, "r-2"))
+                        |> Expect.equal
+                            "the newer open in flight"
+                            (OrderPlanState.Loading(patient, two.OrderContexts, "r-2"))
 
                         effects
                         |> Expect.equal
@@ -196,6 +200,18 @@ let tests =
                             (OrderPlanState.Shown(two, None),
                              [
                                  OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ]
+                             ])
+                    }
+
+                    test "a patient changed while a version opens re-opens it for the new patient" {
+                        let opening = OrderPlanState.Loading(patient, two.OrderContexts, "r-1")
+
+                        transition (OrderPlanMsg.PatientChanged(Some other, "r-2")) opening
+                        |> Expect.equal
+                            "the version's contexts opened again, the older open's answer to nothing"
+                            (OrderPlanState.Loading(other, two.OrderContexts, "r-2"),
+                             [
+                                 OrderPlanEffect.CallPlan(OrderPlanCommand.Open(other, two.OrderContexts), "r-2")
                              ])
                     }
 
@@ -268,7 +284,7 @@ let tests =
                             "as found"
                             (OrderPlanState.Shown(one, Some "c-1"), [ OrderPlanEffect.TellError [| "no dose rules" |] ])
 
-                        let opening = OrderPlanState.Loading(patient, "r-1")
+                        let opening = OrderPlanState.Loading(patient, [||], "r-1")
 
                         transition (OrderPlanMsg.Answered("r-1", Error [| "not loaded" |])) opening
                         |> Expect.equal
