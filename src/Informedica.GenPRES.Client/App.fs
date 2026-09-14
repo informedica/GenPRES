@@ -354,16 +354,6 @@ module private Elmish =
             { state with InteractionDrugNames = Resolved names }, Cmd.none
 
 
-    /// The plan as the pages read it: while a change is under way, the plan as the page changed
-    /// it.
-    let orderPlanToDeferred (state: OrderPlanState) : Deferred<OrderPlan> =
-        match state with
-        | OrderPlanState.NoPatient -> HasNotStartedYet
-        | OrderPlanState.Loading _ -> InProgress
-        | OrderPlanState.Shown(tp, _) -> Resolved tp
-        | OrderPlanState.Recalculating(tp, _, _, sent) -> Recalculating(OrderPlanState.meanwhile tp sent)
-
-
     let loadFormulary opened =
         createApiMsg serverApi.processFormulary opened LoadFormulary
 
@@ -599,7 +589,7 @@ module private Elmish =
                     |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
                     |> OrderContextState.seeded
             // the patient reaches the plan through UpdatePatient
-            OrderPlan = OrderPlanState.NoPatient
+            OrderPlan = OrderPlanState.noPatient
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
             Interactions = HasNotStartedYet
@@ -1718,7 +1708,7 @@ type private ConcreteAppEnv
             OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
 
     interface AppEnv.IOrderPlan with
-        member _.OrderPlan = state.OrderPlan |> orderPlanToDeferred
+        member _.OrderPlan = state.OrderPlan |> OrderPlanState.toDeferred
 
         member _.OrderPlanCommand cmd =
             OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch
