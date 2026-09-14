@@ -1423,7 +1423,7 @@ module Nutrition =
                     if hasSupplements then
                         setConfirmDeleteTarget (Some nc.Id)
                     else
-                        Api.PlanCommand.RemoveContext(plan, nc.Id) |> planCommand
+                        Api.PlanCommand.RemoveContexts(plan, [| nc.Id |]) |> planCommand
                 )
 
             NutritionSlot
@@ -1580,7 +1580,7 @@ module Nutrition =
                 fun _ ->
                     match confirmDeleteTarget, orderPlan with
                     | Some ncId, (Resolved plan | Recalculating plan) ->
-                        Api.PlanCommand.RemoveContext(plan, ncId) |> planCommand
+                        Api.PlanCommand.RemoveContexts(plan, [| ncId |]) |> planCommand
                     | _ -> ()
 
                     setConfirmDeleteTarget None

@@ -27,8 +27,7 @@ module Prescribe =
         let orderContextMsg = envOrderContext.OrderContextMsg
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
-
-        let updateOrderPlan tp = envOrderPlan.ShowOrderPlan tp
+        let planCommand = envOrderPlan.PlanCommand
 
         let localizationTerms =
             (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
@@ -165,10 +164,28 @@ module Prescribe =
 
                     orderContextMsg (Api.OrderContextCommand.SelectOrderScenario, ctx)
 
-                let appendScenarioToOrderPlan () =
+                // the workbench, narrowed to this scenario, into the plan as a drug context; the
+                // page switches to the plan when the server answers
+                let prescribe () =
                     match orderPlan with
-                    | Resolved tp -> { tp with Scenarios = [| sc |] |> Array.append tp.Scenarios } |> updateOrderPlan
+                    | Resolved tp ->
+                        let workbench =
+                            { pr with
+                                OrderContext.Filter.Form = Some sc.Form
+                                Scenarios = [| sc |]
+                            }
+
+                        planCommand (Api.PlanCommand.AddOrder(tp, workbench))
                     | _ -> ()
+
+                // the plan holds this order already: the server would refuse it
+                let inPlan =
+                    match orderPlan with
+                    | Resolved tp
+                    | Recalculating tp -> tp.Scenarios |> Array.exists (fun s -> s.Order.Id = sc.Order.Id)
+                    | _ -> false
+
+                let prescribeDisabled = isAnythingLoading || inPlan
 
                 let handleEditClick () =
                     setModalOpen true
@@ -316,8 +333,8 @@ module Prescribe =
                             >{Edit |> getTerm "bewerken"}</Button>
                             <Button
                                 size="small"
-                                disabled={isAnythingLoading}
-                                onClick={appendScenarioToOrderPlan}
+                                disabled={prescribeDisabled}
+                                onClick={prescribe}
                                 startIcon={Mui.Icons.Add}
                             >Voorschrijven</Button>
                         </CardActions>

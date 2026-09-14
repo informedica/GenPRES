@@ -24,11 +24,23 @@ module OrderPlan =
         let filterOrderPlan tp =
             planCommand (Api.PlanCommand.Recalculate tp)
 
-        // an order-context command over the selected scenario
+        // the context that contributes the order, by order id; none for an order without one
+        let contextOf (tp: OrderPlan) (orderId: string) =
+            tp.OrderContexts
+            |> Array.tryFind (fun c -> OrderContext.contribution c |> Option.exists (fun sc -> sc.Order.Id = orderId))
+
+        // the selected order's context in the plan; none while the order has no context yet
+        let selectedContext (tp: OrderPlan) =
+            tp.Selected |> Option.bind (fun sel -> contextOf tp sel.Order.Id)
+
+        // an order-context command into the selected order's context, or over the selected
+        // scenario alone while it has no context
         let orderContextMsg (cmd, ctx) =
             match orderPlan with
             | Resolved tp
-            | Recalculating tp -> planCommand (Api.PlanCommand.Navigate(tp, None, cmd, ctx))
+            | Recalculating tp ->
+                let contextId = selectedContext tp |> Option.map _.Id
+                planCommand (Api.PlanCommand.Navigate(tp, contextId, cmd, ctx))
             | _ -> ()
 
         let localizationTerms =
@@ -282,11 +294,19 @@ module OrderPlan =
             | Recalculating _ -> true
             | _ -> false
 
-        // the selected orders go by id, each with the workbench that contributed it
+        // the selected orders go by their contexts; by order id while any of them has no
+        // context yet
         let onDelete =
             fun () ->
                 match orderPlan with
-                | Resolved tp -> planCommand (Api.PlanCommand.RemoveOrders(tp, selectedRows))
+                | Resolved tp ->
+                    let contextIds =
+                        selectedRows |> Array.choose (fun id -> contextOf tp id |> Option.map _.Id)
+
+                    if contextIds.Length = selectedRows.Length then
+                        planCommand (Api.PlanCommand.RemoveContexts(tp, contextIds))
+                    else
+                        planCommand (Api.PlanCommand.RemoveOrders(tp, selectedRows))
                 | _ -> ()
 
         let updateOrderScenario (ctx: OrderContext) =
@@ -356,15 +376,21 @@ module OrderPlan =
                         orderContextMsg (Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty cmp, ctx)
             |}
 
+        // the selected order's context as the plan holds it, with everything the workbench knew;
+        // rebuilt around the scenario only while the order has no context
         let orderContext =
+            let contextFor (tp: OrderPlan) =
+                tp.Selected
+                |> Option.map (fun sc ->
+                    selectedContext tp
+                    |> Option.defaultWith (fun () -> OrderContext.fromOrderScenario tp.Patient sc)
+                )
+
             match orderPlan with
-            | Resolved tp ->
-                tp.Selected
-                |> Option.map (fun sc -> OrderContext.fromOrderScenario tp.Patient sc |> Resolved)
-                |> Option.defaultValue HasNotStartedYet
+            | Resolved tp -> contextFor tp |> Option.map Resolved |> Option.defaultValue HasNotStartedYet
             | Recalculating tp ->
-                tp.Selected
-                |> Option.map (fun sc -> OrderContext.fromOrderScenario tp.Patient sc |> Recalculating)
+                contextFor tp
+                |> Option.map Recalculating
                 |> Option.defaultValue HasNotStartedYet
             | _ -> HasNotStartedYet
 
