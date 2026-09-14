@@ -1,5 +1,5 @@
 ---
-last_commit_released: edfa4e893e931b13bf32d676e6ee62c828302fe8
+last_commit_released: a34c0cc0a759d492aedf62b8e4a57ab87c132a1e
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,40 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.22 - 2026-09-14
+
+### 🚀 Features
+
+* *(api)* Draft the category on the order context ([1de4ac21](https://github.com/informedica/GenPRES/commit/1de4ac21dfe4a321d86a759b64090ba750a03d8f))
+* *(api)* The category on the order context ([ad9db4f7](https://github.com/informedica/GenPRES/commit/ad9db4f7b06a3d126945d1e9bea5744bc02c36fc))
+* *(api)* Draft the plan as its contexts ([623c4f3b](https://github.com/informedica/GenPRES/commit/623c4f3b845b8afd27a490f77370f98893d71481))
+* *(api)* The plan is its contexts ([2ebd73f8](https://github.com/informedica/GenPRES/commit/2ebd73f85f5ca1f6e3b72bacf0bbb32d2f947a3d))
+* *(api)* Draft AddOrder and RemoveContexts ([876c70e9](https://github.com/informedica/GenPRES/commit/876c70e9a409b4c2e13cae0808926eddb2b59438))
+* *(api)* AddOrder and RemoveContexts ([c3e74b9c](https://github.com/informedica/GenPRES/commit/c3e74b9c682cc1e047e1c751df6c3d65e3629b23))
+* *(api)* Draft the signed record over the contexts ([122fdd5d](https://github.com/informedica/GenPRES/commit/122fdd5dd419028bfb7ba26fa5b1f97b8057662d))
+* *(api)* The signed record stores the contexts ([2d0f2bbf](https://github.com/informedica/GenPRES/commit/2d0f2bbfcb11f90817804b0081ae8a518d6d8804))
+* *(api)* Draft the plan without a projection ([ba482e33](https://github.com/informedica/GenPRES/commit/ba482e337db4cb3cc15b1daafd8061ae8242852a))
+* *(api)* Scenarios and Selected off the plan, Filtered as context ids ([6b0f22de](https://github.com/informedica/GenPRES/commit/6b0f22de8679ba5dcde5f57c3263fb2b0c33f317))
+* *(client)* The pages on AddOrder and RemoveContexts ([f806e0e6](https://github.com/informedica/GenPRES/commit/f806e0e68ac97cb9d85bf3145dbce27b8e245084))
+* *(client)* The order-plan state machine, not wired ([31b5fb63](https://github.com/informedica/GenPRES/commit/31b5fb63a4994e6628e7aa269e394e9777a57be9))
+* *(client)* The order-plan machine wired ([bcf76353](https://github.com/informedica/GenPRES/commit/bcf76353eaa7f6d850426f94774a6da1ab3b18c2))
+* *(client)* The order-context state machine, not wired ([48b99d19](https://github.com/informedica/GenPRES/commit/48b99d191444228eb1e147cf4f038bf94b1a64ff))
+* *(client)* The order-context machine wired ([37d7cced](https://github.com/informedica/GenPRES/commit/37d7cced28a5a8d0cb0f2ec1437151c91e6a8be3))
+
+### 🐞 Bug Fixes
+
+* *(client)* Route AddOrder and RemoveContexts as plan changes ([73a21c01](https://github.com/informedica/GenPRES/commit/73a21c018b14f88f203febe3211fcb7db396bbc4))
+* *(client)* Drop a plan answer over another patient; no prescribe while busy ([b7272d52](https://github.com/informedica/GenPRES/commit/b7272d52bdb237930ef01e1845af685e965053eb))
+* *(client)* Grey the plan's row checkboxes while the plan is busy ([8cf87d9c](https://github.com/informedica/GenPRES/commit/8cf87d9c8783f1f127f8fc3d9e2c712b0b53d4b2))
+* *(client)* Check interactions on every answered plan ([38591e77](https://github.com/informedica/GenPRES/commit/38591e77b8e249787e5effda6b1a8c33f314dc16))
+* *(client)* Withdraw only the interactions notice; rest the step buttons while loading ([b1bfa098](https://github.com/informedica/GenPRES/commit/b1bfa098a66573df516f6d5a122c232bf54eee5c))
+* *(client)* A refused workbench command restores the context last evaluated ([8c0cd369](https://github.com/informedica/GenPRES/commit/8c0cd36908a08890da9f8bd278f95cc426c1bb21))
+* *(client)* A patient change keeps the selection in flight; a refusal restores the pages too ([7f93c29c](https://github.com/informedica/GenPRES/commit/7f93c29c6d24a4374de56b5f1cc61103efa2d888))
+* *(server)* Admit any number of electrolyte and glucose lines ([83021440](https://github.com/informedica/GenPRES/commit/83021440c764987e2f0ef949c86abdd9c7297621))
+* *(server)* Sign only orders the contexts hold; the newest open wins ([b5e81670](https://github.com/informedica/GenPRES/commit/b5e81670f5a7c525de89aa5cca794e8c42970f7a))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/edfa4e893e931b13bf32d676e6ee62c828302fe8..a34c0cc0a759d492aedf62b8e4a57ab87c132a1e)</small></strong>
 
 ## 0.1.2-alpha.21 - 2026-09-12
 
