@@ -242,7 +242,7 @@ let tests =
                         |> Expect.equal "dropped while busy" (busy, [])
                     }
 
-                    test "a recalculation carries the plan as the page changed it" {
+                    test "a recalculation carries the plan as the page changed it; the plan held stays" {
                         let filtered = { one with Filtered = [| "c-1" |] }
 
                         let busy, _ =
@@ -250,8 +250,14 @@ let tests =
 
                         busy
                         |> Expect.equal
-                            "the page's plan"
-                            (OrderPlanState.Recalculating(filtered, None, "r-1", OrderPlanCommand.Recalculate filtered))
+                            "the plan held, the page's plan in the command"
+                            (OrderPlanState.Recalculating(one, None, "r-1", OrderPlanCommand.Recalculate filtered))
+
+                        OrderPlanState.meanwhile one (OrderPlanCommand.Recalculate filtered)
+                        |> Expect.equal "the pages show the page's plan meanwhile" filtered
+
+                        OrderPlanState.meanwhile one (OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |]))
+                        |> Expect.equal "and the plan held for any other change" one
                     }
 
                     test "the answer lands on its request: shown, the selection kept while its context is still there" {
@@ -275,13 +281,27 @@ let tests =
                         |> Expect.equal "a stale answer dropped" (kept, [])
                     }
 
-                    test "a refused change leaves the plan as the request found it, and says why" {
-                        let busy =
-                            OrderPlanState.Recalculating(one, Some "c-1", "r-1", OrderPlanCommand.Recalculate one)
+                    test "a failed filter change goes back to the original, and says why" {
+                        // the plan sent differs from the one held, so that the test can tell which
+                        // one a failed change leaves behind
+                        let busy, _ = transition (OrderPlanMsg.Filter([| "c-1" |], "r-1")) shown
 
                         transition (OrderPlanMsg.Answered("r-1", Error [| "no dose rules" |])) busy
                         |> Expect.equal
-                            "as found"
+                            "the plan held, rows and totals in step"
+                            (OrderPlanState.Shown(one, None), [ OrderPlanEffect.TellError [| "no dose rules" |] ])
+
+                        // a page's recalculation, the dialog open: back to the plan held, the dialog kept
+                        let filtered = { one with Filtered = [| "c-1" |] }
+
+                        let recalculating, _ =
+                            transition
+                                (OrderPlanMsg.Command(OrderPlanCommand.Recalculate filtered, "r-1"))
+                                (OrderPlanState.Shown(one, Some "c-1"))
+
+                        transition (OrderPlanMsg.Answered("r-1", Error [| "no dose rules" |])) recalculating
+                        |> Expect.equal
+                            "the plan held, the selection kept"
                             (OrderPlanState.Shown(one, Some "c-1"), [ OrderPlanEffect.TellError [| "no dose rules" |] ])
 
                         let opening = OrderPlanState.Loading(patient, [||], "r-1")
@@ -342,8 +362,8 @@ let tests =
 
                         state
                         |> Expect.equal
-                            "recalculating, the dialog closed"
-                            (OrderPlanState.Recalculating(filtered, None, "r-1", OrderPlanCommand.Recalculate filtered))
+                            "recalculating over the plan held, the rows in the command, the dialog closed"
+                            (OrderPlanState.Recalculating(one, None, "r-1", OrderPlanCommand.Recalculate filtered))
 
                         effects
                         |> Expect.equal
