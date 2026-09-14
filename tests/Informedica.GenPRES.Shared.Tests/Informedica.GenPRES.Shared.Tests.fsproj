@@ -17,6 +17,8 @@
     <Compile Include="..\..\src\Informedica.GenPRES.Client\LanguagePolicy.fs" />
     <Compile Include="LanguagePolicyTests.fs" />
     <Compile Include="Tests.fs" />
+    <!-- the client's Deferred is pure F#; linked in so the machines' projections to it can be tested -->
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\Deferred.fs" />
     <!-- the client session state machine is pure F#; linked in so it runs under Expecto -->
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SessionMachine.fs" />
     <Compile Include="SessionMachineTests.fs" />
