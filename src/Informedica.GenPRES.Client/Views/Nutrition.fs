@@ -81,7 +81,7 @@ module Nutrition =
             let ord, cmp =
                 match ctx with
                 | Resolved ctx
-                | Recalculating ctx ->
+                | Provisional ctx ->
                     match ctx.Scenarios with
                     | [| sc |] ->
                         let ord = sc.Order
@@ -1410,7 +1410,7 @@ module Nutrition =
 
         let isRecalculating =
             match orderPlan with
-            | Recalculating _ -> true
+            | Provisional _ -> true
             | _ -> false
 
         let confirmDeleteTarget, setConfirmDeleteTarget = React.useState<string option> None
@@ -1451,7 +1451,7 @@ module Nutrition =
         let content =
             match orderPlan with
             | Resolved plan
-            | Recalculating plan ->
+            | Provisional plan ->
                 let enteralContexts = plan.OrderContexts |> Array.filter (isOneOf enteral)
                 let parenteralContexts = plan.OrderContexts |> Array.filter (isOneOf parenteral)
 
@@ -1625,7 +1625,7 @@ module Nutrition =
 
         let printDialog =
             match printOpen, orderPlan with
-            | true, (Resolved plan | Recalculating plan) ->
+            | true, (Resolved plan | Provisional plan) ->
                 ParenteralPrintView
                     {|
                         plan = plan

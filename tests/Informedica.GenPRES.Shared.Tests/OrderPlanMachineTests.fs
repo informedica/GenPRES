@@ -398,11 +398,11 @@ let projectionTests =
 
                 recalculating one None "r-1" (OrderPlanCommand.Recalculate filtered)
                 |> OrderPlanState.toDeferred
-                |> Expect.equal "the rows chosen show at once" (Recalculating filtered)
+                |> Expect.equal "the rows chosen show at once" (Provisional filtered)
 
                 recalculating one None "r-1" (OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |]))
                 |> OrderPlanState.toDeferred
-                |> Expect.equal "the plan held" (Recalculating one)
+                |> Expect.equal "the plan held" (Provisional one)
             }
         ]
 

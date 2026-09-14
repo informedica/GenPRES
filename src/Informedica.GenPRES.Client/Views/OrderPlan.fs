@@ -32,7 +32,7 @@ module OrderPlan =
         // an order-context command into the selected context
         let orderContextMsg (cmd, ctx) =
             match orderPlan, envOrderPlan.Selected with
-            | (Resolved tp | Recalculating tp), Some id -> planCommand (Api.OrderPlanCommand.Navigate(tp, id, cmd, ctx))
+            | (Resolved tp | Provisional tp), Some id -> planCommand (Api.OrderPlanCommand.Navigate(tp, id, cmd, ctx))
             | _ -> ()
 
         let localizationTerms =
@@ -118,7 +118,7 @@ module OrderPlan =
 
             match orderPlan with
             | Resolved tp
-            | Recalculating tp ->
+            | Provisional tp ->
                 OrderPlan.orders tp
                 |> Array.map _.Order
                 |> Array.mapi (fun i o ->
@@ -233,7 +233,7 @@ module OrderPlan =
         let selectOrder id =
             match orderPlan with
             | Resolved tp
-            | Recalculating tp ->
+            | Provisional tp ->
                 match contextOf tp id with
                 | None -> Logging.error "Order not found" id
                 | Some c -> envOrderPlan.Select(Some c.Id)
@@ -253,7 +253,7 @@ module OrderPlan =
         let selectedRows =
             match orderPlan with
             | Resolved tp
-            | Recalculating tp when tp.Filtered |> Array.isEmpty |> not ->
+            | Provisional tp when tp.Filtered |> Array.isEmpty |> not ->
                 OrderPlan.filtered tp
                 |> Array.choose OrderContext.contribution
                 |> Array.map _.Order.Id
@@ -263,7 +263,7 @@ module OrderPlan =
         // so a click never sends a command that would be discarded
         let isRecalculating =
             match orderPlan with
-            | Recalculating _ -> true
+            | Provisional _ -> true
             | _ -> false
 
         // the contexts the filter keeps go, each with its order
@@ -347,16 +347,16 @@ module OrderPlan =
                 selectedContext tp
                 |> Option.map Resolved
                 |> Option.defaultValue HasNotStartedYet
-            | Recalculating tp ->
+            | Provisional tp ->
                 selectedContext tp
-                |> Option.map Recalculating
+                |> Option.map Provisional
                 |> Option.defaultValue HasNotStartedYet
             | _ -> HasNotStartedYet
 
         let deleteBtn =
             match orderPlan with
             | Resolved tp
-            | Recalculating tp when tp.Filtered |> Array.length > 0 ->
+            | Provisional tp when tp.Filtered |> Array.length > 0 ->
                 JSX.jsx
                     $"""
                 import Button from '@mui/material/Button';

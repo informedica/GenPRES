@@ -290,7 +290,7 @@ module OrderContextState =
         | Workbench.NoPatient, _ -> HasNotStartedYet
         | Workbench.Seeded ctx, _ -> Resolved ctx
         | Workbench.Unevaluated _, _ -> InProgress
-        | Workbench.Evaluated _, Some((_, sent), _) -> Recalculating sent
+        | Workbench.Evaluated _, Some((_, sent), _) -> Provisional sent
         | Workbench.Evaluated ctx, None -> Resolved ctx
 
 

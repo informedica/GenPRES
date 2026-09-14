@@ -325,7 +325,7 @@ let projectionTests =
 
                 inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1"
                 |> OrderContextState.toDeferred
-                |> Expect.equal "the context sent" (Recalculating stepped)
+                |> Expect.equal "the context sent" (Provisional stepped)
             }
         ]
 

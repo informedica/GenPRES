@@ -116,7 +116,7 @@ module Prescribe =
         let isAnythingLoading =
             match orderContext with
             | InProgress
-            | Recalculating _ -> true
+            | Provisional _ -> true
             | _ -> false
 
         let isSourceLoading source =
@@ -182,7 +182,7 @@ module Prescribe =
                 let inPlan =
                     match orderPlan with
                     | Resolved tp
-                    | Recalculating tp -> OrderPlan.orders tp |> Array.exists (fun s -> s.Order.Id = sc.Order.Id)
+                    | Provisional tp -> OrderPlan.orders tp |> Array.exists (fun s -> s.Order.Id = sc.Order.Id)
                     | _ -> false
 
                 // one change to the plan at a time: while it is busy a click would be dropped
@@ -366,7 +366,7 @@ module Prescribe =
                     </Typography>
                     {match orderContext with
                      | Resolved pr
-                     | Recalculating pr -> pr.Filter.Indication, pr.Filter.Indications
+                     | Provisional pr -> pr.Filter.Indication, pr.Filter.Indications
                      | _ -> None, [||]
                      |> fun (sel, items) ->
                          let isLoading = isSourceLoading IndicationLoading
@@ -379,7 +379,7 @@ module Prescribe =
                     <Stack direction={stackDirection} spacing={if isMobile then 1 else 3} >
                         {match orderContext with
                          | Resolved pr
-                         | Recalculating pr -> pr.Filter.Generic, pr.Filter.Generics
+                         | Provisional pr -> pr.Filter.Generic, pr.Filter.Generics
                          | _ -> None, [||]
                          |> fun (sel, items) ->
                              let isLoading = isSourceLoading MedicationLoading
@@ -393,7 +393,7 @@ module Prescribe =
                 }
                         {match orderContext with
                          | Resolved pr
-                         | Recalculating pr -> pr.Filter.Route, pr.Filter.Routes
+                         | Provisional pr -> pr.Filter.Route, pr.Filter.Routes
                          | _ -> None, [||]
                          |> fun (sel, items) ->
                              let isLoading = isSourceLoading RouteLoading
@@ -407,7 +407,7 @@ module Prescribe =
                 }
                         {match orderContext with
                          | Resolved ctx
-                         | Recalculating ctx when
+                         | Provisional ctx when
                              ctx.Filter.Forms |> Array.length >= 1
                              && (not isMobile || ctx.Scenarios |> Array.length <> 1)
                              ->
@@ -425,7 +425,7 @@ module Prescribe =
                                  items |> Array.map (fun s -> s, s) |> select isLoading lbl sel formChange}
                         {match orderContext with
                          | Resolved pr
-                         | Recalculating pr when
+                         | Provisional pr when
                              pr.Filter.Indication.IsSome
                              && pr.Filter.Generic.IsSome
                              && pr.Filter.Route.IsSome
@@ -443,7 +443,7 @@ module Prescribe =
                          | _ -> null}
                         {match orderContext with
                          | Resolved pr
-                         | Recalculating pr when
+                         | Provisional pr when
                              pr.Filter.Indication.IsSome
                              && pr.Filter.Generic.IsSome
                              && pr.Filter.Route.IsSome
@@ -468,7 +468,7 @@ module Prescribe =
                          | _ -> null}
                         {match orderContext with
                          | Resolved pr
-                         | Recalculating pr when
+                         | Provisional pr when
                              pr.Filter.Indication.IsSome
                              && pr.Filter.Generic.IsSome
                              && pr.Filter.Route.IsSome
@@ -493,7 +493,7 @@ module Prescribe =
                     <Stack direction="column" spacing={1} >
                         {match orderContext with
                          | Resolved pr
-                         | Recalculating pr ->
+                         | Provisional pr ->
                              pr.Scenarios
                              |> Array.map (displayScenario pr pr.Filter.Generic)
                              |> unbox<seq<ReactElement>>

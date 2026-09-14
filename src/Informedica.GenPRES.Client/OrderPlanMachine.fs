@@ -263,7 +263,7 @@ module OrderPlanState =
         match state.Plan, state.InFlight with
         | Plan.NoPatient, _ -> HasNotStartedYet
         | Plan.Unopened _, _ -> InProgress
-        | Plan.Opened tp, Some(sent, _) -> Recalculating(meanwhile tp sent)
+        | Plan.Opened tp, Some(sent, _) -> Provisional(meanwhile tp sent)
         | Plan.Opened tp, None -> Resolved tp
 
 
