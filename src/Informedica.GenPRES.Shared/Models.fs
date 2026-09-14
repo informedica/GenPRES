@@ -2138,28 +2138,6 @@ module Models =
 
         let setScenarios srs ctx : OrderContext = { ctx with Scenarios = srs }
 
-
-        let fromOrderScenario pat (sc: OrderScenario) : OrderContext =
-            let ord = sc.Order
-
-            {
-                Id = ""
-                Category = OrderCategory.Drug
-                DemoVersion = false
-                Filter =
-                    { filter with
-                        Indication = Some sc.Indication
-                        Generic = ord.Orderable.Name |> Some
-                        Form = sc.Form |> Some
-                        Route = ord.Route |> Some
-                        DoseType = sc.DoseType |> Some
-                    }
-                Patient = pat
-                Scenarios = [| sc |]
-                Intake = Totals.empty
-            }
-
-
         let indicationChange s (ctx: OrderContext) : OrderContext =
             if s |> Option.isNone then
                 { ctx with

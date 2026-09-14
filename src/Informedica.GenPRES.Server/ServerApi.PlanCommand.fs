@@ -11,9 +11,7 @@ module PlanCommand =
         match cmd with
         | PlanCommand.Recalculate plan -> env.plan.recalculate plan
         | PlanCommand.Navigate(plan, contextId, ctxCmd, ctx) -> env.plan.navigate plan contextId ctxCmd ctx
-        | PlanCommand.AddContext(plan, category) -> env.plan.addContext plan category
-        | PlanCommand.RemoveContext(plan, id) -> env.plan.removeContext plan id
-        | PlanCommand.RemoveOrders(plan, ids) -> env.plan.removeOrders plan ids
-        | PlanCommand.AddOrder(plan, ctx) -> env.plan.addOrder plan ctx
-        | PlanCommand.RemoveContexts(plan, ids) -> env.plan.removeContexts plan ids
+        | PlanCommand.AddOrderContext(plan, ctx) -> env.plan.addOrderContext plan ctx
+        | PlanCommand.NewOrderContext(plan, category) -> env.plan.newOrderContext plan category
+        | PlanCommand.RemoveOrderContexts(plan, ids) -> env.plan.removeOrderContexts plan ids
         | PlanCommand.Open(pat, contexts) -> env.plan.openWith pat contexts

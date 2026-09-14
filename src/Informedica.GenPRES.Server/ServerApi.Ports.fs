@@ -18,15 +18,14 @@ type OrderContextPort = { evaluate: OrderContextCommand -> OrderContext -> Async
 type PlanPort =
     {
         recalculate: OrderPlan -> Async<Result<OrderPlan, string[]>>
-        // the command into the nutrition context named, or into the selected scenario when None
-        navigate:
-            OrderPlan -> string option -> OrderContextCommand -> OrderContext -> Async<Result<OrderPlan, string[]>>
-        addContext: OrderPlan -> NutritionCategory -> Async<Result<OrderPlan, string[]>>
-        removeContext: OrderPlan -> string -> Async<Result<OrderPlan, string[]>>
-        // the orders named, each with the workbench that contributed it
-        removeOrders: OrderPlan -> string[] -> Async<Result<OrderPlan, string[]>>
-        addOrder: OrderPlan -> OrderContext -> Async<Result<OrderPlan, string[]>>
-        removeContexts: OrderPlan -> string[] -> Async<Result<OrderPlan, string[]>>
+        // the command into the context named
+        navigate: OrderPlan -> string -> OrderContextCommand -> OrderContext -> Async<Result<OrderPlan, string[]>>
+        // a workbench evaluated elsewhere into the plan as it is
+        addOrderContext: OrderPlan -> OrderContext -> Async<Result<OrderPlan, string[]>>
+        // a fresh workbench for a nutrition category, its filter discovered
+        newOrderContext: OrderPlan -> NutritionCategory -> Async<Result<OrderPlan, string[]>>
+        // the contexts named, every kind; a feeding takes its supplements with it
+        removeOrderContexts: OrderPlan -> string[] -> Async<Result<OrderPlan, string[]>>
         openWith: Patient -> OrderContext[] -> Async<Result<OrderPlan, string[]>>
     }
 

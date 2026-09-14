@@ -175,7 +175,7 @@ module Prescribe =
                                 Scenarios = [| sc |]
                             }
 
-                        planCommand (Api.PlanCommand.AddOrder(tp, workbench))
+                        planCommand (Api.PlanCommand.AddOrderContext(tp, workbench))
                     | _ -> ()
 
                 // the plan holds this order already: the server would refuse it

@@ -696,7 +696,7 @@ module PlanService =
     /// The context removed, and every enteral supplement with a feeding: the plan holds one
     /// feeding at most and a supplement only under it, so the feeding's supplements are all of
     /// them. Each takes its order with it, and leaves the filter.
-    let removeContext id (plan: OrderPlan) =
+    let removeOrderContext id (plan: OrderPlan) =
         let removed = plan.OrderContexts |> Array.tryFind (fun c -> c.Id = id)
 
         let cascade =
@@ -719,23 +719,15 @@ module PlanService =
 
     /// The contexts named removed, every kind, each with its order; a feeding takes its
     /// supplements with it.
-    let removeContexts (ids: string[]) (plan: OrderPlan) =
-        ids |> Array.fold (fun p id -> p |> removeContext id) plan
-
-
-    /// The orders named removed: each with the context that contributes it.
-    let removeOrders (ids: string[]) (plan: OrderPlan) =
-        plan.OrderContexts
-        |> Array.filter (fun c -> contribution c |> Option.exists (fun sc -> ids |> Array.contains sc.Order.Id))
-        |> Array.map _.Id
-        |> fun contextIds -> plan |> removeContexts contextIds
+    let removeOrderContexts (ids: string[]) (plan: OrderPlan) =
+        ids |> Array.fold (fun p id -> p |> removeOrderContext id) plan
 
 
     /// The prescribing workbench into the plan as a drug context with a minted id, its one
     /// scenario the order it contributes. Refused when the workbench is not narrowed to one
     /// scenario, and when the plan already holds that order: the signing challenge would refuse
     /// the plan later, so it is said now.
-    let addOrder (newId: unit -> string) (ctx: OrderContext) (plan: OrderPlan) =
+    let addOrderContext (newId: unit -> string) (ctx: OrderContext) (plan: OrderPlan) =
         match contribution ctx with
         | None ->
             Error
@@ -776,15 +768,14 @@ module PlanService =
         }
 
 
-    /// A command into the context named, or, when none is named, into the context that
-    /// contributes the evaluated order; `recalc` ends the answer in its totals (the adapter's
+    /// A command into the context named; `recalc` ends the answer in its totals (the adapter's
     /// `recalculate` over the provider's totals data). An evaluation that fails is the answer,
     /// not the plan as it was.
     let navigate
         (recalc: OrderPlan -> OrderPlan)
         (orderCtxPort: OrderContextPort)
         (plan: OrderPlan)
-        (contextId: string option)
+        (contextId: string)
         (ctxCmd: Api.OrderContextCommand)
         (ctx: OrderContext)
         =
@@ -793,24 +784,7 @@ module PlanService =
 
             return
                 result
-                |> Result.bind (fun resolved ->
-                    let id =
-                        match contextId with
-                        | Some id -> Some id
-                        | None ->
-                            contribution resolved
-                            |> Option.bind (fun sc ->
-                                plan.OrderContexts
-                                |> Array.tryFind (fun c ->
-                                    contribution c |> Option.exists (fun s -> s.Order.Id = sc.Order.Id)
-                                )
-                            )
-                            |> Option.map _.Id
-
-                    match id with
-                    | Some id -> plan |> updateContext id resolved
-                    | None -> Error [| "The plan holds no context for the order" |]
-                )
+                |> Result.bind (fun resolved -> plan |> updateContext contextId resolved)
                 |> Result.map recalc
         }
 
@@ -834,7 +808,7 @@ module PlanService =
 
 
     /// A nutrition context for the category, its filter discovered, appended to the plan.
-    let addContext
+    let newOrderContext
         (recalc: OrderPlan -> OrderPlan)
         (orderCtxPort: OrderContextPort)
         (plan: OrderPlan)

@@ -84,43 +84,29 @@ module Adapters =
                         let recalc = PlanService.recalculate (provider.GetTotals())
                         return! PlanService.navigate recalc orderCtxPort plan contextId ctxCmd ctx
                     }
-            addContext =
+            newOrderContext =
                 fun plan category ->
-                    PlanService.addContext (PlanService.recalculate (provider.GetTotals())) orderCtxPort plan category
-            removeContext =
-                fun plan id ->
-                    async {
-                        return
-                            plan
-                            |> PlanService.removeContext id
-                            |> PlanService.recalculate (provider.GetTotals())
-                            |> Ok
-                    }
-            removeOrders =
-                fun plan ids ->
-                    async {
-                        return
-                            plan
-                            |> PlanService.removeOrders ids
-                            |> PlanService.recalculate (provider.GetTotals())
-                            |> Ok
-                    }
-            addOrder =
+                    PlanService.newOrderContext
+                        (PlanService.recalculate (provider.GetTotals()))
+                        orderCtxPort
+                        plan
+                        category
+            addOrderContext =
                 fun plan ctx ->
                     async {
                         do! setComponentName "OrderPlan" agent
 
                         return
                             plan
-                            |> PlanService.addOrder (fun () -> System.Guid.NewGuid().ToString()) ctx
+                            |> PlanService.addOrderContext (fun () -> System.Guid.NewGuid().ToString()) ctx
                             |> Result.map (PlanService.recalculate (provider.GetTotals()))
                     }
-            removeContexts =
+            removeOrderContexts =
                 fun plan ids ->
                     async {
                         return
                             plan
-                            |> PlanService.removeContexts ids
+                            |> PlanService.removeOrderContexts ids
                             |> PlanService.recalculate (provider.GetTotals())
                             |> Ok
                     }
