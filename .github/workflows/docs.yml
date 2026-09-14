@@ -62,6 +62,18 @@ jobs:
       run: dotnet run ApiDocs
 
     - name: Upload Pages artifact
+      # The upload occasionally fails at FinalizeArtifact with a transient 403 from GitHub's 
+      # artifact backend, even though the upload itself succeeded.
+      # The @actions/artifact client treats that response as non-retryable internally, so a fresh 
+      # invocation is the only way to recover, continue-on-error plus a conditional retry step.
+      id: upload-pages-artifact
+      continue-on-error: true
+      uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      with:
+        path: output
+
+    - name: Retry Upload Pages artifact
+      if: steps.upload-pages-artifact.outcome == 'failure'
       uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
       with:
         path: output
