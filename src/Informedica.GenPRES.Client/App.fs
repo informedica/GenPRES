@@ -1573,6 +1573,12 @@ module private Elmish =
                     cmd
                     |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
 
+        // an answer over another patient than the one held now is stale: the patient changed
+        // while the request was in flight and its own recalculation is on its way; nothing of
+        // the answer is applied
+        | LoadOrderPlanResult(_, Finished(Ok msg)) when Some msg.Reply.Response.Patient <> state.Patient ->
+            state, Cmd.none
+
         | LoadOrderPlanResult(cmd, Finished(Ok msg)) ->
             let state, cmds = processApiMsg state msg applyPlan
 

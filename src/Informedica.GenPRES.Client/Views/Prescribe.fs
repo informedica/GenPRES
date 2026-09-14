@@ -185,7 +185,13 @@ module Prescribe =
                     | Recalculating tp -> tp.Scenarios |> Array.exists (fun s -> s.Order.Id = sc.Order.Id)
                     | _ -> false
 
-                let prescribeDisabled = isAnythingLoading || inPlan
+                // one change to the plan at a time: while it is busy a click would be dropped
+                let planBusy =
+                    match orderPlan with
+                    | Resolved _ -> false
+                    | _ -> true
+
+                let prescribeDisabled = isAnythingLoading || planBusy || inPlan
 
                 let handleEditClick () =
                     setModalOpen true
