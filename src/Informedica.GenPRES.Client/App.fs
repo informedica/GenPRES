@@ -15,6 +15,7 @@ open Global
 open SessionMachine
 open SigningMachine
 open OrderPlanMachine
+open OrderContextMachine
 
 
 module private Elmish =
@@ -28,7 +29,9 @@ module private Elmish =
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
             Products: Deferred<Product list>
-            OrderContext: Deferred<OrderContext>
+            // the prescribing workbench, as the order-context machine holds it; the pages read a
+            // projection
+            OrderContext: OrderContextState
             // the one plan, as the order-plan machine holds it; the pages read a projection
             OrderPlan: OrderPlanState
             Interactions: Deferred<DrugInteraction[]>
@@ -93,8 +96,11 @@ module private Elmish =
         | UpdateEmergencyListFilter of string[]
         | UpdateContinuousMedsFilter of string[]
 
-        | OrderContextMsg of Api.OrderContextCommand * OrderContext
-        | LoadOrderContextResult of Api.OrderContextCommand * ApiResponse<OrderContext>
+        // the prescribing workbench: the order-context machine's messages
+        | OrderContextMsg of OrderContextMsg
+        // the server's answer to a workbench request: the notice is told here, the context goes
+        // to the machine under the request it answers
+        | OrderContextAnswered of request: string * Answer<OrderContext>
 
         // the one plan, nutrition included: the order-plan machine's messages
         | OrderPlanMsg of OrderPlanMsg
@@ -187,6 +193,10 @@ module private Elmish =
         | _ -> None
 
 
+    /// A request id, minted at dispatch, so that an answer can name the request it answers.
+    let newRequest () = Guid.NewGuid().ToString()
+
+
     /// A computing request through the member given, with the OpenedToken the Session holds;
     /// the answer comes back with the token it started from.
     let createApiMsg
@@ -226,10 +236,6 @@ module private Elmish =
         |> Cmd.fromAsync
 
 
-    let applyOrderContext (state: State) (ctx: OrderContext) =
-        { state with OrderContext = Resolved ctx }, Cmd.none
-
-
     /// A reload settles when the refresh it started has answered: the order context over a
     /// patient, else the formulary.
     let settleReload (state: State) =
@@ -263,13 +269,16 @@ module private Elmish =
         | Api.AdminResponse.LogFileAnalyzed report -> { state with LogAnalysisReport = Resolved report }, Cmd.none
         | Api.AdminResponse.ResourcesReloaded ->
             let refresh =
-                match state.Patient, state.OrderContext with
-                | Some _, Resolved ctx
-                | Some _, Recalculating ctx ->
-                    Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, ctx))
-                | Some _, _ ->
-                    Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty))
-                | None, _ ->
+                match state.Patient with
+                // the workbench evaluated again, as it is, whatever was in flight
+                | Some _ ->
+                    let ctx =
+                        state.OrderContext
+                        |> OrderContextState.context
+                        |> Option.defaultValue OrderContext.empty
+
+                    Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+                | None ->
                     Cmd.batch
                         [
                             Cmd.ofMsg (LoadFormulary Started)
@@ -345,8 +354,14 @@ module private Elmish =
             { state with InteractionDrugNames = Resolved names }, Cmd.none
 
 
-    let loadOrderContext opened resp =
-        createApiMsg serverApi.processOrderContext opened resp
+    /// The workbench as the pages read it: a seed shows its filter while it waits.
+    let orderContextToDeferred (state: OrderContextState) : Deferred<OrderContext> =
+        match state with
+        | OrderContextState.NoPatient -> HasNotStartedYet
+        | OrderContextState.Seeded ctx -> Resolved ctx
+        | OrderContextState.Loading _ -> InProgress
+        | OrderContextState.Shown ctx -> Resolved ctx
+        | OrderContextState.Recalculating(sent, _, _) -> Recalculating sent
 
 
     /// The plan as the pages read it.
@@ -356,10 +371,6 @@ module private Elmish =
         | OrderPlanState.Loading _ -> InProgress
         | OrderPlanState.Shown(tp, _) -> Resolved tp
         | OrderPlanState.Recalculating(tp, _, _, _) -> Recalculating tp
-
-
-    /// A request id, minted at dispatch, so that an answer can name the request it answers.
-    let newRequest () = Guid.NewGuid().ToString()
 
 
     let loadFormulary opened =
@@ -588,13 +599,14 @@ module private Elmish =
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
+            // a medication in the url waits as the seed until the patient is set
             OrderContext =
                 match med with
-                | None -> HasNotStartedYet
+                | None -> OrderContextState.NoPatient
                 | Some m ->
                     OrderContext.empty
                     |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
-                    |> Resolved
+                    |> OrderContextState.Seeded
             // the patient reaches the plan through UpdatePatient
             OrderPlan = OrderPlanState.NoPatient
             Formulary = HasNotStartedYet
@@ -707,31 +719,6 @@ module private Elmish =
             |> Patient.applyNormalValues (Some nv.Weights) (Some nv.Heights) (Some nv.NeoWeights) (Some nv.NeoHeights)
             |> Some
         | _ -> pat
-
-
-    module CommandHandlers =
-
-
-        let handleOrderContext state cmd (ctx: OrderContext) =
-            let ctx = { ctx with Patient = state.Patient |> Option.defaultValue ctx.Patient }
-
-            let base' = { state with OrderContext = Resolved ctx }
-
-            match cmd with
-            | Api.OrderContextCommand.UpdateOrderContext ->
-                { base' with
-                    Formulary = base'.Formulary |> Deferred.map (OrderContext.syncFilterToFormulary ctx.Filter)
-                    Parenteralia =
-                        base'.Parenteralia
-                        |> Deferred.map (OrderContext.syncFilterToParenteralia ctx.Filter)
-                },
-                Cmd.batch
-                    [
-                        Cmd.ofMsg (LoadOrderContextResult(cmd, Started))
-                        Cmd.ofMsg (LoadFormulary Started)
-                        Cmd.ofMsg (LoadParenteralia Started)
-                    ]
-            | _ -> base', Cmd.ofMsg (LoadOrderContextResult(cmd, Started))
 
 
     /// One command per session effect. A transport failure
@@ -920,10 +907,47 @@ module private Elmish =
             }
             |> Cmd.fromAsync
         | OrderPlanEffect.CheckInteractions drugs -> Cmd.ofMsg (CheckInteractions drugs)
-        | OrderPlanEffect.ResetWorkbench ->
-            Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty))
+        | OrderPlanEffect.ResetWorkbench -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
         | OrderPlanEffect.GoToPlanPage
         | OrderPlanEffect.TellError _ -> Cmd.none
+
+
+    /// One command per order-context effect. A workbench call answers under the request it was
+    /// sent for; the notice rides on the reply and is told by `update`; a transport failure is
+    /// an Error answer. The filter syncs and the page are state changes, made by `update`; only
+    /// the loads they need are commands.
+    let interpretOrderContextEffect (session: Session) (effect: OrderContextEffect) : Cmd<Msg> =
+        match effect with
+        | OrderContextEffect.CallContext(cmd, ctx, request) ->
+            let opened = tokenOf session
+
+            async {
+                try
+                    match!
+                        serverApi.processOrderContext
+                            {
+                                Opened = opened
+                                Command = (cmd, ctx)
+                            }
+                    with
+                    | Ok reply ->
+                        return
+                            OrderContextAnswered(
+                                request,
+                                {
+                                    From = opened
+                                    Reply = reply
+                                }
+                            )
+                    | Error errs -> return OrderContextMsg(OrderContextMsg.Answered(request, Error errs))
+                with ex ->
+                    return OrderContextMsg(OrderContextMsg.Answered(request, Error [| ex.Message |]))
+            }
+            |> Cmd.fromAsync
+        | OrderContextEffect.SyncFormulary _ -> Cmd.ofMsg (LoadFormulary Started)
+        | OrderContextEffect.SyncParenteralia _ -> Cmd.ofMsg (LoadParenteralia Started)
+        | OrderContextEffect.GoToLifeSupport
+        | OrderContextEffect.TellError _ -> Cmd.none
 
 
     let update (msg: Msg) (state: State) =
@@ -964,11 +988,9 @@ module private Elmish =
                     OrderContext.Filter.DoseType = doseType |> nonEmpty |> Option.map DoseType.doseTypeFromString
                 }
 
-            { state with
-                Page = Prescribe
-                OrderContext = ctx |> Resolved
-            },
-            Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, ctx))
+            // the medication chosen is the seed: evaluated for the patient held, or kept until
+            // there is one
+            { state with Page = Prescribe }, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
 
         match msg with
         | CloseSnackbar ->
@@ -1134,16 +1156,14 @@ module private Elmish =
             if
                 page = ContinuousMeds
                 && state.OrderContext
-                   |> Deferred.map (fun ctx -> ctx.Filter.Generic |> Option.isSome)
-                   |> Deferred.defaultValue true
+                   |> OrderContextState.context
+                   |> Option.map (fun ctx -> ctx.Filter.Generic |> Option.isSome)
+                   |> Option.defaultValue true
             then
-                { state with
-                    Page = page
-                    OrderContext = HasNotStartedYet
-                },
+                { state with Page = page },
                 Cmd.batch
                     [
-                        Cmd.ofMsg (LoadOrderContextResult(Api.OrderContextCommand.UpdateOrderContext, Started))
+                        Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
                         retryDrugNames
                     ]
             else if page = Settings && not state.IsAuthenticated then
@@ -1188,15 +1208,6 @@ module private Elmish =
 
             { state with
                 Patient = pat
-                OrderContext =
-                    match pat with
-                    | None -> HasNotStartedYet
-                    | Some p ->
-                        match state.OrderContext with
-                        | Resolved ctx -> ctx
-                        | _ -> OrderContext.empty
-                        |> OrderContext.setPatient p
-                        |> Resolved
                 Formulary = { Formulary.empty with Patient = pat } |> Resolved
                 Parenteralia = Parenteralia.empty |> Resolved
                 EmergencyListFilter = [||]
@@ -1204,8 +1215,9 @@ module private Elmish =
             },
             Cmd.batch
                 [
-                    Cmd.ofMsg (LoadOrderContextResult(Api.OrderContextCommand.UpdateOrderContext, Started))
-                    // the plan follows the patient: opened for a new one, recalculated over a change
+                    // the workbench and the plan follow the patient: evaluated for a new one, again
+                    // over a change
+                    Cmd.ofMsg (OrderContextMsg(OrderContextMsg.PatientChanged(pat, newRequest ())))
                     Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.PatientChanged(pat, newRequest ())))
                     Cmd.ofMsg (LoadFormulary Started)
                     Cmd.ofMsg (LoadParenteralia Started)
@@ -1234,31 +1246,29 @@ module private Elmish =
             // only an `la` parameter changes the language; a navigation keeps the current one
             let language = languageOf state |> LanguagePolicy.Language.onUrl lang
 
+            // a medication in the url is the seed: over the workbench as it is, evaluated for the
+            // patient held, or kept until there is one
+            let seed =
+                match med with
+                | None -> Cmd.none
+                | Some m ->
+                    state.OrderContext
+                    |> OrderContextState.context
+                    |> Option.defaultValue OrderContext.empty
+                    |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
+                    |> fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+
             { state with
                 ShowDisclaimer = discl
                 Page = page |> Option.defaultValue LifeSupport
                 Patient = pat
-                OrderContext =
-                    match med with
-                    | None -> state.OrderContext
-                    | Some m ->
-                        match state.OrderContext with
-                        | InProgress
-                        | Recalculating _ -> state.OrderContext
-                        | HasNotStartedYet ->
-                            OrderContext.empty
-                            |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
-                            |> Resolved
-                        | Resolved ctx ->
-                            ctx
-                            |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
-                            |> Resolved
                 // State. prefix needed: disambiguates State.Context field from Global.Context type
                 State.Context.Localization = language.Current
                 LanguageChosen = language.Chosen
             },
             Cmd.batch
                 [
+                    seed
                     if anonymous then
                         Cmd.ofMsg (pat |> UpdatePatient)
                     launchCmd launchUrl
@@ -1466,43 +1476,54 @@ module private Elmish =
             Logging.error "cannot load products" s
             state, Cmd.none
 
-        | OrderContextMsg(ctxCmd, ctx) -> ctx |> CommandHandlers.handleOrderContext state ctxCmd
+        | OrderContextMsg msg ->
+            // an answer, whatever it says, settles a reload that waited on it
+            let state =
+                match msg with
+                | OrderContextMsg.Answered _ -> settleReload state
+                | _ -> state
 
-        | LoadOrderContextResult(cmd, Started) ->
-            match state.Patient with
-            | None -> { state with OrderContext = HasNotStartedYet }, Cmd.none
-            | Some pat ->
-                match state.OrderContext with
-                | InProgress
-                | Recalculating _ -> state, Cmd.none
-                | HasNotStartedYet ->
-                    { state with OrderContext = InProgress },
-                    (cmd, OrderContext.empty |> OrderContext.setPatient pat)
-                    |> loadOrderContext (tokenOf state.Session) (fun resp -> LoadOrderContextResult(cmd, resp))
-                | Resolved ctx ->
-                    { state with OrderContext = Recalculating ctx },
-                    (cmd, { ctx with Patient = pat })
-                    |> loadOrderContext (tokenOf state.Session) (fun resp -> LoadOrderContextResult(cmd, resp))
+            let workbench, effects = OrderContextState.transition msg state.OrderContext
 
-        | LoadOrderContextResult(_, Finished(Ok msg)) -> processApiMsg (settleReload state) msg applyOrderContext
-        | LoadOrderContextResult(_, Finished(Error err)) ->
-            Logging.warning "order context error, resetting" err
-            let state = settleReload state
+            // the filter syncs, the page and the snackbar are the interpreter's
+            let state =
+                effects
+                |> List.fold
+                    (fun (state: State) effect ->
+                        match effect with
+                        | OrderContextEffect.SyncFormulary filter ->
+                            { state with
+                                Formulary = state.Formulary |> Deferred.map (OrderContext.syncFilterToFormulary filter)
+                            }
+                        | OrderContextEffect.SyncParenteralia filter ->
+                            { state with
+                                Parenteralia =
+                                    state.Parenteralia
+                                    |> Deferred.map (OrderContext.syncFilterToParenteralia filter)
+                            }
+                        | OrderContextEffect.GoToLifeSupport -> { state with Page = LifeSupport }
+                        | OrderContextEffect.TellError errs ->
+                            Logging.warning "order context error" errs
 
-            let isNoRulesError = err |> Array.exists _.ToLower().Contains("geen doseerregels")
+                            { state with
+                                SnackbarMsg = errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis"
+                                SnackbarOpen = true
+                                SnackbarSeverity = "warning"
+                            }
+                        | OrderContextEffect.CallContext _ -> state
+                    )
+                    state
 
-            { state with
-                OrderContext = HasNotStartedYet
-                Page = if isNoRulesError then LifeSupport else state.Page
-                SnackbarMsg = err |> Array.tryHead |> Option.defaultValue "Er ging iets mis"
-                SnackbarOpen = true
-                SnackbarSeverity = "warning"
-            },
-            if isNoRulesError then
-                Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty))
-            else
-                Cmd.none
+            { state with OrderContext = workbench },
+            effects |> List.map (interpretOrderContextEffect state.Session) |> Cmd.batch
 
+        // what the Session is told rides on the reply; the context goes to the machine under
+        // the request it answers
+        | OrderContextAnswered(request, answer) ->
+            processApiMsg
+                state
+                answer
+                (fun state ctx -> state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Answered(request, Ok ctx))))
 
         | OrderPlanMsg msg ->
             let plan, effects = OrderPlanState.transition msg state.OrderPlan
@@ -1556,7 +1577,9 @@ module private Elmish =
             let state =
                 { state with
                     Formulary = Resolved form
-                    OrderContext = state.OrderContext |> Deferred.map (OrderContext.syncFormularyToFilter form)
+                    OrderContext =
+                        state.OrderContext
+                        |> OrderContextState.map (OrderContext.syncFormularyToFilter form)
                     Parenteralia =
                         state.Parenteralia
                         |> Deferred.map (fun par ->
@@ -1572,7 +1595,11 @@ module private Elmish =
             Cmd.batch
                 [
                     Cmd.ofMsg (LoadFormulary Started)
-                    Cmd.ofMsg (LoadOrderContextResult(Api.OrderContextCommand.UpdateOrderContext, Started))
+                    // the workbench evaluated again over the filter just synced
+                    (state.OrderContext
+                     |> OrderContextState.context
+                     |> Option.map (fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ()))))
+                     |> Option.defaultValue Cmd.none)
                     Cmd.ofMsg (LoadParenteralia Started)
                 ]
 
@@ -1607,14 +1634,20 @@ module private Elmish =
                                 DoseType = None
                             }
                         )
-                    OrderContext = state.OrderContext |> Deferred.map (OrderContext.syncParenteraliaToFilter par)
+                    OrderContext =
+                        state.OrderContext
+                        |> OrderContextState.map (OrderContext.syncParenteraliaToFilter par)
                 }
 
             state,
             Cmd.batch
                 [
                     Cmd.ofMsg (LoadFormulary Started)
-                    Cmd.ofMsg (LoadOrderContextResult(Api.OrderContextCommand.UpdateOrderContext, Started))
+                    // the workbench evaluated again over the filter just synced
+                    (state.OrderContext
+                     |> OrderContextState.context
+                     |> Option.map (fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ()))))
+                     |> Option.defaultValue Cmd.none)
                     Cmd.ofMsg (LoadParenteralia Started)
                 ]
 
@@ -1688,8 +1721,10 @@ type private ConcreteAppEnv
         member _.LocalizationTerms = state.Localization
 
     interface AppEnv.IOrderContext with
-        member _.OrderContext = state.OrderContext
-        member _.OrderContextMsg(cmd, ctx) = OrderContextMsg(cmd, ctx) |> dispatch
+        member _.OrderContext = state.OrderContext |> orderContextToDeferred
+
+        member _.OrderContextMsg(cmd, ctx) =
+            OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
 
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = state.OrderPlan |> orderPlanToDeferred

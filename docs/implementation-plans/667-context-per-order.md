@@ -393,7 +393,8 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 | 8, the old cases deleted, the names settled | #681 | `Navigate` by id only; `RemoveContext`, `RemoveOrders`, `removeOrders`, `fromOrderScenario` gone; `AddOrderContext`, `NewOrderContext`, `RemoveOrderContexts` with their port members and service functions |
 | 9, `OrderPlanMachine.fs` and its tests | #683 | `OrderPlanState`, `OrderPlanMsg`, `OrderPlanEffect`, `OrderPlanState.transition`, linked into the shared tests; not wired; review: the interactions checked on every answer |
 | 10, the order-plan machine wired | #684 | `State.OrderPlan: OrderPlanState`, `interpretOrderPlanEffect`, the answer told to the Session and handed to the machine under its request; the six plan handlers, the patient check and the pending-open marker gone; review: only the interactions notice withdrawn, the step buttons rest while loading |
-| 11, `OrderContextMachine.fs` and its tests | this PR | `OrderContextState`, `OrderContextMsg`, `OrderContextEffect`, `OrderContextState.transition`, linked into the shared tests; not wired |
+| 11, `OrderContextMachine.fs` and its tests | #685 | `OrderContextState`, `OrderContextMsg`, `OrderContextEffect`, `OrderContextState.transition`, linked into the shared tests; not wired |
+| 12, the order-context machine wired | this PR | `State.OrderContext: OrderContextState`, `interpretOrderContextEffect`, the seeds from the url and the menu, the reset on a prescribed order, the filter syncs in the fold; `handleOrderContext` and the workbench handlers gone |
 
 ### Deviations from the text above
 

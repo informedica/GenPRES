@@ -24,8 +24,9 @@ type OrderContextState =
     // the first evaluation for the patient, under a request id
     | Loading of Patient * request: string
     | Shown of OrderContext
-    // a command in flight: the context the request found and the request id
-    | Recalculating of OrderContext * request: string
+    // a command in flight: the context as sent (what the page shows meanwhile), the context the
+    // request found (what a refusal restores, the last one evaluated) and the request id
+    | Recalculating of sent: OrderContext * found: OrderContext * request: string
 
 
 /// What moves the workbench. Every message that starts a request carries the request id, minted
@@ -65,7 +66,29 @@ module OrderContextState =
         | OrderContextState.Seeded _ -> None
         | OrderContextState.Loading(pat, _) -> Some pat
         | OrderContextState.Shown ctx
-        | OrderContextState.Recalculating(ctx, _) -> Some ctx.Patient
+        | OrderContextState.Recalculating(ctx, _, _) -> Some ctx.Patient
+
+
+    /// The context the workbench holds, none before the first evaluation.
+    let context (state: OrderContextState) =
+        match state with
+        | OrderContextState.NoPatient
+        | OrderContextState.Loading _ -> None
+        | OrderContextState.Seeded ctx
+        | OrderContextState.Shown ctx
+        | OrderContextState.Recalculating(ctx, _, _) -> Some ctx
+
+
+    /// The context the workbench holds, changed in place: the filter kept in step with the
+    /// formulary's and the parenteralia's.
+    let map (f: OrderContext -> OrderContext) (state: OrderContextState) =
+        match state with
+        | OrderContextState.NoPatient
+        | OrderContextState.Loading _ -> state
+        | OrderContextState.Seeded ctx -> OrderContextState.Seeded(f ctx)
+        | OrderContextState.Shown ctx -> OrderContextState.Shown(f ctx)
+        | OrderContextState.Recalculating(sent, found, request) ->
+            OrderContextState.Recalculating(f sent, f found, request)
 
 
     /// The workbench emptied for the patient.
@@ -78,15 +101,38 @@ module OrderContextState =
         errs |> Array.exists (fun e -> e.ToLower().Contains "geen doseerregels")
 
 
-    /// An evaluation of the context for the patient held: the filter into the formulary and the
-    /// parenteralia as well, since the three pages share it.
-    let private evaluate (ctx: OrderContext) (request: string) =
-        OrderContextState.Recalculating(ctx, request),
+    /// An evaluation of the context for the patient held, over the context the request finds:
+    /// the filter into the formulary and the parenteralia as well, since the three pages share it.
+    let private evaluate (found: OrderContext) (ctx: OrderContext) (request: string) =
+        OrderContextState.Recalculating(ctx, found, request),
         [
             OrderContextEffect.CallContext(OrderContextCommand.UpdateOrderContext, ctx, request)
             OrderContextEffect.SyncFormulary ctx.Filter
             OrderContextEffect.SyncParenteralia ctx.Filter
         ]
+
+
+    /// A refusal: the workbench restored to the context given, the last one evaluated, and the
+    /// formulary and the parenteralia restored to its filter, since the evaluation had taken them
+    /// along to the one refused.
+    let private restore (ctx: OrderContext) (errs: string[]) =
+        OrderContextState.Shown ctx,
+        [
+            OrderContextEffect.TellError errs
+            OrderContextEffect.SyncFormulary ctx.Filter
+            OrderContextEffect.SyncParenteralia ctx.Filter
+        ]
+
+
+    /// The filter matched no dose rule: the page is left, the refusal said, and the empty
+    /// workbench evaluated again, its empty filter into the formulary and the parenteralia too.
+    let private startOver (pat: Patient) (errs: string[]) (request: string) =
+        let state, effects = evaluate (emptyFor pat) (emptyFor pat) request
+
+        state,
+        OrderContextEffect.GoToLifeSupport
+        :: OrderContextEffect.TellError errs
+        :: effects
 
 
     let transition (msg: OrderContextMsg) (state: OrderContextState) : OrderContextState * OrderContextEffect list =
@@ -103,20 +149,33 @@ module OrderContextState =
                 OrderContextEffect.CallContext(OrderContextCommand.UpdateOrderContext, emptyFor pat, request)
             ]
         | OrderContextMsg.PatientChanged(Some pat, request), OrderContextState.Seeded ctx ->
-            evaluate { ctx with Patient = pat } request
+            let ctx = { ctx with Patient = pat }
+            evaluate ctx ctx request
 
         // the patient changed: the workbench keeps its filter and is evaluated again for the new
-        // patient, whatever was in flight superseded
-        | OrderContextMsg.PatientChanged(Some pat, request), OrderContextState.Shown ctx
-        | OrderContextMsg.PatientChanged(Some pat, request), OrderContextState.Recalculating(ctx, _) ->
-            evaluate { ctx with Patient = pat } request
+        // patient
+        | OrderContextMsg.PatientChanged(Some pat, request), OrderContextState.Shown ctx ->
+            let ctx = { ctx with Patient = pat }
+            evaluate ctx ctx request
+        // a change in flight keeps its selection: the context sent is evaluated for the new
+        // patient, and the one found stays what a refusal restores
+        | OrderContextMsg.PatientChanged(Some pat, request), OrderContextState.Recalculating(sent, found, _) ->
+            evaluate { found with Patient = pat } { sent with Patient = pat } request
 
         // a filter before a patient waits; with a patient it is evaluated at once
         | OrderContextMsg.Seed(ctx, _), OrderContextState.NoPatient
         | OrderContextMsg.Seed(ctx, _), OrderContextState.Seeded _ -> OrderContextState.Seeded ctx, []
         | OrderContextMsg.Seed(ctx, request), _ ->
             let pat = patient state |> Option.get
-            evaluate { ctx with Patient = pat } request
+            let ctx = { ctx with Patient = pat }
+
+            // what a refusal restores: the last context evaluated
+            let found =
+                match state with
+                | OrderContextState.Recalculating(_, found, _) -> found
+                | _ -> context state |> Option.defaultValue ctx
+
+            evaluate found ctx request
 
         // a command over the workbench shown, always for the patient held: one at a time; an
         // update of the filter takes the formulary and the parenteralia along
@@ -124,8 +183,10 @@ module OrderContextState =
             let ctx = { ctx with Patient = shown.Patient }
 
             match cmd with
-            | OrderContextCommand.UpdateOrderContext -> evaluate ctx request
-            | _ -> OrderContextState.Recalculating(ctx, request), [ OrderContextEffect.CallContext(cmd, ctx, request) ]
+            | OrderContextCommand.UpdateOrderContext -> evaluate shown ctx request
+            | _ ->
+                OrderContextState.Recalculating(ctx, shown, request),
+                [ OrderContextEffect.CallContext(cmd, ctx, request) ]
         // a filter chosen before a patient is set waits as the seed
         | OrderContextMsg.Command(_, ctx, _), OrderContextState.NoPatient
         | OrderContextMsg.Command(_, ctx, _), OrderContextState.Seeded _ -> OrderContextState.Seeded ctx, []
@@ -135,39 +196,24 @@ module OrderContextState =
         | OrderContextMsg.Answered(request, result), OrderContextState.Loading(pat, inFlight) when request = inFlight ->
             match result with
             | Ok ctx -> OrderContextState.Shown ctx, []
-            | Error errs when noDoseRules errs ->
-                // the filter matched nothing: the empty workbench evaluated again, the page left
-                OrderContextState.Loading(pat, request),
-                [
-                    OrderContextEffect.GoToLifeSupport
-                    OrderContextEffect.TellError errs
-                    OrderContextEffect.CallContext(OrderContextCommand.UpdateOrderContext, emptyFor pat, request)
-                ]
-            | Error errs -> OrderContextState.Shown(emptyFor pat), [ OrderContextEffect.TellError errs ]
-        | OrderContextMsg.Answered(request, result), OrderContextState.Recalculating(ctx, inFlight) when
+            | Error errs when noDoseRules errs -> startOver pat errs request
+            | Error errs -> restore (emptyFor pat) errs
+        | OrderContextMsg.Answered(request, result), OrderContextState.Recalculating(_, found, inFlight) when
             request = inFlight
             ->
             match result with
             | Ok answer -> OrderContextState.Shown answer, []
-            | Error errs when noDoseRules errs ->
-                OrderContextState.Loading(ctx.Patient, request),
-                [
-                    OrderContextEffect.GoToLifeSupport
-                    OrderContextEffect.TellError errs
-                    OrderContextEffect.CallContext(
-                        OrderContextCommand.UpdateOrderContext,
-                        emptyFor ctx.Patient,
-                        request
-                    )
-                ]
-            // a refused command leaves the workbench as the request found it
-            | Error errs -> OrderContextState.Shown ctx, [ OrderContextEffect.TellError errs ]
+            | Error errs when noDoseRules errs -> startOver found.Patient errs request
+            // a refused command leaves the workbench as the request found it: the last context
+            // evaluated, never the one sent, whose order and texts the server did not confirm
+            | Error errs -> restore found errs
         | OrderContextMsg.Answered _, _ -> state, []
 
         // the workbench cleared for the patient held and evaluated empty; nothing to clear
         // without a patient
         | OrderContextMsg.Reset request, OrderContextState.Shown ctx
-        | OrderContextMsg.Reset request, OrderContextState.Recalculating(ctx, _) ->
-            evaluate (emptyFor ctx.Patient) request
-        | OrderContextMsg.Reset request, OrderContextState.Loading(pat, _) -> evaluate (emptyFor pat) request
+        | OrderContextMsg.Reset request, OrderContextState.Recalculating(_, ctx, _) ->
+            evaluate (emptyFor ctx.Patient) (emptyFor ctx.Patient) request
+        | OrderContextMsg.Reset request, OrderContextState.Loading(pat, _) ->
+            evaluate (emptyFor pat) (emptyFor pat) request
         | OrderContextMsg.Reset _, _ -> state, []
