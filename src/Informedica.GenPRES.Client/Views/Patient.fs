@@ -121,6 +121,13 @@ module Patient =
         let localizationTerms =
             (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
+        // the patient is the subject of every workbench and plan request: while one is under
+        // way the panel is greyed, so that the patient cannot change under it
+        let busy =
+            (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
+            |> Deferred.inProgress
+            || (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan |> Deferred.inProgress
+
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
 
@@ -191,7 +198,7 @@ module Patient =
                     updateSelected = changeValue
                     stepper = None
                     isLoading = false
-                    disabled = false
+                    disabled = busy
                     hasClear = true
                     warning = None
                     minWidth = None
@@ -232,6 +239,7 @@ module Patient =
             <Checkbox
                 id={name}
                 name={name}
+                disabled={busy}
                 checked={patient
                          |> Option.map (fun p -> p.Access |> List.exists ((=) item))
                          |> Option.defaultValue false}
@@ -285,9 +293,9 @@ module Patient =
                     value={value}
                     onChange={changeGender}
                 >
-                    <FormControlLabel value="male" control={radio} label={maleLabel} />
-                    <FormControlLabel value="female" control={radio} label={femaleLabel} />
-                    <FormControlLabel value="other" control={radio} label={unknownLabel} />
+                    <FormControlLabel value="male" control={radio} label={maleLabel} disabled={busy} />
+                    <FormControlLabel value="female" control={radio} label={femaleLabel} disabled={busy} />
+                    <FormControlLabel value="other" control={radio} label={unknownLabel} disabled={busy} />
                 </RadioGroup>
             </FormControl>
             """
@@ -468,7 +476,7 @@ module Patient =
                     {React.Fragment(items2 |> unbox<seq<ReactElement>>)}
                 </Grid>
                 <Box sx={ {| marginTop = 2 |} }>
-                    <Button variant="text" onClick={fun _ -> Clear |> dispatch} fullWidth startIcon={Mui.Icons.Delete} >
+                    <Button variant="text" onClick={fun _ -> Clear |> dispatch} disabled={busy} fullWidth startIcon={Mui.Icons.Delete} >
                         {Terms.Delete |> getTerm "Verwijder"}
                     </Button>
                 </Box>
