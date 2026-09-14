@@ -107,7 +107,13 @@ Concretely:
   `SolverLogging` events at a dedicated Debug-level Serilog file sink turns the flat 26,555-line
   text trace into structured, queryable JSON (one JSON object per solving step, filterable by
   `Equation`/`Variable` fields) directly addressing `halcwb`'s own complaint that the trace is
-  hard to search, without touching the solver's signatures.
+  hard to search, without touching the solver's signatures. `Serilog.Sinks.File`'s default output
+  is rendered text, not JSON a formatter has to be configured explicitly. Use
+  `Serilog.Formatting.Compact.CompactJsonFormatter` (from the `Serilog.Formatting.Compact`
+  package, added to `paket.dependencies`' `Main` group alongside the sinks listed below and
+  referenced only where the file sink is built) passed as the `formatter` argument to
+  `WriteTo.File(...)` for this sink, so it emits one compact JSON object per line rather than
+  Serilog's default plain-text layout.
 
 ### Package and dependency-rule placement
 
@@ -119,6 +125,7 @@ nuget Serilog
 nuget Serilog.Sinks.Console
 nuget Serilog.Sinks.File
 nuget Serilog.Sinks.Async
+nuget Serilog.Formatting.Compact
 ```
 
 `paket.references` lists them only in `Informedica.GenPRES.Server` and `Informedica.MCP.Server` 
@@ -174,16 +181,44 @@ fields are logged as opaque property values, never formatted into the template s
 
 ## Steps
 
-Each commit should try to stay under ~200 changed lines per `CONTRIBUTING.md`; phases with large work should be split
-further where it makes sense to compartmentalise, but should not be split for the sake of it.
-Numbering continues from #378's phase numbers since step 1-2 below are #378 Phase 1 steps 1-2,
-now made concrete with Serilog as the chosen technology.
+Each commit should try to stay under ~200 changed lines per `CONTRIBUTING.md`; phases with large work should
+be split further where it makes sense to compartmentalise, but should not be split for the sake of it.
+Numbering continues from #378's phase numbers. Step 1 below folds #378 Phase 1 steps 1 and 2
+together (splitting `Logging.fs` and relocating the `AgentLogging`-calling factory functions must
+land in the same commit see step 1's note on why); step 2 is new content this plan adds on top of
+#378's Phase 1 step 2, wiring Serilog as the chosen sink technology.
 
-1. (#378 Phase 1 step 1 prerequisite, if not already landed) Split `Logging.fs`: `Logger`,
-   `Event`, `Level`, `IMessage`, `noOp`, `create`, `combine`, `logLazy` and friends stay in
+1. (#378 Phase 1 steps 1+2 combined into one commit; step 2 cannot land later than step 1 without
+   an intermediate broken build see below) Split `Logging.fs`: `Logger`, `Event`, `Level`,
+   `IMessage`, `noOp`, `create`, `combine`, `logLazy` and friends stay in
    `Informedica.Logging.Lib`; `createConsole`, `createFile` and the whole `AgentLogging` module
    move to `Informedica.Agents.Lib` (flips the reference so `Agents.Lib → Logging.Lib`, matching
-   the target ring map). No behaviour change; verified by `Logging.Tests`.
+   the target ring map).
+
+   Four call sites reference `AgentLogging.*` directly today and are not just callers of a port
+   they physically live inside Core-ring files, so moving `AgentLogging` out from under them
+   without also touching them either fails to compile (no `Agents.Lib` reference) or, if a
+   reference were added instead, reintroduces the exact Core → Infrastructure violation this
+   split exists to remove (`Informedica.GenSOLVER.Lib`, `Informedica.GenORDER.Lib` and
+   `Informedica.GenFORM.Lib` are all Ring.Core in `scripts/DependencyRule.fsx`;
+   `Informedica.Agents.Lib` is Ring.Infrastructure). #378 Phase 1 step 2 already gave the correct
+   answer for this it was dropped when this plan's step 1/2 renumbering replaced it with the
+   Serilog-specific work below, and needs to be carried forward into this same commit, not
+   skipped:
+   - `SolverLogging.fs` (`GenSOLVER.Lib`): delete `createAgentLogger`, move its logic (formatter
+     stays; the `AgentLogging.createWithFormatter` call moves) into `Server/Logging.fs`.
+   - `OrderLogging.fs` (`GenORDER.Lib`): delete `createAgentLogger`, same treatment the caller at
+     `Server/Logging.fs:98` (`OrderLogging.createAgentLogger`) already lives in the composition
+     root, so this is inlining, not new design.
+   - `FormLogging.fs` (`GenFORM.Lib`): delete the top-level `agentLogger` value it is unreferenced
+     dead code today (also flagged, separately, in #378 Phase 0 step 1 as an instance of the
+     #523 top-level-`MailboxProcessor` pattern), so no replacement is needed anywhere.
+   - `tests/Informedica.Logging.Tests/Tests.fs`: add a `ProjectReference` to
+     `Informedica.Agents.Lib` in the same commit it exercises `AgentLogging` directly and is not
+     part of the production ring graph, so this is not a dependency-rule concern, only a missing
+     reference.
+
+   No behaviour change; verified by `Logging.Tests`.
 2. Add the Serilog packages (Main group, Server + MCP.Server `paket.references` only). Build
    `SerilogBridge.toLogger` in `Server/Logging.fs`, replacing `getConfig`/`createAgentLogger`
    call sites with a Serilog-backed `Logger` per `LoggerType`. Delete `AgentLogging` once nothing
@@ -211,11 +246,11 @@ now made concrete with Serilog as the chosen technology.
 
    `Console.fs` itself is a 22nd file, tagged separately in the allow-list as `utilsSplit`
    ("IO module in Utils.Lib; leaves the core with the Utils split (Phase 2)") it is not one of
-   the 21 `viaLogger` sites. Pull it into this same step anyway, as a last commit once the 21 land:
-   `ConsoleWriter` becomes dead code the moment nothing calls it directly, at which point deleting
-   it (and with it the `GENPRES_DEBUG` self-read in `writeDebugMessage`) is a one-line `allowFile`
-   removal, not a rewrite. This is a deliberate, small pull-forward of one Phase 2 item, not a
-   re-scope of Phase 2 itself record it as such in the commit that does it.
+   the 21 `viaLogger` sites. It is *not* dead code once the 21 land: 9 adapter-ring files
+   (`ZIndex.Lib`, `ZForm.Lib`, `NKF.Lib` see Phase 2 below) are still the sole remaining callers
+   of `ConsoleWriter`, so deleting `Console.fs` here would break their build. Leave `Console.fs`
+   and its `allowFile` entry in place until the Phase 2 adapter migration below also lands; delete
+   it then, in that step, not pulled forward into this one.
 
    The 9 adapter-ring sites (`ZIndex.Lib`, `ZForm.Lib`, `NKF.Lib`) are not part of this step; see Phase 2.
 5. Before building it: ask `halcwb` whether a Serilog JSON-Lines file sink for the GenSOLVER
@@ -229,9 +264,10 @@ now made concrete with Serilog as the chosen technology.
 7. Done when: every write in `ServerApi.Compute.fs` (`bound` and `logged`),
    `ServerApi.CompositionRoot.fs`, and `ServerApi.Services.fs` is a level-gated `Logger` call
    (closes `ploeh`'s report in full, not just the two lines cited), `AgentLogging` no longer
-   exists, `scripts/CheckDependencyRule.fsx`'s `viaLogger`-labelled allowances are empty, the
-   `Console.fs` `allowFile` entry is gone too, and `Serilog` appears in exactly two
-   `paket.references` files.
+   exists, `scripts/CheckDependencyRule.fsx`'s `viaLogger`-labelled allowances are empty, and
+   `Serilog` appears in exactly two `paket.references` files. The `Console.fs` `allowFile` entry
+   stays until the Phase 2 adapter migration below deletes it (see step 4's note); it is not part
+   of this phase's completion criteria.
 
 ## Phase 2 efficiency, general logging quality (after the above lands)
 
