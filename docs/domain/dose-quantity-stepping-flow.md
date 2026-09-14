@@ -10,7 +10,7 @@ flowchart TD
         UI["Stepper +/- button<br/>Views/Prescribe.fs"]
         MSG["dispatch OrderContextMsg.Command(cmd, ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
         CALL["interpretOrderContextEffect<br/>CallContext(cmd, ctx, request) → processOrderContext<br/>App.fs"]
-        RESP["OrderContextAnswered → OrderContextMsg.Answered(request, Ok ctx)<br/>OrderContextState.Shown ctx<br/>App.fs"]
+        RESP["OrderContextAnswered → OrderContextMsg.Answered(request, Ok ctx)<br/>landing on the request, then OrderContextWorkbench.Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
         RENDER["Re-render dose select +<br/>enable/disable steppers<br/>Views/Order.fs"]
     end
 
@@ -52,7 +52,7 @@ flowchart TD
 
 The client does **not** block while the server re-solves. It shows a
 *preliminary* stepped value immediately using local delta state, keeps the
-context it sent visible (`Deferred.Recalculating`), and reconciles when the
+context it sent visible (`Deferred.Provisional`), and reconciles when the
 server answer arrives. Rapid clicks accumulate into the delta and the click
 count until the debounced button fires one command; while that command is in
 flight the step buttons rest, since the machine drops a command sent while one
@@ -65,12 +65,12 @@ flowchart TD
     PRELIM["Render PRELIMINARY label<br/>stepFn(smallDelta, largeDelta)<br/>key stays = server value<br/>SimpleSelect.fs"]
     DISPATCH["debounce fires: dispatch OrderContextMsg.Command<br/>(Increase/DecreaseOrderableDoseQuantityProperty(n, useCalc), ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
 
-    REC["OrderContextState: Shown ctx -> Recalculating(sent, found, request)<br/>projected as Deferred.Recalculating sent<br/>orderContextToDeferred, App.fs"]
+    REC["OrderContextWorkbench.Evaluated held stays; InFlight = ((cmd, sent), request)<br/>projected as Deferred.Provisional sent<br/>OrderContextState.toDeferred, OrderContextMachine.fs"]
     KEEP["No spinner on the field: isOptimisticStep = true<br/>Order.fs<br/>step buttons rest while loading: stepsRest<br/>SimpleSelect.fs<br/>a command while busy is dropped by the machine"]
 
     SERVER(["Server re-solve round-trip<br/>(see main flow above)"])
 
-    DONE["OrderContextAnswered -> OrderContextMsg.Answered(request, Ok ctx)<br/>OrderContextState.Shown ctx<br/>App.fs, OrderContextMachine.fs"]
+    DONE["OrderContextAnswered -> OrderContextMsg.Answered(request, Ok ctx)<br/>landing on the request, then OrderContextWorkbench.step: Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
     BUMP["revision++<br/>Order.fs"]
     RESET["useLayoutEffect resets deltas to 0<br/>keyed on valueKey + revision<br/>SimpleSelect.fs"]
     FINAL["Render SOLVED value from server<br/>preliminary -> confirmed"]
@@ -87,23 +87,30 @@ flowchart TD
     style SERVER fill:#cfe8ff,stroke:#005bbb,color:#1a1a1a
 ```
 
-An answer lands only on the request in flight: a stale answer is dropped by
-its request id. A refused command restores the context the request found, the
+The machine is two stages (`OrderContextMachine.fs`): the `OrderContextWorkbench`, the
+context as the clinical model has it, which knows no request, and the one
+request under way (`InFlight`: the command and the context sent, and the id
+the answer must name). `transition` runs them in order. An answer passes the
+request first (`landing`) and reaches the workbench only when it names the
+request under way, so a stale answer is dropped by its id. A command passes
+the workbench first (`OrderContextWorkbench.step`) and reaches the request as an intent,
+dropped while a request is under way. A failed command, whether the server
+refused it or the call did not complete, goes back to the context held, the
 last one the server confirmed, never the one sent.
 
-### Deferred state cases (`Extensions.fs`)
+### Deferred state cases (`Deferred.fs`)
 
 The pages read the workbench as a `Deferred<OrderContext>` projected from
-`OrderContextState` (`orderContextToDeferred` in `App.fs`):
+`OrderContextState` (`OrderContextState.toDeferred` in `OrderContextMachine.fs`):
 
 | Case | Machine state | Meaning | UI effect |
 | ---- | ------------- | ------- | --------- |
-| `HasNotStartedYet` | `NoPatient` | no patient, no workbench | empty |
-| `InProgress` | `Loading` | in flight, **no** prior value | loading placeholder / spinner |
-| `Recalculating of 't` | `Recalculating(sent, found, request)` | in flight, **the context sent kept** | preliminary value stays visible |
-| `Resolved of 't` | `Shown`, `Seeded` | answer received, or a filter seeded from the url | confirmed value |
+| `HasNotStartedYet` | `OrderContextWorkbench.NoPatient` | no patient, no workbench | empty |
+| `InProgress` | `OrderContextWorkbench.Unevaluated`, the first evaluation under way | in flight, **no** prior value | loading placeholder / spinner |
+| `Provisional of 't` | `OrderContextWorkbench.Evaluated held`, `InFlight ((cmd, sent), request)` | in flight, **the context sent kept**, not yet confirmed | preliminary value stays visible |
+| `Resolved of 't` | `OrderContextWorkbench.Evaluated ctx` with nothing under way; `OrderContextWorkbench.Seeded` | answer received, or a filter seeded from the url | confirmed value |
 
-Stepping uses **`Recalculating`** (not `InProgress`), which is why the previous
+Stepping uses **`Provisional`** (not `InProgress`), which is why the previous
 dose quantity remains on screen as a preliminary result instead of blanking out.
 The orange nodes are the preliminary (awaiting-server) phase; green is the
 confirmed solver result.
@@ -115,8 +122,9 @@ confirmed solver result.
   `Increase/DecreaseOrderableDoseQuantityProperty(ntimes, useCalc)` and renders
   the result.
 - **One command in flight**: the pure `OrderContextState.transition` sends a
-  command only from `Shown`; while `Recalculating` a further command is
-  dropped, and the step buttons rest until the answer arrives.
+  command only while nothing is under way; while a request is in flight a
+  further command is dropped, and the step buttons rest until the answer
+  arrives.
 - **`useCalc`** flag decides whether stepping uses calculated constraints vs
   defined ones (`OrderVariable.step`).
 - **The step math** (`OrderVariable.fs`): increase = `min + N*incr`,
@@ -131,7 +139,7 @@ confirmed solver result.
 | Hop | File | Symbol |
 | --- | ---- | ------ |
 | UI stepper | `src/Informedica.GenPRES.Client/Views/Prescribe.fs` | `Increase/DecreaseOrderableDoseQuantityProperty` |
-| Client machine | `src/Informedica.GenPRES.Client/OrderContextMachine.fs` | `OrderContextMsg.Command`, `OrderContextState.transition` |
+| Client machine | `src/Informedica.GenPRES.Client/OrderContextMachine.fs` | `OrderContextMsg.Command`, `OrderContextWorkbench.step`, `OrderContextState.transition` |
 | Server call | `src/Informedica.GenPRES.Client/App.fs` | `interpretOrderContextEffect`, `OrderContextAnswered` |
 | Shared DTO | `src/Informedica.GenPRES.Shared/Api.fs` | `OrderContextCommand` |
 | Server cmd | `src/Informedica.GenPRES.Server/ServerApi.OrderContextCommand.fs` | `processCmd` |

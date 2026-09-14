@@ -354,25 +354,6 @@ module private Elmish =
             { state with InteractionDrugNames = Resolved names }, Cmd.none
 
 
-    /// The workbench as the pages read it: a seed shows its filter while it waits.
-    let orderContextToDeferred (state: OrderContextState) : Deferred<OrderContext> =
-        match state with
-        | OrderContextState.NoPatient -> HasNotStartedYet
-        | OrderContextState.Seeded ctx -> Resolved ctx
-        | OrderContextState.Loading _ -> InProgress
-        | OrderContextState.Shown ctx -> Resolved ctx
-        | OrderContextState.Recalculating(sent, _, _) -> Recalculating sent
-
-
-    /// The plan as the pages read it.
-    let orderPlanToDeferred (state: OrderPlanState) : Deferred<OrderPlan> =
-        match state with
-        | OrderPlanState.NoPatient -> HasNotStartedYet
-        | OrderPlanState.Loading _ -> InProgress
-        | OrderPlanState.Shown(tp, _) -> Resolved tp
-        | OrderPlanState.Recalculating(tp, _, _, _) -> Recalculating tp
-
-
     let loadFormulary opened =
         createApiMsg serverApi.processFormulary opened LoadFormulary
 
@@ -602,13 +583,13 @@ module private Elmish =
             // a medication in the url waits as the seed until the patient is set
             OrderContext =
                 match med with
-                | None -> OrderContextState.NoPatient
+                | None -> OrderContextState.noPatient
                 | Some m ->
                     OrderContext.empty
                     |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
-                    |> OrderContextState.Seeded
+                    |> OrderContextState.seeded
             // the patient reaches the plan through UpdatePatient
-            OrderPlan = OrderPlanState.NoPatient
+            OrderPlan = OrderPlanState.noPatient
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
             Interactions = HasNotStartedYet
@@ -799,7 +780,7 @@ module private Elmish =
         | SessionEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient patient)
         // the cart is the version the Session opened with, opened by the plan machine over the
         // patient as UpdatePatient left it (normal values applied)
-        | SessionEffect.LoadCart head -> Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Cart(head, newRequest ())))
+        | SessionEffect.LoadCart head -> Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Version(head, newRequest ())))
         | SessionEffect.KeepKey thumbprint ->
             Cmd.ofEffect (fun _ ->
                 async {
@@ -1721,15 +1702,15 @@ type private ConcreteAppEnv
         member _.LocalizationTerms = state.Localization
 
     interface AppEnv.IOrderContext with
-        member _.OrderContext = state.OrderContext |> orderContextToDeferred
+        member _.OrderContext = state.OrderContext |> OrderContextState.toDeferred
 
         member _.OrderContextMsg(cmd, ctx) =
             OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
 
     interface AppEnv.IOrderPlan with
-        member _.OrderPlan = state.OrderPlan |> orderPlanToDeferred
+        member _.OrderPlan = state.OrderPlan |> OrderPlanState.toDeferred
 
-        member _.PlanCommand cmd =
+        member _.OrderPlanCommand cmd =
             OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch
 
         member _.Selected = OrderPlanState.selected state.OrderPlan

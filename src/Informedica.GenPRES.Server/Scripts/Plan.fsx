@@ -6,7 +6,7 @@
 // `newOrderContext`, `removeOrderContexts` (and `removeOrderContext` for the one the others
 // fold over).
 //
-// Script-first draft (script-only policy) of `navigate` over the real types, → `PlanService`
+// Script-first draft (script-only policy) of `navigate` over the real types, → `OrderPlanService`
 // in `ServerApi.Services.fs`.
 //
 // Run: `dotnet fsi Plan.fsx` from this directory (build first).
@@ -39,7 +39,7 @@ module PlanService667 =
 
             return
                 result
-                |> Result.bind (fun resolved -> plan |> PlanService.updateContext contextId resolved)
+                |> Result.bind (fun resolved -> plan |> OrderPlanService.updateContext contextId resolved)
                 |> Result.map recalc
         }
 

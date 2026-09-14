@@ -233,7 +233,7 @@ module Api =
 
     /// The plan command family: the order plan, nutrition included.
     [<RequireQualifiedAccess>]
-    type PlanCommand =
+    type OrderPlanCommand =
         // the plan as it is, totals recomputed over its orders
         | Recalculate of OrderPlan
         // an order-context command evaluated over the context named, in that context's own
@@ -250,17 +250,17 @@ module Api =
         | Open of Patient * OrderContext[]
 
 
-    module PlanCommand =
+    module OrderPlanCommand =
 
         /// For the log: never the plan.
         let toString cmd =
             match cmd with
-            | PlanCommand.Recalculate _ -> "Recalculate"
-            | PlanCommand.Navigate(_, _, ctxCmd, _) -> $"Navigate {ctxCmd}"
-            | PlanCommand.AddOrderContext _ -> "AddOrderContext"
-            | PlanCommand.NewOrderContext(_, category) -> $"NewOrderContext {category}"
-            | PlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
-            | PlanCommand.Open(_, contexts) -> $"Open %i{contexts.Length}"
+            | OrderPlanCommand.Recalculate _ -> "Recalculate"
+            | OrderPlanCommand.Navigate(_, _, ctxCmd, _) -> $"Navigate {ctxCmd}"
+            | OrderPlanCommand.AddOrderContext _ -> "AddOrderContext"
+            | OrderPlanCommand.NewOrderContext(_, category) -> $"NewOrderContext {category}"
+            | OrderPlanCommand.RemoveOrderContexts(_, ids) -> $"RemoveOrderContexts %i{ids.Length}"
+            | OrderPlanCommand.Open(_, contexts) -> $"Open %i{contexts.Length}"
 
 
     /// Defines how routes are generated on server and mapped from the client
@@ -288,7 +288,7 @@ module Api =
             processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
             processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>
             // the one plan, nutrition included
-            processOrderPlan: Request<PlanCommand> -> Async<Result<Reply<OrderPlan>, string[]>>
+            processOrderPlan: Request<OrderPlanCommand> -> Async<Result<Reply<OrderPlan>, string[]>>
             processLaunch: LaunchCommand -> Async<LaunchOutcome>
             processSession: SessionCommand -> Async<SessionResponse>
             processSigning: SigningCommand -> Async<SigningResponse>

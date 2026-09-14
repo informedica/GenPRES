@@ -372,7 +372,7 @@ re-marked so the next reader does not plan code for them:
 | **5.5** | Partial — "unconfirmed is … that the recorded access actually selects which solution constraints apply" | Confirmed. `SolutionRuleData.CVL/PVL` → `PatientCategory.Access` → `VenousAccess.check` in `Patient.filterPatient`, used by `SolutionRule.filter`. Configuration |
 | **5.7, 5.10** | Partial — "missing is an intended administration period on the dose rule to judge it against" | `DoseRuleData.MinTime/MaxTime` exist and flow to the order's `Time` constraint via `Medication.fs:1255`. Configuration |
 | **5.16** | Partial — "weight-band boundary-to-higher rule not confirmed" | Patient-category bounds are `[min, max)` (`fromTupleInclExcl`), so a boundary weight falls in the higher band. Configuration |
-| **7.10** | Gap — totals across all orders | Built since #654: `PlanService.recalculate` (`ServerApi.Services.fs:761`) computes the totals once over every order of the one plan, nutrition included. Fit |
+| **7.10** | Gap — totals across all orders | Built since #654: `OrderPlanService.recalculate` (`ServerApi.Services.fs:761`) computes the totals once over every order of the one plan, nutrition included. Fit |
 
 Two further rows are configuration rather than code once read against the model: **5.13**
 (a total-volume bound; the flag half is #478) and **5.15** (the `Solutions` column). The
