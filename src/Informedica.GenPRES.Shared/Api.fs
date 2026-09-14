@@ -245,6 +245,10 @@ module Api =
         | RemoveContext of OrderPlan * contextId: string
         // the orders named removed, each with the workbench that contributed it
         | RemoveOrders of OrderPlan * ids: string[]
+        // the prescribing workbench, narrowed to one scenario, into the plan as a drug context
+        | AddOrder of OrderPlan * OrderContext
+        // the contexts named removed, every kind; a feeding takes its supplements with it
+        | RemoveContexts of OrderPlan * ids: string[]
 
 
     module PlanCommand =
@@ -258,6 +262,8 @@ module Api =
             | PlanCommand.AddContext(_, category) -> $"AddContext {category}"
             | PlanCommand.RemoveContext _ -> "RemoveContext"
             | PlanCommand.RemoveOrders(_, ids) -> $"RemoveOrders %i{ids.Length}"
+            | PlanCommand.AddOrder _ -> "AddOrder"
+            | PlanCommand.RemoveContexts(_, ids) -> $"RemoveContexts %i{ids.Length}"
 
 
     /// Defines how routes are generated on server and mapped from the client

@@ -780,6 +780,37 @@ module PlanService =
             plan
 
 
+    /// The contexts named removed, every kind, each with its order; a feeding takes its
+    /// supplements with it.
+    let removeContexts (ids: string[]) (plan: OrderPlan) =
+        ids |> Array.fold (fun p id -> p |> removeContext id) plan
+
+
+    /// The prescribing workbench into the plan as a drug context with a minted id, its one
+    /// scenario the order it contributes. Refused when the workbench is not narrowed to one
+    /// scenario, and when the plan already holds that order: the signing challenge would refuse
+    /// the plan later, so it is said now.
+    let addOrder (newId: unit -> string) (ctx: OrderContext) (plan: OrderPlan) =
+        match contribution ctx with
+        | None ->
+            Error
+                [|
+                    $"The workbench holds %i{ctx.Scenarios.Length} candidates, not one order"
+                |]
+        | Some sc when plan.Scenarios |> Array.exists (fun s -> s.Order.Id = sc.Order.Id) ->
+            Error [| "The plan already holds this order" |]
+        | Some sc ->
+            let added =
+                { ctx with
+                    Id = newId ()
+                    Category = OrderCategory.Drug
+                }
+
+            { plan with OrderContexts = Array.append plan.OrderContexts [| added |] }
+            |> withOrders None (Some sc)
+            |> Ok
+
+
     let recalculate (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: OrderPlan) =
         { plan with
             Totals =

@@ -105,6 +105,25 @@ module Adapters =
                             |> PlanService.recalculate (provider.GetTotals())
                             |> Ok
                     }
+            addOrder =
+                fun plan ctx ->
+                    async {
+                        do! setComponentName "OrderPlan" agent
+
+                        return
+                            plan
+                            |> PlanService.addOrder (fun () -> System.Guid.NewGuid().ToString()) ctx
+                            |> Result.map (PlanService.recalculate (provider.GetTotals()))
+                    }
+            removeContexts =
+                fun plan ids ->
+                    async {
+                        return
+                            plan
+                            |> PlanService.removeContexts ids
+                            |> PlanService.recalculate (provider.GetTotals())
+                            |> Ok
+                    }
         }
 
 

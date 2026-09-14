@@ -289,7 +289,7 @@ Fable compile and Fantomas green. Wire changes are additive first and deleted la
 
 0. **[#668](https://github.com/informedica/GenPRES/issues/668), qualified access on
    `OrderContextCommand`** (`refactor`), before anything else: it rewrites the same lines in the
-   nutrition and order-plan pages that steps 7 and 8 rewrite. About 110 mechanical lines.
+   nutrition and order-plan pages that steps 5 and 8 rewrite. About 110 mechanical lines.
 1. **This plan.** Plus a pointer in plan 654's "Left open" and a comment on #666 that it folds
    in here.
 2. **The category on the context.** `OrderCategory`; `OrderContext.Id` and `.Category`, the
@@ -300,25 +300,25 @@ Fable compile and Fantomas green. Wire changes are additive first and deleted la
    reads still compile; the nutrition page on the contexts by category; `addContext` and the
    one-per-category rule. About 170 lines. Tests: the plan tests over contexts; a second
    feeding and an orphan supplement refused.
-4. **The signed record stores the contexts.** `SignedOrderPlan.OrderContexts`; the challenge and
-   the commit over contexts; `Open` beside the old cases; `LoadCart` sends `Open`. Closes #666.
-   About 150 lines. Tests: open keeps stepped values; the challenge refuses a changed context;
-   the version holds the contexts.
-5. **`Scenarios` and `Selected` off the plan; `Filtered` as ids.** One PR on both sides: the
-   five client reads on `OrderPlan.orders`, `Selected` a client state field, the order-plan
-   page's dialog, row selection and filter on ids; `withOrders` and the following bookkeeping
-   deleted; totals by filtered context. About 160 lines. Tests: totals by filtered context id;
-   a re-evaluated context keeps its place in the filter; the duplicate check over derived
-   orders.
-6. **`AddOrder` and `RemoveContexts`**, beside the old cases; `navigate` by id evaluating the
-   context as sent. About 140 lines. Tests: a duplicate and a wide context refused, a narrow
-   one appended as `Drug`; `removeContexts` over mixed kinds with the cascade; `navigate`
-   replaces by id and keeps the context's patient; a recalculation with a new patient leaves
-   every context's patient as it was.
-7. **The views on the new commands.** Prescribe sends `AddOrder` and switches page, the button
-   greyed on a duplicate; the order-plan dialog by context id, deletion by `RemoveContexts`; the
-   nutrition page on `RemoveContexts`; `ShowOrderPlan` retired for `Select` and `Filter` on
-   `IOrderPlan`. About 150 lines. Acceptance below.
+4. **`AddOrder` and `RemoveContexts`**, beside the old cases. A drug order needs a context
+   before the signed record can store contexts and before `Scenarios` can leave the plan, so
+   these come first. About 150 lines. Tests: a duplicate and a wide context refused, a narrow
+   one appended as `Drug` with the workbench as it was; `removeContexts` over mixed kinds with
+   the cascade; the dispatch and the log.
+5. **The views on the new commands.** Prescribe sends `AddOrder` and switches page, the button
+   greyed on a duplicate; the order-plan dialog reads the selected order's context by id and
+   sends `Navigate` into it, deletion by `RemoveContexts`; the nutrition page on
+   `RemoveContexts`. About 150 lines. Acceptance below.
+6. **The signed record stores the contexts.** `SignedOrderPlan.OrderContexts`; the challenge and
+   the commit over contexts; `Open` beside the old cases; `LoadCart` and the patient change send
+   `Open`. Closes #666. About 150 lines. Tests: open keeps stepped values; the challenge refuses
+   a changed context; the version holds the contexts.
+7. **`Scenarios` and `Selected` off the plan; `Filtered` as ids.** One PR on both sides: the
+   client reads on `OrderPlan.orders`, `Selected` a client state field, the order-plan page's
+   dialog, row selection and filter on ids, `ShowOrderPlan` retired for `Select` and `Filter` on
+   `IOrderPlan`; `withOrders` and the following bookkeeping deleted; totals by filtered context.
+   About 160 lines. Tests: totals by filtered context id; a re-evaluated context keeps its place
+   in the filter; the duplicate check over derived orders.
 8. **Delete the old cases** (`refactor`): `Navigate` by id only, `RemoveContext`,
    `RemoveOrders`, the `None` branch and `removeOrders`, `fromOrderScenario`; the nutrition
    page's `Some ncId` becomes `ncId`. About 120 lines. Tests: the dispatch case.
@@ -372,3 +372,13 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 |---|---|---|
 | plan | #671 | this document; the pointer in plan 654 |
 | 0, #668 qualified access | #673 | `[<RequireQualifiedAccess>]` on `OrderContextCommand`, the call sites qualified |
+| 2, the category on the context | #674 | `OrderCategory`, `OrderContext.Id`/`Category`, the derived label, `addContext` stamping |
+| 3, the plan is its contexts | #676 | `OrderPlan.OrderContexts`, the wrapper gone, the admission rule on the server; review: electrolyte and glucose lines any number |
+| 4, `AddOrder` and `RemoveContexts` | this PR | the two commands beside the old ones, the port, the adapter, the dispatch, the client arms |
+
+### Deviations from the text above
+
+- **Steps 4 to 7 reordered.** The text had the signed record storing contexts and `Scenarios`
+  leaving the plan before `AddOrder` existed; a drug order added from the prescribing page has
+  no context until then, so both would have dropped drug orders. `AddOrder` and
+  `RemoveContexts` now come first, the views next, the signed record and the wire cleanup after.

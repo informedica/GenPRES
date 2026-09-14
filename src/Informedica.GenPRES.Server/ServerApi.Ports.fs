@@ -25,6 +25,8 @@ type PlanPort =
         removeContext: OrderPlan -> string -> Async<Result<OrderPlan, string[]>>
         // the orders named, each with the workbench that contributed it
         removeOrders: OrderPlan -> string[] -> Async<Result<OrderPlan, string[]>>
+        addOrder: OrderPlan -> OrderContext -> Async<Result<OrderPlan, string[]>>
+        removeContexts: OrderPlan -> string[] -> Async<Result<OrderPlan, string[]>>
     }
 
 
