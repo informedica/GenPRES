@@ -18,8 +18,9 @@ open Shared.Api
 [<RequireQualifiedAccess>]
 type OrderPlanState =
     | NoPatient
-    // the first plan for the patient asked under a request id
-    | Loading of Patient * request: string
+    // the first plan for the patient, or a signed version, asked under a request id; the
+    // contexts being opened, so that a patient change meanwhile opens the same ones again
+    | Loading of Patient * opening: OrderContext[] * request: string
     // the plan as answered, and the context the dialog shows, by id
     | Shown of OrderPlan * selected: string option
     // a change in flight: the plan the request found, the selection, the request id and the
@@ -82,7 +83,7 @@ module OrderPlanState =
     let patient (state: OrderPlanState) =
         match state with
         | OrderPlanState.NoPatient -> None
-        | OrderPlanState.Loading(pat, _) -> Some pat
+        | OrderPlanState.Loading(pat, _, _) -> Some pat
         | OrderPlanState.Shown(tp, _)
         | OrderPlanState.Recalculating(tp, _, _, _) -> Some tp.Patient
 
@@ -137,11 +138,17 @@ module OrderPlanState =
         | OrderPlanMsg.PatientChanged(None, _), _ -> OrderPlanState.NoPatient, []
 
         // the first plan for a patient: the empty one, opened
-        | OrderPlanMsg.PatientChanged(Some pat, request), OrderPlanState.NoPatient
-        | OrderPlanMsg.PatientChanged(Some pat, request), OrderPlanState.Loading _ ->
-            OrderPlanState.Loading(pat, request),
+        | OrderPlanMsg.PatientChanged(Some pat, request), OrderPlanState.NoPatient ->
+            OrderPlanState.Loading(pat, [||], request),
             [
                 OrderPlanEffect.CallPlan(OrderPlanCommand.Open(pat, [||]), request)
+            ]
+        // the patient changed while an open is under way: the same contexts opened again for
+        // the new patient, so that a signed version being opened is not lost
+        | OrderPlanMsg.PatientChanged(Some pat, request), OrderPlanState.Loading(_, opening, _) ->
+            OrderPlanState.Loading(pat, opening, request),
+            [
+                OrderPlanEffect.CallPlan(OrderPlanCommand.Open(pat, opening), request)
             ]
 
         // the plan follows the patient: its totals recomputed, the dialog closed, whatever was
@@ -158,7 +165,7 @@ module OrderPlanState =
         | OrderPlanMsg.Cart(head, request), _ ->
             let pat = patient state |> Option.get
 
-            OrderPlanState.Loading(pat, request),
+            OrderPlanState.Loading(pat, head.OrderContexts, request),
             [
                 OrderPlanEffect.CallPlan(OrderPlanCommand.Open(pat, head.OrderContexts), request)
             ]
@@ -176,7 +183,7 @@ module OrderPlanState =
         | OrderPlanMsg.Command _, _ -> state, []
 
         // the answer lands only on the request it answers
-        | OrderPlanMsg.Answered(request, result), OrderPlanState.Loading(pat, inFlight) when request = inFlight ->
+        | OrderPlanMsg.Answered(request, result), OrderPlanState.Loading(pat, _, inFlight) when request = inFlight ->
             match result with
             | Ok tp -> answered None None tp
             // a refused open lands on the empty plan for the patient
