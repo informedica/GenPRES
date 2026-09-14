@@ -14,6 +14,7 @@ open Shared.Models
 open Global
 open SessionMachine
 open SigningMachine
+open OrderPlanMachine
 
 
 module private Elmish =
@@ -28,7 +29,8 @@ module private Elmish =
             ContinuousMedication: Deferred<ContinuousMedication list>
             Products: Deferred<Product list>
             OrderContext: Deferred<OrderContext>
-            OrderPlan: Deferred<OrderPlan>
+            // the one plan, as the order-plan machine holds it; the pages read a projection
+            OrderPlan: OrderPlanState
             Interactions: Deferred<DrugInteraction[]>
             InteractionDrugNames: Deferred<string[]>
             DrugNameRetries: int
@@ -62,12 +64,6 @@ module private Elmish =
             // the newest version told while the Session is on an older
             // one; None whenever no Session is open
             MovedOn: OrderPlanHead option
-            // the context whose order the order-plan dialog shows, by id; None when it is closed
-            SelectedContext: string option
-            // the context ids of the open in flight: a signed version being opened replaces
-            // whatever plan there was, so every other plan answer, and an older open, is stale
-            // until it answers; None whenever no open is in flight
-            PendingOpen: string[] option
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -84,8 +80,6 @@ module private Elmish =
 
         | UpdatePage of Global.Pages
         | UpdatePatient of Patient option
-        // the version the Session opened with, into the cart over the patient in state
-        | LoadCart of SignedOrderPlan
         // a reply said the record moved on
         | RecordMovedOn of OrderPlanHead
 
@@ -102,14 +96,11 @@ module private Elmish =
         | OrderContextMsg of Api.OrderContextCommand * OrderContext
         | LoadOrderContextResult of Api.OrderContextCommand * ApiResponse<OrderContext>
 
-        // the one plan, nutrition included
-        | OrderPlanMsg of Api.PlanCommand
-        | LoadOrderPlanResult of Api.PlanCommand * ApiResponse<OrderPlan>
-        // the plan as shown: the order-plan page opens on it and its totals are recomputed
-        // the dialog's selection: a context by id, the client's own
-        | SelectContext of string option
-        // the contexts the rows keep, by id
-        | FilterContexts of string[]
+        // the one plan, nutrition included: the order-plan machine's messages
+        | OrderPlanMsg of OrderPlanMsg
+        // the server's answer to a plan request: the notice is told here, the plan goes to the
+        // machine under the request it answers
+        | OrderPlanAnswered of request: string * Answer<OrderPlan>
 
         | UpdateFormulary of Formulary
         | LoadFormulary of ApiResponse<Formulary>
@@ -318,27 +309,6 @@ module private Elmish =
         { state with Parenteralia = Resolved par }, Cmd.none
 
 
-    /// The plan answered: shown, its drugs checked for interactions when there are two, and
-    /// the dialog's selection kept only while its context is still in the plan.
-    let applyPlan (state: State) (tp: OrderPlan) =
-        let drugs =
-            OrderPlan.orders tp |> Array.map _.Name |> Array.distinct |> Array.toList
-
-        let cmd =
-            if drugs.Length >= 2 then
-                Cmd.ofMsg (CheckInteractions drugs)
-            else
-                Cmd.none
-
-        { state with
-            OrderPlan = Resolved tp
-            SelectedContext =
-                state.SelectedContext
-                |> Option.filter (fun id -> tp.OrderContexts |> Array.exists (fun c -> c.Id = id))
-        },
-        cmd
-
-
     let applyInteraction (state: State) (response: Api.InteractionResponse) =
         match response with
         | Api.InteractionResponse.InteractionsChecked interactions ->
@@ -364,41 +334,17 @@ module private Elmish =
         createApiMsg serverApi.processOrderContext opened resp
 
 
-    let loadOrderPlan opened resp =
-        createApiMsg serverApi.processOrderPlan opened resp
+    /// The plan as the pages read it.
+    let orderPlanToDeferred (state: OrderPlanState) : Deferred<OrderPlan> =
+        match state with
+        | OrderPlanState.NoPatient -> HasNotStartedYet
+        | OrderPlanState.Loading _ -> InProgress
+        | OrderPlanState.Shown(tp, _) -> Resolved tp
+        | OrderPlanState.Recalculating(tp, _, _, _) -> Recalculating tp
 
 
-    /// The plan a command was made with.
-    let planOf (cmd: Api.PlanCommand) =
-        match cmd with
-        | Api.PlanCommand.Recalculate plan
-        | Api.PlanCommand.Navigate(plan, _, _, _)
-        | Api.PlanCommand.AddOrderContext(plan, _)
-        | Api.PlanCommand.NewOrderContext(plan, _)
-        | Api.PlanCommand.RemoveOrderContexts(plan, _) -> plan
-        // a refused open lands on the empty plan for the patient
-        | Api.PlanCommand.Open(pat, _) -> OrderPlan.create pat [||]
-
-
-    /// The command over the plan the state holds instead of the one it was made with.
-    /// While a signed version is being opened, only that open's own answer counts: an older
-    /// open, or any change sent before, would put an older plan over the version chosen last.
-    let staleWhileOpening (state: State) (cmd: Api.PlanCommand) =
-        match state.PendingOpen, cmd with
-        | None, _ -> false
-        | Some pending, Api.PlanCommand.Open(_, contexts) -> (contexts |> Array.map _.Id) <> pending
-        | Some _, _ -> true
-
-
-    let withPlan plan (cmd: Api.PlanCommand) =
-        match cmd with
-        | Api.PlanCommand.Recalculate _ -> Api.PlanCommand.Recalculate plan
-        | Api.PlanCommand.Navigate(_, contextId, ctxCmd, ctx) -> Api.PlanCommand.Navigate(plan, contextId, ctxCmd, ctx)
-        | Api.PlanCommand.AddOrderContext(_, ctx) -> Api.PlanCommand.AddOrderContext(plan, ctx)
-        | Api.PlanCommand.NewOrderContext(_, category) -> Api.PlanCommand.NewOrderContext(plan, category)
-        | Api.PlanCommand.RemoveOrderContexts(_, ids) -> Api.PlanCommand.RemoveOrderContexts(plan, ids)
-        // carries no plan to rebase
-        | Api.PlanCommand.Open _ -> cmd
+    /// A request id, minted at dispatch, so that an answer can name the request it answers.
+    let newRequest () = Guid.NewGuid().ToString()
 
 
     let loadFormulary opened =
@@ -634,10 +580,8 @@ module private Elmish =
                     OrderContext.empty
                     |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
                     |> Resolved
-            OrderPlan =
-                match pat with
-                | None -> HasNotStartedYet
-                | Some p -> OrderPlan.create p [||] |> Resolved
+            // the patient reaches the plan through UpdatePatient
+            OrderPlan = OrderPlanState.NoPatient
             Formulary = HasNotStartedYet
             Parenteralia = HasNotStartedYet
             Interactions = HasNotStartedYet
@@ -668,8 +612,6 @@ module private Elmish =
             Session = Session.Anonymous
             Signing = Signing.Idle
             MovedOn = None
-            SelectedContext = None
-            PendingOpen = None
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -853,9 +795,9 @@ module private Elmish =
             |> Cmd.fromAsync
         | SessionEffect.GoTo url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         | SessionEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient patient)
-        // the cart starts as the version the Session opened with; built in update, over
-        // the patient as UpdatePatient left it (normal values applied)
-        | SessionEffect.LoadCart head -> Cmd.ofMsg (LoadCart head)
+        // the cart is the version the Session opened with, opened by the plan machine over the
+        // patient as UpdatePatient left it (normal values applied)
+        | SessionEffect.LoadCart head -> Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Cart(head, newRequest ())))
         | SessionEffect.KeepKey thumbprint ->
             Cmd.ofEffect (fun _ ->
                 async {
@@ -928,6 +870,45 @@ module private Elmish =
         | SigningEffect.TellSigned _
         | SigningEffect.TellRefused _
         | SigningEffect.TellError _ -> Cmd.none
+
+
+    /// One command per order-plan effect. A plan call answers under the request it was sent
+    /// for, so the machine can drop an answer to an earlier request; the notice rides on the
+    /// reply and is told by `update`; a transport failure is an Error answer, never an
+    /// exception. The page and the snackbar are `update`'s, not here.
+    let interpretOrderPlanEffect (session: Session) (effect: OrderPlanEffect) : Cmd<Msg> =
+        match effect with
+        | OrderPlanEffect.CallPlan(cmd, request) ->
+            let opened = tokenOf session
+
+            async {
+                try
+                    match!
+                        serverApi.processOrderPlan
+                            {
+                                Opened = opened
+                                Command = cmd
+                            }
+                    with
+                    | Ok reply ->
+                        return
+                            OrderPlanAnswered(
+                                request,
+                                {
+                                    From = opened
+                                    Reply = reply
+                                }
+                            )
+                    | Error errs -> return OrderPlanMsg(OrderPlanMsg.Answered(request, Error errs))
+                with ex ->
+                    return OrderPlanMsg(OrderPlanMsg.Answered(request, Error [| ex.Message |]))
+            }
+            |> Cmd.fromAsync
+        | OrderPlanEffect.CheckInteractions drugs -> Cmd.ofMsg (CheckInteractions drugs)
+        | OrderPlanEffect.ResetWorkbench ->
+            Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty))
+        | OrderPlanEffect.GoToPlanPage
+        | OrderPlanEffect.TellError _ -> Cmd.none
 
 
     let update (msg: Msg) (state: State) =
@@ -1187,19 +1168,11 @@ module private Elmish =
             else
                 state, Cmd.none
 
-        | LoadCart head ->
-            match state.Patient with
-            | Some pat -> state, Cmd.ofMsg (OrderPlanMsg(Api.PlanCommand.Open(pat, head.OrderContexts)))
-            | None -> state, Cmd.none
-
         | UpdatePatient pat ->
             let pat = pat |> applyNormalValues state.NormalValues
 
             { state with
                 Patient = pat
-                // an open in flight answers over the patient it was sent for: stale now
-                PendingOpen = None
-                SelectedContext = None
                 OrderContext =
                     match pat with
                     | None -> HasNotStartedYet
@@ -1209,16 +1182,6 @@ module private Elmish =
                         | _ -> OrderContext.empty
                         |> OrderContext.setPatient p
                         |> Resolved
-                OrderPlan =
-                    match pat with
-                    | None -> HasNotStartedYet
-                    | Some p ->
-                        let tp = OrderPlan.create p [||]
-
-                        state.OrderPlan
-                        |> Deferred.map (fun tp -> { tp with Patient = p })
-                        |> Deferred.defaultValue tp
-                        |> Resolved
                 Formulary = { Formulary.empty with Patient = pat } |> Resolved
                 Parenteralia = Parenteralia.empty |> Resolved
                 EmergencyListFilter = [||]
@@ -1227,9 +1190,8 @@ module private Elmish =
             Cmd.batch
                 [
                     Cmd.ofMsg (LoadOrderContextResult(Api.OrderContextCommand.UpdateOrderContext, Started))
-                    Cmd.ofMsg (
-                        LoadOrderPlanResult(Api.PlanCommand.Recalculate(OrderPlan.create Patient.empty [||]), Started)
-                    )
+                    // the plan follows the patient: opened for a new one, recalculated over a change
+                    Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.PatientChanged(pat, newRequest ())))
                     Cmd.ofMsg (LoadFormulary Started)
                     Cmd.ofMsg (LoadParenteralia Started)
                 ]
@@ -1527,102 +1489,31 @@ module private Elmish =
                 Cmd.none
 
 
-        | SelectContext id -> { state with SelectedContext = id }, Cmd.none
+        | OrderPlanMsg msg ->
+            let plan, effects = OrderPlanState.transition msg state.OrderPlan
 
-        // the rows chosen: the totals recomputed over them, the dialog closed
-        | FilterContexts ids ->
-            match state.OrderPlan with
-            | Resolved tp ->
-                { state with SelectedContext = None },
-                Cmd.ofMsg (OrderPlanMsg(Api.PlanCommand.Recalculate { tp with Filtered = ids }))
-            | _ -> state, Cmd.none
+            // the page and the snackbar are the interpreter's: an order prescribed opens the
+            // plan page, a refusal is said
+            let state =
+                effects
+                |> List.fold
+                    (fun (state: State) effect ->
+                        match effect with
+                        | OrderPlanEffect.GoToPlanPage -> { state with Page = OrderPlan }
+                        | OrderPlanEffect.TellError errs -> (state, Cmd.none) |> processError errs |> fst
+                        | _ -> state
+                    )
+                    state
 
-        | OrderPlanMsg cmd ->
-            match cmd with
-            | Api.PlanCommand.Recalculate tp ->
-                { state with OrderPlan = Resolved tp }, Cmd.ofMsg (LoadOrderPlanResult(cmd, Started))
-            // the signed version replaces whatever plan there was, an open in flight included:
-            // the newest open wins
-            | Api.PlanCommand.Open(pat, contexts) ->
-                { state with
-                    OrderPlan = Resolved(OrderPlan.create pat [||])
-                    PendingOpen = Some(contexts |> Array.map _.Id)
-                },
-                Cmd.ofMsg (LoadOrderPlanResult(cmd, Started))
-            // a change to the plan: one at a time, over the plan as it is
-            | Api.PlanCommand.Navigate(tp, _, _, _)
-            | Api.PlanCommand.AddOrderContext(tp, _)
-            | Api.PlanCommand.NewOrderContext(tp, _)
-            | Api.PlanCommand.RemoveOrderContexts(tp, _) ->
-                match state.OrderPlan with
-                | InProgress
-                | Recalculating _ -> state, Cmd.none
-                | _ ->
-                    { state with OrderPlan = Recalculating tp },
-                    cmd
-                    |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
+            { state with OrderPlan = plan }, effects |> List.map (interpretOrderPlanEffect state.Session) |> Cmd.batch
 
-        | LoadOrderPlanResult(cmd, Started) ->
-            match state.Patient with
-            | None -> { state with OrderPlan = HasNotStartedYet }, Cmd.none
-            | Some pat ->
-                match state.OrderPlan with
-                | InProgress
-                | Recalculating _ -> state, Cmd.none
-                // the answer carries the command as sent, over the plan the state held, so
-                // that a refusal restores that plan and not the one the command was made with
-                | HasNotStartedYet ->
-                    let cmd = cmd |> withPlan (OrderPlan.create pat [||])
-
-                    { state with OrderPlan = InProgress },
-                    cmd
-                    |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
-                | Resolved tp ->
-                    let cmd = cmd |> withPlan tp
-
-                    { state with OrderPlan = InProgress },
-                    cmd
-                    |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
-
-        // an answer over another patient than the one held now is stale: the patient changed
-        // while the request was in flight and its own recalculation is on its way; so is any
-        // answer but the open's own while a signed version is being opened. Nothing of a
-        // stale answer is applied
-        | LoadOrderPlanResult(cmd, Finished(Ok msg)) when
-            Some msg.Reply.Response.Patient <> state.Patient || staleWhileOpening state cmd
-            ->
-            state, Cmd.none
-
-        | LoadOrderPlanResult(cmd, Finished(Ok msg)) ->
-            let state = { state with PendingOpen = None }
-            let state, cmds = processApiMsg state msg applyPlan
-
-            match cmd with
-            // an order prescribed: the plan page opens on it and the workbench is cleared
-            | Api.PlanCommand.AddOrderContext _ ->
-                { state with Page = OrderPlan },
-                Cmd.batch
-                    [
-                        cmds
-                        Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty))
-                    ]
-            | _ -> state, cmds
-        | LoadOrderPlanResult(cmd, Finished(Error _)) when staleWhileOpening state cmd -> state, Cmd.none
-
-        // a refused change leaves the plan as the request found it, so the pages keep their
-        // controls and the next action is the retry; without a patient there is no plan
-        | LoadOrderPlanResult(cmd, Finished(Error err)) ->
-            let plan =
-                match state.Patient with
-                | None -> HasNotStartedYet
-                | Some _ -> Resolved(planOf cmd)
-
-            ({ state with
-                OrderPlan = plan
-                PendingOpen = None
-             },
-             Cmd.none)
-            |> processError err
+        // what the Session is told rides on the reply; the plan goes to the machine under the
+        // request it answers
+        | OrderPlanAnswered(request, answer) ->
+            processApiMsg
+                state
+                answer
+                (fun state plan -> state, Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Answered(request, Ok plan))))
 
         | LoadFormulary Started ->
             match state.Formulary with
@@ -1791,11 +1682,18 @@ type private ConcreteAppEnv
         member _.OrderContextMsg(cmd, ctx) = OrderContextMsg(cmd, ctx) |> dispatch
 
     interface AppEnv.IOrderPlan with
-        member _.OrderPlan = state.OrderPlan
-        member _.PlanCommand cmd = OrderPlanMsg cmd |> dispatch
-        member _.Selected = state.SelectedContext
-        member _.Select id = SelectContext id |> dispatch
-        member _.Filter ids = FilterContexts ids |> dispatch
+        member _.OrderPlan = state.OrderPlan |> orderPlanToDeferred
+
+        member _.PlanCommand cmd =
+            OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch
+
+        member _.Selected = OrderPlanState.selected state.OrderPlan
+
+        member _.Select id =
+            OrderPlanMsg(OrderPlanMsg.Select id) |> dispatch
+
+        member _.Filter ids =
+            OrderPlanMsg(OrderPlanMsg.Filter(ids, newRequest ())) |> dispatch
 
     interface AppEnv.IPatient with
         member _.Patient = state.Patient
