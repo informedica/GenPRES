@@ -174,17 +174,21 @@ module SimpleSelect =
                 alignItems = "center"
             |}
 
+        // the step buttons rest while the value is loading: a step sent then would be dropped,
+        // since one change is in flight at a time
+        let stepsRest = props.disabled || props.isLoading
+
         let navigation =
             props.stepper
             |> Option.map (fun nav ->
                 let getNav prop =
                     match prop with
-                    | Some onClick -> props.disabled, onClick
+                    | Some onClick -> stepsRest, onClick
                     | None -> true, fun () -> ()
 
                 let getNavN prop =
                     match prop with
-                    | Some onClick -> props.disabled, onClick
+                    | Some onClick -> stepsRest, onClick
                     | None -> true, fun (_: int) -> ()
 
                 let firstDisabled, firstClick = nav.first |> getNavN

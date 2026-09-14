@@ -309,21 +309,36 @@ module private Elmish =
         { state with Parenteralia = Resolved par }, Cmd.none
 
 
+    /// The interactions notice on the snackbar, and its withdrawal: only the notice itself is
+    /// withdrawn, never another message the snackbar shows meanwhile (the record moved on, a
+    /// refusal), since the interactions are checked on every answered plan.
+    let interactionsNotice n = $"Er zijn %i{n} interactie(s) gevonden"
+
+    let withdrawInteractionsNotice (state: State) =
+        if
+            state.SnackbarMsg.StartsWith "Er zijn "
+            && state.SnackbarMsg.EndsWith " interactie(s) gevonden"
+        then
+            { state with
+                SnackbarMsg = ""
+                SnackbarOpen = false
+            }
+        else
+            state
+
+
     let applyInteraction (state: State) (response: Api.InteractionResponse) =
         match response with
         | Api.InteractionResponse.InteractionsChecked interactions ->
             let newState =
                 if interactions.Length > 0 then
                     { state with
-                        SnackbarMsg = $"Er zijn %i{interactions.Length} interactie(s) gevonden"
+                        SnackbarMsg = interactionsNotice interactions.Length
                         SnackbarOpen = true
                         SnackbarSeverity = "warning"
                     }
                 else
-                    { state with
-                        SnackbarMsg = ""
-                        SnackbarOpen = false
-                    }
+                    withdrawInteractionsNotice state
 
             { newState with Interactions = Resolved interactions }, Cmd.none
         | Api.InteractionResponse.DrugNamesLoaded names ->
@@ -1605,12 +1620,7 @@ module private Elmish =
 
         | CheckInteractions drugs ->
             if drugs.Length < 2 then
-                { state with
-                    Interactions = HasNotStartedYet
-                    SnackbarMsg = ""
-                    SnackbarOpen = false
-                },
-                Cmd.none
+                { withdrawInteractionsNotice state with Interactions = HasNotStartedYet }, Cmd.none
             else
                 { state with Interactions = InProgress },
                 Api.InteractionCommand.CheckInteractions drugs
