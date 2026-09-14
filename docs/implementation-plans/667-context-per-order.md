@@ -123,13 +123,20 @@ the same shape and the same tests as the session and signing machines.
   context is evaluated over the patient it was created with, and a patient edit rewrites the
   plan's patient only; with drug contexts in the plan every stepped order would use a stale
   weight. One line and a test.
-- `removeContexts`: every kind; a feeding takes its supplements.
+- `removeContexts`: every kind; a feeding takes its supplements. Ownership is by category,
+  as today: the plan holds one feeding at most, and a supplement can only be added under it,
+  so the feeding's supplements are every enteral supplement in the plan. That rule lives in the
+  nutrition page's buttons only; the server now keeps it too: `addContext` refuses a second
+  context of any nutrition category other than supplement, and a supplement without a feeding,
+  and `open` refuses a signed record that would break it (it cannot arise from a plan the server
+  built, so the refusal is a guard, not a path). No feeding-to-supplement link is recorded.
 - `withOrders` shrinks to `Scenarios`; the following of `Filtered` and `Selected` goes.
 - Tests in `StubAdapterTests.PlanTests` ("the one plan"): open rebuilds a context per category
   and keeps a feeding and its supplement as two; a drug reopens as `Drug` with its generic as the
   label; `addOrder` refuses a duplicate and a wide context and folds a narrow one in; a nutrition
   contribution stamps the category; `removeContexts` over mixed kinds with the cascade;
-  `navigate` uses the plan's patient; totals by filtered context id; dispatch of each case.
+  `addContext` refuses a second feeding and an orphan supplement; `navigate` uses the plan's
+  patient; totals by filtered context id; dispatch of each case.
 
 ### Client (direct edits)
 
@@ -250,15 +257,19 @@ Fable compile and Fantomas green. Wire changes are additive first and deleted la
    `NutritionContext`; `OrderPlan.Contexts`; the helpers; the nutrition page on the helpers with
    a `Drug` arm where it matches the category. About 150 lines. Tests: the existing plan tests
    adjusted; a contribution stamps the category.
-3. **`Open` and `RemoveContexts`**, beside the old cases; `navigate` over the plan's patient.
+3. **`Open` and `RemoveContexts`**, beside the old cases; `navigate` over the plan's patient;
+   `addContext` and `open` keeping one context per nutrition category, supplements excepted.
    Closes #666. About 150 lines. Tests: open rebuilds per category and keeps a feeding and its
    supplement; a drug reopens as `Drug` with its generic as label; `removeContexts` over mixed
-   kinds with the cascade; the patient override.
+   kinds with the cascade; a second feeding and an orphan supplement refused; the patient
+   override.
 4. **`AddOrder`.** About 80 lines. Tests: a duplicate refused, a wide context refused, a narrow
    one folded in.
-5. **The selection off the wire, the filter as ids.** `Selected` becomes a client state field;
-   `Filtered: string[]`; the following bookkeeping deleted. About 110 lines. Tests: totals by
-   filtered context id; a re-evaluated context keeps its place in the filter.
+5. **The selection off the wire, the filter as ids.** One PR on both sides, since the client
+   reads both fields: `Selected` becomes a client state field in `App.fs`, and the order-plan
+   page's dialog, row selection and row filter read it from the env and send ids;
+   `Filtered: string[]`; the server's following bookkeeping deleted. About 130 lines. Tests:
+   totals by filtered context id; a re-evaluated context keeps its place in the filter.
 6. **The views on the new commands.** `LoadCart` and the patient change send `Open`; Prescribe
    sends `AddOrder` and switches page, the button greyed on a duplicate; the order-plan dialog
    by context id, deletion by `RemoveContexts`; the nutrition page on `RemoveContexts`;
