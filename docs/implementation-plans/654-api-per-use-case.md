@@ -310,9 +310,12 @@ after review.
 ### Left open
 
 - After a reopen the signed nutrition orders are in the plan and its totals, but the workbenches
-  are empty. Rebuilding them from the signed orders is a follow-up issue.
+  are empty. Rebuilding them from the signed orders is a follow-up issue
+  ([#666](https://github.com/informedica/GenPRES/issues/666), folded into plan
+  [667](667-context-per-order.md)).
 - A drug order's context is not kept in the plan (its scenario is; the page rebuilds a context
   around it), a nutrition order's is (its workbench). Keeping a context per order, with the
   prescribing workbench as a context not yet in the plan, is the natural next design step and
-  needs an issue and a plan of its own.
+  needs an issue and a plan of its own: [#667](https://github.com/informedica/GenPRES/issues/667),
+  plan [667](667-context-per-order.md).
 - Plan 580's scope gate becomes one more parameter of `Compute.bound`.
