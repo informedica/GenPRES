@@ -73,29 +73,13 @@ module Fixtures =
 
     let noPatient = OrderPlanState.noPatient
 
-    /// The plan held with the dialog's selection, nothing under way.
-    let held (tp: OrderPlan) (selected: string option) =
-        {
-            Plan = Plan.Opened tp
-            InFlight = None
-            Selected = selected
-        }
+    let held = OrderPlanState.held
 
     /// A change under way over the plan held, the one a failed change goes back to.
     let recalculating (tp: OrderPlan) (selected: string option) request (sent: OrderPlanCommand) =
-        {
-            Plan = Plan.Opened tp
-            InFlight = Some(sent, request)
-            Selected = selected
-        }
+        OrderPlanState.changing tp selected sent request
 
-    /// An open under way: the contexts being opened, nothing held yet.
-    let loading (pat: Patient) (opening: OrderContext[]) request =
-        {
-            Plan = Plan.Unopened(pat, opening)
-            InFlight = Some(OrderPlanCommand.Open(pat, opening), request)
-            Selected = None
-        }
+    let loading = OrderPlanState.opening
 
     let shown = held one None
 
@@ -448,10 +432,5 @@ let stagesTests =
 
                 transition (OrderPlanMsg.Select(Some "c-1")) (loading patient [||] "r-1")
                 |> Expect.equal "nothing to select yet" (loading patient [||] "r-1", [])
-
-                // the record is open to construction; the read is not
-                { noPatient with Selected = Some "c-1" }
-                |> OrderPlanState.selected
-                |> Expect.equal "no dialog without a plan held" None
             }
         ]

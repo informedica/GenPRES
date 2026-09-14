@@ -144,13 +144,15 @@ module Plan =
 
 /// The plan, the one request under way (the command sent and the id the answer must name; none
 /// while idle) and the context the dialog shows, by id: the client's own, next to whatever is in
-/// flight.
+/// flight. Built through the constructors below only, which admit the four combinations that can
+/// occur: no patient with nothing under way, an open under way, a plan held, a change under way.
 type OrderPlanState =
-    {
-        Plan: Plan
-        InFlight: (OrderPlanCommand * string) option
-        Selected: string option
-    }
+    private
+        {
+            Plan: Plan
+            InFlight: (OrderPlanCommand * string) option
+            Selected: string option
+        }
 
 
 /// What moves the plan. Every message that starts a request carries the request id, minted at
@@ -194,6 +196,33 @@ module OrderPlanState =
         }
 
 
+    /// An open under way: the contexts being opened, nothing held yet, the dialog closed.
+    let opening (pat: Patient) (contexts: OrderContext[]) (request: string) =
+        {
+            Plan = Plan.Unopened(pat, contexts)
+            InFlight = Some(OrderPlanCommand.Open(pat, contexts), request)
+            Selected = None
+        }
+
+
+    /// The plan held with the dialog's selection, nothing under way.
+    let held (tp: OrderPlan) (selected: string option) =
+        {
+            Plan = Plan.Opened tp
+            InFlight = None
+            Selected = selected
+        }
+
+
+    /// A change under way over the plan held, the one a failed change goes back to.
+    let changing (tp: OrderPlan) (selected: string option) (sent: OrderPlanCommand) (request: string) =
+        {
+            Plan = Plan.Opened tp
+            InFlight = Some(sent, request)
+            Selected = selected
+        }
+
+
     /// The plan the state holds, none before the first answer.
     let plan (state: OrderPlanState) =
         match state.Plan with
@@ -202,12 +231,8 @@ module OrderPlanState =
         | Plan.Opened tp -> Some tp
 
 
-    /// The context the dialog shows, by id; none while it is closed or there is no plan held,
-    /// whatever the field says: the record is open to construction, the reads are not.
-    let selected (state: OrderPlanState) =
-        match state.Plan with
-        | Plan.Opened _ -> state.Selected
-        | _ -> None
+    /// The context the dialog shows, by id; none while it is closed or there is no plan.
+    let selected (state: OrderPlanState) = state.Selected
 
 
     /// The patient the plan is for, none without one.
