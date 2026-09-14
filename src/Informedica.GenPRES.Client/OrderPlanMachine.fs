@@ -202,8 +202,12 @@ module OrderPlanState =
         | Plan.Opened tp -> Some tp
 
 
-    /// The context the dialog shows, by id; none while it is closed or there is no plan.
-    let selected (state: OrderPlanState) = state.Selected
+    /// The context the dialog shows, by id; none while it is closed or there is no plan held,
+    /// whatever the field says: the record is open to construction, the reads are not.
+    let selected (state: OrderPlanState) =
+        match state.Plan with
+        | Plan.Opened _ -> state.Selected
+        | _ -> None
 
 
     /// The patient the plan is for, none without one.

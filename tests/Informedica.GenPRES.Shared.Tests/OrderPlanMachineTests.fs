@@ -448,5 +448,10 @@ let stagesTests =
 
                 transition (OrderPlanMsg.Select(Some "c-1")) (loading patient [||] "r-1")
                 |> Expect.equal "nothing to select yet" (loading patient [||] "r-1", [])
+
+                // the record is open to construction; the read is not
+                { noPatient with Selected = Some "c-1" }
+                |> OrderPlanState.selected
+                |> Expect.equal "no dialog without a plan held" None
             }
         ]
