@@ -106,7 +106,7 @@ type OrderPlanState =
     {
         Plan: Plan
         // the one change under way: the command sent and the id the answer must name
-        InFlight: (PlanCommand * string) option
+        InFlight: (OrderPlanCommand * string) option
         // the context the dialog shows, by id: the client's own, next to whatever is in flight
         Selected: string option
     }
@@ -142,7 +142,7 @@ type WorkbenchIntent =
 The domain changes only on `Landed Ok` and on `PatientChanged`. A `Landed Error` leaves it as it
 is and emits `Tell` and `Sync`, which is how a failed change goes back to the original. `Seeded` emits
 nothing, which is how the seed waits. `Plan.step` has the same shape, with
-`Landed of PlanCommand * Result<OrderPlan, string[]>` and the intents `Open` and `Recalculate`
+`Landed of OrderPlanCommand * Result<OrderPlan, string[]>` and the intents `Open` and `Recalculate`
 (both supersede), `Call`, `CheckInteractions`, `GoToPlanPage`, `ResetWorkbench`, `Tell`.
 
 **The two stages in order.** `transition` keeps its signature and runs them:
@@ -223,8 +223,10 @@ dropped by the domain); a selection without a plan (`Select` dropped on `NoPatie
 **What does not change.** `OrderContextMsg`, `OrderPlanMsg`, both effect types, both `transition`
 signatures, `State.OrderContext` and `State.OrderPlan` in `App.fs`, `AppEnv`, and the effect
 interpreters. The accessors `App.fs` reads keep their names: `patient` is the domain's;
-`context` is the payload in flight if any, else the domain's; `map f` applies to the domain
-value and the payload both; `emptyFor`, `plan`, `selected` as today.
+`context` is none for `NoPatient` and `Unevaluated`, as today's `Loading` answers none, and
+otherwise the payload in flight if any, else the domain's, so that the ContinuousMeds page
+guard and the filter syncs in `App.fs` keep their branches during the first load; `map f`
+applies to the domain value and the payload both; `emptyFor`, `plan`, `selected` as today.
 
 **`Deferred`, derived for the pages**, one tested function per lane, in the machine (written in
 today's case names; step 9 renames):
