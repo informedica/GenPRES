@@ -185,8 +185,14 @@ module Formulary =
         let state, dispatch =
             React.useElmish (init formulary, update formulary updateFormulary, [| box formulary |])
 
-        let select = ViewHelpers.filterSelect false
-        let autoComplete = ViewHelpers.autoComplete false
+        // the filter is the workbench's: a change here is evaluated there, so the selects are
+        // greyed while a workbench request is under way
+        let busy =
+            (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
+            |> Deferred.inProgress
+
+        let select = ViewHelpers.filterSelect busy
+        let autoComplete = ViewHelpers.autoComplete busy
 
 
         let progress = ViewHelpers.progressOrEmpty formulary

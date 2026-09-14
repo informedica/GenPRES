@@ -1266,9 +1266,12 @@ module Nutrition =
         let removeButton =
             match props.onRemove with
             | Some onRemove ->
+                // the plan takes one change at a time: no removal while one is under way
                 let handleClick (e: Browser.Types.Event) =
                     e.stopPropagation ()
-                    onRemove ()
+
+                    if not props.isRecalculating then
+                        onRemove ()
 
                 JSX.jsx
                     $"""
@@ -1358,6 +1361,7 @@ module Nutrition =
             {|
                 label: string
                 onClick: unit -> unit
+                disabled: bool
             |})
         =
         JSX.jsx
@@ -1368,6 +1372,7 @@ module Nutrition =
             variant="outlined"
             size="small"
             startIcon={{ <AddIcon /> }}
+            disabled={props.disabled}
             onClick={fun _ -> props.onClick ()}
             sx={addButtonSx}
         >
@@ -1464,6 +1469,7 @@ module Nutrition =
                             {|
                                 label = Terms.``Nutrition Enteral Feeding`` |> getTerm "Enterale Voeding"
                                 onClick = fun () -> newOrderContext plan NutritionCategory.EnteralFeeding
+                                disabled = isRecalculating
                             |}
                     else
                         null
@@ -1474,6 +1480,7 @@ module Nutrition =
                             {|
                                 label = Terms.``Nutrition Add Supplement`` |> getTerm "Supplement toevoegen"
                                 onClick = fun () -> newOrderContext plan NutritionCategory.EnteralSupplement
+                                disabled = isRecalculating
                             |}
                     else
                         null
@@ -1485,17 +1492,20 @@ module Nutrition =
                                 {|
                                     label = Terms.``Nutrition TPN`` |> getTerm "TPN"
                                     onClick = fun () -> newOrderContext plan NutritionCategory.TPN
+                                    disabled = isRecalculating
                                 |}
                         if not hasLipid then
                             AddButton
                                 {|
                                     label = Terms.``Nutrition Lipids`` |> getTerm "Vetten"
                                     onClick = fun () -> newOrderContext plan NutritionCategory.Lipid
+                                    disabled = isRecalculating
                                 |}
                         AddButton
                             {|
                                 label = Terms.``Nutrition Electrolytes Glucose`` |> getTerm "Elektrolyten/Glucose"
                                 onClick = fun () -> newOrderContext plan NutritionCategory.ElectrolyteGlucose
+                                disabled = isRecalculating
                             |}
                     |]
 
@@ -1576,10 +1586,12 @@ module Nutrition =
             let isOpen = confirmDeleteTarget.IsSome
             let handleCancel = fun _ -> setConfirmDeleteTarget None
 
+            // the plan takes one change at a time: a confirmation while one is under way removes
+            // nothing and closes the dialog
             let handleConfirm =
                 fun _ ->
                     match confirmDeleteTarget, orderPlan with
-                    | Some ncId, (Resolved plan | Recalculating plan) ->
+                    | Some ncId, Resolved plan ->
                         Api.OrderPlanCommand.RemoveOrderContexts(plan, [| ncId |]) |> planCommand
                     | _ -> ()
 
