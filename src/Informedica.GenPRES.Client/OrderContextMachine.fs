@@ -68,6 +68,27 @@ module OrderContextState =
         | OrderContextState.Recalculating(ctx, _) -> Some ctx.Patient
 
 
+    /// The context the workbench holds, none before the first evaluation.
+    let context (state: OrderContextState) =
+        match state with
+        | OrderContextState.NoPatient
+        | OrderContextState.Loading _ -> None
+        | OrderContextState.Seeded ctx
+        | OrderContextState.Shown ctx
+        | OrderContextState.Recalculating(ctx, _) -> Some ctx
+
+
+    /// The context the workbench holds, changed in place: the filter kept in step with the
+    /// formulary's and the parenteralia's.
+    let map (f: OrderContext -> OrderContext) (state: OrderContextState) =
+        match state with
+        | OrderContextState.NoPatient
+        | OrderContextState.Loading _ -> state
+        | OrderContextState.Seeded ctx -> OrderContextState.Seeded(f ctx)
+        | OrderContextState.Shown ctx -> OrderContextState.Shown(f ctx)
+        | OrderContextState.Recalculating(ctx, request) -> OrderContextState.Recalculating(f ctx, request)
+
+
     /// The workbench emptied for the patient.
     let emptyFor (pat: Patient) =
         Shared.Models.OrderContext.empty |> Shared.Models.OrderContext.setPatient pat
