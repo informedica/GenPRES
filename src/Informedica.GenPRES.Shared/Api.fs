@@ -9,6 +9,7 @@ module Api =
 
     /// The order-context command family: the selection, the reset, and the stepping of the
     /// frequency, the dose quantity, the dose rate and a component quantity.
+    [<RequireQualifiedAccess>]
     type OrderContextCommand =
         | UpdateOrderContext
         | SelectOrderScenario
@@ -63,36 +64,39 @@ module Api =
         /// For the log: the command alone, never the context.
         let toString (cmd: OrderContextCommand, _: OrderContext) =
             match cmd with
-            | UpdateOrderContext -> "UpdateOrderContext"
-            | SelectOrderScenario -> "SelectOrderScenario"
-            | UpdateOrderScenario -> "UpdateOrderScenario"
-            | ResetOrderScenario -> "ResetOrderScenario"
-            | DecreaseScheduleFrequencyProperty -> "DecreaseScheduleFrequencyProperty"
-            | IncreaseScheduleFrequencyProperty -> "IncreaseScheduleFrequencyProperty"
-            | SetMinScheduleFrequencyProperty -> "SetMinScheduleFrequencyProperty"
-            | SetMaxScheduleFrequencyProperty -> "SetMaxScheduleFrequencyProperty"
-            | SetMedianScheduleFrequencyProperty -> "SetMedianScheduleFrequencyProperty"
-            | DecreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
+            | OrderContextCommand.UpdateOrderContext -> "UpdateOrderContext"
+            | OrderContextCommand.SelectOrderScenario -> "SelectOrderScenario"
+            | OrderContextCommand.UpdateOrderScenario -> "UpdateOrderScenario"
+            | OrderContextCommand.ResetOrderScenario -> "ResetOrderScenario"
+            | OrderContextCommand.DecreaseScheduleFrequencyProperty -> "DecreaseScheduleFrequencyProperty"
+            | OrderContextCommand.IncreaseScheduleFrequencyProperty -> "IncreaseScheduleFrequencyProperty"
+            | OrderContextCommand.SetMinScheduleFrequencyProperty -> "SetMinScheduleFrequencyProperty"
+            | OrderContextCommand.SetMaxScheduleFrequencyProperty -> "SetMaxScheduleFrequencyProperty"
+            | OrderContextCommand.SetMedianScheduleFrequencyProperty -> "SetMedianScheduleFrequencyProperty"
+            | OrderContextCommand.DecreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
                 $"DecreaseOrderableDoseQuantityProperty ntimes={ntimes} useCalc={useCalc}"
-            | IncreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
+            | OrderContextCommand.IncreaseOrderableDoseQuantityProperty(ntimes, useCalc) ->
                 $"IncreaseOrderableDoseQuantityProperty ntimes={ntimes} useCalc={useCalc}"
-            | SetMinOrderableDoseQuantityProperty -> "SetMinOrderableDoseQuantityProperty"
-            | SetMaxOrderableDoseQuantityProperty -> "SetMaxOrderableDoseQuantityProperty"
-            | SetMedianOrderableDoseQuantityProperty -> "SetMedianOrderableDoseQuantityProperty"
-            | DecreaseOrderableDoseRateProperty(ntimes, useCalc) ->
+            | OrderContextCommand.SetMinOrderableDoseQuantityProperty -> "SetMinOrderableDoseQuantityProperty"
+            | OrderContextCommand.SetMaxOrderableDoseQuantityProperty -> "SetMaxOrderableDoseQuantityProperty"
+            | OrderContextCommand.SetMedianOrderableDoseQuantityProperty -> "SetMedianOrderableDoseQuantityProperty"
+            | OrderContextCommand.DecreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 $"DecreaseOrderableDoseRateProperty ntimes={ntimes} useCalc={useCalc}"
-            | IncreaseOrderableDoseRateProperty(ntimes, useCalc) ->
+            | OrderContextCommand.IncreaseOrderableDoseRateProperty(ntimes, useCalc) ->
                 $"IncreaseOrderableDoseRateProperty ntimes={ntimes} useCalc={useCalc}"
-            | SetMinOrderableDoseRateProperty -> "SetMinOrderableDoseRateProperty"
-            | SetMaxOrderableDoseRateProperty -> "SetMaxOrderableDoseRateProperty"
-            | SetMedianOrderableDoseRateProperty -> "SetMedianOrderableDoseRateProperty"
-            | DecreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
+            | OrderContextCommand.SetMinOrderableDoseRateProperty -> "SetMinOrderableDoseRateProperty"
+            | OrderContextCommand.SetMaxOrderableDoseRateProperty -> "SetMaxOrderableDoseRateProperty"
+            | OrderContextCommand.SetMedianOrderableDoseRateProperty -> "SetMedianOrderableDoseRateProperty"
+            | OrderContextCommand.DecreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
                 $"DecreaseComponentQuantityProperty cmp={cmp} ntimes={ntimes} useCalc={useCalc}"
-            | IncreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
+            | OrderContextCommand.IncreaseComponentOrderableQuantityProperty(cmp, ntimes, useCalc) ->
                 $"IncreaseComponentQuantityProperty cmp={cmp} ntimes={ntimes} useCalc={useCalc}"
-            | SetMinComponentOrderableQuantityProperty cmp -> $"SetMinComponentQuantityProperty cmp={cmp}"
-            | SetMaxComponentOrderableQuantityProperty cmp -> $"SetMaxComponentQuantityProperty cmp={cmp}"
-            | SetMedianComponentOrderableQuantityProperty cmp -> $"SetMedianComponentQuantityProperty cmp={cmp}"
+            | OrderContextCommand.SetMinComponentOrderableQuantityProperty cmp ->
+                $"SetMinComponentQuantityProperty cmp={cmp}"
+            | OrderContextCommand.SetMaxComponentOrderableQuantityProperty cmp ->
+                $"SetMaxComponentQuantityProperty cmp={cmp}"
+            | OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp ->
+                $"SetMedianComponentQuantityProperty cmp={cmp}"
 
 
     /// The launch command family. Cut from the session family at the authentication boundary:

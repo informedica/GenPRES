@@ -157,7 +157,7 @@ let commandRoutingTests =
                 let env =
                     makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
-                let! result = OrderContextCommand.processCmd env (Api.UpdateOrderContext, emptyCtx)
+                let! result = OrderContextCommand.processCmd env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
 
                 match result with
                 | Ok _ -> ()
@@ -186,7 +186,7 @@ let errorPropagationTests =
                 let env =
                     makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysFails [| "ctx error" |])
 
-                let! result = OrderContextCommand.processCmd env (Api.UpdateOrderContext, emptyCtx)
+                let! result = OrderContextCommand.processCmd env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should propagate order context error" [| "ctx error" |]
@@ -224,7 +224,7 @@ let requireLoadedTests =
             testAsync "requireLoaded returns Error when not loaded" {
                 let env = makeEnvNotLoaded [| "not ready" |]
 
-                let! result = bound env (Api.UpdateOrderContext, emptyCtx)
+                let! result = bound env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
 
                 match result with
                 | Error msgs -> msgs |> Expect.equal "should return requireLoaded error" [| "not ready" |]
@@ -235,7 +235,7 @@ let requireLoadedTests =
                 let env =
                     makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
 
-                let! result = bound env (Api.UpdateOrderContext, emptyCtx)
+                let! result = bound env (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
 
                 match result with
                 | Ok _ -> ()
@@ -4865,7 +4865,7 @@ module BoundTests =
             }
         |> Async.RunSynchronously
 
-    let formulary = (Api.UpdateOrderContext, emptyCtx)
+    let formulary = (Api.OrderContextCommand.UpdateOrderContext, emptyCtx)
 
     let runInteraction env cookie cmd =
         Compute.bound
@@ -5171,7 +5171,15 @@ module PlanTests =
 
                     let port: OrderContextPort = { evaluate = fun _ _ -> async { return Ok evaluated } }
 
-                    match! PlanService.navigate id port p None Api.UpdateOrderContext OrderContext.empty with
+                    match!
+                        PlanService.navigate
+                            id
+                            port
+                            p
+                            None
+                            Api.OrderContextCommand.UpdateOrderContext
+                            OrderContext.empty
+                    with
                     | Ok p ->
                         p.Selected |> Option.map _.Name |> Expect.equal "selected" (Some "re-evaluated")
 
@@ -5187,7 +5195,15 @@ module PlanTests =
                     let failing: OrderContextPort =
                         { evaluate = fun _ _ -> async { return Error [| "no dose rules" |] } }
 
-                    match! PlanService.navigate id failing p None Api.UpdateOrderContext OrderContext.empty with
+                    match!
+                        PlanService.navigate
+                            id
+                            failing
+                            p
+                            None
+                            Api.OrderContextCommand.UpdateOrderContext
+                            OrderContext.empty
+                    with
                     | Error errs -> errs |> Expect.equal "the error, not the plan as it was" [| "no dose rules" |]
                     | Ok _ -> failtest "expected Error"
                 }
@@ -5242,11 +5258,27 @@ module PlanTests =
                         plan [| context "c-1" NutritionCategory.TPN [||] |] [| scenarioWithOrder "o-drug" |]
 
                     // the totals are the adapter's; here the answer is left as folded
-                    match! PlanService.navigate id port p (Some "c-1") Api.UpdateOrderContext OrderContext.empty with
+                    match!
+                        PlanService.navigate
+                            id
+                            port
+                            p
+                            (Some "c-1")
+                            Api.OrderContextCommand.UpdateOrderContext
+                            OrderContext.empty
+                    with
                     | Ok p -> ids p |> Expect.equal "folded in" [| "o-drug"; "o-tpn" |]
                     | Error errs -> failtest $"{errs}"
 
-                    match! PlanService.navigate id port p (Some "c-9") Api.UpdateOrderContext OrderContext.empty with
+                    match!
+                        PlanService.navigate
+                            id
+                            port
+                            p
+                            (Some "c-9")
+                            Api.OrderContextCommand.UpdateOrderContext
+                            OrderContext.empty
+                    with
                     | Error _ -> ()
                     | Ok _ -> failtest "no such context"
                 }
@@ -5276,7 +5308,9 @@ module PlanTests =
                     let! _ = PlanCommand.processCmd env (PlanCommand.Recalculate p)
 
                     let! _ =
-                        PlanCommand.processCmd env (PlanCommand.Navigate(p, None, Api.UpdateOrderContext, emptyCtx))
+                        PlanCommand.processCmd
+                            env
+                            (PlanCommand.Navigate(p, None, Api.OrderContextCommand.UpdateOrderContext, emptyCtx))
 
                     let! _ = PlanCommand.processCmd env (PlanCommand.AddContext(p, NutritionCategory.TPN))
                     let! _ = PlanCommand.processCmd env (PlanCommand.RemoveContext(p, "c-1"))
@@ -5299,7 +5333,12 @@ module PlanTests =
                     let p = OrderPlan.empty
 
                     PlanCommand.toString (
-                        PlanCommand.Navigate(p, Some "c-1", Api.UpdateOrderContext, OrderContext.empty)
+                        PlanCommand.Navigate(
+                            p,
+                            Some "c-1",
+                            Api.OrderContextCommand.UpdateOrderContext,
+                            OrderContext.empty
+                        )
                     )
                     |> Expect.equal "context" "Navigate context UpdateOrderContext"
 

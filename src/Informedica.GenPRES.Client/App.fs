@@ -265,8 +265,10 @@ module private Elmish =
             let refresh =
                 match state.Patient, state.OrderContext with
                 | Some _, Resolved ctx
-                | Some _, Recalculating ctx -> Cmd.ofMsg (OrderContextMsg(Api.UpdateOrderContext, ctx))
-                | Some _, _ -> Cmd.ofMsg (OrderContextMsg(Api.UpdateOrderContext, OrderContext.empty))
+                | Some _, Recalculating ctx ->
+                    Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, ctx))
+                | Some _, _ ->
+                    Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty))
                 | None, _ ->
                     Cmd.batch
                         [
@@ -727,7 +729,7 @@ module private Elmish =
             let base' = { state with OrderContext = Resolved ctx }
 
             match cmd with
-            | Api.UpdateOrderContext ->
+            | Api.OrderContextCommand.UpdateOrderContext ->
                 { base' with
                     Formulary = base'.Formulary |> Deferred.map (OrderContext.syncFilterToFormulary ctx.Filter)
                     Parenteralia =
@@ -938,7 +940,7 @@ module private Elmish =
                 Page = Prescribe
                 OrderContext = ctx |> Resolved
             },
-            Cmd.ofMsg (OrderContextMsg(Api.UpdateOrderContext, ctx))
+            Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, ctx))
 
         match msg with
         | CloseSnackbar ->
@@ -1113,7 +1115,7 @@ module private Elmish =
                 },
                 Cmd.batch
                     [
-                        Cmd.ofMsg (LoadOrderContextResult(Api.UpdateOrderContext, Started))
+                        Cmd.ofMsg (LoadOrderContextResult(Api.OrderContextCommand.UpdateOrderContext, Started))
                         retryDrugNames
                     ]
             else if page = Settings && not state.IsAuthenticated then
@@ -1190,7 +1192,7 @@ module private Elmish =
             },
             Cmd.batch
                 [
-                    Cmd.ofMsg (LoadOrderContextResult(Api.UpdateOrderContext, Started))
+                    Cmd.ofMsg (LoadOrderContextResult(Api.OrderContextCommand.UpdateOrderContext, Started))
                     Cmd.ofMsg (
                         LoadOrderPlanResult(Api.PlanCommand.Recalculate(OrderPlan.create Patient.empty [||]), Started)
                     )
@@ -1486,7 +1488,7 @@ module private Elmish =
                 SnackbarSeverity = "warning"
             },
             if isNoRulesError then
-                Cmd.ofMsg (OrderContextMsg(Api.UpdateOrderContext, OrderContext.empty))
+                Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty))
             else
                 Cmd.none
 
@@ -1516,7 +1518,7 @@ module private Elmish =
                 else
                     Cmd.batch
                         [
-                            Cmd.ofMsg (OrderContextMsg(Api.UpdateOrderContext, OrderContext.empty))
+                            Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty))
                             recalculate
                         ]
 
@@ -1618,7 +1620,7 @@ module private Elmish =
             Cmd.batch
                 [
                     Cmd.ofMsg (LoadFormulary Started)
-                    Cmd.ofMsg (LoadOrderContextResult(Api.UpdateOrderContext, Started))
+                    Cmd.ofMsg (LoadOrderContextResult(Api.OrderContextCommand.UpdateOrderContext, Started))
                     Cmd.ofMsg (LoadParenteralia Started)
                 ]
 
@@ -1660,7 +1662,7 @@ module private Elmish =
             Cmd.batch
                 [
                     Cmd.ofMsg (LoadFormulary Started)
-                    Cmd.ofMsg (LoadOrderContextResult(Api.UpdateOrderContext, Started))
+                    Cmd.ofMsg (LoadOrderContextResult(Api.OrderContextCommand.UpdateOrderContext, Started))
                     Cmd.ofMsg (LoadParenteralia Started)
                 ]
 
