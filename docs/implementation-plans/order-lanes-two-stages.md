@@ -12,9 +12,9 @@ The client holds the prescribing workbench and the order plan in two pure state 
 the context evaluated, the plan, the context the dialog shows) with what the transport is doing
 (a request in flight, its id, the command sent, the copy shown meanwhile):
 
-- `OrderContextState.Recalculating of sent * found * request` holds two copies of the context,
-  because a failed change goes back to `found`, the original, while the page shows `sent`;
-  `Loading of Patient * request`
+- `OrderContextState.Recalculating` holds two copies of the context, the original and the one
+  sent, next to the request id: a failed change goes back to the original while the page shows
+  the one sent. `Loading of Patient * request`
   welds a domain fact (a patient held, nothing evaluated yet) to a request id.
 - `OrderPlanState.Recalculating of OrderPlan * selected * request * sent` bundles the plan, the
   dialog's selection and the transport in one case; `Loading` likewise.
