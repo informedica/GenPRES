@@ -234,12 +234,12 @@ module OrderContextState =
         }
 
 
-    /// A command under way over the context sent; the one held is what a failed change goes
-    /// back to.
+    /// A command under way over the context sent, always for the patient held; the context held
+    /// is what a failed change goes back to.
     let changing (cmd: OrderContextCommand) (sent: OrderContext) (held: OrderContext) (request: string) =
         {
             Workbench = Workbench.Evaluated held
-            InFlight = Some((cmd, sent), request)
+            InFlight = Some((cmd, { sent with Patient = held.Patient }), request)
         }
 
 
