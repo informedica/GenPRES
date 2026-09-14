@@ -23,8 +23,9 @@ type OrderPlanState =
     | Loading of Patient * opening: OrderContext[] * request: string
     // the plan as answered, and the context the dialog shows, by id
     | Shown of OrderPlan * selected: string option
-    // a change in flight: the plan the request found, the selection, the request id and the
-    // command sent, so that the answer knows what it answers
+    // a change in flight: the plan held, the original a failed change goes back to; the
+    // selection; the request id; and the command sent, which carries the plan as the page
+    // changed it, so that the answer knows what it answers
     | Recalculating of OrderPlan * selected: string option * request: string * sent: OrderPlanCommand
 
 
@@ -105,6 +106,14 @@ module OrderPlanState =
         |> List.singleton
 
 
+    /// The plan the pages show while a change is under way: for a recalculation the one the
+    /// command carries, since the rows chosen show at once; the plan held otherwise.
+    let meanwhile (tp: OrderPlan) (sent: OrderPlanCommand) =
+        match sent with
+        | OrderPlanCommand.Recalculate shown -> shown
+        | _ -> tp
+
+
     /// A command from a page, over the plan the machine holds: a page's copy may be a step
     /// behind; only a recalculation carries the plan as the page changed it (its filter).
     let rebase (tp: OrderPlan) (cmd: OrderPlanCommand) =
@@ -170,15 +179,10 @@ module OrderPlanState =
                 OrderPlanEffect.CallPlan(OrderPlanCommand.Open(pat, head.OrderContexts), request)
             ]
 
-        // a change over the plan shown: one at a time
+        // a change over the plan shown: one at a time; the plan held stays what a failed change
+        // goes back to, a recalculation's plan travels in the command
         | OrderPlanMsg.Command(cmd, request), OrderPlanState.Shown(tp, selected) ->
             let cmd = rebase tp cmd
-
-            let tp =
-                match cmd with
-                | OrderPlanCommand.Recalculate sent -> sent
-                | _ -> tp
-
             OrderPlanState.Recalculating(tp, selected, request, cmd), [ OrderPlanEffect.CallPlan(cmd, request) ]
         | OrderPlanMsg.Command _, _ -> state, []
 
@@ -204,9 +208,9 @@ module OrderPlanState =
             OrderPlanState.Recalculating(tp, id, request, sent), []
         | OrderPlanMsg.Select _, _ -> state, []
 
-        // the rows chosen: the totals recomputed over them, the dialog closed
+        // the rows chosen: the totals recomputed over them, the dialog closed; the plan held
+        // stays what a failed change goes back to
         | OrderPlanMsg.Filter(ids, request), OrderPlanState.Shown(tp, _) ->
-            let tp = { tp with Filtered = ids }
-            let cmd = OrderPlanCommand.Recalculate tp
+            let cmd = OrderPlanCommand.Recalculate { tp with Filtered = ids }
             OrderPlanState.Recalculating(tp, None, request, cmd), [ OrderPlanEffect.CallPlan(cmd, request) ]
         | OrderPlanMsg.Filter _, _ -> state, []

@@ -364,13 +364,14 @@ module private Elmish =
         | OrderContextState.Recalculating(sent, _, _) -> Recalculating sent
 
 
-    /// The plan as the pages read it.
+    /// The plan as the pages read it: while a change is under way, the plan as the page changed
+    /// it.
     let orderPlanToDeferred (state: OrderPlanState) : Deferred<OrderPlan> =
         match state with
         | OrderPlanState.NoPatient -> HasNotStartedYet
         | OrderPlanState.Loading _ -> InProgress
         | OrderPlanState.Shown(tp, _) -> Resolved tp
-        | OrderPlanState.Recalculating(tp, _, _, _) -> Recalculating tp
+        | OrderPlanState.Recalculating(tp, _, _, sent) -> Recalculating(OrderPlanState.meanwhile tp sent)
 
 
     let loadFormulary opened =
