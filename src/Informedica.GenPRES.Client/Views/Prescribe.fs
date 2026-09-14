@@ -182,7 +182,7 @@ module Prescribe =
                 let inPlan =
                     match orderPlan with
                     | Resolved tp
-                    | Recalculating tp -> tp.Scenarios |> Array.exists (fun s -> s.Order.Id = sc.Order.Id)
+                    | Recalculating tp -> OrderPlan.orders tp |> Array.exists (fun s -> s.Order.Id = sc.Order.Id)
                     | _ -> false
 
                 // one change to the plan at a time: while it is busy a click would be dropped

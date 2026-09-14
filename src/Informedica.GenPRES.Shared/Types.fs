@@ -521,12 +521,10 @@ module Types =
     type OrderPlan =
         {
             Patient: Patient
-            Selected: OrderScenario option
-            Filtered: OrderScenario[]
-            // every order in the plan, the nutrition orders included
-            Scenarios: OrderScenario[]
+            // the contexts shown and counted, by id; empty for all of them
+            Filtered: string[]
             // the order contexts of the plan, drug and nutrition alike, each saying what it holds
-            // and carrying its id; a context narrowed to one scenario has it in Scenarios
+            // and carrying its id; the plan's orders are what the narrowed ones contribute
             OrderContexts: OrderContext[]
             Totals: Totals
         }

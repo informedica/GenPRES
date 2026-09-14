@@ -100,7 +100,7 @@ let canSign (session: Session) (plan: OrderPlan) =
     | Session.Open opened ->
         (opened.User |> Option.map _.Role) = Some UserRole.Prescriber
         && opened.PatientContext.IsSome
-        && plan.Scenarios.Length > 0
+        && (Shared.Models.OrderPlan.orders plan).Length > 0
     | _ -> false
 
 

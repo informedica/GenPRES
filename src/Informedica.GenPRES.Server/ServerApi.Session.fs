@@ -460,8 +460,7 @@ module Session =
         {
             Nonce: string
             Patient: Patient
-            Scenarios: OrderScenario[]
-            // the contexts as challenged: what the version stores, compared as the orders are
+            // the contexts as challenged, their orders inside: what the version stores
             OrderContexts: OrderContext[]
             // the platform's reading at the challenge, none when it could not be read
             Reading: Patient option
@@ -1056,15 +1055,6 @@ module Session =
         scenarios |> Array.countBy _.Order.Id |> Array.exists (fun (_, n) -> n > 1)
 
 
-    /// The orders of a plan are what its contexts contribute, no more and no less: the version
-    /// stores the contexts, so orders shown that are not in them, or contexts whose order is not
-    /// shown, would sign one thing and store another. Compared by order id, since a re-narrowed
-    /// context moves its order to the end of the plan's orders.
-    let ordersMatchContexts (plan: OrderPlan) =
-        let byId (scs: OrderScenario[]) = scs |> Array.sortBy _.Order.Id
-        byId plan.Scenarios = byId (Shared.Models.OrderPlan.orders plan)
-
-
     /// The challenge request, checked in order: the Session with a User and a Patient; the
     /// Role Prescriber; the OpenedToken this Session holds; the patient data re-read: when it
     /// is not what the Session opened with and no notice over this reading was accepted, no
@@ -1129,9 +1119,8 @@ module Session =
                                 Data = current
                                 Token = nonce
                             }
-                    // no challenge over a plan that names an order twice, or whose orders are not
-                    // its contexts' own
-                    elif duplicateOrders plan.Scenarios || not (ordersMatchContexts plan) then
+                    // no challenge over a plan that names an order twice
+                    elif duplicateOrders (Shared.Models.OrderPlan.orders plan) then
                         refuse SigningRefusal.ChallengeMismatch
                     else
                         match blockedBy record patient.PatientId state with
@@ -1148,7 +1137,6 @@ module Session =
                                         {
                                             Nonce = nonce
                                             Patient = plan.Patient
-                                            Scenarios = plan.Scenarios
                                             OrderContexts = plan.OrderContexts
                                             Reading = current
                                             Expiry = now + challengeLifetime
@@ -1218,10 +1206,8 @@ module Session =
                                 | Some challenge when
                                     challenge.Nonce <> submission.Challenge
                                     || challenge.Patient <> submission.Plan.Patient
-                                    || challenge.Scenarios <> submission.Plan.Scenarios
                                     || challenge.OrderContexts <> submission.Plan.OrderContexts
-                                    || duplicateOrders submission.Plan.Scenarios
-                                    || not (ordersMatchContexts submission.Plan)
+                                    || duplicateOrders (Shared.Models.OrderPlan.orders submission.Plan)
                                     ->
                                     refuse SigningRefusal.ChallengeMismatch
                                 | Some challenge ->

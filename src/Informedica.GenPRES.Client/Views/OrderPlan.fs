@@ -19,28 +19,20 @@ module OrderPlan =
         let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
         let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv
 
-        let updateOrderPlan tp = envOrderPlan.ShowOrderPlan tp
-
-        let filterOrderPlan tp =
-            planCommand (Api.PlanCommand.Recalculate tp)
-
-        // the context that contributes the order, by order id; none for an order without one
+        // the context that contributes the order, by order id
         let contextOf (tp: OrderPlan) (orderId: string) =
             tp.OrderContexts
             |> Array.tryFind (fun c -> OrderContext.contribution c |> Option.exists (fun sc -> sc.Order.Id = orderId))
 
-        // the selected order's context in the plan; none while the order has no context yet
+        // the selected context in the plan, the one the dialog shows
         let selectedContext (tp: OrderPlan) =
-            tp.Selected |> Option.bind (fun sel -> contextOf tp sel.Order.Id)
+            envOrderPlan.Selected
+            |> Option.bind (fun id -> tp.OrderContexts |> Array.tryFind (fun c -> c.Id = id))
 
-        // an order-context command into the selected order's context, or over the selected
-        // scenario alone while it has no context
+        // an order-context command into the selected context
         let orderContextMsg (cmd, ctx) =
-            match orderPlan with
-            | Resolved tp
-            | Recalculating tp ->
-                let contextId = selectedContext tp |> Option.map _.Id
-                planCommand (Api.PlanCommand.Navigate(tp, contextId, cmd, ctx))
+            match orderPlan, envOrderPlan.Selected with
+            | (Resolved tp | Recalculating tp), Some id -> planCommand (Api.PlanCommand.Navigate(tp, Some id, cmd, ctx))
             | _ -> ()
 
         let localizationTerms =
@@ -49,20 +41,10 @@ module OrderPlan =
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
 
-        // Derive modal visibility from Elmish state — if an order is selected, the modal is open.
-        // This avoids duplicating tp.Selected.IsSome in local React state.
-        let modalOpen =
-            match orderPlan with
-            | Resolved tp
-            | Recalculating tp -> tp.Selected.IsSome
-            | _ -> false
+        // the dialog is open while a context is selected: the selection is the state
+        let modalOpen = envOrderPlan.Selected.IsSome
 
-        let handleModalClose =
-            fun () ->
-                match orderPlan with
-                | Resolved tp
-                | Recalculating tp -> { tp with Selected = None } |> updateOrderPlan
-                | _ -> ()
+        let handleModalClose = fun () -> envOrderPlan.Select None
 
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
@@ -137,7 +119,7 @@ module OrderPlan =
             match orderPlan with
             | Resolved tp
             | Recalculating tp ->
-                tp.Scenarios
+                OrderPlan.orders tp
                 |> Array.map _.Order
                 |> Array.mapi (fun i o ->
                     let freq =
@@ -247,44 +229,34 @@ module OrderPlan =
 
         let modalStyle = ViewHelpers.modalStyle
 
+        // a row clicked: its order's context becomes the selection
         let selectOrder id =
             match orderPlan with
             | Resolved tp
             | Recalculating tp ->
-                tp.Scenarios
-                |> Array.tryFind (fun sc -> sc.Order.Id = id)
-                |> function
-                    | None ->
-                        Logging.error "Order not found" id
-                        ()
-                    | Some sc ->
-                        { tp with
-                            Filtered = [||]
-                            Selected = Some sc
-                        }
-                        |> updateOrderPlan
+                match contextOf tp id with
+                | None -> Logging.error "Order not found" id
+                | Some c -> envOrderPlan.Select(Some c.Id)
             | _ -> ()
 
+        // the rows checked, by order id, become the filter, by context id
         let filterOrders ids =
             match orderPlan with
             | Resolved tp
             | Recalculating tp ->
-                { tp with
-                    Selected = None
-                    Filtered =
-                        if ids |> Array.isEmpty then
-                            [||]
-                        else
-                            tp.Scenarios
-                            |> Array.filter (fun os -> os.Order |> _.Id |> (fun id -> ids |> Array.exists ((=) id)))
-                }
-                |> filterOrderPlan
+                ids
+                |> Array.choose (fun id -> contextOf tp id |> Option.map _.Id)
+                |> envOrderPlan.Filter
             | _ -> ()
 
+        // the orders of the contexts the filter keeps, for the table's checked rows
         let selectedRows =
             match orderPlan with
             | Resolved tp
-            | Recalculating tp -> tp.Filtered |> Array.map _.Order |> Array.map _.Id
+            | Recalculating tp when tp.Filtered |> Array.isEmpty |> not ->
+                OrderPlan.filtered tp
+                |> Array.choose OrderContext.contribution
+                |> Array.map _.Order.Id
             | _ -> [||]
 
         // a plan change is one at a time: while one is under way the button is disabled,
@@ -294,19 +266,11 @@ module OrderPlan =
             | Recalculating _ -> true
             | _ -> false
 
-        // the selected orders go by their contexts; by order id while any of them has no
-        // context yet
+        // the contexts the filter keeps go, each with its order
         let onDelete =
             fun () ->
                 match orderPlan with
-                | Resolved tp ->
-                    let contextIds =
-                        selectedRows |> Array.choose (fun id -> contextOf tp id |> Option.map _.Id)
-
-                    if contextIds.Length = selectedRows.Length then
-                        planCommand (Api.PlanCommand.RemoveContexts(tp, contextIds))
-                    else
-                        planCommand (Api.PlanCommand.RemoveOrders(tp, selectedRows))
+                | Resolved tp -> planCommand (Api.PlanCommand.RemoveContexts(tp, tp.Filtered))
                 | _ -> ()
 
         let updateOrderScenario (ctx: OrderContext) =
@@ -376,20 +340,15 @@ module OrderPlan =
                         orderContextMsg (Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty cmp, ctx)
             |}
 
-        // the selected order's context as the plan holds it, with everything the workbench knew;
-        // rebuilt around the scenario only while the order has no context
+        // the selected context as the plan holds it, with everything the workbench knew
         let orderContext =
-            let contextFor (tp: OrderPlan) =
-                tp.Selected
-                |> Option.map (fun sc ->
-                    selectedContext tp
-                    |> Option.defaultWith (fun () -> OrderContext.fromOrderScenario tp.Patient sc)
-                )
-
             match orderPlan with
-            | Resolved tp -> contextFor tp |> Option.map Resolved |> Option.defaultValue HasNotStartedYet
+            | Resolved tp ->
+                selectedContext tp
+                |> Option.map Resolved
+                |> Option.defaultValue HasNotStartedYet
             | Recalculating tp ->
-                contextFor tp
+                selectedContext tp
                 |> Option.map Recalculating
                 |> Option.defaultValue HasNotStartedYet
             | _ -> HasNotStartedYet

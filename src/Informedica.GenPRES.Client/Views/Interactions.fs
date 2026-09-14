@@ -17,7 +17,11 @@ module Interactions =
 
         let getPlanDrugs (orderPlan: Deferred<OrderPlan>) =
             match orderPlan with
-            | Resolved tp -> tp.Scenarios |> Array.map _.Name |> Array.distinct |> Array.toList
+            | Resolved tp ->
+                Shared.Models.OrderPlan.orders tp
+                |> Array.map _.Name
+                |> Array.distinct
+                |> Array.toList
             | _ -> []
 
 

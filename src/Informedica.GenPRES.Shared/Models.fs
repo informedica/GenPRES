@@ -2373,13 +2373,11 @@ module Models =
 
     module OrderPlan =
 
-        let create pat srs : OrderPlan =
+        let create pat contexts : OrderPlan =
             {
                 Patient = pat
-                Selected = None
                 Filtered = [||]
-                Scenarios = srs
-                OrderContexts = [||]
+                OrderContexts = contexts
                 Totals = Totals.empty
             }
 
@@ -2397,6 +2395,15 @@ module Models =
         /// to one, in context order.
         let orders (plan: OrderPlan) =
             plan.OrderContexts |> Array.choose OrderContext.contribution
+
+
+        /// The contexts the filter keeps: those named by id, all of them when it is empty.
+        let filtered (plan: OrderPlan) =
+            if plan.Filtered |> Array.isEmpty then
+                plan.OrderContexts
+            else
+                plan.OrderContexts
+                |> Array.filter (fun c -> plan.Filtered |> Array.contains c.Id)
 
 
     module Formulary =
