@@ -626,7 +626,7 @@ module Nutrition =
             {|
                 nutritionContext: OrderContext
                 plan: OrderPlan
-                planCommand: Api.PlanCommand -> unit
+                planCommand: Api.OrderPlanCommand -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
                 wrapInAccordion: bool
@@ -685,14 +685,14 @@ module Nutrition =
                 // Clear Indication selection (but NOT the Indications list — server repopulates it).
                 { updCtx with OrderContext.Filter.Indication = None }
             |> fun updCtx ->
-                Api.PlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
+                Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
             |> props.planCommand
 
         let indicationChange s =
             ctx
             |> OrderContext.indicationChange s
             |> fun updCtx ->
-                Api.PlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
+                Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
             |> props.planCommand
 
         let doseTypeChange s =
@@ -701,7 +701,7 @@ module Nutrition =
             ctx
             |> OrderContext.doseTypeChange dt
             |> fun updCtx ->
-                Api.PlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
+                Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
             |> props.planCommand
 
         let updateOrderScenario (ol: OrderLoader) =
@@ -720,11 +720,16 @@ module Nutrition =
                     )
             }
             |> fun updCtx ->
-                Api.PlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderScenario, updCtx)
+                Api.OrderPlanCommand.Navigate(
+                    planRef.current,
+                    ncId,
+                    Api.OrderContextCommand.UpdateOrderScenario,
+                    updCtx
+                )
                 |> props.planCommand
 
         let resetOrderScenario (_ol: OrderLoader) =
-            Api.PlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.ResetOrderScenario, ctx)
+            Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.ResetOrderScenario, ctx)
             |> props.planCommand
 
         let stepper =
@@ -816,22 +821,22 @@ module Nutrition =
 
             let navRate cmd =
                 fun updCtx ->
-                    Api.PlanCommand.Navigate(planRef.current, ncId, cmd, updCtx)
+                    Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd, updCtx)
                     |> props.planCommand
 
             let navRateN cmd =
                 fun (updCtx, n, uc) ->
-                    Api.PlanCommand.Navigate(planRef.current, ncId, cmd (n, uc), updCtx)
+                    Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd (n, uc), updCtx)
                     |> props.planCommand
 
             let navCmpQty cmd =
                 fun (updCtx, cmp) ->
-                    Api.PlanCommand.Navigate(planRef.current, ncId, cmd cmp, updCtx)
+                    Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd cmp, updCtx)
                     |> props.planCommand
 
             let navCmpQtyN cmd =
                 fun (updCtx, cmp, n, uc) ->
-                    Api.PlanCommand.Navigate(planRef.current, ncId, cmd (cmp, n, uc), updCtx)
+                    Api.OrderPlanCommand.Navigate(planRef.current, ncId, cmd (cmp, n, uc), updCtx)
                     |> props.planCommand
 
             {|
@@ -1378,7 +1383,7 @@ module Nutrition =
         // with the patient
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
-        let planCommand = envOrderPlan.PlanCommand
+        let planCommand = envOrderPlan.OrderPlanCommand
 
         let localizationTerms =
             (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
@@ -1418,7 +1423,7 @@ module Nutrition =
                     if hasSupplements then
                         setConfirmDeleteTarget (Some nc.Id)
                     else
-                        Api.PlanCommand.RemoveOrderContexts(plan, [| nc.Id |]) |> planCommand
+                        Api.OrderPlanCommand.RemoveOrderContexts(plan, [| nc.Id |]) |> planCommand
                 )
 
             NutritionSlot
@@ -1433,7 +1438,7 @@ module Nutrition =
                 |}
 
         let newOrderContext (plan: OrderPlan) category =
-            Api.PlanCommand.NewOrderContext(plan, category) |> planCommand
+            Api.OrderPlanCommand.NewOrderContext(plan, category) |> planCommand
 
         let hasCategory (plan: OrderPlan) cat =
             plan.OrderContexts |> Array.exists (isOneOf [ cat ])
@@ -1575,7 +1580,7 @@ module Nutrition =
                 fun _ ->
                     match confirmDeleteTarget, orderPlan with
                     | Some ncId, (Resolved plan | Recalculating plan) ->
-                        Api.PlanCommand.RemoveOrderContexts(plan, [| ncId |]) |> planCommand
+                        Api.OrderPlanCommand.RemoveOrderContexts(plan, [| ncId |]) |> planCommand
                     | _ -> ()
 
                     setConfirmDeleteTarget None

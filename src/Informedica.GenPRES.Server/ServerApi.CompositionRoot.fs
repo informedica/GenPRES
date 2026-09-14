@@ -49,9 +49,9 @@ module CompositionRoot =
                 Compute.bound
                     env
                     cookie
-                    PlanCommand.toString
+                    OrderPlanCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    (PlanCommand.processCmd env)
+                    (OrderPlanCommand.processCmd env)
 
             // the one member whose gate differs per command: the drug names run open
             processInteraction =

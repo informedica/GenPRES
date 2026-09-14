@@ -24,7 +24,7 @@ type OrderPlanState =
     | Shown of OrderPlan * selected: string option
     // a change in flight: the plan the request found, the selection, the request id and the
     // command sent, so that the answer knows what it answers
-    | Recalculating of OrderPlan * selected: string option * request: string * sent: PlanCommand
+    | Recalculating of OrderPlan * selected: string option * request: string * sent: OrderPlanCommand
 
 
 /// What moves the plan. Every message that starts a request carries the request id, minted at
@@ -36,7 +36,7 @@ type OrderPlanMsg =
     // the version the Session opened with: the plan becomes it, whatever was in flight
     | Cart of SignedOrderPlan * request: string
     // a change to the plan from a page, over the plan the page saw
-    | Command of PlanCommand * request: string
+    | Command of OrderPlanCommand * request: string
     // the server's answer to the request named; Error = a refusal or a transport failure
     | Answered of request: string * Result<OrderPlan, string[]>
     // the dialog's selection, a context by id; the client's own
@@ -48,7 +48,7 @@ type OrderPlanMsg =
 /// What the machine asks the App to do.
 [<RequireQualifiedAccess>]
 type OrderPlanEffect =
-    | CallPlan of PlanCommand * request: string
+    | CallPlan of OrderPlanCommand * request: string
     // the drugs of the plan, checked for interactions; fewer than two clears the warnings
     | CheckInteractions of string list
     // an order prescribed: the plan page opens on it
@@ -106,22 +106,22 @@ module OrderPlanState =
 
     /// A command from a page, over the plan the machine holds: a page's copy may be a step
     /// behind; only a recalculation carries the plan as the page changed it (its filter).
-    let rebase (tp: OrderPlan) (cmd: PlanCommand) =
+    let rebase (tp: OrderPlan) (cmd: OrderPlanCommand) =
         match cmd with
-        | PlanCommand.Recalculate _
-        | PlanCommand.Open _ -> cmd
-        | PlanCommand.AddOrderContext(_, ctx) -> PlanCommand.AddOrderContext(tp, ctx)
-        | PlanCommand.NewOrderContext(_, category) -> PlanCommand.NewOrderContext(tp, category)
-        | PlanCommand.Navigate(_, contextId, ctxCmd, ctx) -> PlanCommand.Navigate(tp, contextId, ctxCmd, ctx)
-        | PlanCommand.RemoveOrderContexts(_, ids) -> PlanCommand.RemoveOrderContexts(tp, ids)
+        | OrderPlanCommand.Recalculate _
+        | OrderPlanCommand.Open _ -> cmd
+        | OrderPlanCommand.AddOrderContext(_, ctx) -> OrderPlanCommand.AddOrderContext(tp, ctx)
+        | OrderPlanCommand.NewOrderContext(_, category) -> OrderPlanCommand.NewOrderContext(tp, category)
+        | OrderPlanCommand.Navigate(_, contextId, ctxCmd, ctx) -> OrderPlanCommand.Navigate(tp, contextId, ctxCmd, ctx)
+        | OrderPlanCommand.RemoveOrderContexts(_, ids) -> OrderPlanCommand.RemoveOrderContexts(tp, ids)
 
 
     /// The plan answered: shown with the selection that still holds, its drugs checked; an
     /// order prescribed opens the plan page and clears the workbench.
-    let private answered (sent: PlanCommand option) (selected: string option) (tp: OrderPlan) =
+    let private answered (sent: OrderPlanCommand option) (selected: string option) (tp: OrderPlan) =
         let prescribed =
             match sent with
-            | Some(PlanCommand.AddOrderContext _) ->
+            | Some(OrderPlanCommand.AddOrderContext _) ->
                 [
                     OrderPlanEffect.GoToPlanPage
                     OrderPlanEffect.ResetWorkbench
@@ -141,7 +141,7 @@ module OrderPlanState =
         | OrderPlanMsg.PatientChanged(Some pat, request), OrderPlanState.Loading _ ->
             OrderPlanState.Loading(pat, request),
             [
-                OrderPlanEffect.CallPlan(PlanCommand.Open(pat, [||]), request)
+                OrderPlanEffect.CallPlan(OrderPlanCommand.Open(pat, [||]), request)
             ]
 
         // the plan follows the patient: its totals recomputed, the dialog closed, whatever was
@@ -149,7 +149,7 @@ module OrderPlanState =
         | OrderPlanMsg.PatientChanged(Some pat, request), OrderPlanState.Shown(tp, _)
         | OrderPlanMsg.PatientChanged(Some pat, request), OrderPlanState.Recalculating(tp, _, _, _) ->
             let tp = { tp with Patient = pat }
-            let cmd = PlanCommand.Recalculate tp
+            let cmd = OrderPlanCommand.Recalculate tp
             OrderPlanState.Recalculating(tp, None, request, cmd), [ OrderPlanEffect.CallPlan(cmd, request) ]
 
         // the signed version replaces whatever plan there was, an open in flight included: the
@@ -160,7 +160,7 @@ module OrderPlanState =
 
             OrderPlanState.Loading(pat, request),
             [
-                OrderPlanEffect.CallPlan(PlanCommand.Open(pat, head.OrderContexts), request)
+                OrderPlanEffect.CallPlan(OrderPlanCommand.Open(pat, head.OrderContexts), request)
             ]
 
         // a change over the plan shown: one at a time
@@ -169,7 +169,7 @@ module OrderPlanState =
 
             let tp =
                 match cmd with
-                | PlanCommand.Recalculate sent -> sent
+                | OrderPlanCommand.Recalculate sent -> sent
                 | _ -> tp
 
             OrderPlanState.Recalculating(tp, selected, request, cmd), [ OrderPlanEffect.CallPlan(cmd, request) ]
@@ -200,6 +200,6 @@ module OrderPlanState =
         // the rows chosen: the totals recomputed over them, the dialog closed
         | OrderPlanMsg.Filter(ids, request), OrderPlanState.Shown(tp, _) ->
             let tp = { tp with Filtered = ids }
-            let cmd = PlanCommand.Recalculate tp
+            let cmd = OrderPlanCommand.Recalculate tp
             OrderPlanState.Recalculating(tp, None, request, cmd), [ OrderPlanEffect.CallPlan(cmd, request) ]
         | OrderPlanMsg.Filter _, _ -> state, []

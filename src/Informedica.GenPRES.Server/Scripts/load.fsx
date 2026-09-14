@@ -26,7 +26,7 @@
 #load "../ServerApi.Compute.fs"
 #load "../ServerApi.FormularyCommand.fs"
 #load "../ServerApi.InteractionCommand.fs"
-#load "../ServerApi.PlanCommand.fs"
+#load "../ServerApi.OrderPlanCommand.fs"
 #load "../ServerApi.AdminCommand.fs"
 #load "../ServerApi.OrderContextCommand.fs"
 #load "../ServerApi.LaunchCommand.fs"

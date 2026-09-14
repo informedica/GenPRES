@@ -27,7 +27,7 @@ module Prescribe =
         let orderContextMsg = envOrderContext.OrderContextMsg
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
-        let planCommand = envOrderPlan.PlanCommand
+        let planCommand = envOrderPlan.OrderPlanCommand
 
         let localizationTerms =
             (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
@@ -175,7 +175,7 @@ module Prescribe =
                                 Scenarios = [| sc |]
                             }
 
-                        planCommand (Api.PlanCommand.AddOrderContext(tp, workbench))
+                        planCommand (Api.OrderPlanCommand.AddOrderContext(tp, workbench))
                     | _ -> ()
 
                 // the plan holds this order already: the server would refuse it

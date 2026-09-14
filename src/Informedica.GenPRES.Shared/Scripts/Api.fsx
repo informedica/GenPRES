@@ -23,7 +23,7 @@ open Shared.Types
 open Shared.Api
 
 
-/// → `Shared/Api.fs`, `PlanCommand` final.
+/// → `Shared/Api.fs`, `OrderPlanCommand` final.
 [<RequireQualifiedAccess>]
 type PlanCommand667 =
     // the totals recomputed over the orders of the filtered contexts
