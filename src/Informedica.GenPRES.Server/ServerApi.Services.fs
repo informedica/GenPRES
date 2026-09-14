@@ -661,10 +661,7 @@ module PlanService =
     open Shared.Types
 
 
-    /// The order a nutrition context contributes to the plan: its scenario, once the context
-    /// is narrowed to exactly one; nothing while it holds several candidates or none.
-    let contribution (nc: NutritionContext) =
-        nc.OrderContext.Scenarios |> Array.tryExactlyOne
+    let contribution = Models.OrderContext.contribution
 
 
     /// The plan's orders with one context's contribution replaced: the one it contributed
@@ -708,40 +705,55 @@ module PlanService =
         }
 
 
-    /// The resolved order context into the context named, filtered to the category's dose rule
-    /// set, and its contribution into the plan's orders.
+    /// The resolved order context into the context named, keeping the id and the category the
+    /// plan gave it and filtered to its category's dose rule set, and its contribution into the
+    /// plan's orders.
     let updateContext id (resolved: OrderContext) (plan: OrderPlan) =
-        match plan.NutritionContexts |> Array.tryFind (fun nc -> nc.Id = id) with
-        | None -> Error [| $"The plan holds no nutrition context %s{id}" |]
-        | Some nc ->
-            let drs = NutritionPlanService.getDoseRuleSet nc.Category
+        match plan.OrderContexts |> Array.tryFind (fun c -> c.Id = id) with
+        | None -> Error [| $"The plan holds no context %s{id}" |]
+        | Some ctx ->
+            let updated =
+                match Models.OrderContext.nutritionCategory ctx with
+                | Some category ->
+                    resolved
+                    |> NutritionPlanService.filterByDoseRuleSet (NutritionPlanService.getDoseRuleSet category)
+                | None -> resolved
 
             let updated =
-                { nc with OrderContext = resolved |> NutritionPlanService.filterByDoseRuleSet drs }
+                { updated with
+                    Id = ctx.Id
+                    Category = ctx.Category
+                }
 
-            { plan with
-                NutritionContexts = plan.NutritionContexts |> Array.map (fun c -> if c.Id = id then updated else c)
-            }
-            |> withOrders (contribution nc) (contribution updated)
+            { plan with OrderContexts = plan.OrderContexts |> Array.map (fun c -> if c.Id = id then updated else c) }
+            |> withOrders (contribution ctx) (contribution updated)
             |> Ok
 
 
-    /// The context removed, and every supplement with a feeding; each takes its order with it.
+    let private holds category (plan: OrderPlan) =
+        plan.OrderContexts
+        |> Array.exists (fun c -> c.Category = OrderCategory.Nutrition category)
+
+
+    /// The context removed, and every enteral supplement with a feeding: the plan holds one
+    /// feeding at most and a supplement only under it, so the feeding's supplements are all of
+    /// them. Each takes its order with it.
     let removeContext id (plan: OrderPlan) =
-        let removed = plan.NutritionContexts |> Array.tryFind (fun nc -> nc.Id = id)
+        let removed = plan.OrderContexts |> Array.tryFind (fun c -> c.Id = id)
 
         let cascade =
             removed
-            |> Option.map (fun nc -> nc.Category = NutritionCategory.EnteralFeeding)
-            |> Option.defaultValue false
+            |> Option.exists (fun c -> c.Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
 
-        let goes (nc: NutritionContext) =
-            nc.Id = id || (cascade && nc.Category = NutritionCategory.EnteralSupplement)
+        let goes (c: OrderContext) =
+            c.Id = id
+            || (cascade
+                && c.Category = OrderCategory.Nutrition NutritionCategory.EnteralSupplement)
 
-        let gone, kept = plan.NutritionContexts |> Array.partition goes
+        let gone, kept = plan.OrderContexts |> Array.partition goes
 
         gone
-        |> Array.fold (fun p nc -> p |> withOrders (contribution nc) None) { plan with NutritionContexts = kept }
+        |> Array.fold (fun p c -> p |> withOrders (contribution c) None) { plan with OrderContexts = kept }
 
 
     /// The plan with its totals recomputed over its orders: the filtered ones, by order id, when
@@ -750,13 +762,13 @@ module PlanService =
     /// feeding with its supplements and theirs, the rest by order id; the filter and the
     /// selection follow.
     let removeOrders (ids: string[]) (plan: OrderPlan) =
-        let contributed (nc: NutritionContext) =
-            contribution nc |> Option.exists (fun sc -> ids |> Array.contains sc.Order.Id)
+        let contributed (c: OrderContext) =
+            contribution c |> Option.exists (fun sc -> ids |> Array.contains sc.Order.Id)
 
         let plan =
-            plan.NutritionContexts
+            plan.OrderContexts
             |> Array.filter contributed
-            |> Array.fold (fun (p: OrderPlan) (nc: NutritionContext) -> p |> removeContext nc.Id) plan
+            |> Array.fold (fun (p: OrderPlan) (c: OrderContext) -> p |> removeContext c.Id) plan
 
         ids
         |> Array.fold
@@ -829,6 +841,24 @@ module PlanService =
         }
 
 
+    /// Whether the plan may take a context of the category: one context per nutrition category,
+    /// except supplements (any number, each under a feeding) and electrolyte and glucose lines
+    /// (any number, one per generic prescribed). The nutrition page's buttons keep the same
+    /// rule; the server keeps it for every caller.
+    let admits category (plan: OrderPlan) =
+        match category with
+        | NutritionCategory.EnteralSupplement when plan |> holds NutritionCategory.EnteralFeeding |> not ->
+            Error [| "A supplement needs a feeding in the plan" |]
+        | NutritionCategory.EnteralSupplement
+        | NutritionCategory.ElectrolyteGlucose -> Ok()
+        | _ when plan |> holds category ->
+            Error
+                [|
+                    $"The plan already holds a %s{Models.NutritionCategory.label category} context"
+                |]
+        | _ -> Ok()
+
+
     /// A nutrition context for the category, its filter discovered, appended to the plan with
     /// whatever it contributes.
     let addContext
@@ -838,43 +868,42 @@ module PlanService =
         (category: NutritionCategory)
         =
         async {
-            let drs = NutritionPlanService.getDoseRuleSet category
+            match plan |> admits category with
+            | Error errs -> return Error errs
+            | Ok() ->
+                let drs = NutritionPlanService.getDoseRuleSet category
 
-            let ctx =
-                Models.OrderContext.empty
-                |> Models.OrderContext.setPatient plan.Patient
-                |> fun c ->
-                    { c with
-                        Filter =
-                            { c.Filter with
-                                Indications = drs.Indications
-                                Generics = drs.Generics
-                            }
-                    }
-
-            let! discovered = NutritionPlanService.discoverFilterOptions orderCtxPort ctx
-
-            return
-                match discovered with
-                | Some resolved ->
-                    let id = System.Guid.NewGuid().ToString()
-
-                    // the context says what it holds wherever it goes
-                    let resolved =
-                        { resolved with
-                            Id = id
-                            Category = OrderCategory.Nutrition category
+                let ctx =
+                    Models.OrderContext.empty
+                    |> Models.OrderContext.setPatient plan.Patient
+                    |> fun c ->
+                        { c with
+                            Filter =
+                                { c.Filter with
+                                    Indications = drs.Indications
+                                    Generics = drs.Generics
+                                }
                         }
 
-                    let nc = Models.NutritionContext.create id drs.Label category true resolved
+                let! discovered = NutritionPlanService.discoverFilterOptions orderCtxPort ctx
 
-                    { plan with NutritionContexts = Array.append plan.NutritionContexts [| nc |] }
-                    |> withOrders None (contribution nc)
-                    |> recalc
-                    |> Ok
-                | None ->
-                    Error
-                        [|
-                            "Could not discover filter options for nutrition context"
-                        |]
+                return
+                    match discovered with
+                    | Some resolved ->
+                        // the context says what it holds wherever it goes
+                        let resolved =
+                            { resolved with
+                                Id = System.Guid.NewGuid().ToString()
+                                Category = OrderCategory.Nutrition category
+                            }
+
+                        { plan with OrderContexts = Array.append plan.OrderContexts [| resolved |] }
+                        |> withOrders None (contribution resolved)
+                        |> recalc
+                        |> Ok
+                    | None ->
+                        Error
+                            [|
+                                "Could not discover filter options for nutrition context"
+                            |]
         }

@@ -1,23 +1,19 @@
-// The category on the context (plan 667, step 2): every order context says what kind of order
-// it holds, a drug or one of the nutrition categories, and carries its own id in the plan. The
-// label a page shows is derived from that: the category's name for nutrition, the generic for
-// a drug. Nothing else changes yet: `NutritionContext` keeps wrapping the nutrition workbenches
-// until the plan becomes its contexts (step 3).
+// The plan is its contexts (plan 667, step 3): `OrderPlan.OrderContexts` replaces
+// `NutritionContexts`, and the `NutritionContext` wrapper goes. Every context in the plan says
+// what it holds (its category, since step 2) and carries its id; the label and the nutrition
+// category are derived, and the orders the contexts contribute are a function of the plan.
+// `Scenarios` stays on the plan for now: a drug order added from the prescribing page has no
+// context yet (that is `AddOrder`, step 6), so the server keeps `Scenarios` in step as today.
 //
 // Script-first draft (script-only policy) of what goes to `Shared/Types.fs` and
-// `Shared/Models.fs`:
-//   - `OrderCategory`, next to `NutritionCategory` (which moves above `OrderContext`);
-//   - `OrderContext.Id` and `OrderContext.Category`, the empty id and `Drug` in
-//     `OrderContext.empty` and `fromOrderScenario`;
-//   - `NutritionCategory.label` and `OrderContext.label`.
-// The record below is the target shape of `OrderContext` reduced to what the step touches; the
-// migration adds the two fields to the real record.
+// `Shared/Models.fs`: the plan's shape below, `OrderContext.nutritionCategory` and
+// `OrderContext.contribution`, `OrderPlan.nutritionContexts` and `OrderPlan.orders` (the
+// latter exercised in the server tests, where a scenario with an order can be built).
 //
 // Run: `dotnet fsi Api.fsx` from this directory.
 
 #I __SOURCE_DIRECTORY__
 #r "nuget: Expecto, 10.2.3"
-#r "nuget: Fable.Remoting.Json, 3.0"
 
 #load "../Types.fs"
 #load "../Calculations.fs"
@@ -29,132 +25,97 @@
 open Shared.Types
 
 
-/// → `Shared/Types.fs`, after `NutritionCategory` (moved above `OrderContext`).
-module Types667 =
-
-    /// What kind of order a context holds: a drug, or a nutrition order of one of the
-    /// categories. Recorded on the context and kept with it, so that a reopened plan
-    /// knows each order's kind without guessing from the generic (KCl, NaCl and glucose are
-    /// nutrition generics and drugs both).
-    [<RequireQualifiedAccess>]
-    type OrderCategory =
-        | Drug
-        | Nutrition of NutritionCategory
-
-
-    /// `OrderContext` as the step leaves it, reduced to the fields it touches: the id the
-    /// context has in the plan (empty for a workbench not in the plan), the category, and the
-    /// filter the label is derived from.
-    type OrderContext667 =
-        {
-            // empty until the context is in the plan; minted by the server when it is added
-            Id: string
-            Category: OrderCategory
-            Filter: Filter
-        }
+/// → `Shared/Types.fs`: `OrderPlan` with `OrderContexts` in place of `NutritionContexts`;
+/// `NutritionContext` deleted.
+type OrderPlan667 =
+    {
+        Patient: Patient
+        Selected: OrderScenario option
+        Filtered: OrderScenario[]
+        Scenarios: OrderScenario[]
+        // the order contexts of the plan, drug and nutrition alike, each saying what it holds
+        // and carrying its id; a context narrowed to one scenario has it in Scenarios
+        OrderContexts: OrderContext[]
+        Totals: Totals
+    }
 
 
-/// → `Shared/Models.fs`, a `NutritionCategory` module before `OrderContext`, and two lines
-/// plus `label` in `OrderContext`.
+/// → `Shared/Models.fs`.
 module Models667 =
-
-    open Types667
-
-    module NutritionCategory =
-
-        /// The category's name, as the nutrition page shows it (today the label of the
-        /// server's dose-rule set; from here the one source).
-        let label category =
-            match category with
-            | NutritionCategory.EnteralFeeding -> "Enterale Voeding"
-            | NutritionCategory.EnteralSupplement -> "Enteraal Supplement"
-            | NutritionCategory.TPN -> "Totale Parenterale Voeding"
-            | NutritionCategory.Lipid -> "Vetten"
-            | NutritionCategory.ElectrolyteGlucose -> "Elektrolyten/Glucose"
-
 
     module OrderContext =
 
-        let empty: OrderContext667 =
+        /// The nutrition category of a context, none for a drug.
+        let nutritionCategory (ctx: OrderContext) =
+            match ctx.Category with
+            | OrderCategory.Nutrition category -> Some category
+            | OrderCategory.Drug -> None
+
+
+        /// The order a context contributes to the plan: its scenario, once the context is
+        /// narrowed to exactly one; nothing while it holds several candidates or none.
+        let contribution (ctx: OrderContext) = ctx.Scenarios |> Array.tryExactlyOne
+
+
+    module OrderPlan =
+
+        let create pat srs : OrderPlan667 =
             {
-                Id = ""
-                Category = OrderCategory.Drug
-                Filter = Shared.Models.OrderContext.filter
+                Patient = pat
+                Selected = None
+                Filtered = [||]
+                Scenarios = srs
+                OrderContexts = [||]
+                Totals = Shared.Models.Totals.empty
             }
 
 
-        /// What a page calls the context: the category's name for a nutrition order, the
-        /// generic for a drug, nothing before a generic is chosen.
-        let label (ctx: OrderContext667) =
-            match ctx.Category with
-            | OrderCategory.Nutrition category -> NutritionCategory.label category
-            | OrderCategory.Drug -> ctx.Filter.Generic |> Option.defaultValue ""
+        let empty = create Shared.Models.Patient.empty [||]
+
+
+        /// The nutrition workbenches of the plan.
+        let nutritionContexts (plan: OrderPlan667) =
+            plan.OrderContexts |> Array.filter (OrderContext.nutritionCategory >> Option.isSome)
+
+
+        /// The orders the plan's contexts contribute: the one scenario of every context narrowed
+        /// to one, in context order.
+        let orders (plan: OrderPlan667) =
+            plan.OrderContexts |> Array.choose OrderContext.contribution
 
 
 open Expecto
 open Expecto.Flip
-open Newtonsoft.Json
-open Fable.Remoting.Json
-open Types667
+open Shared.Models
 open Models667
 
 
-let converters = [| FableJsonConverter() :> JsonConverter |]
-let toJson (v: 'a) = JsonConvert.SerializeObject(v, converters)
-let ofJson<'a> (json: string) = JsonConvert.DeserializeObject<'a>(json, converters)
+let tpn =
+    { OrderContext.empty with
+        Id = "c-t"
+        Category = OrderCategory.Nutrition NutritionCategory.TPN
+    }
+
+
+let drug = { OrderContext.empty with Id = "c-d" }
 
 
 let tests =
     testList
-        "the category on the context"
+        "the plan is its contexts"
         [
-            test "a workbench not in the plan has the empty id and is a drug" {
-                OrderContext.empty.Id |> Expect.equal "no id" ""
-                OrderContext.empty.Category |> Expect.equal "a drug" OrderCategory.Drug
+            test "a drug has no nutrition category, a nutrition context its own" {
+                drug |> OrderContext.nutritionCategory |> Expect.equal "a drug" None
+                tpn |> OrderContext.nutritionCategory |> Expect.equal "tpn" (Some NutritionCategory.TPN)
             }
 
-            test "a drug's label is its generic, empty before one is chosen" {
-                OrderContext.empty |> OrderContext.label |> Expect.equal "nothing yet" ""
-
-                { OrderContext.empty with
-                    OrderContext667.Filter.Generic = Some "paracetamol"
-                }
-                |> OrderContext.label
-                |> Expect.equal "the generic" "paracetamol"
+            test "the nutrition contexts are the ones with a nutrition category" {
+                { OrderPlan.empty with OrderContexts = [| drug; tpn |] }
+                |> OrderPlan.nutritionContexts
+                |> Array.map _.Id
+                |> Expect.equal "the tpn" [| "c-t" |]
             }
 
-            testList
-                "a nutrition order's label is its category's name, whatever the generic"
-                [
-                    for category, expected in
-                        [
-                            NutritionCategory.EnteralFeeding, "Enterale Voeding"
-                            NutritionCategory.EnteralSupplement, "Enteraal Supplement"
-                            NutritionCategory.TPN, "Totale Parenterale Voeding"
-                            NutritionCategory.Lipid, "Vetten"
-                            NutritionCategory.ElectrolyteGlucose, "Elektrolyten/Glucose"
-                        ] do
-                        test $"{category}" {
-                            { OrderContext.empty with
-                                Category = OrderCategory.Nutrition category
-                                OrderContext667.Filter.Generic = Some "Glucose 10%"
-                            }
-                            |> OrderContext.label
-                            |> Expect.equal "the category's name" expected
-                        }
-                ]
-
-            test "the category round-trips on the wire, both kinds" {
-                for ctx in
-                    [
-                        { OrderContext.empty with Id = "c-1" }
-                        { OrderContext.empty with
-                            Id = "c-2"
-                            Category = OrderCategory.Nutrition NutritionCategory.ElectrolyteGlucose
-                        }
-                    ] do
-                    ctx |> toJson |> ofJson<OrderContext667> |> Expect.equal "the same context back" ctx
-            }
         ]
 
 

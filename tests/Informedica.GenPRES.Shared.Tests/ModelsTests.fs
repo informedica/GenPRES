@@ -45,3 +45,33 @@ let tests =
                         }
                 ]
         ]
+
+
+[<Tests>]
+let planTests =
+    let tpn =
+        { OrderContext.empty with
+            Id = "c-t"
+            Category = OrderCategory.Nutrition NutritionCategory.TPN
+        }
+
+    let drug = { OrderContext.empty with Id = "c-d" }
+
+    testList
+        "OrderPlan.nutritionContexts"
+        [
+            test "a drug has no nutrition category, a nutrition context its own" {
+                drug |> OrderContext.nutritionCategory |> Expect.equal "a drug" None
+
+                tpn
+                |> OrderContext.nutritionCategory
+                |> Expect.equal "tpn" (Some NutritionCategory.TPN)
+            }
+
+            test "the nutrition contexts are the ones with a nutrition category" {
+                { OrderPlan.empty with OrderContexts = [| drug; tpn |] }
+                |> OrderPlan.nutritionContexts
+                |> Array.map _.Id
+                |> Expect.equal "the tpn" [| "c-t" |]
+            }
+        ]
