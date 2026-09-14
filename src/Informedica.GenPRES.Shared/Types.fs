@@ -476,8 +476,31 @@ module Types =
         }
 
 
+    [<RequireQualifiedAccess>]
+    type NutritionCategory =
+        | EnteralFeeding
+        | EnteralSupplement
+        | TPN
+        | Lipid
+        | ElectrolyteGlucose
+
+
+    /// What kind of order a context holds: a drug, or a nutrition order of one of the
+    /// categories. Recorded on the context and kept with it, so that a reopened plan knows
+    /// each order's kind without guessing from the generic (KCl, NaCl and glucose are
+    /// nutrition generics and drugs both).
+    [<RequireQualifiedAccess>]
+    type OrderCategory =
+        | Drug
+        | Nutrition of NutritionCategory
+
+
     type OrderContext =
         {
+            // the context's id in the plan; empty for a workbench not in the plan, minted by
+            // the server when it is added
+            Id: string
+            Category: OrderCategory
             DemoVersion: bool
             Filter: Filter
             Patient: Patient
@@ -492,15 +515,6 @@ module Types =
             Drug1: string
             Drug2: string
         }
-
-
-    [<RequireQualifiedAccess>]
-    type NutritionCategory =
-        | EnteralFeeding
-        | EnteralSupplement
-        | TPN
-        | Lipid
-        | ElectrolyteGlucose
 
 
     /// A nutrition workbench of the plan: one per category added, an order context narrowed

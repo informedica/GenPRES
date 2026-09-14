@@ -858,6 +858,14 @@ module PlanService =
                 match discovered with
                 | Some resolved ->
                     let id = System.Guid.NewGuid().ToString()
+
+                    // the context says what it holds wherever it goes
+                    let resolved =
+                        { resolved with
+                            Id = id
+                            Category = OrderCategory.Nutrition category
+                        }
+
                     let nc = Models.NutritionContext.create id drs.Label category true resolved
 
                     { plan with NutritionContexts = Array.append plan.NutritionContexts [| nc |] }
