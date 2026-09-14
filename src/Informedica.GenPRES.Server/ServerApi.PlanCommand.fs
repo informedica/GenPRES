@@ -14,3 +14,5 @@ module PlanCommand =
         | PlanCommand.AddContext(plan, category) -> env.plan.addContext plan category
         | PlanCommand.RemoveContext(plan, id) -> env.plan.removeContext plan id
         | PlanCommand.RemoveOrders(plan, ids) -> env.plan.removeOrders plan ids
+        | PlanCommand.AddOrder(plan, ctx) -> env.plan.addOrder plan ctx
+        | PlanCommand.RemoveContexts(plan, ids) -> env.plan.removeContexts plan ids

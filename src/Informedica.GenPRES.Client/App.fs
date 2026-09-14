@@ -358,7 +358,9 @@ module private Elmish =
         | Api.PlanCommand.Navigate(plan, _, _, _)
         | Api.PlanCommand.AddContext(plan, _)
         | Api.PlanCommand.RemoveContext(plan, _)
-        | Api.PlanCommand.RemoveOrders(plan, _) -> plan
+        | Api.PlanCommand.RemoveOrders(plan, _)
+        | Api.PlanCommand.AddOrder(plan, _)
+        | Api.PlanCommand.RemoveContexts(plan, _) -> plan
 
 
     /// The command over the plan the state holds instead of the one it was made with.
@@ -369,6 +371,8 @@ module private Elmish =
         | Api.PlanCommand.AddContext(_, category) -> Api.PlanCommand.AddContext(plan, category)
         | Api.PlanCommand.RemoveContext(_, id) -> Api.PlanCommand.RemoveContext(plan, id)
         | Api.PlanCommand.RemoveOrders(_, ids) -> Api.PlanCommand.RemoveOrders(plan, ids)
+        | Api.PlanCommand.AddOrder(_, ctx) -> Api.PlanCommand.AddOrder(plan, ctx)
+        | Api.PlanCommand.RemoveContexts(_, ids) -> Api.PlanCommand.RemoveContexts(plan, ids)
 
 
     let loadFormulary opened =
@@ -1536,7 +1540,9 @@ module private Elmish =
             | Api.PlanCommand.Navigate(tp, _, _, _)
             | Api.PlanCommand.AddContext(tp, _)
             | Api.PlanCommand.RemoveContext(tp, _)
-            | Api.PlanCommand.RemoveOrders(tp, _) ->
+            | Api.PlanCommand.RemoveOrders(tp, _)
+            | Api.PlanCommand.AddOrder(tp, _)
+            | Api.PlanCommand.RemoveContexts(tp, _) ->
                 match state.OrderPlan with
                 | InProgress
                 | Recalculating _ -> state, Cmd.none

@@ -46,6 +46,8 @@ module StubAdapters =
             addContext = fun _ _ -> async { return Ok returnPlan }
             removeContext = fun _ _ -> async { return Ok returnPlan }
             removeOrders = fun _ _ -> async { return Ok returnPlan }
+            addOrder = fun _ _ -> async { return Ok returnPlan }
+            removeContexts = fun _ _ -> async { return Ok returnPlan }
         }
 
 
@@ -106,6 +108,8 @@ module StubAdapters =
                     addContext = fun _ _ -> async { return Error [| "not loaded" |] }
                     removeContext = fun _ _ -> async { return Error [| "not loaded" |] }
                     removeOrders = fun _ _ -> async { return Error [| "not loaded" |] }
+                    addOrder = fun _ _ -> async { return Error [| "not loaded" |] }
+                    removeContexts = fun _ _ -> async { return Error [| "not loaded" |] }
                 }
             interaction =
                 {
@@ -5368,6 +5372,73 @@ module PlanTests =
                     |> Expect.equal "the drug and the lipid; the wide one nothing" [| "o-d"; "o-l" |]
                 }
 
+                test "the workbench into the plan as a drug context, once, and only narrowed to one order" {
+                    let newId () = "c-new"
+
+                    let workbench =
+                        { OrderContext.empty with
+                            OrderContext.Filter.Generic = Some "paracetamol"
+                            Scenarios = [| scenarioWithOrder "o-p" |]
+                        }
+
+                    let p =
+                        plan [||] [| scenarioWithOrder "o-drug" |]
+                        |> PlanService.addOrder newId workbench
+                        |> Result.defaultWith (fun errs -> failtest $"{errs}")
+
+                    let added = p.OrderContexts |> Array.exactlyOne
+                    added.Id |> Expect.equal "the minted id" "c-new"
+                    added.Category |> Expect.equal "a drug" OrderCategory.Drug
+
+                    added.Filter.Generic
+                    |> Expect.equal "the workbench as it was" (Some "paracetamol")
+
+                    ids p |> Expect.equal "its order after the others" [| "o-drug"; "o-p" |]
+
+                    p
+                    |> PlanService.addOrder newId workbench
+                    |> Expect.equal "the same order twice refused" (Error [| "The plan already holds this order" |])
+
+                    let wide =
+                        { workbench with Scenarios = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |] }
+
+                    plan [||] [||]
+                    |> PlanService.addOrder newId wide
+                    |> Expect.equal
+                        "a workbench not narrowed refused"
+                        (Error [| "The workbench holds 2 candidates, not one order" |])
+                }
+
+                test "removing contexts of every kind: each takes its order, a feeding its supplements" {
+                    let drug =
+                        { OrderContext.empty with
+                            Id = "c-d"
+                            Scenarios = [| scenarioWithOrder "o-d" |]
+                        }
+
+                    let feeding =
+                        context "c-f" NutritionCategory.EnteralFeeding [| scenarioWithOrder "o-f" |]
+
+                    let supplement =
+                        context "c-s" NutritionCategory.EnteralSupplement [| scenarioWithOrder "o-s" |]
+
+                    let tpn = context "c-t" NutritionCategory.TPN [| scenarioWithOrder "o-t" |]
+
+                    let p =
+                        plan
+                            [| drug; feeding; supplement; tpn |]
+                            [|
+                                scenarioWithOrder "o-d"
+                                scenarioWithOrder "o-f"
+                                scenarioWithOrder "o-s"
+                                scenarioWithOrder "o-t"
+                            |]
+                        |> PlanService.removeContexts [| "c-d"; "c-f" |]
+
+                    p.OrderContexts |> Array.map _.Id |> Expect.equal "the tpn stays" [| "c-t" |]
+                    ids p |> Expect.equal "with its order" [| "o-t" |]
+                }
+
                 testAsync "processOrderPlan dispatches each case to the plan port" {
                     let answered = ref []
 
@@ -5384,6 +5455,8 @@ module PlanTests =
                             addContext = fun p _ -> answering "addContext" p
                             removeContext = fun p _ -> answering "removeContext" p
                             removeOrders = fun p _ -> answering "removeOrders" p
+                            addOrder = fun p _ -> answering "addOrder" p
+                            removeContexts = fun p _ -> answering "removeContexts" p
                         }
 
                     let env =
@@ -5400,6 +5473,8 @@ module PlanTests =
                     let! _ = PlanCommand.processCmd env (PlanCommand.AddContext(p, NutritionCategory.TPN))
                     let! _ = PlanCommand.processCmd env (PlanCommand.RemoveContext(p, "c-1"))
                     let! _ = PlanCommand.processCmd env (PlanCommand.RemoveOrders(p, [| "o-1" |]))
+                    let! _ = PlanCommand.processCmd env (PlanCommand.AddOrder(p, emptyCtx))
+                    let! _ = PlanCommand.processCmd env (PlanCommand.RemoveContexts(p, [| "c-1" |]))
 
                     answered.Value
                     |> List.rev
@@ -5411,6 +5486,8 @@ module PlanTests =
                             "addContext"
                             "removeContext"
                             "removeOrders"
+                            "addOrder"
+                            "removeContexts"
                         ]
                 }
 
@@ -5429,6 +5506,12 @@ module PlanTests =
 
                     PlanCommand.toString (PlanCommand.AddContext(p, NutritionCategory.TPN))
                     |> Expect.equal "category" "AddContext TPN"
+
+                    PlanCommand.toString (PlanCommand.AddOrder(p, OrderContext.empty))
+                    |> Expect.equal "never the workbench" "AddOrder"
+
+                    PlanCommand.toString (PlanCommand.RemoveContexts(p, [| "c-1"; "c-2" |]))
+                    |> Expect.equal "the count" "RemoveContexts 2"
 
                     PlanCommand.toString (PlanCommand.RemoveOrders(p, [| "o-1"; "o-2" |]))
                     |> Expect.equal "the count, never the ids" "RemoveOrders 2"
