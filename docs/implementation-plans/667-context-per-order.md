@@ -369,4 +369,5 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 
 | Step | PR | Landed |
 |---|---|---|
-| plan | this PR | this document; the pointer in plan 654 |
+| plan | #671 | this document; the pointer in plan 654 |
+| 0, #668 qualified access | #673 | `[<RequireQualifiedAccess>]` on `OrderContextCommand`, the call sites qualified |

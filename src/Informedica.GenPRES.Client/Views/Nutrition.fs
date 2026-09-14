@@ -666,13 +666,15 @@ module Nutrition =
                 // In Nutrition, Generic is upstream of Indication.
                 // Clear Indication selection (but NOT the Indications list — server repopulates it).
                 { updCtx with OrderContext.Filter.Indication = None }
-            |> fun updCtx -> Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.UpdateOrderContext, updCtx)
+            |> fun updCtx ->
+                Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
             |> props.planCommand
 
         let indicationChange s =
             ctx
             |> OrderContext.indicationChange s
-            |> fun updCtx -> Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.UpdateOrderContext, updCtx)
+            |> fun updCtx ->
+                Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
             |> props.planCommand
 
         let doseTypeChange s =
@@ -680,7 +682,8 @@ module Nutrition =
 
             ctx
             |> OrderContext.doseTypeChange dt
-            |> fun updCtx -> Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.UpdateOrderContext, updCtx)
+            |> fun updCtx ->
+                Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
             |> props.planCommand
 
         let updateOrderScenario (ol: OrderLoader) =
@@ -699,11 +702,16 @@ module Nutrition =
                     )
             }
             |> fun updCtx ->
-                Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.UpdateOrderScenario, updCtx)
+                Api.PlanCommand.Navigate(
+                    planRef.current,
+                    Some ncId,
+                    Api.OrderContextCommand.UpdateOrderScenario,
+                    updCtx
+                )
                 |> props.planCommand
 
         let resetOrderScenario (_ol: OrderLoader) =
-            Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.ResetOrderScenario, ctx)
+            Api.PlanCommand.Navigate(planRef.current, Some ncId, Api.OrderContextCommand.ResetOrderScenario, ctx)
             |> props.planCommand
 
         let stepper =
@@ -815,23 +823,28 @@ module Nutrition =
 
             {|
                 // Dose Rate
-                setRateMin = create (navRate Api.SetMinOrderableDoseRateProperty)
-                setRateDec = createWithN (navRateN Api.DecreaseOrderableDoseRateProperty)
-                setRateMed = create (navRate Api.SetMedianOrderableDoseRateProperty)
-                setRateInc = createWithN (navRateN Api.IncreaseOrderableDoseRateProperty)
-                setRateMax = create (navRate Api.SetMaxOrderableDoseRateProperty)
+                setRateMin = create (navRate Api.OrderContextCommand.SetMinOrderableDoseRateProperty)
+                setRateDec = createWithN (navRateN Api.OrderContextCommand.DecreaseOrderableDoseRateProperty)
+                setRateMed = create (navRate Api.OrderContextCommand.SetMedianOrderableDoseRateProperty)
+                setRateInc = createWithN (navRateN Api.OrderContextCommand.IncreaseOrderableDoseRateProperty)
+                setRateMax = create (navRate Api.OrderContextCommand.SetMaxOrderableDoseRateProperty)
                 // Dose Quantity
-                setDoseQtyMin = create (navRate Api.SetMinOrderableDoseQuantityProperty)
-                setDoseQtyDec = createWithN (navRateN Api.DecreaseOrderableDoseQuantityProperty)
-                setDoseQtyMed = create (navRate Api.SetMedianOrderableDoseQuantityProperty)
-                setDoseQtyInc = createWithN (navRateN Api.IncreaseOrderableDoseQuantityProperty)
-                setDoseQtyMax = create (navRate Api.SetMaxOrderableDoseQuantityProperty)
+                setDoseQtyMin = create (navRate Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty)
+                setDoseQtyDec = createWithN (navRateN Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty)
+                setDoseQtyMed = create (navRate Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty)
+                setDoseQtyInc = createWithN (navRateN Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty)
+                setDoseQtyMax = create (navRate Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty)
                 // Component Quantity
-                setComponentQtyMin = createWithCmp (navCmpQty Api.SetMinComponentOrderableQuantityProperty)
-                setComponentQtyDec = createWithCmpN (navCmpQtyN Api.DecreaseComponentOrderableQuantityProperty)
-                setComponentQtyMed = createWithCmp (navCmpQty Api.SetMedianComponentOrderableQuantityProperty)
-                setComponentQtyInc = createWithCmpN (navCmpQtyN Api.IncreaseComponentOrderableQuantityProperty)
-                setComponentQtyMax = createWithCmp (navCmpQty Api.SetMaxComponentOrderableQuantityProperty)
+                setComponentQtyMin =
+                    createWithCmp (navCmpQty Api.OrderContextCommand.SetMinComponentOrderableQuantityProperty)
+                setComponentQtyDec =
+                    createWithCmpN (navCmpQtyN Api.OrderContextCommand.DecreaseComponentOrderableQuantityProperty)
+                setComponentQtyMed =
+                    createWithCmp (navCmpQty Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty)
+                setComponentQtyInc =
+                    createWithCmpN (navCmpQtyN Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty)
+                setComponentQtyMax =
+                    createWithCmp (navCmpQty Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty)
             |}
 
         let state, dispatch =
