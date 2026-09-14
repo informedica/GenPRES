@@ -1,8 +1,8 @@
-# Implementation plan for issue #NNN: the order lanes in two stages
+# Implementation plan for issue #691: the order lanes in two stages
 
 > A proposal for review, not a settled plan: the approach, the decisions and the step split are
-> put up here to be confirmed, changed or refused in this PR. The file takes the issue number
-> in its name once the issue is filed.
+> put up here to be confirmed, changed or refused in this PR.
+> Issue: [#691](https://github.com/informedica/GenPRES/issues/691).
 
 ## Problem description
 
