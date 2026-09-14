@@ -517,19 +517,6 @@ module Types =
         }
 
 
-    /// A nutrition workbench of the plan: one per category added, an order context narrowed
-    /// down to the product and dose; once it holds exactly one scenario, that scenario is an
-    /// order of the plan.
-    type NutritionContext =
-        {
-            Id: string
-            Label: string
-            Category: NutritionCategory
-            Removable: bool
-            OrderContext: OrderContext
-        }
-
-
     /// The one plan: every order for the patient, nutrition included, which is what is signed.
     type OrderPlan =
         {
@@ -538,8 +525,9 @@ module Types =
             Filtered: OrderScenario[]
             // every order in the plan, the nutrition orders included
             Scenarios: OrderScenario[]
-            // the nutrition workbenches; a context narrowed to one scenario has it in Scenarios
-            NutritionContexts: NutritionContext[]
+            // the order contexts of the plan, drug and nutrition alike, each saying what it holds
+            // and carrying its id; a context narrowed to one scenario has it in Scenarios
+            OrderContexts: OrderContext[]
             Totals: Totals
         }
 

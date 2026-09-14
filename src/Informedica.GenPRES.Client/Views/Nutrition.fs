@@ -16,6 +16,28 @@ module Nutrition =
     open FSharp.Core
 
 
+    /// Whether a context is a nutrition order of one of the categories.
+    let private isOneOf (categories: NutritionCategory list) (ctx: OrderContext) =
+        match OrderContext.nutritionCategory ctx with
+        | Some category -> categories |> List.contains category
+        | None -> false
+
+
+    let private enteral =
+        [
+            NutritionCategory.EnteralFeeding
+            NutritionCategory.EnteralSupplement
+        ]
+
+
+    let private parenteral =
+        [
+            NutritionCategory.TPN
+            NutritionCategory.Lipid
+            NutritionCategory.ElectrolyteGlucose
+        ]
+
+
     module private Elmish =
 
 
@@ -367,12 +389,7 @@ module Nutrition =
         let weightKg = ViewHelpers.PrintView.patientWeight (props.plan.Patient |> Some)
 
         let parenteralContexts =
-            props.plan.NutritionContexts
-            |> Array.filter (fun nc ->
-                nc.Category = NutritionCategory.TPN
-                || nc.Category = NutritionCategory.Lipid
-                || nc.Category = NutritionCategory.ElectrolyteGlucose
-            )
+            props.plan.OrderContexts |> Array.filter (isOneOf parenteral)
 
         let tableSx =
             {|
@@ -383,7 +400,8 @@ module Nutrition =
         let contextSections =
             parenteralContexts
             |> Array.map (fun nc ->
-                let scenario = nc.OrderContext.Scenarios |> Array.tryExactlyOne
+                let scenario = nc.Scenarios |> Array.tryExactlyOne
+                let label = OrderContext.label nc
 
                 match scenario with
                 | None ->
@@ -396,7 +414,7 @@ module Nutrition =
 
                     <Box key={nc.Id} sx={mb2Sx}>
                         <Typography variant="subtitle1" sx={printSectionHeaderSx}>
-                            {nc.Label}
+                            {label}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                             niet geconfigureerd
@@ -473,7 +491,7 @@ module Nutrition =
 
                     <Box key={nc.Id} sx={ {| marginBottom = 3 |} }>
                         <Typography variant="subtitle1" sx={printSectionHeaderMb1Sx}>
-                            {nc.Label} - {orderableName}
+                            {label} - {orderableName}
                         </Typography>
                         <Table size="small" sx={tableSx}>
                             <TableHead>
@@ -606,7 +624,7 @@ module Nutrition =
     let private NutritionSlot
         (props:
             {|
-                nutritionContext: NutritionContext
+                nutritionContext: OrderContext
                 plan: OrderPlan
                 planCommand: Api.PlanCommand -> unit
                 localizationTerms: Deferred<string[][]>
@@ -619,7 +637,7 @@ module Nutrition =
         let lang = context.Localization
         let getTerm = Global.getLocalizedTerm props.localizationTerms lang
 
-        let ctx = props.nutritionContext.OrderContext
+        let ctx = props.nutritionContext
         let ncId = props.nutritionContext.Id
 
         // Monotonic counter bumped whenever a new server response replaces the order
@@ -637,15 +655,15 @@ module Nutrition =
         let revision = revisionRef.current
 
         let label =
-            match props.nutritionContext.Category with
-            | NutritionCategory.EnteralFeeding ->
-                Terms.``Nutrition Enteral Feeding`` |> getTerm props.nutritionContext.Label
-            | NutritionCategory.EnteralSupplement ->
-                Terms.``Nutrition Enteral Supplement`` |> getTerm props.nutritionContext.Label
-            | NutritionCategory.TPN -> Terms.``Nutrition TPN`` |> getTerm props.nutritionContext.Label
-            | NutritionCategory.Lipid -> Terms.``Nutrition Lipids`` |> getTerm props.nutritionContext.Label
-            | NutritionCategory.ElectrolyteGlucose ->
-                Terms.``Nutrition Electrolytes Glucose`` |> getTerm props.nutritionContext.Label
+            let name = OrderContext.label ctx
+
+            match OrderContext.nutritionCategory ctx with
+            | Some NutritionCategory.EnteralFeeding -> Terms.``Nutrition Enteral Feeding`` |> getTerm name
+            | Some NutritionCategory.EnteralSupplement -> Terms.``Nutrition Enteral Supplement`` |> getTerm name
+            | Some NutritionCategory.TPN -> Terms.``Nutrition TPN`` |> getTerm name
+            | Some NutritionCategory.Lipid -> Terms.``Nutrition Lipids`` |> getTerm name
+            | Some NutritionCategory.ElectrolyteGlucose -> Terms.``Nutrition Electrolytes Glucose`` |> getTerm name
+            | None -> name
 
         // Use a ref for the plan so that closures captured by useElmish
         // always read the latest plan, even when useElmish doesn't re-initialize
@@ -955,9 +973,7 @@ module Nutrition =
                 )
             | None -> [| null |]
 
-        let isEnteral =
-            props.nutritionContext.Category = NutritionCategory.EnteralFeeding
-            || props.nutritionContext.Category = NutritionCategory.EnteralSupplement
+        let isEnteral = ctx |> isOneOf enteral
 
         let selectMinWidth = if isEnteral then None else Some 400
 
@@ -1284,7 +1300,7 @@ module Nutrition =
                 import Box from '@mui/material/Box';
 
                 <Box sx={flexOverflowSx}>
-                    <Typography>{props.nutritionContext.Label}</Typography>
+                    <Typography>{label}</Typography>
                     {adminSummary}
                     <Box sx={autoMarginSx}>
                         {removeButton}
@@ -1326,7 +1342,7 @@ module Nutrition =
             <Box>
                 <Divider>
                     <Stack direction="row" spacing={{1}} sx={alignCenterSx}>
-                        <Typography variant="caption">{props.nutritionContext.Label}</Typography>
+                        <Typography variant="caption">{label}</Typography>
                         {removeButton}
                     </Stack>
                 </Divider>
@@ -1396,22 +1412,19 @@ module Nutrition =
         let enteralExpanded, setEnteralExpanded = React.useState true
         let printOpen, setPrintOpen = React.useState false
 
-        let makeSlot wrapInAccordion (plan: OrderPlan) nc =
+        let makeSlot wrapInAccordion (plan: OrderPlan) (nc: OrderContext) =
             let onRemove =
-                if nc.Removable then
-                    let hasSupplements =
-                        nc.Category = NutritionCategory.EnteralFeeding
-                        && plan.NutritionContexts
-                           |> Array.exists (fun c -> c.Category = NutritionCategory.EnteralSupplement)
+                let hasSupplements =
+                    nc |> isOneOf [ NutritionCategory.EnteralFeeding ]
+                    && plan.OrderContexts
+                       |> Array.exists (isOneOf [ NutritionCategory.EnteralSupplement ])
 
-                    Some(fun () ->
-                        if hasSupplements then
-                            setConfirmDeleteTarget (Some nc.Id)
-                        else
-                            Api.PlanCommand.RemoveContext(plan, nc.Id) |> planCommand
-                    )
-                else
-                    None
+                Some(fun () ->
+                    if hasSupplements then
+                        setConfirmDeleteTarget (Some nc.Id)
+                    else
+                        Api.PlanCommand.RemoveContext(plan, nc.Id) |> planCommand
+                )
 
             NutritionSlot
                 {|
@@ -1428,26 +1441,14 @@ module Nutrition =
             Api.PlanCommand.AddContext(plan, category) |> planCommand
 
         let hasCategory (plan: OrderPlan) cat =
-            plan.NutritionContexts |> Array.exists (fun nc -> nc.Category = cat)
+            plan.OrderContexts |> Array.exists (isOneOf [ cat ])
 
         let content =
             match orderPlan with
             | Resolved plan
             | Recalculating plan ->
-                let enteralContexts =
-                    plan.NutritionContexts
-                    |> Array.filter (fun nc ->
-                        nc.Category = NutritionCategory.EnteralFeeding
-                        || nc.Category = NutritionCategory.EnteralSupplement
-                    )
-
-                let parenteralContexts =
-                    plan.NutritionContexts
-                    |> Array.filter (fun nc ->
-                        nc.Category = NutritionCategory.TPN
-                        || nc.Category = NutritionCategory.Lipid
-                        || nc.Category = NutritionCategory.ElectrolyteGlucose
-                    )
+                let enteralContexts = plan.OrderContexts |> Array.filter (isOneOf enteral)
+                let parenteralContexts = plan.OrderContexts |> Array.filter (isOneOf parenteral)
 
                 let enteralSlots = enteralContexts |> Array.map (makeSlot false plan)
 
@@ -1503,7 +1504,7 @@ module Nutrition =
                         let adminSummaries =
                             enteralContexts
                             |> Array.choose (fun nc ->
-                                match nc.OrderContext.Scenarios with
+                                match nc.Scenarios with
                                 | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
                                     let blocks = sc.Administration |> TextBlock.flatten |> Array.collect id
                                     renderAdminSummary (string nc.Id) sc.Order.Orderable.Name blocks |> Some

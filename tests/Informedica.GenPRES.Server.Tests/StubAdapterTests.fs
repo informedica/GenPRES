@@ -2666,14 +2666,17 @@ module SessionStubTests =
 
                     test "a plan holding a nutrition context's order is challenged with that order" {
                         let tpn =
-                            NutritionContext.create "c-1" "TPN" NutritionCategory.TPN true OrderContext.empty
+                            { OrderContext.empty with
+                                Id = "c-1"
+                                Category = OrderCategory.Nutrition NutritionCategory.TPN
+                            }
 
                         let resolved =
                             { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn" |] }
 
                         let plan =
                             { OrderPlan.create stubPatient [| scenarioWithOrder "o-drug" |] with
-                                NutritionContexts = [| tpn |]
+                                OrderContexts = [| tpn |]
                             }
                             |> PlanService.updateContext "c-1" resolved
                             |> Result.defaultWith (fun errs -> failtest $"{errs}")
@@ -5023,10 +5026,14 @@ module PlanTests =
     let scenarioWithOrder = SessionStubTests.scenarioWithOrder
 
     let context id category (scenarios: OrderScenario[]) =
-        NutritionContext.create id (string category) category true { OrderContext.empty with Scenarios = scenarios }
+        { OrderContext.empty with
+            Id = id
+            Category = OrderCategory.Nutrition category
+            Scenarios = scenarios
+        }
 
     let plan contexts scenarios =
-        { OrderPlan.create Models.Patient.empty scenarios with NutritionContexts = contexts }
+        { OrderPlan.create Models.Patient.empty scenarios with OrderContexts = contexts }
 
     let ids (p: OrderPlan) = p.Scenarios |> Array.map _.Order.Id
 
@@ -5103,14 +5110,12 @@ module PlanTests =
 
                     let p = p |> PlanService.removeContext "c-f"
 
-                    p.NutritionContexts
-                    |> Array.map _.Id
-                    |> Expect.equal "the tpn stays" [| "c-t" |]
+                    p.OrderContexts |> Array.map _.Id |> Expect.equal "the tpn stays" [| "c-t" |]
 
                     ids p |> Expect.equal "the drug and the tpn order" [| "o-drug"; "o-t" |]
 
                     let p = p |> PlanService.removeContext "c-t"
-                    p.NutritionContexts |> Expect.isEmpty "none left"
+                    p.OrderContexts |> Expect.isEmpty "none left"
                     ids p |> Expect.equal "the drug only" [| "o-drug" |]
                 }
 
@@ -5232,7 +5237,7 @@ module PlanTests =
                     let p = p |> PlanService.removeOrders [| "o-drug"; "o-t" |]
                     ids p |> Expect.equal "the feeding and its supplement stay" [| "o-f"; "o-s" |]
 
-                    p.NutritionContexts
+                    p.OrderContexts
                     |> Array.map _.Id
                     |> Expect.equal "the tpn workbench went with its order" [| "c-f"; "c-s" |]
 
@@ -5240,7 +5245,7 @@ module PlanTests =
 
                     let p = p |> PlanService.removeOrders [| "o-f" |]
                     ids p |> Expect.isEmpty "the feeding took its supplement's order too"
-                    p.NutritionContexts |> Expect.isEmpty "and both workbenches"
+                    p.OrderContexts |> Expect.isEmpty "and both workbenches"
 
                     p
                     |> PlanService.removeOrders [| "o-none" |]
@@ -5292,14 +5297,67 @@ module PlanTests =
                     match result with
                     | Error e -> failtest $"addContext refused: %A{e}"
                     | Ok p ->
-                        let nc = p.NutritionContexts |> Array.exactlyOne
-                        nc.Id |> Expect.isNotEmpty "an id minted"
+                        let ctx = p.OrderContexts |> Array.exactlyOne
+                        ctx.Id |> Expect.isNotEmpty "an id minted"
 
-                        nc.OrderContext.Id
-                        |> Expect.equal "the context carries the workbench's id" nc.Id
-
-                        nc.OrderContext.Category
+                        ctx.Category
                         |> Expect.equal "and its category" (OrderCategory.Nutrition NutritionCategory.TPN)
+                }
+
+                testAsync "one context per nutrition category, and a supplement only under a feeding" {
+                    let port: OrderContextPort = { evaluate = fun _ ctx -> async { return Ok ctx } }
+                    let feeding = context "c-f" NutritionCategory.EnteralFeeding [||]
+
+                    let! second =
+                        PlanService.addContext id port (plan [| feeding |] [||]) NutritionCategory.EnteralFeeding
+
+                    second
+                    |> Expect.equal
+                        "a second feeding refused"
+                        (Error [| "The plan already holds a Enterale Voeding context" |])
+
+                    let! orphan = PlanService.addContext id port (plan [||] [||]) NutritionCategory.EnteralSupplement
+
+                    orphan
+                    |> Expect.equal
+                        "a supplement without a feeding refused"
+                        (Error [| "A supplement needs a feeding in the plan" |])
+
+                    let! under =
+                        PlanService.addContext id port (plan [| feeding |] [||]) NutritionCategory.EnteralSupplement
+
+                    match under with
+                    | Error e -> failtest $"a supplement under a feeding refused: %A{e}"
+                    | Ok p ->
+                        p.OrderContexts
+                        |> Array.map (Models.OrderContext.nutritionCategory >> Option.get)
+                        |> Expect.equal
+                            "the feeding and its supplement"
+                            [|
+                                NutritionCategory.EnteralFeeding
+                                NutritionCategory.EnteralSupplement
+                            |]
+
+                    let! third = PlanService.addContext id port (plan [| feeding |] [||]) NutritionCategory.TPN
+                    third |> Result.isOk |> Expect.isTrue "another category still admitted"
+                }
+
+                test "the orders of the plan are what its narrowed contexts contribute, in context order" {
+                    let drug =
+                        { OrderContext.empty with
+                            Id = "c-d"
+                            Scenarios = [| scenarioWithOrder "o-d" |]
+                        }
+
+                    let wide =
+                        context "c-w" NutritionCategory.TPN [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
+
+                    let lipid = context "c-l" NutritionCategory.Lipid [| scenarioWithOrder "o-l" |]
+
+                    plan [| drug; wide; lipid |] [||]
+                    |> OrderPlan.orders
+                    |> Array.map _.Order.Id
+                    |> Expect.equal "the drug and the lipid; the wide one nothing" [| "o-d"; "o-l" |]
                 }
 
                 testAsync "processOrderPlan dispatches each case to the plan port" {

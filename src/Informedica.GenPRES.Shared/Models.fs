@@ -2111,6 +2111,18 @@ module Models =
             | OrderCategory.Drug -> ctx.Filter.Generic |> Option.defaultValue ""
 
 
+        /// The nutrition category of a context, none for a drug.
+        let nutritionCategory (ctx: OrderContext) =
+            match ctx.Category with
+            | OrderCategory.Nutrition category -> Some category
+            | OrderCategory.Drug -> None
+
+
+        /// The order a context contributes to the plan: its scenario, once the context is
+        /// narrowed to exactly one; nothing while it holds several candidates or none.
+        let contribution (ctx: OrderContext) = ctx.Scenarios |> Array.tryExactlyOne
+
+
         let setMedication ind med rte frm dtp ctx : OrderContext =
             { ctx with
                 Filter =
@@ -2367,7 +2379,7 @@ module Models =
                 Selected = None
                 Filtered = [||]
                 Scenarios = srs
-                NutritionContexts = [||]
+                OrderContexts = [||]
                 Totals = Totals.empty
             }
 
@@ -2375,16 +2387,16 @@ module Models =
         let empty = create Patient.empty [||]
 
 
-    module NutritionContext =
+        /// The nutrition workbenches of the plan.
+        let nutritionContexts (plan: OrderPlan) =
+            plan.OrderContexts
+            |> Array.filter (OrderContext.nutritionCategory >> Option.isSome)
 
-        let create id label category removable ctx : NutritionContext =
-            {
-                Id = id
-                Label = label
-                Category = category
-                Removable = removable
-                OrderContext = ctx
-            }
+
+        /// The orders the plan's contexts contribute: the one scenario of every context narrowed
+        /// to one, in context order.
+        let orders (plan: OrderPlan) =
+            plan.OrderContexts |> Array.choose OrderContext.contribution
 
 
     module Formulary =
