@@ -89,9 +89,12 @@ session and signing machines.
   the orders: the one scenario of every narrowed context, in context order. `Selected` is dialog
   state the server only forwarded; the client holds it. `Filtered` is context ids, which stay
   valid when a context is re-evaluated and its order changes.
-- The plan's `Patient` is the patient the plan is computed for and signed on. Each context also
-  carries the patient it was evaluated for, and the two agree because every context is created
-  or added under the plan's patient. Patient data changes by hand only where there is no
+- The plan's `Patient` is the patient the session holds when the plan is opened (the platform's
+  reading, else the signed patient, else the one entered by hand) and the one the next
+  signature is signed on. Each context carries the patient it was created for, and an order is
+  always calculated within its context, so for that patient: every context is created or added
+  under the plan's patient of that moment, and only a new reading or `ChangePatient` can make
+  the two differ. Patient data changes by hand only where there is no
   platform reading: in anonymous mode (a url patient, no launched session) and in a session the
   platform gave no reading for. Then an edit goes through `ChangePatient`, below. In a session
   with a reading the panel shows the reading and does not change it. A reading that differs from
