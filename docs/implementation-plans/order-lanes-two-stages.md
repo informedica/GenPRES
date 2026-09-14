@@ -6,7 +6,7 @@
 
 ## Problem description
 
-The client holds the prescribing workbench and the one plan in two pure state machines
+The client holds the prescribing workbench and the order plan in two pure state machines
 (`OrderContextMachine.fs`, `OrderPlanMachine.fs`) and publishes them to the pages as
 `Deferred<_>` through `AppEnv`. Both machines mix what the clinical model *is* (the patient held,
 the context evaluated, the plan, the context the dialog shows) with what the transport is doing
