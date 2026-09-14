@@ -89,18 +89,15 @@ session and signing machines.
   the orders: the one scenario of every narrowed context, in context order. `Selected` is dialog
   state the server only forwarded; the client holds it. `Filtered` is context ids, which stay
   valid when a context is re-evaluated and its order changes.
-- The plan's `Patient` is the patient the session holds when the plan is opened (the platform's
-  reading, else the signed patient, else the one entered by hand) and the one the next
-  signature is signed on. Each context carries the patient it was created for, and an order is
-  always calculated within its context, so for that patient: every context is created or added
-  under the plan's patient of that moment, and only a new reading or `ChangePatient` can make
-  the two differ. Patient data changes by hand only where there is no
-  platform reading: in anonymous mode (a url patient, no launched session) and in a session the
-  platform gave no reading for. Then an edit goes through `ChangePatient`, below. In a session
-  with a reading the panel shows the reading and does not change it. A reading that differs from
-  the patient a version was signed on does not touch the contexts at open: the version opens as
-  signed, the panel shows the reading, and the next signature carries the data-changed notice,
-  as today.
+- The plan's `Patient` is the patient data as shown, and the data a version is signed on. It
+  starts as the session's patient at open (the platform's reading, else the signed version's
+  patient, else empty, as today) and can be changed by hand in every mode, as today; an edit
+  goes through `ChangePatient`, below. Each context carries the patient it was created for, and
+  an order is always calculated within its context, so for that patient: every context is
+  created or added under the plan's patient of that moment. A reading that differs from the
+  patient a version was signed on does not touch the contexts at open: the version opens as
+  signed, the panel shows the reading, and the next signature tells that the data changed and
+  records whether a reading was present, as today.
 - `SignedOrderPlan.OrderContexts: OrderContext[]` replaces `Scenarios`: the signed version is
   the plan as it was, contexts and all. The record grows, since a context carries its pick lists
   and candidate scenarios; it lives in memory today, and the table of plan
@@ -122,8 +119,7 @@ session and signing machines.
       | Navigate of OrderPlan * contextId: string * OrderContextCommand * OrderContext
       // every kind; a feeding takes its supplements with it
       | RemoveContexts of OrderPlan * ids: string[]
-      // every context re-evaluated from its filter for the new patient; only where the patient
-      // is entered by hand
+      // every context re-evaluated from its filter for the new patient
       | ChangePatient of OrderPlan * Patient
   ```
 
@@ -157,8 +153,7 @@ commit in `ServerApi.Session.fs`:
 - `changePatient`: the plan's patient replaced and every context re-evaluated from its filter
   with `UpdateOrderContext` for the new patient, so the orders are rebuilt for the new weight
   and age; a stepped value that no longer fits is lost, which the page says. A context whose
-  re-evaluation fails is the answer, as a failed `Navigate` is today. The server refuses the
-  command in a session that has a platform reading: there the patient is the platform's.
+  re-evaluation fails is the answer, as a failed `Navigate` is today.
 - `recalculate`: the totals over the orders of the filtered contexts, all when no filter.
 - `withOrders`, `contribution`, the following of `Filtered` and `Selected` and `updateContext`'s
   folding go: there is no stored projection to keep in step.
@@ -190,9 +185,8 @@ handlers; the machines then replace the handlers behind a surface that no longer
   `RemoveContexts`.
 - Nutrition page: `Navigate(planRef.current, ncId, ...)`, `RemoveContexts(plan, [| id |])`,
   the nutrition contexts filtered by category from `OrderContexts`.
-- The patient panel: editable in anonymous mode and in a session without a platform reading;
-  an edit while the plan holds contexts sends `ChangePatient`. In a session with a reading the
-  panel is read-only.
+- The patient panel: editable as today; an edit while the plan holds contexts sends
+  `ChangePatient`.
 - `PlanMachine.fs`, pure, before `AppEnv.fs` in the client project, linked into
   `Informedica.GenPRES.Shared.Tests` like `SessionMachine.fs`:
 
@@ -317,8 +311,7 @@ Fable compile and Fantomas green. Wire changes are additive first and deleted la
    evaluating the context as sent. About 170 lines. Tests: a duplicate and a wide context
    refused, a narrow one appended as `Drug`; `removeContexts` over mixed kinds with the cascade;
    `navigate` replaces by id and keeps the context's patient; `changePatient` re-evaluates
-   every context and keeps a failure as the answer; `changePatient` refused in a session with
-   a reading.
+   every context and keeps a failure as the answer.
 7. **The views on the new commands.** Prescribe sends `AddOrder` and switches page, the button
    greyed on a duplicate; the order-plan dialog by context id, deletion by `RemoveContexts`; the
    nutrition page on `RemoveContexts`; the patient panel on `ChangePatient`; `ShowOrderPlan`
@@ -359,12 +352,10 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
   the supplements go with it; the order-plan page shows the same orders.
 - Sign, then reload: the cart opens on the version with every context as it was, drug and
   nutrition, each on its page, stepped values included; no request other than `Open`.
-- Anonymous, with orders in the plan, edit the patient's weight: one `ChangePatient`, every
-  order rebuilt for the new weight, the page says what was lost. Launched as `prescriber`: the
-  panel shows the platform's reading and cannot be edited; launched on the `no-data` patient:
-  it can, and the edit sends `ChangePatient`.
+- With orders in the plan, edit the patient's weight: one `ChangePatient`, every order rebuilt
+  for the new weight, the page says what was lost; anonymous and launched alike.
 - Sign, then relaunch with a changed platform reading: the version opens as signed, the panel
-  shows the new reading, the next sign carries the data-changed notice.
+  shows the new reading, the next sign tells that the data changed.
 - Two browsers on one patient: a reopen arriving while a step is in flight drops the step's
   answer; the plan shown is the reopened one.
 - Prescribe with a medication in the url and no patient: the workbench shows; setting the
