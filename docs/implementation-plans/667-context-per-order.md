@@ -69,8 +69,8 @@ not stored: every context narrowed to one scenario contributes that scenario. Th
 stores the contexts, so a reopen is the signed plan as it was, nothing rebuilt and nothing
 guessed. The prescribing workbench is the same type, a context not yet in the plan, on its own
 lane; the prescribe button moves it into the plan. `Navigate` always names a context and
-evaluates it over the context's own patient. Removal is one command for every kind. A patient
-change is an explicit command over the plan. On the client, a pure `PlanMachine` and a pure
+evaluates it over the context's own patient. Removal is one command for every kind. On the
+client, a pure `PlanMachine` and a pure
 `ContextMachine` replace the `Deferred` handling, with the same shape and the same tests as the
 session and signing machines.
 
@@ -91,13 +91,16 @@ session and signing machines.
   valid when a context is re-evaluated and its order changes.
 - The plan's `Patient` is the patient data as shown, and the data a version is signed on. It
   starts as the session's patient at open (the platform's reading, else the signed version's
-  patient, else empty, as today) and can be changed by hand in every mode, as today; an edit
-  goes through `ChangePatient`, below. Each context carries the patient it was created for, and
-  an order is always calculated within its context, so for that patient: every context is
-  created or added under the plan's patient of that moment. A reading that differs from the
-  patient a version was signed on does not touch the contexts at open: the version opens as
-  signed, the panel shows the reading, and the next signature tells that the data changed and
-  records whether a reading was present, as today.
+  patient, else empty, as today) and can be changed by hand in every mode, as today. Each
+  context carries the patient it was created for, and an order is always calculated within its
+  context, so for that patient: every context is created or added under the plan's patient of
+  that moment, and that patient never changes afterwards. A patient edit therefore rewrites the
+  plan's patient and recomputes the totals, as today, and leaves every context as it is;
+  replacing an order for new patient data is removing its context and creating a new one from
+  it, which is [#672](https://github.com/informedica/GenPRES/issues/672), not this plan. A
+  reading that differs from the patient a version was signed on does not touch the contexts at
+  open either: the version opens as signed, the panel shows the reading, and the next signature
+  tells that the data changed and records whether a reading was present, as today.
 - `SignedOrderPlan.OrderContexts: OrderContext[]` replaces `Scenarios`: the signed version is
   the plan as it was, contexts and all. The record grows, since a context carries its pick lists
   and candidate scenarios; it lives in memory today, and the table of plan
@@ -119,8 +122,6 @@ session and signing machines.
       | Navigate of OrderPlan * contextId: string * OrderContextCommand * OrderContext
       // every kind; a feeding takes its supplements with it
       | RemoveContexts of OrderPlan * ids: string[]
-      // every context re-evaluated from its filter for the new patient
-      | ChangePatient of OrderPlan * Patient
   ```
 
   `RemoveOrders`, `RemoveContext` and the `None` branch of `Navigate` go. New cases are added
@@ -150,10 +151,6 @@ commit in `ServerApi.Session.fs`:
   from the context's patient. Evaluating over another patient would put candidates for one
   patient next to an order solved for another. The result replaces the context by id.
 - `removeContexts`: every kind; a feeding takes every enteral supplement.
-- `changePatient`: the plan's patient replaced and every context re-evaluated from its filter
-  with `UpdateOrderContext` for the new patient, so the orders are rebuilt for the new weight
-  and age; a stepped value that no longer fits is lost, which the page says. A context whose
-  re-evaluation fails is the answer, as a failed `Navigate` is today.
 - `recalculate`: the totals over the orders of the filtered contexts, all when no filter.
 - `withOrders`, `contribution`, the following of `Filtered` and `Selected` and `updateContext`'s
   folding go: there is no stored projection to keep in step.
@@ -163,8 +160,8 @@ commit in `ServerApi.Session.fs`:
   `Session.commit` lists: open keeps the contexts and their stepped values; `addOrder` refuses
   a duplicate and a wide context and appends a narrow one as `Drug`; `addContext` refuses a
   second feeding and an orphan supplement; `navigate` evaluates the context as sent and
-  replaces it by id; `removeContexts` over mixed kinds with the cascade; `changePatient`
-  re-evaluates every context and keeps a failure as the answer; totals by filtered context id;
+  replaces it by id; `removeContexts` over mixed kinds with the cascade; a patient edit
+  leaves every context's patient as it was; totals by filtered context id;
   the challenge refuses a changed context and a duplicate order; the version holds the
   contexts; dispatch of each case.
 
@@ -185,8 +182,8 @@ handlers; the machines then replace the handlers behind a surface that no longer
   `RemoveContexts`.
 - Nutrition page: `Navigate(planRef.current, ncId, ...)`, `RemoveContexts(plan, [| id |])`,
   the nutrition contexts filtered by category from `OrderContexts`.
-- The patient panel: editable as today; an edit while the plan holds contexts sends
-  `ChangePatient`.
+- The patient panel: editable as today; an edit sends `Recalculate` over the plan with the new
+  patient, the contexts untouched.
 - `PlanMachine.fs`, pure, before `AppEnv.fs` in the client project, linked into
   `Informedica.GenPRES.Shared.Tests` like `SessionMachine.fs`:
 
@@ -216,9 +213,9 @@ handlers; the machines then replace the handlers behind a surface that no longer
   Request ids are minted at dispatch, as `ISigning.Sign` mints its request. An answer lands only
   on the request in flight; a second click while busy is dropped, as today, with the buttons
   disabled. `Cart head` sends `Open(patient, head.OrderContexts)`. `PatientChanged` sends
-  `Open(pat, [||])` when the plan is empty and `ChangePatient` when it holds contexts; while a
-  request is in flight it goes to `Loading` with a new request, so a reopen arriving while a
-  nutrition step is in flight wins. A refused change restores the plan the request was sent
+  `Open(pat, [||])` when the plan is empty and `Recalculate` over the plan with the new patient
+  when it holds contexts; while a request is in flight it goes to `Loading` with a new request,
+  so a reopen arriving while a nutrition step is in flight wins. A refused change restores the plan the request was sent
   over; a refused `Open` lands on the empty plan for the patient. `Select` and `Filter` are
   pure: no round trip to open or close the dialog. The OpenedToken check on the reply's notice
   stays in the interpreter (`processApiMsg`), as for signing. `Plan.toDeferred` feeds the env.
@@ -273,9 +270,7 @@ the orders removes bookkeeping rather than adding it, and the new cases are addi
 last deletion. Medium for the client: `App.fs` loses about 130 lines of plan handling and 60 of
 workbench handling in two deletion-heavy steps, and the prescribing page keys its Elmish state
 on the workbench value; that is why the machines carry their own tests and the views move
-before the machines, so that each step stays green on its own. Medium for `ChangePatient`: a
-re-evaluation per context is a solver run each, and what the page says about a lost stepped
-value is settled when the step is built.
+before the machines, so that each step stays green on its own.
 
 ## Steps
 
@@ -307,21 +302,21 @@ Fable compile and Fantomas green. Wire changes are additive first and deleted la
    deleted; totals by filtered context. About 160 lines. Tests: totals by filtered context id;
    a re-evaluated context keeps its place in the filter; the duplicate check over derived
    orders.
-6. **`AddOrder`, `RemoveContexts`, `ChangePatient`**, beside the old cases; `navigate` by id
-   evaluating the context as sent. About 170 lines. Tests: a duplicate and a wide context
-   refused, a narrow one appended as `Drug`; `removeContexts` over mixed kinds with the cascade;
-   `navigate` replaces by id and keeps the context's patient; `changePatient` re-evaluates
-   every context and keeps a failure as the answer.
+6. **`AddOrder` and `RemoveContexts`**, beside the old cases; `navigate` by id evaluating the
+   context as sent. About 140 lines. Tests: a duplicate and a wide context refused, a narrow
+   one appended as `Drug`; `removeContexts` over mixed kinds with the cascade; `navigate`
+   replaces by id and keeps the context's patient; a recalculation with a new patient leaves
+   every context's patient as it was.
 7. **The views on the new commands.** Prescribe sends `AddOrder` and switches page, the button
    greyed on a duplicate; the order-plan dialog by context id, deletion by `RemoveContexts`; the
-   nutrition page on `RemoveContexts`; the patient panel on `ChangePatient`; `ShowOrderPlan`
-   retired for `Select` and `Filter` on `IOrderPlan`. About 160 lines. Acceptance below.
+   nutrition page on `RemoveContexts`; `ShowOrderPlan` retired for `Select` and `Filter` on
+   `IOrderPlan`. About 150 lines. Acceptance below.
 8. **Delete the old cases** (`refactor`): `Navigate` by id only, `RemoveContext`,
    `RemoveOrders`, the `None` branch and `removeOrders`, `fromOrderScenario`; the nutrition
    page's `Some ncId` becomes `ncId`. About 120 lines. Tests: the dispatch case.
 9. **`PlanMachine.fs` and its tests**, not wired. About 190 lines. Tests: the lifecycle; a stale
    answer dropped by request id; a patient change while in flight; `Cart` to `Open`;
-   `PatientChanged` to `Open` or `ChangePatient`; a refused change restores the plan; `Select`
+   `PatientChanged` to `Open` or `Recalculate`; a refused change restores the plan; `Select`
    and `Filter` without effects.
 10. **Wire the plan machine.** `State.Plan`, `interpretPlanEffect`, `Plan.toDeferred`; the plan
     handlers and helpers deleted. About 200 lines, deletion heavy. Acceptance below.
@@ -352,8 +347,9 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
   the supplements go with it; the order-plan page shows the same orders.
 - Sign, then reload: the cart opens on the version with every context as it was, drug and
   nutrition, each on its page, stepped values included; no request other than `Open`.
-- With orders in the plan, edit the patient's weight: one `ChangePatient`, every order rebuilt
-  for the new weight, the page says what was lost; anonymous and launched alike.
+- With orders in the plan, edit the patient's weight: one `Recalculate`, the totals follow,
+  every order stays as calculated for the patient its context was created with (#672 replaces
+  them).
 - Sign, then relaunch with a changed platform reading: the version opens as signed, the panel
   shows the new reading, the next sign tells that the data changed.
 - Two browsers on one patient: a reopen arriving while a step is in flight drops the step's
