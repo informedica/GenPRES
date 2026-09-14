@@ -10,7 +10,7 @@ flowchart TD
         UI["Stepper +/- button<br/>Views/Prescribe.fs"]
         MSG["dispatch OrderContextMsg.Command(cmd, ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
         CALL["interpretOrderContextEffect<br/>CallContext(cmd, ctx, request) → processOrderContext<br/>App.fs"]
-        RESP["OrderContextAnswered → OrderContextMsg.Answered(request, Ok ctx)<br/>landing on the request, then Workbench.Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
+        RESP["OrderContextAnswered → OrderContextMsg.Answered(request, Ok ctx)<br/>landing on the request, then OrderContextWorkbench.Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
         RENDER["Re-render dose select +<br/>enable/disable steppers<br/>Views/Order.fs"]
     end
 
@@ -65,12 +65,12 @@ flowchart TD
     PRELIM["Render PRELIMINARY label<br/>stepFn(smallDelta, largeDelta)<br/>key stays = server value<br/>SimpleSelect.fs"]
     DISPATCH["debounce fires: dispatch OrderContextMsg.Command<br/>(Increase/DecreaseOrderableDoseQuantityProperty(n, useCalc), ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
 
-    REC["Workbench.Evaluated held stays; InFlight = ((cmd, sent), request)<br/>projected as Deferred.Provisional sent<br/>OrderContextState.toDeferred, OrderContextMachine.fs"]
+    REC["OrderContextWorkbench.Evaluated held stays; InFlight = ((cmd, sent), request)<br/>projected as Deferred.Provisional sent<br/>OrderContextState.toDeferred, OrderContextMachine.fs"]
     KEEP["No spinner on the field: isOptimisticStep = true<br/>Order.fs<br/>step buttons rest while loading: stepsRest<br/>SimpleSelect.fs<br/>a command while busy is dropped by the machine"]
 
     SERVER(["Server re-solve round-trip<br/>(see main flow above)"])
 
-    DONE["OrderContextAnswered -> OrderContextMsg.Answered(request, Ok ctx)<br/>landing on the request, then Workbench.step: Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
+    DONE["OrderContextAnswered -> OrderContextMsg.Answered(request, Ok ctx)<br/>landing on the request, then OrderContextWorkbench.step: Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
     BUMP["revision++<br/>Order.fs"]
     RESET["useLayoutEffect resets deltas to 0<br/>keyed on valueKey + revision<br/>SimpleSelect.fs"]
     FINAL["Render SOLVED value from server<br/>preliminary -> confirmed"]
@@ -87,13 +87,13 @@ flowchart TD
     style SERVER fill:#cfe8ff,stroke:#005bbb,color:#1a1a1a
 ```
 
-The machine is two stages (`OrderContextMachine.fs`): the `Workbench`, the
+The machine is two stages (`OrderContextMachine.fs`): the `OrderContextWorkbench`, the
 context as the clinical model has it, which knows no request, and the one
 request under way (`InFlight`: the command and the context sent, and the id
 the answer must name). `transition` runs them in order. An answer passes the
 request first (`landing`) and reaches the workbench only when it names the
 request under way, so a stale answer is dropped by its id. A command passes
-the workbench first (`Workbench.step`) and reaches the request as an intent,
+the workbench first (`OrderContextWorkbench.step`) and reaches the request as an intent,
 dropped while a request is under way. A failed command, whether the server
 refused it or the call did not complete, goes back to the context held, the
 last one the server confirmed, never the one sent.
@@ -105,10 +105,10 @@ The pages read the workbench as a `Deferred<OrderContext>` projected from
 
 | Case | Machine state | Meaning | UI effect |
 | ---- | ------------- | ------- | --------- |
-| `HasNotStartedYet` | `Workbench.NoPatient` | no patient, no workbench | empty |
-| `InProgress` | `Workbench.Unevaluated`, the first evaluation under way | in flight, **no** prior value | loading placeholder / spinner |
-| `Provisional of 't` | `Workbench.Evaluated held`, `InFlight ((cmd, sent), request)` | in flight, **the context sent kept**, not yet confirmed | preliminary value stays visible |
-| `Resolved of 't` | `Workbench.Evaluated ctx` with nothing under way; `Workbench.Seeded` | answer received, or a filter seeded from the url | confirmed value |
+| `HasNotStartedYet` | `OrderContextWorkbench.NoPatient` | no patient, no workbench | empty |
+| `InProgress` | `OrderContextWorkbench.Unevaluated`, the first evaluation under way | in flight, **no** prior value | loading placeholder / spinner |
+| `Provisional of 't` | `OrderContextWorkbench.Evaluated held`, `InFlight ((cmd, sent), request)` | in flight, **the context sent kept**, not yet confirmed | preliminary value stays visible |
+| `Resolved of 't` | `OrderContextWorkbench.Evaluated ctx` with nothing under way; `OrderContextWorkbench.Seeded` | answer received, or a filter seeded from the url | confirmed value |
 
 Stepping uses **`Provisional`** (not `InProgress`), which is why the previous
 dose quantity remains on screen as a preliminary result instead of blanking out.
@@ -139,7 +139,7 @@ confirmed solver result.
 | Hop | File | Symbol |
 | --- | ---- | ------ |
 | UI stepper | `src/Informedica.GenPRES.Client/Views/Prescribe.fs` | `Increase/DecreaseOrderableDoseQuantityProperty` |
-| Client machine | `src/Informedica.GenPRES.Client/OrderContextMachine.fs` | `OrderContextMsg.Command`, `Workbench.step`, `OrderContextState.transition` |
+| Client machine | `src/Informedica.GenPRES.Client/OrderContextMachine.fs` | `OrderContextMsg.Command`, `OrderContextWorkbench.step`, `OrderContextState.transition` |
 | Server call | `src/Informedica.GenPRES.Client/App.fs` | `interpretOrderContextEffect`, `OrderContextAnswered` |
 | Shared DTO | `src/Informedica.GenPRES.Shared/Api.fs` | `OrderContextCommand` |
 | Server cmd | `src/Informedica.GenPRES.Server/ServerApi.OrderContextCommand.fs` | `processCmd` |

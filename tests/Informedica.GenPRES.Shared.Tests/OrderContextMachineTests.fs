@@ -338,27 +338,33 @@ let stagesTests =
             test "the workbench alone knows no request: a failed change keeps the context held" {
                 let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
 
-                Workbench.step
-                    (WorkbenchMsg.Landed((OrderContextCommand.UpdateOrderContext, stepped), Error [| "not loaded" |]))
-                    (Workbench.Evaluated paracetamol)
+                OrderContextWorkbench.step
+                    (OrderContextWorkbenchMsg.Landed(
+                        (OrderContextCommand.UpdateOrderContext, stepped),
+                        Error [| "not loaded" |]
+                    ))
+                    (OrderContextWorkbench.Evaluated paracetamol)
                 |> Expect.equal
                     "the original, told and synced"
-                    (Workbench.Evaluated paracetamol,
+                    (OrderContextWorkbench.Evaluated paracetamol,
                      [
-                         WorkbenchIntent.Tell [| "not loaded" |]
-                         WorkbenchIntent.Sync paracetamol.Filter
+                         OrderContextWorkbenchIntent.Tell [| "not loaded" |]
+                         OrderContextWorkbenchIntent.Sync paracetamol.Filter
                      ])
             }
 
             test "nothing lands where nothing was asked: a seed, or no patient" {
                 let landed =
-                    WorkbenchMsg.Landed((OrderContextCommand.UpdateOrderContext, paracetamol), Ok paracetamol)
+                    OrderContextWorkbenchMsg.Landed(
+                        (OrderContextCommand.UpdateOrderContext, paracetamol),
+                        Ok paracetamol
+                    )
 
-                Workbench.step landed (Workbench.Seeded paracetamol)
-                |> Expect.equal "the seed" (Workbench.Seeded paracetamol, [])
+                OrderContextWorkbench.step landed (OrderContextWorkbench.Seeded paracetamol)
+                |> Expect.equal "the seed" (OrderContextWorkbench.Seeded paracetamol, [])
 
-                Workbench.step landed Workbench.NoPatient
-                |> Expect.equal "no patient" (Workbench.NoPatient, [])
+                OrderContextWorkbench.step landed OrderContextWorkbench.NoPatient
+                |> Expect.equal "no patient" (OrderContextWorkbench.NoPatient, [])
 
                 transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) (seeded paracetamol)
                 |> Expect.equal "no request under way to land on" (seeded paracetamol, [])
