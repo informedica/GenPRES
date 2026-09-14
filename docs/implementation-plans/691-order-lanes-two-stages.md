@@ -376,3 +376,43 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
   the snackbar differently; a reload is settled by any workbench answer, stale ones included;
   the "no dose rules" re-evaluation reuses the answered request id; the stale totals after a
   failed patient recalculation (#672).
+
+## As built
+
+Built in the order proposed, every PR under review before the next started, the client edited
+directly. Every step left the build, the shared tests, the Fable compile, Fantomas and the
+dependency-rule check green.
+
+| Step | PR | Landed |
+|---|---|---|
+| plan | #688 | this document; issue #691 |
+| 2, the UI while a request is in flight | #692 | the patient panel greyed while either lane is busy, the formulary and parenteralia filters while the workbench is, the nutrition add and remove controls and the delete confirmation while the plan is |
+| 3, a patient change during an open keeps the version | #694 | `Loading` carries the contexts being opened; a patient change meanwhile opens them again |
+| 4, a failed filter change goes back to the original | #695 | the failed-change fixture sharpened first (sent ≠ original), then the plan held stays the original; `OrderPlanState.meanwhile` gives the pages the plan the command carries; review: a failed page recalculation with the dialog open covered too |
+| 5, `Deferred` in its own file | #696 | `Deferred.fs` first, linked into the shared tests; `resolved` and `exists` gone |
+| 6, the workbench in two stages | #697 | `Workbench`, `WorkbenchMsg`, `WorkbenchIntent`, `Workbench.step`, the record with `InFlight`, `landing`, `transition` as the composer, `toDeferred` in the machine; 13 tests preserved through fixtures, 5 added |
+| 7, the plan in two stages | #698 | `Plan`, `PlanMsg`, `PlanIntent`, `Plan.step`, the record with `InFlight` and `Selected`, the dialog's rules in the composer, `toDeferred` in the machine; 13 tests preserved, 4 added; review: the record's fields private, built through constructors |
+| the workbench the same | #699 | `OrderContextState`'s fields private, `noPatient`, `seeded`, `opening`, `held`, `changing`; review: `changing` normalizes the context sent to the patient held |
+| 8, docs | this PR | the stepping-flow document's machine section and case table; this section |
+| 9, `Provisional` | pending | |
+
+### Deviations from the text above
+
+- **The records are not open to construction.** The text accepted a request or a selection
+  without a plan as representable and guarded in the reads. Review on #698 asked for more, and
+  the choice fell on private fields with constructors that admit only the combinations that
+  occur (`noPatient`, `opening`, `held`, `changing`, the workbench's `seeded` too); the tests
+  build their states through them. A DU of only the valid states would have been the old DU
+  again, so the two stages stay.
+- **The row filter is a `Call`, not a `Recalculate`.** The text listed `Recalculate` among the
+  intents that supersede. A filter change while a request is under way is dropped today, so it
+  goes out as `PlanIntent.Call(Recalculate ...)`, one at a time; only a patient change
+  recalculates by superseding.
+- **The dialog's rules live in the composer**, keyed on the message: closed by a patient change,
+  a reopen and a filter change that goes out, narrowed to the plan answered, kept otherwise.
+  The domain step never sees the selection.
+- **`Unopened` carries the contexts being opened**, since step 3 had already put them on
+  `Loading`; the plan's text had `Unopened of Patient` alone.
+- **Step 6 and 7 tests stayed transition tests.** The text had them rewritten as domain-step
+  tests; keeping the thirteen as they were, over fixtures, made them the oracle for "behaviour
+  preserved", and the domain step got tests of its own beside them.
