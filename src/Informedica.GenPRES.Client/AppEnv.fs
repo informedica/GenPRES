@@ -25,7 +25,7 @@ type IOrderContext =
 [<Interface>]
 type IOrderPlan =
     abstract OrderPlan: Deferred<OrderPlan>
-    abstract PlanCommand: Api.PlanCommand -> unit
+    abstract OrderPlanCommand: Api.OrderPlanCommand -> unit
     // the context whose order the dialog shows, by id; the client's own, no round trip
     abstract Selected: string option
     abstract Select: string option -> unit

@@ -69,25 +69,30 @@ module Adapters =
         }
 
 
-    let private makePlanPort agent (provider: Resources.IResourceProvider) (orderCtxPort: OrderContextPort) : PlanPort =
+    let private makeOrderPlanPort
+        agent
+        (provider: Resources.IResourceProvider)
+        (orderCtxPort: OrderContextPort)
+        : OrderPlanPort
+        =
         {
             recalculate =
                 fun plan ->
                     async {
                         do! setComponentName "OrderPlan" agent
-                        return plan |> PlanService.recalculate (provider.GetTotals()) |> Ok
+                        return plan |> OrderPlanService.recalculate (provider.GetTotals()) |> Ok
                     }
             navigate =
                 fun plan contextId ctxCmd ctx ->
                     async {
                         do! setComponentName "OrderPlan" agent
-                        let recalc = PlanService.recalculate (provider.GetTotals())
-                        return! PlanService.navigate recalc orderCtxPort plan contextId ctxCmd ctx
+                        let recalc = OrderPlanService.recalculate (provider.GetTotals())
+                        return! OrderPlanService.navigate recalc orderCtxPort plan contextId ctxCmd ctx
                     }
             newOrderContext =
                 fun plan category ->
-                    PlanService.newOrderContext
-                        (PlanService.recalculate (provider.GetTotals()))
+                    OrderPlanService.newOrderContext
+                        (OrderPlanService.recalculate (provider.GetTotals()))
                         orderCtxPort
                         plan
                         category
@@ -98,16 +103,16 @@ module Adapters =
 
                         return
                             plan
-                            |> PlanService.addOrderContext (fun () -> System.Guid.NewGuid().ToString()) ctx
-                            |> Result.map (PlanService.recalculate (provider.GetTotals()))
+                            |> OrderPlanService.addOrderContext (fun () -> System.Guid.NewGuid().ToString()) ctx
+                            |> Result.map (OrderPlanService.recalculate (provider.GetTotals()))
                     }
             removeOrderContexts =
                 fun plan ids ->
                     async {
                         return
                             plan
-                            |> PlanService.removeOrderContexts ids
-                            |> PlanService.recalculate (provider.GetTotals())
+                            |> OrderPlanService.removeOrderContexts ids
+                            |> OrderPlanService.recalculate (provider.GetTotals())
                             |> Ok
                     }
             openWith =
@@ -116,8 +121,8 @@ module Adapters =
                         do! setComponentName "OrderPlan" agent
 
                         return
-                            PlanService.openWith pat contexts
-                            |> PlanService.recalculate (provider.GetTotals())
+                            OrderPlanService.openWith pat contexts
+                            |> OrderPlanService.recalculate (provider.GetTotals())
                             |> Ok
                     }
         }
@@ -173,7 +178,7 @@ module Adapters =
         {
             formulary = makeFormularyPort provider
             orderContext = orderCtxPort
-            plan = makePlanPort agent provider orderCtxPort
+            orderPlan = makeOrderPlanPort agent provider orderCtxPort
             interaction =
                 {
                     checkInteractions =

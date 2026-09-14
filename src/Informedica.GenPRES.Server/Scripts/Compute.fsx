@@ -2,7 +2,7 @@
 // `Request<OrderContextCommand * OrderContext>` answered with a `Reply<OrderContext>` through
 // `Compute.bound`; with it `processCommand`, `Command`, `Response`, the `Request`/`Reply`
 // abbreviations and `ServerApi.Command.fs` go. And the seam the one plan left: deleting orders
-// on the order-plan page goes to the server as `PlanCommand.RemoveOrders`, so that a nutrition
+// on the order-plan page goes to the server as `OrderPlanCommand.RemoveOrders`, so that a nutrition
 // order deleted there takes its workbench with it instead of coming back at the workbench's
 // next move.
 //
@@ -11,9 +11,9 @@
 //     `processOrderContext` on `IServerApi` → `Shared/Api.fs`; the old shape deleted there;
 //   - `OrderContextCommand.processCmd` → new `ServerApi.OrderContextCommand.fs` (fsproj, both
 //     loaders); `ServerApi.Command.fs` deleted; the member in `compose`;
-//   - `PlanCommand.RemoveOrders of OrderPlan * ids: string[]` → `Shared/Api.fs`;
-//     `PlanService.removeOrders` → `Services.fs`; `PlanPort.removeOrders` → `Ports.fs`,
-//     `Adapters.fs`; the arm → `ServerApi.PlanCommand.fs`;
+//   - `OrderPlanCommand.RemoveOrders of OrderPlan * ids: string[]` → `Shared/Api.fs`;
+//     `OrderPlanService.removeOrders` → `Services.fs`; `OrderPlanPort.removeOrders` → `Ports.fs`,
+//     `Adapters.fs`; the arm → `ServerApi.OrderPlanCommand.fs`;
 //   - the client: the order context on its member, the plan page's delete on `RemoveOrders`
 //     (in the patch).
 //
@@ -57,14 +57,14 @@ module OrderContextCommand =
 
 
 // ---------------------------------------------------------------------------------------------
-// The deletion seam (→ Services.fs, module PlanService; PlanCommand.RemoveOrders → Shared/Api.fs)
+// The deletion seam (→ Services.fs, module OrderPlanService; OrderPlanCommand.RemoveOrders → Shared/Api.fs)
 // ---------------------------------------------------------------------------------------------
 
-module PlanService =
+module OrderPlanService =
 
-    let contribution = ServerApi.PlanService.contribution
-    let withOrders = ServerApi.PlanService.withOrders
-    let removeContext = ServerApi.PlanService.removeContext
+    let contribution = ServerApi.OrderPlanService.contribution
+    let withOrders = ServerApi.OrderPlanService.withOrders
+    let removeContext = ServerApi.OrderPlanService.removeContext
 
     /// The orders named removed from the plan: each with the workbench that contributed it, a
     /// feeding with its supplements and theirs, the rest by order id; the filter and the
@@ -155,16 +155,16 @@ let tests =
                         Filtered = [| scenarioWithOrder "o-drug"; scenarioWithOrder "o-t" |]
                     }
 
-                let p = p |> PlanService.removeOrders [| "o-drug"; "o-t" |]
+                let p = p |> OrderPlanService.removeOrders [| "o-drug"; "o-t" |]
                 ids p |> Expect.equal "the feeding and its supplement stay" [| "o-f"; "o-s" |]
                 p.NutritionContexts |> Array.map _.Id |> Expect.equal "the tpn workbench went with its order" [| "c-f"; "c-s" |]
                 p.Filtered |> Expect.isEmpty "the filter followed"
 
-                let p = p |> PlanService.removeOrders [| "o-f" |]
+                let p = p |> OrderPlanService.removeOrders [| "o-f" |]
                 ids p |> Expect.isEmpty "the feeding took its supplement's order too"
                 p.NutritionContexts |> Expect.isEmpty "and both workbenches"
 
-                p |> PlanService.removeOrders [| "o-none" |] |> ids |> Expect.isEmpty "an unknown id: nothing"
+                p |> OrderPlanService.removeOrders [| "o-none" |] |> ids |> Expect.isEmpty "an unknown id: nothing"
             }
         ]
 

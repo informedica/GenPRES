@@ -15,7 +15,7 @@ type OrderContextPort = { evaluate: OrderContextCommand -> OrderContext -> Async
 
 
 /// The one plan: every member answers the plan with its totals recomputed over its orders.
-type PlanPort =
+type OrderPlanPort =
     {
         recalculate: OrderPlan -> Async<Result<OrderPlan, string[]>>
         // the command into the context named
@@ -221,7 +221,7 @@ type AppEnv =
     {
         formulary: FormularyPort
         orderContext: OrderContextPort
-        plan: PlanPort
+        orderPlan: OrderPlanPort
         interaction: InteractionPort
         admin: AdminPort
         requireLoaded: unit -> string[] option

@@ -15,7 +15,7 @@ module OrderPlan =
     let View (props: {| appEnv: obj |}) =
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
-        let planCommand = envOrderPlan.PlanCommand
+        let planCommand = envOrderPlan.OrderPlanCommand
         let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
         let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv
 
@@ -32,7 +32,7 @@ module OrderPlan =
         // an order-context command into the selected context
         let orderContextMsg (cmd, ctx) =
             match orderPlan, envOrderPlan.Selected with
-            | (Resolved tp | Recalculating tp), Some id -> planCommand (Api.PlanCommand.Navigate(tp, id, cmd, ctx))
+            | (Resolved tp | Recalculating tp), Some id -> planCommand (Api.OrderPlanCommand.Navigate(tp, id, cmd, ctx))
             | _ -> ()
 
         let localizationTerms =
@@ -270,7 +270,7 @@ module OrderPlan =
         let onDelete =
             fun () ->
                 match orderPlan with
-                | Resolved tp -> planCommand (Api.PlanCommand.RemoveOrderContexts(tp, tp.Filtered))
+                | Resolved tp -> planCommand (Api.OrderPlanCommand.RemoveOrderContexts(tp, tp.Filtered))
                 | _ -> ()
 
         let updateOrderScenario (ctx: OrderContext) =

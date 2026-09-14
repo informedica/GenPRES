@@ -1729,7 +1729,7 @@ type private ConcreteAppEnv
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = state.OrderPlan |> orderPlanToDeferred
 
-        member _.PlanCommand cmd =
+        member _.OrderPlanCommand cmd =
             OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch
 
         member _.Selected = OrderPlanState.selected state.OrderPlan

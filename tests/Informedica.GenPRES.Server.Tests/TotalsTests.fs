@@ -46,7 +46,7 @@ let tests =
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
-                let! _ = sut.plan.recalculate emptyPlan
+                let! _ = sut.orderPlan.recalculate emptyPlan
 
                 let countAfter = spy.CallCount
                 countBefore <! countAfter
@@ -58,7 +58,7 @@ let tests =
                 let countBefore = spy.CallCount
 
                 let dummyCmd = Shared.Api.OrderContextCommand.UpdateOrderContext
-                let! _ = sut.plan.navigate emptyPlan "dummy ID" dummyCmd Models.OrderContext.empty
+                let! _ = sut.orderPlan.navigate emptyPlan "dummy ID" dummyCmd Models.OrderContext.empty
 
                 let countAfter = spy.CallCount
                 // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
@@ -71,7 +71,7 @@ let tests =
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
-                let! _ = sut.plan.newOrderContext emptyPlan NutritionCategory.TPN
+                let! _ = sut.orderPlan.newOrderContext emptyPlan NutritionCategory.TPN
 
                 let countAfter = spy.CallCount
                 // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
@@ -84,7 +84,7 @@ let tests =
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
-                let! _ = sut.plan.removeOrderContexts emptyPlan [| "dummy ID" |]
+                let! _ = sut.orderPlan.removeOrderContexts emptyPlan [| "dummy ID" |]
 
                 let countAfter = spy.CallCount
                 countBefore <! countAfter
