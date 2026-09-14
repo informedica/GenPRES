@@ -1573,7 +1573,25 @@ module private Elmish =
                     cmd
                     |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
 
-        | LoadOrderPlanResult(_, Finished(Ok msg)) -> processApiMsg state msg applyPlan
+        // an answer over another patient than the one held now is stale: the patient changed
+        // while the request was in flight and its own recalculation is on its way; nothing of
+        // the answer is applied
+        | LoadOrderPlanResult(_, Finished(Ok msg)) when Some msg.Reply.Response.Patient <> state.Patient ->
+            state, Cmd.none
+
+        | LoadOrderPlanResult(cmd, Finished(Ok msg)) ->
+            let state, cmds = processApiMsg state msg applyPlan
+
+            match cmd with
+            // an order prescribed: the plan page opens on it and the workbench is cleared
+            | Api.PlanCommand.AddOrder _ ->
+                { state with Page = OrderPlan },
+                Cmd.batch
+                    [
+                        cmds
+                        Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty))
+                    ]
+            | _ -> state, cmds
         // a refused change leaves the plan as the request found it, so the pages keep their
         // controls and the next action is the retry; without a patient there is no plan
         | LoadOrderPlanResult(cmd, Finished(Error err)) ->
