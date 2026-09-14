@@ -390,7 +390,8 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 | 5, the views on the new commands | #678 | Prescribe sends `AddOrder`, the button greyed on an order the plan holds; the order-plan dialog navigates into the order's context, deletion by `RemoveContexts`; the nutrition page on `RemoveContexts`; review: a plan answer over another patient is dropped, no prescribe while the plan is busy |
 | 6, the signed record stores the contexts | #679 | `SignedOrderPlan.OrderContexts`, the challenge and the commit over contexts, `Open`, `LoadCart` sends `Open`; #666 closed; review: orders must be the contexts' own until `Scenarios` goes, the newest open wins |
 | 7, `Scenarios` and `Selected` off the plan | #680 | `OrderPlan = { Patient; Filtered: ids; OrderContexts; Totals }`, the orders derived everywhere, the selection and the filter the client's own on `IOrderPlan`, `ShowOrderPlan` retired, the server's projection bookkeeping gone; review: the row checkboxes greyed while the plan is busy |
-| 8, the old cases deleted, the names settled | this PR | `Navigate` by id only; `RemoveContext`, `RemoveOrders`, `removeOrders`, `fromOrderScenario` gone; `AddOrderContext`, `NewOrderContext`, `RemoveOrderContexts` with their port members and service functions |
+| 8, the old cases deleted, the names settled | #681 | `Navigate` by id only; `RemoveContext`, `RemoveOrders`, `removeOrders`, `fromOrderScenario` gone; `AddOrderContext`, `NewOrderContext`, `RemoveOrderContexts` with their port members and service functions |
+| 9, `OrderPlanMachine.fs` and its tests | this PR | `OrderPlanState`, `OrderPlanMsg`, `OrderPlanEffect`, `OrderPlanState.transition`, linked into the shared tests; not wired |
 
 ### Deviations from the text above
 
@@ -403,6 +404,12 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
   `OrderContextState`/`OrderContextMsg`/`OrderContextEffect`, in place of the shorter names the
   text first used; the state is `...State` because a `type OrderPlan` in the machine would
   collide with the shared record it holds. A rename only.
+- **The machine keeps the command in flight, and every request-starting message carries its id.**
+  `Recalculating` holds the command sent next to the request id, so that the answer knows what
+  it answers (an order prescribed opens the plan page); `PatientChanged`, `Cart` and `Filter`
+  carry a request id minted at dispatch like `Command`, since each starts a request. The
+  projection to `Deferred` for the pages lives with the interpreter in `App.fs`, not in the
+  machine, which stays over the shared types alone.
 - **The command names say "order context".** Review of step 4 found `AddOrder` next to
   `AddContext` for two ways of adding a context to the plan. The final family names every case
   after what it acts on: `AddOrderContext`, `NewOrderContext`, `RemoveOrderContexts`. The interim
