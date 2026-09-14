@@ -174,8 +174,8 @@ fields are logged as opaque property values, never formatted into the template s
 
 ## Steps
 
-Each commit should try to stay under ~200 changed lines per `CONTRIBUTING.md`; phases with large work split 
-further where it makes sense to compartmentalise, woulk should noy be split for the sake of it though
+Each commit should try to stay under ~200 changed lines per `CONTRIBUTING.md`; phases with large work should be split
+further where it makes sense to compartmentalise, but should not be split for the sake of it.
 Numbering continues from #378's phase numbers since step 1-2 below are #378 Phase 1 steps 1-2,
 now made concrete with Serilog as the chosen technology.
 
