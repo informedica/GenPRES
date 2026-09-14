@@ -392,7 +392,8 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 | 7, `Scenarios` and `Selected` off the plan | #680 | `OrderPlan = { Patient; Filtered: ids; OrderContexts; Totals }`, the orders derived everywhere, the selection and the filter the client's own on `IOrderPlan`, `ShowOrderPlan` retired, the server's projection bookkeeping gone; review: the row checkboxes greyed while the plan is busy |
 | 8, the old cases deleted, the names settled | #681 | `Navigate` by id only; `RemoveContext`, `RemoveOrders`, `removeOrders`, `fromOrderScenario` gone; `AddOrderContext`, `NewOrderContext`, `RemoveOrderContexts` with their port members and service functions |
 | 9, `OrderPlanMachine.fs` and its tests | #683 | `OrderPlanState`, `OrderPlanMsg`, `OrderPlanEffect`, `OrderPlanState.transition`, linked into the shared tests; not wired; review: the interactions checked on every answer |
-| 10, the order-plan machine wired | this PR | `State.OrderPlan: OrderPlanState`, `interpretOrderPlanEffect`, the answer told to the Session and handed to the machine under its request; the six plan handlers, the patient check and the pending-open marker gone |
+| 10, the order-plan machine wired | #684 | `State.OrderPlan: OrderPlanState`, `interpretOrderPlanEffect`, the answer told to the Session and handed to the machine under its request; the six plan handlers, the patient check and the pending-open marker gone; review: only the interactions notice withdrawn, the step buttons rest while loading |
+| 11, `OrderContextMachine.fs` and its tests | this PR | `OrderContextState`, `OrderContextMsg`, `OrderContextEffect`, `OrderContextState.transition`, linked into the shared tests; not wired |
 
 ### Deviations from the text above
 
@@ -411,6 +412,12 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
   carry a request id minted at dispatch like `Command`, since each starts a request. The
   projection to `Deferred` for the pages lives with the interpreter in `App.fs`, not in the
   machine, which stays over the shared types alone.
+- **A refused workbench command leaves the workbench as the request found it.** Today a
+  refusal drops the workbench and the page starts empty; the machine keeps it, as the plan's
+  does, so the next action is the retry. The one refusal that does start over is the server
+  finding no dose rules for the filter, where the page is left and the empty workbench evaluated
+  again, as today. A filter that arrives before a patient waits as a seed and is evaluated once
+  the patient is set, where today it was lost with the first patient change.
 - **The command names say "order context".** Review of step 4 found `AddOrder` next to
   `AddContext` for two ways of adding a context to the plan. The final family names every case
   after what it acts on: `AddOrderContext`, `NewOrderContext`, `RemoveOrderContexts`. The interim
