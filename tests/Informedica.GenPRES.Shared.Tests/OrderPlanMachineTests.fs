@@ -275,14 +275,16 @@ let tests =
                         |> Expect.equal "a stale answer dropped" (kept, [])
                     }
 
-                    test "a refused change leaves the plan as the request found it, and says why" {
-                        let busy =
-                            OrderPlanState.Recalculating(one, Some "c-1", "r-1", OrderPlanCommand.Recalculate one)
+                    test "a failed filter change keeps the plan sent, rows checked and totals stale, and says why" {
+                        // the plan sent differs from the one held, so that the test can tell which
+                        // one a failed change leaves behind
+                        let filtered = { one with Filtered = [| "c-1" |] }
+                        let busy, _ = transition (OrderPlanMsg.Filter([| "c-1" |], "r-1")) shown
 
                         transition (OrderPlanMsg.Answered("r-1", Error [| "no dose rules" |])) busy
                         |> Expect.equal
-                            "as found"
-                            (OrderPlanState.Shown(one, Some "c-1"), [ OrderPlanEffect.TellError [| "no dose rules" |] ])
+                            "the plan sent"
+                            (OrderPlanState.Shown(filtered, None), [ OrderPlanEffect.TellError [| "no dose rules" |] ])
 
                         let opening = OrderPlanState.Loading(patient, [||], "r-1")
 
