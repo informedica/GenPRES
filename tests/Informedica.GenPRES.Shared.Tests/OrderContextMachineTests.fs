@@ -19,29 +19,15 @@ module Fixtures =
     let noPatient = OrderContextState.noPatient
     let seeded = OrderContextState.seeded
 
-    /// The context held, nothing under way.
-    let held (ctx: OrderContext) =
-        {
-            Workbench = Workbench.Evaluated ctx
-            InFlight = None
-        }
+    let held = OrderContextState.held
 
     /// A command under way over the context sent; the one held is what a failed change goes back to.
-    let inFlight cmd (sent: OrderContext) (found: OrderContext) request =
-        {
-            Workbench = Workbench.Evaluated found
-            InFlight = Some((cmd, sent), request)
-        }
+    let inFlight = OrderContextState.changing
 
     /// An evaluation under way.
     let evaluating = inFlight OrderContextCommand.UpdateOrderContext
 
-    /// The first evaluation for the patient under way: nothing held yet.
-    let opening (pat: Patient) request =
-        {
-            Workbench = Workbench.Unevaluated pat
-            InFlight = Some((OrderContextCommand.UpdateOrderContext, OrderContextState.emptyFor pat), request)
-        }
+    let opening = OrderContextState.opening
 
     let shown = held paracetamol
 

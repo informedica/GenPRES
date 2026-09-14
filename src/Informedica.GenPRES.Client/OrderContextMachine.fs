@@ -160,12 +160,15 @@ module Workbench =
 
 
 /// The workbench and the one request under way: the command and the context sent (what the page
-/// shows meanwhile) and the id the answer must name; none while idle.
+/// shows meanwhile) and the id the answer must name; none while idle. Built through the
+/// constructors below only, which admit the combinations that can occur: no patient or a seed
+/// with nothing under way, a first evaluation under way, a context held, a change under way.
 type OrderContextState =
-    {
-        Workbench: Workbench
-        InFlight: ((OrderContextCommand * OrderContext) * string) option
-    }
+    private
+        {
+            Workbench: Workbench
+            InFlight: ((OrderContextCommand * OrderContext) * string) option
+        }
 
 
 /// What moves the workbench. Every message that starts a request carries the request id, minted
@@ -213,6 +216,31 @@ module OrderContextState =
 
 
     let emptyFor = Workbench.emptyFor
+
+
+    /// The first evaluation for the patient under way: nothing held yet.
+    let opening (pat: Patient) (request: string) =
+        {
+            Workbench = Workbench.Unevaluated pat
+            InFlight = Some((OrderContextCommand.UpdateOrderContext, emptyFor pat), request)
+        }
+
+
+    /// The context held, nothing under way.
+    let held (ctx: OrderContext) =
+        {
+            Workbench = Workbench.Evaluated ctx
+            InFlight = None
+        }
+
+
+    /// A command under way over the context sent; the one held is what a failed change goes
+    /// back to.
+    let changing (cmd: OrderContextCommand) (sent: OrderContext) (held: OrderContext) (request: string) =
+        {
+            Workbench = Workbench.Evaluated held
+            InFlight = Some((cmd, sent), request)
+        }
 
 
     /// The patient the workbench is evaluated for, none without one.
