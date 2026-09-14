@@ -62,6 +62,10 @@ module private Elmish =
             // the newest version told while the Session is on an older
             // one; None whenever no Session is open
             MovedOn: OrderPlanHead option
+            // the context ids of the open in flight: a signed version being opened replaces
+            // whatever plan there was, so every other plan answer, and an older open, is stale
+            // until it answers; None whenever no open is in flight
+            PendingOpen: string[] option
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -361,9 +365,20 @@ module private Elmish =
         | Api.PlanCommand.RemoveOrders(plan, _)
         | Api.PlanCommand.AddOrder(plan, _)
         | Api.PlanCommand.RemoveContexts(plan, _) -> plan
+        // a refused open lands on the empty plan for the patient
+        | Api.PlanCommand.Open(pat, _) -> OrderPlan.create pat [||]
 
 
     /// The command over the plan the state holds instead of the one it was made with.
+    /// While a signed version is being opened, only that open's own answer counts: an older
+    /// open, or any change sent before, would put an older plan over the version chosen last.
+    let staleWhileOpening (state: State) (cmd: Api.PlanCommand) =
+        match state.PendingOpen, cmd with
+        | None, _ -> false
+        | Some pending, Api.PlanCommand.Open(_, contexts) -> (contexts |> Array.map _.Id) <> pending
+        | Some _, _ -> true
+
+
     let withPlan plan (cmd: Api.PlanCommand) =
         match cmd with
         | Api.PlanCommand.Recalculate _ -> Api.PlanCommand.Recalculate plan
@@ -373,6 +388,8 @@ module private Elmish =
         | Api.PlanCommand.RemoveOrders(_, ids) -> Api.PlanCommand.RemoveOrders(plan, ids)
         | Api.PlanCommand.AddOrder(_, ctx) -> Api.PlanCommand.AddOrder(plan, ctx)
         | Api.PlanCommand.RemoveContexts(_, ids) -> Api.PlanCommand.RemoveContexts(plan, ids)
+        // carries no plan to rebase
+        | Api.PlanCommand.Open _ -> cmd
 
 
     let loadFormulary opened =
@@ -642,6 +659,7 @@ module private Elmish =
             Session = Session.Anonymous
             Signing = Signing.Idle
             MovedOn = None
+            PendingOpen = None
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -1161,8 +1179,7 @@ module private Elmish =
 
         | LoadCart head ->
             match state.Patient with
-            | Some pat ->
-                state, Cmd.ofMsg (OrderPlanMsg(Api.PlanCommand.Recalculate(OrderPlan.create pat head.Scenarios)))
+            | Some pat -> state, Cmd.ofMsg (OrderPlanMsg(Api.PlanCommand.Open(pat, head.OrderContexts)))
             | None -> state, Cmd.none
 
         | UpdatePatient pat ->
@@ -1170,6 +1187,8 @@ module private Elmish =
 
             { state with
                 Patient = pat
+                // an open in flight answers over the patient it was sent for: stale now
+                PendingOpen = None
                 OrderContext =
                     match pat with
                     | None -> HasNotStartedYet
@@ -1536,6 +1555,14 @@ module private Elmish =
             match cmd with
             | Api.PlanCommand.Recalculate tp ->
                 { state with OrderPlan = Resolved tp }, Cmd.ofMsg (LoadOrderPlanResult(cmd, Started))
+            // the signed version replaces whatever plan there was, an open in flight included:
+            // the newest open wins
+            | Api.PlanCommand.Open(pat, contexts) ->
+                { state with
+                    OrderPlan = Resolved(OrderPlan.create pat [||])
+                    PendingOpen = Some(contexts |> Array.map _.Id)
+                },
+                Cmd.ofMsg (LoadOrderPlanResult(cmd, Started))
             // a change to the plan: one at a time, over the plan as it is
             | Api.PlanCommand.Navigate(tp, _, _, _)
             | Api.PlanCommand.AddContext(tp, _)
@@ -1574,12 +1601,16 @@ module private Elmish =
                     |> loadOrderPlan (tokenOf state.Session) (fun resp -> LoadOrderPlanResult(cmd, resp))
 
         // an answer over another patient than the one held now is stale: the patient changed
-        // while the request was in flight and its own recalculation is on its way; nothing of
-        // the answer is applied
-        | LoadOrderPlanResult(_, Finished(Ok msg)) when Some msg.Reply.Response.Patient <> state.Patient ->
+        // while the request was in flight and its own recalculation is on its way; so is any
+        // answer but the open's own while a signed version is being opened. Nothing of a
+        // stale answer is applied
+        | LoadOrderPlanResult(cmd, Finished(Ok msg)) when
+            Some msg.Reply.Response.Patient <> state.Patient || staleWhileOpening state cmd
+            ->
             state, Cmd.none
 
         | LoadOrderPlanResult(cmd, Finished(Ok msg)) ->
+            let state = { state with PendingOpen = None }
             let state, cmds = processApiMsg state msg applyPlan
 
             match cmd with
@@ -1592,6 +1623,8 @@ module private Elmish =
                         Cmd.ofMsg (OrderContextMsg(Api.OrderContextCommand.UpdateOrderContext, OrderContext.empty))
                     ]
             | _ -> state, cmds
+        | LoadOrderPlanResult(cmd, Finished(Error _)) when staleWhileOpening state cmd -> state, Cmd.none
+
         // a refused change leaves the plan as the request found it, so the pages keep their
         // controls and the next action is the retry; without a patient there is no plan
         | LoadOrderPlanResult(cmd, Finished(Error err)) ->
@@ -1600,7 +1633,12 @@ module private Elmish =
                 | None -> HasNotStartedYet
                 | Some _ -> Resolved(planOf cmd)
 
-            ({ state with OrderPlan = plan }, Cmd.none) |> processError err
+            ({ state with
+                OrderPlan = plan
+                PendingOpen = None
+             },
+             Cmd.none)
+            |> processError err
 
         | LoadFormulary Started ->
             match state.Formulary with

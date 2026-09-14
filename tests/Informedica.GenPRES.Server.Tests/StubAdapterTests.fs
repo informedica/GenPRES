@@ -48,6 +48,7 @@ module StubAdapters =
             removeOrders = fun _ _ -> async { return Ok returnPlan }
             addOrder = fun _ _ -> async { return Ok returnPlan }
             removeContexts = fun _ _ -> async { return Ok returnPlan }
+            openWith = fun _ _ -> async { return Ok returnPlan }
         }
 
 
@@ -110,6 +111,7 @@ module StubAdapters =
                     removeOrders = fun _ _ -> async { return Error [| "not loaded" |] }
                     addOrder = fun _ _ -> async { return Error [| "not loaded" |] }
                     removeContexts = fun _ _ -> async { return Error [| "not loaded" |] }
+                    openWith = fun _ _ -> async { return Error [| "not loaded" |] }
                 }
             interaction =
                 {
@@ -305,6 +307,21 @@ module SessionStubTests =
 
         let scenario = defaultOf typeof<OrderScenario> :?> OrderScenario
         { scenario with Order = { scenario.Order with Id = id } }
+
+
+    /// A plan over the scenarios given, each in a context of its own, as the plan holds its
+    /// orders since the version stores the contexts.
+    let planOf pat (scenarios: OrderScenario[]) =
+        { OrderPlan.create pat scenarios with
+            OrderContexts =
+                scenarios
+                |> Array.mapi (fun i sc ->
+                    { OrderContext.empty with
+                        Id = $"c-{i}"
+                        Scenarios = [| sc |]
+                    }
+                )
+        }
 
 
     /// The seal key of the tests, and another one.
@@ -611,7 +628,7 @@ module SessionStubTests =
                                     }
                                 PatientId = "patient-1"
                                 Base = (if no > 1 then Some $"plan-{no - 1}" else None)
-                                Scenarios = [||]
+                                OrderContexts = [||]
                                 Patient = Shared.Models.Patient.empty
                                 Verified = true
                             }
@@ -664,7 +681,7 @@ module SessionStubTests =
                                     }
                                 PatientId = "no-data"
                                 Base = None
-                                Scenarios = [||]
+                                OrderContexts = [||]
                                 Patient = entered
                                 Verified = false
                             }
@@ -705,7 +722,7 @@ module SessionStubTests =
                                     }
                                 PatientId = "patient-1"
                                 Base = None
-                                Scenarios = [||]
+                                OrderContexts = [||]
                                 Patient = entered
                                 Verified = true
                             }
@@ -1933,7 +1950,7 @@ module SessionStubTests =
                         }
                     PatientId = "pat-1"
                     Base = if no > 1 then Some $"plan-{no - 1}" else None
-                    Scenarios = [||]
+                    OrderContexts = [||]
                     Patient = Shared.Models.Patient.empty
                     Verified = true
                 }
@@ -2127,7 +2144,7 @@ module SessionStubTests =
                         }
                     PatientId = "pat-1"
                     Base = if no > 1 then Some $"plan-{no - 1}" else None
-                    Scenarios = [||]
+                    OrderContexts = [||]
                     Patient = Shared.Models.Patient.empty
                     Verified = true
                 }
@@ -2165,6 +2182,7 @@ module SessionStubTests =
                     Nonce = $"c-{sid}"
                     Patient = Shared.Models.Patient.empty
                     Scenarios = [||]
+                    OrderContexts = [||]
                     Reading = Some Shared.Models.Patient.empty
                     Expiry = t0.AddMinutes 2.0
                 }
@@ -2354,7 +2372,7 @@ module SessionStubTests =
                         }
                     PatientId = "stub-patient"
                     Base = (if no > 1 then Some $"plan-{no - 1}" else None)
-                    Scenarios = [||]
+                    OrderContexts = [||]
                     Patient = stubPatient
                     Verified = true
                 }
@@ -2650,7 +2668,7 @@ module SessionStubTests =
 
                     test "the same order twice in the plan gets no challenge (Concept 10)" {
                         let twice =
-                            OrderPlan.create stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-1" |]
+                            planOf stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-1" |]
 
                         let state, answer =
                             stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (twice, token "s-1")
@@ -2660,8 +2678,7 @@ module SessionStubTests =
 
                         state.Challenges |> Expect.isEmpty "nothing stored"
 
-                        let once =
-                            OrderPlan.create stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
+                        let once = planOf stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
 
                         stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (once, token "s-1")
                         |> snd
@@ -2678,10 +2695,10 @@ module SessionStubTests =
                         let resolved =
                             { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn" |] }
 
+                        let drug = planOf stubPatient [| scenarioWithOrder "o-drug" |]
+
                         let plan =
-                            { OrderPlan.create stubPatient [| scenarioWithOrder "o-drug" |] with
-                                OrderContexts = [| tpn |]
-                            }
+                            { drug with OrderContexts = Array.append drug.OrderContexts [| tpn |] }
                             |> PlanService.updateContext "c-1" resolved
                             |> Result.defaultWith (fun errs -> failtest $"{errs}")
 
@@ -2694,6 +2711,49 @@ module SessionStubTests =
                         |> Map.toList
                         |> List.map (snd >> _.Scenarios >> Array.map _.Order.Id)
                         |> Expect.equal "the drug and the tpn order under the challenge" [ [| "o-drug"; "o-tpn" |] ]
+                    }
+
+                    test "orders that are not the contexts' own get no challenge" {
+                        let once = [| scenarioWithOrder "o-1" |]
+
+                        // the orders shown next to a context that holds another order
+                        let diverged =
+                            { OrderPlan.create stubPatient once with
+                                OrderContexts =
+                                    [|
+                                        { OrderContext.empty with
+                                            Id = "c-1"
+                                            Scenarios = [| scenarioWithOrder "o-9" |]
+                                        }
+                                    |]
+                            }
+
+                        stateOf [ opened ] [] |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (diverged, token "s-1")
+                        |> snd
+                        |> Expect.equal "no challenge" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+
+                        // an order shown that no context holds
+                        let extra = planOf stubPatient once
+
+                        let extra =
+                            { extra with Scenarios = Array.append extra.Scenarios [| scenarioWithOrder "o-2" |] }
+
+                        stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (extra, token "s-1")
+                        |> snd
+                        |> Expect.equal "no challenge either" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+
+                        // a re-narrowed context's order at the end of the plan's orders still matches
+                        let moved =
+                            planOf stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
+
+                        let moved =
+                            { moved with Scenarios = [| scenarioWithOrder "o-2"; scenarioWithOrder "o-1" |] }
+
+                        stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (moved, token "s-1")
+                        |> snd
+                        |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
                     }
 
                     test "refuses when the record moved on (Rule 20): whose version, and when" {
@@ -2753,6 +2813,7 @@ module SessionStubTests =
                                 Nonce = "n-1"
                                 Patient = stubPatient
                                 Scenarios = [||]
+                                OrderContexts = [||]
                                 Reading = Some stubPatient
                                 Expiry = t0 + minutes 2.0
                             }
@@ -2839,7 +2900,7 @@ module SessionStubTests =
                         }
                     PatientId = "stub-patient"
                     Base = (if no > 1 then Some $"plan-{no - 1}" else None)
-                    Scenarios = [||]
+                    OrderContexts = [||]
                     Patient = stubPatient
                     Verified = true
                 }
@@ -2850,6 +2911,7 @@ module SessionStubTests =
                     Nonce = $"c-{sid}"
                     Patient = stubPatient
                     Scenarios = [||]
+                    OrderContexts = [||]
                     Reading = Some stubPatient
                     Expiry = at + Session.challengeLifetime
                 }
@@ -3057,7 +3119,7 @@ module SessionStubTests =
                             submit
                                 (stateOf [ opened ] [] [ "s-1", planted ])
                                 "s-1"
-                                { submission "s-1" "0000" "k" with Plan = OrderPlan.create stubPatient twice }
+                                { submission "s-1" "0000" "k" with Plan = planOf stubPatient twice }
 
                         answer
                         |> Expect.equal "mismatch" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
@@ -3066,17 +3128,97 @@ module SessionStubTests =
                         |> Expect.equal "not counted" 0
 
                         let once = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
-                        let planted = { planted with Scenarios = once }
+
+                        // a context per order, as the plan holds them since they are what is signed
+                        let contexts =
+                            once
+                            |> Array.mapi (fun i sc ->
+                                { OrderContext.empty with
+                                    Id = $"c-{i}"
+                                    Scenarios = [| sc |]
+                                }
+                            )
+
+                        let planted =
+                            { planted with
+                                Scenarios = once
+                                OrderContexts = contexts
+                            }
+
+                        let plan = { OrderPlan.create stubPatient once with OrderContexts = contexts }
 
                         match
                             submit
                                 (stateOf [ opened ] [] [ "s-1", planted ])
                                 "s-1"
-                                { submission "s-1" "1234" "k" with Plan = OrderPlan.create stubPatient once }
+                                { submission "s-1" "1234" "k" with Plan = plan }
                             |> snd
                         with
-                        | SigningResponse.Submitted(signed, _) -> signed.Scenarios |> Expect.equal "two orders" once
+                        | SigningResponse.Submitted(signed, _) ->
+                            signed.OrderContexts
+                            |> Expect.equal "the version holds the two contexts" contexts
                         | other -> failtest $"expected Submitted, got {other}"
+                    }
+
+                    test "orders that are not the contexts' own are refused at the commit too" {
+                        let once = [| scenarioWithOrder "o-1" |]
+
+                        // the orders shown next to a context that holds another order
+                        let diverged =
+                            { OrderPlan.create stubPatient once with
+                                OrderContexts =
+                                    [|
+                                        { OrderContext.empty with
+                                            Id = "c-1"
+                                            Scenarios = [| scenarioWithOrder "o-9" |]
+                                        }
+                                    |]
+                            }
+
+                        let planted =
+                            { snd (challenged "s-1" t0) with
+                                Scenarios = diverged.Scenarios
+                                OrderContexts = diverged.OrderContexts
+                            }
+
+                        submit
+                            (stateOf [ opened ] [] [ "s-1", planted ])
+                            "s-1"
+                            { submission "s-1" "1234" "k" with Plan = diverged }
+                        |> snd
+                        |> Expect.equal "no commit" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+                    }
+
+                    test "a context changed since the challenge is a mismatch, the PIN never looked at" {
+                        let once = [| scenarioWithOrder "o-1" |]
+
+                        let context stepped =
+                            { OrderContext.empty with
+                                Id = "c-1"
+                                OrderContext.Filter.Generic = Some stepped
+                                Scenarios = once
+                            }
+
+                        let planted =
+                            { snd (challenged "s-1" t0) with
+                                Scenarios = once
+                                OrderContexts = [| context "as challenged" |]
+                            }
+
+                        let plan =
+                            { OrderPlan.create stubPatient once with OrderContexts = [| context "stepped since" |] }
+
+                        let state, answer =
+                            submit
+                                (stateOf [ opened ] [] [ "s-1", planted ])
+                                "s-1"
+                                { submission "s-1" "1234" "k" with Plan = plan }
+
+                        answer
+                        |> Expect.equal "mismatch" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+
+                        (Session.credentialOf "prescriber" state).WrongCount
+                        |> Expect.equal "not counted" 0
                     }
 
                     test "unverified: the Session's patient becomes the data signed, so a resume shows it (#640)" {
@@ -5439,6 +5581,29 @@ module PlanTests =
                     ids p |> Expect.equal "with its order" [| "o-t" |]
                 }
 
+                test "opened on a signed version: the contexts as they were, their orders derived, nothing evaluated" {
+                    let stepped =
+                        { OrderContext.empty with
+                            Id = "c-p"
+                            OrderContext.Filter.Generic = Some "paracetamol"
+                            OrderContext.Filter.Generics = [| "paracetamol"; "ibuprofen" |]
+                            Scenarios = [| scenarioWithOrder "o-p" |]
+                        }
+
+                    let wide =
+                        context "c-w" NutritionCategory.TPN [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
+
+                    let p = PlanService.openWith Models.Patient.empty [| stepped; wide |]
+
+                    p.OrderContexts
+                    |> Expect.equal "the contexts as given, pick lists and all" [| stepped; wide |]
+
+                    ids p |> Expect.equal "the narrowed one's order" [| "o-p" |]
+
+                    PlanService.openWith Models.Patient.empty [||]
+                    |> Expect.equal "no contexts: the empty plan" (OrderPlan.create Models.Patient.empty [||])
+                }
+
                 testAsync "processOrderPlan dispatches each case to the plan port" {
                     let answered = ref []
 
@@ -5457,6 +5622,7 @@ module PlanTests =
                             removeOrders = fun p _ -> answering "removeOrders" p
                             addOrder = fun p _ -> answering "addOrder" p
                             removeContexts = fun p _ -> answering "removeContexts" p
+                            openWith = fun _ _ -> answering "openWith" OrderPlan.empty
                         }
 
                     let env =
@@ -5475,6 +5641,7 @@ module PlanTests =
                     let! _ = PlanCommand.processCmd env (PlanCommand.RemoveOrders(p, [| "o-1" |]))
                     let! _ = PlanCommand.processCmd env (PlanCommand.AddOrder(p, emptyCtx))
                     let! _ = PlanCommand.processCmd env (PlanCommand.RemoveContexts(p, [| "c-1" |]))
+                    let! _ = PlanCommand.processCmd env (PlanCommand.Open(Models.Patient.empty, [||]))
 
                     answered.Value
                     |> List.rev
@@ -5488,6 +5655,7 @@ module PlanTests =
                             "removeOrders"
                             "addOrder"
                             "removeContexts"
+                            "openWith"
                         ]
                 }
 
@@ -5512,6 +5680,9 @@ module PlanTests =
 
                     PlanCommand.toString (PlanCommand.RemoveContexts(p, [| "c-1"; "c-2" |]))
                     |> Expect.equal "the count" "RemoveContexts 2"
+
+                    PlanCommand.toString (PlanCommand.Open(Models.Patient.empty, [| OrderContext.empty |]))
+                    |> Expect.equal "the count, never the contexts" "Open 1"
 
                     PlanCommand.toString (PlanCommand.RemoveOrders(p, [| "o-1"; "o-2" |]))
                     |> Expect.equal "the count, never the ids" "RemoveOrders 2"

@@ -160,7 +160,7 @@ let tests =
                         Head = head
                         PatientId = "p"
                         Base = Some "plan-1"
-                        Scenarios = [||]
+                        OrderContexts = [||]
                         Patient = patient
                         Verified = true
                     }

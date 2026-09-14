@@ -124,6 +124,16 @@ module Adapters =
                             |> PlanService.recalculate (provider.GetTotals())
                             |> Ok
                     }
+            openWith =
+                fun pat contexts ->
+                    async {
+                        do! setComponentName "OrderPlan" agent
+
+                        return
+                            PlanService.openWith pat contexts
+                            |> PlanService.recalculate (provider.GetTotals())
+                            |> Ok
+                    }
         }
 
 

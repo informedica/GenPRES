@@ -16,3 +16,4 @@ module PlanCommand =
         | PlanCommand.RemoveOrders(plan, ids) -> env.plan.removeOrders plan ids
         | PlanCommand.AddOrder(plan, ctx) -> env.plan.addOrder plan ctx
         | PlanCommand.RemoveContexts(plan, ids) -> env.plan.removeContexts plan ids
+        | PlanCommand.Open(pat, contexts) -> env.plan.openWith pat contexts

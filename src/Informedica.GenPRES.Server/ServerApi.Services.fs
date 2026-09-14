@@ -811,6 +811,13 @@ module PlanService =
             |> Ok
 
 
+    /// The plan opened on a signed version: the contexts as they were, nothing evaluated, so the
+    /// pick lists, the candidates and the stepped values are what was signed; the orders derived
+    /// from them. The patient with no contexts is the empty plan.
+    let openWith (pat: Patient) (contexts: OrderContext[]) : OrderPlan =
+        { Models.OrderPlan.create pat (contexts |> Array.choose contribution) with OrderContexts = contexts }
+
+
     let recalculate (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: OrderPlan) =
         { plan with
             Totals =
