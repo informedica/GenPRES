@@ -248,6 +248,8 @@ module ResponsiveTable =
                 height: string
                 onRowClick: string -> unit
                 checkboxSelection: bool
+                // the checkboxes greyed while the owner is busy, so no change is dropped
+                selectDisabled: bool
                 selectedRows: string[]
                 onSelectChange: string[] -> unit
                 showToolbar: bool
@@ -326,6 +328,7 @@ module ResponsiveTable =
             |> toReact
 
         let onRowClick = fun pars -> pars?id |> string |> props.onRowClick
+        let isRowSelectable = fun _ -> not props.selectDisabled
 
         // Return an alternating class name based on the row index within the current page
         let getRowClassName =
@@ -524,6 +527,7 @@ module ResponsiveTable =
                         sx={stripedSx}
                         showToolbar={props.showToolbar}
                         checkboxSelection={props.checkboxSelection}
+                        isRowSelectable={isRowSelectable}
                         disableRowSelectionOnClick
                         rowSelectionModel = {selectedRows}
                         onRowSelectionModelChange = {onSelectionChange}

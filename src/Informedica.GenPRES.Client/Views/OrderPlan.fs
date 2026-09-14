@@ -239,11 +239,11 @@ module OrderPlan =
                 | Some c -> envOrderPlan.Select(Some c.Id)
             | _ -> ()
 
-        // the rows checked, by order id, become the filter, by context id
+        // the rows checked, by order id, become the filter, by context id; only over a plan at
+        // rest, as the filter is sent
         let filterOrders ids =
             match orderPlan with
-            | Resolved tp
-            | Recalculating tp ->
+            | Resolved tp ->
                 ids
                 |> Array.choose (fun id -> contextOf tp id |> Option.map _.Id)
                 |> envOrderPlan.Filter
@@ -433,6 +433,9 @@ module OrderPlan =
                     height = "100%"
                     onRowClick = selectOrder
                     checkboxSelection = true
+                    // one change to the plan at a time: a checkbox toggled while it is busy
+                    // would be dropped, so the boxes are greyed meanwhile
+                    selectDisabled = isRecalculating
                     selectedRows = selectedRows
                     onSelectChange = filterOrders
                     showToolbar = true
