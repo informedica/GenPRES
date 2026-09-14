@@ -13,7 +13,8 @@ the context evaluated, the plan, the context the dialog shows) with what the tra
 (a request in flight, its id, the command sent, the copy shown meanwhile):
 
 - `OrderContextState.Recalculating of sent * found * request` holds two copies of the context,
-  because a refusal restores `found` while the page shows `sent`; `Loading of Patient * request`
+  because a failed change goes back to `found`, the original, while the page shows `sent`;
+  `Loading of Patient * request`
   welds a domain fact (a patient held, nothing evaluated yet) to a request id.
 - `OrderPlanState.Recalculating of OrderPlan * selected * request * sent` bundles the plan, the
   dialog's selection and the transport in one case; `Loading` likewise.
@@ -27,11 +28,11 @@ The review that led to this plan also found that the change is not a refactoring
 behaviour is inconsistent in ways the current tests cannot see, and the split forces a decision
 on each:
 
-1. A refused workbench command restores the context *found*, the last one evaluated
-   (`OrderContextMachine.fs`, the `Answered` arm over `Recalculating`). A refused plan `Filter`
+1. A failed workbench command goes back to the original context, the last one evaluated
+   (`OrderContextMachine.fs`, the `Answered` arm over `Recalculating`). A failed plan `Filter`
    restores the plan *sent*: the rows stay checked with stale totals (`OrderPlanMachine.fs`, the
    `Filter` and `Answered` arms). The test "a refused change leaves the plan as the request
-   found it" has sent = found in its fixture and cannot tell the two rules apart.
+   found it" has sent = original in its fixture and cannot tell the two rules apart.
 2. `Loading` carries no value and projects `InProgress`; a re-evaluation projects
    `Recalculating value`. So a first load shows a bare spinner while a reset of the same
    workbench shows the empty page greyed.
@@ -43,15 +44,21 @@ on each:
    `App.fs` (the reload, the url seed, the two filter syncs, the ContinuousMeds page guard)
    depend on that.
 
+Two words used throughout. A change **fails** when the server refuses it (no dose rules for the
+filter, a duplicate order, a token no longer valid) or when the call does not complete; the
+interpreter turns both into the same `Error` answer, and the machine cannot tell them apart. The
+**original** is the value the request started from: the last one the server answered, shown
+before the user acted, and what a failed change goes back to.
+
 Untested today: the two projections in `App.fs` (not linked into any test project), every
 `Deferred` helper (`Extensions.fs` opens `Browser.Dom`, so it cannot be linked), the accessors
 `patient`, `context` and `map`, a seed or a reset arriving while a request is in flight, and a
-plan refusal with sent ≠ found.
+failed plan change with sent ≠ original.
 
 ## Approaches considered
 
 1. **A generic lane type nested in the domain DU**, `ForPatient of Lane<value, command>` with
-   `Lane = Settled of value | InFlight of found * sent * request`. Keeps "no patient with a
+   `Lane = Settled of value | InFlight of original * sent * request`. Keeps "no patient with a
    request in flight" unrepresentable. Rejected: a DU inside a DU, a third type, and the domain
    value held inside the communication wrapper; hard to read for what it buys.
 2. **A generic request type beside the domain DU**, `{ Domain; Request: Request<command> }` with
@@ -73,7 +80,8 @@ type Workbench =
     | NoPatient
     // a filter chosen before a patient is set: evaluated once one is
     | Seeded of OrderContext
-    // the context last evaluated for the patient held; the empty one before the first answer
+    // the context last evaluated for the patient held, the original a failed change goes back
+    // to; the empty one before the first answer
     | Evaluated of OrderContext
 
 type OrderContextState =
@@ -129,7 +137,7 @@ type WorkbenchIntent =
 ```
 
 The domain changes only on `Landed Ok` and on `PatientChanged`. A `Landed Error` leaves it as it
-is and emits `Tell` and `Sync`, which is how a refusal restores the value held. `Seeded` emits
+is and emits `Tell` and `Sync`, which is how a failed change goes back to the original. `Seeded` emits
 nothing, which is how the seed waits. `Plan.step` has the same shape, with
 `Landed of PlanCommand * Result<OrderPlan, string[]>` and the intents `Open` and `Recalculate`
 (both supersede), `Call`, `CheckInteractions`, `GoToPlanPage`, `ResetWorkbench`, `Tell`.
@@ -166,7 +174,7 @@ interpreters. The accessors `App.fs` reads keep their names: `patient` is the do
 value and the payload both; `emptyFor`, `plan`, `selected` as today.
 
 **`Deferred`, derived for the pages**, one tested function per lane, in the machine (written in
-today's case names; step 6 renames):
+today's case names; step 7 renames):
 
 ```text
 OrderContextState.toDeferred
@@ -175,10 +183,10 @@ OrderContextState.toDeferred
     Evaluated ctx, None                -> Resolved ctx
     Evaluated _,   Some((_, sent), _)  -> Recalculating sent    (first load: the empty workbench, decision c)
 
-OrderPlanState.toDeferred, with meanwhile found = Recalculate tp -> tp | _ -> found
+OrderPlanState.toDeferred, with meanwhile original = Recalculate tp -> tp | _ -> original
     NoPatient,    _                    -> HasNotStartedYet
     Opened tp,    None                 -> Resolved tp
-    Opened found, Some(sent, _)        -> Recalculating (meanwhile found sent)
+    Opened original, Some(sent, _)     -> Recalculating (meanwhile original sent)
 ```
 
 Neither lane produces `InProgress` any more; it stays for the other `Deferred` fields.
@@ -187,15 +195,16 @@ Neither lane produces `InProgress` any more; it stays for the other `Deferred` f
 
 | # | Today | Decision | Commit |
 |---|---|---|---|
-| a | the plan restores the plan *sent* on a refused `Filter` | restore the plan held, as the workbench does | fix |
-| a' | both lanes patch a new patient into what a refusal restores | kept: the plan's patient must stay in step with the panel and the workbench; the stale totals after a refused patient recalculation stay with #672 | – |
+| a | after a failed `Filter` the plan keeps the plan *sent* | go back to the original, as the workbench does | fix |
+| a' | both lanes patch a new patient into the original | kept: the plan's patient must stay in step with the panel and the workbench; the stale totals after a refused patient recalculation stay with #672 | – |
 | b | a seed before a patient projects `Resolved` | shown as in flight: greyed until evaluated | fix |
 | c | `Loading` projects `InProgress`, a bare spinner | `Loading` deleted; the first load and a cart open are a request over the empty value, shown greyed | fix |
 | d | `Deferred.resolved` contradicts `Deferred.inProgress` | `resolved` and `exists` deleted; no callers | refactor |
 | e | `context` returns the context sent | kept: `context` is the value shown, `patient` the domain's | – |
 | f | `map` rewrites both copies | kept: the domain value and the payload, both | – |
-| g | a "no dose rules" refusal re-evaluates under the answered request id | kept; not visible | – |
+| g | a "no dose rules" answer re-evaluates under the answered request id | kept; not visible | – |
 | h | a patient change during an `Open` in flight sends `Open` with no contexts and drops the version | re-send `Open` with the version's contexts from the payload in flight | fix |
+| i | the patient panel and the formulary and parenteralia filters stay enabled while a request is in flight, so the subject of a request can change under it | greyed while a request is in flight: the panel while either lane is busy, the two filter pages while the workbench is, the nutrition delete dialog while the plan is; the machine arms for a patient change in flight stay as guards, since the session can still set the patient | fix |
 
 ## Questions for review
 
@@ -206,10 +215,10 @@ The answers change the plan; the rest is mechanics.
    case that exists only to be projected as `InProgress`?
 2. **The seed before a patient** (decision b): greyed until evaluated, as proposed, or kept
    editable as today, with the projection lying once on purpose?
-3. **A refused patient recalculation** (decision a'): keep the new patient with stale totals in
+3. **A failed patient recalculation** (decision a'): keep the new patient with stale totals in
    both lanes, as proposed, or blank the totals until #672 decides? Restoring the old patient is
    not on the table: it would put the plan out of step with the panel and the workbench.
-4. **The `Deferred` rename** (step 6): last, as proposed, so the two projections are pinned before
+4. **The `Deferred` rename** (step 7): last, as proposed, so the two projections are pinned before
    a hundred pattern-match sites move; first, so every projection test is written against the
    final shape; or not at all, the name kept as debt?
 5. **The PR split**: one PR per lane holding a `refactor` commit and a `fix` commit, as
@@ -245,16 +254,21 @@ Proposed as one PR per step against `master`, the client edited directly. Every 
    body names the visible change and that the ContinuousMeds page switch no longer sends a
    superseding reset during the first load. About 200 lines; the fix commit becomes its own PR
    if the diff exceeds it.
-4. **The plan in two stages** (one PR, three commits). `test(client)`: the refusal fixtures in
-   `OrderPlanMachineTests.fs` get sent ≠ found and assert today's rule, so the fix flips a real
+4. **The plan in two stages** (one PR, three commits). `test(client)`: the failed-change fixtures in
+   `OrderPlanMachineTests.fs` get sent ≠ original and assert today's rule, so the fix flips a real
    assertion. `refactor(client)`: `Plan`, `PlanMsg`, `PlanIntent`, `Plan.step`, the record with
    `Selected`, the composer, `toDeferred` with `meanwhile`, the one in `App.fs` deleted; tests
-   split as in step 3. `fix(client)`: a refused filter restores the plan held (a); `Loading`
+   split as in step 3. `fix(client)`: a failed filter change goes back to the original (a); `Loading`
    gone, the first open and a cart open over the empty plan (c); a patient change during an
    `Open` re-sends the version's contexts (h). About 200 lines, same split rule.
-5. **Docs** (`docs`): the case table and the invariant lines in
+5. **The UI while a request is in flight** (`fix(client)`, decision i): `Views/Patient.fs` reads
+   `IOrderContext.OrderContext` and `IOrderPlan.OrderPlan` and greys its selects while either is
+   in progress; `Views/Formulary.fs` and `Views/Parenteralia.fs` grey their filters while the
+   workbench is; the nutrition delete confirmation in `Views/Nutrition.fs` does not dispatch
+   while the plan is. `Deferred.inProgress` is the one test; no `AppEnv` change. About 60 lines.
+6. **Docs** (`docs`): the case table and the invariant lines in
    `docs/domain/dose-quantity-stepping-flow.md`; this plan's "As built". About 50 lines.
-6. **`Deferred.InProgress of 't option`** (`refactor(client)`): `Recalculating` gone; `None` when
+7. **`Deferred.InProgress of 't option`** (`refactor(client)`): `Recalculating` gone; `None` when
    nothing can be shown meanwhile, `Some` when a value stands in. Producers: the two
    `toDeferred` functions, pinned by their tests. Consumers: every `| InProgress ->` becomes
    `| InProgress _ ->` (the plain-load fields included), every `| Recalculating v ->` becomes
@@ -271,10 +285,11 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 - Set a patient: the prescribing page and the plan show the empty page greyed, then enabled.
 - Open the app with a medication in the url and no patient: the seed shows greyed; set the
   patient: it is evaluated.
-- Pick a generic and change the patient while the spinner shows: the generic picked stays
-  visible and is evaluated for the new patient. Put an unknown generic in the url: the snackbar
+- Pick a generic: while the spinner shows, the patient panel and the formulary filters are
+  greyed; afterwards change the weight: the generic picked stays and is evaluated for the new
+  patient. Put an unknown generic in the url: the snackbar
   says why and the context last evaluated returns.
-- On the plan page check rows and force a refusal: the rows return to as held.
+- On the plan page check rows and force a failed change: the rows return to the original.
 - Sign, then reload: the cart opens showing the empty plan greyed, then the version.
 - Two browsers on one patient: a reopen arriving while a step is in flight wins.
 - In the Network tab: no extra `processOrderContext` on the ContinuousMeds page switch during
@@ -288,8 +303,8 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
   `SigningMachine` (`Requesting`, `Submitting`, `Unsent`) split the same way;
   `SessionGatePolicy`'s busy flag then reads the in-flight field.
 - The pages reading the two records directly, and `toDeferred` gone (plan 667 lists it).
-- `Deferred.bind` drops the busy flag in the interventions calculation; a plan refusal skips the
+- `Deferred.bind` drops the busy flag in the interventions calculation; a failed plan change skips the
   interactions check, so a warning can outlive the plan that caused it; the two lanes format
   the snackbar differently; a reload is settled by any workbench answer, stale ones included;
   the "no dose rules" re-evaluation reuses the answered request id; the stale totals after a
-  refused patient recalculation (#672).
+  failed patient recalculation (#672).
