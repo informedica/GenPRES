@@ -1,5 +1,5 @@
 ---
-last_commit_released: a34c0cc0a759d492aedf62b8e4a57ab87c132a1e
+last_commit_released: c815c7f092b179578db5d03204a7425bd4d20409
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,16 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.23 - 2026-09-14
+
+### 🐞 Bug Fixes
+
+* *(client)* The patient and the filters rest while a request is in flight ([d991d315](https://github.com/informedica/GenPRES/commit/d991d31561aee6f175b8c2cd4a2c6c473216c4c5))
+* *(client)* A patient change while a version opens keeps the version ([9ebdb875](https://github.com/informedica/GenPRES/commit/9ebdb8759f2f06af4797b4de7b61ffed0e0e8440))
+* *(client)* A failed filter change goes back to the original ([f05f3bfa](https://github.com/informedica/GenPRES/commit/f05f3bfa81c8087b78f12c135912d0056a32e1df))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/a34c0cc0a759d492aedf62b8e4a57ab87c132a1e..c815c7f092b179578db5d03204a7425bd4d20409)</small></strong>
 
 ## 0.1.2-alpha.22 - 2026-09-14
 
