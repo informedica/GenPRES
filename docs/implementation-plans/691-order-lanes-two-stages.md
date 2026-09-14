@@ -395,6 +395,7 @@ dependency-rule check green.
 | the workbench the same | #699 | `OrderContextState`'s fields private, `noPatient`, `seeded`, `opening`, `held`, `changing`; review: `changing` normalizes the context sent to the patient held |
 | 8, docs | this PR | the stepping-flow document's machine section and case table; this section |
 | 9, `Provisional` | #701 | `Recalculating` renamed `Provisional`, one word at 40 code sites (the machine cases of that name had gone with steps 6 and 7), the stepping-flow document's references with it |
+| the domain tier named after its lane | #702, #703 | `OrderContextWorkbench`, `OrderContextWorkbenchMsg`, `OrderContextWorkbenchIntent`; `OrderPlanCart`, `OrderPlanCartMsg`, `OrderPlanCartIntent`, the field `Cart`; the message case `Cart of SignedOrderPlan` is `Version` on both tiers |
 
 ### Deviations from the text above
 
@@ -406,11 +407,16 @@ dependency-rule check green.
   again, so the two stages stay.
 - **The row filter is a `Call`, not a `Recalculate`.** The text listed `Recalculate` among the
   intents that supersede. A filter change while a request is under way is dropped today, so it
-  goes out as `PlanIntent.Call(Recalculate ...)`, one at a time; only a patient change
+  goes out as `OrderPlanCartIntent.Call(Recalculate ...)`, one at a time; only a patient change
   recalculates by superseding.
 - **The dialog's rules live in the composer**, keyed on the message: closed by a patient change,
   a reopen and a filter change that goes out, narrowed to the plan answered, kept otherwise.
   The domain step never sees the selection.
+- **The domain tier carries its lane's prefix.** The text named the domain DUs `Workbench` and
+  `Plan`: one a noun of its own, the other the bare noun of the DTO it holds, so `Plan` read as a
+  truncated `OrderPlan` next to `OrderPlanState`. Both tiers now start with the lane's name,
+  `OrderContextWorkbench` and `OrderPlanCart`; the cart is the integration model's word for
+  the plan the client holds and signs, so the message that brings a signed version is `Version`.
 - **`Unopened` carries the contexts being opened**, since step 3 had already put them on
   `Loading`; the plan's text had `Unopened of Patient` alone.
 - **Step 6 and 7 tests stayed transition tests.** The text had them rewritten as domain-step

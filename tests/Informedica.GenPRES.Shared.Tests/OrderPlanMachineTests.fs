@@ -178,12 +178,12 @@ let tests =
                 "the cart"
                 [
                     test "the signed version opens over the patient held; the newest open wins" {
-                        let first, _ = transition (OrderPlanMsg.Cart(head, "r-1")) shown
+                        let first, _ = transition (OrderPlanMsg.Version(head, "r-1")) shown
 
                         first
                         |> Expect.equal "loading the version" (loading patient two.OrderContexts "r-1")
 
-                        let second, effects = transition (OrderPlanMsg.Cart(head, "r-2")) first
+                        let second, effects = transition (OrderPlanMsg.Version(head, "r-2")) first
 
                         second
                         |> Expect.equal "the newer open in flight" (loading patient two.OrderContexts "r-2")
@@ -220,7 +220,7 @@ let tests =
                     }
 
                     test "without a patient there is nothing to open the version for" {
-                        transition (OrderPlanMsg.Cart(head, "r-1")) noPatient
+                        transition (OrderPlanMsg.Version(head, "r-1")) noPatient
                         |> Expect.equal "nothing" (noPatient, [])
                     }
                 ]
@@ -415,20 +415,26 @@ let stagesTests =
             test "the plan alone knows no request: a failed change keeps the plan held, a landed one is checked" {
                 let filtered = { one with Filtered = [| "c-1" |] }
 
-                Plan.step
-                    (PlanMsg.Landed(OrderPlanCommand.Recalculate filtered, Error [| "not loaded" |]))
-                    (Plan.Opened one)
-                |> Expect.equal "the original, told" (Plan.Opened one, [ PlanIntent.Tell [| "not loaded" |] ])
+                OrderPlanCart.step
+                    (OrderPlanCartMsg.Landed(OrderPlanCommand.Recalculate filtered, Error [| "not loaded" |]))
+                    (OrderPlanCart.Opened one)
+                |> Expect.equal
+                    "the original, told"
+                    (OrderPlanCart.Opened one, [ OrderPlanCartIntent.Tell [| "not loaded" |] ])
 
-                Plan.step (PlanMsg.Landed(OrderPlanCommand.Recalculate filtered, Ok filtered)) (Plan.Opened one)
+                OrderPlanCart.step
+                    (OrderPlanCartMsg.Landed(OrderPlanCommand.Recalculate filtered, Ok filtered))
+                    (OrderPlanCart.Opened one)
                 |> Expect.equal
                     "the plan answered, its drugs checked"
-                    (Plan.Opened filtered, [ PlanIntent.CheckInteractions [ "paracetamol" ] ])
+                    (OrderPlanCart.Opened filtered, [ OrderPlanCartIntent.CheckInteractions [ "paracetamol" ] ])
             }
 
             test "nothing lands without a patient; the dialog selects only over a plan held" {
-                Plan.step (PlanMsg.Landed(OrderPlanCommand.Open(patient, [||]), Ok one)) Plan.NoPatient
-                |> Expect.equal "no patient" (Plan.NoPatient, [])
+                OrderPlanCart.step
+                    (OrderPlanCartMsg.Landed(OrderPlanCommand.Open(patient, [||]), Ok one))
+                    OrderPlanCart.NoPatient
+                |> Expect.equal "no patient" (OrderPlanCart.NoPatient, [])
 
                 transition (OrderPlanMsg.Select(Some "c-1")) (loading patient [||] "r-1")
                 |> Expect.equal "nothing to select yet" (loading patient [||] "r-1", [])
