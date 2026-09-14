@@ -1540,7 +1540,9 @@ module private Elmish =
             | Api.PlanCommand.Navigate(tp, _, _, _)
             | Api.PlanCommand.AddContext(tp, _)
             | Api.PlanCommand.RemoveContext(tp, _)
-            | Api.PlanCommand.RemoveOrders(tp, _) ->
+            | Api.PlanCommand.RemoveOrders(tp, _)
+            | Api.PlanCommand.AddOrder(tp, _)
+            | Api.PlanCommand.RemoveContexts(tp, _) ->
                 match state.OrderPlan with
                 | InProgress
                 | Recalculating _ -> state, Cmd.none
