@@ -5340,6 +5340,14 @@ module PlanTests =
 
                     let! third = PlanService.addContext id port (plan [| feeding |] [||]) NutritionCategory.TPN
                     third |> Result.isOk |> Expect.isTrue "another category still admitted"
+
+                    // electrolyte and glucose lines: one per generic, so any number of them
+                    let line = context "c-e" NutritionCategory.ElectrolyteGlucose [||]
+
+                    let! another =
+                        PlanService.addContext id port (plan [| line |] [||]) NutritionCategory.ElectrolyteGlucose
+
+                    another |> Result.isOk |> Expect.isTrue "a second electrolyte line admitted"
                 }
 
                 test "the orders of the plan are what its narrowed contexts contribute, in context order" {

@@ -142,7 +142,8 @@ commit in `ServerApi.Session.fs`:
   context appended with a minted id and `Drug`.
 - `addContext`: as today, the context created with a minted id and `Nutrition cat`. It keeps
   the rule the nutrition page's buttons keep: the plan holds one context per nutrition category,
-  supplements excepted, and a supplement only under a feeding. That rule is what makes "a
+  except supplements (any number, each under a feeding) and electrolyte and glucose lines (any
+  number, one per generic prescribed). That rule is what makes "a
   feeding's supplements" every enteral supplement in the plan; no link between them is recorded.
 - `navigate` by id only: the command evaluated over the context as the page sent it, in the
   context's own patient. Verified in the code: a stepping, select, update or reset command

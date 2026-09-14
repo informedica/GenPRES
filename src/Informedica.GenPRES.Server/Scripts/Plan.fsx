@@ -57,12 +57,14 @@ module PlanService667 =
 
 
     /// Whether the plan may take a context of the category: one context per nutrition category,
-    /// supplements excepted, and a supplement only under a feeding.
+    /// except supplements (any number, each under a feeding) and electrolyte and glucose lines
+    /// (any number, one per generic prescribed).
     let admits category (plan: Plan667) =
         match category with
         | NutritionCategory.EnteralSupplement when plan |> holds NutritionCategory.EnteralFeeding |> not ->
             Error [| "A supplement needs a feeding in the plan" |]
-        | NutritionCategory.EnteralSupplement -> Ok()
+        | NutritionCategory.EnteralSupplement
+        | NutritionCategory.ElectrolyteGlucose -> Ok()
         | _ when plan |> holds category ->
             Error [| $"The plan already holds a %s{NutritionCategory.label category} context" |]
         | _ -> Ok()
@@ -124,6 +126,10 @@ let tests =
                 { OrderContexts = [| feeding; supplement |] }
                 |> admits NutritionCategory.EnteralSupplement
                 |> Expect.equal "a second supplement" (Ok())
+
+                { OrderContexts = [| context "c-e" NutritionCategory.ElectrolyteGlucose |] }
+                |> admits NutritionCategory.ElectrolyteGlucose
+                |> Expect.equal "a second electrolyte line, one per generic" (Ok())
             }
 
             test "a context re-evaluated keeps the id and the category the plan gave it" {

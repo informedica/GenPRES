@@ -842,13 +842,15 @@ module PlanService =
 
 
     /// Whether the plan may take a context of the category: one context per nutrition category,
-    /// supplements excepted, and a supplement only under a feeding. The nutrition page's buttons
-    /// keep the same rule; the server keeps it for every caller.
+    /// except supplements (any number, each under a feeding) and electrolyte and glucose lines
+    /// (any number, one per generic prescribed). The nutrition page's buttons keep the same
+    /// rule; the server keeps it for every caller.
     let admits category (plan: OrderPlan) =
         match category with
         | NutritionCategory.EnteralSupplement when plan |> holds NutritionCategory.EnteralFeeding |> not ->
             Error [| "A supplement needs a feeding in the plan" |]
-        | NutritionCategory.EnteralSupplement -> Ok()
+        | NutritionCategory.EnteralSupplement
+        | NutritionCategory.ElectrolyteGlucose -> Ok()
         | _ when plan |> holds category ->
             Error
                 [|
