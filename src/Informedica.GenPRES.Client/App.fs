@@ -780,7 +780,7 @@ module private Elmish =
         | SessionEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient patient)
         // the cart is the version the Session opened with, opened by the plan machine over the
         // patient as UpdatePatient left it (normal values applied)
-        | SessionEffect.LoadCart head -> Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Cart(head, newRequest ())))
+        | SessionEffect.LoadCart head -> Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Version(head, newRequest ())))
         | SessionEffect.KeepKey thumbprint ->
             Cmd.ofEffect (fun _ ->
                 async {
