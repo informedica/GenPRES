@@ -112,6 +112,18 @@ module OrderContextState =
         ]
 
 
+    /// A refusal: the workbench restored to the context given, the last one evaluated, and the
+    /// formulary and the parenteralia restored to its filter, since the evaluation had taken them
+    /// along to the one refused.
+    let private restore (ctx: OrderContext) (errs: string[]) =
+        OrderContextState.Shown ctx,
+        [
+            OrderContextEffect.TellError errs
+            OrderContextEffect.SyncFormulary ctx.Filter
+            OrderContextEffect.SyncParenteralia ctx.Filter
+        ]
+
+
     /// The filter matched no dose rule: the page is left, the refusal said, and the empty
     /// workbench evaluated again, its empty filter into the formulary and the parenteralia too.
     let private startOver (pat: Patient) (errs: string[]) (request: string) =
@@ -141,11 +153,14 @@ module OrderContextState =
             evaluate ctx ctx request
 
         // the patient changed: the workbench keeps its filter and is evaluated again for the new
-        // patient, whatever was in flight superseded
-        | OrderContextMsg.PatientChanged(Some pat, request), OrderContextState.Shown ctx
-        | OrderContextMsg.PatientChanged(Some pat, request), OrderContextState.Recalculating(_, ctx, _) ->
+        // patient
+        | OrderContextMsg.PatientChanged(Some pat, request), OrderContextState.Shown ctx ->
             let ctx = { ctx with Patient = pat }
             evaluate ctx ctx request
+        // a change in flight keeps its selection: the context sent is evaluated for the new
+        // patient, and the one found stays what a refusal restores
+        | OrderContextMsg.PatientChanged(Some pat, request), OrderContextState.Recalculating(sent, found, _) ->
+            evaluate { found with Patient = pat } { sent with Patient = pat } request
 
         // a filter before a patient waits; with a patient it is evaluated at once
         | OrderContextMsg.Seed(ctx, _), OrderContextState.NoPatient
@@ -153,7 +168,14 @@ module OrderContextState =
         | OrderContextMsg.Seed(ctx, request), _ ->
             let pat = patient state |> Option.get
             let ctx = { ctx with Patient = pat }
-            evaluate (context state |> Option.defaultValue ctx) ctx request
+
+            // what a refusal restores: the last context evaluated
+            let found =
+                match state with
+                | OrderContextState.Recalculating(_, found, _) -> found
+                | _ -> context state |> Option.defaultValue ctx
+
+            evaluate found ctx request
 
         // a command over the workbench shown, always for the patient held: one at a time; an
         // update of the filter takes the formulary and the parenteralia along
@@ -175,7 +197,7 @@ module OrderContextState =
             match result with
             | Ok ctx -> OrderContextState.Shown ctx, []
             | Error errs when noDoseRules errs -> startOver pat errs request
-            | Error errs -> OrderContextState.Shown(emptyFor pat), [ OrderContextEffect.TellError errs ]
+            | Error errs -> restore (emptyFor pat) errs
         | OrderContextMsg.Answered(request, result), OrderContextState.Recalculating(_, found, inFlight) when
             request = inFlight
             ->
@@ -184,7 +206,7 @@ module OrderContextState =
             | Error errs when noDoseRules errs -> startOver found.Patient errs request
             // a refused command leaves the workbench as the request found it: the last context
             // evaluated, never the one sent, whose order and texts the server did not confirm
-            | Error errs -> OrderContextState.Shown found, [ OrderContextEffect.TellError errs ]
+            | Error errs -> restore found errs
         | OrderContextMsg.Answered _, _ -> state, []
 
         // the workbench cleared for the patient held and evaluated empty; nothing to clear

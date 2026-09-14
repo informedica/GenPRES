@@ -18,6 +18,14 @@ module Fixtures =
 
     let shown = OrderContextState.Shown paracetamol
 
+    /// A refusal: told, and the pages restored to the context's filter.
+    let restored (ctx: OrderContext) errs =
+        [
+            OrderContextEffect.TellError errs
+            OrderContextEffect.SyncFormulary ctx.Filter
+            OrderContextEffect.SyncParenteralia ctx.Filter
+        ]
+
     /// An evaluation of the context: the call and the two syncs.
     let evaluated (ctx: OrderContext) request =
         [
@@ -75,6 +83,30 @@ let tests =
 
                         transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) state
                         |> Expect.equal "the older answer dropped" (state, [])
+                    }
+
+                    test
+                        "a patient changed while a selection is in flight keeps the selection, and what a refusal restores" {
+                        let chosen = { paracetamol with OrderContext.Filter.Generic = Some "ibuprofen" }
+                        let busy = OrderContextState.Recalculating(chosen, paracetamol, "r-1")
+
+                        let state, effects =
+                            transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
+
+                        let sent = { chosen with Patient = other }
+                        let found = { paracetamol with Patient = other }
+
+                        state
+                        |> Expect.equal
+                            "the selection evaluated for the new patient"
+                            (OrderContextState.Recalculating(sent, found, "r-2"))
+
+                        effects |> Expect.equal "the call and the syncs" (evaluated sent "r-2")
+
+                        transition (OrderContextMsg.Answered("r-2", Error [| "not loaded" |])) state
+                        |> Expect.equal
+                            "a refusal restores the last evaluated, for the new patient"
+                            (OrderContextState.Shown found, restored found [| "not loaded" |])
                     }
 
                     test "no patient: no workbench; a seed keeps waiting" {
@@ -196,14 +228,14 @@ let tests =
                         transition (OrderContextMsg.Answered("r-1", Error [| "not loaded" |])) busy
                         |> Expect.equal
                             "as found"
-                            (OrderContextState.Shown paracetamol, [ OrderContextEffect.TellError [| "not loaded" |] ])
+                            (OrderContextState.Shown paracetamol, restored paracetamol [| "not loaded" |])
 
                         transition
                             (OrderContextMsg.Answered("r-1", Error [| "not loaded" |]))
                             (OrderContextState.Loading(patient, "r-1"))
                         |> Expect.equal
                             "the empty workbench"
-                            (OrderContextState.Shown empty, [ OrderContextEffect.TellError [| "not loaded" |] ])
+                            (OrderContextState.Shown empty, restored empty [| "not loaded" |])
                     }
 
                     test "no dose rules for the filter: back to the first page, the empty workbench evaluated again" {
@@ -243,7 +275,7 @@ let tests =
                         transition (OrderContextMsg.Answered("r-1", Error [| "not loaded" |])) busy
                         |> Expect.equal
                             "the last evaluated"
-                            (OrderContextState.Shown paracetamol, [ OrderContextEffect.TellError [| "not loaded" |] ])
+                            (OrderContextState.Shown paracetamol, restored paracetamol [| "not loaded" |])
                     }
                 ]
 
