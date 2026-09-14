@@ -1,12 +1,17 @@
-// The computing envelope, generic (plan 654, step 5): `Request<'cmd>` and `Reply<'resp>` in
-// place of the `Request`/`Reply` records over `Command`/`Response`, so that every computing
-// member can carry its own command and answer inside the same envelope. Abbreviations keep the
-// client compiling unchanged until the families move.
+// The category on the context (plan 667, step 2): every order context says what kind of order
+// it holds, a drug or one of the nutrition categories, and carries its own id in the plan. The
+// label a page shows is derived from that: the category's name for nutrition, the generic for
+// a drug. Nothing else changes yet: `NutritionContext` keeps wrapping the nutrition workbenches
+// until the plan becomes its contexts (step 3).
 //
-// Script-first draft of what goes to `Shared/Api.fs`. The one risk is the wire: no generic
-// record crosses it yet. Both sides serialize JSON, the server through Fable.Remoting.Json, so
-// the round trip below runs `Request<Formulary>` and `Result<Reply<Formulary>, string[]>`
-// through that converter, both ways.
+// Script-first draft (script-only policy) of what goes to `Shared/Types.fs` and
+// `Shared/Models.fs`:
+//   - `OrderCategory`, next to `NutritionCategory` (which moves above `OrderContext`);
+//   - `OrderContext.Id` and `OrderContext.Category`, the empty id and `Drug` in
+//     `OrderContext.empty` and `fromOrderScenario`;
+//   - `NutritionCategory.label` and `OrderContext.label`.
+// The record below is the target shape of `OrderContext` reduced to what the step touches; the
+// migration adds the two fields to the real record.
 //
 // Run: `dotnet fsi Api.fsx` from this directory.
 
@@ -24,40 +29,74 @@
 open Shared.Types
 
 
-/// → `Shared/Api.fs`, in place of `Request` and `Reply`.
-module Api654 =
+/// → `Shared/Types.fs`, after `NutritionCategory` (moved above `OrderContext`).
+module Types667 =
 
-    open Shared.Api
+    /// What kind of order a context holds: a drug, or a nutrition order of one of the
+    /// categories. Recorded on the context and kept with it, so that a reopened plan
+    /// knows each order's kind without guessing from the generic (KCl, NaCl and glucose are
+    /// nutrition generics and drugs both).
+    [<RequireQualifiedAccess>]
+    type OrderCategory =
+        | Drug
+        | Nutrition of NutritionCategory
 
-    /// Every computing request: the command and the OpenedToken the Session holds. `None`
-    /// where there is none to send: no Session, an anonymous one, or a client acting before
-    /// its first token arrived.
-    type Request<'cmd> =
+
+    /// `OrderContext` as the step leaves it, reduced to the fields it touches: the id the
+    /// context has in the plan (empty for a workbench not in the plan), the category, and the
+    /// filter the label is derived from.
+    type OrderContext667 =
         {
-            Opened: OpenedToken option
-            Command: 'cmd
+            // empty until the context is in the plan; minted by the server when it is added
+            Id: string
+            Category: OrderCategory
+            Filter: Filter
         }
 
 
-    /// Every computing reply: the answer, and what the Session is told with it (the record
-    /// moved on, or the Session ended).
-    type Reply<'resp> =
-        {
-            Response: 'resp
-            Notice: RecordNotice option
-        }
+/// → `Shared/Models.fs`, a `NutritionCategory` module before `OrderContext`, and two lines
+/// plus `label` in `OrderContext`.
+module Models667 =
+
+    open Types667
+
+    module NutritionCategory =
+
+        /// The category's name, as the nutrition page shows it (today the label of the
+        /// server's dose-rule set; from here the one source).
+        let label category =
+            match category with
+            | NutritionCategory.EnteralFeeding -> "Enterale Voeding"
+            | NutritionCategory.EnteralSupplement -> "Enteraal Supplement"
+            | NutritionCategory.TPN -> "Totale Parenterale Voeding"
+            | NutritionCategory.Lipid -> "Vetten"
+            | NutritionCategory.ElectrolyteGlucose -> "Elektrolyten/Glucose"
 
 
-    // until the families move, processCommand keeps its shape under these names:
-    type Request = Request<Command>
-    type Reply = Reply<Response>
+    module OrderContext =
+
+        let empty: OrderContext667 =
+            {
+                Id = ""
+                Category = OrderCategory.Drug
+                Filter = Shared.Models.OrderContext.filter
+            }
+
+
+        /// What a page calls the context: the category's name for a nutrition order, the
+        /// generic for a drug, nothing before a generic is chosen.
+        let label (ctx: OrderContext667) =
+            match ctx.Category with
+            | OrderCategory.Nutrition category -> NutritionCategory.label category
+            | OrderCategory.Drug -> ctx.Filter.Generic |> Option.defaultValue ""
 
 
 open Expecto
 open Expecto.Flip
 open Newtonsoft.Json
 open Fable.Remoting.Json
-open Api654
+open Types667
+open Models667
 
 
 let converters = [| FableJsonConverter() :> JsonConverter |]
@@ -67,51 +106,54 @@ let ofJson<'a> (json: string) = JsonConvert.DeserializeObject<'a>(json, converte
 
 let tests =
     testList
-        "the generic envelope on the wire"
+        "the category on the context"
         [
-            test "Request<Formulary> round-trips and reads as today's Request" {
-                let request: Request<Formulary> =
-                    {
-                        Opened = Some(OpenedToken "opened-1")
-                        Command = { Shared.Models.Formulary.empty with Generics = [| "paracetamol" |] }
-                    }
-
-                let json = toJson request
-                (json.Contains "\"Opened\"" && json.Contains "\"Command\"") |> Expect.isTrue "the same two fields"
-                ofJson<Request<Formulary>> json |> Expect.equal "the same request back" request
+            test "a workbench not in the plan has the empty id and is a drug" {
+                OrderContext.empty.Id |> Expect.equal "no id" ""
+                OrderContext.empty.Category |> Expect.equal "a drug" OrderCategory.Drug
             }
 
-            test "Result<Reply<Formulary>, string[]> round-trips with and without a notice" {
-                let reply: Result<Reply<Formulary>, string[]> =
-                    Ok
-                        {
-                            Response = { Shared.Models.Formulary.empty with Generics = [| "paracetamol" |] }
-                            Notice = Some(RecordNotice.Ended SessionEnding.SupersededByLaunch)
-                        }
+            test "a drug's label is its generic, empty before one is chosen" {
+                OrderContext.empty |> OrderContext.label |> Expect.equal "nothing yet" ""
 
-                reply |> toJson |> ofJson<Result<Reply<Formulary>, string[]>> |> Expect.equal "with a notice" reply
-
-                let quiet: Result<Reply<Formulary>, string[]> =
-                    Ok
-                        {
-                            Response = Shared.Models.Formulary.empty
-                            Notice = None
-                        }
-
-                quiet |> toJson |> ofJson<Result<Reply<Formulary>, string[]>> |> Expect.equal "without" quiet
-
-                let refused: Result<Reply<Formulary>, string[]> = Error [| "not loaded" |]
-                refused |> toJson |> ofJson<Result<Reply<Formulary>, string[]>> |> Expect.equal "an error" refused
+                { OrderContext.empty with
+                    OrderContext667.Filter.Generic = Some "paracetamol"
+                }
+                |> OrderContext.label
+                |> Expect.equal "the generic" "paracetamol"
             }
 
-            test "the abbreviation is today's Request over Command" {
-                let request: Request =
-                    {
-                        Opened = None
-                        Command = Shared.Api.FormularyCmd Shared.Models.Formulary.empty
-                    }
+            testList
+                "a nutrition order's label is its category's name, whatever the generic"
+                [
+                    for category, expected in
+                        [
+                            NutritionCategory.EnteralFeeding, "Enterale Voeding"
+                            NutritionCategory.EnteralSupplement, "Enteraal Supplement"
+                            NutritionCategory.TPN, "Totale Parenterale Voeding"
+                            NutritionCategory.Lipid, "Vetten"
+                            NutritionCategory.ElectrolyteGlucose, "Elektrolyten/Glucose"
+                        ] do
+                        test $"{category}" {
+                            { OrderContext.empty with
+                                Category = OrderCategory.Nutrition category
+                                OrderContext667.Filter.Generic = Some "Glucose 10%"
+                            }
+                            |> OrderContext.label
+                            |> Expect.equal "the category's name" expected
+                        }
+                ]
 
-                request |> toJson |> ofJson<Request> |> Expect.equal "back" request
+            test "the category round-trips on the wire, both kinds" {
+                for ctx in
+                    [
+                        { OrderContext.empty with Id = "c-1" }
+                        { OrderContext.empty with
+                            Id = "c-2"
+                            Category = OrderCategory.Nutrition NutritionCategory.ElectrolyteGlucose
+                        }
+                    ] do
+                    ctx |> toJson |> ofJson<OrderContext667> |> Expect.equal "the same context back" ctx
             }
         ]
 
