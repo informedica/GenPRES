@@ -122,7 +122,9 @@ let tests =
                             ]
 
                         transition (OrderPlanMsg.Answered("r-1", Ok one)) loading
-                        |> Expect.equal "shown, one drug: no interactions" (OrderPlanState.Shown(one, None), [])
+                        |> Expect.equal
+                            "shown, its one drug checked"
+                            (OrderPlanState.Shown(one, None), [ OrderPlanEffect.CheckInteractions [ "paracetamol" ] ])
                     }
 
                     test
@@ -243,12 +245,15 @@ let tests =
                         transition (OrderPlanMsg.Answered("r-1", Ok one)) busy
                         |> Expect.equal
                             "the selection's context went with the change"
-                            (OrderPlanState.Shown(one, None), [])
+                            (OrderPlanState.Shown(one, None), [ OrderPlanEffect.CheckInteractions [ "paracetamol" ] ])
 
                         let kept = OrderPlanState.Recalculating(two, Some "c-1", "r-1", cmd)
 
                         transition (OrderPlanMsg.Answered("r-1", Ok one)) kept
-                        |> Expect.equal "the selection still holds" (OrderPlanState.Shown(one, Some "c-1"), [])
+                        |> Expect.equal
+                            "the selection still holds"
+                            (OrderPlanState.Shown(one, Some "c-1"),
+                             [ OrderPlanEffect.CheckInteractions [ "paracetamol" ] ])
 
                         transition (OrderPlanMsg.Answered("r-9", Ok one)) kept
                         |> Expect.equal "a stale answer dropped" (kept, [])

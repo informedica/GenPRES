@@ -49,7 +49,7 @@ type OrderPlanMsg =
 [<RequireQualifiedAccess>]
 type OrderPlanEffect =
     | CallPlan of PlanCommand * request: string
-    // the drugs of the plan, checked for interactions
+    // the drugs of the plan, checked for interactions; fewer than two clears the warnings
     | CheckInteractions of string list
     // an order prescribed: the plan page opens on it
     | GoToPlanPage
@@ -84,18 +84,15 @@ module OrderPlanState =
         |> Option.filter (fun id -> tp.OrderContexts |> Array.exists (fun c -> c.Id = id))
 
 
-    /// The drugs of the plan, checked for interactions when there are two or more.
+    /// The drugs of the plan, checked for interactions: always, so that a plan down to one drug
+    /// or none clears the warnings of the drugs it had.
     let interactions (tp: OrderPlan) =
-        let drugs =
-            Shared.Models.OrderPlan.orders tp
-            |> Array.map _.Name
-            |> Array.distinct
-            |> Array.toList
-
-        if drugs.Length >= 2 then
-            [ OrderPlanEffect.CheckInteractions drugs ]
-        else
-            []
+        Shared.Models.OrderPlan.orders tp
+        |> Array.map _.Name
+        |> Array.distinct
+        |> Array.toList
+        |> OrderPlanEffect.CheckInteractions
+        |> List.singleton
 
 
     /// A command from a page, over the plan the machine holds: a page's copy may be a step
