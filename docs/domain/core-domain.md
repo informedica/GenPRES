@@ -74,7 +74,9 @@ The transformation is implemented by three core systems:
 | *Operational Knowledge Rule (OKR)* | A fully structured, machine-interpretable, constraint-based representation of expert medication (and other clinical) knowledge produced by GenFORM. |
 | *Selection Constraint* | A categorical constraint used to determine which OKRs apply to a given Order Context (e.g., indication, generic, route, form, setting). |
 | *Calculation Constraint* | A quantitative constraint used to compute numerical values such as dose quantities, rates, volumes, or durations. |
-| *Order Context* | The bounded clinical context; composed of a specific Patient (instance), indication(s), and selection constraints from which Order Scenarios are generated. The Patient's attributes are matched against Patient Categories in OKRs. |
+| *Order Context* | The bounded clinical context; composed of a specific Patient (instance), indication(s), and selection constraints from which Order Scenarios are generated. The Patient's attributes are matched against Patient Categories in OKRs. In the plan, every order is an Order Context, drug or nutrition: the context carries its own id and its Order Category, and the order is the one Order Scenario the context is narrowed to. The prescribing workbench is an Order Context not yet in the plan. |
+| *Order Category* | What kind of order an Order Context holds: a drug, or a nutrition order of one of the nutrition categories (enteral feeding, enteral supplement, TPN, lipid, electrolyte or glucose line). Recorded on the context, never derived from the generic, since electrolytes and glucose are prescribable as drugs too. |
+| *Order Plan* | The one plan for a Patient: the patient data as shown, the plan's Order Contexts, the contexts the row filter keeps, and the totals over their orders. Its orders are derived, the scenario of every narrowed context; nothing beside the contexts is stored. A signed version of the plan stores the contexts as they were at the signature, so a reopened plan is the plan as it was. |
 | *Order Scenario* | A fully constrained, uniquely identifiable, computable clinical alternative representing one valid way to prescribe, prepare, and administer an order. |
 | *Order* | The executable prescription instance derived from an Order Scenario, identified by a unique Id. |
 | *Schedule* | The temporal model of an Order defining frequency, administration time, and total duration. |
@@ -119,22 +121,40 @@ Across the **client/server API boundary**, the system uses a concrete transport 
 
 Every computing member of `IServerApi` (`src/Informedica.GenPRES.Shared/Api.fs`) takes a
 `Request<'cmd>` (the command and the OpenedToken the Session holds) and answers a
-`Reply<'resp>` (the answer and what the Session is told). Order-context traffic still travels
-as `OrderContextCmd of OrderContextCommand * OrderContext` under `processCommand` and comes
-back as `OrderContextResp`. The other use cases have their own members: `processOrderPlan`
-over `PlanCommand` for the one plan, nutrition included; `processFormulary` and
-`processParenteralia`; `processInteraction`; and `processAdmin`, token-authenticated and
+`Reply<'resp>` (the answer and what the Session is told). Each use case has its own member:
+`processOrderContext` over `OrderContextCommand * OrderContext` for the prescribing workbench;
+`processOrderPlan` over `PlanCommand` for the one plan, nutrition included; `processFormulary`
+and `processParenteralia`; `processInteraction`; and `processAdmin`, token-authenticated and
 without the envelope.
 
 The individual cases are not restated here: `OrderContextCommand` alone has around thirty of
 them (selection, reset, and the increase/decrease/min/max/median stepping commands for
 frequency, dose quantity, dose rate and component quantity), and any list in prose goes stale
-the first time one is added. `Api.fs` is the contract; read it there.
+the first time one is added. `Api.fs` is the contract; read it there. `PlanCommand` is small
+enough to name: every case acts on the plan's Order Contexts and says so. `Open` hands a signed
+version back with nothing evaluated; `AddOrderContext` moves the prescribing workbench, narrowed
+to one scenario, into the plan; `NewOrderContext` makes a fresh nutrition workbench for a
+category; `Navigate` evaluates an order-context command over the context named, in that
+context's own patient; `RemoveOrderContexts` removes contexts of every kind, a feeding taking
+its supplements with it; `Recalculate` recomputes the totals over the filtered contexts.
+
+**OrderPlan DTO (transport shape)**
+
+- `Patient: Patient` — the patient data as shown, the data a version is signed on.
+- `Filtered: string []` — the ids of the contexts the row filter keeps; empty for all of them.
+- `OrderContexts: OrderContext []` — every order context of the plan, drug and nutrition alike.
+- `Totals: Totals` — the totals over the orders of the filtered contexts.
+
+The plan's orders are not a field: they are what its narrowed contexts contribute
+(`OrderPlan.orders` in `Models.fs`). A signed version (`SignedOrderPlan`) stores the contexts,
+so the signing challenge compares them and a reopen restores them as they were.
 
 **OrderContext DTO (transport shape)**
 
+- `Id: string` — the context's id in the plan; empty for the prescribing workbench, which is not in the plan yet.
+- `Category: OrderCategory` — a drug, or the nutrition category the context holds.
 - `DemoVersion: bool` — whether the server is running in demo mode (used for UI/runtime behavior).
-- `Patient: Patient` — the concrete patient instance used for calculations.
+- `Patient: Patient` — the patient the context was evaluated for; an order is always calculated within its context.
 - `Filter: Filter` — selection constraints *and* the server-provided pick lists required for UI selection.
 - `Scenarios: OrderScenario []` — computed, valid alternatives for the current selection.
 - `Intake: Totals` — aggregated totals computed from (a subset of) scenarios.

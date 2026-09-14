@@ -8,9 +8,9 @@ server and the constraint solver — the client never computes the value locally
 flowchart TD
     subgraph CLIENT["Client (Fable/Elmish)"]
         UI["Stepper +/- button<br/>Views/Prescribe.fs"]
-        MSG["dispatch OrderContextMsg<br/>App.fs"]
-        CALL["makeServerCall<br/>wraps Api.OrderContextCmd(cmd, ctx)<br/>App.fs"]
-        RESP["OrderContextResp(OrderContextResult ctx)<br/>state.OrderContext = Resolved ctx<br/>App.fs"]
+        MSG["dispatch OrderContextMsg.Command(cmd, ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
+        CALL["interpretOrderContextEffect<br/>CallContext(cmd, ctx, request) → processOrderContext<br/>App.fs"]
+        RESP["OrderContextAnswered → OrderContextMsg.Answered(request, Ok ctx)<br/>OrderContextState.Shown ctx<br/>App.fs"]
         RENDER["Re-render dose select +<br/>enable/disable steppers<br/>Views/Order.fs"]
     end
 
@@ -19,7 +19,7 @@ flowchart TD
     end
 
     subgraph SERVER["Server"]
-        SCMD["processCmd: OrderContextCmd<br/>ServerApi.Command.fs"]
+        SCMD["OrderContextCommand.processCmd<br/>ServerApi.OrderContextCommand.fs"]
         SEVAL["OrderContext.evaluate<br/>map -> GenOrderContext cmd<br/>ServerApi.Services.fs"]
     end
 
