@@ -655,7 +655,7 @@ module NutritionPlanService =
 /// The one plan, nutrition included: the nutrition workbenches produce orders by category, and
 /// a context narrowed to exactly one scenario has that scenario among the plan's orders, so one
 /// signature covers it. Totals are computed once, over the orders.
-module PlanService =
+module OrderPlanService =
 
     open Shared
     open Shared.Types

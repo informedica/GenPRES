@@ -123,14 +123,14 @@ Every computing member of `IServerApi` (`src/Informedica.GenPRES.Shared/Api.fs`)
 `Request<'cmd>` (the command and the OpenedToken the Session holds) and answers a
 `Reply<'resp>` (the answer and what the Session is told). Each use case has its own member:
 `processOrderContext` over `OrderContextCommand * OrderContext` for the prescribing workbench;
-`processOrderPlan` over `PlanCommand` for the one plan, nutrition included; `processFormulary`
+`processOrderPlan` over `OrderPlanCommand` for the one plan, nutrition included; `processFormulary`
 and `processParenteralia`; `processInteraction`; and `processAdmin`, token-authenticated and
 without the envelope.
 
 The individual cases are not restated here: `OrderContextCommand` alone has around thirty of
 them (selection, reset, and the increase/decrease/min/max/median stepping commands for
 frequency, dose quantity, dose rate and component quantity), and any list in prose goes stale
-the first time one is added. `Api.fs` is the contract; read it there. `PlanCommand` is small
+the first time one is added. `Api.fs` is the contract; read it there. `OrderPlanCommand` is small
 enough to name: every case acts on the plan's Order Contexts and says so. `Open` hands a signed
 version back with nothing evaluated; `AddOrderContext` moves the prescribing workbench, narrowed
 to one scenario, into the plan; `NewOrderContext` makes a fresh nutrition workbench for a

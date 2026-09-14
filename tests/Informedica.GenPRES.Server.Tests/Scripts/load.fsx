@@ -23,7 +23,7 @@
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.Compute.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.FormularyCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.InteractionCommand.fs"
-#load "../../../src/Informedica.GenPRES.Server/ServerApi.PlanCommand.fs"
+#load "../../../src/Informedica.GenPRES.Server/ServerApi.OrderPlanCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.AdminCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.OrderContextCommand.fs"
 #load "../../../src/Informedica.GenPRES.Server/ServerApi.LaunchCommand.fs"
