@@ -5283,6 +5283,25 @@ module PlanTests =
                     | Ok _ -> failtest "no such context"
                 }
 
+                testAsync "a nutrition context added says what it holds: the workbench's id and its category" {
+                    // the discovery answers the context as sent; what is asserted is the stamp
+                    let port: OrderContextPort = { evaluate = fun _ ctx -> async { return Ok ctx } }
+
+                    let! result = PlanService.addContext id port (plan [||] [||]) NutritionCategory.TPN
+
+                    match result with
+                    | Error e -> failtest $"addContext refused: %A{e}"
+                    | Ok p ->
+                        let nc = p.NutritionContexts |> Array.exactlyOne
+                        nc.Id |> Expect.isNotEmpty "an id minted"
+
+                        nc.OrderContext.Id
+                        |> Expect.equal "the context carries the workbench's id" nc.Id
+
+                        nc.OrderContext.Category
+                        |> Expect.equal "and its category" (OrderCategory.Nutrition NutritionCategory.TPN)
+                }
+
                 testAsync "processOrderPlan dispatches each case to the plan port" {
                     let answered = ref []
 

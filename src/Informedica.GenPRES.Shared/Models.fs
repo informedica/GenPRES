@@ -2055,6 +2055,18 @@ module Models =
             | _ -> NoDoseType
 
 
+    module NutritionCategory =
+
+        /// The category's name, as the nutrition page shows it.
+        let label category =
+            match category with
+            | NutritionCategory.EnteralFeeding -> "Enterale Voeding"
+            | NutritionCategory.EnteralSupplement -> "Enteraal Supplement"
+            | NutritionCategory.TPN -> "Totale Parenterale Voeding"
+            | NutritionCategory.Lipid -> "Vetten"
+            | NutritionCategory.ElectrolyteGlucose -> "Elektrolyten/Glucose"
+
+
     module OrderContext =
 
 
@@ -2079,6 +2091,8 @@ module Models =
 
         let empty: OrderContext =
             {
+                Id = ""
+                Category = OrderCategory.Drug
                 DemoVersion = true
                 Filter = filter
                 Patient = Patient.empty
@@ -2087,6 +2101,14 @@ module Models =
             }
 
         let setPatient pat ctx : OrderContext = { ctx with Patient = pat }
+
+
+        /// What a page calls the context: the category's name for a nutrition order, the
+        /// generic for a drug, nothing before a generic is chosen.
+        let label (ctx: OrderContext) =
+            match ctx.Category with
+            | OrderCategory.Nutrition category -> NutritionCategory.label category
+            | OrderCategory.Drug -> ctx.Filter.Generic |> Option.defaultValue ""
 
 
         let setMedication ind med rte frm dtp ctx : OrderContext =
@@ -2109,6 +2131,8 @@ module Models =
             let ord = sc.Order
 
             {
+                Id = ""
+                Category = OrderCategory.Drug
                 DemoVersion = false
                 Filter =
                     { filter with

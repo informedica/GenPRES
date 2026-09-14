@@ -13,6 +13,7 @@
   <ItemGroup>
     <Compile Include="AgeTests.fs" />
     <Compile Include="LocalizationTests.fs" />
+    <Compile Include="ModelsTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\LanguagePolicy.fs" />
     <Compile Include="LanguagePolicyTests.fs" />
     <Compile Include="Tests.fs" />
