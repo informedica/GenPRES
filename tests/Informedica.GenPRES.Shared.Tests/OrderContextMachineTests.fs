@@ -59,7 +59,7 @@ let tests =
 
                     test
                         "a patient changed keeps the filter and evaluates it for the new patient, whatever was in flight superseded" {
-                        let busy = OrderContextState.Recalculating(paracetamol, "r-1")
+                        let busy = OrderContextState.Recalculating(paracetamol, paracetamol, "r-1")
 
                         let state, effects =
                             transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
@@ -69,7 +69,7 @@ let tests =
                         state
                         |> Expect.equal
                             "evaluating for the new patient"
-                            (OrderContextState.Recalculating(expected, "r-2"))
+                            (OrderContextState.Recalculating(expected, expected, "r-2"))
 
                         effects |> Expect.equal "the call and the syncs" (evaluated expected "r-2")
 
@@ -102,7 +102,7 @@ let tests =
                         state
                         |> Expect.equal
                             "evaluated for the patient"
-                            (OrderContextState.Recalculating(paracetamol, "r-2"))
+                            (OrderContextState.Recalculating(paracetamol, paracetamol, "r-2"))
 
                         effects |> Expect.equal "the call and the syncs" (evaluated paracetamol "r-2")
                     }
@@ -112,7 +112,7 @@ let tests =
                         let state, effects = transition (OrderContextMsg.Seed(fromUrl, "r-1")) shown
 
                         state
-                        |> Expect.equal "evaluating" (OrderContextState.Recalculating(paracetamol, "r-1"))
+                        |> Expect.equal "evaluating" (OrderContextState.Recalculating(paracetamol, paracetamol, "r-1"))
 
                         effects |> Expect.equal "for the patient held" (evaluated paracetamol "r-1")
                     }
@@ -145,7 +145,7 @@ let tests =
                         busy
                         |> Expect.equal
                             "in flight, for the patient held"
-                            (OrderContextState.Recalculating(forPatient, "r-1"))
+                            (OrderContextState.Recalculating(forPatient, paracetamol, "r-1"))
 
                         effects |> Expect.equal "the call and the syncs" (evaluated forPatient "r-1")
 
@@ -167,7 +167,7 @@ let tests =
                             shown
                         |> Expect.equal
                             "a step calls alone"
-                            (OrderContextState.Recalculating(paracetamol, "r-2"),
+                            (OrderContextState.Recalculating(paracetamol, paracetamol, "r-2"),
                              [
                                  OrderContextEffect.CallContext(
                                      OrderContextCommand.IncreaseScheduleFrequencyProperty,
@@ -178,7 +178,7 @@ let tests =
                     }
 
                     test "the answer lands on its request; a stale one is dropped" {
-                        let busy = OrderContextState.Recalculating(paracetamol, "r-1")
+                        let busy = OrderContextState.Recalculating(paracetamol, paracetamol, "r-1")
 
                         let answer =
                             { paracetamol with OrderContext.Filter.Generics = [| "paracetamol"; "ibuprofen" |] }
@@ -191,7 +191,7 @@ let tests =
                     }
 
                     test "a refused command leaves the workbench as the request found it, and says why" {
-                        let busy = OrderContextState.Recalculating(paracetamol, "r-1")
+                        let busy = OrderContextState.Recalculating(paracetamol, paracetamol, "r-1")
 
                         transition (OrderContextMsg.Answered("r-1", Error [| "not loaded" |])) busy
                         |> Expect.equal
@@ -207,7 +207,7 @@ let tests =
                     }
 
                     test "no dose rules for the filter: back to the first page, the empty workbench evaluated again" {
-                        let busy = OrderContextState.Recalculating(paracetamol, "r-1")
+                        let busy = OrderContextState.Recalculating(paracetamol, paracetamol, "r-1")
 
                         let errs =
                             [|
@@ -216,13 +216,34 @@ let tests =
 
                         transition (OrderContextMsg.Answered("r-1", Error errs)) busy
                         |> Expect.equal
-                            "left, told, evaluated empty"
-                            (OrderContextState.Loading(patient, "r-1"),
-                             [
-                                 OrderContextEffect.GoToLifeSupport
-                                 OrderContextEffect.TellError errs
-                                 OrderContextEffect.CallContext(OrderContextCommand.UpdateOrderContext, empty, "r-1")
-                             ])
+                            "left, told, evaluated empty with the pages in step"
+                            (OrderContextState.Recalculating(empty, empty, "r-1"),
+                             OrderContextEffect.GoToLifeSupport
+                             :: OrderContextEffect.TellError errs
+                             :: evaluated empty "r-1")
+                    }
+
+                    test "a refused step restores the context last evaluated, never the one sent" {
+                        let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
+
+                        let busy, _ =
+                            transition
+                                (OrderContextMsg.Command(
+                                    OrderContextCommand.IncreaseScheduleFrequencyProperty,
+                                    stepped,
+                                    "r-1"
+                                ))
+                                shown
+
+                        busy
+                        |> Expect.equal
+                            "the sent shown meanwhile, the found kept"
+                            (OrderContextState.Recalculating(stepped, paracetamol, "r-1"))
+
+                        transition (OrderContextMsg.Answered("r-1", Error [| "not loaded" |])) busy
+                        |> Expect.equal
+                            "the last evaluated"
+                            (OrderContextState.Shown paracetamol, [ OrderContextEffect.TellError [| "not loaded" |] ])
                     }
                 ]
 
@@ -233,7 +254,9 @@ let tests =
                         let state, effects = transition (OrderContextMsg.Reset "r-1") shown
 
                         state
-                        |> Expect.equal "evaluating the empty workbench" (OrderContextState.Recalculating(empty, "r-1"))
+                        |> Expect.equal
+                            "evaluating the empty workbench"
+                            (OrderContextState.Recalculating(empty, empty, "r-1"))
 
                         effects |> Expect.equal "the call and the syncs" (evaluated empty "r-1")
 

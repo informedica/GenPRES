@@ -361,7 +361,7 @@ module private Elmish =
         | OrderContextState.Seeded ctx -> Resolved ctx
         | OrderContextState.Loading _ -> InProgress
         | OrderContextState.Shown ctx -> Resolved ctx
-        | OrderContextState.Recalculating(ctx, _) -> Recalculating ctx
+        | OrderContextState.Recalculating(sent, _, _) -> Recalculating sent
 
 
     /// The plan as the pages read it.
