@@ -8,9 +8,9 @@ server and the constraint solver — the client never computes the value locally
 flowchart TD
     subgraph CLIENT["Client (Fable/Elmish)"]
         UI["Stepper +/- button<br/>Views/Prescribe.fs"]
-        MSG["dispatch OrderContextMsg<br/>App.fs"]
-        CALL["makeServerCall<br/>wraps Api.OrderContextCmd(cmd, ctx)<br/>App.fs"]
-        RESP["OrderContextResp(OrderContextResult ctx)<br/>state.OrderContext = Resolved ctx<br/>App.fs"]
+        MSG["dispatch OrderContextMsg.Command(cmd, ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
+        CALL["interpretOrderContextEffect<br/>CallContext(cmd, ctx, request) → processOrderContext<br/>App.fs"]
+        RESP["OrderContextAnswered → OrderContextMsg.Answered(request, Ok ctx)<br/>OrderContextState.Shown ctx<br/>App.fs"]
         RENDER["Re-render dose select +<br/>enable/disable steppers<br/>Views/Order.fs"]
     end
 
@@ -19,7 +19,7 @@ flowchart TD
     end
 
     subgraph SERVER["Server"]
-        SCMD["processCmd: OrderContextCmd<br/>ServerApi.Command.fs"]
+        SCMD["OrderContextCommand.processCmd<br/>ServerApi.OrderContextCommand.fs"]
         SEVAL["OrderContext.evaluate<br/>map -> GenOrderContext cmd<br/>ServerApi.Services.fs"]
     end
 
@@ -52,24 +52,26 @@ flowchart TD
 
 The client does **not** block while the server re-solves. It shows a
 *preliminary* stepped value immediately using local delta state, keeps the
-previous solved context visible (`Deferred.Recalculating`), and reconciles when
-the server response arrives. Rapid clicks accumulate into the delta rather than
-firing one blocking round-trip each.
+context it sent visible (`Deferred.Recalculating`), and reconciles when the
+server answer arrives. Rapid clicks accumulate into the delta and the click
+count until the debounced button fires one command; while that command is in
+flight the step buttons rest, since the machine drops a command sent while one
+is in flight.
 
 ```mermaid
 flowchart TD
     CLICK["User clicks +/- stepper<br/>ClickCountingButton.onStep<br/>Components/SimpleSelect.fs"]
     DELTA["bump local smallDelta/largeDelta<br/>(React.useState)<br/>SimpleSelect.fs"]
     PRELIM["Render PRELIMINARY label<br/>stepFn(smallDelta, largeDelta)<br/>key stays = server value<br/>SimpleSelect.fs"]
-    DISPATCH["dispatch OrderContextMsg<br/>Increase/DecreaseOrderableDoseQuantityProperty(n, useCalc)<br/>App.fs"]
+    DISPATCH["debounce fires: dispatch OrderContextMsg.Command<br/>(Increase/DecreaseOrderableDoseQuantityProperty(n, useCalc), ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
 
-    REC["OrderContext: Resolved ctx -> Recalculating ctx<br/>(old context kept visible)<br/>App.fs"]
-    KEEP["Steppers stay enabled, no spinner<br/>isOptimisticStep = true<br/>Order.fs<br/>old dose values still shown via Deferred.toOption<br/>Order.fs"]
+    REC["OrderContextState: Shown ctx -> Recalculating(sent, found, request)<br/>projected as Deferred.Recalculating sent<br/>orderContextToDeferred, App.fs"]
+    KEEP["No spinner on the field: isOptimisticStep = true<br/>Order.fs<br/>step buttons rest while loading: stepsRest<br/>SimpleSelect.fs<br/>a command while busy is dropped by the machine"]
 
     SERVER(["Server re-solve round-trip<br/>(see main flow above)"])
 
-    DONE["LoadOrderContextResult Finished(Ok)<br/>OrderContext = Resolved newCtx<br/>App.fs"]
-    BUMP["revision++<br/>App.fs"]
+    DONE["OrderContextAnswered -> OrderContextMsg.Answered(request, Ok ctx)<br/>OrderContextState.Shown ctx<br/>App.fs, OrderContextMachine.fs"]
+    BUMP["revision++<br/>Order.fs"]
     RESET["useLayoutEffect resets deltas to 0<br/>keyed on valueKey + revision<br/>SimpleSelect.fs"]
     FINAL["Render SOLVED value from server<br/>preliminary -> confirmed"]
 
@@ -85,14 +87,21 @@ flowchart TD
     style SERVER fill:#cfe8ff,stroke:#005bbb,color:#1a1a1a
 ```
 
+An answer lands only on the request in flight: a stale answer is dropped by
+its request id. A refused command restores the context the request found, the
+last one the server confirmed, never the one sent.
+
 ### Deferred state cases (`Extensions.fs`)
 
-| Case | Meaning | UI effect |
-| ---- | ------- | --------- |
-| `HasNotStartedYet` | no request yet | empty |
-| `InProgress` | in flight, **no** prior value | loading placeholder / spinner |
-| `Recalculating of 't` | in flight, **prior value kept** | preliminary value stays visible |
-| `Resolved of 't` | response received | confirmed value |
+The pages read the workbench as a `Deferred<OrderContext>` projected from
+`OrderContextState` (`orderContextToDeferred` in `App.fs`):
+
+| Case | Machine state | Meaning | UI effect |
+| ---- | ------------- | ------- | --------- |
+| `HasNotStartedYet` | `NoPatient` | no patient, no workbench | empty |
+| `InProgress` | `Loading` | in flight, **no** prior value | loading placeholder / spinner |
+| `Recalculating of 't` | `Recalculating(sent, found, request)` | in flight, **the context sent kept** | preliminary value stays visible |
+| `Resolved of 't` | `Shown`, `Seeded` | answer received, or a filter seeded from the url | confirmed value |
 
 Stepping uses **`Recalculating`** (not `InProgress`), which is why the previous
 dose quantity remains on screen as a preliminary result instead of blanking out.
@@ -105,6 +114,9 @@ confirmed solver result.
   solver. The client only dispatches
   `Increase/DecreaseOrderableDoseQuantityProperty(ntimes, useCalc)` and renders
   the result.
+- **One command in flight**: the pure `OrderContextState.transition` sends a
+  command only from `Shown`; while `Recalculating` a further command is
+  dropped, and the step buttons rest until the answer arrives.
 - **`useCalc`** flag decides whether stepping uses calculated constraints vs
   defined ones (`OrderVariable.step`).
 - **The step math** (`OrderVariable.fs`): increase = `min + N*incr`,
@@ -119,10 +131,10 @@ confirmed solver result.
 | Hop | File | Symbol |
 | --- | ---- | ------ |
 | UI stepper | `src/Informedica.GenPRES.Client/Views/Prescribe.fs` | `Increase/DecreaseOrderableDoseQuantityProperty` |
-| Elmish msg | `src/Informedica.GenPRES.Client/App.fs` | `OrderContextMsg` |
-| Server call | `src/Informedica.GenPRES.Client/App.fs` | `makeServerCall` |
+| Client machine | `src/Informedica.GenPRES.Client/OrderContextMachine.fs` | `OrderContextMsg.Command`, `OrderContextState.transition` |
+| Server call | `src/Informedica.GenPRES.Client/App.fs` | `interpretOrderContextEffect`, `OrderContextAnswered` |
 | Shared DTO | `src/Informedica.GenPRES.Shared/Api.fs` | `OrderContextCommand` |
-| Server cmd | `src/Informedica.GenPRES.Server/ServerApi.Command.fs` | `processCmd` |
+| Server cmd | `src/Informedica.GenPRES.Server/ServerApi.OrderContextCommand.fs` | `processCmd` |
 | Server service | `src/Informedica.GenPRES.Server/ServerApi.Services.fs` | `OrderContext.evaluate` |
 | GenORDER eval | `src/Informedica.GenORDER.Lib/Api.fs` | `evaluate` / `processPropertyCmd` |
 | Pipeline | `src/Informedica.GenORDER.Lib/OrderProcessor.fs` | `processPipeline` |

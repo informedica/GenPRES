@@ -380,6 +380,11 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 
 ## As built
 
+Built as planned, in fourteen PRs, every one under review before the next started; the wire and
+server steps script-first (`Shared/Scripts/Api.fsx` and `Server/Scripts/Plan.fsx`, rewritten per
+step) with the migration applied by the maintainer's word, the client steps edited directly.
+Every step left the build, the tests, Fantomas and the dependency rule green.
+
 | Step | PR | Landed |
 |---|---|---|
 | plan | #671 | this document; the pointer in plan 654 |
@@ -394,7 +399,8 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 | 9, `OrderPlanMachine.fs` and its tests | #683 | `OrderPlanState`, `OrderPlanMsg`, `OrderPlanEffect`, `OrderPlanState.transition`, linked into the shared tests; not wired; review: the interactions checked on every answer |
 | 10, the order-plan machine wired | #684 | `State.OrderPlan: OrderPlanState`, `interpretOrderPlanEffect`, the answer told to the Session and handed to the machine under its request; the six plan handlers, the patient check and the pending-open marker gone; review: only the interactions notice withdrawn, the step buttons rest while loading |
 | 11, `OrderContextMachine.fs` and its tests | #685 | `OrderContextState`, `OrderContextMsg`, `OrderContextEffect`, `OrderContextState.transition`, linked into the shared tests; not wired |
-| 12, the order-context machine wired | this PR | `State.OrderContext: OrderContextState`, `interpretOrderContextEffect`, the seeds from the url and the menu, the reset on a prescribed order, the filter syncs in the fold; `handleOrderContext` and the workbench handlers gone |
+| 12, the order-context machine wired | #686 | `State.OrderContext: OrderContextState`, `interpretOrderContextEffect`, the seeds from the url and the menu, the reset on a prescribed order, the filter syncs in the fold; `handleOrderContext` and the workbench handlers gone; review: a refusal restores the context last evaluated and the pages' filters with it, a patient change keeps the selection in flight |
+| 13, docs | this PR | the domain document's API paragraph and DTOs, the glossary rows for the order plan, the order category and the context in the plan, the stepping-flow diagram, plan 654's open items closed |
 
 ### Deviations from the text above
 
@@ -423,3 +429,23 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
   `AddContext` for two ways of adding a context to the plan. The final family names every case
   after what it acts on: `AddOrderContext`, `NewOrderContext`, `RemoveOrderContexts`. The interim
   names stay until the deletion step, so that the steps in between stay additive.
+- **A refusal restores the last context evaluated, and the pages' filters with it.** Review of
+  step 12: the workbench's busy state keeps the context sent, which the page shows meanwhile,
+  next to the one the request found, and a refusal restores the found one, since the sent one's
+  order and texts were never confirmed; the formulary and the parenteralia, which the evaluation
+  had taken along, are restored to its filter too. A patient change while a selection is in
+  flight evaluates the selection for the new patient rather than the context found.
+
+### Left open
+
+- A patient change with orders in the plan leaves the orders calculated for the patient their
+  context was created with, while the plan's patient and totals follow the edit, as before this
+  plan; replacing an order for new patient data, or guarding the signature, is
+  [#672](https://github.com/informedica/GenPRES/issues/672).
+- A browser tab left open across a deployment keeps the previous bundle and fails its next
+  call; telling it to reload is [#682](https://github.com/informedica/GenPRES/issues/682).
+- The pages read the machines through a `Deferred` projection; reading `OrderPlanState` and
+  `OrderContextState` directly would let a page show which request is in flight. Optional.
+- A change sent while the plan or the workbench is busy is dropped, the controls greyed
+  meanwhile; a pending slot in the machines would keep the latest instead. Left out of the
+  first version by decision; add it when the pages ask for it.
