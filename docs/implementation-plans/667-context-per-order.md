@@ -115,14 +115,21 @@ session and signing machines.
       | Recalculate of OrderPlan
       // the signed version as it was, nothing evaluated; the patient with no contexts is the empty plan
       | Open of Patient * OrderContext[]
-      // the prescribing workbench, narrowed to one scenario, into the plan as a drug context
-      | AddOrder of OrderPlan * OrderContext
-      | AddContext of OrderPlan * NutritionCategory
+      // a workbench evaluated elsewhere, narrowed to one scenario, into the plan as it is
+      | AddOrderContext of OrderPlan * OrderContext
+      // a fresh workbench for a nutrition category, its filter discovered
+      | NewOrderContext of OrderPlan * NutritionCategory
       // an order-context command evaluated over the context named, in that context's own patient
       | Navigate of OrderPlan * contextId: string * OrderContextCommand * OrderContext
       // every kind; a feeding takes its supplements with it
-      | RemoveContexts of OrderPlan * ids: string[]
+      | RemoveOrderContexts of OrderPlan * ids: string[]
   ```
+
+  Every case names an order context, since every one acts on the plan's `OrderContexts`. Until
+  the deletion step the new cases carry interim names next to the old ones: `AddOrder` (for
+  `AddOrderContext`), `AddContext` (for `NewOrderContext`) and `RemoveContexts` (for
+  `RemoveOrderContexts`); the deletion step renames them, a qualified-access rename with no
+  behaviour change.
 
   `RemoveOrders`, `RemoveContext` and the `None` branch of `Navigate` go. New cases are added
   beside the old ones and the old ones deleted in a later step, so that every step compiles on
@@ -319,9 +326,11 @@ Fable compile and Fantomas green. Wire changes are additive first and deleted la
    `IOrderPlan`; `withOrders` and the following bookkeeping deleted; totals by filtered context.
    About 160 lines. Tests: totals by filtered context id; a re-evaluated context keeps its place
    in the filter; the duplicate check over derived orders.
-8. **Delete the old cases** (`refactor`): `Navigate` by id only, `RemoveContext`,
-   `RemoveOrders`, the `None` branch and `removeOrders`, `fromOrderScenario`; the nutrition
-   page's `Some ncId` becomes `ncId`. About 120 lines. Tests: the dispatch case.
+8. **Delete the old cases and settle the names** (`refactor`): `Navigate` by id only,
+   `RemoveContext`, `RemoveOrders`, the `None` branch and `removeOrders`, `fromOrderScenario`;
+   the nutrition page's `Some ncId` becomes `ncId`; `AddOrder`, `AddContext` and
+   `RemoveContexts` renamed `AddOrderContext`, `NewOrderContext` and `RemoveOrderContexts`, with
+   their port members and service functions. About 150 lines. Tests: the dispatch case, the log.
 9. **`PlanMachine.fs` and its tests**, not wired. About 190 lines. Tests: the lifecycle; a stale
    answer dropped by request id; a patient change while in flight; `Cart` to `Open`;
    `PatientChanged` to `Open` or `Recalculate`; a refused change restores the plan; `Select`
@@ -382,3 +391,7 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
   leaving the plan before `AddOrder` existed; a drug order added from the prescribing page has
   no context until then, so both would have dropped drug orders. `AddOrder` and
   `RemoveContexts` now come first, the views next, the signed record and the wire cleanup after.
+- **The command names say "order context".** Review of step 4 found `AddOrder` next to
+  `AddContext` for two ways of adding a context to the plan. The final family names every case
+  after what it acts on: `AddOrderContext`, `NewOrderContext`, `RemoveOrderContexts`. The interim
+  names stay until the deletion step, so that the steps in between stay additive.
