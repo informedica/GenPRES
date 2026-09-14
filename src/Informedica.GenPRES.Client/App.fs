@@ -354,16 +354,6 @@ module private Elmish =
             { state with InteractionDrugNames = Resolved names }, Cmd.none
 
 
-    /// The workbench as the pages read it: a seed shows its filter while it waits.
-    let orderContextToDeferred (state: OrderContextState) : Deferred<OrderContext> =
-        match state with
-        | OrderContextState.NoPatient -> HasNotStartedYet
-        | OrderContextState.Seeded ctx -> Resolved ctx
-        | OrderContextState.Loading _ -> InProgress
-        | OrderContextState.Shown ctx -> Resolved ctx
-        | OrderContextState.Recalculating(sent, _, _) -> Recalculating sent
-
-
     /// The plan as the pages read it: while a change is under way, the plan as the page changed
     /// it.
     let orderPlanToDeferred (state: OrderPlanState) : Deferred<OrderPlan> =
@@ -603,11 +593,11 @@ module private Elmish =
             // a medication in the url waits as the seed until the patient is set
             OrderContext =
                 match med with
-                | None -> OrderContextState.NoPatient
+                | None -> OrderContextState.noPatient
                 | Some m ->
                     OrderContext.empty
                     |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
-                    |> OrderContextState.Seeded
+                    |> OrderContextState.seeded
             // the patient reaches the plan through UpdatePatient
             OrderPlan = OrderPlanState.NoPatient
             Formulary = HasNotStartedYet
@@ -1722,7 +1712,7 @@ type private ConcreteAppEnv
         member _.LocalizationTerms = state.Localization
 
     interface AppEnv.IOrderContext with
-        member _.OrderContext = state.OrderContext |> orderContextToDeferred
+        member _.OrderContext = state.OrderContext |> OrderContextState.toDeferred
 
         member _.OrderContextMsg(cmd, ctx) =
             OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
