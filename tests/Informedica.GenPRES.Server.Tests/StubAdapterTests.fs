@@ -309,6 +309,21 @@ module SessionStubTests =
         { scenario with Order = { scenario.Order with Id = id } }
 
 
+    /// A plan over the scenarios given, each in a context of its own, as the plan holds its
+    /// orders since the version stores the contexts.
+    let planOf pat (scenarios: OrderScenario[]) =
+        { OrderPlan.create pat scenarios with
+            OrderContexts =
+                scenarios
+                |> Array.mapi (fun i sc ->
+                    { OrderContext.empty with
+                        Id = $"c-{i}"
+                        Scenarios = [| sc |]
+                    }
+                )
+        }
+
+
     /// The seal key of the tests, and another one.
     let sealKey = LaunchSeal.Key(Array.init LaunchSeal.keyLength byte)
 
@@ -2653,7 +2668,7 @@ module SessionStubTests =
 
                     test "the same order twice in the plan gets no challenge (Concept 10)" {
                         let twice =
-                            OrderPlan.create stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-1" |]
+                            planOf stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-1" |]
 
                         let state, answer =
                             stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (twice, token "s-1")
@@ -2663,8 +2678,7 @@ module SessionStubTests =
 
                         state.Challenges |> Expect.isEmpty "nothing stored"
 
-                        let once =
-                            OrderPlan.create stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
+                        let once = planOf stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
 
                         stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (once, token "s-1")
                         |> snd
@@ -2681,10 +2695,10 @@ module SessionStubTests =
                         let resolved =
                             { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn" |] }
 
+                        let drug = planOf stubPatient [| scenarioWithOrder "o-drug" |]
+
                         let plan =
-                            { OrderPlan.create stubPatient [| scenarioWithOrder "o-drug" |] with
-                                OrderContexts = [| tpn |]
-                            }
+                            { drug with OrderContexts = Array.append drug.OrderContexts [| tpn |] }
                             |> PlanService.updateContext "c-1" resolved
                             |> Result.defaultWith (fun errs -> failtest $"{errs}")
 
@@ -2697,6 +2711,49 @@ module SessionStubTests =
                         |> Map.toList
                         |> List.map (snd >> _.Scenarios >> Array.map _.Order.Id)
                         |> Expect.equal "the drug and the tpn order under the challenge" [ [| "o-drug"; "o-tpn" |] ]
+                    }
+
+                    test "orders that are not the contexts' own get no challenge" {
+                        let once = [| scenarioWithOrder "o-1" |]
+
+                        // the orders shown next to a context that holds another order
+                        let diverged =
+                            { OrderPlan.create stubPatient once with
+                                OrderContexts =
+                                    [|
+                                        { OrderContext.empty with
+                                            Id = "c-1"
+                                            Scenarios = [| scenarioWithOrder "o-9" |]
+                                        }
+                                    |]
+                            }
+
+                        stateOf [ opened ] [] |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (diverged, token "s-1")
+                        |> snd
+                        |> Expect.equal "no challenge" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+
+                        // an order shown that no context holds
+                        let extra = planOf stubPatient once
+
+                        let extra =
+                            { extra with Scenarios = Array.append extra.Scenarios [| scenarioWithOrder "o-2" |] }
+
+                        stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (extra, token "s-1")
+                        |> snd
+                        |> Expect.equal "no challenge either" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+
+                        // a re-narrowed context's order at the end of the plan's orders still matches
+                        let moved =
+                            planOf stubPatient [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
+
+                        let moved =
+                            { moved with Scenarios = [| scenarioWithOrder "o-2"; scenarioWithOrder "o-1" |] }
+
+                        stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (moved, token "s-1")
+                        |> snd
+                        |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
                     }
 
                     test "refuses when the record moved on (Rule 20): whose version, and when" {
@@ -3062,7 +3119,7 @@ module SessionStubTests =
                             submit
                                 (stateOf [ opened ] [] [ "s-1", planted ])
                                 "s-1"
-                                { submission "s-1" "0000" "k" with Plan = OrderPlan.create stubPatient twice }
+                                { submission "s-1" "0000" "k" with Plan = planOf stubPatient twice }
 
                         answer
                         |> Expect.equal "mismatch" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
@@ -3101,6 +3158,35 @@ module SessionStubTests =
                             signed.OrderContexts
                             |> Expect.equal "the version holds the two contexts" contexts
                         | other -> failtest $"expected Submitted, got {other}"
+                    }
+
+                    test "orders that are not the contexts' own are refused at the commit too" {
+                        let once = [| scenarioWithOrder "o-1" |]
+
+                        // the orders shown next to a context that holds another order
+                        let diverged =
+                            { OrderPlan.create stubPatient once with
+                                OrderContexts =
+                                    [|
+                                        { OrderContext.empty with
+                                            Id = "c-1"
+                                            Scenarios = [| scenarioWithOrder "o-9" |]
+                                        }
+                                    |]
+                            }
+
+                        let planted =
+                            { snd (challenged "s-1" t0) with
+                                Scenarios = diverged.Scenarios
+                                OrderContexts = diverged.OrderContexts
+                            }
+
+                        submit
+                            (stateOf [ opened ] [] [ "s-1", planted ])
+                            "s-1"
+                            { submission "s-1" "1234" "k" with Plan = diverged }
+                        |> snd
+                        |> Expect.equal "no commit" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
                     }
 
                     test "a context changed since the challenge is a mismatch, the PIN never looked at" {
