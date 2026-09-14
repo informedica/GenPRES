@@ -7,8 +7,8 @@ module Deferred
 /// retrieving that data is `HasNotStartedYet`, then when data is loading, the state should become
 /// `InProgress`. After some delay the data becomes available in the `Resolved` state. A value
 /// shown that the server has not confirmed is `Provisional`: the previous one while a field
-/// reloads, the one sent while a request is under way, a seed not yet evaluated; which one a
-/// lane shows is the lane's decision, made in its projection.
+/// reloads or the one sent while a request is under way; which value a lane shows is the lane's
+/// decision, made in its projection.
 type Deferred<'t> =
     | HasNotStartedYet
     | InProgress
