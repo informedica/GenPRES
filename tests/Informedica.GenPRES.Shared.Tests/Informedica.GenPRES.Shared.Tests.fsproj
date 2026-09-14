@@ -28,6 +28,8 @@
     <Compile Include="SigningPolicyTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\OrderPlanMachine.fs" />
     <Compile Include="OrderPlanMachineTests.fs" />
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\OrderContextMachine.fs" />
+    <Compile Include="OrderContextMachineTests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="scripts\CalcYearsOracle.fsx" />
