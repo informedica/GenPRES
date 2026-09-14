@@ -80,8 +80,9 @@ type Workbench =
     | NoPatient
     // a filter chosen before a patient is set: evaluated once one is
     | Seeded of OrderContext
-    // the context last evaluated for the patient held, the original a failed change goes back
-    // to; the empty one before the first answer
+    // a patient held, nothing evaluated yet (today's Loading, without the request id)
+    | Unevaluated of Patient
+    // the context last evaluated for the patient held, the original a failed change goes back to
     | Evaluated of OrderContext
 
 type OrderContextState =
@@ -96,7 +97,9 @@ type OrderContextState =
 [<RequireQualifiedAccess>]
 type Plan =
     | NoPatient
-    // the plan as answered; the empty one before the first answer
+    // a patient held, no plan answered yet (today's Loading, without the request id)
+    | Unopened of Patient
+    // the plan as answered
     | Opened of OrderPlan
 
 type OrderPlanState =
@@ -158,6 +161,56 @@ any other message:
         the rest                      -> today's effects, one to one
 ```
 
+The same, as the messages travel. An answer passes the communication stage first and reaches the
+domain stage only when it lands; a command passes the domain stage first and reaches the
+communication stage as an intent, which is dropped while a request is under way:
+
+```mermaid
+sequenceDiagram
+    participant Page
+    participant App as App (update, interpreter)
+    participant T as transition (composer)
+    participant C as communication stage
+    participant D as domain stage
+    participant Server
+
+    Note over Page,Server: an answer: the communication stage first, then the domain stage
+    Server-->>App: reply to request r1
+    App->>T: Answered(r1, result)
+    T->>C: landing r1 on InFlight
+    alt r1 is the request under way
+        C-->>T: the payload sent under r1
+        T->>D: step Landed(sent, result)
+        alt Ok value
+            D-->>T: Evaluated value, intent Sync
+        else Error
+            D-->>T: unchanged, the original, intents Tell and Sync
+        end
+        T-->>App: state with InFlight cleared, and the effects
+        App->>Page: Deferred derived: Resolved
+    else stale, or nothing under way
+        C-->>T: none
+        T-->>App: state unchanged, no effects
+    end
+
+    Note over Page,Server: a command: the domain stage first, then the communication stage
+    Page->>App: Command(cmd, ctx)
+    App->>T: Command(cmd, ctx, r2), r2 minted at dispatch
+    T->>D: step Command(cmd, ctx)
+    D-->>T: unchanged, intent Call(cmd, ctx)
+    T->>C: apply Call under r2
+    alt idle
+        C-->>T: InFlight set to (cmd, ctx) under r2, effect CallContext
+        T-->>App: state and effects
+        App->>Server: processOrderContext(cmd, ctx)
+        App->>Page: Deferred derived: Recalculating ctx
+    else a request under way
+        C-->>T: dropped
+        T-->>App: state unchanged, no effects
+    end
+```
+
+
 Two arms read the payload in flight: a patient change while busy patches the new patient into it
 and re-sends it, so the selection in flight stays visible and is evaluated for the new patient;
 a patient change while an `Open` is in flight re-sends `Open` with the version's contexts. A
@@ -174,22 +227,25 @@ interpreters. The accessors `App.fs` reads keep their names: `patient` is the do
 value and the payload both; `emptyFor`, `plan`, `selected` as today.
 
 **`Deferred`, derived for the pages**, one tested function per lane, in the machine (written in
-today's case names; step 7 renames):
+today's case names; step 9 renames):
 
 ```text
 OrderContextState.toDeferred
     NoPatient,     _                   -> HasNotStartedYet
-    Seeded ctx,    _                   -> Recalculating ctx     (decision b)
+    Seeded ctx,    _                   -> Resolved ctx          (as today; decision b deferred)
+    Unevaluated _, _                   -> InProgress            (as today; decision c deferred)
     Evaluated ctx, None                -> Resolved ctx
-    Evaluated _,   Some((_, sent), _)  -> Recalculating sent    (first load: the empty workbench, decision c)
+    Evaluated _,   Some((_, sent), _)  -> Recalculating sent
 
 OrderPlanState.toDeferred, with meanwhile original = Recalculate tp -> tp | _ -> original
     NoPatient,    _                    -> HasNotStartedYet
+    Unopened _,   _                    -> InProgress            (as today; decision c deferred)
     Opened tp,    None                 -> Resolved tp
     Opened original, Some(sent, _)     -> Recalculating (meanwhile original sent)
 ```
 
-Neither lane produces `InProgress` any more; it stays for the other `Deferred` fields.
+The mapping is today's, case for case, so the split changes nothing the pages see. Decisions b
+and c, which would change it, are deferred to a follow-up proposal.
 
 ### Proposed decisions, each named, to confirm in review
 
@@ -197,8 +253,8 @@ Neither lane produces `InProgress` any more; it stays for the other `Deferred` f
 |---|---|---|---|
 | a | after a failed `Filter` the plan keeps the plan *sent* | go back to the original, as the workbench does | fix |
 | a' | both lanes patch a new patient into the original | kept: the plan's patient must stay in step with the panel and the workbench; the stale totals after a refused patient recalculation stay with #672 | – |
-| b | a seed before a patient projects `Resolved` | shown as in flight: greyed until evaluated | fix |
-| c | `Loading` projects `InProgress`, a bare spinner | `Loading` deleted; the first load and a cart open are a request over the empty value, shown greyed | fix |
+| b | a seed before a patient projects `Resolved` | deferred to a follow-up proposal: shown provisional, greyed until evaluated | later |
+| c | `Loading` projects `InProgress`, a bare spinner | deferred to a follow-up proposal: `Unevaluated` and `Unopened` deleted, the first load and a cart open a request over the empty value, shown greyed | later |
 | d | `Deferred.resolved` contradicts `Deferred.inProgress` | `resolved` and `exists` deleted; no callers | refactor |
 | e | `context` returns the context sent | kept: `context` is the value shown, `patient` the domain's | – |
 | f | `map` rewrites both copies | kept: the domain value and the payload, both | – |
@@ -210,95 +266,105 @@ Neither lane produces `InProgress` any more; it stays for the other `Deferred` f
 
 The answers change the plan; the rest is mechanics.
 
-1. **The first load and a cart open** (decision c): the empty page greyed, as proposed, or the
-   bare spinner kept through an `Opening of Patient` case in the domain DU, at the cost of one
-   case that exists only to be projected as `InProgress`?
-2. **The seed before a patient** (decision b): greyed until evaluated, as proposed, or kept
-   editable as today, with the projection lying once on purpose?
+1. **The order**: the fixes first on today's machines and the split after, as a refactoring that
+   preserves behaviour, as proposed; or the split first with the fixes riding on it?
+2. **Decisions b and c**, deferred: leave the first load's spinner and the seed's projection as
+   they are, and take them up in a follow-up proposal with a look at the pages; or drop them?
 3. **A failed patient recalculation** (decision a'): keep the new patient with stale totals in
    both lanes, as proposed, or blank the totals until #672 decides? Restoring the old patient is
    not on the table: it would put the plan out of step with the panel and the workbench.
-4. **The `Deferred` rename** (step 7): last, as proposed, so the two projections are pinned before
-   a hundred pattern-match sites move; first, so every projection test is written against the
-   final shape; or not at all, the name kept as debt?
-5. **The PR split**: one PR per lane holding a `refactor` commit and a `fix` commit, as
-   proposed, or the fix commits as PRs of their own from the start?
-6. **The session and signing machines**: a follow-up issue on this pattern once the order lanes
+4. **The `Deferred` rename** (step 9): `Provisional of 't`, last, as proposed, so the two
+   projections are pinned before the sites move; first, so every projection test is written
+   against the final name; a better word; or not at all, `Recalculating` kept as debt?
+5. **The session and signing machines**: a follow-up issue on this pattern once the order lanes
    have landed, or in scope here?
 
 ## Confidence
 
 High for the machines and their tests: the domain steps are today's arms with the request ids
 removed, the composer is one function per lane, and every arm has a test on either side of the
-change. Medium for the pages: they are not under test, the first load and the seed change what
-they show (decisions b and c), and the final rename touches about a hundred pattern-match sites
-under the Fable compile alone. That is why the rename is its own PR with nothing else in it.
+change, and the split preserves behaviour, so the existing tests are its oracle. Medium for the
+pages: they are not under test, the greying of step 2 and the rename of step 9 are guarded by the
+Fable compile alone. That is why each of the two is its own PR with nothing else in it.
 
 ## Steps
 
-Proposed as one PR per step against `master`, the client edited directly. Every step leaves
+Proposed as one PR per step against `master`, the client edited directly. The fixes come first,
+on today's machines, since none of them needs the split; the split follows as a refactoring that
+preserves behaviour, so that every existing test stays green through it. Every step leaves
 `dotnet run ServerTests`, the Fable compile, Fantomas and the dependency-rule check green.
 
 1. **This plan.**
-2. **`Deferred` in its own file** (`refactor(client)`): `src/Informedica.GenPRES.Client/Deferred.fs`
-   as the first compile item, `[<AutoOpen>]`, out of `Extensions.fs`; `resolved` and `exists`
-   deleted; the type unchanged so the pages compile untouched; linked into
-   `tests/Informedica.GenPRES.Shared.Tests` before the machines so the projections can be
-   tested. About 60 lines.
-3. **The workbench in two stages** (one PR, two commits). `refactor(client)`: `Workbench`,
-   `WorkbenchMsg`, `WorkbenchIntent`, `Workbench.step`, the record, `landing`, `transition` as
-   the composer, `toDeferred` in the machine and the one in `App.fs` deleted; the 13 tests
-   rewritten as `Workbench.step` tests without request ids plus composer tests for the four
-   invariants and the guards; the projection's four cases pinned. `fix(client)`: `Loading` gone,
-   the first load evaluates the empty workbench (c); the seed shown as in flight (b); the commit
-   body names the visible change and that the ContinuousMeds page switch no longer sends a
-   superseding reset during the first load. About 200 lines; the fix commit becomes its own PR
-   if the diff exceeds it.
-4. **The plan in two stages** (one PR, three commits). `test(client)`: the failed-change fixtures in
-   `OrderPlanMachineTests.fs` get sent ≠ original and assert today's rule, so the fix flips a real
-   assertion. `refactor(client)`: `Plan`, `PlanMsg`, `PlanIntent`, `Plan.step`, the record with
-   `Selected`, the composer, `toDeferred` with `meanwhile`, the one in `App.fs` deleted; tests
-   split as in step 3. `fix(client)`: a failed filter change goes back to the original (a); `Loading`
-   gone, the first open and a cart open over the empty plan (c); a patient change during an
-   `Open` re-sends the version's contexts (h). About 200 lines, same split rule.
-5. **The UI while a request is in flight** (`fix(client)`, decision i): `Views/Patient.fs` reads
+2. **The UI while a request is in flight** (`fix(client)`, decision i): `Views/Patient.fs` reads
    `IOrderContext.OrderContext` and `IOrderPlan.OrderPlan` and greys its selects while either is
    in progress; `Views/Formulary.fs` and `Views/Parenteralia.fs` grey their filters while the
    workbench is; the nutrition delete confirmation in `Views/Nutrition.fs` does not dispatch
    while the plan is. `Deferred.inProgress` is the one test; no `AppEnv` change. About 60 lines.
-6. **Docs** (`docs`): the case table and the invariant lines in
+   Once this is in, a patient change while a request is under way can only come from the
+   session, and the arms for it in both machines are guards.
+3. **A patient change during an open keeps the version** (`fix(client)`, decision h): the
+   `PatientChanged` arm of `OrderPlanMachine.fs` over `Loading` re-sends `Open` with the
+   contexts of the open under way instead of `Open` with none; `Loading` carries them for that.
+   One test. About 30 lines.
+4. **A failed filter change goes back to the original** (one PR, two commits, decision a).
+   `test(client)`: the failed-change fixtures in `OrderPlanMachineTests.fs` get sent ≠ original
+   and assert today's rule, so the fix flips a real assertion. `fix(client)`: the `Filter` arm
+   of `OrderPlanMachine.fs` keeps the plan held as what a failed change goes back to; the plan
+   with the new filter travels in the command only. About 40 lines.
+5. **`Deferred` in its own file** (`refactor(client)`): `src/Informedica.GenPRES.Client/Deferred.fs`
+   as the first compile item, `[<AutoOpen>]`, out of `Extensions.fs`; `resolved` and `exists`
+   deleted; the type unchanged so the pages compile untouched; linked into
+   `tests/Informedica.GenPRES.Shared.Tests` before the machines so the projections can be
+   tested. About 60 lines.
+6. **The workbench in two stages, behaviour preserved** (`refactor(client)`): `Workbench` with
+   `Unevaluated of Patient` for today's `Loading`, `WorkbenchMsg`, `WorkbenchIntent`,
+   `Workbench.step`, the record, `landing`, `transition` as the composer, `toDeferred` in the
+   machine with today's mapping case for case and the one in `App.fs` deleted; the 13 tests
+   rewritten as `Workbench.step` tests without request ids plus composer tests for the four
+   invariants and the guards; the projection's five cases pinned. No behaviour change: the
+   existing tests' expectations are the oracle. About 200 lines.
+7. **The plan in two stages, behaviour preserved** (`refactor(client)`): `Plan` with
+   `Unopened of Patient` for today's `Loading`, `PlanMsg`, `PlanIntent`, `Plan.step`, the record
+   with `Selected`, the composer, `toDeferred` with `meanwhile`, the one in `App.fs` deleted;
+   tests split as in step 6. About 200 lines.
+8. **Docs** (`docs`): the case table and the invariant lines in
    `docs/domain/dose-quantity-stepping-flow.md`; this plan's "As built". About 50 lines.
-7. **`Deferred.InProgress of 't option`** (`refactor(client)`): `Recalculating` gone; `None` when
-   nothing can be shown meanwhile, `Some` when a value stands in. Producers: the two
-   `toDeferred` functions, pinned by their tests. Consumers: every `| InProgress ->` becomes
-   `| InProgress _ ->` (the plain-load fields included), every `| Recalculating v ->` becomes
-   `| InProgress(Some v) ->`; `ViewHelpers.progressOrEmpty` keeps the spinner for `None` and
-   nothing for `Some`; the helpers follow. About a hundred mechanical sites in `Views/`,
-   `Pages/`, `Components/` and `App.fs`; the rename alone, nothing else in the diff. Known and
-   accepted: the two lanes never produce `None` and the plain-load fields never `Some`. About
-   200 lines.
+9. **`Deferred.Provisional of 't`** (`refactor(client)`): `Recalculating of 't` renamed, one word at
+   64 sites and nothing else in the diff. The case says what every lane has in common: a value
+   shown that the server has not confirmed, whether it is the previous one while a plain field
+   reloads, the one sent while the workbench waits, or a seed with nothing under way yet. Which
+   provisional value a lane shows is the lane's decision, made in its `toDeferred`, and the
+   type and its helpers know only confirmed or not. Names weighed and set aside: `Reloading` and
+   `Updating` claim the value shown is the previous one, false for the workbench; `Busy` says
+   nothing about the value; `Pending` and `Awaiting` read as waiting *for* the value.
+   `Deferred.inProgress` stays as the greying test the views use; it is true for a seed too,
+   which is what the views want. About 70 lines.
+
+After step 9, decisions b and c are a follow-up proposal of their own: `Unevaluated` and
+`Unopened` deleted, the first load and a cart open a request over the empty value shown greyed,
+the seed shown provisional. They change what the pages show and deserve a look at the pages
+first.
 
 ## Acceptance
 
 Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 
-- Set a patient: the prescribing page and the plan show the empty page greyed, then enabled.
-- Open the app with a medication in the url and no patient: the seed shows greyed; set the
-  patient: it is evaluated.
-- Pick a generic: while the spinner shows, the patient panel and the formulary filters are
-  greyed; afterwards change the weight: the generic picked stays and is evaluated for the new
-  patient. Put an unknown generic in the url: the snackbar
-  says why and the context last evaluated returns.
+- Pick a generic: while the spinner shows, the patient panel and the formulary and parenteralia
+  filters are greyed; afterwards change the weight: the generic picked stays and is evaluated
+  for the new patient. Put an unknown generic in the url: the snackbar says why and the context
+  last evaluated returns.
 - On the plan page check rows and force a failed change: the rows return to the original.
-- Sign, then reload: the cart opens showing the empty plan greyed, then the version.
+- A patient change during an open is unreachable from the pages after step 2; step 3 is
+  covered by its test.
 - Two browsers on one patient: a reopen arriving while a step is in flight wins.
-- In the Network tab: no extra `processOrderContext` on the ContinuousMeds page switch during
-  the first load.
+- After steps 6 and 7 every page looks and behaves as before them: the first load's spinner,
+  the seed's selects, the greyed page while a request is under way.
 - `dotnet run ServerTests`, the Fable compile, Fantomas and the dependency-rule check stay green
   after every step.
 
 ## Left open
 
+- Decisions b and c, the first load and the seed shown provisional, as a follow-up proposal.
 - `SessionMachine` (`Launching` with its attempt count, `Resuming`, `Closing`) and
   `SigningMachine` (`Requesting`, `Submitting`, `Unsent`) split the same way;
   `SessionGatePolicy`'s busy flag then reads the in-flight field.
