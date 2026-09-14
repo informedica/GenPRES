@@ -306,14 +306,14 @@ module GenPres =
             | Global.Pages.Prescribe ->
                 match orderContext with
                 | Resolved pr
-                | Recalculating pr -> Views.Totals.View {| intake = pr.Intake |} |> Some
+                | Provisional pr -> Views.Totals.View {| intake = pr.Intake |} |> Some
                 | _ -> None
             // the one plan: the nutrition page shows the plan's totals, nutrition included
             | Global.Pages.Nutrition
             | Global.Pages.OrderPlan ->
                 match orderPlan with
                 | Resolved tp
-                | Recalculating tp -> Views.Totals.View {| intake = tp.Totals |} |> Some
+                | Provisional tp -> Views.Totals.View {| intake = tp.Totals |} |> Some
                 | _ -> None
             | _ -> None
 

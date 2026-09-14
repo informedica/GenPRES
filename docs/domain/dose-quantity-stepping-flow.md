@@ -52,7 +52,7 @@ flowchart TD
 
 The client does **not** block while the server re-solves. It shows a
 *preliminary* stepped value immediately using local delta state, keeps the
-context it sent visible (`Deferred.Recalculating`), and reconciles when the
+context it sent visible (`Deferred.Provisional`), and reconciles when the
 server answer arrives. Rapid clicks accumulate into the delta and the click
 count until the debounced button fires one command; while that command is in
 flight the step buttons rest, since the machine drops a command sent while one
@@ -65,7 +65,7 @@ flowchart TD
     PRELIM["Render PRELIMINARY label<br/>stepFn(smallDelta, largeDelta)<br/>key stays = server value<br/>SimpleSelect.fs"]
     DISPATCH["debounce fires: dispatch OrderContextMsg.Command<br/>(Increase/DecreaseOrderableDoseQuantityProperty(n, useCalc), ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
 
-    REC["Workbench.Evaluated held stays; InFlight = ((cmd, sent), request)<br/>projected as Deferred.Recalculating sent<br/>OrderContextState.toDeferred, OrderContextMachine.fs"]
+    REC["Workbench.Evaluated held stays; InFlight = ((cmd, sent), request)<br/>projected as Deferred.Provisional sent<br/>OrderContextState.toDeferred, OrderContextMachine.fs"]
     KEEP["No spinner on the field: isOptimisticStep = true<br/>Order.fs<br/>step buttons rest while loading: stepsRest<br/>SimpleSelect.fs<br/>a command while busy is dropped by the machine"]
 
     SERVER(["Server re-solve round-trip<br/>(see main flow above)"])
@@ -107,10 +107,10 @@ The pages read the workbench as a `Deferred<OrderContext>` projected from
 | ---- | ------------- | ------- | --------- |
 | `HasNotStartedYet` | `Workbench.NoPatient` | no patient, no workbench | empty |
 | `InProgress` | `Workbench.Unevaluated`, the first evaluation under way | in flight, **no** prior value | loading placeholder / spinner |
-| `Recalculating of 't` | `Workbench.Evaluated held`, `InFlight ((cmd, sent), request)` | in flight, **the context sent kept** | preliminary value stays visible |
+| `Provisional of 't` | `Workbench.Evaluated held`, `InFlight ((cmd, sent), request)` | in flight, **the context sent kept**, not yet confirmed | preliminary value stays visible |
 | `Resolved of 't` | `Workbench.Evaluated ctx` with nothing under way; `Workbench.Seeded` | answer received, or a filter seeded from the url | confirmed value |
 
-Stepping uses **`Recalculating`** (not `InProgress`), which is why the previous
+Stepping uses **`Provisional`** (not `InProgress`), which is why the previous
 dose quantity remains on screen as a preliminary result instead of blanking out.
 The orange nodes are the preliminary (awaiting-server) phase; green is the
 confirmed solver result.

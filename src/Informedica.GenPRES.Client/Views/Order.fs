@@ -73,7 +73,7 @@ module Order =
             let ord, cmp, itm =
                 match ctx with
                 | Resolved ctx
-                | Recalculating ctx ->
+                | Provisional ctx ->
                     match ctx.Scenarios with
                     | [| sc |] ->
 
@@ -690,7 +690,7 @@ module Order =
         let useAdjust =
             match props.orderContext with
             | Resolved pr
-            | Recalculating pr ->
+            | Provisional pr ->
                 pr.Scenarios
                 |> Array.tryExactlyOne
                 |> Option.map _.UseAdjust
@@ -931,7 +931,7 @@ module Order =
                 originalDispatch msg
 
         // Use local state order when available, otherwise fall back to the
-        // order carried by the parent Deferred (Recalculating case) so that
+        // order carried by the parent Deferred (Provisional case) so that
         // the UI stays populated while the server is processing.
         let displayOrder =
             state.Order

@@ -5,12 +5,14 @@ module Deferred
 
 /// Type that represents data which is loaded from an external source. Initially the process of
 /// retrieving that data is `HasNotStartedYet`, then when data is loading, the state should become
-/// `InProgress`. After some delay the data becomes available in the `Resolved` state. While a
-/// request is under way over a value already held, the value shown meanwhile is `Recalculating`.
+/// `InProgress`. After some delay the data becomes available in the `Resolved` state. A value
+/// shown that the server has not confirmed is `Provisional`: the previous one while a field
+/// reloads or the one sent while a request is under way; which value a lane shows is the lane's
+/// decision, made in its projection.
 type Deferred<'t> =
     | HasNotStartedYet
     | InProgress
-    | Recalculating of 't
+    | Provisional of 't
     | Resolved of 't
 
 
@@ -21,7 +23,7 @@ module Deferred =
         match deferred with
         | HasNotStartedYet -> HasNotStartedYet
         | InProgress -> InProgress
-        | Recalculating value -> Recalculating(transform value)
+        | Provisional value -> Provisional(transform value)
         | Resolved value -> Resolved(transform value)
 
 
@@ -30,7 +32,7 @@ module Deferred =
         function
         | HasNotStartedYet -> false
         | InProgress -> true
-        | Recalculating _ -> true
+        | Provisional _ -> true
         | Resolved _ -> false
 
 
@@ -41,7 +43,7 @@ module Deferred =
         match deferred with
         | HasNotStartedYet -> HasNotStartedYet
         | InProgress -> InProgress
-        | Recalculating value -> transform value
+        | Provisional value -> transform value
         | Resolved value -> transform value
 
 
@@ -49,7 +51,7 @@ module Deferred =
         function
         | HasNotStartedYet
         | InProgress -> defVal
-        | Recalculating value -> value
+        | Provisional value -> value
         | Resolved value -> value
 
 
@@ -57,5 +59,5 @@ module Deferred =
         function
         | HasNotStartedYet
         | InProgress -> None
-        | Recalculating value -> Some value
+        | Provisional value -> Some value
         | Resolved value -> Some value
