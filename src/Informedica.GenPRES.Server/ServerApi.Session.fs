@@ -448,7 +448,7 @@ module Session =
     type Notice =
         {
             Nonce: string
-            Data: Patient option
+            Data: PatientDto option
             Expiry: DateTime
         }
 
@@ -459,11 +459,11 @@ module Session =
     type Challenge =
         {
             Nonce: string
-            Patient: Patient
+            Patient: PatientDto
             // the contexts as challenged, their orders inside: what the version stores
             OrderContexts: OrderContext[]
             // the platform's reading at the challenge, none when it could not be read
-            Reading: Patient option
+            Reading: PatientDto option
             Expiry: DateTime
         }
 
@@ -596,14 +596,14 @@ module Session =
     /// without one, the patient data of the head of the record, the last seen; from nothing,
     /// an empty patient, so that a data outage does not block prescribing.
     let sessionPatient
-        (patientData: string -> Patient option)
+        (patientData: string -> PatientDto option)
         (patientId: string)
         (head: SignedOrderPlan option)
-        : Patient
+        : PatientDto
         =
         patientData patientId
         |> Option.orElse (head |> Option.map _.Patient)
-        |> Option.defaultValue Shared.Models.Patient.empty
+        |> Option.defaultValue Shared.Models.PatientDto.empty
 
 
     /// The open, one act, from whatever carried the launch this far: a LaunchRecord at the
@@ -613,7 +613,7 @@ module Session =
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
-        (patientData: string -> Patient option)
+        (patientData: string -> PatientDto option)
         (patientId: string)
         (key: PublicKey)
         (user: UserContext)
@@ -756,7 +756,7 @@ module Session =
         (codeMac: string -> byte[])
         (redeem: string -> BrowserIdentity option)
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: string -> Patient option)
+        (patientData: string -> PatientDto option)
         (send: Mail -> unit)
         (state: State)
         (cb: Callback)
@@ -863,7 +863,7 @@ module Session =
         (newSalt: int -> byte[])
         (codeMac: string -> byte[])
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: string -> Patient option)
+        (patientData: string -> PatientDto option)
         (send: Mail -> unit)
         (attempt: string)
         (code: string)
@@ -1067,7 +1067,7 @@ module Session =
     let challenge
         (now: DateTime)
         (newId: unit -> string)
-        (patientData: string -> Patient option)
+        (patientData: string -> PatientDto option)
         (sid: string)
         (plan: OrderPlan, opened: OpenedToken, notice: string option)
         (state: State)

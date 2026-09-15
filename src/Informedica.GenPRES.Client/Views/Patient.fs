@@ -19,7 +19,7 @@ module Patient =
         module Patient = Patient
 
 
-        type State = Patient option
+        type State = PatientDto option
 
 
         type Msg =
@@ -46,25 +46,25 @@ module Patient =
             let state =
                 match msg with
                 | Clear -> None
-                | UpdateYear s -> state |> Patient.setYear s
-                | UpdateMonth s -> state |> Patient.setMonth s
-                | UpdateWeek s -> state |> Patient.setWeek s
-                | UpdateDay s -> state |> Patient.setDay s
-                | UpdateWeight s -> state |> Patient.setWeight s
-                | UpdateHeight s -> state |> Patient.setHeight s
-                | UpdateGAWeek s -> state |> Patient.setGAWeek s
-                | UpdateGADay s -> state |> Patient.setGADay s
-                | UpdateRenal s -> state |> Patient.setRenal s
+                | UpdateYear s -> state |> PatientDto.setYear s
+                | UpdateMonth s -> state |> PatientDto.setMonth s
+                | UpdateWeek s -> state |> PatientDto.setWeek s
+                | UpdateDay s -> state |> PatientDto.setDay s
+                | UpdateWeight s -> state |> PatientDto.setWeight s
+                | UpdateHeight s -> state |> PatientDto.setHeight s
+                | UpdateGAWeek s -> state |> PatientDto.setGAWeek s
+                | UpdateGADay s -> state |> PatientDto.setGADay s
+                | UpdateRenal s -> state |> PatientDto.setRenal s
                 | UpdateGender s ->
                     state
-                    |> Option.defaultValue Patient.empty
+                    |> Option.defaultValue PatientDto.empty
                     |> (fun p ->
                         { p with
-                            Patient.Weight.Measured = None
-                            Patient.Height.Measured = None
+                            PatientDto.Weight.Measured = None
+                            PatientDto.Height.Measured = None
 
-                            Patient.Weight.Estimated = None
-                            Patient.Height.Estimated = None
+                            PatientDto.Weight.Estimated = None
+                            PatientDto.Height.Estimated = None
 
                             Gender =
                                 match s with
@@ -74,15 +74,15 @@ module Patient =
                         }
                     )
                     |> Some
-                | ToggleCVL -> state |> Patient.toggleCVL
-                | TogglePVL -> state |> Patient.togglePVL
-                | ToggleET -> state |> Patient.toggleET
+                | ToggleCVL -> state |> PatientDto.toggleCVL
+                | TogglePVL -> state |> PatientDto.togglePVL
+                | ToggleET -> state |> PatientDto.toggleET
 
             state |> dispatch
             state, Cmd.none
 
 
-        let canCalculate (pat: Patient option) : bool =
+        let canCalculate (pat: PatientDto option) : bool =
             match pat with
             | None -> false
             | Some p -> p.Weight.Measured.IsSome && p.Height.Measured.IsSome

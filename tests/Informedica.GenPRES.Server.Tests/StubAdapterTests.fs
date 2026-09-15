@@ -84,7 +84,7 @@ module StubAdapters =
         {
             formulary = formulary
             orderContext = orderContext
-            orderPlan = planAlwaysOk (OrderPlan.create Models.Patient.empty [||])
+            orderPlan = planAlwaysOk (OrderPlan.create Models.PatientDto.empty [||])
             interaction =
                 {
                     checkInteractions = fun _ -> async { return Ok [] }
@@ -623,7 +623,7 @@ module SessionStubTests =
                                 PatientId = "patient-1"
                                 Base = (if no > 1 then Some $"plan-{no - 1}" else None)
                                 OrderContexts = [||]
-                                Patient = Shared.Models.Patient.empty
+                                Patient = Shared.Models.PatientDto.empty
                                 Verified = true
                             }
 
@@ -657,7 +657,7 @@ module SessionStubTests =
 
                     test "no-data over a record: the Session opens on the patient the head was signed on (#640)" {
                         let ids, d = fixture ()
-                        let entered = { Shared.Models.Patient.empty with Department = Some "ICU" }
+                        let entered = { Shared.Models.PatientDto.empty with Department = Some "ICU" }
 
                         let signed: SignedOrderPlan =
                             {
@@ -698,7 +698,7 @@ module SessionStubTests =
 
                     test "a reading wins over the patient the head was signed on (Concept 2, #640)" {
                         let ids, d = fixture ()
-                        let entered = { Shared.Models.Patient.empty with Department = Some "ICU" }
+                        let entered = { Shared.Models.PatientDto.empty with Department = Some "ICU" }
 
                         let signed: SignedOrderPlan =
                             {
@@ -885,7 +885,10 @@ module SessionStubTests =
                         | CallbackResult.Opened(id, _) ->
                             let ctx = state.Sessions[id].Session.PatientContext
                             ctx |> Option.map _.PatientId |> Expect.equal "patient id" (Some "no-data")
-                            ctx |> Option.map _.Patient |> Expect.equal "empty patient" (Some Patient.empty)
+
+                            ctx
+                            |> Option.map _.Patient
+                            |> Expect.equal "empty patient" (Some PatientDto.empty)
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -1945,7 +1948,7 @@ module SessionStubTests =
                     PatientId = "pat-1"
                     Base = if no > 1 then Some $"plan-{no - 1}" else None
                     OrderContexts = [||]
-                    Patient = Shared.Models.Patient.empty
+                    Patient = Shared.Models.PatientDto.empty
                     Verified = true
                 }
 
@@ -1965,7 +1968,7 @@ module SessionStubTests =
                                 |> Option.map (fun pid ->
                                     {
                                         PatientId = pid
-                                        Patient = Shared.Models.Patient.empty
+                                        Patient = Shared.Models.PatientDto.empty
                                     }
                                 )
                             OpenedToken = Some(OpenedToken $"opened-{sid}")
@@ -2139,7 +2142,7 @@ module SessionStubTests =
                     PatientId = "pat-1"
                     Base = if no > 1 then Some $"plan-{no - 1}" else None
                     OrderContexts = [||]
-                    Patient = Shared.Models.Patient.empty
+                    Patient = Shared.Models.PatientDto.empty
                     Verified = true
                 }
 
@@ -2159,7 +2162,7 @@ module SessionStubTests =
                                 |> Option.map (fun pid ->
                                     {
                                         PatientId = pid
-                                        Patient = Shared.Models.Patient.empty
+                                        Patient = Shared.Models.PatientDto.empty
                                     }
                                 )
                             OpenedToken = Some(OpenedToken $"opened-{sid}")
@@ -2174,9 +2177,9 @@ module SessionStubTests =
             let challenged sid : Session.Challenge =
                 {
                     Nonce = $"c-{sid}"
-                    Patient = Shared.Models.Patient.empty
+                    Patient = Shared.Models.PatientDto.empty
                     OrderContexts = [||]
-                    Reading = Some Shared.Models.Patient.empty
+                    Reading = Some Shared.Models.PatientDto.empty
                     Expiry = t0.AddMinutes 2.0
                 }
 
@@ -4217,7 +4220,7 @@ module SessionStubTests =
             let patient =
                 opened.PatientContext
                 |> Option.map _.Patient
-                |> Option.defaultValue Shared.Models.Patient.empty
+                |> Option.defaultValue Shared.Models.PatientDto.empty
 
             SigningCommand.RequestSignChallenge(OrderPlan.create patient [||], opened.OpenedToken.Value, None)
 
@@ -4233,7 +4236,7 @@ module SessionStubTests =
                             env
                             cookie
                             (SigningCommand.RequestSignChallenge(
-                                OrderPlan.create Shared.Models.Patient.empty [||],
+                                OrderPlan.create Shared.Models.PatientDto.empty [||],
                                 OpenedToken "x",
                                 None
                             ))
@@ -4273,7 +4276,7 @@ module SessionStubTests =
                             env
                             cookie
                             (SigningCommand.RequestSignChallenge(
-                                OrderPlan.create Shared.Models.Patient.empty [||],
+                                OrderPlan.create Shared.Models.PatientDto.empty [||],
                                 OpenedToken "stale",
                                 None
                             ))
@@ -4307,7 +4310,7 @@ module SessionStubTests =
 
                         let accepted =
                             SigningCommand.RequestSignChallenge(
-                                OrderPlan.create Shared.Models.Patient.empty [||],
+                                OrderPlan.create Shared.Models.PatientDto.empty [||],
                                 opened.OpenedToken.Value,
                                 Some notice.Token
                             )
@@ -4507,7 +4510,7 @@ module SessionStubTests =
                             env
                             cookie
                             (SigningCommand.RequestSignChallenge(
-                                OrderPlan.create Shared.Models.Patient.empty [||],
+                                OrderPlan.create Shared.Models.PatientDto.empty [||],
                                 OpenedToken "opened-s-1",
                                 None
                             ))
@@ -4518,7 +4521,7 @@ module SessionStubTests =
 
                 test "the log never sees the plan" {
                     SigningCommand.RequestSignChallenge(
-                        OrderPlan.create Shared.Models.Patient.empty [||],
+                        OrderPlan.create Shared.Models.PatientDto.empty [||],
                         OpenedToken "x",
                         None
                     )
@@ -5096,7 +5099,7 @@ module PlanTests =
         }
 
     let plan contexts =
-        OrderPlan.create Models.Patient.empty contexts
+        OrderPlan.create Models.PatientDto.empty contexts
 
     let ids (p: OrderPlan) =
         OrderPlan.orders p |> Array.map _.Order.Id
@@ -5375,15 +5378,15 @@ module PlanTests =
                     let wide =
                         context "c-w" NutritionCategory.TPN [| scenarioWithOrder "o-1"; scenarioWithOrder "o-2" |]
 
-                    let p = OrderPlanService.openWith Models.Patient.empty [| stepped; wide |]
+                    let p = OrderPlanService.openWith Models.PatientDto.empty [| stepped; wide |]
 
                     p.OrderContexts
                     |> Expect.equal "the contexts as given, pick lists and all" [| stepped; wide |]
 
                     ids p |> Expect.equal "the narrowed one's order" [| "o-p" |]
 
-                    OrderPlanService.openWith Models.Patient.empty [||]
-                    |> Expect.equal "no contexts: the empty plan" (OrderPlan.create Models.Patient.empty [||])
+                    OrderPlanService.openWith Models.PatientDto.empty [||]
+                    |> Expect.equal "no contexts: the empty plan" (OrderPlan.create Models.PatientDto.empty [||])
                 }
 
                 testAsync "processOrderPlan dispatches each case to the plan port" {
@@ -5424,7 +5427,7 @@ module PlanTests =
                         OrderPlanCommand.processCmd env (OrderPlanCommand.NewOrderContext(p, NutritionCategory.TPN))
 
                     let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.RemoveOrderContexts(p, [| "c-1" |]))
-                    let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.Open(Models.Patient.empty, [||]))
+                    let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.Open(Models.PatientDto.empty, [||]))
 
                     answered.Value
                     |> List.rev
@@ -5462,7 +5465,7 @@ module PlanTests =
                     OrderPlanCommand.toString (OrderPlanCommand.RemoveOrderContexts(p, [| "c-1"; "c-2" |]))
                     |> Expect.equal "the count" "RemoveOrderContexts 2"
 
-                    OrderPlanCommand.toString (OrderPlanCommand.Open(Models.Patient.empty, [| OrderContext.empty |]))
+                    OrderPlanCommand.toString (OrderPlanCommand.Open(Models.PatientDto.empty, [| OrderContext.empty |]))
                     |> Expect.equal "the count, never the contexts" "Open 1"
                 }
             ]

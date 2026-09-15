@@ -749,7 +749,7 @@ module OrderPlanService =
     /// The plan opened on a signed version: the contexts as they were, nothing evaluated, so the
     /// pick lists, the candidates and the stepped values are what was signed. The patient with no
     /// contexts is the empty plan.
-    let openWith (pat: Patient) (contexts: OrderContext[]) : OrderPlan = Models.OrderPlan.create pat contexts
+    let openWith (pat: PatientDto) (contexts: OrderContext[]) : OrderPlan = Models.OrderPlan.create pat contexts
 
 
     /// The plan with its totals recomputed over the orders of the contexts the filter keeps, all
