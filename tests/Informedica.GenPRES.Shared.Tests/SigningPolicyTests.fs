@@ -12,7 +12,7 @@ open SigningPolicy
 
 module Fixtures =
 
-    let patient = Shared.Models.Patient.empty
+    let patient = Shared.Models.PatientDto.empty
 
     let userOf role =
         {

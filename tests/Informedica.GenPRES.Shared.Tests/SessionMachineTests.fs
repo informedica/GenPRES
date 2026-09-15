@@ -37,7 +37,7 @@ module SessionMachineTests =
             Head = None
         }
 
-    let patient = Shared.Models.Patient.empty
+    let patient = Shared.Models.PatientDto.empty
 
     let full = sessionWith (Some "thumb") (Some patient)
 
