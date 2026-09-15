@@ -609,6 +609,44 @@ module Models =
             { (pat |> Patient.get) with Weight = { pat.Weight with Measured = gr |> Some } }
 
 
+        /// The estimates written, the measured values left as they are.
+        let withEstimates
+            (ew: (int<gram> * int<gram> * int<gram>) option)
+            (eh: (int<cm> * int<cm> * int<cm>) option)
+            (pat: PatientDto)
+            =
+            { pat with
+                Weight =
+                    { pat.Weight with
+                        EstimatedP3 = ew |> Option.map (fun (p3, _, _) -> p3)
+                        Estimated = ew |> Option.map (fun (_, m, _) -> m)
+                        EstimatedP97 = ew |> Option.map (fun (_, _, p97) -> p97)
+                    }
+                Height =
+                    { pat.Height with
+                        EstimatedP3 = eh |> Option.map (fun (p3, _, _) -> p3)
+                        Estimated = eh |> Option.map (fun (_, m, _) -> m)
+                        EstimatedP97 = eh |> Option.map (fun (_, _, p97) -> p97)
+                    }
+            }
+
+
+        /// The gender chosen: the estimates go, since they follow the gender; the measured values
+        /// stay, since they do not.
+        let setGender (s: string) (p: PatientDto option) : PatientDto option =
+            let gender =
+                match s with
+                | "male" -> Male
+                | "female" -> Female
+                | _ -> UnknownGender
+
+            p
+            |> Option.defaultValue empty
+            |> withEstimates None None
+            |> fun p -> { p with Gender = gender }
+            |> Some
+
+
         let applyNormalValues
             (normalWeights: NormalValue list option)
             (normalHeights: NormalValue list option)
@@ -714,22 +752,8 @@ module Models =
 
                         weight, height
 
-            { pat with
-                Weight =
-                    { pat.Weight with
-                        EstimatedP3 = ew |> Option.map (fun (p3, _, _) -> p3)
-                        Estimated = ew |> Option.map (fun (_, m, _) -> m)
-                        EstimatedP97 = ew |> Option.map (fun (_, _, p97) -> p97)
-                        Measured = pat.Weight.Measured |> Option.orElse (ew |> Option.map (fun (_, m, _) -> m))
-                    }
-                Height =
-                    { pat.Height with
-                        EstimatedP3 = eh |> Option.map (fun (p3, _, _) -> p3)
-                        Estimated = eh |> Option.map (fun (_, m, _) -> m)
-                        EstimatedP97 = eh |> Option.map (fun (_, _, p97) -> p97)
-                        Measured = pat.Height.Measured |> Option.orElse (eh |> Option.map (fun (_, m, _) -> m))
-                    }
-            }
+            // the estimate stays an estimate: the measured values hold what was entered or read
+            pat |> withEstimates ew eh
 
 
         let setYear s (p: PatientDto option) =
