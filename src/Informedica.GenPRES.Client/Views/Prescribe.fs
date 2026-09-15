@@ -28,6 +28,7 @@ module Prescribe =
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
         let planCommand = envOrderPlan.OrderPlanCommand
+        let draft = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
 
         let localizationTerms =
             (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
@@ -136,6 +137,38 @@ module Prescribe =
                 |}
 
         let autoComplete = ViewHelpers.autoComplete isAnythingLoading
+
+        // a patient without an age loses every dose rule with an age bound, silently, since a
+        // missing datum never matches a bounded range; one with an age but no weight and height,
+        // measured or estimated, has nothing for the rules to gate on and is refused. Said here,
+        // above the selects, while it holds.
+        let missingDimension =
+            match draft with
+            | Some dto when dto |> Patient.fromDto |> Result.isOk ->
+                if dto.Age.IsNone then
+                    Terms.``Prescribe Age unknown``
+                    |> getTerm "Leeftijd onbekend: alleen doseerregels zonder leeftijdsgrens worden getoond"
+                    |> Some
+                elif (dto |> Patient.getWeight).IsNone || (dto |> Patient.getHeight).IsNone then
+                    Terms.``Prescribe Weight and height unknown``
+                    |> getTerm "Gewicht en lengte onbekend: voer ze in, er is geen schatting"
+                    |> Some
+                else
+                    None
+            | _ -> None
+
+        let noticeSx = {| margin = 1 |}
+
+        let notice =
+            match missingDimension with
+            | None -> null
+            | Some text ->
+                JSX.jsx
+                    $"""
+                    import Alert from '@mui/material/Alert';
+
+                    <Alert severity="info" sx={noticeSx}>{text}</Alert>
+                    """
 
         let progress =
             match orderContext with
@@ -517,6 +550,7 @@ module Prescribe =
 
         <div>
             <Box>
+                {notice}
                 {cards}
                 {progress}
             </Box>
