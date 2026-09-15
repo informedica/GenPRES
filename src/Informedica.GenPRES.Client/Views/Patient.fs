@@ -115,7 +115,7 @@ module Patient =
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let envPatient = AppEnv.asEnv<AppEnv.IPatient> props.appEnv
-        let patient = envPatient.Patient
+        let patient = envPatient.Draft
         let updatePatient = envPatient.UpdatePatient
 
         let localizationTerms =

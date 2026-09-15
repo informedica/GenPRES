@@ -140,11 +140,6 @@ module Types =
         | PeritonealDialysis
 
 
-    /// The same record under its old name, until every caller says which it means: the wire's
-    /// draft, or the patient it becomes.
-    type Patient = PatientDto
-
-
     type ValueUnit =
         {
             Value: (string * decimal)[]

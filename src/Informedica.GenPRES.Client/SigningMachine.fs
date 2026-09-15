@@ -56,7 +56,7 @@ type SigningEffect =
     // the server ended the Session at the wrong-PIN limit
     | EndSession of SessionEnding
     // the patient data as the notice showed it, so the cart is over it too
-    | SetPatient of Patient
+    | SetPatient of PatientDto
     // told once
     | TellSigned of SignedOrderPlan
     | TellRefused of SigningRefusal

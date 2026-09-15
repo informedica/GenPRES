@@ -536,7 +536,7 @@ module ViewHelpers =
             |}
 
 
-        let patientWeight (patient: Patient option) =
+        let patientWeight (patient: PatientDto option) =
             patient
             |> Option.bind Models.Patient.getWeightInKg
             |> Option.map (fun w ->

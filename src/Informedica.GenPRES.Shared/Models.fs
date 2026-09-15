@@ -5,6 +5,19 @@ module Models =
 
     open Types
 
+    /// A patient: a draft that meets the minimum, an age or a measured weight and a measured
+    /// height. That is what a workbench, a plan and an evaluation are for; below it there is no
+    /// patient. Built by `Patient.fromDto` only and read back for the wire by `Patient.toDto`.
+    type Patient = private { Dto: PatientDto }
+
+
+    /// Why a draft is not a patient.
+    [<RequireQualifiedAccess>]
+    type PatientError =
+        // neither an age, nor a measured weight and a measured height
+        | NoAgeOrMeasuredWeightAndHeight
+
+
     /// Canonical patient business logic shared between Client (Fable/JS) and Server (.NET).
     ///
     /// Architecture:
@@ -18,6 +31,19 @@ module Models =
     module Patient =
 
         open System
+
+
+        /// The patient a draft becomes: with an age, the rest can be estimated; without one, a
+        /// measured weight and a measured height are needed.
+        let fromDto (dto: PatientDto) : Result<Patient, PatientError> =
+            if dto.Age.IsSome || (dto.Weight.Measured.IsSome && dto.Height.Measured.IsSome) then
+                Ok { Dto = dto }
+            else
+                Error PatientError.NoAgeOrMeasuredWeightAndHeight
+
+
+        /// The patient's data as the wire carries it.
+        let toDto (p: Patient) = p.Dto
 
 
         module Age =
@@ -220,7 +246,7 @@ module Models =
                 | _ -> EGFR(Some 50, None)
 
 
-        let apply f (p: Patient) = f p
+        let apply f (p: PatientDto) = f p
 
 
         let get = apply id
@@ -241,13 +267,13 @@ module Models =
         let getAgeDays p = p |> getAge |> Option.map _.Days
 
 
-        let getGAWeeks (p: Patient) = p.GestationalAge |> Option.map _.Weeks
+        let getGAWeeks (p: PatientDto) = p.GestationalAge |> Option.map _.Weeks
 
 
-        let getGADays (p: Patient) = p.GestationalAge |> Option.map _.Days
+        let getGADays (p: PatientDto) = p.GestationalAge |> Option.map _.Days
 
 
-        let getRenalFunction (p: Patient) =
+        let getRenalFunction (p: PatientDto) =
             p.RenalFunction |> Option.map RenalFunction.renalToOption
 
 
@@ -296,12 +322,12 @@ module Models =
                 | xs -> xs |> List.sum |> Some
 
 
-        let getGestAgeInDays (p: Patient) =
+        let getGestAgeInDays (p: PatientDto) =
             p.GestationalAge
             |> Option.map (fun ga -> (Calculations.Age.weeksToDays ga.Weeks + ga.Days) |> int)
 
 
-        let getPostConceptionalAgeInDays (p: Patient) =
+        let getPostConceptionalAgeInDays (p: PatientDto) =
             match p.GestationalAge, p |> getAgeInDays with
             | Some ga, Some age ->
                 let gaDays = (Calculations.Age.weeksToDays ga.Weeks + ga.Days) |> int
@@ -311,27 +337,27 @@ module Models =
 
         /// Get either the measured weight or the
         /// estimated weight if measured weight = 0
-        let getWeight (pat: Patient) =
+        let getWeight (pat: PatientDto) =
             if pat.Weight.Measured.IsSome then
                 pat.Weight.Measured
             else
                 pat.Weight.Estimated
 
 
-        let getWeightInKg (pat: Patient) =
+        let getWeightInKg (pat: PatientDto) =
             pat |> getWeight |> Option.map (fun x -> float x / 1000.)
 
 
         /// Get either the measured height or the
         /// estimated height if measured weight = 0
-        let getHeight (pat: Patient) =
+        let getHeight (pat: PatientDto) =
             if pat.Height.Measured.IsSome then
                 pat.Height.Measured
             else
                 pat.Height.Estimated
 
 
-        let calcBMI (pat: Patient) =
+        let calcBMI (pat: PatientDto) =
             match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
             | Some w, _, Some h, _
             | None, Some w, None, Some h ->
@@ -342,7 +368,7 @@ module Models =
             | _ -> None
 
 
-        let calcBSA (pat: Patient) =
+        let calcBSA (pat: PatientDto) =
             match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
             | None, None, _, _
             | _, _, None, None -> None
@@ -353,7 +379,7 @@ module Models =
             | None, Some w, None, Some h -> Calculations.BSA.calcDuBois w h |> Some
 
 
-        let toString terms lang markDown (pat: Patient) =
+        let toString terms lang markDown (pat: PatientDto) =
             let getTerm = Localization.getTerm terms lang
 
             let toStr s n =

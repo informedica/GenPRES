@@ -21,7 +21,7 @@ module ContinuousMeds =
         let localizationTerms =
             (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
-        let patient = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Patient
+        let patient = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
