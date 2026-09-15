@@ -11,12 +11,12 @@
     <Compile Include="LogAnalyzer.fs" />
     <Compile Include="ServerApi.Mappers.fs" />
     <Compile Include="ServerApi.Ports.fs" />
+    <Compile Include="ServerApi.Ingress.fs" />
     <Compile Include="ServerApi.Services.fs" />
     <Compile Include="ServerApi.Session.fs" />
     <Compile Include="ServerApi.StubAdapters.fs" />
     <Compile Include="ServerApi.Adapters.fs" />
     <Compile Include="ServerApi.Compute.fs" />
-    <Compile Include="ServerApi.Ingress.fs" />
     <Compile Include="ServerApi.FormularyCommand.fs" />
     <Compile Include="ServerApi.InteractionCommand.fs" />
     <Compile Include="ServerApi.OrderPlanCommand.fs" />

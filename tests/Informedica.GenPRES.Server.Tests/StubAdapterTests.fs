@@ -2443,6 +2443,28 @@ module SessionStubTests =
                         state.Challenges |> Expect.isEmpty "no challenge yet"
                     }
 
+                    test "a reread that is no patient is no reading: told unverified, as when the platform has none" {
+                        let state, answer =
+                            Session.challenge
+                                t0
+                                (counter "n")
+                                (fun _ -> Some Shared.Models.PatientDto.empty)
+                                "s-1"
+                                (plan, token "s-1", None)
+                                (stateOf [ opened ] [])
+
+                        answer
+                        |> Expect.equal
+                            "unverified: told"
+                            (SigningResponse.DataNotice
+                                {
+                                    Data = None
+                                    Token = "n-1"
+                                })
+
+                        state.Challenges |> Expect.isEmpty "no challenge yet"
+                    }
+
                     test "refuses a Reader (Rule 26) before the token is looked at, and a stale token (Rule 34)" {
                         stateOf
                             [
@@ -5561,6 +5583,36 @@ let ingressTests =
 
                 let! opened = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Open(PatientDto.empty, [||]))
                 opened |> refusedAs Ingress.noPatient
+            }
+
+            testAsync "a plan is refused over a context whose data is none, on an open, a change and a challenge" {
+                let env =
+                    makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
+
+                let draft = Models.OrderContext.empty
+                let carrying = OrderPlan.create patient [| draft |]
+
+                let! opened = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Open(patient, [| draft |]))
+                opened |> refusedAs Ingress.noPatient
+
+                let! recalculated = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Recalculate carrying)
+                recalculated |> refusedAs Ingress.noPatient
+
+                let cookie: SessionCookie =
+                    {
+                        read = fun () -> Some "s-1"
+                        write = ignore
+                        delete = ignore
+                    }
+
+                let! challenged =
+                    SigningCommand.processCmd
+                        env
+                        cookie
+                        (Api.SigningCommand.RequestSignChallenge(carrying, OpenedToken "t", None))
+
+                challenged
+                |> Expect.equal "nothing to sign for" (SigningResponse.Refused SigningRefusal.NoPatient)
             }
 
             testAsync "a challenge over a plan whose data is none is refused: nothing to sign for" {

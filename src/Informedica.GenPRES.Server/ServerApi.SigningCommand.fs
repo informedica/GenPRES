@@ -15,9 +15,11 @@ module SigningCommand =
             | None -> return SigningResponse.Refused SigningRefusal.NoSession
             | Some id ->
                 match cmd with
-                // the plan's patient made at the ingress: a plan whose data is no patient has
-                // nothing to sign for
-                | SigningCommand.RequestSignChallenge(plan, _, _) when (Ingress.patient plan.Patient).IsError ->
+                // the plan's patient and that of every context in it made at the ingress: a plan
+                // whose data is no patient has nothing to sign for
+                | SigningCommand.RequestSignChallenge(plan, _, _) when
+                    Ingress.ofPlan plan |> List.exists (Ingress.patient >> _.IsError)
+                    ->
                     return SigningResponse.Refused SigningRefusal.NoPatient
                 | SigningCommand.RequestSignChallenge(plan, opened, notice) ->
                     return! env.session.challenge id (plan, opened, notice)

@@ -603,7 +603,7 @@ module Session =
         : PatientDto option
         =
         patientData patientId
-        |> Option.filter (Shared.Models.Patient.fromDto >> Result.isOk)
+        |> Ingress.reading
         |> Option.orElse (head |> Option.map _.Patient)
 
 
@@ -1089,7 +1089,8 @@ module Session =
                 elif record.Session.OpenedToken <> Some opened then
                     refuse SigningRefusal.StaleToken
                 else
-                    let current = patientData patient.PatientId
+                    // read again, as at the open: a reading that is no patient is no reading
+                    let current = patientData patient.PatientId |> Ingress.reading
 
                     let accepted =
                         notice

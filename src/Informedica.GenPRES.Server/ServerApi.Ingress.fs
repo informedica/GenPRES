@@ -38,8 +38,30 @@ module Ingress =
         | Some dto -> dto |> patient |> Result.map Some
 
 
+    /// The request run once every piece of data is a patient, else the first refusal.
+    let overAll (dtos: PatientDto list) (run: unit -> Async<Result<'a, string[]>>) : Async<Result<'a, string[]>> =
+        let refused =
+            dtos
+            |> List.tryPick (fun dto ->
+                match dto |> patient with
+                | Ok _ -> None
+                | Error errs -> Some errs
+            )
+
+        match refused with
+        | None -> run ()
+        | Some errs -> async { return Error errs }
+
+
     /// The request run once the data is a patient, else its refusal.
-    let over (dto: PatientDto) (run: unit -> Async<Result<'a, string[]>>) : Async<Result<'a, string[]>> =
-        match dto |> patient with
-        | Ok _ -> run ()
-        | Error errs -> async { return Error errs }
+    let over (dto: PatientDto) run = overAll [ dto ] run
+
+
+    /// The patient data a plan carries: its own, and that of every context in it.
+    let ofPlan (plan: OrderPlan) =
+        plan.Patient :: (plan.OrderContexts |> Array.map _.Patient |> Array.toList)
+
+
+    /// Whether a platform reading is a patient: one that is none counts as no reading.
+    let reading (dto: PatientDto option) =
+        dto |> Option.filter (Patient.fromDto >> Result.isOk)
