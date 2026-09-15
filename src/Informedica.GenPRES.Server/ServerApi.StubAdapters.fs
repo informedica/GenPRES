@@ -155,8 +155,8 @@ module StubDirectory =
 module StubPatientData =
 
     /// The stub's reading: ten years, 32 kg, 140 cm, nothing else known.
-    let patient: Patient =
-        Shared.Models.Patient.create
+    let patient: PatientDto =
+        Shared.Models.PatientDto.create
             (Some(Shared.Measures.toYear 10))
             None
             None
@@ -169,7 +169,7 @@ module StubPatientData =
             []
             None
             None
-        |> Option.defaultValue Shared.Models.Patient.empty
+        |> Option.defaultValue Shared.Models.PatientDto.empty
 
 
     let port: PatientDataPort =

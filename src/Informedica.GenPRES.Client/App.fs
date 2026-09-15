@@ -428,7 +428,7 @@ module private Elmish =
                     let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
 
                     let patient =
-                        Patient.create
+                        PatientDto.create
                             (Some age.Years)
                             (Some age.Months)
                             (Some age.Weeks)
@@ -457,7 +457,7 @@ module private Elmish =
                     let age = Patient.Age.fromDays days
 
                     let patient =
-                        Patient.create
+                        PatientDto.create
                             (Some age.Years)
                             (Some age.Months)
                             (Some age.Weeks)
@@ -697,7 +697,11 @@ module private Elmish =
         match normalValues, pat with
         | Resolved nv, Some p ->
             p
-            |> Patient.applyNormalValues (Some nv.Weights) (Some nv.Heights) (Some nv.NeoWeights) (Some nv.NeoHeights)
+            |> PatientDto.applyNormalValues
+                (Some nv.Weights)
+                (Some nv.Heights)
+                (Some nv.NeoWeights)
+                (Some nv.NeoHeights)
             |> Some
         | _ -> pat
 

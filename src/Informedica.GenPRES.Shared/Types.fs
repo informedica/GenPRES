@@ -510,7 +510,7 @@ module Types =
             Category: OrderCategory
             DemoVersion: bool
             Filter: Filter
-            Patient: Patient
+            Patient: PatientDto
             Scenarios: OrderScenario[]
             Intake: Totals
         }
@@ -527,7 +527,7 @@ module Types =
     /// The one plan: every order for the patient, nutrition included, which is what is signed.
     type OrderPlan =
         {
-            Patient: Patient
+            Patient: PatientDto
             // the contexts shown and counted, by id; empty for all of them
             Filtered: string[]
             // the order contexts of the plan, drug and nutrition alike, each saying what it holds
@@ -552,7 +552,7 @@ module Types =
             Form: string option
             DoseType: DoseType option
             PatientCategory: string option
-            Patient: Patient option
+            Patient: PatientDto option
             Markdown: string
             DoseCheck: TextBlock[]
         }
@@ -611,7 +611,7 @@ module Types =
     type PatientContext =
         {
             PatientId: string
-            Patient: Patient
+            Patient: PatientDto
         }
 
 
@@ -638,7 +638,7 @@ module Types =
             Base: string option
             // every context of the plan as signed: a reopen is the plan as it was
             OrderContexts: OrderContext[]
-            Patient: Patient
+            Patient: PatientDto
             Verified: bool
         }
 
@@ -752,7 +752,7 @@ module Types =
     /// unverified. The User proceeds by returning the token with the next request.
     type DataNotice =
         {
-            Data: Patient option
+            Data: PatientDto option
             Token: string
         }
 
