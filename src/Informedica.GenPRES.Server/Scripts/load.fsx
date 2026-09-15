@@ -24,6 +24,7 @@
 #load "../ServerApi.StubAdapters.fs"
 #load "../ServerApi.Adapters.fs"
 #load "../ServerApi.Compute.fs"
+#load "../ServerApi.Ingress.fs"
 #load "../ServerApi.FormularyCommand.fs"
 #load "../ServerApi.InteractionCommand.fs"
 #load "../ServerApi.OrderPlanCommand.fs"

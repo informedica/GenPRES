@@ -592,18 +592,19 @@ module Session =
                 { state with Launches = state.Launches |> Map.add claims.Nonce record }, answerOf authorizeUrl record
 
 
-    /// The patient a Session opens on: the PatientDataPlatform's reading, the source of truth;
-    /// without one, the patient data of the head of the record, the last seen; from nothing,
-    /// an empty patient, so that a data outage does not block prescribing.
+    /// The patient data a Session opens on: the PatientDataPlatform's reading, the source of
+    /// truth, when it is a patient; without one, the patient data of the head of the record, the
+    /// last seen; from nothing, none, so that the User enters it and a data outage does not block
+    /// prescribing.
     let sessionPatient
         (patientData: string -> PatientDto option)
         (patientId: string)
         (head: SignedOrderPlan option)
-        : PatientDto
+        : PatientDto option
         =
         patientData patientId
+        |> Option.filter (Shared.Models.Patient.fromDto >> Result.isOk)
         |> Option.orElse (head |> Option.map _.Patient)
-        |> Option.defaultValue Shared.Models.PatientDto.empty
 
 
     /// The open, one act, from whatever carried the launch this far: a LaunchRecord at the
@@ -1098,7 +1099,8 @@ module Session =
                             |> Option.filter (fun n -> n.Nonce = token && n.Data = current)
                         )
 
-                    if current <> Some patient.Patient && accepted.IsNone then
+                    // no reading, or another than the Session opened on: told before the challenge
+                    if (current.IsNone || current <> patient.Patient) && accepted.IsNone then
                         let nonce = newId ()
 
                         { state with
@@ -1259,6 +1261,7 @@ module Session =
                                                                     Patient =
                                                                         challenge.Reading
                                                                         |> Option.defaultValue plan.Patient
+                                                                        |> Some
                                                                 }
                                                     }
                                                 OpenedWith = Some id

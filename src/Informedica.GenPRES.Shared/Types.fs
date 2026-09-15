@@ -603,10 +603,12 @@ module Types =
         }
 
 
+    /// The Patient a Session is for: its id, and its data as read from the platform at the
+    /// launch, else as signed last; `None` when neither has any, so the User enters it.
     type PatientContext =
         {
             PatientId: string
-            Patient: PatientDto
+            Patient: PatientDto option
         }
 
 
@@ -724,7 +726,7 @@ module Types =
     type SigningRefusal =
         // no Session for the cookie, or none at all
         | NoSession
-        // the Session has no Patient: nothing to sign for
+        // the Session has no Patient, or the plan to sign carries none: nothing to sign for
         | NoPatient
         // nobody to sign as, or the Role, re-taken from the registry, is not Prescriber
         | NotPrescriber

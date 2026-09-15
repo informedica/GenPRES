@@ -141,7 +141,7 @@ module Session =
     let opened (session: SessionOpened) =
         Session.Open session,
         [
-            SessionEffect.SetPatient(session.PatientContext |> Option.map _.Patient)
+            SessionEffect.SetPatient(session.PatientContext |> Option.bind _.Patient)
             match session.KeyThumbprint with
             | Some thumbprint -> SessionEffect.KeepKey thumbprint
             | None -> ()
