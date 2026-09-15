@@ -75,3 +75,74 @@ let planTests =
                 |> Expect.equal "the tpn" [| "c-t" |]
             }
         ]
+
+
+module PatientFixtures =
+
+    let ten = { Patient.Age.ageZero with Age.Years = 10<year> }
+
+    let measured (w: int<gram>) (h: int<cm>) (dto: PatientDto) =
+        { dto with
+            PatientDto.Weight.Measured = Some w
+            PatientDto.Height.Measured = Some h
+        }
+
+
+open PatientFixtures
+
+
+[<Tests>]
+let patientTests =
+    testList
+        "Patient.fromDto"
+        [
+            test "an age alone is a patient" {
+                { PatientDto.empty with Age = Some ten }
+                |> Patient.fromDto
+                |> Result.isOk
+                |> Expect.isTrue "a patient"
+            }
+
+            test "a measured weight and height without an age is a patient" {
+                PatientDto.empty
+                |> measured 32000<gram> 140<cm>
+                |> Patient.fromDto
+                |> Result.isOk
+                |> Expect.isTrue "a patient"
+            }
+
+            test "a weight alone is not: the height is needed too" {
+                { PatientDto.empty with PatientDto.Weight.Measured = Some 32000<gram> }
+                |> Patient.fromDto
+                |> Expect.equal "no patient" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+            }
+
+            test "an estimated weight and height do not count: the estimate follows an age" {
+                { PatientDto.empty with
+                    PatientDto.Weight.Estimated = Some 32000<gram>
+                    PatientDto.Height.Estimated = Some 140<cm>
+                }
+                |> Patient.fromDto
+                |> Expect.equal "no patient" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+            }
+
+            test "the blank draft is not a patient" {
+                PatientDto.empty
+                |> Patient.fromDto
+                |> Expect.equal "no patient" (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+            }
+
+            test "to the wire and back is the draft it came from" {
+                let dto =
+                    { PatientDto.empty with
+                        Age = Some ten
+                        Department = Some "ICK"
+                    }
+                    |> measured 32000<gram> 140<cm>
+
+                dto
+                |> Patient.fromDto
+                |> Result.map Patient.toDto
+                |> Expect.equal "the same draft" (Ok dto)
+            }
+        ]

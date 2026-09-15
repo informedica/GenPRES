@@ -9,8 +9,19 @@ open OrderContextMachine
 
 module Fixtures =
 
-    let patient = Shared.Models.PatientDto.empty
-    let other = { patient with Department = Some "other" }
+    let ten = { Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
+
+    /// The data a context carries, and the patient it is: an age makes the draft a patient.
+    let draft = { Shared.Models.PatientDto.empty with Age = Some ten }
+
+    let asPatient (dto: PatientDto) =
+        match dto |> Shared.Models.Patient.fromDto with
+        | Ok pat -> pat
+        | Error err -> invalidOp $"the fixture is no patient: %A{err}"
+
+    let patient = draft |> asPatient
+    let otherDraft = { draft with Department = Some "other" }
+    let other = otherDraft |> asPatient
 
     let empty = OrderContextState.emptyFor patient
 
@@ -19,13 +30,18 @@ module Fixtures =
     let noPatient = OrderContextState.noPatient
     let seeded = OrderContextState.seeded
 
-    let held = OrderContextState.held
+    let heldFor = OrderContextState.held
+    let held = heldFor patient
 
     /// A command under way over the context sent; the one held is what a failed change goes back to.
-    let inFlight = OrderContextState.changing
+    let inFlightFor = OrderContextState.changing
+    let inFlight = inFlightFor patient
 
     /// An evaluation under way.
-    let evaluating = inFlight OrderContextCommand.UpdateOrderContext
+    let evaluatingFor pat =
+        inFlightFor pat OrderContextCommand.UpdateOrderContext
+
+    let evaluating = evaluatingFor patient
 
     let opening = OrderContextState.opening
 
@@ -85,10 +101,10 @@ let tests =
                         let state, effects =
                             transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
 
-                        let expected = { paracetamol with Patient = other }
+                        let expected = { paracetamol with Patient = otherDraft }
 
                         state
-                        |> Expect.equal "evaluating for the new patient" (evaluating expected expected "r-2")
+                        |> Expect.equal "evaluating for the new patient" (evaluatingFor other expected expected "r-2")
 
                         effects |> Expect.equal "the call and the syncs" (evaluated expected "r-2")
 
@@ -104,18 +120,20 @@ let tests =
                         let state, effects =
                             transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
 
-                        let sent = { chosen with Patient = other }
-                        let found = { paracetamol with Patient = other }
+                        let sent = { chosen with Patient = otherDraft }
+                        let found = { paracetamol with Patient = otherDraft }
 
                         state
-                        |> Expect.equal "the selection evaluated for the new patient" (evaluating sent found "r-2")
+                        |> Expect.equal
+                            "the selection evaluated for the new patient"
+                            (evaluatingFor other sent found "r-2")
 
                         effects |> Expect.equal "the call and the syncs" (evaluated sent "r-2")
 
                         transition (OrderContextMsg.Answered("r-2", Error [| "not loaded" |])) state
                         |> Expect.equal
                             "a refusal restores the last evaluated, for the new patient"
-                            (held found, restored found [| "not loaded" |])
+                            (heldFor other found, restored found [| "not loaded" |])
                     }
 
                     test "no patient: no workbench; a seed keeps waiting" {
@@ -147,7 +165,7 @@ let tests =
                     }
 
                     test "a filter with a patient held is evaluated at once, for that patient" {
-                        let fromUrl = { paracetamol with Patient = other }
+                        let fromUrl = { paracetamol with Patient = otherDraft }
                         let state, effects = transition (OrderContextMsg.Seed(fromUrl, "r-1")) shown
 
                         state |> Expect.equal "evaluating" (evaluating paracetamol paracetamol "r-1")
@@ -170,10 +188,10 @@ let tests =
                         let changed =
                             { paracetamol with
                                 OrderContext.Filter.Generic = Some "ibuprofen"
-                                Patient = other
+                                Patient = otherDraft
                             }
 
-                        let forPatient = { changed with Patient = patient }
+                        let forPatient = { changed with Patient = draft }
 
                         let busy, effects =
                             transition
@@ -343,10 +361,10 @@ let stagesTests =
                         (OrderContextCommand.UpdateOrderContext, stepped),
                         Error [| "not loaded" |]
                     ))
-                    (OrderContextWorkbench.Evaluated paracetamol)
+                    (OrderContextWorkbench.Evaluated(patient, paracetamol))
                 |> Expect.equal
                     "the original, told and synced"
-                    (OrderContextWorkbench.Evaluated paracetamol,
+                    (OrderContextWorkbench.Evaluated(patient, paracetamol),
                      [
                          OrderContextWorkbenchIntent.Tell [| "not loaded" |]
                          OrderContextWorkbenchIntent.Sync paracetamol.Filter
