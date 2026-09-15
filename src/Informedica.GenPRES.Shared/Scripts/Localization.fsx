@@ -546,6 +546,9 @@ let printPatientRow () =
 type PrescribeTerms =
     | ``Prescribe Age unknown``
     | ``Prescribe Weight and height unknown``
+    // one of the two missing, the other measured or estimated: the notice names the one
+    | ``Prescribe Weight unknown``
+    | ``Prescribe Height unknown``
 
 
 let prescribeRows: string[][] =
@@ -568,6 +571,24 @@ let prescribeRows: string[][] =
             "Peso y talla desconocidos: introdúzcalos, no hay estimación"
             "Peso e altezza sconosciuti: inseriscili, non c'è una stima"
         |]
+        [|
+            "Prescribe Weight unknown"
+            "Weight unknown: enter it, there is no estimate"
+            "Gewicht onbekend: voer het in, er is geen schatting"
+            "Poids inconnu : saisissez-le, il n'y a pas d'estimation"
+            "Gewicht unbekannt: geben Sie es ein, es gibt keine Schätzung"
+            "Peso desconocido: introdúzcalo, no hay estimación"
+            "Peso sconosciuto: inseriscilo, non c'è una stima"
+        |]
+        [|
+            "Prescribe Height unknown"
+            "Height unknown: enter it, there is no estimate"
+            "Lengte onbekend: voer die in, er is geen schatting"
+            "Taille inconnue : saisissez-la, il n'y a pas d'estimation"
+            "Größe unbekannt: geben Sie sie ein, es gibt keine Schätzung"
+            "Talla desconocida: introdúzcala, no hay estimación"
+            "Altezza sconosciuta: inseriscila, non c'è una stima"
+        |]
     |]
 
 
@@ -576,7 +597,12 @@ let prescribeTests =
         "missing dimension terms"
         [
             test "the keys are the cases' names, and resolve in every language" {
-                [ ``Prescribe Age unknown``; ``Prescribe Weight and height unknown`` ]
+                [
+                    ``Prescribe Age unknown``
+                    ``Prescribe Weight and height unknown``
+                    ``Prescribe Weight unknown``
+                    ``Prescribe Height unknown``
+                ]
                 |> List.map (fun t -> $"{t}")
                 |> Expect.equal "the keys" (prescribeRows |> Array.map (fun r -> r[0]) |> Array.toList)
 

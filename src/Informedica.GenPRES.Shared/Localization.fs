@@ -72,6 +72,9 @@ type Terms =
     | ``Prescribe Age unknown``
     // the patient has an age but no weight and height, measured or estimated: the rules gate on both
     | ``Prescribe Weight and height unknown``
+    // one of the two missing, the other measured or estimated
+    | ``Prescribe Weight unknown``
+    | ``Prescribe Height unknown``
     | ``Order``
     | ``Order Frequency``
     | ``Order Dose``

@@ -149,12 +149,23 @@ module Prescribe =
                     Terms.``Prescribe Age unknown``
                     |> getTerm "Leeftijd onbekend: alleen doseerregels zonder leeftijdsgrens worden getoond"
                     |> Some
-                elif (dto |> Patient.getWeight).IsNone || (dto |> Patient.getHeight).IsNone then
-                    Terms.``Prescribe Weight and height unknown``
-                    |> getTerm "Gewicht en lengte onbekend: voer ze in, er is geen schatting"
-                    |> Some
                 else
-                    None
+                    // the estimate comes per table, and a measured value per field, so one can
+                    // be there without the other: the notice names what is missing
+                    match dto |> Patient.getWeight, dto |> Patient.getHeight with
+                    | Some _, Some _ -> None
+                    | None, None ->
+                        Terms.``Prescribe Weight and height unknown``
+                        |> getTerm "Gewicht en lengte onbekend: voer ze in, er is geen schatting"
+                        |> Some
+                    | None, Some _ ->
+                        Terms.``Prescribe Weight unknown``
+                        |> getTerm "Gewicht onbekend: voer het in, er is geen schatting"
+                        |> Some
+                    | Some _, None ->
+                        Terms.``Prescribe Height unknown``
+                        |> getTerm "Lengte onbekend: voer die in, er is geen schatting"
+                        |> Some
             | _ -> None
 
         let noticeSx = {| margin = 1 |}
