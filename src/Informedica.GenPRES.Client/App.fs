@@ -561,20 +561,7 @@ module private Elmish =
         Browser.Dom.history.replaceState (null, "", "#/session")
 
 
-    let initialState
-        pat
-        page
-        lang
-        discl
-        (med:
-            {|
-                indication: string option
-                medication: string option
-                route: string option
-                form: string option
-                dosetype: DoseType option
-            |} option)
-        =
+    let initialState pat page lang discl =
         {
             ShowDisclaimer = discl
             Page = page |> Option.defaultValue LifeSupport
@@ -585,14 +572,9 @@ module private Elmish =
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
             Products = HasNotStartedYet
-            // a medication in the url waits as the seed until the patient is set
-            OrderContext =
-                match med with
-                | None -> OrderContextState.noPatient
-                | Some m ->
-                    OrderContext.empty
-                    |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
-                    |> OrderContextState.seeded
+            // a medication in the url is seeded by UrlChanged, which the router fires on mount
+            // too, once the patient is set
+            OrderContext = OrderContextState.noPatient
             // the patient reaches the plan through UpdatePatient
             OrderPlan = OrderPlanState.noPatient
             Formulary = HasNotStartedYet
@@ -674,7 +656,7 @@ module private Elmish =
         if launchUrl.IsSome then
             eraseLaunch ()
 
-        let pat, page, lang, discl, med = url |> parsePatient
+        let pat, page, lang, discl, _ = url |> parsePatient
 
         let cmds =
             Cmd.batch
@@ -695,7 +677,7 @@ module private Elmish =
                     Cmd.ofMsg (LoadInteractionDrugNames Started)
                 ]
 
-        initialState pat page lang discl med, cmds
+        initialState pat page lang discl, cmds
 
 
     let applyNormalValues (normalValues: Deferred<NormalValues>) (pat: PatientDto option) =
@@ -940,6 +922,21 @@ module private Elmish =
         | OrderContextEffect.TellError _ -> Cmd.none
 
 
+    /// A medication chosen without a patient, from the url or a list, is dropped and said: the
+    /// patient is part of the filter, so nothing waits for one.
+    let noPatientForMedication (state: State) =
+        { state with
+            SnackbarMsg =
+                Global.getLocalizedTerm
+                    state.Localization
+                    state.Context.Localization
+                    "Voer patient gegevens in"
+                    Terms.``Patient enter patient data``
+            SnackbarOpen = true
+            SnackbarSeverity = "warning"
+        }
+
+
     let update (msg: Msg) (state: State) =
         let processError err (state, cmd) =
             let errMsg =
@@ -978,9 +975,12 @@ module private Elmish =
                     OrderContext.Filter.DoseType = doseType |> nonEmpty |> Option.map DoseType.doseTypeFromString
                 }
 
-            // the medication chosen is the seed: evaluated for the patient held, or kept until
-            // there is one
-            { state with Page = Prescribe }, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+            // the medication chosen is evaluated for the patient held; without one it is dropped
+            // and said, since the patient is part of the filter
+            match state.Patient with
+            | Some _ ->
+                { state with Page = Prescribe }, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+            | None -> noPatientForMedication state, Cmd.none
 
         match msg with
         | CloseSnackbar ->
@@ -1249,17 +1249,28 @@ module private Elmish =
             // only an `la` parameter changes the language; a navigation keeps the current one
             let language = languageOf state |> LanguagePolicy.Language.onUrl lang
 
-            // a medication in the url is the seed: over the workbench as it is, evaluated for the
-            // patient held, or kept until there is one
-            let seed =
+            // a medication in the url is seeded over the workbench as it is, for the patient held
+            // or the one the url sets; without a patient it is dropped and said, since the
+            // patient is part of the filter and nothing waits for one
+            let hasPatient =
+                if anonymous then
+                    pat |> Option.exists (Patient.fromDto >> Result.isOk)
+                else
+                    state.Patient.IsSome
+
+            let state, seed =
                 match med with
-                | None -> Cmd.none
-                | Some m ->
+                | None -> state, Cmd.none
+                | Some m when hasPatient ->
+                    state,
                     state.OrderContext
                     |> OrderContextState.context
                     |> Option.defaultValue OrderContext.empty
                     |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
                     |> fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+                | Some m ->
+                    Logging.warning "a medication in the url without a patient is dropped" m.medication
+                    noPatientForMedication state, Cmd.none
 
             { state with
                 ShowDisclaimer = discl
@@ -1271,9 +1282,10 @@ module private Elmish =
             },
             Cmd.batch
                 [
-                    seed
+                    // the patient first, so that the seed lands on a patient held
                     if anonymous then
                         Cmd.ofMsg (pat |> UpdatePatient)
+                    seed
                     launchCmd launchUrl
                 ]
 

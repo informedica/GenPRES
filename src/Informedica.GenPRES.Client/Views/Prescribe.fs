@@ -139,7 +139,11 @@ module Prescribe =
 
         let progress =
             match orderContext with
-            | HasNotStartedYet -> JSX.jsx $"<>Voer eerst patient gegevens in</>"
+            | HasNotStartedYet ->
+                let enterPatientData =
+                    Terms.``Patient enter patient data`` |> getTerm "Voer eerst patient gegevens in"
+
+                JSX.jsx $"<>{enterPatientData}</>"
             | _ -> null
 
 
