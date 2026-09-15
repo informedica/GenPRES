@@ -1,5 +1,5 @@
 ---
-last_commit_released: c815c7f092b179578db5d03204a7425bd4d20409
+last_commit_released: 4b2ebd9e48f71221ce8bf0bbdb91449e40018964
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,29 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.24 - 2026-09-15
+
+### 🚀 Features
+
+* *(api)* Draft the patient a draft becomes ([fe539071](https://github.com/informedica/GenPRES/commit/fe539071b689453b2aa0a999dc6cfa06329fc17e))
+* *(api)* The patient a draft becomes ([7a0b0137](https://github.com/informedica/GenPRES/commit/7a0b0137254dabc3539d47ce43be3347971a55be))
+* *(client)* Draft the term for what a draft is missing ([1a43dd42](https://github.com/informedica/GenPRES/commit/1a43dd424062b1ff06ee228fe55050965dde8f68))
+* *(client)* The panel says what a draft is missing ([027f7141](https://github.com/informedica/GenPRES/commit/027f714147a5224873507a256b74ed60e4af4330))
+* *(client)* Draft the terms for a missing dimension ([8ac411be](https://github.com/informedica/GenPRES/commit/8ac411be88814b67187b2e339f9e27fa2944298d))
+* *(client)* The prescribing page says which dimension is missing ([0dd15f4e](https://github.com/informedica/GenPRES/commit/0dd15f4e57b6573b82a92a21ea202f9ba6aa3c2b))
+
+### 🐞 Bug Fixes
+
+* *(client)* Draft the estimate kept apart from the measured value ([3dfcb776](https://github.com/informedica/GenPRES/commit/3dfcb77608d6875ef64117e89ca3dcf906bf031b))
+* *(client)* The estimate stays an estimate ([6485096e](https://github.com/informedica/GenPRES/commit/6485096ee26f310330380516fe5e3cc7892862d4))
+* *(client)* The url's patient before its medication ([f2a5e06a](https://github.com/informedica/GenPRES/commit/f2a5e06ac1502edefe5bb714c2710a479c558c4a))
+* *(client)* The notice names the value that is missing ([8c3e8c69](https://github.com/informedica/GenPRES/commit/8c3e8c69733909d3fa934842414528f22effa88e))
+* *(server)* Draft the ingress where patient data enters ([421bdddc](https://github.com/informedica/GenPRES/commit/421bdddc827bf2e8ed3dd8344ab45aaaa86ab6fa))
+* *(server)* A draft becomes a patient at the ingress, no data is none ([536b9276](https://github.com/informedica/GenPRES/commit/536b927654e00dac18c3a32dec18a103961fb5cd))
+* *(server)* Every context's data at the ingress, and the reread ([175aa7f2](https://github.com/informedica/GenPRES/commit/175aa7f26c877f8303548b6684d148b1f9312d73))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/c815c7f092b179578db5d03204a7425bd4d20409..4b2ebd9e48f71221ce8bf0bbdb91449e40018964)</small></strong>
 
 ## 0.1.2-alpha.23 - 2026-09-14
 
