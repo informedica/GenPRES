@@ -122,9 +122,12 @@ module StubAdapters =
 
 open StubAdapters
 
-let emptyCtx = Models.OrderContext.empty
+/// The stub's patient, since the dispatchers refuse a context or a plan whose data is none.
+let patient = StubPatientData.patient
 
-let emptyPlan = OrderPlan.empty
+let emptyCtx = { Models.OrderContext.empty with Patient = patient }
+
+let emptyPlan = OrderPlan.create patient [||]
 
 
 let commandRoutingTests =
@@ -691,7 +694,7 @@ module SessionStubTests =
                         | CallbackResult.Opened(id, _) ->
                             let ctx = state.Sessions[id].Session.PatientContext
                             ctx |> Option.map _.PatientId |> Expect.equal "patient id" (Some "no-data")
-                            ctx |> Option.map _.Patient |> Expect.equal "the signed patient" (Some entered)
+                            ctx |> Option.bind _.Patient |> Expect.equal "the signed patient" (Some entered)
                             state.Sessions[id].Session.Head |> Expect.equal "the version" (Some signed)
                         | other -> failtest $"expected Opened, got {other}"
                     }
@@ -729,7 +732,7 @@ module SessionStubTests =
                         match result with
                         | CallbackResult.Opened(id, _) ->
                             state.Sessions[id].Session.PatientContext
-                            |> Option.map _.Patient
+                            |> Option.bind _.Patient
                             |> Expect.equal "the platform's" (Some StubPatientData.patient)
                         | other -> failtest $"expected Opened, got {other}"
                     }
@@ -859,7 +862,7 @@ module SessionStubTests =
                         state2.Launches |> Map.isEmpty |> Expect.isTrue "dropped"
                     }
 
-                    test "no patient data (ext 6a): the Session opens with the PatientId and an empty Patient" {
+                    test "no patient data (ext 6a): the Session opens with the PatientId and no patient data" {
                         let ids, d = fixture ()
                         let launch = mintFor "n-nd" "no-data"
 
@@ -886,9 +889,7 @@ module SessionStubTests =
                             let ctx = state.Sessions[id].Session.PatientContext
                             ctx |> Option.map _.PatientId |> Expect.equal "patient id" (Some "no-data")
 
-                            ctx
-                            |> Option.map _.Patient
-                            |> Expect.equal "empty patient" (Some PatientDto.empty)
+                            ctx |> Option.bind _.Patient |> Expect.equal "no patient data" None
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -1968,7 +1969,7 @@ module SessionStubTests =
                                 |> Option.map (fun pid ->
                                     {
                                         PatientId = pid
-                                        Patient = Shared.Models.PatientDto.empty
+                                        Patient = None
                                     }
                                 )
                             OpenedToken = Some(OpenedToken $"opened-{sid}")
@@ -2162,7 +2163,7 @@ module SessionStubTests =
                                 |> Option.map (fun pid ->
                                     {
                                         PatientId = pid
-                                        Patient = Shared.Models.PatientDto.empty
+                                        Patient = None
                                     }
                                 )
                             OpenedToken = Some(OpenedToken $"opened-{sid}")
@@ -2344,7 +2345,7 @@ module SessionStubTests =
                                 |> Option.map (fun (pid, data) ->
                                     {
                                         PatientId = pid
-                                        Patient = data
+                                        Patient = Some data
                                     }
                                 )
                             OpenedToken = Some(token sid)
@@ -2834,7 +2835,7 @@ module SessionStubTests =
                                 Some
                                     {
                                         PatientId = patientId
-                                        Patient = stubPatient
+                                        Patient = Some stubPatient
                                     }
                             OpenedToken = Some(token sid)
                             KeyThumbprint = Some "t"
@@ -2958,7 +2959,7 @@ module SessionStubTests =
                             |> Expect.equal "a resume opens on the version just signed" (Some signed)
 
                             state.Sessions["s-1"].Session.PatientContext
-                            |> Option.map _.Patient
+                            |> Option.bind _.Patient
                             |> Expect.equal
                                 "verified: the Session's patient is the reading, unchanged (#640)"
                                 (Some stubPatient)
@@ -3173,7 +3174,7 @@ module SessionStubTests =
                                 (Some
                                     {
                                         PatientId = "no-data"
-                                        Patient = otherData
+                                        Patient = Some otherData
                                     })
                         | other -> failtest $"expected Submitted, got {other}"
                     }
@@ -3204,7 +3205,7 @@ module SessionStubTests =
                             signed.Verified |> Expect.isTrue "the reading"
 
                             state.Sessions["s-1"].Session.PatientContext
-                            |> Option.map _.Patient
+                            |> Option.bind _.Patient
                             |> Expect.equal "the newer reading, not the one opened on" (Some otherData)
                         | other -> failtest $"expected Submitted, got {other}"
                     }
@@ -4217,10 +4218,11 @@ module SessionStubTests =
             }
 
         let challengeOver (opened: SessionOpened) =
+            // the plan carries the Session's data, or, without any, data entered by hand
             let patient =
                 opened.PatientContext
-                |> Option.map _.Patient
-                |> Option.defaultValue Shared.Models.PatientDto.empty
+                |> Option.bind _.Patient
+                |> Option.defaultValue StubPatientData.patient
 
             SigningCommand.RequestSignChallenge(OrderPlan.create patient [||], opened.OpenedToken.Value, None)
 
@@ -4235,11 +4237,7 @@ module SessionStubTests =
                         SigningCommand.processCmd
                             env
                             cookie
-                            (SigningCommand.RequestSignChallenge(
-                                OrderPlan.create Shared.Models.PatientDto.empty [||],
-                                OpenedToken "x",
-                                None
-                            ))
+                            (SigningCommand.RequestSignChallenge(OrderPlan.create patient [||], OpenedToken "x", None))
 
                     answer
                     |> Expect.equal "no session" (SigningResponse.Refused SigningRefusal.NoSession)
@@ -4276,7 +4274,7 @@ module SessionStubTests =
                             env
                             cookie
                             (SigningCommand.RequestSignChallenge(
-                                OrderPlan.create Shared.Models.PatientDto.empty [||],
+                                OrderPlan.create patient [||],
                                 OpenedToken "stale",
                                 None
                             ))
@@ -4310,7 +4308,7 @@ module SessionStubTests =
 
                         let accepted =
                             SigningCommand.RequestSignChallenge(
-                                OrderPlan.create Shared.Models.PatientDto.empty [||],
+                                OrderPlan.create patient [||],
                                 opened.OpenedToken.Value,
                                 Some notice.Token
                             )
@@ -4510,7 +4508,7 @@ module SessionStubTests =
                             env
                             cookie
                             (SigningCommand.RequestSignChallenge(
-                                OrderPlan.create Shared.Models.PatientDto.empty [||],
+                                OrderPlan.create patient [||],
                                 OpenedToken "opened-s-1",
                                 None
                             ))
@@ -4520,11 +4518,7 @@ module SessionStubTests =
                 }
 
                 test "the log never sees the plan" {
-                    SigningCommand.RequestSignChallenge(
-                        OrderPlan.create Shared.Models.PatientDto.empty [||],
-                        OpenedToken "x",
-                        None
-                    )
+                    SigningCommand.RequestSignChallenge(OrderPlan.create patient [||], OpenedToken "x", None)
                     |> SigningCommand.toString
                     |> Expect.equal "name only" "RequestSignChallenge"
                 }
@@ -5413,7 +5407,7 @@ module PlanTests =
                             orderPlan = port
                         }
 
-                    let p = OrderPlan.empty
+                    let p = emptyPlan
                     let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.Recalculate p)
 
                     let! _ =
@@ -5427,7 +5421,7 @@ module PlanTests =
                         OrderPlanCommand.processCmd env (OrderPlanCommand.NewOrderContext(p, NutritionCategory.TPN))
 
                     let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.RemoveOrderContexts(p, [| "c-1" |]))
-                    let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.Open(Models.PatientDto.empty, [||]))
+                    let! _ = OrderPlanCommand.processCmd env (OrderPlanCommand.Open(patient, [||]))
 
                     answered.Value
                     |> List.rev
@@ -5471,6 +5465,139 @@ module PlanTests =
             ]
 
 
+/// A draft becomes a patient at the ingress, or the request is refused before any port is asked.
+let ingressTests =
+    let ten = { Patient.Age.ageZero with Age.Years = 10<year> }
+
+    let estimated (dto: PatientDto) =
+        { dto with
+            PatientDto.Weight.Estimated = Some 32000<gram>
+            PatientDto.Height.Estimated = Some 140<cm>
+        }
+
+    let refusedAs (msg: string) (result: Result<'a, string[]>) =
+        result |> Result.mapError Array.toList |> Expect.equal "refused" (Error [ msg ])
+
+    testList
+        "the ingress"
+        [
+            test "the blank draft is refused as no patient" {
+                PatientDto.empty |> Ingress.patient |> refusedAs Ingress.noPatient
+            }
+
+            test "an age without an estimate is refused, the weight and height named" {
+                { PatientDto.empty with Age = Some ten }
+                |> Ingress.patient
+                |> refusedAs Ingress.noWeightAndHeight
+            }
+
+            test "an age with the estimate, or a measured weight and height, is a patient" {
+                { PatientDto.empty with Age = Some ten }
+                |> estimated
+                |> Ingress.patient
+                |> Result.isOk
+                |> Expect.isTrue "estimated"
+
+                { PatientDto.empty with
+                    PatientDto.Weight.Measured = Some 32000<gram>
+                    PatientDto.Height.Measured = Some 140<cm>
+                }
+                |> Ingress.patient
+                |> Result.isOk
+                |> Expect.isTrue "measured"
+            }
+
+            test "no data is no patient and no refusal; data that is none is refused" {
+                None |> Ingress.patientOption |> Expect.equal "none" (Ok None)
+                Some PatientDto.empty |> Ingress.patientOption |> refusedAs Ingress.noPatient
+            }
+
+            testAsync "the order context is refused over a draft, its port never asked" {
+                let env =
+                    makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysFails [| "asked" |])
+
+                let! result =
+                    OrderContextCommand.processCmd
+                        env
+                        (Api.OrderContextCommand.UpdateOrderContext, Models.OrderContext.empty)
+
+                result |> refusedAs Ingress.noPatient
+            }
+
+            testAsync "every plan command is refused over a draft, and an open over one" {
+                let env =
+                    makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
+
+                let draft = OrderPlan.empty
+
+                let! recalculated = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Recalculate draft)
+                recalculated |> refusedAs Ingress.noPatient
+
+                let! navigated =
+                    OrderPlanCommand.processCmd
+                        env
+                        (Api.OrderPlanCommand.Navigate(
+                            emptyPlan,
+                            "c-1",
+                            Api.OrderContextCommand.UpdateOrderContext,
+                            Models.OrderContext.empty
+                        ))
+
+                navigated |> refusedAs Ingress.noPatient
+
+                let! added = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.AddOrderContext(draft, emptyCtx))
+
+                added |> refusedAs Ingress.noPatient
+
+                let! created =
+                    OrderPlanCommand.processCmd env (Api.OrderPlanCommand.NewOrderContext(draft, NutritionCategory.TPN))
+
+                created |> refusedAs Ingress.noPatient
+
+                let! removed =
+                    OrderPlanCommand.processCmd env (Api.OrderPlanCommand.RemoveOrderContexts(draft, [| "c-1" |]))
+
+                removed |> refusedAs Ingress.noPatient
+
+                let! opened = OrderPlanCommand.processCmd env (Api.OrderPlanCommand.Open(PatientDto.empty, [||]))
+                opened |> refusedAs Ingress.noPatient
+            }
+
+            testAsync "a challenge over a plan whose data is none is refused: nothing to sign for" {
+                let env =
+                    makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
+
+                let cookie: SessionCookie =
+                    {
+                        read = fun () -> Some "s-1"
+                        write = ignore
+                        delete = ignore
+                    }
+
+                let! result =
+                    SigningCommand.processCmd
+                        env
+                        cookie
+                        (Api.SigningCommand.RequestSignChallenge(OrderPlan.empty, OpenedToken "t", None))
+
+                result
+                |> Expect.equal "no patient" (SigningResponse.Refused SigningRefusal.NoPatient)
+            }
+
+            testAsync "the formulary runs without a patient and is refused over a draft" {
+                let env =
+                    makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk emptyCtx)
+
+                let! unfiltered = FormularyCommand.processCmd env Formulary.empty
+                unfiltered |> Result.isOk |> Expect.isTrue "unfiltered"
+
+                let! refused = FormularyCommand.processCmd env { Formulary.empty with Patient = Some PatientDto.empty }
+
+                refused |> refusedAs Ingress.noPatient
+            }
+        ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -5478,6 +5605,7 @@ let tests =
         [
             commandRoutingTests
             errorPropagationTests
+            ingressTests
             requireLoadedTests
             SessionStubTests.tests
             AdminTests.tests

@@ -29,7 +29,7 @@ module Fixtures =
                     Some
                         {
                             PatientId = "p"
-                            Patient = patient
+                            Patient = Some patient
                         }
                 else
                     None

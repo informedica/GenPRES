@@ -29,7 +29,7 @@ module SessionMachineTests =
                 |> Option.map (fun p ->
                     {
                         PatientId = "p"
-                        Patient = p
+                        Patient = Some p
                     }
                 )
             OpenedToken = Some(OpenedToken "t")
