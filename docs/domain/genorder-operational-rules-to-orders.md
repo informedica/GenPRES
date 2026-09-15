@@ -84,11 +84,13 @@ GenORDER transforms the quantitative calculation constraints into explicit equat
 
 An OrderContext is created using:
 
-* A Patient (specific instance with concrete attribute values)
+* A Patient (specific instance with concrete attribute values): at minimum an age, from which
+  weight and height are estimated, or a measured weight and a measured height; below that there
+  is no Patient and no OrderContext
 * One or more Indications  
 * A bounded set of Selection Constraints
 
-The Patient's attributes (age, weight, BSA, etc.) are matched against Patient Category ranges in OKRs to determine which rules apply. See [Core Domain Model: Core Definitions](core-domain.md#core-definitions) for the distinction between Patient Category and Patient.
+The Patient's attributes (age, weight, BSA, etc.) are matched against Patient Category ranges in OKRs to determine which rules apply. A missing attribute never matches a bounded range: a Patient without an age is offered only the rules without an age bound, and is told so. See [Core Domain Model: Core Definitions](core-domain.md#core-definitions) for the distinction between Patient Category and Patient.
 
 The OrderContext determines:
 

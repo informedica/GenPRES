@@ -79,7 +79,7 @@ every launch as invalid until the scope switch
    - **PatientId**, default `stub-patient`, which the stub PatientDataPlatform reads as a
      ten-year-old of 32 kg. Any text works; `no-data` stands for a patient the platform has no
      record for (ext 6a): the Session then opens on the data the last version was signed on, or
-     on nothing (#640).
+     on no patient data, the panel asking for it (#640, #646).
    - **Identity at the browser**: who the stub IdentityProvider will say is signed on. The
      table below lists the choices.
 3. Press **Launch**. The server mints a Launch sealed under a key it made at start-up, valid for

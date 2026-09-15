@@ -143,8 +143,10 @@ sequenceDiagram
   [uc-02](uc-02-enrolment.md) and continues from 5.4 once the PIN is set. A Reader is never
   asked for a PIN; the credential is not read.
 - **5.4** The patient data is read from the platform, once. Nothing found is not a refusal: the
-  Session opens on the patient data of the head of the record, the last seen, or on an empty
-  patient where there is no record, so that a data outage does not block prescribing.
+  Session opens on the patient data of the head of the record, the last seen, or on no patient
+  data where there is no record, so that a data outage does not block prescribing: the User
+  enters the data, and nothing is evaluated until it is a patient. A reading that is no patient
+  (no age, and no measured weight and height) counts as nothing found.
 - **5.5** The newest signed version of the patient's record is the head the Session starts
   from; `OpenedWith` remembers its id, and the OpenedToken is minted over it.
 - **5.6** `openWith` is one act over the one state: the login's other Sessions are removed and
