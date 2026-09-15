@@ -2333,7 +2333,7 @@ module SessionStubTests =
             let reader = userOf "reader" UserRole.Reader
 
             /// A Session as the store holds it after an open.
-            let session sid (user: UserContext option) (patient: (string * Patient) option) openedWith =
+            let session sid (user: UserContext option) (patient: (string * PatientDto) option) openedWith =
                 sid,
                 ({
                     Session =

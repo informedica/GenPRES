@@ -1383,7 +1383,7 @@ module Nutrition =
 
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
-        let patient = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Patient
+        let patient = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
         // the one plan: the nutrition workbenches live in the order plan, which is there
         // with the patient
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv

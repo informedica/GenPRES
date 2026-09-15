@@ -24,7 +24,10 @@ module private Elmish =
     type State =
         {
             Page: Global.Pages
+            // the patient the workbench and the plan are for: the draft, once it meets the minimum
             Patient: Patient option
+            // the patient data as the panel edits it and the lists read it, the estimate applied
+            PatientDraft: PatientDto option
             NormalValues: Deferred<NormalValues>
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
@@ -82,7 +85,7 @@ module private Elmish =
         | SigningMsg of SigningMsg
 
         | UpdatePage of Global.Pages
-        | UpdatePatient of Patient option
+        | UpdatePatient of PatientDto option
         // a reply said the record moved on
         | RecordMovedOn of OrderPlanHead
 
@@ -575,7 +578,9 @@ module private Elmish =
         {
             ShowDisclaimer = discl
             Page = page |> Option.defaultValue LifeSupport
-            Patient = pat
+            // the patient follows through UpdatePatient, once the draft is a patient
+            Patient = None
+            PatientDraft = pat
             NormalValues = HasNotStartedYet
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
@@ -693,7 +698,7 @@ module private Elmish =
         initialState pat page lang discl med, cmds
 
 
-    let applyNormalValues (normalValues: Deferred<NormalValues>) (pat: Patient option) =
+    let applyNormalValues (normalValues: Deferred<NormalValues>) (pat: PatientDto option) =
         match normalValues, pat with
         | Resolved nv, Some p ->
             p
@@ -1188,12 +1193,25 @@ module private Elmish =
             else
                 state, Cmd.none
 
-        | UpdatePatient pat ->
-            let pat = pat |> applyNormalValues state.NormalValues
+        | UpdatePatient dto ->
+            let dto = dto |> applyNormalValues state.NormalValues
+
+            // the draft is a patient with an age, or a measured weight and height; below that
+            // there is no patient: no workbench, no plan
+            let pat =
+                dto
+                |> Option.bind (fun dto ->
+                    match dto |> Patient.fromDto with
+                    | Ok pat -> Some pat
+                    | Error err ->
+                        Logging.warning "no patient: the data is below the minimum" err
+                        None
+                )
 
             { state with
                 Patient = pat
-                Formulary = { Formulary.empty with Patient = pat } |> Resolved
+                PatientDraft = dto
+                Formulary = { Formulary.empty with Patient = pat |> Option.map Patient.toDto } |> Resolved
                 Parenteralia = Parenteralia.empty |> Resolved
                 EmergencyListFilter = [||]
                 ContinuousMedsFilter = [||]
@@ -1226,7 +1244,7 @@ module private Elmish =
                 | Session.Closing _ -> false
                 | _ -> true
 
-            let pat = if anonymous then pat else state.Patient
+            let pat = if anonymous then pat else state.PatientDraft
 
             // only an `la` parameter changes the language; a navigation keeps the current one
             let language = languageOf state |> LanguagePolicy.Language.onUrl lang
@@ -1246,7 +1264,7 @@ module private Elmish =
             { state with
                 ShowDisclaimer = discl
                 Page = page |> Option.defaultValue LifeSupport
-                Patient = pat
+                PatientDraft = pat
                 // State. prefix needed: disambiguates State.Context field from Global.Context type
                 State.Context.Localization = language.Current
                 LanguageChosen = language.Chosen
@@ -1377,7 +1395,7 @@ module private Elmish =
             { state with NormalValues = InProgress }, Cmd.fromAsync (GoogleDocs.loadNormalValues LoadNormalValues)
 
         | LoadNormalValues(Finished(Ok normalValues)) ->
-            { state with NormalValues = normalValues |> Resolved }, Cmd.ofMsg (UpdatePatient state.Patient)
+            { state with NormalValues = normalValues |> Resolved }, Cmd.ofMsg (UpdatePatient state.PatientDraft)
 
         | LoadNormalValues(Finished(Error s)) ->
             Logging.error "cannot load normal values" s
@@ -1542,7 +1560,7 @@ module private Elmish =
             | _ ->
                 let form =
                     match state.Formulary with
-                    | Resolved form -> { form with Patient = state.Patient }
+                    | Resolved form -> { form with Patient = state.Patient |> Option.map Patient.toDto }
                     | _ -> Formulary.empty
 
                 let cmd = form |> loadFormulary (tokenOf state.Session)
@@ -1726,7 +1744,7 @@ type private ConcreteAppEnv
             OrderPlanMsg(OrderPlanMsg.Filter(ids, newRequest ())) |> dispatch
 
     interface AppEnv.IPatient with
-        member _.Patient = state.Patient
+        member _.Draft = state.PatientDraft
         member _.UpdatePatient p = UpdatePatient p |> dispatch
 
     interface AppEnv.IFormulary with
@@ -1873,7 +1891,7 @@ let View () =
         | _ -> null
 
     let bm =
-        calculateInterventions EmergencyTreatment.calculate state.BolusMedication state.Patient
+        calculateInterventions EmergencyTreatment.calculate state.BolusMedication state.PatientDraft
 
     let cm =
         let calc =
@@ -1882,7 +1900,7 @@ let View () =
                 | Some w' -> ContinuousMedication.calculate w' meds
                 | None -> []
 
-        calculateInterventions calc state.ContinuousMedication state.Patient
+        calculateInterventions calc state.ContinuousMedication state.PatientDraft
 
     let appEnv = ConcreteAppEnv(state, dispatch, bm, cm) :> obj
 

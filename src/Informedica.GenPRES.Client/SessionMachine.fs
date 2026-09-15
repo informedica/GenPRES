@@ -102,7 +102,7 @@ type SessionEffect =
     // window.location.assign, for RedirectTo
     | GoTo of url: string
     // interpreted as UpdatePatient, so everything derived from the patient reloads
-    | SetPatient of Patient option
+    | SetPatient of PatientDto option
     // Keys.keep: prune the other private keys
     | KeepKey of thumbprint: string
     // the orders of the version the Session opened with go into the cart, over the

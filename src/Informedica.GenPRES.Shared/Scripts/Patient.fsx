@@ -1,12 +1,13 @@
-// The patient record renamed to what it is on the wire and in the panel: `PatientDto`, every
-// field optional, a draft or a reading. The old name stays as a type abbreviation, so that no
-// caller changes in this step; the blank draft moves to `PatientDto.empty` with the old name
-// aliased the same way. A rename only, no behaviour change.
+// The patient a draft becomes. A `PatientDto` is what the wire carries and the panel edits, every
+// field optional; a `Patient` exists only with an age, or a measured weight and a measured
+// height, which is what a workbench, a plan and an evaluation are for. The type keeps its
+// representation private, so `Patient.fromDto` is the one way in and `Patient.toDto` the way
+// back to the wire.
 //
-// Script-first draft (script-only policy), → `Shared/Types.fs` and `Shared/Models.fs`. The
-// types are drafted here under a suffix next to the loaded originals, and the tests pin what
-// the abbreviation has to carry: equality, field-qualified copy-and-update, and pattern use
-// under either name.
+// Script-first draft (script-only policy), → `Shared/Models.fs`, before the `Patient` module,
+// whose readers stay on the draft; the type abbreviation of the rename steps goes. The type is
+// drafted here under a suffix next to the loaded originals; the tests pin the minimum and the
+// round trip.
 //
 // Run: `dotnet fsi Patient.fsx` from this directory.
 
@@ -22,87 +23,91 @@
 open Expecto
 open Expecto.Flip
 open Shared.Types
+open Shared.Models
 
 
-/// → `Shared/Types.fs`: today's `Patient` record under the wire's name.
-type PatientDto646 =
-    {
-        Age: Age option
-        GestationalAge: GestAge option
-        Weight: Weight
-        Height: Height
-        Gender: Gender
-        Access: Access list
-        RenalFunction: RenalFunction option
-        Location: string option
-        Department: string option
+/// → `Shared/Models.fs`: a draft that meets the minimum; built by `fromDto` only.
+type Patient646 = private { Dto: PatientDto }
+
+
+/// → `Shared/Models.fs`: why a draft is not a patient.
+[<RequireQualifiedAccess>]
+type PatientError646 =
+    // neither an age, nor a measured weight and a measured height
+    | NoAgeOrMeasuredWeightAndHeight
+
+
+/// → `Shared/Models.fs`, into the `Patient` module.
+module Patient646 =
+
+    /// The patient a draft becomes: with an age, the rest can be estimated; without one, a
+    /// measured weight and a measured height are needed.
+    let fromDto (dto: PatientDto) : Result<Patient646, PatientError646> =
+        if dto.Age.IsSome || (dto.Weight.Measured.IsSome && dto.Height.Measured.IsSome) then
+            Ok { Dto = dto }
+        else
+            Error PatientError646.NoAgeOrMeasuredWeightAndHeight
+
+
+    /// The patient's data as the wire carries it.
+    let toDto (p: Patient646) = p.Dto
+
+
+let ten = { Patient.Age.ageZero with Age.Years = 10<year> }
+let measured (w: int<gram>) (h: int<cm>) (dto: PatientDto) =
+    { dto with
+        PatientDto.Weight.Measured = Some w
+        PatientDto.Height.Measured = Some h
     }
 
 
-/// → `Shared/Types.fs`, after the record group: the old name as an abbreviation.
-type Patient646 = PatientDto646
-
-
-/// → `Shared/Models.fs`: the blank draft under the wire's name.
-module PatientDto646 =
-
-    let empty: PatientDto646 =
-        {
-            Age = None
-            GestationalAge = None
-            Weight =
-                {
-                    EstimatedP3 = None
-                    Estimated = None
-                    EstimatedP97 = None
-                    Measured = None
-                }
-            Height =
-                {
-                    EstimatedP3 = None
-                    Estimated = None
-                    EstimatedP97 = None
-                    Measured = None
-                }
-            Gender = UnknownGender
-            Access = []
-            RenalFunction = None
-            Location = None
-            Department = None
-        }
-
-
-/// → `Shared/Models.fs`: the old name delegating, until its callers move.
-module Patient646 =
-
-    let empty = PatientDto646.empty
-
-
 let tests =
-    testList "patient dto rename" [
-        test "the old name is the new record: one value, both names" {
-            let asDto: PatientDto646 = Patient646.empty
-            let asPatient: Patient646 = PatientDto646.empty
-
-            asDto |> Expect.equal "the same value" asPatient
+    testList "patient from a draft" [
+        test "an age alone is a patient" {
+            { PatientDto.empty with Age = Some ten }
+            |> Patient646.fromDto
+            |> Result.isOk
+            |> Expect.isTrue "a patient"
         }
 
-        test "a copy-and-update field-qualified by the old name still resolves" {
-            let p: Patient646 = Patient646.empty
+        test "a measured weight and height without an age is a patient" {
+            PatientDto.empty
+            |> measured 32000<gram> 140<cm>
+            |> Patient646.fromDto
+            |> Result.isOk
+            |> Expect.isTrue "a patient"
+        }
 
-            { p with
-                Patient646.Weight.Measured = Some 32000<gram>
-                Patient646.Gender = Female
+        test "a weight alone is not: the height is needed too" {
+            { PatientDto.empty with PatientDto.Weight.Measured = Some 32000<gram> }
+            |> Patient646.fromDto
+            |> Expect.equal "no patient" (Error PatientError646.NoAgeOrMeasuredWeightAndHeight)
+        }
+
+        test "an estimated weight and height do not count: the estimate follows an age" {
+            { PatientDto.empty with
+                PatientDto.Weight.Estimated = Some 32000<gram>
+                PatientDto.Height.Estimated = Some 140<cm>
             }
-            |> fun q -> q.Weight.Measured, q.Gender
-            |> Expect.equal "the fields set through the abbreviation" (Some 32000<gram>, Female)
+            |> Patient646.fromDto
+            |> Expect.equal "no patient" (Error PatientError646.NoAgeOrMeasuredWeightAndHeight)
         }
 
-        test "a function typed on the old name takes a value built under the new" {
-            let department (p: Patient646) = p.Department
-            let dto: PatientDto646 = { PatientDto646.empty with Department = Some "ICK" }
+        test "the blank draft is not a patient" {
+            PatientDto.empty
+            |> Patient646.fromDto
+            |> Expect.equal "no patient" (Error PatientError646.NoAgeOrMeasuredWeightAndHeight)
+        }
 
-            dto |> department |> Expect.equal "the department" (Some "ICK")
+        test "to the wire and back is the draft it came from" {
+            let dto =
+                { PatientDto.empty with Age = Some ten; Department = Some "ICK" }
+                |> measured 32000<gram> 140<cm>
+
+            dto
+            |> Patient646.fromDto
+            |> Result.map Patient646.toDto
+            |> Expect.equal "the same draft" (Ok dto)
         }
     ]
 
