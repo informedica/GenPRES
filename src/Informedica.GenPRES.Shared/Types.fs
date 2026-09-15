@@ -89,8 +89,9 @@ module Types =
     type Age = Patient.Age
     type GestAge = Patient.GestationalAge
 
-    /// Patient model for calculations
-    type Patient =
+    /// The patient as the wire carries it and the panel edits it: every field optional, so a
+    /// value of this type is a draft or a reading, not yet a patient.
+    type PatientDto =
         {
             Age: Age option
             GestationalAge: GestAge option
@@ -102,6 +103,7 @@ module Types =
             Location: string option
             Department: string option
         }
+
 
     /// Weight in gram!!
     and Weight =
@@ -136,6 +138,11 @@ module Types =
         | IntermittentHemodialysis // intermittent hemodialysis
         | ContinuousHemodialysis
         | PeritonealDialysis
+
+
+    /// The same record under its old name, until every caller says which it means: the wire's
+    /// draft, or the patient it becomes.
+    type Patient = PatientDto
 
 
     type ValueUnit =
