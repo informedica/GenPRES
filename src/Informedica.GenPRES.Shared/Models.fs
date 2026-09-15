@@ -15,6 +15,36 @@ module Models =
     /// - Server-only logic (dose rules, eGFR formulas) lives in GenFORM/GenCORE
     /// - Any new patient logic must decide: needed on client? → put here.
     ///   Server-only? → put in GenFORM.Patient or GenCORE.Calculations
+    /// The wire's and the panel's shape of a patient.
+    module PatientDto =
+
+        /// The blank draft: the one value with every field empty.
+        let empty =
+            {
+                Age = None
+                GestationalAge = None
+                Weight =
+                    {
+                        EstimatedP3 = None
+                        Estimated = None
+                        EstimatedP97 = None
+                        Measured = None
+                    }
+                Height =
+                    {
+                        EstimatedP3 = None
+                        Estimated = None
+                        EstimatedP97 = None
+                        Measured = None
+                    }
+                Gender = UnknownGender
+                Access = []
+                RenalFunction = None
+                Location = None
+                Department = None
+            }
+
+
     module Patient =
 
         open System
@@ -220,30 +250,8 @@ module Models =
                 | _ -> EGFR(Some 50, None)
 
 
-        let empty =
-            {
-                Age = None
-                GestationalAge = None
-                Weight =
-                    {
-                        EstimatedP3 = None
-                        Estimated = None
-                        EstimatedP97 = None
-                        Measured = None
-                    }
-                Height =
-                    {
-                        EstimatedP3 = None
-                        Estimated = None
-                        EstimatedP97 = None
-                        Measured = None
-                    }
-                Gender = UnknownGender
-                Access = []
-                RenalFunction = None
-                Location = None
-                Department = None
-            }
+        /// The blank draft under its old name, until its callers say `PatientDto.empty`.
+        let empty = PatientDto.empty
 
 
         let apply f (p: Patient) = f p
