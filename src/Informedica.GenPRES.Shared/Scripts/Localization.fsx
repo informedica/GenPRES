@@ -490,4 +490,50 @@ let printRenamedRow () =
     orderPlanRow |> String.concat "\t" |> printfn "%s"
 
 
-runTestsWithCLIArgs [] [||] (testList "Localization.fsx" [ tests; parseTests; renameTests ]) |> ignore
+// --- The patient panel says what is missing (plan 646, step 5) -----------------------------
+//
+// A draft below the minimum is no patient: the panel shows its data and, under it, what is
+// missing. One sentence, its own term, → `Terms`, after ``Patient enter patient data``; the row
+// → the sheet and `data/localization/*.tsv`.
+
+/// → `Shared/Localization.fs`, `Terms`.
+type PatientTerms = | ``Patient enter age or weight and height``
+
+
+let patientRow: string[] =
+    [|
+        "Patient enter age or weight and height"
+        "Enter an age, or a weight and a height"
+        "Voer een leeftijd in, of een gewicht en een lengte"
+        "Saisissez un âge, ou un poids et une taille"
+        "Geben Sie ein Alter ein, oder ein Gewicht und eine Größe"
+        "Ingrese una edad, o un peso y una talla"
+        "Inserisci un'età, o un peso e un'altezza"
+    |]
+
+
+let patientTests =
+    testList
+        "patient minimum term"
+        [
+            test "the key is the case's name, and resolves in every language" {
+                $"{``Patient enter age or weight and height``}"
+                |> Expect.equal "the key" patientRow[0]
+
+                for l in languages do
+                    getTerm [| patientRow |] l patientRow[0] |> Expect.isSome $"in {l}"
+            }
+
+            test "the Dutch says an age, or a weight and a height" {
+                getTerm [| patientRow |] Dutch patientRow[0]
+                |> Expect.equal "Dutch" (Some "Voer een leeftijd in, of een gewicht en een lengte")
+            }
+        ]
+
+
+let printPatientRow () =
+    patientRow |> String.concat "\t" |> printfn "%s"
+
+
+runTestsWithCLIArgs [] [||] (testList "Localization.fsx" [ tests; parseTests; renameTests; patientTests ])
+|> ignore
