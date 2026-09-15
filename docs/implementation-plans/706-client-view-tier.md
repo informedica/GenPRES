@@ -159,8 +159,8 @@ already passes a context and a busy flag by hand, passes the `OrderContextView`.
 
 ### Plan 646
 
-Plan [646](646-patient-minimum.md) resolves decision b of 691 by deleting
-`OrderContextWorkbench.Seeded` (its step 4): a filter before a patient is illegal, not
+Plan [646](646-patient-minimum.md), merged as PR #704 with its step 1b as PR #708, resolves
+decision b of 691 by deleting `OrderContextWorkbench.Seeded` (its step 4): a filter before a patient is illegal, not
 unconfirmed. So the workbench view has no seed case. Its steps 1c and 4 edit the same machine
 files and tests as this plan, and its fixture patient replaces the empty one in the machine
 tests. The code steps below start after 646 step 4 has merged.
@@ -207,9 +207,11 @@ touched `.jsx` inspected, and passes Fantomas and the dependency-rule check.
    and filter commands in `Settled` arms, the selection from the case. About 50 lines.
 6. **`Views/Nutrition.fs`** (`refactor(client)`). The slots on `OrderContextView`, the delete
    and print dialogs on the cases. About 45 lines.
-7. **The old projection deleted** (`refactor(client)`). `Provisional`, `Deferred.inProgress`,
-   `toDeferred`, the `Provisional` arm of `ViewHelpers.progressOrEmpty`, the `Deferred`
-   members and `Selected` of the two interfaces; the interim members renamed; the `Deferred`
+7. **The old projection deleted** (`refactor(client)`). `Provisional`, `toDeferred`, the
+   `Provisional` arm of `ViewHelpers.progressOrEmpty`, the `Deferred` members and `Selected`
+   of the two interfaces, and `Deferred.inProgress`: its five callers (`Views/Patient.fs`
+   twice, `Views/Formulary.fs`, `Views/Parenteralia.fs`, `Views/Order.fs`) all read a lane
+   and became a match on the view cases in steps 2 and 3; no plain fetch calls it; the interim members renamed; the `Deferred`
    comment rewritten. Acceptance: no `Provisional` in the repository. About 90 lines,
    deletion-heavy.
 8. **Docs** (`docs`). The `Deferred` table of `docs/domain/dose-quantity-stepping-flow.md`
