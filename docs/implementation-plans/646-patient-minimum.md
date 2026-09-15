@@ -120,12 +120,15 @@ authorized for this issue.
    record becomes `PatientDto`, the wire and draft shape, with `type Patient = PatientDto` kept
    as an abbreviation so that every caller compiles unchanged; `Patient.empty` becomes
    `PatientDto.empty`, the blank draft, the only place an all-`None` value is legitimate, with
-   `Patient.empty` kept as an alias for now. The `setX` mutators move to a `PatientDto` module,
-   since they edit a draft. Builds and tests green with no caller touched.
+   `Patient.empty` kept as an alias for now. The `Patient` module and its functions (`setYear`,
+   `setWeight`, `getAge`, `toString`, ...) stay where they are: an abbreviation covers the type,
+   not the module, so nothing moves in this step. Builds and tests green with no caller touched.
 1b. **Callers on the DTO name** (`refactor`). The wire records (`OrderContext`, `OrderPlan`,
    `Formulary`, `PatientContext`, `SignedOrderPlan`, the challenge's reading,
    `OrderPlanCommand.Open`), the panel, and every test site that means the wire or the draft say
-   `PatientDto`; the aliases go. Mechanical, about 70 sites, possibly two commits (source, tests).
+   `PatientDto`; the mutators and the draft helpers move to a `PatientDto` module with their
+   callers, the accessors and `toString` stay for the domain type of 1c; the aliases go.
+   Mechanical, about 70 sites, possibly two commits (source, tests).
 1c. **The domain patient** (`feat(api)`). A new `Patient` record with a private constructor,
    `Patient.fromDto : PatientDto -> Result<Patient, PatientError>` (`PatientError` a DU: no age
    and no measured weight and height), `Patient.toDto`, and accessors for what the readers need
