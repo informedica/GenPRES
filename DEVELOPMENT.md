@@ -386,14 +386,20 @@ To preview locally what ShipIt would generate:
 
 ```bash
 dotnet tool restore
-dotnet shipit --dry-run --allow-branch master --skip-merge-commit
+dotnet shipit --dry-run --allow-branch master --skip-merge-commit --skip-invalid-commit
 ```
 
 `--allow-branch` defaults to `main`; GenPRES's default branch is `master`, so it must be passed
 explicitly (`release.yml` passes it too). `--skip-merge-commit` is required for every invocation. 
 All three merge methods are enabled on the repo, so `Merge pull request ...` commits will keep 
-appearing in history, and ShipIt throws on the first one it hits instead of skipping it. `--dry-run`
-never modifies files or opens a pull request, so it's safe to run against a dirty tree.
+appearing in history, and ShipIt throws on the first one it hits instead of skipping it.
+`--skip-invalid-commit` is required too: a commit that does not follow Conventional Commits (most
+often a GitHub-UI "commit suggestion" — e.g. accepting a bot review comment — which bypasses the
+local Husky `commit-msg` hook entirely, since no local `git commit` runs) can still reach `master`
+if the required `commit-lint` PR check is overridden on merge. Without this flag ShipIt throws
+`FailedToParseCommit` and the whole release run fails; with it, that one commit is dropped from the
+changelog and the run continues. `--dry-run` never modifies files or opens a pull request, so it's
+safe to run against a dirty tree.
 
 #### What reaches the changelog
 
