@@ -116,38 +116,54 @@ Each step is one PR of at most 200 changed lines. Client `.fs` files are edited 
 and Server changes are prototyped in the libraries' `Scripts/` folders unless direct edits are
 authorized for this issue.
 
-1. **Shared: the DTO and the patient** (`feat(api)`). Today's `Patient` record becomes
-   `PatientDto`, the wire and draft shape, with `PatientDto.empty` as the blank draft (the only
-   place an all-`None` value is legitimate). A new `Patient` record with a private constructor,
+1. **Shared: the record renamed, source-compatible** (`refactor(api)`). Today's `Patient`
+   record becomes `PatientDto`, the wire and draft shape, with `type Patient = PatientDto` kept
+   as an abbreviation so that every caller compiles unchanged; `Patient.empty` becomes
+   `PatientDto.empty`, the blank draft, the only place an all-`None` value is legitimate, with
+   `Patient.empty` kept as an alias for now. The `setX` mutators move to a `PatientDto` module,
+   since they edit a draft. Builds and tests green with no caller touched.
+1b. **Callers on the DTO name** (`refactor`). The wire records (`OrderContext`, `OrderPlan`,
+   `Formulary`, `PatientContext`, `SignedOrderPlan`, the challenge's reading,
+   `OrderPlanCommand.Open`), the panel, and every test site that means the wire or the draft say
+   `PatientDto`; the aliases go. Mechanical, about 70 sites, possibly two commits (source, tests).
+1c. **The domain patient** (`feat(api)`). A new `Patient` record with a private constructor,
    `Patient.fromDto : PatientDto -> Result<Patient, PatientError>` (`PatientError` a DU: no age
    and no measured weight and height), `Patient.toDto`, and accessors for what the readers need
-   (`age`, `weight`, `height`, `gender`, `department`, ...); the `Patient.setX` mutators move to
-   `PatientDto`, since they edit a draft. `Patient.empty` deleted. The wire records
-   (`OrderContext`, `OrderPlan`, `Formulary`, `PatientContext`, `SignedOrderPlan`, the
-   challenge's reading, `OrderPlanCommand.Open`) carry `PatientDto`. Tests: `fromDto` on the
-   truth table (age only; weight only is `Error`; weight and height; nothing); `toDto` then
-   `fromDto` is the identity. About the Shared side only; the callers follow in 1b.
-1b. **Client and server on the domain patient** (`refactor`). The client's `State.Patient`, the
-   machines' `Patient` cases and `AppEnv.IPatient` hold the domain `Patient`; a context or
-   command sent to the wire takes `Patient.toDto`. The server's `mapFromSharedPatient` takes the
-   domain `Patient`, so the core never sees a DTO patient. One valid fixture patient (ten years,
-   through `fromDto`) replaces the empty one at every test site (`StubAdapterTests.fs`,
-   `TotalsTests.fs`, `ModelsTests.fs`, the machine tests); mechanical, possibly its own commit.
+   (`age`, `weight`, `height`, `gender`, `department`, ...). The client's `State.Patient`, the
+   machines' `Patient` cases and `AppEnv.IPatient` hold it; a context or command sent to the wire
+   takes `Patient.toDto`. The server's `mapFromSharedPatient` takes it, so the core never sees a
+   DTO patient. One valid fixture patient (ten years, through `fromDto`) replaces the empty one
+   in the machine and server tests. Tests: `fromDto` on the truth table (age only; weight only is
+   `Error`; weight and height; nothing); `toDto` then `fromDto` is the identity.
 2. **The estimate stays an estimate** (`fix(client)`, the root of #488). `applyNormalValues` no
    longer promotes the estimate into `Measured`; `getWeight` and `getHeight` already fall back to
    the estimate, and the server mapper reads them, so the server sees the same values. A gender
    change in the panel keeps the measured values and clears only the estimates. Tests: nothing
    entered leaves `Measured` at `None`; a measured weight survives a gender change. The
    notification #488 asks for stays with #488.
-3. **Server: no data is `None`** (`fix(server)`). `PatientContext.Patient` becomes optional: a
-   PatientId the platform has no data for. `sessionPatient` answers the reading, else the head's
-   patient, else `None`; the stub and the services lose `Patient.empty`. The order-context
-   evaluation and the plan's open and add run `Patient.fromDto` on the DTO received and answer
-   its `Error`: the outer ring parses at ingress, and no DTO patient reaches the core. A platform
-   reading below the minimum counts as no data and falls through to the head's patient. The client's
+3. **Server: every ingress converts, no data is `None`** (`fix(server)`). One function in the
+   server, applied where a DTO patient enters: `processOrderContext` (the context's patient),
+   every `OrderPlanCommand` case (`Recalculate`, `Navigate`, `AddOrderContext`,
+   `NewOrderContext`, `RemoveOrderContexts` carry a plan with a patient; `Open` carries the
+   patient itself), and `RequestSignChallenge` (the plan signed, whose patient the version
+   stores). Each runs `Patient.fromDto` on what it received before anything else and answers
+   the `Error`: the outer ring parses at ingress, no DTO patient reaches the core, and a signed
+   version stores only the DTO of a domain patient. The check lives in the three `processCmd`
+   dispatchers (`ServerApi.OrderContextCommand.fs`, `ServerApi.OrderPlanCommand.fs`,
+   `ServerApi.SigningCommand.fs`), so no member can forward a plan around it.
+   A second check at the same place, until estimation runs server-side: the patient handed to
+   the core must have a weight and a height, measured or estimated. A patient with an age only
+   and no estimate, which the platform or the MCP host can send since only the client estimates,
+   is answered with an `Error` naming the missing weight and height, instead of today's silent
+   answer of no rules and no scenarios from `getRules`. The follow-up on server-side estimation
+   lifts this check.
+   `PatientContext.Patient` becomes optional: a PatientId the platform has no data for.
+   `sessionPatient` answers the reading, else the head's patient, else `None`; a reading below
+   the minimum counts as no data. The stub and the services lose `Patient.empty`; the client's
    session machine binds the optional patient. Tests: `no-data` without a record opens on no
-   patient; with a record on the head's patient, as before; an order context below the minimum
-   answers `Error`.
+   patient; with a record on the head's patient, as before; each of the three dispatchers refuses
+   a DTO below the minimum; an age-only DTO without an estimate is refused with the weight and
+   height named.
 4. **Client machines: no seed before a patient** (`refactor(client)`, decision b of plan 691).
    `OrderContextWorkbench.Seeded` and its constructor deleted; a seed or a command without a
    patient is dropped; the projections lose the arm. `App.fs`: the initial workbench is always
@@ -169,7 +185,8 @@ authorized for this issue.
    Context section of the GenORDER document state the minimum; `uc-01` step 5.4 and
    `DEVELOPMENT.md` say "no patient data" instead of "an empty patient"; the user guide says an
    age, or a weight and a height. Follow-up issues: server-side estimation for patients from the
-   platform or the MCP host; the department default as a hidden filter input; weight alone and
+   platform or the MCP host, which also lifts the weight-and-height check of step 3; the
+   department default as a hidden filter input; weight alone and
    height alone once an estimate exists; GenFORM tests for a `None` value against a bounded range
    and for a weight-bounded category; the MCP tool refusing a patient below the minimum.
 
