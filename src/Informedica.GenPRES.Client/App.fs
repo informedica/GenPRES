@@ -922,6 +922,41 @@ module private Elmish =
         | OrderContextEffect.TellError _ -> Cmd.none
 
 
+    /// The patient data received, from the panel, the url or the Session: the estimate applied,
+    /// the draft kept for the panel and the lists, and the patient it is, if any, for the
+    /// workbench and the plan, which follow it: evaluated for a new one, again over a change.
+    /// The draft is a patient with an age, or a measured weight and height; below that there is
+    /// no patient: no workbench, no plan.
+    let updatePatient (dto: PatientDto option) (state: State) : State * Cmd<Msg> =
+        let dto = dto |> applyNormalValues state.NormalValues
+
+        let pat =
+            dto
+            |> Option.bind (fun dto ->
+                match dto |> Patient.fromDto with
+                | Ok pat -> Some pat
+                | Error err ->
+                    Logging.warning "no patient: the data is below the minimum" err
+                    None
+            )
+
+        { state with
+            Patient = pat
+            PatientDraft = dto
+            Formulary = { Formulary.empty with Patient = pat |> Option.map Patient.toDto } |> Resolved
+            Parenteralia = Parenteralia.empty |> Resolved
+            EmergencyListFilter = [||]
+            ContinuousMedsFilter = [||]
+        },
+        Cmd.batch
+            [
+                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.PatientChanged(pat, newRequest ())))
+                Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.PatientChanged(pat, newRequest ())))
+                Cmd.ofMsg (LoadFormulary Started)
+                Cmd.ofMsg (LoadParenteralia Started)
+            ]
+
+
     /// A medication chosen without a patient, from the url or a list, is dropped and said: the
     /// patient is part of the filter, so nothing waits for one.
     let noPatientForMedication (state: State) =
@@ -1193,38 +1228,7 @@ module private Elmish =
             else
                 state, Cmd.none
 
-        | UpdatePatient dto ->
-            let dto = dto |> applyNormalValues state.NormalValues
-
-            // the draft is a patient with an age, or a measured weight and height; below that
-            // there is no patient: no workbench, no plan
-            let pat =
-                dto
-                |> Option.bind (fun dto ->
-                    match dto |> Patient.fromDto with
-                    | Ok pat -> Some pat
-                    | Error err ->
-                        Logging.warning "no patient: the data is below the minimum" err
-                        None
-                )
-
-            { state with
-                Patient = pat
-                PatientDraft = dto
-                Formulary = { Formulary.empty with Patient = pat |> Option.map Patient.toDto } |> Resolved
-                Parenteralia = Parenteralia.empty |> Resolved
-                EmergencyListFilter = [||]
-                ContinuousMedsFilter = [||]
-            },
-            Cmd.batch
-                [
-                    // the workbench and the plan follow the patient: evaluated for a new one, again
-                    // over a change
-                    Cmd.ofMsg (OrderContextMsg(OrderContextMsg.PatientChanged(pat, newRequest ())))
-                    Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.PatientChanged(pat, newRequest ())))
-                    Cmd.ofMsg (LoadFormulary Started)
-                    Cmd.ofMsg (LoadParenteralia Started)
-                ]
+        | UpdatePatient dto -> updatePatient dto state
 
         | UrlChanged sl ->
             let launchUrl = sl |> parseLaunch
@@ -1249,19 +1253,22 @@ module private Elmish =
             // only an `la` parameter changes the language; a navigation keeps the current one
             let language = languageOf state |> LanguagePolicy.Language.onUrl lang
 
+            // the url's patient taken here, not by a message of its own: the workbench learns of
+            // it through the commands this yields, which go out before the seed below, so that
+            // the seed lands on a patient held
+            let state, patientCmd =
+                if anonymous then
+                    updatePatient pat state
+                else
+                    state, Cmd.none
+
             // a medication in the url is seeded over the workbench as it is, for the patient held
             // or the one the url sets; without a patient it is dropped and said, since the
             // patient is part of the filter and nothing waits for one
-            let hasPatient =
-                if anonymous then
-                    pat |> Option.exists (Patient.fromDto >> Result.isOk)
-                else
-                    state.Patient.IsSome
-
             let state, seed =
                 match med with
                 | None -> state, Cmd.none
-                | Some m when hasPatient ->
+                | Some m when state.Patient.IsSome ->
                     state,
                     state.OrderContext
                     |> OrderContextState.context
@@ -1282,9 +1289,8 @@ module private Elmish =
             },
             Cmd.batch
                 [
-                    // the patient first, so that the seed lands on a patient held
-                    if anonymous then
-                        Cmd.ofMsg (pat |> UpdatePatient)
+                    // the patient's commands first, so that the seed lands on a patient held
+                    patientCmd
                     seed
                     launchCmd launchUrl
                 ]
