@@ -255,7 +255,7 @@ and c, which would change it, are deferred to a follow-up proposal.
 |---|---|---|---|
 | a | after a failed `Filter` the plan keeps the plan *sent* | go back to the original, as the workbench does | fix |
 | a' | both lanes patch a new patient into the original | kept: the plan's patient must stay in step with the panel and the workbench; the stale totals after a refused patient recalculation stay with #672 | – |
-| b | a seed before a patient projects `Resolved` | deferred to a follow-up proposal: shown provisional, greyed until evaluated | later |
+| b | a seed before a patient projects `Resolved` | resolved by [646](646-patient-minimum.md): a filter before a patient is an illegal state, since the patient is part of the filter; `Seeded` is deleted, a medication in the url without a patient is dropped with a notice | later, #646 |
 | c | `Loading` projects `InProgress`, a bare spinner | deferred to a follow-up proposal: `Unevaluated` and `Unopened` deleted, the first load and a cart open a request over the empty value, shown greyed | later |
 | d | `Deferred.resolved` contradicts `Deferred.inProgress` | `resolved` and `exists` deleted; no callers | refactor |
 | e | `context` returns the context sent | kept: `context` is the value shown, `patient` the domain's | – |
@@ -342,10 +342,10 @@ preserves behaviour, so that every existing test stays green through it. Every s
    `Deferred.inProgress` stays as the greying test the views use; it is true for a seed too,
    which is what the views want. About 70 lines.
 
-After step 9, decisions b and c are a follow-up proposal of their own: `Unevaluated` and
-`Unopened` deleted, the first load and a cart open a request over the empty value shown greyed,
-the seed shown provisional. They change what the pages show and deserve a look at the pages
-first.
+After step 9, decision b is taken up by plan [646](646-patient-minimum.md), which deletes the
+seed-before-patient state instead of projecting it. Decision c stays a follow-up proposal of its
+own: `Unevaluated` and `Unopened` deleted, the first load and a cart open a request over the
+empty value shown greyed. It changes what the pages show and deserves a look at the pages first.
 
 ## Acceptance
 
@@ -366,7 +366,8 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 
 ## Left open
 
-- Decisions b and c, the first load and the seed shown provisional, as a follow-up proposal.
+- Decision c, the first load shown provisional, as a follow-up proposal. Decision b went to
+  plan [646](646-patient-minimum.md): no seed before a patient.
 - `SessionMachine` (`Launching` with its attempt count, `Resuming`, `Closing`) and
   `SigningMachine` (`Requesting`, `Submitting`, `Unsent`) split the same way;
   `SessionGatePolicy`'s busy flag then reads the in-flight field.
