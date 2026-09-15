@@ -55,25 +55,7 @@ module Patient =
                 | UpdateGAWeek s -> state |> PatientDto.setGAWeek s
                 | UpdateGADay s -> state |> PatientDto.setGADay s
                 | UpdateRenal s -> state |> PatientDto.setRenal s
-                | UpdateGender s ->
-                    state
-                    |> Option.defaultValue PatientDto.empty
-                    |> (fun p ->
-                        { p with
-                            PatientDto.Weight.Measured = None
-                            PatientDto.Height.Measured = None
-
-                            PatientDto.Weight.Estimated = None
-                            PatientDto.Height.Estimated = None
-
-                            Gender =
-                                match s with
-                                | "male" -> Male
-                                | "female" -> Female
-                                | _ -> UnknownGender
-                        }
-                    )
-                    |> Some
+                | UpdateGender s -> state |> PatientDto.setGender s
                 | ToggleCVL -> state |> PatientDto.toggleCVL
                 | TogglePVL -> state |> PatientDto.togglePVL
                 | ToggleET -> state |> PatientDto.toggleET
@@ -82,10 +64,10 @@ module Patient =
             state, Cmd.none
 
 
+        /// Whether the draft is a patient: an age, or a measured weight and height; the estimate
+        /// no longer stands in for a measurement, so the minimum decides.
         let canCalculate (pat: PatientDto option) : bool =
-            match pat with
-            | None -> false
-            | Some p -> p.Weight.Measured.IsSome && p.Height.Measured.IsSome
+            pat |> Option.bind (Patient.fromDto >> Result.toOption) |> Option.isSome
 
 
         let show lang terms pat =

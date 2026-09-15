@@ -146,3 +146,87 @@ let patientTests =
                 |> Expect.equal "the same draft" (Ok dto)
             }
         ]
+
+
+module EstimateFixtures =
+
+    let row sex age p3 mean p97 : NormalValue =
+        {
+            Sex = sex
+            Age = age
+            P3 = p3
+            Mean = mean
+            P97 = p97
+        }
+
+    let weights = Some [ row "M" 10. 25. 32. 40. ]
+    let heights = Some [ row "M" 10. 130. 140. 150. ]
+
+    let estimated (dto: PatientDto) =
+        dto |> PatientDto.applyNormalValues weights heights None None
+
+
+open EstimateFixtures
+
+
+[<Tests>]
+let estimateTests =
+    testList
+        "the estimate stays an estimate"
+        [
+            test "nothing measured: the estimate is written, the measured value stays empty" {
+                let dto =
+                    { PatientDto.empty with
+                        Age = Some ten
+                        Gender = Male
+                    }
+                    |> estimated
+
+                (dto.Weight.Estimated, dto.Weight.Measured, dto.Height.Estimated, dto.Height.Measured)
+                |> Expect.equal "estimated, not measured" (Some 32000<gram>, None, Some 140<cm>, None)
+            }
+
+            test "a measured weight survives the estimate" {
+                let dto =
+                    { PatientDto.empty with
+                        Age = Some ten
+                        Gender = Male
+                        PatientDto.Weight.Measured = Some 30000<gram>
+                    }
+                    |> estimated
+
+                (dto.Weight.Measured, dto.Weight.Estimated)
+                |> Expect.equal "both, apart" (Some 30000<gram>, Some 32000<gram>)
+            }
+
+            test "the readers fall back to the estimate, so what is calculated does not change" {
+                { PatientDto.empty with
+                    Age = Some ten
+                    Gender = Male
+                }
+                |> estimated
+                |> fun dto -> dto |> Patient.getWeight, dto |> Patient.getHeight
+                |> Expect.equal "the estimate" (Some 32000<gram>, Some 140<cm>)
+            }
+
+            test "a gender chosen keeps the measured values and drops the estimates" {
+                let dto =
+                    { PatientDto.empty with
+                        Age = Some ten
+                        Gender = Male
+                        PatientDto.Weight.Measured = Some 30000<gram>
+                    }
+                    |> estimated
+
+                Some dto
+                |> PatientDto.setGender "female"
+                |> Option.map (fun p -> p.Gender, p.Weight.Measured, p.Weight.Estimated, p.Height.Estimated)
+                |> Expect.equal "female, measured kept, estimates gone" (Some(Female, Some 30000<gram>, None, None))
+            }
+
+            test "a gender chosen first is a draft with the gender and nothing else" {
+                None
+                |> PatientDto.setGender "male"
+                |> Expect.equal "the gender alone" (Some { PatientDto.empty with Gender = Male })
+            }
+        ]
