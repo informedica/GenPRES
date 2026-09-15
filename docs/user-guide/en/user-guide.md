@@ -83,10 +83,11 @@ The URL uses hash-based routing (`/#patient?...`). Supported query parameters:
 
 Example patients using query parameters:
 
-> **Some of these links do not set `ht` (height), and a few set neither `wt` nor `ht`.** GenPRES
-> calculates a dose only once both weight and height are present, so opening such a link lands on a
-> populated patient panel with the calculation still withheld — fill in the missing measurement to
-> continue. Links that already carry `wt` and `ht` go straight to a dose.
+> **Some of these links do not set `ht` (height), and a few set neither `wt` nor `ht`.** A patient
+> needs an age, or a weight and a height: with an age, GenPRES estimates the weight and height it
+> does not have and says so; with a weight alone, no patient exists yet and the panel says what is
+> missing — fill in the height to continue. Links that carry an age, or `wt` and `ht`, go straight
+> to a dose.
 
 | Age (years) | Age (days) | GA (weeks) | Weight (kg) | Height (cm) | Medication | Route | Indication | Link |
 |---|---|---|---|---|---|---|---|---|
@@ -161,8 +162,10 @@ Shows the calculated dose range based on the patient parameters and the selected
 
 ### Step-by-step workflow
 
-1. **Enter patient details** in the patient panel. Both **weight and height** are required
-   before doses are calculated — with either missing, the panel stays open and no dose appears.
+1. **Enter patient details** in the patient panel. A patient needs **an age, or a weight and a
+   height** before doses are calculated — below that, the panel stays open and says what is
+   missing. With an age alone the weight and height are estimated, and the panel shows them as
+   such; a measured value replaces the estimate.
 2. **Choose the indication and generic** from the selection lists.
 3. **Choose the route, form and dose type**. Only combinations for which a dose rule exists are
    offered.
@@ -224,7 +227,7 @@ You can run a complete end-to-end workflow without real patient data, which is u
 3. On the main screen, **manually enter test patient data**:
    - Age: e.g., `2` years
    - Weight: e.g., `12` kg
-   - Height: e.g., `87` cm (required — no dose is calculated without it)
+   - Height: e.g., `87` cm (with the weight, the alternative to an age; estimated when an age is given)
    - Gender: `Male`
 
 4. Select a medication, e.g., `paracetamol`.
