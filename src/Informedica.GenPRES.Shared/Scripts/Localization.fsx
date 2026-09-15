@@ -535,5 +535,90 @@ let printPatientRow () =
     patientRow |> String.concat "\t" |> printfn "%s"
 
 
-runTestsWithCLIArgs [] [||] (testList "Localization.fsx" [ tests; parseTests; renameTests; patientTests ])
+// --- The prescribing page says which dimension is missing (plan 646, step 6) ----------------
+//
+// A patient without an age loses every dose rule with an age bound, silently, since a missing
+// datum never matches a bounded range; a patient with an age only and no estimate has no weight
+// and height for the rules to gate on, and the server refuses it. The page says so, one
+// sentence each, → `Terms`, after ``Prescribe Administration``; the rows → the sheet.
+
+/// → `Shared/Localization.fs`, `Terms`.
+type PrescribeTerms =
+    | ``Prescribe Age unknown``
+    | ``Prescribe Weight and height unknown``
+    // one of the two missing, the other measured or estimated: the notice names the one
+    | ``Prescribe Weight unknown``
+    | ``Prescribe Height unknown``
+
+
+let prescribeRows: string[][] =
+    [|
+        [|
+            "Prescribe Age unknown"
+            "Age unknown: only dose rules without an age bound are offered"
+            "Leeftijd onbekend: alleen doseerregels zonder leeftijdsgrens worden getoond"
+            "Âge inconnu : seules les règles de dosage sans limite d'âge sont proposées"
+            "Alter unbekannt: nur Dosierregeln ohne Altersgrenze werden angeboten"
+            "Edad desconocida: solo se ofrecen reglas de dosificación sin límite de edad"
+            "Età sconosciuta: vengono proposte solo le regole di dosaggio senza limite di età"
+        |]
+        [|
+            "Prescribe Weight and height unknown"
+            "Weight and height unknown: enter them, there is no estimate"
+            "Gewicht en lengte onbekend: voer ze in, er is geen schatting"
+            "Poids et taille inconnus : saisissez-les, il n'y a pas d'estimation"
+            "Gewicht und Größe unbekannt: geben Sie sie ein, es gibt keine Schätzung"
+            "Peso y talla desconocidos: introdúzcalos, no hay estimación"
+            "Peso e altezza sconosciuti: inseriscili, non c'è una stima"
+        |]
+        [|
+            "Prescribe Weight unknown"
+            "Weight unknown: enter it, there is no estimate"
+            "Gewicht onbekend: voer het in, er is geen schatting"
+            "Poids inconnu : saisissez-le, il n'y a pas d'estimation"
+            "Gewicht unbekannt: geben Sie es ein, es gibt keine Schätzung"
+            "Peso desconocido: introdúzcalo, no hay estimación"
+            "Peso sconosciuto: inseriscilo, non c'è una stima"
+        |]
+        [|
+            "Prescribe Height unknown"
+            "Height unknown: enter it, there is no estimate"
+            "Lengte onbekend: voer die in, er is geen schatting"
+            "Taille inconnue : saisissez-la, il n'y a pas d'estimation"
+            "Größe unbekannt: geben Sie sie ein, es gibt keine Schätzung"
+            "Talla desconocida: introdúzcala, no hay estimación"
+            "Altezza sconosciuta: inseriscila, non c'è una stima"
+        |]
+    |]
+
+
+let prescribeTests =
+    testList
+        "missing dimension terms"
+        [
+            test "the keys are the cases' names, and resolve in every language" {
+                [
+                    ``Prescribe Age unknown``
+                    ``Prescribe Weight and height unknown``
+                    ``Prescribe Weight unknown``
+                    ``Prescribe Height unknown``
+                ]
+                |> List.map (fun t -> $"{t}")
+                |> Expect.equal "the keys" (prescribeRows |> Array.map (fun r -> r[0]) |> Array.toList)
+
+                for r in prescribeRows do
+                    for l in languages do
+                        getTerm prescribeRows l r[0] |> Expect.isSome $"{r[0]} in {l}"
+            }
+        ]
+
+
+let printPrescribeRows () =
+    prescribeRows |> Array.iter (fun r -> r |> String.concat "\t" |> printfn "%s")
+
+
+runTestsWithCLIArgs
+    []
+    [||]
+    (testList "Localization.fsx" [ tests; parseTests; renameTests; patientTests; prescribeTests ])
 |> ignore
