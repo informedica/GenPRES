@@ -70,23 +70,34 @@ module Patient =
             pat |> Option.bind (Patient.fromDto >> Result.toOption) |> Option.isSome
 
 
+        /// The summary: the draft's data, and under it, while the draft is no patient yet, what is
+        /// missing: an age, or a weight and a height. Nothing entered asks for the data.
         let show lang terms pat =
+            let term fallback t =
+                terms
+                |> Deferred.map (fun terms -> Localization.getTerm terms lang t |> Option.defaultValue fallback)
+                |> Deferred.defaultValue fallback
+
             let toString =
                 match terms with
                 | Resolved terms -> Patient.toString terms lang true
                 | _ -> fun _ -> ""
 
+            let missing =
+                term
+                    "Voer een leeftijd in, of een gewicht en een lengte"
+                    Terms.``Patient enter age or weight and height``
+
             match pat with
-            | Some p -> p |> toString |> Markdown.markdown.children
+            | Some p when p |> Patient.fromDto |> Result.isOk -> [ p |> toString ]
+            | Some p -> [ p |> toString; missing ]
             | None ->
-                terms
-                |> Deferred.map (fun terms ->
-                    Terms.``Patient enter patient data``
-                    |> Localization.getTerm terms lang
-                    |> Option.defaultValue "Voer patient gegevens in"
-                )
-                |> Deferred.defaultValue "Voer patient gegevens in"
-                |> Markdown.markdown.children
+                [
+                    term "Voer patient gegevens in" Terms.``Patient enter patient data``
+                ]
+            |> List.filter (fun s -> s <> "")
+            |> String.concat "\n\n"
+            |> Markdown.markdown.children
             |> List.singleton
             |> Markdown.Markdown.markdown
 

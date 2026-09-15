@@ -25,6 +25,8 @@ namespace Shared
 /// `Scripts/Localization.fsx` (the script-only policy), which also prints the sheet rows.
 type Terms =
     | ``Patient enter patient data``
+    // what a draft that is no patient yet is missing: an age, or a weight and a height
+    | ``Patient enter age or weight and height``
     | ``Patient Age``
     | ``Patient GA Age``
     | ``Patient Age year``
