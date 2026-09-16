@@ -1919,9 +1919,12 @@ module Order =
                                     incr |> Variable.ValueRange.Increment.toValueUnit |> ValueUnit.getBaseValue
                                 )
 
-                            $"Increase quantity increment to {incr |> Variable.ValueRange.Increment.toString false}"
-                            |> Events.OrderScenario
-                            |> Logging.logDebug logger
+                            Logging.logDebugLazy
+                                logger
+                                (fun () ->
+                                    $"Increase quantity increment to {incr |> Variable.ValueRange.Increment.toString false}"
+                                    |> Events.OrderScenario
+                                )
                             // apply the minimum increment increase to the orderable and components
                             { orb with
                                 OrderableQuantity =
@@ -2820,11 +2823,9 @@ module Order =
 
 
     let print logger ord =
-        ord
-        |> toStringWithConstraints
-        |> String.concat "\n"
-        |> Events.OrderScenario
-        |> Logging.logDebug logger
+        Logging.logDebugLazy
+            logger
+            (fun () -> ord |> toStringWithConstraints |> String.concat "\n" |> Events.OrderScenario)
 
         ord
 
@@ -3414,22 +3415,28 @@ module Order =
                     |> mapFromOrderEquations ord
                     |> fun ord ->
                         if printErr then
-                            $"""Solve errored with: {m}
+                            Logging.logDebugLazy
+                                logger
+                                (fun () ->
+                                    $"""Solve errored with: {m}
 {ord |> toString |> List.mapi (sprintf "%i. %s") |> String.concat "\n"}"""
-                            |> Events.OrderScenario
-                            |> Logging.logDebug logger
+                                    |> Events.OrderScenario
+                                )
 
                         Error(ord, m)
         with exn ->
             if printErr then
-                $"""Solve errored with: {exn.Message}
+                Logging.logDebugLazy
+                    logger
+                    (fun () ->
+                        $"""Solve errored with: {exn.Message}
 {oEqs
  |> mapFromOrderEquations ord
  |> toString
  |> List.mapi (sprintf "%i. %s")
  |> String.concat "\n"}"""
-                |> Events.OrderScenario
-                |> Logging.logDebug logger
+                        |> Events.OrderScenario
+                    )
 
             let msg = [ exn |> Informedica.GenSolver.Lib.Types.Exceptions.UnexpectedException ]
 
@@ -3506,10 +3513,13 @@ module Order =
                     incrOrd |> solveMinMax "Increase Quantity Increment" false logger
                 |> function
                     | Error(_, errs) ->
-                        $"""Could not increase orderable quantity increment:
+                        Logging.logDebugLazy
+                            logger
+                            (fun () ->
+                                $"""Could not increase orderable quantity increment:
 {errs |> List.map string |> String.concat "\n"}"""
-                        |> Events.OrderScenario
-                        |> Logging.logDebug logger
+                                |> Events.OrderScenario
+                            )
 
                         ord // original order
                     | Ok ord ->
@@ -3528,10 +3538,13 @@ module Order =
 
                         |> function
                             | Error(_, errs) ->
-                                $"""Could not increase orderable rate increment:
+                                Logging.logDebugLazy
+                                    logger
+                                    (fun () ->
+                                        $"""Could not increase orderable rate increment:
 {errs |> List.map string |> String.concat "\n"}"""
-                                |> Events.OrderScenario
-                                |> Logging.logDebug logger
+                                        |> Events.OrderScenario
+                                    )
 
                                 ord // increased increment order
                             | Ok ord -> ord // increased increment and rate order
@@ -3562,9 +3575,12 @@ module Order =
                 |> fromOrdVars ovars
                 |> solveOrder "Maximize Rate" false logger
                 |> Result.map (fun ord ->
-                    $"max rate set to: {maxRte |> OrderVariable.toString true}"
-                    |> Events.OrderScenario
-                    |> Logging.logDebug logger
+                    Logging.logDebugLazy
+                        logger
+                        (fun () ->
+                            $"max rate set to: {maxRte |> OrderVariable.toString true}"
+                            |> Events.OrderScenario
+                        )
 
                     ord
                 )

@@ -1033,6 +1033,86 @@ Serilog composition root is stable enough that these changes are visible in real
   exists. Cross-reference with `fsharp-coding.instructions.md`'s "message templates instead of
   string interpolation" idiom while auditing several `*Logging.fs` formatters build strings via
   `$"..."` today where a Serilog structured property would let the sink do the formatting.
+
+  **Scoped 2026-09-16, not started.** Traced every `Logger.log*`/`Logging.log*` call site in
+  `GenSOLVER.Lib`, `GenORDER.Lib` and their `*Logging.fs` wrappers against their actual production
+  callers (not the `Scripts/*.fsx` dev tooling), plus what `SerilogBridge.toLogger` (part B above)
+  actually does with a message once it's logged:
+
+  - The doc comment's own premise is now stale. `Informedica.Logging.Lib/Logging.fs:56-60`
+    justifies `logInfo` being eager with "the logging agent performs the (potentially expensive)
+    formatting and writing asynchronously" — true when `AgentLogging`'s `MailboxProcessor` sat
+    behind every `Logger`, but Step 2 (`e260222d`) replaced that with `SerilogBridge.toLogger`,
+    whose `Log` calls `serilogLogger.Write(...)` directly on the caller's thread; only the file
+    *write* is wrapped in `Serilog.Sinks.Async` (part B), not the level check or property capture
+    that happen first. This is a reasonably confident read of Serilog's architecture, not verified
+    against its source this session. The practical consequence: every eager call —
+    `Logging.logWith`/`logInfo`/`logWarning`/`logDebug`/`logError`, and GenSOLVER's and GenORDER's
+    own `Logger`/`Logging` wrapper modules that sit on top of them — allocates an `Event` record
+    and calls `DateTime.Now` unconditionally before Serilog gets a chance to say the level is
+    disabled. `*Lazy` is the only path that checks `logger.Enabled level` first and skips all of
+    that. So the criterion in the doc comment ("use `*Lazy` only when the message is expensive to
+    build") is incomplete: a cheap eager call fired tens of thousands of times per request still
+    pays the allocation, and only `*Lazy` avoids it — call frequency matters as much as per-call
+    cost.
+  - **GenSOLVER.Lib is the real target and has no `*Lazy` API at all.** `Logging.fs`'s `Logger`
+    module (`logDebug`/`logInfo`/`logWarning`/`logError`) offers no lazy variants, unlike the core
+    port it wraps. Its callers are the solver's innermost loop: `Solver.fs:122`
+    (`Events.SolverLoopedQue`, once per propagation iteration), `:179`/`:200`/`:204`
+    (`SolverStartSolving`/`SolverFinishedSolving`, once per `solve` call), `Equation.fs:377/383/391/396`
+    (`EquationStartCalculation`/`EquationFinishedCalculation`, once per operand per calculation
+    step — the innermost of the innermost), `Equation.fs:445/500`
+    (`EquationStartedSolving`/`EquationFinishedSolving`, once per equation per solve pass), and
+    `Constraint.fs:80/105/127` (once per constraint sort/apply/solve). All are Debug level, all
+    fire unconditionally regardless of `GENPRES_LOG`, and this is the exact code path the plan
+    itself cites as producing a 26,555-line trace for a single scenario (`SolverLogging.fs`'s
+    module doc / the GenSOLVER stability discussion above) — i.e. confirmed high call frequency,
+    not a hypothetical hot path. Every DU wrap here is cheap (`sorted`, `eq`, `eqs` are already
+    materialized for the actual solving logic, not recomputed for logging), so the waste is purely
+    the unconditional `Event` allocation, `DateTime.Now` call and `Serilog.Write` dispatch on every
+    one of these ~13 call sites, on every iteration, on every request, even when nobody has
+    `GENPRES_LOG=d` set.
+  - **GenORDER.Lib already has the `*Lazy` API, but it's incomplete and under-used for the same
+    reason.** `Logging.fs`'s `logInfoLazy`/`logWarningLazy` exist and are already used at the two
+    genuinely expensive sites (`OrderProcessor.fs:523/554`'s `toConsoleTableString`,
+    `Medication.fs:1313`, `Order.fs:3411`) — the audit's original hypothesis (formatter cost drives
+    the lazy/eager choice) already got acted on there. But `logDebug` (`Logging.fs:24`) has no
+    `logDebugLazy` counterpart, and `Order.fs`'s five remaining eager `Logging.logDebug` calls
+    (`:1952/2882/3478/3490/3629`) are Debug-level order-construction steps of the same shape as
+    GenSOLVER's — most are cheap DU wraps, but `:1950` (`Variable.ValueRange.Increment.toString
+    false`) does real formatting work unconditionally on every increment-adjustment step. Lower
+    priority than GenSOLVER: `Order.fs` runs once per order scenario per request, not once per
+    solver iteration, so the multiplier is smaller.
+  - **Not worth converting**: `OrderLogging.fs`'s `printOrderEqs`/`printOrderMsgWithContext`/
+    `printScenarios` are exactly the "expensive formatter" shape the audit was looking for
+    (sorting, `Solver.mapToOrderEqs`, multi-line string building before the log call) but have
+    **zero production callers** — grep confirms they're reachable only from
+    `Scripts/Scenarios.fsx` and the prototype script for this plan. Converting them to `*Lazy`
+    would be dead-code polish with no runtime effect; leave them as-is unless a future change gives
+    them a real caller.
+
+  **Recommendation**: add `logDebugLazy` to both `GenSOLVER.Lib/Logging.fs`'s `Logger` module and
+  `GenORDER.Lib/Logging.fs`'s `Logging` module (mirroring the core port's `logDebugLazy`), then
+  convert the ~13 GenSOLVER call sites listed above — the highest-value slice, since it's the
+  tightest loop in the system — and `Order.fs`'s 5 sites as a smaller follow-up. No signature
+  changes ripple outward: every call site already has `log`/`logger` in scope, this is a like-for-like
+  swap from `Logger.logDebug log evt` to `Logger.logDebugLazy log (fun () -> evt)` (GenSOLVER) or
+  the equivalent in GenORDER.
+
+  **Implemented (2026-09-16), prepared as `416-eager-vs-lazy.patch`** (script-only policy — edited
+  in a disposable `git worktree`, never the working tree's `.fs` files, per AGENTS.md), verified by
+  `dotnet build GenPRES.sln` (0 errors), `dotnet test` on `Informedica.GenSOLVER.Tests` (128/128)
+  and `Informedica.GenORDER.Tests` (57/57), the full `dotnet run ServerTests` suite (1955/1955),
+  `dotnet fsi scripts/CheckDependencyRule.fsx` (9/9), and `dotnet fantomas --check` on every touched
+  file. `logMessageLazy`/`logDebugLazy` were added to both `Logger` (GenSOLVER) and `Logging`
+  (GenORDER) mirroring the core port and GenORDER's existing `logInfoLazy`/`logWarningLazy`. All 13
+  GenSOLVER sites converted as scoped. `Order.fs` turned out to have 7 live eager `logDebug` sites,
+  not the 5 this audit originally counted — the two extra (`:3573`/`:3595` today, the
+  `increaseIncrements` rate/quantity-increment error branches) are the same shape as the other five
+  and were converted too rather than left half-migrated; all 7 landed in the same patch as the
+  GenSOLVER tier since the combined diff is 75/36 lines, comfortably under the ~200-line commit
+  guideline. No signature changes; behavior is unchanged except that a Debug-level event is no
+  longer allocated, timestamped and dispatched to the sink when nothing would consume it.
 - Adapter-ring console usage. The 9 `ConsoleWriter` sites in `ZIndex.Lib`, `ZForm.Lib` and
   `NKF.Lib` (`ATCGroup.fs`, `DoseRule.fs`, `FilePath.fs`, `GenPresProduct.fs`, `Json.fs`,
   `Substance.fs`, `GStand.fs`, `Utils.fs`, `NKF/Utils.fs`) are not dependency-rule violations 

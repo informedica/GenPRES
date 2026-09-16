@@ -46,3 +46,8 @@ module Logging =
     /// Log an order event built lazily: the thunk runs only if the logger would
     /// consume a warning message.
     let logWarningLazy (logger: Logger) (mk: unit -> Events.Event) = logMessageLazy Level.Warning logger mk
+
+
+    /// Log an order event built lazily: the thunk runs only if the logger would
+    /// consume a debug message.
+    let logDebugLazy (logger: Logger) (mk: unit -> Events.Event) = logMessageLazy Level.Debug logger mk

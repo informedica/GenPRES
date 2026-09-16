@@ -366,13 +366,15 @@ module Equation =
                         else
                             let op2 = if i = 0 then op1 else op2
                             // log starting the calculation
-                            (op1, op2, y, xs) |> Events.EquationStartCalculation |> Logger.logDebug log
+                            Logger.logDebugLazy log (fun () -> (op1, op2, y, xs) |> Events.EquationStartCalculation)
 
                             xs |> calc op1 op2
                         |> function
                             | None ->
                                 // log finishing the calculation
-                                (y :: xs, false) |> Events.EquationFinishedCalculation |> Logger.logDebug log
+                                Logger.logDebugLazy
+                                    log
+                                    (fun () -> (y :: xs, false) |> Events.EquationFinishedCalculation)
 
                                 n, None
                             | Some var ->
@@ -380,12 +382,16 @@ module Equation =
 
                                 if yNew <> y then
                                     // log finishing the calculation
-                                    ([ yNew ], true) |> Events.EquationFinishedCalculation |> Logger.logDebug log
+                                    Logger.logDebugLazy
+                                        log
+                                        (fun () -> ([ yNew ], true) |> Events.EquationFinishedCalculation)
 
                                     n, Some yNew
                                 else
                                     // log finishing the calculation
-                                    ([], false) |> Events.EquationFinishedCalculation |> Logger.logDebug log
+                                    Logger.logDebugLazy
+                                        log
+                                        (fun () -> ([], false) |> Events.EquationFinishedCalculation)
 
                                     n, None
             )
@@ -434,7 +440,7 @@ module Equation =
             eq, Unchanged
         else
             // log starting the equation solve
-            (onlyMinIncrMax, eq) |> Events.EquationStartedSolving |> Logger.logDebug log
+            Logger.logDebugLazy log (fun () -> (onlyMinIncrMax, eq) |> Events.EquationStartedSolving)
 
             // get the vars and the matching operators
             let vars, op1, op2 =
@@ -489,7 +495,7 @@ module Equation =
                      , solveResult)
                     |> fun (eq, sr) ->
                         // log finishing equation solving
-                        (eq, sr) |> Events.EquationFinishedSolving |> Logger.logDebug log
+                        Logger.logDebugLazy log (fun () -> (eq, sr) |> Events.EquationFinishedSolving)
 
                         eq, sr
 

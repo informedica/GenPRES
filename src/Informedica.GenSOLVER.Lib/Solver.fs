@@ -119,7 +119,7 @@ module Solver =
                 let que =
                     let sorted = que |> sortQue onlyMinIncrMax
 
-                    (n, sorted) |> Events.SolverLoopedQue |> Logger.logDebug log
+                    Logger.logDebugLazy log (fun () -> (n, sorted) |> Events.SolverLoopedQue)
 
                     sorted |> List.map snd
 
@@ -176,7 +176,7 @@ module Solver =
                     match rpl with
                     | [] -> eqs |> Ok
                     | _ ->
-                        (onlyMinIncrMax, rpl) |> Events.SolverStartSolving |> Logger.logDebug log
+                        Logger.logDebugLazy log (fun () -> (onlyMinIncrMax, rpl) |> Events.SolverStartSolving)
 
                         loop 0 rpl (Ok rst)
                 with
@@ -187,11 +187,11 @@ module Solver =
 
                 |> function
                     | Ok eqs ->
-                        eqs |> Events.SolverFinishedSolving |> Logger.logDebug log
+                        Logger.logDebugLazy log (fun () -> eqs |> Events.SolverFinishedSolving)
 
                         eqs |> Ok
                     | Error(eqs, m) ->
-                        eqs |> Events.SolverFinishedSolving |> Logger.logDebug log
+                        Logger.logDebugLazy log (fun () -> eqs |> Events.SolverFinishedSolving)
 
                         Error(eqs, m)
 
