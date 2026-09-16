@@ -103,7 +103,9 @@ The engine's own isolation behavior is proven by running the same test suite on 
   For now the value is a SQLite connection string. The fail-closed rule for production lands
   with #580.
 - Demo and a bare `dotnet run` keep the stub unless the key is set; a demo on SQLite keeps its
-  Sessions across a restart, as Rule 32 says.
+  credentials and order plan versions across a restart. Its Sessions end at a restart while
+  the working state is in memory (§3), which Rule 32 says they must not: plan 516 records it
+  as an open decision.
 - The integration tests run in the normal CI matrix, on every OS, against a temporary file. No
   container job until the engine amendment.
 - The SQL stays within the portable core: an integer id the engine generates, `TEXT` for JSON,

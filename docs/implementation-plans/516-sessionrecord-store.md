@@ -36,7 +36,11 @@ In scope:
   working state of a Session, what it opened with, its data notice and its challenge, stays in
   memory and is gone at every startup, as
   [ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) §6 decides: every restart
-  ends all Sessions and open challenges, so storing it would help nothing.
+  ends all Sessions and open challenges, so storing it would help nothing. So that the
+  persisted rows agree, the adapter appends a `restarted` ending at startup for every
+  `session` row of the previous run that no ending names. While that state lives in one
+  process, one server instance runs per store, and a restart ends every Session, which Rules
+  32 and 36 say it must not: open decision 6.
 - The order plan versions stored as domain Dtos under a JSON structure version, upgraded on
   load (ADR-0008 invariant 5; the section "Stored Dtos and their structure version" below).
 - The audit table and its writer (Rule 46), inside the same transaction as each act.
@@ -106,7 +110,7 @@ and the final engine runs the write serializable with one retry (Rule 42).
 | ------------- | ------ | --------------- | ------------ |
 | `Launches` | `launch_record`, `launch_outcome` | the record by nonce or by `state`, with its outcome | the record at the first presentation; the outcome once, at the callback |
 | `Sessions` | `session`, `session_seen` | the row by session id, the newest row for its login, the newest heartbeat; what the Session opened with and the patient it shows are working state, in memory | a session at an open; a heartbeat at every `touch` |
-| `Endings` | `session_ending`, `session_acknowledged`, and `session` itself | a session row whose login has a newer session row is `SupersededByLaunch` at that row's `opened_at`, whatever became of the newer row; the newest row for the login is open unless an ending names it; `wrong-pin-limit` is a row; an acknowledged ending is hidden; a `closed` row loads as no Session at all | `wrong-pin-limit` at the third wrong PIN; `closed` at `close`, with the acknowledgement |
+| `Endings` | `session_ending`, `session_acknowledged`, and `session` itself | a session row whose login has a newer session row is `SupersededByLaunch` at that row's `opened_at`, whatever became of the newer row; the newest row for the login is open unless an ending names it; `wrong-pin-limit` is a row; an acknowledged ending is hidden; a `closed` row loads as no Session at all | `wrong-pin-limit` at the third wrong PIN; `closed` at `close`, with the acknowledgement; `restarted` at startup, for every row of the previous run that no ending names |
 | `Credentials` | `credential_event` | the newest event for the user id | an event at every change: PIN set, wrong entry, lock, right entry |
 | `Codes` | `confirmation_code`, `code_try`, `code_spent` | the newest unspent code for the user id, with its tries counted | a code when mailed; a try per wrong code; spent when the PIN is set, the tries run out, or the last attempt is dropped |
 | `Enrolments` | `enrolment`, `enrolment_dropped` | the attempt by id, then the user id it names, then every undropped attempt and the code of that user: `dropEnrolment` spends the code only when no other attempt stands, and `supplyPin` drops every attempt bound to the code | an attempt when the launch suspends; dropped at `dropEnrolment`; all of a user's attempts dropped when the PIN is set or the code is void |
@@ -151,7 +155,8 @@ with #580, in the shape of `validateProductionPassword`.
 
 The stub seeds four logins with a PIN so that the walkthrough in DEVELOPMENT.md works. The SQL
 store gets the same seed from a script that runs only when `GENPRES_PROD=0`, so a demo on SQLite
-behaves as the demo on the stub, with Sessions that survive a restart.
+behaves as the demo on the stub, with credentials and order plan versions that survive a
+restart; Sessions end at a restart (open decision 6).
 
 ### Placement
 
@@ -212,7 +217,7 @@ create table session_seen (
 -- session row for the same login.
 create table session_ending (
     session_id text primary key references session (session_id),
-    ending     text not null,            -- closed | wrong-pin-limit
+    ending     text not null,            -- closed | wrong-pin-limit | restarted
     at         integer not null
 );
 
@@ -328,6 +333,13 @@ superseded, and the login has no open Session until the next open appends a row.
    stating for the lifetimes that compare `now` with an expiry.
 4. Audit retention and its legal basis. `audit_entry` names mail addresses (Rule 27).
 5. The demo seed on SQLite: the same four logins as the stub, or none.
+6. Rules 32 and 36 against the working state in memory. ADR-0008 §6 keeps what a Session
+   opened with, its notice and its challenge in one process, so a restart ends every Session
+   and a second server cannot continue one: Rule 32 (a restart ends nothing) and Rule 36
+   (drain on upgrade) are not served until the working state has a store, which needs the
+   session domain of ADR-0007 §3. Whether the integration design accepts that as an interim,
+   or the working state is stored after all as Dtos under a structure version, is decided
+   with the design, not here.
 
 ## Confidence
 
