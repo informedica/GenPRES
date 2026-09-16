@@ -2285,6 +2285,7 @@ let tests =
             DtoTests.tests
             OrderPlanDtoTests.tests
             OrderPlanTests.tests
+            OrderPlanTests.evaluateTests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
             MedicationParserTests.tests

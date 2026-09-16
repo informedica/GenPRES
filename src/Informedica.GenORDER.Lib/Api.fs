@@ -1150,6 +1150,29 @@ Scenarios: {scenarios}
                 (fun ctx -> SetMedianComponentQuantityProperty(ctx, cmp))
 
 
+    /// The context as an evaluation starts from it: its patient as the rules take it, its
+    /// filter reconciled against the pick lists the rules give that patient, its scenarios
+    /// as held.
+    let reconcile logger provider (ctx: OrderContext) : OrderContext =
+        let fresh = create logger provider ctx.Patient
+
+        { ctx with
+            Patient = fresh.Patient
+            Filter = Filter.reconcile fresh.Filter ctx.Filter
+        }
+
+
+    /// The totals over the orders of the context's scenarios, for its patient's age and
+    /// weight.
+    let intake (totalsData: Types.Data.TotalsData[]) (ctx: OrderContext) : Totals =
+        let wght =
+            ctx.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
+
+        ctx.Scenarios
+        |> Array.map (_.Order >> Order.Dto.toDto)
+        |> Totals.getTotals totalsData ctx.Patient.Age wght
+
+
     let logOrderContext (logger: Logger) msg cmd =
         let log (s: string) =
             s
