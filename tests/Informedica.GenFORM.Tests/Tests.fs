@@ -2729,6 +2729,22 @@ module Tests =
                                 | Error e -> failtest $"expected a patient, got {e}"
                             }
 
+                            test "an unknown string and the minimum data are reported together" {
+                                { (Fixtures.child |> Patient.Dto.toDto) with
+                                    Gender = "x"
+                                    AgeDays = None
+                                    WeightMeasured = false
+                                }
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal
+                                    "both"
+                                    (Error
+                                        [
+                                            PatientError.UnknownGender "x"
+                                            PatientError.NoAgeOrMeasuredWeightAndHeight
+                                        ])
+                            }
+
                             test "a draft with no age and no measured weight and height" {
                                 { (Fixtures.child |> Patient.Dto.toDto) with
                                     AgeDays = None
