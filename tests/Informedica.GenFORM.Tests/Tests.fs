@@ -2919,6 +2919,59 @@ module Tests =
                 ]
 
 
+    /// The department in the dose filter: a patient without one takes a rule of any
+    /// department, a patient with one takes its department's rules and the rules for any.
+    module DepartmentTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.GenForm.Lib
+
+
+        let filterFor department : DoseFilter =
+            {
+                Indication = None
+                Generic = None
+                Form = None
+                Route = None
+                DoseType = None
+                Diluent = None
+                Components = []
+                Patient = { PatientDtoTests.Fixtures.child with Department = department }
+            }
+
+
+        let categories =
+            [
+                "ICK", { PatientCategory.empty with Department = Some "ICK" }
+                "NICU", { PatientCategory.empty with Department = Some "NICU" }
+                "any", PatientCategory.empty
+            ]
+
+
+        let matches department =
+            categories
+            |> List.map (fun (_, cat) -> cat |> PatientCategory.filter (filterFor department))
+
+
+        let tests =
+            testList
+                "the department in the dose filter"
+                [
+                    test "a patient without a department matches a rule of any department" {
+                        matches None |> Expect.equal "ICK, NICU and any" [ true; true; true ]
+                    }
+
+                    test "a patient with a department matches its own and the rules for any" {
+                        matches (Some "ICK")
+                        |> Expect.equal "ICK and any, not NICU" [ true; false; true ]
+
+                        matches (Some "NICU")
+                        |> Expect.equal "NICU and any, not ICK" [ false; true; true ]
+                    }
+                ]
+
+
     module PatientCategoryTests =
 
 
@@ -4252,6 +4305,7 @@ module Tests =
                 PatientTests.tests
                 PatientDtoTests.tests
                 AccessDeviceTests.tests
+                DepartmentTests.tests
                 DoseTypeTests.tests
                 LimitTargetTests.tests
                 GenericLabelTests.tests
