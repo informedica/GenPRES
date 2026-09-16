@@ -21,7 +21,13 @@ let main _ =
         | "" -> invalidOp "GENPRES_URL_ID environment variable must be set before starting the MCP server."
         | value -> value
 
-    let provider = Api.getCachedProviderWithDataUrlId FormLogging.noOp dataUrlId
+    let logger, disposeLogger =
+        McpLogging.getLogger (fun name -> Environment.GetEnvironmentVariable name |> Option.ofObj)
 
-    McpServer.run provider
-    0
+    let provider = Api.getCachedProviderWithDataUrlId Informedica.GenOrder.Lib.OrderLogging.noOp dataUrlId
+
+    try
+        McpServer.run logger provider
+        0
+    finally
+        disposeLogger ()

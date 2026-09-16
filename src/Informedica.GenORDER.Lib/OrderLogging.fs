@@ -115,56 +115,6 @@ module OrderLogging =
         | _ -> $"Unknown message type: {msg.GetType().Name}"
 
 
-    /// Create an order-specific logger using the general logging framework
-    let createLogger (baseLogger: Logger option) =
-        let formatter =
-            MessageFormatter.create
-                [
-                    typeof<OrderMessage>, formatOrderMessage
-                    typeof<SolverMessage>, SolverLogging.formatSolverMessage
-                    typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
-                ]
-
-        match baseLogger with
-        | Some logger -> logger
-        | None -> Logging.createConsole formatter
-
-
-    /// Create a file-based order logger
-    let createFileLogger (path: string) =
-        MessageFormatter.create
-            [
-                typeof<OrderMessage>, formatOrderMessage
-                typeof<SolverMessage>, SolverLogging.formatSolverMessage
-                typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
-            ]
-        |> Logging.createFile path
-
-
-    let createConsoleLogger () =
-        MessageFormatter.create
-            [
-                typeof<OrderMessage>, formatOrderMessage
-                typeof<SolverMessage>, SolverLogging.formatSolverMessage
-                typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
-            ]
-        |> Logging.createConsole
-
-    /// Create an agent-based order logger
-    let createAgentLogger config =
-        let formatter =
-            MessageFormatter.create
-                [
-                    typeof<OrderMessage>, formatOrderMessage
-                    typeof<SolverMessage>, SolverLogging.formatSolverMessage
-                    typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
-                ]
-
-        config
-        |> AgentLogging.AgentLoggerDefaults.withFormatter formatter
-        |> AgentLogging.createAgentLogger
-
-
     /// Convenience functions for logging order events
     let logOrderEvent (logger: Logger) (event: Events.Event) = event |> OrderEventMessage |> Logging.logInfo logger
 

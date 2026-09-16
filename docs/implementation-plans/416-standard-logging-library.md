@@ -264,10 +264,603 @@ land in the same commit see step 1's note on why); step 2 is new content this pl
 7. Done when: every write in `ServerApi.Compute.fs` (`bound` and `logged`),
    `ServerApi.CompositionRoot.fs`, and `ServerApi.Services.fs` is a level-gated `Logger` call
    (closes `ploeh`'s report in full, not just the two lines cited), `AgentLogging` no longer
-   exists, `scripts/CheckDependencyRule.fsx`'s `viaLogger`-labelled allowances are empty, and
-   `Serilog` appears in exactly two `paket.references` files. The `Console.fs` `allowFile` entry
-   stays until the Phase 2 adapter migration below deletes it (see step 4's note); it is not part
-   of this phase's completion criteria.
+   lives in `Informedica.Logging.Lib` and has zero production callers outside its new home in
+   `Informedica.Agents.Lib` (see the Decision note under "Step 2 migration package" — moved, not
+   deleted), `scripts/CheckDependencyRule.fsx`'s `viaLogger`-labelled allowances are empty, and
+   `Serilog` appears in exactly three `paket.references` files (`Informedica.GenPRES.Server`,
+   `Informedica.MCP.Server`, `Informedica.MCP.Lib` — the MCP host's own Serilog wiring lives in
+   `Informedica.MCP.Lib/Logging.fs`, not in the host project itself, per part F below). The
+   `Console.fs` `allowFile` entry stays until the Phase 2 adapter migration below deletes it (see
+   step 4's note); it is not part of this phase's completion criteria.
+
+## Step 2 migration package (prepared 2026-09-15, ready to apply)
+
+Both prototype scripts (`src/Informedica.GenPRES.Server/Scripts/416-serilog-bridge.fsx`,
+`src/Informedica.MCP.Server/Scripts/416-mcp-serilog.fsx`) are done and their smoke checks pass.
+This section is the reviewable source diff derived from them, prepared under the script-only
+policy (`AGENTS.md`) rather than applied directly — the maintainer applies it.
+
+**Scope note**: this package is bigger than "Step 2, one file." Step 1 (moving `AgentLogging`
+into `Agents.Lib`, deleting the three Core-ring `createAgentLogger`/`agentLogger` definitions)
+has *not* landed in source — `AgentLogging` still lives inside `Informedica.Logging.Lib/Logging.fs`
+today. Tracing `Server/Logging.fs`'s actual callers (not just its own body) surfaced three more
+files the plan's Step 2 item list doesn't name, because the old `AgentLogger`'s per-request
+`setComponentName`/`agent`-start plumbing is threaded through them:
+
+- `Server.fs` — `logClientIP`, `safeWebApi`, `Host.resourceProvider`, `Http.LoggerShutdown`
+  all call `Logging.getLogger`/`setComponentName`/`loggerLock`/`loggers` directly.
+- `ServerApi.Adapters.fs` — `resolveLogger`, a private `setComponentName` wrapper, and four
+  `do! setComponentName "OrderPlan" agent` call sites inside `makeOrderPlanPort`, plus
+  `makeOrderContextPort`'s one.
+- `ServerApi.Ports.fs` — `AppEnv` gains a `logger` field (new; needed by Step 3 below, not by
+  Step 2 itself, but the two land together more cleanly than sequenced).
+
+Since `AgentLogging` becomes fully unreferenced by production code the moment `Server/Logging.fs`
+stops calling `OrderLogging.createAgentLogger` (its only production caller), this package folds
+the mechanical part of Step 1 in rather than leaving a half-migrated `AgentLogging` module in
+place for a separate commit. **Decided 2026-09-15**: `AgentLogging` moves into
+`Informedica.Agents.Lib` rather than being deleted (option 3 at the end of this section) — the
+concrete diff is already prototyped and verified in
+`src/Informedica.Agents.Lib/Scripts/416-logging-split.fsx`, whose header comment (lines 21-69) is
+the migration checklist: `Informedica.Logging.Lib/Logging.fs` keeps only `IMessage`/`TimeStamp`/
+`Level`/`Event`/`Logger`/`Logging` (the `TargetLoggingLib` section of the script); two new files,
+`Informedica.Agents.Lib/ConsoleFileLogger.fs` (`createConsole`/`createFile`) and
+`Informedica.Agents.Lib/AgentLogging.fs` (byte-for-byte today's `AgentLogging` module — its only
+cross-module dependency, `Logging.levelValue`, stays in the trimmed port), take the rest; the
+`.fsproj` reference flips to `Agents.Lib → Logging.Lib`; the `scripts/DependencyRule.fsx`
+allow-list entry for the old direction and the `scripts/CheckDependencyRule.fsx`
+`"src/Informedica.Logging.Lib/Logging.fs"` `loggingSplit` allowance are both deleted, since the
+trimmed file has no banned tokens left. That checklist also already covers the three Core-ring
+call sites (`SolverLogging.fs`, `OrderLogging.fs`, `FormLogging.fs`, lines 208-219 above) and the
+`tests/Informedica.Logging.Tests/Tests.fs` reference/call-site updates — nothing further to add
+here. This relocation is independent of the Serilog work in parts B-G below (Server/Logging.fs's
+`SerilogLogging` never calls `AgentLogging`) and should land as its own commit, ahead of or
+alongside this package but not merged into it.
+
+### A. Packages — item 1
+
+`paket.dependencies`, `Main` group, after `nuget Microsoft.Extensions.Hosting`:
+
+```text
+nuget Serilog 4.4.0
+nuget Serilog.Sinks.Console 6.1.1
+nuget Serilog.Sinks.File 7.0.0
+nuget Serilog.Sinks.Async 2.1.0
+```
+
+(`Serilog.Formatting.Compact` is not added here — it belongs to Step 5's GenSOLVER-trace sink.)
+
+`src/Informedica.GenPRES.Server/paket.references` (currently `FSharp.Core` / `Saturn` /
+`Fable.Remoting.Giraffe` / `IcedTasks`) — append:
+
+```text
+Serilog
+Serilog.Sinks.Console
+Serilog.Sinks.File
+Serilog.Sinks.Async
+```
+
+`src/Informedica.MCP.Server/paket.references` — currently empty (the SDK types
+`ModelContextProtocol`/`Microsoft.Extensions.Hosting` are referenced from
+`Informedica.MCP.Lib/paket.references`, not here). `Program.fs` builds its own
+`LoggerConfiguration` directly (see part D), so add the same four lines to this file, which today
+has none.
+
+Then `dotnet paket install` and `dotnet run Build`.
+
+### B. `Server/Logging.fs` — item 2
+
+Full replacement. Drops the `AgentLogging`/`loggerLock`/`loggers` triple, the `getConfig`/
+`getDirAgent`/`MAX_LOG_FILES` pruning wiring, and `setComponentName`; adds `SerilogBridge` and
+`SerilogLogging` (copied from `416-serilog-bridge.fsx` almost verbatim — the one addition beyond
+the prototype is `serilogLoggers`/`getLogger`/`disposeAll` below, which give the composition root
+a single built-once map instead of calling `SerilogLogging.buildAll` at every call site):
+
+```fsharp
+module Logging
+
+open System
+open System.IO
+
+open Informedica.Utils.Lib
+open Informedica.Logging.Lib
+
+open Serilog
+open Serilog.Events
+
+
+/// Server-specific logging message types and helpers
+module ServerLogging =
+
+    module Logging = Informedica.Logging.Lib.Logging
+
+    /// Messages used by the Server that can be logged
+    type Message =
+        | Request of method_: string * path: string * clientIP: string
+        | Info of string
+        | Warning of string
+        | Error of string
+
+        interface IMessage
+
+    /// Log a request line as Informative
+    let logRequest (logger: Logger) (method_: string) (path: string) (clientIP: string) =
+        Request(method_, path, clientIP) |> Logging.logInfo logger
+
+
+let getRecommendedLogPath (componentName: string option) =
+    let logDir = AppPath.logsDir ()
+    Directory.CreateDirectory(logDir) |> ignore
+
+    let componentName = componentName |> Option.defaultValue "general"
+    let timestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss")
+    let shortGuid = Guid.NewGuid().ToString("N").Substring(0, 4)
+    let fileName = $"genpres_{componentName}_{timestamp}_{shortGuid}.log"
+
+    Path.Combine(logDir, fileName)
+
+
+type LoggerType =
+    | RequestLogger
+    | OrderLogger
+    | ResourcesLogger
+    | FormularyLogger
+    | OrderPlanLogger
+    | ParenteraliaLogger
+
+
+let allLoggerTypes =
+    [ RequestLogger; OrderLogger; ResourcesLogger; FormularyLogger; OrderPlanLogger; ParenteraliaLogger ]
+
+
+let loggerTypeName =
+    function
+    | RequestLogger -> "request"
+    | OrderLogger -> "order"
+    | ResourcesLogger -> "resources"
+    | FormularyLogger -> "formulary"
+    | OrderPlanLogger -> "orderplan"
+    | ParenteraliaLogger -> "parenteralia"
+
+
+let loggingEnabled =
+    Env.getItem "GENPRES_LOG"
+    |> Option.map (fun s -> s |> String.trim |> String.isNullOrWhiteSpace |> not)
+    |> Option.defaultValue false
+
+
+let loggingLevel =
+    Env.getItem "GENPRES_LOG"
+    |> Option.bind (fun (s: string) ->
+        match s.Trim().ToLowerInvariant() with
+        | "d" -> Level.Debug |> Some
+        | "i" -> Level.Informative |> Some
+        | "w" -> Level.Warning |> Some
+        | "e" -> Level.Error |> Some
+        | _ -> None
+    )
+
+
+/// Turns a Serilog ILogger into the domain-facing Logger record. Every IMessage case becomes a
+/// Serilog structured property for free - no change to any IMessage type.
+module SerilogBridge =
+
+    let toSerilogLevel =
+        function
+        | Level.Debug -> LogEventLevel.Debug
+        | Level.Informative -> LogEventLevel.Information
+        | Level.Warning -> LogEventLevel.Warning
+        | Level.Error -> LogEventLevel.Error
+
+    let toLogger (serilogLogger: Serilog.ILogger) : Logger =
+        {
+            Log =
+                fun ev ->
+                    serilogLogger.Write(
+                        ev.Level |> toSerilogLevel,
+                        "{EventType} {@Event}",
+                        ev.Message.GetType().Name,
+                        ev.Message
+                    )
+            Enabled = fun level -> serilogLogger.IsEnabled(level |> toSerilogLevel)
+        }
+
+
+/// One Serilog sink per LoggerType, built lazily so a LoggerType that never logs never creates
+/// a sink or a file. Both Console and File sinks are always active - Console for the terminal a
+/// developer is watching, File (wrapped in Async) for the persistent record.
+module SerilogLogging =
+
+    let buildLogger (level: Level) (loggerType: LoggerType) : Serilog.Core.Logger * string =
+        let minLevel = level |> SerilogBridge.toSerilogLevel
+        let path = loggerType |> loggerTypeName |> Some |> getRecommendedLogPath
+
+        let logger =
+            LoggerConfiguration()
+                .MinimumLevel.Is(minLevel)
+                .WriteTo.Console()
+                .WriteTo.Async(fun a -> a.File(path) |> ignore)
+                .CreateLogger()
+
+        logger, path
+
+    let buildAll (level: Level) : Map<LoggerType, Lazy<Serilog.Core.Logger * string>> =
+        allLoggerTypes
+        |> List.map (fun lt -> lt, lazy (buildLogger level lt))
+        |> Map.ofList
+
+    let getLogger (loggers: Map<LoggerType, Lazy<Serilog.Core.Logger * string>>) (loggerType: LoggerType) : Logger =
+        loggers[loggerType].Value |> fst :> Serilog.ILogger |> SerilogBridge.toLogger
+
+    /// Disposes only the loggers actually forced into existence.
+    let dispose (loggers: Map<LoggerType, Lazy<Serilog.Core.Logger * string>>) =
+        for KeyValue(_, lazyLogger) in loggers do
+            if lazyLogger.IsValueCreated then
+                (lazyLogger.Value |> fst :> IDisposable).Dispose()
+
+
+/// Built once, at the fixed startup level; `None` when GENPRES_LOG is unset. Every call site
+/// reads through this, never through `SerilogLogging.buildAll` directly, so there is exactly
+/// one map - and one set of files - per process.
+let serilogLoggers: Map<LoggerType, Lazy<Serilog.Core.Logger * string>> option =
+    loggingLevel |> Option.map SerilogLogging.buildAll
+
+
+/// `Logging.noOp` when GENPRES_LOG is unset; otherwise the Serilog-backed Logger for that type.
+/// Replaces `getLogger level loggerType` - level is no longer a parameter, since
+/// `serilogLoggers` is already built from the fixed startup level.
+let getLogger (loggerType: LoggerType) : Logger =
+    match serilogLoggers with
+    | None -> Informedica.Logging.Lib.Logging.noOp
+    | Some loggers -> loggers |> SerilogLogging.getLogger <| loggerType
+
+
+/// Disposes every logger this process forced into existence. Call from LoggerShutdown.
+let disposeAll () =
+    serilogLoggers |> Option.iter SerilogLogging.dispose
+```
+
+**Gap versus the prototype, flagged rather than resolved**: today's `setComponentName` prunes old
+log files (`FileDirectoryAgent.pruneAsync`, capped at `MAX_LOG_FILES = 10_000` per directory)
+before every `logger.Start`. Neither prototype script reproduces this — `buildLogger` above
+creates a file sink with no pruning step at all, which is a real behavior change (unbounded log
+file accumulation under `data/logs`) that neither script's smoke checks caught, since they clean
+up their own files. The plan's own header note ("pruning ... still runs the same way, just no
+longer needs to know about a logger's lifecycle") assumed this would carry over but nothing
+proves it does. Recommend calling the existing `FileDirectoryAgent.pruneAsync` synchronously
+once per `buildLogger` call (i.e., once per `LoggerType` actually used per process, not once per
+request as today) before `CreateLogger()`; this needs its own smoke check before landing, since
+neither prototype exercises it.
+
+### C. `Server.fs`, `ServerApi.Adapters.fs` — companion ripple (not in the original item list)
+
+The old `AgentLogger` was retargeted per request (`setComponentName`); Serilog's file path is
+fixed at sink construction, so every `setComponentName` call site disappears, and `resolveLogger`
+collapses from `(AgentLogger option * Logger)` to plain `Logger`.
+
+`ServerApi.Adapters.fs`:
+
+- Delete the `resolveLogger`/`setComponentName` pair (lines 35-48 today) entirely.
+- `makeFormularyPort`: add a `logger` parameter, thread it to `ParenteraliaService.get` (see D
+  below):
+
+  ```fsharp
+  let private makeFormularyPort logger (provider: Resources.IResourceProvider) : FormularyPort =
+      {
+          getFormulary = fun form -> async { return form |> FormularyService.get provider }
+
+          getParenteralia =
+              fun par ->
+                  async { return par |> ParenteraliaService.get logger provider |> Result.mapError Array.singleton }
+      }
+  ```
+
+- `makeOrderContextPort`: drop the `agent` parameter and its `do! setComponentName "OrderContext" agent`
+  line; keep `logger`.
+- `makeOrderPlanPort`: drop the `agent` parameter and its four `do! setComponentName "OrderPlan" agent`
+  lines (in `recalculate`, `navigate`, `addOrderContext`, `openWith`) — nothing else in those
+  bodies changes.
+- `makeAppEnvWith`: replace `let agent, logger = resolveLogger ()` with:
+
+  ```fsharp
+  let requestLogger = Logging.getLogger Logging.RequestLogger
+  let orderLogger = Logging.getLogger Logging.OrderLogger
+  let parenteraliaLogger = Logging.getLogger Logging.ParenteraliaLogger
+  let orderCtxPort = makeOrderContextPort orderLogger provider
+  ```
+
+  and wire `formulary = makeFormularyPort parenteraliaLogger provider`,
+  `orderPlan = makeOrderPlanPort provider orderCtxPort` (no `agent`),
+  `Informedica.GenForm.Lib.Api.reloadCache orderLogger provider` (unchanged reference, same
+  variable renamed from `logger`), and the new `AppEnv.logger = requestLogger` field (Step 3,
+  part E). This is also the first production use of the `FormularyLogger`/`OrderPlanLogger`/
+  `ParenteraliaLogger` cases, which exist today but nothing constructs them.
+
+`Server.fs`:
+
+- `logClientIP` (`:526-545`): drop the `setComponentName` line; `Logging.getLogger level Logging.RequestLogger`
+  becomes `Logging.getLogger Logging.RequestLogger` (no `level` argument — `match Logging.loggingLevel with None -> next ctx | Some _ -> ...`
+  still gates whether the handler runs at all, so the `Option` match stays, only the inner
+  `getLogger` call sheds its `level` argument); `Logging.ServerLogging.logRequest logger method path clientIP`
+  is unchanged (the function's `logger` parameter is now `Logger` directly instead of
+  `AgentLogger`, matching part B).
+- `safeWebApi` (`:554-589`): same `getLogger` simplification; drop `setComponentName`;
+  `Informedica.Logging.Lib.Logging.logError logger.Logger` becomes `Informedica.Logging.Lib.Logging.logError logger`
+  (no more `.Logger` field to project through).
+- `Host.resourceProvider` (`:625-638`): collapses to
+  `let logger = Logging.getLogger Logging.ResourcesLogger in urlId |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId logger`
+  — the `Option.map`/`setComponentName`/`Async.RunSynchronously`/`Option.defaultValue Informedica.GenOrder.Lib.Logging.noOp`
+  dance disappears because `Logging.getLogger` already returns `Logging.noOp` when
+  `GENPRES_LOG` is unset (see part B).
+- `Http.LoggerShutdown` (`:592-616`): the `IHostedService.StopAsync` body (iterating
+  `Logging.loggers` under `Logging.loggerLock`, calling `logger.StopAsync()` per entry) becomes
+  `member _.StopAsync _ = Logging.disposeAll (); Task.CompletedTask` — Serilog's
+  `Core.Logger.Dispose()` flushes synchronously (including the wrapped `Async` sink), so no
+  `Async.Parallel`/`Async.StartAsTask` dance is needed either.
+
+### D. `ServerApi.Services.fs` — Step 3, the one signature change
+
+`ParenteraliaService.get` (`:238` today) has no `logger` in scope; per the plan's own confidence
+note, this is the one Step 3 site that's a signature change, not a one-line swap:
+
+```fsharp
+let get logger provider (par: Parenteralia) : Result<Parenteralia, string> =
+    Logging.ServerLogging.Info $"getting parenteralia for {par.Generic}"
+    |> Informedica.Logging.Lib.Logging.logInfo logger
+    ...
+```
+
+(rest of the function body unchanged; caller update is part C's `makeFormularyPort`.)
+
+The `:452` site (inside `OrderContextService.evaluate`) already has `logger: Logger` in scope
+(used two lines above at `GenOrderContext.evaluate logger provider`) — genuinely a one-line swap:
+
+```fsharp
+with e ->
+    Logging.ServerLogging.Error $"errored:\n{e}"
+    |> Informedica.Logging.Lib.Logging.logError logger
+    Error [| e.Message |]
+```
+
+### E. `ServerApi.Ports.fs`, `ServerApi.Compute.fs`, `ServerApi.CompositionRoot.fs` — Step 3 remainder
+
+`AppEnv` (`ServerApi.Ports.fs:220`) gains one field:
+
+```fsharp
+type AppEnv =
+    {
+        formulary: FormularyPort
+        orderContext: OrderContextPort
+        orderPlan: OrderPlanPort
+        interaction: InteractionPort
+        admin: AdminPort
+        requireLoaded: unit -> string[] option
+        session: SessionPort
+        logger: Informedica.Logging.Lib.Logger
+    }
+```
+
+`ServerApi.Compute.fs`: drop `open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime`; both
+`bound` and `logged` read `env.logger` — `logged` needs an `env` parameter it does not take
+today, which is a signature change at all four `Compute.logged` call sites in
+`ServerApi.CompositionRoot.fs` (`processLaunch`/`processSession`/`processSigning`/`processAdmin`,
+all of which already receive `env` as their first `Compute.logged`/handler argument today, so the
+call sites gain one argument, not a new plumbing path):
+
+```fsharp
+let bound
+    (env: AppEnv)
+    (cookie: SessionCookie)
+    (name: 'cmd -> string)
+    (gate: 'cmd -> Gate)
+    (handler: 'cmd -> Async<Result<'resp, string[]>>)
+    (request: Request<'cmd>)
+    : Async<Result<Reply<'resp>, string[]>>
+    =
+    let cmd = request.Command
+
+    async {
+        try
+            Logging.ServerLogging.Info $"Processing command: {name cmd}"
+            |> Informedica.Logging.Lib.Logging.logInfo env.logger
+
+            let! notice =
+                match cookie.read () with
+                | None -> async { return None }
+                | Some id -> env.session.seen id request.Opened
+
+            let! result =
+                match gate cmd with
+                | Gate.Open -> handler cmd
+                | Gate.RequiresLoaded ->
+                    match env.requireLoaded () with
+                    | Some msgs -> async { return Error msgs }
+                    | None -> handler cmd
+
+            let told =
+                match notice with
+                | Some(RecordNotice.NewerVersion _) -> ", the record moved on"
+                | Some(RecordNotice.Ended _) -> ", the Session ended"
+                | None -> ""
+
+            Logging.ServerLogging.Info $"Finished processing command: {name cmd}{told}"
+            |> Informedica.Logging.Lib.Logging.logInfo env.logger
+
+            return
+                result
+                |> Result.map (fun response -> { Response = response; Notice = notice })
+        with ex ->
+            Logging.ServerLogging.Error $"Error processing command: {name cmd}\n{ex}"
+            |> Informedica.Logging.Lib.Logging.logError env.logger
+
+            return Error [| ex.Message |]
+    }
+
+
+let logged (env: AppEnv) (what: string) (name: 'cmd -> string) (run: 'cmd -> Async<'resp>) (cmd: 'cmd) =
+    async {
+        Logging.ServerLogging.Info $"Processing {what}: {name cmd}"
+        |> Informedica.Logging.Lib.Logging.logInfo env.logger
+
+        let! response = run cmd
+
+        Logging.ServerLogging.Info $"Finished processing {what}: {name cmd}"
+        |> Informedica.Logging.Lib.Logging.logInfo env.logger
+
+        return response
+    }
+```
+
+`ServerApi.CompositionRoot.fs`: drop `open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime`;
+the four `Compute.logged "..." ...` calls each gain `env` as the first argument
+(`Compute.logged env "launch" LaunchCommand.toString ...`, etc.); `getSettings`'s body becomes:
+
+```fsharp
+getSettings =
+    fun () ->
+        async {
+            Logging.ServerLogging.Info "Processing settings"
+            |> Informedica.Logging.Lib.Logging.logInfo env.logger
+
+            return settings
+        }
+```
+
+### F. `Informedica.MCP.Lib/McpServer.fs`, `Informedica.MCP.Server/Program.fs` — item 3
+
+`McpServer.createHostBuilder` takes a `Logger` and wires the tool-call filter (from
+`416-mcp-serilog.fsx`'s `callToolLoggingFilter`/`logToolCall`, copied as-is into
+`Informedica.MCP.Lib/McpServer.fs` — `logToolCall` is SDK-free and belongs next to the filter
+that wraps it, not in the host's `Program.fs`):
+
+```fsharp
+let createHostBuilder (logger: Informedica.Logging.Lib.Logger) =
+    let builder = Host.CreateApplicationBuilder()
+
+    builder.Services
+        .AddMcpServer(fun options ->
+            options.ServerInfo <-
+                ModelContextProtocol.Protocol.Implementation(Name = "GenPRES MCP Server", Version = "1.0.0")
+        )
+        .WithStdioServerTransport()
+        .WithRequestFilters(fun rf -> rf.AddCallToolFilter(callToolLoggingFilter logger) |> ignore)
+        .WithTools<GenFormMcpTools>()
+        .WithTools<GenOrderMcpTools>()
+    |> ignore
+
+    builder
+
+
+let run (logger: Informedica.Logging.Lib.Logger) (provider: IResourceProvider) =
+    initProvider provider
+
+    eprintfn "[MCP] Starting GenPRES MCP server (stdio transport)..."
+    eprintfn "[MCP] Working directory: %s" Environment.CurrentDirectory
+
+    let builder = createHostBuilder logger
+    let app = builder.Build()
+    app.RunAsync() |> Async.AwaitTask |> Async.RunSynchronously
+```
+
+`logToolCall`/`callToolLoggingFilter` land in the same file, copied from the script essentially
+unchanged (only the `McpMessage` DU and `SerilogBridge`/`getRecommendedLogPath` references need
+to resolve against the real `Informedica.GenPRES.Server` project instead of the `#load`-based
+aliasing the script used — see the note below on where `McpMessage`/the Serilog build fns live,
+since `Informedica.MCP.Lib`/`Informedica.MCP.Server` must not reference
+`Informedica.GenPRES.Server`, only the reverse never holds today and shouldn't start).
+
+**Placement question the prototype ducked by `#load`ing across projects**: `SerilogBridge` (part
+B) lives in `Informedica.GenPRES.Server`, which `Informedica.MCP.Lib`/`Informedica.MCP.Server`
+must not reference (they are siblings, not client/server). `McpSerilogLogging.buildLogger` (the
+stderr-routed, single-logger variant — see FINDING 1 in the prototype) and the `McpMessage` DU
+therefore need their own home. Recommend a new `Logging.fs` in `Informedica.MCP.Lib` (parallel to
+`Informedica.GenPRES.Server/Logging.fs`, not sharing code with it — the two hosts have
+irreducibly different sink shapes: six `LoggerType`s with dual Console+File sinks for the web
+server versus one logger with stderr-only Console + File for the stdio host) containing
+`McpMessage`, `McpLogging.parseLevel`/`buildLogger`/`getLogger` (from `McpSerilogLogging` in the
+prototype) and its own copy of `SerilogBridge.toSerilogLevel`/`toLogger` (11 lines, not worth a
+shared project for). `Informedica.MCP.Lib/paket.references` needs the same four Serilog lines as
+part A.
+
+`Informedica.MCP.Server/Program.fs`:
+
+```fsharp
+open System
+
+open Informedica.Utils.Lib
+open Informedica.GenForm.Lib
+
+open Informedica.MCP.Lib
+
+
+[<EntryPoint>]
+let main _ =
+    Env.loadDotEnv () |> ignore
+    Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
+    Environment.SetEnvironmentVariable("GENPRES_DEBUG", "0")
+
+    Environment.CurrentDirectory <- AppPath.rootPath ()
+
+    let dataUrlId =
+        match Environment.GetEnvironmentVariable "GENPRES_URL_ID" with
+        | null
+        | "" -> invalidOp "GENPRES_URL_ID environment variable must be set before starting the MCP server."
+        | value -> value
+
+    let logger, disposeLogger =
+        McpLogging.getLogger (fun name -> Environment.GetEnvironmentVariable name |> Option.ofObj)
+
+    let provider = Api.getCachedProviderWithDataUrlId Informedica.GenOrder.Lib.OrderLogging.noOp dataUrlId
+
+    try
+        McpServer.run logger provider
+        0
+    finally
+        disposeLogger ()
+```
+
+(`FormLogging.noOp` in the original `getCachedProviderWithDataUrlId` call becomes
+`Informedica.GenOrder.Lib.OrderLogging.noOp`, matching part C's finding that both re-export the
+same `Informedica.Logging.Lib.Logging.noOp` — this is an unrelated pre-existing naming
+inconsistency in the current source, not something this migration needs to touch; left as-is
+above, flagged only so a reviewer doesn't read it as a typo.)
+
+### G. Verification
+
+Same as the plan's existing step 6: `dotnet run Format`, `dotnet run servertests`,
+`dotnet fsi scripts/CheckDependencyRule.fsx`. Additionally, since this touches request-path and
+MCP host code with no unit test today exercising the Serilog wiring itself: start the server with
+`GENPRES_LOG=d dotnet run` and confirm `data/logs/genpres_request_*.log` is created and grows on
+a request; start the MCP host manually and confirm no bytes reach stdout before the first
+JSON-RPC response (FINDING 1's correctness requirement, not just a nice-to-have).
+
+### Decision: what happens to `AgentLogging` (resolved 2026-09-15)
+
+After this package lands, `AgentLogging` (still inside `Informedica.Logging.Lib/Logging.fs`,
+`:217-729` today) has zero production callers — the last one, `OrderLogging.createAgentLogger`,
+is deleted as part of this package (nothing else calls it; `SolverLogging.createAgentLogger` and
+`FormLogging`'s top-level `agentLogger` value already have zero production callers today, per a
+grep run this session). Only `tests/Informedica.Logging.Tests/Tests.fs` (`:657-1043`) still
+exercises it directly. Three options were weighed:
+
+1. Leave `AgentLogging` in place, dead in production, tested in isolation. Cheapest, but leaves
+   the `Core → Infrastructure` dependency-rule violation it's already in ([ADR-0001](../adr/0001-system-architecture.md))
+   unfixed and doesn't meet step 7's criterion.
+2. Delete `AgentLogging` and its ~400-line test suite outright. Matches a literal "no longer
+   exists" reading of step 7, but throws away a working, tested ring-buffer/flush-timer
+   implementation and its regression net in the same commit that introduces its untested Serilog
+   replacement — no rollback path if Serilog turns out to have a gap `AgentLogging` didn't.
+3. **Chosen.** Physically move `AgentLogging` into `Informedica.Agents.Lib` (fixing the
+   dependency-rule direction) and keep its test suite pointed at the new location, without
+   deleting it. Keeps the working implementation available — e.g. as a fallback sink, or for a
+   future non-Serilog use — and is the option [ADR-0001](../adr/0001-system-architecture.md)'s
+   ring map and Step 1 as originally scoped both already pointed at; option 2's "throw away a
+   tested subsystem in the same commit as its untested replacement" was the deciding factor
+   against it. Step 7's completion wording above is updated accordingly ("no longer exists" →
+   "no longer lives in `Logging.Lib`").
+
+The concrete migration is already prototyped and verified — see the Decision note earlier in this
+section for the file-by-file checklist (`416-logging-split.fsx`).
 
 ## Phase 2 efficiency, general logging quality (after the above lands)
 

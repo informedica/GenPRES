@@ -1,252 +1,25 @@
-// Prototype for docs/implementation-plans/416-standard-logging-library.md, Step 1
-// (folds #378 Phase 1 steps 1+2, per 416's own renumbering): splits
-// Informedica.Logging.Lib so the pure Logger/Event/Level/IMessage port stays there,
-// and the IO-performing pieces (createConsole, createFile, the whole AgentLogging
-// agent) move to Informedica.Agents.Lib, flipping the project reference to
-// Agents.Lib -> Logging.Lib (today it is the other way round).
-//
-// Run: cd src/Informedica.Agents.Lib/Scripts && dotnet fsi 416-logging-split.fsx
-//
-// Script-only policy (AGENTS.md): this prototypes the split; the maintainer migrates
-// it to source. Migration checklist once this script is reviewed:
-//
-//   - src/Informedica.Logging.Lib/Logging.fs keeps only the "TargetLoggingLib" section
-//     below (IMessage/TimeStamp/Level/Event/Logger/Logging minus createConsole and
-//     createFile/MessageFormatter). Delete createConsole, createFile and AgentLogging.
-//   - New src/Informedica.Agents.Lib/ConsoleFileLogger.fs: the "ConsoleFileLogger"
-//     module below (createConsole/createFile, unchanged logic, new home).
-//   - New src/Informedica.Agents.Lib/AgentLogging.fs: the "AgentLogging" module below,
-//     byte-for-byte the same as today's Logging.fs AgentLogging module - its only
-//     cross-module dependency was Logging.levelValue, which stays in the trimmed port.
-//   - Informedica.Agents.Lib.fsproj: add both new Compile items after FileDirectoryAgent.fs,
-//     add a ProjectReference to Informedica.Logging.Lib.
-//   - Informedica.Logging.Lib.fsproj: drop the ProjectReference to Informedica.Agents.Lib.
-//   - scripts/DependencyRule.fsx: delete the allowedReferences entry
-//     ("Informedica.Logging.Lib", "Informedica.Agents.Lib", ...) - the edge is now
-//     Agents.Lib -> Logging.Lib (Infrastructure -> Core), which mayReference already
-//     permits with no allowance needed.
-//   - scripts/CheckDependencyRule.fsx: delete
-//     `allowFile "src/Informedica.Logging.Lib/Logging.fs" loggingSplit` - the trimmed
-//     file has no banned tokens left.
-//   - Call sites, per 416 Step 1 and 378 Phase 1 step 2 ("Formatters stay in the
-//     libraries"; grepped clean of other callers before writing this):
-//       * src/Informedica.GenSOLVER.Lib/SolverLogging.fs: delete createLogger,
-//         createFileLogger, createAgentLogger (zero production/test callers).
-//         formatSolverMessage/logSolverEvent/logSolverWarning/logSolverException/
-//         create/noOp stay untouched.
-//       * src/Informedica.GenORDER.Lib/OrderLogging.fs: delete createLogger,
-//         createFileLogger, createConsoleLogger, createAgentLogger. Three dev
-//         call sites break and need a one-line fix to call
-//         ConsoleFileLogger.createConsole/createFile directly with the same composed
-//         formatter inline: Scripts/Medication.fsx:30, Scripts/Feeding.fsx:160,
-//         Notebooks/total-parenteral-nutrition.dib:39 (all call createConsoleLogger/
-//         createFileLogger). formatOrderMessage/logOrderEvent/etc. stay untouched.
-//       * src/Informedica.GenFORM.Lib/FormLogging.fs: delete printLogger and
-//         agentLogger - both unreferenced anywhere in the repo (only FormLogging.noOp
-//         is used, in the server, MCP host and several dev scripts).
-//       * src/Informedica.GenPRES.Server/Logging.fs: `getLogger` (line 91-101) does
-//         `level |> getConfig |> OrderLogging.createAgentLogger`. Replace with the
-//         composed formatter + AgentLogging.createAgentLogger call shown in
-//         "Server/Logging.fs replacement" below - this is the inlining 378 Phase 1
-//         step 2 calls for; no behaviour change, since OrderLogging.createAgentLogger
-//         did exactly this composition today.
-//       * tests/Informedica.Logging.Tests/Tests.fs: add a ProjectReference to
-//         Informedica.Agents.Lib (it exercises AgentLogging directly today; this is a
-//         missing reference, not a dependency-rule concern - the test project is
-//         outside the production ring graph). Update its two calls at ~line 155 and
-//         ~168 from Logging.createConsole/Logging.createFile to
-//         ConsoleFileLogger.createConsole/createFile.
-//
-// No behaviour change is intended anywhere in this step; the smoke checks at the
-// bottom exercise the same scenarios Logging.Tests already covers (noOp, console,
-// file, combine, filterByLevel, filterByType, an AgentLogging round trip) so a
-// regression would show here before it shows in the real test run.
+namespace Informedica.Agents.Lib
 
-#I __SOURCE_DIRECTORY__
-#load "load.fsx"
-
-open System
-open System.Threading
-open System.Threading.Tasks
-open System.Text
-
-open Informedica.Utils.Lib
-open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
-open Informedica.Agents.Lib
+open Informedica.Logging.Lib
 
 
-// ===========================================================================
-// Target shape of src/Informedica.Logging.Lib/Logging.fs after the split.
-// Identical to today's file with createConsole, createFile and AgentLogging removed.
-// ===========================================================================
-module TargetLoggingLib =
-
-    type IMessage = interface end
-
-    type TimeStamp = DateTime
-
-    [<RequireQualifiedAccess>]
-    type Level =
-        | Debug
-        | Informative
-        | Warning
-        | Error
-
-    type Event =
-        {
-            TimeStamp: TimeStamp
-            Level: Level
-            Message: IMessage
-        }
-
-    type Logger =
-        {
-            Log: Event -> unit
-            Enabled: Level -> bool
-        }
-
-    [<RequireQualifiedAccess>]
-    module Logging =
-
-        let createMessage level (msg: IMessage) =
-            {
-                TimeStamp = DateTime.Now
-                Level = level
-                Message = msg
-            }
-
-        let logWith level (logger: Logger) (msg: IMessage) =
-            msg |> createMessage level |> logger.Log
-
-        let logInfo logger msg = logWith Level.Informative logger msg
-        let logWarning logger msg = logWith Level.Warning logger msg
-        let logDebug logger msg = logWith Level.Debug logger msg
-        let logError logger msg = logWith Level.Error logger msg
-
-        let noOp: Logger =
-            {
-                Log = ignore
-                Enabled = fun _ -> false
-            }
-
-        let create (f: Event -> unit) : Logger =
-            {
-                Log = f
-                Enabled = fun _ -> true
-            }
-
-        let isEnabled level (logger: Logger) = logger.Enabled level
-
-        let logLazy level (logger: Logger) (mk: unit -> IMessage) =
-            if logger.Enabled level then
-                mk () |> createMessage level |> logger.Log
-
-        let logInfoLazy logger mk = logLazy Level.Informative logger mk
-        let logWarningLazy logger mk = logLazy Level.Warning logger mk
-        let logDebugLazy logger mk = logLazy Level.Debug logger mk
-
-        let combine (loggers: Logger list) : Logger =
-            { create (fun msg -> loggers |> List.iter (fun logger -> logger.Log msg)) with
-                Enabled = fun level -> loggers |> List.exists (fun logger -> logger.Enabled level)
-            }
-
-        let levelValue =
-            function
-            | Level.Debug -> 0
-            | Level.Informative -> 1
-            | Level.Warning -> 2
-            | Level.Error -> 3
-
-        let filterByLevel (minLevel: Level) (logger: Logger) : Logger =
-            { create (fun msg ->
-                  if levelValue msg.Level >= levelValue minLevel then
-                      logger.Log msg
-              ) with
-                Enabled = fun level -> levelValue level >= levelValue minLevel && logger.Enabled level
-            }
-
-        let filterByType<'T when 'T :> IMessage> (logger: Logger) : Logger =
-            { create (fun msg ->
-                  match msg.Message with
-                  | :? 'T -> logger.Log msg
-                  | _ -> ()
-              ) with
-                Enabled = logger.Enabled
-            }
-
-    [<RequireQualifiedAccess>]
-    module MessageFormatter =
-
-        let create (formatters: (Type * (IMessage -> string)) list) : IMessage -> string =
-            fun msg ->
-                let msgType = msg.GetType()
-
-                formatters
-                |> List.tryPick (fun (regType, formatter) ->
-                    if regType.IsAssignableFrom(msgType) then Some formatter else None
-                )
-                |> Option.map (fun formatter -> formatter msg)
-                |> Option.defaultValue $"cannot format: {msg}"
-
-        let createWithFallback
-            (formatters: (Type * (IMessage -> string)) list)
-            (fallback: IMessage -> string)
-            : IMessage -> string
-            =
-            fun msg ->
-                let msgType = msg.GetType()
-
-                formatters
-                |> List.tryPick (fun (regType, formatter) ->
-                    if regType.IsAssignableFrom(msgType) then Some formatter else None
-                )
-                |> Option.map (fun formatter -> formatter msg)
-                |> Option.defaultWith (fun () -> fallback msg)
-
-
-open TargetLoggingLib
-
-
-// ===========================================================================
-// New src/Informedica.Agents.Lib/ConsoleFileLogger.fs - moved out of Logging.fs
-// unchanged; these do real IO, which is why they leave the Core-ring library.
-// ===========================================================================
-[<RequireQualifiedAccess>]
-module ConsoleFileLogger =
-
-    let createConsole (formatter: IMessage -> string) : Logger =
-        Logging.create (fun msg ->
-            msg.Message
-            |> formatter
-            |> fun s ->
-                if not (String.IsNullOrEmpty s) then
-                    printfn $"%s{s}"
-        )
-
-    let createFile path (formatter: IMessage -> string) : Logger =
-        Logging.create (fun msg ->
-            msg.Message
-            |> formatter
-            |> fun s ->
-                if not (String.IsNullOrEmpty s) then
-                    let text = [ $"{msg.TimeStamp}: {msg.Level}"; s ]
-                    System.IO.File.AppendAllLines(path, text)
-        )
-
-
-// ===========================================================================
-// New src/Informedica.Agents.Lib/AgentLogging.fs - moved verbatim out of Logging.fs.
-// Its only cross-module reference into the old file was Logging.levelValue, which
-// stays in the trimmed port, so nothing here changes besides its physical location.
-// ===========================================================================
+/// Agent-based logging system
 module AgentLogging =
+
+    open System
+    open System.Threading
+    open System.Threading.Tasks
+    open System.Text
+
+    open Informedica.Utils.Lib
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
     module W = FileWriterAgent
 
     type LoggerMessage =
         | Start of path: string option * Level
         | LogEvent of Event
-        | Report of AsyncReplyChannel<string[]>
+        | Report of AsyncReplyChannel<string[]> // formatted lines
         | Write of string * AsyncReplyChannel<Result<unit, string>>
         | Stop of AsyncReplyChannel<unit>
         | FlushTimer
@@ -256,11 +29,12 @@ module AgentLogging =
         | AlreadyDisposed
         | DisposeError of exn
 
+
     type AgentLogger =
         {
             Start: string option -> Level -> unit
             Logger: Logger
-            ReportAsync: unit -> Async<string[]>
+            ReportAsync: unit -> Async<string[]> // formatted lines
             WriteAsync: string -> Async<Result<unit, string>>
             FlushAsync: unit -> Async<unit>
             StopAsync: unit -> Async<unit>
@@ -268,19 +42,22 @@ module AgentLogging =
         }
 
         interface IDisposable with
-            member this.Dispose() =
-                this.DisposeWorkAsync() |> Async.RunSynchronously |> ignore
+            member this.Dispose() = this.DisposeWorkAsync() |> Async.RunSynchronously |> ignore
 
         interface IAsyncDisposable with
             member this.DisposeAsync() =
+                // Use ValueTask for proper async disposal
                 ValueTask(this.DisposeWorkAsync() |> Async.StartAsTask :> Task)
+
 
     type LoggingError =
         | FormatterError of exn * IMessage
         | FileWriteError of exn * string
         | AgentError of exn
 
+
     let mutable errorHandler: (LoggingError -> unit) option = None
+
 
     type AgentLoggerConfig =
         {
@@ -294,37 +71,48 @@ module AgentLogging =
             ErrorHandler: (LoggingError -> unit) option
         }
 
+
     type MessageStorage<'T> =
         | RingBuffer of RingBuffer<'T>
         | UnlimitedList of ResizeArray<'T>
 
+
+    /// Default configurations for AgentLogger
     module AgentLoggerDefaults =
 
+
+        /// Default formatter that handles basic message types
         let defaultFormatter: IMessage -> string = fun msg -> $"%A{msg}"
 
+
+        /// Default error handler that prints to stderr
         let defaultErrorHandler: LoggingError -> unit =
             function
             | FormatterError(ex, msg) -> eprintfn $"Formatter error for message %s{msg.GetType().Name}: %s{ex.Message}"
             | FileWriteError(ex, operation) -> eprintfn $"File write error during %s{operation}: %s{ex.Message}"
             | AgentError ex -> eprintfn $"Agent error: %s{ex.Message}"
 
+
+        /// Create a default configuration with console-only logging
         let config: AgentLoggerConfig =
             {
                 Formatter = defaultFormatter
-                MaxMessages = Some 1000
+                MaxMessages = Some 1000 // Keep the last 1000 messages in memory
                 DefaultLevel = Level.Informative
                 FlushThreshold = 100
-                FlushInterval = TimeSpan.FromSeconds(5.0)
+                FlushInterval = TimeSpan.FromSeconds(5.0) // Auto-flush every 5 seconds
                 MinFlushInterval = TimeSpan.FromSeconds(1.0)
                 MaxFlushInterval = TimeSpan.FromSeconds(30.)
                 ErrorHandler = Some defaultErrorHandler
             }
 
+
+        /// Create the default configuration for high-performance logging
         let highPerformance: AgentLoggerConfig =
             {
                 Formatter = defaultFormatter
-                MaxMessages = Some 5000
-                DefaultLevel = Level.Warning
+                MaxMessages = Some 5000 // Larger buffer for high throughput
+                DefaultLevel = Level.Warning // Only log warnings and errors
                 FlushThreshold = 1000
                 FlushInterval = TimeSpan.FromSeconds(10.0)
                 MinFlushInterval = TimeSpan.FromSeconds(1.0)
@@ -332,10 +120,12 @@ module AgentLogging =
                 ErrorHandler = Some defaultErrorHandler
             }
 
+
+        /// Create default configuration for debugging
         let debug: AgentLoggerConfig =
             {
                 Formatter = defaultFormatter
-                MaxMessages = None
+                MaxMessages = None // Unlimited message storage
                 DefaultLevel = Level.Debug
                 FlushThreshold = 10
                 FlushInterval = TimeSpan.FromSeconds(1.0)
@@ -344,11 +134,13 @@ module AgentLogging =
                 ErrorHandler = Some defaultErrorHandler
             }
 
+
+        /// Create the default configuration for production use
         let production: AgentLoggerConfig =
             {
                 Formatter = defaultFormatter
-                MaxMessages = Some 10_000
-                DefaultLevel = Level.Error
+                MaxMessages = Some 10_000 // Large buffer for production
+                DefaultLevel = Level.Error // Only log errors in production
                 FlushThreshold = 10
                 FlushInterval = TimeSpan.FromSeconds(1.0)
                 MinFlushInterval = TimeSpan.FromSeconds(1.0)
@@ -356,25 +148,39 @@ module AgentLogging =
                 ErrorHandler = Some defaultErrorHandler
             }
 
+
+        /// Create a custom configuration with a specified formatter
         let withFormatter (formatter: IMessage -> string) (config: AgentLoggerConfig) =
             { config with Formatter = formatter }
 
+
+        /// Create a configuration with a custom message limit
         let withMaxMessages (maxMessages: int option) (config: AgentLoggerConfig) =
             { config with MaxMessages = maxMessages }
 
+
+        /// Create a configuration with a custom default level
         let withLevel (level: Level) (config: AgentLoggerConfig) = { config with DefaultLevel = level }
 
+
+        /// Create a configuration with a custom flush interval
         let withFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) =
             { config with FlushInterval = interval }
 
-        let withFlushThreshold (threshold: int) (config: AgentLoggerConfig) =
-            { config with FlushThreshold = threshold }
 
+        /// Create a configuration with a custom flush threshold
+        let withFlushThreshold (threshold: int) (config: AgentLoggerConfig) = { config with FlushThreshold = threshold }
+
+
+        /// Create a configuration with a custom minimum flush interval
         let withMinFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) =
             { config with MinFlushInterval = interval }
 
+
+        /// Create a configuration with a custom maximum flush interval
         let withMaxFlushInterval (interval: TimeSpan) (config: AgentLoggerConfig) =
             { config with MaxFlushInterval = interval }
+
 
     let createAgentLogger (config: AgentLoggerConfig) =
         let cts = new CancellationTokenSource()
@@ -413,6 +219,7 @@ module AgentLogging =
 
                         async {
                             try
+                                // Respect cancellation during delay
                                 do! Async.AwaitTask(Task.Delay(interval, cts.Token))
 
                                 if not cts.Token.IsCancellationRequested then
@@ -452,7 +259,9 @@ module AgentLogging =
 
                 let formatLogMessage (elapsed: float) (count: int) (ev: Event) =
                     try
-                        let text = config.Formatter ev.Message
+                        let text =
+                            //AgentLoggerDefaults.defaultFormatter ev.Message
+                            config.Formatter ev.Message
 
                         if String.IsNullOrWhiteSpace text then
                             None
@@ -489,6 +298,7 @@ module AgentLogging =
 
                             | Start(newPath, newLevel) ->
                                 try
+                                    // If switching to a different path, flush and close the previous writer to avoid leaks
                                     match path, newPath with
                                     | Some oldPath, Some newP when
                                         not (String.Equals(oldPath, newP, StringComparison.Ordinal))
@@ -504,7 +314,7 @@ module AgentLogging =
                                         $"unexpected error in logging agent:\n{ex}"
                                         true
                                         true
-
+                                // Reset initialization state when (re)starting a path
                                 return! loop newPath newLevel false
 
                             | LogEvent ev ->
@@ -519,6 +329,7 @@ module AgentLogging =
                                     | Some lines ->
                                         match path with
                                         | Some p ->
+                                            // Create the file lazily on first writing by prepending a header
                                             if not fileInitialized then
                                                 let header =
                                                     $"Start logging %A{level}: %s{DateTime.Now.ToShortTimeString()}"
@@ -528,12 +339,13 @@ module AgentLogging =
 
                                                 scheduleFlush ()
                                                 return! loop path level true
-
-                                            W.append p lines writer |> ignore
+                                            // Already initialized; just append the message lines
+                                            W.append p lines writer |> ignore // async writer
                                             scheduleFlush ()
+                                        // In the console case, print all lines for clarity.
                                         | None ->
                                             if level = Level.Debug then
-                                                lines |> Array.iter writeDebugMessage
+                                                lines |> Array.iter writeDebugMessage // print all lines
                                     | None -> ()
 
                                     messageCountSinceFlush <- messageCountSinceFlush + 1
@@ -554,6 +366,7 @@ module AgentLogging =
                                 return! loop path level fileInitialized
 
                             | Report reply ->
+                                // produce formatted lines (oldest -> newest)
                                 let lines =
                                     iterMessages ()
                                     |> Seq.mapi (fun i (t, e) -> formatLogMessage t (i + 1) e)
@@ -565,6 +378,7 @@ module AgentLogging =
                                 return! loop path level fileInitialized
 
                             | Write(filePath, reply) ->
+                                // fire-and-forget write of a snapshot
                                 let result =
                                     try
                                         let allLines =
@@ -574,7 +388,7 @@ module AgentLogging =
                                             |> Seq.collect id
                                             |> Array.ofSeq
 
-                                        W.append filePath allLines writer |> ignore
+                                        W.append filePath allLines writer |> ignore // no flush here
                                         Ok()
                                     with ex ->
                                         Error ex.Message
@@ -597,9 +411,14 @@ module AgentLogging =
             async {
                 if Interlocked.CompareExchange(&isDisposed, 1L, 0L) = 0L then
                     try
+                        // First, stop the logger agent gracefully
                         do! logger.PostAndAsyncReply(fun rc -> Stop rc)
+
+                        // Then clean up the file writer
                         do! W.flushAsync writer
                         do! W.stopAsync writer
+
+                        // Finally, clean up other resources
                         cts.Cancel()
                         cts.Dispose()
                         writer |> Agent.dispose
@@ -612,10 +431,14 @@ module AgentLogging =
                     return AlreadyDisposed
             }
 
+
+        // Create the AgentLogger with proper disposal interfaces
         {
             Start =
                 fun path level ->
                     ensureNotDisposed ()
+                    // TODO: this can be a problem if there is a long list of messages still
+                    // being processed
                     do logger.Post(Start(path, level))
 
             Logger =
@@ -656,138 +479,34 @@ module AgentLogging =
             StopAsync =
                 fun () ->
                     async {
+                        // Stop the pipeline; further logging will be ignored due to isDisposed flag
                         do! disposeAsync () |> Async.Ignore
                     }
 
             DisposeWorkAsync = fun () -> async { return! disposeAsync () }
         }
 
+
+    /// Create a console logger with default settings
     let createConsole () = createAgentLogger AgentLoggerDefaults.config
+
+    /// Create a debug logger with verbose settings
     let createDebug () = createAgentLogger AgentLoggerDefaults.debug
+
+    /// Create a production logger with minimal output
     let createProduction () = createAgentLogger AgentLoggerDefaults.production
+
+    /// Create a high-performance logger for heavy workloads
     let createHighPerformance () = createAgentLogger AgentLoggerDefaults.highPerformance
 
+    /// Create a custom logger with the specified formatter
     let createWithFormatter (formatter: IMessage -> string) =
         AgentLoggerDefaults.config
         |> AgentLoggerDefaults.withFormatter formatter
         |> createAgentLogger
 
+    /// Create a logger with unlimited message storage
     let createUnlimited () =
         AgentLoggerDefaults.config
         |> AgentLoggerDefaults.withMaxMessages None
         |> createAgentLogger
-
-
-// ===========================================================================
-// Server/Logging.fs replacement for the getLogger call site (line 91-101 today):
-// today `level |> getConfig |> OrderLogging.createAgentLogger` builds the config
-// then asks OrderLogging to overwrite its Formatter with the OrderMessage/
-// SolverMessage/GenForm.Message composition and call AgentLogging.createAgentLogger.
-// Once OrderLogging.createAgentLogger is deleted, Server/Logging.fs does that
-// composition itself - it already references GenOrder.Lib, so this is inlining, not
-// new design.
-// ===========================================================================
-module ServerLoggingReplacement =
-
-    // Stand-ins for the real OrderMessage/SolverMessage/GenForm.Types.Message
-    // formatters, which stay in their libraries unchanged.
-    type StubOrderMessage =
-        | StubOrder of string
-
-        interface IMessage
-
-    let formatOrderMessage (msg: IMessage) =
-        match msg with
-        | :? StubOrderMessage as (StubOrder s) -> s
-        | _ -> "unknown"
-
-    let composedFormatter =
-        MessageFormatter.create [ (typeof<StubOrderMessage>, formatOrderMessage) ]
-
-    let getLogger (config: AgentLogging.AgentLoggerConfig) =
-        config
-        |> AgentLogging.AgentLoggerDefaults.withFormatter composedFormatter
-        |> AgentLogging.createAgentLogger
-
-
-// ===========================================================================
-// Smoke checks - same scenarios tests/Informedica.Logging.Tests/Tests.fs covers today.
-// ===========================================================================
-
-type TestMessage =
-    | TestMessage of string
-
-    interface IMessage
-
-let testFormatter (msg: IMessage) =
-    match msg with
-    | :? TestMessage as (TestMessage s) -> s
-    | _ -> "?"
-
-let assertTrue name cond =
-    if cond then
-        printfn $"PASS: {name}"
-    else
-        failwithf $"FAIL: {name}"
-
-// noOp never logs
-Logging.logInfo Logging.noOp (TestMessage "ignored")
-assertTrue "noOp does not throw" true
-
-// combine + filterByLevel
-let mutable seenA = 0
-let mutable seenB = 0
-let loggerA = Logging.create (fun _ -> seenA <- seenA + 1)
-let loggerB = Logging.create (fun _ -> seenB <- seenB + 1) |> Logging.filterByLevel Level.Warning
-let combined = Logging.combine [ loggerA; loggerB ]
-Logging.logInfo combined (TestMessage "info")
-Logging.logWarning combined (TestMessage "warn")
-assertTrue "combine: unfiltered logger sees both" (seenA = 2)
-assertTrue "combine: level-filtered logger sees only the warning" (seenB = 1)
-
-// filterByType
-let mutable typedSeen = 0
-type OtherMessage =
-    | OtherMessage of string
-
-    interface IMessage
-
-let typedLogger =
-    Logging.create (fun _ -> typedSeen <- typedSeen + 1)
-    |> Logging.filterByType<TestMessage>
-
-Logging.logInfo typedLogger (TestMessage "match")
-Logging.logInfo typedLogger (OtherMessage "no match")
-assertTrue "filterByType only sees the matching case" (typedSeen = 1)
-
-// ConsoleFileLogger.createConsole
-let consoleLogger = ConsoleFileLogger.createConsole testFormatter
-Logging.logInfo consoleLogger (TestMessage "console smoke test")
-
-// ConsoleFileLogger.createFile
-let tempFile = IO.Path.GetTempFileName()
-let fileLogger = ConsoleFileLogger.createFile tempFile testFormatter
-Logging.logInfo fileLogger (TestMessage "file smoke test")
-Threading.Thread.Sleep 50
-let fileContents = IO.File.ReadAllText tempFile
-IO.File.Delete tempFile
-assertTrue "file logger wrote the formatted message" (fileContents.Contains "file smoke test")
-
-// AgentLogging round trip: start on a temp path, log, flush, verify file content, dispose
-let agentTempFile = IO.Path.GetTempFileName()
-
-async {
-    let agentLogger = AgentLogging.createWithFormatter testFormatter
-    agentLogger.Start (Some agentTempFile) Level.Debug
-    TestMessage "agent smoke test" |> Logging.logInfo agentLogger.Logger
-    do! agentLogger.FlushAsync()
-    do! Async.Sleep 200
-    do! agentLogger.StopAsync()
-
-    let contents = IO.File.ReadAllText agentTempFile
-    IO.File.Delete agentTempFile
-    assertTrue "AgentLogging wrote the formatted message to its file" (contents.Contains "agent smoke test")
-}
-|> Async.RunSynchronously
-
-printfn "\nAll smoke checks passed - the split compiles and behaves the same as today's Logging.fs."

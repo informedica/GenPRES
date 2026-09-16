@@ -8,10 +8,13 @@
     <Compile Include="Agent.fs" />
     <Compile Include="FileWriterAgent.fs" />
     <Compile Include="FileDirectoryAgent.fs" />
+    <Compile Include="ConsoleFileLogger.fs" />
+    <Compile Include="AgentLogging.fs" />
     <None Include="./Scripts/load.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.Logging.Lib\Informedica.Logging.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

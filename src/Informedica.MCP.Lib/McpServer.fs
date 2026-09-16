@@ -2,10 +2,14 @@ namespace Informedica.MCP.Lib
 
 open System
 open System.ComponentModel
+open System.Diagnostics
+open System.Threading.Tasks
 
 open Informedica.GenForm.Lib.Resources
 open Informedica.Utils.Lib.BCL
+open Informedica.Logging.Lib
 
+open ModelContextProtocol.Protocol
 open ModelContextProtocol.Server
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
@@ -264,6 +268,68 @@ type GenOrderMcpTools() =
         | Error msg -> McpHelpers.toJson {| Error = msg |}
 
 
+/// The tool-call logging filter: wraps every `tools/call` request the SDK dispatches, whichever
+/// `[<McpServerToolType>]` class ends up handling it, with no per-tool-method edit needed.
+module McpToolLogging =
+
+    module Logging = Informedica.Logging.Lib.Logging
+
+    /// The loggable decision, free of any SDK type: what to log, in what order, given a tool
+    /// name, its argument keys, and a thunk that performs the call. Argument KEYS only, never
+    /// values - clinical parameters (age/weight/sex/generic/indication) live in the values.
+    let logToolCall
+        (logger: Logger)
+        (toolName: string)
+        (argumentKeys: string[])
+        (isError: 'result -> bool)
+        (call: unit -> Task<'result>)
+        : Task<'result>
+        =
+        task {
+            McpMessage.ToolCallStarted(toolName, argumentKeys) |> Logging.logInfo logger
+
+            let sw = Stopwatch.StartNew()
+
+            try
+                let! result = call ()
+                sw.Stop()
+
+                if isError result then
+                    McpMessage.ToolCallFailed(toolName, sw.Elapsed.TotalMilliseconds, "tool result IsError = true")
+                    |> Logging.logWarning logger
+                else
+                    McpMessage.ToolCallCompleted(toolName, sw.Elapsed.TotalMilliseconds)
+                    |> Logging.logInfo logger
+
+                return result
+            with ex ->
+                sw.Stop()
+
+                McpMessage.ToolCallFailed(toolName, sw.Elapsed.TotalMilliseconds, ex.Message)
+                |> Logging.logError logger
+
+                return raise ex
+        }
+
+    /// SDK-shaped adapter around `logToolCall`: reads `ctx.Params`, converts `ValueTask` to
+    /// `Task` and back. Registered once at the composition root via `WithRequestFilters`.
+    let callToolLoggingFilter (logger: Logger) : McpRequestFilter<CallToolRequestParams, CallToolResult> =
+        McpRequestFilter<CallToolRequestParams, CallToolResult>(fun next ->
+            McpRequestHandler<CallToolRequestParams, CallToolResult>(fun ctx ct ->
+                let argumentKeys =
+                    match ctx.Params.Arguments with
+                    | null -> [||]
+                    | args -> args.Keys |> Seq.toArray
+
+                let isError (r: CallToolResult) = r.IsError |> Option.ofNullable |> Option.defaultValue false
+
+                let call () = (next.Invoke(ctx, ct)).AsTask()
+
+                ValueTask<CallToolResult>(logToolCall logger ctx.Params.Name argumentKeys isError call)
+            )
+        )
+
+
 /// MCP server builder and startup helpers.
 module McpServer =
 
@@ -274,7 +340,7 @@ module McpServer =
 
 
     /// Create and configure the MCP server host builder.
-    let createHostBuilder () =
+    let createHostBuilder (logger: Logger) =
         let builder = Host.CreateApplicationBuilder()
 
         builder.Services
@@ -283,6 +349,7 @@ module McpServer =
                     ModelContextProtocol.Protocol.Implementation(Name = "GenPRES MCP Server", Version = "1.0.0")
             )
             .WithStdioServerTransport()
+            .WithRequestFilters(fun rf -> rf.AddCallToolFilter(McpToolLogging.callToolLoggingFilter logger) |> ignore)
             .WithTools<GenFormMcpTools>()
             .WithTools<GenOrderMcpTools>()
         |> ignore
@@ -292,12 +359,12 @@ module McpServer =
 
     /// Start the MCP server with stdio transport.
     /// Blocks until the server is stopped.
-    let run (provider: IResourceProvider) =
+    let run (logger: Logger) (provider: IResourceProvider) =
         initProvider provider
 
         eprintfn "[MCP] Starting GenPRES MCP server (stdio transport)..."
         eprintfn "[MCP] Working directory: %s" Environment.CurrentDirectory
 
-        let builder = createHostBuilder ()
+        let builder = createHostBuilder logger
         let app = builder.Build()
         app.RunAsync() |> Async.AwaitTask |> Async.RunSynchronously

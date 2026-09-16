@@ -107,10 +107,8 @@ let bannedTokens =
 /// "Permanent" entries are accepted exceptions recorded in ADR-0001.
 let allowances =
     let utilsSplit = "IO module in Utils.Lib; leaves the core with the Utils split (Phase 2)"
-    let loggingSplit = "Logger port and agent runtime share one file; split pending (Phase 1)"
     let viaLogger = "console write below the injected Logger; route through Logger (Phase 1)"
     let evict = "Google-Sheets/NKF loader in GenFORM; moves to the adapter project (Phase 2)"
-    let factory = "logger factory in a core library; moves to the composition root (Phase 1)"
     let clock = "ambient clock in the core; becomes a `now` parameter (Phase 4)"
     let chunking = "Permanent: Environment.ProcessorCount only sizes parallel chunks, never a result"
 
@@ -126,12 +124,12 @@ let allowances =
         allowFile "src/Informedica.Utils.Lib/Web.fs" utilsSplit
         allowToken "src/Informedica.Utils.Lib/Path.fs" "System.IO" "Permanent: System.IO.Path string helpers only, no filesystem access"
         allowToken "src/Informedica.Utils.Lib/Memoization.fs" "Stopwatch" "Permanent: timing in an example function, no IO"
+        // Logging.Lib
+        allowToken "src/Informedica.Logging.Lib/Logging.fs" "DateTime.Now" clock
         allowToken "src/Informedica.Utils.Lib/Json.fs" "printfn" viaLogger
         allowToken "src/Informedica.Utils.Lib/BCL/Int32.fs" "printfn" viaLogger
         allowToken "src/Informedica.Utils.Lib/BCL/BigInteger.fs" "printfn" viaLogger
         allowToken "src/Informedica.Utils.Lib/BCL/DateTime.fs" "DateTime.Now" clock
-        // Logging.Lib
-        allowFile "src/Informedica.Logging.Lib/Logging.fs" loggingSplit
         // GenUNITS.Lib
         allowToken "src/Informedica.GenUNITS.Lib/UnitsParse.fs" "printfn" viaLogger
         allowToken "src/Informedica.GenUNITS.Lib/ValueUnit.fs" "printfn" viaLogger
@@ -147,7 +145,6 @@ let allowances =
         allowToken "src/Informedica.GenSOLVER.Lib/Equation.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/Solver.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/Solver.fs" "writeErrorMessage" viaLogger
-        allowToken "src/Informedica.GenSOLVER.Lib/SolverLogging.fs" "AgentLogging" factory
         // GenFORM.Lib
         allowToken "src/Informedica.GenFORM.Lib/Utils.fs" "Environment.ProcessorCount" chunking
         allowToken "src/Informedica.GenFORM.Lib/Utils.fs" "Web." evict
@@ -165,7 +162,6 @@ let allowances =
         allowToken "src/Informedica.GenFORM.Lib/RenalRule.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenFORM.Lib/RenalRule.fs" "writeWarningMessage" viaLogger
         allowToken "src/Informedica.GenFORM.Lib/RenalRule.fs" "Web." evict
-        allowToken "src/Informedica.GenFORM.Lib/FormLogging.fs" "AgentLogging" "unreferenced top-level agent logger; delete (Phase 0)"
         allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "DateTime.UtcNow" "CachedResourceProvider TTL clock; provider moves to the adapter project (Phase 2)"
@@ -194,7 +190,6 @@ let allowances =
         allowToken "src/Informedica.GenORDER.Lib/OrderLogging.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/OrderLogging.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/OrderLogging.fs" "writeInfoMessage" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/OrderLogging.fs" "AgentLogging" factory
         allowToken "src/Informedica.GenORDER.Lib/Api.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/Api.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/Api.fs" "writeWarningMessage" viaLogger

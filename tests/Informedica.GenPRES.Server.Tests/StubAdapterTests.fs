@@ -146,6 +146,7 @@ module StubAdapters =
             // the tests run as the demo server does
             session = sessionNone
             demo = true
+            logger = Informedica.Logging.Lib.Logging.noOp
         }
 
 
@@ -172,6 +173,7 @@ module StubAdapters =
             // the tests run as the demo server does
             session = sessionNone
             demo = true
+            logger = Informedica.Logging.Lib.Logging.noOp
         }
 
 
@@ -5055,6 +5057,7 @@ module BoundTests =
 
                 test "logged: the answer passes through" {
                     Compute.logged
+                        (envWith true None)
                         "admin"
                         AdminCommand.toString
                         (fun _ -> async { return 42 })

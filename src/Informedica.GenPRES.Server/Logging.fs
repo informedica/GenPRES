@@ -3,16 +3,15 @@ module Logging
 open System
 open System.IO
 
-open IcedTasks.Polyfill.Async
-
 open Informedica.Utils.Lib
 open Informedica.Utils.Lib.BCL
-
 open Informedica.Agents.Lib
 open Informedica.Logging.Lib
-open Informedica.GenOrder.Lib
 
 open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
+
+open Serilog
+open Serilog.Events
 
 
 // Server-specific logging message types and helpers
@@ -30,8 +29,8 @@ module ServerLogging =
         interface IMessage
 
     /// Log a request line as Informative
-    let logRequest (logger: AgentLogging.AgentLogger) (method_: string) (path: string) (clientIP: string) =
-        Request(method_, path, clientIP) |> Logging.logInfo logger.Logger
+    let logRequest (logger: Logger) (method_: string) (path: string) (clientIP: string) =
+        Request(method_, path, clientIP) |> Logging.logInfo logger
 
 
 [<Literal>]
@@ -50,26 +49,31 @@ let getRecommendedLogPath (componentName: string option) =
     Path.Combine(logDir, fileName)
 
 
-let getDirAgent (path: string) =
-    let agent = FileDirectoryAgent.create ()
-    // Ensure policy is set on the directory (not the file path)
+/// Prunes old log files in `path`'s directory before a Serilog file sink is created there. Runs
+/// once per LoggerType actually used per process (SerilogLogging.buildLogger calls this once, at
+/// sink construction), not once per request as the AgentLogging-backed version did.
+let private pruneLogDirectory (path: string) =
+    let dirAgent = FileDirectoryAgent.create ()
+
     let dir =
         match Path.GetDirectoryName path with
         | null
         | "" -> AppPath.rootPath ()
         | d -> d
 
-    agent |> FileDirectoryAgent.setPolicyWithPattern dir MAX_LOG_FILES "*.log"
+    let policedAgent = dirAgent |> FileDirectoryAgent.setPolicyWithPattern dir MAX_LOG_FILES "*.log"
 
+    async {
+        let! pruned = policedAgent |> FileDirectoryAgent.pruneAsync path
 
-let getConfig level =
-    AgentLogging.AgentLoggerDefaults.config
-    |> AgentLogging.AgentLoggerDefaults.withLevel level
-    |> AgentLogging.AgentLoggerDefaults.withMaxMessages (Some 10_000)
-    |> AgentLogging.AgentLoggerDefaults.withFlushInterval (TimeSpan.FromSeconds 10.)
-    |> AgentLogging.AgentLoggerDefaults.withMinFlushInterval (TimeSpan.FromMilliseconds 10.)
-    |> AgentLogging.AgentLoggerDefaults.withMaxFlushInterval (TimeSpan.FromSeconds 20.)
-    |> AgentLogging.AgentLoggerDefaults.withFlushThreshold 100
+        match pruned with
+        | Ok n when n > 0 -> writeInfoMessage $"🧹 Pruned {n} old log file(s)\n"
+        | Ok _ -> ()
+        | Error s -> writeErrorMessage $"❌ Log path prune errored with: {s}\n"
+
+        dirAgent |> Agent.dispose
+    }
+    |> Async.RunSynchronously
 
 
 type LoggerType =
@@ -81,23 +85,25 @@ type LoggerType =
     | ParenteraliaLogger
 
 
-let internal loggerLock = obj ()
+let allLoggerTypes =
+    [
+        RequestLogger
+        OrderLogger
+        ResourcesLogger
+        FormularyLogger
+        OrderPlanLogger
+        ParenteraliaLogger
+    ]
 
 
-let mutable loggers: Map<LoggerType * Level, AgentLogging.AgentLogger> = [] |> Map.ofList
-
-
-let getLogger (level: Level) (loggerType: LoggerType) =
-    lock
-        loggerLock
-        (fun () ->
-            match loggers |> Map.tryFind (loggerType, level) with
-            | Some logger -> logger
-            | None ->
-                let logger = level |> getConfig |> OrderLogging.createAgentLogger
-                loggers <- loggers.Add((loggerType, level), logger)
-                logger
-        )
+let loggerTypeName =
+    function
+    | RequestLogger -> "request"
+    | OrderLogger -> "order"
+    | ResourcesLogger -> "resources"
+    | FormularyLogger -> "formulary"
+    | OrderPlanLogger -> "orderplan"
+    | ParenteraliaLogger -> "parenteralia"
 
 
 let loggingEnabled =
@@ -118,23 +124,79 @@ let loggingLevel =
     )
 
 
-let setComponentName (componentName: string option) (logger: AgentLogging.AgentLogger) =
-    match loggingLevel with
-    | Some level ->
+/// Turns a Serilog ILogger into the domain-facing Logger record. Every IMessage case becomes a
+/// Serilog structured property for free - no change to any IMessage type.
+module SerilogBridge =
 
-        let path = getRecommendedLogPath componentName
+    let toSerilogLevel =
+        function
+        | Level.Debug -> LogEventLevel.Debug
+        | Level.Informative -> LogEventLevel.Information
+        | Level.Warning -> LogEventLevel.Warning
+        | Level.Error -> LogEventLevel.Error
 
-        async {
-            let dirAgent = getDirAgent path
-            let! pruned = FileDirectoryAgent.pruneAsync path dirAgent
-
-            match pruned with
-            | Ok n when n > 0 -> writeInfoMessage $"🧹 Pruned {n} old log file(s)\n"
-            | Ok _ -> ()
-            | Error s -> writeErrorMessage $"❌ Log path prune errored with: {s}\n"
-
-            dirAgent |> Agent.dispose
-
-            logger.Start (Some path) level
+    let toLogger (serilogLogger: Serilog.ILogger) : Logger =
+        {
+            Log =
+                fun ev ->
+                    serilogLogger.Write(
+                        ev.Level |> toSerilogLevel,
+                        "{EventType} {@Event}",
+                        ev.Message.GetType().Name,
+                        ev.Message
+                    )
+            Enabled = fun level -> serilogLogger.IsEnabled(level |> toSerilogLevel)
         }
-    | None -> async { () }
+
+
+/// One Serilog sink per LoggerType, built lazily so a LoggerType that never logs never creates
+/// a sink or a file. Both Console and File sinks are always active - Console for the terminal a
+/// developer is watching, File (wrapped in Async) for the persistent record.
+module SerilogLogging =
+
+    let buildLogger (level: Level) (loggerType: LoggerType) : Serilog.Core.Logger * string =
+        let minLevel = level |> SerilogBridge.toSerilogLevel
+        let path = loggerType |> loggerTypeName |> Some |> getRecommendedLogPath
+
+        pruneLogDirectory path
+
+        let logger =
+            LoggerConfiguration()
+                .MinimumLevel.Is(minLevel)
+                .WriteTo.Console()
+                .WriteTo.Async(fun a -> a.File(path) |> ignore)
+                .CreateLogger()
+
+        logger, path
+
+    let buildAll (level: Level) : Map<LoggerType, Lazy<Serilog.Core.Logger * string>> =
+        allLoggerTypes
+        |> List.map (fun lt -> lt, lazy (buildLogger level lt))
+        |> Map.ofList
+
+    let getLogger (loggers: Map<LoggerType, Lazy<Serilog.Core.Logger * string>>) (loggerType: LoggerType) : Logger =
+        loggers[loggerType].Value |> fst :> Serilog.ILogger |> SerilogBridge.toLogger
+
+    /// Disposes only the loggers actually forced into existence.
+    let dispose (loggers: Map<LoggerType, Lazy<Serilog.Core.Logger * string>>) =
+        for KeyValue(_, lazyLogger) in loggers do
+            if lazyLogger.IsValueCreated then
+                (lazyLogger.Value |> fst :> IDisposable).Dispose()
+
+
+/// Built once, at the fixed startup level; `None` when GENPRES_LOG is unset. Every call site
+/// reads through this, never through `SerilogLogging.buildAll` directly, so there is exactly
+/// one map - and one set of files - per process.
+let serilogLoggers: Map<LoggerType, Lazy<Serilog.Core.Logger * string>> option =
+    loggingLevel |> Option.map SerilogLogging.buildAll
+
+
+/// `Logging.noOp` when GENPRES_LOG is unset; otherwise the Serilog-backed Logger for that type.
+let getLogger (loggerType: LoggerType) : Logger =
+    match serilogLoggers with
+    | None -> Informedica.Logging.Lib.Logging.noOp
+    | Some loggers -> loggers |> SerilogLogging.getLogger <| loggerType
+
+
+/// Disposes every logger this process forced into existence. Call from LoggerShutdown.
+let disposeAll () = serilogLoggers |> Option.iter SerilogLogging.dispose

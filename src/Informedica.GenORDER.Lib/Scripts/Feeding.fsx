@@ -19,6 +19,11 @@ open Informedica.GenCore.Lib.Ranges
 open Informedica.GenForm.Lib
 open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
+open Informedica.GenOrder.Lib.Types.Logging
+open Informedica.GenSolver.Lib.Types.Logging
+
+open Informedica.Logging.Lib
+open Informedica.Agents.Lib
 
 open Expecto
 open Expecto.Flip
@@ -157,7 +162,15 @@ module FeedingScenarios =
             ]
 
 
-let logger = OrderLogging.createConsoleLogger ()
+let devScriptFormatter =
+    MessageFormatter.create
+        [
+            typeof<OrderMessage>, OrderLogging.formatOrderMessage
+            typeof<SolverMessage>, SolverLogging.formatSolverMessage
+            typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
+        ]
+
+let logger = ConsoleFileLogger.createConsole devScriptFormatter
 
 
 testList

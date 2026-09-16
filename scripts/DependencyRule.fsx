@@ -86,12 +86,11 @@ let isDmz ring =
 /// inverted (issue #378).
 let allowedReferences =
     [
-        "Informedica.Logging.Lib",
-        "Informedica.Agents.Lib",
-        "Logging.Lib bundles the Logger port with the agent runtime; split pending (#378, #416)"
-        "Informedica.GenFORM.Lib",
-        "Informedica.ZForm.Lib",
-        "GenFORM consumes G-Standaard types from the ZForm/ZIndex adapters; contract types pending (#378)"
+        (
+            "Informedica.GenFORM.Lib",
+            "Informedica.ZForm.Lib",
+            "GenFORM consumes G-Standaard types from the ZForm/ZIndex adapters; contract types pending (#378)"
+        )
     ]
 
 

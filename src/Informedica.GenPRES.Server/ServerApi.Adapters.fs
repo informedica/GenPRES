@@ -56,54 +56,34 @@ module Adapters =
         }
 
 
-    let private resolveLogger () =
-        match Logging.loggingLevel with
-        | None -> None, OrderLogging.noOp
-        | Some level ->
-            let agent = Logging.getLogger level Logging.OrderLogger
-            (Some agent, agent.Logger)
-
-
-    let private setComponentName name agent =
-        async {
-            match agent with
-            | Some a -> do! a |> Logging.setComponentName (Some name)
-            | None -> ()
-        }
-
-
-    let private makeFormularyPort (provider: Resources.IResourceProvider) : FormularyPort =
+    let private makeFormularyPort logger (provider: Resources.IResourceProvider) : FormularyPort =
         {
             getFormulary = fun form -> async { return form |> FormularyService.get provider }
 
             getParenteralia =
-                fun par -> async { return par |> ParenteraliaService.get provider |> Result.mapError Array.singleton }
+                fun par ->
+                    async {
+                        return
+                            par
+                            |> ParenteraliaService.get logger provider
+                            |> Result.mapError Array.singleton
+                    }
         }
 
 
     let private makeOrderContextPort
-        agent
         logger
         (provider: Resources.IResourceProvider)
         (now: unit -> DateTime)
         : OrderContextPort
         =
-        {
-            evaluate =
-                fun cmd pc ->
-                    async {
-                        do! setComponentName "OrderContext" agent
-
-                        return pc |> OrderContextService.evaluate (now ()) logger provider cmd
-                    }
-        }
+        { evaluate = fun cmd pc -> async { return pc |> OrderContextService.evaluate (now ()) logger provider cmd } }
 
 
     /// The order plan port over the domain's rules: the plan's contexts through the order
     /// context service, its totals over the provider's data, the refusals worded with the
     /// nutrition rule sets the server owns.
     let private makeOrderPlanPort
-        agent
         logger
         (provider: Resources.IResourceProvider)
         (ruleSets: NutritionRuleSet[])
@@ -117,17 +97,10 @@ module Adapters =
             r |> Result.mapError (OrderPlanMapper.words ruleSets >> Array.singleton)
 
         {
-            recalculate =
-                fun plan ->
-                    async {
-                        do! setComponentName "OrderPlan" agent
-                        return plan |> recalc |> Ok
-                    }
+            recalculate = fun plan -> async { return plan |> recalc |> Ok }
             navigate =
                 fun plan contextId cmd pc ->
                     async {
-                        do! setComponentName "OrderPlan" agent
-
                         return
                             pc
                             |> OrderContextService.evaluate (now ()) logger provider cmd
@@ -138,16 +111,10 @@ module Adapters =
                     }
             addOrderContext =
                 fun plan pc ->
-                    async {
-                        do! setComponentName "OrderPlan" agent
-
-                        return plan |> OrderPlan.addOrderContext newId pc |> refused |> Result.map recalc
-                    }
+                    async { return plan |> OrderPlan.addOrderContext newId pc |> refused |> Result.map recalc }
             newOrderContext =
                 fun plan category ->
                     async {
-                        do! setComponentName "OrderPlan" agent
-
                         return
                             match plan |> OrderPlan.admits category |> refused with
                             | Error e -> Error e
@@ -213,18 +180,8 @@ module Adapters =
                                 )
                     }
             removeOrderContexts =
-                fun plan ids ->
-                    async {
-                        do! setComponentName "OrderPlan" agent
-
-                        return plan |> OrderPlan.removeOrderContexts ids |> recalc |> Ok
-                    }
-            openWith =
-                fun pat contexts ->
-                    async {
-                        do! setComponentName "OrderPlan" agent
-                        return OrderPlan.create pat contexts |> recalc |> Ok
-                    }
+                fun plan ids -> async { return plan |> OrderPlan.removeOrderContexts ids |> recalc |> Ok }
+            openWith = fun pat contexts -> async { return OrderPlan.create pat contexts |> recalc |> Ok }
         }
 
 
@@ -308,15 +265,17 @@ module Adapters =
         (provider: Resources.IResourceProvider)
         : AppEnv
         =
-        let agent, logger = resolveLogger ()
+        let requestLogger = Logging.getLogger Logging.RequestLogger
+        let orderLogger = Logging.getLogger Logging.OrderLogger
+        let orderPlanLogger = Logging.getLogger Logging.OrderPlanLogger
+        let parenteraliaLogger = Logging.getLogger Logging.ParenteraliaLogger
 
         {
-            formulary = makeFormularyPort provider
-            orderContext = makeOrderContextPort agent logger provider (fun () -> DateTime.UtcNow)
+            formulary = makeFormularyPort parenteraliaLogger provider
+            orderContext = makeOrderContextPort orderLogger provider (fun () -> DateTime.UtcNow)
             orderPlan =
                 makeOrderPlanPort
-                    agent
-                    logger
+                    orderPlanLogger
                     provider
                     NutritionRuleSets.all
                     (fun () -> Guid.NewGuid().ToString())
@@ -357,7 +316,7 @@ module Adapters =
                         fun () ->
                             async {
                                 try
-                                    Informedica.GenForm.Lib.Api.reloadCache logger provider
+                                    Informedica.GenForm.Lib.Api.reloadCache orderLogger provider
 
                                     return
                                         match notLoaded provider with
@@ -402,6 +361,7 @@ module Adapters =
                     (Session.initialState (
                         StubCredentials.seed System.Security.Cryptography.RandomNumberGenerator.GetBytes
                     ))
+            logger = requestLogger
         }
 
 

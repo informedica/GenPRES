@@ -41,6 +41,7 @@
     <ProjectReference Include="..\Informedica.GenPRES.Shared\Informedica.GenPRES.Shared.fsproj" />
     <ProjectReference Include="..\Informedica.GenORDER.Lib\Informedica.GenORDER.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.GenINTERACT.Lib\Informedica.GenINTERACT.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.Agents.Lib\Informedica.Agents.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

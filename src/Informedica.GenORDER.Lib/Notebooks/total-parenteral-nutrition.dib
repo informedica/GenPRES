@@ -26,6 +26,11 @@ open Informedica.GenCore.Lib.Ranges
 open Informedica.GenForm.Lib
 open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
+open Informedica.GenOrder.Lib.Types.Logging
+open Informedica.GenSolver.Lib.Types.Logging
+
+open Informedica.Logging.Lib
+open Informedica.Agents.Lib
 
 Informedica.Utils.Lib.Env.loadDotEnv () |> ignore
 Environment.SetEnvironmentVariable("GENPRES_DEBUG", "1")
@@ -36,7 +41,15 @@ let print sl = sl |> List.iter (printfn "%s")
 
 // optional use of a logger to dump all calculations
 // to the console
-let logger = OrderLogging.createConsoleLogger ()
+let devScriptFormatter =
+    MessageFormatter.create
+        [
+            typeof<OrderMessage>, OrderLogging.formatOrderMessage
+            typeof<SolverMessage>, SolverLogging.formatSolverMessage
+            typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
+        ]
+
+let logger = ConsoleFileLogger.createConsole devScriptFormatter
 
 #!markdown
 
