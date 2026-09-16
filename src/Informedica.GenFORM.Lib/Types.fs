@@ -371,6 +371,7 @@ module Types =
             RenalFunction: RenalFunction option
         }
 
+
         static member Gender_ =
             (fun (p: Patient) -> p.Gender), (fun g (p: Patient) -> { p with Gender = g })
 
@@ -399,6 +400,19 @@ module Types =
 
         static member Location_ =
             (fun (p: Patient) -> p.Location), (fun l (p: Patient) -> { p with Location = l })
+
+
+    /// Why a value is no patient, or why a Dto does not parse to one.
+    [<RequireQualifiedAccess>]
+    type PatientError =
+        // Below the minimum data: no age, and no measured weight with a measured height
+        | NoAgeOrMeasuredWeightAndHeight
+        // A gender string the Dto carries that names no gender
+        | UnknownGender of string
+        // An access string the Dto carries that names no access device
+        | UnknownAccess of string
+        // A renal function string the Dto carries that names no renal function
+        | UnknownRenalFunction of string
 
 
     type ProductId =
