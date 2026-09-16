@@ -1293,6 +1293,27 @@ resource reload). The server enforces a length policy at startup:
 Never reuse a development password in production. Never commit a real
 password to the repository — `.env` is gitignored.
 
+#### Request logging: clientIP retention and the audit trail
+
+The Serilog request sink (`ServerLogging.Message.Request`, [#416](https://github.com/informedica/GenPRES/issues/416))
+logs the caller's `clientIP` on every request, in full, to the `data/logs` file sink whenever
+`GENPRES_LOG` is set. This was a deliberate call, not an oversight: GenPRES is reached only
+through a hospital's launch sequence (see [Simulating the launch sequence](#simulating-the-launch-sequence)),
+so `clientIP` is practically always the hospital's own gateway or proxy address, not a
+patient's or clinician's personal device — the system is not a public-facing API a stranger can
+reach directly. Truncating or hashing the address would trade away exactly the field an
+administrator needs to correlate a reported incident with a specific launching site, for a
+privacy benefit that mostly does not apply here. Revisit this if GenPRES is ever exposed on a
+network where an untrusted client can reach it directly, or where `clientIP` could name an
+individual rather than an institution.
+
+The same structured events are the medico-legal audit trail: because `Request`/`Info`/`Warning`/
+`Error` are Serilog structured events rather than ad hoc console lines, "show every calculation
+step for this order" is a query (filter the JSON-lines sink by patient/order/time range, or `jq`
+over it) instead of a grep through a flat text file. When investigating a reported dosing
+discrepancy, start from the relevant `data/logs/genpres_*.log` file for the time window in
+question rather than reproducing the scenario from scratch.
+
 #### How It Works
 
 Environment variables are resolved in this priority order (highest first):

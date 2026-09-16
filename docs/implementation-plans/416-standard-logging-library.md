@@ -416,8 +416,15 @@ policy (`AGENTS.md`) rather than applied directly — the maintainer applies it.
 
 **Scope note**: this package is bigger than "Step 2, one file." Step 1 (moving `AgentLogging`
 into `Agents.Lib`, deleting the three Core-ring `createAgentLogger`/`agentLogger` definitions)
-has *not* landed in source — `AgentLogging` still lives inside `Informedica.Logging.Lib/Logging.fs`
-today. Tracing `Server/Logging.fs`'s actual callers (not just its own body) surfaced three more
+had *not* landed in source when this package was prepared — `AgentLogging` still lived inside
+`Informedica.Logging.Lib/Logging.fs` at the time. **It has since landed, in `2ca7fbb8`**: confirmed
+2026-09-16 by grepping the working tree — `AgentLogging.fs` lives in `Informedica.Agents.Lib`,
+`createAgentLogger`/`agentLogger` are gone from `SolverLogging.fs`/`OrderLogging.fs`/`FormLogging.fs`,
+`Server/Logging.fs` no longer references `AgentLogging` at all (one comment mentions the name, no
+call), `tests/Informedica.Logging.Tests/Informedica.Logging.Tests.fsproj` already carries the
+`ProjectReference` to `Informedica.Agents.Lib`, and `scripts/CheckDependencyRule.fsx` carries
+`"AgentLogging"` as a banned core-ring token with no outstanding allowance for it. Tracing
+`Server/Logging.fs`'s actual callers (not just its own body) surfaced three more
 files the plan's Step 2 item list doesn't name, because the old `AgentLogger`'s per-request
 `setComponentName`/`agent`-start plumbing is threaded through them:
 
@@ -1016,8 +1023,10 @@ exercises it directly. Three options were weighed:
    against it. Step 7's completion wording above is updated accordingly ("no longer exists" →
    "no longer lives in `Logging.Lib`").
 
-The concrete migration is already prototyped and verified — see the Decision note earlier in this
-section for the file-by-file checklist (`416-logging-split.fsx`).
+The concrete migration was prototyped and verified, then landed in `2ca7fbb8` — see the Decision
+note earlier in this section for the file-by-file checklist (`416-logging-split.fsx`) and the
+scope note above for the 2026-09-16 confirmation that it's actually in the working tree, not just
+the prototype.
 
 ## Phase 2 efficiency, general logging quality (after the above lands)
 
@@ -1183,17 +1192,30 @@ Serilog composition root is stable enough that these changes are visible in real
   `AgentLogger` per `(LoggerType, Level)` pair. What's left for this phase is confirming neither
   pattern was reintroduced in the Serilog wiring itself (e.g. a similar cache built around
   `ILogger` instances).
+
+  **Confirmed clean (2026-09-16)**: `Server/Logging.fs` builds `serilogLoggers` as a `Map<LoggerType,
+  Lazy<...>>` (immutable value, no `mutable`, no lock) and `SerilogLogging.getLogger` reads from it
+  rather than caching per-call `ILogger` instances. No new mutable global state was introduced by
+  the Serilog wiring. Nothing further to do on this bullet.
 - PII/audit-scope review. `7sharp9` flagged log data exposure as a risk alongside the auditing
-  benefit. `ServerLogging.Message.Request` already logs `clientIP` on every request; decide and
-  document a redaction policy (hash, truncate, or accept this is a clinical system behind a
-  hospital EHR launch, not a public API, but `DEVELOPMENT.md`'s existing PII guidance in
-  `fsharp-coding.instructions.md`'s Logging and Observability section should be made concrete
-  here) before the Serilog file sink starts persisting request logs to disk.
+  benefit. `ServerLogging.Message.Request` already logs `clientIP` on every request.
+
+  **Decided 2026-09-16**: log the full `clientIP`, no truncation or hashing — documented, with the
+  reasoning, in [DEVELOPMENT.md's "Request logging: clientIP retention and the audit
+  trail"](../../DEVELOPMENT.md#request-logging-clientip-retention-and-the-audit-trail). The
+  deciding factor: GenPRES is reached only through the hospital launch sequence, so `clientIP` is
+  practically always an institutional gateway/proxy address, not a personal device, and an
+  administrator investigating an incident needs the un-truncated address to correlate it back to a
+  launching site. Revisit if GenPRES is ever exposed where an untrusted client can reach it
+  directly.
 - Structured audit trail for the medico-legal use case. Once Request/Error events are Serilog
   structured events rather than ad hoc console lines, the "show all the calculation steps" record
   `halcwb` described in the issue becomes queryable (filter by patient/order/time range in a log
-  viewer or `jq` over the JSON sink) instead of grep-through-a-flat-file. Add a short follow-up
-  note in `DEVELOPMENT.md` once it exists, since it changes how maintainers investigate a reported dosing discrepancy.
+  viewer or `jq` over the JSON sink) instead of grep-through-a-flat-file.
+
+  **Landed 2026-09-16**: the note is in DEVELOPMENT.md, same section as the `clientIP` decision
+  above — it changes how maintainers investigate a reported dosing discrepancy, so it lives
+  alongside the other logging/PII policy rather than in a separate place.
 
 ## Process note
 
