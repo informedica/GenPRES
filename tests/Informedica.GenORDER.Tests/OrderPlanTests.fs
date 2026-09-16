@@ -2,6 +2,8 @@
 /// which the row filter keeps, what it admits, and what leaves with what.
 module OrderPlanTests
 
+open Informedica.Utils.Lib.BCL
+open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib
 
@@ -353,5 +355,267 @@ let tests =
                 plan [| feeding |]
                 |> OrderPlan.holds NutritionCategory.TPN
                 |> Expect.isFalse "not held"
+            }
+        ]
+
+
+/// The fixtures of the evaluation: fresh pick lists, a held selection, a context on them.
+module EvaluateFixtures =
+
+    let order = Fixtures.order
+
+    let disc = Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag"
+    let once = Informedica.GenForm.Lib.Types.Once "eenmalig"
+
+    let fresh: Filter =
+        {
+            Indications = [| "koorts"; "pijn" |]
+            Generics = [| "paracetamol"; "ibuprofen" |]
+            Routes = [| "or"; "rect" |]
+            Forms = [| "tablet"; "zetpil" |]
+            DoseTypes = [| disc; once |]
+            Diluents = [||]
+            Components = [||]
+            Indication = None
+            Generic = None
+            Route = None
+            Form = None
+            DoseType = None
+            Diluent = None
+            SelectedComponents = [||]
+        }
+
+    let held: Filter =
+        { fresh with
+            Indications = [| "stale" |]
+            Generics = [| "Paracetamol" |]
+            DoseTypes = [| disc |]
+            Indication = Some "koorts"
+            Generic = Some "Paracetamol"
+            Route = Some "iv"
+            Form = None
+            DoseType = Some disc
+            Diluents = [| "NaCl 0.9%" |]
+            Components = [| "paracetamol" |]
+            Diluent = Some "NaCl 0.9%"
+            SelectedComponents = [| "paracetamol" |]
+        }
+
+    let child =
+        { Patient.patient with
+            Department = Some "ICK"
+            Gender = Male
+            Age = Some(ValueUnit.singleWithUnit Units.Time.day 3650N)
+            Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 32N)
+            Height = Some(ValueUnit.singleWithUnit Units.Height.centiMeter 140N)
+        }
+
+    let pcmScenario: OrderScenario =
+        {
+            No = 1
+            Name = "paracetamol"
+            Indication = "koorts"
+            Form = "zetpil"
+            Route = "rect"
+            DoseType = disc
+            Diluent = None
+            Component = Some "paracetamol"
+            Item = Some "paracetamol"
+            Diluents = [||]
+            Components = [| "paracetamol" |]
+            Items = [| "paracetamol" |]
+            Prescription = [||]
+            Preparation = [||]
+            Administration = [||]
+            Order = order
+            UseAdjust = true
+            UseRenalRule = false
+            RenalRule = None
+            ProductsIds = [||]
+        }
+
+    let pcmContext: OrderContext =
+        {
+            Filter = held
+            Patient = child
+            Scenarios = [| pcmScenario |]
+        }
+
+
+open EvaluateFixtures
+
+
+let evaluateTests =
+    testList
+        "evaluation"
+        [
+            test "a selection still offered narrows its list to it, in the fresh spelling" {
+                let f = Filter.reconcile fresh held
+                f.Indication |> Expect.equal "kept" (Some "koorts")
+                f.Indications |> Expect.equal "narrowed" [| "koorts" |]
+                f.Generic |> Expect.equal "kept as held" (Some "Paracetamol")
+                f.Generics |> Expect.equal "the fresh spelling" [| "paracetamol" |]
+                f.DoseType |> Expect.equal "kept" (Some disc)
+                f.DoseTypes |> Expect.equal "narrowed" [| disc |]
+            }
+
+            test "a selection no longer offered is dropped and the fresh list kept whole" {
+                let f = Filter.reconcile fresh held
+                f.Route |> Expect.equal "dropped" None
+                f.Routes |> Expect.equal "the fresh routes" [| "or"; "rect" |]
+                f.Form |> Expect.equal "none held, none picked" None
+                f.Forms |> Expect.equal "the fresh forms" [| "tablet"; "zetpil" |]
+
+                let f =
+                    Filter.reconcile
+                        fresh
+                        { held with
+                            DoseType = Some once
+                            DoseTypes = [| disc; once |]
+                        }
+
+                f.DoseType |> Expect.equal "once is offered" (Some once)
+                f.DoseTypes |> Expect.equal "narrowed to it" [| once |]
+
+                let cont = Informedica.GenForm.Lib.Types.Continuous "continu"
+                let f = Filter.reconcile { fresh with DoseTypes = [| once; cont |] } held
+                f.DoseType |> Expect.equal "the held dose type is not offered" None
+                f.DoseTypes |> Expect.equal "the held dose types stay" [| disc |]
+
+                let f = Filter.reconcile { fresh with DoseTypes = [| once |] } held
+                f.DoseType |> Expect.equal "not offered either" None
+
+                f.DoseTypes
+                |> Expect.equal "a fresh list of one entry is taken as it is" [| once |]
+            }
+
+            test "diluents, components and the selection among them pass through as held" {
+                let f = Filter.reconcile fresh held
+                f.Diluents |> Expect.equal "diluents" [| "NaCl 0.9%" |]
+                f.Components |> Expect.equal "components" [| "paracetamol" |]
+                f.Diluent |> Expect.equal "diluent" (Some "NaCl 0.9%")
+                f.SelectedComponents |> Expect.equal "selected" [| "paracetamol" |]
+            }
+
+            test "nothing held: the fresh lists, nothing selected, the dose types as held" {
+                let f =
+                    Filter.reconcile
+                        fresh
+                        { fresh with
+                            Indications = [||]
+                            DoseTypes = [||]
+                        }
+
+                f
+                |> Expect.equal "the fresh filter, no dose types yet" { fresh with DoseTypes = [||] }
+            }
+
+            test "discovery keeps of what the evaluation offers only what the workbench carried" {
+                let workbench =
+                    { pcmContext with
+                        Filter =
+                            { fresh with
+                                Indications = [| "voeding"; "koorts" |]
+                                Generics = [| "glucose"; "paracetamol" |]
+                                DoseTypes = [| disc |]
+                            }
+                    }
+
+                let evaluate (ctx: OrderContext) =
+                    Ok
+                        { ctx with
+                            Filter =
+                                { ctx.Filter with
+                                    Indications = [| "koorts"; "pijn" |]
+                                    Generics = [| "paracetamol"; "ibuprofen"; "glucose" |]
+                                    DoseTypes = [| disc; once |]
+                                    Routes = [| "or" |]
+                                }
+                        }
+
+                match workbench |> NutritionRuleSet.discover evaluate with
+                | Ok r ->
+                    r.Filter.Indications |> Expect.equal "indications" [| "koorts" |]
+
+                    r.Filter.Generics
+                    |> Expect.equal "generics, in the evaluation's order" [| "paracetamol"; "glucose" |]
+
+                    r.Filter.DoseTypes |> Expect.equal "dose types" [| disc |]
+                    r.Filter.Routes |> Expect.equal "the rest as evaluated" [| "or" |]
+                | Error e -> failtest $"{e}"
+
+                workbench
+                |> NutritionRuleSet.discover (fun _ -> Error "no")
+                |> Expect.equal "an evaluation that fails is the answer" (Error "no")
+            }
+
+            test "a plan context is evaluated in order: reconciled, the command, the intake on the answer" {
+                let seen = ResizeArray<string>()
+
+                let reconcile (ctx: OrderContext) =
+                    seen.Add "reconcile"
+                    { ctx with Filter = { ctx.Filter with Generic = Some "reconciled" } }
+
+                let evaluate (cmd: OrderContext.Command) =
+                    seen.Add "evaluate"
+
+                    match cmd with
+                    | OrderContext.SelectOrderScenario ctx ->
+                        ctx.Filter.Generic
+                        |> Expect.equal "the command carries the reconciled context" (Some "reconciled")
+
+                        Ok(OrderContext.SelectOrderScenario { ctx with Scenarios = [| pcmScenario; pcmScenario |] })
+                    | other -> failtest $"the command as given, got {other}"
+
+                let intake (ctx: OrderContext) =
+                    seen.Add "intake"
+                    { Totals.empty with Volume = Some $"%i{ctx.Scenarios.Length} scenarios" }
+
+                let pc =
+                    { PlanContext.create "c-1" (OrderCategory.Nutrition NutritionCategory.TPN) pcmContext with
+                        Intake = { Totals.empty with Energy = Some "stale" }
+                    }
+
+                match
+                    pc
+                    |> PlanContext.evaluateWith reconcile evaluate intake OrderContext.SelectOrderScenario
+                with
+                | Ok pc ->
+                    seen
+                    |> List.ofSeq
+                    |> Expect.equal "in order" [ "reconcile"; "evaluate"; "intake" ]
+
+                    pc.Id |> Expect.equal "the plan's id" "c-1"
+
+                    pc.Category
+                    |> Expect.equal "the plan's category" (OrderCategory.Nutrition NutritionCategory.TPN)
+
+                    pc.Context.Scenarios.Length |> Expect.equal "the answer's context" 2
+                    pc.Context.Filter.Generic |> Expect.equal "as reconciled" (Some "reconciled")
+
+                    pc.Intake.Volume
+                    |> Expect.equal "the intake over the answer" (Some "2 scenarios")
+
+                    pc.Intake.Energy |> Expect.equal "the stale intake gone" None
+                | Error e -> failtest $"{e}"
+            }
+
+            test "an evaluation that fails is the answer, and no intake is computed" {
+                let intake _ =
+                    failtest "no intake on a failed evaluation"
+
+                let pc = PlanContext.create "c-1" OrderCategory.Drug pcmContext
+
+                pc
+                |> PlanContext.evaluateWith id (fun _ -> Error [ "no" ]) intake OrderContext.UpdateOrderContext
+                |> Expect.equal "the failure" (Error [ "no" ])
+            }
+
+            test "no totals data, or no scenario: no intake" {
+                pcmContext |> OrderContext.intake [||] |> Expect.equal "no data" Totals.empty
+
+                { pcmContext with Scenarios = [||] }
+                |> OrderContext.intake [||]
+                |> Expect.equal "no scenario" Totals.empty
             }
         ]

@@ -31,6 +31,48 @@ module PlanContext =
     let contribution (pc: PlanContext) = pc.Context |> OrderContext.contribution
 
 
+    /// The plan context evaluated with the three steps passed in: its context reconciled,
+    /// the command run over it, and its intake recorded over the answer. The id and the
+    /// category stay the plan's. An evaluation that fails is the answer.
+    let evaluateWith
+        (reconcile: OrderContext -> OrderContext)
+        (evaluate: OrderContext.Command -> Result<OrderContext.Command, 'e>)
+        (intake: OrderContext -> Totals)
+        (cmd: OrderContext -> OrderContext.Command)
+        (pc: PlanContext)
+        : Result<PlanContext, 'e>
+        =
+        pc.Context
+        |> reconcile
+        |> cmd
+        |> evaluate
+        |> Result.map (fun answer ->
+            let ctx = answer |> OrderContext.Command.get
+
+            { pc with
+                Context = ctx
+                Intake = ctx |> intake
+            }
+        )
+
+
+    /// The plan context evaluated against the rules: reconciled, evaluated and its intake
+    /// computed over the totals data.
+    let evaluate
+        logger
+        provider
+        (totalsData: Types.Data.TotalsData[])
+        (cmd: OrderContext -> OrderContext.Command)
+        (pc: PlanContext)
+        =
+        pc
+        |> evaluateWith
+            (OrderContext.reconcile logger provider)
+            (OrderContext.evaluate logger provider)
+            (OrderContext.intake totalsData)
+            cmd
+
+
     /// The serializable shape of a PlanContext: the category as a string, the context and
     /// the intake as their own Dtos.
     module Dto =
@@ -107,6 +149,28 @@ module NutritionRuleSet =
                     Generics = ctx.Filter.Generics |> keep set.Generics
                 }
         }
+
+
+    /// A nutrition workbench's pick lists discovered: the context evaluated as it is, and
+    /// of the indications, generics and dose types the evaluation offers, only those the
+    /// workbench already carried, so a category's rule set bounds what is offered. The
+    /// evaluation is passed in, so the discovery is what it does with the answer.
+    let discover (evaluate: OrderContext -> Result<OrderContext, 'e>) (ctx: OrderContext) =
+        let offered (xs: 'a[]) (ys: 'a[]) =
+            ys |> Array.filter (fun y -> xs |> Array.contains y)
+
+        ctx
+        |> evaluate
+        |> Result.map (fun resolved ->
+            { resolved with
+                Filter =
+                    { resolved.Filter with
+                        Indications = resolved.Filter.Indications |> offered ctx.Filter.Indications
+                        Generics = resolved.Filter.Generics |> offered ctx.Filter.Generics
+                        DoseTypes = resolved.Filter.DoseTypes |> offered ctx.Filter.DoseTypes
+                    }
+            }
+        )
 
 
 module OrderPlan =

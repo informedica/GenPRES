@@ -131,6 +131,47 @@ module DoseTypeDto =
 
 module Filter =
 
+    /// The held selections reconciled against fresh pick lists: a selection still offered
+    /// narrows its list to that one entry, in the fresh spelling; a selection no longer
+    /// offered is dropped and its fresh list kept whole. The dose types are the fresh list
+    /// when it has exactly one entry, the held dose type narrowed to it or not, and the
+    /// held list otherwise, since the fresh list is computed once the generic is chosen.
+    /// The diluents, the components and what is
+    /// selected among them are the held ones: the pick lists for them come from the
+    /// evaluation, not from the rules.
+    let reconcile (fresh: Filter) (held: Filter) : Filter =
+        let pick eqs itm (items: 'a[]) =
+            match
+                items
+                |> Array.tryFind (fun x -> itm |> Option.map (eqs x) |> Option.defaultValue false)
+            with
+            | Some x -> itm, [| x |]
+            | None -> None, items
+
+        let ind, inds = fresh.Indications |> pick String.equalsCapInsens held.Indication
+        let gen, gens = fresh.Generics |> pick String.equalsCapInsens held.Generic
+        let rte, rtes = fresh.Routes |> pick String.equalsCapInsens held.Route
+        let frm, frms = fresh.Forms |> pick String.equalsCapInsens held.Form
+        let dtp, dtps = fresh.DoseTypes |> pick DoseType.eqs held.DoseType
+
+        { fresh with
+            Indication = ind
+            Indications = inds
+            Generic = gen
+            Generics = gens
+            Route = rte
+            Routes = rtes
+            Form = frm
+            Forms = frms
+            DoseType = dtp
+            DoseTypes = if dtps |> Array.length = 1 then dtps else held.DoseTypes
+            Diluents = held.Diluents
+            Components = held.Components
+            Diluent = held.Diluent
+            SelectedComponents = held.SelectedComponents
+        }
+
+
     /// The serializable shape of a Filter: the same fields, dose types as strings.
     module Dto =
 
