@@ -14,7 +14,7 @@ module FormularyService =
 
 
     let mapFormularyToFilter (form: Formulary) =
-        { Filter.doseFilter with
+        { Informedica.GenForm.Lib.Filter.doseFilter with
             Generic = form.Generic
             Indication = form.Indication
             Route = form.Route
@@ -25,7 +25,7 @@ module FormularyService =
                 |> Option.map Mappers.mapFromSharedPatient
                 |> Option.defaultValue Patient.patient
         }
-        |> Filter.calcPMAge
+        |> Informedica.GenForm.Lib.Filter.calcPMAge
 
 
     let selectIfOne sel xs =

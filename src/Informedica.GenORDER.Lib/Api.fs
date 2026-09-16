@@ -199,6 +199,137 @@ module OrderScenario =
         |> setOrderTableFormat
 
 
+    /// The serializable shape of an OrderScenario: text blocks as kind and text, the
+    /// order as its own Dto, the dose type as a string.
+    module Dto =
+
+        type Dto =
+            {
+                No: int
+                Name: string
+                Indication: string
+                Form: string
+                Route: string
+                DoseType: string
+                Diluent: string option
+                Component: string option
+                Item: string option
+                Diluents: string[]
+                Components: string[]
+                Items: string[]
+                Prescription: TextBlock.Dto.Dto[][]
+                Preparation: TextBlock.Dto.Dto[][]
+                Administration: TextBlock.Dto.Dto[][]
+                Order: Order.Dto.Dto
+                UseAdjust: bool
+                UseRenalRule: bool
+                RenalRule: string option
+                ProductsIds: string[]
+            }
+
+
+        let private blocksToDto (bs: TextBlock[][]) =
+            bs |> Array.map (Array.map TextBlock.Dto.toDto)
+
+
+        let private blocksFromDto (bs: TextBlock.Dto.Dto[][]) =
+            bs
+            |> Array.toList
+            |> List.map (fun line ->
+                line
+                |> Array.toList
+                |> List.map TextBlock.Dto.fromDto
+                |> DtoResult.sequence
+                |> Result.map List.toArray
+            )
+            |> DtoResult.sequence
+            |> Result.map List.toArray
+            |> Result.mapError List.concat
+
+
+        let toDto (sc: OrderScenario) : Dto =
+            {
+                No = sc.No
+                Name = sc.Name
+                Indication = sc.Indication
+                Form = sc.Form
+                Route = sc.Route
+                DoseType = sc.DoseType |> DoseTypeDto.toString
+                Diluent = sc.Diluent
+                Component = sc.Component
+                Item = sc.Item
+                Diluents = sc.Diluents
+                Components = sc.Components
+                Items = sc.Items
+                Prescription = sc.Prescription |> blocksToDto
+                Preparation = sc.Preparation |> blocksToDto
+                Administration = sc.Administration |> blocksToDto
+                Order = sc.Order |> Order.Dto.toDto
+                UseAdjust = sc.UseAdjust
+                UseRenalRule = sc.UseRenalRule
+                RenalRule = sc.RenalRule
+                ProductsIds = sc.ProductsIds
+            }
+
+
+        /// The scenario a Dto is, or every reason it is none. An order that cannot be
+        /// created is an error, never a dropped scenario.
+        let fromDto (dto: Dto) : Result<OrderScenario, DtoError list> =
+            let doseType =
+                dto.DoseType |> DoseTypeDto.fromString |> Result.mapError List.singleton
+
+            let prescription = dto.Prescription |> blocksFromDto
+            let preparation = dto.Preparation |> blocksFromDto
+            let administration = dto.Administration |> blocksFromDto
+
+            let order =
+                try
+                    dto.Order
+                    |> Order.Dto.fromDto
+                    |> Result.mapError (fun m -> [ DtoError.OrderNotCreated $"{m}" ])
+                with exn ->
+                    Error [ DtoError.OrderNotCreated exn.Message ]
+
+            let errorsOf (r: Result<_, DtoError list>) =
+                match r with
+                | Error es -> es
+                | Ok _ -> []
+
+            let allErrors =
+                errorsOf doseType
+                @ errorsOf prescription
+                @ errorsOf preparation
+                @ errorsOf administration
+                @ errorsOf order
+
+            match allErrors, doseType, prescription, preparation, administration, order with
+            | [], Ok doseType, Ok prescription, Ok preparation, Ok administration, Ok order ->
+                Ok
+                    {
+                        No = dto.No
+                        Name = dto.Name
+                        Indication = dto.Indication
+                        Form = dto.Form
+                        Route = dto.Route
+                        DoseType = doseType
+                        Diluent = dto.Diluent
+                        Component = dto.Component
+                        Item = dto.Item
+                        Diluents = dto.Diluents
+                        Components = dto.Components
+                        Items = dto.Items
+                        Prescription = prescription
+                        Preparation = preparation
+                        Administration = administration
+                        Order = order
+                        UseAdjust = dto.UseAdjust
+                        UseRenalRule = dto.UseRenalRule
+                        RenalRule = dto.RenalRule
+                        ProductsIds = dto.ProductsIds
+                    }
+            | errors, _, _, _, _, _ -> Error errors
+
+
 module OrderContext =
 
     open ConsoleTables
