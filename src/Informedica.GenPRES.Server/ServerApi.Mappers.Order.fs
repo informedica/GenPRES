@@ -1,6 +1,10 @@
 namespace ServerApi
 
 
+/// The order mapper, and what the services still map by hand: the patient, the order context
+/// and the totals, each now with a mapper of its own next to this file. Those parts go once
+/// the services take the domain-typed ports; the order mapping, the dose type both ways and
+/// the text markup parser stay.
 module Mappers =
 
     open Informedica.Utils.Lib.BCL
