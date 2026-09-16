@@ -149,7 +149,8 @@ module OrderPlan =
 
     /// Whether the plan may take a context of the category: one context per nutrition
     /// category, except supplements (any number, each under a feeding) and electrolyte and
-    /// glucose lines (any number, one per generic prescribed).
+    /// glucose lines (any number). A line's generic is chosen after the line is admitted, so
+    /// nothing here compares generics; two lines on one generic are the prescriber's to avoid.
     let admits category (plan: OrderPlan) : Result<unit, OrderPlanError> =
         match category with
         | NutritionCategory.EnteralSupplement when plan |> holds NutritionCategory.EnteralFeeding |> not ->
