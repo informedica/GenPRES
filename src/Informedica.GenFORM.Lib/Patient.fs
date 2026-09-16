@@ -433,6 +433,7 @@ module AccessDevice =
         function
         | PVL -> "pvl"
         | CVL -> "cvl"
+        | EnteralTube -> "enteral-tube"
         | AnyAccess -> "any"
 
 
@@ -440,6 +441,7 @@ module AccessDevice =
         match s |> String.toLower |> String.trim with
         | "pvl" -> Some PVL
         | "cvl" -> Some CVL
+        | "enteral-tube" -> Some EnteralTube
         | "any" -> Some AnyAccess
         | _ -> None
 

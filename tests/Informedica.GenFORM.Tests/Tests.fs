@@ -2796,6 +2796,129 @@ module Tests =
                 ]
 
 
+    /// An enteral tube as an access device: a patient's rules do not change by it, and the
+    /// string forms carry it.
+    module AccessDeviceTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.Utils.Lib.BCL
+        open Informedica.GenUnits.Lib
+        open Informedica.GenForm.Lib
+
+
+        let tests =
+            testList
+                "an enteral tube as access"
+                [
+                    test "the check on every venous row: any access takes all, no access takes all, else among" {
+                        for rule in [ PVL; CVL ] do
+                            VenousAccess.check rule [] |> Expect.isTrue $"{rule}: no access recorded"
+                            VenousAccess.check rule [ rule ] |> Expect.isTrue $"{rule}: the same"
+                            VenousAccess.check rule [ PVL; CVL ] |> Expect.isTrue $"{rule}: among both"
+
+                        VenousAccess.check PVL [ CVL ] |> Expect.isFalse "a PVL rule, CVL only"
+                        VenousAccess.check CVL [ PVL ] |> Expect.isFalse "a CVL rule, PVL only"
+
+                        for patient in [ []; [ PVL ]; [ CVL ]; [ PVL; CVL ] ] do
+                            VenousAccess.check AnyAccess patient
+                            |> Expect.isTrue $"any access for {patient}"
+                    }
+
+                    test "a tube on the patient matches what a venous access matched, and no venous rule by itself" {
+                        VenousAccess.check PVL [ PVL; EnteralTube ]
+                        |> Expect.isTrue "a PVL rule, PVL and tube"
+
+                        VenousAccess.check CVL [ PVL; EnteralTube ]
+                        |> Expect.isFalse "a CVL rule, PVL and tube"
+
+                        VenousAccess.check PVL [ EnteralTube ] |> Expect.isFalse "a PVL rule, tube only"
+                        VenousAccess.check CVL [ EnteralTube ] |> Expect.isFalse "a CVL rule, tube only"
+
+                        VenousAccess.check AnyAccess [ EnteralTube ]
+                        |> Expect.isTrue "any access, tube only"
+                    }
+
+                    test "a PVL patient matches the same categories with a tube as without" {
+                        let categories =
+                            [
+                                { PatientCategory.empty with Access = PVL }
+                                { PatientCategory.empty with Access = CVL }
+                                { PatientCategory.empty with Access = AnyAccess }
+                            ]
+
+                        let matches access =
+                            categories
+                            |> List.map (
+                                PatientCategory.filterPatient { PatientDtoTests.Fixtures.child with Access = access }
+                            )
+
+                        matches [ PVL ]
+                        |> Expect.equal "PVL: the PVL and any categories" [ true; false; true ]
+
+                        matches [ PVL; EnteralTube ]
+                        |> Expect.equal "PVL and a tube: the same" [ true; false; true ]
+
+                        matches [ EnteralTube ]
+                        |> Expect.equal "a tube only: the any category" [ false; false; true ]
+                    }
+
+                    test "a solution limit is headed by the rule's access, the tube included" {
+                        let rule access : SolutionRule =
+                            {
+                                Generic = "paracetamol"
+                                Form = None
+                                Route = "iv"
+                                Indication = None
+                                DoseType = NoDoseType
+                                PatientCategory = { PatientCategory.empty with Access = access }
+                                Dose = MinMax.empty
+                                Diluents = [||]
+                                Div = None
+                                Volumes = None
+                                Volume = MinMax.empty
+                                VolumeAdjust = MinMax.empty
+                                DripRate = MinMax.empty
+                                DosePerc = MinMax.empty
+                                SolutionLimits = [||]
+                            }
+
+                        let limit: SolutionLimit =
+                            {
+                                SolutionLimitTarget = NoLimitTarget
+                                Quantity = MinMax.empty
+                                QuantityAdj = MinMax.empty
+                                Quantities = None
+                                Concentration = MinMax.empty
+                                Products = [||]
+                            }
+
+                        let heading access =
+                            (SolutionRule.Print.printSolutionLimit (rule access) false limit).head
+
+                        heading EnteralTube |> Expect.stringStarts "a tube" "\n###### sonde: \n* "
+                        heading CVL |> Expect.stringStarts "central" "\n###### centraal: \n* "
+                        heading PVL |> Expect.stringStarts "peripheral" "\n###### perifeer: \n* "
+                        heading AnyAccess |> Expect.stringStarts "any access, no heading" "\n* "
+                    }
+
+                    test "the string forms round-trip, the tube included" {
+                        for a in [ PVL; CVL; EnteralTube; AnyAccess ] do
+                            a
+                            |> AccessDevice.toString
+                            |> AccessDevice.tryFromString
+                            |> Expect.equal $"{a} for the Dto" (Some a)
+
+                            a
+                            |> Product.Location.toString
+                            |> Product.Location.fromString
+                            |> Expect.equal $"{a} for a rule" a
+
+                        "tube" |> AccessDevice.tryFromString |> Expect.equal "not the Dto's word" None
+                    }
+                ]
+
+
     module PatientCategoryTests =
 
 
@@ -4128,6 +4251,7 @@ module Tests =
                 PatientCategoryTests.tests
                 PatientTests.tests
                 PatientDtoTests.tests
+                AccessDeviceTests.tests
                 DoseTypeTests.tests
                 LimitTargetTests.tests
                 GenericLabelTests.tests
