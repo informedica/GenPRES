@@ -1194,6 +1194,66 @@ Scenarios: {scenarios}
         cmd
 
 
+    /// The serializable shape of an OrderContext: its filter, its patient and its scenarios,
+    /// each as its own Dto.
+    module Dto =
+
+        type Dto =
+            {
+                Filter: Filter.Dto.Dto
+                Patient: Patient.Dto.Dto
+                Scenarios: OrderScenario.Dto.Dto[]
+            }
+
+
+        let toDto (ctx: OrderContext) : Dto =
+            {
+                Filter = ctx.Filter |> Filter.Dto.toDto
+                Patient = ctx.Patient |> Informedica.GenForm.Lib.Patient.Dto.toDto
+                Scenarios = ctx.Scenarios |> Array.map OrderScenario.Dto.toDto
+            }
+
+
+        /// The context a Dto is, or every reason it is none: the filter's, the patient's
+        /// and every scenario's, a scenario that fails never dropped.
+        let fromDto (dto: Dto) : Result<OrderContext, DtoError list> =
+            let filter = Nested.required "Filter" dto.Filter Filter.Dto.fromDto
+
+            let patient =
+                Nested.required
+                    "Patient"
+                    dto.Patient
+                    (fun p ->
+                        p
+                        |> Informedica.GenForm.Lib.Patient.Dto.fromDto
+                        |> Result.mapError (List.map DtoError.Patient)
+                    )
+
+            let scenarios =
+                dto.Scenarios
+                |> DtoResult.orEmpty
+                |> Array.toList
+                |> List.map (fun sc -> Nested.required "Scenario" sc OrderScenario.Dto.fromDto)
+                |> DtoResult.sequence
+                |> Result.mapError List.concat
+
+            match filter, patient, scenarios with
+            | Ok filter, Ok patient, Ok scenarios ->
+                Ok
+                    {
+                        Filter = filter
+                        Patient = patient
+                        Scenarios = scenarios |> List.toArray
+                    }
+            | _ ->
+                let errorsOf r =
+                    match r with
+                    | Error es -> es
+                    | Ok _ -> []
+
+                Error(errorsOf filter @ errorsOf patient @ errorsOf scenarios)
+
+
 module Formulary =
 
     open Informedica.Utils.Lib.BCL
