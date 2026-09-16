@@ -2493,6 +2493,67 @@ module Tests =
                 ]
 
 
+    module PatientTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.Utils.Lib.BCL
+        open Informedica.GenUnits.Lib
+        open Informedica.GenForm.Lib
+
+        let kg = Units.Weight.kiloGram
+        let cm = Units.Height.centiMeter
+
+        let tests =
+            testList
+                "Patient"
+                [
+                    test "the empty patient has both measured flags set" {
+                        Patient.patient.WeightMeasured |> Expect.isTrue "weight counts as measured"
+                        Patient.patient.HeightMeasured |> Expect.isTrue "height counts as measured"
+                    }
+
+                    test "a patient built as a copy keeps counting as measured" {
+                        let pat =
+                            { Patient.patient with
+                                Weight = Some(ValueUnit.singleWithUnit kg 15N)
+                                Height = Some(ValueUnit.singleWithUnit cm 100N)
+                            }
+
+                        pat.WeightMeasured |> Expect.isTrue "the weight is measured"
+                        pat.HeightMeasured |> Expect.isTrue "the height is measured"
+                        pat.Weight |> Expect.isSome "the weight is held"
+                    }
+
+                    test "an estimate is the held value with its flag clear, and survives copies" {
+                        let estimated =
+                            { Patient.patient with
+                                Age = Some(ValueUnit.singleWithUnit Units.Time.year 10N)
+                                Weight = Some(ValueUnit.singleWithUnit kg 32N)
+                                WeightMeasured = false
+                            }
+
+                        let copied = { estimated with Department = Some "ICK" }
+
+                        copied.WeightMeasured |> Expect.isFalse "still an estimate after a copy"
+                        copied.HeightMeasured |> Expect.isTrue "the other flag is untouched"
+                        copied.Weight |> Expect.equal "the estimate is the held value" estimated.Weight
+                    }
+
+                    test "the measured flags are independent" {
+                        let pat =
+                            { Patient.patient with
+                                Weight = Some(ValueUnit.singleWithUnit kg (35N / 10N))
+                                Height = Some(ValueUnit.singleWithUnit cm 50N)
+                                HeightMeasured = false
+                            }
+
+                        (pat.WeightMeasured, pat.HeightMeasured)
+                        |> Expect.equal "measured weight, estimated height" (true, false)
+                    }
+                ]
+
+
     module PatientCategoryTests =
 
 
@@ -3823,6 +3884,7 @@ module Tests =
                 AdjustDoseLimitTests.tests
                 MaxQtyConflictTests.tests
                 PatientCategoryTests.tests
+                PatientTests.tests
                 DoseTypeTests.tests
                 LimitTargetTests.tests
                 GenericLabelTests.tests
