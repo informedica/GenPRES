@@ -2,8 +2,8 @@
 
 **Date**: 2026-09-16
 
-**Status**: Proposed (becomes Accepted when the documents named in Phase 0 of plan 725 refer to
-this ADR instead of restating it, and the fitness test of rule R9 runs in CI)
+**Status**: Accepted (2026-09-16: the documents of Phase 0 of plan 725 refer to this ADR instead
+of restating it, #728 and #729, and the fitness test of rule R9 runs in CI, #731)
 
 **Related Issues**: [#725 — One data-flow pattern: contract model, domain Dto, domain-typed ports](https://github.com/informedica/GenPRES/issues/725),
 [#516 — GenPRES SessionRecord Store](https://github.com/informedica/GenPRES/issues/516),
