@@ -356,6 +356,11 @@ module Types =
             Weight: ValueUnit option
             // The Height in cm of the Patient
             Height: ValueUnit option
+            // Whether the Weight held was measured; false for an estimate, from age or
+            // entered. With no Weight the flag says nothing.
+            WeightMeasured: bool
+            // Whether the Height held was measured; false for an estimate
+            HeightMeasured: bool
             // The Gestational Age in days of the Patient
             GestAge: ValueUnit option
             // The Post Menstrual Age in days of the Patient

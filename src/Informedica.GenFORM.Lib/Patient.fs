@@ -424,7 +424,8 @@ module Patient =
 
     open Utils
 
-    /// An empty Patient.
+    /// An empty Patient. Both measured flags are set, so a weight or height given to a
+    /// copy of it counts as measured unless the copy says otherwise.
     let patient =
         {
             Location = None
@@ -434,6 +435,8 @@ module Patient =
             Age = None
             Weight = None
             Height = None
+            WeightMeasured = true
+            HeightMeasured = true
             GestAge = None
             PMAge = None
             Access = []
