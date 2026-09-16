@@ -76,7 +76,7 @@ The transformation is implemented by three core systems:
 | *Calculation Constraint* | A quantitative constraint used to compute numerical values such as dose quantities, rates, volumes, or durations. |
 | *Order Context* | The bounded clinical context; composed of a specific Patient (instance), indication(s), and selection constraints from which Order Scenarios are generated. The Patient's attributes are matched against Patient Categories in OKRs. In the plan, every order is an Order Context, drug or nutrition: the context carries its own id and its Order Category, and the order is the one Order Scenario the context is narrowed to. The prescribing workbench is an Order Context not yet in the plan. |
 | *Order Category* | What kind of order an Order Context holds: a drug, or a nutrition order of one of the nutrition categories (enteral feeding, enteral supplement, TPN, lipid, electrolyte or glucose line). Recorded on the context, never derived from the generic, since electrolytes and glucose are prescribable as drugs too. |
-| *Order Plan* | The one plan for a Patient: the patient data as shown, the plan's Order Contexts, the contexts the row filter keeps, and the totals over their orders. Its orders are derived, the scenario of every narrowed context; nothing beside the contexts is stored. A signed version of the plan stores the contexts as they were at the signature, so a reopened plan is the plan as it was. |
+| *Order Plan* | The one plan for a Patient: the patient data as shown, the plan's Order Contexts, the contexts the row filter keeps, and the totals over their orders. Its orders are derived, the scenario of every narrowed context; nothing beside the contexts is stored. An order plan version stores the contexts as they were at the signature, so a reopened order plan is the order plan as it was. |
 | *Order Scenario* | A fully constrained, uniquely identifiable, computable clinical alternative representing one valid way to prescribe, prepare, and administer an order. |
 | *Order* | The executable prescription instance derived from an Order Scenario, identified by a unique Id. |
 | *Schedule* | The temporal model of an Order defining frequency, administration time, and total duration. |
@@ -115,7 +115,7 @@ The transformation is implemented by three core systems:
 
 In the **domain model**, an *Order Context* is the bounded clinical context used to determine which rules apply and which Order Scenarios can be generated.
 
-Across the **client/server API boundary**, the system uses a concrete transport shape (DTO) named `OrderContext` (in `src/Informedica.GenPRES.Shared/Types.fs`). This payload intentionally includes server-computed data.
+Across the **client/server API boundary**, the system uses a contract model record named `OrderContext` (in `src/Informedica.GenPRES.Shared/Types.fs`), shared by client and server. This record intentionally includes server-computed data. It is not the domain's Dto: [ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) defines both terms, the contract model at the edge and the Dto the domain library owns for each aggregate, and the mapping between them.
 
 **API request/response wrapper**
 
@@ -138,7 +138,7 @@ category; `Navigate` evaluates an order-context command over the context named, 
 context's own patient; `RemoveOrderContexts` removes contexts of every kind, a feeding taking
 its supplements with it; `Recalculate` recomputes the totals over the filtered contexts.
 
-**OrderPlan DTO (transport shape)**
+**OrderPlan contract model**
 
 - `Patient: Patient` — the patient data as shown, the data a version is signed on.
 - `Filtered: string []` — the ids of the contexts the row filter keeps; empty for all of them.
@@ -146,10 +146,10 @@ its supplements with it; `Recalculate` recomputes the totals over the filtered c
 - `Totals: Totals` — the totals over the orders of the filtered contexts.
 
 The plan's orders are not a field: they are what its narrowed contexts contribute
-(`OrderPlan.orders` in `Models.fs`). A signed version (`SignedOrderPlan`) stores the contexts,
-so the signing challenge compares them and a reopen restores them as they were.
+(`OrderPlan.orders` in `Models.fs`). An order plan version (`SignedOrderPlan` on the wire) stores the contexts, so the signing
+challenge compares them and a reopen restores them as they were.
 
-**OrderContext DTO (transport shape)**
+**OrderContext contract model**
 
 - `Id: string` — the context's id in the plan; empty for the prescribing workbench, which is not in the plan yet.
 - `Category: OrderCategory` — a drug, or the nutrition category the context holds.
@@ -159,7 +159,7 @@ so the signing challenge compares them and a reopen restores them as they were.
 - `Scenarios: OrderScenario []` — computed, valid alternatives for the current selection.
 - `Intake: Totals` — aggregated totals computed from (a subset of) scenarios.
 
-**Filter DTO (transport shape)**
+**Filter contract model**
 
 The filter contains both (a) *available values* and (b) the *current selection*:
 
@@ -168,7 +168,7 @@ The filter contains both (a) *available values* and (b) the *current selection*:
 - Current selection:
   - `Indication`, `Generic`, `Route`, `Form`, `DoseType`, `Diluent`, `SelectedComponents`
 
-This is the reason `OrderContext` appears “more concrete” than the conceptual definition: it is the API boundary object that carries both the **selection state** and the **server-computed results** required for the prescribing UI.
+This is the reason `OrderContext` appears “more concrete” than the conceptual definition: it is the contract model record that carries both the **selection state** and the **server-computed results** required for the prescribing UI.
 
 ## Domain Boundaries
 
