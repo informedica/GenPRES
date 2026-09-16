@@ -64,7 +64,7 @@ configuration; they receive values.
 
 The ring map in `scripts/DependencyRule.fsx` names six rings, innermost first: Core;
 Contract, which is `GenPRES.Shared` alone — the types and pure functions that client and server
-exchange; Infrastructure, the adapters and the agent runtime; Presentation, the server and the
+exchange, the contract model of [ADR-0008](0008-contract-model-dto-mapping-boundary.md); Infrastructure, the adapters and the agent runtime; Presentation, the server and the
 MCP host; Client; and Tooling, the extraction pipeline, which sits outside the runtime rings. For
 the Contract ring the rule is stricter than "inward": Contract references only Contract, and only
 Presentation and Client may reference it. Core and Infrastructure never see the contract types,
@@ -103,6 +103,9 @@ passes values inward. It hosts authentication, rate limiting, security headers a
 in one place per concern. It declares the only entry points. It parses at every ingress — the
 browser, the MCP client, and the Google Sheets that hold the rule base — so that malformed or
 unavailable input becomes an `Error` at the edge, never an empty collection inside the core.
+For the browser that parse has two steps, a total mapping from the contract model to the
+domain's Dto and a `Result`-returning `fromDto`, run in the adapters only, so that the ports are
+typed on domain values; [ADR-0008](0008-contract-model-dto-mapping-boundary.md) decides it.
 
 The Fable client runs on a machine the device does not control and is outside the DMZ. It may run
 pure calculations for display. It does not compute a dose that is presented as advice, and it does
@@ -194,6 +197,8 @@ The concrete code layout deliberately lives outside this ADR, so that it cannot 
   - [ADR-0002: MCP Server Architecture](0002-mcp-server-architecture.md) — the second entry point
   - [ADR-0003: Shared Clinical Calculations](0003-shared-clinical-calculations.md) — pure
     formulas may be shared with the client; that decision stands
+  - [ADR-0008: Contract Model, Domain Dto, and the Mapping Boundary](0008-contract-model-dto-mapping-boundary.md)
+    — what the Contract ring holds, and how it is mapped to the domain
   - `scripts/DependencyRule.fsx` — the ring map; `scripts/CheckDependencyRule.fsx` — the fitness test;
     `scripts/ProjectGraph.fsx` — the project dependency diagram in `ARCHITECTURE.md`, generated from both
   - `docs/implementation-plans/378-dependency-rule.md` — the migration
