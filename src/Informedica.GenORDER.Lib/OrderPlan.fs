@@ -31,9 +31,33 @@ module PlanContext =
     let contribution (pc: PlanContext) = pc.Context |> OrderContext.contribution
 
 
-    /// The plan context evaluated: its context reconciled, the command run over it, and
-    /// its intake recorded over the answer. The id and the category stay the plan's. An
-    /// evaluation that fails is the answer.
+    /// The plan context evaluated with the three steps passed in: its context reconciled,
+    /// the command run over it, and its intake recorded over the answer. The id and the
+    /// category stay the plan's. An evaluation that fails is the answer.
+    let evaluateWith
+        (reconcile: OrderContext -> OrderContext)
+        (evaluate: OrderContext.Command -> Result<OrderContext.Command, 'e>)
+        (intake: OrderContext -> Totals)
+        (cmd: OrderContext -> OrderContext.Command)
+        (pc: PlanContext)
+        : Result<PlanContext, 'e>
+        =
+        pc.Context
+        |> reconcile
+        |> cmd
+        |> evaluate
+        |> Result.map (fun answer ->
+            let ctx = answer |> OrderContext.Command.get
+
+            { pc with
+                Context = ctx
+                Intake = ctx |> intake
+            }
+        )
+
+
+    /// The plan context evaluated against the rules: reconciled, evaluated and its intake
+    /// computed over the totals data.
     let evaluate
         logger
         provider
@@ -41,18 +65,12 @@ module PlanContext =
         (cmd: OrderContext -> OrderContext.Command)
         (pc: PlanContext)
         =
-        pc.Context
-        |> OrderContext.reconcile logger provider
-        |> cmd
-        |> OrderContext.evaluate logger provider
-        |> Result.map (fun answer ->
-            let ctx = answer |> OrderContext.Command.get
-
-            { pc with
-                Context = ctx
-                Intake = ctx |> OrderContext.intake totalsData
-            }
-        )
+        pc
+        |> evaluateWith
+            (OrderContext.reconcile logger provider)
+            (OrderContext.evaluate logger provider)
+            (OrderContext.intake totalsData)
+            cmd
 
 
     /// The serializable shape of a PlanContext: the category as a string, the context and

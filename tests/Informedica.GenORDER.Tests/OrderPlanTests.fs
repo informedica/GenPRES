@@ -549,6 +549,68 @@ let evaluateTests =
                 |> Expect.equal "an evaluation that fails is the answer" (Error "no")
             }
 
+            test "a plan context is evaluated in order: reconciled, the command, the intake on the answer" {
+                let seen = ResizeArray<string>()
+
+                let reconcile (ctx: OrderContext) =
+                    seen.Add "reconcile"
+                    { ctx with Filter = { ctx.Filter with Generic = Some "reconciled" } }
+
+                let evaluate (cmd: OrderContext.Command) =
+                    seen.Add "evaluate"
+
+                    match cmd with
+                    | OrderContext.SelectOrderScenario ctx ->
+                        ctx.Filter.Generic
+                        |> Expect.equal "the command carries the reconciled context" (Some "reconciled")
+
+                        Ok(OrderContext.SelectOrderScenario { ctx with Scenarios = [| pcmScenario; pcmScenario |] })
+                    | other -> failtest $"the command as given, got {other}"
+
+                let intake (ctx: OrderContext) =
+                    seen.Add "intake"
+                    { Totals.empty with Volume = Some $"%i{ctx.Scenarios.Length} scenarios" }
+
+                let pc =
+                    { PlanContext.create "c-1" (OrderCategory.Nutrition NutritionCategory.TPN) pcmContext with
+                        Intake = { Totals.empty with Energy = Some "stale" }
+                    }
+
+                match
+                    pc
+                    |> PlanContext.evaluateWith reconcile evaluate intake OrderContext.SelectOrderScenario
+                with
+                | Ok pc ->
+                    seen
+                    |> List.ofSeq
+                    |> Expect.equal "in order" [ "reconcile"; "evaluate"; "intake" ]
+
+                    pc.Id |> Expect.equal "the plan's id" "c-1"
+
+                    pc.Category
+                    |> Expect.equal "the plan's category" (OrderCategory.Nutrition NutritionCategory.TPN)
+
+                    pc.Context.Scenarios.Length |> Expect.equal "the answer's context" 2
+                    pc.Context.Filter.Generic |> Expect.equal "as reconciled" (Some "reconciled")
+
+                    pc.Intake.Volume
+                    |> Expect.equal "the intake over the answer" (Some "2 scenarios")
+
+                    pc.Intake.Energy |> Expect.equal "the stale intake gone" None
+                | Error e -> failtest $"{e}"
+            }
+
+            test "an evaluation that fails is the answer, and no intake is computed" {
+                let intake _ =
+                    failtest "no intake on a failed evaluation"
+
+                let pc = PlanContext.create "c-1" OrderCategory.Drug pcmContext
+
+                pc
+                |> PlanContext.evaluateWith id (fun _ -> Error [ "no" ]) intake OrderContext.UpdateOrderContext
+                |> Expect.equal "the failure" (Error [ "no" ])
+            }
+
             test "no totals data, or no scenario: no intake" {
                 pcmContext |> OrderContext.intake [||] |> Expect.equal "no data" Totals.empty
 
