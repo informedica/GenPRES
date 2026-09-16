@@ -2700,6 +2700,35 @@ module Tests =
                                         ])
                             }
 
+                            test "a null gender or access string is an unknown one, never a crash" {
+                                { (Fixtures.child |> Patient.Dto.toDto) with
+                                    Gender = null
+                                    Access = [| null |]
+                                }
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal
+                                    "both named"
+                                    (Error
+                                        [
+                                            PatientError.UnknownGender ""
+                                            PatientError.UnknownAccess ""
+                                        ])
+                            }
+
+                            test "null arrays are read as empty" {
+                                let dto =
+                                    { (Fixtures.child |> Patient.Dto.toDto) with
+                                        Access = null
+                                        Diagnoses = null
+                                    }
+
+                                match dto |> Patient.Dto.fromDto with
+                                | Ok pat ->
+                                    pat.Access |> Expect.isEmpty "no access"
+                                    pat.Diagnoses |> Expect.isEmpty "no diagnoses"
+                                | Error e -> failtest $"expected a patient, got {e}"
+                            }
+
                             test "a draft with no age and no measured weight and height" {
                                 { (Fixtures.child |> Patient.Dto.toDto) with
                                     AgeDays = None
