@@ -211,7 +211,7 @@ alternative, ports typed on Dtos, is recorded below.
 | Dto used as a domain constructor; cache Dtos for ZIndex and NKF; MCP output records | Follow-up issues, not part of plan 725. |
 | Digest serializer | The canonical serializer is the one the database uses; its settings are part of the stored JSON structure. |
 | What an order plan version stores | The whole order plan, `Filtered`, `Totals` and each context's `Intake` included: what the signer saw. `Intake` and `Totals` are copied fields, never recomputed on open. |
-| Upgrade policy for stored Dtos | Upgrade on load: one pure function per structure-version step, on raw JSON, each tested on a stored fixture. Rows are never rewritten. Rolling back a release is not supported once records exist under the newer structure. |
+| Upgrade policy for stored Dtos | Upgrade on load: one pure function per structure-version step, on raw JSON, each tested on a stored fixture. Rows are never rewritten. A structure change ships as expand, then contract: release N+1 reads the new structure but still writes the old, release N+2 writes the new once no release N server is left, so a drain on upgrade (Rule 36) meets no unreadable row and a rollback by one release is safe. A rollback by more than one release is not supported once rows exist under the newer structure. |
 | Ports on Dtos or on domain values | Domain values. |
 | Contract model versioning | None: client and server are built and deployed together from the same Shared project. |
 
@@ -226,8 +226,9 @@ its decisions table.
   field the domain lacks, the field is added to the domain or named as server-computed; a Dto
   never grows a field the domain does not have.
 - Every change to a stored JSON structure comes with a new structure version, an upgrade step and
-  a stored fixture; a snapshot test of the serialized graph catches a structure change without a
-  new number. Most code changes touch no SQL table.
+  a stored fixture, and ships in two releases, reading the new structure one release before
+  writing it; a snapshot test of the serialized graph catches a structure change without a new
+  number. Most code changes touch no SQL table.
 - Every request that needs a patient's order plan versions loads, upgrades and parses them. The
   cost is paid per request, bounded by one patient's history, and measured once the Dtos exist.
 - `OrderPlan`, `PlanContext` and `OrderPlanVersion` become GenORDER domain types and the order

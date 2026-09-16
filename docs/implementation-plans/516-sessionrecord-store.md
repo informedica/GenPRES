@@ -310,8 +310,12 @@ What ADR-0008 invariant 5 and §6 decide, as this plan applies it to `order_plan
 - **Every JSON structure change** comes with three things: a new `json_version`, an upgrade
   step, and a stored fixture at the old structure version with a test that the upgraded
   fixture parses and maps to the expected contract model (law L5 of plan 725). A snapshot of
-  the serialized graph per structure version fails when the shape changes and the number does not. Rows are never
-  rewritten. A release cannot read a row written under a newer `json_version`; rolling back is
+  the serialized graph per structure version fails when the shape changes and the number does
+  not. Rows are never rewritten. A release cannot read a row written under a newer
+  `json_version`, and an upgrade drains the old servers (Rule 36), so a structure change ships
+  as expand, then contract: release N+1 reads the new structure but still writes the old, and
+  release N+2 writes it once no release N server is left. No server then meets a row it
+  cannot read during a drain, and a rollback by one release is safe; by more than one it is
   not supported once such rows exist.
 
 ### The races, walked through
@@ -384,7 +388,9 @@ maintainer's.
    `session_opened_with` for step 5.2 as well, the opened-session record; the other tables may
    land before.
 4. The adapter, part 1: the slice loader and the append writer for launches and sessions, and
-   the members `present`, `callback`, `find`, `close`, `seen`, `openVersion`. Integration tests
+   the members `present`, `callback`, `find`, `close`, `seen`, `openVersion`, and the
+   `unreadable` ending the loader appends (its `SessionEnding` case and the client's message
+   land in plan 725 step 5.2). Integration tests
    against a temporary SQLite file in the Server test project, in the normal matrix: two
    launches at once, the same Launch twice, an ended Session never reopens, and the
    `StubAdapterTests` contract run against the SQL port.

@@ -443,15 +443,21 @@ Principles:
    upgrade (Rule 36) has the new release read rows the old one wrote; the difference is what
    an unreadable row means (Storage).
 4. **Each JSON structure change comes with three things:** a new structure version, an upgrade
-   step, and a stored fixture at the old structure version with an L5 test.
+   step, and a stored fixture at the old structure version with an L5 test; and it ships in two
+   releases (principle 6).
 5. **A test detects a JSON structure change without a new structure version:** a stored
    snapshot of the whole serialized graph of each root per structure version, nested Dtos from
    other libraries and the serializer's output included, failing when the shape changes and the
    number does not.
-6. **Rolling back is not supported once new records exist.** An older release cannot read a
-   record written under a newer structure version, and there is no minor number that would let
-   it read an additive change; such a record is unreadable to it (Storage). Plan releases with
-   that in mind.
+6. **A structure change ships as expand, then contract, in two releases.** An upgrade drains
+   the old servers (Rule 36), so for a while release N and its successor run side by side on
+   one database, and an older release cannot read a row written under a newer structure
+   version: there is no minor number that would let it read an additive change. So release
+   N+1 reads structure vN+1 but still writes vN; release N+2 writes vN+1, once no release N
+   server is left. During a drain no server meets a row it cannot read, no Session ends for
+   an upgrade, and a rollback by one release is safe. A rollback by more than one release is
+   not supported once rows exist under the newer structure; a row from the future is then
+   unreadable (Storage), the defensive case, never the routine one.
 
 **Hypothetical example, the "new field" row.** Suppose `Patient` gained a clinical decision,
 say "treated as an adult", entered by the prescriber. One new structure version on the order plan version root,
@@ -555,7 +561,8 @@ serialization (follow-up); MCP output records (follow-up, after `OrderContext.Dt
 
 ### Target shape
 
-Nothing in the contract model changes. The client keeps sending and receiving `Shared.Types` records. On
+One thing in the contract model changes: `SessionEnding` gains the case `Unreadable` (Storage,
+step 5.2), and the client shows that ending. Nothing else does. The client keeps sending and receiving `Shared.Types` records. On
 the server a request is translated contract model -> Dto (total), parsed
 Dto -> domain (`Result`), run, and the answer is built domain -> Dto -> contract model. Ports
 carry domain values, with the split stated in Part 1. The session service holds domain values
@@ -768,7 +775,7 @@ reviewer must not find it contradicted by the document next to it.
 **Phase 5, the database holds Dtos (issue G), 4 PRs, depends on 1 + 3.1 + 3.3, not on 2 or 4. Must merge before plan 516 step 3.** `Session.fs` is the session service behind `SessionPort`, not the database adapter; the port split of Part 1 and the Storage section apply.
 5.0 Test prep in `StubAdapterTests`: every `Challenge`/`Notice`/`Records` literal through builders. ~120, tests only. (4.0 and 5.0 both edit that file: land 4.0 first, or both preps in one PR.)
 5.1 `Records` on `StoredVersion` (readable or unreadable, Storage), `Challenges`/`Notices` on domain values; `Challenge.Digest` over the canonical form; `SigningCommand` parses the challenge and the submission with `ofModel >> OrderPlan.Dto.fromDto` and refuses on `Error`; `challenge` keeps the digest, `commit` validates against the state and returns `State * SigningResponse * Persist option`; the adapter's state-replacing helper `update` runs the `Persist` (the SQLite adapter inserts `toDto` of the version, the stub does nothing) under the lock and assigns the state only if the insert succeeded, else answers `SigningRefusal.StoreFailed` (R10, the write order of Storage); `digest : OrderPlan -> string` supplied by `makeSessionPort` as a parameter of `challenge`/`commit`; `SessionPort.challenge/submit` on `OrderPlan`, `openVersion` on `StoredVersion`; `StoredVersion` in `Session.fs`; the stub keeps no structure version (Storage). ~260, tight. Test: signing suites in `StubAdapterTests` (:2860-3160: "as challenged", "twice", changed context refused) pass with the digest; an order plan re-ordered by the client is a mismatch; an order plan whose order fails `fromDto` is refused at challenge and at commit, never stored; two order plans equal as domain values digest equal whatever the client's JSON field order or whitespace; a failed write leaves the state unchanged and answers `StoreFailed` (a stub `Persist` that fails on demand); a violated `(patient_id, no)` constraint is answered as a stale sign, not `StoreFailed`; an unreadable row loads as an `Unreadable` entry and a newer unreadable row stays the head; a sign while the head is unreadable is refused; after a simulated crash between the write and the reply, the next load has the row as the head, a retry from the same base is refused as stale, and `openVersion` shows it. Signing path, no dosing. Review slowly.
-5.2 `SessionRecord.Opened` session-state record on domain values; `Mappers.Session.toOpened`; `find/present/callback/supplyPin/openVersion` map in the command handlers; `PatientDataPort.read` on `Patient`; the stub patient adapter parses its own reading with `Patient.Dto.fromDto`. ~180. Test: open/openVersion/Head cases; `ConfigTests`.
+5.2 `SessionRecord.Opened` session-state record on domain values; `Mappers.Session.toOpened`; `find/present/callback/supplyPin/openVersion` map in the command handlers; `PatientDataPort.read` on `Patient`; the stub patient adapter parses its own reading with `Patient.Dto.fromDto`.; `SessionEnding.Unreadable` added to `Shared.Types` and its gate message in the client, the ending the SQL adapter appends when a Session's opened-with or notice row cannot be read (Storage). ~200. Test: open/openVersion/Head cases; `ConfigTests`. The `Unreadable` ending is shown by the client suite.
 5.3 ADR-0007 §3 amendment to Accepted; plan 516 SQL schema lines, including `order_plan.json_version` and the upgrade-on-load rule (decisions table); changelog block in the commit body. ~40.
 
 **Phase 6, client (issue H), 3 PRs, depends on 2 and 4.**
@@ -786,7 +793,7 @@ O5 MCP host output records map from `OrderContext.Dto`. After 1.4.
 ### Ordering, gates, parallelism
 
 - Workflow: every step is a branch on the fork, cut from upstream `master`, and reaches upstream only as a PR accepted there; nothing is committed to `master` on the fork or on upstream. "Merged" and "land" in this plan mean accepted upstream. A step whose dependency is not yet accepted either waits for it, or is stacked on the dependency's fork branch and rebased onto `master` once that PR is accepted. The two worktrees below are two such fork branches; worktree A starts Phase 4 only after Phase 3 from worktree B has been accepted upstream and pulled into A's base.
-- Sequence: 0 -> 0.5 -> 1 -> {2 ‖ 3} -> 4 -> 6, with 5 branching after 1 + 3.1 + 3.3. Gate: Phase 0 is merged before 0.5 or 1 starts, so that every code PR reviews against ADR-0008 and documents that agree with it. Every step leaves `dotnet run ServerTests`, the Fable compile and the fitness script green. The contract model never changes, so no feature flag.
+- Sequence: 0 -> 0.5 -> 1 -> {2 ‖ 3} -> 4 -> 6, with 5 branching after 1 + 3.1 + 3.3. Gate: Phase 0 is merged before 0.5 or 1 starts, so that every code PR reviews against ADR-0008 and documents that agree with it. Every step leaves `dotnet run ServerTests`, the Fable compile and the fitness script green. The contract model changes in one case only, `SessionEnding.Unreadable` (step 5.2), which the client shows like any ending; no feature flag.
 - Gate for plan 516: 5.1 and 5.3 merged before 516 step 3 (`order_plan` migration), and 5.2 as well for its `session_opened_with` table; 5.1 before 516 step 6 (`challenge`, `data_notice` tables), whose patient rows are `Patient.Dto`. 516 steps 2 (Paket) and the identity part of step 4 (launch tables) may proceed in parallel.
 - Worktrees (siblings of the checkout): A = 1 -> 2 -> 4 -> 6; B = 1 -> 3 -> 5. 3.1 and 2.x touch different files.
 - Size: about 3,000-3,500 changed lines over ~27 code PRs, roughly half tests and docs, plus the 4 docs PRs of Phase 0. Solo at 3-4 PRs a week: 7-9 weeks; two worktrees: 5-6 weeks. Slow-review PRs: 4.1 and 5.1.

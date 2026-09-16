@@ -132,6 +132,7 @@ The engine's own isolation behavior is proven by running the same test suite on 
 - [ADR-0001: System Architecture](0001-system-architecture.md) — the dependency rule and the DMZ
 - [ADR-0008: Contract Model, Domain Dto, and the Mapping Boundary](0008-contract-model-dto-mapping-boundary.md)
   — what the store holds: domain Dtos under a structure version, the working state in memory
+  on the stub and stored in the store
 - [`docs/scenarios/integration/GenPRES-MainEHR-Integration-V8.md`](../scenarios/integration/GenPRES-MainEHR-Integration-V8.md)
   — Actor 5, Concept 9, Rules 2, 8, 32, 36, 40, 42, 46
 - [`docs/scenarios/integration/uc-01-launch.md`](../scenarios/integration/uc-01-launch.md)
