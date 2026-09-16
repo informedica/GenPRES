@@ -17,15 +17,19 @@ this ADR instead of restating it, and the fitness test of rule R9 runs in CI)
 
 The client and the server exchange the records of `Informedica.GenPRES.Shared`, the Contract
 ring of [ADR-0001](0001-system-architecture.md). The rules live in the `Informedica.*.Lib`
-libraries, the Core ring, which never references Shared. Between the two the server maps. At
-commit `026a0351` that mapping has one shape for `Order` and `Variable`, a serializable `Dto`
-owned by the domain library with `toDto` and `fromDto`, and other shapes everywhere else: five
-of the seven aggregates that cross the boundary are mapped by hand onto domain records, three of
-those mappings drop data silently, `OrderPlan` has no domain type and its rules run in the server
-out of the contract library, the reply is merged onto the request, the session state holds
-contract records that plan 516 would freeze into SQL columns, and the write path stores what the
-client sent before anything parses it. Three `fromDto` conventions coexist: `Option`, `Result`,
-and throwing. Part 1 of plan 725 holds the evidence.
+libraries, the Core ring, which never references Shared. The server maps between them. At
+commit `026a0351` that mapping has no one shape. Part 1 of plan 725 holds the evidence:
+
+- `Order` and `Variable` follow one shape: a serializable `Dto` owned by the domain library,
+  with `toDto` and `fromDto`, and the server mapping the contract record to the Dto.
+- Five of the seven aggregates that cross the boundary have no Dto and are mapped by hand onto
+  domain records.
+- Three of those mappings drop data silently.
+- `OrderPlan` has no domain type; its rules run in the server, out of the contract library.
+- The reply is merged onto the request.
+- The session state holds contract records, which plan 516 would freeze into SQL columns.
+- The write path stores what the client sent before anything parses it.
+- Three `fromDto` conventions coexist: `Option`, `Result`, and throwing.
 
 The shape of that boundary is hard to reverse. It decides what the database stores, and a stored
 record outlives every release that wrote it; it decides what every port is typed on, and so every
@@ -44,19 +48,55 @@ UI -> Command + Model -> Server -> Mapping -> Command + Dto -> Domain -> Dto -> 
 ```
 
 A request is a pair: a command, the verb, and a contract model, the thing it acts on. The server
-maps both; only the model comes back.
+maps both; only the model comes back. The same flow as a sequence, in two exchanges: evaluate,
+which touches no database, and sign, which writes. Each message carries one kind of value: a
+command, a contract model, a Dto, or a domain value.
+
+```mermaid
+sequenceDiagram
+    participant UI as Client (UI)
+    participant Srv as Server (Mapping)
+    participant Dom as Domain
+    participant Db as Database
+
+    Note over UI,Dom: Evaluate
+    UI->>Srv: command, contract model
+    Srv->>Srv: Command.toDomain (total), ofModel (total)
+    Srv->>Dom: fromDto Dto
+    Dom-->>Srv: domain value, or errors (Result)
+    Srv->>Dom: evaluate domain command on the domain value
+    Dom-->>Srv: domain value, or errors (Result)
+    Srv->>Dom: toDto domain value
+    Dom-->>Srv: Dto (total)
+    Srv->>Srv: toModel (total)
+    Srv-->>UI: contract model
+
+    Note over UI,Db: Sign, two requests (the sequence of section 6)
+    UI->>Srv: contract model (challenge)
+    Srv->>Dom: ofModel, then fromDto
+    Dom-->>Srv: domain value, or errors (Result), a refusal
+    Srv->>Srv: digest of toDto, kept with the challenge
+    Srv-->>UI: challenge
+    UI->>Srv: contract model, challenge, PIN (submit)
+    Srv->>Dom: ofModel, then fromDto
+    Dom-->>Srv: domain value, or errors (Result), a refusal
+    Srv->>Srv: digest must equal the challenge's, then validate against the state
+    Srv->>Db: insert toDto of the domain value under the current structure version
+    Db-->>Srv: inserted, or failed (the state is then unchanged)
+    Srv-->>UI: version signed, or a refusal
+```
 
 | Term | Meaning | In the code |
 |---|---|---|
-| **contract model** | the records the client shows, edits and sends, and the server receives and answers; shared by client and server, a view model of neither | `Shared.Types.*`; ADR-0001's Contract ring |
+| **contract model** | the records the client shows, edits and sends, and the server receives and answers; shared by client and server, not a view model of either side | `Shared.Types.*`; ADR-0001's Contract ring |
 | **Dto** | a logic-free, serializable data type for exactly one domain aggregate, owned by the domain library | `Order.Dto`, `Variable.Dto`, GenFORM `Patient.Dto`, `OrderPlan.Dto`, ... |
 | **domain** | the domain types and their rules, and pure business logic; the GenFORM `Patient` type can hold a patient below the minimum data, so `Patient.validate` is a separate check | `GenOrder.Lib.Types.Order`, `OrderContext`, `PlanContext`, `OrderPlan`, GenFORM `Patient`, ... |
 | **order plan version** | a version of an order plan, created by a prescriber signing it | `OrderPlanVersion` with `No` and `Base` |
 | **JSON structure** | the field names, nesting and value formats (how a `BigRational`, an option or a category is written) of a stored Dto's JSON; the serializer and its settings are part of it | the serializer of plan 725 step 1.3 |
 | **JSON structure version** ("structure version") | the number the database adapter keeps beside a stored JSON Dto; a code change creates one by changing a stored Dto's JSON structure | `order_plan.json_version` in plan 516 |
 | **SQL schema** | the tables and columns; changes only by a SQL migration. A Dto change never needs one, except when it adds a new stored root | plan 516 |
-| **release** | the deployed server build; changes at a deploy | |
-| **database** | what the server persists, behind a database adapter | `Session.State` in memory today; the SQL tables of plan 516, for order plan versions and identity |
+| **release** | the deployed server build; changes at a deploy | — |
+| **database** | what the server persists, behind a database adapter | today nothing is persisted and `Session.State` holds everything in memory; later, the SQL tables of plan 516 |
 
 Two mapping pairs. The domain library owns `toDto` (domain to Dto) and `fromDto` (Dto to
 domain, a `Result`), nested as `module Dto` under the type. The server owns `ofModel` (contract
@@ -83,59 +123,73 @@ meet.
    never throws.
 4. Only boundary code (server mapping, database, cache adapter, MCP host) constructs or reads a
    Dto; domain functions take domain types.
-5. A Dto persisted across a restart (an order plan version, a cache file) is a stored JSON
-   structure, and the database adapter keeps a structure version beside each stored root, never
-   as a field of the Dto: a `json_version` column in SQL, a header in a cache file. On load the
-   adapter upgrades the record to the current structure before `fromDto` sees it; the Dtos nested
-   in a root are governed by the root's version, and `fromDto` and `toModel` know nothing of
-   versions. Nothing else is versioned: not Dtos on ports, not in-memory state, not the contract
-   model.
+5. A Dto persisted across a restart is a stored JSON structure, and the adapter keeps a
+   structure version beside each stored root, never as a field of the Dto: a `json_version`
+   column in SQL for an order plan version, a header in a cache file when the cache follow-up
+   lands. On load the adapter upgrades the record to the current structure before `fromDto`
+   sees it; the Dtos nested in a root are governed by the root's version, and `fromDto` and
+   `toModel` know nothing of versions. Nothing else is versioned: not Dtos on ports, not
+   in-memory state, not the contract model.
 
 An order plan version and a structure version are independent. Each order plan version is stored
 under the structure version current at signing and keeps it; an upgrade on load changes what the
-server sees, not the stored row or its number. Style (class or record, field naming) is free; the
-concept is fixed.
+server sees, not the stored row or its structure version. Style (class or record, field naming)
+is free; the concept is fixed.
 
 ### 4. Ports are typed on domain values; parsing runs only in the adapters
 
 A port is defined in domain terms. `OrderContextPort`, `OrderPlanPort` and `SessionPort` take
 and return `PlanContext`, `OrderPlan` and `OrderPlanVersion` (`StoredVersion` where a loaded
-version may be unreadable). The command handler does `ofModel >> fromDto` on the way in, refusing
-on `Error`, and `toDto >> toModel` on the way out. The database adapter does `fromDto` when it
-loads a row and `toDto` when it writes one, and supplies the digest, `toDto` then the canonical
-serialization, that the session service compares at signing. No service sees a Dto;
+version may be unreadable, §6). The command handler does `ofModel >> fromDto` on the way in,
+refusing on `Error`, and `toDto >> toModel` on the way out. The database adapter does `fromDto`
+when it loads a row and `toDto` when it writes one, and supplies the digest function (`toDto`
+followed by the canonical serialization), which signing uses (§6). No service sees a Dto;
 `Session.State` holds domain values. This is the standard shape of ports and adapters; the
 alternative, ports typed on Dtos, is recorded below.
 
 ### 5. The rules
 
-| # | Rule |
-|---|---|
-| R1 | `Shared.Types` holds contract model records only; `Shared.Models` holds pure client-side projections and the [ADR-0003](0003-shared-clinical-calculations.md) formulas, nothing the server executes as a rule. |
-| R2 | Every domain aggregate that crosses a boundary has a Dto meeting the five invariants. |
-| R3 | All contract model to Dto mapping on the server lives in `ServerApi.Mappers*.fs`; one function per aggregate per direction; commands included. Named exceptions, port answers with no domain Dto behind them: `Adapters.toSharedDrugInteraction`, `LaunchResult -> LaunchOutcome`, `SessionLookup -> SessionResponse`. |
-| R4 | Inbound is `ofModel` (total, loses nothing) followed by `fromDto` (a `Result`, reports every failure); no filtering of failed items; the success type is a domain value, never the contract model type. |
-| R5 | Outbound is a pure function `Dto -> contract model` (plus explicit non-domain inputs such as the demo flag); never a merge onto the request. |
-| R6 | Services and ports are typed on domain types, never on Dtos and never on Shared; Dtos appear only in the adapters. Named exception: the session service in `ServerApi.Session.fs` and the identity half of `SessionPort` keep identity as contract types (`UserContext`, `OpenedToken`, `SessionEnding`, the refusals) and run the signing rules in the server, until the session domain named in [ADR-0007](0007-session-persistence.md) §3 exists. |
-| R7 | The database holds domain Dtos: a stored record is `toDto` of a domain value on write, and on load the adapter upgrades it to the current structure version and parses it with `fromDto`, so the state behind the ports holds domain values. |
-| R8 | Domain code never constructs or reads a Dto. New code only; the existing cases (`Order.Dto.continuous` and its siblings as sole constructors, `Medication.toOrderDto`, `Totals.getTotals`, GenSOLVER `Api`) are a follow-up issue. |
-| R9 | A fitness test enforces mechanically what can be: the contract model stays in the edge files, no domain library references Shared, and Shared references nothing but `FSharp.Core` and an explicit list of Fable-compatible packages. R1, R2, R3 and R6 are review rules: which aggregates cross a boundary, and whether each has a Dto, is a judgement no script makes, and the laws run only once a Dto and its mappers exist. |
-| R10 | The write path is an inbound path: the signing command handler parses the model with `ofModel >> fromDto` for both the challenge and the commit, and what the database adapter writes is `toDto` of the domain value it is handed, under a structure version beside the root. |
+| # | Rule | Checked by |
+|---|---|---|
+| R1 | `Shared.Types` holds contract model records only; `Shared.Models` holds pure client-side projections and the [ADR-0003](0003-shared-clinical-calculations.md) formulas, nothing the server executes as a rule. | review; the agreement test (law L6) for the client's copies |
+| R2 | Every domain aggregate that crosses a boundary has a Dto meeting the five invariants. | review: which aggregates cross a boundary is a judgement no script makes |
+| R3 | All contract model to Dto mapping on the server lives in `ServerApi.Mappers*.fs`; one function per aggregate per direction; commands included. Named exceptions, port answers with no domain Dto behind them: `Adapters.toSharedDrugInteraction`, `LaunchResult -> LaunchOutcome`, `SessionLookup -> SessionResponse`. | review |
+| R4 | Inbound is `ofModel` (total, loses nothing) followed by `fromDto` (a `Result`, reports every failure); no filtering of failed items; the success type is a domain value, never the contract model type. | laws L3 and L4 |
+| R5 | Outbound is a pure function `Dto -> contract model` (plus explicit non-domain inputs such as the demo flag); never a merge onto the request. | law L4 |
+| R6 | Services and ports are typed on domain types, never on Dtos and never on Shared; Dtos appear only in the adapters. Named exception: the session service in `ServerApi.Session.fs` and the identity half of `SessionPort` keep identity as contract types (`UserContext`, `OpenedToken`, `SessionEnding`, the refusals) and run the signing rules in the server, until the session domain named in [ADR-0007](0007-session-persistence.md) §3 exists. | the fitness test for "never on Shared" (the contract model stays in the edge files); review for "never on Dtos" |
+| R7 | The database holds domain Dtos: a stored record is `toDto` of a domain value on write, and on load the adapter upgrades it to the current structure version and parses it with `fromDto`, so the state behind the ports holds domain values, or an unreadable entry (§6). | laws L1 and L5 |
+| R8 | Domain code never constructs or reads a Dto. New code only; the existing cases (`Order.Dto.continuous` and its siblings as sole constructors, `Medication.toOrderDto`, `Totals.getTotals`, GenSOLVER `Api`) are a follow-up issue. | review |
+| R9 | A fitness test enforces mechanically what can be: the contract model stays in the edge files, no domain library references Shared, and Shared references nothing but `FSharp.Core` and an explicit list of Fable-compatible packages. The rest of this table is checked by the laws or in review, as the column says. | the fitness test itself, in CI |
+| R10 | The write path is an inbound path: the signing sequence of §6, which parses the model before anything is stored and writes `toDto` of the domain value under a structure version beside the root. | the signing tests of plan 725 step 5.1 and law L1 |
 
 ### 6. What the database holds, and what stays in memory
 
-Plan 516 stores the order plan versions, the one long-lived root, and whatever identity or audit
-data must survive a restart. The `order_plan` table is append-only: signing inserts a row, no
-`UPDATE` or `DELETE` ever runs on it, and a unique constraint on `(patient_id, no)` rejects a
-second version with the same number. Sessions, challenges and notices are working state: they
-stay in memory, carry no structure version, and are gone at every startup, so there are no
-`session_opened_with`, `challenge` or `data_notice` tables. A row the adapter cannot load, because
-its structure version is newer than the release knows, an upgrade fails, or `fromDto` refuses it,
-stops nothing and vanishes nowhere: its identity columns are authoritative, the entry is kept as
-unreadable, the head is the newest row whatever its case, and a sign is refused while the head is
-unreadable. The signing commit validates as a pure function and returns the write as a value; the
-adapter runs the write under the one lock that serializes session commands and assigns the new
-state only if the write succeeded. The Storage section of plan 725 has the full behavior.
+- **Stored.** Plan 516 stores the order plan versions, the one long-lived root, and whatever
+  identity or audit data must survive a restart.
+- **Append-only.** The `order_plan` table is insert-only: signing inserts a row, no `UPDATE` or
+  `DELETE` ever runs on it, and a unique constraint on `(patient_id, no)` rejects a second
+  version with the same number.
+- **Working state.** Sessions, challenges and notices stay in memory, carry no structure version,
+  and are gone at every startup, so there are no `session_opened_with`, `challenge` or
+  `data_notice` tables.
+- **Loading, and `StoredVersion`.** At startup the adapter loads every order plan version,
+  upgrades it and parses it with `fromDto`. A row it cannot load, because its structure version
+  is newer than the release knows, an upgrade fails, or `fromDto` refuses it, does not stop the
+  server and is not dropped: its identity columns (`id`, `no`, `patient_id`, `base`, the signer,
+  `signed_at`) are authoritative, and the entry is kept as unreadable with the reason. The
+  session service therefore holds a `StoredVersion` per row, readable (an `OrderPlanVersion`) or
+  unreadable (identity and reason). The head is the newest entry whatever its case; a sign is
+  refused while the head is unreadable, and a reopen of an unreadable version says it cannot be
+  shown.
+- **Signing.** The one sequence R10 and §4 refer to. The challenge parses the order plan with
+  `ofModel >> fromDto`, refusing on `Error`, and keeps the digest of `toDto` of the domain
+  value. The commit parses the submission the same way, compares its digest with the
+  challenge's, and validates against the state (the PIN attempts, the head unchanged) as a pure
+  function that returns the write as a value. The adapter runs that write under the one lock
+  that serializes session commands, inserting `toDto` of the domain value under the current
+  structure version, and assigns the new state only if the insert succeeded; a failed insert
+  leaves the state unchanged and answers a refusal. The Storage section of plan 725 has the
+  crash and retry cases.
 
 ### 7. Settled while drafting
 
@@ -146,24 +200,22 @@ state only if the write succeeded. The Storage section of plan 725 has the full 
 | Business logic in `Shared.Models` used by the server | Moves to the domain. The client keeps display projections only, with a test that the two agree. |
 | Dto style | Not uniform; the concept is fixed by the five invariants. |
 | Dto used as a domain constructor; cache Dtos for ZIndex and NKF; MCP output records | Follow-up issues, not part of plan 725. |
-| `EnteralTube` access dropped by the mapping | Added to the domain: GenFORM `AccessDevice` gains the case, so the mapping is total and `fromDto` accepts it. |
-| `Department` defaulted to `"ICK"` by the mapper | Removed: `ofModel` maps `Department` as sent and an empty one stays empty. A golden test pins which rules such a patient gets before and after; any difference is reviewed as a rule change. |
-| Measured versus estimated weight and height | GenFORM `Patient` gains `WeightMeasured` and `HeightMeasured` flags: an estimated weight is a domain fact. |
 | Digest serializer | The canonical serializer is the one the database uses; its settings are part of the stored JSON structure. |
 | What an order plan version stores | The whole order plan, `Filtered`, `Totals` and each context's `Intake` included: what the signer saw. `Intake` and `Totals` are copied fields, never recomputed on open. |
 | Upgrade policy for stored Dtos | Upgrade on load: one pure function per structure-version step, on raw JSON, each tested on a stored fixture. Rows are never rewritten. Rolling back a release is not supported once records exist under the newer structure. |
 | Ports on Dtos or on domain values | Domain values. |
 | Contract model versioning | None: client and server are built and deployed together from the same Shared project. |
 
+The domain fixes the migration needs (an access case added to GenFORM, a department default
+removed from the mapper, measured flags on the patient) are decisions of plan 725, recorded in
+its decisions table.
+
 ## Consequences
 
-- Six round-trip laws become tests, one per step and one over the whole way in and back: L1
-  `fromDto (toDto x) = Ok x`, L2 `fromDto d |> Result.map toDto = Ok d` in canonical form, L3
-  `toModel (ofModel m) = m` outside the named set of server-computed fields, L4 the composite,
-  L5 per stored fixture, L6 the client's copies of domain rules against the domain. Plan 725
-  states them with what compares the two sides. Where the contract model has a field the domain
-  lacks, the field is added to the domain or named as server-computed; a Dto never grows a field
-  the domain does not have.
+- Six round-trip laws (plan 725) become tests: one per step, one for the whole round trip, one
+  for stored records, one for the client's copies of domain rules. Where the contract model has a
+  field the domain lacks, the field is added to the domain or named as server-computed; a Dto
+  never grows a field the domain does not have.
 - Every change to a stored JSON structure comes with a new structure version, an upgrade step and
   a stored fixture; a snapshot test of the serialized graph catches a structure change without a
   new number. Most code changes touch no SQL table.
@@ -179,16 +231,16 @@ state only if the write succeeded. The Storage section of plan 725 has the full 
   model, not "DTO"; the GenORDER domain document gains the three types.
 - The session service keeps its identity types and signing rules in the server, the named
   exception of R6, until the refactor ADR-0007 §3 names.
-- A change that breaks R4, R5, R7 or R10 fails a law's test or the fitness test, once the
-  aggregate's Dto and mappers exist. R1, R2, R3 and R6 are review rules: a new aggregate mapped
-  by hand keeps CI green, and a reviewer points at this ADR.
+- The rules table says what checks each rule. A rule checked by a law fails a test once the
+  aggregate's Dto and mappers exist; a review rule keeps CI green when broken, so a reviewer
+  points at this ADR.
 
 ## Alternatives considered
 
 | Alternative | Reason rejected |
 | ----------- | --------------- |
 | Ports typed on Dtos | Saves one `fromDto` per loaded row, at the cost of Dtos in every service and every port signature and a state that holds unparsed data. The load cost is measured once the Dtos exist; the switch to loading per patient covers it. |
-| One Dto family for the contract model and the database | ADR-0001 keeps Shared out of Core and Infrastructure, and Shared must stay transpilable; the Dto carries `BigRational`. |
+| One Dto family for the contract model and the database | ADR-0001 lets only the server and the client reference Shared, and Shared must stay transpilable; the Dto carries `BigRational`. |
 | Mapping inside the services, the reply merged onto the request | The bug class this decision removes: a reply that depends on what the client sent. |
 | A structure version as a field of the Dto | The Dto would carry a fact about storage; the adapter owns storage, so the version sits beside the root, and `fromDto` stays ignorant of it. |
 | Storing sessions, challenges and notices in SQL | They are discarded at every startup, so storing them helps nothing and adds three tables with structure versions of their own. |
