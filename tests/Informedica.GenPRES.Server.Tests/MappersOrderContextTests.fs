@@ -147,6 +147,25 @@ let tests =
                 | Error e -> failtest $"no plan context: %A{e}"
             }
 
+            test "text: what the parser cut from the domain's text renders back to that text" {
+                // the items the client ever holds: the parser's output over the domain's markup
+                let text = "paracetamol #240 mg# per |zetpil| 3 x/dag"
+                let items = text |> Mappers.parseTextItem
+
+                items
+                |> Array.forall (
+                    function
+                    | Normal s
+                    | Bold s
+                    | Italic s -> s.Contains "#" |> not && s.Contains "|" |> not
+                )
+                |> Expect.isTrue "no item holds a delimiter"
+
+                items
+                |> OrderContextMapper.TextItem.render
+                |> Expect.equal "the domain's text again" text
+            }
+
             test "text: rendering and parsing are inverse on items with text; a blank item is dropped" {
                 let items =
                     [|

@@ -13,8 +13,12 @@ open Shared.Types
 module OrderContextMapper =
 
     /// The marked-up text the domain holds, from the items the client shows: bold between `#`,
-    /// italic between `|`, the rest as it is. The inverse of `Mappers.parseTextItem` on items
-    /// with text.
+    /// italic between `|`, the rest as it is. The markup has no escape, on this side or in
+    /// `Mappers.parseTextItem`: a `#` or `|` inside an item's text is not representable. That
+    /// never arises, since the client authors no item; every item is what the parser cut from
+    /// the domain's text, so none holds a delimiter, and on those `render` is the parser's
+    /// inverse. A domain text that needs a literal delimiter is the markup grammar's to solve,
+    /// in the printer that writes it.
     module TextItem =
 
         let render (items: TextItem[]) =
@@ -297,9 +301,6 @@ module OrderContextMapper =
         }
 
 
-    /// The command verb from the wire as the domain's command over a context: the table the
-    /// order context service keeps today, moved here so that the port receives the domain
-    /// command.
     /// The command verb from the wire as the domain's command over a context: the table the
     /// order context service keeps today, moved here so that the port receives the domain
     /// command.
