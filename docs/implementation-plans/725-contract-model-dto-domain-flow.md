@@ -462,8 +462,9 @@ Principles:
    stays for the rows N+1 wrote. The downgrade must lose nothing N+1 writes, so a value the
    old structure cannot hold (a new field's data) is not written before N+2, which is when the
    feature behind it goes live. Test: for every `x` the release writes, `downgrade (toDto x)`
-   matches the stored fixture's shape at vN and `upgrade (downgrade (toDto x))` parses back to
-   `x`. During a drain no server meets a row it cannot read, no Session ends for an upgrade,
+   matches the vN snapshot of principle 5, which is release N's reader as far as N+1 can still
+   test it, since release N's Dto type no longer exists; and `upgrade (downgrade (toDto x))`
+   parses back to `x`. During a drain no server meets a row it cannot read, no Session ends for an upgrade,
    and a rollback by one release is safe. A rollback by more than one release is not supported
    once rows exist under the newer structure; a row from the future is then unreadable
    (Storage), the defensive case, never the routine one.
