@@ -1,7 +1,9 @@
 # Implementation plan for issue #725: one data-flow pattern, applied everywhere
 
-> A proposal for review, not a settled plan: the analysis, the rules, the decisions and the step
-> split are put up here to be confirmed, changed or refused in this PR.
+> Settled in review (#726): the terms, the invariants, the rules and the decisions are recorded
+> in [ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md), which every later phase
+> starts from; this document keeps the analysis, the laws and the migration, and the "As built"
+> table at the end records what landed.
 > Issue: [#725](https://github.com/informedica/GenPRES/issues/725).
 
 ## Problem description
@@ -116,7 +118,7 @@ second, docs third.
 | **contract model** | the records the client shows, edits and sends, and the server receives and answers; shared by client and server, not a view model of either | `Shared.Types.*` (`Patient`, `OrderContext`, `OrderPlan`, `SignedOrderPlan`, ...). ADR-0001 calls this the "Contract" ring. |
 | **Dto** | a logic-free, serializable data type for exactly one domain aggregate, owned by the domain library | `Order.Dto`, `Variable.Dto`, GenCORE's own `Patient.Dto` (a different type from the GenFORM `Patient.Dto` this document adds; below, `Patient.Dto` always means GenFORM's), and the new ones below |
 | **Domain** | the domain types and their rules, making illegal state unrepresentable, and pure business logic; one exception: the GenFORM `Patient` type can hold a patient below the minimum data, so `Patient.validate` is a separate check (L1) | `GenOrder.Lib.Types.Order`, `OrderContext`, GenFORM `Patient`, ... |
-| **Order plan version** | a signed version of an order plan; a prescriber creates one by signing | `OrderPlanVersion` with `No` and `Base`; `openVersion`, `Head`, `Records` |
+| **Order plan version** | a version of an order plan, created by a prescriber signing it | `OrderPlanVersion` with `No` and `Base`; `openVersion`, `Head`, `Records` |
 | **JSON structure** | the field names, nesting and value formats (how a `BigRational`, an option or a category is written) of a stored Dto's JSON; the serializer and its settings are part of it | the change table |
 | **JSON structure version** ("structure version" below) | the number the database adapter keeps beside a stored JSON Dto (invariant 5); a code change creates one by changing a stored Dto's JSON structure | `order_plan.json_version` in plan 516 |
 | **SQL schema** | the tables and columns; changes only by a SQL migration. A Dto change never needs one, except when it adds a new stored root; tables and columns that hold no Dto (identity, launch, audit columns, indexes) migrate as usual | plan 516 |
@@ -139,7 +141,10 @@ from MathNet, `Variable.Dto` and so `Order.Dto` nest it, and the new `Patient.Dt
 domain may not reference Shared, and the two have different owners and change for different
 reasons. The server's mappers are the only production code where they meet.
 
-Decisions made while drafting:
+Decisions made while drafting. The decision record is
+[ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) §7, which holds the rows about the
+boundary; this table stays as the pointer and keeps the rows the ADR leaves to this plan (the
+domain fixes of the migration):
 
 | Question | Decision |
 |---|---|
@@ -604,7 +609,7 @@ type OrderPlan = { Patient: Patient; Filtered: string[]; Contexts: PlanContext[]
 /// What a nutrition category draws from: data passed in, never a constant in this library.
 type NutritionRuleSet = { Category: NutritionCategory; Label: string; Indications: string[]; Generics: string[] }
 type Signer = { UserId: string; DisplayName: string }
-/// A signed version of the order plan, as the record holds it.
+/// An order plan version: the order plan as the prescriber signed it, as the record holds it.
 type OrderPlanVersion =
     { Id: string; No: int; PatientId: string; Base: string option
       SignedBy: Signer; SignedAt: DateTime; Plan: OrderPlan; Verified: bool }
@@ -753,7 +758,7 @@ reviewer must not find it contradicted by the document next to it.
 
 ~200 lines across six documents.
 0.3 This plan, this PR; an "As built" table like plan 646 is added as steps land, and the decisions table stays here as a pointer to ADR-0008. ~250.
-0.4 A docs-consistency check before the phase closes: a grep over `docs/` for "transport shape", "UI model", "layout version", "signed version" outside ADR-0008 finds nothing, and every document changed in 0.2 links to ADR-0008. ~10 lines of script, run once and recorded in the PR.
+0.4 A docs-consistency check before the phase closes: a grep over the documents ADR-0008 and step 0.2 touch (`docs/adr/`, `docs/domain/`, plans 516, 622, 635, 667 and this one) for "transport shape", "UI model", "layout version" and "signed version" finds nothing outside ADR-0008 and the two lines here that name the terms as the check's targets, and every document changed in 0.2 links to ADR-0008. The older plans and the scenario documents keep "signed version", the integration design's own wording for what this plan calls an order plan version; they are not rewritten. Run once and recorded in the "As built" table.
 
 **Phase 0.5, fitness test first (issue B), 1 PR.** T5/T6/T7 with the initial allow-list. Proof: green with allowances; removing one entry fails. Every later phase removes entries: the measure of progress.
 
@@ -820,3 +825,16 @@ None. Every question raised while drafting is settled in the decisions table in 
 - Phase 4.1 acceptance: `GENPRES_PROD=0 dotnet run`, launch `prescriber`, prescribe paracetamol oral tablet, step the dose up and down, add to the order plan, sign with `1234`. Compare the scenario text with a pre-refactor run of the same steps.
 - Phase 5.1 acceptance: the DEVELOPMENT.md "Signing an order plan" walkthrough, including three wrong PINs, two browsers on one patient, and the `no-data` patient.
 - MCP tools (`mcp__genpres__create_order_context`, `get_order_scenarios`) return the same scenarios before and after Phase 4 for the same input.
+
+## As built
+
+Built in the order proposed, one PR at a time, each reviewed before the next started. Every
+step is documentation only; each left the markdown linter green and no relative link dangling.
+
+| Step | PR | Landed |
+|---|---|---|
+| plan | #726 | this document; review: parsing at the boundary as `ofModel` then `fromDto`, commands in the flow, domain-typed ports, the four version terms, working state, unreadable rows keep identity, the write as a `Persist` value, the table append-only |
+| 0.1, ADR-0008 | #727 | `docs/adr/0008-contract-model-dto-mapping-boundary.md`, Proposed: vocabulary, five invariants, the port split, R1 to R10 with what checks each, what the database holds, the settled questions, alternatives; review: R2 named a review rule, the sequence diagram, `StoredVersion` and the signing sequence defined once |
+| 0.2, the documents | #728 | core-domain.md on the contract model; ADR-0001's Contract ring and inbound-parsing sentence; ADR-0007 §3 amended; plan 516's schema on `OrderPlanVersion.Dto` and `json_version`; notes in plans 622, 635, 667; GenORDER §4.1. Three decisions changed in review and carried into this plan: the working state is stored once the store exists and in memory on the stub only; a patient's order plan versions load per request, a unique-constraint clash answered as a stale sign; a structure change ships expand then contract with a downgrade step. `SessionEnding.Unreadable` is the one contract model change (step 5.2) |
+| 0.3, this table | this PR | the decisions table as a pointer to ADR-0008 §7; the header settled |
+| 0.4, the check | this PR | run on the documents of 0.2: no "transport shape", "UI model" or "layout version" outside ADR-0008 and step 0.4's own wording; "signed version" gone from this plan, left in the older plans and the scenario documents as the integration design's term; every document of 0.2 links to ADR-0008 |
