@@ -10,6 +10,9 @@
 | *Calculation Constraint* | A quantitative constraint used to compute numerical values such as dose quantities, rates, volumes, or durations. |
 | *Order Context* | The bounded clinical context; composed of a specific Patient (instance), indication(s), and selection constraints from which Order Scenarios are generated. The Patient's attributes are matched against Patient Categories in OKRs. |
 | *Order Scenario* | A fully constrained, uniquely identifiable, computable clinical alternative representing one valid way to prescribe, prepare, and administer an order. |
+| *Plan Context* | An Order Context as held in an Order Plan: its id in the plan, its Order Category (a drug, or a nutrition category), the Order Context, and its intake. |
+| *Order Plan* | The one plan for a Patient: the patient data as shown, its Plan Contexts, the contexts the row filter keeps, and the totals over the orders of the filtered contexts. (See [Core Domain Model](core-domain.md#core-definitions)) |
+| *Order Plan Version* | A version of an Order Plan created by a prescriber signing it: the whole Order Plan as the signer saw it, its number, the Order Plan Version it was built on, the signer and the time. |
 | *Order* | The executable prescription instance derived from an Order Scenario, identified by a unique Id. |
 | *Schedule* | The temporal model of an Order defining frequency, administration time, and total duration. |
 | *Orderable* | The abstract entity that is ordered (e.g., a medication as prescribed). |
@@ -105,6 +108,28 @@ The minimal selection required to produce Order Scenarios is:
 * Dose Type
 
 When the selection satisfies the above, a set of Order Scenarios is calculated.
+
+### 4.1 Order Plan, Plan Context and Order Plan Version
+
+Three domain types sit next to OrderContext in `Informedica.GenORDER.Lib`, as
+[ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) decides:
+
+* A **Plan Context** wraps an OrderContext with what the Order Plan adds to it: its id in the
+  plan, its Order Category, and its intake, the totals over the one Order Scenario the context is
+  narrowed to. Wrapping leaves the OrderContext, its evaluation and the equation system untouched.
+* An **Order Plan** holds the Patient as shown, its Plan Contexts, the ids the row filter keeps,
+  and the totals over the orders of the filtered contexts. Its rules live here: which contexts an
+  Order Plan admits (one context per nutrition category, except supplements, each under a
+  feeding, and the electrolyte and glucose lines), the cascade by which removing a feeding
+  removes its supplements, and the totals. The intake and the totals are computed when a context
+  or the plan is evaluated and copied unchanged everywhere else.
+* An **Order Plan Version** is the Order Plan as a prescriber signed it, with its number, the
+  Order Plan Version it was built on, the signer and the time. It is what the record stores and
+  what a reopen restores, nothing recomputed.
+
+Each of the three has a Dto next to it, like `Order`. The client and the server exchange the
+contract model; the server's mappers turn it into the Dto and parse the Dto into the domain
+type. The domain library owns the three Dtos; its functions take only the domain values.
 
 ## 5. Order Scenario
 

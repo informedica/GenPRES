@@ -2,7 +2,8 @@
 
 **Date**: 2026-09-08
 
-**Status**: Proposed (rewritten 2026-09-13; the engine is deferred to an amendment, Decision 4)
+**Status**: Proposed (rewritten 2026-09-13; the engine is deferred to an amendment, Decision 4;
+§3 amended 2026-09-16 for ADR-0008)
 
 **Related Issues**: [#516 — GenPRES SessionRecord Store](https://github.com/informedica/GenPRES/issues/516),
 [#580 — Scope switch to expose only the accredited parts in production](https://github.com/informedica/GenPRES/issues/580)
@@ -62,17 +63,23 @@ retried once.
 
 This restates the design's rule so that a schema review can point at it; it decides nothing new.
 
-### 3. The store is an adapter of the `Session` machine
+### 3. The store is an adapter of the `Session` machine — amended 2026-09-16
 
 The SQL adapter implements `SessionPort` next to the stub, in the Server project (the
 Presentation ring), and runs the same pure functions: it loads the rows a request can touch into
 a `State`, runs the function, and appends what changed. It reads `GENPRES_DB_CONNECTION`, which
 the DMZ may.
 
-No new Core project. The machine's records carry `SessionOpened`, `OpenedToken`, `Submission`
-and the other contract types, and ADR-0001's ring rule keeps the contract out of Core and
-Infrastructure. A session domain free of the contract is a refactor with a plan of its own, not
-a precondition for a store.
+No new Core project. The machine's clinical records (`Records`, the order plan versions) and its
+working state (`Challenges`, `Notices`, the patient a Session shows, the head it opened with)
+carry the domain types of GenORDER and GenFORM; their Dtos appear only in the adapters, the
+server mappers before `SessionPort` and the database adapter at load and write, as
+[ADR-0008](0008-contract-model-dto-mapping-boundary.md) decides. On the in-memory stub the
+working state lives in memory. Once the store exists, it is stored as Dtos under a structure
+version, because a restart must end nothing (Rule 32). The identity fields (`UserContext`,
+`OpenedToken`, `SessionEnding`, the refusals) stay contract model types for now, and ADR-0001's
+ring rule keeps the contract out of Core and Infrastructure. A session domain free of them is a
+refactor with a plan of its own, not a precondition for a store.
 
 ### 4. The engine is deferred; SQLite is the interim
 
@@ -123,6 +130,9 @@ The engine's own isolation behavior is proven by running the same test suite on 
 
 - [ADR-0000: Documentation Rules](0000-documentation-rules.md) — §2, when a decision is an ADR
 - [ADR-0001: System Architecture](0001-system-architecture.md) — the dependency rule and the DMZ
+- [ADR-0008: Contract Model, Domain Dto, and the Mapping Boundary](0008-contract-model-dto-mapping-boundary.md)
+  — what the store holds: domain Dtos under a structure version, the working state in memory
+  on the stub and stored in the store
 - [`docs/scenarios/integration/GenPRES-MainEHR-Integration-V8.md`](../scenarios/integration/GenPRES-MainEHR-Integration-V8.md)
   — Actor 5, Concept 9, Rules 2, 8, 32, 36, 40, 42, 46
 - [`docs/scenarios/integration/uc-01-launch.md`](../scenarios/integration/uc-01-launch.md)

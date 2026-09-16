@@ -30,11 +30,17 @@ In scope:
 
 - A table for everything in `Session.State`: launches, sessions with what they opened with and
   their heartbeats, endings and acknowledgements, credentials, confirmation codes, enrolments,
-  signed OrderPlans, data notices, challenges, answered Submissions. The signed record is in
-  because `commit` appends the version in the same act that verifies the PIN and re-mints the
-  OpenedToken; credentials, codes and enrolments are in because `supplyPin` sets the PIN and
-  opens the Session in one act. Splitting any of these across a store and memory would split a
-  transaction the code keeps whole.
+  the order plan versions, data notices, challenges, answered Submissions. The order plan
+  versions are in because `commit` appends the version in the same act that verifies the PIN
+  and re-mints the OpenedToken; credentials, codes and enrolments are in because `supplyPin`
+  sets the PIN and opens the Session in one act. Splitting any of these across a store and
+  memory would split a transaction the code keeps whole. The working state (what a Session
+  opened with, its notice, its challenge) is in because a restart must end nothing and a
+  second server must find it (Rules 32 and 36); on the in-memory stub it stays in memory, as
+  [ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) §6 says.
+- Every stored order plan and patient (a challenge's reading included) as a domain Dto under
+  a JSON structure version, upgraded on load (ADR-0008 invariant 5; the section "Stored Dtos
+  and their structure version" below).
 - The audit table and its writer (Rule 46), inside the same transaction as each act.
 - A SQL implementation of `SessionPort`, on SQLite for now.
 - Versioned schema scripts and the small runner that applies them.
@@ -101,13 +107,13 @@ and the final engine runs the write serializable with one retry (Rule 42).
 | `State` field | Tables | The slice reads | An append is |
 | ------------- | ------ | --------------- | ------------ |
 | `Launches` | `launch_record`, `launch_outcome` | the record by nonce or by `state`, with its outcome | the record at the first presentation; the outcome once, at the callback |
-| `Sessions` | `session`, `session_opened_with`, `session_seen` | the row by session id, the newest row for its login, the newest opened-with, the newest heartbeat | a session at an open; an opened-with at an open, at `openVersion` and at a commit; a heartbeat at every `touch` |
-| `Endings` | `session_ending`, `session_acknowledged`, and `session` itself | a session row whose login has a newer session row is `SupersededByLaunch` at that row's `opened_at`, whatever became of the newer row; the newest row for the login is open unless an ending names it; `wrong-pin-limit` is a row; an acknowledged ending is hidden; a `closed` row loads as no Session at all | `wrong-pin-limit` at the third wrong PIN; `closed` at `close`, with the acknowledgement |
+| `Sessions` | `session`, `session_opened_with`, `session_seen` | the row by session id, the newest row for its login, the newest opened-with (its patient a `Patient.Dto` upgraded and parsed at load), the newest heartbeat | a session at an open; an opened-with at an open, at `openVersion` and at a commit; a heartbeat at every `touch` |
+| `Endings` | `session_ending`, `session_acknowledged`, and `session` itself | a session row whose login has a newer session row is `SupersededByLaunch` at that row's `opened_at`, whatever became of the newer row; the newest row for the login is open unless an ending names it; `wrong-pin-limit` is a row; an acknowledged ending is hidden; a `closed` row loads as no Session at all | `wrong-pin-limit` at the third wrong PIN; `closed` at `close`, with the acknowledgement; `unreadable` when the Session's opened-with or notice row cannot be read (the stored-Dtos section below) |
 | `Credentials` | `credential_event` | the newest event for the user id | an event at every change: PIN set, wrong entry, lock, right entry |
 | `Codes` | `confirmation_code`, `code_try`, `code_spent` | the newest unspent code for the user id, with its tries counted | a code when mailed; a try per wrong code; spent when the PIN is set, the tries run out, or the last attempt is dropped |
 | `Enrolments` | `enrolment`, `enrolment_dropped` | the attempt by id, then the user id it names, then every undropped attempt and the code of that user: `dropEnrolment` spends the code only when no other attempt stands, and `supplyPin` drops every attempt bound to the code | an attempt when the launch suspends; dropped at `dropEnrolment`; all of a user's attempts dropped when the PIN is set or the code is void |
-| `Records` | `order_plan` | every version for the patient id, newest first | a version at a commit |
-| `Notices`, `Challenges` | `data_notice`, `challenge`, `challenge_spent` | the newest unexpired row for the session id | a row when issued; a newer row replaces; spent at a commit or an `openVersion` |
+| `Records` | `order_plan` | every order plan version for the patient id, newest first, each upgraded from its `json_version` and parsed with `fromDto` as it loads; an unreadable row is kept as an unreadable entry (ADR-0008 §6) | an order plan version at a commit, in the request's transaction; a violated `unique (patient_id, no)` is another server's sign, answered as a stale sign, the head changed |
+| `Notices`, `Challenges` | `data_notice`, `challenge`, `challenge_spent` | the newest unexpired row for the session id; a notice's patient is a `Patient.Dto` upgraded and parsed at load, a challenge holds the digest, not the order plan | a row when issued; a newer row replaces; spent at a commit or an `openVersion` |
 | `Answered` | `submission_answer` | the row for the session id and the idempotency key | the answer, once, refusals included (Rule 45) |
 | the audit | `audit_entry` | nothing | one entry per act, in the same transaction |
 
@@ -198,13 +204,16 @@ create table session (
 create index ix_session_login on session (login, id);
 
 -- What the Session opened with (Rule 19) and the token that names it (Rule 34): written at
--- the open, at openVersion and at a commit. The newest row counts.
+-- the open, at openVersion and at a commit. The newest row counts. The patient is the JSON
+-- Dto of the GenFORM Patient under its structure version (ADR-0008 invariant 5); a row the
+-- release cannot read ends the Session at its next request.
 create table session_opened_with (
     id           integer primary key,
     session_id   text not null references session (session_id),
     version_id   text null,              -- null: from nothing
     opened_token text not null,
-    patient      text not null,          -- json: the patient data the Session shows
+    json_version integer not null,       -- the JSON structure version of patient
+    patient      text not null,          -- json: Patient.Dto, the data the Session shows
     at           integer not null
 );
 
@@ -219,7 +228,7 @@ create table session_seen (
 -- session row for the same login.
 create table session_ending (
     session_id text primary key references session (session_id),
-    ending     text not null,            -- closed | wrong-pin-limit
+    ending     text not null,            -- closed | wrong-pin-limit | unreadable
     at         integer not null
 );
 
@@ -229,18 +238,23 @@ create table session_acknowledged (
     at         integer not null
 );
 
--- Concept 12. The clinical store: every signed version, never changed.
+-- Concept 12. The clinical store: every order plan version, never changed. The identity
+-- columns are authoritative and let an unreadable row keep its place (ADR-0008 section 6);
+-- the order plan itself, the patient it was signed on included, is the JSON Dto of the
+-- domain's OrderPlanVersion, under the structure version it was written with.
 create table order_plan (
-    id         integer primary key,
-    plan_id    text not null unique,
-    no         integer not null,
-    patient_id text not null,
-    base       text null,                -- the plan_id it was built on
-    signed_by  text not null,            -- json UserContext
-    signed_at  integer not null,
-    scenarios  text not null,            -- json
-    patient    text not null,            -- json: the data the plan was signed on
-    verified   integer not null          -- 0 | 1: the platform's reading at the challenge
+    id                     integer primary key,
+    version_id             text not null unique,
+    no                     integer not null,
+    patient_id             text not null,
+    base                   text null,     -- the version_id it was built on
+    signed_by_user_id      text not null,
+    signed_by_display_name text not null,
+    signed_at              integer not null,
+    verified               integer not null, -- 0 | 1: the platform's reading at the challenge
+    json_version           integer not null, -- the JSON structure version of plan
+    plan                   text not null,    -- json: OrderPlanVersion.Dto (GenORDER)
+    unique (patient_id, no)
 );
 create index ix_order_plan_patient on order_plan (patient_id, id);
 
@@ -257,6 +271,57 @@ create table audit_entry (
 ```
 
 No updatable state column, no partial unique index, no lock table, no `UPDATE` anywhere.
+
+### Stored Dtos and their structure version
+
+What ADR-0008 invariant 5 and §6 decide, as this plan applies it to `order_plan`:
+
+- **What a row holds.** `plan` is the JSON of `OrderPlanVersion.Dto`, `toDto` of the domain
+  value `commit` returns, never the contract model the client sent; the patient travels inside
+  it. `json_version` is the JSON structure version it was written under and never changes.
+- **The serializer** and its settings are part of the JSON structure. It produces the canonical
+  form the signing digest is computed over: fields in declared order, arrays as the Dto holds
+  them, `BigRational` as `numerator/denominator` in lowest terms, no whitespace; two order plans
+  equal as domain values serialize equal. Plan 725 step 1.3 settles it; this plan uses it.
+- **Loading.** A request loads the rows of its patient, as the slice loads everything else,
+  never every row at startup: a second server would not see an order plan version signed after
+  it started. The adapter upgrades `plan` from `json_version` to the current structure with one
+  pure function per step, on raw JSON, and parses it with `fromDto`; `Session.State.Records`
+  holds the result as domain values. A row it cannot load,
+  because `json_version` is newer than the release knows, an upgrade step fails, `fromDto`
+  refuses it, or the JSON's identity disagrees with the columns, is kept as an unreadable entry
+  built from the identity columns and the reason, and logged. The head of a patient is the
+  newest entry whatever its case; a sign is refused while the head is unreadable.
+- **Writing.** `commit` returns the write as a value; the adapter's state-replacing helper runs
+  it, inserting the row with the current `json_version` in the request's transaction, and
+  assigns the new state only if the insert succeeded, else answers `StoreFailed` and leaves the
+  state unchanged. Within one process the lock orders validation and write; across servers the
+  transaction and the unique constraint on `(patient_id, no)` do. A violated constraint is
+  another server's sign of the same number: it is answered as a stale sign, the head changed,
+  not as `StoreFailed`.
+- **The working state** follows the same rule in its own tables: `session_opened_with.patient`
+  and `data_notice`'s patient are `Patient.Dto` JSON under a `json_version`, upgraded and parsed
+  at load; a challenge stores the digest, the nonce, the expiry and its reading, never the order
+  plan. These rows live minutes to a Session's length and are dropped whole, so a row the
+  release cannot read is not kept as an unreadable entry: an opened-with or a notice it cannot
+  read ends the Session with a new `SessionEnding` case, `Unreadable`, appended as a
+  `session_ending` row (`unreadable`) and told at the next request; a challenge it cannot read
+  is refused.
+- **Every JSON structure change** comes with four things: a new `json_version`, an upgrade
+  step, a downgrade step, and a stored fixture at the old structure version with a test that
+  the upgraded fixture parses and maps to the expected contract model (law L5 of plan 725). A
+  snapshot of the serialized graph per structure version fails when the shape changes and the
+  number does not. Rows are never rewritten. A release cannot read a row written under a
+  newer `json_version`, and an upgrade drains the old servers (Rule 36), so a structure change
+  ships as expand, then contract: release N+1 reads the new structure but still writes the
+  old, serializing the current Dto and applying the raw-JSON downgrade step before the insert
+  under `json_version` N; release N+2 writes the new once no release N server is left and
+  drops the downgrade step. The adapter holds the structure it reads up to and the one it
+  writes as two build constants. A value the old structure cannot hold is not written before
+  N+2. Test: `upgrade (downgrade (toDto x))` parses back to `x` for what the release writes,
+  and the downgraded JSON matches the fixture's shape. No server then meets a row it cannot
+  read during a drain, and a rollback by one release is safe; by more than one it is not
+  supported once such rows exist.
 
 ### The races, walked through
 
@@ -322,16 +387,26 @@ maintainer's.
    startup when the connection string is set, each once, in order. A few lines, so that the
    engine amendment can replace it with a tool without a migration of the migrations. With it,
    migration 1: `launch_record`, `launch_outcome`, `session`, `session_opened_with`,
-   `session_seen`, `session_ending`, `session_acknowledged`, `order_plan`.
+   `session_seen`, `session_ending`, `session_acknowledged`, `order_plan`. Gate: `order_plan`
+   waits for steps 5.1 and 5.3 of plan [725](725-contract-model-dto-domain-flow.md), which
+   give the session service the domain-typed records and the write order it stores, and
+   `session_opened_with` for step 5.2 as well, the opened-session record; the other tables may
+   land before.
 4. The adapter, part 1: the slice loader and the append writer for launches and sessions, and
-   the members `present`, `callback`, `find`, `close`, `seen`, `openVersion`. Integration tests
+   the members `present`, `callback`, `find`, `close`, `seen`, `openVersion`, and the
+   `unreadable` ending the loader appends. Gate: plan 725 step 5.2, which adds the
+   `SessionEnding.Unreadable` case to the contract model, the client's message for it and
+   their tests; the ending is written only for the opened-with and notice rows that step
+   gives the machine. Integration tests
    against a temporary SQLite file in the Server test project, in the normal matrix: two
    launches at once, the same Launch twice, an ended Session never reopens, and the
    `StubAdapterTests` contract run against the SQL port.
 5. Migration 2 and part 2: `credential_event`, `confirmation_code`, `code_try`, `code_spent`,
    `enrolment`, `enrolment_dropped`; the members `findEnrolment`, `supplyPin`, `dropEnrolment`.
 6. Migration 3 and part 3: `data_notice`, `challenge`, `challenge_spent`, `submission_answer`;
-   the members `challenge` and `submit`; the Rule 42 test.
+   the members `challenge` and `submit`; the first stored fixture and its test; the Rule 42
+   test. Gate: plan 725 step 5.1, since the notice's and the challenge's patient rows are
+   `Patient.Dto`.
 7. `audit_entry` and the writer inside every member's transaction; the purge statement; the
    composition switch in `Adapters.makeAppEnvWith`; the demo seed; DEVELOPMENT.md (the key, the
    file, the seed); the CHANGELOG entry in the commit body.

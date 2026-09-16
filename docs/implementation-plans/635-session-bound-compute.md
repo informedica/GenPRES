@@ -76,6 +76,12 @@ the version opened, `None` where there is no Session, no User or no Patient (Rul
 
 ### The server (`Hop`, pure over `State`)
 
+> Note (2026-09-16): [ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) retypes the
+> session state (`Records`, `Challenges`, `Notices`, the head a Session opened with) and the
+> order-plan half of the ports on the domain's `OrderPlanVersion` and `OrderPlan`, with the
+> contract model mapped before the port; the contract types named below are as built at the
+> time. Plan [725](725-contract-model-dto-domain-flow.md) carries the change.
+
 `SessionRecord` gains `Seen: DateTime` (Rule 9), set at open. `Hop.touch now sid state` sets it to
 `now` when the Session is open, and every port member that takes the session cookie's id applies
 it before its own ladder: `find` (`GetSession`), `challenge`, `submit`, `openVersion` and `seen`;

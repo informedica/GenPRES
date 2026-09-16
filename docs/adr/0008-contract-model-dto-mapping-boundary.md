@@ -169,11 +169,18 @@ alternative, ports typed on Dtos, is recorded below.
 - **Append-only.** The `order_plan` table is insert-only: signing inserts a row, no `UPDATE` or
   `DELETE` ever runs on it, and a unique constraint on `(patient_id, no)` rejects a second
   version with the same number.
-- **Working state.** Sessions, challenges and notices stay in memory, carry no structure version,
-  and are gone at every startup, so there are no `session_opened_with`, `challenge` or
-  `data_notice` tables.
-- **Loading, and `StoredVersion`.** At startup the adapter loads every order plan version,
-  upgrades it and parses it with `fromDto`. A row it cannot load, because its structure version
+- **Working state.** What a Session opened with, its notice and its challenge live in memory
+  while the in-memory stub is the database, carry no structure version there, and are gone at
+  every startup. In the store of plan 516 they are stored like any other root, as Dtos under a
+  structure version, because a restart must end nothing and a second server must find them
+  (ADR-0007, Rules 32 and 36). Their rows are short-lived and dropped whole after their
+  lifetime. One the release cannot read is not kept as an unreadable entry: an opened-with or a
+  notice ends the Session with a new `SessionEnding` case, `Unreadable`, appended as a
+  `session_ending` row and told at the next request; a challenge is refused.
+- **Loading, and `StoredVersion`.** The adapter loads a patient's order plan versions when a
+  request needs them, never once at startup, since a second server would not see an order plan
+  version signed after it started (Rule 36); it upgrades and parses each with `fromDto` as it
+  loads. A row it cannot load, because its structure version
   is newer than the release knows, an upgrade fails, or `fromDto` refuses it, does not stop the
   server and is not dropped: its identity columns (`id`, `no`, `patient_id`, `base`, the signer,
   `signed_at`) are authoritative, and the entry is kept as unreadable with the reason. The
@@ -185,11 +192,13 @@ alternative, ports typed on Dtos, is recorded below.
   `ofModel >> fromDto`, refusing on `Error`, and keeps the digest of `toDto` of the domain
   value. The commit parses the submission the same way, compares its digest with the
   challenge's, and validates against the state (the PIN attempts, the head unchanged) as a pure
-  function that returns the write as a value. The adapter runs that write under the one lock
-  that serializes session commands, inserting `toDto` of the domain value under the current
-  structure version, and assigns the new state only if the insert succeeded; a failed insert
-  leaves the state unchanged and answers a refusal. The Storage section of plan 725 has the
-  crash and retry cases.
+  function that returns the write as a value. The adapter runs that write, inserting `toDto` of
+  the domain value under the current structure version, and assigns the new state only if the
+  insert succeeded; a failed insert leaves the state unchanged and answers a refusal. Within
+  one process the lock that serializes session commands orders validation and write; across
+  servers the transaction and the unique constraint on `(patient_id, no)` do, and a violated
+  constraint is another server's sign, answered as a stale sign, the head changed, not as a
+  failed store. The Storage section of plan 725 has the crash and retry cases.
 
 ### 7. Settled while drafting
 
@@ -202,7 +211,7 @@ alternative, ports typed on Dtos, is recorded below.
 | Dto used as a domain constructor; cache Dtos for ZIndex and NKF; MCP output records | Follow-up issues, not part of plan 725. |
 | Digest serializer | The canonical serializer is the one the database uses; its settings are part of the stored JSON structure. |
 | What an order plan version stores | The whole order plan, `Filtered`, `Totals` and each context's `Intake` included: what the signer saw. `Intake` and `Totals` are copied fields, never recomputed on open. |
-| Upgrade policy for stored Dtos | Upgrade on load: one pure function per structure-version step, on raw JSON, each tested on a stored fixture. Rows are never rewritten. Rolling back a release is not supported once records exist under the newer structure. |
+| Upgrade policy for stored Dtos | Upgrade on load: one pure function per structure-version step, on raw JSON, each tested on a stored fixture. Rows are never rewritten. A structure change ships as expand, then contract: release N+1 reads the new structure but still writes the old, through a raw-JSON downgrade step applied after `toDto` (the release carries the structure it reads up to and the one it writes as build constants); release N+2 writes the new once no release N server is left and drops the downgrade step. A drain on upgrade (Rule 36) then meets no unreadable row and a rollback by one release is safe. Data the old structure cannot hold is not written before N+2. A rollback by more than one release is not supported once rows exist under the newer structure. |
 | Ports on Dtos or on domain values | Domain values. |
 | Contract model versioning | None: client and server are built and deployed together from the same Shared project. |
 
@@ -216,17 +225,20 @@ its decisions table.
   for stored records, one for the client's copies of domain rules. Where the contract model has a
   field the domain lacks, the field is added to the domain or named as server-computed; a Dto
   never grows a field the domain does not have.
-- Every change to a stored JSON structure comes with a new structure version, an upgrade step and
-  a stored fixture; a snapshot test of the serialized graph catches a structure change without a
-  new number. Most code changes touch no SQL table.
-- Loading parses every stored order plan version at startup, so memory and startup time grow with
-  history; the switch, when needed, is to load a patient's versions when that patient is opened.
+- Every change to a stored JSON structure comes with a new structure version, an upgrade step, a
+  downgrade step and a stored fixture, and ships in two releases: the first reads the new
+  structure and writes the old through the downgrade step, the second writes the new and drops
+  it. A snapshot test of the serialized graph catches a structure change without a new number.
+  Most code changes touch no SQL table.
+- Every request that needs a patient's order plan versions loads, upgrades and parses them. The
+  cost is paid per request, bounded by one patient's history, and measured once the Dtos exist.
 - `OrderPlan`, `PlanContext` and `OrderPlanVersion` become GenORDER domain types and the order
   plan rules move out of `ServerApi.Services.fs` and `Shared.Models`.
 - ADR-0007 §3 is amended: the session state holds the clinical records and its working state as
-  domain values, Dtos appear only in the database adapter, and identity stays as contract types
+  domain values, Dtos appear only in the adapters (the server mappers and the database adapter),
+  and identity stays as contract types
   until a session domain exists. Plan 516 stores `order_plan.plan` as `OrderPlan.Dto` under
-  `order_plan.json_version` and drops its working-state tables.
+  `order_plan.json_version`, and the working state the same way in its own tables.
 - [`docs/domain/core-domain.md`](../domain/core-domain.md) calls the wire records the contract
   model, not "DTO"; the GenORDER domain document gains the three types.
 - The session service keeps its identity types and signing rules in the server, the named
@@ -239,11 +251,11 @@ its decisions table.
 
 | Alternative | Reason rejected |
 | ----------- | --------------- |
-| Ports typed on Dtos | Saves one `fromDto` per loaded row, at the cost of Dtos in every service and every port signature and a state that holds unparsed data. The load cost is measured once the Dtos exist; the switch to loading per patient covers it. |
+| Ports typed on Dtos | Saves one `fromDto` per loaded row, at the cost of Dtos in every service and every port signature and a state that holds unparsed data. The load cost is measured once the Dtos exist; loading per patient keeps it bounded. |
 | One Dto family for the contract model and the database | ADR-0001 lets only the server and the client reference Shared, and Shared must stay transpilable; the Dto carries `BigRational`. |
 | Mapping inside the services, the reply merged onto the request | The bug class this decision removes: a reply that depends on what the client sent. |
 | A structure version as a field of the Dto | The Dto would carry a fact about storage; the adapter owns storage, so the version sits beside the root, and `fromDto` stays ignorant of it. |
-| Storing sessions, challenges and notices in SQL | They are discarded at every startup, so storing them helps nothing and adds three tables with structure versions of their own. |
+| Keeping the working state in memory once a store exists | On the stub, memory is enough, since the stub loses everything at a restart. A store exists so that a restart ends nothing and a second server continues a Session (ADR-0007), which the working state in one process would defeat. |
 | Freezing the contract model into SQL columns, as the first plan 516 sketch did | A contract change would become a SQL migration, and the stored record would never have been a domain value. |
 | One Dto style for every library (all records, or all mutable classes) | Style is not what differs in concept; the throwing `fromDto` is. Fixing the five invariants fixes the concept and leaves the style. |
 | A session domain now, so that R6 has no exception | A refactor with a plan of its own, deferred by ADR-0007 §3; not a precondition for the mapping boundary. |
