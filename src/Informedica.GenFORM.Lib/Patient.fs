@@ -593,13 +593,15 @@ module Patient =
     /// The patient the value is, or why it is none: the minimum data is an age, or a
     /// measured weight with a measured height. Below that there is no patient, no
     /// order context and no evaluation; a missing datum never matches a bounded range.
-    let validate (pat: Patient) : Result<Patient, PatientError> =
-        let measured (v: ValueUnit option) flag = v.IsSome && flag
+    /// The minimum data, stated once for the patient and for its Dto: an age, or a
+    /// measured weight with a measured height.
+    let meetsMinimumData (age: 'a option) (weight: 'b option) weightMeasured (height: 'c option) heightMeasured =
+        age.IsSome
+        || (weight.IsSome && weightMeasured && height.IsSome && heightMeasured)
 
-        if
-            pat.Age.IsSome
-            || (measured pat.Weight pat.WeightMeasured && measured pat.Height pat.HeightMeasured)
-        then
+
+    let validate (pat: Patient) : Result<Patient, PatientError> =
+        if meetsMinimumData pat.Age pat.Weight pat.WeightMeasured pat.Height pat.HeightMeasured then
             Ok pat
         else
             Error PatientError.NoAgeOrMeasuredWeightAndHeight
@@ -708,6 +710,14 @@ module Patient =
                     match renal with
                     | Error e -> yield e
                     | Ok _ -> ()
+                    // the minimum data is judged on the Dto too, so that it is reported
+                    // next to a string that names nothing, never dropped behind one
+                    if
+                        not (
+                            meetsMinimumData dto.AgeDays dto.WeightKg dto.WeightMeasured dto.HeightCm dto.HeightMeasured
+                        )
+                    then
+                        yield PatientError.NoAgeOrMeasuredWeightAndHeight
                 ]
 
             match errors, gender, renal with
@@ -727,6 +737,5 @@ module Patient =
                     Access = access |> List.choose Result.toOption
                     RenalFunction = renal
                 }
-                |> validate
-                |> Result.mapError List.singleton
+                |> Ok
             | errors, _, _ -> Error errors
