@@ -619,3 +619,99 @@ let evaluateTests =
                 |> Expect.equal "no scenario" Totals.empty
             }
         ]
+
+
+/// A provider holding no rules: what the rule lookup reads answers empty, every other resource
+/// raises, so a test sees which branch the lookup takes and nothing else.
+type NoRules() =
+    interface Resources.IResourceProvider with
+        member _.Get _ =
+            raise (System.NotImplementedException())
+
+        member _.GetData() =
+            raise (System.NotImplementedException())
+
+        member _.GetUnitMappings() =
+            raise (System.NotImplementedException())
+
+        member _.GetRouteMappings() = [||]
+
+        member _.GetValidForms() =
+            raise (System.NotImplementedException())
+
+        member _.GetFormRoutes() =
+            raise (System.NotImplementedException())
+
+        member _.GetFormularyProducts() =
+            raise (System.NotImplementedException())
+
+        member _.GetReconstitution() =
+            raise (System.NotImplementedException())
+
+        member _.GetParenteralMeds() =
+            raise (System.NotImplementedException())
+
+        member _.GetEnteralFeeding() =
+            raise (System.NotImplementedException())
+
+        member _.GetProducts() =
+            raise (System.NotImplementedException())
+
+        member _.GetDoseRules() = [||]
+        member _.GetSolutionRules() = [||]
+        member _.GetRenalRules() = [||]
+
+        member _.GetTotals() =
+            raise (System.NotImplementedException())
+
+        member _.GetGStandProvider() =
+            raise (System.NotImplementedException())
+
+        member _.GetResourceInfo() =
+            raise (System.NotImplementedException())
+
+
+/// The rules for a patient without a department: the lookup runs on the context as held,
+/// where it used to answer a context made afresh and no rules.
+let rulesTests =
+    testList
+        "the rules for a patient without a department"
+        [
+            test "a patient without a department keeps its context: the selection, the components and the scenarios" {
+                let held =
+                    { EvaluateFixtures.pcmContext with Patient = { EvaluateFixtures.child with Department = None } }
+
+                let ctx, rules = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
+
+                rules |> Expect.equal "no rules to find" (Ok [||])
+                ctx.Scenarios |> Expect.equal "the scenarios as held" held.Scenarios
+
+                ctx.Filter.SelectedComponents
+                |> Expect.equal "the selection as held" held.Filter.SelectedComponents
+
+                ctx.Filter.Diluents |> Expect.equal "the diluents as held" held.Filter.Diluents
+                ctx.Patient.Department |> Expect.equal "still no department" None
+            }
+
+            test "a patient with a department is treated the same" {
+                let held =
+                    { EvaluateFixtures.pcmContext with
+                        Patient = { EvaluateFixtures.child with Department = Some "ICK" }
+                    }
+
+                let ctx, rules = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
+
+                rules |> Expect.equal "no rules to find" (Ok [||])
+                ctx.Scenarios |> Expect.equal "the scenarios as held" held.Scenarios
+            }
+
+            test "without a weight and a height the context is made afresh" {
+                let held =
+                    { EvaluateFixtures.pcmContext with Patient = { EvaluateFixtures.child with Weight = None } }
+
+                let ctx, rules = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
+
+                rules |> Expect.equal "no rules" (Ok [||])
+                ctx.Scenarios |> Expect.isEmpty "afresh: no scenarios"
+            }
+        ]
