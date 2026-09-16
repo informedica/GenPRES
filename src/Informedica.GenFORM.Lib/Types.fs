@@ -55,6 +55,8 @@ module Types =
         | PVL
         // Central Venous Access
         | CVL
+        // An enteral feeding tube; no venous access
+        | EnteralTube
         // Any Venous Access
         | AnyAccess
 

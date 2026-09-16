@@ -325,6 +325,7 @@ module SolutionRule =
                 match sr.PatientCategory.Access with
                 | CVL -> "###### centraal: \n* "
                 | PVL -> "###### perifeer: \n* "
+                | EnteralTube -> "###### sonde: \n* "
                 | AnyAccess -> "* "
 
             let qs =

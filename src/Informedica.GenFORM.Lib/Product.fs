@@ -114,6 +114,8 @@ module Product =
             function
             | PVL -> "PVL"
             | CVL -> "CVL"
+            // a rule never carries a tube; the form is there so the string round-trips
+            | EnteralTube -> "TUBE"
             | AnyAccess -> ""
 
 
@@ -122,6 +124,7 @@ module Product =
             match s with
             | _ when s |> String.equalsCapInsens "PVL" -> PVL
             | _ when s |> String.equalsCapInsens "CVL" -> CVL
+            | _ when s |> String.equalsCapInsens "TUBE" -> EnteralTube
             | _ -> AnyAccess
 
 
