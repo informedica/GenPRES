@@ -236,8 +236,6 @@ let contractAllowances =
     [
         "src/Informedica.GenPRES.Server/ServerApi.Services.fs",
         "services typed on contract models; thinned to domain values (plan 725 Phase 4)"
-        "src/Informedica.GenPRES.Server/ServerApi.Patient.fs",
-        "patient validation returns the contract type; becomes Mappers.Patient (plan 725 step 3.1)"
         "src/Informedica.GenPRES.Server/ServerApi.Adapters.fs", ports
         "src/Informedica.GenPRES.Server/ServerApi.StubAdapters.fs", ports
         "src/Informedica.GenPRES.Server/LogAnalyzer.fs",

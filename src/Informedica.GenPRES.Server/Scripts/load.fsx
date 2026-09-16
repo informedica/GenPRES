@@ -19,7 +19,7 @@
 #load "../LogAnalyzer.fs"
 #load "../ServerApi.Mappers.fs"
 #load "../ServerApi.Ports.fs"
-#load "../ServerApi.Patient.fs"
+#load "../ServerApi.Mappers.Patient.fs"
 #load "../ServerApi.Services.fs"
 #load "../ServerApi.Session.fs"
 #load "../ServerApi.StubAdapters.fs"
