@@ -13,6 +13,7 @@
     <Compile Include="StubAdapterTests.fs" />
     <Compile Include="DoseCheckTests.fs" />
     <Compile Include="TotalsTests.fs" />
+    <Compile Include="NutritionRuleSetsTests.fs" />
     <Compile Include="HttpTests.fs" />
     <Compile Include="ConfigTests.fs" />
     <Compile Include="Program.fs" />
