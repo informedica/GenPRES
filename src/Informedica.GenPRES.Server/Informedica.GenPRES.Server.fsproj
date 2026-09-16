@@ -13,6 +13,7 @@
     <Compile Include="ServerApi.Ports.fs" />
     <Compile Include="ServerApi.NutritionRuleSets.fs" />
     <Compile Include="ServerApi.Mappers.Patient.fs" />
+    <Compile Include="ServerApi.Mappers.OrderContext.fs" />
     <Compile Include="ServerApi.Services.fs" />
     <Compile Include="ServerApi.Session.fs" />
     <Compile Include="ServerApi.StubAdapters.fs" />
