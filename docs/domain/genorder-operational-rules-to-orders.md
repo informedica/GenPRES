@@ -124,12 +124,12 @@ Three domain types sit next to OrderContext in `Informedica.GenORDER.Lib`, as
   removes its supplements, and the totals. The intake and the totals are computed when a context
   or the plan is evaluated and copied unchanged everywhere else.
 * An **Order Plan Version** is the Order Plan as a prescriber signed it, with its number, the
-  Order Plan Version it was built on, the signer and the time. It is what the record stores and what a
-  reopen restores, nothing recomputed.
+  Order Plan Version it was built on, the signer and the time. It is what the record stores and
+  what a reopen restores, nothing recomputed.
 
 Each of the three has a Dto next to it, like `Order`. The client and the server exchange the
 contract model; the server's mappers turn it into the Dto and parse the Dto into the domain
-type, so the domain sees the three as domain values and, at its own boundary, as their Dtos.
+type. The domain library owns the three Dtos; its functions take only the domain values.
 
 ## 5. Order Scenario
 

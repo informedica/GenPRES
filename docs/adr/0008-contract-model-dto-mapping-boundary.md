@@ -174,10 +174,13 @@ alternative, ports typed on Dtos, is recorded below.
   every startup. In the store of plan 516 they are stored like any other root, as Dtos under a
   structure version, because a restart must end nothing and a second server must find them
   (ADR-0007, Rules 32 and 36). Their rows are short-lived and dropped whole after their
-  lifetime; one the release cannot read ends the Session, told at its next request, or refuses
-  the challenge, so no unreadable entry is kept for them.
-- **Loading, and `StoredVersion`.** At startup the adapter loads every order plan version,
-  upgrades it and parses it with `fromDto`. A row it cannot load, because its structure version
+  lifetime. One the release cannot read is not kept as an unreadable entry: an opened-with or a
+  notice ends the Session with a new `SessionEnding` case, `Unreadable`, appended as a
+  `session_ending` row and told at the next request; a challenge is refused.
+- **Loading, and `StoredVersion`.** The adapter loads a patient's order plan versions when a
+  request needs them, never once at startup, since a second server would not see an order plan
+  version signed after it started (Rule 36); it upgrades and parses each with `fromDto` as it loads. A
+  row it cannot load, because its structure version
   is newer than the release knows, an upgrade fails, or `fromDto` refuses it, does not stop the
   server and is not dropped: its identity columns (`id`, `no`, `patient_id`, `base`, the signer,
   `signed_at`) are authoritative, and the entry is kept as unreadable with the reason. The
@@ -189,11 +192,13 @@ alternative, ports typed on Dtos, is recorded below.
   `ofModel >> fromDto`, refusing on `Error`, and keeps the digest of `toDto` of the domain
   value. The commit parses the submission the same way, compares its digest with the
   challenge's, and validates against the state (the PIN attempts, the head unchanged) as a pure
-  function that returns the write as a value. The adapter runs that write under the one lock
-  that serializes session commands, inserting `toDto` of the domain value under the current
-  structure version, and assigns the new state only if the insert succeeded; a failed insert
-  leaves the state unchanged and answers a refusal. The Storage section of plan 725 has the
-  crash and retry cases.
+  function that returns the write as a value. The adapter runs that write, inserting `toDto` of
+  the domain value under the current structure version, and assigns the new state only if the
+  insert succeeded; a failed insert leaves the state unchanged and answers a refusal. Within
+  one process the lock that serializes session commands orders validation and write; across
+  servers the transaction and the unique constraint on `(patient_id, no)` do, and a violated
+  constraint is another server's sign, answered as a stale sign, the head changed, not as a
+  failed store. The Storage section of plan 725 has the crash and retry cases.
 
 ### 7. Settled while drafting
 
@@ -223,8 +228,8 @@ its decisions table.
 - Every change to a stored JSON structure comes with a new structure version, an upgrade step and
   a stored fixture; a snapshot test of the serialized graph catches a structure change without a
   new number. Most code changes touch no SQL table.
-- Loading parses every stored order plan version at startup, so memory and startup time grow with
-  history; the switch, when needed, is to load a patient's versions when that patient is opened.
+- Every request that needs a patient's order plan versions loads, upgrades and parses them. The
+  cost is paid per request, bounded by one patient's history, and measured once the Dtos exist.
 - `OrderPlan`, `PlanContext` and `OrderPlanVersion` become GenORDER domain types and the order
   plan rules move out of `ServerApi.Services.fs` and `Shared.Models`.
 - ADR-0007 §3 is amended: the session state holds the clinical records and its working state as
@@ -244,11 +249,11 @@ its decisions table.
 
 | Alternative | Reason rejected |
 | ----------- | --------------- |
-| Ports typed on Dtos | Saves one `fromDto` per loaded row, at the cost of Dtos in every service and every port signature and a state that holds unparsed data. The load cost is measured once the Dtos exist; the switch to loading per patient covers it. |
+| Ports typed on Dtos | Saves one `fromDto` per loaded row, at the cost of Dtos in every service and every port signature and a state that holds unparsed data. The load cost is measured once the Dtos exist; loading per patient keeps it bounded. |
 | One Dto family for the contract model and the database | ADR-0001 lets only the server and the client reference Shared, and Shared must stay transpilable; the Dto carries `BigRational`. |
 | Mapping inside the services, the reply merged onto the request | The bug class this decision removes: a reply that depends on what the client sent. |
 | A structure version as a field of the Dto | The Dto would carry a fact about storage; the adapter owns storage, so the version sits beside the root, and `fromDto` stays ignorant of it. |
-| Keeping the working state in memory once a store exists | The stub loses it at a restart anyway, so in memory is right there; a store exists so that a restart ends nothing and a second server continues a Session (ADR-0007), which the working state in one process would defeat. |
+| Keeping the working state in memory once a store exists | On the stub, memory is enough, since the stub loses everything at a restart. A store exists so that a restart ends nothing and a second server continues a Session (ADR-0007), which the working state in one process would defeat. |
 | Freezing the contract model into SQL columns, as the first plan 516 sketch did | A contract change would become a SQL migration, and the stored record would never have been a domain value. |
 | One Dto style for every library (all records, or all mutable classes) | Style is not what differs in concept; the throwing `fromDto` is. Fixing the five invariants fixes the concept and leaves the style. |
 | A session domain now, so that R6 has no exception | A refactor with a plan of its own, deferred by ADR-0007 §3; not a precondition for the mapping boundary. |

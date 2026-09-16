@@ -64,7 +64,8 @@ configuration; they receive values.
 
 The ring map in `scripts/DependencyRule.fsx` names six rings, innermost first: Core;
 Contract, which is `GenPRES.Shared` alone — the types and pure functions that client and server
-exchange, the contract model of [ADR-0008](0008-contract-model-dto-mapping-boundary.md); Infrastructure, the adapters and the agent runtime; Presentation, the server and the
+exchange, the contract model of
+[ADR-0008](0008-contract-model-dto-mapping-boundary.md); Infrastructure, the adapters and the agent runtime; Presentation, the server and the
 MCP host; Client; and Tooling, the extraction pipeline, which sits outside the runtime rings. For
 the Contract ring the rule is stricter than "inward": Contract references only Contract, and only
 Presentation and Client may reference it. Core and Infrastructure never see the contract types,

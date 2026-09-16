@@ -74,9 +74,9 @@ No new Core project. The machine's clinical records (`Records`, the order plan v
 working state (`Challenges`, `Notices`, the patient a Session shows, the head it opened with)
 carry the domain types of GenORDER and GenFORM; their Dtos appear only in the adapters, the
 server mappers before `SessionPort` and the database adapter at load and write, as
-[ADR-0008](0008-contract-model-dto-mapping-boundary.md) decides. The working state lives in
-memory while the in-memory stub is the database and is stored, as Dtos under a structure
-version, once the store exists, since a restart ends nothing (Rule 32). The identity fields (`UserContext`,
+[ADR-0008](0008-contract-model-dto-mapping-boundary.md) decides. On the in-memory stub the
+working state lives in memory. Once the store exists, it is stored as Dtos under a structure
+version, because a restart must end nothing (Rule 32). The identity fields (`UserContext`,
 `OpenedToken`, `SessionEnding`, the refusals) stay contract model types for now, and ADR-0001's
 ring rule keeps the contract out of Core and Infrastructure. A session domain free of them is a
 refactor with a plan of its own, not a precondition for a store.

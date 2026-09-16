@@ -146,8 +146,9 @@ its supplements with it; `Recalculate` recomputes the totals over the filtered c
 - `Totals: Totals` — the totals over the orders of the filtered contexts.
 
 The plan's orders are not a field: they are what its narrowed contexts contribute
-(`OrderPlan.orders` in `Models.fs`). An order plan version (`SignedOrderPlan` on the wire) stores the contexts, so the signing
-challenge compares them and a reopen restores them as they were.
+(`OrderPlan.orders` in `Models.fs`). An order plan version (`SignedOrderPlan` on the wire)
+stores the contexts, so the signing challenge compares them and a reopen restores them as they
+were.
 
 **OrderContext contract model**
 
