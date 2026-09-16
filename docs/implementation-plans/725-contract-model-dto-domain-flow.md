@@ -492,18 +492,24 @@ How the store behaves, beyond invariant 5 and the change table.
   startup time grow with history. The switch, when needed, is to load a patient's versions when
   that patient is opened; "upgraded and parsed as it loads" holds unchanged then.
 - **Writing.** `commit` validates first, against `Session.State`: the challenge, the PIN
-  attempts, the head unchanged. Only then does the database adapter write the row with its
-  structure version to SQL, `commit` updates `Session.State`, and the reply "version signed"
-  goes out. The validation, the write and the state update are one step under the one lock
-  that already serialises every session command: `StubDatabase.makeSessionPort` holds the
-  state behind `lock gate` (`ServerApi.StubAdapters.fs:366-375`) and the session functions are
-  pure `State -> State * result`; the SQLite adapter keeps that lock and does the write inside
-  it. So nothing advances the head between validation and write, and every session waits for
-  each SQL write in turn, a local SQLite write of milliseconds, accepted. A failed write leaves
-  the state untouched and refuses the sign. A crash after the write and before the reply is
-  recoverable, not lost: the prescriber received no confirmation and the restart ended their
-  session; at the next startup the written row loads as the head, so a second sign from the
-  same base is refused as stale, and reopening the order plan shows the version they signed.
+  attempts, the head unchanged. It stays a pure function and does not write; it returns the
+  write as a value. Its shape becomes `State -> State * SigningResponse * Persist option`, with
+  `Persist = WriteVersion of OrderPlanVersion` (a session-service type next to `StoredVersion`):
+  on a refusal the third value is `None` and the state is unchanged; on an accepted sign it is
+  `Some`, and the returned state already holds the new head. The adapter's `update` helper,
+  which today applies a pure step under `lock gate` and assigns the state
+  (`StubDatabase.makeSessionPort`, `ServerApi.StubAdapters.fs:366-375`), gains the persistence
+  phase between the two: run the step, run the `Persist` value if there is one (the SQLite
+  adapter writes the row with its structure version; the stub does nothing), and only if that
+  succeeded assign the returned state and return the response. A failed write assigns nothing
+  and returns a refusal, `SigningRefusal.StoreFailed`, so the database and the state never
+  disagree. All of it runs under the one lock that already serialises every session command,
+  so nothing advances the head between validation and write, and every session waits for each
+  SQL write in turn, a local SQLite write of milliseconds, accepted. A crash after the write and
+  before the reply is recoverable, not lost: the prescriber received no confirmation and the
+  restart ended their session; at the next startup the written row loads as the head, so a
+  second sign from the same base is refused as stale, and reopening the order plan shows the
+  version they signed.
 - **The stub.** The in-memory stub of `StubAdapters.fs` keeps nothing across a restart and no
   structure version; the `json_version` column, the upgrade on load and the first fixture arrive
   with the SQLite adapter in plan 516 step 3.
@@ -654,9 +660,11 @@ The signing command handler parses the challenge and the submission alike (the p
 1; 1.11), so `challenge` and `commit` receive domain values. `challenge` keeps only the digest of
 the order plan. `commit` digests the submission, compares, and hands the domain value to the
 database adapter, which writes `toDto` of it, the domain's own serialization, never the Dto the
-client's model was mapped to, in the write order of Storage. `challenge` and `commit` take a
-`digest : OrderPlan -> string` parameter next to `newId`, supplied by the database adapter as
-`toDto` followed by the canonical serialization; `commit` refuses `ChallengeMismatch` when
+client's model was mapped to, in the write order of Storage. `commit` returns the write as a
+`Persist` value and the adapter runs it under the lock before assigning the state (the write
+order of Storage). `challenge` and `commit` take a `digest : OrderPlan -> string` parameter
+next to `newId`, supplied by the database adapter as `toDto` followed by the canonical
+serialization; `commit` refuses `ChallengeMismatch` when
 `digest submission.Plan <> challenge.Digest` (replaces :1211-1212). `duplicateOrders` reads
 `Order.Id` off the domain value. `StubDatabase.makeSessionPort` (`StubAdapters.fs:352`)
 supplies `digest` and maps `Opened -> SessionOpened` via `Mappers.Session`. The digest is over
@@ -749,7 +757,7 @@ reviewer must not find it contradicted by the document next to it.
 
 **Phase 5, the database holds Dtos (issue G), 4 PRs, depends on 1 + 3.1 + 3.3, not on 2 or 4. Must merge before plan 516 step 3.** `Session.fs` is the session service behind `SessionPort`, not the database adapter; the port split of Part 1 and the Storage section apply.
 5.0 Test prep in `StubAdapterTests`: every `Challenge`/`Notice`/`Records` literal through builders. ~120, tests only. (4.0 and 5.0 both edit that file: land 4.0 first, or both preps in one PR.)
-5.1 `Records` on `StoredVersion` (readable or unreadable, Storage), `Challenges`/`Notices` on domain values; `Challenge.Digest` over the canonical form; `SigningCommand` parses the challenge and the submission with `ofModel >> OrderPlan.Dto.fromDto` and refuses on `Error`; `challenge` keeps the digest, `commit` validates against the state, then hands the domain value to the adapter, which writes `toDto` of it, then updates the state (R10, the write order of Storage); `digest : OrderPlan -> string` supplied by `makeSessionPort` as a parameter of `challenge`/`commit`; `SessionPort.challenge/submit` on `OrderPlan`, `openVersion` on `StoredVersion`; `StoredVersion` in `Session.fs`; the stub keeps no structure version (Storage). ~260, tight. Test: signing suites in `StubAdapterTests` (:2860-3160: "as challenged", "twice", changed context refused) pass with the digest; an order plan re-ordered by the client is a mismatch; an order plan whose order fails `fromDto` is refused at challenge and at commit, never stored; two order plans equal as domain values digest equal whatever the client's JSON field order or whitespace; a failed write leaves the state unchanged and refuses the sign; an unreadable row loads as an `Unreadable` entry and a newer unreadable row stays the head; a sign while the head is unreadable is refused; after a simulated crash between the write and the reply, the next load has the row as the head, a retry from the same base is refused as stale, and `openVersion` shows it. Signing path, no dosing. Review slowly.
+5.1 `Records` on `StoredVersion` (readable or unreadable, Storage), `Challenges`/`Notices` on domain values; `Challenge.Digest` over the canonical form; `SigningCommand` parses the challenge and the submission with `ofModel >> OrderPlan.Dto.fromDto` and refuses on `Error`; `challenge` keeps the digest, `commit` validates against the state and returns `State * SigningResponse * Persist option`; the adapter's `update` runs the `Persist` (the SQLite adapter writes `toDto` of the version, the stub does nothing) under the lock and assigns the state only if the write succeeded, else answers `SigningRefusal.StoreFailed` (R10, the write order of Storage); `digest : OrderPlan -> string` supplied by `makeSessionPort` as a parameter of `challenge`/`commit`; `SessionPort.challenge/submit` on `OrderPlan`, `openVersion` on `StoredVersion`; `StoredVersion` in `Session.fs`; the stub keeps no structure version (Storage). ~260, tight. Test: signing suites in `StubAdapterTests` (:2860-3160: "as challenged", "twice", changed context refused) pass with the digest; an order plan re-ordered by the client is a mismatch; an order plan whose order fails `fromDto` is refused at challenge and at commit, never stored; two order plans equal as domain values digest equal whatever the client's JSON field order or whitespace; a failed write leaves the state unchanged and answers `StoreFailed` (a stub `Persist` that fails on demand); an unreadable row loads as an `Unreadable` entry and a newer unreadable row stays the head; a sign while the head is unreadable is refused; after a simulated crash between the write and the reply, the next load has the row as the head, a retry from the same base is refused as stale, and `openVersion` shows it. Signing path, no dosing. Review slowly.
 5.2 `SessionRecord.Opened` session-state record on domain values; `Mappers.Session.toOpened`; `find/present/callback/supplyPin/openVersion` map in the command handlers; `PatientDataPort.read` on `Patient`; the stub patient adapter parses its own reading with `Patient.Dto.fromDto`. ~180. Test: open/openVersion/Head cases; `ConfigTests`.
 5.3 ADR-0007 §3 amendment to Accepted; plan 516 SQL schema lines, including `order_plan.json_version` and the upgrade-on-load rule (decisions table); changelog block in the commit body. ~40.
 
