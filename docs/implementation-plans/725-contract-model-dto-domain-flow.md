@@ -30,7 +30,7 @@ evidence at commit `026a0351`.
 
 The last one: the standard shape of ports and adapters, with the vocabulary, the five Dto
 invariants, the ten rules and the six round-trip laws written down once. The Context, Part 1 and
-Part 2 below are the analysis and the rules; the decisions table in the Context records every
+Part 2 below are the analysis and the rules; ADR-0008 §7 records every
 question settled while drafting; Part 3 is the migration.
 
 ## Confidence
@@ -142,31 +142,24 @@ domain may not reference Shared, and the two have different owners and change fo
 reasons. The server's mappers are the only production code where they meet.
 
 Decisions made while drafting. The decision record is
-[ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) §7, which holds the rows about the
-boundary; this table stays as the pointer and keeps the rows the ADR leaves to this plan (the
-domain fixes of the migration):
+[ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) §7: what the database holds,
+where the domain `OrderPlan` lives, the rules out of `Shared.Models`, Dto style, the digest
+serializer, what an order plan version stores, the upgrade policy, ports on domain values, the
+contract model unversioned, and the follow-ups. This table keeps only the three domain fixes of
+the migration, which the ADR leaves to this plan:
 
 | Question | Decision |
 |---|---|
-| What the database holds | Domain-derived Dtos, never the contract model. ADR-0007 §3 gets amended. Lands before plan 516 freezes a SQL schema. |
-| Where the domain OrderPlan lives | `Informedica.GenORDER.Lib`, next to OrderContext / OrderScenario / Totals, with a Dto like `Order`. |
-| Business logic now in `Shared.Models` and used by the server | Moves to the domain. The client keeps display projections only, with a test that the two agree. |
-| Dto style | Not uniform (mutable class vs record may differ). The **concept** is fixed: five invariants below. |
-| Dto-as-domain-constructor removal, cache Dtos for ZIndex/NKF | Follow-up issues, not phases of this plan. |
 | `EnteralTube` access dropped by the mapping | Added to the domain: GenFORM `AccessDevice` gains the case in step 3.0, so the mapping is total and `fromDto` accepts it instead of the mapper dropping it. |
 | `Department` defaulted to `"ICK"` by the mapper (`Mappers.fs:347`) | Removed: `ofModel` maps `Department` as sent and an empty one stays empty, so `Department` is not in the set `S` and L3 includes it. |
 | Measured vs estimated weight in the domain patient | GenFORM `Patient` gains `WeightMeasured` / `HeightMeasured: bool` in step 1.2a (an estimated weight is a domain fact, possibly a caution). Step 1.2b depends on it: without the flags `Patient.Dto` could not carry "measured" and `fromDto` could not do the minimum-data check. |
-| Digest serializer | Settled in step 1.3, where L2 first needs the canonical form; the serializer and its settings are part of the stored JSON structure (change table), so the one the digest uses is the one the database uses. |
-| What an order plan version stores | The whole order plan: `Filtered`, `Totals` and each context's `Intake`, what the signer saw, so L4 holds; `Intake` and `Totals` are copied fields, never recomputed on open. |
-| JSON structure upgrade policy for stored Dtos | Upgrade-on-load: the adapter upgrades an old record to the current structure when it loads it, before `fromDto` sees it, one pure function per structure-version step, each tested on a stored fixture (L5). The fixture rule, the raw-JSON upgrade steps, the shape snapshot of principle 5, the rollback policy of principle 6 and the unreadable-row rule of Storage are recorded in plan 516. |
-| Ports on Dtos or on domain values | Domain values, the standard shape of ports and adapters (Part 1). Dto-typed ports would have saved `fromDto` at load at the cost of Dtos in every service and port signature; ADR-0008 records them as the rejected alternative and the load cost measured after step 1.4. |
 
 ---
 
 ## Part 1. Is the pattern sound? What is missing?
 
 **Verdict: sound overall, with four gaps.** Hexagonal layering, with the ports typed on domain
-values (decisions table). Nothing departs from the pattern once `OrderPlan` has a domain type
+values (ADR-0008 §7). Nothing departs from the pattern once `OrderPlan` has a domain type
 (1.5), except the session exception of R6.
 
 What matches established practice: a contract model at the edge, a domain model in the middle, a
@@ -427,7 +420,7 @@ kinds of change:
 | New stored derived value (as `Intake` on a context is) | Yes | A new field: new structure version, and an upgrade that marks it absent for older records. |
 | New field | Yes | New structure version. The upgrade fills in an explicit "absent" value; the domain decides what "absent" means. |
 | Change in a nested Dto owned by another library (`Order.Dto`, `Variable.Dto`, `ValueUnit.Dto` inside an order plan version) | Yes | The same as a field change on the root, made under another implementation plan: the whole-graph snapshot (principle 5) catches it, and the root's version goes up. |
-| Serializer or its settings (how `BigRational`, options and field names are written) | Yes | The serializer is part of the JSON structure: new structure version and an upgrade, or the setting is never changed. The digest serializer is this same serializer (decisions table). |
+| Serializer or its settings (how `BigRational`, options and field names are written) | Yes | The serializer is part of the JSON structure: new structure version and an upgrade, or the setting is never changed. The digest serializer is this same serializer (ADR-0008 §7). |
 | Renamed or restructured field (split, merged, another unit format) | Yes | New structure version. The upgrade converts the old JSON structure to the new with a fixed transformation. |
 | Same field, new meaning | Yes | Never reuse the field. Treat it as a new field and drop the old one in the upgrade. |
 | Removed field | Yes | New structure version. The upgrade drops the field on load; the stored original keeps it. |
@@ -706,7 +699,7 @@ scenarios is part of the order plan the signer saw, so a re-ordering is a differ
 `BigRational` written as `numerator/denominator` in lowest terms, no whitespace. Two order plans equal
 as domain values must digest equal; the serializer plan 516 picks must produce that form or a
 canonicalizing step runs before it (`sprintf "%A"` is unusable: class fields print as type
-names). Settled in step 1.3 (decisions table); record it in 516.
+names). Settled in step 1.3 (ADR-0008 §7); record it in 516.
 
 ADR-0007 §3 second paragraph becomes, in substance: "The session service's clinical records
 (`Records`, the order plan versions) and its working state (`Challenges`, `Notices`, the patient
@@ -766,7 +759,7 @@ reviewer must not find it contradicted by the document next to it.
 1.1 Types block above in GenORDER `Types.fs`. ~70. Test: compiles, `TypeTests`.
 1.2a GenFORM `Patient` gains `WeightMeasured: bool` / `HeightMeasured: bool` (decisions table). ~40. Test: existing `PatientTests` unchanged with both flags set; the flags round-trip through `Patient.patient`. No dosing: no rule reads them yet.
 1.2b GenFORM `Patient.validate` (the minimum-data check of `mapFromSharedPatient` :345, reading the flags) and `Patient.Dto`, whose `fromDto` calls it; L1 is stated for patients that pass it. ~100. Test: round trip on `Patient.patient` and a premature; unknown gender string is `Error`; a draft with no age and no measured weight/height is `Error`. **dosing** (age/weight/height units), moved, adapted to read the new flags.
-1.3 `Filter.Dto`, `OrderScenario.Dto` in new `OrderPlan.fs`, and the canonical serializer (decisions table, first use here, for L2). ~180. Test: L1 `fromDto (toDto x) = Ok x` and L2 `fromDto d |> Result.map toDto = Ok d` in canonical form, over the orders `tests/Informedica.GenORDER.Tests/Scenarios.fs` builds; a scenario whose `Order.Dto` fails is `Error`, not dropped.
+1.3 `Filter.Dto`, `OrderScenario.Dto` in new `OrderPlan.fs`, and the canonical serializer (ADR-0008 §7, first use here, for L2). ~180. Test: L1 `fromDto (toDto x) = Ok x` and L2 `fromDto d |> Result.map toDto = Ok d` in canonical form, over the orders `tests/Informedica.GenORDER.Tests/Scenarios.fs` builds; a scenario whose `Order.Dto` fails is `Error`, not dropped.
 1.4 `OrderContext.Dto`, `PlanContext.Dto`, `OrderPlan.Dto`, `OrderPlanVersion.Dto`, `Totals.Dto`. ~150. Same L1 and L2 tests at order plan level.
 
 **Phase 2, domain OrderPlan rules (issue D), 3 PRs, depends on 1.**
@@ -792,7 +785,7 @@ reviewer must not find it contradicted by the document next to it.
 5.0 Test prep in `StubAdapterTests`: every `Challenge`/`Notice`/`Records` literal through builders. ~120, tests only. (4.0 and 5.0 both edit that file: land 4.0 first, or both preps in one PR.)
 5.1 `Records` on `StoredVersion` (readable or unreadable, Storage), `Challenges`/`Notices` on domain values; `Challenge.Digest` over the canonical form; `SigningCommand` parses the challenge and the submission with `ofModel >> OrderPlan.Dto.fromDto` and refuses on `Error`; `challenge` keeps the digest, `commit` validates against the state and returns `State * SigningResponse * Persist option`; the adapter's state-replacing helper `update` runs the `Persist` (the SQLite adapter inserts `toDto` of the version, the stub does nothing) under the lock and assigns the state only if the insert succeeded, else answers `SigningRefusal.StoreFailed` (R10, the write order of Storage); `digest : OrderPlan -> string` supplied by `makeSessionPort` as a parameter of `challenge`/`commit`; `SessionPort.challenge/submit` on `OrderPlan`, `openVersion` on `StoredVersion`; `StoredVersion` in `Session.fs`; the stub keeps no structure version (Storage). ~260, tight. Test: signing suites in `StubAdapterTests` (:2860-3160: "as challenged", "twice", changed context refused) pass with the digest; an order plan re-ordered by the client is a mismatch; an order plan whose order fails `fromDto` is refused at challenge and at commit, never stored; two order plans equal as domain values digest equal whatever the client's JSON field order or whitespace; a failed write leaves the state unchanged and answers `StoreFailed` (a stub `Persist` that fails on demand); a violated `(patient_id, no)` constraint is answered as a stale sign, not `StoreFailed`; an unreadable row loads as an `Unreadable` entry and a newer unreadable row stays the head; a sign while the head is unreadable is refused; after a simulated crash between the write and the reply, the next load has the row as the head, a retry from the same base is refused as stale, and `openVersion` shows it. Signing path, no dosing. Review slowly.
 5.2 `SessionRecord.Opened` session-state record on domain values; `Mappers.Session.toOpened`; `find/present/callback/supplyPin/openVersion` map in the command handlers; `PatientDataPort.read` on `Patient`; the stub patient adapter parses its own reading with `Patient.Dto.fromDto`.; `SessionEnding.Unreadable` added to `Shared.Types` and its gate message in the client, the ending the SQL adapter appends when a Session's opened-with or notice row cannot be read (Storage). ~200. Test: open/openVersion/Head cases; `ConfigTests`. The `Unreadable` ending is shown by the client suite.
-5.3 ADR-0007 §3 amendment to Accepted; plan 516 SQL schema lines, including `order_plan.json_version` and the upgrade-on-load rule (decisions table); changelog block in the commit body. ~40.
+5.3 ADR-0007 §3 amendment to Accepted; plan 516 SQL schema lines, including `order_plan.json_version` and the upgrade-on-load rule (ADR-0008 §7); changelog block in the commit body. ~40.
 
 **Phase 6, client (issue H), 3 PRs, depends on 2 and 4.**
 6.1 Move the four `sync*` helpers to the client (`App.fs` or new `Client/FilterSync.fs`). ~80. Fable compile.
@@ -816,7 +809,7 @@ O5 MCP host output records map from `OrderContext.Dto`. After 1.4.
 
 ### Open decisions
 
-None. Every question raised while drafting is settled in the decisions table in the Context.
+None. Every question raised while drafting is settled in ADR-0008 §7 or, for the three domain fixes, the decisions table in the Context.
 
 ### Verification, end to end
 
@@ -836,5 +829,5 @@ step is documentation only; each left the markdown linter green and no relative 
 | plan | #726 | this document; review: parsing at the boundary as `ofModel` then `fromDto`, commands in the flow, domain-typed ports, the four version terms, working state, unreadable rows keep identity, the write as a `Persist` value, the table append-only |
 | 0.1, ADR-0008 | #727 | `docs/adr/0008-contract-model-dto-mapping-boundary.md`, Proposed: vocabulary, five invariants, the port split, R1 to R10 with what checks each, what the database holds, the settled questions, alternatives; review: R2 named a review rule, the sequence diagram, `StoredVersion` and the signing sequence defined once |
 | 0.2, the documents | #728 | core-domain.md on the contract model; ADR-0001's Contract ring and inbound-parsing sentence; ADR-0007 §3 amended; plan 516's schema on `OrderPlanVersion.Dto` and `json_version`; notes in plans 622, 635, 667; GenORDER §4.1. Three decisions changed in review and carried into this plan: the working state is stored once the store exists and in memory on the stub only; a patient's order plan versions load per request, a unique-constraint clash answered as a stale sign; a structure change ships expand then contract with a downgrade step. `SessionEnding.Unreadable` is the one contract model change (step 5.2) |
-| 0.3, this table | this PR | the decisions table as a pointer to ADR-0008 §7; the header settled |
+| 0.3, this table | this PR | the decisions table cut to the three domain fixes, ADR-0008 §7 the record for the rest; the header settled |
 | 0.4, the check | this PR | run on the documents of 0.2: no "transport shape", "UI model" or "layout version" outside ADR-0008 and the lines of this plan that name them; "signed version" gone from this plan, kept as built in plans 622, 635 and 667 and left in the other older plans and the scenario documents as the integration design's term; every document of 0.2 links to ADR-0008 |
