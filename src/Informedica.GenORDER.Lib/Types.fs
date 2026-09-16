@@ -575,6 +575,121 @@ module Types =
         }
 
 
+    /// The kinds of nutrition order an order plan holds, one context per category
+    /// except supplements (any number, each under a feeding) and the electrolyte
+    /// and glucose lines (any number).
+    [<RequireQualifiedAccess>]
+    type NutritionCategory =
+        | EnteralFeeding
+        | EnteralSupplement
+        | TPN
+        | Lipid
+        | ElectrolyteGlucose
+
+
+    /// What kind of order an order context holds: a drug, or a nutrition order of
+    /// one category. Recorded on the context, never derived from the generic, since
+    /// electrolytes and glucose are prescribable as drugs too.
+    [<RequireQualifiedAccess>]
+    type OrderCategory =
+        | Drug
+        | Nutrition of NutritionCategory
+
+
+    /// <summary>
+    /// An order context as held in an order plan: its id in the plan, its category,
+    /// the context itself, and its intake. The context is wrapped, not extended, so
+    /// evaluation and the equation system never see the plan's bookkeeping.
+    /// </summary>
+    /// <remarks>
+    /// The intake is computed when the context is evaluated and copied unchanged
+    /// everywhere else, so a signed version stores the intake the signer saw.
+    /// </remarks>
+    type PlanContext =
+        {
+            // The context's id in the order plan
+            Id: string
+            // A drug, or the nutrition category the context holds
+            Category: OrderCategory
+            // The order context, evaluated within its own patient
+            Context: OrderContext
+            // The totals over the one scenario the context is narrowed to
+            Intake: Totals
+        }
+
+
+    /// <summary>
+    /// The one order plan for a patient: the patient data as shown, the plan's
+    /// contexts, the ids the row filter keeps, and the totals over the orders of the
+    /// filtered contexts. Its orders are derived, the scenario of every narrowed
+    /// context; nothing beside the contexts is stored.
+    /// </summary>
+    type OrderPlan =
+        {
+            // The patient data as shown, the data a version is signed on
+            Patient: Patient
+            // The ids of the contexts the row filter keeps; empty for all of them
+            Filtered: string[]
+            // Every order context of the plan, drug and nutrition alike
+            Contexts: PlanContext[]
+            // The totals over the orders of the filtered contexts
+            Totals: Totals
+        }
+
+
+    /// What a nutrition category draws from: data passed in by the composition
+    /// root, never a constant in this library.
+    type NutritionRuleSet =
+        {
+            // The category the set serves
+            Category: NutritionCategory
+            // The label shown for the category
+            Label: string
+            // The indications the category's dose rules are filtered on
+            Indications: string[]
+            // The generics the category's dose rules are filtered on
+            Generics: string[]
+        }
+
+
+    /// Who signed an order plan version
+    type Signer =
+        {
+            // The user id at the identity provider
+            UserId: string
+            // The name shown for the signer
+            DisplayName: string
+        }
+
+
+    /// <summary>
+    /// An order plan version: the order plan as the prescriber signed it, as the
+    /// record holds it. A prescriber creates one by signing; it stores the whole
+    /// plan, filter, totals and each context's intake included, so a reopen restores
+    /// what the signer saw, nothing recomputed.
+    /// </summary>
+    type OrderPlanVersion =
+        {
+            // The version's own id
+            Id: string
+            // The version number, one above the patient's previous version
+            No: int
+            // The patient the plan belongs to
+            PatientId: string
+            // The id of the version this one was built on; None for the first
+            Base: string option
+            // Who signed
+            SignedBy: Signer
+            // When
+            SignedAt: DateTime
+            // The order plan as signed
+            Plan: OrderPlan
+            // Whether the patient data was verified against the platform's reading
+            // at the challenge
+            Verified: bool
+        }
+
+
     module Exceptions =
 
         /// Messages for order-related exceptions
