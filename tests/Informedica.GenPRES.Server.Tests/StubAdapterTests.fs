@@ -31,8 +31,20 @@ module StubAdapters =
         }
 
 
+    /// The context a stub port answers, from the contract model the test states it in. The
+    /// identity while the port is typed on the contract model; the domain value the mapper
+    /// makes of it once the port is on the plan context, so that the switch touches this
+    /// builder and nothing a test states.
+    let portContext (ctx: OrderContext) = ctx
+
+
+    /// The plan a stub port answers, from the contract model the test states it in; the
+    /// counterpart of `portContext` for the order plan port.
+    let portPlan (plan: OrderPlan) = plan
+
+
     let orderContextAlwaysOk (returnCtx: OrderContext) : OrderContextPort =
-        { evaluate = fun _ _ -> async { return Ok returnCtx } }
+        { evaluate = fun _ _ -> async { return Ok(portContext returnCtx) } }
 
 
     let orderContextAlwaysFails (msgs: string[]) : OrderContextPort =
@@ -40,13 +52,15 @@ module StubAdapters =
 
 
     let planAlwaysOk (returnPlan: OrderPlan) : OrderPlanPort =
+        let answer = portPlan returnPlan
+
         {
-            recalculate = fun _ -> async { return Ok returnPlan }
-            navigate = fun _ _ _ _ -> async { return Ok returnPlan }
-            addOrderContext = fun _ _ -> async { return Ok returnPlan }
-            newOrderContext = fun _ _ -> async { return Ok returnPlan }
-            removeOrderContexts = fun _ _ -> async { return Ok returnPlan }
-            openWith = fun _ _ -> async { return Ok returnPlan }
+            recalculate = fun _ -> async { return Ok answer }
+            navigate = fun _ _ _ _ -> async { return Ok answer }
+            addOrderContext = fun _ _ -> async { return Ok answer }
+            newOrderContext = fun _ _ -> async { return Ok answer }
+            removeOrderContexts = fun _ _ -> async { return Ok answer }
+            openWith = fun _ _ -> async { return Ok answer }
         }
 
 
@@ -5226,7 +5240,8 @@ module PlanTests =
                     let evaluated =
                         { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn" |] }
 
-                    let port: OrderContextPort = { evaluate = fun _ _ -> async { return Ok evaluated } }
+                    let port: OrderContextPort =
+                        { evaluate = fun _ _ -> async { return Ok(portContext evaluated) } }
 
                     let p =
                         plan
@@ -5421,7 +5436,7 @@ module PlanTests =
                             addOrderContext = fun p _ -> answering "addOrderContext" p
                             newOrderContext = fun p _ -> answering "newOrderContext" p
                             removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
-                            openWith = fun _ _ -> answering "openWith" OrderPlan.empty
+                            openWith = fun _ _ -> answering "openWith" (portPlan OrderPlan.empty)
                         }
 
                     let env =
