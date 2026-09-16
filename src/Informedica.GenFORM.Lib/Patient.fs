@@ -641,6 +641,13 @@ module Patient =
             | None -> Error err
 
 
+        /// A reference field a serializer left null is read as absent, never dereferenced.
+        let private orEmpty (xs: 'a[]) = if isNull xs then [||] else xs
+
+
+        let private orBlank (s: string) = if isNull s then "" else s
+
+
         /// Total: every patient has a Dto.
         let toDto (pat: Patient) : Dto =
             {
@@ -665,13 +672,20 @@ module Patient =
         let fromDto (dto: Dto) : Result<Patient, PatientError list> =
             let gender =
                 dto.Gender
-                |> Gender.tryFromString
-                |> toResult (PatientError.UnknownGender dto.Gender)
+                |> Option.ofObj
+                |> Option.bind Gender.tryFromString
+                |> toResult (PatientError.UnknownGender(orBlank dto.Gender))
 
             let access =
                 dto.Access
+                |> orEmpty
                 |> Array.toList
-                |> List.map (fun s -> s |> AccessDevice.tryFromString |> toResult (PatientError.UnknownAccess s))
+                |> List.map (fun s ->
+                    s
+                    |> Option.ofObj
+                    |> Option.bind AccessDevice.tryFromString
+                    |> toResult (PatientError.UnknownAccess(orBlank s))
+                )
 
             let renal =
                 match dto.RenalFunction with
@@ -701,7 +715,7 @@ module Patient =
                 {
                     Location = dto.Location
                     Department = dto.Department
-                    Diagnoses = dto.Diagnoses
+                    Diagnoses = dto.Diagnoses |> orEmpty
                     Gender = gender
                     Age = dto.AgeDays |> Option.map (withUnit Units.Time.day)
                     Weight = dto.WeightKg |> Option.map (withUnit Units.Weight.kiloGram)
