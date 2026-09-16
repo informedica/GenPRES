@@ -19,7 +19,7 @@ module Api =
 
 
     let getCachedProviderWithDataUrlId (logger: Logger) dataUrlId : IResourceProvider =
-        let provider = CachedResourceProvider((fun () -> loadAllResources dataUrlId), None)
+        let provider = CachedResourceProvider(logger, (fun () -> loadAllResources logger dataUrlId), None)
 
         (provider :> IResourceProvider) |> logGenFormMessages logger
         provider

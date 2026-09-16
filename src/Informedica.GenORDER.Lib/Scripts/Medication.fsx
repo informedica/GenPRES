@@ -83,7 +83,7 @@ module HelperFunctions =
 
         med
         |> Medication.toOrderDto System.DateTime.UtcNow
-        |> Order.Dto.fromDto
+        |> Order.Dto.fromDto OrderLogging.noOp
         |> function
             | Error msg -> failwith $"{msg}"
             | Ok ord ->
@@ -1157,7 +1157,7 @@ Components:
     | Ok med ->
         med
         |> Medication.toOrderDto System.DateTime.UtcNow
-        |> Order.Dto.fromDto
+        |> Order.Dto.fromDto OrderLogging.noOp
         |> Result.map Order.toConsoleTableString
 
 

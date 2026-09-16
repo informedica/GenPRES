@@ -71,7 +71,7 @@ module Harness =
 
     /// The old path, the one plan 831 replaces: a Medication out to an Order Dto and back.
     let viaDto (med: Medication) =
-        med |> Medication.toOrderDto System.DateTime.UtcNow |> Order.Dto.fromDto
+        med |> Medication.toOrderDto System.DateTime.UtcNow |> Order.Dto.fromDto Logging.noOp
 
 
     /// Both paths read the clock, so an order's start and stop say nothing about the build

@@ -1520,9 +1520,6 @@ module ValueUnit =
                 let gs = dto.Group |> String.split "/"
 
                 if us |> List.length <> (gs |> List.length) then
-                    printfn $"warning: {us} not the same length as {gs}!"
-                    printfn $"unit: {dto.Unit} group {dto.Group}!"
-
                     $"{dto.Unit}[{dto.Group}]" |> UnitsParse.fromString
                 else
                     List.zip us gs

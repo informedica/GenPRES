@@ -286,7 +286,7 @@ module OrderScenario =
                     let order =
                         try
                             dto.Order
-                            |> Order.Dto.fromDto
+                            |> Order.Dto.fromDto Informedica.Logging.Lib.Logging.noOp
                             |> Result.mapError (fun m -> [ DtoError.OrderNotCreated $"{m}" ])
                         with exn ->
                             Error [ DtoError.OrderNotCreated exn.Message ]
@@ -337,7 +337,6 @@ module OrderContext =
     open ConsoleTables
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open Informedica.GenForm.Lib
     open Informedica.GenOrder.Lib
 
@@ -556,7 +555,11 @@ module OrderContext =
                         // a medication that cannot become an order is left out of the
                         // scenarios, so say which one and why, or it goes missing in silence
                         | Error msg ->
-                            $"no order for %s{med.Name}: %A{msg}" |> writeErrorMessage
+                            $"no order for %s{med.Name}: %A{msg}"
+                            |> Events.OrderScenario
+                            |> Logging.OrderMessage.OrderEventMessage
+                            |> Logging.logError logger
+
                             None
                     )
                     |> Array.map (fun ord -> ord, pr)
@@ -578,12 +581,9 @@ module OrderContext =
                 function
                 | i, Ok(ord, pr) -> OrderScenario.fromRule i pr ord |> Some
                 | _, Error(ord, ctx, errs) ->
-                    // TODO: this never gets written!!
-                    errs |> List.map string |> String.concat "\n" |> writeErrorMessage
-
-                    ord |> Order.toString |> String.concat "\n" |> writeWarningMessage
-
-                    ctx |> sprintf "%A" |> writeWarningMessage
+                    // TODO: this never gets written!! (evaluateRules already filters to Ok
+                    // results before this function ever sees them)
+                    ignore (ord, ctx, errs)
 
                     None
             )
@@ -955,7 +955,11 @@ Scenarios: {scenarios}
     let processScenarioOrder (logger: Logger) cmd (ctx: OrderContext) =
         match ctx.Scenarios |> Array.tryExactlyOne with
         | None ->
-            writeErrorMessage "No orders to proces in order context"
+            "No orders to proces in order context"
+            |> Events.OrderScenario
+            |> Logging.OrderMessage.OrderEventMessage
+            |> Logging.logError logger
+
             ctx
         | Some sc ->
             { ctx with

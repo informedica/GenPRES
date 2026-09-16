@@ -319,7 +319,7 @@ module Order =
     module Dto =
 
         let fromDto: Order.Dto.Dto -> Order =
-            Order.Dto.fromDto
+            Order.Dto.fromDto OrderLogging.noOp
             >> (function
             | Ok ord -> ord
             | Error _ -> failwith "couldn not get result")
@@ -347,7 +347,7 @@ let ord =
     |> Medication.fromRule Logging.noOp
     |> Array.head
     |> Medication.toOrderDto System.DateTime.UtcNow
-    |> Order.Dto.fromDto
+    |> Order.Dto.fromDto OrderLogging.noOp
 
 
 ord |> Order.printTable ConsoleTables.Format.Minimal
@@ -362,8 +362,8 @@ Patient.teenager
 |> Medication.fromRule Logging.noOp
 |> Array.head
 |> Medication.toOrderDto System.DateTime.UtcNow
-|> Order.Dto.fromDto
-|> Order.print
+|> Order.Dto.fromDto OrderLogging.noOp
+|> Order.print OrderLogging.noOp
 |> ignore
 
 
@@ -376,8 +376,8 @@ Patient.teenager
 |> Medication.fromRule Logging.noOp
 |> Array.head
 |> Medication.toOrderDto System.DateTime.UtcNow
-|> Order.Dto.fromDto
-|> Order.print
+|> Order.Dto.fromDto OrderLogging.noOp
+|> Order.print OrderLogging.noOp
 |> ignore
 
 
@@ -390,4 +390,4 @@ Patient.infant
 |> fun res ->
     let ctx = res |> Result.get |> OrderContext.Command.get
 
-    ctx.Scenarios |> Array.item 0 |> _.Order |> Order.print |> ignore
+    ctx.Scenarios |> Array.item 0 |> _.Order |> Order.print OrderLogging.noOp |> ignore

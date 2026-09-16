@@ -4,7 +4,6 @@ module EquationMapping =
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
-    open ConsoleWriter.NewLineNoTime
     open WrappedString
 
     module Literals =
@@ -252,9 +251,7 @@ module EquationMapping =
                         )
                         |> String.concat " + "
                         |> fun s -> $"{lv} = {s}"
-                    | _ ->
-                        writeErrorMessage $"could not match {e}"
-                        ""
+                    | _ -> ""
                 )
                 |> List.filter String.notEmpty
                 |> List.map (String.replace "[orb]" $"{orbN |> Name.toString}")

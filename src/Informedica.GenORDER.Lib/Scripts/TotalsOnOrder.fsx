@@ -131,7 +131,7 @@ module RoundTrip =
     let check () =
         Orders.all
         |> List.map (fun (name, ord) ->
-            let back = ord |> Order.Dto.toDto |> Order.Dto.fromDto
+            let back = ord |> Order.Dto.toDto |> Order.Dto.fromDto Logging.noOp
 
             match back with
             | Ok o -> name, true, (if o = ord then "parses, and equals the order it came from"
@@ -170,7 +170,7 @@ module Identity =
     let holds (ords: Order[]) =
         ords
         |> Array.map Order.Dto.toDto
-        |> Array.choose (Order.Dto.fromDto >> Result.toOption)
+        |> Array.choose (Order.Dto.fromDto Logging.noOp >> Result.toOption)
         |> fun back -> back = ords
 
 

@@ -6,7 +6,6 @@ module Variable =
     open System
     open Informedica.Utils.Lib.BCL
 
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open Informedica.GenUnits.Lib
 
     let raiseExc errs m = m |> Exceptions.raiseExc None errs
@@ -2671,8 +2670,6 @@ module Variable =
                     |> Exceptions.raiseExc None []
 
                 | _ ->
-                    printfn "could not handel failing case"
-
                     $"could not handle {min} {max}"
                     |> Exceptions.ValueRangeMinMaxException
                     |> Exceptions.raiseExc None []
@@ -3220,13 +3217,8 @@ module Variable =
             { var with Values = (var |> get).Values @<- vr }
 
         with
-        | Exceptions.SolverException errs ->
-            writeDebugMessage $"{var.Name |> Name.toString}: SolverException:{errs}"
-
-            (var, vr) |> Exceptions.VariableCannotSetValueRange |> raiseExc errs
-        | e ->
-            writeErrorMessage $"{var.Name |> Name.toString}: couldn't catch exception:{e}"
-            raise e
+        | Exceptions.SolverException errs -> (var, vr) |> Exceptions.VariableCannotSetValueRange |> raiseExc errs
+        | e -> raise e
 
 
     /// Set the values to a ValueRange
@@ -3322,10 +3314,7 @@ module Variable =
             (v1 |> getValueRange) |> op <| (v2 |> getValueRange) |> createRes
         with
         | Exceptions.SolverException errs -> (v1, op, v2) |> Exceptions.VariableCannotCalcVariables |> raiseExc errs
-        | e ->
-            printfn "unrecognized error with calc operation"
-            printfn $"{v1} {v2}"
-            raise e
+        | e -> raise e
 
 
     /// <summary>
@@ -3378,7 +3367,6 @@ module Variable =
                                 vr |> ValueRange.prune incr n.Value
                 }
             with e ->
-                printfn $"cannot create values from min incr max: {var.Name}"
                 raise e
 
 

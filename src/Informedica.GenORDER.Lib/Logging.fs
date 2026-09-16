@@ -19,6 +19,10 @@ module Logging =
     let logWarning logger evt = logMessage Level.Warning logger evt
 
 
+    /// Log a debug solver event
+    let logDebug logger evt = logMessage Level.Debug logger evt
+
+
     /// Log a solver exception as an error
     let logError (logger: Logger) (msg: Exceptions.Message) = msg |> OrderException |> Logging.logError logger
 

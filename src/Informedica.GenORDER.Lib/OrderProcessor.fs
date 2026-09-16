@@ -4,7 +4,6 @@ namespace Informedica.GenOrder.Lib
 module OrderProcessor =
 
     open Informedica.Utils.Lib
-    open ConsoleWriter.NewLineNoTime
     open Order
 
     module Quantity = OrderVariable.Quantity
@@ -44,9 +43,7 @@ module OrderProcessor =
         | false, false, false, true, false, false -> ConcentrationCleared
         | false, false, false, false, true, false -> DoseQuantityCleared
         | false, false, false, false, false, true -> DosePerTimeCleared
-        | res ->
-            $"{res} was not matched!" |> writeWarningMessage
-            NotCleared
+        | _ -> NotCleared
 
     // == Property Change Frequency
 
@@ -174,7 +171,7 @@ module OrderProcessor =
         |> OrderPropertyChange.proc [ ComponentOrderableQuantity(cmp, step) ]
 
 
-    let processChangeProperty cmd ord =
+    let processChangeProperty logger cmd ord =
         let setFreq step = OrderPropertyChange.proc [ ScheduleFrequency step ]
 
         let setDose step = OrderPropertyChange.proc [ OrderableDose step ]
@@ -219,7 +216,7 @@ module OrderProcessor =
         | SetMaxComponentOrderableQuantity cmp -> ord |> setCmpOrbQty cmp Quantity.setMaxValue
         | SetMedianComponentOrderableQuantity cmp -> ord |> setCmpOrbQty cmp Quantity.setMedianValue
         | ComponentInStock _ ->
-            ConsoleWriter.writeWarningMessage $"{cmd} not implemented" true false
+            $"{cmd} not implemented" |> Events.OrderScenario |> Logging.logWarning logger
             ord
 
 
@@ -327,11 +324,14 @@ module OrderProcessor =
             ord.Schedule |> Schedule.hasTime && ord.Schedule |> Schedule.isContinuous |> not
 
         let logUnmatched (kind: string) =
-            $"===> no match for {kind} cleared " |> writeWarningMessage
-
             // FLAG: expensive message build (toConsoleTableString renders a full
             // console table) — kept lazy so it is skipped when logging is off.
-            Logging.logWarningLazy logger (fun () -> ord |> toConsoleTableString |> Events.OrderScenario)
+            Logging.logWarningLazy
+                logger
+                (fun () ->
+                    $"===> no match for {kind} cleared \n{ord |> toConsoleTableString}"
+                    |> Events.OrderScenario
+                )
 
         match (ord |> inf).Schedule with
         | Continuous _ ->
@@ -691,7 +691,7 @@ module OrderProcessor =
                 {
                     Name = $"change-property: {cmd}"
                     Guard = (fun _ -> true)
-                    Run = processChangeProperty cmd >> Ok
+                    Run = processChangeProperty logger cmd >> Ok
                 }
                 {
                     Name = "change-property: solve-minmax"

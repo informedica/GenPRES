@@ -52,11 +52,8 @@ module UnitsParse =
                         if us |> List.forall Option.isSome then
                             us |> List.map Option.get |> List.reduce (fun u1 u2 -> u1 |> per u2) |> Some
                         else
-                            printfn $"cannot parse {s}"
                             None
-                | _ ->
-                    printfn $"cannot parse {s}"
-                    None
+                | _ -> None
 
 
     /// Append a group to a string that represents a unit

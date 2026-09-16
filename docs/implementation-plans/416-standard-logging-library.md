@@ -253,6 +253,140 @@ land in the same commit see step 1's note on why); step 2 is new content this pl
    it then, in that step, not pulled forward into this one.
 
    The 9 adapter-ring sites (`ZIndex.Lib`, `ZForm.Lib`, `NKF.Lib`) are not part of this step; see Phase 2.
+
+   **GenSOLVER tier: landed** (`d50d3de5`). **GenORDER tier: landed** (`888a549e`), verified by
+   `dotnet build GenPRES.sln` (0 errors), `dotnet test` on
+   `Informedica.GenORDER.Tests` (57/57) and `Informedica.GenPRES.Server.Tests` (292/292, since
+   `ServerApi.Mappers.fs`'s one call site to `Order.Dto.fromDto` also needed the new `logger`
+   argument), `dotnet fsi scripts/CheckDependencyRule.fsx` (9/9), and `dotnet fantomas --check`
+   on every touched file. Same triage as GenSOLVER — redundant prints deleted, genuine gaps
+   threaded with a `logger` parameter — with three judgment calls worth flagging to the reviewer:
+   - `OrderVariable.fs`'s `setOpt` (private, swallows its exception and returns the input
+     unchanged, marked `// TODO: ugly fix need to refactor`) and `Utils.fs`'s `Name.create`/
+     `Name.add` (reraise, no Logger reachable) had their prints deleted with no Logger threaded
+     in: both sit under 13+ call sites deep in the pure order-construction pipeline, so adding a
+     `logger` parameter would ripple through `OrderVariable`'s and `Utils`'s public API for a
+     diagnostic nobody in production ever read from stdout. Matches the precedent set in
+     `Variable.fs` during the GenSOLVER tier.
+   - `EquationMapping.fs`'s `getEqsMapping` fallback (`| _ -> writeErrorMessage ...; ""`) and
+     `OrderProcessor.fs`'s `NotCleared` active-pattern arm were both deleted outright: the former
+     already degrades to an empty string that gets filtered out downstream, the latter is a
+     defensive catch-all whose own doc comment calls it "not an expected scenario," and F#
+     complete (non-`_`) active patterns cannot take an extra `logger` parameter at all.
+   - `Api.fs`'s `processEvaluationResults` `Error` branch carried its own `// TODO: this never
+     gets written!!` comment — confirmed true (`evaluateRules` already filters to `Ok` results
+     before this function ever sees them) — so the three console writes there were deleted with
+     no replacement, not routed through the Logger.
+
+   10 `allowToken "src/Informedica.GenORDER.Lib/..." ... viaLogger` lines are removed from
+   `scripts/CheckDependencyRule.fsx` in the same patch (the four unrelated GenORDER allowances —
+   `Utils.fs`'s dead `Env.` read, `EquationMapping.fs`'s `Memoization.memoize`, `Order.fs`'s
+   `DateTime.Now`, `Medication.fs`'s `Guid.NewGuid` — stay; they are Phase 0/4 concerns, not
+   Phase 1 step 3's).
+
+   **GenFORM tier (2026-09-16): prepared as `step4-genform.patch`** (script-only policy — edited
+   in a disposable `git worktree`, never the working tree's `.fs` files, per AGENTS.md), verified
+   by `dotnet build GenPRES.sln` (0 errors), `dotnet test` on `Informedica.GenFORM.Tests`
+   (415/415) and `Informedica.GenPRES.Server.Tests` (293/293, one new test added — see below),
+   `dotnet fsi scripts/CheckDependencyRule.fsx` (9/9), and `dotnet fantomas --check` on every
+   touched file. Same triage as GenSOLVER/GenORDER, but every one of the 3 sites here was a
+   genuine gap, not a redundant print — none had an existing catch-and-log point to fall back on:
+   - `Product.fs`'s `createSubstance` (`writeErrorMessage "cannot map unit: ..."`, hit when a
+     GStandaard/formulary unit has no entry in `unitMapping`) is a real data-quality signal, so
+     it's threaded through rather than deleted: `logger` added as the first parameter of
+     `createSubstance`, `Enteral`/`Parenteral`'s `createProduct`/`get`, `map` and
+     `fromGenPresProducts`, ending at the three call sites in `Resources.defaultRegistry`
+     (`parenteralMeds`, `enteralFeeding`, `products`) plus the otherwise-uncalled `Product.get`
+     adapter. The ripple stayed inside `Product.fs`/`Resources.fs`; no test exercised any of these
+     functions before, so nothing broke, and `Scripts/SolutionRule.fsx`'s direct
+     `Product.Parenteral.get` call got a `FormLogging.noOp` argument to keep loading.
+   - `RenalRule.fs`'s `DoseReduction.fromString` (`writeWarningMessage "... is not a valid
+     dosereduction"`) has exactly one call site (`RenalRule.map`, itself a direct
+     `defaultRegistry` entry), so the thread was one hop: `logger` added to `fromString`, `map`
+     and `get`.
+   - `Resources.fs`'s `CachedResourceProvider.loadFresh` (`writeErrorMessage "Failed to load
+     resources: ..."`) is the direct fix for the MCP-host stdout-pollution finding recorded above
+     under "Run 2026-09-16": that write ran synchronously, before `McpServer.run` opens the stdio
+     transport, whenever the initial resource load failed. `CachedResourceProvider` gained a
+     `logger: Logger` constructor parameter (each failed message now logged individually via
+     `Logging.logError`, prefixed the same way `ofResultOrDefault` already prefixes its warnings);
+     `Api.getCachedProviderWithDataUrlId` already accepted a `logger` argument (unused for this
+     purpose) and now forwards it into both the provider and `loadAllResources`, so every existing
+     caller (`Server.fs`, the MCP host, every `Scripts/*.fsx`) needed no signature change at all.
+     `defaultRegistry` and `loadAllResources` both gained a `logger` parameter to carry it down to
+     the `Product`/`RenalRule` sites above. The 9 direct `CachedResourceProvider(...)` constructor
+     calls in `tests/Informedica.GenPRES.Server.Tests/ResourceErrorTests.fs` were updated to pass
+     `Logging.noOp`, and one new test (`ResourceErrorTests.fs`, `cachedProviderErrorStateTests`)
+     asserts a load failure reaches an injected `Logger` as an `Error` event — locking in the fix
+     rather than just relying on the dependency-rule check to catch a regression.
+     `ZIndex.Lib`'s own `ConsoleWriter` calls are adapter-ring and still fire on the same code
+     path (`GenPresProduct.get`), so MCP-host stdout is not fully clean yet; that remains a Phase
+     2 item, as flagged when the finding was first recorded.
+
+   6 `allowToken "src/Informedica.GenFORM.Lib/..." ... viaLogger` lines (`Product.fs` x2,
+   `RenalRule.fs` x2, `Resources.fs` x2) are removed from `scripts/CheckDependencyRule.fsx` in the
+   same patch; the `evict`/`DateTime.UtcNow`-tagged GenFORM allowances stay (Phase 2/4 concerns).
+
+   **Utils tier (2026-09-16): prepared as `step4-utils.patch`** (script-only policy — edited in a
+   disposable `git worktree`, never the working tree's `.fs` files, per AGENTS.md), verified by
+   `dotnet build GenPRES.sln` (0 errors), `dotnet test` on `Informedica.Utils.Tests` (189/189)
+   plus the full `dotnet run ServerTests` suite (1955/1955, since `Json.deSerialize` and
+   `Int32.parse` sit at the bottom of the dependency graph and are exercised transitively by
+   GenUNITS/ZIndex/GenFORM), `dotnet fsi scripts/CheckDependencyRule.fsx` (9/9), and `dotnet
+   fantomas --check` on every touched file. Unlike GenFORM, all 3 sites were redundant prints, not
+   genuine gaps — the same pattern as GenSOLVER/GenORDER:
+   - `Json.fs`'s `deSerialize` and `Int32.fs`'s `parse` both caught, printed, and used `raise e`
+     (not `reraise ()`) to rethrow — the printed text was always a strict subset of what the
+     rethrown exception already carries to whatever catches it above (`e.ToString()` verbatim, in
+     `Json.fs`'s case), and no caller anywhere in `src/` or `tests/` wraps either function in its
+     own catch-and-log. Deleted the `try`/`with` entirely rather than just the `printfn`: keeping
+     a bare `raise e` around only to drop the print would have kept the pre-existing stack-trace
+     reset (`raise e` clobbers it; `reraise ()` wouldn't) for no remaining benefit — deleting the
+     wrapper fixes that as a side effect and callers see the same `Result`-free, exception-raising
+     signature as before.
+   - `BigInteger.fs`'s `printfn` calls lived in `Tests.testFareySequence`, a demo function (not an
+     Expecto test) with zero callers anywhere in the repo — confirmed by grep before deleting.
+     `farey` itself, which it wrapped, has a real caller (`BigRational.fs:228`) and was untouched.
+
+   Note: this does **not** close the `viaLogger` allow-list entirely — 2 entries remain
+   (`GenUNITS.Lib/UnitsParse.fs`, `GenUNITS.Lib/ValueUnit.fs`), tracked as their own tier below.
+
+   **GenUNITS tier (2026-09-16): prepared as `step4-genunits.patch`**, same worktree-first
+   discipline, verified by `dotnet build GenPRES.sln` (0 errors), `dotnet test` on
+   `Informedica.GenUNITS.Tests` (81/81) plus the full `dotnet run ServerTests` suite (1955/1955,
+   since `ValueUnit.Dto.fromDto` and `UnitsParse.fromString` are exercised transitively by
+   GenCORE/GenSOLVER/GenORDER/GenFORM/NKF/ZForm), `dotnet fsi scripts/CheckDependencyRule.fsx`
+   (9/9, `viaLogger` allow-list now empty — its `let viaLogger = ...` binding was removed along
+   with the last two entries), and `dotnet fantomas --check` on every touched file. Both sites
+   were genuine gaps (a real parse/shape failure was going undiagnosed on the `None`/fallback
+   path) but, unlike the GenFORM tier's Product.fs/RenalRule.fs/Resources.fs sites, neither had a
+   short call chain to a reachable `Logger` — both are core-ring leaf functions called from deep
+   inside pure DTO/string-parsing pipelines with no logger threaded at any intervening layer:
+   - `UnitsParse.fromString`'s two `cannot parse {s}` sites are hit from ~20 call sites across
+     five separate projects (`GenFORM.Lib`'s `DoseRule.fs`/`Mapping.fs`/`SolutionRule.fs`/`Utils.fs`,
+     `GenORDER.Lib`'s `Medication.fs`, `GenSOLVER.Lib`'s `Utils.fs`, and the `NKF.Lib`/`ZForm.Lib`
+     adapters), none of which thread a logger through the enclosing function today. At least one
+     caller (`GenORDER.Lib/Medication.fs`'s dose-unit field parser) already builds its own
+     `"Unknown dose unit: {valueStr}"` error on `None`, confirming the print duplicated
+     information the caller already surfaces properly in at least that case.
+   - `ValueUnit.fromDto`'s two `warning: ... not the same length as ...` sites sit inside the
+     `Dto` round-trip used by `OrderVariable.Dto.fromDto` (itself already established as
+     unreachable-without-rippling-the-public-API in the GenORDER tier above), plus GenSOLVER's
+     `Variable.fs`/`Equation.fs`, GenCORE's `MinMax.fs`, ZForm's `DoseRule.fs`, and the server's
+     `ServerApi.Mappers.fs` — an even deeper and wider fan-out than `UnitsParse.fromString`.
+     Threading a logger here would mean adding a `logger` parameter to every DTO-reconstruction
+     function between the four call sites and their respective composition roots, across four
+     Core-ring libraries plus the server.
+
+   Same judgment as `OrderVariable.fs`'s `setOpt` and `Utils.fs`'s `Name.create`/`add` in the
+   GenORDER tier: genuine gap, but no `Logger` reachable without rippling public signatures far
+   beyond this issue's scope — deleted rather than routed to a no-op logger. Functional behavior
+   is unchanged: `UnitsParse.fromString` still returns `None` on the same inputs, and
+   `ValueUnit.fromDto`'s length-mismatch branch still falls back to
+   `$"{dto.Unit}[{dto.Group}]" |> UnitsParse.fromString` exactly as before, just without the two
+   diagnostic prints on the way there. **This closes the `viaLogger` allow-list**: `git grep
+   viaLogger scripts/CheckDependencyRule.fsx` finds nothing after this tier, and #378 Phase 1
+   step 3's Core-ring `printfn` migration is complete.
 5. Before building it: ask `halcwb` whether a Serilog JSON-Lines file sink for the GenSOLVER
    research trace (Debug level, one file per `OrderContext` solve as today) is workable for the
    math-department analysis tooling, or whether the existing flat-text `SolverLogging` formatter
@@ -833,6 +967,29 @@ MCP host code with no unit test today exercising the Serilog wiring itself: star
 `GENPRES_LOG=d dotnet run` and confirm `data/logs/genpres_request_*.log` is created and grows on
 a request; start the MCP host manually and confirm no bytes reach stdout before the first
 JSON-RPC response (FINDING 1's correctness requirement, not just a nice-to-have).
+
+**Run 2026-09-16, both checks executed manually against the committed Step 2 code (`e260222d`):**
+
+- Request-log growth: pass. `GENPRES_LOG=d`, direct `dotnet run` of
+  `Informedica.GenPRES.Server` (not the full `Run` target — client not needed for this check).
+  `genpres_request_*.log` created empty at sink construction, grew one structured line per HTTP
+  request. Also exercised `pruneLogDirectory` against a missing `data/logs` (moved the directory
+  aside, restarted): no crash, directory recreated, sink built, request logged — closes the gap
+  flagged after part B above.
+- MCP host stdout purity: **fail**. Piped a real `initialize` JSON-RPC request into the built
+  `Informedica.MCP.Server` binary and captured stdout/stderr separately. Stdout carried
+  `ConsoleWriter` output (info lines plus a full stack trace from a `GenPresProduct` load
+  failure — `data/zindex/BST001T` isn't shipped, since `GENPRES_PROD` is forced to `1` in
+  `Program.fs` and this checkout has no proprietary Z-Index data) emitted during
+  `Api.getCachedProviderWithDataUrlId`, which runs before `McpServer.run` opens the stdio
+  transport. Root cause: `Informedica.Utils.Lib/Console.fs:76-95` writes unconditionally to
+  `Console.Out`; `GenFORM.Lib/Resources.fs` and `ZIndex.Lib` call it directly, bypassing the
+  injected `Logger`. `Resources.fs` is already scoped for Step 3 below (GenFORM tier of the 21
+  `viaLogger` files), so that migration will help, but `ZIndex.Lib`'s calls are adapter-ring and
+  deferred to Phase 2 (see "Adapter-ring console usage" below) — stdout will **not** be fully
+  clean even after Step 3 lands. Flag this for whoever next tests the MCP host against a real
+  client; not a blocker for Step 3, but Phase 2 can no longer be treated as pure cleanup for the
+  MCP host specifically.
 
 ### Decision: what happens to `AgentLogging` (resolved 2026-09-15)
 

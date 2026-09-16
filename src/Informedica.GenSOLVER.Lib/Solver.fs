@@ -6,9 +6,6 @@ namespace Informedica.GenSolver.Lib
 /// equations
 module Solver =
 
-    open Informedica.Utils.Lib
-    open ConsoleWriter.NewLineNoTime
-
     module EQD = Equation.Dto
     module Name = Variable.Name
 
@@ -104,8 +101,7 @@ module Solver =
                 |> Exceptions.SolverErrored
                 |> Exceptions.raiseExc (Some log) errs
             | e ->
-                let msg = $"didn't catch {e}"
-                writeErrorMessage msg
+                e |> Exceptions.UnexpectedException |> Logger.logError log
 
                 reraise ()
 
@@ -116,8 +112,6 @@ module Solver =
                 let n = n + 1
 
                 if n > (que @ acc |> List.length) * Constants.MAX_LOOP_COUNT then
-                    writeErrorMessage $"too many loops: {n}"
-
                     (n, que @ acc)
                     |> Exceptions.SolverTooManyLoops
                     |> Exceptions.raiseExc (Some log) []
@@ -131,7 +125,6 @@ module Solver =
 
                 match que with
                 | [] -> acc |> Ok
-
                 | eq :: tail ->
                     // need to calculate a result first to enable tail call optimization
                     let q, r =
@@ -189,8 +182,7 @@ module Solver =
                 with
                 | Exceptions.SolverException errs -> Error(rpl @ rst, errs)
                 | e ->
-                    let msg = $"something unexpected happened, didn't catch {e}"
-                    writeErrorMessage msg
+                    e |> Exceptions.UnexpectedException |> Logger.logError log
                     reraise ()
 
                 |> function

@@ -94,6 +94,9 @@ module SolverLogging =
              |> String.concat "\n"
              |> sprintf "%s\In equations:\%s" s}
         """
+
+        | Exceptions.UnexpectedException ex -> $"Unexpected exception: {ex}"
+
         | _ -> "not a recognized msg"
 
 

@@ -65,7 +65,7 @@ module HelperFunctions =
 
         med
         |> Medication.toOrderDto System.DateTime.UtcNow
-        |> Order.Dto.fromDto
+        |> Order.Dto.fromDto OrderLogging.noOp
         |> function
             | Error msg -> failwith $"{msg}"
             | Ok ord ->
@@ -458,7 +458,7 @@ MedicationTexts.continuousMultipleComponent
 |> Result.map (fun ord ->
     ord
     |> Order.Dto.toDto
-    |> Order.Dto.fromDto
+    |> Order.Dto.fromDto OrderLogging.noOp
     |> function
         | Error _ -> "fail" |> failwith
         | Ok ord ->

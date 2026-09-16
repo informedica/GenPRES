@@ -67,9 +67,4 @@ module Json =
     /// Deserializes a JSON string to an object
     /// </summary>
     /// <param name="s">The JSON string to deserialize</param>
-    let deSerialize<'T> (s: string) =
-        try
-            JsonConvert.DeserializeObject<'T>(s, settings)
-        with e ->
-            printfn $"cannot deserialize {s}:\n{e.ToString()}"
-            raise e
+    let deSerialize<'T> (s: string) = JsonConvert.DeserializeObject<'T>(s, settings)

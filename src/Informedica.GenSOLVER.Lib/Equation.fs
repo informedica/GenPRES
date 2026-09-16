@@ -10,7 +10,6 @@ module Equation =
 
     open System
     open Informedica.Utils.Lib
-    open ConsoleWriter.NewLineNoTime
 
     open Types
     open Variable.Operators
@@ -305,17 +304,8 @@ module Equation =
             match xs with
             | [] -> true
             | _ ->
-                let toStr = ValueRange.toString true
-
                 if y |> Variable.isValSet && xs |> List.forall Variable.isValSet then
-
-                    let b = y.Values |> ValueRange.valueSetIsSubsetOf (xs |> List.reduce op).Values
-
-                    if not b then
-                        $"not a subset: y:{y.Values |> toStr}  xs:{(xs |> List.reduce op).Values |> toStr}"
-                        |> writeErrorMessage
-
-                    b
+                    y.Values |> ValueRange.valueSetIsSubsetOf (xs |> List.reduce op).Values
                 else
                     true
 

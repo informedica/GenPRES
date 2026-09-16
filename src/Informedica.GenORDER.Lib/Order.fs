@@ -14,7 +14,6 @@ module Order =
     open System
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
-    open ConsoleWriter.NewLineNoTime
     open Informedica.GenUnits.Lib
     open WrappedString
 
@@ -1887,10 +1886,11 @@ module Order =
         /// Increase the Quantity increment of an Orderable to a maximum
         /// count using a list of increments.
         /// </summary>
+        /// <param name="logger">The logger</param>
         /// <param name="maxCount">The maximum count</param>
         /// <param name="incrs">The list of increments</param>
         /// <param name="orb">The Orderable</param>
-        let increaseQuantityIncrement maxCount incrs orb =
+        let increaseQuantityIncrement logger maxCount incrs orb =
             // check if all relevant OrderVariables have an increment
             if
                 (orb |> inf).Components
@@ -1919,8 +1919,9 @@ module Order =
                                     incr |> Variable.ValueRange.Increment.toValueUnit |> ValueUnit.getBaseValue
                                 )
 
-                            writeDebugMessage
-                                $"Increase quantity increment to {incr |> Variable.ValueRange.Increment.toString false}"
+                            $"Increase quantity increment to {incr |> Variable.ValueRange.Increment.toString false}"
+                            |> Events.OrderScenario
+                            |> Logging.logDebug logger
                             // apply the minimum increment increase to the orderable and components
                             { orb with
                                 OrderableQuantity =
@@ -2818,8 +2819,12 @@ module Order =
         |> List.filter String.notEmpty
 
 
-    let print ord =
-        ord |> toStringWithConstraints |> String.concat "\n" |> writeDebugMessage
+    let print logger ord =
+        ord
+        |> toStringWithConstraints
+        |> String.concat "\n"
+        |> Events.OrderScenario
+        |> Logging.logDebug logger
 
         ord
 
@@ -3164,11 +3169,12 @@ module Order =
     /// Increase the Quantity increment of an Order to a maximum
     /// count using a list of increments.
     /// </summary>
+    /// <param name="logger">The logger</param>
     /// <param name="maxCount">The maximum count</param>
     /// <param name="incrs">The list of increments</param>
     /// <param name="ord">The Order</param>
-    let increaseQuantityIncrement maxCount incrs ord =
-        { (ord |> inf) with Orderable = ord.Orderable |> Orderable.increaseQuantityIncrement maxCount incrs }
+    let increaseQuantityIncrement logger maxCount incrs ord =
+        { (ord |> inf) with Orderable = ord.Orderable |> Orderable.increaseQuantityIncrement logger maxCount incrs }
 
 
     /// <summary>
@@ -3408,19 +3414,22 @@ module Order =
                     |> mapFromOrderEquations ord
                     |> fun ord ->
                         if printErr then
-                            writeDebugMessage $"Solve errored with: {m}"
-                            ord |> toString |> List.mapi (sprintf "%i. %s") |> List.iter writeDebugMessage
+                            $"""Solve errored with: {m}
+{ord |> toString |> List.mapi (sprintf "%i. %s") |> String.concat "\n"}"""
+                            |> Events.OrderScenario
+                            |> Logging.logDebug logger
 
                         Error(ord, m)
         with exn ->
             if printErr then
-                writeDebugMessage $"Solve errored with: {exn.Message}"
-
-                oEqs
-                |> mapFromOrderEquations ord
-                |> toString
-                |> List.mapi (sprintf "%i. %s")
-                |> List.iter writeDebugMessage
+                $"""Solve errored with: {exn.Message}
+{oEqs
+ |> mapFromOrderEquations ord
+ |> toString
+ |> List.mapi (sprintf "%i. %s")
+ |> String.concat "\n"}"""
+                |> Events.OrderScenario
+                |> Logging.logDebug logger
 
             let msg = [ exn |> Informedica.GenSolver.Lib.Types.Exceptions.UnexpectedException ]
 
@@ -3485,7 +3494,9 @@ module Order =
             then
                 ord
             else
-                let incrOrd = ord |> increaseQuantityIncrement maxQtyCount (incrs Units.Volume.milliLiter)
+                let incrOrd =
+                    ord
+                    |> increaseQuantityIncrement logger maxQtyCount (incrs Units.Volume.milliLiter)
 
                 if ord = incrOrd then
                     Ok ord
@@ -3495,8 +3506,11 @@ module Order =
                     incrOrd |> solveMinMax "Increase Quantity Increment" false logger
                 |> function
                     | Error(_, errs) ->
-                        writeDebugMessage "Could not increase orderable quantity increment:"
-                        errs |> List.iter (fun e -> writeDebugMessage $"{e}")
+                        $"""Could not increase orderable quantity increment:
+{errs |> List.map string |> String.concat "\n"}"""
+                        |> Events.OrderScenario
+                        |> Logging.logDebug logger
+
                         ord // original order
                     | Ok ord ->
                         let incrOrd =
@@ -3514,8 +3528,11 @@ module Order =
 
                         |> function
                             | Error(_, errs) ->
-                                writeDebugMessage "Could not increase orderable rate increment:"
-                                errs |> List.iter (fun e -> writeDebugMessage $"{e}")
+                                $"""Could not increase orderable rate increment:
+{errs |> List.map string |> String.concat "\n"}"""
+                                |> Events.OrderScenario
+                                |> Logging.logDebug logger
+
                                 ord // increased increment order
                             | Ok ord -> ord // increased increment and rate order
         |> Ok
@@ -3545,7 +3562,10 @@ module Order =
                 |> fromOrdVars ovars
                 |> solveOrder "Maximize Rate" false logger
                 |> Result.map (fun ord ->
-                    writeDebugMessage $"max rate set to: {maxRte |> OrderVariable.toString true}"
+                    $"max rate set to: {maxRte |> OrderVariable.toString true}"
+                    |> Events.OrderScenario
+                    |> Logging.logDebug logger
+
                     ord
                 )
                 |> Result.defaultValue ord
@@ -3643,7 +3663,9 @@ module Order =
                         isSolved <- true
                         loop ord
                     | Error err ->
-                        err |> snd |> List.map (sprintf "%A") |> String.concat "\n" |> writeErrorMessage
+                        (err |> snd |> List.map (sprintf "%A") |> String.concat "\n", err |> fst)
+                        |> Exceptions.OrderCouldNotBeSolved
+                        |> Logging.logError logger
 
                         ord
 
@@ -4424,7 +4446,7 @@ module Order =
             member val Stop: DateTime option = None with get, set
 
 
-        let fromDto (dto: Dto) =
+        let fromDto logger (dto: Dto) =
             try
                 let id = dto.Id |> Id.create
                 let adj_qty = dto.Adjust |> Quantity.fromDto
@@ -4439,7 +4461,7 @@ module Order =
 
                 create id adj_qty orb sch dto.Route ord_tme sts |> Ok
             with exn ->
-                $"Could not create an Order from a dto with:\n{exn}" |> writeErrorMessage
+                exn |> Exceptions.OrderCouldNotBeCreated |> Logging.logError logger
 
                 exn |> Exceptions.OrderCouldNotBeCreated |> Error
 
@@ -4604,7 +4626,7 @@ module Order =
 
         let toString dto =
             dto
-            |> fromDto
+            |> fromDto Logging.noOp
             |> Result.map toString
             |> Result.defaultValue []
             |> String.concat "\n"
