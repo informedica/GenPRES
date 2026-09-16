@@ -478,9 +478,9 @@ How the store behaves, beyond invariant 5 and the change table.
   launch again and restart any signing.
 - **Loading.** The adapter loads a patient's order plan versions when a request needs them,
   in the per-request slice of plan 516, never once at startup: a second server would not see
-  an order plan version signed after it started. It upgrades each to the current structure and parses it
-  with `fromDto` as it loads, so the state holds domain values. A row it cannot load, because its structure version is
-  newer than the release knows, an upgrade step fails on it, or `fromDto` refuses it, does not
+  an order plan version signed after it started. It upgrades each to the current structure and
+  parses it with `fromDto` as it loads, so the state holds domain values. A row it cannot load,
+  because its structure version is newer than the release knows, an upgrade step fails on it, or `fromDto` refuses it, does not
   stop the server and does not vanish: the identity of every version (`id`, `no`,
   `patient_id`, `base`, `signed_by_user_id`, `signed_by_display_name`, `signed_at`) is stored
   in plain columns beside the JSON, so the adapter can always build the entry

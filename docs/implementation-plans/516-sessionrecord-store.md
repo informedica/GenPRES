@@ -309,8 +309,8 @@ What ADR-0008 invariant 5 and §6 decide, as this plan applies it to `order_plan
   is refused.
 - **Every JSON structure change** comes with three things: a new `json_version`, an upgrade
   step, and a stored fixture at the old structure version with a test that the upgraded
-  fixture parses and maps to the expected contract model (law L5 of plan 725). A snapshot of the serialized graph
-  per structure version fails when the shape changes and the number does not. Rows are never
+  fixture parses and maps to the expected contract model (law L5 of plan 725). A snapshot of
+  the serialized graph per structure version fails when the shape changes and the number does not. Rows are never
   rewritten. A release cannot read a row written under a newer `json_version`; rolling back is
   not supported once such rows exist.
 
