@@ -1787,12 +1787,29 @@ module DtoTests =
                             |> Expect.equal "named" (Error [ DtoError.UnknownTextKind "note" ])
                         }
 
-                        test "null arrays and a null dose type are read as empty and blank, never a crash" {
+                        test "null elements are unknown ones, never a crash" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+
+                            { dto with Prescription = [| [| Unchecked.defaultof<TextBlock.Dto.Dto> |] |] }
+                            |> OrderScenario.Dto.fromDto
+                            |> Expect.equal "a block that names no kind" (Error [ DtoError.UnknownTextKind "" ])
+
+                            { (Fixtures.filter |> Filter.Dto.toDto) with DoseTypes = [| null |] }
+                            |> Filter.Dto.fromDto
+                            |> Expect.equal "a dose type that names nothing" (Error [ DtoError.UnknownDoseType "" ])
+
+                            { dto with DoseType = null }
+                            |> OrderScenario.Dto.fromDto
+                            |> Expect.equal
+                                "a scenario dose type that names nothing"
+                                (Error [ DtoError.UnknownDoseType "" ])
+                        }
+
+                        test "null arrays are read as empty, never a crash" {
                             let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
 
                             let read =
                                 { dto with
-                                    DoseType = null
                                     Diluents = null
                                     Prescription = [| null |]
                                     ProductsIds = null
@@ -1801,7 +1818,6 @@ module DtoTests =
 
                             match read with
                             | Ok sc ->
-                                sc.DoseType |> Expect.equal "no dose type" NoDoseType
                                 sc.Diluents |> Expect.isEmpty "no diluents"
                                 sc.Prescription |> Expect.equal "one empty line" [| [||] |]
                                 sc.ProductsIds |> Expect.isEmpty "no products"

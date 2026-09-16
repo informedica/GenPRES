@@ -278,10 +278,7 @@ module OrderScenario =
         /// created is an error, never a dropped scenario.
         let fromDto (dto: Dto) : Result<OrderScenario, DtoError list> =
             let doseType =
-                dto.DoseType
-                |> DtoResult.orBlank
-                |> DoseTypeDto.fromString
-                |> Result.mapError List.singleton
+                dto.DoseType |> DoseTypeDto.fromString |> Result.mapError List.singleton
 
             let prescription = dto.Prescription |> DtoResult.orEmpty |> blocksFromDto
             let preparation = dto.Preparation |> DtoResult.orEmpty |> blocksFromDto

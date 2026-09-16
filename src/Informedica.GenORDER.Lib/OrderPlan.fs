@@ -77,7 +77,14 @@ module TextBlock =
 
 
         let fromDto (dto: Dto) =
-            match dto.Kind |> DtoResult.orBlank with
+            // a null block, from a serializer, names no kind
+            let kind =
+                if isNull (box dto) then
+                    ""
+                else
+                    dto.Kind |> DtoResult.orBlank
+
+            match kind with
             | "valid" -> Ok(Valid dto.Text)
             | "caution" -> Ok(Caution dto.Text)
             | "warning" -> Ok(Warning dto.Text)
@@ -95,15 +102,20 @@ module DoseTypeDto =
     /// A dose type from its string form; an unknown category is an error, an empty string
     /// is NoDoseType, as the parser reads it.
     let fromString (s: string) =
-        let category, text =
-            match s.Trim().Split([| ' ' |], 2) with
-            | [| c; t |] -> c, t
-            | [| c |] -> c, ""
-            | _ -> "", ""
+        // a null string, from a serializer, names nothing; an empty one is NoDoseType
+        if isNull s then
+            Error(DtoError.UnknownDoseType "")
+        else
 
-        match DoseType.parse category text with
-        | dt, None -> Ok dt
-        | _, Some _ -> Error(DtoError.UnknownDoseType s)
+            let category, text =
+                match s.Trim().Split([| ' ' |], 2) with
+                | [| c; t |] -> c, t
+                | [| c |] -> c, ""
+                | _ -> "", ""
+
+            match DoseType.parse category text with
+            | dt, None -> Ok dt
+            | _, Some _ -> Error(DtoError.UnknownDoseType s)
 
 
 module Filter =
