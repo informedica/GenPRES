@@ -2863,6 +2863,45 @@ module Tests =
                         |> Expect.equal "a tube only: the any category" [ false; false; true ]
                     }
 
+                    test "a solution limit is headed by the rule's access, the tube included" {
+                        let rule access : SolutionRule =
+                            {
+                                Generic = "paracetamol"
+                                Form = None
+                                Route = "iv"
+                                Indication = None
+                                DoseType = NoDoseType
+                                PatientCategory = { PatientCategory.empty with Access = access }
+                                Dose = MinMax.empty
+                                Diluents = [||]
+                                Div = None
+                                Volumes = None
+                                Volume = MinMax.empty
+                                VolumeAdjust = MinMax.empty
+                                DripRate = MinMax.empty
+                                DosePerc = MinMax.empty
+                                SolutionLimits = [||]
+                            }
+
+                        let limit: SolutionLimit =
+                            {
+                                SolutionLimitTarget = NoLimitTarget
+                                Quantity = MinMax.empty
+                                QuantityAdj = MinMax.empty
+                                Quantities = None
+                                Concentration = MinMax.empty
+                                Products = [||]
+                            }
+
+                        let heading access =
+                            (SolutionRule.Print.printSolutionLimit (rule access) false limit).head
+
+                        heading EnteralTube |> Expect.stringStarts "a tube" "\n###### sonde: \n* "
+                        heading CVL |> Expect.stringStarts "central" "\n###### centraal: \n* "
+                        heading PVL |> Expect.stringStarts "peripheral" "\n###### perifeer: \n* "
+                        heading AnyAccess |> Expect.stringStarts "any access, no heading" "\n* "
+                    }
+
                     test "the string forms round-trip, the tube included" {
                         for a in [ PVL; CVL; EnteralTube; AnyAccess ] do
                             a
