@@ -11,7 +11,16 @@ type FormularyPort =
     }
 
 
-type OrderContextPort = { evaluate: OrderContextCommand -> OrderContext -> Async<Result<OrderContext, string[]>> }
+/// The prescribing workbench's port: the domain's command verb over a plan context, the
+/// answer a plan context with its intake. The verb is the wire's, mapped by the command
+/// handler; the context is parsed there too, so the port never sees the contract model.
+type OrderContextPort =
+    {
+        evaluate:
+            (Informedica.GenOrder.Lib.Types.OrderContext -> Informedica.GenOrder.Lib.OrderContext.Command)
+                -> Informedica.GenOrder.Lib.Types.PlanContext
+                -> Async<Result<Informedica.GenOrder.Lib.Types.PlanContext, string[]>>
+    }
 
 
 /// The one plan: every member answers the plan with its totals recomputed over its orders.
@@ -226,4 +235,7 @@ type AppEnv =
         admin: AdminPort
         requireLoaded: unit -> string[] option
         session: SessionPort
+        // whether the server runs on the demo data; read once at start-up, told on every
+        // context the client gets
+        demo: bool
     }

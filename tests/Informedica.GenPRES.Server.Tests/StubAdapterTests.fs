@@ -31,11 +31,13 @@ module StubAdapters =
         }
 
 
-    /// The context a stub port answers, from the contract model the test states it in. The
-    /// identity while the port is typed on the contract model; the domain value the mapper
-    /// makes of it once the port is on the plan context, so that the switch touches this
-    /// builder and nothing a test states.
-    let portContext (ctx: OrderContext) = ctx
+    /// The context a stub port answers, from the contract model the test states it in: the
+    /// plan context the mapper makes of it, so that the port is typed on the domain and the
+    /// tests keep stating the contract model.
+    let portContext (ctx: OrderContext) =
+        ctx
+        |> OrderContextService.parse
+        |> Result.defaultWith (fun e -> failtest $"no plan context: %A{e}")
 
 
     /// The plan a stub port answers, from the contract model the test states it in; the
@@ -106,7 +108,9 @@ module StubAdapters =
                 }
             admin = adminNone
             requireLoaded = fun () -> None
+            // the tests run as the demo server does
             session = sessionNone
+            demo = true
         }
 
 
@@ -130,7 +134,9 @@ module StubAdapters =
                 }
             admin = adminNone
             requireLoaded = fun () -> Some msgs
+            // the tests run as the demo server does
             session = sessionNone
+            demo = true
         }
 
 
@@ -5240,8 +5246,7 @@ module PlanTests =
                     let evaluated =
                         { OrderContext.empty with Scenarios = [| scenarioWithOrder "o-tpn" |] }
 
-                    let port: OrderContextPort =
-                        { evaluate = fun _ _ -> async { return Ok(portContext evaluated) } }
+                    let port _ _ = async { return Ok evaluated }
 
                     let p =
                         plan
@@ -5278,7 +5283,7 @@ module PlanTests =
 
                 testAsync "a nutrition context added says what it holds: the workbench's id and its category" {
                     // the discovery answers the context as sent; what is asserted is the stamp
-                    let port: OrderContextPort = { evaluate = fun _ ctx -> async { return Ok ctx } }
+                    let port _ ctx = async { return Ok ctx }
 
                     let! result = OrderPlanService.newOrderContext id port (plan [||]) NutritionCategory.TPN
 
@@ -5293,7 +5298,7 @@ module PlanTests =
                 }
 
                 testAsync "one context per nutrition category, and a supplement only under a feeding" {
-                    let port: OrderContextPort = { evaluate = fun _ ctx -> async { return Ok ctx } }
+                    let port _ ctx = async { return Ok ctx }
                     let feeding = context "c-f" NutritionCategory.EnteralFeeding [||]
 
                     let! second =

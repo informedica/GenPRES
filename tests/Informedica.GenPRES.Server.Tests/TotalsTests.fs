@@ -61,9 +61,7 @@ let tests =
                 let! _ = sut.orderPlan.navigate emptyPlan "dummy ID" dummyCmd Models.OrderContext.empty
 
                 let countAfter = spy.CallCount
-                // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
-                // provider.GetTotals():
-                countBefore + 1 <! countAfter
+                countBefore <! countAfter
             }
 
             testAsync "newOrderContext doesn't cache totals" {
@@ -74,9 +72,7 @@ let tests =
                 let! _ = sut.orderPlan.newOrderContext emptyPlan NutritionCategory.TPN
 
                 let countAfter = spy.CallCount
-                // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
-                // provider.GetTotals():
-                countBefore + 1 <! countAfter
+                countBefore <! countAfter
             }
 
             testAsync "removeOrderContexts doesn't cache totals" {
