@@ -8,7 +8,7 @@ open Shared.Models
 /// a draft becomes a patient here, or the request is refused, so that no draft reaches the
 /// services and the rules below them. Every member that receives patient data runs this
 /// before anything else.
-module Ingress =
+module Patient =
 
     /// A draft that is no patient: it has no age, and no measured weight and height.
     let noPatient =
@@ -22,8 +22,8 @@ module Ingress =
 
 
     /// The patient the data is, or why it is none.
-    let patient (dto: PatientDto) : Result<Patient, string[]> =
-        match dto |> Patient.fromDto with
+    let patient (dto: Patient) : Result<Patient, string[]> =
+        match dto |> Patient.validate with
         | Error PatientError.NoAgeOrMeasuredWeightAndHeight -> Error [| noPatient |]
         | Ok pat ->
             match dto |> Patient.getWeight, dto |> Patient.getHeight with
@@ -32,14 +32,14 @@ module Ingress =
 
 
     /// Data that may be absent: none is no patient and no refusal.
-    let patientOption (dto: PatientDto option) : Result<Patient option, string[]> =
+    let patientOption (dto: Patient option) : Result<Patient option, string[]> =
         match dto with
         | None -> Ok None
         | Some dto -> dto |> patient |> Result.map Some
 
 
     /// The request run once every piece of data is a patient, else the first refusal.
-    let overAll (dtos: PatientDto list) (run: unit -> Async<Result<'a, string[]>>) : Async<Result<'a, string[]>> =
+    let overAll (dtos: Patient list) (run: unit -> Async<Result<'a, string[]>>) : Async<Result<'a, string[]>> =
         let refused =
             dtos
             |> List.tryPick (fun dto ->
@@ -54,7 +54,7 @@ module Ingress =
 
 
     /// The request run once the data is a patient, else its refusal.
-    let over (dto: PatientDto) run = overAll [ dto ] run
+    let over (dto: Patient) run = overAll [ dto ] run
 
 
     /// The patient data a plan carries: its own, and that of every context in it.
@@ -63,5 +63,5 @@ module Ingress =
 
 
     /// Whether a platform reading is a patient: one that is none counts as no reading.
-    let reading (dto: PatientDto option) =
-        dto |> Option.filter (Patient.fromDto >> Result.isOk)
+    let reading (dto: Patient option) =
+        dto |> Option.filter (Patient.validate >> Result.isOk)

@@ -448,7 +448,7 @@ module Session =
     type Notice =
         {
             Nonce: string
-            Data: PatientDto option
+            Data: Patient option
             Expiry: DateTime
         }
 
@@ -459,11 +459,11 @@ module Session =
     type Challenge =
         {
             Nonce: string
-            Patient: PatientDto
+            Patient: Patient
             // the contexts as challenged, their orders inside: what the version stores
             OrderContexts: OrderContext[]
             // the platform's reading at the challenge, none when it could not be read
-            Reading: PatientDto option
+            Reading: Patient option
             Expiry: DateTime
         }
 
@@ -597,13 +597,13 @@ module Session =
     /// last seen; from nothing, none, so that the User enters it and a data outage does not block
     /// prescribing.
     let sessionPatient
-        (patientData: string -> PatientDto option)
+        (patientData: string -> Patient option)
         (patientId: string)
         (head: SignedOrderPlan option)
-        : PatientDto option
+        : Patient option
         =
         patientData patientId
-        |> Ingress.reading
+        |> Patient.reading
         |> Option.orElse (head |> Option.map _.Patient)
 
 
@@ -614,7 +614,7 @@ module Session =
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
-        (patientData: string -> PatientDto option)
+        (patientData: string -> Patient option)
         (patientId: string)
         (key: PublicKey)
         (user: UserContext)
@@ -757,7 +757,7 @@ module Session =
         (codeMac: string -> byte[])
         (redeem: string -> BrowserIdentity option)
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: string -> PatientDto option)
+        (patientData: string -> Patient option)
         (send: Mail -> unit)
         (state: State)
         (cb: Callback)
@@ -864,7 +864,7 @@ module Session =
         (newSalt: int -> byte[])
         (codeMac: string -> byte[])
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: string -> PatientDto option)
+        (patientData: string -> Patient option)
         (send: Mail -> unit)
         (attempt: string)
         (code: string)
@@ -1068,7 +1068,7 @@ module Session =
     let challenge
         (now: DateTime)
         (newId: unit -> string)
-        (patientData: string -> PatientDto option)
+        (patientData: string -> Patient option)
         (sid: string)
         (plan: OrderPlan, opened: OpenedToken, notice: string option)
         (state: State)
@@ -1090,7 +1090,7 @@ module Session =
                     refuse SigningRefusal.StaleToken
                 else
                     // read again, as at the open: a reading that is no patient is no reading
-                    let current = patientData patient.PatientId |> Ingress.reading
+                    let current = patientData patient.PatientId |> Patient.reading
 
                     let accepted =
                         notice

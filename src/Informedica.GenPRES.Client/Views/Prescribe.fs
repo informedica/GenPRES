@@ -144,7 +144,7 @@ module Prescribe =
         // above the selects, while it holds.
         let missingDimension =
             match draft with
-            | Some dto when dto |> Patient.fromDto |> Result.isOk ->
+            | Some dto when dto |> Patient.validate |> Result.isOk ->
                 if dto.Age.IsNone then
                     Terms.``Prescribe Age unknown``
                     |> getTerm "Leeftijd onbekend: alleen doseerregels zonder leeftijdsgrens worden getoond"

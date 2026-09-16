@@ -5,11 +5,6 @@ module Models =
 
     open Types
 
-    /// A patient: a draft that meets the minimum, an age or a measured weight and a measured
-    /// height. That is what a workbench, a plan and an evaluation are for; below it there is no
-    /// patient. Built by `Patient.fromDto` only and read back for the wire by `Patient.toDto`.
-    type Patient = private { Dto: PatientDto }
-
 
     /// Why a draft is not a patient.
     [<RequireQualifiedAccess>]
@@ -19,6 +14,11 @@ module Models =
 
 
     /// Canonical patient business logic shared between Client (Fable/JS) and Server (.NET).
+    ///
+    /// The patient record in Types is the shape the wire carries and the panel edits: every
+    /// field optional, so a value is a draft or a reading until `validate` says it meets the
+    /// minimum. This is the one module for that record: the blank draft, the editors, the
+    /// readers, the estimates and the minimum check.
     ///
     /// Architecture:
     /// - This module is the single source of truth for patient logic that runs on BOTH sides
@@ -33,17 +33,40 @@ module Models =
         open System
 
 
-        /// The patient a draft becomes: with an age, the rest can be estimated; without one, a
-        /// measured weight and a measured height are needed.
-        let fromDto (dto: PatientDto) : Result<Patient, PatientError> =
-            if dto.Age.IsSome || (dto.Weight.Measured.IsSome && dto.Height.Measured.IsSome) then
-                Ok { Dto = dto }
+        /// The blank draft: the one value with every field empty.
+        let empty: Patient =
+            {
+                Age = None
+                GestationalAge = None
+                Weight =
+                    {
+                        EstimatedP3 = None
+                        Estimated = None
+                        EstimatedP97 = None
+                        Measured = None
+                    }
+                Height =
+                    {
+                        EstimatedP3 = None
+                        Estimated = None
+                        EstimatedP97 = None
+                        Measured = None
+                    }
+                Gender = UnknownGender
+                Access = []
+                RenalFunction = None
+                Location = None
+                Department = None
+            }
+
+
+        /// Whether a draft is a patient: with an age, the rest can be estimated; without one, a
+        /// measured weight and a measured height are needed. Below that there is no patient.
+        let validate (pat: Patient) : Result<Patient, PatientError> =
+            if pat.Age.IsSome || (pat.Weight.Measured.IsSome && pat.Height.Measured.IsSome) then
+                Ok pat
             else
                 Error PatientError.NoAgeOrMeasuredWeightAndHeight
-
-
-        /// The patient's data as the wire carries it.
-        let toDto (p: Patient) = p.Dto
 
 
         module Age =
@@ -246,7 +269,7 @@ module Models =
                 | _ -> EGFR(Some 50, None)
 
 
-        let apply f (p: PatientDto) = f p
+        let apply f (p: Patient) = f p
 
 
         let get = apply id
@@ -267,13 +290,13 @@ module Models =
         let getAgeDays p = p |> getAge |> Option.map _.Days
 
 
-        let getGAWeeks (p: PatientDto) = p.GestationalAge |> Option.map _.Weeks
+        let getGAWeeks (p: Patient) = p.GestationalAge |> Option.map _.Weeks
 
 
-        let getGADays (p: PatientDto) = p.GestationalAge |> Option.map _.Days
+        let getGADays (p: Patient) = p.GestationalAge |> Option.map _.Days
 
 
-        let getRenalFunction (p: PatientDto) =
+        let getRenalFunction (p: Patient) =
             p.RenalFunction |> Option.map RenalFunction.renalToOption
 
 
@@ -322,12 +345,12 @@ module Models =
                 | xs -> xs |> List.sum |> Some
 
 
-        let getGestAgeInDays (p: PatientDto) =
+        let getGestAgeInDays (p: Patient) =
             p.GestationalAge
             |> Option.map (fun ga -> (Calculations.Age.weeksToDays ga.Weeks + ga.Days) |> int)
 
 
-        let getPostConceptionalAgeInDays (p: PatientDto) =
+        let getPostConceptionalAgeInDays (p: Patient) =
             match p.GestationalAge, p |> getAgeInDays with
             | Some ga, Some age ->
                 let gaDays = (Calculations.Age.weeksToDays ga.Weeks + ga.Days) |> int
@@ -337,27 +360,27 @@ module Models =
 
         /// Get either the measured weight or the
         /// estimated weight if measured weight = 0
-        let getWeight (pat: PatientDto) =
+        let getWeight (pat: Patient) =
             if pat.Weight.Measured.IsSome then
                 pat.Weight.Measured
             else
                 pat.Weight.Estimated
 
 
-        let getWeightInKg (pat: PatientDto) =
+        let getWeightInKg (pat: Patient) =
             pat |> getWeight |> Option.map (fun x -> float x / 1000.)
 
 
         /// Get either the measured height or the
         /// estimated height if measured weight = 0
-        let getHeight (pat: PatientDto) =
+        let getHeight (pat: Patient) =
             if pat.Height.Measured.IsSome then
                 pat.Height.Measured
             else
                 pat.Height.Estimated
 
 
-        let calcBMI (pat: PatientDto) =
+        let calcBMI (pat: Patient) =
             match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
             | Some w, _, Some h, _
             | None, Some w, None, Some h ->
@@ -368,7 +391,7 @@ module Models =
             | _ -> None
 
 
-        let calcBSA (pat: PatientDto) =
+        let calcBSA (pat: Patient) =
             match pat.Weight.Measured, pat.Weight.Estimated, pat.Height.Measured, pat.Height.Estimated with
             | None, None, _, _
             | _, _, None, None -> None
@@ -379,7 +402,7 @@ module Models =
             | None, Some w, None, Some h -> Calculations.BSA.calcDuBois w h |> Some
 
 
-        let toString terms lang markDown (pat: PatientDto) =
+        let toString terms lang markDown (pat: Patient) =
             let getTerm = Localization.getTerm terms lang
 
             let toStr s n =
@@ -485,37 +508,7 @@ module Models =
             |> String.replace "  " " "
 
 
-    /// The wire's and the panel's shape of a patient: the blank draft and what edits one.
-    module PatientDto =
-
-        /// The blank draft: the one value with every field empty.
-        let empty =
-            {
-                Age = None
-                GestationalAge = None
-                Weight =
-                    {
-                        EstimatedP3 = None
-                        Estimated = None
-                        EstimatedP97 = None
-                        Measured = None
-                    }
-                Height =
-                    {
-                        EstimatedP3 = None
-                        Estimated = None
-                        EstimatedP97 = None
-                        Measured = None
-                    }
-                Gender = UnknownGender
-                Access = []
-                RenalFunction = None
-                Location = None
-                Department = None
-            }
-
-
-        let toggle item (p: PatientDto option) : PatientDto option =
+        let toggle item (p: Patient option) : Patient option =
             p
             |> Option.map (fun p ->
                 { p with
@@ -537,8 +530,8 @@ module Models =
         let toggleET = toggle EnteralTube
 
 
-        let setRenal (s: string option) (p: PatientDto option) : PatientDto option =
-            let set rf (p: PatientDto option) =
+        let setRenal (s: string option) (p: Patient option) : Patient option =
+            let set rf (p: Patient option) =
                 match p with
                 | None -> p
                 | Some p -> { p with RenalFunction = rf } |> Some
@@ -546,11 +539,11 @@ module Models =
             match s with
             | None -> p |> set None
             | Some s ->
-                let rf = s |> Patient.RenalFunction.optionToRenal |> Some
+                let rf = s |> RenalFunction.optionToRenal |> Some
                 p |> set rf
 
 
-        let create years months weeks days weight height gw gd gend cvl gfr dep : PatientDto option =
+        let create years months weeks days weight height gw gd gend cvl gfr dep : Patient option =
             let a =
                 if
                     Option.isNone years
@@ -560,7 +553,7 @@ module Models =
                 then
                     None
                 else
-                    { Patient.Age.ageZero with
+                    { Age.ageZero with
                         Age.Years = years |> Option.defaultValue 0<year>
                         Months = months |> Option.defaultValue 0<month>
                         Weeks = weeks |> Option.defaultValue 0<week>
@@ -606,14 +599,14 @@ module Models =
 
         let updateWeightGram gr pat =
 
-            { (pat |> Patient.get) with Weight = { pat.Weight with Measured = gr |> Some } }
+            { (pat |> get) with Weight = { pat.Weight with Measured = gr |> Some } }
 
 
         /// The estimates written, the measured values left as they are.
         let withEstimates
             (ew: (int<gram> * int<gram> * int<gram>) option)
             (eh: (int<cm> * int<cm> * int<cm>) option)
-            (pat: PatientDto)
+            (pat: Patient)
             =
             { pat with
                 Weight =
@@ -633,7 +626,7 @@ module Models =
 
         /// The gender chosen: the estimates go, since they follow the gender; the measured values
         /// stay, since they do not.
-        let setGender (s: string) (p: PatientDto option) : PatientDto option =
+        let setGender (s: string) (p: Patient option) : Patient option =
             let gender =
                 match s with
                 | "male" -> Male
@@ -652,7 +645,7 @@ module Models =
             (normalHeights: NormalValue list option)
             (normalNeoWeights: NormalValue list option)
             (normalNeoHeights: NormalValue list option)
-            (pat: PatientDto)
+            (pat: Patient)
             =
 
             let wghts =
@@ -699,7 +692,7 @@ module Models =
                 match pat.Age with
                 | None -> None, None
                 | Some age ->
-                    match pat |> Patient.getPostConceptionalAgeInDays with
+                    match pat |> getPostConceptionalAgeInDays with
                     | Some days ->
                         let pcAgeInWeeks = (days |> float) / 7.
 
@@ -725,7 +718,7 @@ module Models =
 
                         weight, height
                     | None ->
-                        let ageInYears = age |> Patient.Age.calcYears
+                        let ageInYears = age |> Age.calcYears
 
                         let weight =
                             normalWeights
@@ -756,11 +749,11 @@ module Models =
             pat |> withEstimates ew eh
 
 
-        let setYear s (p: PatientDto option) =
+        let setYear s (p: Patient option) =
             match p with
             | None ->
                 create
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toYear)
+                    (s |> Option.bind tryParse |> Option.map Measures.toYear)
                     None
                     None
                     None
@@ -774,10 +767,10 @@ module Models =
                     None
             | Some p ->
                 create
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toYear)
-                    (p |> Patient.getAgeMonths)
-                    (p |> Patient.getAgeWeeks)
-                    (p |> Patient.getAgeDays)
+                    (s |> Option.bind tryParse |> Option.map Measures.toYear)
+                    (p |> getAgeMonths)
+                    (p |> getAgeWeeks)
+                    (p |> getAgeDays)
                     None
                     None
                     None
@@ -788,12 +781,12 @@ module Models =
                     p.Department
 
 
-        let setMonth s (p: PatientDto option) =
+        let setMonth s (p: Patient option) =
             match p with
             | None ->
                 create
                     None
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toMonth)
+                    (s |> Option.bind tryParse |> Option.map Measures.toMonth)
                     None
                     None
                     None
@@ -806,10 +799,10 @@ module Models =
                     None
             | Some p ->
                 create
-                    (p |> Patient.getAgeYears)
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toMonth)
-                    (p |> Patient.getAgeWeeks)
-                    (p |> Patient.getAgeDays)
+                    (p |> getAgeYears)
+                    (s |> Option.bind tryParse |> Option.map Measures.toMonth)
+                    (p |> getAgeWeeks)
+                    (p |> getAgeDays)
                     None
                     None
                     None
@@ -820,13 +813,13 @@ module Models =
                     p.Department
 
 
-        let setWeek s (p: PatientDto option) =
+        let setWeek s (p: Patient option) =
             match p with
             | None ->
                 create
                     None
                     None
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toWeek)
+                    (s |> Option.bind tryParse |> Option.map Measures.toWeek)
                     None
                     None
                     None
@@ -838,28 +831,28 @@ module Models =
                     None
             | Some p ->
                 create
-                    (p |> Patient.getAgeYears)
-                    (p |> Patient.getAgeMonths)
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toWeek)
-                    (p |> Patient.getAgeDays)
+                    (p |> getAgeYears)
+                    (p |> getAgeMonths)
+                    (s |> Option.bind tryParse |> Option.map Measures.toWeek)
+                    (p |> getAgeDays)
                     None
                     None
-                    (p |> Patient.getGAWeeks)
-                    (p |> Patient.getGADays)
+                    (p |> getGAWeeks)
+                    (p |> getGADays)
                     p.Gender
                     p.Access
                     p.RenalFunction
                     p.Department
 
 
-        let setDay s (p: PatientDto option) =
+        let setDay s (p: Patient option) =
             match p with
             | None ->
                 create
                     None
                     None
                     None
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toDay)
+                    (s |> Option.bind tryParse |> Option.map Measures.toDay)
                     None
                     None
                     None
@@ -870,61 +863,59 @@ module Models =
                     None
             | Some p ->
                 create
-                    (p |> Patient.getAgeYears)
-                    (p |> Patient.getAgeMonths)
-                    (p |> Patient.getAgeWeeks)
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toDay)
+                    (p |> getAgeYears)
+                    (p |> getAgeMonths)
+                    (p |> getAgeWeeks)
+                    (s |> Option.bind tryParse |> Option.map Measures.toDay)
                     None
                     None
-                    (p |> Patient.getGAWeeks)
-                    (p |> Patient.getGADays)
+                    (p |> getGAWeeks)
+                    (p |> getGADays)
                     p.Gender
                     p.Access
                     p.RenalFunction
                     p.Department
 
 
-        let setWeight s (p: PatientDto option) =
+        let setWeight s (p: Patient option) =
             match p with
-            | None ->
-                create None None None None (s |> Option.bind Patient.tryParse) None None None UnknownGender [] None None
+            | None -> create None None None None (s |> Option.bind tryParse) None None None UnknownGender [] None None
             | Some p ->
                 create
-                    (p |> Patient.getAgeYears)
-                    (p |> Patient.getAgeMonths)
-                    (p |> Patient.getAgeWeeks)
-                    (p |> Patient.getAgeDays)
-                    (s |> Option.bind Patient.tryParse)
-                    (p |> Patient.getHeight |> Option.map int)
-                    (p |> Patient.getGAWeeks)
-                    (p |> Patient.getGADays)
+                    (p |> getAgeYears)
+                    (p |> getAgeMonths)
+                    (p |> getAgeWeeks)
+                    (p |> getAgeDays)
+                    (s |> Option.bind tryParse)
+                    (p |> getHeight |> Option.map int)
+                    (p |> getGAWeeks)
+                    (p |> getGADays)
                     p.Gender
                     p.Access
                     p.RenalFunction
                     p.Department
 
 
-        let setHeight s (p: PatientDto option) =
+        let setHeight s (p: Patient option) =
             match p with
-            | None ->
-                create None None None None None (s |> Option.bind Patient.tryParse) None None UnknownGender [] None None
+            | None -> create None None None None None (s |> Option.bind tryParse) None None UnknownGender [] None None
             | Some p ->
                 create
-                    (p |> Patient.getAgeYears)
-                    (p |> Patient.getAgeMonths)
-                    (p |> Patient.getAgeWeeks)
-                    (p |> Patient.getAgeDays)
-                    (p |> Patient.getWeight |> Option.map int)
-                    (s |> Option.bind Patient.tryParse)
-                    (p |> Patient.getGAWeeks)
-                    (p |> Patient.getGADays)
+                    (p |> getAgeYears)
+                    (p |> getAgeMonths)
+                    (p |> getAgeWeeks)
+                    (p |> getAgeDays)
+                    (p |> getWeight |> Option.map int)
+                    (s |> Option.bind tryParse)
+                    (p |> getGAWeeks)
+                    (p |> getGADays)
                     p.Gender
                     p.Access
                     p.RenalFunction
                     p.Department
 
 
-        let setGAWeek s (p: PatientDto option) =
+        let setGAWeek s (p: Patient option) =
             match p with
             | None ->
                 create
@@ -934,7 +925,7 @@ module Models =
                     None
                     None
                     None
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toWeek)
+                    (s |> Option.bind tryParse |> Option.map Measures.toWeek)
                     None
                     UnknownGender
                     []
@@ -942,21 +933,21 @@ module Models =
                     None
             | Some p ->
                 create
-                    (p |> Patient.getAgeYears)
-                    (p |> Patient.getAgeMonths)
-                    (p |> Patient.getAgeWeeks)
-                    (p |> Patient.getAgeDays)
+                    (p |> getAgeYears)
+                    (p |> getAgeMonths)
+                    (p |> getAgeWeeks)
+                    (p |> getAgeDays)
                     None
                     None
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toWeek)
-                    (p |> Patient.getGADays)
+                    (s |> Option.bind tryParse |> Option.map Measures.toWeek)
+                    (p |> getGADays)
                     p.Gender
                     p.Access
                     p.RenalFunction
                     p.Department
 
 
-        let setGADay s (p: PatientDto option) =
+        let setGADay s (p: Patient option) =
             match p with
             | None ->
                 create
@@ -967,21 +958,21 @@ module Models =
                     None
                     None
                     None
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toDay)
+                    (s |> Option.bind tryParse |> Option.map Measures.toDay)
                     UnknownGender
                     []
                     None
                     None
             | Some p ->
                 create
-                    (p |> Patient.getAgeYears)
-                    (p |> Patient.getAgeMonths)
-                    (p |> Patient.getAgeWeeks)
-                    (p |> Patient.getAgeDays)
+                    (p |> getAgeYears)
+                    (p |> getAgeMonths)
+                    (p |> getAgeWeeks)
+                    (p |> getAgeDays)
                     None
                     None
-                    (p |> Patient.getGAWeeks)
-                    (s |> Option.bind Patient.tryParse |> Option.map Measures.toDay)
+                    (p |> getGAWeeks)
+                    (s |> Option.bind tryParse |> Option.map Measures.toDay)
                     p.Gender
                     p.Access
                     p.RenalFunction
@@ -2151,7 +2142,7 @@ module Models =
                 Category = OrderCategory.Drug
                 DemoVersion = true
                 Filter = filter
-                Patient = PatientDto.empty
+                Patient = Patient.empty
                 Scenarios = [||]
                 Intake = Totals.empty
             }
@@ -2416,7 +2407,7 @@ module Models =
             }
 
 
-        let empty = create PatientDto.empty [||]
+        let empty = create Patient.empty [||]
 
 
         /// The nutrition workbenches of the plan.

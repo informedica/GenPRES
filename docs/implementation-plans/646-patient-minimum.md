@@ -227,6 +227,7 @@ compile, Fantomas and the dependency-rule check green.
 | 5, the panel | #714 | the summary shows the draft's data and, while it is no patient, what is missing; one term |
 | 6, the notice | #715 | an info alert above the selects: age unknown, or the weight, the height or both unknown; four terms; review: the value that is missing named |
 | 7, docs | this PR | the Patient definition and the Order Context section, uc-01 5.4, the walkthrough, the user guide; this section; the follow-up issues #716 to #720 |
+| 1c undone, 2026-09-16 | | the private wrapper removed again: one record, `Types.Patient`, on the wire and in the panel; `Patient.validate` is the minimum check; the `PatientDto` module merged into `Patient`; `ServerApi.Ingress.fs` is `ServerApi.Patient.fs` |
 
 ### Deviations from the text above
 

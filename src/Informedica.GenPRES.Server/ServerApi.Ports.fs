@@ -26,7 +26,7 @@ type OrderPlanPort =
         newOrderContext: OrderPlan -> NutritionCategory -> Async<Result<OrderPlan, string[]>>
         // the contexts named, every kind; a feeding takes its supplements with it
         removeOrderContexts: OrderPlan -> string[] -> Async<Result<OrderPlan, string[]>>
-        openWith: PatientDto -> OrderContext[] -> Async<Result<OrderPlan, string[]>>
+        openWith: Patient -> OrderContext[] -> Async<Result<OrderPlan, string[]>>
     }
 
 
@@ -85,7 +85,7 @@ type UserRegistryPort = { standing: BrowserIdentity -> UserStanding option }
 
 /// The PatientDataPlatform, read once at the launch. `None` is not a refusal: the Session
 /// opens without imported data.
-type PatientDataPort = { read: string -> PatientDto option }
+type PatientDataPort = { read: string -> Patient option }
 
 
 /// One mail from the Server to a User: a confirmation code, a notice that the PIN was set,

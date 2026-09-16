@@ -12,18 +12,18 @@ module OrderPlanCommand =
     let processCmd (env: AppEnv) (cmd: OrderPlanCommand) =
         match cmd with
         | OrderPlanCommand.Recalculate plan ->
-            Ingress.overAll (Ingress.ofPlan plan) (fun () -> env.orderPlan.recalculate plan)
+            Patient.overAll (Patient.ofPlan plan) (fun () -> env.orderPlan.recalculate plan)
         | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
-            Ingress.overAll
-                (Ingress.ofPlan plan @ [ ctx.Patient ])
+            Patient.overAll
+                (Patient.ofPlan plan @ [ ctx.Patient ])
                 (fun () -> env.orderPlan.navigate plan contextId ctxCmd ctx)
         | OrderPlanCommand.AddOrderContext(plan, ctx) ->
-            Ingress.overAll (Ingress.ofPlan plan @ [ ctx.Patient ]) (fun () -> env.orderPlan.addOrderContext plan ctx)
+            Patient.overAll (Patient.ofPlan plan @ [ ctx.Patient ]) (fun () -> env.orderPlan.addOrderContext plan ctx)
         | OrderPlanCommand.NewOrderContext(plan, category) ->
-            Ingress.overAll (Ingress.ofPlan plan) (fun () -> env.orderPlan.newOrderContext plan category)
+            Patient.overAll (Patient.ofPlan plan) (fun () -> env.orderPlan.newOrderContext plan category)
         | OrderPlanCommand.RemoveOrderContexts(plan, ids) ->
-            Ingress.overAll (Ingress.ofPlan plan) (fun () -> env.orderPlan.removeOrderContexts plan ids)
+            Patient.overAll (Patient.ofPlan plan) (fun () -> env.orderPlan.removeOrderContexts plan ids)
         | OrderPlanCommand.Open(pat, contexts) ->
-            Ingress.overAll
+            Patient.overAll
                 (pat :: (contexts |> Array.map _.Patient |> Array.toList))
                 (fun () -> env.orderPlan.openWith pat contexts)

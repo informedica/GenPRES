@@ -91,7 +91,7 @@ module Types =
 
     /// The patient as the wire carries it and the panel edits it: every field optional, so a
     /// value of this type is a draft or a reading, not yet a patient.
-    type PatientDto =
+    type Patient =
         {
             Age: Age option
             GestationalAge: GestAge option
@@ -505,7 +505,7 @@ module Types =
             Category: OrderCategory
             DemoVersion: bool
             Filter: Filter
-            Patient: PatientDto
+            Patient: Patient
             Scenarios: OrderScenario[]
             Intake: Totals
         }
@@ -522,7 +522,7 @@ module Types =
     /// The one plan: every order for the patient, nutrition included, which is what is signed.
     type OrderPlan =
         {
-            Patient: PatientDto
+            Patient: Patient
             // the contexts shown and counted, by id; empty for all of them
             Filtered: string[]
             // the order contexts of the plan, drug and nutrition alike, each saying what it holds
@@ -547,7 +547,7 @@ module Types =
             Form: string option
             DoseType: DoseType option
             PatientCategory: string option
-            Patient: PatientDto option
+            Patient: Patient option
             Markdown: string
             DoseCheck: TextBlock[]
         }
@@ -608,7 +608,7 @@ module Types =
     type PatientContext =
         {
             PatientId: string
-            Patient: PatientDto option
+            Patient: Patient option
         }
 
 
@@ -635,7 +635,7 @@ module Types =
             Base: string option
             // every context of the plan as signed: a reopen is the plan as it was
             OrderContexts: OrderContext[]
-            Patient: PatientDto
+            Patient: Patient
             Verified: bool
         }
 
@@ -749,7 +749,7 @@ module Types =
     /// unverified. The User proceeds by returning the token with the next request.
     type DataNotice =
         {
-            Data: PatientDto option
+            Data: Patient option
             Token: string
         }
 

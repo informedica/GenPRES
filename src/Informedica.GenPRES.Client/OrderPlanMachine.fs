@@ -114,7 +114,7 @@ module OrderPlanCart =
             OrderPlanCart.Unopened(pat, opening), [ OrderPlanCartIntent.Open(pat, opening) ]
         // the plan follows the patient: its totals recomputed
         | OrderPlanCartMsg.PatientChanged(Some pat), OrderPlanCart.Opened(_, tp) ->
-            let tp = { tp with Patient = Patient.toDto pat }
+            let tp = { tp with Patient = pat }
             OrderPlanCart.Opened(pat, tp), [ OrderPlanCartIntent.Recalculate tp ]
 
         // the signed version replaces whatever plan there was; without a patient there is
@@ -136,7 +136,7 @@ module OrderPlanCart =
         | OrderPlanCartMsg.Landed(sent, Ok tp), OrderPlanCart.Opened(pat, _) -> answered pat sent tp
         // a failed open lands on the empty plan for the patient
         | OrderPlanCartMsg.Landed(_, Error errs), OrderPlanCart.Unopened(pat, _) ->
-            OrderPlanCart.Opened(pat, OrderPlan.create (Patient.toDto pat) [||]), [ OrderPlanCartIntent.Tell errs ]
+            OrderPlanCart.Opened(pat, OrderPlan.create pat [||]), [ OrderPlanCartIntent.Tell errs ]
         // a failed change leaves the plan as the request found it
         | OrderPlanCartMsg.Landed(_, Error errs), OrderPlanCart.Opened _ -> plan, [ OrderPlanCartIntent.Tell errs ]
 
@@ -208,7 +208,7 @@ module OrderPlanState =
     let opening (pat: Patient) (contexts: OrderContext[]) (request: string) =
         {
             Cart = OrderPlanCart.Unopened(pat, contexts)
-            InFlight = Some(OrderPlanCommand.Open(Patient.toDto pat, contexts), request)
+            InFlight = Some(OrderPlanCommand.Open(pat, contexts), request)
             Selected = None
         }
 
@@ -294,8 +294,7 @@ module OrderPlanState =
             (fun (state: OrderPlanState, effects) intent ->
                 let state, added =
                     match intent with
-                    | OrderPlanCartIntent.Open(pat, ctxs) ->
-                        call (OrderPlanCommand.Open(Patient.toDto pat, ctxs)) state
+                    | OrderPlanCartIntent.Open(pat, ctxs) -> call (OrderPlanCommand.Open(pat, ctxs)) state
                     | OrderPlanCartIntent.Recalculate tp -> call (OrderPlanCommand.Recalculate tp) state
                     | OrderPlanCartIntent.Call _ when state.InFlight.IsSome -> state, []
                     | OrderPlanCartIntent.Call cmd -> call cmd state
