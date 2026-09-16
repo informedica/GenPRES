@@ -1052,10 +1052,169 @@ module DosePrintoutTests =
 
 module TypeTests =
 
+    /// Bare values for the order plan types: an empty context, empty totals.
+    module OrderPlanFixtures =
+
+        let filter: Filter =
+            {
+                Indications = [||]
+                Generics = [||]
+                Routes = [||]
+                Forms = [||]
+                DoseTypes = [||]
+                Diluents = [||]
+                Components = [||]
+                Indication = None
+                Generic = None
+                Route = None
+                Form = None
+                DoseType = None
+                Diluent = None
+                SelectedComponents = [||]
+            }
+
+
+        let totals: Totals =
+            {
+                Volume = None
+                Energy = None
+                Protein = None
+                Carbohydrate = None
+                Fat = None
+                Sodium = None
+                Potassium = None
+                Chloride = None
+                Calcium = None
+                Phosphate = None
+                Magnesium = None
+                Iron = None
+                VitaminD = None
+                Ethanol = None
+                Propyleenglycol = None
+                BenzylAlcohol = None
+                BoricAcid = None
+            }
+
+
+        let context: OrderContext =
+            {
+                Filter = filter
+                Patient = Patient.patient
+                Scenarios = [||]
+            }
+
+
+        let planContext id category =
+            {
+                Id = id
+                Category = category
+                Context = context
+                Intake = totals
+            }
+
+
+        let plan contexts =
+            {
+                Patient = Patient.patient
+                Filtered = [||]
+                Contexts = contexts
+                Totals = totals
+            }
+
+
     let tests =
         testList
             "Types"
             [
+                test "a plan context wraps an order context with its id, category and intake" {
+                    let pc = OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug
+
+                    pc.Context
+                    |> Expect.equal "the context is held as given" OrderPlanFixtures.context
+
+                    pc.Id |> Expect.equal "the id is the plan's" "ctx-1"
+                    pc.Category |> Expect.equal "a drug" OrderCategory.Drug
+                    pc.Intake |> Expect.equal "the intake is held as given" OrderPlanFixtures.totals
+                }
+
+                test "a nutrition context carries its category" {
+                    let pc =
+                        OrderPlanFixtures.planContext "ctx-2" (OrderCategory.Nutrition NutritionCategory.TPN)
+
+                    match pc.Category with
+                    | OrderCategory.Nutrition cat -> cat |> Expect.equal "TPN" NutritionCategory.TPN
+                    | OrderCategory.Drug -> failtest "a nutrition context is not a drug"
+                }
+
+                test "an order plan holds its contexts, its filter and its totals" {
+                    let contexts =
+                        [|
+                            OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug
+                            OrderPlanFixtures.planContext
+                                "ctx-2"
+                                (OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
+                        |]
+
+                    let plan = { OrderPlanFixtures.plan contexts with Filtered = [| "ctx-2" |] }
+
+                    plan.Contexts
+                    |> Array.map _.Id
+                    |> Expect.equal "both contexts" [| "ctx-1"; "ctx-2" |]
+
+                    plan.Filtered |> Expect.equal "the filter keeps one" [| "ctx-2" |]
+                    plan.Patient |> Expect.equal "the patient as shown" Patient.patient
+                }
+
+                test "an order plan version stores the whole plan and its identity" {
+                    let plan =
+                        OrderPlanFixtures.plan
+                            [|
+                                OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug
+                            |]
+
+                    let version =
+                        {
+                            Id = "v-1"
+                            No = 1
+                            PatientId = "stub-patient"
+                            Base = None
+                            SignedBy =
+                                {
+                                    UserId = "u-1"
+                                    DisplayName = "Stub Prescriber"
+                                }
+                            SignedAt = System.DateTime(2026, 9, 16, 12, 0, 0)
+                            Plan = plan
+                            Verified = true
+                        }
+
+                    version.Plan |> Expect.equal "the plan as signed" plan
+                    version.Base |> Expect.isNone "the first version has no base"
+                    version.SignedBy.DisplayName |> Expect.equal "the signer" "Stub Prescriber"
+
+                    let second =
+                        { version with
+                            Id = "v-2"
+                            No = 2
+                            Base = Some version.Id
+                        }
+
+                    second.Base |> Expect.equal "the second is built on the first" (Some "v-1")
+                    second.Plan |> Expect.equal "the plan is copied, not recomputed" version.Plan
+                }
+
+                test "a nutrition rule set names what its category draws from" {
+                    let set =
+                        {
+                            Category = NutritionCategory.Lipid
+                            Label = "Lipid"
+                            Indications = [| "parenterale voeding" |]
+                            Generics = [| "smoflipid" |]
+                        }
+
+                    set.Generics |> Expect.equal "the generics of the set" [| "smoflipid" |]
+                }
+
                 test "OrderVariable can be created" {
                     let constraints =
                         {

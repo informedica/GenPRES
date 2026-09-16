@@ -522,7 +522,7 @@ module OrderContext =
         }
 
 
-    let getRules logger provider ctx =
+    let getRules logger provider (ctx: OrderContext) =
 
         match ctx.Patient.Weight, ctx.Patient.Height, ctx.Patient.Department with
         | Some w, Some h, d when d |> Option.isSome ->
