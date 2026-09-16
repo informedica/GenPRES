@@ -13,10 +13,10 @@ module Fixtures =
     let ten = { Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
 
     /// The data a plan carries, and the patient it is: an age makes the draft a patient.
-    let draft = { Shared.Models.PatientDto.empty with Age = Some ten }
+    let draft = { Shared.Models.Patient.empty with Age = Some ten }
 
-    let asPatient (dto: PatientDto) =
-        match dto |> Shared.Models.Patient.fromDto with
+    let asPatient (dto: Patient) =
+        match dto |> Shared.Models.Patient.validate with
         | Ok pat -> pat
         | Error err -> invalidOp $"the fixture is no patient: %A{err}"
 

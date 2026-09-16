@@ -247,7 +247,7 @@ module Api =
         | RemoveOrderContexts of OrderPlan * ids: string[]
         // the signed version as it was, nothing evaluated: the contexts as given, their orders
         // derived; the patient with no contexts is the empty plan
-        | Open of PatientDto * OrderContext[]
+        | Open of Patient * OrderContext[]
 
 
     module OrderPlanCommand =

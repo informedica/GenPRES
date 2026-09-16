@@ -9,7 +9,7 @@ open SigningMachine
 
 module Fixtures =
 
-    let patient = Shared.Models.PatientDto.empty
+    let patient = Shared.Models.Patient.empty
     let otherData = { patient with Department = Some "ICU" }
     let plan = Shared.Models.OrderPlan.create patient [||]
 

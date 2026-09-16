@@ -13,7 +13,7 @@ module FormularyCommand =
     /// The filter's patient, where it has one, made at the ingress; a draft that is none is
     /// refused, no patient is the formulary unfiltered.
     let processCmd (env: AppEnv) (form: Formulary) =
-        match Ingress.patientOption form.Patient with
+        match Patient.patientOption form.Patient with
         | Ok _ -> env.formulary.getFormulary form
         | Error errs -> async { return Error errs }
 

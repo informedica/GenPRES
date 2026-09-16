@@ -9,4 +9,4 @@ module OrderContextCommand =
 
     /// The context's patient made at the ingress; a draft that is none is refused.
     let processCmd (env: AppEnv) (cmd: OrderContextCommand, ctx: OrderContext) =
-        Ingress.over ctx.Patient (fun () -> env.orderContext.evaluate cmd ctx)
+        Patient.over ctx.Patient (fun () -> env.orderContext.evaluate cmd ctx)

@@ -19,7 +19,7 @@ module Patient =
         module Patient = Patient
 
 
-        type State = PatientDto option
+        type State = Patient option
 
 
         type Msg =
@@ -46,19 +46,19 @@ module Patient =
             let state =
                 match msg with
                 | Clear -> None
-                | UpdateYear s -> state |> PatientDto.setYear s
-                | UpdateMonth s -> state |> PatientDto.setMonth s
-                | UpdateWeek s -> state |> PatientDto.setWeek s
-                | UpdateDay s -> state |> PatientDto.setDay s
-                | UpdateWeight s -> state |> PatientDto.setWeight s
-                | UpdateHeight s -> state |> PatientDto.setHeight s
-                | UpdateGAWeek s -> state |> PatientDto.setGAWeek s
-                | UpdateGADay s -> state |> PatientDto.setGADay s
-                | UpdateRenal s -> state |> PatientDto.setRenal s
-                | UpdateGender s -> state |> PatientDto.setGender s
-                | ToggleCVL -> state |> PatientDto.toggleCVL
-                | TogglePVL -> state |> PatientDto.togglePVL
-                | ToggleET -> state |> PatientDto.toggleET
+                | UpdateYear s -> state |> Patient.setYear s
+                | UpdateMonth s -> state |> Patient.setMonth s
+                | UpdateWeek s -> state |> Patient.setWeek s
+                | UpdateDay s -> state |> Patient.setDay s
+                | UpdateWeight s -> state |> Patient.setWeight s
+                | UpdateHeight s -> state |> Patient.setHeight s
+                | UpdateGAWeek s -> state |> Patient.setGAWeek s
+                | UpdateGADay s -> state |> Patient.setGADay s
+                | UpdateRenal s -> state |> Patient.setRenal s
+                | UpdateGender s -> state |> Patient.setGender s
+                | ToggleCVL -> state |> Patient.toggleCVL
+                | TogglePVL -> state |> Patient.togglePVL
+                | ToggleET -> state |> Patient.toggleET
 
             state |> dispatch
             state, Cmd.none
@@ -66,8 +66,8 @@ module Patient =
 
         /// Whether the draft is a patient: an age, or a measured weight and height; the estimate
         /// no longer stands in for a measurement, so the minimum decides.
-        let canCalculate (pat: PatientDto option) : bool =
-            pat |> Option.bind (Patient.fromDto >> Result.toOption) |> Option.isSome
+        let canCalculate (pat: Patient option) : bool =
+            pat |> Option.bind (Patient.validate >> Result.toOption) |> Option.isSome
 
 
         /// The summary: the draft's data, and under it, while the draft is no patient yet, what is
@@ -89,7 +89,7 @@ module Patient =
                     Terms.``Patient enter age or weight and height``
 
             match pat with
-            | Some p when p |> Patient.fromDto |> Result.isOk -> [ p |> toString ]
+            | Some p when p |> Patient.validate |> Result.isOk -> [ p |> toString ]
             | Some p -> [ p |> toString; missing ]
             | None ->
                 [

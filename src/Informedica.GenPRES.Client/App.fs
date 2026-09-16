@@ -27,7 +27,7 @@ module private Elmish =
             // the patient the workbench and the plan are for: the draft, once it meets the minimum
             Patient: Patient option
             // the patient data as the panel edits it and the lists read it, the estimate applied
-            PatientDraft: PatientDto option
+            PatientDraft: Patient option
             NormalValues: Deferred<NormalValues>
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
@@ -85,7 +85,7 @@ module private Elmish =
         | SigningMsg of SigningMsg
 
         | UpdatePage of Global.Pages
-        | UpdatePatient of PatientDto option
+        | UpdatePatient of Patient option
         // a reply said the record moved on
         | RecordMovedOn of OrderPlanHead
 
@@ -431,7 +431,7 @@ module private Elmish =
                     let age = Patient.Age.fromBirthDate DateTime.Now (DateTime(year, month, day))
 
                     let patient =
-                        PatientDto.create
+                        Patient.create
                             (Some age.Years)
                             (Some age.Months)
                             (Some age.Weeks)
@@ -460,7 +460,7 @@ module private Elmish =
                     let age = Patient.Age.fromDays days
 
                     let patient =
-                        PatientDto.create
+                        Patient.create
                             (Some age.Years)
                             (Some age.Months)
                             (Some age.Weeks)
@@ -680,15 +680,11 @@ module private Elmish =
         initialState pat page lang discl, cmds
 
 
-    let applyNormalValues (normalValues: Deferred<NormalValues>) (pat: PatientDto option) =
+    let applyNormalValues (normalValues: Deferred<NormalValues>) (pat: Patient option) =
         match normalValues, pat with
         | Resolved nv, Some p ->
             p
-            |> PatientDto.applyNormalValues
-                (Some nv.Weights)
-                (Some nv.Heights)
-                (Some nv.NeoWeights)
-                (Some nv.NeoHeights)
+            |> Patient.applyNormalValues (Some nv.Weights) (Some nv.Heights) (Some nv.NeoWeights) (Some nv.NeoHeights)
             |> Some
         | _ -> pat
 
@@ -927,13 +923,13 @@ module private Elmish =
     /// workbench and the plan, which follow it: evaluated for a new one, again over a change.
     /// The draft is a patient with an age, or a measured weight and height; below that there is
     /// no patient: no workbench, no plan.
-    let updatePatient (dto: PatientDto option) (state: State) : State * Cmd<Msg> =
+    let updatePatient (dto: Patient option) (state: State) : State * Cmd<Msg> =
         let dto = dto |> applyNormalValues state.NormalValues
 
         let pat =
             dto
             |> Option.bind (fun dto ->
-                match dto |> Patient.fromDto with
+                match dto |> Patient.validate with
                 | Ok pat -> Some pat
                 | Error err ->
                     Logging.warning "no patient: the data is below the minimum" err
@@ -943,7 +939,7 @@ module private Elmish =
         { state with
             Patient = pat
             PatientDraft = dto
-            Formulary = { Formulary.empty with Patient = pat |> Option.map Patient.toDto } |> Resolved
+            Formulary = { Formulary.empty with Patient = pat } |> Resolved
             Parenteralia = Parenteralia.empty |> Resolved
             EmergencyListFilter = [||]
             ContinuousMedsFilter = [||]
@@ -1578,7 +1574,7 @@ module private Elmish =
             | _ ->
                 let form =
                     match state.Formulary with
-                    | Resolved form -> { form with Patient = state.Patient |> Option.map Patient.toDto }
+                    | Resolved form -> { form with Patient = state.Patient }
                     | _ -> Formulary.empty
 
                 let cmd = form |> loadFormulary (tokenOf state.Session)

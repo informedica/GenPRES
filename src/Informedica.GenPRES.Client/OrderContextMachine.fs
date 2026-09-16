@@ -63,7 +63,7 @@ module OrderContextWorkbench =
 
     /// The workbench emptied for the patient.
     let emptyFor (pat: Patient) =
-        OrderContext.empty |> OrderContext.setPatient (Patient.toDto pat)
+        OrderContext.empty |> OrderContext.setPatient pat
 
 
     /// What the server says when the filter matches no dose rule; the page then starts over.
@@ -112,7 +112,7 @@ module OrderContextWorkbench =
         // the patient changed: the workbench keeps its filter and is evaluated again for the new
         // patient
         | OrderContextWorkbenchMsg.PatientChanged(Some pat), OrderContextWorkbench.Evaluated(_, ctx) ->
-            let ctx = { ctx with Patient = Patient.toDto pat }
+            let ctx = { ctx with Patient = pat }
             OrderContextWorkbench.Evaluated(pat, ctx), [ OrderContextWorkbenchIntent.Evaluate ctx ]
 
         // a filter without a patient is dropped: the patient is part of it, so nothing waits
@@ -120,19 +120,19 @@ module OrderContextWorkbench =
         | OrderContextWorkbenchMsg.Seed _, OrderContextWorkbench.NoPatient -> workbench, []
         // nothing evaluated yet: the seed is what a failed evaluation goes back to
         | OrderContextWorkbenchMsg.Seed ctx, OrderContextWorkbench.Unevaluated pat ->
-            let ctx = { ctx with Patient = Patient.toDto pat }
+            let ctx = { ctx with Patient = pat }
             OrderContextWorkbench.Evaluated(pat, ctx), [ OrderContextWorkbenchIntent.Evaluate ctx ]
         | OrderContextWorkbenchMsg.Seed ctx, OrderContextWorkbench.Evaluated(pat, _) ->
             workbench,
             [
-                OrderContextWorkbenchIntent.Evaluate { ctx with Patient = Patient.toDto pat }
+                OrderContextWorkbenchIntent.Evaluate { ctx with Patient = pat }
             ]
 
         // a command over the workbench held, always for the patient held
         | OrderContextWorkbenchMsg.Command(cmd, ctx), OrderContextWorkbench.Evaluated(pat, _) ->
             workbench,
             [
-                OrderContextWorkbenchIntent.Call(cmd, { ctx with Patient = Patient.toDto pat })
+                OrderContextWorkbenchIntent.Call(cmd, { ctx with Patient = pat })
             ]
         // nothing to command without a patient or before the first evaluation
         | OrderContextWorkbenchMsg.Command _, OrderContextWorkbench.NoPatient
@@ -237,7 +237,7 @@ module OrderContextState =
     let changing (pat: Patient) (cmd: OrderContextCommand) (sent: OrderContext) (held: OrderContext) (request: string) =
         {
             Workbench = OrderContextWorkbench.Evaluated(pat, held)
-            InFlight = Some((cmd, { sent with Patient = Patient.toDto pat }), request)
+            InFlight = Some((cmd, { sent with Patient = pat }), request)
         }
 
 
@@ -375,7 +375,7 @@ module OrderContextState =
             apply
                 request
                 [
-                    OrderContextWorkbenchIntent.Evaluate { sent with Patient = Patient.toDto pat }
+                    OrderContextWorkbenchIntent.Evaluate { sent with Patient = pat }
                 ]
                 { state with Workbench = workbench }
 
