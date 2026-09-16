@@ -472,16 +472,26 @@ How the store behaves, beyond invariant 5 and the change table.
   startup, upgrading each to the current structure and parsing it with `fromDto` in the same
   step, so the state holds domain values. A row it cannot load, because its structure version is
   newer than the release knows, an upgrade step fails on it, or `fromDto` refuses it, does not
-  stop the server: the adapter logs it and marks that order plan version unreadable, the
-  patient's history shows "this version cannot be shown" in its place rather than a gap, and a
-  sign whose base is unreadable is refused. That is the one rule for unreadable rows; principle
-  6 and the change table refer to it.
+  stop the server and does not vanish: the identity of every version (`id`, `no`, `patient_id`,
+  `base`, `signed_by`, `signed_at`) is stored in plain columns beside the JSON, never inside it,
+  so the adapter can always build the entry `StoredVersion.Unreadable` with those fields and the
+  reason, and logs it. `Records` holds `StoredVersion` values, readable or not, ordered by `no`;
+  the head is the newest whatever its state, so a newer unreadable row is never overtaken by an
+  older readable one. The patient's history shows "this version cannot be shown" in the
+  unreadable entry's place rather than a gap, and a sign whose base is unreadable is refused.
+  That is the one rule for unreadable rows; principle 6 and the change table refer to it.
 - **The limit.** Loading every order plan version of every patient at startup means memory and
   startup time grow with history. The switch, when needed, is to load a patient's versions when
   that patient is opened; "upgraded and parsed as it loads" holds unchanged then.
-- **Writing.** The database adapter writes the row with its structure version to SQL first, then `commit` updates
-  `Session.State`, then replies "version signed"; a failed write refuses the sign, so a crash
-  between the steps never loses a version the prescriber saw confirmed.
+- **Writing.** `commit` validates first, against `Session.State`: the challenge, the PIN
+  attempts, the head unchanged. Only then does the database adapter write the row with its
+  structure version to SQL, `commit` updates `Session.State`, and the reply "version signed"
+  goes out. The validation, the write and the state update are one step of the session
+  service, which handles one command at a time, so nothing advances the head between them. A
+  failed write leaves the state untouched and refuses the sign. A crash after the write and
+  before the reply is recoverable, not lost: no reply was sent, and the next startup loads the
+  written row as the head, so the prescriber finds the version signed and never confirmed
+  twice.
 - **The stub.** The in-memory stub of `StubAdapters.fs` keeps nothing across a restart and no
   structure version; the `json_version` column, the upgrade on load and the first fixture arrive
   with the SQLite adapter in plan 516 step 3.
@@ -617,12 +627,15 @@ Services: `OrderContextService.evaluate cmd` becomes `reconcile >> PlanContext.e
 ### Session state and the database adapter (`ServerApi.Session.fs`, `StubAdapters.fs`)
 
 ```fsharp
-Records:    Map<string, OrderPlanVersion list>   // was SignedOrderPlan list; domain values, parsed by the adapter at load
+Records:    Map<string, StoredVersion list>      // was SignedOrderPlan list; per patient, ordered by No
+// StoredVersion = Readable of OrderPlanVersion                       parsed by the adapter at load
+//              | Unreadable of { Id; No; PatientId; Base; SignedBy; SignedAt; Reason }   Storage
+// the head is the newest entry whatever its case; a sign on an Unreadable head is refused
 Notices:    Map<string, Notice>       // Notice.Data: Patient option
 Challenges: Map<string, Challenge>    // { Nonce; Digest: string; Reading: Patient option; Expiry }
 Sessions:   Map<string, SessionRecord> // SessionRecord.Opened: a session-state record
 //   { User: UserContext option; PatientId: string option; Patient: Patient option;
-//     OpenedToken: OpenedToken option; KeyThumbprint: string option; Head: OrderPlanVersion option }
+//     OpenedToken: OpenedToken option; KeyThumbprint: string option; Head: StoredVersion option }
 ```
 
 The signing command handler parses the challenge and the submission alike (the port split, Part
@@ -651,8 +664,10 @@ model types are mapped before `SessionPort`. The identity fields (`UserContext`,
 `SessionEnding`, the refusals) stay contract model types for now; a session domain free of them
 is still the separate refactor named here." Plan 516: `order_plan.plan` (JSON `OrderPlan.Dto`)
 replaces `scenarios`, `order_plan.json_version int not null` names its structure version, the
-patient travels inside the order plan (no `order_plan.patient` column), and the working-state
-tables are dropped (Storage); 516 step 3 waits for Phase 5.
+identity columns (`id`, `no`, `patient_id`, `base`, `signed_by`, `signed_at`) stay plain columns
+beside the JSON so an unreadable row keeps its identity (Storage), the patient travels inside the
+order plan (no `order_plan.patient` column), and the working-state tables are dropped (Storage);
+516 step 3 waits for Phase 5.
 
 ### Client (`Shared.Models`)
 
@@ -721,7 +736,7 @@ reviewer must not find it contradicted by the document next to it.
 
 **Phase 5, the database holds Dtos (issue G), 4 PRs, depends on 1 + 3.1 + 3.3, not on 2 or 4. Must merge before plan 516 step 3.** `Session.fs` is the session service behind `SessionPort`, not the database adapter; the port split of Part 1 and the Storage section apply.
 5.0 Test prep in `StubAdapterTests`: every `Challenge`/`Notice`/`Records` literal through builders. ~120, tests only. (4.0 and 5.0 both edit that file: land 4.0 first, or both preps in one PR.)
-5.1 `Records`/`Challenges`/`Notices` on domain values; `Challenge.Digest` over the canonical form; `SigningCommand` parses the challenge and the submission with `ofModel >> OrderPlan.Dto.fromDto` and refuses on `Error`; `challenge` keeps the digest, `commit` compares and hands the domain value to the adapter, which writes `toDto` of it (R10); `digest : OrderPlan -> string` supplied by `makeSessionPort` as a parameter of `challenge`/`commit`; `SessionPort.challenge/submit/openVersion` on `OrderPlan`/`OrderPlanVersion`; the stub keeps no structure version (Storage). ~230, tight. Test: signing suites in `StubAdapterTests` (:2860-3160: "as challenged", "twice", changed context refused) pass with the digest; an order plan re-ordered by the client is a mismatch; an order plan whose order fails `fromDto` is refused at challenge and at commit, never stored; two order plans equal as domain values digest equal whatever the client's JSON field order or whitespace. Signing path, no dosing. Review slowly.
+5.1 `Records` on `StoredVersion` (readable or unreadable, Storage), `Challenges`/`Notices` on domain values; `Challenge.Digest` over the canonical form; `SigningCommand` parses the challenge and the submission with `ofModel >> OrderPlan.Dto.fromDto` and refuses on `Error`; `challenge` keeps the digest, `commit` validates against the state, then hands the domain value to the adapter, which writes `toDto` of it, then updates the state (R10, the write order of Storage); `digest : OrderPlan -> string` supplied by `makeSessionPort` as a parameter of `challenge`/`commit`; `SessionPort.challenge/submit/openVersion` on `OrderPlan`/`OrderPlanVersion`; the stub keeps no structure version (Storage). ~230, tight. Test: signing suites in `StubAdapterTests` (:2860-3160: "as challenged", "twice", changed context refused) pass with the digest; an order plan re-ordered by the client is a mismatch; an order plan whose order fails `fromDto` is refused at challenge and at commit, never stored; two order plans equal as domain values digest equal whatever the client's JSON field order or whitespace. Signing path, no dosing. Review slowly.
 5.2 `SessionRecord.Opened` session-state record on domain values; `Mappers.Session.toOpened`; `find/present/callback/supplyPin/openVersion` map in the command handlers; `PatientDataPort.read` on `Patient`; the stub patient adapter parses its own reading with `Patient.Dto.fromDto`. ~180. Test: open/openVersion/Head cases; `ConfigTests`.
 5.3 ADR-0007 §3 amendment to Accepted; plan 516 SQL schema lines, including `order_plan.json_version` and the upgrade-on-load rule (decisions table); changelog block in the commit body. ~40.
 
