@@ -1912,6 +1912,369 @@ module DtoTests =
             ]
 
 
+module OrderPlanDtoTests =
+
+    open System
+    open Informedica.Utils.Lib.BCL
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenUnits.Lib
+    open Informedica.GenForm.Lib
+    open Informedica.GenOrder.Lib
+
+
+    module Fixtures =
+
+        let order =
+            match Scenarios.pcmSupp |> Medication.toOrderDto |> Order.Dto.fromDto with
+            | Ok o -> o
+            | Error e -> failwith $"fixture order could not be created: {e}"
+
+        let kg = Units.Weight.kiloGram
+        let cm = Units.Height.centiMeter
+        let day = Units.Time.day
+
+        let child =
+            { Patient.patient with
+                Department = Some "ICK"
+                Gender = Male
+                Age = Some(ValueUnit.singleWithUnit day 3650N)
+                Weight = Some(ValueUnit.singleWithUnit kg 32N)
+                Height = Some(ValueUnit.singleWithUnit cm 140N)
+                Access = [ PVL ]
+            }
+
+        let filter: Filter =
+            {
+                Indications = [| "koorts"; "pijn" |]
+                Generics = [| "paracetamol" |]
+                Routes = [| "rect" |]
+                Forms = [| "zetpil" |]
+                DoseTypes =
+                    [|
+                        Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag"
+                    |]
+                Diluents = [||]
+                Components = [| "paracetamol" |]
+                Indication = Some "koorts"
+                Generic = Some "paracetamol"
+                Route = Some "rect"
+                Form = Some "zetpil"
+                DoseType = Some(Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag")
+                Diluent = None
+                SelectedComponents = [| "paracetamol" |]
+            }
+
+        let scenario: OrderScenario =
+            {
+                No = 1
+                Name = "paracetamol"
+                Indication = "koorts"
+                Form = "zetpil"
+                Route = "rect"
+                DoseType = Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag"
+                Diluent = None
+                Component = Some "paracetamol"
+                Item = Some "paracetamol"
+                Diluents = [||]
+                Components = [| "paracetamol" |]
+                Items = [| "paracetamol" |]
+                Prescription = [| [| Valid "paracetamol 240 mg 3 x/dag" |] |]
+                Preparation = [| [| Valid "zetpil 240 mg" |] |]
+                Administration = [| [| Warning "rectaal" |] |]
+                Order = order
+                UseAdjust = true
+                UseRenalRule = false
+                RenalRule = None
+                ProductsIds = [| "gpk-1" |]
+            }
+
+        let context: OrderContext =
+            {
+                Filter = filter
+                Patient = child
+                Scenarios = [| scenario |]
+            }
+
+        let totals: Totals =
+            {
+                Volume = Some "100 ml"
+                Energy = Some "50 kcal"
+                Protein = None
+                Carbohydrate = None
+                Fat = None
+                Sodium = Some "3 mmol"
+                Potassium = None
+                Chloride = None
+                Calcium = None
+                Phosphate = None
+                Magnesium = None
+                Iron = None
+                VitaminD = None
+                Ethanol = None
+                Propyleenglycol = None
+                BenzylAlcohol = None
+                BoricAcid = None
+            }
+
+        let planContext: PlanContext =
+            {
+                Id = "ctx-1"
+                Category = OrderCategory.Drug
+                Context = context
+                Intake = totals
+            }
+
+        let feeding: PlanContext =
+            { planContext with
+                Id = "ctx-2"
+                Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
+            }
+
+        let plan: OrderPlan =
+            {
+                Patient = child
+                Filtered = [| "ctx-1" |]
+                Contexts = [| planContext; feeding |]
+                Totals = totals
+            }
+
+        let version: OrderPlanVersion =
+            {
+                Id = "v-1"
+                No = 1
+                PatientId = "stub-patient"
+                Base = None
+                SignedBy =
+                    {
+                        UserId = "u-1"
+                        DisplayName = "Stub Prescriber"
+                    }
+                SignedAt = DateTime(2026, 9, 16, 12, 0, 0, DateTimeKind.Utc)
+                Plan = plan
+                Verified = true
+            }
+
+
+    let l1 name (x: 'a) (toDto: 'a -> 'd) (fromDto: 'd -> Result<'a, DtoError list>) =
+        test $"L1 for {name}" { x |> toDto |> fromDto |> Expect.equal "the same value" (Ok x) }
+
+
+    let l2 name (x: 'a) (toDto: 'a -> 'd) (fromDto: 'd -> Result<'a, DtoError list>) =
+        test $"L2 for {name}, in canonical form" {
+            let dto = x |> toDto
+
+            dto
+            |> fromDto
+            |> Result.map (toDto >> Canonical.serialize)
+            |> Expect.equal "the same form" (Ok(Canonical.serialize dto))
+        }
+
+
+    let tests =
+        testList
+            "Order plan Dtos"
+            [
+                testList
+                    "laws"
+                    [
+                        l1 "totals" Fixtures.totals Totals.Dto.toDto Totals.Dto.fromDto
+                        l2 "totals" Fixtures.totals Totals.Dto.toDto Totals.Dto.fromDto
+                        l1 "an order context" Fixtures.context OrderContext.Dto.toDto OrderContext.Dto.fromDto
+                        l2 "an order context" Fixtures.context OrderContext.Dto.toDto OrderContext.Dto.fromDto
+                        l1 "a plan context" Fixtures.feeding PlanContext.Dto.toDto PlanContext.Dto.fromDto
+                        l2 "a plan context" Fixtures.feeding PlanContext.Dto.toDto PlanContext.Dto.fromDto
+                        l1 "an order plan" Fixtures.plan OrderPlan.Dto.toDto OrderPlan.Dto.fromDto
+                        l2 "an order plan" Fixtures.plan OrderPlan.Dto.toDto OrderPlan.Dto.fromDto
+                        l1
+                            "an order plan version"
+                            Fixtures.version
+                            OrderPlanVersion.Dto.toDto
+                            OrderPlanVersion.Dto.fromDto
+                        l2
+                            "an order plan version"
+                            Fixtures.version
+                            OrderPlanVersion.Dto.toDto
+                            OrderPlanVersion.Dto.fromDto
+                    ]
+
+                testList
+                    "categories"
+                    [
+                        test "every category round-trips as a string" {
+                            [
+                                OrderCategory.Drug
+                                OrderCategory.Nutrition NutritionCategory.EnteralFeeding
+                                OrderCategory.Nutrition NutritionCategory.EnteralSupplement
+                                OrderCategory.Nutrition NutritionCategory.TPN
+                                OrderCategory.Nutrition NutritionCategory.Lipid
+                                OrderCategory.Nutrition NutritionCategory.ElectrolyteGlucose
+                            ]
+                            |> List.map (fun c -> c |> OrderCategoryDto.toString |> OrderCategoryDto.fromString)
+                            |> List.forall Result.isOk
+                            |> Expect.isTrue "each read back"
+                        }
+
+                        test "an unknown category is an error" {
+                            { (Fixtures.feeding |> PlanContext.Dto.toDto) with Category = "nutrition:soup" }
+                            |> PlanContext.Dto.fromDto
+                            |> Expect.equal "named" (Error [ DtoError.UnknownCategory "nutrition:soup" ])
+                        }
+                    ]
+
+                testList
+                    "fromDto refuses"
+                    [
+                        test "an order plan whose patient is below the minimum data, with every context's errors" {
+                            let dto = Fixtures.plan |> OrderPlan.Dto.toDto
+
+                            let brokenContext = { dto.Contexts[0] with Category = "x" }
+
+                            { dto with
+                                Patient =
+                                    { dto.Patient with
+                                        AgeDays = None
+                                        WeightMeasured = false
+                                    }
+                                Contexts = [| brokenContext; dto.Contexts[1] |]
+                            }
+                            |> OrderPlan.Dto.fromDto
+                            |> Expect.equal
+                                "both reported"
+                                (Error
+                                    [
+                                        DtoError.Patient PatientError.NoAgeOrMeasuredWeightAndHeight
+                                        DtoError.UnknownCategory "x"
+                                    ])
+                        }
+
+                        test "a scenario whose order cannot be created is an error, not dropped" {
+                            let dto = Fixtures.context |> OrderContext.Dto.toDto
+                            let broken = Order.Dto.Dto(dto.Scenarios[0].Order.Id, "paracetamol")
+                            broken.Orderable <- Unchecked.defaultof<_>
+
+                            match
+                                { dto with Scenarios = [| { dto.Scenarios[0] with Order = broken } |] }
+                                |> OrderContext.Dto.fromDto
+                            with
+                            | Error [ DtoError.OrderNotCreated _ ] -> ()
+                            | other -> failtest $"expected one OrderNotCreated, got {other}"
+                        }
+
+                        test "null nested Dtos are missing, null arrays empty, never a crash" {
+                            let dto = Fixtures.version |> OrderPlanVersion.Dto.toDto
+
+                            { dto with
+                                SignedBy = Unchecked.defaultof<_>
+                                Plan =
+                                    { dto.Plan with
+                                        Totals = Unchecked.defaultof<_>
+                                        Filtered = null
+                                    }
+                            }
+                            |> OrderPlanVersion.Dto.fromDto
+                            |> Expect.equal
+                                "both named"
+                                (Error [ DtoError.Missing "SignedBy"; DtoError.Missing "Totals" ])
+
+                            match
+                                { dto with
+                                    Plan =
+                                        { dto.Plan with
+                                            Filtered = null
+                                            Contexts = null
+                                        }
+                                }
+                                |> OrderPlanVersion.Dto.fromDto
+                            with
+                            | Ok v ->
+                                v.Plan.Filtered |> Expect.isEmpty "no filter"
+                                v.Plan.Contexts |> Expect.isEmpty "no contexts"
+                            | Error e -> failtest $"expected a version, got {e}"
+                        }
+                    ]
+
+                testList
+                    "the stored root"
+                    [
+                        test "an order plan version reads back from its canonical form, in canonical form" {
+                            let dto = Fixtures.version |> OrderPlanVersion.Dto.toDto
+                            let s = dto |> Canonical.serialize
+
+                            s
+                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
+                            |> Canonical.serialize
+                            |> Expect.equal "the same form" s
+                        }
+
+                        test "a version read back parses to the version that was written" {
+                            Fixtures.version
+                            |> OrderPlanVersion.Dto.toDto
+                            |> Canonical.serialize
+                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
+                            |> OrderPlanVersion.Dto.fromDto
+                            |> Expect.equal "the same version" (Ok Fixtures.version)
+                        }
+
+                        test "a null root is missing by its name, never a crash" {
+                            let missing name = Error [ DtoError.Missing name ]
+
+                            "null"
+                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
+                            |> OrderPlanVersion.Dto.fromDto
+                            |> Expect.equal "a stored null" (missing "OrderPlanVersion")
+
+                            Unchecked.defaultof<OrderPlan.Dto.Dto>
+                            |> OrderPlan.Dto.fromDto
+                            |> Expect.equal "order plan" (missing "OrderPlan")
+
+                            Unchecked.defaultof<PlanContext.Dto.Dto>
+                            |> PlanContext.Dto.fromDto
+                            |> Expect.equal "plan context" (missing "PlanContext")
+
+                            Unchecked.defaultof<Signer.Dto.Dto>
+                            |> Signer.Dto.fromDto
+                            |> Expect.equal "signer" (missing "Signer")
+
+                            Unchecked.defaultof<Totals.Dto.Dto>
+                            |> Totals.Dto.fromDto
+                            |> Expect.equal "totals" (missing "Totals")
+
+                            Unchecked.defaultof<OrderContext.Dto.Dto>
+                            |> OrderContext.Dto.fromDto
+                            |> Expect.equal "order context" (missing "OrderContext")
+
+                            Unchecked.defaultof<OrderScenario.Dto.Dto>
+                            |> OrderScenario.Dto.fromDto
+                            |> Expect.equal "scenario" (missing "OrderScenario")
+
+                            Unchecked.defaultof<Filter.Dto.Dto>
+                            |> Filter.Dto.fromDto
+                            |> Expect.equal "filter" (missing "Filter")
+                        }
+
+                        test "two versions equal as values digest equal, a re-ordered plan does not" {
+                            let a = Fixtures.version |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
+
+                            let b =
+                                { Fixtures.version with
+                                    Plan =
+                                        { Fixtures.plan with Contexts = [| Fixtures.feeding; Fixtures.planContext |] }
+                                }
+                                |> OrderPlanVersion.Dto.toDto
+                                |> Canonical.serialize
+
+                            Fixtures.version
+                            |> OrderPlanVersion.Dto.toDto
+                            |> Canonical.serialize
+                            |> Expect.equal "equal" a
+
+                            a |> Expect.notEqual "a different order plan" b
+                        }
+                    ]
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -1920,6 +2283,7 @@ let tests =
             MedicationOrderTests.tests
             TypeTests.tests
             DtoTests.tests
+            OrderPlanDtoTests.tests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
             MedicationParserTests.tests

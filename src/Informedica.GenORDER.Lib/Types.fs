@@ -699,6 +699,12 @@ module Types =
         | UnknownTextKind of string
         // The order of a scenario could not be created from its Dto
         | OrderNotCreated of string
+        // An order category string the Dto carries that names no category
+        | UnknownCategory of string
+        // A nested Dto a serializer left null, by field name
+        | Missing of string
+        // The patient of a context or an order plan is none
+        | Patient of Informedica.GenForm.Lib.Types.PatientError
 
 
     module Exceptions =

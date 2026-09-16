@@ -196,3 +196,78 @@ module Totals =
             BenzylAlcohol = get "benzylalcohol"
             BoricAcid = get "boorzuur"
         }
+
+
+    /// The serializable shape of the totals: the same string option fields, its own type.
+    module Dto =
+
+        type Dto =
+            {
+                Volume: string option
+                Energy: string option
+                Protein: string option
+                Carbohydrate: string option
+                Fat: string option
+                Sodium: string option
+                Potassium: string option
+                Chloride: string option
+                Calcium: string option
+                Phosphate: string option
+                Magnesium: string option
+                Iron: string option
+                VitaminD: string option
+                Ethanol: string option
+                Propyleenglycol: string option
+                BenzylAlcohol: string option
+                BoricAcid: string option
+            }
+
+
+        let toDto (t: Totals) : Dto =
+            {
+                Volume = t.Volume
+                Energy = t.Energy
+                Protein = t.Protein
+                Carbohydrate = t.Carbohydrate
+                Fat = t.Fat
+                Sodium = t.Sodium
+                Potassium = t.Potassium
+                Chloride = t.Chloride
+                Calcium = t.Calcium
+                Phosphate = t.Phosphate
+                Magnesium = t.Magnesium
+                Iron = t.Iron
+                VitaminD = t.VitaminD
+                Ethanol = t.Ethanol
+                Propyleenglycol = t.Propyleenglycol
+                BenzylAlcohol = t.BenzylAlcohol
+                BoricAcid = t.BoricAcid
+            }
+
+
+        /// A field copy; every Dto is totals. A null root is missing; the guard is spelled
+        /// out here since this file compiles before the Dto helpers.
+        let fromDto (dto: Dto) : Result<Totals, DtoError list> =
+            if isNull (box dto) then
+                Error [ DtoError.Missing "Totals" ]
+            else
+                Ok
+                    {
+                        Volume = dto.Volume
+                        Energy = dto.Energy
+                        Protein = dto.Protein
+                        Carbohydrate = dto.Carbohydrate
+                        Fat = dto.Fat
+                        Sodium = dto.Sodium
+                        Potassium = dto.Potassium
+                        Chloride = dto.Chloride
+                        Calcium = dto.Calcium
+                        Phosphate = dto.Phosphate
+                        Magnesium = dto.Magnesium
+                        Iron = dto.Iron
+                        VitaminD = dto.VitaminD
+                        Ethanol = dto.Ethanol
+                        Propyleenglycol = dto.Propyleenglycol
+                        BenzylAlcohol = dto.BenzylAlcohol
+                        BoricAcid = dto.BoricAcid
+                    }
