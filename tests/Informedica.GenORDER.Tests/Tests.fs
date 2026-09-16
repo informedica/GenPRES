@@ -1787,6 +1787,41 @@ module DtoTests =
                             |> Expect.equal "named" (Error [ DtoError.UnknownTextKind "note" ])
                         }
 
+                        test "null arrays and a null dose type are read as empty and blank, never a crash" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+
+                            let read =
+                                { dto with
+                                    DoseType = null
+                                    Diluents = null
+                                    Prescription = [| null |]
+                                    ProductsIds = null
+                                }
+                                |> OrderScenario.Dto.fromDto
+
+                            match read with
+                            | Ok sc ->
+                                sc.DoseType |> Expect.equal "no dose type" NoDoseType
+                                sc.Diluents |> Expect.isEmpty "no diluents"
+                                sc.Prescription |> Expect.equal "one empty line" [| [||] |]
+                                sc.ProductsIds |> Expect.isEmpty "no products"
+                            | Error e -> failtest $"expected a scenario, got {e}"
+                        }
+
+                        test "a Filter.Dto with null arrays reads as empty" {
+                            match
+                                { (Fixtures.filter |> Filter.Dto.toDto) with
+                                    Indications = null
+                                    DoseTypes = null
+                                }
+                                |> Filter.Dto.fromDto
+                            with
+                            | Ok f ->
+                                f.Indications |> Expect.isEmpty "no indications"
+                                f.DoseTypes |> Expect.isEmpty "no dose types"
+                            | Error e -> failtest $"expected a filter, got {e}"
+                        }
+
                         test "an order that cannot be created is an error, not a dropped scenario" {
                             let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
                             let broken = Order.Dto.Dto(dto.Order.Id, "paracetamol")

@@ -236,6 +236,8 @@ module OrderScenario =
             bs
             |> Array.toList
             |> List.map (fun line ->
+                let line = line |> DtoResult.orEmpty
+
                 line
                 |> Array.toList
                 |> List.map TextBlock.Dto.fromDto
@@ -276,11 +278,14 @@ module OrderScenario =
         /// created is an error, never a dropped scenario.
         let fromDto (dto: Dto) : Result<OrderScenario, DtoError list> =
             let doseType =
-                dto.DoseType |> DoseTypeDto.fromString |> Result.mapError List.singleton
+                dto.DoseType
+                |> DtoResult.orBlank
+                |> DoseTypeDto.fromString
+                |> Result.mapError List.singleton
 
-            let prescription = dto.Prescription |> blocksFromDto
-            let preparation = dto.Preparation |> blocksFromDto
-            let administration = dto.Administration |> blocksFromDto
+            let prescription = dto.Prescription |> DtoResult.orEmpty |> blocksFromDto
+            let preparation = dto.Preparation |> DtoResult.orEmpty |> blocksFromDto
+            let administration = dto.Administration |> DtoResult.orEmpty |> blocksFromDto
 
             let order =
                 try
@@ -315,9 +320,9 @@ module OrderScenario =
                         Diluent = dto.Diluent
                         Component = dto.Component
                         Item = dto.Item
-                        Diluents = dto.Diluents
-                        Components = dto.Components
-                        Items = dto.Items
+                        Diluents = dto.Diluents |> DtoResult.orEmpty
+                        Components = dto.Components |> DtoResult.orEmpty
+                        Items = dto.Items |> DtoResult.orEmpty
                         Prescription = prescription
                         Preparation = preparation
                         Administration = administration
@@ -325,7 +330,7 @@ module OrderScenario =
                         UseAdjust = dto.UseAdjust
                         UseRenalRule = dto.UseRenalRule
                         RenalRule = dto.RenalRule
-                        ProductsIds = dto.ProductsIds
+                        ProductsIds = dto.ProductsIds |> DtoResult.orEmpty
                     }
             | errors, _, _, _, _, _ -> Error errors
 

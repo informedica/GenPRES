@@ -13,6 +13,32 @@ open Informedica.GenForm.Lib
 open Informedica.GenOrder.Lib.Types
 
 
+/// Every error of a list of results, or every value.
+module DtoResult =
+
+    /// A reference field a serializer left null is read as absent, never dereferenced.
+    let orEmpty (xs: 'a[]) = if isNull xs then [||] else xs
+
+
+    /// A string a serializer left null is read as blank.
+    let orBlank (s: string) = if isNull s then "" else s
+
+
+    let sequence (rs: Result<'a, 'e> list) : Result<'a list, 'e list> =
+        let errors =
+            rs
+            |> List.choose (
+                function
+                | Error e -> Some e
+                | Ok _ -> None
+            )
+
+        if errors.IsEmpty then
+            rs |> List.choose Result.toOption |> Ok
+        else
+            Error errors
+
+
 module TextBlock =
 
     /// A text block as one kind and its text; the markup the client shows is added on
@@ -51,7 +77,7 @@ module TextBlock =
 
 
         let fromDto (dto: Dto) =
-            match dto.Kind with
+            match dto.Kind |> DtoResult.orBlank with
             | "valid" -> Ok(Valid dto.Text)
             | "caution" -> Ok(Caution dto.Text)
             | "warning" -> Ok(Warning dto.Text)
@@ -78,24 +104,6 @@ module DoseTypeDto =
         match DoseType.parse category text with
         | dt, None -> Ok dt
         | _, Some _ -> Error(DtoError.UnknownDoseType s)
-
-
-/// Every error of a list of results, or every value.
-module DtoResult =
-
-    let sequence (rs: Result<'a, 'e> list) : Result<'a list, 'e list> =
-        let errors =
-            rs
-            |> List.choose (
-                function
-                | Error e -> Some e
-                | Ok _ -> None
-            )
-
-        if errors.IsEmpty then
-            rs |> List.choose Result.toOption |> Ok
-        else
-            Error errors
 
 
 module Filter =
@@ -144,6 +152,7 @@ module Filter =
         let fromDto (dto: Dto) : Result<Filter, DtoError list> =
             let doseTypes =
                 dto.DoseTypes
+                |> DtoResult.orEmpty
                 |> Array.toList
                 |> List.map DoseTypeDto.fromString
                 |> DtoResult.sequence
@@ -151,26 +160,31 @@ module Filter =
             let doseType =
                 match dto.DoseType with
                 | None -> Ok None
-                | Some s -> s |> DoseTypeDto.fromString |> Result.map Some |> Result.mapError List.singleton
+                | Some s ->
+                    s
+                    |> DtoResult.orBlank
+                    |> DoseTypeDto.fromString
+                    |> Result.map Some
+                    |> Result.mapError List.singleton
 
             match doseTypes, doseType with
             | Ok doseTypes, Ok doseType ->
                 Ok
                     {
-                        Indications = dto.Indications
-                        Generics = dto.Generics
-                        Routes = dto.Routes
-                        Forms = dto.Forms
+                        Indications = dto.Indications |> DtoResult.orEmpty
+                        Generics = dto.Generics |> DtoResult.orEmpty
+                        Routes = dto.Routes |> DtoResult.orEmpty
+                        Forms = dto.Forms |> DtoResult.orEmpty
                         DoseTypes = doseTypes |> List.toArray
-                        Diluents = dto.Diluents
-                        Components = dto.Components
+                        Diluents = dto.Diluents |> DtoResult.orEmpty
+                        Components = dto.Components |> DtoResult.orEmpty
                         Indication = dto.Indication
                         Generic = dto.Generic
                         Route = dto.Route
                         Form = dto.Form
                         DoseType = doseType
                         Diluent = dto.Diluent
-                        SelectedComponents = dto.SelectedComponents
+                        SelectedComponents = dto.SelectedComponents |> DtoResult.orEmpty
                     }
             | Error e1, Error e2 -> Error(e1 @ e2)
             | Error e, _
