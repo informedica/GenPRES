@@ -169,9 +169,13 @@ alternative, ports typed on Dtos, is recorded below.
 - **Append-only.** The `order_plan` table is insert-only: signing inserts a row, no `UPDATE` or
   `DELETE` ever runs on it, and a unique constraint on `(patient_id, no)` rejects a second
   version with the same number.
-- **Working state.** Sessions, challenges and notices stay in memory, carry no structure version,
-  and are gone at every startup, so there are no `session_opened_with`, `challenge` or
-  `data_notice` tables.
+- **Working state.** What a Session opened with, its notice and its challenge live in memory
+  while the in-memory stub is the database, carry no structure version there, and are gone at
+  every startup. In the store of plan 516 they are stored like any other root, as Dtos under a
+  structure version, because a restart must end nothing and a second server must find them
+  (ADR-0007, Rules 32 and 36). Their rows are short-lived and dropped whole after their
+  lifetime; one the release cannot read ends the Session, told at its next request, or refuses
+  the challenge, so no unreadable entry is kept for them.
 - **Loading, and `StoredVersion`.** At startup the adapter loads every order plan version,
   upgrades it and parses it with `fromDto`. A row it cannot load, because its structure version
   is newer than the release knows, an upgrade fails, or `fromDto` refuses it, does not stop the
@@ -227,7 +231,7 @@ its decisions table.
   domain values, Dtos appear only in the adapters (the server mappers and the database adapter),
   and identity stays as contract types
   until a session domain exists. Plan 516 stores `order_plan.plan` as `OrderPlan.Dto` under
-  `order_plan.json_version` and drops its working-state tables.
+  `order_plan.json_version`, and the working state the same way in its own tables.
 - [`docs/domain/core-domain.md`](../domain/core-domain.md) calls the wire records the contract
   model, not "DTO"; the GenORDER domain document gains the three types.
 - The session service keeps its identity types and signing rules in the server, the named
@@ -244,7 +248,7 @@ its decisions table.
 | One Dto family for the contract model and the database | ADR-0001 lets only the server and the client reference Shared, and Shared must stay transpilable; the Dto carries `BigRational`. |
 | Mapping inside the services, the reply merged onto the request | The bug class this decision removes: a reply that depends on what the client sent. |
 | A structure version as a field of the Dto | The Dto would carry a fact about storage; the adapter owns storage, so the version sits beside the root, and `fromDto` stays ignorant of it. |
-| Storing sessions, challenges and notices in SQL | They are discarded at every startup, so storing them helps nothing and adds three tables with structure versions of their own. |
+| Keeping the working state in memory once a store exists | The stub loses it at a restart anyway, so in memory is right there; a store exists so that a restart ends nothing and a second server continues a Session (ADR-0007), which the working state in one process would defeat. |
 | Freezing the contract model into SQL columns, as the first plan 516 sketch did | A contract change would become a SQL migration, and the stored record would never have been a domain value. |
 | One Dto style for every library (all records, or all mutable classes) | Style is not what differs in concept; the throwing `fromDto` is. Fixing the five invariants fixes the concept and leaves the style. |
 | A session domain now, so that R6 has no exception | A refactor with a plan of its own, deferred by ADR-0007 §3; not a precondition for the mapping boundary. |

@@ -74,8 +74,9 @@ No new Core project. The machine's clinical records (`Records`, the order plan v
 working state (`Challenges`, `Notices`, the patient a Session shows, the head it opened with)
 carry the domain types of GenORDER and GenFORM; their Dtos appear only in the adapters, the
 server mappers before `SessionPort` and the database adapter at load and write, as
-[ADR-0008](0008-contract-model-dto-mapping-boundary.md) decides. The working state is in memory
-and gone at every startup, so it has no tables. The identity fields (`UserContext`,
+[ADR-0008](0008-contract-model-dto-mapping-boundary.md) decides. The working state lives in
+memory while the in-memory stub is the database and is stored, as Dtos under a structure
+version, once the store exists, since a restart ends nothing (Rule 32). The identity fields (`UserContext`,
 `OpenedToken`, `SessionEnding`, the refusals) stay contract model types for now, and ADR-0001's
 ring rule keeps the contract out of Core and Infrastructure. A session domain free of them is a
 refactor with a plan of its own, not a precondition for a store.
@@ -103,9 +104,7 @@ The engine's own isolation behavior is proven by running the same test suite on 
   For now the value is a SQLite connection string. The fail-closed rule for production lands
   with #580.
 - Demo and a bare `dotnet run` keep the stub unless the key is set; a demo on SQLite keeps its
-  credentials and order plan versions across a restart. Its Sessions end at a restart while
-  the working state is in memory (§3), which Rule 32 says they must not: plan 516 records it
-  as an open decision.
+  Sessions across a restart, as Rule 32 says.
 - The integration tests run in the normal CI matrix, on every OS, against a temporary file. No
   container job until the engine amendment.
 - The SQL stays within the portable core: an integer id the engine generates, `TEXT` for JSON,

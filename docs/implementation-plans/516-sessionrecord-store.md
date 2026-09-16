@@ -28,21 +28,19 @@ The decisions this plan rests on, and the one it defers, are in
 
 In scope:
 
-- A table for what must survive a restart: launches, sessions and their heartbeats, endings
-  and acknowledgements, credentials, confirmation codes, enrolments, the order plan versions,
-  answered Submissions. The order plan versions are in because `commit` appends the version in
-  the same act that verifies the PIN and re-mints the OpenedToken; credentials, codes and
-  enrolments are in because `supplyPin` sets the PIN and opens the Session in one act. The
-  working state of a Session, what it opened with, its data notice and its challenge, stays in
-  memory and is gone at every startup, as
-  [ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) §6 decides: every restart
-  ends all Sessions and open challenges, so storing it would help nothing. So that the
-  persisted rows agree, the adapter appends a `restarted` ending at startup for every
-  `session` row of the previous run that no ending names. While that state lives in one
-  process, one server instance runs per store, and a restart ends every Session, which Rules
-  32 and 36 say it must not: open decision 6.
-- The order plan versions stored as domain Dtos under a JSON structure version, upgraded on
-  load (ADR-0008 invariant 5; the section "Stored Dtos and their structure version" below).
+- A table for everything in `Session.State`: launches, sessions with what they opened with and
+  their heartbeats, endings and acknowledgements, credentials, confirmation codes, enrolments,
+  the order plan versions, data notices, challenges, answered Submissions. The order plan
+  versions are in because `commit` appends the version in the same act that verifies the PIN
+  and re-mints the OpenedToken; credentials, codes and enrolments are in because `supplyPin`
+  sets the PIN and opens the Session in one act. Splitting any of these across a store and
+  memory would split a transaction the code keeps whole. The working state (what a Session
+  opened with, its notice, its challenge) is in because a restart must end nothing and a
+  second server must find it (Rules 32 and 36); on the in-memory stub it stays in memory, as
+  [ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) §6 says.
+- Every stored order plan, patient and challenge as a domain Dto under a JSON structure
+  version, upgraded on load (ADR-0008 invariant 5; the section "Stored Dtos and their
+  structure version" below).
 - The audit table and its writer (Rule 46), inside the same transaction as each act.
 - A SQL implementation of `SessionPort`, on SQLite for now.
 - Versioned schema scripts and the small runner that applies them.
@@ -109,13 +107,13 @@ and the final engine runs the write serializable with one retry (Rule 42).
 | `State` field | Tables | The slice reads | An append is |
 | ------------- | ------ | --------------- | ------------ |
 | `Launches` | `launch_record`, `launch_outcome` | the record by nonce or by `state`, with its outcome | the record at the first presentation; the outcome once, at the callback |
-| `Sessions` | `session`, `session_seen` | the row by session id, the newest row for its login, the newest heartbeat; what the Session opened with and the patient it shows are working state, in memory | a session at an open; a heartbeat at every `touch` |
-| `Endings` | `session_ending`, `session_acknowledged`, and `session` itself | a session row whose login has a newer session row is `SupersededByLaunch` at that row's `opened_at`, whatever became of the newer row; the newest row for the login is open unless an ending names it; `wrong-pin-limit` is a row; an acknowledged ending is hidden; a `closed` row loads as no Session at all | `wrong-pin-limit` at the third wrong PIN; `closed` at `close`, with the acknowledgement; `restarted` at startup, for every row of the previous run that no ending names |
+| `Sessions` | `session`, `session_opened_with`, `session_seen` | the row by session id, the newest row for its login, the newest opened-with (its patient a `Patient.Dto` upgraded and parsed at load), the newest heartbeat | a session at an open; an opened-with at an open, at `openVersion` and at a commit; a heartbeat at every `touch` |
+| `Endings` | `session_ending`, `session_acknowledged`, and `session` itself | a session row whose login has a newer session row is `SupersededByLaunch` at that row's `opened_at`, whatever became of the newer row; the newest row for the login is open unless an ending names it; `wrong-pin-limit` is a row; an acknowledged ending is hidden; a `closed` row loads as no Session at all | `wrong-pin-limit` at the third wrong PIN; `closed` at `close`, with the acknowledgement |
 | `Credentials` | `credential_event` | the newest event for the user id | an event at every change: PIN set, wrong entry, lock, right entry |
 | `Codes` | `confirmation_code`, `code_try`, `code_spent` | the newest unspent code for the user id, with its tries counted | a code when mailed; a try per wrong code; spent when the PIN is set, the tries run out, or the last attempt is dropped |
 | `Enrolments` | `enrolment`, `enrolment_dropped` | the attempt by id, then the user id it names, then every undropped attempt and the code of that user: `dropEnrolment` spends the code only when no other attempt stands, and `supplyPin` drops every attempt bound to the code | an attempt when the launch suspends; dropped at `dropEnrolment`; all of a user's attempts dropped when the PIN is set or the code is void |
 | `Records` | `order_plan` | not per request: every order plan version of every patient is loaded at startup into `Session.State`, upgraded to the current structure version and parsed with `fromDto` (ADR-0008 §6) | a version at a commit, written by the state-replacing helper under the lock before the state is assigned (the write order below) |
-| `Notices`, `Challenges` | none | working state, in memory, gone at every startup | nothing |
+| `Notices`, `Challenges` | `data_notice`, `challenge`, `challenge_spent` | the newest unexpired row for the session id; a notice's patient is a `Patient.Dto` upgraded and parsed at load, a challenge holds the digest, not the order plan | a row when issued; a newer row replaces; spent at a commit or an `openVersion` |
 | `Answered` | `submission_answer` | the row for the session id and the idempotency key | the answer, once, refusals included (Rule 45) |
 | the audit | `audit_entry` | nothing | one entry per act, in the same transaction |
 
@@ -135,8 +133,8 @@ suspended launches of one User therefore behave as they do on the stub: dropping
 code to the other, and setting the PIN in one ends both.
 
 What is dropped whole, and when: a launch record and its outcome after the Launch's expiry; a
-heartbeat older than the newest for its Session; an answer after the challenge lifetime; a spent
-code and its tries. The purge is a
+heartbeat older than the newest for its Session; a data notice and a challenge after two
+minutes; an answer after the challenge lifetime; a spent code and its tries. The purge is a
 separate statement, never part of a request's transaction, and never touches `session`,
 `session_ending` or `order_plan`.
 
@@ -155,8 +153,7 @@ with #580, in the shape of `validateProductionPassword`.
 
 The stub seeds four logins with a PIN so that the walkthrough in DEVELOPMENT.md works. The SQL
 store gets the same seed from a script that runs only when `GENPRES_PROD=0`, so a demo on SQLite
-behaves as the demo on the stub, with credentials and order plan versions that survive a
-restart; Sessions end at a restart (open decision 6).
+behaves as the demo on the stub, with Sessions that survive a restart.
 
 ### Placement
 
@@ -206,6 +203,20 @@ create table session (
 );
 create index ix_session_login on session (login, id);
 
+-- What the Session opened with (Rule 19) and the token that names it (Rule 34): written at
+-- the open, at openVersion and at a commit. The newest row counts. The patient is the JSON
+-- Dto of the GenFORM Patient under its structure version (ADR-0008 invariant 5); a row the
+-- release cannot read ends the Session at its next request.
+create table session_opened_with (
+    id           integer primary key,
+    session_id   text not null references session (session_id),
+    version_id   text null,              -- null: from nothing
+    opened_token text not null,
+    json_version integer not null,       -- the JSON structure version of patient
+    patient      text not null,          -- json: Patient.Dto, the data the Session shows
+    at           integer not null
+);
+
 -- Rule 9. Heartbeats. Rows older than the newest for a Session may be dropped whole.
 create table session_seen (
     id         integer primary key,
@@ -217,7 +228,7 @@ create table session_seen (
 -- session row for the same login.
 create table session_ending (
     session_id text primary key references session (session_id),
-    ending     text not null,            -- closed | wrong-pin-limit | restarted
+    ending     text not null,            -- closed | wrong-pin-limit
     at         integer not null
 );
 
@@ -284,6 +295,12 @@ What ADR-0008 invariant 5 and §6 decide, as this plan applies it to `order_plan
   state only if the insert succeeded, else answers `StoreFailed` and leaves the state unchanged.
   The unique constraint on `(patient_id, no)` is the database's own refusal of a second order plan
   version with the same number.
+- **The working state** follows the same rule in its own tables: `session_opened_with.patient`
+  and `data_notice`'s patient are `Patient.Dto` JSON under a `json_version`, upgraded and parsed
+  at load; a challenge stores the digest, the nonce, the expiry and its reading, never the order
+  plan. These rows live minutes to a Session's length and are dropped whole, so a row the
+  release cannot read is not kept as an unreadable entry: an opened-with or a notice it cannot
+  read ends the Session, told at its next request, and a challenge it cannot read is refused.
 - **Every JSON structure change** comes with three things: a new `json_version`, an upgrade
   step, and a stored fixture at the old structure version with a test that the upgraded fixture parses and
   maps to the expected contract model (law L5 of plan 725). A snapshot of the serialized graph
@@ -333,13 +350,6 @@ superseded, and the login has no open Session until the next open appends a row.
    stating for the lifetimes that compare `now` with an expiry.
 4. Audit retention and its legal basis. `audit_entry` names mail addresses (Rule 27).
 5. The demo seed on SQLite: the same four logins as the stub, or none.
-6. Rules 32 and 36 against the working state in memory. ADR-0008 §6 keeps what a Session
-   opened with, its notice and its challenge in one process, so a restart ends every Session
-   and a second server cannot continue one: Rule 32 (a restart ends nothing) and Rule 36
-   (drain on upgrade) are not served until the working state has a store, which needs the
-   session domain of ADR-0007 §3. Whether the integration design accepts that as an interim,
-   or the working state is stored after all as Dtos under a structure version, is decided
-   with the design, not here.
 
 ## Confidence
 
@@ -361,11 +371,12 @@ maintainer's.
 3. The script runner: a `schema_version` table, `.sql` files embedded in the Server, applied at
    startup when the connection string is set, each once, in order. A few lines, so that the
    engine amendment can replace it with a tool without a migration of the migrations. With it,
-   migration 1: `launch_record`, `launch_outcome`, `session`, `session_seen`,
-   `session_ending`, `session_acknowledged`, `order_plan`. Gate: `order_plan` waits for steps
-   5.1 and 5.3 of plan [725](725-contract-model-dto-domain-flow.md), which give the session
-   service the domain-typed records and the write order this table stores; the other tables
-   may land before.
+   migration 1: `launch_record`, `launch_outcome`, `session`, `session_opened_with`,
+   `session_seen`, `session_ending`, `session_acknowledged`, `order_plan`. Gate: `order_plan`
+   and `session_opened_with` wait for steps 5.1 and 5.3 of plan
+   [725](725-contract-model-dto-domain-flow.md), which give the session service the
+   domain-typed records and the write order these tables store; the other tables may land
+   before.
 4. The adapter, part 1: the slice loader and the append writer for launches and sessions, and
    the members `present`, `callback`, `find`, `close`, `seen`, `openVersion`. Integration tests
    against a temporary SQLite file in the Server test project, in the normal matrix: two
@@ -373,9 +384,9 @@ maintainer's.
    `StubAdapterTests` contract run against the SQL port.
 5. Migration 2 and part 2: `credential_event`, `confirmation_code`, `code_try`, `code_spent`,
    `enrolment`, `enrolment_dropped`; the members `findEnrolment`, `supplyPin`, `dropEnrolment`.
-6. Migration 3 and part 3: `submission_answer`; the members `challenge` and `submit`, the
-   challenge and the notice staying in memory; the first stored fixture and its test; the
-   Rule 42 test.
+6. Migration 3 and part 3: `data_notice`, `challenge`, `challenge_spent`, `submission_answer`;
+   the members `challenge` and `submit`; the first stored fixture and its test; the Rule 42
+   test.
 7. `audit_entry` and the writer inside every member's transaction; the purge statement; the
    composition switch in `Adapters.makeAppEnvWith`; the demo seed; DEVELOPMENT.md (the key, the
    file, the seed); the CHANGELOG entry in the commit body.
