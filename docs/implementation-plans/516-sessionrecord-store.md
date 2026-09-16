@@ -389,8 +389,10 @@ maintainer's.
    land before.
 4. The adapter, part 1: the slice loader and the append writer for launches and sessions, and
    the members `present`, `callback`, `find`, `close`, `seen`, `openVersion`, and the
-   `unreadable` ending the loader appends (its `SessionEnding` case and the client's message
-   land in plan 725 step 5.2). Integration tests
+   `unreadable` ending the loader appends. Gate: plan 725 step 5.2, which adds the
+   `SessionEnding.Unreadable` case to the contract model, the client's message for it and
+   their tests; the ending is written only for the opened-with and notice rows that step
+   gives the machine. Integration tests
    against a temporary SQLite file in the Server test project, in the normal matrix: two
    launches at once, the same Launch twice, an ended Session never reopens, and the
    `StubAdapterTests` contract run against the SQL port.
