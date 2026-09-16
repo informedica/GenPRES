@@ -1038,8 +1038,63 @@ Serilog composition root is stable enough that these changes are visible in real
   `Substance.fs`, `GStand.fs`, `Utils.fs`, `NKF/Utils.fs`) are not dependency-rule violations 
   adapters may do IO but leaving them on raw `Console` writes means G-Standaard loading never
   reaches the Serilog sink and can't be level-filtered by `GENPRES_LOG` like everything else.
-  Thread a `Logger` into these adapters' entry points once Phase 1 proves the pattern on the
-  Core-ring libraries.
+
+  **Scoped 2026-09-16, not started: this is a poor next increment, unlike the Core-ring
+  `viaLogger` migration it doesn't have the same shape.** Traced all 9 sites plus their call
+  chains:
+  - `FilePath.fs`/`Json.fs` (ZIndex) have no callers outside the four memoized accessors below,
+    so threading a logger into them alone just silently drops those specific log lines until the
+    accessors are fixed too they can't be split out as an independent slice.
+  - `Substance.fs`, `GenPresProduct.fs`, `ATCGroup.fs`, `DoseRule.fs` (ZIndex) and
+    `Mapping.fs`'s `getUnitMapping`/`getFrequencyMapping` (ZForm not one of the original 9, but
+    the same shape) each wrap their diagnostic print inside `Memoization.memoize`. Verified
+    empirically (`dotnet fsi`, not from memory): passing a `Logger` as the memoized argument
+    *compiles* `ConcurrentDictionary<'a,_>` carries no F# `equality` constraint but it's a
+    real trap `Logger` can't get structural equality (function-typed fields `l1 = l2` on two
+    `Logger` values is FS0001), so the cache falls back to *reference* identity. Confirmed
+    separately that `Server/Logging.fs`'s `SerilogBridge.toLogger` builds a fresh `Logger` record
+    on every call to `Logging.getLogger`; if that's what ends up feeding these accessors, every
+    call looks like a new cache key and memoization is silently defeated re-running the parse
+    and rewriting the cache file every time, not just a missed log line. The safe fix is capturing
+    the logger once via closure at construction time (the `GStandProvider`/`CachedResourceProvider`
+    shape), not passing it through the memoized call but these four accessors are bare ambient
+    top-level functions called from dozens of sites across `ZIndex.Lib`/`ZForm.Lib`/`NKF.Lib`/
+    `GenFORM.Lib`/`RuleFinder.fs`, with no single composition-root point to inject from short of
+    turning them into constructed ports, a much larger refactor than "route 9 prints".
+  - `NKF.Lib/Utils.fs`'s `Web.getDataUrlId` is additionally blocked by a separate,
+    previously-undocumented bug: `NKF.Lib/Mapping.fs`'s `routeMapping`/`unitMapping`/
+    `productMapping` are top-level `let` **values** that perform the sheet fetch at module-init
+    time the exact #523/#526 anti-pattern, not yet flagged anywhere else. Can't thread a logger
+    into `getDataUrlId` without fixing that first.
+
+  This matches the judgment call already made for `UnitsParse.fromString`/`ValueUnit.fromDto` in
+  the GenUNITS tier above: genuine gap, no reachable composition root without a ripple
+  disproportionate to the value, and no dependency-rule violation forcing the issue (adapters may
+  do IO). Recommend leaving these 9 sites as raw `ConsoleWriter` rather than inventing new mutable
+  global state to work around the reference-equality trap, which would cut against the point of
+  the Serilog migration.
+
+  **Landed 2026-09-16 (`66e5e7d1`, `Informedica.MCP.Server/Program.fs`).** The MCP-host
+  stdout-pollution finding recorded under the Step 2 migration package's "Run 2026-09-16" note was
+  fixed directly and narrowly, exactly as recommended above: `Console.SetOut Console.Error` as the
+  first statement of `main`, before `Env.loadDotEnv`/resource loading can write anything through
+  `ConsoleWriter`. `Console.OpenStandardOutput()` — what `WithStdioServerTransport` actually reads
+  from — is a separate raw stream unaffected by the redirect, verified by decompiling the shipped
+  `ModelContextProtocol.Core 1.2.0` `StdioServerTransport`. Confirmed empirically: stdout carried
+  1859 bytes of interleaved plain text before the fix, only JSON-RPC frames after. This closed the
+  bug without depending on the Serilog migration, as scoped.
+
+  A follow-up check (same session) confirmed no other MCP-host-reachable stdout leak exists:
+  `Informedica.MCP.Lib/Library.fs`'s `hello` is unused `dotnet new classlib` scaffold, not on the
+  host's startup or tool-call path; every other print in `Informedica.MCP.Lib` (`Logging.fs`,
+  `McpServer.fs`) is already `eprintfn`. The one gap the `Console.Out` redirect alone doesn't
+  close: ASP.NET Core's default console logging provider reads `Console.Out` each time it writes
+  rather than caching it, so the redirect happens to silence it too, but that's an accident of
+  ordering, not a documented guarantee. `McpServer.createHostBuilder` now also configures
+  `builder.Logging.AddConsole(fun o -> o.LogToStandardErrorThreshold <- LogLevel.Trace)` — the
+  pattern the official MCP C# SDK docs use for stdio servers — so the pin to stderr is explicit
+  and holds even if a future change reorders startup or calls `Console.Out` back to its original
+  stream before the host logs anything.
 - Global mutable state. Two instances are already closed out by Phase 1, not left for this
   phase to find: `AgentLogging.errorHandler: (LoggingError -> unit) option` disappears when
   `AgentLogging` is deleted (step 2), and so does `Server/Logging.fs`'s own

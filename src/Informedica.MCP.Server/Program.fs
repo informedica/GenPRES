@@ -8,6 +8,16 @@ open Informedica.MCP.Lib
 
 [<EntryPoint>]
 let main _ =
+    // stdout is the JSON-RPC transport channel: McpServer.createHostBuilder's
+    // WithStdioServerTransport opens it via Console.OpenStandardOutput(), a raw stream
+    // independent of this TextWriter redirect (verified against the shipped
+    // ModelContextProtocol.Core 1.2.0 StdioServerTransport, decompiled 2026-09-16). Any stray
+    // ConsoleWriter/printfn output during resource loading below would otherwise interleave
+    // plain text with JSON-RPC frames on stdout and corrupt the transport for the life of the
+    // session (confirmed bug, #416 plan "Run 2026-09-16"), so redirect the TextWriter before
+    // anything else can write through it.
+    Console.SetOut Console.Error
+
     Env.loadDotEnv () |> ignore
     Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
     Environment.SetEnvironmentVariable("GENPRES_DEBUG", "0")

@@ -13,6 +13,7 @@ open ModelContextProtocol.Protocol
 open ModelContextProtocol.Server
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
+open Microsoft.Extensions.Logging
 
 open Newtonsoft.Json
 
@@ -342,6 +343,13 @@ module McpServer =
     /// Create and configure the MCP server host builder.
     let createHostBuilder (logger: Logger) =
         let builder = Host.CreateApplicationBuilder()
+
+        // Belt-and-braces alongside Program.fs's Console.SetOut redirect: the default console
+        // logging provider writes through Console.Out on its own schedule, so pin it to stderr
+        // explicitly rather than relying solely on the ambient redirect holding for the process
+        // lifetime (the pattern the official MCP C# SDK docs use for stdio servers).
+        builder.Logging.AddConsole(fun options -> options.LogToStandardErrorThreshold <- LogLevel.Trace)
+        |> ignore
 
         builder.Services
             .AddMcpServer(fun options ->
