@@ -562,9 +562,10 @@ serialization (follow-up); MCP output records (follow-up, after `OrderContext.Dt
 ### Target shape
 
 One thing in the contract model changes: `SessionEnding` gains the case `Unreadable` (Storage,
-step 5.2), and the client shows that ending. Nothing else does. The client keeps sending and receiving `Shared.Types` records. On
-the server a request is translated contract model -> Dto (total), parsed
-Dto -> domain (`Result`), run, and the answer is built domain -> Dto -> contract model. Ports
+step 5.2), and the client shows that ending. Nothing else does. The client keeps sending and
+receiving `Shared.Types` records. On the server a request is translated contract model -> Dto
+(total), parsed Dto -> domain (`Result`), run, and the answer is built domain -> Dto -> contract
+model. Ports
 carry domain values, with the split stated in Part 1. The session service holds domain values
 and compares order plans by the digest the database adapter supplies. Order plan rules move to
 `Informedica.GenORDER.Lib`; `Shared.Models` keeps display projections with an agreement test.
