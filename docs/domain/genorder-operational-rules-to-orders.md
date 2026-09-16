@@ -127,8 +127,9 @@ Three domain types sit next to OrderContext in `Informedica.GenORDER.Lib`, as
   Order Plan Version it was built on, the signer and the time. It is what the record stores and what a
   reopen restores, nothing recomputed.
 
-Each of the three has a Dto next to it, like `Order`, and crosses the server boundary through
-that Dto only.
+Each of the three has a Dto next to it, like `Order`. The client and the server exchange the
+contract model; the server's mappers turn it into the Dto and parse the Dto into the domain
+type, so the domain sees the three as domain values and, at its own boundary, as their Dtos.
 
 ## 5. Order Scenario
 

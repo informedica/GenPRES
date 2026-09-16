@@ -72,8 +72,8 @@ the DMZ may.
 
 No new Core project. The machine's clinical records (`Records`, the order plan versions) and its
 working state (`Challenges`, `Notices`, the patient a Session shows, the head it opened with)
-carry the domain types of GenORDER and GenFORM; their Dtos appear only in the database adapter,
-and the contract model types are mapped before `SessionPort`, as
+carry the domain types of GenORDER and GenFORM; their Dtos appear only in the adapters, the
+server mappers before `SessionPort` and the database adapter at load and write, as
 [ADR-0008](0008-contract-model-dto-mapping-boundary.md) decides. The working state is in memory
 and gone at every startup, so it has no tables. The identity fields (`UserContext`,
 `OpenedToken`, `SessionEnding`, the refusals) stay contract model types for now, and ADR-0001's

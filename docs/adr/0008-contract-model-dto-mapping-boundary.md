@@ -224,7 +224,8 @@ its decisions table.
 - `OrderPlan`, `PlanContext` and `OrderPlanVersion` become GenORDER domain types and the order
   plan rules move out of `ServerApi.Services.fs` and `Shared.Models`.
 - ADR-0007 §3 is amended: the session state holds the clinical records and its working state as
-  domain values, Dtos appear only in the database adapter, and identity stays as contract types
+  domain values, Dtos appear only in the adapters (the server mappers and the database adapter),
+  and identity stays as contract types
   until a session domain exists. Plan 516 stores `order_plan.plan` as `OrderPlan.Dto` under
   `order_plan.json_version` and drops its working-state tables.
 - [`docs/domain/core-domain.md`](../domain/core-domain.md) calls the wire records the contract
