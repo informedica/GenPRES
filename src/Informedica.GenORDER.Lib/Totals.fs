@@ -245,25 +245,29 @@ module Totals =
             }
 
 
-        /// A field copy; every Dto is totals.
+        /// A field copy; every Dto is totals. A null root is missing; the guard is spelled
+        /// out here since this file compiles before the Dto helpers.
         let fromDto (dto: Dto) : Result<Totals, DtoError list> =
-            Ok
-                {
-                    Volume = dto.Volume
-                    Energy = dto.Energy
-                    Protein = dto.Protein
-                    Carbohydrate = dto.Carbohydrate
-                    Fat = dto.Fat
-                    Sodium = dto.Sodium
-                    Potassium = dto.Potassium
-                    Chloride = dto.Chloride
-                    Calcium = dto.Calcium
-                    Phosphate = dto.Phosphate
-                    Magnesium = dto.Magnesium
-                    Iron = dto.Iron
-                    VitaminD = dto.VitaminD
-                    Ethanol = dto.Ethanol
-                    Propyleenglycol = dto.Propyleenglycol
-                    BenzylAlcohol = dto.BenzylAlcohol
-                    BoricAcid = dto.BoricAcid
-                }
+            if isNull (box dto) then
+                Error [ DtoError.Missing "Totals" ]
+            else
+                Ok
+                    {
+                        Volume = dto.Volume
+                        Energy = dto.Energy
+                        Protein = dto.Protein
+                        Carbohydrate = dto.Carbohydrate
+                        Fat = dto.Fat
+                        Sodium = dto.Sodium
+                        Potassium = dto.Potassium
+                        Chloride = dto.Chloride
+                        Calcium = dto.Calcium
+                        Phosphate = dto.Phosphate
+                        Magnesium = dto.Magnesium
+                        Iron = dto.Iron
+                        VitaminD = dto.VitaminD
+                        Ethanol = dto.Ethanol
+                        Propyleenglycol = dto.Propyleenglycol
+                        BenzylAlcohol = dto.BenzylAlcohol
+                        BoricAcid = dto.BoricAcid
+                    }

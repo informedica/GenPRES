@@ -2216,6 +2216,43 @@ module OrderPlanDtoTests =
                             |> Expect.equal "the same version" (Ok Fixtures.version)
                         }
 
+                        test "a null root is missing by its name, never a crash" {
+                            let missing name = Error [ DtoError.Missing name ]
+
+                            "null"
+                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
+                            |> OrderPlanVersion.Dto.fromDto
+                            |> Expect.equal "a stored null" (missing "OrderPlanVersion")
+
+                            Unchecked.defaultof<OrderPlan.Dto.Dto>
+                            |> OrderPlan.Dto.fromDto
+                            |> Expect.equal "order plan" (missing "OrderPlan")
+
+                            Unchecked.defaultof<PlanContext.Dto.Dto>
+                            |> PlanContext.Dto.fromDto
+                            |> Expect.equal "plan context" (missing "PlanContext")
+
+                            Unchecked.defaultof<Signer.Dto.Dto>
+                            |> Signer.Dto.fromDto
+                            |> Expect.equal "signer" (missing "Signer")
+
+                            Unchecked.defaultof<Totals.Dto.Dto>
+                            |> Totals.Dto.fromDto
+                            |> Expect.equal "totals" (missing "Totals")
+
+                            Unchecked.defaultof<OrderContext.Dto.Dto>
+                            |> OrderContext.Dto.fromDto
+                            |> Expect.equal "order context" (missing "OrderContext")
+
+                            Unchecked.defaultof<OrderScenario.Dto.Dto>
+                            |> OrderScenario.Dto.fromDto
+                            |> Expect.equal "scenario" (missing "OrderScenario")
+
+                            Unchecked.defaultof<Filter.Dto.Dto>
+                            |> Filter.Dto.fromDto
+                            |> Expect.equal "filter" (missing "Filter")
+                        }
+
                         test "two versions equal as values digest equal, a re-ordered plan does not" {
                             let a = Fixtures.version |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
 

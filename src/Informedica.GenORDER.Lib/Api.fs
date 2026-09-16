@@ -277,59 +277,64 @@ module OrderScenario =
         /// The scenario a Dto is, or every reason it is none. An order that cannot be
         /// created is an error, never a dropped scenario.
         let fromDto (dto: Dto) : Result<OrderScenario, DtoError list> =
-            let doseType =
-                dto.DoseType |> DoseTypeDto.fromString |> Result.mapError List.singleton
+            Nested.required
+                "OrderScenario"
+                dto
+                (fun dto ->
+                    let doseType =
+                        dto.DoseType |> DoseTypeDto.fromString |> Result.mapError List.singleton
 
-            let prescription = dto.Prescription |> DtoResult.orEmpty |> blocksFromDto
-            let preparation = dto.Preparation |> DtoResult.orEmpty |> blocksFromDto
-            let administration = dto.Administration |> DtoResult.orEmpty |> blocksFromDto
+                    let prescription = dto.Prescription |> DtoResult.orEmpty |> blocksFromDto
+                    let preparation = dto.Preparation |> DtoResult.orEmpty |> blocksFromDto
+                    let administration = dto.Administration |> DtoResult.orEmpty |> blocksFromDto
 
-            let order =
-                try
-                    dto.Order
-                    |> Order.Dto.fromDto
-                    |> Result.mapError (fun m -> [ DtoError.OrderNotCreated $"{m}" ])
-                with exn ->
-                    Error [ DtoError.OrderNotCreated exn.Message ]
+                    let order =
+                        try
+                            dto.Order
+                            |> Order.Dto.fromDto
+                            |> Result.mapError (fun m -> [ DtoError.OrderNotCreated $"{m}" ])
+                        with exn ->
+                            Error [ DtoError.OrderNotCreated exn.Message ]
 
-            let errorsOf (r: Result<_, DtoError list>) =
-                match r with
-                | Error es -> es
-                | Ok _ -> []
+                    let errorsOf (r: Result<_, DtoError list>) =
+                        match r with
+                        | Error es -> es
+                        | Ok _ -> []
 
-            let allErrors =
-                errorsOf doseType
-                @ errorsOf prescription
-                @ errorsOf preparation
-                @ errorsOf administration
-                @ errorsOf order
+                    let allErrors =
+                        errorsOf doseType
+                        @ errorsOf prescription
+                        @ errorsOf preparation
+                        @ errorsOf administration
+                        @ errorsOf order
 
-            match allErrors, doseType, prescription, preparation, administration, order with
-            | [], Ok doseType, Ok prescription, Ok preparation, Ok administration, Ok order ->
-                Ok
-                    {
-                        No = dto.No
-                        Name = dto.Name
-                        Indication = dto.Indication
-                        Form = dto.Form
-                        Route = dto.Route
-                        DoseType = doseType
-                        Diluent = dto.Diluent
-                        Component = dto.Component
-                        Item = dto.Item
-                        Diluents = dto.Diluents |> DtoResult.orEmpty
-                        Components = dto.Components |> DtoResult.orEmpty
-                        Items = dto.Items |> DtoResult.orEmpty
-                        Prescription = prescription
-                        Preparation = preparation
-                        Administration = administration
-                        Order = order
-                        UseAdjust = dto.UseAdjust
-                        UseRenalRule = dto.UseRenalRule
-                        RenalRule = dto.RenalRule
-                        ProductsIds = dto.ProductsIds |> DtoResult.orEmpty
-                    }
-            | errors, _, _, _, _, _ -> Error errors
+                    match allErrors, doseType, prescription, preparation, administration, order with
+                    | [], Ok doseType, Ok prescription, Ok preparation, Ok administration, Ok order ->
+                        Ok
+                            {
+                                No = dto.No
+                                Name = dto.Name
+                                Indication = dto.Indication
+                                Form = dto.Form
+                                Route = dto.Route
+                                DoseType = doseType
+                                Diluent = dto.Diluent
+                                Component = dto.Component
+                                Item = dto.Item
+                                Diluents = dto.Diluents |> DtoResult.orEmpty
+                                Components = dto.Components |> DtoResult.orEmpty
+                                Items = dto.Items |> DtoResult.orEmpty
+                                Prescription = prescription
+                                Preparation = preparation
+                                Administration = administration
+                                Order = order
+                                UseAdjust = dto.UseAdjust
+                                UseRenalRule = dto.UseRenalRule
+                                RenalRule = dto.RenalRule
+                                ProductsIds = dto.ProductsIds |> DtoResult.orEmpty
+                            }
+                    | errors, _, _, _, _, _ -> Error errors
+                )
 
 
 module OrderContext =
@@ -1217,41 +1222,46 @@ Scenarios: {scenarios}
         /// The context a Dto is, or every reason it is none: the filter's, the patient's
         /// and every scenario's, a scenario that fails never dropped.
         let fromDto (dto: Dto) : Result<OrderContext, DtoError list> =
-            let filter = Nested.required "Filter" dto.Filter Filter.Dto.fromDto
+            Nested.required
+                "OrderContext"
+                dto
+                (fun dto ->
+                    let filter = Nested.required "Filter" dto.Filter Filter.Dto.fromDto
 
-            let patient =
-                Nested.required
-                    "Patient"
-                    dto.Patient
-                    (fun p ->
-                        p
-                        |> Informedica.GenForm.Lib.Patient.Dto.fromDto
-                        |> Result.mapError (List.map DtoError.Patient)
-                    )
+                    let patient =
+                        Nested.required
+                            "Patient"
+                            dto.Patient
+                            (fun p ->
+                                p
+                                |> Informedica.GenForm.Lib.Patient.Dto.fromDto
+                                |> Result.mapError (List.map DtoError.Patient)
+                            )
 
-            let scenarios =
-                dto.Scenarios
-                |> DtoResult.orEmpty
-                |> Array.toList
-                |> List.map (fun sc -> Nested.required "Scenario" sc OrderScenario.Dto.fromDto)
-                |> DtoResult.sequence
-                |> Result.mapError List.concat
+                    let scenarios =
+                        dto.Scenarios
+                        |> DtoResult.orEmpty
+                        |> Array.toList
+                        |> List.map (fun sc -> Nested.required "Scenario" sc OrderScenario.Dto.fromDto)
+                        |> DtoResult.sequence
+                        |> Result.mapError List.concat
 
-            match filter, patient, scenarios with
-            | Ok filter, Ok patient, Ok scenarios ->
-                Ok
-                    {
-                        Filter = filter
-                        Patient = patient
-                        Scenarios = scenarios |> List.toArray
-                    }
-            | _ ->
-                let errorsOf r =
-                    match r with
-                    | Error es -> es
-                    | Ok _ -> []
+                    match filter, patient, scenarios with
+                    | Ok filter, Ok patient, Ok scenarios ->
+                        Ok
+                            {
+                                Filter = filter
+                                Patient = patient
+                                Scenarios = scenarios |> List.toArray
+                            }
+                    | _ ->
+                        let errorsOf r =
+                            match r with
+                            | Error es -> es
+                            | Ok _ -> []
 
-                Error(errorsOf filter @ errorsOf patient @ errorsOf scenarios)
+                        Error(errorsOf filter @ errorsOf patient @ errorsOf scenarios)
+                )
 
 
 module Formulary =

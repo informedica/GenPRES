@@ -40,6 +40,16 @@ module DtoResult =
             Error errors
 
 
+/// A Dto a serializer left null, the root or a nested one, is an error, by its name.
+module Nested =
+
+    let required name (dto: 'a) (read: 'a -> Result<'b, DtoError list>) =
+        if isNull (box dto) then
+            Error [ DtoError.Missing name ]
+        else
+            read dto
+
+
 module TextBlock =
 
     /// A text block as one kind and its text; the markup the client shows is added on
@@ -163,45 +173,50 @@ module Filter =
 
 
         let fromDto (dto: Dto) : Result<Filter, DtoError list> =
-            let doseTypes =
-                dto.DoseTypes
-                |> DtoResult.orEmpty
-                |> Array.toList
-                |> List.map DoseTypeDto.fromString
-                |> DtoResult.sequence
+            Nested.required
+                "Filter"
+                dto
+                (fun dto ->
+                    let doseTypes =
+                        dto.DoseTypes
+                        |> DtoResult.orEmpty
+                        |> Array.toList
+                        |> List.map DoseTypeDto.fromString
+                        |> DtoResult.sequence
 
-            let doseType =
-                match dto.DoseType with
-                | None -> Ok None
-                | Some s ->
-                    s
-                    |> DtoResult.orBlank
-                    |> DoseTypeDto.fromString
-                    |> Result.map Some
-                    |> Result.mapError List.singleton
+                    let doseType =
+                        match dto.DoseType with
+                        | None -> Ok None
+                        | Some s ->
+                            s
+                            |> DtoResult.orBlank
+                            |> DoseTypeDto.fromString
+                            |> Result.map Some
+                            |> Result.mapError List.singleton
 
-            match doseTypes, doseType with
-            | Ok doseTypes, Ok doseType ->
-                Ok
-                    {
-                        Indications = dto.Indications |> DtoResult.orEmpty
-                        Generics = dto.Generics |> DtoResult.orEmpty
-                        Routes = dto.Routes |> DtoResult.orEmpty
-                        Forms = dto.Forms |> DtoResult.orEmpty
-                        DoseTypes = doseTypes |> List.toArray
-                        Diluents = dto.Diluents |> DtoResult.orEmpty
-                        Components = dto.Components |> DtoResult.orEmpty
-                        Indication = dto.Indication
-                        Generic = dto.Generic
-                        Route = dto.Route
-                        Form = dto.Form
-                        DoseType = doseType
-                        Diluent = dto.Diluent
-                        SelectedComponents = dto.SelectedComponents |> DtoResult.orEmpty
-                    }
-            | Error e1, Error e2 -> Error(e1 @ e2)
-            | Error e, _
-            | _, Error e -> Error e
+                    match doseTypes, doseType with
+                    | Ok doseTypes, Ok doseType ->
+                        Ok
+                            {
+                                Indications = dto.Indications |> DtoResult.orEmpty
+                                Generics = dto.Generics |> DtoResult.orEmpty
+                                Routes = dto.Routes |> DtoResult.orEmpty
+                                Forms = dto.Forms |> DtoResult.orEmpty
+                                DoseTypes = doseTypes |> List.toArray
+                                Diluents = dto.Diluents |> DtoResult.orEmpty
+                                Components = dto.Components |> DtoResult.orEmpty
+                                Indication = dto.Indication
+                                Generic = dto.Generic
+                                Route = dto.Route
+                                Form = dto.Form
+                                DoseType = doseType
+                                Diluent = dto.Diluent
+                                SelectedComponents = dto.SelectedComponents |> DtoResult.orEmpty
+                            }
+                    | Error e1, Error e2 -> Error(e1 @ e2)
+                    | Error e, _
+                    | _, Error e -> Error e
+                )
 
 
 /// The one serialization of a Dto: the form the signing digest is computed over and the
@@ -305,41 +320,23 @@ module Canonical =
 /// category's name.
 module OrderCategoryDto =
 
-    let nutrition =
-        [
-            NutritionCategory.EnteralFeeding, "enteral-feeding"
-            NutritionCategory.EnteralSupplement, "enteral-supplement"
-            NutritionCategory.TPN, "tpn"
-            NutritionCategory.Lipid, "lipid"
-            NutritionCategory.ElectrolyteGlucose, "electrolyte-glucose"
-        ]
-
-
+    /// Every category matched, so that a category without a string form fails to compile.
     let toString =
         function
         | OrderCategory.Drug -> "drug"
-        | OrderCategory.Nutrition c ->
-            let name = nutrition |> List.find (fst >> (=) c) |> snd
-            $"nutrition:{name}"
+        | OrderCategory.Nutrition NutritionCategory.EnteralFeeding -> "nutrition:enteral-feeding"
+        | OrderCategory.Nutrition NutritionCategory.EnteralSupplement -> "nutrition:enteral-supplement"
+        | OrderCategory.Nutrition NutritionCategory.TPN -> "nutrition:tpn"
+        | OrderCategory.Nutrition NutritionCategory.Lipid -> "nutrition:lipid"
+        | OrderCategory.Nutrition NutritionCategory.ElectrolyteGlucose -> "nutrition:electrolyte-glucose"
 
 
     let fromString (s: string) : Result<OrderCategory, DtoError> =
         match s |> DtoResult.orBlank |> String.toLower |> String.trim with
         | "drug" -> Ok OrderCategory.Drug
-        | s when s.StartsWith "nutrition:" ->
-            let name = s.Substring("nutrition:".Length)
-
-            match nutrition |> List.tryFind (snd >> (=) name) with
-            | Some(c, _) -> Ok(OrderCategory.Nutrition c)
-            | None -> Error(DtoError.UnknownCategory s)
-        | _ -> Error(DtoError.UnknownCategory(DtoResult.orBlank s))
-
-
-/// A nested Dto a serializer left null is an error, by the field's name.
-module Nested =
-
-    let required name (dto: 'a) (read: 'a -> Result<'b, DtoError list>) =
-        if isNull (box dto) then
-            Error [ DtoError.Missing name ]
-        else
-            read dto
+        | "nutrition:enteral-feeding" -> Ok(OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
+        | "nutrition:enteral-supplement" -> Ok(OrderCategory.Nutrition NutritionCategory.EnteralSupplement)
+        | "nutrition:tpn" -> Ok(OrderCategory.Nutrition NutritionCategory.TPN)
+        | "nutrition:lipid" -> Ok(OrderCategory.Nutrition NutritionCategory.Lipid)
+        | "nutrition:electrolyte-glucose" -> Ok(OrderCategory.Nutrition NutritionCategory.ElectrolyteGlucose)
+        | s -> Error(DtoError.UnknownCategory s)

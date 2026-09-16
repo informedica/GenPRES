@@ -32,28 +32,33 @@ module PlanContext =
 
 
         let fromDto (dto: Dto) : Result<PlanContext, DtoError list> =
-            let category =
-                dto.Category |> OrderCategoryDto.fromString |> Result.mapError List.singleton
+            Nested.required
+                "PlanContext"
+                dto
+                (fun dto ->
+                    let category =
+                        dto.Category |> OrderCategoryDto.fromString |> Result.mapError List.singleton
 
-            let context = Nested.required "Context" dto.Context OrderContext.Dto.fromDto
-            let intake = Nested.required "Intake" dto.Intake Totals.Dto.fromDto
+                    let context = Nested.required "Context" dto.Context OrderContext.Dto.fromDto
+                    let intake = Nested.required "Intake" dto.Intake Totals.Dto.fromDto
 
-            match category, context, intake with
-            | Ok category, Ok context, Ok intake ->
-                Ok
-                    {
-                        Id = dto.Id |> DtoResult.orBlank
-                        Category = category
-                        Context = context
-                        Intake = intake
-                    }
-            | _ ->
-                let errorsOf r =
-                    match r with
-                    | Error es -> es
-                    | Ok _ -> []
+                    match category, context, intake with
+                    | Ok category, Ok context, Ok intake ->
+                        Ok
+                            {
+                                Id = dto.Id |> DtoResult.orBlank
+                                Category = category
+                                Context = context
+                                Intake = intake
+                            }
+                    | _ ->
+                        let errorsOf r =
+                            match r with
+                            | Error es -> es
+                            | Ok _ -> []
 
-                Error(errorsOf category @ errorsOf context @ errorsOf intake)
+                        Error(errorsOf category @ errorsOf context @ errorsOf intake)
+                )
 
 
 module OrderPlan =
@@ -83,42 +88,47 @@ module OrderPlan =
         /// The order plan a Dto is, or every reason it is none, over the patient and every
         /// context.
         let fromDto (dto: Dto) : Result<OrderPlan, DtoError list> =
-            let patient =
-                Nested.required
-                    "Patient"
-                    dto.Patient
-                    (fun p ->
-                        p
-                        |> Informedica.GenForm.Lib.Patient.Dto.fromDto
-                        |> Result.mapError (List.map DtoError.Patient)
-                    )
+            Nested.required
+                "OrderPlan"
+                dto
+                (fun dto ->
+                    let patient =
+                        Nested.required
+                            "Patient"
+                            dto.Patient
+                            (fun p ->
+                                p
+                                |> Informedica.GenForm.Lib.Patient.Dto.fromDto
+                                |> Result.mapError (List.map DtoError.Patient)
+                            )
 
-            let contexts =
-                dto.Contexts
-                |> DtoResult.orEmpty
-                |> Array.toList
-                |> List.map (fun pc -> Nested.required "Context" pc PlanContext.Dto.fromDto)
-                |> DtoResult.sequence
-                |> Result.mapError List.concat
+                    let contexts =
+                        dto.Contexts
+                        |> DtoResult.orEmpty
+                        |> Array.toList
+                        |> List.map (fun pc -> Nested.required "Context" pc PlanContext.Dto.fromDto)
+                        |> DtoResult.sequence
+                        |> Result.mapError List.concat
 
-            let totals = Nested.required "Totals" dto.Totals Totals.Dto.fromDto
+                    let totals = Nested.required "Totals" dto.Totals Totals.Dto.fromDto
 
-            match patient, contexts, totals with
-            | Ok patient, Ok contexts, Ok totals ->
-                Ok
-                    {
-                        Patient = patient
-                        Filtered = dto.Filtered |> DtoResult.orEmpty
-                        Contexts = contexts |> List.toArray
-                        Totals = totals
-                    }
-            | _ ->
-                let errorsOf r =
-                    match r with
-                    | Error es -> es
-                    | Ok _ -> []
+                    match patient, contexts, totals with
+                    | Ok patient, Ok contexts, Ok totals ->
+                        Ok
+                            {
+                                Patient = patient
+                                Filtered = dto.Filtered |> DtoResult.orEmpty
+                                Contexts = contexts |> List.toArray
+                                Totals = totals
+                            }
+                    | _ ->
+                        let errorsOf r =
+                            match r with
+                            | Error es -> es
+                            | Ok _ -> []
 
-                Error(errorsOf patient @ errorsOf contexts @ errorsOf totals)
+                        Error(errorsOf patient @ errorsOf contexts @ errorsOf totals)
+                )
 
 
 module Signer =
@@ -140,11 +150,16 @@ module Signer =
 
 
         let fromDto (dto: Dto) : Result<Signer, DtoError list> =
-            Ok
-                {
-                    UserId = dto.UserId |> DtoResult.orBlank
-                    DisplayName = dto.DisplayName |> DtoResult.orBlank
-                }
+            Nested.required
+                "Signer"
+                dto
+                (fun dto ->
+                    Ok
+                        {
+                            UserId = dto.UserId |> DtoResult.orBlank
+                            DisplayName = dto.DisplayName |> DtoResult.orBlank
+                        }
+                )
 
 
 module OrderPlanVersion =
@@ -181,26 +196,31 @@ module OrderPlanVersion =
 
 
         let fromDto (dto: Dto) : Result<OrderPlanVersion, DtoError list> =
-            let signer = Nested.required "SignedBy" dto.SignedBy Signer.Dto.fromDto
-            let plan = Nested.required "Plan" dto.Plan OrderPlan.Dto.fromDto
+            Nested.required
+                "OrderPlanVersion"
+                dto
+                (fun dto ->
+                    let signer = Nested.required "SignedBy" dto.SignedBy Signer.Dto.fromDto
+                    let plan = Nested.required "Plan" dto.Plan OrderPlan.Dto.fromDto
 
-            match signer, plan with
-            | Ok signer, Ok plan ->
-                Ok
-                    {
-                        Id = dto.Id |> DtoResult.orBlank
-                        No = dto.No
-                        PatientId = dto.PatientId |> DtoResult.orBlank
-                        Base = dto.Base
-                        SignedBy = signer
-                        SignedAt = dto.SignedAt
-                        Plan = plan
-                        Verified = dto.Verified
-                    }
-            | _ ->
-                let errorsOf r =
-                    match r with
-                    | Error es -> es
-                    | Ok _ -> []
+                    match signer, plan with
+                    | Ok signer, Ok plan ->
+                        Ok
+                            {
+                                Id = dto.Id |> DtoResult.orBlank
+                                No = dto.No
+                                PatientId = dto.PatientId |> DtoResult.orBlank
+                                Base = dto.Base
+                                SignedBy = signer
+                                SignedAt = dto.SignedAt
+                                Plan = plan
+                                Verified = dto.Verified
+                            }
+                    | _ ->
+                        let errorsOf r =
+                            match r with
+                            | Error es -> es
+                            | Ok _ -> []
 
-                Error(errorsOf signer @ errorsOf plan)
+                        Error(errorsOf signer @ errorsOf plan)
+                )
