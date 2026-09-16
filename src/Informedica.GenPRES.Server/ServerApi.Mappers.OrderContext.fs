@@ -358,3 +358,15 @@ module OrderContextMapper =
                 fun ctx -> Domain.SetMaxComponentQuantityProperty(ctx, cmp)
             | Shared.Api.OrderContextCommand.SetMedianComponentOrderableQuantityProperty cmp ->
                 fun ctx -> Domain.SetMedianComponentQuantityProperty(ctx, cmp)
+
+
+    /// The server's words for a reason the contract model is no plan context. Only the
+    /// patient's can come from the client's panel; the rest name a Dto from elsewhere.
+    let words =
+        function
+        | DtoError.Patient e -> Patient.words e
+        | DtoError.OrderNotCreated m -> $"De order kon niet worden gemaakt: %s{m}"
+        | DtoError.UnknownDoseType s -> $"Onbekend doseertype: %s{s}"
+        | DtoError.UnknownTextKind s -> $"Onbekende tekstsoort: %s{s}"
+        | DtoError.UnknownCategory s -> $"Onbekende categorie: %s{s}"
+        | DtoError.Missing f -> $"Ontbreekt: %s{f}"

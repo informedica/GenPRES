@@ -656,7 +656,8 @@ module Host =
         let mail = StubMail.make ()
 
         let env =
-            let env = Adapters.makeAppEnvWith launchKey directory mail.port provider
+            let env =
+                Adapters.makeAppEnvWith (not settings.IsProd) launchKey directory mail.port provider
 
             // Stop-gap until the scope switch (#580): a production server never opens a
             // stub Session. Drop this swap when #580 decides what production exposes.

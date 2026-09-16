@@ -60,19 +60,30 @@ module Adapters =
     let private makeOrderContextPort agent logger (provider: Resources.IResourceProvider) : OrderContextPort =
         {
             evaluate =
-                fun ctxCmd ctx ->
+                fun cmd pc ->
                     async {
                         do! setComponentName "OrderContext" agent
 
-                        return ctx |> OrderContextService.evaluate logger provider ctxCmd
+                        return pc |> OrderContextService.evaluate logger provider cmd
                     }
         }
+
+
+    /// The contract model in and out over the same pipeline, for the order plan port until it
+    /// is on domain values itself.
+    let private evaluateModel demo agent logger (provider: Resources.IResourceProvider) =
+        fun (cmd: Shared.Api.OrderContextCommand) (ctx: OrderContext) ->
+            async {
+                do! setComponentName "OrderContext" agent
+
+                return ctx |> OrderContextService.evaluateModel demo logger provider cmd
+            }
 
 
     let private makeOrderPlanPort
         agent
         (provider: Resources.IResourceProvider)
-        (orderCtxPort: OrderContextPort)
+        (evaluate: Shared.Api.OrderContextCommand -> OrderContext -> Async<Result<OrderContext, string[]>>)
         : OrderPlanPort
         =
         {
@@ -87,13 +98,13 @@ module Adapters =
                     async {
                         do! setComponentName "OrderPlan" agent
                         let recalc = OrderPlanService.recalculate (provider.GetTotals())
-                        return! OrderPlanService.navigate recalc orderCtxPort plan contextId ctxCmd ctx
+                        return! OrderPlanService.navigate recalc evaluate plan contextId ctxCmd ctx
                     }
             newOrderContext =
                 fun plan category ->
                     OrderPlanService.newOrderContext
                         (OrderPlanService.recalculate (provider.GetTotals()))
-                        orderCtxPort
+                        evaluate
                         plan
                         category
             addOrderContext =
@@ -166,6 +177,7 @@ module Adapters =
 
 
     let makeAppEnvWith
+        (demo: bool)
         (launchKey: LaunchSeal.Key)
         (directory: StubDirectory.Directory)
         (mail: MailPort)
@@ -173,12 +185,12 @@ module Adapters =
         : AppEnv
         =
         let agent, logger = resolveLogger ()
-        let orderCtxPort = makeOrderContextPort agent logger provider
 
         {
             formulary = makeFormularyPort provider
-            orderContext = orderCtxPort
-            orderPlan = makeOrderPlanPort agent provider orderCtxPort
+            orderContext = makeOrderContextPort agent logger provider
+            orderPlan = makeOrderPlanPort agent provider (evaluateModel demo agent logger provider)
+            demo = demo
             interaction =
                 {
                     checkInteractions =
@@ -265,7 +277,14 @@ module Adapters =
     /// An env with its own seal key and stub directory: what tests and the MCP host build. The
     /// server builds `makeAppEnvWith` so that its stub pages share the key and the directory.
     let makeAppEnv (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
+        // the demo flag as the server reads it, once
+        let demo =
+            Informedica.Utils.Lib.Env.getItem "GENPRES_PROD"
+            |> Option.map (fun v -> v <> "1")
+            |> Option.defaultValue true
+
         makeAppEnvWith
+            demo
             (LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes)
             (StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId)
             (StubMail.make ()).port
