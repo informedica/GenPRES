@@ -1623,6 +1623,295 @@ module OrderProcessorTests =
             ]
 
 
+module DtoTests =
+
+    open Informedica.Utils.Lib.BCL
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenUnits.Lib
+    open Informedica.GenForm.Lib
+    open Informedica.GenOrder.Lib
+
+
+    module Fixtures =
+
+        let order med =
+            match med |> Medication.toOrderDto |> Order.Dto.fromDto with
+            | Ok o -> o
+            | Error e -> failwith $"fixture order could not be created: {e}"
+
+        let orders =
+            [
+                "paracetamol supp", Scenarios.pcmSupp
+                "amphotericin", Scenarios.amfo
+                "morphine", Scenarios.morfCont
+            ]
+            |> List.map (fun (n, m) -> n, order m)
+
+        let filter: Filter =
+            {
+                Indications = [| "koorts"; "pijn" |]
+                Generics = [| "paracetamol" |]
+                Routes = [| "rect"; "or" |]
+                Forms = [| "zetpil" |]
+                DoseTypes =
+                    [|
+                        Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag"
+                        Informedica.GenForm.Lib.Types.Once ""
+                    |]
+                Diluents = [||]
+                Components = [| "paracetamol" |]
+                Indication = Some "koorts"
+                Generic = Some "paracetamol"
+                Route = Some "rect"
+                Form = None
+                DoseType = Some(Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag")
+                Diluent = None
+                SelectedComponents = [| "paracetamol" |]
+            }
+
+        let scenario (ord: Order) : OrderScenario =
+            {
+                No = 1
+                Name = "paracetamol"
+                Indication = "koorts"
+                Form = "zetpil"
+                Route = "rect"
+                DoseType = Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag"
+                Diluent = None
+                Component = Some "paracetamol"
+                Item = Some "paracetamol"
+                Diluents = [||]
+                Components = [| "paracetamol" |]
+                Items = [| "paracetamol" |]
+                Prescription = [| [| Valid "paracetamol"; Caution "max 4 x/dag" |] |]
+                Preparation = [| [| Valid "zetpil 240 mg" |] |]
+                Administration = [| [| Warning "rectaal" |]; [| Alert "niet bij lever" |] |]
+                Order = ord
+                UseAdjust = true
+                UseRenalRule = false
+                RenalRule = None
+                ProductsIds = [| "gpk-1" |]
+            }
+
+
+    let tests =
+        testList
+            "Dtos"
+            [
+                testList
+                    "Order.Dto, the existing Dto the scenario nests"
+                    [
+                        for name, ord in Fixtures.orders do
+                            test $"L1 for {name}'s order" {
+                                ord
+                                |> Order.Dto.toDto
+                                |> Order.Dto.fromDto
+                                |> Expect.equal "the same order" (Ok ord)
+                            }
+                    ]
+
+                testList
+                    "Filter.Dto"
+                    [
+                        test "L1, fromDto (toDto x) = Ok x" {
+                            Fixtures.filter
+                            |> Filter.Dto.toDto
+                            |> Filter.Dto.fromDto
+                            |> Expect.equal "the same filter" (Ok Fixtures.filter)
+                        }
+
+                        test "L2, fromDto d |> Result.map toDto = Ok d, in canonical form" {
+                            let dto = Fixtures.filter |> Filter.Dto.toDto
+
+                            dto
+                            |> Filter.Dto.fromDto
+                            |> Result.map (Filter.Dto.toDto >> Canonical.serialize)
+                            |> Expect.equal "the same form" (Ok(Canonical.serialize dto))
+                        }
+
+                        test "an unknown dose type is an error, and every one is reported" {
+                            { (Fixtures.filter |> Filter.Dto.toDto) with
+                                DoseTypes = [| "weekly"; "once" |]
+                                DoseType = Some "hourly"
+                            }
+                            |> Filter.Dto.fromDto
+                            |> Expect.equal
+                                "both"
+                                (Error
+                                    [
+                                        DtoError.UnknownDoseType "weekly"
+                                        DtoError.UnknownDoseType "hourly"
+                                    ])
+                        }
+                    ]
+
+                testList
+                    "OrderScenario.Dto"
+                    [
+                        for name, ord in Fixtures.orders do
+                            test $"L1 with {name}'s order" {
+                                let sc = Fixtures.scenario ord
+
+                                sc
+                                |> OrderScenario.Dto.toDto
+                                |> OrderScenario.Dto.fromDto
+                                |> Expect.equal "the same scenario" (Ok sc)
+                            }
+
+                        for name, ord in Fixtures.orders do
+                            test $"L2 with {name}'s order, in canonical form" {
+                                let dto = Fixtures.scenario ord |> OrderScenario.Dto.toDto
+
+                                dto
+                                |> OrderScenario.Dto.fromDto
+                                |> Result.map (OrderScenario.Dto.toDto >> Canonical.serialize)
+                                |> Expect.equal "the same form" (Ok(Canonical.serialize dto))
+                            }
+
+                        test "an unknown text kind is an error" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+
+                            { dto with
+                                Prescription =
+                                    [|
+                                        [|
+                                            {
+                                                Kind = "note"
+                                                Text = "x"
+                                            }
+                                        |]
+                                    |]
+                            }
+                            |> OrderScenario.Dto.fromDto
+                            |> Expect.equal "named" (Error [ DtoError.UnknownTextKind "note" ])
+                        }
+
+                        test "null elements are unknown ones, never a crash" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+
+                            { dto with Prescription = [| [| Unchecked.defaultof<TextBlock.Dto.Dto> |] |] }
+                            |> OrderScenario.Dto.fromDto
+                            |> Expect.equal "a block that names no kind" (Error [ DtoError.UnknownTextKind "" ])
+
+                            { (Fixtures.filter |> Filter.Dto.toDto) with DoseTypes = [| null |] }
+                            |> Filter.Dto.fromDto
+                            |> Expect.equal "a dose type that names nothing" (Error [ DtoError.UnknownDoseType "" ])
+
+                            { dto with DoseType = null }
+                            |> OrderScenario.Dto.fromDto
+                            |> Expect.equal
+                                "a scenario dose type that names nothing"
+                                (Error [ DtoError.UnknownDoseType "" ])
+                        }
+
+                        test "null arrays are read as empty, never a crash" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+
+                            let read =
+                                { dto with
+                                    Diluents = null
+                                    Prescription = [| null |]
+                                    ProductsIds = null
+                                }
+                                |> OrderScenario.Dto.fromDto
+
+                            match read with
+                            | Ok sc ->
+                                sc.Diluents |> Expect.isEmpty "no diluents"
+                                sc.Prescription |> Expect.equal "one empty line" [| [||] |]
+                                sc.ProductsIds |> Expect.isEmpty "no products"
+                            | Error e -> failtest $"expected a scenario, got {e}"
+                        }
+
+                        test "a Filter.Dto with null arrays reads as empty" {
+                            match
+                                { (Fixtures.filter |> Filter.Dto.toDto) with
+                                    Indications = null
+                                    DoseTypes = null
+                                }
+                                |> Filter.Dto.fromDto
+                            with
+                            | Ok f ->
+                                f.Indications |> Expect.isEmpty "no indications"
+                                f.DoseTypes |> Expect.isEmpty "no dose types"
+                            | Error e -> failtest $"expected a filter, got {e}"
+                        }
+
+                        test "an order that cannot be created is an error, not a dropped scenario" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+                            let broken = Order.Dto.Dto(dto.Order.Id, "paracetamol")
+                            broken.Orderable <- Unchecked.defaultof<_>
+
+                            match { dto with Order = broken } |> OrderScenario.Dto.fromDto with
+                            | Error [ DtoError.OrderNotCreated _ ] -> ()
+                            | other -> failtest $"expected one OrderNotCreated, got {other}"
+                        }
+                    ]
+
+                testList
+                    "the canonical form"
+                    [
+                        test "no whitespace, fields in declared order, a BigRational as n/d" {
+                            let s = Fixtures.filter |> Filter.Dto.toDto |> Canonical.serialize
+
+                            // no whitespace outside string values: none after a colon or a comma
+                            (s.Contains "\": " || s.Contains ", \"" || s.Contains ", [")
+                            |> Expect.isFalse "no whitespace outside strings"
+
+                            s.StartsWith "{\"Indications\":[\"koorts\",\"pijn\"],\"Generics\""
+                            |> Expect.isTrue "declared order"
+
+                            [ 1N; 3N / 4N; 10N / 4N ]
+                            |> Canonical.serialize
+                            |> Expect.equal "lowest terms" "[\"1/1\",\"3/4\",\"5/2\"]"
+                        }
+
+                        test "an option is its value or null" {
+                            (Some "x", (None: string option))
+                            |> Canonical.serialize
+                            |> Expect.equal "value or null" "{\"Item1\":\"x\",\"Item2\":null}"
+                        }
+
+                        test "two Dtos equal as values serialize equal, a re-ordered array does not" {
+                            let a = Fixtures.filter |> Filter.Dto.toDto
+
+                            let b =
+                                { Fixtures.filter with Indications = [| "koorts"; "pijn" |] }
+                                |> Filter.Dto.toDto
+
+                            let c =
+                                { Fixtures.filter with Indications = [| "pijn"; "koorts" |] }
+                                |> Filter.Dto.toDto
+
+                            Canonical.serialize a |> Expect.equal "equal" (Canonical.serialize b)
+
+                            Canonical.serialize a
+                            |> Expect.notEqual "a different order plan" (Canonical.serialize c)
+                        }
+
+                        test "a Filter.Dto reads back from its canonical form" {
+                            let dto = Fixtures.filter |> Filter.Dto.toDto
+
+                            dto
+                            |> Canonical.serialize
+                            |> Canonical.deserialize<Filter.Dto.Dto>
+                            |> Expect.equal "the same Dto" dto
+                        }
+
+                        test "an OrderScenario.Dto reads back from its canonical form, in canonical form" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+                            let s = dto |> Canonical.serialize
+
+                            s
+                            |> Canonical.deserialize<OrderScenario.Dto.Dto>
+                            |> Canonical.serialize
+                            |> Expect.equal "the same form" s
+                        }
+                    ]
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -1630,6 +1919,7 @@ let tests =
         [
             MedicationOrderTests.tests
             TypeTests.tests
+            DtoTests.tests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
             MedicationParserTests.tests

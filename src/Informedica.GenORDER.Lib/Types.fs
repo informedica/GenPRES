@@ -690,6 +690,17 @@ module Types =
         }
 
 
+    /// Why a Dto does not parse to its domain value.
+    [<RequireQualifiedAccess>]
+    type DtoError =
+        // A dose type string the Dto carries that names no dose type
+        | UnknownDoseType of string
+        // A text block kind the Dto carries that names no kind
+        | UnknownTextKind of string
+        // The order of a scenario could not be created from its Dto
+        | OrderNotCreated of string
+
+
     module Exceptions =
 
         /// Messages for order-related exceptions
