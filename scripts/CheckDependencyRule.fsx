@@ -3,7 +3,9 @@
 // Architecture fitness test for ADR-0001 (docs/adr/0001-system-architecture.md):
 // project references point inward, the core never reaches network, filesystem,
 // environment, clock or entropy, and only the DMZ (the server-side outer ring) knows
-// configuration and owns entry points.
+// configuration and owns entry points. And for ADR-0008 rule R9
+// (docs/adr/0008-contract-model-dto-mapping-boundary.md): the contract model stays in
+// the server's edge files, no domain library names it, and Shared stays transpilable.
 //
 // The ring map and the project reader live in scripts/DependencyRule.fsx, shared with
 // scripts/ProjectGraph.fsx. The allow-lists (project references there, source-level
@@ -96,6 +98,8 @@ let bannedTokens =
         "MailboxProcessor"
         "FileWriterAgent"
         "AgentLogging"
+        // T6: the contract model (ADR-0008 R9); a domain library never sees Shared
+        "Shared."
     ]
 
 
@@ -200,6 +204,52 @@ let allowances =
     ]
 
 
+/// The token by which server code names the contract model (`Shared.Types.Patient`,
+/// `open Shared.Api`); ADR-0008 R9, T5.
+let contractToken = "Shared."
+
+
+/// T5: the server files in which a code line may name the contract model, as file-name
+/// globs over `src/Informedica.GenPRES.Server/`: the mappers, the command handlers, the
+/// ports, the composition root, the session service, the compute wrapper, the API
+/// implementation and the host. Every other server file needs a `contractAllowances` entry.
+let contractEdgeFiles =
+    [
+        "ServerApi.Mappers*.fs"
+        "ServerApi.*Command.fs"
+        "ServerApi.Ports.fs"
+        "ServerApi.CompositionRoot.fs"
+        "ServerApi.Session.fs"
+        "ServerApi.Compute.fs"
+        "ServerApi.ApiImpl.fs"
+        "Server.fs"
+    ]
+
+
+/// Server files outside the edge that still name the contract model today. Phase and step
+/// numbers refer to docs/implementation-plans/725-contract-model-dto-domain-flow.md. Each
+/// entry is a ratchet: one that no longer matches fails the run.
+let contractAllowances =
+    let ports =
+        "Formulary, Interaction and identity ports typed on contract models; own issue after plan 725 Phase 4"
+
+    [
+        "src/Informedica.GenPRES.Server/ServerApi.Services.fs",
+        "services typed on contract models; thinned to domain values (plan 725 Phase 4)"
+        "src/Informedica.GenPRES.Server/ServerApi.Patient.fs",
+        "patient validation returns the contract type; becomes Mappers.Patient (plan 725 step 3.1)"
+        "src/Informedica.GenPRES.Server/ServerApi.Adapters.fs", ports
+        "src/Informedica.GenPRES.Server/ServerApi.StubAdapters.fs", ports
+        "src/Informedica.GenPRES.Server/LogAnalyzer.fs",
+        "admin log listing answered as a contract record, no domain behind it; own issue"
+    ]
+
+
+/// T7: the packages Shared may reference, exactly. Shared is transpiled to JavaScript for
+/// the client, so a package joins this list only when it is known to be Fable-compatible.
+let sharedPackages = [ "FSharp.Core" ]
+
+
 /// The prefixes under which settings are read, as they appear in source (`"GENPRES_URL_ID"`).
 /// One entry today; the single place to change. Whether a second executable would get its own
 /// prefix is an open question in `docs/roadmap/modular-design-discussion.md`.
@@ -233,6 +283,17 @@ let containsToken (token: string) (line: string) =
         | i -> search (i + 1)
 
     search 0
+
+
+/// `*` in a file-name glob matches any run of characters; nothing else is special.
+let globMatches (pattern: string) (name: string) =
+    let re = "^" + Regex.Escape(pattern).Replace("\\*", ".*") + "$"
+    Regex.IsMatch(name, re)
+
+
+let isContractEdgeFile (rel: string) =
+    let name = Path.GetFileName rel
+    contractEdgeFiles |> List.exists (fun pattern -> globMatches pattern name)
 
 
 let codeLines (file: string) =
@@ -423,6 +484,72 @@ let dmzTests =
         ]
 
 
+let contractTests =
+    let serverProject () =
+        srcProjects () |> List.find (fun p -> p.Name = "Informedica.GenPRES.Server")
+
+    let sharedProject () =
+        srcProjects () |> List.find (fun p -> p.Name = "Informedica.GenPRES.Shared")
+
+    let namesContract (line: string) = containsToken contractToken line
+
+    testList
+        "T5/T7 the contract model stays at the server's edge and Shared stays transpilable"
+        [
+            test "T5 only edge files of the server name the contract model, except the allow-list" {
+                let allowed = contractAllowances |> List.map fst |> Set.ofList
+
+                serverProject().SourceFiles
+                |> List.collect (fun file ->
+                    let rel = relative file
+
+                    if isContractEdgeFile rel || allowed.Contains rel then
+                        []
+                    else
+                        codeLines file
+                        |> Array.filter (fun (_, l) -> namesContract l)
+                        |> Array.map (fun (n, _) -> $"%s{rel}:%i{n}")
+                        |> Array.toList
+                )
+                |> failWithAll "contract model named outside the server's edge"
+            }
+
+            test "T5 every contract allowance still matches something (ratchet)" {
+                let files =
+                    serverProject().SourceFiles |> List.map (fun f -> relative f, f) |> Map.ofList
+
+                contractAllowances
+                |> List.filter (fun (rel, _) ->
+                    match files |> Map.tryFind rel with
+                    | None -> true
+                    | Some full ->
+                        isContractEdgeFile rel
+                        || codeLines full |> Array.exists (fun (_, l) -> namesContract l) |> not
+                )
+                |> List.map fst
+                |> failWithAll "contract allowances that no longer match, or name an edge file; remove them"
+            }
+
+            test "T7 Shared references exactly the allowed packages and no project" {
+                let shared = sharedProject ()
+                let dir = Path.GetDirectoryName(Path.Combine(repoRoot, shared.Path))
+
+                let packages =
+                    Path.Combine(dir, "paket.references")
+                    |> File.ReadAllLines
+                    |> Array.map _.Trim()
+                    |> Array.filter (fun l -> l <> "" && not (l.StartsWith "//"))
+                    |> Array.toList
+
+                packages
+                |> Expect.equal "Shared's paket.references must equal the allow-list" sharedPackages
+
+                shared.References
+                |> Expect.isEmpty "Shared must reference no project"
+            }
+        ]
+
+
 runTestsWithCLIArgs
     []
     [| "--summary" |]
@@ -433,5 +560,6 @@ runTestsWithCLIArgs
             referenceTests
             coreTests
             dmzTests
+            contractTests
         ])
 |> exit
