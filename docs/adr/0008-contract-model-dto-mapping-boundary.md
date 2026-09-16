@@ -179,8 +179,8 @@ alternative, ports typed on Dtos, is recorded below.
   `session_ending` row and told at the next request; a challenge is refused.
 - **Loading, and `StoredVersion`.** The adapter loads a patient's order plan versions when a
   request needs them, never once at startup, since a second server would not see an order plan
-  version signed after it started (Rule 36); it upgrades and parses each with `fromDto` as it loads. A
-  row it cannot load, because its structure version
+  version signed after it started (Rule 36); it upgrades and parses each with `fromDto` as it
+  loads. A row it cannot load, because its structure version
   is newer than the release knows, an upgrade fails, or `fromDto` refuses it, does not stop the
   server and is not dropped: its identity columns (`id`, `no`, `patient_id`, `base`, the signer,
   `signed_at`) are authoritative, and the entry is kept as unreadable with the reason. The
