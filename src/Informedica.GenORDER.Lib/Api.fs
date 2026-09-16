@@ -1199,6 +1199,11 @@ Scenarios: {scenarios}
         cmd
 
 
+    /// The order a context contributes to the plan: its scenario, once the context is
+    /// narrowed to exactly one; nothing while it holds several candidates or none.
+    let contribution (ctx: OrderContext) = ctx.Scenarios |> Array.tryExactlyOne
+
+
     /// The serializable shape of an OrderContext: its filter, its patient and its scenarios,
     /// each as its own Dto.
     module Dto =
