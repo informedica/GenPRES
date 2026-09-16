@@ -2554,6 +2554,203 @@ module Tests =
                 ]
 
 
+    module PatientDtoTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.Utils.Lib.BCL
+        open Informedica.GenUnits.Lib
+        open Informedica.GenForm.Lib
+
+
+        module Fixtures =
+
+            let kg = Units.Weight.kiloGram
+            let cm = Units.Height.centiMeter
+            let day = Units.Time.day
+
+            /// A ten-year-old, weight and height measured, on a PVL.
+            let child =
+                { Patient.patient with
+                    Department = Some "ICK"
+                    Gender = Male
+                    Age = Some(ValueUnit.singleWithUnit day 3650N)
+                    Weight = Some(ValueUnit.singleWithUnit kg 32N)
+                    Height = Some(ValueUnit.singleWithUnit cm 140N)
+                    Access = [ PVL ]
+                }
+
+            /// A premature of two days, 30 weeks gestation, 1.2 kg.
+            let premature =
+                { Patient.patient with
+                    Gender = Female
+                    Age = Some(ValueUnit.singleWithUnit day 2N)
+                    GestAge = Some(ValueUnit.singleWithUnit day 210N)
+                    PMAge = Some(ValueUnit.singleWithUnit day 212N)
+                    Weight = Some(ValueUnit.singleWithUnit kg (12N / 10N))
+                    Height = Some(ValueUnit.singleWithUnit cm 38N)
+                    Access = [ CVL ]
+                    RenalFunction = Some(EGFR(Some 30, Some 50))
+                }
+
+            /// No age, but a measured weight and height.
+            let measuredOnly =
+                { Patient.patient with
+                    Weight = Some(ValueUnit.singleWithUnit kg 70N)
+                    Height = Some(ValueUnit.singleWithUnit cm 175N)
+                }
+
+
+        let tests =
+            testList
+                "Patient validate and Dto"
+                [
+                    testList
+                        "validate"
+                        [
+                            test "an age alone is a patient" {
+                                { Patient.patient with Age = Some(ValueUnit.singleWithUnit Fixtures.day 3650N) }
+                                |> Patient.validate
+                                |> Result.isOk
+                                |> Expect.isTrue "a patient"
+                            }
+
+                            test "a measured weight and height without an age is a patient" {
+                                Fixtures.measuredOnly
+                                |> Patient.validate
+                                |> Result.isOk
+                                |> Expect.isTrue "a patient"
+                            }
+
+                            test "an estimated weight without an age is no patient" {
+                                { Fixtures.measuredOnly with WeightMeasured = false }
+                                |> Patient.validate
+                                |> Expect.equal
+                                    "below the minimum data"
+                                    (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+                            }
+
+                            test "the empty patient is no patient" {
+                                Patient.patient
+                                |> Patient.validate
+                                |> Expect.equal
+                                    "below the minimum data"
+                                    (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+                            }
+                        ]
+
+                    testList
+                        "L1, fromDto (toDto x) = Ok x"
+                        [
+                            for name, pat in
+                                [
+                                    "a child", Fixtures.child
+                                    "a premature", Fixtures.premature
+                                    "measured only", Fixtures.measuredOnly
+                                ] do
+                                test $"{name} round-trips" {
+                                    pat
+                                    |> Patient.Dto.toDto
+                                    |> Patient.Dto.fromDto
+                                    |> Expect.equal "the same patient" (Ok pat)
+                                }
+                        ]
+
+                    testList
+                        "L2, fromDto d |> Result.map toDto = Ok d"
+                        [
+                            for name, pat in
+                                [
+                                    "a child", Fixtures.child
+                                    "a premature", Fixtures.premature
+                                ] do
+                                test $"{name}'s Dto round-trips" {
+                                    let dto = pat |> Patient.Dto.toDto
+
+                                    dto
+                                    |> Patient.Dto.fromDto
+                                    |> Result.map Patient.Dto.toDto
+                                    |> Expect.equal "the same Dto" (Ok dto)
+                                }
+                        ]
+
+                    testList
+                        "fromDto refuses"
+                        [
+                            test "an unknown gender string" {
+                                { (Fixtures.child |> Patient.Dto.toDto) with Gender = "x" }
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal "named" (Error [ PatientError.UnknownGender "x" ])
+                            }
+
+                            test "an unknown access string, and every error is reported" {
+                                { (Fixtures.child |> Patient.Dto.toDto) with
+                                    Gender = "x"
+                                    Access = [| "pvl"; "tube" |]
+                                    RenalFunction = Some "egfr:a:b"
+                                }
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal
+                                    "all three"
+                                    (Error
+                                        [
+                                            PatientError.UnknownGender "x"
+                                            PatientError.UnknownAccess "tube"
+                                            PatientError.UnknownRenalFunction "egfr:a:b"
+                                        ])
+                            }
+
+                            test "a draft with no age and no measured weight and height" {
+                                { (Fixtures.child |> Patient.Dto.toDto) with
+                                    AgeDays = None
+                                    WeightMeasured = false
+                                }
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal "no patient" (Error [ PatientError.NoAgeOrMeasuredWeightAndHeight ])
+                            }
+                        ]
+
+                    testList
+                        "string forms"
+                        [
+                            test "renal function strings round-trip" {
+                                [
+                                    EGFR(Some 30, Some 50)
+                                    EGFR(None, Some 10)
+                                    EGFR(Some 50, None)
+                                    IntermittentHemodialysis
+                                    ContinuousHemodialysis
+                                    PeritonealDialysis
+                                ]
+                                |> List.map (RenalFunction.toString >> RenalFunction.tryFromString)
+                                |> Expect.equal
+                                    "each is read back"
+                                    ([
+                                        EGFR(Some 30, Some 50)
+                                        EGFR(None, Some 10)
+                                        EGFR(Some 50, None)
+                                        IntermittentHemodialysis
+                                        ContinuousHemodialysis
+                                        PeritonealDialysis
+                                     ]
+                                     |> List.map Some)
+                            }
+
+                            test "toDto converts to the canonical units" {
+                                let dto =
+                                    { Fixtures.child with
+                                        Weight = Some(ValueUnit.singleWithUnit Units.Weight.gram 32000N)
+                                        Age = Some(ValueUnit.singleWithUnit Units.Time.week 10N)
+                                    }
+                                    |> Patient.Dto.toDto
+
+                                dto.WeightKg |> Expect.equal "kilograms" (Some 32N)
+                                dto.AgeDays |> Expect.equal "days" (Some 70N)
+                            }
+                        ]
+                ]
+
+
     module PatientCategoryTests =
 
 
@@ -3885,6 +4082,7 @@ module Tests =
                 MaxQtyConflictTests.tests
                 PatientCategoryTests.tests
                 PatientTests.tests
+                PatientDtoTests.tests
                 DoseTypeTests.tests
                 LimitTargetTests.tests
                 GenericLabelTests.tests
