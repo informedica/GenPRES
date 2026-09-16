@@ -690,6 +690,22 @@ module Types =
         }
 
 
+    /// Why an order plan refuses a change. The words shown for each are the server's, so
+    /// that the label of a category stays out of the domain.
+    [<RequireQualifiedAccess>]
+    type OrderPlanError =
+        // The plan holds no context with the id
+        | NoSuchContext of id: string
+        // The workbench holds the number of candidates, not one order
+        | NotNarrowed of candidates: int
+        // The plan already holds the order
+        | OrderHeld of orderId: string
+        // A supplement needs a feeding in the plan
+        | SupplementNeedsFeeding
+        // The plan already holds a context of the category
+        | CategoryHeld of NutritionCategory
+
+
     /// Why a Dto does not parse to its domain value.
     [<RequireQualifiedAccess>]
     type DtoError =

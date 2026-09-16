@@ -9,6 +9,28 @@ open Informedica.GenForm.Lib
 
 module PlanContext =
 
+    /// A context as it enters the plan: its id there, its category, the context, and no
+    /// intake until an evaluation computes one.
+    let create id category (ctx: OrderContext) : PlanContext =
+        {
+            Id = id
+            Category = category
+            Context = ctx
+            Intake = Totals.empty
+        }
+
+
+    /// The nutrition category of a context, none for a drug.
+    let nutritionCategory (pc: PlanContext) =
+        match pc.Category with
+        | OrderCategory.Nutrition category -> Some category
+        | OrderCategory.Drug -> None
+
+
+    /// The order the context contributes to the plan, if it is narrowed to one.
+    let contribution (pc: PlanContext) = pc.Context |> OrderContext.contribution
+
+
     /// The serializable shape of a PlanContext: the category as a string, the context and
     /// the intake as their own Dtos.
     module Dto =
@@ -61,7 +83,166 @@ module PlanContext =
                 )
 
 
+module NutritionRuleSet =
+
+    /// The set serving a category, if the composition root supplied one.
+    let tryFind category (sets: NutritionRuleSet[]) =
+        sets |> Array.tryFind (fun s -> s.Category = category)
+
+
+    /// The context's pick lists narrowed to the set: when the set names indications or
+    /// generics, only those are kept; an empty list in the set restricts nothing. The dose
+    /// types and the selection pass through.
+    let narrow (set: NutritionRuleSet) (ctx: OrderContext) : OrderContext =
+        let keep (allowed: string[]) (xs: string[]) =
+            if allowed |> Array.isEmpty then
+                xs
+            else
+                xs |> Array.filter (fun x -> allowed |> Array.contains x)
+
+        { ctx with
+            Filter =
+                { ctx.Filter with
+                    Indications = ctx.Filter.Indications |> keep set.Indications
+                    Generics = ctx.Filter.Generics |> keep set.Generics
+                }
+        }
+
+
 module OrderPlan =
+
+    /// The plan for a patient with the contexts given, nothing filtered and no totals: what
+    /// a signed version opens on, its contexts as they were, nothing evaluated.
+    let create (pat: Patient) (contexts: PlanContext[]) : OrderPlan =
+        {
+            Patient = pat
+            Filtered = [||]
+            Contexts = contexts
+            Totals = Totals.empty
+        }
+
+
+    /// The nutrition contexts of the plan.
+    let nutritionContexts (plan: OrderPlan) =
+        plan.Contexts |> Array.filter (PlanContext.nutritionCategory >> Option.isSome)
+
+
+    /// The orders the plan's contexts contribute: the one scenario of every context narrowed
+    /// to one, in context order.
+    let orders (plan: OrderPlan) =
+        plan.Contexts |> Array.choose PlanContext.contribution
+
+
+    /// The contexts the filter keeps: those named by id, all of them when it is empty.
+    let filtered (plan: OrderPlan) =
+        if plan.Filtered |> Array.isEmpty then
+            plan.Contexts
+        else
+            plan.Contexts |> Array.filter (fun c -> plan.Filtered |> Array.contains c.Id)
+
+
+    /// Whether the plan holds a context of the nutrition category.
+    let holds category (plan: OrderPlan) =
+        plan.Contexts
+        |> Array.exists (fun c -> c.Category = OrderCategory.Nutrition category)
+
+
+    /// Whether the plan may take a context of the category: one context per nutrition
+    /// category, except supplements (any number, each under a feeding) and electrolyte and
+    /// glucose lines (any number, one per generic prescribed).
+    let admits category (plan: OrderPlan) : Result<unit, OrderPlanError> =
+        match category with
+        | NutritionCategory.EnteralSupplement when plan |> holds NutritionCategory.EnteralFeeding |> not ->
+            Error OrderPlanError.SupplementNeedsFeeding
+        | NutritionCategory.EnteralSupplement
+        | NutritionCategory.ElectrolyteGlucose -> Ok()
+        | _ when plan |> holds category -> Error(OrderPlanError.CategoryHeld category)
+        | _ -> Ok()
+
+
+    /// The evaluated context into the context named, keeping the id and the category the
+    /// plan gave it and, for a nutrition context, its pick lists narrowed to its category's
+    /// rule set. The plan's orders follow, since they are what its contexts contribute.
+    let updateContext
+        (ruleSets: NutritionRuleSet[])
+        id
+        (evaluated: PlanContext)
+        (plan: OrderPlan)
+        : Result<OrderPlan, OrderPlanError>
+        =
+        match plan.Contexts |> Array.tryFind (fun c -> c.Id = id) with
+        | None -> Error(OrderPlanError.NoSuchContext id)
+        | Some held ->
+            let ctx =
+                match
+                    held
+                    |> PlanContext.nutritionCategory
+                    |> Option.bind (fun c -> ruleSets |> NutritionRuleSet.tryFind c)
+                with
+                | Some set -> evaluated.Context |> NutritionRuleSet.narrow set
+                | None -> evaluated.Context
+
+            let updated =
+                { evaluated with
+                    Id = held.Id
+                    Category = held.Category
+                    Context = ctx
+                }
+
+            { plan with Contexts = plan.Contexts |> Array.map (fun c -> if c.Id = id then updated else c) }
+            |> Ok
+
+
+    /// The context removed, and every enteral supplement with a feeding: the plan holds one
+    /// feeding at most and a supplement only under it, so the feeding's supplements are all of
+    /// them. Each takes its order with it, and leaves the filter.
+    let removeOrderContext id (plan: OrderPlan) =
+        let cascade =
+            plan.Contexts
+            |> Array.exists (fun c ->
+                c.Id = id
+                && c.Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
+            )
+
+        let goes (c: PlanContext) =
+            c.Id = id
+            || (cascade
+                && c.Category = OrderCategory.Nutrition NutritionCategory.EnteralSupplement)
+
+        let gone, kept = plan.Contexts |> Array.partition goes
+        let goneIds = gone |> Array.map _.Id
+
+        { plan with
+            Contexts = kept
+            Filtered = plan.Filtered |> Array.filter (fun f -> goneIds |> Array.contains f |> not)
+        }
+
+
+    /// The contexts named removed, every kind, each with its order; a feeding takes its
+    /// supplements with it.
+    let removeOrderContexts (ids: string[]) (plan: OrderPlan) =
+        ids |> Array.fold (fun p id -> p |> removeOrderContext id) plan
+
+
+    /// The prescribing workbench into the plan as a drug context with a minted id, its one
+    /// scenario the order it contributes and its intake as evaluated. Refused when the
+    /// workbench is not narrowed to one scenario, and when the plan already holds that order:
+    /// the signing challenge would refuse the plan later, so it is said now.
+    let addOrderContext (newId: unit -> string) (workbench: PlanContext) (plan: OrderPlan) =
+        match workbench |> PlanContext.contribution with
+        | None -> Error(OrderPlanError.NotNarrowed workbench.Context.Scenarios.Length)
+        | Some sc when orders plan |> Array.exists (fun s -> s.Order.Id = sc.Order.Id) ->
+            let (Id id) = sc.Order.Id
+            Error(OrderPlanError.OrderHeld id)
+        | Some _ ->
+            let added =
+                { workbench with
+                    Id = newId ()
+                    Category = OrderCategory.Drug
+                }
+
+            { plan with Contexts = Array.append plan.Contexts [| added |] } |> Ok
+
 
     /// The serializable shape of an OrderPlan: the patient, the filtered ids, every
     /// context and the totals.

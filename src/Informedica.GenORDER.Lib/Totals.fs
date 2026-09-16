@@ -9,6 +9,30 @@ module Totals =
     open Informedica.GenOrder.Lib
     open Informedica.GenSolver.Lib.Variable.Operators
 
+
+    /// No totals: what a plan and a context start with, before an evaluation computes them.
+    let empty: Totals =
+        {
+            Volume = None
+            Energy = None
+            Protein = None
+            Carbohydrate = None
+            Fat = None
+            Sodium = None
+            Potassium = None
+            Chloride = None
+            Calcium = None
+            Phosphate = None
+            Magnesium = None
+            Iron = None
+            VitaminD = None
+            Ethanol = None
+            Propyleenglycol = None
+            BenzylAlcohol = None
+            BoricAcid = None
+        }
+
+
     let isVolume (var: Variable) =
         var
         |> Variable.getUnit
