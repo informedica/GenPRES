@@ -307,16 +307,21 @@ What ADR-0008 invariant 5 and §6 decide, as this plan applies it to `order_plan
   read ends the Session with a new `SessionEnding` case, `Unreadable`, appended as a
   `session_ending` row (`unreadable`) and told at the next request; a challenge it cannot read
   is refused.
-- **Every JSON structure change** comes with three things: a new `json_version`, an upgrade
-  step, and a stored fixture at the old structure version with a test that the upgraded
-  fixture parses and maps to the expected contract model (law L5 of plan 725). A snapshot of
-  the serialized graph per structure version fails when the shape changes and the number does
-  not. Rows are never rewritten. A release cannot read a row written under a newer
-  `json_version`, and an upgrade drains the old servers (Rule 36), so a structure change ships
-  as expand, then contract: release N+1 reads the new structure but still writes the old, and
-  release N+2 writes it once no release N server is left. No server then meets a row it
-  cannot read during a drain, and a rollback by one release is safe; by more than one it is
-  not supported once such rows exist.
+- **Every JSON structure change** comes with four things: a new `json_version`, an upgrade
+  step, a downgrade step, and a stored fixture at the old structure version with a test that
+  the upgraded fixture parses and maps to the expected contract model (law L5 of plan 725). A
+  snapshot of the serialized graph per structure version fails when the shape changes and the
+  number does not. Rows are never rewritten. A release cannot read a row written under a
+  newer `json_version`, and an upgrade drains the old servers (Rule 36), so a structure change
+  ships as expand, then contract: release N+1 reads the new structure but still writes the
+  old, serializing the current Dto and applying the raw-JSON downgrade step before the insert
+  under `json_version` N; release N+2 writes the new once no release N server is left and
+  drops the downgrade step. The adapter holds the structure it reads up to and the one it
+  writes as two build constants. A value the old structure cannot hold is not written before
+  N+2. Test: `upgrade (downgrade (toDto x))` parses back to `x` for what the release writes,
+  and the downgraded JSON matches the fixture's shape. No server then meets a row it cannot
+  read during a drain, and a rollback by one release is safe; by more than one it is not
+  supported once such rows exist.
 
 ### The races, walked through
 

@@ -442,9 +442,9 @@ Principles:
 3. **Every stored root gets upgrade steps,** the working state included, since a drain on
    upgrade (Rule 36) has the new release read rows the old one wrote; the difference is what
    an unreadable row means (Storage).
-4. **Each JSON structure change comes with three things:** a new structure version, an upgrade
-   step, and a stored fixture at the old structure version with an L5 test; and it ships in two
-   releases (principle 6).
+4. **Each JSON structure change comes with four things:** a new structure version, an upgrade
+   step, a downgrade step for the release that reads the new structure and still writes the old
+   (principle 6), and a stored fixture at the old structure version with an L5 test.
 5. **A test detects a JSON structure change without a new structure version:** a stored
    snapshot of the whole serialized graph of each root per structure version, nested Dtos from
    other libraries and the serializer's output included, failing when the shape changes and the
@@ -454,10 +454,19 @@ Principles:
    one database, and an older release cannot read a row written under a newer structure
    version: there is no minor number that would let it read an additive change. So release
    N+1 reads structure vN+1 but still writes vN; release N+2 writes vN+1, once no release N
-   server is left. During a drain no server meets a row it cannot read, no Session ends for
-   an upgrade, and a rollback by one release is safe. A rollback by more than one release is
-   not supported once rows exist under the newer structure; a row from the future is then
-   unreadable (Storage), the defensive case, never the routine one.
+   server is left. Only the current Dto type exists (principle 2), so N+1 writes vN through a
+   downgrade step: the adapter serializes the current Dto, applies the raw-JSON step
+   vN+1 -> vN, and stores it under `json_version` N. The adapter carries two numbers, the
+   structure it reads up to and the one it writes, both build constants of the release: N+1
+   has read N+1 and write N, N+2 has both N+1 and drops the downgrade step; the upgrade step
+   stays for the rows N+1 wrote. The downgrade must lose nothing N+1 writes, so a value the
+   old structure cannot hold (a new field's data) is not written before N+2, which is when the
+   feature behind it goes live. Test: for every `x` the release writes, `downgrade (toDto x)`
+   matches the stored fixture's shape at vN and `upgrade (downgrade (toDto x))` parses back to
+   `x`. During a drain no server meets a row it cannot read, no Session ends for an upgrade,
+   and a rollback by one release is safe. A rollback by more than one release is not supported
+   once rows exist under the newer structure; a row from the future is then unreadable
+   (Storage), the defensive case, never the routine one.
 
 **Hypothetical example, the "new field" row.** Suppose `Patient` gained a clinical decision,
 say "treated as an adult", entered by the prescriber. One new structure version on the order plan version root,
