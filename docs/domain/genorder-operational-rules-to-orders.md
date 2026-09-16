@@ -12,7 +12,7 @@
 | *Order Scenario* | A fully constrained, uniquely identifiable, computable clinical alternative representing one valid way to prescribe, prepare, and administer an order. |
 | *Plan Context* | An Order Context as held in an Order Plan: its id in the plan, its Order Category (a drug, or a nutrition category), the Order Context, and its intake. |
 | *Order Plan* | The one plan for a Patient: the patient data as shown, its Plan Contexts, the contexts the row filter keeps, and the totals over the orders of the filtered contexts. (See [Core Domain Model](core-domain.md#core-definitions)) |
-| *Order Plan Version* | A version of an Order Plan created by a prescriber signing it: the whole Order Plan as the signer saw it, the version number, the version it was built on, the signer and the time. |
+| *Order Plan Version* | A version of an Order Plan created by a prescriber signing it: the whole Order Plan as the signer saw it, its number, the Order Plan Version it was built on, the signer and the time. |
 | *Order* | The executable prescription instance derived from an Order Scenario, identified by a unique Id. |
 | *Schedule* | The temporal model of an Order defining frequency, administration time, and total duration. |
 | *Orderable* | The abstract entity that is ordered (e.g., a medication as prescribed). |
@@ -124,7 +124,7 @@ Three domain types sit next to OrderContext in `Informedica.GenORDER.Lib`, as
   removes its supplements, and the totals. The intake and the totals are computed when a context
   or the plan is evaluated and copied unchanged everywhere else.
 * An **Order Plan Version** is the Order Plan as a prescriber signed it, with its number, the
-  version it was built on, the signer and the time. It is what the record stores and what a
+  Order Plan Version it was built on, the signer and the time. It is what the record stores and what a
   reopen restores, nothing recomputed.
 
 Each of the three has a Dto next to it, like `Order`, and crosses the server boundary through

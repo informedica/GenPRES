@@ -110,7 +110,7 @@ and the final engine runs the write serializable with one retry (Rule 42).
 | `Credentials` | `credential_event` | the newest event for the user id | an event at every change: PIN set, wrong entry, lock, right entry |
 | `Codes` | `confirmation_code`, `code_try`, `code_spent` | the newest unspent code for the user id, with its tries counted | a code when mailed; a try per wrong code; spent when the PIN is set, the tries run out, or the last attempt is dropped |
 | `Enrolments` | `enrolment`, `enrolment_dropped` | the attempt by id, then the user id it names, then every undropped attempt and the code of that user: `dropEnrolment` spends the code only when no other attempt stands, and `supplyPin` drops every attempt bound to the code | an attempt when the launch suspends; dropped at `dropEnrolment`; all of a user's attempts dropped when the PIN is set or the code is void |
-| `Records` | `order_plan` | not per request: every version of every patient is loaded at startup into `Session.State`, upgraded to the current structure version and parsed with `fromDto` (ADR-0008 §6) | a version at a commit, written by the state-replacing helper under the lock before the state is assigned (the write order below) |
+| `Records` | `order_plan` | not per request: every order plan version of every patient is loaded at startup into `Session.State`, upgraded to the current structure version and parsed with `fromDto` (ADR-0008 §6) | a version at a commit, written by the state-replacing helper under the lock before the state is assigned (the write order below) |
 | `Notices`, `Challenges` | none | working state, in memory, gone at every startup | nothing |
 | `Answered` | `submission_answer` | the row for the session id and the idempotency key | the answer, once, refusals included (Rule 45) |
 | the audit | `audit_entry` | nothing | one entry per act, in the same transaction |
@@ -277,10 +277,10 @@ What ADR-0008 invariant 5 and §6 decide, as this plan applies it to `order_plan
 - **Writing.** `commit` returns the write as a value; the adapter's state-replacing helper runs
   it under the lock, inserting the row with the current `json_version`, and assigns the new
   state only if the insert succeeded, else answers `StoreFailed` and leaves the state unchanged.
-  The unique constraint on `(patient_id, no)` is the database's own refusal of a second version
-  with the same number.
+  The unique constraint on `(patient_id, no)` is the database's own refusal of a second order plan
+  version with the same number.
 - **Every JSON structure change** comes with three things: a new `json_version`, an upgrade
-  step, and a stored fixture at the old version with a test that the upgraded fixture parses and
+  step, and a stored fixture at the old structure version with a test that the upgraded fixture parses and
   maps to the expected contract model (law L5 of plan 725). A snapshot of the serialized graph
   per structure version fails when the shape changes and the number does not. Rows are never
   rewritten. A release cannot read a row written under a newer `json_version`; rolling back is
