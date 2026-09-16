@@ -41,9 +41,14 @@ jobs:
     - name: ShipIt (Pull Request)
       # --allow-branch: this repo's default branch is master, not ShipIt's main-branch default.
       # --skip-merge-commit: existing history has `Merge pull request ...` commits ShipIt can't
-      # parse; both flags are required for every invocation against this repo (see DEVELOPMENT.md).
+      # parse. --skip-invalid-commit: a non-conventional commit (e.g. a GitHub-UI "commit
+      # suggestion", which bypasses the local Husky commit-msg hook) can still reach master if a
+      # required commit-lint check is overridden on merge; without this flag ShipIt throws
+      # FailedToParseCommit and this whole workflow fails closed instead of just dropping that
+      # one commit from the changelog (see issue and incident referenced in DEVELOPMENT.md).
+      # All three flags are required for every invocation against this repo (see DEVELOPMENT.md).
       # No --mode flag: defaults to pull-request, matching ADR-0005's decision that ShipIt opens
       # a release PR for review rather than pushing directly to master.
-      run: dotnet shipit --allow-branch master --skip-merge-commit
+      run: dotnet shipit --allow-branch master --skip-merge-commit --skip-invalid-commit
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
