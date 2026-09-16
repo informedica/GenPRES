@@ -119,7 +119,7 @@ alternative, ports typed on Dtos, is recorded below.
 | R6 | Services and ports are typed on domain types, never on Dtos and never on Shared; Dtos appear only in the adapters. Named exception: the session service in `ServerApi.Session.fs` and the identity half of `SessionPort` keep identity as contract types (`UserContext`, `OpenedToken`, `SessionEnding`, the refusals) and run the signing rules in the server, until the session domain named in [ADR-0007](0007-session-persistence.md) §3 exists. |
 | R7 | The database holds domain Dtos: a stored record is `toDto` of a domain value on write, and on load the adapter upgrades it to the current structure version and parses it with `fromDto`, so the state behind the ports holds domain values. |
 | R8 | Domain code never constructs or reads a Dto. New code only; the existing cases (`Order.Dto.continuous` and its siblings as sole constructors, `Medication.toOrderDto`, `Totals.getTotals`, GenSOLVER `Api`) are a follow-up issue. |
-| R9 | A fitness test enforces mechanically what can be: the contract model stays in the edge files, no domain library references Shared, and Shared references nothing but `FSharp.Core` and an explicit list of Fable-compatible packages. R1, R3 and R6 are review rules. |
+| R9 | A fitness test enforces mechanically what can be: the contract model stays in the edge files, no domain library references Shared, and Shared references nothing but `FSharp.Core` and an explicit list of Fable-compatible packages. R1, R2, R3 and R6 are review rules: which aggregates cross a boundary, and whether each has a Dto, is a judgement no script makes, and the laws run only once a Dto and its mappers exist. |
 | R10 | The write path is an inbound path: the signing command handler parses the model with `ofModel >> fromDto` for both the challenge and the commit, and what the database adapter writes is `toDto` of the domain value it is handed, under a structure version beside the root. |
 
 ### 6. What the database holds, and what stays in memory
@@ -179,8 +179,9 @@ state only if the write succeeded. The Storage section of plan 725 has the full 
   model, not "DTO"; the GenORDER domain document gains the three types.
 - The session service keeps its identity types and signing rules in the server, the named
   exception of R6, until the refactor ADR-0007 §3 names.
-- A change that breaks R2, R4, R5, R7 or R10 fails a law's test or the fitness test; a reviewer
-  points at this ADR for R1, R3 and R6.
+- A change that breaks R4, R5, R7 or R10 fails a law's test or the fitness test, once the
+  aggregate's Dto and mappers exist. R1, R2, R3 and R6 are review rules: a new aggregate mapped
+  by hand keeps CI green, and a reviewer points at this ADR.
 
 ## Alternatives considered
 
