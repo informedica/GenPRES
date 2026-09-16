@@ -15,6 +15,8 @@
     <Compile Include="TotalsTests.fs" />
     <Compile Include="NutritionRuleSetsTests.fs" />
     <Compile Include="MappersPatientTests.fs" />
+    <Compile Include="../Informedica.GenORDER.Tests/Scenarios.fs" />
+    <Compile Include="MappersOrderContextTests.fs" />
     <Compile Include="HttpTests.fs" />
     <Compile Include="ConfigTests.fs" />
     <Compile Include="Program.fs" />
