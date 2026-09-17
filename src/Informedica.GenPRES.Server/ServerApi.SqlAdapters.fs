@@ -314,14 +314,12 @@ module SqlDatabase =
 
 
     /// <summary>
-    /// Runs the write of a commit: inserts the order plan version. A violated
+    /// Runs one order plan version: inserts it. A violated
     /// `unique (patient_id, no)` is another server's sign of the same number, answered with
     /// the head as it stands now; any other failure, other constraints included, is `Failed`
     /// with the reason, so that the caller keeps its state and the next Submission retries.
     /// </summary>
-    let persist (connectionString: string) (write: Session.Persist) : Session.StoreOutcome =
-        let (Session.WriteVersion v) = write
-
+    let persistVersion (connectionString: string) (v: Types.OrderPlanVersion) : Session.StoreOutcome =
         try
             insert connectionString v
             Session.StoreOutcome.Written
@@ -337,6 +335,26 @@ module SqlDatabase =
             with reread ->
                 Session.StoreOutcome.Failed reread.Message
         | e -> Session.StoreOutcome.Failed e.Message
+
+
+    /// <summary>
+    /// Runs the writes of a request: the order plan versions of the list, one by one, the
+    /// first that does not land being the request's outcome. The facts the launch and session
+    /// rows record, and the transaction over the whole list, arrive with their tables.
+    /// </summary>
+    let persist (connectionString: string) (writes: Session.Persist list) : Session.StoreOutcome =
+        writes
+        |> List.choose (
+            function
+            | Session.WriteVersion v -> Some v
+        )
+        |> List.fold
+            (fun outcome v ->
+                match outcome with
+                | Session.StoreOutcome.Written -> persistVersion connectionString v
+                | refused -> refused
+            )
+            Session.StoreOutcome.Written
 
 
     /// <summary>

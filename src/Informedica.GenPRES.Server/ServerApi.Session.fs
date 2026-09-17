@@ -473,9 +473,14 @@ module Session =
         }
 
 
-    /// The write a commit asks for, as a value: the adapter runs it, inserting the version's
-    /// Dto under the current structure version, before it assigns the state.
-    type Persist = WriteVersion of GenOrder.OrderPlanVersion
+    /// <summary>
+    /// A write the machine asks for, as a value. A member returns the writes of its request
+    /// next to the new state and its answer; the adapter runs them as one before it assigns
+    /// the state, and the in-memory store runs nothing, since its state already holds them.
+    /// </summary>
+    type Persist =
+        // an order plan version, at a commit
+        | WriteVersion of GenOrder.OrderPlanVersion
 
 
     /// What the adapter's write came to: landed; refused by the store because another server
@@ -1219,12 +1224,12 @@ module Session =
         (sid: string)
         (signature: Signature)
         (state: State)
-        : State * SigningOutcome * Persist option
+        : State * SigningOutcome * Persist list
         =
         let state = dropExpired now state |> touch now sid
 
         let refuse refusal =
-            state, SigningOutcome.Refused refusal, None
+            state, SigningOutcome.Refused refusal, []
 
         match state.Sessions |> Map.tryFind sid with
         | None -> refuse SigningRefusal.NoSession
@@ -1234,16 +1239,16 @@ module Session =
             | Some _, None -> refuse SigningRefusal.NoPatient
             | Some user, Some patientId ->
                 match state.Answered |> Map.tryFind (sid, signature.IdemKey) with
-                | Some(answer, _) -> state, answer, None
+                | Some(answer, _) -> state, answer, []
                 | None ->
                     // the answer is remembered from here on, under this Session and the key
-                    let remember (state: State) answer write =
+                    let remember (state: State) answer writes =
                         { state with Answered = state.Answered |> Map.add (sid, signature.IdemKey) (answer, now) },
                         answer,
-                        write
+                        writes
 
                     let refuse refusal =
-                        remember state (SigningOutcome.Refused refusal) None
+                        remember state (SigningOutcome.Refused refusal) []
 
                     let identity =
                         {
@@ -1334,13 +1339,13 @@ module Session =
                                                 Sessions = state.Sessions |> Map.add sid opened
                                             }
                                             (SigningOutcome.Submitted(version, token))
-                                            (Some(WriteVersion version))
+                                            [ WriteVersion version ]
                                     elif wasLocked then
                                         // this Session did nothing wrong; the lock is the credential's
                                         remember
                                             state
                                             (SigningOutcome.Refused(SigningRefusal.Locked credential.LockedUntil.Value))
-                                            None
+                                            []
                                     elif credential |> Credential.attemptsLeft = 0 then
                                         // the wrong-PIN limit is reached now; the Session ends
                                         let subject, body = Mails.pinLimit user.DisplayName
@@ -1365,14 +1370,14 @@ module Session =
                                                 Challenges = state.Challenges |> Map.remove sid
                                             }
                                             (SigningOutcome.Refused SigningRefusal.PinLimit)
-                                            None
+                                            []
                                     else
                                         remember
                                             state
                                             (SigningOutcome.Refused(
                                                 SigningRefusal.PinWrong(credential |> Credential.attemptsLeft)
                                             ))
-                                            None
+                                            []
                     | _ -> refuse SigningRefusal.NotPrescriber
 
 

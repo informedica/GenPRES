@@ -812,7 +812,10 @@ drift on the record; the harness for step 6 exists.
 
 ### Step 6 — feat(server): the identity tables and the session slice
 
-Two or three PRs. Migration 2 (`launch_record`, `launch_outcome`, `session`,
+Three parts, each a prototype and its migrate PRs: 6a the machine returning its writes and the
+`callback` split, 6b the tables, their loader and the transaction, 6c the port's session slices,
+the races and the documents. 6a's migrate is three PRs, since the shape change is 350 added
+source lines. Migration 2 (`launch_record`, `launch_outcome`, `session`,
 `session_opened_with`, `session_seen`, `session_ending`, `session_acknowledged`); the slice
 loader for `Launches`, `Sessions`, `Endings`; the writes as values of "Writes as values": the
 members return `Persist list`, the step 6 cases added, `submitWith` generalised to a list, and
@@ -960,6 +963,7 @@ choice is unknown, which is why it stays within the portable core.
 | 4b, the switch | #798 | `Config.Settings.DbConnection`, `validateStore` first in `validateStartup`, the banner line; `makeAppEnvWith demo store`: `connectionString (AppPath.rootPath ())`, `SqlSchema.apply`, `SqlDatabase.makeSessionPort` with `warn` to the console warning writer (the order logger is silent without `GENPRES_LOG`); compose key and `./data/db` mount; `.env.example`, DEVELOPMENT.md, ADR-0007 § 1 and § 4 Accepted; five tests |
 | 5, the suites over both stores | #799 | `makePortWith newStore`, `envWithStub newStore`, the four composition suites on `newStore`, `compositionSuites`; over `inMemory` as before and over SQLite in a sequenced list that deletes its temporary files last; 409 tests |
 | 6a, prototype | #801 | `Scripts/SqlWrites.fsx`: `Persist` gains the step 6 cases and `StoredEnding`; every member returns `State * answer * Persist list`; `touch` returns the heartbeat, `close` takes `now`; `callback` split into `Session.redeem` and `Session.openAfterRedeem` and composed from them; the port's `runWith`, `submitWith`, `challengeWith` and `failWith` over a list; nine tests. Differences noted: `openVersion` keeps its heartbeat, and `redeem` also answers the no-role refusal |
+| 6a, migrate 1 of 3 | #802 | `Persist` a union, `commit` returning `Persist list`; `RecordStore.persist` and `persistNothing` over a list, `runWith` running a request's writes as one with `submitWith` its signing case; `SqlDatabase.persistVersion` and `persist` over a list. The prototype is one shape change of 350 added source lines, so it lands in three PRs |
 
 ## Changes from the plan this replaces
 

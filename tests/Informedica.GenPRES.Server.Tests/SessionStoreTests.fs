@@ -135,6 +135,15 @@ let challenged sid (at: DateTime) (p: Types.OrderPlan) : string * Session.Challe
         Expiry = at + Session.challengeLifetime
     }
 
+/// The order plan version of a request's writes, when it has one.
+let versionWritten writes =
+    writes
+    |> List.tryPick (
+        function
+        | Session.WriteVersion v -> Some v
+    )
+
+
 let commitAt now ids state sid s =
     Session.commit now ids StubDatabase.digest registry ignore sid s state
 
@@ -167,8 +176,8 @@ let tests =
                 let state, answer, write =
                     commitAt t0 (counter "id") ready.Value "s-1" (signature "s-1" "1234" "k-1" domainPlan.Value)
 
-                match answer, write with
-                | SigningOutcome.Submitted(version, token), Some(Session.WriteVersion written) ->
+                match answer, versionWritten write with
+                | SigningOutcome.Submitted(version, token), Some written ->
                     version |> Expect.equal "the write is the version" written
                     version.No |> Expect.equal "first" 1
 
@@ -227,7 +236,7 @@ let tests =
                     answer
                     |> Expect.equal "mismatch" (SigningOutcome.Refused SigningRefusal.ChallengeMismatch)
 
-                    write |> Expect.isNone "nothing to write"
+                    write |> versionWritten |> Expect.isNone "no version to write"
             }
 
             test "two plans equal as domain values digest equal; a different plan does not" {
@@ -346,7 +355,7 @@ let tests =
                         $"refused at commit over {openedWith}"
                         (SigningOutcome.Refused(SigningRefusal.Blocked(StoredVersion.head newest)))
 
-                    write |> Expect.isNone "nothing written"
+                    write |> versionWritten |> Expect.isNone "no version written"
 
                 let s = session "s-1" prescriber (Some "plan-1")
 
@@ -377,7 +386,7 @@ let tests =
                     "stale"
                     (SigningOutcome.Refused(SigningRefusal.Blocked(StoredVersion.head (StoredVersion.Readable written))))
 
-                write |> Expect.isNone "nothing written"
+                write |> versionWritten |> Expect.isNone "no version written"
 
                 let st, opened =
                     Session.openVersion (t0 + seconds 10.0) (counter "id") "s-1" "plan-1" st
