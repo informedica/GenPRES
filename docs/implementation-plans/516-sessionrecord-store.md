@@ -826,6 +826,7 @@ choice is unknown, which is why it stays within the portable core.
 
 | Step | PR | Essentials |
 |---|---|---|
+| 0a, the plan revised | #785 | this plan replaces the plan of 2026-09-13; ADR-0007 § 4 amended (SQLite for development and tests, production refuses the key until #580) and the acceptance schedule in its status line |
 
 ## Changes from the plan this replaces
 
