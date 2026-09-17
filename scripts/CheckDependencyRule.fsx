@@ -237,6 +237,8 @@ let contractAllowances =
         "the formulary, interaction and admin ports typed on contract models, own issue after plan 725; the session port's identity types (UserContext, OpenedToken, the refusals and endings) stay contract by ADR-0008 R6 and ADR-0007 section 3, a contract-free session domain is its own issue"
         "src/Informedica.GenPRES.Server/ServerApi.StubAdapters.fs",
         "the stub session and identity adapters answer the session identity types (UserContext, OpenedToken, the refusals and endings), which stay contract by ADR-0008 R6 and ADR-0007 section 3; a contract-free session domain is its own issue"
+        "src/Informedica.GenPRES.Server/ServerApi.SqlAdapters.fs",
+        "the session store holds the same session identity types the stub answers (the refusals, the Roles, the tokens), which stay contract by ADR-0008 R6 and ADR-0007 section 3; a contract-free session domain is its own issue"
         "src/Informedica.GenPRES.Server/LogAnalyzer.fs",
         "admin log listing answered as a contract record, no domain behind it; own issue"
     ]
