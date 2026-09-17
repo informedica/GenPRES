@@ -138,3 +138,190 @@ module SqlSchema =
     /// Applies the migrations embedded in the server assembly.
     let apply (connectionString: string) =
         typeof<Migration>.Assembly |> embedded |> applyAll connectionString
+
+
+/// <summary>
+/// The record on SQLite: the order plan versions of a patient loaded from `order_plan`, and
+/// the write of a commit inserted there. The plan is stored as the canonical JSON of
+/// `OrderPlanVersion.Dto` under a JSON structure version; a row this release cannot read
+/// loads as an unreadable entry built from the identity columns, never dropped.
+/// </summary>
+module SqlDatabase =
+
+    open System
+    open Microsoft.Data.Sqlite
+    open Informedica.GenOrder.Lib
+
+
+    /// The highest JSON structure version this release reads.
+    let jsonVersionRead = 1
+
+    /// The JSON structure version this release writes.
+    let jsonVersionWritten = 1
+
+
+    /// Brings plan JSON written under a structure version to the structure this release
+    /// reads, one pure step per version on raw JSON. There are no steps yet.
+    let upgrade (version: int) (json: string) : Result<string, string> =
+        if version < 1 then
+            Error $"JSON structure version %i{version} does not exist"
+        elif version > jsonVersionRead then
+            Error $"JSON structure version %i{version} is newer than this release knows"
+        else
+            Ok json
+
+
+    /// The JSON this release writes for an order plan version.
+    let toJson (v: Types.OrderPlanVersion) =
+        v |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
+
+
+    /// An `order_plan` row as read, before its JSON is parsed.
+    type Row =
+        {
+            VersionId: string
+            No: int
+            PatientId: string
+            Base: string option
+            SignedByUserId: string
+            SignedByDisplayName: string
+            SignedAt: int64
+            JsonVersion: int
+            Plan: string
+        }
+
+
+    /// <summary>
+    /// A row as the record holds it: upgraded, parsed with `fromDto`, and checked against its
+    /// identity columns; else unreadable with the reason, its identity from the columns, which
+    /// are authoritative.
+    /// </summary>
+    let readRow (row: Row) : StoredVersion =
+        let parsed =
+            upgrade row.JsonVersion row.Plan
+            |> Result.bind (fun json ->
+                try
+                    json
+                    |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
+                    |> OrderPlanVersion.Dto.fromDto
+                    |> Result.mapError (fun errs -> $"the order plan version does not parse: %A{errs}")
+                with :? Newtonsoft.Json.JsonException as e ->
+                    Error $"the JSON does not read: %s{e.Message}"
+            )
+            |> Result.bind (fun v ->
+                if
+                    v.Id = row.VersionId
+                    && v.No = row.No
+                    && v.PatientId = row.PatientId
+                    && v.Base = row.Base
+                then
+                    Ok v
+                else
+                    Error "the identity in the JSON disagrees with the columns"
+            )
+
+        match parsed with
+        | Ok v -> StoredVersion.Readable v
+        | Error reason ->
+            StoredVersion.Unreadable
+                {
+                    Id = row.VersionId
+                    No = row.No
+                    PatientId = row.PatientId
+                    Base = row.Base
+                    SignedBy =
+                        {
+                            UserId = row.SignedByUserId
+                            DisplayName = row.SignedByDisplayName
+                        }
+                    SignedAt = DateTimeOffset.FromUnixTimeMilliseconds(row.SignedAt).UtcDateTime
+                    Reason = reason
+                }
+
+
+    /// Every order plan version of a patient, newest first.
+    let loadRecords (connectionString: string) (patientId: string) : StoredVersion list =
+        use conn = new SqliteConnection(connectionString)
+        conn.Open()
+        use cmd = conn.CreateCommand()
+
+        cmd.CommandText <-
+            """
+            select version_id, no, patient_id, base, signed_by_user_id, signed_by_display_name,
+                   signed_at, json_version, plan
+            from order_plan where patient_id = $patient order by no desc
+            """
+
+        cmd.Parameters.AddWithValue("$patient", patientId) |> ignore
+        use r = cmd.ExecuteReader()
+
+        [
+            while r.Read() do
+                readRow
+                    {
+                        VersionId = r.GetString 0
+                        No = r.GetInt32 1
+                        PatientId = r.GetString 2
+                        Base = if r.IsDBNull 3 then None else Some(r.GetString 3)
+                        SignedByUserId = r.GetString 4
+                        SignedByDisplayName = r.GetString 5
+                        SignedAt = r.GetInt64 6
+                        JsonVersion = r.GetInt32 7
+                        Plan = r.GetString 8
+                    }
+        ]
+
+
+    let private insert (connectionString: string) (v: Types.OrderPlanVersion) =
+        use conn = new SqliteConnection(connectionString)
+        conn.Open()
+        use cmd = conn.CreateCommand()
+
+        cmd.CommandText <-
+            """
+            insert into order_plan
+                (version_id, no, patient_id, base, signed_by_user_id, signed_by_display_name,
+                 signed_at, verified, json_version, plan)
+            values ($id, $no, $patient, $base, $user, $name, $at, $verified, $json_version, $plan)
+            """
+
+        let add (name: string) (value: obj) =
+            cmd.Parameters.AddWithValue(name, value) |> ignore
+
+        add "$id" v.Id
+        add "$no" v.No
+        add "$patient" v.PatientId
+        add "$base" (v.Base |> Option.map box |> Option.defaultValue DBNull.Value)
+        add "$user" v.SignedBy.UserId
+        add "$name" v.SignedBy.DisplayName
+        add "$at" (DateTimeOffset(v.SignedAt, TimeSpan.Zero).ToUnixTimeMilliseconds())
+        add "$verified" (if v.Verified then 1 else 0)
+        add "$json_version" jsonVersionWritten
+        add "$plan" (toJson v)
+        cmd.ExecuteNonQuery() |> ignore
+
+
+    /// <summary>
+    /// Runs the write of a commit: inserts the order plan version. A violated
+    /// `unique (patient_id, no)` is another server's sign of the same number, answered with
+    /// the head as it stands now; any other failure, other constraints included, is `Failed`
+    /// with the reason, so that the caller keeps its state and the next Submission retries.
+    /// </summary>
+    let persist (connectionString: string) (write: Session.Persist) : Session.StoreOutcome =
+        let (Session.WriteVersion v) = write
+
+        try
+            insert connectionString v
+            Session.StoreOutcome.Written
+        with
+        | :? SqliteException as e when
+            e.SqliteExtendedErrorCode = 2067
+            && e.Message.Contains "order_plan.patient_id, order_plan.no"
+            ->
+            try
+                match loadRecords connectionString v.PatientId with
+                | head :: _ -> Session.StoreOutcome.Conflict head
+                | [] -> Session.StoreOutcome.Failed e.Message
+            with reread ->
+                Session.StoreOutcome.Failed reread.Message
+        | e -> Session.StoreOutcome.Failed e.Message
