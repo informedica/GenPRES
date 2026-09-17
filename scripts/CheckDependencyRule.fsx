@@ -230,14 +230,13 @@ let contractEdgeFiles =
 /// numbers refer to docs/implementation-plans/725-contract-model-dto-domain-flow.md. Each
 /// entry is a ratchet: one that no longer matches fails the run.
 let contractAllowances =
-    let ports =
-        "Formulary, Interaction and identity ports typed on contract models; own issue after plan 725 Phase 4"
-
     [
         "src/Informedica.GenPRES.Server/ServerApi.Services.fs",
-        "the formulary and parenteralia services typed on contract models, and the order context parse; own issue after plan 725 Phase 4"
-        "src/Informedica.GenPRES.Server/ServerApi.Adapters.fs", ports
-        "src/Informedica.GenPRES.Server/ServerApi.StubAdapters.fs", ports
+        "the formulary and parenteralia services typed on contract models, and the order context parse; own issue after plan 725"
+        "src/Informedica.GenPRES.Server/ServerApi.Adapters.fs",
+        "the formulary, interaction and admin ports typed on contract models, own issue after plan 725; the session and patient data ports until its Phase 5"
+        "src/Informedica.GenPRES.Server/ServerApi.StubAdapters.fs",
+        "the stub session, identity and patient data adapters typed on contract models until plan 725 Phase 5"
         "src/Informedica.GenPRES.Server/LogAnalyzer.fs",
         "admin log listing answered as a contract record, no domain behind it; own issue"
     ]

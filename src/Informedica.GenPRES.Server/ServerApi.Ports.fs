@@ -3,6 +3,12 @@ namespace ServerApi
 open Shared.Types
 open Shared.Api
 
+// The ports on domain values name the domain through these; unqualified, the names below
+// are the contract model's, which the other ports still take.
+module GenOrder = Informedica.GenOrder.Lib.Types
+module GenOrderContext = Informedica.GenOrder.Lib.OrderContext
+module GenForm = Informedica.GenForm.Lib.Types
+
 
 type FormularyPort =
     {
@@ -17,9 +23,9 @@ type FormularyPort =
 type OrderContextPort =
     {
         evaluate:
-            (Informedica.GenOrder.Lib.Types.OrderContext -> Informedica.GenOrder.Lib.OrderContext.Command)
-                -> Informedica.GenOrder.Lib.Types.PlanContext
-                -> Async<Result<Informedica.GenOrder.Lib.Types.PlanContext, string[]>>
+            (GenOrder.OrderContext -> GenOrderContext.Command)
+                -> GenOrder.PlanContext
+                -> Async<Result<GenOrder.PlanContext, string[]>>
     }
 
 
@@ -28,36 +34,22 @@ type OrderContextPort =
 /// contexts are parsed there too, so the port never sees the contract model.
 type OrderPlanPort =
     {
-        recalculate:
-            Informedica.GenOrder.Lib.Types.OrderPlan
-                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
+        recalculate: GenOrder.OrderPlan -> Async<Result<GenOrder.OrderPlan, string[]>>
         // the command into the context named
         navigate:
-            Informedica.GenOrder.Lib.Types.OrderPlan
+            GenOrder.OrderPlan
                 -> string
-                -> (Informedica.GenOrder.Lib.Types.OrderContext -> Informedica.GenOrder.Lib.OrderContext.Command)
-                -> Informedica.GenOrder.Lib.Types.PlanContext
-                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
+                -> (GenOrder.OrderContext -> GenOrderContext.Command)
+                -> GenOrder.PlanContext
+                -> Async<Result<GenOrder.OrderPlan, string[]>>
         // a workbench evaluated elsewhere into the plan as it is
-        addOrderContext:
-            Informedica.GenOrder.Lib.Types.OrderPlan
-                -> Informedica.GenOrder.Lib.Types.PlanContext
-                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
+        addOrderContext: GenOrder.OrderPlan -> GenOrder.PlanContext -> Async<Result<GenOrder.OrderPlan, string[]>>
         // a fresh workbench for a nutrition category, its filter discovered
-        newOrderContext:
-            Informedica.GenOrder.Lib.Types.OrderPlan
-                -> Informedica.GenOrder.Lib.Types.NutritionCategory
-                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
+        newOrderContext: GenOrder.OrderPlan -> GenOrder.NutritionCategory -> Async<Result<GenOrder.OrderPlan, string[]>>
         // the contexts named, every kind; a feeding takes its supplements with it
-        removeOrderContexts:
-            Informedica.GenOrder.Lib.Types.OrderPlan
-                -> string[]
-                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
+        removeOrderContexts: GenOrder.OrderPlan -> string[] -> Async<Result<GenOrder.OrderPlan, string[]>>
         // a signed version's patient and contexts as they were, nothing evaluated
-        openWith:
-            Informedica.GenForm.Lib.Types.Patient
-                -> Informedica.GenOrder.Lib.Types.PlanContext[]
-                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
+        openWith: GenForm.Patient -> GenOrder.PlanContext[] -> Async<Result<GenOrder.OrderPlan, string[]>>
     }
 
 
