@@ -149,12 +149,19 @@ let tests =
                 )
             }
 
-            test "every Role is stored by its word and reads back as itself" {
+            test "every Role is stored by its word, and a word no Role has is no Role" {
                 for role in [ UserRole.Prescriber; UserRole.Reader ] do
                     role
                     |> SqlSessions.roleWord
                     |> SqlSessions.roleOf
-                    |> Expect.equal $"the Role of %A{role}" role
+                    |> Expect.equal $"the Role of %A{role}" (Some role)
+
+                // the column is free text: a word this release does not know must not come
+                // back as the Role that may sign
+                SqlSessions.roleOf "administrator" |> Expect.isNone "a word no Role has"
+
+                SqlSessions.roleOf "Prescriber"
+                |> Expect.isNone "the word of a Role, spelled otherwise"
             }
 
             test "a time reaches the column as Unix milliseconds and back" {

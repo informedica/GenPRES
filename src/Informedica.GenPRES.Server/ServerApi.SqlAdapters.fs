@@ -448,19 +448,23 @@ module SqlSessions =
         |> List.tryFind (fun refusal -> Session.refusalWord refusal = word)
 
 
-    /// The Role a Session was opened with, stored as a word and back. Every Role matched, so
-    /// that one without a word fails to compile.
+    /// The word a Role is stored under. Every Role matched, so that one without a word fails
+    /// to compile.
     let roleWord =
         function
         | UserRole.Prescriber -> "prescriber"
         | UserRole.Reader -> "reader"
 
 
+    /// The Role of a stored word, and nothing for a word no Role has: the column is free text,
+    /// and a word this release does not know must not come back as the Role that may sign.
     let roleOf word =
-        if word = roleWord UserRole.Reader then
-            UserRole.Reader
+        if word = roleWord UserRole.Prescriber then
+            Some UserRole.Prescriber
+        elif word = roleWord UserRole.Reader then
+            Some UserRole.Reader
         else
-            UserRole.Prescriber
+            None
 
 
     /// A command on a connection, within a transaction when one is given.
