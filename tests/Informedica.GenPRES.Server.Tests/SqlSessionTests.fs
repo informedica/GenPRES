@@ -759,3 +759,240 @@ let writerTests =
                 )
             }
         ]
+
+
+/// A state as a server holds it before a request: nothing loaded, the demo credentials seeded.
+let emptyState = Session.initialState Map.empty
+
+
+let warnings () =
+    let said = ResizeArray<string>()
+    said, (fun (w: string) -> said.Add w)
+
+
+[<Tests>]
+let sliceTests =
+    testList
+        "the rows a request can touch"
+        [
+            test "a Session and the record of the patient it was opened on" {
+                withSessions (fun cs ->
+                    let session = sessionOf "s-1" "prescriber" None None
+                    let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.OpenSession("s-1", session)
+                            Session.RecordOpenedWith("s-1", session, t0)
+                            Session.WriteVersion v1
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+                    let _, warn = warnings ()
+                    let loaded = SqlSessions.withSession warn cs conn t0 "s-1" emptyState
+
+                    loaded.Sessions
+                    |> Map.containsKey "s-1"
+                    |> Expect.isTrue "the Session is in the state"
+
+                    loaded.Records
+                    |> Map.tryFind v1.PatientId
+                    |> Option.map List.length
+                    |> Expect.equal "with the record of its patient" (Some 1)
+                )
+            }
+
+            test "the rows are what stands: a Session ended elsewhere does not survive in memory" {
+                withSessions (fun cs ->
+                    let session = sessionOf "s-1" "prescriber" None None
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.OpenSession("s-1", session)
+                            Session.RecordOpenedWith("s-1", session, t0)
+                        ]
+                    |> ignore
+
+                    // the state of the server that opened it, which still holds it
+                    let held =
+                        { emptyState with Sessions = emptyState.Sessions |> Map.add "s-1" session }
+
+                    // another server ends it
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.EndSession("s-1", Session.StoredEnding.Ended SessionEnding.WrongPinLimit, t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+                    let _, warn = warnings ()
+                    let loaded = SqlSessions.withSession warn cs conn t0 "s-1" held
+
+                    loaded.Sessions
+                    |> Map.containsKey "s-1"
+                    |> Expect.isFalse "the Session it held is gone"
+
+                    loaded.Endings
+                    |> Map.tryFind "s-1"
+                    |> Option.map fst
+                    |> Expect.equal "the ending the rows give" (Some SessionEnding.WrongPinLimit)
+                )
+            }
+
+            test "a Session this release cannot read ends as unreadable, and says why" {
+                withSessions (fun cs ->
+                    insertSession cs "s-1" (Some "prescriber") "prescriber"
+                    insertOpenedWith cs "s-1" None 9 (Some patientJson)
+
+                    use conn = connect cs
+                    let said, warn = warnings ()
+                    let loaded = SqlSessions.withSession warn cs conn t0 "s-1" emptyState
+
+                    loaded.Endings
+                    |> Map.tryFind "s-1"
+                    |> Option.map fst
+                    |> Expect.equal "ended as unreadable" (Some SessionEnding.Unreadable)
+
+                    said
+                    |> Seq.exists (fun w -> w.Contains "newer than this release knows")
+                    |> Expect.isTrue $"the reason was said: %A{List.ofSeq said}"
+                )
+            }
+
+            test "the newest Session of a login, whatever became of it" {
+                withSessions (fun cs ->
+                    for sid in [ "s-1"; "s-2" ] do
+                        let session = sessionOf sid "prescriber" None None
+
+                        SqlSessions.runWrites
+                            cs
+                            [
+                                Session.OpenSession(sid, session)
+                                Session.RecordOpenedWith(sid, session, t0)
+                            ]
+                        |> ignore
+
+                    use conn = connect cs
+
+                    SqlSessions.newestOfLogin conn "prescriber"
+                    |> Expect.equal "the newer one" (Some "s-2")
+
+                    SqlSessions.newestOfLogin conn "nobody"
+                    |> Expect.isNone "a login with no Session"
+
+                    let _, warn = warnings ()
+                    let loaded = SqlSessions.withLogin warn cs conn t0 "prescriber" emptyState
+
+                    loaded.Sessions
+                    |> Map.containsKey "s-2"
+                    |> Expect.isTrue "the newest is in the state"
+
+                    loaded.Sessions
+                    |> Map.containsKey "s-1"
+                    |> Expect.isFalse "the one it superseded is not"
+                )
+            }
+
+            test "a Launch, what its callback came to, and the Session it opened" {
+                withSessions (fun cs ->
+                    let session = sessionOf "s-1" "prescriber" None None
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.RecordLaunch(launchOf "n-1")
+                            Session.OpenSession("s-1", session)
+                            Session.RecordOpenedWith("s-1", session, t0)
+                            Session.RecordLaunchOutcome("n-1", LaunchResult.Opened("s-1", session.Opened), t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+                    let _, warn = warnings ()
+                    let loaded = SqlSessions.withLaunch warn cs conn t0 "state" "state-n-1" emptyState
+
+                    match loaded.Launches |> Map.tryFind "n-1" with
+                    | Some record ->
+                        record.State |> Expect.equal "the state its callback carries" "state-n-1"
+
+                        match record.Outcome with
+                        | Some(LaunchResult.Opened(sid, opened)) ->
+                            sid |> Expect.equal "the Session it opened" "s-1"
+
+                            opened.User
+                            |> Expect.equal "with what that Session was opened with" session.Opened.User
+                        | other -> failtest $"expected the open it came to, got %A{other}"
+                    | None -> failtest "expected the Launch"
+
+                    loaded.Sessions
+                    |> Map.containsKey "s-1"
+                    |> Expect.isTrue "and the Session itself"
+                )
+            }
+
+            test "a Launch that opened a Session answers with it once that Session has ended" {
+                withSessions (fun cs ->
+                    let session = sessionOf "s-1" "prescriber" None None
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.RecordLaunch(launchOf "n-1")
+                            Session.OpenSession("s-1", session)
+                            Session.RecordOpenedWith("s-1", session, t0)
+                            Session.RecordLaunchOutcome("n-1", LaunchResult.Opened("s-1", session.Opened), t0)
+                            Session.EndSession("s-1", Session.StoredEnding.Ended SessionEnding.WrongPinLimit, t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+                    let _, warn = warnings ()
+                    let loaded = SqlSessions.withLaunch warn cs conn t0 "nonce" "n-1" emptyState
+
+                    // the browser presenting it again goes to the app, not through the hop
+                    match loaded.Launches |> Map.tryFind "n-1" |> Option.bind _.Outcome with
+                    | Some(LaunchResult.Opened(sid, _)) -> sid |> Expect.equal "the Session it opened" "s-1"
+                    | other -> failtest $"expected the open it came to, got %A{other}"
+
+                    loaded.Endings
+                    |> Map.tryFind "s-1"
+                    |> Option.map fst
+                    |> Expect.equal "and the Session itself has ended" (Some SessionEnding.WrongPinLimit)
+                )
+            }
+
+            test "a refused launch, an enrolling one, and one past its lifetime" {
+                withSessions (fun cs ->
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.RecordLaunch(launchOf "n-1")
+                            Session.RecordLaunchOutcome("n-1", LaunchResult.Refused LaunchRefusal.NoRole, t0)
+                            Session.RecordLaunch(launchOf "n-2")
+                            Session.RecordLaunchOutcome("n-2", LaunchResult.Enrolling "attempt-1", t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+                    let _, warn = warnings ()
+
+                    let outcomeOf nonce state =
+                        SqlSessions.withLaunch warn cs conn t0 "nonce" nonce state
+                        |> fun s -> s.Launches |> Map.tryFind nonce |> Option.bind _.Outcome
+
+                    outcomeOf "n-1" emptyState
+                    |> Expect.equal "the refusal it came to" (Some(LaunchResult.Refused LaunchRefusal.NoRole))
+
+                    outcomeOf "n-2" emptyState
+                    |> Expect.equal "the attempt it suspended into" (Some(LaunchResult.Enrolling "attempt-1"))
+
+                    // past the lifetime the record is absent, as the dropped row will be
+                    SqlSessions.withLaunch warn cs conn (t0.AddMinutes 3.0) "nonce" "n-1" emptyState
+                    |> fun s -> s.Launches |> Expect.isEmpty "no Launch at all"
+                )
+            }
+        ]

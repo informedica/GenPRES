@@ -905,3 +905,152 @@ module SqlSessions =
                 Session.StoreOutcome.Failed e.Message
         with e ->
             Session.StoreOutcome.Failed e.Message
+
+
+    // ---- the rows a request can touch -------------------------------------------------------
+
+    /// The record of a patient, as the state holds it.
+    let withRecord (cs: string) (patientId: string option) (state: Session.State) =
+        match patientId with
+        | None -> state
+        | Some pid -> { state with Records = state.Records |> Map.add pid (SqlDatabase.loadRecords cs pid) }
+
+
+    /// A Session and its ending, and the record of the patient it was opened on. A Session
+    /// this release cannot read ends as unreadable, which is the ending its next request is
+    /// told; the ending is a row of its own, appended by the caller's writes.
+    let withSession
+        (warn: string -> unit)
+        (cs: string)
+        (conn: SqliteConnection)
+        (now: DateTime)
+        (sid: string)
+        (state: Session.State)
+        =
+        let headOf id =
+            state.Records
+            |> Map.toSeq
+            |> Seq.collect snd
+            |> Seq.tryFind (fun v -> StoredVersion.id v = id)
+
+        // the rows are what stands: whatever this server still held for the id is dropped
+        // first, so that a Session ended elsewhere cannot survive in the memory of a server
+        // that opened it
+        let state =
+            { state with
+                Sessions = state.Sessions |> Map.remove sid
+                Endings = state.Endings |> Map.remove sid
+            }
+
+        match loadSession conn headOf sid with
+        | None
+        | Some(Choice2Of2 None) -> state
+        | Some(Choice2Of2(Some ending)) -> { state with Endings = state.Endings |> Map.add sid ending }
+        | Some(Choice1Of2(Error reason)) ->
+            warn $"the Session %s{sid} cannot be read and ends: %s{reason}"
+
+            { state with Endings = state.Endings |> Map.add sid (SessionEnding.Unreadable, now) }
+        | Some(Choice1Of2(Ok session)) ->
+            { state with Sessions = state.Sessions |> Map.add sid session }
+            |> withRecord cs session.Opened.PatientId
+
+
+    /// The id of the newest Session of a login, whatever became of it: the row the loader
+    /// reads a supersession off, and the one an open supersedes in turn.
+    let newestOfLogin (conn: SqliteConnection) (login: string) =
+        rows
+            conn
+            "select session_id from session where login = $login order by id desc limit 1"
+            [ ("$login", box login) ]
+            (fun r -> r.GetString 0)
+        |> List.tryHead
+
+
+    /// <summary>
+    /// What a Session was opened with, whatever became of it since. A Launch that opened a
+    /// Session keeps that answer for its lifetime, so that a browser presenting it again is
+    /// sent to the app rather than through the hop a second time, and the cookie decides which
+    /// Session it lands on. `loadSession` answers an ended Session with its ending and no
+    /// `OpenedSession` at all, so the launch's outcome is rebuilt from the rows directly.
+    /// </summary>
+    let openedOf (conn: SqliteConnection) (headOf: string -> StoredVersion option) (sid: string) =
+        rows
+            conn
+            "select user_id, user_display, user_role, patient_id, key_thumbprint from session where session_id = $sid"
+            [ ("$sid", box sid) ]
+            (fun r ->
+                {|
+                    UserId = textOrNull r 0
+                    UserDisplay = textOrNull r 1
+                    UserRole = textOrNull r 2
+                    PatientId = textOrNull r 3
+                    KeyThumbprint = textOrNull r 4
+                |}
+            )
+        |> List.tryHead
+        |> Option.map (fun row ->
+            let opened = loadOpenedWith conn sid
+
+            {
+                User =
+                    userOf row.UserId row.UserDisplay row.UserRole
+                    |> Result.toOption
+                    |> Option.flatten
+                PatientId = row.PatientId
+                Patient = opened |> Option.bind (fun o -> o.Patient |> Result.toOption |> Option.flatten)
+                OpenedToken = opened |> Option.bind _.OpenedToken
+                KeyThumbprint = row.KeyThumbprint
+                Head = opened |> Option.bind _.HeadId |> Option.bind headOf
+            }
+        )
+
+
+    /// The newest Session of a login, so that an open sees the one it supersedes, and the
+    /// ending of that Session when it has one.
+    let withLogin warn (cs: string) (conn: SqliteConnection) (now: DateTime) (login: string) (state: Session.State) =
+        newestOfLogin conn login
+        |> Option.map (fun sid -> withSession warn cs conn now sid state)
+        |> Option.defaultValue state
+
+
+    /// The Launch of a nonce or of a callback's state, with what its callback came to, and the
+    /// record of the patient it was launched on.
+    let withLaunch warn (cs: string) (conn: SqliteConnection) (now: DateTime) (by: string) (value: string) state =
+        match loadLaunch conn now by value with
+        | None -> state
+        | Some row ->
+            let state = state |> withRecord cs (Some row.PatientId)
+
+            let headOf id =
+                state.Records
+                |> Map.toSeq
+                |> Seq.collect snd
+                |> Seq.tryFind (fun v -> StoredVersion.id v = id)
+
+            let outcome =
+                match row.Outcome, row.SessionId, row.Attempt with
+                | Some "opened", Some sid, _ ->
+                    openedOf conn headOf sid
+                    |> Option.map (fun opened -> LaunchResult.Opened(sid, opened))
+                | Some "enrolling", _, Some attempt -> Some(LaunchResult.Enrolling attempt)
+                | Some word, _, _ when word.StartsWith "refused:" ->
+                    word.Substring "refused:".Length |> refusalOf |> Option.map LaunchResult.Refused
+                | _ -> None
+
+            let record: Session.LaunchRecord =
+                {
+                    Nonce = row.Nonce
+                    State = row.State
+                    PatientId = row.PatientId
+                    PublicKey = row.PublicKey
+                    Expiry = row.Expiry
+                    Outcome = outcome
+                }
+
+            let state = { state with Launches = state.Launches |> Map.add row.Nonce record }
+
+            // the Session it opened, so that a callback reloaded against it, and a request that
+            // follows, see it as the state holds it
+            match row.SessionId with
+            | Some sid -> withSession warn cs conn now sid state
+            | None -> state
