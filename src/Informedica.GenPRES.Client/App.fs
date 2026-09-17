@@ -766,7 +766,8 @@ module private Elmish =
         | SessionEffect.GoTo url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
         | SessionEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient patient)
         // the cart is the version the Session opened with, opened by the plan machine over the
-        // patient as UpdatePatient left it (normal values applied)
+        // patient as UpdatePatient leaves it (normal values applied); the machine keeps the
+        // version while that patient is still on its way
         | SessionEffect.LoadCart head -> Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Version(head, newRequest ())))
         | SessionEffect.KeepKey thumbprint ->
             Cmd.ofEffect (fun _ ->
