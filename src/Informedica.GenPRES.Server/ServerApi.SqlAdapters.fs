@@ -978,6 +978,118 @@ module SqlSessions =
             Session.StoreOutcome.Failed e.Message
 
 
+    // ---- the credential, the code and the attempts ------------------------------------------
+
+    /// The credential of a person: the newest event carries it whole, so a load reads one row
+    /// and no history is replayed. A person with no event has no credential at all, which is
+    /// what a Prescriber who has never enrolled looks like.
+    let loadCredential (conn: SqliteConnection) (userId: string) =
+        rows
+            conn
+            """
+            select pin_salt, pin_hash, wrong_count, locked_until
+            from credential_event where user_id = $u order by id desc limit 1
+            """
+            [ ("$u", box userId) ]
+            (fun r ->
+                {
+                    PinHash =
+                        if r.IsDBNull 0 then
+                            None
+                        else
+                            Some
+                                {
+                                    Salt = r.GetFieldValue<byte[]> 0
+                                    Hash = r.GetFieldValue<byte[]> 1
+                                }
+                    WrongCount = r.GetInt32 2
+                    LockedUntil = if r.IsDBNull 3 then None else Some(at (r.GetInt64 3))
+                }
+            )
+        |> List.tryHead
+
+
+    /// The live confirmation code of a person: the newest row that is neither spent nor past
+    /// its lifetime, with its wrong tries counted. Never an older code in place of a spent one.
+    let loadCode (conn: SqliteConnection) (now: DateTime) (userId: string) =
+        rows
+            conn
+            """
+            select c.id, c.mail_address, c.code_mac, c.expiry,
+                   (select count(*) from code_try t where t.code_id = c.id)
+            from confirmation_code c
+            where c.user_id = $u and not exists (select 1 from code_spent s where s.code_id = c.id)
+            order by c.id desc limit 1
+            """
+            [ ("$u", box userId) ]
+            (fun r ->
+                {
+                    UserId = userId
+                    MailAddress = r.GetString 1
+                    CodeMac = r.GetFieldValue<byte[]> 2
+                    Expiry = at (r.GetInt64 3)
+                    Tries = r.GetInt32 4
+                }
+                : Session.PendingCode
+            )
+        |> List.tryHead
+        |> Option.filter (fun code -> now <= code.Expiry)
+
+
+    /// An enrolment attempt that was not given up, and every undropped attempt of the person it
+    /// names: `dropEnrolment` spends the shared code only when no other attempt of that person
+    /// stands, and `supplyPin` drops them all, so both need the wider slice.
+    let loadEnrolments (conn: SqliteConnection) (by: string) (value: string) =
+        rows
+            conn
+            $"""
+            select e.attempt, e.user_id, e.login, e.display_name, e.patient_id, e.public_key
+            from enrolment e
+            where e.{if by = "attempt" then "attempt" else "user_id"} = $v
+              and not exists (select 1 from enrolment_dropped d where d.attempt = e.attempt)
+            """
+            [ ("$v", box value) ]
+            (fun r ->
+                {
+                    Attempt = r.GetString 0
+                    UserId = r.GetString 1
+                    Login = r.GetString 2
+                    DisplayName = r.GetString 3
+                    PatientId = r.GetString 4
+                    PublicKey = PublicKey(r.GetString 5)
+                }
+                : Session.Enrolment
+            )
+
+
+    /// The rows an enrolment attempt can touch, as the state holds them: the attempt, every
+    /// other attempt of the person it names, that person's live code and their credential.
+    let withEnrolment (conn: SqliteConnection) (now: DateTime) (attempt: string) (state: Session.State) =
+        match loadEnrolments conn "attempt" attempt |> List.tryHead with
+        | None -> state
+        | Some e ->
+            let attempts = loadEnrolments conn "user" e.UserId
+
+            { state with
+                Enrolments = attempts |> List.map (fun a -> a.Attempt, a) |> Map.ofList
+                Codes =
+                    loadCode conn now e.UserId
+                    |> Option.map (fun code -> Map.ofList [ e.UserId, code ])
+                    |> Option.defaultValue Map.empty
+                Credentials =
+                    loadCredential conn e.UserId
+                    |> Option.map (fun c -> Map.ofList [ e.UserId, c ])
+                    |> Option.defaultValue Map.empty
+            }
+
+
+    /// The credential of the person a Session belongs to, which a signature is checked against.
+    let withCredential (conn: SqliteConnection) (userId: string) (state: Session.State) =
+        match loadCredential conn userId with
+        | None -> { state with Credentials = state.Credentials |> Map.remove userId }
+        | Some c -> { state with Credentials = state.Credentials |> Map.add userId c }
+
+
     // ---- the rows a request can touch -------------------------------------------------------
 
     /// <summary>
@@ -1050,7 +1162,13 @@ module SqlSessions =
             warn $"the Session %s{sid} cannot be read and ends: %s{reason}"
 
             { state with Endings = state.Endings |> Map.add sid (SessionEnding.Unreadable, now) }
-        | Some(Choice1Of2(Ok session)) -> { state with Sessions = state.Sessions |> Map.add sid session }
+        | Some(Choice1Of2(Ok session)) ->
+            { state with Sessions = state.Sessions |> Map.add sid session }
+            // the credential of the person it belongs to, which its next signature is checked
+            // against, and which the wrong-PIN count and the lock live on
+            |> match session.Opened.User with
+               | Some user -> withCredential conn user.UserId
+               | None -> id
 
 
     /// The id of the newest Session of a login, whatever became of it: the row the loader
@@ -1208,13 +1326,17 @@ module SqlSessions =
             withConnection (fun conn -> withLaunch warn cs conn (now ()) "state" value state)
         | StubDatabase.Slice.Login login -> withConnection (fun conn -> withLogin warn cs conn (now ()) login state)
         | StubDatabase.Slice.Session sid -> withConnection (fun conn -> withSession warn cs conn (now ()) sid state)
-        // the attempt's own rows arrive with the credentials; the record of the patient it
-        // was launched on is what an open out of it needs now
+        // the attempt, every other attempt of the person it names, their code and their
+        // credential, and the record of the patient an open out of it would show
         | StubDatabase.Slice.Enrolment attempt ->
-            state.Enrolments
-            |> Map.tryFind attempt
-            |> Option.map _.PatientId
-            |> fun pid -> withRecord warn cs pid state
+            withConnection (fun conn ->
+                let state = withEnrolment conn (now ()) attempt state
+
+                state.Enrolments
+                |> Map.tryFind attempt
+                |> Option.map _.PatientId
+                |> fun pid -> withRecord warn cs pid state
+            )
 
 
     /// <summary>
@@ -1233,6 +1355,27 @@ module SqlSessions =
                         reraise ()
             persist = runWrites cs
         }
+
+
+    /// <summary>
+    /// The credentials the demo walkthrough needs, written once per login: a login that already
+    /// has a credential event is left alone, so a restart adds no row and never resets a PIN the
+    /// User changed. Demo servers only; production has no seed and refuses the key today.
+    /// </summary>
+    let seed (cs: string) (now: DateTime) (credentials: Map<string, Credential>) =
+        use conn = new SqliteConnection(cs)
+        conn.Open()
+
+        let missing =
+            credentials
+            |> Map.toList
+            |> List.filter (fun (login, _) -> loadCredential conn login |> Option.isNone)
+
+        missing
+        |> List.map (fun (login, credential) -> Session.WriteCredential(login, "seeded", credential, now))
+        |> function
+            | [] -> Session.StoreOutcome.Written
+            | writes -> runWrites cs writes
 
 
     /// The session port over the state in the database.

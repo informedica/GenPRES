@@ -328,6 +328,15 @@ module Adapters =
 
                         SqlSchema.apply cs |> ignore
 
+                        // the demo logins get their credential in the file, once: the machine
+                        // reads credentials from the rows now, so a seed only in memory would
+                        // leave every seeded Prescriber without a PIN
+                        SqlSessions.seed
+                            cs
+                            DateTime.UtcNow
+                            (StubCredentials.seed System.Security.Cryptography.RandomNumberGenerator.GetBytes)
+                        |> ignore
+
                         SqlSessions.makeSessionPort
                             (fun msg ->
                                 Informedica.Utils.Lib.ConsoleWriter.NewLineTime.writeWarningMessage

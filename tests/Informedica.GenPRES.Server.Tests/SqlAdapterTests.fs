@@ -69,6 +69,13 @@ let failingOver (cs: string) (failing: bool ref) : StubDatabase.SessionStore =
     }
 
 
+/// A port over the database of a connection string, seeded as the composition root seeds it:
+/// the machine reads a credential from the rows now, so a stub Prescriber without one in the
+/// file could not sign.
+let portOn (cs: string) =
+    portOver (SqlSessions.store ignore cs (fun () -> t0))
+
+
 /// Presents a Launch for the stub patient and returns the callback for a login.
 let presented (port: SessionPort) (directory: StubDirectory.Directory) nonce login =
     async {
@@ -201,7 +208,16 @@ let fails (a: Async<'a>) =
 
 /// A test over a fresh database file with the schema applied.
 let testOnFile name (f: string -> Async<unit>) =
-    testCase name (fun () -> withRecord (fun cs -> f cs |> Async.RunSynchronously))
+    testCase
+        name
+        (fun () ->
+            withRecord (fun cs ->
+                // every port in these tests reads its credentials from the file, so the file is
+                // seeded the way the composition root seeds it at start-up
+                SqlSessions.seed cs t0 (StubCredentials.seed salts) |> ignore
+                f cs |> Async.RunSynchronously
+            )
+        )
 
 
 [<Tests>]
@@ -213,7 +229,7 @@ let tests =
                 "a signed version survives a restart; the relaunch opens on it and the next sign is 2"
                 (fun cs ->
                     async {
-                        let port, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let port, directory, _ = portOn cs
                         let! sid, opened = openAs port directory "n-1" "prescriber"
                         let! signature = challenged port sid opened "k-1"
                         let! first = port.submit sid signature
@@ -221,7 +237,7 @@ let tests =
                         let firstId = submittedId first
 
                         // the restart: a second port over the same file, from the seed
-                        let port, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let port, directory, _ = portOn cs
                         let! sid, opened = openAs port directory "n-2" "prescriber"
 
                         match opened.Head with
@@ -478,7 +494,7 @@ let tests =
                         Informedica.GenPRES.Server.Tests.SqlRecordTests.insertRow cs "plan-2" 2 9 fixture
 
                         // a Session over that patient: loading it brings the record with it
-                        let port, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let port, directory, _ = portOn cs
                         let! sid, _ = openAs port directory "n-1" "prescriber"
 
                         let store = SqlSessions.store warnings.Add cs (fun () -> t0)
@@ -639,11 +655,11 @@ let tests =
                 "a Session outlives the server that opened it"
                 (fun cs ->
                     async {
-                        let first, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let first, directory, _ = portOn cs
                         let! sid, _ = openAs first directory "n-1" "prescriber"
 
                         // another server over the same file, holding nothing in memory
-                        let second, _, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let second, _, _ = portOn cs
 
                         match! second.find sid with
                         | SessionLookup.Found opened ->
@@ -658,11 +674,11 @@ let tests =
                 "two launches of the same User: the newer stands, the older is told"
                 (fun cs ->
                     async {
-                        let a, directoryA, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let a, directoryA, _ = portOn cs
                         let! first, _ = openAs a directoryA "n-1" "prescriber"
 
                         // a second server, which knows nothing of the first Session but its rows
-                        let b, directoryB, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let b, directoryB, _ = portOn cs
                         let! second, _ = openAs b directoryB "n-2" "prescriber"
 
                         second |> Expect.notEqual "a Session of its own" first
@@ -681,7 +697,7 @@ let tests =
                 "the same Launch presented twice is answered as it was the first time"
                 (fun cs ->
                     async {
-                        let port, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let port, directory, _ = portOn cs
                         let! sid, _ = openAs port directory "n-1" "prescriber"
 
                         // the same browser, the same Launch: the outcome it already came to
@@ -700,7 +716,7 @@ let tests =
                 "an ended Session cannot reopen, on this server or another"
                 (fun cs ->
                     async {
-                        let port, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let port, directory, _ = portOn cs
                         let! sid, _ = openAs port directory "n-1" "prescriber"
 
                         do! port.close sid
@@ -709,7 +725,7 @@ let tests =
                         | SessionLookup.NotFound -> ()
                         | other -> failtest $"expected no Session, got %A{other}"
 
-                        let next, _, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let next, _, _ = portOn cs
 
                         match! next.find sid with
                         | SessionLookup.NotFound -> ()
@@ -768,7 +784,7 @@ let tests =
                 "the mail of a request that writes but is not a sign goes out too"
                 (fun cs ->
                     async {
-                        let port, directory, outbox = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let port, directory, outbox = portOn cs
                         let! sid, opened = openAs port directory "n-1" "prescriber"
                         let! signature = challenged port sid opened "k-1"
 
@@ -811,6 +827,8 @@ let newSqliteStore () =
         SqliteConnectionStringBuilder(DataSource = path, Pooling = false).ToString()
 
     SqlSchema.apply cs |> ignore
+    // the credentials the suites sign with, in the file the port reads them from
+    SqlSessions.seed cs t0 (StubCredentials.seed salts) |> ignore
     SqlSessions.store ignore cs (fun () -> t0)
 
 
