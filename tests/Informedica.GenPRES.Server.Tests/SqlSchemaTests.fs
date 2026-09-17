@@ -95,6 +95,59 @@ let tests =
                 )
             }
 
+            test "the constraints of the credential tables hold on a migrated database" {
+                withDb (fun cs ->
+                    SqlSchema.apply cs |> ignore
+
+                    // the references are only worth writing while the provider enforces them:
+                    // Microsoft.Data.Sqlite turns `foreign_keys` on by default, and a release
+                    // that turned it off would make every `references` in the schema decorative
+                    scalar cs "pragma foreign_keys"
+                    |> unbox<int64>
+                    |> Expect.equal "foreign keys are enforced" 1L
+
+                    let refused what sql =
+                        use conn = new SqliteConnection(cs)
+                        conn.Open()
+                        use cmd = conn.CreateCommand()
+                        cmd.CommandText <- sql
+
+                        try
+                            cmd.ExecuteNonQuery() |> ignore
+                            failtest $"%s{what} should be refused"
+                        with :? SqliteException as e ->
+                            e.SqliteErrorCode |> Expect.equal $"%s{what} is a constraint failure" 19
+
+                    refused
+                        "a try against a code that does not exist"
+                        "insert into code_try (code_id, at) values (99, 0)"
+
+                    refused
+                        "a spending of a code that does not exist"
+                        "insert into code_spent (code_id, at) values (99, 0)"
+
+                    refused
+                        "dropping an attempt that was never made"
+                        "insert into enrolment_dropped (attempt, at) values ('a-1', 0)"
+
+                    // a PIN is a salt and a hash together, or neither: half of one would verify
+                    // nothing and could not be told from a credential without a PIN
+                    refused
+                        "a credential with a salt and no hash"
+                        "insert into credential_event (user_id, event, pin_salt, wrong_count, at) values ('u', 'pin-set', x'00', 0, 0)"
+
+                    use conn = new SqliteConnection(cs)
+                    conn.Open()
+                    use cmd = conn.CreateCommand()
+
+                    cmd.CommandText <-
+                        "insert into credential_event (user_id, event, wrong_count, at) values ('u', 'seeded', 0, 0)"
+
+                    cmd.ExecuteNonQuery()
+                    |> Expect.equal "a credential without a PIN is a credential" 1
+                )
+            }
+
             test "a second apply applies nothing" {
                 withDb (fun cs ->
                     let applied = SqlSchema.apply cs |> List.length
