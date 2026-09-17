@@ -2,8 +2,9 @@
 
 **Date**: 2026-09-08
 
-**Status**: Proposed (rewritten 2026-09-13; the engine is deferred to an amendment, Decision 4;
-§3 amended 2026-09-16 for ADR-0008)
+**Status**: Proposed (rewritten 2026-09-13; the engine is deferred to an amendment, Decision 4);
+§ 3: Accepted (amended 2026-09-16 for ADR-0008; accepted 2026-09-17, when the session service came
+to hold what the section says it holds, plan 725 Phase 5, #776 and #778)
 
 **Related Issues**: [#516 — GenPRES SessionRecord Store](https://github.com/informedica/GenPRES/issues/516),
 [#580 — Scope switch to expose only the accredited parts in production](https://github.com/informedica/GenPRES/issues/580)
@@ -64,6 +65,12 @@ retried once.
 This restates the design's rule so that a schema review can point at it; it decides nothing new.
 
 ### 3. The store is an adapter of the `Session` machine — amended 2026-09-16
+
+*Status of this section: Accepted (2026-09-17).* The session service holds its records as
+`StoredVersion` values, readable or kept by their identity, and what a Session is open on as a
+record on domain values, a challenge as the digest of the plan, and the commit returns the write
+as a value for the adapter to run (plan 725 steps 5.1 and 5.2, #776 and #778). What remains of
+this section is the store itself, plan 516.
 
 The SQL adapter implements `SessionPort` next to the stub, in the Server project (the
 Presentation ring), and runs the same pure functions: it loads the rows a request can touch into
