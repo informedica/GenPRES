@@ -219,10 +219,20 @@ inside the pure function through the injected `send` and before the request's wr
 the confirmation code when a launch suspends into enrolment, that the PIN was set at
 `supplyPin`, and that signing is locked at the third wrong PIN. Once a request's writes reach a
 database, a failed write would leave a mail sent for an act that did not happen, and a retry
-could mail again. So from step 6c, where the first writes of those requests land, a member
-returns its mails next to its writes and the adapter sends them only after the writes landed,
-never before; step 7 adds the credential and code rows under the same rule. Until 6c nothing of
-these acts is stored, so no mail can outlive a failed write.
+could mail again. So from step 6c nothing reaches the MailService before the writes of the
+request that asked for it have landed; step 7 adds the credential and code rows under the same
+rule. Until 6c nothing of these acts is stored, so no mail could outlive a failed write.
+
+Where that is enforced was decided in step 6c (2026-09-18). This plan said the members would
+return their mails next to their writes, as they return their `Persist` values. They do not: the
+port hands the machine a `send` that collects, and sends what it collected only once the store
+has taken the writes; a request whose writes are refused answers as if it never ran and its mail
+is dropped with the rest of it. The guarantee is the same one, in one place instead of in every
+member's signature and every test, and the machine's three mailing paths are untouched. The
+cost, stated plainly: the machine still calls `send`, so it is not free of the port in that
+respect, and a future reader of `Session.fs` cannot see from a signature that a mail is
+deferred. A member returning its mails as values remains the better shape if the machine is ever
+made free of its ports, and is the natural place to start that work.
 
 ### Config and wiring
 

@@ -193,20 +193,23 @@ Things worth trying here:
 - **Restart the server**: on the in-memory store the record is gone with everything else; the
   next signature is version 1 again. On SQLite (below) the record survives.
 
-#### Keeping the record across a restart: SQLite
+#### Keeping Sessions and the record across a restart: SQLite
 
-The session store can keep the signed order plan versions in a SQLite file, the test and
-development database ([ADR-0007](docs/adr/0007-session-persistence.md) § 4,
-[plan 516](docs/implementation-plans/516-sessionrecord-store.md)). Everything else, launches,
-Sessions, credentials and codes, still lives in memory for now.
+The session store can keep the launches, the Sessions, their endings and the signed order plan
+versions in a SQLite file, the test and development database
+([ADR-0007](docs/adr/0007-session-persistence.md) § 2 and § 4,
+[plan 516](docs/implementation-plans/516-sessionrecord-store.md)). Credentials, confirmation
+codes and enrolments still live in memory for now, so `no-pin` enrols again after a restart and
+a PIN set by enrolment is forgotten.
 
 1. Set the key, in `.env` or on the command line:
    `GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db`. A relative path is rooted at the
    folder holding `.env` (at `GENPRES_ROOT` when that is set); the folder is created, and the
    migrations are applied at start-up. The banner says `set (SQLite session store)`.
 2. Launch as `prescriber`, prescribe and sign: order plan version 1.
-3. Stop the server and start it again. Launch again: the Session is new, but the Order Plan
-   opens on the version you signed, and the next signature is version 2.
+3. Stop the server and start it again, and reload the tab without launching: the Session is
+   still there. The cookie names it, the server reads it back from the file, and the Order Plan
+   opens on the version you signed; the next signature is version 2.
 4. To start from nothing, stop the server and delete `data/db/genpres.db`.
 
 Production refuses the key: with `GENPRES_PROD=1` and `GENPRES_DB_CONNECTION` set, the server
@@ -219,7 +222,7 @@ leaves `data/db/` out.
 - **Replay the Launch**: copy the `#/session?launch=…` URL from the Network tab (it never stays
   in the address bar) and open it in another browser profile or an incognito window within two
   minutes: `spent`. After two minutes: `expired`. A token from an earlier server run: `invalid`,
-  the key is new at every start.
+  the sealing key is new at every start, whatever the store holds.
 - **Reload the callback**: reload `/callback?code=…&state=…` from the Network tab within two
   minutes: the same answer as the first time (Rule 45), no second Session.
 - **Two launches of the same user**: launch as `prescriber` in tab A, then again in tab B. B is
@@ -231,11 +234,12 @@ leaves `data/db/` out.
 - **Production**: `GENPRES_PROD=1 GENPRES_PASSWORD=<16+ chars> dotnet run`; `/stub/launch`
   and `/authorize` are 404, `/callback` redirects to `refused=invalid`.
 
-The stand-ins keep everything in memory: launches by nonce, sessions, endings, one-time codes,
-credentials and confirmation codes, the outbox, and, on the in-memory store, the signed
-versions of every order plan. A restart forgets all of it: the browser's session cookie no
-longer finds a Session, `no-pin` has to enrol again, and the record starts from nothing, unless
-the record survives on SQLite.
+The stand-ins keep in memory what no store holds yet: the one-time codes, the credentials and
+confirmation codes, the outbox, and, on the in-memory store, the launches, the sessions, the
+endings and the signed versions of every order plan. On the in-memory store a restart forgets
+all of it: the browser's session cookie no longer finds a Session and the record starts from
+nothing. On SQLite the Session, its ending and the record survive; `no-pin` still has to enrol
+again, since credentials are not stored yet.
 
 #### Cookies and the development proxy
 

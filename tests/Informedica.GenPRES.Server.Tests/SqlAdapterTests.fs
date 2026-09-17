@@ -717,6 +717,52 @@ let tests =
                     }
                 )
 
+
+            testOnFile
+                "a request whose writes the store refuses sends no mail"
+                (fun cs ->
+                    async {
+                        let readOnly =
+                            SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
+
+                        // the launch lands, so the hop reaches the PIN question; the writes of
+                        // the callback that suspends into enrolment do not
+                        let inner = SqlSessions.store ignore cs (fun () -> t0)
+                        let refusing = ref false
+
+                        let store =
+                            { inner with
+                                persist =
+                                    fun writes ->
+                                        if refusing.Value then
+                                            SqlSessions.runWrites readOnly writes
+                                        else
+                                            inner.persist writes
+                            }
+
+                        let port, directory, outbox = portOver store
+                        let! cb = presented port directory "n-1" "no-pin"
+                        refusing.Value <- true
+
+                        let! failed = fails (port.callback cb)
+                        failed |> Expect.isTrue "the call fails"
+
+                        outbox.sent () |> Expect.isEmpty "the confirmation code was never sent"
+
+                        // a fresh hop, since the one-time code the first one carried is spent:
+                        // with the store taking the writes, the code does go out
+                        refusing.Value <- false
+                        let! next = presented port directory "n-2" "no-pin"
+
+                        match! port.callback next with
+                        | CallbackResult.Enrolling _ ->
+                            outbox.sent ()
+                            |> List.exists (fun m -> m.Subject.Contains "confirmation code")
+                            |> Expect.isTrue "the code went out once the writes landed"
+                        | other -> failtest $"expected Enrolling, got %A{other}"
+                    }
+                )
+
         ]
 
 

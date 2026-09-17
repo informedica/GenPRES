@@ -484,18 +484,48 @@ module StubDatabase =
         (idp: IdentityProviderPort)
         (registry: UserRegistryPort)
         (patientData: PatientDataPort)
-        (mail: MailPort)
+        (mailPort: MailPort)
         (initial: Session.State)
         : SessionPort
         =
         let gate = obj ()
         let mutable state = initial
 
+        // Nothing reaches the MailService before the writes of the request that asked for it
+        // have landed. The machine is given a `send` that collects, and what it collected is
+        // sent once the store has taken the writes; when the store refuses them the request
+        // answers as if it never ran, so its mail is dropped with the rest of it. A mail is
+        // fire and forget, so one that throws does not take the request with it.
+        let collected = Collections.Generic.List<Mail>()
+
+        let mail = { send = fun m -> lock gate (fun () -> collected.Add m) }
+
+        let flush landed =
+            let pending = collected |> List.ofSeq
+            collected.Clear()
+
+            if landed then
+                for m in pending do
+                    try
+                        mailPort.send m
+                    with _ ->
+                        ()
+
+        let persisting writes =
+            match store.persist writes with
+            | Session.StoreOutcome.Written ->
+                flush true
+                Session.StoreOutcome.Written
+            | outcome ->
+                flush false
+                outcome
+
         let update slice f =
             lock
                 gate
                 (fun () ->
-                    let next, result = failWith store.persist f (store.load slice state)
+                    collected.Clear()
+                    let next, result = failWith persisting f (store.load slice state)
                     state <- next
                     result
                 )
@@ -504,6 +534,8 @@ module StubDatabase =
             lock
                 gate
                 (fun () ->
+                    collected.Clear()
+
                     match
                         (try
                             Ok(store.load slice state)
