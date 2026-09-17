@@ -806,6 +806,59 @@ module SessionStubTests =
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
+                    test
+                        "prescriber over a record whose newest version cannot be read: opened from nothing, told the record moved on" {
+                        let ids, d = fixture ()
+
+                        let readable =
+                            signedAt
+                                "patient-1"
+                                StubPatientData.patient
+                                {
+                                    UserId = "prescriber"
+                                    DisplayName = "prescriber"
+                                    Role = UserRole.Prescriber
+                                }
+                                1
+                                t0
+
+                        let unreadable =
+                            Session.StoredVersion.Unreadable
+                                {
+                                    Id = "plan-2"
+                                    No = 2
+                                    PatientId = "patient-1"
+                                    Base = Some "plan-1"
+                                    SignedBy =
+                                        {
+                                            UserId = "prescriber-b"
+                                            DisplayName = "prescriber-b"
+                                        }
+                                    SignedAt = t0
+                                    Reason = "json_version 9 is newer than this release knows"
+                                }
+
+                        let record =
+                            { seeded with Records = Map.ofList [ "patient-1", unreadable :: storedOf [ readable ] ] }
+
+                        let state, cb = hop ids d record launch1 keyA "prescriber"
+                        let state, result = run ids d state cb
+
+                        match result with
+                        | CallbackResult.Opened(id, _) ->
+                            let r = state.Sessions[id]
+                            r.Session.Head |> Expect.isNone "nothing to show"
+                            r.OpenedWith |> Expect.isNone "not opened with a version it cannot show"
+
+                            state
+                            |> Session.seen t0 id r.Session.OpenedToken
+                            |> snd
+                            |> Expect.equal
+                                "told the record moved on"
+                                (Some(RecordNotice.NewerVersion(Session.StoredVersion.head unreadable)))
+                        | other -> failtest $"expected Opened, got {other}"
+                    }
+
                     test "no-data over a record: the Session opens on the patient the head was signed on (#640)" {
                         let ids, d = fixture ()
                         let entered = { StubPatientData.patient with Department = Some "ICU" }

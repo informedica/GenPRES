@@ -695,8 +695,10 @@ module Session =
     /// callback, an Enrolment once the PIN is set. The Session is written from the head of the
     /// record, on the platform's reading, else the head's patient data; the login's other
     /// Sessions are closed and marked, so that a User has at most one open Session. `toSigned`
-    /// writes a readable head as the client keeps it; an unreadable one is opened with by id,
-    /// and shown as none.
+    /// writes a readable head as the client keeps it. A head this release cannot read is
+    /// nothing to open with: the Session opens from nothing, so the next request tells that
+    /// the record has a newer version, and a sign is refused against it; that the head cannot
+    /// be shown is said once the session state can say so.
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
@@ -747,7 +749,13 @@ module Session =
                     {
                         Session = session
                         Login = login
-                        OpenedWith = head |> Option.map StoredVersion.id
+                        OpenedWith =
+                            head
+                            |> Option.bind (fun h ->
+                                match h with
+                                | StoredVersion.Readable v -> Some v.Id
+                                | StoredVersion.Unreadable _ -> None
+                            )
                         Seen = now
                     }
             Endings =
