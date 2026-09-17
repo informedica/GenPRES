@@ -631,8 +631,8 @@ version" and "SQLite".
   two groups is emitted twice and warns NU1504/NU1506 (DEVELOPMENT.md, "Paket groups"). The step
   proves the transitive reference by compiling one test that opens a connection.
 - `.env.example`: `# GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db`, commented, with the
-  root sentence of "Config and wiring". The same path serves `dotnet run` and the container
-  mount of step 4b.
+  root sentence of "Config and wiring", marked as not read yet: nothing reads the key before
+  step 4b. The same path serves `dotnet run` and the container mount of step 4b.
 - `.gitignore`: `!/src/Informedica.GenPRES.Server/Sql/`,
   `!/src/Informedica.GenPRES.Server/Sql/*.sql`,
   `!/tests/Informedica.GenPRES.Server.Tests/fixtures/`,
@@ -768,7 +768,8 @@ One PR, no prototype.
 - Docs: `DEVELOPMENT.md`, a subsection after the signing walkthrough (set the key, restart,
   relaunch opens on the signed order plan version, delete the file to reset; production refuses
   the key); the "restart the server" bullet and the stand-ins paragraph qualified ("on the stub";
-  "the record survives on SQLite"). ADR-0007 § 1 and § 4 to Accepted, dated.
+  "the record survives on SQLite"); `.env.example` drops its "not read yet" sentence. ADR-0007
+  § 1 and § 4 to Accepted, dated.
 - Docker: `compose.yaml` forwards the key, `GENPRES_DB_CONNECTION: ${GENPRES_DB_CONNECTION:-}`,
   empty meaning the stub as today, and mounts `./data/db:/app/data/db`, so the file survives a
   recreated container (`docker compose up -d` after a pull, `down` then `up`). With the key set
@@ -891,6 +892,7 @@ choice is unknown, which is why it stays within the portable core.
 |---|---|---|
 | 0a, the plan revised | #785 | this plan replaces the plan of 2026-09-13; ADR-0007 § 2 amended (append-only, nothing deleted, writes returned as values) and § 4 amended (SQLite for development and tests, production refuses the key until #580) and the acceptance schedule in its status line |
 | 0b, the documents aligned | #787 | nothing dropped in V8 Actor 5, uc-01 step 4.5, the model script, plan 409 and ADR-0008 § 6 (amended); ADR-0008 and plan 725 on this plan's numbering, `OrderPlanVersion.Dto` and the migration number; D2 and the #516 rows of the gap overview; the persistence request and the backlog decided for test and development; the allowance reasons of the fitness script |
+| 1, the package | #788 | `Microsoft.Data.Sqlite` 10.0.12 in Main with SQLitePCLRaw pinned `~> 2.1.12` (Paket would otherwise take the breaking 3.x); the test project reaches it through the Server, proven by one in-memory connection test in `SqlSchemaTests.fs`; the `.env.example` key; the `.gitignore` opt-ins |
 
 ## Changes from the plan this replaces
 
