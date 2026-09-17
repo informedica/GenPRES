@@ -411,3 +411,112 @@ module SqlDatabase =
         | dir -> Directory.CreateDirectory dir |> ignore
 
         builder.ToString()
+
+
+/// <summary>
+/// The launches, the Sessions and their endings in the database: the rows a request can touch
+/// read into its state, and the writes it returned appended in one transaction. Nothing is ever
+/// changed: an ending, a heartbeat and what a Session opened with are rows of their own, and a
+/// supersession is no row at all, since the newer Session of a login tells it.
+/// </summary>
+module SqlSessions =
+
+    open System
+    open Microsoft.Data.Sqlite
+    open Shared.Types
+
+
+    /// Unix milliseconds, the form the columns hold, and back.
+    let ms (at: DateTime) =
+        DateTimeOffset(at, TimeSpan.Zero).ToUnixTimeMilliseconds()
+
+    let at (ms: int64) =
+        DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime
+
+
+    /// The refusal a stored word names; the word is the one the client reads off the address.
+    let refusalOf word =
+        [
+            LaunchRefusal.LaunchExpired
+            LaunchRefusal.LaunchSpent
+            LaunchRefusal.LaunchInvalid
+            LaunchRefusal.NoBrowserIdentity
+            LaunchRefusal.NoRole
+            LaunchRefusal.WrongActivePatient
+            LaunchRefusal.EnrolmentRequired
+        ]
+        |> List.tryFind (fun refusal -> Session.refusalWord refusal = word)
+
+
+    /// The Role a Session was opened with, stored as a word and back. Every Role matched, so
+    /// that one without a word fails to compile.
+    let roleWord =
+        function
+        | UserRole.Prescriber -> "prescriber"
+        | UserRole.Reader -> "reader"
+
+
+    let roleOf word =
+        if word = roleWord UserRole.Reader then
+            UserRole.Reader
+        else
+            UserRole.Prescriber
+
+
+    /// A command on a connection, within a transaction when one is given.
+    let command (conn: SqliteConnection) (tx: SqliteTransaction) (sql: string) (parameters: (string * obj) list) =
+        let cmd = conn.CreateCommand()
+        cmd.Transaction <- tx
+        cmd.CommandText <- sql
+
+        for name, value in parameters do
+            cmd.Parameters.AddWithValue(name, value) |> ignore
+
+        cmd
+
+
+    let rows (conn: SqliteConnection) sql parameters (read: SqliteDataReader -> 'a) =
+        use cmd = command conn null sql parameters
+        use r = cmd.ExecuteReader()
+
+        [
+            while r.Read() do
+                read r
+        ]
+
+
+    let textOrNull (r: SqliteDataReader) (i: int) =
+        if r.IsDBNull i then None else Some(r.GetString i)
+
+
+    /// <summary>
+    /// The Launch of a nonce or of a callback's `state`, with what its callback came to, while
+    /// it is within its lifetime; past it the record loads as absent, as a dropped row would.
+    /// The Session an outcome names is rebuilt by the caller, which has the session rows.
+    /// </summary>
+    let loadLaunch (conn: SqliteConnection) (now: DateTime) (by: string) (value: string) =
+        // the column is chosen here, never interpolated from a caller's string
+        let column = if by = "nonce" then "l.nonce" else "l.state"
+
+        rows
+            conn
+            $"""
+            select l.nonce, l.state, l.patient_id, l.public_key, l.expiry, o.outcome, o.session_id, o.attempt
+            from launch_record l left join launch_outcome o on o.nonce = l.nonce
+            where {column} = $value
+            """
+            [ "$value", box value ]
+            (fun r ->
+                {|
+                    Nonce = r.GetString 0
+                    State = r.GetString 1
+                    PatientId = r.GetString 2
+                    PublicKey = PublicKey(r.GetString 3)
+                    Expiry = at (r.GetInt64 4)
+                    Outcome = textOrNull r 5
+                    SessionId = textOrNull r 6
+                    Attempt = textOrNull r 7
+                |}
+            )
+        |> List.filter (fun row -> now <= row.Expiry)
+        |> List.tryHead

@@ -24,6 +24,7 @@
     <Compile Include="SessionWritesTests.fs" />
     <Compile Include="SqlSchemaTests.fs" />
     <Compile Include="SqlRecordTests.fs" />
+    <Compile Include="SqlSessionTests.fs" />
     <Compile Include="SqlAdapterTests.fs" />
     <Compile Include="AgreementTests.fs" />
     <Compile Include="HttpTests.fs" />
