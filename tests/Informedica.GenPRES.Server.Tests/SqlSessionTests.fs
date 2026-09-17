@@ -3,6 +3,7 @@
 module Informedica.GenPRES.Server.Tests.SqlSessionTests
 
 open System
+open System.IO
 open Expecto
 open Expecto.Flip
 open Microsoft.Data.Sqlite
@@ -714,6 +715,21 @@ let writerTests =
                         | Session.StoreOutcome.Failed reason -> reason |> Expect.isNotEmpty "the reason it failed"
                         | other -> failtest $"expected Failed, got %A{other}"
                 )
+            }
+
+            test "a store that cannot be reached at all is Failed too, not an exception" {
+                // the file cannot be opened: the folder holding it does not exist
+                let missing =
+                    SqliteConnectionStringBuilder(
+                        DataSource = Path.Combine(Path.GetTempPath(), $"genpres-%s{Guid.NewGuid().ToString()}", "x.db"),
+                        Pooling = false
+                    )
+                        .ToString()
+
+                SqlSessions.runWrites missing [ Session.RecordLaunch(launchOf "n-1") ]
+                |> function
+                    | Session.StoreOutcome.Failed reason -> reason |> Expect.isNotEmpty "the reason it failed"
+                    | other -> failtest $"expected Failed, got %A{other}"
             }
 
             test "the patient a Session shows is written as its Dto under the version it is written with" {

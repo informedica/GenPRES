@@ -871,34 +871,37 @@ module SqlSessions =
     /// reason, and the caller keeps the state it had, so that the next request retries.
     /// </summary>
     let runWrites (connectionString: string) (writes: Session.Persist list) : Session.StoreOutcome =
-        use conn = new SqliteConnection(connectionString)
-        conn.Open()
-        use tx = conn.BeginTransaction()
-
+        // opening the file and starting the transaction are inside the try as well: a database
+        // that cannot be reached is the store failing, which the caller retries, never an
+        // exception escaping the request
         try
-            for write in writes do
-                run conn tx write
-
-            tx.Commit()
-            Session.StoreOutcome.Written
-        with
-        | :? SqliteException as e when SqlDatabase.isSameNumber e ->
-            tx.Rollback()
-
-            let patient =
-                writes
-                |> List.tryPick (
-                    function
-                    | Session.WriteVersion v -> Some v.PatientId
-                    | _ -> None
-                )
+            use conn = new SqliteConnection(connectionString)
+            conn.Open()
+            use tx = conn.BeginTransaction()
 
             try
+                for write in writes do
+                    run conn tx write
+
+                tx.Commit()
+                Session.StoreOutcome.Written
+            with
+            | :? SqliteException as e when SqlDatabase.isSameNumber e ->
+                tx.Rollback()
+
+                let patient =
+                    writes
+                    |> List.tryPick (
+                        function
+                        | Session.WriteVersion v -> Some v.PatientId
+                        | _ -> None
+                    )
+
                 match patient |> Option.map (SqlDatabase.loadRecords connectionString) with
                 | Some(head :: _) -> Session.StoreOutcome.Conflict head
                 | _ -> Session.StoreOutcome.Failed e.Message
-            with reread ->
-                Session.StoreOutcome.Failed reread.Message
-        | e ->
-            tx.Rollback()
+            | e ->
+                tx.Rollback()
+                Session.StoreOutcome.Failed e.Message
+        with e ->
             Session.StoreOutcome.Failed e.Message
