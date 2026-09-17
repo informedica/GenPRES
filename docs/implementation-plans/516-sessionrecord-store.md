@@ -113,9 +113,10 @@ Approach 2, decided 2026-09-17:
   `StubDatabase.submitWith` maps `Written | Conflict | Failed`, and `SessionStoreTests.fs`
   covers Failed, Conflict, the unreadable head and crash-after-write with a fake `persist`. The
   SQL record is a real `persist` plus a loader for one table.
-- The session slice carries the one unsolved question, the keying of `callback` (open decision
-  1). Record first meets it after the migration runner, the store, the fixture, the temp-file
-  test discipline and the composition switch exist.
+- The session slice carries the one question the record did not, the keying of `callback`
+  (decision 1, `callback` split into redeem and open). Record first meets it after the
+  migration runner, the store, the fixture, the temp-file test discipline and the composition
+  switch exist.
 - A visible result early: with the key set, a restart of `dotnet run` keeps the record and a
   relaunch opens on the stored head.
 
@@ -819,9 +820,12 @@ the SQL runner that appends them in one transaction; the tests that each member 
 the writes it returned and that a sign appends exactly one `order_plan` row; the
 `Unreadable` ending; a JSON
 structure version and fixture for `Patient.Dto`; the race tests "two launches of the same
-User", "the same Launch presented twice", "an ended Session cannot reopen". Open decision 1
-(the keying of `callback`) is decided and recorded here before the code. ADR-0007 § 2 to
-Accepted. DEVELOPMENT.md, the uc-01 stand-ins table and the "Not built" lists updated where
+User", "the same Launch presented twice", "an ended Session cannot reopen". `callback` split
+as decision 1 says, `Session.redeem` and `Session.openAfterRedeem` in the machine and the port
+loading before and between them, with the machine tests that the two halves answer as
+`callback` did (a reloaded callback included, `Opened` and `Superseded`), a test that the
+IdentityProvider's code is redeemed once, and a test that a load failing after the redeem
+records no outcome and a re-presentation of the Launch then opens. ADR-0007 § 2 to Accepted. DEVELOPMENT.md, the uc-01 stand-ins table and the "Not built" lists updated where
 Sessions now survive a restart.
 
 ### Step 7 — feat(server): credentials, codes, enrolments, the demo seed
@@ -872,26 +876,60 @@ admin ports on domain values, the LogAnalyzer record, the contract-free session 
 
 ## Open decisions
 
-1. The keying of `callback`. `Session.callback` learns the login only after `redeem` runs
-   inside the pure function, while `openWith` decides supersession from the login's newest
-   `session` row. Two ways out: load the login's newest row after `redeem` inside the
-   transaction and re-run the open, or split `callback` into redeem and open. Decided before
-   step 6.
-2. The production engine's amendment: who asks the hospital's operations, and by when relative
-   to #580.
-3. The clock. `now` stays the server clock passed in as a parameter; the order of events is the
-   id column, never a timestamp. When more than one server runs, a bound on clock skew needs
-   stating for the lifetimes that compare `now` with an expiry.
-4. The legal basis for keeping every row. Nothing is deleted, and `audit_entry` and the
-   credential and code tables name mail addresses (Rule 27); whether that holds for production
-   is part of the production engine's amendment.
-5. The three Dutch rows of the localization workbook for the contract terms plan 725 added
-   (`Signing Refusal Store Failed`, `Signing Refusal Plan Unreadable`, `Session Ending
-   Unreadable`); the maintainer's.
+Numbered as they were raised; a decided one keeps its number under "Decided".
+
+- **2.** The production engine's amendment: who asks the hospital's operations, and by when
+  relative to #580.
+- **3.** The clock. `now` stays the server clock passed in as a parameter; the order of events
+  is the id column, never a timestamp. When more than one server runs, a bound on clock skew needs
+  stating for the lifetimes that compare `now` with an expiry.
+- **4.** The legal basis for keeping every row. Nothing is deleted, and `audit_entry` and the
+  credential and code tables name mail addresses (Rule 27); whether that holds for production
+  is part of the production engine's amendment.
+- **5.** The three Dutch rows of the localization workbook for the contract terms plan 725
+  added (`Signing Refusal Store Failed`, `Signing Refusal Plan Unreadable`, `Session Ending
+  Unreadable`); the maintainer's.
 
 Decided:
 
 - The demo seed on SQLite is the seed of the stub, `StubCredentials.seed` (2026-09-17).
+- Decision 1, the keying of `callback` (2026-09-17). `Session.callback` learns the login only
+  after the IdentityProvider's code is redeemed, while the open decides supersession from the
+  login's newest `session` row, so a slice keyed by what the request carries cannot load that
+  row up front. `callback` is split in two pure halves, run in one request under the port's
+  lock (and from step 6 in its one transaction):
+  - The port first loads what the callback names before any identity: the launch record found
+    by the callback's `state`, its outcome, and, when the outcome names a Session, that
+    Session's row with the login's newest `session` row, so that its ending is known.
+  - `Session.redeem`, over that slice: the answers from the record's outcome (a reload of the
+    callback: `Opened` while the Session it names still stands, `Superseded` once a newer row
+    for its login exists), the refusals before an identity (no browser identity), and
+    otherwise the one call to the IdentityProvider's `redeem` and to the UserRegistry's
+    `standing`. It answers either a finished `State * CallbackResult` or the record, the
+    identity and the standing.
+  - The port then loads by the login and the patient: the login's newest `session` row, the
+    user's credential, and the patient's record.
+  - `Session.openAfterRedeem`, over that slice: the wrong active patient, the suspension into
+    enrolment, or the open, with its writes as values.
+
+  The code is redeemed once, and each half loads only what it can name.
+
+  A failure between the redeem and the commit (the second load throws, or the transaction
+  rolls back) records nothing: no outcome, no Session, and the call fails (decision 6). The
+  IdentityProvider's code is spent by then, and no redemption result is stored to reuse it:
+  storing the identity a code bought before the open is decided would be a second, half-done
+  outcome of the launch. Recovery is a new hop. The launch record has no outcome, so a
+  presentation of the same Launch from the same browser key within its lifetime is answered
+  with the redirect to the IdentityProvider again, which issues a fresh code; after the
+  lifetime, or when the browser no longer holds the Launch, a relaunch from MainEHR. A reload of
+  the failed callback URL itself carries the spent code and is refused `no-identity`, which is
+  recorded as the launch's outcome, so that Launch then answers the refusal and only a relaunch
+  opens. Step 6 tests it: a store whose second load throws leaves the launch record without an
+  outcome, and a re-presentation of the Launch then opens. Rejected: running
+  `callback` whole, loading by the login it found and running it again, since a one-time code
+  cannot be redeemed twice without a cache that hides the repeat. `supplyPin` needs no split:
+  its enrolment already names the login. The split is also the command side's usual shape:
+  load, decide purely, append what was decided.
 - Decision 6, a load that fails (2026-09-17). `SqlDatabase.loadRecords` throwing (a locked or
   missing file) leaves the port's state unchanged and is logged. `challenge` and `submit`
   answer `SigningRefusal.StoreFailed`, the refusal a failed write already gets, so the
