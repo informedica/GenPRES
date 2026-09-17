@@ -631,8 +631,8 @@ version" and "SQLite".
   two groups is emitted twice and warns NU1504/NU1506 (DEVELOPMENT.md, "Paket groups"). The step
   proves the transitive reference by compiling one test that opens a connection.
 - `.env.example`: `# GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db`, commented, with the
-  root sentence of "Config and wiring". The same path serves `dotnet run` and the container
-  mount of step 4b.
+  root sentence of "Config and wiring", marked as not read yet: nothing reads the key before
+  step 4b. The same path serves `dotnet run` and the container mount of step 4b.
 - `.gitignore`: `!/src/Informedica.GenPRES.Server/Sql/`,
   `!/src/Informedica.GenPRES.Server/Sql/*.sql`,
   `!/tests/Informedica.GenPRES.Server.Tests/fixtures/`,
@@ -768,7 +768,8 @@ One PR, no prototype.
 - Docs: `DEVELOPMENT.md`, a subsection after the signing walkthrough (set the key, restart,
   relaunch opens on the signed order plan version, delete the file to reset; production refuses
   the key); the "restart the server" bullet and the stand-ins paragraph qualified ("on the stub";
-  "the record survives on SQLite"). ADR-0007 § 1 and § 4 to Accepted, dated.
+  "the record survives on SQLite"); `.env.example` drops its "not read yet" sentence. ADR-0007
+  § 1 and § 4 to Accepted, dated.
 - Docker: `compose.yaml` forwards the key, `GENPRES_DB_CONNECTION: ${GENPRES_DB_CONNECTION:-}`,
   empty meaning the stub as today, and mounts `./data/db:/app/data/db`, so the file survives a
   recreated container (`docker compose up -d` after a pull, `down` then `up`). With the key set
