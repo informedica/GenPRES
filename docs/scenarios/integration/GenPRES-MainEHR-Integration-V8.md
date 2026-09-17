@@ -359,7 +359,7 @@ The kinds of participants that appear in the use cases. \[ours\] \= under constr
 
    - The clinical store holds the OrderPlans of the GenPRES PatientRecords, each with its base (Concept 13), and is what the PatientDataPlatform copies.  
    - The private store holds everything else — SessionRecords, UserCredentials, the LaunchRecords that carry the spent-state of Launches (Rule 2; UC-1 steps 4 and 5), the spent-state of Tokens (Concept 17) and of signed request proofs (UC-1 step 7), the audit — and is never copied anywhere.  
-   - Both stores are append-only, by definition: rows are added, never changed — the record by its nature (Concept 12), Sessions and UserCredentials as chains of events, spent-marks and request keys as rows written once. What may be forgotten (an old idle heartbeat) is dropped whole, never rewritten.
+   - Both stores are append-only, by definition: rows are added, never changed — the record by its nature (Concept 12), Sessions and UserCredentials as chains of events, spent-marks and request keys as rows written once. Nothing is deleted: a row past its lifetime, an old heartbeat included, stays and is read as past it.
 
 
 

@@ -71,13 +71,13 @@ Mirroring the legacy guard: **a snapshot is written only when the patient has an
 - GenPRES therefore treats the patient id as an **opaque, trusted key**. It does not, and must not, look the patient up in MetaVision, sync demographics from it, or write back to it.
 - All persisted patient data lives in **GenPRES's own store**, populated from what the API delivers and what the clinician enters/prescribes — never from a live MetaVision query.
 
-## 5. Storage — deliberately left open
+## 5. Storage — decided for test and development, open for production
 
 The **physical storage design is out of scope for this request** and is a separate architectural decision (flagged in the meeting as taking on an external dependency, which matters more than internal code structure — owner: Mark, for review).
 
 Assumptions fixed here:
 
-- Storage is a **relational database**. Exact product, schema, hosting (SQL vs. SQLite/flat-file, container topology, on-prem location) are **to be decided** in the architecture/persistence design step.
+- Storage is a **relational database**, append-only. For test and development it is decided by [ADR-0007](../adr/0007-session-persistence.md) and [plan 516](../implementation-plans/516-sessionrecord-store.md): SQLite, in-process, one snapshot per order plan version. The production engine, its hosting and container topology, and its on-prem location **remain open**, deferred to an amendment of ADR-0007.
 - It is **local / on-premise**, inside the hospital firewall. The MVP does **not** target the shared regional data platform.
 - The persistence layer exposes, at minimum: `save(patientId, snapshot, prescriber) → version` and `getLatest(patientId) → snapshot | none`, plus `latestVersionMetadata(patientId)` for the concurrency warning.
 

@@ -214,7 +214,7 @@ Two server-side points the client shape depends on, for the plan that implements
 
 - The state of 4.2 is a LaunchRecord appended to the GenPRES Database. It holds the Launch's
   verified contents (nonce, PatientId, expiry), the `state` and the public key, never the
-  sealed Launch, and is dropped whole after the expiry.
+  sealed Launch, and stays after the expiry, loading as absent.
 - The redirect of 4.2 also sets a `state` cookie (`HttpOnly`, `Secure`, `SameSite=Lax`,
   `Path=/callback`, `Max-Age` the Launch lifetime) and the callback refuses when it does not
   match the `state` in the URL, before the code is redeemed. This is the OpenID Connect

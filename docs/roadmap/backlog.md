@@ -278,9 +278,11 @@ in parallel with P1/P2.
 
 ## Open Questions
 
-- **Storage backends (items 5, 6).** Embedded (SQLite/LiteDB) vs. server DB (Postgres) vs.
-  document store? Publications are immutable blobs + manifest; orders are mutable,
-  queryable, privacy-sensitive — may warrant different stores.
+- **Storage backends (items 5, 6).** For orders, decided for test and development by
+  [ADR-0007](../adr/0007-session-persistence.md) and
+  [plan 516](../implementation-plans/516-sessionrecord-store.md): relational, append-only,
+  SQLite; the production engine remains open. For publications (immutable blobs + manifest)
+  the backend is still open, and may warrant a store of its own.
 - **Publication format (item 3).** JSON graph vs. existing CSV/TSV resource shapes vs. a
   packed archive? Must round-trip losslessly through `getFromGetData`/`toData`.
 - **Identity provider (item 8).** Self-hosted vs. OIDC/hospital SSO? EHR integration (7)
