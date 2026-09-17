@@ -109,6 +109,58 @@ let challenged (port: SessionPort) sid (opened: OpenedSession) key =
     }
 
 
+/// A resource provider that never loads: the session port does not use it.
+let unloadedProvider () =
+    Informedica.GenForm.Lib.Resources.CachedResourceProvider((fun () -> Error []), None)
+    :> Informedica.GenForm.Lib.Resources.IResourceProvider
+
+
+let schemaVersions (cs: string) =
+    use conn = new SqliteConnection(cs)
+    conn.Open()
+    use cmd = conn.CreateCommand()
+    cmd.CommandText <- "select migration from schema_version order by migration"
+    use r = cmd.ExecuteReader()
+
+    [
+        while r.Read() do
+            r.GetInt64 0
+    ]
+
+
+/// Opens a Session over a port whose seal key and clock are the real ones: a Launch minted now
+/// under a fresh key, verified by the env the key was given to.
+let openLive (key: LaunchSeal.Key) (port: SessionPort) (directory: StubDirectory.Directory) login =
+    let launch =
+        LaunchSeal.mint
+            key
+            {
+                PatientId = "stub-patient"
+                Nonce = $"n-{Guid.NewGuid()}"
+                Expiry = DateTime.UtcNow + lifetime
+            }
+
+    async {
+        match! port.present (launch, keyA) with
+        | LaunchResult.RedirectTo(_, st) ->
+            let cb =
+                {
+                    State = st
+                    StateCookie = Some st
+                    Code = Some(directory.issue login "stub-patient")
+                    Error = None
+                }
+
+            match! port.callback cb with
+            | CallbackResult.Opened(sid, _) ->
+                match! port.find sid with
+                | SessionLookup.Found opened -> return sid, opened
+                | other -> return failtest $"expected Found, got %A{other}"
+            | other -> return failtest $"expected Opened, got %A{other}"
+        | other -> return failtest $"expected RedirectTo, got %A{other}"
+    }
+
+
 let rows (cs: string) =
     use conn = new SqliteConnection(cs)
     conn.Open()
@@ -439,6 +491,49 @@ let tests =
                 finally
                     if Directory.Exists root then
                         Directory.Delete(root, true)
+            }
+
+            testOnFile
+                "makeAppEnvWith with a connection string applies the migrations and signs into the file"
+                (fun cs ->
+                    async {
+                        let directory = StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId
+                        let key = LaunchSeal.newKey Security.Cryptography.RandomNumberGenerator.GetBytes
+
+                        let env =
+                            Adapters.makeAppEnvWith
+                                true
+                                (Some cs)
+                                key
+                                directory
+                                (StubMail.make ()).port
+                                (unloadedProvider ())
+
+                        schemaVersions cs |> Expect.equal "migration 1 applied" [ 1L ]
+
+                        let! sid, opened = openLive key env.session directory "prescriber"
+                        let! signature = challenged env.session sid opened "k-1"
+                        let! signed = env.session.submit sid signature
+                        signed |> noOf |> Expect.equal "order plan version 1" (Some 1)
+                        rows cs |> Expect.equal "one row in the file" 1L
+                    }
+                )
+
+            test "makeAppEnvWith without a connection string keeps the record in memory" {
+                let directory = StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId
+                let key = LaunchSeal.newKey Security.Cryptography.RandomNumberGenerator.GetBytes
+
+                let env =
+                    Adapters.makeAppEnvWith true None key directory (StubMail.make ()).port (unloadedProvider ())
+
+                async {
+                    let! sid, opened = openLive key env.session directory "prescriber"
+                    let! signature = challenged env.session sid opened "k-1"
+                    let! signed = env.session.submit sid signature
+                    signed |> noOf |> Expect.equal "order plan version 1, in memory" (Some 1)
+                }
+                |> Async.RunSynchronously
+
             }
 
             testOnFile

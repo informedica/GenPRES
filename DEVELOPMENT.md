@@ -190,8 +190,28 @@ Things worth trying here:
   and gets `{ Response; Notice }`: the notice names the newer version or the ending, and is
   empty otherwise; `OpenVersion` answers the Session with a fresh OpenedToken when it switches versions
   (the token stands when the version named is the one already open).
-- **Restart the server**: the record is gone with everything else; the next signature is
-  version 1 again.
+- **Restart the server**: on the in-memory store the record is gone with everything else; the
+  next signature is version 1 again. On SQLite (below) the record survives.
+
+#### Keeping the record across a restart: SQLite
+
+The session store can keep the signed order plan versions in a SQLite file, the test and
+development database ([ADR-0007](docs/adr/0007-session-persistence.md) § 4,
+[plan 516](docs/implementation-plans/516-sessionrecord-store.md)). Everything else, launches,
+Sessions, credentials and codes, still lives in memory for now.
+
+1. Set the key, in `.env` or on the command line:
+   `GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db`. A relative path is rooted at the
+   folder holding `.env` (at `GENPRES_ROOT` when that is set); the folder is created, and the
+   migrations are applied at start-up. The banner says `set (SQLite session store)`.
+2. Launch as `prescriber`, prescribe and sign: order plan version 1.
+3. Stop the server and start it again. Launch again: the Session is new, but the Order Plan
+   opens on the version you signed, and the next signature is version 2.
+4. To start from nothing, stop the server and delete `data/db/genpres.db`.
+
+Production refuses the key: with `GENPRES_PROD=1` and `GENPRES_DB_CONNECTION` set, the server
+refuses to start and names the setting. The file is never tracked: the opt-in `.gitignore`
+leaves `data/db/` out.
 
 #### Things worth trying
 
@@ -212,9 +232,10 @@ Things worth trying here:
   and `/authorize` are 404, `/callback` redirects to `refused=invalid`.
 
 The stand-ins keep everything in memory: launches by nonce, sessions, endings, one-time codes,
-credentials and confirmation codes, the outbox, the signed versions of every order plan. A
-restart forgets all of it: the browser's session cookie no longer finds a Session, `no-pin` has
-to enrol again, and the record starts from nothing.
+credentials and confirmation codes, the outbox, and, on the in-memory store, the signed
+versions of every order plan. A restart forgets all of it: the browser's session cookie no
+longer finds a Session, `no-pin` has to enrol again, and the record starts from nothing, unless
+the record survives on SQLite.
 
 #### Cookies and the development proxy
 
@@ -627,6 +648,8 @@ docker compose logs -f genpres
 The image is published by `tag-release.yml` a few minutes *after* the release PR merges, so a `docker compose pull` in that window fails with "manifest unknown"; retry shortly after.
 
 Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID` and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. A 16+ character `GENPRES_PASSWORD` enables the admin operations; without one the server starts with them disabled and warns (issue #590). `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
+
+For a demo that keeps its signed order plans across a recreated container, set `GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db` in `.env` (never with `GENPRES_PROD=1`, which refuses it). The relative path is rooted at `GENPRES_ROOT=/app`, so the file lands in `/app/data/db`, which `compose.yaml` mounts from `./data/db` on the host. To start from nothing, stop the container (`docker compose down`) and delete `./data/db/genpres.db`.
 
 **Process 1 and exit codes** — the image runs [`tini`](https://github.com/krallin/tini) as PID 1
 and starts `dotnet` under it (issue [#572](https://github.com/informedica/GenPRES/issues/572)).

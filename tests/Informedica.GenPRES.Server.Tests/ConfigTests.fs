@@ -139,6 +139,33 @@ let validateStartupTests =
                 | Ok _ -> failtest "expected Error"
             }
 
+            test "demo with the session store set starts without warnings" {
+                Map
+                    [
+                        "GENPRES_URL_ID", "sheet-id"
+                        "GENPRES_DB_CONNECTION", "Data Source=data/db/genpres.db"
+                    ]
+                |> settings
+                |> Config.validateStartup
+                |> Expect.equal "Ok with the url id" (Ok(startup "sheet-id"))
+            }
+
+            test "production with the session store set is refused, naming the setting" {
+                match
+                    Map
+                        [
+                            "GENPRES_PROD", "1"
+                            "GENPRES_PASSWORD", sixteen
+                            "GENPRES_URL_ID", "sheet-id"
+                            "GENPRES_DB_CONNECTION", "Data Source=data/db/genpres.db"
+                        ]
+                    |> settings
+                    |> Config.validateStartup
+                with
+                | Error msg -> msg |> Expect.stringContains "names the setting" "GENPRES_DB_CONNECTION"
+                | Ok _ -> failtest "expected Error"
+            }
+
             test "production with a valid password and a url id starts without warnings" {
                 Map
                     [
@@ -192,6 +219,7 @@ let fromEnvTests =
                 s.TrustedProxies |> Expect.equal "loopback" loopback
                 s.Log |> Expect.equal "log" "0"
                 s.Lang |> Expect.isNone "no language"
+                s.DbConnection |> Expect.isNone "no session store"
             }
 
             test "reads every setting" {
@@ -206,6 +234,7 @@ let fromEnvTests =
                             "GENPRES_LOG", "d"
                             "GENPRES_DEBUG", "1"
                             "GENPRES_LANG", "en"
+                            "GENPRES_DB_CONNECTION", "Data Source=data/db/genpres.db"
                         ]
 
                 let s = Config.fromEnv (getEnv env)
@@ -220,6 +249,9 @@ let fromEnvTests =
                 s.Log |> Expect.equal "log" "d"
                 s.Debug |> Expect.equal "debug" "1"
                 s.Lang |> Expect.equal "language" (Some "en")
+
+                s.DbConnection
+                |> Expect.equal "session store" (Some "Data Source=data/db/genpres.db")
             }
 
             test "blank secrets are treated as unset" {
@@ -227,6 +259,11 @@ let fromEnvTests =
                 let s = Config.fromEnv (getEnv env)
                 s.UrlId |> Expect.isNone "blank url id"
                 s.Password |> Expect.isNone "blank password"
+            }
+
+            test "a blank session store is unset" {
+                let s = Config.fromEnv (getEnv (Map [ "GENPRES_DB_CONNECTION", " " ]))
+                s.DbConnection |> Expect.isNone "blank connection string"
             }
 
             test "a blank language is unset" {

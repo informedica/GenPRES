@@ -6,10 +6,10 @@
 Decision 4); § 3: Accepted (amended 2026-09-16 for ADR-0008; accepted 2026-09-17, when the
 session service came to hold what the section says it holds, plan 725 Phase 5, #776 and #778);
 § 2 and § 4 amended 2026-09-17: nothing is deleted, and SQLite is the test and development
-database. Acceptance
-schedule, per plan 516: § 1 and § 4 when its step 4b lands (a store exists, SQLite runs it, the
-switch is the one named), § 2 when its step 6 lands (the launch race proves the append-only
-rule on the session table).
+database; § 1 and § 4: Accepted (2026-09-17, when plan 516 step 4b landed: a store exists,
+SQLite runs it, `GENPRES_DB_CONNECTION` switches to it and production refuses the key). § 2 is
+accepted when plan 516 step 6 lands (the launch race proves the append-only rule on the session
+table).
 
 **Related Issues**: [#516 — GenPRES SessionRecord Store](https://github.com/informedica/GenPRES/issues/516),
 [#580 — Scope switch to expose only the accredited parts in production](https://github.com/informedica/GenPRES/issues/580)

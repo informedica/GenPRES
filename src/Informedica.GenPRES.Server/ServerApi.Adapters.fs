@@ -234,8 +234,14 @@ module Adapters =
             info.Messages |> Array.map (fun msg -> FormLogging.formatMessage msg) |> Some
 
 
+    /// <summary>
+    /// The env of the server. <c>store</c> is the SQLite connection string of the session store:
+    /// set, the migrations are applied and the session port runs over the record in the
+    /// database; unset, over the record in memory.
+    /// </summary>
     let makeAppEnvWith
         (demo: bool)
+        (store: string option)
         (launchKey: LaunchSeal.Key)
         (directory: StubDirectory.Directory)
         (mail: MailPort)
@@ -310,10 +316,26 @@ module Adapters =
                             }
                 }
             requireLoaded = fun () -> notLoaded provider
-            // an in-memory stub with a two-minute Launch lifetime; its sessions live as long
-            // as this AppEnv
+            // a stub with a two-minute Launch lifetime; its sessions live as long as this
+            // AppEnv, and the record as long as its store
             session =
-                StubDatabase.makeSessionPort
+                let makeSessionPort =
+                    match store with
+                    | None -> StubDatabase.makeSessionPort
+                    | Some value ->
+                        let cs =
+                            SqlDatabase.connectionString (Informedica.Utils.Lib.AppPath.rootPath ()) value
+
+                        SqlSchema.apply cs |> ignore
+
+                        SqlDatabase.makeSessionPort
+                            (fun msg ->
+                                Informedica.Utils.Lib.ConsoleWriter.NewLineTime.writeWarningMessage
+                                    $"session store: %s{msg}"
+                            )
+                            cs
+
+                makeSessionPort
                     (fun () -> DateTime.UtcNow)
                     PublicKey.randomId
                     // the confirmation code and the salt from the CSPRNG, the code mac under
@@ -344,6 +366,7 @@ module Adapters =
 
         makeAppEnvWith
             demo
+            None
             (LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes)
             (StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId)
             (StubMail.make ()).port

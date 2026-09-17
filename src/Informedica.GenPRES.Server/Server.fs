@@ -48,6 +48,8 @@ module Config =
             Debug: string
             // GENPRES_LANG, raw; None when unset or blank. Parsed by `language`.
             Lang: string option
+            // GENPRES_DB_CONNECTION, the SQLite session store; None when unset or blank
+            DbConnection: string option
         }
 
 
@@ -199,13 +201,28 @@ module Config =
 
 
     /// <summary>
-    /// Every start-up guard in one place: the production password policy, the
+    /// The session store in production: the SQLite store is for test and development only, so
+    /// production refuses <c>GENPRES_DB_CONNECTION</c>. Until the scope switch (#580) decides
+    /// what production's store is, the refusal is of the setting itself.
+    /// </summary>
+    let validateStore (isProd: bool) (dbConnection: string option) : Result<unit, string> =
+        match isProd, dbConnection with
+        | true, Some _ ->
+            Error
+                "GENPRES_PROD=1 but GENPRES_DB_CONNECTION is set. \
+                 The SQLite session store is for test and development only; unset it to start in production."
+        | _ -> Ok()
+
+
+    /// <summary>
+    /// Every start-up guard in one place: the session store, the production password policy, the
     /// language, then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries
     /// the URL ID the host needs and the warnings to print; <c>Error</c> is the
     /// message the server exits with.
     /// </summary>
     let validateStartup (settings: Settings) : Result<Startup, string> =
-        validateProductionPassword settings.IsProd settings.Password
+        validateStore settings.IsProd settings.DbConnection
+        |> Result.bind (fun () -> validateProductionPassword settings.IsProd settings.Password)
         |> Result.bind (fun warning ->
             language settings
             |> Result.bind (fun _ ->
@@ -248,6 +265,7 @@ module Config =
             Log = getEnv "GENPRES_LOG" |> Option.defaultValue "0"
             Debug = getEnv "GENPRES_DEBUG" |> Option.defaultValue "i"
             Lang = getEnv "GENPRES_LANG" |> nonBlank
+            DbConnection = getEnv "GENPRES_DB_CONNECTION" |> nonBlank
         }
 
 
@@ -263,6 +281,10 @@ GENPRES_PROD = {if settings.IsProd then "1" else "0"}
 GENPRES_DEBUG = {settings.Debug}
 GENPRES_LANG = {settings |> displayLanguage}
 GENPRES_PASSWORD = {settings.Password |> displayPassword}
+GENPRES_DB_CONNECTION = {if settings.DbConnection.IsSome then
+                             "set (SQLite session store)"
+                         else
+                             "unset (in-memory session store)"}
 
 === System Info ===
 
@@ -657,7 +679,13 @@ module Host =
 
         let env =
             let env =
-                Adapters.makeAppEnvWith (not settings.IsProd) launchKey directory mail.port provider
+                Adapters.makeAppEnvWith
+                    (not settings.IsProd)
+                    settings.DbConnection
+                    launchKey
+                    directory
+                    mail.port
+                    provider
 
             // Stop-gap until the scope switch (#580): a production server never opens a
             // stub Session. Drop this swap when #580 decides what production exposes.
