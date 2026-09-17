@@ -370,30 +370,45 @@ module StubDatabase =
         |> Convert.ToHexString
 
 
-    /// The in-memory store keeps the state itself: a write lands by being in it.
-    let persistNothing (_: Session.Persist) = Session.StoreOutcome.Written
+    /// The in-memory store keeps the state itself: writes land by being in it.
+    let persistNothing (_: Session.Persist list) = Session.StoreOutcome.Written
 
 
-    /// The write phase of the state-replacing helper: the step run, its write run, and the
-    /// returned state kept only if the write landed. A failed write leaves the state as it was
-    /// and answers `StoreFailed`; a conflict is another server's sign, the head changed,
-    /// answered as a stale sign against the version that won.
-    let submitWith
-        (persist: Session.Persist -> Session.StoreOutcome)
-        (step: Session.State -> Session.State * SigningOutcome * Session.Persist option)
+    /// <summary>
+    /// The write phase of a request: the step run, its writes run as one, and the returned
+    /// state kept only if they landed. When they did not, the state stays as it was and the
+    /// request answers what `onFailure` makes of the store's outcome. A step without writes
+    /// asks the store nothing.
+    /// </summary>
+    let runWith
+        (persist: Session.Persist list -> Session.StoreOutcome)
+        (onFailure: Session.StoreOutcome -> 'answer)
+        (step: Session.State -> Session.State * 'answer * Session.Persist list)
         (state: Session.State)
-        : Session.State * SigningOutcome
+        : Session.State * 'answer
         =
-        let next, answer, write = step state
+        let next, answer, writes = step state
 
-        match write with
-        | None -> next, answer
-        | Some write ->
-            match persist write with
+        match writes with
+        | [] -> next, answer
+        | writes ->
+            match persist writes with
             | Session.StoreOutcome.Written -> next, answer
+            | outcome -> state, onFailure outcome
+
+
+    /// A signature's writes that did not land: a conflict is another server's sign, the head
+    /// changed, answered as a stale sign against the version that won; anything else
+    /// `StoreFailed`, so that the next Submission is the retry.
+    let submitWith persist step state =
+        runWith
+            persist
+            (function
             | Session.StoreOutcome.Conflict winner ->
-                state, SigningOutcome.Refused(SigningRefusal.Blocked(StoredVersion.head winner))
-            | Session.StoreOutcome.Failed _ -> state, SigningOutcome.Refused SigningRefusal.StoreFailed
+                SigningOutcome.Refused(SigningRefusal.Blocked(StoredVersion.head winner))
+            | _ -> SigningOutcome.Refused SigningRefusal.StoreFailed)
+            step
+            state
 
 
     /// <summary>
@@ -404,7 +419,7 @@ module StubDatabase =
     type RecordStore =
         {
             load: string -> Session.State -> Session.State
-            persist: Session.Persist -> Session.StoreOutcome
+            persist: Session.Persist list -> Session.StoreOutcome
         }
 
 

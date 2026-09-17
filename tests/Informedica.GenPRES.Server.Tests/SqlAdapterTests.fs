@@ -237,11 +237,12 @@ let tests =
                         let crashing =
                             { inner with
                                 persist =
-                                    fun write ->
-                                        match inner.persist write with
+                                    fun writes ->
+                                        match inner.persist writes with
                                         | Session.StoreOutcome.Written ->
-                                            let (Session.WriteVersion v) = write
-                                            written.Value <- Some v.Id
+                                            for Session.WriteVersion v in writes do
+                                                written.Value <- Some v.Id
+
                                             Session.StoreOutcome.Failed "the reply was lost"
                                         | other -> other
                             }
@@ -446,7 +447,7 @@ let tests =
                     async {
                         let warnings = ResizeArray<string>()
                         let v1 = Store.versionOf 1 Store.prescriber Store.t0 plan.Value
-                        SqlDatabase.persist cs (Session.WriteVersion v1) |> ignore
+                        SqlDatabase.persist cs [ Session.WriteVersion v1 ] |> ignore
 
                         let fixture = Informedica.GenPRES.Server.Tests.SqlRecordTests.fixtureText ()
 
@@ -547,11 +548,11 @@ let tests =
 
                             { inner with
                                 persist =
-                                    fun write ->
+                                    fun writes ->
                                         if not (barrier.SignalAndWait(TimeSpan.FromSeconds 10.0)) then
                                             raise (TimeoutException "the other port never reached its write")
 
-                                        inner.persist write
+                                        inner.persist writes
                             }
 
                         let portA, directoryA, _ = portOver (meeting ())
