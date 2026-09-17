@@ -1445,9 +1445,6 @@ module Nutrition =
         let newOrderContext (plan: OrderPlan) category =
             Api.OrderPlanCommand.NewOrderContext(plan, category) |> planCommand
 
-        let hasCategory (plan: OrderPlan) cat =
-            plan.OrderContexts |> Array.exists (isOneOf [ cat ])
-
         let content =
             match orderPlan with
             | Resolved plan
@@ -1459,12 +1456,11 @@ module Nutrition =
 
                 let parenteralSlots = parenteralContexts |> Array.map (makeSlot true plan)
 
-                let hasEnteral = hasCategory plan NutritionCategory.EnteralFeeding
-                let hasTPN = hasCategory plan NutritionCategory.TPN
-                let hasLipid = hasCategory plan NutritionCategory.Lipid
+                // the buttons the plan admits a context for, as the server would rule
+                let mayAdd category = plan |> OrderPlan.mayAdd category
 
                 let enteralFeedingAddButton =
-                    if not hasEnteral then
+                    if mayAdd NutritionCategory.EnteralFeeding then
                         AddButton
                             {|
                                 label = Terms.``Nutrition Enteral Feeding`` |> getTerm "Enterale Voeding"
@@ -1475,7 +1471,7 @@ module Nutrition =
                         null
 
                 let supplementAddButton =
-                    if hasEnteral then
+                    if mayAdd NutritionCategory.EnteralSupplement then
                         AddButton
                             {|
                                 label = Terms.``Nutrition Add Supplement`` |> getTerm "Supplement toevoegen"
@@ -1487,26 +1483,27 @@ module Nutrition =
 
                 let parenteralAddButtons =
                     [|
-                        if not hasTPN then
+                        if mayAdd NutritionCategory.TPN then
                             AddButton
                                 {|
                                     label = Terms.``Nutrition TPN`` |> getTerm "TPN"
                                     onClick = fun () -> newOrderContext plan NutritionCategory.TPN
                                     disabled = isRecalculating
                                 |}
-                        if not hasLipid then
+                        if mayAdd NutritionCategory.Lipid then
                             AddButton
                                 {|
                                     label = Terms.``Nutrition Lipids`` |> getTerm "Vetten"
                                     onClick = fun () -> newOrderContext plan NutritionCategory.Lipid
                                     disabled = isRecalculating
                                 |}
-                        AddButton
-                            {|
-                                label = Terms.``Nutrition Electrolytes Glucose`` |> getTerm "Elektrolyten/Glucose"
-                                onClick = fun () -> newOrderContext plan NutritionCategory.ElectrolyteGlucose
-                                disabled = isRecalculating
-                            |}
+                        if mayAdd NutritionCategory.ElectrolyteGlucose then
+                            AddButton
+                                {|
+                                    label = Terms.``Nutrition Electrolytes Glucose`` |> getTerm "Elektrolyten/Glucose"
+                                    onClick = fun () -> newOrderContext plan NutritionCategory.ElectrolyteGlucose
+                                    disabled = isRecalculating
+                                |}
                     |]
 
                 let enteralAccordion =

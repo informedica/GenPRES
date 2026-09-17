@@ -2159,6 +2159,8 @@ module Models =
 
 
         /// The nutrition category of a context, none for a drug.
+        /// The nutrition category of a context, none for a drug. A display copy of the
+        /// domain's `PlanContext.nutritionCategory`; the agreement test keeps them equal.
         let nutritionCategory (ctx: OrderContext) =
             match ctx.Category with
             | OrderCategory.Nutrition category -> Some category
@@ -2166,7 +2168,9 @@ module Models =
 
 
         /// The order a context contributes to the plan: its scenario, once the context is
-        /// narrowed to exactly one; nothing while it holds several candidates or none.
+        /// narrowed to exactly one; nothing while it holds several candidates or none. A
+        /// display copy of the domain's `PlanContext.contribution`; the agreement test keeps
+        /// them equal.
         let contribution (ctx: OrderContext) = ctx.Scenarios |> Array.tryExactlyOne
 
 
@@ -2349,25 +2353,45 @@ module Models =
         let empty = create Patient.empty [||]
 
 
-        /// The nutrition workbenches of the plan.
+        /// The nutrition workbenches of the plan. A display copy of the domain's
+        /// `OrderPlan.nutritionContexts`; the agreement test keeps them equal.
         let nutritionContexts (plan: OrderPlan) =
             plan.OrderContexts
             |> Array.filter (OrderContext.nutritionCategory >> Option.isSome)
 
 
         /// The orders the plan's contexts contribute: the one scenario of every context narrowed
-        /// to one, in context order.
+        /// to one, in context order. A display copy of the domain's `OrderPlan.orders`; the
+        /// agreement test keeps them equal.
         let orders (plan: OrderPlan) =
             plan.OrderContexts |> Array.choose OrderContext.contribution
 
 
-        /// The contexts the filter keeps: those named by id, all of them when it is empty.
+        /// The contexts the filter keeps: those named by id, all of them when it is empty. A
+        /// display copy of the domain's `OrderPlan.filtered`; the agreement test keeps them
+        /// equal.
         let filtered (plan: OrderPlan) =
             if plan.Filtered |> Array.isEmpty then
                 plan.OrderContexts
             else
                 plan.OrderContexts
                 |> Array.filter (fun c -> plan.Filtered |> Array.contains c.Id)
+
+
+        /// Whether the plan may take a context of the nutrition category, which decides the
+        /// buttons the nutrition page offers: one context per category, except supplements
+        /// (any number, each under a feeding) and electrolyte and glucose lines (any number).
+        /// A display copy of the domain's `OrderPlan.admits`, which refuses what this hides;
+        /// the agreement test keeps them equal.
+        let mayAdd (category: NutritionCategory) (plan: OrderPlan) =
+            let holds c =
+                plan.OrderContexts
+                |> Array.exists (fun ctx -> ctx.Category = OrderCategory.Nutrition c)
+
+            match category with
+            | NutritionCategory.EnteralSupplement -> holds NutritionCategory.EnteralFeeding
+            | NutritionCategory.ElectrolyteGlucose -> true
+            | _ -> not (holds category)
 
 
     module Formulary =
