@@ -208,7 +208,7 @@ module Adapters =
                 fun pat contexts ->
                     async {
                         do! setComponentName "OrderPlan" agent
-                        return Informedica.GenOrder.Lib.OrderPlan.create pat contexts |> Ok
+                        return Informedica.GenOrder.Lib.OrderPlan.create pat contexts |> recalc |> Ok
                     }
         }
 

@@ -88,6 +88,17 @@ let tests =
                 countBefore <! countAfter
             }
 
+            testAsync "openWith recomputes the totals over the contexts opened" {
+                let spy = TotalsSpy()
+                let sut = ServerApi.Adapters.makeAppEnv spy
+                let countBefore = spy.CallCount
+
+                let! _ = sut.orderPlan.openWith (patient ()) [||]
+
+                let countAfter = spy.CallCount
+                countBefore <! countAfter
+            }
+
             testAsync "removeOrderContexts doesn't cache totals" {
                 let spy = TotalsSpy()
                 let sut = ServerApi.Adapters.makeAppEnv spy
