@@ -919,6 +919,26 @@ module SqlSessions =
     /// A Session and its ending, and the record of the patient it was opened on. A Session
     /// this release cannot read ends as unreadable, which is the ending its next request is
     /// told; the ending is a row of its own, appended by the caller's writes.
+    /// The patient a Session was opened on, read before the Session itself so that its record
+    /// is in the state when the head it opened with is looked up there.
+    let patientOfSession (conn: SqliteConnection) (sid: string) =
+        rows
+            conn
+            "select patient_id from session where session_id = $sid"
+            [ ("$sid", box sid) ]
+            (fun r -> textOrNull r 0)
+        |> List.tryHead
+        |> Option.flatten
+
+
+    /// The versions of every record in the state, the head of a Session looked up among them.
+    let headIn (state: Session.State) id =
+        state.Records
+        |> Map.toSeq
+        |> Seq.collect snd
+        |> Seq.tryFind (fun v -> StoredVersion.id v = id)
+
+
     let withSession
         (warn: string -> unit)
         (cs: string)
@@ -927,12 +947,6 @@ module SqlSessions =
         (sid: string)
         (state: Session.State)
         =
-        let headOf id =
-            state.Records
-            |> Map.toSeq
-            |> Seq.collect snd
-            |> Seq.tryFind (fun v -> StoredVersion.id v = id)
-
         // the rows are what stands: whatever this server still held for the id is dropped
         // first, so that a Session ended elsewhere cannot survive in the memory of a server
         // that opened it
@@ -941,8 +955,11 @@ module SqlSessions =
                 Sessions = state.Sessions |> Map.remove sid
                 Endings = state.Endings |> Map.remove sid
             }
+            // the record first: the Session names the version it opened with by id, and that
+            // id is only a version once the patient's rows are there to find it among
+            |> withRecord cs (patientOfSession conn sid)
 
-        match loadSession conn headOf sid with
+        match loadSession conn (headIn state) sid with
         | None
         | Some(Choice2Of2 None) -> state
         | Some(Choice2Of2(Some ending)) -> { state with Endings = state.Endings |> Map.add sid ending }
@@ -950,9 +967,7 @@ module SqlSessions =
             warn $"the Session %s{sid} cannot be read and ends: %s{reason}"
 
             { state with Endings = state.Endings |> Map.add sid (SessionEnding.Unreadable, now) }
-        | Some(Choice1Of2(Ok session)) ->
-            { state with Sessions = state.Sessions |> Map.add sid session }
-            |> withRecord cs session.Opened.PatientId
+        | Some(Choice1Of2(Ok session)) -> { state with Sessions = state.Sessions |> Map.add sid session }
 
 
     /// The id of the newest Session of a login, whatever became of it: the row the loader
@@ -1008,6 +1023,21 @@ module SqlSessions =
     /// The newest Session of a login, so that an open sees the one it supersedes, and the
     /// ending of that Session when it has one.
     let withLogin warn (cs: string) (conn: SqliteConnection) (now: DateTime) (login: string) (state: Session.State) =
+        // the login's rows are what stands: every Session this server still held for it goes
+        // first, so that one superseded or ended elsewhere cannot be found by its own id
+        let held =
+            state.Sessions
+            |> Map.toSeq
+            |> Seq.filter (fun (_, s) -> s.Login = Some login)
+            |> Seq.map fst
+            |> Seq.toList
+
+        let state =
+            { state with
+                Sessions = state.Sessions |> Map.filter (fun sid _ -> held |> List.contains sid |> not)
+                Endings = state.Endings |> Map.filter (fun sid _ -> held |> List.contains sid |> not)
+            }
+
         newestOfLogin conn login
         |> Option.map (fun sid -> withSession warn cs conn now sid state)
         |> Option.defaultValue state
@@ -1015,7 +1045,25 @@ module SqlSessions =
 
     /// The Launch of a nonce or of a callback's state, with what its callback came to, and the
     /// record of the patient it was launched on.
-    let withLaunch warn (cs: string) (conn: SqliteConnection) (now: DateTime) (by: string) (value: string) state =
+    let withLaunch
+        warn
+        (cs: string)
+        (conn: SqliteConnection)
+        (now: DateTime)
+        (by: string)
+        (value: string)
+        (state: Session.State)
+        =
+        // the rows are what stands here too: a Launch past its lifetime, or one another server
+        // dropped, is gone from the state before the database is asked, so that nothing reads
+        // a record the loader itself calls absent
+        let state =
+            { state with
+                Launches =
+                    state.Launches
+                    |> Map.filter (fun nonce r -> (if by = "nonce" then nonce else r.State) <> value)
+            }
+
         match loadLaunch conn now by value with
         | None -> state
         | Some row ->

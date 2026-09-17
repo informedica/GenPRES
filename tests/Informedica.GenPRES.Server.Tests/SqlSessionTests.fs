@@ -672,8 +672,11 @@ let writerTests =
 
             test "another server's version of the same number is a conflict, and the rest rolls back" {
                 withSessions (fun cs ->
-                    let session = sessionOf "s-1" "prescriber" None None
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
+
+                    // the Session opened on the version it signed, which the rows name by id
+                    let session =
+                        sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable v1))
 
                     SqlSessions.runWrites
                         cs
@@ -777,8 +780,12 @@ let sliceTests =
         [
             test "a Session and the record of the patient it was opened on" {
                 withSessions (fun cs ->
-                    let session = sessionOf "s-1" "prescriber" None None
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
+
+                    // the Session opened on the version that was signed, which the rows name
+                    // by its id alone
+                    let session =
+                        sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable v1))
 
                     SqlSessions.runWrites
                         cs
@@ -801,6 +808,69 @@ let sliceTests =
                     |> Map.tryFind v1.PatientId
                     |> Option.map List.length
                     |> Expect.equal "with the record of its patient" (Some 1)
+
+                    // the record is read before the Session, so the version it opened with is
+                    // among the rows by the time the Session names it
+                    loaded.Sessions
+                    |> Map.tryFind "s-1"
+                    |> Option.bind _.Opened.Head
+                    |> Option.map StoredVersion.id
+                    |> Expect.equal "and the head it opened on" (Some v1.Id)
+                )
+            }
+
+            test "the login's Sessions are replaced, not added to" {
+                withSessions (fun cs ->
+                    let older = sessionOf "s-1" "prescriber" None None
+                    let newer = sessionOf "s-2" "prescriber" None None
+
+                    for sid, session in [ "s-1", older; "s-2", newer ] do
+                        SqlSessions.runWrites
+                            cs
+                            [
+                                Session.OpenSession(sid, session)
+                                Session.RecordOpenedWith(sid, session, t0)
+                            ]
+                        |> ignore
+
+                    // the server still holds the Session it opened first
+                    let held = { emptyState with Sessions = emptyState.Sessions |> Map.add "s-1" older }
+
+                    use conn = connect cs
+                    let _, warn = warnings ()
+                    let loaded = SqlSessions.withLogin warn cs conn t0 "prescriber" held
+
+                    loaded.Sessions |> Map.containsKey "s-2" |> Expect.isTrue "the newest stands"
+
+                    loaded.Sessions
+                    |> Map.containsKey "s-1"
+                    |> Expect.isFalse "the one it superseded is gone, not findable by its own id"
+                )
+            }
+
+            test "a Launch the rows no longer give is gone from the state as well" {
+                withSessions (fun cs ->
+                    let launch = launchOf "n-1"
+
+                    SqlSessions.runWrites cs [ Session.RecordLaunch launch ] |> ignore
+
+                    let held =
+                        { emptyState with Launches = emptyState.Launches |> Map.add "n-1" launch }
+
+                    use conn = connect cs
+                    let _, warn = warnings ()
+
+                    // past its lifetime the loader calls it absent, and so must the state, or
+                    // a callback would still find the patient it was launched on
+                    SqlSessions.withLaunch warn cs conn (t0.AddMinutes 3.0) "state" "state-n-1" held
+                    |> fun s -> s.Launches |> Expect.isEmpty "no Launch at all"
+
+                    SqlSessions.withLaunch warn cs conn (t0.AddMinutes 3.0) "nonce" "n-1" held
+                    |> fun s -> s.Launches |> Expect.isEmpty "found by its nonce either way"
+
+                    // within it, the row is what the state holds
+                    SqlSessions.withLaunch warn cs conn t0 "nonce" "n-1" held
+                    |> fun s -> s.Launches |> Map.containsKey "n-1" |> Expect.isTrue "the Launch stands"
                 )
             }
 
