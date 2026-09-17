@@ -21,6 +21,7 @@
     <Compile Include="OrderContextSwitchTests.fs" />
     <Compile Include="OrderPlanSwitchTests.fs" />
     <Compile Include="SessionStoreTests.fs" />
+    <Compile Include="SessionWritesTests.fs" />
     <Compile Include="SqlSchemaTests.fs" />
     <Compile Include="SqlRecordTests.fs" />
     <Compile Include="SqlAdapterTests.fs" />

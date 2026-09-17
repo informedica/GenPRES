@@ -473,16 +473,6 @@ module Session =
         }
 
 
-    /// <summary>
-    /// A write the machine asks for, as a value. A member returns the writes of its request
-    /// next to the new state and its answer; the adapter runs them as one before it assigns
-    /// the state, and the in-memory store runs nothing, since its state already holds them.
-    /// </summary>
-    type Persist =
-        // an order plan version, at a commit
-        | WriteVersion of GenOrder.OrderPlanVersion
-
-
     /// What the adapter's write came to: landed; refused by the store because another server
     /// signed first, with the version that won; or failed.
     [<RequireQualifiedAccess>]
@@ -501,6 +491,31 @@ module Session =
             Expiry: DateTime
             Outcome: LaunchResult option
         }
+
+
+    /// How a store records the end of a Session; a supersession is no row, since a newer
+    /// Session of the same login tells it.
+    [<RequireQualifiedAccess>]
+    type StoredEnding =
+        | Closed
+        | Ended of SessionEnding
+
+
+    /// A write the machine asks for, as a value: one case per fact the store records. A member
+    /// returns the writes of its request next to the new state and its answer.
+    type Persist =
+        // the order plan version of a commit; the Launch and what its callback came to
+        | WriteVersion of GenOrder.OrderPlanVersion
+        | RecordLaunch of LaunchRecord
+        | RecordLaunchOutcome of nonce: string * LaunchResult * at: DateTime
+        // the Session opened, what it opened with (at the open, at a version opened and at a
+        // commit), and a request from it
+        | OpenSession of sessionId: string * SessionRecord
+        | RecordOpenedWith of sessionId: string * SessionRecord * at: DateTime
+        | RecordSeen of sessionId: string * at: DateTime
+        // the end of a Session that is an act, and the acknowledgement of an ending
+        | EndSession of sessionId: string * StoredEnding * at: DateTime
+        | AcknowledgeEnding of sessionId: string * at: DateTime
 
 
     type State =
@@ -593,16 +608,16 @@ module Session =
         (authorizeUrl: string -> string)
         (state: State)
         (launch, key)
-        : State * LaunchResult
+        : State * LaunchResult * Persist list
         =
         let state = dropExpired now state
 
         match verify launch with
-        | Error refusal -> state, LaunchResult.Refused refusal
+        | Error refusal -> state, LaunchResult.Refused refusal, []
         | Ok claims ->
             match state.Launches |> Map.tryFind claims.Nonce with
-            | Some record when record.PublicKey = key -> state, answerOf authorizeUrl record
-            | Some _ -> state, LaunchResult.Refused LaunchRefusal.LaunchSpent
+            | Some record when record.PublicKey = key -> state, answerOf authorizeUrl record, []
+            | Some _ -> state, LaunchResult.Refused LaunchRefusal.LaunchSpent, []
             | None ->
                 let record =
                     {
@@ -614,7 +629,9 @@ module Session =
                         Outcome = None
                     }
 
-                { state with Launches = state.Launches |> Map.add claims.Nonce record }, answerOf authorizeUrl record
+                { state with Launches = state.Launches |> Map.add claims.Nonce record },
+                answerOf authorizeUrl record,
+                [ RecordLaunch record ]
 
 
     /// The patient data a Session opens on: the PatientDataPlatform's reading, the source of
@@ -670,6 +687,14 @@ module Session =
 
         let login = Some user.UserId
 
+        let session =
+            {
+                Opened = opened
+                Login = login
+                OpenedWith = head |> Option.bind StoredVersion.readableId
+                Seen = now
+            }
+
         let superseded =
             state.Sessions
             |> Map.filter (fun sid s -> sid <> id && s.Login = login)
@@ -680,40 +705,37 @@ module Session =
             Sessions =
                 superseded
                 |> List.fold (fun m sid -> Map.remove sid m) state.Sessions
-                |> Map.add
-                    id
-                    {
-                        Opened = opened
-                        Login = login
-                        OpenedWith =
-                            head
-                            |> Option.bind (fun h ->
-                                match h with
-                                | StoredVersion.Readable v -> Some v.Id
-                                | StoredVersion.Unreadable _ -> None
-                            )
-                        Seen = now
-                    }
+                |> Map.add id session
             Endings =
                 superseded
                 |> List.fold (fun m sid -> Map.add sid (SessionEnding.SupersededByLaunch, now) m) state.Endings
         },
-        (id, opened)
+        (id, opened),
+        // the superseded Sessions need no write: the newer Session of their login tells it
+        [
+            OpenSession(id, session)
+            RecordOpenedWith(id, session, now)
+        ]
 
 
-    let private recordOutcome (record: LaunchRecord) outcome (state: State) =
-        { state with Launches = state.Launches |> Map.add record.Nonce { record with Outcome = Some outcome } }
+    let private recordOutcome now (record: LaunchRecord) outcome (state: State) =
+        { state with Launches = state.Launches |> Map.add record.Nonce { record with Outcome = Some outcome } },
+        RecordLaunchOutcome(record.Nonce, outcome, now)
 
 
     let private openSession now newId patientData (record: LaunchRecord) (standing: UserStanding) (state: State) =
-        let state, (id, session) =
+        let state, (id, session), writes =
             openWith now newId patientData record.PatientId record.PublicKey standing.User state
 
-        recordOutcome record (LaunchResult.Opened(id, session)) state, CallbackResult.Opened(id, openedUrl)
+        let state, outcome =
+            recordOutcome now record (LaunchResult.Opened(id, session)) state
+
+        state, CallbackResult.Opened(id, openedUrl), writes @ [ outcome ]
 
 
-    let private refuse (record: LaunchRecord) refusal (state: State) =
-        recordOutcome record (LaunchResult.Refused refusal) state, CallbackResult.Refused(refusal, refusedUrl refusal)
+    let private refuse now (record: LaunchRecord) refusal (state: State) =
+        let state, outcome = recordOutcome now record (LaunchResult.Refused refusal) state
+        state, CallbackResult.Refused(refusal, refusedUrl refusal), [ outcome ]
 
 
     /// The launch suspends at the PIN question. One live code per credential: a code that
@@ -777,9 +799,11 @@ module Session =
 
         let until = state.Codes[userId].Expiry
 
-        { state with Enrolments = state.Enrolments |> Map.add attempt enrolment }
-        |> recordOutcome record (LaunchResult.Enrolling attempt),
-        CallbackResult.Enrolling(attempt, openedUrl, until)
+        let state, outcome =
+            { state with Enrolments = state.Enrolments |> Map.add attempt enrolment }
+            |> recordOutcome now record (LaunchResult.Enrolling attempt)
+
+        state, CallbackResult.Enrolling(attempt, openedUrl, until), [ outcome ]
 
 
     /// The callback from the IdentityProvider and the checks that follow it: the state against
@@ -798,7 +822,7 @@ module Session =
         (send: Mail -> unit)
         (state: State)
         (cb: Callback)
-        : State * CallbackResult
+        : State * CallbackResult * Persist list
         =
         let state = dropExpired now state
 
@@ -809,21 +833,22 @@ module Session =
             |> Seq.tryFind (fun r -> r.State = cb.State)
 
         let invalid =
-            CallbackResult.Refused(LaunchRefusal.LaunchInvalid, refusedUrl LaunchRefusal.LaunchInvalid)
+            state, CallbackResult.Refused(LaunchRefusal.LaunchInvalid, refusedUrl LaunchRefusal.LaunchInvalid), []
 
         match cb.StateCookie, byState with
         | Some cookie, Some record when cookie = cb.State && cb.State <> "" ->
             match record.Outcome with
             | Some(LaunchResult.Opened(id, _)) when state.Sessions |> Map.containsKey id ->
-                state, CallbackResult.Opened(id, openedUrl)
-            | Some(LaunchResult.Opened _) -> state, CallbackResult.Superseded openedUrl
-            | Some(LaunchResult.Refused refusal) -> state, CallbackResult.Refused(refusal, refusedUrl refusal)
+                state, CallbackResult.Opened(id, openedUrl), []
+            | Some(LaunchResult.Opened _) -> state, CallbackResult.Superseded openedUrl, []
+            | Some(LaunchResult.Refused refusal) -> state, CallbackResult.Refused(refusal, refusedUrl refusal), []
             | Some(LaunchResult.Enrolling attempt) ->
                 match state.Enrolments |> Map.tryFind attempt with
-                | Some e -> state, CallbackResult.Enrolling(attempt, openedUrl, state.Codes[e.UserId].Expiry)
+                | Some e -> state, CallbackResult.Enrolling(attempt, openedUrl, state.Codes[e.UserId].Expiry), []
                 | None ->
                     state,
-                    CallbackResult.Refused(LaunchRefusal.EnrolmentRequired, refusedUrl LaunchRefusal.EnrolmentRequired)
+                    CallbackResult.Refused(LaunchRefusal.EnrolmentRequired, refusedUrl LaunchRefusal.EnrolmentRequired),
+                    []
             | Some(LaunchResult.RedirectTo _)
             | None ->
                 let identity =
@@ -832,20 +857,20 @@ module Session =
                     | _ -> None
 
                 match identity with
-                | None -> refuse record LaunchRefusal.NoBrowserIdentity state
+                | None -> refuse now record LaunchRefusal.NoBrowserIdentity state
                 | Some identity ->
                     match standing identity with
-                    | None -> refuse record LaunchRefusal.NoRole state
+                    | None -> refuse now record LaunchRefusal.NoRole state
                     | Some standing when standing.ActivePatientId <> Some record.PatientId ->
-                        refuse record LaunchRefusal.WrongActivePatient state
+                        refuse now record LaunchRefusal.WrongActivePatient state
                     | Some standing when
                         standing.User.Role = UserRole.Prescriber
                         && not (credentialOf standing.User.UserId state |> Credential.pinSet)
                         ->
                         suspend now newId newCode codeMac send record identity standing state
                     | Some standing -> openSession now newId patientData record standing state
-        | _, None -> state, invalid
-        | _ -> state, invalid
+        | _, None -> invalid
+        | _ -> invalid
 
 
     /// What a browser holding an attempt is told at GetSession: whom the launch is for and where
@@ -907,17 +932,17 @@ module Session =
         (code: string)
         (pin: string)
         (state: State)
-        : State * SupplyPinResult
+        : State * SupplyPinResult * Persist list
         =
         let state = dropExpired now state
 
         match state.Enrolments |> Map.tryFind attempt with
-        | None -> state, SupplyPinResult.Refused PinRefusal.AttemptExpired
+        | None -> state, SupplyPinResult.Refused PinRefusal.AttemptExpired, []
         | Some e ->
             let pending = state.Codes[e.UserId]
 
             if not (Pin.isValid pin) then
-                state, SupplyPinResult.Refused PinRefusal.PinFormat
+                state, SupplyPinResult.Refused PinRefusal.PinFormat, []
             elif
                 not (
                     System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(codeMac code, pending.CodeMac)
@@ -926,10 +951,11 @@ module Session =
                 let tries = pending.Tries + 1
 
                 if tries >= maxTries then
-                    dropCode e.UserId state, SupplyPinResult.Refused PinRefusal.CodeVoid
+                    dropCode e.UserId state, SupplyPinResult.Refused PinRefusal.CodeVoid, []
                 else
                     { state with Codes = state.Codes |> Map.add e.UserId { pending with Tries = tries } },
-                    SupplyPinResult.Refused(PinRefusal.WrongCode(maxTries - tries))
+                    SupplyPinResult.Refused(PinRefusal.WrongCode(maxTries - tries)),
+                    []
             else
                 let identity =
                     {
@@ -973,35 +999,54 @@ module Session =
                 | Some s when s.ActivePatientId <> Some e.PatientId ->
                     // the PIN is set and told; no Session opens for a Patient that is no longer
                     // the active one: a relaunch is asked for
-                    state, SupplyPinResult.Refused PinRefusal.WrongActivePatient
+                    state, SupplyPinResult.Refused PinRefusal.WrongActivePatient, []
                 | _ ->
-                    let state, (id, session) =
+                    let state, (id, session), writes =
                         openWith now newId patientData e.PatientId e.PublicKey user state
 
-                    state, SupplyPinResult.Opened(id, session)
+                    state, SupplyPinResult.Opened(id, session), writes
 
 
     /// A request from the Session refreshes its idle clock. Applied by every member that takes
     /// the session cookie's id, `close` excepted: a close ends the Session, it does not keep
     /// it alive. Nothing to refresh when there is no such Session.
-    let touch (now: DateTime) (sid: string) (state: State) : State =
-        { state with Sessions = state.Sessions |> Map.change sid (Option.map (fun r -> { r with Seen = now })) }
+    let touch (now: DateTime) (sid: string) (state: State) : State * Persist list =
+        match state.Sessions |> Map.tryFind sid with
+        | Some r ->
+            { state with Sessions = state.Sessions |> Map.add sid { r with Seen = now } }, [ RecordSeen(sid, now) ]
+        | None -> state, []
 
 
-    let find (now: DateTime) (id: string) (state: State) : State * SessionLookup =
+    let find (now: DateTime) (id: string) (state: State) : State * SessionLookup * Persist list =
         match state.Sessions |> Map.tryFind id with
-        | Some record -> touch now id state, SessionLookup.Found record.Opened
+        | Some record ->
+            let state, seen = touch now id state
+            state, SessionLookup.Found record.Opened, seen
         | None ->
             match state.Endings |> Map.tryFind id with
-            | Some(ending, _) -> state, SessionLookup.Ended ending
-            | None -> state, SessionLookup.NotFound
+            | Some(ending, _) -> state, SessionLookup.Ended ending, []
+            | None -> state, SessionLookup.NotFound, []
 
 
-    let close (id: string) (state: State) : State =
+    /// The User closes the Session, or acknowledges its ending: an open Session ends as closed
+    /// and is acknowledged at once, an ended one is acknowledged; neither is told again.
+    let close (now: DateTime) (id: string) (state: State) : State * Persist list =
+        let writes =
+            if state.Sessions |> Map.containsKey id then
+                [
+                    EndSession(id, StoredEnding.Closed, now)
+                    AcknowledgeEnding(id, now)
+                ]
+            elif state.Endings |> Map.containsKey id then
+                [ AcknowledgeEnding(id, now) ]
+            else
+                []
+
         { state with
             Sessions = state.Sessions |> Map.remove id
             Endings = state.Endings |> Map.remove id
-        }
+        },
+        writes
 
 
     /// The head of the record, when it is not the version the Session opened with: a
@@ -1027,16 +1072,22 @@ module Session =
     /// whose and when. The notice informs and gates nothing; the refusal at a Submission stays
     /// the only guard. An anonymous Session, one without a Patient, no head, or a token that
     /// is not the Session's: nothing to say.
-    let seen (now: DateTime) (sid: string) (opened: OpenedToken option) (state: State) : State * RecordNotice option =
+    let seen
+        (now: DateTime)
+        (sid: string)
+        (opened: OpenedToken option)
+        (state: State)
+        : State * RecordNotice option * Persist list
+        =
         match state.Sessions |> Map.tryFind sid with
-        | None -> state, state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended)
+        | None -> state, state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended), []
         | Some record ->
-            let state = touch now sid state
+            let state, writes = touch now sid state
 
             match record.Opened.User, record.Opened.PatientId with
             | Some _, Some patientId when opened.IsSome && opened = record.Opened.OpenedToken ->
-                state, blockedBy record patientId state |> Option.map RecordNotice.NewerVersion
-            | _ -> state, None
+                state, blockedBy record patientId state |> Option.map RecordNotice.NewerVersion, writes
+            | _ -> state, None, writes
 
 
     /// Version `id` becomes what the Session opened with. No Session, an anonymous one or one
@@ -1053,16 +1104,16 @@ module Session =
         (sid: string)
         (id: string)
         (state: State)
-        : State * OpenedSession option
+        : State * OpenedSession option * Persist list
         =
         match state.Sessions |> Map.tryFind sid with
-        | None -> state, None
+        | None -> state, None, []
         | Some record ->
-            let state = touch now sid state
+            let state, seen = touch now sid state
 
             match record.Opened.User, record.Opened.PatientId with
             | None, _
-            | _, None -> state, None
+            | _, None -> state, None, seen
             | Some _, Some patientId ->
                 let version =
                     state.Records
@@ -1076,11 +1127,14 @@ module Session =
                     )
 
                 match version with
-                | None -> state, Some record.Opened
+                | None -> state, Some record.Opened, seen
                 | Some version when record.OpenedWith = Some id ->
                     let opened = { record.Opened with Head = Some(StoredVersion.Readable version) }
+                    let session = { state.Sessions[sid] with Opened = opened }
 
-                    { state with Sessions = state.Sessions |> Map.add sid { record with Opened = opened } }, Some opened
+                    { state with Sessions = state.Sessions |> Map.add sid session },
+                    Some opened,
+                    seen @ [ RecordOpenedWith(sid, session, now) ]
                 | Some version ->
                     let opened =
                         { record.Opened with
@@ -1088,19 +1142,19 @@ module Session =
                             Head = Some(StoredVersion.Readable version)
                         }
 
+                    let session =
+                        { state.Sessions[sid] with
+                            Opened = opened
+                            OpenedWith = Some id
+                        }
+
                     { state with
-                        Sessions =
-                            state.Sessions
-                            |> Map.add
-                                sid
-                                { record with
-                                    Opened = opened
-                                    OpenedWith = Some id
-                                }
+                        Sessions = state.Sessions |> Map.add sid session
                         Challenges = state.Challenges |> Map.remove sid
                         Notices = state.Notices |> Map.remove sid
                     },
-                    Some opened
+                    Some opened,
+                    seen @ [ RecordOpenedWith(sid, session, now) ]
 
 
     /// An order appears once in a plan.
@@ -1129,10 +1183,12 @@ module Session =
         (sid: string)
         (plan: GenOrder.OrderPlan, opened: OpenedToken, notice: string option)
         (state: State)
-        : State * SigningOutcome
+        : State * SigningOutcome * Persist list
         =
-        let state = dropExpired now state |> touch now sid
-        let refuse refusal = state, SigningOutcome.Refused refusal
+        let state, seen = dropExpired now state |> touch now sid
+
+        let refuse refusal =
+            state, SigningOutcome.Refused refusal, seen
 
         match state.Sessions |> Map.tryFind sid with
         | None -> refuse SigningRefusal.NoSession
@@ -1175,7 +1231,8 @@ module Session =
                             // a challenge over the data before the change must not be signed
                             Challenges = state.Challenges |> Map.remove sid
                         },
-                        SigningOutcome.DataNotice(nonce, current)
+                        SigningOutcome.DataNotice(nonce, current),
+                        seen
                     // no challenge over a plan that names an order twice
                     elif duplicateOrders plan then
                         refuse SigningRefusal.ChallengeMismatch
@@ -1199,7 +1256,8 @@ module Session =
                                             Expiry = now + challengeLifetime
                                         }
                             },
-                            SigningOutcome.ChallengeIssued nonce
+                            SigningOutcome.ChallengeIssued nonce,
+                            seen
 
 
     /// The commit of a signature, one act, checked in order: the Session with a User and a
@@ -1226,10 +1284,10 @@ module Session =
         (state: State)
         : State * SigningOutcome * Persist list
         =
-        let state = dropExpired now state |> touch now sid
+        let state, seen = dropExpired now state |> touch now sid
 
         let refuse refusal =
-            state, SigningOutcome.Refused refusal, []
+            state, SigningOutcome.Refused refusal, seen
 
         match state.Sessions |> Map.tryFind sid with
         | None -> refuse SigningRefusal.NoSession
@@ -1239,13 +1297,13 @@ module Session =
             | Some _, None -> refuse SigningRefusal.NoPatient
             | Some user, Some patientId ->
                 match state.Answered |> Map.tryFind (sid, signature.IdemKey) with
-                | Some(answer, _) -> state, answer, []
+                | Some(answer, _) -> state, answer, seen
                 | None ->
                     // the answer is remembered from here on, under this Session and the key
                     let remember (state: State) answer writes =
                         { state with Answered = state.Answered |> Map.add (sid, signature.IdemKey) (answer, now) },
                         answer,
-                        writes
+                        seen @ writes
 
                     let refuse refusal =
                         remember state (SigningOutcome.Refused refusal) []
@@ -1339,7 +1397,7 @@ module Session =
                                                 Sessions = state.Sessions |> Map.add sid opened
                                             }
                                             (SigningOutcome.Submitted(version, token))
-                                            [ WriteVersion version ]
+                                            [ WriteVersion version; RecordOpenedWith(sid, opened, now) ]
                                     elif wasLocked then
                                         // this Session did nothing wrong; the lock is the credential's
                                         remember
@@ -1370,7 +1428,9 @@ module Session =
                                                 Challenges = state.Challenges |> Map.remove sid
                                             }
                                             (SigningOutcome.Refused SigningRefusal.PinLimit)
-                                            []
+                                            [
+                                                EndSession(sid, StoredEnding.Ended SessionEnding.WrongPinLimit, now)
+                                            ]
                                     else
                                         remember
                                             state

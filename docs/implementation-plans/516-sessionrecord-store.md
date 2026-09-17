@@ -214,6 +214,16 @@ asserts the rows a request appends equal the writes it returned, and a sign appe
 `order_plan` row. The machine's own `dropExpired` keeps pruning the in-memory `State`; that is
 memory, not the store.
 
+A mail follows the same rule, for the same reason. The machine mails three things, today from
+inside the pure function through the injected `send` and before the request's writes are run:
+the confirmation code when a launch suspends into enrolment, that the PIN was set at
+`supplyPin`, and that signing is locked at the third wrong PIN. Once a request's writes reach a
+database, a failed write would leave a mail sent for an act that did not happen, and a retry
+could mail again. So from step 6c, where the first writes of those requests land, a member
+returns its mails next to its writes and the adapter sends them only after the writes landed,
+never before; step 7 adds the credential and code rows under the same rule. Until 6c nothing of
+these acts is stored, so no mail can outlive a failed write.
+
 ### Config and wiring
 
 `GENPRES_DB_CONNECTION` is the one switch. Set, `Adapters.makeAppEnvWith` receives it as a
@@ -828,14 +838,17 @@ as decision 1 says, `Session.redeem` and `Session.openAfterRedeem` in the machin
 loading before and between them, with the machine tests that the two halves answer as
 `callback` did (a reloaded callback included, `Opened` and `Superseded`), a test that the
 IdentityProvider's code is redeemed once, and a test that a load failing after the redeem
-records no outcome and a re-presentation of the Launch then opens. ADR-0007 § 2 to Accepted. DEVELOPMENT.md, the uc-01 stand-ins table and the "Not built" lists updated where
+records no outcome and a re-presentation of the Launch then opens. The mails of a request
+returned as values and sent by the adapter after its writes landed ("Writes as values"), with
+the test that a request whose writes fail sends none. ADR-0007 § 2 to Accepted. DEVELOPMENT.md, the uc-01 stand-ins table and the "Not built" lists updated where
 Sessions now survive a restart.
 
 ### Step 7 — feat(server): credentials, codes, enrolments, the demo seed
 
 Migration 3 (`credential_event`, `confirmation_code`, `code_try`, `code_spent`, `enrolment`,
 `enrolment_dropped`); the members `findEnrolment`, `supplyPin`, `dropEnrolment` on the slice,
-with their `Persist` cases;
+with their `Persist` cases; the credential and code rows under the mail rule of step 6c, so
+that a failed write mails nothing and its retry mails once;
 the seed for `GENPRES_PROD=0` with the credentials of `StubCredentials.seed`: the three
 Prescribers with the PIN 1234, `no-pin` without a PIN, each written only when its login has no
 credential event yet. Tests: a second start adds no row, and a PIN set by enrolment survives a
@@ -964,6 +977,7 @@ choice is unknown, which is why it stays within the portable core.
 | 5, the suites over both stores | #799 | `makePortWith newStore`, `envWithStub newStore`, the four composition suites on `newStore`, `compositionSuites`; over `inMemory` as before and over SQLite in a sequenced list that deletes its temporary files last; 409 tests |
 | 6a, prototype | #801 | `Scripts/SqlWrites.fsx`: `Persist` gains the step 6 cases and `StoredEnding`; every member returns `State * answer * Persist list`; `touch` returns the heartbeat, `close` takes `now`; `callback` split into `Session.redeem` and `Session.openAfterRedeem` and composed from them; the port's `runWith`, `submitWith`, `challengeWith` and `failWith` over a list; nine tests. Differences noted: `openVersion` keeps its heartbeat, and `redeem` also answers the no-role refusal |
 | 6a, migrate 1 of 3 | #802 | `Persist` a union, `commit` returning `Persist list`; `RecordStore.persist` and `persistNothing` over a list, `runWith` running a request's writes as one with `submitWith` its signing case; `SqlDatabase.persistVersion` and `persist` over a list. The prototype is one shape change of 350 added source lines, so it lands in three PRs |
+| 6a, migrate 2 of 3 | #803 | `StoredEnding` and the step 6 `Persist` cases; `present`, `callback`, `supplyPin`, `find`, `close`, `seen`, `openVersion` and `challenge` return their writes, `touch` the heartbeat, `close` takes `now`; the port's `challengeWith` and `failWith`; `StoredVersion.readableId`; `SessionWritesTests.fs` and the `Machine` shim in the suites |
 
 ## Changes from the plan this replaces
 

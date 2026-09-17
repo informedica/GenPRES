@@ -411,6 +411,22 @@ module StubDatabase =
             state
 
 
+    /// A challenge's writes that did not land: `StoreFailed`.
+    let challengeWith persist step state =
+        runWith persist (fun _ -> SigningOutcome.Refused SigningRefusal.StoreFailed) step state
+
+
+    /// A member that answers nothing and one that writes nothing, in the shape `runWith` takes.
+    let private asUnit (state, writes) = state, (), writes
+
+    let private noWrites (state, answer) = state, answer, []
+
+
+    /// The writes of a request with no refusal to give did not land: the call fails.
+    let failWith persist step state =
+        runWith persist (fun outcome -> invalidOp $"the session store did not take the writes: %A{outcome}") step state
+
+
     /// <summary>
     /// Where the record lives: `load` puts a patient's order plan versions into the state
     /// before a request runs, `persist` runs the write of a commit. The in-memory store keeps
@@ -479,7 +495,7 @@ module StubDatabase =
             lock
                 gate
                 (fun () ->
-                    let next, result = f (loaded patientOf)
+                    let next, result = failWith store.persist f (loaded patientOf)
                     state <- next
                     result
                 )
@@ -530,8 +546,9 @@ module StubDatabase =
                                 )
                     }
             find = fun id -> async { return update none (Session.find (now ()) id) }
-            close = fun id -> async { return update none (fun s -> Session.close id s, ()) }
-            findEnrolment = fun attempt -> async { return update none (Session.findEnrolment (now ()) attempt) }
+            close = fun id -> async { return update none (Session.close (now ()) id >> asUnit) }
+            findEnrolment =
+                fun attempt -> async { return update none (Session.findEnrolment (now ()) attempt >> noWrites) }
             supplyPin =
                 fun attempt code pin ->
                     async {
@@ -553,14 +570,17 @@ module StubDatabase =
                                         s
                                 )
                     }
-            dropEnrolment = fun attempt -> async { return update none (fun s -> Session.dropEnrolment attempt s, ()) }
+            dropEnrolment =
+                fun attempt -> async { return update none (fun s -> Session.dropEnrolment attempt s, (), []) }
             challenge =
                 fun sid request ->
                     async {
                         return
                             signing
                                 (patientOfSession sid)
-                                (fun s -> Session.challenge (now ()) newId digest patientData.read sid request s)
+                                (challengeWith
+                                    store.persist
+                                    (fun s -> Session.challenge (now ()) newId digest patientData.read sid request s))
                     }
             submit =
                 fun sid signature ->
