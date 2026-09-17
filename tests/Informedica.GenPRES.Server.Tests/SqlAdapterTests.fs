@@ -498,7 +498,7 @@ let tests =
 
                     use conn = new SqliteConnection(cs)
                     conn.Open()
-                    SqlSchema.apply cs |> Expect.equal "the schema applies" [ 1 ]
+                    SqlSchema.apply cs |> Expect.isNonEmpty "the schema applies"
                 finally
                     if Directory.Exists root then
                         Directory.Delete(root, true)
@@ -520,7 +520,7 @@ let tests =
                                 (StubMail.make ()).port
                                 (unloadedProvider ())
 
-                        schemaVersions cs |> Expect.equal "migration 1 applied" [ 1L ]
+                        schemaVersions cs |> Expect.isNonEmpty "the migrations applied"
 
                         let! sid, opened = openLive key env.session directory "prescriber"
                         let! signature = challenged env.session sid opened "k-1"

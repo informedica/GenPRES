@@ -57,29 +57,47 @@ let tests =
     testList
         "SqlSchema"
         [
-            test "a fresh file gets migration 1, embedded, and the order_plan table" {
+            test "a fresh file gets the embedded migrations, in order, and their tables" {
                 withDb (fun cs ->
-                    SqlSchema.apply cs |> Expect.equal "migration 1 applied" [ 1 ]
+                    SqlSchema.apply cs |> Expect.equal "migrations 1 and 2" [ 1; 2 ]
 
                     scalar cs "select group_concat(migration) from schema_version"
                     |> string
-                    |> Expect.equal "schema_version records it" "1"
+                    |> Expect.equal "schema_version records them" "1,2"
 
-                    scalar cs "select count(*) from sqlite_master where type = 'table' and name = 'order_plan'"
-                    |> unbox<int64>
-                    |> Expect.equal "the table exists" 1L
+                    // named one by one, so that a migration missing from the assembly's
+                    // resources fails here instead of at the first request that needs its rows
+                    let tables =
+                        scalar
+                            cs
+                            "select group_concat(name) from (select name from sqlite_master where type = 'table' order by name)"
+                        |> string
+                        |> fun names -> names.Split ','
+
+                    for table in
+                        [
+                            "order_plan"
+                            "launch_record"
+                            "launch_outcome"
+                            "session"
+                            "session_opened_with"
+                            "session_seen"
+                            "session_ending"
+                            "session_acknowledged"
+                        ] do
+                        tables |> Expect.contains $"the table %s{table}" table
                 )
             }
 
             test "a second apply applies nothing" {
                 withDb (fun cs ->
-                    SqlSchema.apply cs |> ignore
+                    let applied = SqlSchema.apply cs |> List.length
 
                     SqlSchema.apply cs |> Expect.isEmpty "nothing above the highest number"
 
                     scalar cs "select count(*) from schema_version"
                     |> unbox<int64>
-                    |> Expect.equal "still one row" 1L
+                    |> Expect.equal "the same rows" (int64 applied)
                 )
             }
 
