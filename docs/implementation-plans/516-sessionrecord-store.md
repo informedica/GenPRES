@@ -727,11 +727,12 @@ Prototype `Scripts/SqlPort.fsx`.
 - A load that throws (decision 6): `challenge` and `submit` catch it inside the lock and answer
   `SigningOutcome.Refused SigningRefusal.StoreFailed`, the state unchanged; `callback`,
   `supplyPin`, `openVersion` and `seen` let it propagate, so the call fails. `SqlDatabase.store`
-  takes `warn: string -> unit`, which `makeAppEnvWith` builds from the server's logger, and
-  warns once per failed load and once per unreadable row it loads.
-- Source, `SqlAdapters.fs`: `SqlDatabase.store cs = { load = fun pid s -> { s with Records =
-  Map.ofList [ pid, loadRecords cs pid ] }; persist = persist cs }`;
-  `SqlDatabase.makeSessionPort cs = StubDatabase.makeSessionPortWith (store cs)`;
+  takes `warn: string -> unit`, which `makeAppEnvWith` builds from the server's logger (step
+  4b), and warns once per failed load, then rethrows, and once per unreadable row it loads.
+- Source, `SqlAdapters.fs`: `SqlDatabase.store (warn: string -> unit) cs = { load = fun pid s ->
+  { s with Records = Map.ofList [ pid, loadRecords cs pid ] }; persist = persist cs }`, the
+  load wrapped to warn on a throw and on every unreadable entry;
+  `SqlDatabase.makeSessionPort warn cs = StubDatabase.makeSessionPortWith (store warn cs)`;
   `SqlDatabase.connectionString` rooting a relative `DataSource` at `AppPath.rootPath ()`
   through `SqliteConnectionStringBuilder`, and creating the file's parent directory when it is
   missing (`Directory.CreateDirectory`), since the repository has no `data/db` and SQLite does
@@ -744,14 +745,19 @@ Prototype `Scripts/SqlPort.fsx`.
   `OpenedSession.Head = Some (Readable v)`, the next sign is `No 2`; a retry from the old base
   after the row was written (the crash between the insert and the reply) is refused as stale
   with `SigningRefusal.Blocked` naming the head, nothing written, and `openVersion` opens the
-  row; `StoreFailed` through the port on a read-only file; a load that throws (the file
-  removed from under the port, or a store whose `load` raises) answers `challenge` and `submit`
-  with `StoreFailed` and leaves the state unchanged, while `openVersion` and `callback` fail.
+  row; `StoreFailed` through the port on a read-only file. A load that throws, through a port
+  whose store's `load` raises once the Session or the enrolment stands, one test per loading
+  member: `challenge` and `submit` answer `StoreFailed` and leave the state unchanged;
+  `callback` (patient from the launch record), `supplyPin` (patient from the enrolment),
+  `openVersion` and `seen` (patient from the Session) each fail the call, and the next `find`
+  shows the state they found. `seen` is tested on its own although it shares `openVersion`'s
+  path, so that a member moved to another path is caught. `SqlDatabase.store` with a recording
+  `warn`: one warning per failed load, one per unreadable row.
 - The two-signs race on the file, through two complete port instances over one file, standing
   for two server processes. One port cannot produce it, since its lock orders the two requests.
   Two instances have two locks, so their calls can interleave, but only by chance; the test
   makes the interleaving certain with a barrier. Each instance gets a `RecordStore` wrapping
-  `SqlDatabase.store cs` whose `persist` waits on one shared `System.Threading.Barrier` of two
+  `SqlDatabase.store ignore cs` whose `persist` waits on one shared `System.Threading.Barrier` of two
   (with a timeout, so a refusal that never reaches `persist` fails the test instead of hanging
   it). Both Sessions open on the same empty record and are challenged; then both `submit` calls
   start on their own threads. Each loads, commits and reaches `persist` before either inserts.
@@ -767,8 +773,8 @@ One PR, no prototype.
 - Source: `Server.fs`, `Config.Settings.DbConnection: string option`, `fromEnv`, the banner
   ("set (file)" or "unset"), `validateStartup` refusing `GENPRES_PROD=1` with the key set;
   `Host.build` passes the key. `Adapters.fs`, `makeAppEnvWith` gains `store: string option`:
-  `Some cs` → `SqlSchema.apply cs` then `SqlDatabase.makeSessionPort cs` with the arguments the
-  stub gets; `None` → the stub. Its two callers change: `Server.fs` passes the key, and
+  `Some cs` → `SqlSchema.apply cs` then `SqlDatabase.makeSessionPort warn cs`, `warn` built
+  from the server's logger, with the arguments the stub gets; `None` → the stub. Its two callers change: `Server.fs` passes the key, and
   `makeAppEnv` passes `None`, so its callers in `TotalsTests.fs` and `ResourceErrorTests.fs`
   stay as they are.
 - Tests: `ConfigTests.fs`, `fromEnv` reads the key, and `validateStartup` refuses production
