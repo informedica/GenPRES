@@ -106,9 +106,10 @@ type IdentityProviderPort =
 type UserRegistryPort = { standing: BrowserIdentity -> UserStanding option }
 
 
-/// The PatientDataPlatform, read once at the launch. `None` is not a refusal: the Session
-/// opens without imported data.
-type PatientDataPort = { read: string -> Patient option }
+/// The PatientDataPlatform, read once at the launch and again at a challenge, as the domain's
+/// patient: the adapter parses what the platform gives, and a reading that is no patient is
+/// no reading. `None` is not a refusal: the Session opens without imported data.
+type PatientDataPort = { read: string -> GenForm.Patient option }
 
 
 /// One mail from the Server to a User: a confirmation code, a notice that the PIN was set,
@@ -124,6 +125,90 @@ type Mail =
 /// The MailService. Sending is fire and forget: the Server will record what it sent in the
 /// audit (Rule 46, not built yet), not the outcome of delivery.
 type MailPort = { send: Mail -> unit }
+
+
+/// A row the release cannot read: its identity from the plain columns beside the JSON,
+/// which are authoritative, and why.
+type UnreadableVersion =
+    {
+        Id: string
+        No: int
+        PatientId: string
+        Base: string option
+        SignedBy: GenOrder.Signer
+        SignedAt: System.DateTime
+        Reason: string
+    }
+
+
+/// A version as the record holds it once loaded: parsed, or kept by its identity when the
+/// row cannot be read (a structure version newer than the release knows, an upgrade that
+/// fails, a Dto the domain refuses), so that nothing vanishes and nothing is overtaken.
+[<RequireQualifiedAccess>]
+type StoredVersion =
+    | Readable of GenOrder.OrderPlanVersion
+    | Unreadable of UnreadableVersion
+
+
+module StoredVersion =
+
+    /// Who signed, as the client knows a user: only a Prescriber signs.
+    let private signer (s: GenOrder.Signer) : UserContext =
+        {
+            UserId = s.UserId
+            DisplayName = s.DisplayName
+            Role = UserRole.Prescriber
+        }
+
+
+    let id =
+        function
+        | StoredVersion.Readable v -> v.Id
+        | StoredVersion.Unreadable u -> u.Id
+
+
+    let no =
+        function
+        | StoredVersion.Readable v -> v.No
+        | StoredVersion.Unreadable u -> u.No
+
+
+    /// What identifies the version to the client: whose, and when.
+    let head (version: StoredVersion) : OrderPlanHead =
+        match version with
+        | StoredVersion.Readable v ->
+            {
+                Id = v.Id
+                No = v.No
+                By = signer v.SignedBy
+                SignedAt = v.SignedAt
+            }
+        | StoredVersion.Unreadable u ->
+            {
+                Id = u.Id
+                No = u.No
+                By = signer u.SignedBy
+                SignedAt = u.SignedAt
+            }
+
+
+/// What the store holds of an open Session: who, for which patient and on what data, the
+/// token, the key thumbprint, and the head of the record it opened with, readable or not.
+/// The command handlers map it to what the client keeps.
+type OpenedSession =
+    {
+        // None = anonymous session: opened without a launch, no User, no Role
+        User: UserContext option
+        // None = launch without an active patient
+        PatientId: string option
+        // the data shown for the patient: the platform's reading, else the head's, else none
+        Patient: GenForm.Patient option
+        OpenedToken: OpenedToken option
+        // RFC 7638 thumbprint of the public key this Session will sign requests with
+        KeyThumbprint: string option
+        // the head of the record it opened with; None from nothing
+        Head: StoredVersion option
+    }
 
 
 /// The signature as the session service takes it: the plan parsed at the boundary, the
@@ -146,7 +231,7 @@ type SigningOutcome =
     // the challenge over exactly this plan; comes back with the PIN
     | ChallengeIssued of challenge: string
     // no challenge yet: the token, and the data as it stands, none when it could not be read
-    | DataNotice of token: string * data: Patient option
+    | DataNotice of token: string * data: GenForm.Patient option
     // the version committed, and a fresh OpenedToken over it
     | Submitted of GenOrder.OrderPlanVersion * OpenedToken
     | Refused of SigningRefusal
@@ -158,7 +243,7 @@ type SigningOutcome =
 /// that carries it to the IdentityProvider.
 [<RequireQualifiedAccess>]
 type LaunchResult =
-    | Opened of sessionId: string * SessionOpened
+    | Opened of sessionId: string * OpenedSession
     | RedirectTo of url: string * state: string
     | Refused of LaunchRefusal
     // the launch suspended at the PIN question; the browser holds the attempt in a cookie
@@ -193,7 +278,7 @@ type CallbackResult =
 /// The answer to a supplied PIN: the Session that opened, or why not.
 [<RequireQualifiedAccess>]
 type SupplyPinResult =
-    | Opened of sessionId: string * SessionOpened
+    | Opened of sessionId: string * OpenedSession
     | Refused of PinRefusal
 
 
@@ -202,7 +287,7 @@ type SupplyPinResult =
 /// acknowledges with CloseSession, which deletes the cookie and drops the ending.
 [<RequireQualifiedAccess>]
 type SessionLookup =
-    | Found of SessionOpened
+    | Found of OpenedSession
     | NotFound
     | Ended of SessionEnding
 
@@ -232,7 +317,7 @@ type SessionPort =
         // whether the record moved on or the Session ended
         seen: string -> OpenedToken option -> Async<RecordNotice option>
         // the version named becomes what the Session the cookie names opened with
-        openVersion: string -> string -> Async<SessionOpened option>
+        openVersion: string -> string -> Async<OpenedSession option>
     }
 
 

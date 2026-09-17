@@ -23,7 +23,8 @@ module SessionCommand =
                         | None -> return None
                         | Some id ->
                             match! env.session.find id with
-                            | SessionLookup.Found opened -> return Some(SessionResponse.SessionResp(Some opened))
+                            | SessionLookup.Found opened ->
+                                return Some(SessionResponse.SessionResp(Some(SessionMapper.toOpened env.demo opened)))
                             | SessionLookup.NotFound -> return None
                             | SessionLookup.Ended ending -> return Some(SessionResponse.SessionEnded ending)
                     }
@@ -45,7 +46,7 @@ module SessionCommand =
                     | SupplyPinResult.Opened(id, opened) ->
                         enrolment.delete ()
                         cookie.write id
-                        return SessionResponse.SessionResp(Some opened)
+                        return SessionResponse.SessionResp(Some(SessionMapper.toOpened env.demo opened))
                     | SupplyPinResult.Refused(PinRefusal.CodeVoid as refusal)
                     | SupplyPinResult.Refused(PinRefusal.AttemptExpired as refusal)
                     | SupplyPinResult.Refused(PinRefusal.WrongActivePatient as refusal) ->
@@ -59,7 +60,7 @@ module SessionCommand =
                 | None -> return SessionResponse.SessionResp None
                 | Some sid ->
                     let! opened = env.session.openVersion sid id
-                    return SessionResponse.SessionResp opened
+                    return SessionResponse.SessionResp(opened |> Option.map (SessionMapper.toOpened env.demo))
             | SessionCommand.CloseSession ->
                 try
                     match cookie.read () with

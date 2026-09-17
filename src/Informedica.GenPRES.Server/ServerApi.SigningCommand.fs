@@ -10,15 +10,17 @@ open Shared.Api
 /// boundary, the session port asked on domain values, its outcome mapped out.
 module SigningCommand =
 
-    /// The outcome as the wire carries it, the version mapped out with the environment's
-    /// demo flag.
+    /// The outcome as the wire carries it, the version and the notice's data mapped out, the
+    /// version with the environment's demo flag.
     let toResponse (demo: bool) (outcome: SigningOutcome) =
         match outcome with
         | SigningOutcome.ChallengeIssued nonce -> SigningResponse.ChallengeIssued nonce
         | SigningOutcome.DataNotice(token, data) ->
             SigningResponse.DataNotice
                 {
-                    Data = data
+                    Data =
+                        data
+                        |> Option.map (Informedica.GenForm.Lib.Patient.Dto.toDto >> ServerApi.Patient.toModel)
                     Token = token
                 }
         | SigningOutcome.Submitted(version, token) ->

@@ -61,7 +61,6 @@ let registry (identity: BrowserIdentity) : UserStanding option =
 
 let seeded = SessionStubTests.seeded
 let parsed = SessionStubTests.parsed
-let toSigned = SessionStubTests.toSigned
 
 let plan =
     SessionStubTests.planOf
@@ -93,8 +92,8 @@ let versionOf no (by: UserContext) (at: DateTime) (p: Types.OrderPlan) : Types.O
         Verified = true
     }
 
-let unreadable no (by: UserContext) (at: DateTime) : Session.StoredVersion =
-    Session.StoredVersion.Unreadable
+let unreadable no (by: UserContext) (at: DateTime) : StoredVersion =
+    StoredVersion.Unreadable
         {
             Id = $"plan-{no}"
             No = no
@@ -132,12 +131,12 @@ let challenged sid (at: DateTime) (p: Types.OrderPlan) : string * Session.Challe
     {
         Nonce = $"c-{sid}"
         Digest = StubDatabase.digest p
-        Reading = Some stubPatient
+        Reading = Some(SessionStubTests.parsePatient stubPatient)
         Expiry = at + Session.challengeLifetime
     }
 
 let commitAt now ids state sid s =
-    Session.commit now ids StubDatabase.digest toSigned registry ignore sid s state
+    Session.commit now ids StubDatabase.digest registry ignore sid s state
 
 let submitWith persist now ids state sid s =
     StubDatabase.submitWith persist (fun st -> commitAt now ids st sid s) state
@@ -180,15 +179,15 @@ let tests =
                     version.Verified |> Expect.isTrue "the reading stood"
 
                     Session.headOf "stub-patient" state
-                    |> Expect.equal "the head" (Some(Session.StoredVersion.Readable version))
+                    |> Expect.equal "the head" (Some(StoredVersion.Readable version))
 
                     state.Sessions["s-1"].OpenedWith
                     |> Expect.equal "opened with it" (Some version.Id)
 
-                    state.Sessions["s-1"].Session.Head
-                    |> Expect.equal "the head as the client keeps it" (Some(toSigned version))
+                    state.Sessions["s-1"].Opened.Head
+                    |> Expect.equal "the head held" (Some(StoredVersion.Readable version))
 
-                    state.Sessions["s-1"].Session.OpenedToken
+                    state.Sessions["s-1"].Opened.OpenedToken
                     |> Expect.equal "re-minted" (Some token)
 
                     state.Challenges |> Expect.isEmpty "spent"
@@ -295,7 +294,7 @@ let tests =
             test
                 "a violated constraint is another server's sign: a stale sign against the version that won, not StoreFailed" {
                 let winner =
-                    Session.StoredVersion.Readable(versionOf 1 other (t0 - minutes 1.0) domainPlan.Value)
+                    StoredVersion.Readable(versionOf 1 other (t0 - minutes 1.0) domainPlan.Value)
 
                 let state, answer =
                     submitWith
@@ -309,7 +308,7 @@ let tests =
                 answer
                 |> Expect.equal
                     "blocked by the winner"
-                    (SigningOutcome.Refused(SigningRefusal.Blocked(Session.StoredVersion.head winner)))
+                    (SigningOutcome.Refused(SigningRefusal.Blocked(StoredVersion.head winner)))
 
                 state |> Expect.equal "unchanged" ready.Value
             }
@@ -317,7 +316,7 @@ let tests =
             test
                 "an unreadable row is the head when it is the newest; a sign against it is refused whatever the base; it cannot be opened" {
                 let readable =
-                    Session.StoredVersion.Readable(versionOf 1 prescriber (t0 - minutes 5.0) domainPlan.Value)
+                    StoredVersion.Readable(versionOf 1 prescriber (t0 - minutes 5.0) domainPlan.Value)
 
                 let newest = unreadable 2 other (t0 - minutes 1.0)
                 let records = [ "stub-patient", [ newest; readable ] ]
@@ -334,7 +333,7 @@ let tests =
                     answer
                     |> Expect.equal
                         $"refused over {openedWith}"
-                        (SigningOutcome.Refused(SigningRefusal.Blocked(Session.StoredVersion.head newest)))
+                        (SigningOutcome.Refused(SigningRefusal.Blocked(StoredVersion.head newest)))
 
                     let st =
                         { stateOf [ s ] records with Challenges = Map.ofList [ challenged "s-1" t0 domainPlan.Value ] }
@@ -345,16 +344,16 @@ let tests =
                     answer
                     |> Expect.equal
                         $"refused at commit over {openedWith}"
-                        (SigningOutcome.Refused(SigningRefusal.Blocked(Session.StoredVersion.head newest)))
+                        (SigningOutcome.Refused(SigningRefusal.Blocked(StoredVersion.head newest)))
 
                     write |> Expect.isNone "nothing written"
 
                 let s = session "s-1" prescriber (Some "plan-1")
 
                 let st, answer =
-                    Session.openVersion t0 (counter "id") toSigned "s-1" "plan-2" (stateOf [ s ] records)
+                    Session.openVersion t0 (counter "id") "s-1" "plan-2" (stateOf [ s ] records)
 
-                answer |> Expect.equal "the Session as it is" (Some (snd s).Session)
+                answer |> Expect.equal "the Session as it is" (Some (snd s).Opened)
 
                 st.Sessions["s-1"].OpenedWith
                 |> Expect.equal "still on the readable one" (Some "plan-1")
@@ -366,11 +365,7 @@ let tests =
                 let s = session "s-1" prescriber None
 
                 let st =
-                    { stateOf
-                          [ s ]
-                          [
-                              "stub-patient", [ Session.StoredVersion.Readable written ]
-                          ] with
+                    { stateOf [ s ] [ "stub-patient", [ StoredVersion.Readable written ] ] with
                         Challenges = Map.ofList [ challenged "s-1" t0 domainPlan.Value ]
                     }
 
@@ -380,18 +375,16 @@ let tests =
                 answer
                 |> Expect.equal
                     "stale"
-                    (SigningOutcome.Refused(
-                        SigningRefusal.Blocked(Session.StoredVersion.head (Session.StoredVersion.Readable written))
-                    ))
+                    (SigningOutcome.Refused(SigningRefusal.Blocked(StoredVersion.head (StoredVersion.Readable written))))
 
                 write |> Expect.isNone "nothing written"
 
                 let st, opened =
-                    Session.openVersion (t0 + seconds 10.0) (counter "id") toSigned "s-1" "plan-1" st
+                    Session.openVersion (t0 + seconds 10.0) (counter "id") "s-1" "plan-1" st
 
                 opened
                 |> Option.bind _.Head
-                |> Expect.equal "the version signed" (Some(toSigned written))
+                |> Expect.equal "the version signed" (Some(StoredVersion.Readable written))
 
                 st.Sessions["s-1"].OpenedWith |> Expect.equal "opened with it" (Some "plan-1")
             }

@@ -6,9 +6,7 @@ open Shared.Types
 // The store's clinical records are the domain's; unqualified, the names below are the
 // contract model's, which the identity half of the session keeps.
 module GenOrder = Informedica.GenOrder.Lib.Types
-module GenOrderPlanVersion = Informedica.GenOrder.Lib.OrderPlanVersion
-module GenSigner = Informedica.GenOrder.Lib.Signer
-module GenFormPatient = Informedica.GenForm.Lib.Patient
+module GenForm = Informedica.GenForm.Lib.Types
 
 
 module PublicKey =
@@ -411,13 +409,14 @@ module Session =
         $"/#/session?refused={refusalWord refusal}"
 
 
-    /// A Session as the store holds it: what the client learns, the login it belongs to (a User
-    /// has at most one open Session), the head of the record it opened with (`None` from
-    /// nothing), which a Submission is checked against, and when it was last seen (nothing
-    /// acts on it yet; the idle and absolute lifetimes of Rule 10 are not built).
+    /// A Session as the store holds it: what it is open on, the login it belongs to (a User
+    /// has at most one open Session), the id of the version it opened with (`None` from
+    /// nothing, or from a head that cannot be read), which a Submission is checked against,
+    /// and when it was last seen (nothing acts on it yet; the idle and absolute lifetimes of
+    /// Rule 10 are not built).
     type SessionRecord =
         {
-            Session: SessionOpened
+            Opened: OpenedSession
             Login: string option
             OpenedWith: string option
             Seen: DateTime
@@ -455,7 +454,7 @@ module Session =
     type Notice =
         {
             Nonce: string
-            Data: Patient option
+            Data: GenForm.Patient option
             Expiry: DateTime
         }
 
@@ -469,65 +468,9 @@ module Session =
             Nonce: string
             Digest: string
             // the platform's reading at the challenge, none when it could not be read
-            Reading: Patient option
+            Reading: GenForm.Patient option
             Expiry: DateTime
         }
-
-
-    /// A row the release cannot read: its identity from the plain columns beside the JSON,
-    /// which are authoritative, and why.
-    type UnreadableVersion =
-        {
-            Id: string
-            No: int
-            PatientId: string
-            Base: string option
-            SignedBy: GenOrder.Signer
-            SignedAt: DateTime
-            Reason: string
-        }
-
-
-    /// A version as the record holds it once loaded: parsed, or kept by its identity when the
-    /// row cannot be read (a structure version newer than the release knows, an upgrade that
-    /// fails, a Dto the domain refuses), so that nothing vanishes and nothing is overtaken.
-    [<RequireQualifiedAccess>]
-    type StoredVersion =
-        | Readable of GenOrder.OrderPlanVersion
-        | Unreadable of UnreadableVersion
-
-
-    module StoredVersion =
-
-        let id =
-            function
-            | StoredVersion.Readable v -> v.Id
-            | StoredVersion.Unreadable u -> u.Id
-
-
-        let no =
-            function
-            | StoredVersion.Readable v -> v.No
-            | StoredVersion.Unreadable u -> u.No
-
-
-        /// What identifies the version to the client: whose, and when.
-        let head (version: StoredVersion) : OrderPlanHead =
-            match version with
-            | StoredVersion.Readable v ->
-                {
-                    Id = v.Id
-                    No = v.No
-                    By = v.SignedBy |> GenSigner.Dto.toDto |> SessionMapper.signerBack
-                    SignedAt = v.SignedAt
-                }
-            | StoredVersion.Unreadable u ->
-                {
-                    Id = u.Id
-                    No = u.No
-                    By = u.SignedBy |> GenSigner.Dto.toDto |> SessionMapper.signerBack
-                    SignedAt = u.SignedAt
-                }
 
 
     /// The write a commit asks for, as a value: the adapter runs it, inserting the version's
@@ -670,22 +613,22 @@ module Session =
 
 
     /// The patient data a Session opens on: the PatientDataPlatform's reading, the source of
-    /// truth, when it is a patient; without one, the patient data of the head of the record, the
-    /// last seen; from nothing, none, so that the User enters it and a data outage does not block
-    /// prescribing.
+    /// truth, when there is one (the adapter answers none for a reading that is no patient);
+    /// without one, the patient data the head of the record was signed on, the last seen, when
+    /// the head can be read; from nothing, none, so that the User enters it and a data outage
+    /// does not block prescribing.
     let sessionPatient
-        (patientData: string -> Patient option)
+        (patientData: string -> GenForm.Patient option)
         (patientId: string)
         (head: StoredVersion option)
-        : Patient option
+        : GenForm.Patient option
         =
         patientData patientId
-        |> Patient.reading
         |> Option.orElse (
             head
             |> Option.bind (fun h ->
                 match h with
-                | StoredVersion.Readable v -> v.Plan.Patient |> GenFormPatient.Dto.toDto |> Patient.toModel |> Some
+                | StoredVersion.Readable v -> Some v.Plan.Patient
                 | StoredVersion.Unreadable _ -> None
             )
         )
@@ -693,17 +636,15 @@ module Session =
 
     /// The open, one act, from whatever carried the launch this far: a LaunchRecord at the
     /// callback, an Enrolment once the PIN is set. The Session is written from the head of the
-    /// record, on the platform's reading, else the head's patient data; the login's other
-    /// Sessions are closed and marked, so that a User has at most one open Session. `toSigned`
-    /// writes a readable head as the client keeps it. A head this release cannot read is
-    /// nothing to open with: the Session opens from nothing, so the next request tells that
-    /// the record has a newer version, and a sign is refused against it; that the head cannot
-    /// be shown is said once the session state can say so.
+    /// record, held whatever its case, on the platform's reading, else the head's patient
+    /// data; the login's other Sessions are closed and marked, so that a User has at most one
+    /// open Session. A head this release cannot read is nothing to open with: the Session
+    /// opens from nothing, so the next request tells that the record has a newer version, and
+    /// a sign is refused against it.
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
-        (toSigned: GenOrder.OrderPlanVersion -> SignedOrderPlan)
-        (patientData: string -> Patient option)
+        (patientData: string -> GenForm.Patient option)
         (patientId: string)
         (key: PublicKey)
         (user: UserContext)
@@ -712,24 +653,14 @@ module Session =
         let id = newId ()
         let head = headOf patientId state
 
-        let session =
+        let opened: OpenedSession =
             {
                 User = Some user
-                PatientContext =
-                    Some
-                        {
-                            PatientId = patientId
-                            Patient = sessionPatient patientData patientId head
-                        }
+                PatientId = Some patientId
+                Patient = sessionPatient patientData patientId head
                 OpenedToken = Some(OpenedToken $"opened-{id}")
                 KeyThumbprint = Some(PublicKey.thumbprint key)
-                Head =
-                    head
-                    |> Option.bind (fun h ->
-                        match h with
-                        | StoredVersion.Readable v -> Some(toSigned v)
-                        | StoredVersion.Unreadable _ -> None
-                    )
+                Head = head
             }
 
         let login = Some user.UserId
@@ -747,7 +678,7 @@ module Session =
                 |> Map.add
                     id
                     {
-                        Session = session
+                        Opened = opened
                         Login = login
                         OpenedWith =
                             head
@@ -762,24 +693,16 @@ module Session =
                 superseded
                 |> List.fold (fun m sid -> Map.add sid (SessionEnding.SupersededByLaunch, now) m) state.Endings
         },
-        (id, session)
+        (id, opened)
 
 
     let private recordOutcome (record: LaunchRecord) outcome (state: State) =
         { state with Launches = state.Launches |> Map.add record.Nonce { record with Outcome = Some outcome } }
 
 
-    let private openSession
-        now
-        newId
-        toSigned
-        patientData
-        (record: LaunchRecord)
-        (standing: UserStanding)
-        (state: State)
-        =
+    let private openSession now newId patientData (record: LaunchRecord) (standing: UserStanding) (state: State) =
         let state, (id, session) =
-            openWith now newId toSigned patientData record.PatientId record.PublicKey standing.User state
+            openWith now newId patientData record.PatientId record.PublicKey standing.User state
 
         recordOutcome record (LaunchResult.Opened(id, session)) state, CallbackResult.Opened(id, openedUrl)
 
@@ -862,12 +785,11 @@ module Session =
     let callback
         (now: DateTime)
         (newId: unit -> string)
-        (toSigned: GenOrder.OrderPlanVersion -> SignedOrderPlan)
         (newCode: unit -> string)
         (codeMac: string -> byte[])
         (redeem: string -> BrowserIdentity option)
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: string -> Patient option)
+        (patientData: string -> GenForm.Patient option)
         (send: Mail -> unit)
         (state: State)
         (cb: Callback)
@@ -916,7 +838,7 @@ module Session =
                         && not (credentialOf standing.User.UserId state |> Credential.pinSet)
                         ->
                         suspend now newId newCode codeMac send record identity standing state
-                    | Some standing -> openSession now newId toSigned patientData record standing state
+                    | Some standing -> openSession now newId patientData record standing state
         | _, None -> state, invalid
         | _ -> state, invalid
 
@@ -971,11 +893,10 @@ module Session =
     let supplyPin
         (now: DateTime)
         (newId: unit -> string)
-        (toSigned: GenOrder.OrderPlanVersion -> SignedOrderPlan)
         (newSalt: int -> byte[])
         (codeMac: string -> byte[])
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: string -> Patient option)
+        (patientData: string -> GenForm.Patient option)
         (send: Mail -> unit)
         (attempt: string)
         (code: string)
@@ -1050,7 +971,7 @@ module Session =
                     state, SupplyPinResult.Refused PinRefusal.WrongActivePatient
                 | _ ->
                     let state, (id, session) =
-                        openWith now newId toSigned patientData e.PatientId e.PublicKey user state
+                        openWith now newId patientData e.PatientId e.PublicKey user state
 
                     state, SupplyPinResult.Opened(id, session)
 
@@ -1064,7 +985,7 @@ module Session =
 
     let find (now: DateTime) (id: string) (state: State) : State * SessionLookup =
         match state.Sessions |> Map.tryFind id with
-        | Some record -> touch now id state, SessionLookup.Found record.Session
+        | Some record -> touch now id state, SessionLookup.Found record.Opened
         | None ->
             match state.Endings |> Map.tryFind id with
             | Some(ending, _) -> state, SessionLookup.Ended ending
@@ -1107,9 +1028,9 @@ module Session =
         | Some record ->
             let state = touch now sid state
 
-            match record.Session.User, record.Session.PatientContext with
-            | Some _, Some patient when opened.IsSome && opened = record.Session.OpenedToken ->
-                state, blockedBy record patient.PatientId state |> Option.map RecordNotice.NewerVersion
+            match record.Opened.User, record.Opened.PatientId with
+            | Some _, Some patientId when opened.IsSome && opened = record.Opened.OpenedToken ->
+                state, blockedBy record patientId state |> Option.map RecordNotice.NewerVersion
             | _ -> state, None
 
 
@@ -1120,29 +1041,27 @@ module Session =
     /// already open: the token stands. Another version: the OpenedToken is re-minted over it
     /// and the standing challenge and notice of this Session are dropped (a challenge over the
     /// old baseline must not be answerable). Any readable version may be opened; one that is
-    /// not the head leaves Submission blocked. `toSigned` writes the head as the client keeps
-    /// it.
+    /// not the head leaves Submission blocked.
     let openVersion
         (now: DateTime)
         (newId: unit -> string)
-        (toSigned: GenOrder.OrderPlanVersion -> SignedOrderPlan)
         (sid: string)
         (id: string)
         (state: State)
-        : State * SessionOpened option
+        : State * OpenedSession option
         =
         match state.Sessions |> Map.tryFind sid with
         | None -> state, None
         | Some record ->
             let state = touch now sid state
 
-            match record.Session.User, record.Session.PatientContext with
+            match record.Opened.User, record.Opened.PatientId with
             | None, _
             | _, None -> state, None
-            | Some _, Some patient ->
+            | Some _, Some patientId ->
                 let version =
                     state.Records
-                    |> Map.tryFind patient.PatientId
+                    |> Map.tryFind patientId
                     |> Option.bind (
                         List.tryPick (fun v ->
                             match v with
@@ -1152,17 +1071,16 @@ module Session =
                     )
 
                 match version with
-                | None -> state, Some record.Session
+                | None -> state, Some record.Opened
                 | Some version when record.OpenedWith = Some id ->
-                    let session = { record.Session with Head = Some(toSigned version) }
+                    let opened = { record.Opened with Head = Some(StoredVersion.Readable version) }
 
-                    { state with Sessions = state.Sessions |> Map.add sid { record with Session = session } },
-                    Some session
+                    { state with Sessions = state.Sessions |> Map.add sid { record with Opened = opened } }, Some opened
                 | Some version ->
-                    let session =
-                        { record.Session with
+                    let opened =
+                        { record.Opened with
                             OpenedToken = Some(OpenedToken $"opened-{newId ()}")
-                            Head = Some(toSigned version)
+                            Head = Some(StoredVersion.Readable version)
                         }
 
                     { state with
@@ -1171,13 +1089,13 @@ module Session =
                             |> Map.add
                                 sid
                                 { record with
-                                    Session = session
+                                    Opened = opened
                                     OpenedWith = Some id
                                 }
                         Challenges = state.Challenges |> Map.remove sid
                         Notices = state.Notices |> Map.remove sid
                     },
-                    Some session
+                    Some opened
 
 
     /// An order appears once in a plan.
@@ -1202,7 +1120,7 @@ module Session =
         (now: DateTime)
         (newId: unit -> string)
         (digest: GenOrder.OrderPlan -> string)
-        (patientData: string -> Patient option)
+        (patientData: string -> GenForm.Patient option)
         (sid: string)
         (plan: GenOrder.OrderPlan, opened: OpenedToken, notice: string option)
         (state: State)
@@ -1214,17 +1132,18 @@ module Session =
         match state.Sessions |> Map.tryFind sid with
         | None -> refuse SigningRefusal.NoSession
         | Some record ->
-            match record.Session.User, record.Session.PatientContext with
+            match record.Opened.User, record.Opened.PatientId with
             | None, _ -> refuse SigningRefusal.NotPrescriber
             | Some _, None -> refuse SigningRefusal.NoPatient
-            | Some user, Some patient ->
+            | Some user, Some patientId ->
                 if user.Role <> UserRole.Prescriber then
                     refuse SigningRefusal.NotPrescriber
-                elif record.Session.OpenedToken <> Some opened then
+                elif record.Opened.OpenedToken <> Some opened then
                     refuse SigningRefusal.StaleToken
                 else
-                    // read again, as at the open: a reading that is no patient is no reading
-                    let current = patientData patient.PatientId |> Patient.reading
+                    // read again, as at the open; the adapter answers none for a reading that
+                    // is no patient
+                    let current = patientData patientId
 
                     let accepted =
                         notice
@@ -1235,7 +1154,7 @@ module Session =
                         )
 
                     // no reading, or another than the Session opened on: told before the challenge
-                    if (current.IsNone || current <> patient.Patient) && accepted.IsNone then
+                    if (current.IsNone || current <> record.Opened.Patient) && accepted.IsNone then
                         let nonce = newId ()
 
                         { state with
@@ -1256,7 +1175,7 @@ module Session =
                     elif duplicateOrders plan then
                         refuse SigningRefusal.ChallengeMismatch
                     else
-                        match unreadableHead patient.PatientId state, blockedBy record patient.PatientId state with
+                        match unreadableHead patientId state, blockedBy record patientId state with
                         | Some head, _
                         | None, Some head -> refuse (SigningRefusal.Blocked head)
                         | None, None ->
@@ -1295,7 +1214,6 @@ module Session =
         (now: DateTime)
         (newId: unit -> string)
         (digest: GenOrder.OrderPlan -> string)
-        (toSigned: GenOrder.OrderPlanVersion -> SignedOrderPlan)
         (standing: BrowserIdentity -> UserStanding option)
         (send: Mail -> unit)
         (sid: string)
@@ -1311,10 +1229,10 @@ module Session =
         match state.Sessions |> Map.tryFind sid with
         | None -> refuse SigningRefusal.NoSession
         | Some record ->
-            match record.Session.User, record.Session.PatientContext with
+            match record.Opened.User, record.Opened.PatientId with
             | None, _ -> refuse SigningRefusal.NotPrescriber
             | Some _, None -> refuse SigningRefusal.NoPatient
-            | Some user, Some patient ->
+            | Some user, Some patientId ->
                 match state.Answered |> Map.tryFind (sid, signature.IdemKey) with
                 | Some(answer, _) -> state, answer, None
                 | None ->
@@ -1335,10 +1253,10 @@ module Session =
 
                     match standing identity with
                     | Some fresh when fresh.User.Role = UserRole.Prescriber ->
-                        if record.Session.OpenedToken <> Some signature.Opened then
+                        if record.Opened.OpenedToken <> Some signature.Opened then
                             refuse SigningRefusal.StaleToken
                         else
-                            match unreadableHead patient.PatientId state, blockedBy record patient.PatientId state with
+                            match unreadableHead patientId state, blockedBy record patientId state with
                             | Some head, _
                             | None, Some head -> refuse (SigningRefusal.Blocked head)
                             | None, None ->
@@ -1366,10 +1284,10 @@ module Session =
                                                 Id = id
                                                 No =
                                                     1
-                                                    + (headOf patient.PatientId state
+                                                    + (headOf patientId state
                                                        |> Option.map StoredVersion.no
                                                        |> Option.defaultValue 0)
-                                                PatientId = patient.PatientId
+                                                PatientId = patientId
                                                 Base = record.OpenedWith
                                                 SignedBy =
                                                     {
@@ -1382,25 +1300,20 @@ module Session =
                                             }
 
                                         let token = OpenedToken $"opened-{newId ()}"
-                                        let signed = toSigned version
 
                                         // the Session's patient is the platform's reading at the
                                         // challenge, else the data just signed, so a resume shows what
                                         // a relaunch would
                                         let opened =
                                             { record with
-                                                Session =
-                                                    { record.Session with
+                                                Opened =
+                                                    { record.Opened with
                                                         OpenedToken = Some token
-                                                        Head = Some signed
-                                                        PatientContext =
-                                                            Some
-                                                                { patient with
-                                                                    Patient =
-                                                                        challenge.Reading
-                                                                        |> Option.defaultValue signed.Patient
-                                                                        |> Some
-                                                                }
+                                                        Head = Some(StoredVersion.Readable version)
+                                                        Patient =
+                                                            challenge.Reading
+                                                            |> Option.defaultValue version.Plan.Patient
+                                                            |> Some
                                                     }
                                                 OpenedWith = Some id
                                             }
@@ -1410,7 +1323,7 @@ module Session =
                                                 Records =
                                                     state.Records
                                                     |> Map.change
-                                                        patient.PatientId
+                                                        patientId
                                                         (fun versions ->
                                                             Some(
                                                                 StoredVersion.Readable version

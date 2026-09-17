@@ -79,29 +79,29 @@ module SessionMapper =
         }
 
 
-    /// What the client keeps of an open Session, from the parts the session state holds once
-    /// it is on domain values: the user, the patient the Session is for with the data it opened
-    /// on, the token, the key thumbprint and the head of the record.
-    let opened
-        (demo: bool)
-        (user: UserContext option)
-        (patient: (string * Informedica.GenForm.Lib.Patient.Dto.Dto option) option)
-        (token: OpenedToken option)
-        (thumbprint: string option)
-        (head: OrderPlanVersion.Dto.Dto option)
-        : SessionOpened
-        =
+    /// What the client keeps of an open Session, from what the store holds: the head as the
+    /// signed order plan on the wire when it can be read, none when it cannot, the patient
+    /// data as the contract model; the demo flag on every context.
+    let toOpened (demo: bool) (opened: OpenedSession) : SessionOpened =
         {
-            User = user
+            User = opened.User
             PatientContext =
-                patient
-                |> Option.map (fun (id, data) ->
+                opened.PatientId
+                |> Option.map (fun id ->
                     {
                         PatientId = id
-                        Patient = data |> Option.map Patient.toModel
+                        Patient =
+                            opened.Patient
+                            |> Option.map (Informedica.GenForm.Lib.Patient.Dto.toDto >> Patient.toModel)
                     }
                 )
-            OpenedToken = token
-            KeyThumbprint = thumbprint
-            Head = head |> Option.map (toSigned demo)
+            OpenedToken = opened.OpenedToken
+            KeyThumbprint = opened.KeyThumbprint
+            Head =
+                opened.Head
+                |> Option.bind (fun head ->
+                    match head with
+                    | StoredVersion.Readable v -> v |> OrderPlanVersion.Dto.toDto |> toSigned demo |> Some
+                    | StoredVersion.Unreadable _ -> None
+                )
         }
