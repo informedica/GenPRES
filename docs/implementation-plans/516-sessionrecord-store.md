@@ -149,10 +149,10 @@ by the port's lock.
 | `Sessions` | `session`, `session_opened_with`, `session_seen` | the row by session id, the newest row for its login, the newest opened-with (its patient a `Patient.Dto` upgraded and parsed at load), the newest heartbeat | a session at an open; an opened-with at an open, at `openVersion` and at a commit; a heartbeat at every `touch` |
 | `Endings` | `session_ending`, `session_acknowledged`, and `session` itself | a session row whose login has a newer session row is `SupersededByLaunch` at that row's `opened_at`, whatever became of the newer row; the newest row for the login is open unless an ending names it; `wrong-pin-limit` is a row; an acknowledged ending is hidden; a `closed` row loads as no Session at all | `wrong-pin-limit` at the third wrong PIN; `closed` at `close`, with the acknowledgement; `unreadable` when the Session's opened-with or notice row cannot be read |
 | `Credentials` | `credential_event` | the newest event for the user id | an event at every change: PIN set, wrong entry, lock, right entry |
-| `Codes` | `confirmation_code`, `code_try`, `code_spent` | the newest unspent code for the user id, with its tries counted | a code when mailed; a try per wrong code; spent when the PIN is set, the tries run out, or the last attempt is dropped |
+| `Codes` | `confirmation_code`, `code_try`, `code_spent` | the newest code for the user id, with its tries counted; absent when that code is spent or expired, never an older code in its place | a code when mailed; a try per wrong code; spent when the PIN is set, the tries run out, or the last attempt is dropped |
 | `Enrolments` | `enrolment`, `enrolment_dropped` | the attempt by id, then the user id it names, then every undropped attempt and the code of that user | an attempt when the launch suspends; dropped at `dropEnrolment`; all of a user's attempts dropped when the PIN is set or the code is void |
 | `Records` | `order_plan` | every order plan version for the patient id, newest first by `no`, each upgraded from its `json_version` and parsed with `fromDto` as it loads; an unreadable row is kept as an unreadable entry (ADR-0008 § 6) | an order plan version at a commit, through `Persist` only, in the request's transaction from step 6; a violated `unique (patient_id, no)` is another server's sign, answered as a stale sign, the head changed |
-| `Notices`, `Challenges` | `data_notice`, `challenge`, `challenge_spent` | the newest unexpired row for the session id; a notice's patient is a `Patient.Dto` upgraded and parsed at load, a challenge holds the digest, not the order plan | a row when issued; a newer row replaces; spent at a commit or an `openVersion` |
+| `Notices`, `Challenges` | `data_notice`, `challenge`, `challenge_spent` | the newest row for the session id; absent when that row is expired or spent, never an older row in its place; a notice's patient is a `Patient.Dto` upgraded and parsed at load, a challenge holds the digest, not the order plan | a row when issued; a newer row replaces; spent at a commit or an `openVersion` |
 | `Answered` | `submission_answer` | the row for the session id and the idempotency key | the answer, once, refusals included (Rule 45) |
 | the audit | `audit_entry` | nothing | one entry per act, in the same transaction |
 
@@ -182,7 +182,10 @@ and its outcome, heartbeats, data notices, challenges, answered Submissions, cod
 tries stay after their lifetime. A lifetime is read at load, never enforced by removing rows: a
 launch record past its Launch's expiry, a notice or a challenge past two minutes, an answer past
 the challenge lifetime, a spent code, load as absent; only the newest heartbeat of a Session is
-read. The tables grow with use, which a test and development database accepts; a developer
+read. The order is the one the session rows follow: the loader takes the newest row for its key
+first and only then reads its lifetime or its spent mark. It never filters expired or spent rows
+before choosing the newest, since that would bring back an older notice, challenge or code the
+newest one replaced, as the in-memory machine never does. The tables grow with use, which a test and development database accepts; a developer
 starts fresh by deleting the database file, which the next start creates again.
 
 ### Writes as values
@@ -199,9 +202,13 @@ write, extended per step with one case per fact the tables record:
 | 9 | `AppendAudit` | `audit_entry` |
 
 `commit` returns `Persist option` today; step 6 turns it into `Persist list` for every member,
-and `StubDatabase.submitWith` into a runner for a list: the order plan version's insert decides
-the outcome as it does now (`Written`, `Conflict`, `Failed`), and the other writes of the same
-request go in the same transaction. A member writes exactly what it returns: a test per member
+and `StubDatabase.submitWith` into a runner for a list. The whole list runs in one transaction,
+and the new `State` is assigned only when every write and the commit of the transaction
+succeeded. Any failure rolls the transaction back, keeps the old `State`, and answers the member's
+store failure: for `submit`, a violated `unique (patient_id, no)` is `Conflict` and answered as a
+stale sign, any other failure `StoreFailed`; for `challenge`, `StoreFailed`; for a member with no
+refusal to give, the call fails (open decision 6). A list without an order plan version follows
+the same rule. A member writes exactly what it returns: a test per member
 asserts the rows a request appends equal the writes it returned, and a sign appends exactly one
 `order_plan` row. The machine's own `dropExpired` keeps pruning the in-memory `State`; that is
 memory, not the store.
@@ -718,7 +725,12 @@ Prototype `Scripts/SqlPort.fsx`.
   Map.ofList [ pid, loadRecords cs pid ] }; persist = persist cs }`;
   `SqlDatabase.makeSessionPort cs = StubDatabase.makeSessionPortWith (store cs)`;
   `SqlDatabase.connectionString` rooting a relative `DataSource` at `AppPath.rootPath ()`
-  through `SqliteConnectionStringBuilder`.
+  through `SqliteConnectionStringBuilder`, and creating the file's parent directory when it is
+  missing (`Directory.CreateDirectory`), since the repository has no `data/db` and SQLite does
+  not create folders. The migration runner receives the resulting connection string, so the
+  first `dotnet run` with the key set creates `data/db/genpres.db` from nothing. Test: a
+  connection string pointing into a directory that does not exist yet opens, and the directory
+  exists after.
 - Tests, `SqlAdapterTests.fs` (compile item after `SqlRecordTests.fs`), with the `withDb` helper
   of step 2: sign through the port; a second port over the same file (the restart); relaunch →
   `OpenedSession.Head = Some (Readable v)`, the next sign is `No 2`; a retry from the old base
