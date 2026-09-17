@@ -183,15 +183,29 @@ let tests =
                 |> Expect.equal "unreadable" None
             }
 
-            test "an opened session from its parts, the head the signed plan the client knows" {
-                let opened =
-                    SessionMapper.opened
-                        false
-                        (Some prescriber)
-                        (Some("stub-patient", Some(StubPatientData.patient |> Patient.ofModel)))
-                        (Some(OpenedToken "opened-1"))
-                        (Some "thumb")
-                        (Some(signed |> SessionMapper.ofSigned))
+            test
+                "what the client keeps of an open Session: the head the signed plan it knows, none when it cannot be read" {
+                let version =
+                    signed
+                    |> SessionMapper.ofSigned
+                    |> OrderPlanVersion.Dto.fromDto
+                    |> Result.defaultWith (fun e -> failtest $"no version: %A{e}")
+
+                let stored: OpenedSession =
+                    {
+                        User = Some prescriber
+                        PatientId = Some "stub-patient"
+                        Patient =
+                            StubPatientData.patient
+                            |> Patient.parse
+                            |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
+                            |> Some
+                        OpenedToken = Some(OpenedToken "opened-1")
+                        KeyThumbprint = Some "thumb"
+                        Head = Some(StoredVersion.Readable version)
+                    }
+
+                let opened = SessionMapper.toOpened false stored
 
                 opened.User |> Expect.equal "user" (Some prescriber)
 
@@ -206,9 +220,45 @@ let tests =
 
                 opened.OpenedToken |> Expect.equal "token" (Some(OpenedToken "opened-1"))
                 opened.KeyThumbprint |> Expect.equal "thumbprint" (Some "thumb")
-                opened.Head |> Expect.equal "head" (Some signed)
 
-                (SessionMapper.opened false None None None None None).Head
-                |> Expect.equal "from nothing" None
+                opened.Head
+                |> Expect.equal "head" (Some(version |> OrderPlanVersion.Dto.toDto |> SessionMapper.toSigned false))
+
+                let unreadable =
+                    StoredVersion.Unreadable
+                        {
+                            Id = "plan-2"
+                            No = 2
+                            PatientId = "stub-patient"
+                            Base = Some signed.Head.Id
+                            SignedBy =
+                                {
+                                    UserId = "b"
+                                    DisplayName = "B"
+                                }
+                            SignedAt = signed.Head.SignedAt
+                            Reason = "json_version 9 is newer than this release knows"
+                        }
+
+                (SessionMapper.toOpened false { stored with Head = Some unreadable }).Head
+                |> Expect.isNone "an unreadable head cannot be shown"
+
+                SessionMapper.toOpened
+                    false
+                    { stored with
+                        User = None
+                        PatientId = None
+                        Patient = None
+                        Head = None
+                    }
+                |> Expect.equal
+                    "anonymous, from nothing"
+                    {
+                        User = None
+                        PatientContext = None
+                        OpenedToken = Some(OpenedToken "opened-1")
+                        KeyThumbprint = Some "thumb"
+                        Head = None
+                    }
             }
         ]

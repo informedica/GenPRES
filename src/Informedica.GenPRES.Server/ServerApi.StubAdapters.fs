@@ -172,8 +172,17 @@ module StubPatientData =
         |> Option.defaultValue Shared.Models.Patient.empty
 
 
+    /// The reading parsed at the adapter: what the platform gives is a patient, or it is no
+    /// reading.
     let port: PatientDataPort =
-        { read = fun pid -> if pid = "no-data" then None else Some patient }
+        {
+            read =
+                fun pid ->
+                    if pid = "no-data" then
+                        None
+                    else
+                        patient |> Patient.parse |> Result.toOption
+        }
 
 
 /// The credential half of the Database, seeded for the stub logins: the Prescribers that sign
@@ -383,14 +392,12 @@ module StubDatabase =
             match persist write with
             | Session.StoreOutcome.Written -> next, answer
             | Session.StoreOutcome.Conflict winner ->
-                state, SigningOutcome.Refused(SigningRefusal.Blocked(Session.StoredVersion.head winner))
+                state, SigningOutcome.Refused(SigningRefusal.Blocked(StoredVersion.head winner))
             | Session.StoreOutcome.Failed _ -> state, SigningOutcome.Refused SigningRefusal.StoreFailed
 
 
-    /// The session port over an in-memory store. `demo` is the server's flag, told on every
-    /// context of a version the client gets.
+    /// The session port over an in-memory store.
     let makeSessionPort
-        (demo: bool)
         (now: unit -> DateTime)
         (newId: unit -> string)
         (newCode: unit -> string)
@@ -406,10 +413,6 @@ module StubDatabase =
         =
         let gate = obj ()
         let mutable state = initial
-
-        let toSigned =
-            Informedica.GenOrder.Lib.OrderPlanVersion.Dto.toDto
-            >> SessionMapper.toSigned demo
 
         let update f =
             lock
@@ -432,7 +435,6 @@ module StubDatabase =
                                 Session.callback
                                     (now ())
                                     newId
-                                    toSigned
                                     newCode
                                     codeMac
                                     idp.redeem
@@ -454,7 +456,6 @@ module StubDatabase =
                                 Session.supplyPin
                                     (now ())
                                     newId
-                                    toSigned
                                     newSalt
                                     codeMac
                                     registry.standing
@@ -484,7 +485,6 @@ module StubDatabase =
                                             (now ())
                                             newId
                                             digest
-                                            toSigned
                                             registry.standing
                                             mail.send
                                             sid
@@ -494,5 +494,5 @@ module StubDatabase =
                             )
                     }
             seen = fun sid opened -> async { return update (Session.seen (now ()) sid opened) }
-            openVersion = fun sid id -> async { return update (Session.openVersion (now ()) newId toSigned sid id) }
+            openVersion = fun sid id -> async { return update (Session.openVersion (now ()) newId sid id) }
         }

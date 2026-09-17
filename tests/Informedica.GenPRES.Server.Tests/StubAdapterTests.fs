@@ -344,10 +344,19 @@ module SessionStubTests =
         |> Result.defaultWith (fun e -> failtest $"no plan: %A{e}")
 
 
-    /// A version as the client keeps it, on the demo server the tests run as.
-    let toSigned =
-        Informedica.GenOrder.Lib.OrderPlanVersion.Dto.toDto
-        >> SessionMapper.toSigned true
+    /// The contract model's patient parsed into the domain, as the adapters do it.
+    let parsePatient (p: Patient) =
+        p
+        |> Patient.parse
+        |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
+
+
+    /// A signed order plan as the record holds it: parsed at load.
+    let versionOfSigned (v: SignedOrderPlan) =
+        v
+        |> SessionMapper.ofSigned
+        |> Informedica.GenOrder.Lib.OrderPlanVersion.Dto.fromDto
+        |> Result.defaultWith (fun e -> failtest $"no version: %A{e}")
 
 
     /// A signed version as the record holds it: the one literal of the type in these tests,
@@ -388,14 +397,7 @@ module SessionStubTests =
 
     /// A patient's versions as the store keeps them, newest first: parsed at load.
     let storedOf (versions: SignedOrderPlan list) =
-        versions
-        |> List.map (fun v ->
-            v
-            |> SessionMapper.ofSigned
-            |> Informedica.GenOrder.Lib.OrderPlanVersion.Dto.fromDto
-            |> Result.defaultWith (fun e -> failtest $"no version: %A{e}")
-            |> Session.StoredVersion.Readable
-        )
+        versions |> List.map (versionOfSigned >> StoredVersion.Readable)
 
 
     /// The records of the store: each patient's versions, newest first.
@@ -413,8 +415,8 @@ module SessionStubTests =
         |> Option.defaultValue []
         |> List.choose (fun v ->
             match v with
-            | Session.StoredVersion.Readable v -> Some v
-            | Session.StoredVersion.Unreadable _ -> None
+            | StoredVersion.Readable v -> Some v
+            | StoredVersion.Unreadable _ -> None
         )
 
 
@@ -431,7 +433,7 @@ module SessionStubTests =
         {
             Nonce = nonce
             Digest = OrderPlan.create pat contexts |> parsed |> StubDatabase.digest
-            Reading = reading
+            Reading = reading |> Option.map parsePatient
             Expiry = expiry
         }
 
@@ -440,7 +442,7 @@ module SessionStubTests =
     let noticeOf (nonce: string) (data: Patient option) (expiry: DateTime) : Session.Notice =
         {
             Nonce = nonce
-            Data = data
+            Data = data |> Option.map parsePatient
             Expiry = expiry
         }
 
@@ -455,17 +457,11 @@ module SessionStubTests =
         : Session.SessionRecord
         =
         {
-            Session =
+            Opened =
                 {
                     User = user
-                    PatientContext =
-                        patient
-                        |> Option.map (fun (pid, data) ->
-                            {
-                                PatientId = pid
-                                Patient = data
-                            }
-                        )
+                    PatientId = patient |> Option.map fst
+                    Patient = patient |> Option.bind snd |> Option.map parsePatient
                     OpenedToken = Some(OpenedToken $"opened-{sid}")
                     KeyThumbprint = Some "t"
                     Head = None
@@ -520,7 +516,6 @@ module SessionStubTests =
 
         let port =
             StubDatabase.makeSessionPort
-                true
                 (fun () -> clock.Value)
                 (fun () ->
                     count.Value <- count.Value + 1
@@ -635,7 +630,6 @@ module SessionStubTests =
             Session.callback
                 t0
                 ids
-                toSigned
                 (codes ())
                 codeMac
                 directory.idp.redeem
@@ -746,19 +740,17 @@ module SessionStubTests =
                             let record = state.Sessions[id]
                             record.Login |> Expect.equal "login" (Some "prescriber")
 
-                            record.Session.User
+                            record.Opened.User
                             |> Option.map _.Role
                             |> Expect.equal "role" (Some UserRole.Prescriber)
 
-                            record.Session.PatientContext
-                            |> Option.map _.PatientId
-                            |> Expect.equal "patient" (Some "patient-1")
+                            record.Opened.PatientId |> Expect.equal "patient" (Some "patient-1")
 
-                            record.Session.KeyThumbprint
+                            record.Opened.KeyThumbprint
                             |> Expect.equal "thumbprint" (Some(PublicKey.thumbprint keyA))
 
                             record.OpenedWith |> Expect.isNone "opened from nothing (Rule 19)"
-                            record.Session.Head |> Expect.isNone "no version to load"
+                            record.Opened.Head |> Expect.isNone "no version to load"
                             state.Launches["n-1"].Outcome |> Expect.isSome "outcome appended"
                         | other -> failtest $"expected Opened, got {other}"
                     }
@@ -789,7 +781,7 @@ module SessionStubTests =
                             }
 
                         Session.headOf "patient-1" record
-                        |> Option.map Session.StoredVersion.id
+                        |> Option.map StoredVersion.id
                         |> Expect.equal "newest first" (Some "plan-2")
 
                         Session.headOf "patient-3" record |> Expect.isNone "no record"
@@ -801,8 +793,10 @@ module SessionStubTests =
                         | CallbackResult.Opened(id, _) ->
                             state.Sessions[id].OpenedWith |> Expect.equal "the head at open" (Some "plan-2")
 
-                            state.Sessions[id].Session.Head
-                            |> Expect.equal "the version itself, for the cart" (Some(signedAs "prescriber-b" 2))
+                            state.Sessions[id].Opened.Head
+                            |> Expect.equal
+                                "the version itself, for the cart"
+                                (Some(StoredVersion.Readable(versionOfSigned (signedAs "prescriber-b" 2))))
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -823,7 +817,7 @@ module SessionStubTests =
                                 t0
 
                         let unreadable =
-                            Session.StoredVersion.Unreadable
+                            StoredVersion.Unreadable
                                 {
                                     Id = "plan-2"
                                     No = 2
@@ -847,15 +841,18 @@ module SessionStubTests =
                         match result with
                         | CallbackResult.Opened(id, _) ->
                             let r = state.Sessions[id]
-                            r.Session.Head |> Expect.isNone "nothing to show"
+
+                            r.Opened.Head
+                            |> Expect.equal "held, so that it is told it cannot be shown" (Some unreadable)
+
                             r.OpenedWith |> Expect.isNone "not opened with a version it cannot show"
 
                             state
-                            |> Session.seen t0 id r.Session.OpenedToken
+                            |> Session.seen t0 id r.Opened.OpenedToken
                             |> snd
                             |> Expect.equal
                                 "told the record moved on"
-                                (Some(RecordNotice.NewerVersion(Session.StoredVersion.head unreadable)))
+                                (Some(RecordNotice.NewerVersion(StoredVersion.head unreadable)))
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -888,10 +885,12 @@ module SessionStubTests =
 
                         match result with
                         | CallbackResult.Opened(id, _) ->
-                            let ctx = state.Sessions[id].Session.PatientContext
-                            ctx |> Option.map _.PatientId |> Expect.equal "patient id" (Some "no-data")
-                            ctx |> Option.bind _.Patient |> Expect.equal "the signed patient" (Some entered)
-                            state.Sessions[id].Session.Head |> Expect.equal "the version" (Some signed)
+                            let o = state.Sessions[id].Opened
+                            o.PatientId |> Expect.equal "patient id" (Some "no-data")
+                            o.Patient |> Expect.equal "the signed patient" (Some(parsePatient entered))
+
+                            o.Head
+                            |> Expect.equal "the version" (Some(StoredVersion.Readable(versionOfSigned signed)))
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -922,9 +921,8 @@ module SessionStubTests =
 
                         match result with
                         | CallbackResult.Opened(id, _) ->
-                            state.Sessions[id].Session.PatientContext
-                            |> Option.bind _.Patient
-                            |> Expect.equal "the platform's" (Some StubPatientData.patient)
+                            state.Sessions[id].Opened.Patient
+                            |> Expect.equal "the platform's" (Some(parsePatient StubPatientData.patient))
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -935,7 +933,7 @@ module SessionStubTests =
 
                         match result with
                         | CallbackResult.Opened(id, _) ->
-                            state.Sessions[id].Session.User
+                            state.Sessions[id].Opened.User
                             |> Option.map _.Role
                             |> Expect.equal "role" (Some UserRole.Reader)
                         | other -> failtest $"expected Opened, got {other}"
@@ -1036,7 +1034,6 @@ module SessionStubTests =
                             Session.callback
                                 late
                                 ids
-                                toSigned
                                 (codes ())
                                 codeMac
                                 d.idp.redeem
@@ -1078,10 +1075,9 @@ module SessionStubTests =
 
                         match result with
                         | CallbackResult.Opened(id, _) ->
-                            let ctx = state.Sessions[id].Session.PatientContext
-                            ctx |> Option.map _.PatientId |> Expect.equal "patient id" (Some "no-data")
-
-                            ctx |> Option.bind _.Patient |> Expect.equal "no patient data" None
+                            let o = state.Sessions[id].Opened
+                            o.PatientId |> Expect.equal "patient id" (Some "no-data")
+                            o.Patient |> Expect.equal "no patient data" None
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -1162,7 +1158,6 @@ module SessionStubTests =
 
                         let port =
                             StubDatabase.makeSessionPort
-                                true
                                 (fun () -> t0)
                                 ids
                                 (codes ())
@@ -1584,7 +1579,6 @@ module SessionStubTests =
             Session.callback
                 now
                 f.ids
-                toSigned
                 f.newCode
                 codeMac
                 f.d.idp.redeem
@@ -1615,7 +1609,6 @@ module SessionStubTests =
             Session.supplyPin
                 now
                 f.ids
-                toSigned
                 salts
                 codeMac
                 f.d.registry.standing
@@ -1847,9 +1840,7 @@ module SessionStubTests =
                             |> Option.map _.Role
                             |> Expect.equal "role" (Some UserRole.Prescriber)
 
-                            session.PatientContext
-                            |> Option.map _.PatientId
-                            |> Expect.equal "patient" (Some "patient-1")
+                            session.PatientId |> Expect.equal "patient" (Some "patient-1")
 
                             session.KeyThumbprint
                             |> Expect.equal "the attempt's key" (Some(PublicKey.thumbprint keyA))
@@ -1997,7 +1988,6 @@ module SessionStubTests =
                             Session.supplyPin
                                 t0
                                 f.ids
-                                toSigned
                                 salts
                                 codeMac
                                 moved
@@ -2030,7 +2020,6 @@ module SessionStubTests =
                             Session.supplyPin
                                 t0
                                 f.ids
-                                toSigned
                                 salts
                                 codeMac
                                 reader
@@ -2058,7 +2047,6 @@ module SessionStubTests =
                             Session.supplyPin
                                 t0
                                 f.ids
-                                toSigned
                                 salts
                                 codeMac
                                 (fun _ -> None)
@@ -2324,7 +2312,7 @@ module SessionStubTests =
                 }
 
             let openAt sid id state =
-                Session.openVersion t1 (counter "id") toSigned sid id state
+                Session.openVersion t1 (counter "id") sid id state
 
             testList
                 "Session.openVersion"
@@ -2352,7 +2340,7 @@ module SessionStubTests =
                     test "an id the record does not hold: nothing opens, the Session as it is, token kept" {
                         let state, answer = movedOn |> openAt "s-1" "plan-9"
 
-                        answer |> Expect.equal "as it is" (Some movedOn.Sessions["s-1"].Session)
+                        answer |> Expect.equal "as it is" (Some movedOn.Sessions["s-1"].Opened)
 
                         state.Sessions["s-1"].OpenedWith |> Expect.equal "unchanged" (Some "plan-1")
                         state.Challenges |> Map.containsKey "s-1" |> Expect.isTrue "challenge kept"
@@ -2365,7 +2353,11 @@ module SessionStubTests =
                         match answer with
                         | Some opened ->
                             opened.OpenedToken |> Expect.equal "kept" (Some(OpenedToken "opened-s-1"))
-                            opened.Head |> Expect.equal "the version" (Some(signedBy prescriber 1))
+
+                            opened.Head
+                            |> Expect.equal
+                                "the version"
+                                (Some(StoredVersion.Readable(versionOfSigned (signedBy prescriber 1))))
                         | other -> failtest $"expected the Session, got {other}"
 
                         state.Challenges |> Map.containsKey "s-1" |> Expect.isTrue "challenge kept"
@@ -2377,13 +2369,17 @@ module SessionStubTests =
                         match answer with
                         | Some opened ->
                             opened.OpenedToken |> Expect.equal "re-minted" (Some(OpenedToken "opened-id-1"))
-                            opened.Head |> Expect.equal "B's version" (Some(signedBy other 2))
+
+                            opened.Head
+                            |> Expect.equal
+                                "B's version"
+                                (Some(StoredVersion.Readable(versionOfSigned (signedBy other 2))))
                         | other -> failtest $"expected the Session, got {other}"
 
                         state.Sessions["s-1"].OpenedWith
                         |> Expect.equal "opened with the head" (Some "plan-2")
 
-                        state.Sessions["s-1"].Session.OpenedToken
+                        state.Sessions["s-1"].Opened.OpenedToken
                         |> Expect.equal "held" (Some(OpenedToken "opened-id-1"))
 
                         state.Challenges |> Expect.isEmpty "challenge dropped"
@@ -2417,7 +2413,9 @@ module SessionStubTests =
                         let state, answer = three |> openAt "s-1" "plan-2"
 
                         match answer with
-                        | Some opened -> opened.Head |> Expect.equal "plan-2" (Some(signedBy other 2))
+                        | Some opened ->
+                            opened.Head
+                            |> Expect.equal "plan-2" (Some(StoredVersion.Readable(versionOfSigned (signedBy other 2))))
                         | other -> failtest $"expected the Session, got {other}"
 
                         Session.blockedBy state.Sessions["s-1"] "pat-1" state
@@ -2425,7 +2423,7 @@ module SessionStubTests =
                         |> Expect.equal "the head still blocks" (Some "plan-3")
 
                         state
-                        |> Session.seen t1 "s-1" state.Sessions["s-1"].Session.OpenedToken
+                        |> Session.seen t1 "s-1" state.Sessions["s-1"].Opened.OpenedToken
                         |> snd
                         |> Expect.isSome "and the notice says so again (Rule 21)"
                     }
@@ -2534,13 +2532,14 @@ module SessionStubTests =
                         state.Challenges |> Expect.isEmpty "no challenge yet"
                     }
 
-                    test "a reread that is no patient is no reading: told unverified, as when the platform has none" {
+                    test
+                        "no reading at the reread (the adapter answers none for a reading that is no patient): told unverified" {
                         let state, answer =
                             Session.challenge
                                 t0
                                 (counter "n")
                                 StubDatabase.digest
-                                (fun _ -> Some Shared.Models.Patient.empty)
+                                (fun _ -> None)
                                 "s-1"
                                 (parsed plan, token "s-1", None)
                                 (stateOf [ opened ] [])
@@ -2581,7 +2580,9 @@ module SessionStubTests =
                             <| (OrderPlan.create otherData [||], token "s-1")
 
                         answer
-                        |> Expect.equal "changed: told" (SigningOutcome.DataNotice("n-1", Some stubPatient))
+                        |> Expect.equal
+                            "changed: told"
+                            (SigningOutcome.DataNotice("n-1", Some(parsePatient stubPatient)))
 
                         state.Challenges |> Expect.isEmpty "no challenge yet"
 
@@ -2590,7 +2591,7 @@ module SessionStubTests =
                             "stored"
                             {
                                 Nonce = "n-1"
-                                Data = Some stubPatient
+                                Data = Some(parsePatient stubPatient)
                                 Expiry = t0 + minutes 2.0
                             }
 
@@ -2649,7 +2650,8 @@ module SessionStubTests =
                         let state, told =
                             ask (t0 + seconds 30.0) nonces changed "s-1" (OrderPlan.create otherData [||], token "s-1")
 
-                        told |> Expect.equal "told" (SigningOutcome.DataNotice("n-2", Some stubPatient))
+                        told
+                        |> Expect.equal "told" (SigningOutcome.DataNotice("n-2", Some(parsePatient stubPatient)))
 
                         state.Challenges |> Expect.isEmpty "the earlier challenge is gone"
                     }
@@ -2670,7 +2672,7 @@ module SessionStubTests =
                         answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-2")
 
                         state.Challenges["s-1"].Reading
-                        |> Expect.equal "the platform's reading" (Some stubPatient)
+                        |> Expect.equal "the platform's reading" (Some(parsePatient stubPatient))
 
                         state.Challenges["s-1"].Digest
                         |> Expect.equal "over the data told" (StubDatabase.digest (parsed plan))
@@ -2700,18 +2702,18 @@ module SessionStubTests =
 
                         askWith "n-9" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "wrong" (SigningOutcome.DataNotice("n-2", Some stubPatient))
+                        |> Expect.equal "wrong" (SigningOutcome.DataNotice("n-2", Some(parsePatient stubPatient)))
 
                         askWith "n-1" (t0 + minutes 3.0) nonces state "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "expired" (SigningOutcome.DataNotice("n-3", Some stubPatient))
+                        |> Expect.equal "expired" (SigningOutcome.DataNotice("n-3", Some(parsePatient stubPatient)))
 
                         let spent, _ =
                             askWith "n-1" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
 
                         askWith "n-1" (t0 + seconds 10.0) nonces spent "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "spent" (SigningOutcome.DataNotice("n-5", Some stubPatient))
+                        |> Expect.equal "spent" (SigningOutcome.DataNotice("n-5", Some(parsePatient stubPatient)))
 
                         // a notice over another reading than the platform's now does not fit
                         let other =
@@ -2721,7 +2723,7 @@ module SessionStubTests =
 
                         askWith "n-1" (t0 + seconds 5.0) nonces other "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "unfitting" (SigningOutcome.DataNotice("n-6", Some stubPatient))
+                        |> Expect.equal "unfitting" (SigningOutcome.DataNotice("n-6", Some(parsePatient stubPatient)))
                     }
 
                     test "the same order twice in the plan gets no challenge (Concept 10)" {
@@ -2834,7 +2836,7 @@ module SessionStubTests =
                             {
                                 Nonce = "n-1"
                                 Digest = StubDatabase.digest (parsed plan)
-                                Reading = Some stubPatient
+                                Reading = Some(parsePatient stubPatient)
                                 Expiry = t0 + minutes 2.0
                             }
                     }
@@ -2942,7 +2944,7 @@ module SessionStubTests =
             let submitAt now ids send state sid (s: Signature) =
                 StubDatabase.submitWith
                     StubDatabase.persistNothing
-                    (fun st -> Session.commit now ids StubDatabase.digest toSigned registry send sid s st)
+                    (fun st -> Session.commit now ids StubDatabase.digest registry send sid s st)
                     state
 
             let submit state sid s =
@@ -2975,16 +2977,17 @@ module SessionStubTests =
                             state |> versionsOf "stub-patient" |> Expect.equal "appended" [ version ]
                             state.Challenges |> Expect.isEmpty "spent"
                             state.Sessions["s-1"].OpenedWith |> Expect.equal "the new head" (Some "id-1")
-                            state.Sessions["s-1"].Session.OpenedToken |> Expect.equal "held" (Some fresh)
+                            state.Sessions["s-1"].Opened.OpenedToken |> Expect.equal "held" (Some fresh)
 
-                            state.Sessions["s-1"].Session.Head
-                            |> Expect.equal "a resume opens on the version just signed" (Some(toSigned version))
+                            state.Sessions["s-1"].Opened.Head
+                            |> Expect.equal
+                                "a resume opens on the version just signed"
+                                (Some(StoredVersion.Readable version))
 
-                            state.Sessions["s-1"].Session.PatientContext
-                            |> Option.bind _.Patient
+                            state.Sessions["s-1"].Opened.Patient
                             |> Expect.equal
                                 "verified: the Session's patient is the reading, unchanged (#640)"
-                                (Some stubPatient)
+                                (Some(parsePatient stubPatient))
 
                             state.Answered[("s-1", "k-1")] |> fst |> Expect.equal "remembered" answer
                         | other -> failtest $"expected Submitted, got {other}"
@@ -2995,7 +2998,7 @@ module SessionStubTests =
 
                         let again =
                             { submission "s-1" "1234" "k-2" with
-                                Opened = state.Sessions["s-1"].Session.OpenedToken.Value
+                                Opened = state.Sessions["s-1"].Opened.OpenedToken.Value
                             }
 
                         match submitAt (t0 + minutes 1.0) ids ignore state "s-1" again |> snd with
@@ -3202,17 +3205,14 @@ module SessionStubTests =
 
                         match answer with
                         | SigningOutcome.Submitted(version, _) ->
-                            (toSigned version).Patient |> Expect.equal "the data signed" otherData
+                            version.Plan.Patient |> Expect.equal "the data signed" (parsePatient otherData)
                             version.Verified |> Expect.isFalse "no reading"
 
-                            state.Sessions["s-1"].Session.PatientContext
-                            |> Expect.equal
-                                "the Session's patient, for the resume"
-                                (Some
-                                    {
-                                        PatientId = "no-data"
-                                        Patient = Some otherData
-                                    })
+                            state.Sessions["s-1"].Opened.PatientId
+                            |> Expect.equal "the Session's patient, for the resume" (Some "no-data")
+
+                            state.Sessions["s-1"].Opened.Patient
+                            |> Expect.equal "the data signed, for the resume" (Some(parsePatient otherData))
                         | other -> failtest $"expected Submitted, got {other}"
                     }
 
@@ -3227,7 +3227,7 @@ module SessionStubTests =
                                     sid,
                                     { over with
                                         Digest = StubDatabase.digest (parsed (OrderPlan.create otherData [||]))
-                                        Reading = Some otherData
+                                        Reading = Some(parsePatient otherData)
                                     }
                                 ]
 
@@ -3241,9 +3241,8 @@ module SessionStubTests =
                         | SigningOutcome.Submitted(version, _) ->
                             version.Verified |> Expect.isTrue "the reading"
 
-                            state.Sessions["s-1"].Session.PatientContext
-                            |> Option.bind _.Patient
-                            |> Expect.equal "the newer reading, not the one opened on" (Some otherData)
+                            state.Sessions["s-1"].Opened.Patient
+                            |> Expect.equal "the newer reading, not the one opened on" (Some(parsePatient otherData))
                         | other -> failtest $"expected Submitted, got {other}"
                     }
 

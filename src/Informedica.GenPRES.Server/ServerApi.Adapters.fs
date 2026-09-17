@@ -314,7 +314,6 @@ module Adapters =
             // as this AppEnv
             session =
                 StubDatabase.makeSessionPort
-                    demo
                     (fun () -> DateTime.UtcNow)
                     PublicKey.randomId
                     // the confirmation code and the salt from the CSPRNG, the code mac under

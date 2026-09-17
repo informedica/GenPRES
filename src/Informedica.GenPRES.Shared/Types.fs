@@ -685,6 +685,9 @@ module Types =
         | SupersededByLaunch
         // the third wrong PIN at a signature
         | WrongPinLimit
+        // the store holds this Session's working state in a form this release cannot read;
+        // a relaunch opens a fresh one
+        | Unreadable
 
 
     /// What the client learns when its launch is waiting on a PIN: whom to greet and
