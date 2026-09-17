@@ -137,31 +137,71 @@ let machineTests =
                 | other -> failtest $"expected Opened, got %A{other}"
             }
 
-            test "callback: the two halves answer as the callback does" {
-                let d = directory ()
-                let newId = ids ()
-                let state, cb = presentedFor "prescriber" "n-1" d newId seeded
+            test "callback: the two halves answer, change the state and write as the whole does" {
+                // a redeem that is not one-time, so the two runs redeem the same code, and ids
+                // from a counter of their own, so the two runs mint the same ones
+                let redeem _ =
+                    Some
+                        {
+                            Login = "prescriber"
+                            DisplayName = "Stub Prescriber"
+                        }
 
-                match Session.redeem t0 d.idp.redeem d.registry.standing state cb with
-                | Session.Redeemed.Identified(record, identity, standing) ->
-                    let _, answer, writes =
+                let d = directory ()
+                let state, cb = presentedFor "prescriber" "n-1" d (ids ()) seeded
+
+                let whole =
+                    Session.callback
+                        t0
+                        (ids ())
+                        (codes ())
+                        codeMac
+                        redeem
+                        Store.registry
+                        StubPatientData.port.read
+                        ignore
+                        state
+                        cb
+
+                let halves =
+                    match Session.redeem t0 redeem Store.registry state cb with
+                    | Session.Redeemed.Identified(record, identity, standing) ->
                         Session.openAfterRedeem
                             t0
-                            newId
+                            (ids ())
                             (codes ())
                             codeMac
                             StubPatientData.port.read
                             ignore
                             (record, identity, standing)
                             state
+                    | other -> failtest $"expected Identified, got %A{other}"
 
-                    match answer with
-                    | CallbackResult.Opened _ ->
-                        writes
-                        |> names
-                        |> Expect.contains "the outcome is written" "RecordLaunchOutcome"
-                    | other -> failtest $"expected Opened, got %A{other}"
-                | other -> failtest $"expected Identified, got %A{other}"
+                halves |> Expect.equal "the state, the answer and the writes" whole
+
+                // the comparison alone proves only that the two routes agree, since `callback`
+                // composes the halves: what the open comes to is asserted as well
+                match whole with
+                | next, CallbackResult.Opened(sid, _), writes ->
+                    writes
+                    |> names
+                    |> Expect.equal "an open" [ "OpenSession"; "RecordOpenedWith"; "RecordLaunchOutcome" ]
+
+                    match writes with
+                    | [ Session.OpenSession(a, opened)
+                        Session.RecordOpenedWith(b, alsoOpened, at)
+                        Session.RecordLaunchOutcome(nonce, LaunchResult.Opened(c, _), at') ] ->
+                        [ a; b; c ] |> Expect.equal "the Session opened" [ sid; sid; sid ]
+                        opened |> Expect.equal "the Session as the state holds it" next.Sessions[sid]
+                        alsoOpened |> Expect.equal "what it opened with, the same Session" opened
+                        [ at; at' ] |> Expect.equal "at the request's time" [ t0; t0 ]
+                        nonce |> Expect.equal "the Launch" "n-1"
+                    | other -> failtest $"%A{other}"
+
+                    next.Sessions[sid].Login |> Expect.equal "the login" (Some "prescriber")
+
+                    next.Launches["n-1"].Outcome |> Expect.isSome "the launch carries its outcome"
+                | _, other, _ -> failtest $"expected Opened, got %A{other}"
             }
 
             test "callback: a refusal writes the outcome only" {
