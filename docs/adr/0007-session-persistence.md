@@ -7,9 +7,9 @@ Decision 4); § 3: Accepted (amended 2026-09-16 for ADR-0008; accepted 2026-09-1
 session service came to hold what the section says it holds, plan 725 Phase 5, #776 and #778);
 § 2 and § 4 amended 2026-09-17: nothing is deleted, and SQLite is the test and development
 database; § 1 and § 4: Accepted (2026-09-17, when plan 516 step 4b landed: a store exists,
-SQLite runs it, `GENPRES_DB_CONNECTION` switches to it and production refuses the key). § 2 is
-accepted when plan 516 step 6 lands (the launch race proves the append-only rule on the session
-table).
+SQLite runs it, `GENPRES_DB_CONNECTION` switches to it and production refuses the key); § 2:
+Accepted (2026-09-18, when plan 516 step 6 landed: two launches of one User are decided by the
+ordering of the session rows, with no lock and no uniqueness on the login).
 
 **Related Issues**: [#516 — GenPRES SessionRecord Store](https://github.com/informedica/GenPRES/issues/516),
 [#580 — Scope switch to expose only the accredited parts in production](https://github.com/informedica/GenPRES/issues/580)
@@ -55,6 +55,11 @@ memory: Rule 42 commits a Session check and a clinical append in one multi-row t
 Rules 32 and 36 rule out memory.
 
 ### 2. Append-only, nothing deleted — amended 2026-09-17
+
+*Status of this section: Accepted (2026-09-18).* The launch, session, opened-with, heartbeat,
+ending and acknowledgement tables are built this way and the port reads and writes them
+(plan 516 step 6); the credential, code, enrolment, notice, challenge and audit tables follow in
+steps 7 to 9, under the same rule.
 
 Every table is insert-only. For a User, and for a browser, only the newest row for that key by
 the table's own monotonic id can be the open Session: it is open unless an ending names it, and

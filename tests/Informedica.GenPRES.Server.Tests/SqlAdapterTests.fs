@@ -717,6 +717,83 @@ let tests =
                     }
                 )
 
+
+            testOnFile
+                "a request whose writes the store refuses sends no mail"
+                (fun cs ->
+                    async {
+                        let readOnly =
+                            SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
+
+                        // the launch lands, so the hop reaches the PIN question; the writes of
+                        // the callback that suspends into enrolment do not
+                        let inner = SqlSessions.store ignore cs (fun () -> t0)
+                        let refusing = ref false
+
+                        let store =
+                            { inner with
+                                persist =
+                                    fun writes ->
+                                        if refusing.Value then
+                                            SqlSessions.runWrites readOnly writes
+                                        else
+                                            inner.persist writes
+                            }
+
+                        let port, directory, outbox = portOver store
+                        let! cb = presented port directory "n-1" "no-pin"
+                        refusing.Value <- true
+
+                        let! failed = fails (port.callback cb)
+                        failed |> Expect.isTrue "the call fails"
+
+                        outbox.sent () |> Expect.isEmpty "the confirmation code was never sent"
+
+                        // a fresh hop, since the one-time code the first one carried is spent:
+                        // with the store taking the writes, the code does go out
+                        refusing.Value <- false
+                        let! next = presented port directory "n-2" "no-pin"
+
+                        match! port.callback next with
+                        | CallbackResult.Enrolling _ ->
+                            outbox.sent ()
+                            |> List.exists (fun m -> m.Subject.Contains "confirmation code")
+                            |> Expect.isTrue "the code went out once the writes landed"
+                        | other -> failtest $"expected Enrolling, got %A{other}"
+                    }
+                )
+
+
+            testOnFile
+                "the mail of a request that writes but is not a sign goes out too"
+                (fun cs ->
+                    async {
+                        let port, directory, outbox = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let! sid, opened = openAs port directory "n-1" "prescriber"
+                        let! signature = challenged port sid opened "k-1"
+
+                        // three wrong PINs: the Session ends at the limit and the User is told
+                        for attempt in [ "0000"; "0001"; "0002" ] do
+                            let! _ =
+                                port.submit
+                                    sid
+                                    { signature with
+                                        Pin = attempt
+                                        IdemKey = attempt
+                                    }
+
+                            ()
+
+                        outbox.sent ()
+                        |> List.exists (fun m -> m.Subject.Contains "signing")
+                        |> Expect.isTrue $"the lock was mailed: %A{outbox.sent () |> List.map _.Subject}"
+
+                        match! port.find sid with
+                        | SessionLookup.Ended SessionEnding.WrongPinLimit -> ()
+                        | other -> failtest $"expected the Session ended at the limit, got %A{other}"
+                    }
+                )
+
         ]
 
 

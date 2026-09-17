@@ -219,10 +219,20 @@ inside the pure function through the injected `send` and before the request's wr
 the confirmation code when a launch suspends into enrolment, that the PIN was set at
 `supplyPin`, and that signing is locked at the third wrong PIN. Once a request's writes reach a
 database, a failed write would leave a mail sent for an act that did not happen, and a retry
-could mail again. So from step 6c, where the first writes of those requests land, a member
-returns its mails next to its writes and the adapter sends them only after the writes landed,
-never before; step 7 adds the credential and code rows under the same rule. Until 6c nothing of
-these acts is stored, so no mail can outlive a failed write.
+could mail again. So from step 6c nothing reaches the MailService before the writes of the
+request that asked for it have landed; step 7 adds the credential and code rows under the same
+rule. Until 6c nothing of these acts is stored, so no mail could outlive a failed write.
+
+Where that is enforced was decided in step 6c (2026-09-18). This plan said the members would
+return their mails next to their writes, as they return their `Persist` values. They do not: the
+port hands the machine a `send` that collects, and sends what it collected only once the store
+has taken the writes; a request whose writes are refused answers as if it never ran and its mail
+is dropped with the rest of it. The guarantee is the same one, in one place instead of in every
+member's signature and every test, and the machine's three mailing paths are untouched. The
+cost, stated plainly: the machine still calls `send`, so it is not free of the port in that
+respect, and a future reader of `Session.fs` cannot see from a signature that a mail is
+deferred. A member returning its mails as values remains the better shape if the machine is ever
+made free of its ports, and is the natural place to start that work.
 
 ### Config and wiring
 
@@ -986,6 +996,7 @@ choice is unknown, which is why it stays within the portable core.
 | 6c, prototype | #809 | `Scripts/SessionSlice.fsx`: the `Slice` a request is keyed by and the `SessionStore` over it; the SQL loader per slice; the port taking a slice instead of a patient, with the login's rows loaded between `redeem` and `openAfterRedeem`; four tests through the port over a file. Two findings: a load replaces what the state held for the rows it read, never merges, else a Session ended elsewhere survives in the memory of the server that opened it; and a launch that opened a Session must answer with it even once that Session has ended, which `loadSession` cannot give, so the rows are read again as an `OpenedSession` |
 | 6c, migrate 1 of 3 | #810 | the loaders in `SqlSessions`: `withRecord`, `withSession`, `newestOfLogin`, `withLogin`, `withLaunch` and `openedOf`. A load drops what the state held for the ids it read before adding the rows, so a Session ended elsewhere does not survive in the memory of the server that opened it; a Launch that opened a Session answers with it once that Session has ended, rebuilt by `openedOf`; an unreadable Session says why through `warn`. Seven tests |
 | 6c, migrate 2 of 3 | #811 | the `Slice` a request is keyed by and `RecordStore` become `SessionStore`; every port member names its slice, the callback loading the launch first and the login's Sessions between `redeem` and `openAfterRedeem`; `SqlSessions.load`/`store`/`makeSessionPort` replace `SqlDatabase.store`, and the composition points at them. Four race tests over one file with two ports. 236 changed source lines, agreed with the maintainer as one indivisible type change. The crash retry now answers `StaleToken`, not `Blocked`: the lost reply's writes land, the re-minted token with them |
+| 6c, migrate 3 of 3 | #812 | the port collects the machine's mails and sends them only once the store took the writes, so a refused request sends none; the plan's mail rule records that the guarantee sits in the port rather than in every member's signature, and what that costs. ADR-0007 § 2 Accepted; DEVELOPMENT.md, uc-01's stand-ins table and its "not built" list say what a restart now keeps and what it still forgets. Step 6 done; step 7 next |
 
 ## Changes from the plan this replaces
 
