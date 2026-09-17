@@ -149,6 +149,7 @@ module SqlSchema =
 module SqlDatabase =
 
     open System
+    open System.IO
     open Microsoft.Data.Sqlite
     open Informedica.GenOrder.Lib
 
@@ -336,3 +337,57 @@ module SqlDatabase =
             with reread ->
                 Session.StoreOutcome.Failed reread.Message
         | e -> Session.StoreOutcome.Failed e.Message
+
+
+    /// <summary>
+    /// The record in the database: a load replaces the state's record with the patient's order
+    /// plan versions, a write inserts one. `warn` hears of every load that throws, which is
+    /// then rethrown, and of every unreadable version a load finds.
+    /// </summary>
+    let store (warn: string -> unit) (connectionString: string) : StubDatabase.RecordStore =
+        {
+            load =
+                fun pid s ->
+                    let versions =
+                        try
+                            loadRecords connectionString pid
+                        with e ->
+                            warn $"the record could not be loaded: %s{e.Message}"
+                            reraise ()
+
+                    for v in versions do
+                        match v with
+                        | StoredVersion.Unreadable u ->
+                            warn $"order plan version %s{u.Id} (number %i{u.No}) cannot be read: %s{u.Reason}"
+                        | StoredVersion.Readable _ -> ()
+
+                    { s with Records = Map.ofList [ pid, versions ] }
+            persist = persist connectionString
+        }
+
+
+    /// The session port over the record in the database.
+    let makeSessionPort warn connectionString =
+        StubDatabase.makeSessionPortWith (store warn connectionString)
+
+
+    /// <summary>
+    /// A connection string with a relative data source rooted at `root`, and the folder of the
+    /// file created when it is missing: SQLite creates the file, never its folder.
+    /// </summary>
+    let connectionString (root: string) (value: string) =
+        let builder = SqliteConnectionStringBuilder value
+
+        if
+            not (String.IsNullOrWhiteSpace builder.DataSource)
+            && builder.DataSource <> ":memory:"
+            && not (Path.IsPathRooted builder.DataSource)
+        then
+            builder.DataSource <- Path.Combine(root, builder.DataSource)
+
+        match Path.GetDirectoryName builder.DataSource with
+        | null
+        | "" -> ()
+        | dir -> Directory.CreateDirectory dir |> ignore
+
+        builder.ToString()

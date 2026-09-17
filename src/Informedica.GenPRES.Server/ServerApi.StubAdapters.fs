@@ -396,8 +396,49 @@ module StubDatabase =
             | Session.StoreOutcome.Failed _ -> state, SigningOutcome.Refused SigningRefusal.StoreFailed
 
 
-    /// The session port over an in-memory store.
-    let makeSessionPort
+    /// <summary>
+    /// Where the record lives: `load` puts a patient's order plan versions into the state
+    /// before a request runs, `persist` runs the write of a commit. The in-memory store keeps
+    /// the record in the state itself; the SQL store reads and writes the database.
+    /// </summary>
+    type RecordStore =
+        {
+            load: string -> Session.State -> Session.State
+            persist: Session.Persist -> Session.StoreOutcome
+        }
+
+
+    /// The record kept in the state: nothing to load, a write lands by being in it.
+    let inMemory =
+        {
+            load = fun _ s -> s
+            persist = persistNothing
+        }
+
+
+    /// The patient of the launch a callback returns to.
+    let patientOfCallback (cb: Callback) (s: Session.State) =
+        s.Launches
+        |> Map.tryPick (fun _ r -> if r.State = cb.State then Some r.PatientId else None)
+
+
+    /// The patient of an enrolment attempt.
+    let patientOfAttempt (attempt: string) (s: Session.State) =
+        s.Enrolments |> Map.tryFind attempt |> Option.map _.PatientId
+
+
+    /// The patient of a Session.
+    let patientOfSession (sid: string) (s: Session.State) =
+        s.Sessions |> Map.tryFind sid |> Option.bind _.Opened.PatientId
+
+
+    /// <summary>
+    /// The session port over a record store: every request runs under one lock; a request
+    /// that can touch a patient's record loads it first. A load that throws leaves the state
+    /// as it was; a signing request answers it as a store failure, any other request fails.
+    /// </summary>
+    let makeSessionPortWith
+        (store: RecordStore)
         (now: unit -> DateTime)
         (newId: unit -> string)
         (newCode: unit -> string)
@@ -414,72 +455,106 @@ module StubDatabase =
         let gate = obj ()
         let mutable state = initial
 
-        let update f =
+        let loaded patientOf =
+            match patientOf state with
+            | Some pid -> store.load pid state
+            | None -> state
+
+        let update patientOf f =
             lock
                 gate
                 (fun () ->
-                    let next, result = f state
+                    let next, result = f (loaded patientOf)
                     state <- next
                     result
                 )
 
+        let signing patientOf f =
+            lock
+                gate
+                (fun () ->
+                    match
+                        (try
+                            Ok(loaded patientOf)
+                         with _ ->
+                             Error())
+                    with
+                    | Error() -> SigningOutcome.Refused SigningRefusal.StoreFailed
+                    | Ok s ->
+                        let next, result = f s
+                        state <- next
+                        result
+                )
+
+        let none _ = None
+
         {
             present =
                 fun launch ->
-                    async { return update (fun s -> Session.present (now ()) newId verify idp.authorizeUrl s launch) }
+                    async {
+                        return update none (fun s -> Session.present (now ()) newId verify idp.authorizeUrl s launch)
+                    }
             callback =
                 fun cb ->
                     async {
                         return
-                            update (fun s ->
-                                Session.callback
-                                    (now ())
-                                    newId
-                                    newCode
-                                    codeMac
-                                    idp.redeem
-                                    registry.standing
-                                    patientData.read
-                                    mail.send
-                                    s
-                                    cb
-                            )
+                            update
+                                (patientOfCallback cb)
+                                (fun s ->
+                                    Session.callback
+                                        (now ())
+                                        newId
+                                        newCode
+                                        codeMac
+                                        idp.redeem
+                                        registry.standing
+                                        patientData.read
+                                        mail.send
+                                        s
+                                        cb
+                                )
                     }
-            find = fun id -> async { return update (Session.find (now ()) id) }
-            close = fun id -> async { return update (fun s -> Session.close id s, ()) }
-            findEnrolment = fun attempt -> async { return update (Session.findEnrolment (now ()) attempt) }
+            find = fun id -> async { return update none (Session.find (now ()) id) }
+            close = fun id -> async { return update none (fun s -> Session.close id s, ()) }
+            findEnrolment = fun attempt -> async { return update none (Session.findEnrolment (now ()) attempt) }
             supplyPin =
                 fun attempt code pin ->
                     async {
                         return
-                            update (fun s ->
-                                Session.supplyPin
-                                    (now ())
-                                    newId
-                                    newSalt
-                                    codeMac
-                                    registry.standing
-                                    patientData.read
-                                    mail.send
-                                    attempt
-                                    code
-                                    pin
-                                    s
-                            )
+                            update
+                                (patientOfAttempt attempt)
+                                (fun s ->
+                                    Session.supplyPin
+                                        (now ())
+                                        newId
+                                        newSalt
+                                        codeMac
+                                        registry.standing
+                                        patientData.read
+                                        mail.send
+                                        attempt
+                                        code
+                                        pin
+                                        s
+                                )
                     }
-            dropEnrolment = fun attempt -> async { return update (fun s -> Session.dropEnrolment attempt s, ()) }
+            dropEnrolment = fun attempt -> async { return update none (fun s -> Session.dropEnrolment attempt s, ()) }
             challenge =
                 fun sid request ->
                     async {
-                        return update (fun s -> Session.challenge (now ()) newId digest patientData.read sid request s)
+                        return
+                            signing
+                                (patientOfSession sid)
+                                (fun s -> Session.challenge (now ()) newId digest patientData.read sid request s)
                     }
             submit =
                 fun sid signature ->
                     async {
                         return
-                            update (
-                                submitWith
-                                    persistNothing
+                            signing
+                                (patientOfSession sid)
+                                (submitWith
+                                    store.persist
                                     (fun s ->
                                         Session.commit
                                             (now ())
@@ -490,9 +565,13 @@ module StubDatabase =
                                             sid
                                             signature
                                             s
-                                    )
-                            )
+                                    ))
                     }
-            seen = fun sid opened -> async { return update (Session.seen (now ()) sid opened) }
-            openVersion = fun sid id -> async { return update (Session.openVersion (now ()) newId sid id) }
+            seen = fun sid opened -> async { return update (patientOfSession sid) (Session.seen (now ()) sid opened) }
+            openVersion =
+                fun sid id -> async { return update (patientOfSession sid) (Session.openVersion (now ()) newId sid id) }
         }
+
+
+    /// The session port over an in-memory store.
+    let makeSessionPort = makeSessionPortWith inMemory
