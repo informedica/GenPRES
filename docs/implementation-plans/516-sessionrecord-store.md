@@ -283,8 +283,11 @@ What ADR-0008 invariant 5 and §6 decide, as this plan applies it to `order_plan
   form the signing digest is computed over: fields in declared order, arrays as the Dto holds
   them, `BigRational` as `numerator/denominator` in lowest terms, no whitespace; two order plans
   equal as domain values serialize equal. Plan 725 step 1.3 settles it; this plan uses it. The
-  digest is SHA-256 over that form, as `StubDatabase.digest` computes it since plan 725 step
-  5.1; the SQL adapter supplies the same function.
+  digest is SHA-256 over the UTF-8 bytes of the canonical serialization of `OrderPlan.Dto`, the
+  plan alone, never over the stored `OrderPlanVersion.Dto` around it, whose id, number, signer
+  and time are minted at the commit and cannot be part of what the challenge was issued over;
+  `StubDatabase.digest` computes it so since plan 725 step 5.1, and the SQL adapter supplies
+  the same function.
 - **Loading.** A request loads the rows of its patient, as the slice loads everything else,
   never every row at startup: a second server would not see an order plan version signed after
   it started. The adapter upgrades `plan` from `json_version` to the current structure with one
