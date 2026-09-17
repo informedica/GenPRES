@@ -239,6 +239,36 @@ module Adapters =
     /// set, the migrations are applied and the session port runs over the record in the
     /// database; unset, over the record in memory.
     /// </summary>
+    /// <summary>
+    /// The session store made ready before anything is hosted: the migrations applied and the
+    /// demo credentials seeded, each once. Answers what went wrong instead of raising, so that
+    /// a store that cannot be written is a refused start with a message and an exit code, not
+    /// a crash. A server without the setting has no store to prepare.
+    /// </summary>
+    let prepareStore (store: string option) : Result<unit, string> =
+        match store with
+        | None -> Ok()
+        | Some value ->
+            try
+                let cs =
+                    SqlDatabase.connectionString (Informedica.Utils.Lib.AppPath.rootPath ()) value
+
+                SqlSchema.apply cs |> ignore
+
+                // the machine reads a credential from the rows, so the demo logins need theirs
+                // in the file: without them no Prescriber could sign and nothing would say why
+                match
+                    SqlSessions.seed
+                        cs
+                        DateTime.UtcNow
+                        (StubCredentials.seed System.Security.Cryptography.RandomNumberGenerator.GetBytes)
+                with
+                | Session.StoreOutcome.Written -> Ok()
+                | outcome -> Error $"the session store could not be seeded with the demo credentials: %A{outcome}"
+            with e ->
+                Error $"the session store could not be prepared: %s{e.Message}"
+
+
     let makeAppEnvWith
         (demo: bool)
         (store: string option)
@@ -325,23 +355,6 @@ module Adapters =
                     | Some value ->
                         let cs =
                             SqlDatabase.connectionString (Informedica.Utils.Lib.AppPath.rootPath ()) value
-
-                        SqlSchema.apply cs |> ignore
-
-                        // the demo logins get their credential in the file, once: the machine
-                        // reads credentials from the rows now, so a seed only in memory would
-                        // leave every seeded Prescriber without a PIN
-                        match
-                            SqlSessions.seed
-                                cs
-                                DateTime.UtcNow
-                                (StubCredentials.seed System.Security.Cryptography.RandomNumberGenerator.GetBytes)
-                        with
-                        | Session.StoreOutcome.Written -> ()
-                        // a demo whose seed did not land has no Prescriber who can sign, and
-                        // nothing later would say why: the start is refused instead
-                        | outcome ->
-                            invalidOp $"the session store could not be seeded with the demo credentials: %A{outcome}"
 
                         SqlSessions.makeSessionPort
                             (fun msg ->

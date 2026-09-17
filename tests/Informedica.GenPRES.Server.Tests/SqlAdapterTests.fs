@@ -569,32 +569,37 @@ let tests =
                     }
                 )
 
-            test "a seed that does not land refuses the start" {
-                // a migrated file that was never seeded, opened read-only: the migrations have
-                // nothing left to apply, so it is the seed that fails. Without the credentials
-                // no Prescriber could sign, and nothing later would say why
+            test "the store is prepared before anything is hosted, and says what went wrong" {
+                Informedica.GenPRES.Server.Tests.SqlSchemaTests.withDb (fun cs ->
+                    // a fresh file: the migrations and the demo credentials land
+                    Adapters.prepareStore (Some cs) |> Expect.isOk "prepared"
+
+                    use conn = new SqliteConnection(cs)
+                    conn.Open()
+
+                    SqlSessions.loadCredential conn "prescriber"
+                    |> Expect.isSome "the demo Prescriber has a credential to sign with"
+
+                    // and again on the same file: the seed writes nothing a second time
+                    Adapters.prepareStore (Some cs) |> Expect.isOk "a second start prepares nothing"
+                )
+
+                // a migrated file that was never seeded and cannot be written: it is the seed
+                // that fails, and it is answered, not raised, so the start is refused with a
+                // message and an exit code rather than a crash while hosting
                 Informedica.GenPRES.Server.Tests.SqlSchemaTests.withDb (fun cs ->
                     SqlSchema.apply cs |> ignore
 
                     let readOnly =
-                        SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
+                        SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly, Pooling = false).ToString()
 
-                    let directory = StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId
-                    let key = LaunchSeal.newKey Security.Cryptography.RandomNumberGenerator.GetBytes
-
-                    Expect.throwsT<InvalidOperationException>
-                        "the start is refused"
-                        (fun () ->
-                            Adapters.makeAppEnvWith
-                                true
-                                (Some readOnly)
-                                key
-                                directory
-                                (StubMail.make ()).port
-                                (unloadedProvider ())
-                            |> ignore
-                        )
+                    match Adapters.prepareStore (Some readOnly) with
+                    | Error msg -> msg |> Expect.isNotEmpty "the reason it refused"
+                    | Ok() -> failtest "the seed cannot have landed on a read-only file"
                 )
+
+                Adapters.prepareStore None
+                |> Expect.isOk "a server without the setting has no store"
             }
 
             test "makeAppEnvWith without a connection string keeps the record in memory" {

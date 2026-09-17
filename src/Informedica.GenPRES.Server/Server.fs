@@ -885,7 +885,12 @@ let main _ =
     // unhandled exception was dropped, leaving the container "running" with
     // nothing listening (issue #572). A genuine crash elsewhere is still an
     // unhandled exception on purpose; tini as PID 1 turns it into exit 134.
-    match Config.validateStartup settings with
+    match
+        Config.validateStartup settings
+        // the store is made ready here, for the same reason: a file that cannot be migrated or
+        // seeded is a refused start with a message and an exit code, not a crash while hosting
+        |> Result.bind (fun startup -> Adapters.prepareStore settings.DbConnection |> Result.map (fun () -> startup))
+    with
     | Error msg ->
         writeErrorMessage msg
         1
