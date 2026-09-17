@@ -81,8 +81,8 @@ module StubAdapters =
             findEnrolment = fun _ -> async { return None }
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
-            challenge = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
-            submit = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
+            challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
+            submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ -> async { return None }
             openVersion = fun _ _ -> async { return None }
         }
@@ -292,44 +292,35 @@ module SessionStubTests =
     let seeded = Session.initialState (StubCredentials.seed salts)
 
 
-    /// An OrderScenario with only its order id set, every other field a default (built by
-    /// reflection: the order graph is too deep to write by hand), for the duplicate check.
+    /// A paracetamol suppository order from the test scenarios as the contract model carries
+    /// it, in a scenario whose order id is the one given: what the domain parses when a plan
+    /// is signed, and what the duplicate check tells apart.
     let scenarioWithOrder (id: string) : OrderScenario =
-        let rec defaultOf (t: Type) : obj =
-            if t = typeof<string> then
-                box ""
-            elif t = typeof<bool> then
-                box false
-            elif t = typeof<int> then
-                box 0
-            elif t = typeof<decimal> then
-                box 0m
-            elif t = typeof<float> then
-                box 0.0
-            elif t = typeof<DateTime> then
-                box t0
-            elif t.IsArray then
-                box (Array.CreateInstance(t.GetElementType(), 0))
-            elif t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>> then
-                null
-            elif Microsoft.FSharp.Reflection.FSharpType.IsRecord t then
-                Microsoft.FSharp.Reflection.FSharpValue.MakeRecord(
-                    t,
-                    Microsoft.FSharp.Reflection.FSharpType.GetRecordFields t
-                    |> Array.map (fun f -> defaultOf f.PropertyType)
-                )
-            elif Microsoft.FSharp.Reflection.FSharpType.IsUnion t then
-                let case = (Microsoft.FSharp.Reflection.FSharpType.GetUnionCases t)[0]
+        let order =
+            Scenarios.pcmSupp
+            |> Informedica.GenOrder.Lib.Medication.toOrderDto
+            |> Mappers.Order.mapFromOrderToShared [| "paracetamol" |]
 
-                Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(
-                    case,
-                    case.GetFields() |> Array.map (fun f -> defaultOf f.PropertyType)
-                )
-            else
-                null
-
-        let scenario = defaultOf typeof<OrderScenario> :?> OrderScenario
-        { scenario with Order = { scenario.Order with Id = id } }
+        Shared.Models.OrderScenario.create
+            "koorts"
+            "paracetamol"
+            "zetpil"
+            "rect"
+            (Discontinuous "3-4 x/dag")
+            None
+            (Some "paracetamol")
+            (Some "paracetamol")
+            [||]
+            [| "paracetamol" |]
+            [| "paracetamol" |]
+            [| [| Valid [| Normal "paracetamol "; Bold "240 mg" |] |] |]
+            [||]
+            [||]
+            { order with Id = id }
+            true
+            false
+            None
+            [||]
 
 
     /// A plan over the scenarios given, each in a context of its own, as the plan holds its
@@ -339,10 +330,24 @@ module SessionStubTests =
         |> Array.mapi (fun i sc ->
             { OrderContext.empty with
                 Id = $"c-{i}"
+                Patient = pat
                 Scenarios = [| sc |]
             }
         )
         |> OrderPlan.create pat
+
+
+    /// The contract model's plan parsed into the domain, as the signing handler does it.
+    let parsed (plan: OrderPlan) =
+        plan
+        |> OrderPlanCommand.parsePlan
+        |> Result.defaultWith (fun e -> failtest $"no plan: %A{e}")
+
+
+    /// A version as the client keeps it, on the demo server the tests run as.
+    let toSigned =
+        Informedica.GenOrder.Lib.OrderPlanVersion.Dto.toDto
+        >> SessionMapper.toSigned true
 
 
     /// A signed version as the record holds it: the one literal of the type in these tests,
@@ -381,8 +386,16 @@ module SessionStubTests =
         versionOf $"plan-{no}" no by at patientId (if no > 1 then Some $"plan-{no - 1}" else None) [||] pat true
 
 
-    /// A patient's versions as the store keeps them, newest first.
-    let storedOf (versions: SignedOrderPlan list) = versions
+    /// A patient's versions as the store keeps them, newest first: parsed at load.
+    let storedOf (versions: SignedOrderPlan list) =
+        versions
+        |> List.map (fun v ->
+            v
+            |> SessionMapper.ofSigned
+            |> Informedica.GenOrder.Lib.OrderPlanVersion.Dto.fromDto
+            |> Result.defaultWith (fun e -> failtest $"no version: %A{e}")
+            |> Session.StoredVersion.Readable
+        )
 
 
     /// The records of the store: each patient's versions, newest first.
@@ -392,13 +405,21 @@ module SessionStubTests =
         |> Map.ofList
 
 
-    /// The versions the store holds for a patient, as signed; none for a patient it has no
+    /// The readable versions the store holds for a patient; none for a patient it has no
     /// record of.
     let versionsOf (patientId: string) (state: Session.State) =
-        state.Records |> Map.tryFind patientId |> Option.defaultValue []
+        state.Records
+        |> Map.tryFind patientId
+        |> Option.defaultValue []
+        |> List.choose (fun v ->
+            match v with
+            | Session.StoredVersion.Readable v -> Some v
+            | Session.StoredVersion.Unreadable _ -> None
+        )
 
 
-    /// A signing challenge as the store holds it.
+    /// A signing challenge as the store holds it: over the digest of the plan of the patient
+    /// data and the contexts given.
     let challengeOf
         (nonce: string)
         (pat: Patient)
@@ -409,8 +430,7 @@ module SessionStubTests =
         =
         {
             Nonce = nonce
-            Patient = pat
-            OrderContexts = contexts
+            Digest = OrderPlan.create pat contexts |> parsed |> StubDatabase.digest
             Reading = reading
             Expiry = expiry
         }
@@ -500,6 +520,7 @@ module SessionStubTests =
 
         let port =
             StubDatabase.makeSessionPort
+                true
                 (fun () -> clock.Value)
                 (fun () ->
                     count.Value <- count.Value + 1
@@ -614,6 +635,7 @@ module SessionStubTests =
             Session.callback
                 t0
                 ids
+                toSigned
                 (codes ())
                 codeMac
                 directory.idp.redeem
@@ -747,7 +769,7 @@ module SessionStubTests =
                         let signedAs userId no =
                             signedAt
                                 "patient-1"
-                                Shared.Models.Patient.empty
+                                StubPatientData.patient
                                 {
                                     UserId = userId
                                     DisplayName = userId
@@ -767,7 +789,7 @@ module SessionStubTests =
                             }
 
                         Session.headOf "patient-1" record
-                        |> Option.map _.Head.Id
+                        |> Option.map Session.StoredVersion.id
                         |> Expect.equal "newest first" (Some "plan-2")
 
                         Session.headOf "patient-3" record |> Expect.isNone "no record"
@@ -784,9 +806,62 @@ module SessionStubTests =
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
+                    test
+                        "prescriber over a record whose newest version cannot be read: opened from nothing, told the record moved on" {
+                        let ids, d = fixture ()
+
+                        let readable =
+                            signedAt
+                                "patient-1"
+                                StubPatientData.patient
+                                {
+                                    UserId = "prescriber"
+                                    DisplayName = "prescriber"
+                                    Role = UserRole.Prescriber
+                                }
+                                1
+                                t0
+
+                        let unreadable =
+                            Session.StoredVersion.Unreadable
+                                {
+                                    Id = "plan-2"
+                                    No = 2
+                                    PatientId = "patient-1"
+                                    Base = Some "plan-1"
+                                    SignedBy =
+                                        {
+                                            UserId = "prescriber-b"
+                                            DisplayName = "prescriber-b"
+                                        }
+                                    SignedAt = t0
+                                    Reason = "json_version 9 is newer than this release knows"
+                                }
+
+                        let record =
+                            { seeded with Records = Map.ofList [ "patient-1", unreadable :: storedOf [ readable ] ] }
+
+                        let state, cb = hop ids d record launch1 keyA "prescriber"
+                        let state, result = run ids d state cb
+
+                        match result with
+                        | CallbackResult.Opened(id, _) ->
+                            let r = state.Sessions[id]
+                            r.Session.Head |> Expect.isNone "nothing to show"
+                            r.OpenedWith |> Expect.isNone "not opened with a version it cannot show"
+
+                            state
+                            |> Session.seen t0 id r.Session.OpenedToken
+                            |> snd
+                            |> Expect.equal
+                                "told the record moved on"
+                                (Some(RecordNotice.NewerVersion(Session.StoredVersion.head unreadable)))
+                        | other -> failtest $"expected Opened, got {other}"
+                    }
+
                     test "no-data over a record: the Session opens on the patient the head was signed on (#640)" {
                         let ids, d = fixture ()
-                        let entered = { Shared.Models.Patient.empty with Department = Some "ICU" }
+                        let entered = { StubPatientData.patient with Department = Some "ICU" }
 
                         let signed =
                             versionOf
@@ -822,7 +897,7 @@ module SessionStubTests =
 
                     test "a reading wins over the patient the head was signed on (Concept 2, #640)" {
                         let ids, d = fixture ()
-                        let entered = { Shared.Models.Patient.empty with Department = Some "ICU" }
+                        let entered = { StubPatientData.patient with Department = Some "ICU" }
 
                         let signed =
                             versionOf
@@ -961,6 +1036,7 @@ module SessionStubTests =
                             Session.callback
                                 late
                                 ids
+                                toSigned
                                 (codes ())
                                 codeMac
                                 d.idp.redeem
@@ -1086,6 +1162,7 @@ module SessionStubTests =
 
                         let port =
                             StubDatabase.makeSessionPort
+                                true
                                 (fun () -> t0)
                                 ids
                                 (codes ())
@@ -1507,6 +1584,7 @@ module SessionStubTests =
             Session.callback
                 now
                 f.ids
+                toSigned
                 f.newCode
                 codeMac
                 f.d.idp.redeem
@@ -1537,6 +1615,7 @@ module SessionStubTests =
             Session.supplyPin
                 now
                 f.ids
+                toSigned
                 salts
                 codeMac
                 f.d.registry.standing
@@ -1918,6 +1997,7 @@ module SessionStubTests =
                             Session.supplyPin
                                 t0
                                 f.ids
+                                toSigned
                                 salts
                                 codeMac
                                 moved
@@ -1950,6 +2030,7 @@ module SessionStubTests =
                             Session.supplyPin
                                 t0
                                 f.ids
+                                toSigned
                                 salts
                                 codeMac
                                 reader
@@ -1977,6 +2058,7 @@ module SessionStubTests =
                             Session.supplyPin
                                 t0
                                 f.ids
+                                toSigned
                                 salts
                                 codeMac
                                 (fun _ -> None)
@@ -2054,7 +2136,7 @@ module SessionStubTests =
                 }
 
             let signedBy (user: UserContext) no (at: DateTime) =
-                signedAt "pat-1" Shared.Models.Patient.empty user no at
+                signedAt "pat-1" StubPatientData.patient user no at
 
             let session
                 (user: UserContext option)
@@ -2215,7 +2297,7 @@ module SessionStubTests =
                 }
 
             let signedBy (user: UserContext) no =
-                signedAt "pat-1" Shared.Models.Patient.empty user no t0
+                signedAt "pat-1" StubPatientData.patient user no t0
 
             let session
                 (user: UserContext option)
@@ -2226,12 +2308,7 @@ module SessionStubTests =
                 sessionOf sid user (patientId |> Option.map (fun pid -> pid, None)) openedWith
 
             let challenged sid =
-                challengeOf
-                    $"c-{sid}"
-                    Shared.Models.Patient.empty
-                    [||]
-                    (Some Shared.Models.Patient.empty)
-                    (t0.AddMinutes 2.0)
+                challengeOf $"c-{sid}" StubPatientData.patient [||] (Some StubPatientData.patient) (t0.AddMinutes 2.0)
 
             // A opened on plan-1; B signed plan-2 meanwhile; A has a challenge and a notice standing
             let movedOn =
@@ -2247,7 +2324,7 @@ module SessionStubTests =
                 }
 
             let openAt sid id state =
-                Session.openVersion t1 (counter "id") sid id state
+                Session.openVersion t1 (counter "id") toSigned sid id state
 
             testList
                 "Session.openVersion"
@@ -2392,10 +2469,24 @@ module SessionStubTests =
                 session "s-1" (Some prescriber) (Some("stub-patient", stubPatient)) None
 
             let ask now nonces state sid (plan, opened) =
-                Session.challenge now nonces StubPatientData.port.read sid (plan, opened, None) state
+                Session.challenge
+                    now
+                    nonces
+                    StubDatabase.digest
+                    StubPatientData.port.read
+                    sid
+                    (parsed plan, opened, None)
+                    state
 
             let askWith notice now nonces state sid (plan, opened) =
-                Session.challenge now nonces StubPatientData.port.read sid (plan, opened, Some notice) state
+                Session.challenge
+                    now
+                    nonces
+                    StubDatabase.digest
+                    StubPatientData.port.read
+                    sid
+                    (parsed plan, opened, Some notice)
+                    state
 
             testList
                 "Session.challenge"
@@ -2404,26 +2495,26 @@ module SessionStubTests =
                         "refuses: no Session, the anonymous Session, no Patient; the plan's own data is the User's (Rules 33, 44)" {
                         stateOf [] [] |> ask t0 (counter "n") <| "s-9" <| (plan, token "s-9")
                         |> snd
-                        |> Expect.equal "no session" (SigningResponse.Refused SigningRefusal.NoSession)
+                        |> Expect.equal "no session" (SigningOutcome.Refused SigningRefusal.NoSession)
 
                         stateOf [ session "s-1" None None None ] [] |> ask t0 (counter "n")
                         <| "s-1"
                         <| (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "nobody to sign as" (SigningResponse.Refused SigningRefusal.NotPrescriber)
+                        |> Expect.equal "nobody to sign as" (SigningOutcome.Refused SigningRefusal.NotPrescriber)
 
                         stateOf [ session "s-1" (Some prescriber) None None ] [] |> ask t0 (counter "n")
                         <| "s-1"
                         <| (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "no patient" (SigningResponse.Refused SigningRefusal.NoPatient)
+                        |> Expect.equal "no patient" (SigningOutcome.Refused SigningRefusal.NoPatient)
 
                         // the data the User entered or saw is what the plan carries; the Patient is the Session's
                         stateOf [ opened ] [] |> ask t0 (counter "n")
                         <| "s-1"
                         <| (OrderPlan.create otherData [||], token "s-1")
                         |> snd
-                        |> Expect.equal "entered data: issued" (SigningResponse.ChallengeIssued "n-1")
+                        |> Expect.equal "entered data: issued" (SigningOutcome.ChallengeIssued "n-1")
                     }
 
                     test "a Session opened on the signed patient, no reading: told unverified as before (Rule 44, #640)" {
@@ -2438,13 +2529,7 @@ module SessionStubTests =
                             <| (OrderPlan.create otherData [||], token "s-1")
 
                         answer
-                        |> Expect.equal
-                            "unverified: told"
-                            (SigningResponse.DataNotice
-                                {
-                                    Data = None
-                                    Token = "n-1"
-                                })
+                        |> Expect.equal "unverified: told" (SigningOutcome.DataNotice("n-1", None))
 
                         state.Challenges |> Expect.isEmpty "no challenge yet"
                     }
@@ -2454,19 +2539,14 @@ module SessionStubTests =
                             Session.challenge
                                 t0
                                 (counter "n")
+                                StubDatabase.digest
                                 (fun _ -> Some Shared.Models.Patient.empty)
                                 "s-1"
-                                (plan, token "s-1", None)
+                                (parsed plan, token "s-1", None)
                                 (stateOf [ opened ] [])
 
                         answer
-                        |> Expect.equal
-                            "unverified: told"
-                            (SigningResponse.DataNotice
-                                {
-                                    Data = None
-                                    Token = "n-1"
-                                })
+                        |> Expect.equal "unverified: told" (SigningOutcome.DataNotice("n-1", None))
 
                         state.Challenges |> Expect.isEmpty "no challenge yet"
                     }
@@ -2481,11 +2561,11 @@ module SessionStubTests =
                         <| "s-1"
                         <| (plan, token "stale")
                         |> snd
-                        |> Expect.equal "not a prescriber" (SigningResponse.Refused SigningRefusal.NotPrescriber)
+                        |> Expect.equal "not a prescriber" (SigningOutcome.Refused SigningRefusal.NotPrescriber)
 
                         stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (plan, token "s-2")
                         |> snd
-                        |> Expect.equal "stale" (SigningResponse.Refused SigningRefusal.StaleToken)
+                        |> Expect.equal "stale" (SigningOutcome.Refused SigningRefusal.StaleToken)
                     }
 
                     test
@@ -2501,13 +2581,7 @@ module SessionStubTests =
                             <| (OrderPlan.create otherData [||], token "s-1")
 
                         answer
-                        |> Expect.equal
-                            "changed: told"
-                            (SigningResponse.DataNotice
-                                {
-                                    Data = Some stubPatient
-                                    Token = "n-1"
-                                })
+                        |> Expect.equal "changed: told" (SigningOutcome.DataNotice("n-1", Some stubPatient))
 
                         state.Challenges |> Expect.isEmpty "no challenge yet"
 
@@ -2529,13 +2603,7 @@ module SessionStubTests =
                         <| "s-1"
                         <| (plan, token "s-1")
                         |> snd
-                        |> Expect.equal
-                            "unreadable: unverified"
-                            (SigningResponse.DataNotice
-                                {
-                                    Data = None
-                                    Token = "n-1"
-                                })
+                        |> Expect.equal "unreadable: unverified" (SigningOutcome.DataNotice("n-1", None))
 
                         stateOf
                             [
@@ -2546,13 +2614,7 @@ module SessionStubTests =
                         <| "s-1"
                         <| (plan, token "s-1")
                         |> snd
-                        |> Expect.equal
-                            "before the block"
-                            (SigningResponse.DataNotice
-                                {
-                                    Data = None
-                                    Token = "n-1"
-                                })
+                        |> Expect.equal "before the block" (SigningOutcome.DataNotice("n-1", None))
 
                         stateOf
                             [
@@ -2563,7 +2625,7 @@ module SessionStubTests =
                         <| "s-1"
                         <| (plan, token "stale")
                         |> snd
-                        |> Expect.equal "after the token" (SigningResponse.Refused SigningRefusal.StaleToken)
+                        |> Expect.equal "after the token" (SigningOutcome.Refused SigningRefusal.StaleToken)
                     }
 
                     test "a notice drops the Session's earlier challenge: it was over the data before the change" {
@@ -2572,7 +2634,7 @@ module SessionStubTests =
                         let state, issued =
                             stateOf [ opened ] [] |> ask t0 nonces <| "s-1" <| (plan, token "s-1")
 
-                        issued |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
+                        issued |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-1")
 
                         // the platform's reading changes under the challenge
                         let changed =
@@ -2587,14 +2649,7 @@ module SessionStubTests =
                         let state, told =
                             ask (t0 + seconds 30.0) nonces changed "s-1" (OrderPlan.create otherData [||], token "s-1")
 
-                        told
-                        |> Expect.equal
-                            "told"
-                            (SigningResponse.DataNotice
-                                {
-                                    Data = Some stubPatient
-                                    Token = "n-2"
-                                })
+                        told |> Expect.equal "told" (SigningOutcome.DataNotice("n-2", Some stubPatient))
 
                         state.Challenges |> Expect.isEmpty "the earlier challenge is gone"
                     }
@@ -2612,12 +2667,14 @@ module SessionStubTests =
                         let state, answer =
                             askWith "n-1" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
 
-                        answer |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-2")
+                        answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-2")
 
                         state.Challenges["s-1"].Reading
                         |> Expect.equal "the platform's reading" (Some stubPatient)
 
-                        state.Challenges["s-1"].Patient |> Expect.equal "over the data told" stubPatient
+                        state.Challenges["s-1"].Digest
+                        |> Expect.equal "over the data told" (StubDatabase.digest (parsed plan))
+
                         state.Notices |> Expect.isEmpty "the notice is spent"
 
                         let unreadable = session "s-2" (Some prescriber) (Some("no-data", stubPatient)) None
@@ -2629,7 +2686,7 @@ module SessionStubTests =
                             askWith "n-3" (t0 + seconds 5.0) nonces state "s-2" (plan, token "s-2")
 
                         answer
-                        |> Expect.equal "issued unverified" (SigningResponse.ChallengeIssued "n-4")
+                        |> Expect.equal "issued unverified" (SigningOutcome.ChallengeIssued "n-4")
 
                         state.Challenges["s-2"].Reading |> Expect.isNone "unverified"
                     }
@@ -2643,36 +2700,18 @@ module SessionStubTests =
 
                         askWith "n-9" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal
-                            "wrong"
-                            (SigningResponse.DataNotice
-                                {
-                                    Data = Some stubPatient
-                                    Token = "n-2"
-                                })
+                        |> Expect.equal "wrong" (SigningOutcome.DataNotice("n-2", Some stubPatient))
 
                         askWith "n-1" (t0 + minutes 3.0) nonces state "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal
-                            "expired"
-                            (SigningResponse.DataNotice
-                                {
-                                    Data = Some stubPatient
-                                    Token = "n-3"
-                                })
+                        |> Expect.equal "expired" (SigningOutcome.DataNotice("n-3", Some stubPatient))
 
                         let spent, _ =
                             askWith "n-1" (t0 + seconds 5.0) nonces state "s-1" (plan, token "s-1")
 
                         askWith "n-1" (t0 + seconds 10.0) nonces spent "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal
-                            "spent"
-                            (SigningResponse.DataNotice
-                                {
-                                    Data = Some stubPatient
-                                    Token = "n-5"
-                                })
+                        |> Expect.equal "spent" (SigningOutcome.DataNotice("n-5", Some stubPatient))
 
                         // a notice over another reading than the platform's now does not fit
                         let other =
@@ -2682,13 +2721,7 @@ module SessionStubTests =
 
                         askWith "n-1" (t0 + seconds 5.0) nonces other "s-1" (plan, token "s-1")
                         |> snd
-                        |> Expect.equal
-                            "unfitting"
-                            (SigningResponse.DataNotice
-                                {
-                                    Data = Some stubPatient
-                                    Token = "n-6"
-                                })
+                        |> Expect.equal "unfitting" (SigningOutcome.DataNotice("n-6", Some stubPatient))
                     }
 
                     test "the same order twice in the plan gets no challenge (Concept 10)" {
@@ -2699,7 +2732,7 @@ module SessionStubTests =
                             stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (twice, token "s-1")
 
                         answer
-                        |> Expect.equal "mismatch" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+                        |> Expect.equal "mismatch" (SigningOutcome.Refused SigningRefusal.ChallengeMismatch)
 
                         state.Challenges |> Expect.isEmpty "nothing stored"
 
@@ -2707,7 +2740,7 @@ module SessionStubTests =
 
                         stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (once, token "s-1")
                         |> snd
-                        |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
+                        |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-1")
                     }
 
                     test "a plan holding a nutrition context's order is challenged with that order" {
@@ -2715,6 +2748,7 @@ module SessionStubTests =
                             { OrderContext.empty with
                                 Id = "c-1"
                                 Category = OrderCategory.Nutrition NutritionCategory.TPN
+                                Patient = stubPatient
                             }
 
                         let drug = planOf stubPatient [| scenarioWithOrder "o-drug" |]
@@ -2732,17 +2766,16 @@ module SessionStubTests =
                         let state, answer =
                             stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (plan, token "s-1")
 
-                        answer |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
+                        answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-1")
 
-                        state.Challenges
-                        |> Map.toList
-                        |> List.map (
-                            snd
-                            >> _.OrderContexts
-                            >> Array.choose OrderContext.contribution
-                            >> Array.map _.Order.Id
-                        )
-                        |> Expect.equal "the drug and the tpn order under the challenge" [ [| "o-drug"; "o-tpn" |] ]
+                        // the digest is over the plan with both orders: another plan does not fit it
+                        state.Challenges["s-1"].Digest
+                        |> Expect.equal
+                            "the drug and the tpn order under the challenge"
+                            (StubDatabase.digest (parsed plan))
+
+                        state.Challenges["s-1"].Digest
+                        |> Expect.notEqual "not the drug alone" (StubDatabase.digest (parsed drug))
                     }
 
                     test "refuses when the record moved on (Rule 20): whose version, and when" {
@@ -2754,7 +2787,7 @@ module SessionStubTests =
                         |> snd
                         |> Expect.equal
                             "opened from nothing"
-                            (SigningResponse.Refused(SigningRefusal.Blocked byOther.Head))
+                            (SigningOutcome.Refused(SigningRefusal.Blocked byOther.Head))
 
                         let v2 = signedBy other 2 (t0 - minutes 1.0)
 
@@ -2769,7 +2802,7 @@ module SessionStubTests =
                         <| "s-1"
                         <| (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "opened with v1" (SigningResponse.Refused(SigningRefusal.Blocked v2.Head))
+                        |> Expect.equal "opened with v1" (SigningOutcome.Refused(SigningRefusal.Blocked v2.Head))
 
                         stateOf
                             [
@@ -2780,7 +2813,7 @@ module SessionStubTests =
                         <| "s-1"
                         <| (plan, token "s-1")
                         |> snd
-                        |> Expect.equal "opened with the head" (SigningResponse.ChallengeIssued "n-1")
+                        |> Expect.equal "opened with the head" (SigningOutcome.ChallengeIssued "n-1")
                     }
 
                     test
@@ -2793,15 +2826,14 @@ module SessionStubTests =
                         let state, answer =
                             stateOf [ opened ] [] |> ask t0 (counter "n") <| "s-1" <| (plan, token "s-1")
 
-                        answer |> Expect.equal "issued" (SigningResponse.ChallengeIssued "n-1")
+                        answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-1")
 
                         state.Challenges["s-1"]
                         |> Expect.equal
                             "stored"
                             {
                                 Nonce = "n-1"
-                                Patient = stubPatient
-                                OrderContexts = [||]
+                                Digest = StubDatabase.digest (parsed plan)
                                 Reading = Some stubPatient
                                 Expiry = t0 + minutes 2.0
                             }
@@ -2818,8 +2850,8 @@ module SessionStubTests =
                         let state, again = ask (t0 + seconds 10.0) nonces state "s-1" (plan, token "s-1")
                         let state, theirs = ask (t0 + seconds 20.0) nonces state "s-2" (plan, token "s-2")
 
-                        again |> Expect.equal "replaced" (SigningResponse.ChallengeIssued "n-2")
-                        theirs |> Expect.equal "their own" (SigningResponse.ChallengeIssued "n-3")
+                        again |> Expect.equal "replaced" (SigningOutcome.ChallengeIssued "n-2")
+                        theirs |> Expect.equal "their own" (SigningOutcome.ChallengeIssued "n-3")
                         state.Challenges |> Map.count |> Expect.equal "one per Session" 2
 
                         let state, _ =
@@ -2897,17 +2929,21 @@ module SessionStubTests =
                     Challenges = Map.ofList challenges
                 }
 
-            let submission sid pin key : Submission =
+            let submission sid pin key : Signature =
                 {
-                    Plan = plan
+                    Plan = parsed plan
                     Opened = token sid
                     Challenge = $"c-{sid}"
                     Pin = pin
                     IdemKey = key
                 }
 
-            let submitAt now ids send state sid (s: Submission) =
-                Session.commit now ids registry send sid s state
+            /// The commit through the adapter's write phase, the in-memory store's write.
+            let submitAt now ids send state sid (s: Signature) =
+                StubDatabase.submitWith
+                    StubDatabase.persistNothing
+                    (fun st -> Session.commit now ids StubDatabase.digest toSigned registry send sid s st)
+                    state
 
             let submit state sid s =
                 submitAt t0 (counter "id") ignore state sid s
@@ -2926,28 +2962,23 @@ module SessionStubTests =
                             submitAt t0 ids ignore ready "s-1" (submission "s-1" "1234" "k-1")
 
                         match answer with
-                        | SigningResponse.Submitted(signed, fresh) ->
-                            signed.Head
-                            |> Expect.equal
-                                "head"
-                                {
-                                    Id = "id-1"
-                                    No = 1
-                                    By = prescriber
-                                    SignedAt = t0
-                                }
-
-                            signed.PatientId |> Expect.equal "the Session's patient" "stub-patient"
-                            signed.Base |> Expect.isNone "from nothing"
-                            signed.Verified |> Expect.isTrue "the challenge's reading"
+                        | SigningOutcome.Submitted(version, fresh) ->
+                            version.Id |> Expect.equal "id" "id-1"
+                            version.No |> Expect.equal "the first" 1
+                            version.SignedBy.UserId |> Expect.equal "by" prescriber.UserId
+                            version.SignedAt |> Expect.equal "at" t0
+                            version.Plan |> Expect.equal "the plan as signed" (parsed plan)
+                            version.PatientId |> Expect.equal "the Session's patient" "stub-patient"
+                            version.Base |> Expect.isNone "from nothing"
+                            version.Verified |> Expect.isTrue "the challenge's reading"
                             fresh |> Expect.equal "re-minted" (OpenedToken "opened-id-2")
-                            state |> versionsOf "stub-patient" |> Expect.equal "appended" [ signed ]
+                            state |> versionsOf "stub-patient" |> Expect.equal "appended" [ version ]
                             state.Challenges |> Expect.isEmpty "spent"
                             state.Sessions["s-1"].OpenedWith |> Expect.equal "the new head" (Some "id-1")
                             state.Sessions["s-1"].Session.OpenedToken |> Expect.equal "held" (Some fresh)
 
                             state.Sessions["s-1"].Session.Head
-                            |> Expect.equal "a resume opens on the version just signed" (Some signed)
+                            |> Expect.equal "a resume opens on the version just signed" (Some(toSigned version))
 
                             state.Sessions["s-1"].Session.PatientContext
                             |> Option.bind _.Patient
@@ -2968,9 +2999,9 @@ module SessionStubTests =
                             }
 
                         match submitAt (t0 + minutes 1.0) ids ignore state "s-1" again |> snd with
-                        | SigningResponse.Submitted(signed, _) ->
-                            signed.Head.No |> Expect.equal "second" 2
-                            signed.Base |> Expect.equal "over the first" (Some "id-1")
+                        | SigningOutcome.Submitted(version, _) ->
+                            version.No |> Expect.equal "second" 2
+                            version.Base |> Expect.equal "over the first" (Some "id-1")
                         | other -> failtest $"expected Submitted, got {other}"
 
                         // the old token is stale once re-minted
@@ -2978,7 +3009,7 @@ module SessionStubTests =
 
                         submitAt t0 ids ignore state "s-1" (submission "s-1" "1234" "k-3")
                         |> snd
-                        |> Expect.equal "stale" (SigningResponse.Refused SigningRefusal.StaleToken)
+                        |> Expect.equal "stale" (SigningOutcome.Refused SigningRefusal.StaleToken)
                     }
 
                     test
@@ -3001,7 +3032,7 @@ module SessionStubTests =
                         let state, wrong = submit ready "s-1" (submission "s-1" "0000" "k-1")
 
                         wrong
-                        |> Expect.equal "wrong" (SigningResponse.Refused(SigningRefusal.PinWrong 2))
+                        |> Expect.equal "wrong" (SigningOutcome.Refused(SigningRefusal.PinWrong 2))
 
                         let state, wrongAgain = submit state "s-1" (submission "s-1" "0000" "k-1")
                         wrongAgain |> Expect.equal "the same" wrong
@@ -3014,14 +3045,14 @@ module SessionStubTests =
 
                         submit state "s-2" { submission "s-2" "1234" "k-1" with Challenge = "none" }
                         |> snd
-                        |> Expect.equal "their own ladder" (SigningResponse.Refused SigningRefusal.ChallengeExpired)
+                        |> Expect.equal "their own ladder" (SigningOutcome.Refused SigningRefusal.ChallengeExpired)
                     }
 
                     test
                         "refuses: no Session; the Role withdrawn or the registry silent (Rule 38); a stale token; the block (Rule 20), with the PIN never looked at" {
                         submit ready "s-9" (submission "s-9" "1234" "k")
                         |> snd
-                        |> Expect.equal "no session" (SigningResponse.Refused SigningRefusal.NoSession)
+                        |> Expect.equal "no session" (SigningOutcome.Refused SigningRefusal.NoSession)
 
                         let demoted =
                             session "s-1" (userOf "demoted" UserRole.Prescriber) "stub-patient" None
@@ -3030,7 +3061,7 @@ module SessionStubTests =
                             submit (stateOf [ demoted ] [] [ challenged "s-1" t0 ]) "s-1" (submission "s-1" "1234" "k")
 
                         answer
-                        |> Expect.equal "not a prescriber" (SigningResponse.Refused SigningRefusal.NotPrescriber)
+                        |> Expect.equal "not a prescriber" (SigningOutcome.Refused SigningRefusal.NotPrescriber)
 
                         state.Records |> Expect.isEmpty "nothing committed"
 
@@ -3038,7 +3069,7 @@ module SessionStubTests =
 
                         submit (stateOf [ unknown ] [] [ challenged "s-1" t0 ]) "s-1" (submission "s-1" "1234" "k")
                         |> snd
-                        |> Expect.equal "fails closed" (SigningResponse.Refused SigningRefusal.NotPrescriber)
+                        |> Expect.equal "fails closed" (SigningOutcome.Refused SigningRefusal.NotPrescriber)
 
                         let byOther = signedBy other 1 t0
 
@@ -3047,12 +3078,12 @@ module SessionStubTests =
 
                         submit moved "s-1" { submission "s-1" "1234" "k" with Opened = OpenedToken "old" }
                         |> snd
-                        |> Expect.equal "stale before the head" (SigningResponse.Refused SigningRefusal.StaleToken)
+                        |> Expect.equal "stale before the head" (SigningOutcome.Refused SigningRefusal.StaleToken)
 
                         let state, answer = submit moved "s-1" (submission "s-1" "0000" "k")
 
                         answer
-                        |> Expect.equal "blocked" (SigningResponse.Refused(SigningRefusal.Blocked byOther.Head))
+                        |> Expect.equal "blocked" (SigningOutcome.Refused(SigningRefusal.Blocked byOther.Head))
 
                         (Session.credentialOf "prescriber" state).WrongCount
                         |> Expect.equal "not counted" 0
@@ -3067,16 +3098,18 @@ module SessionStubTests =
                         let twice = [| scenarioWithOrder "o-1"; scenarioWithOrder "o-1" |]
 
                         let planted =
-                            { snd (challenged "s-1" t0) with OrderContexts = (planOf stubPatient twice).OrderContexts }
+                            { snd (challenged "s-1" t0) with
+                                Digest = StubDatabase.digest (parsed (planOf stubPatient twice))
+                            }
 
                         let state, answer =
                             submit
                                 (stateOf [ opened ] [] [ "s-1", planted ])
                                 "s-1"
-                                { submission "s-1" "0000" "k" with Plan = planOf stubPatient twice }
+                                { submission "s-1" "0000" "k" with Plan = parsed (planOf stubPatient twice) }
 
                         answer
-                        |> Expect.equal "mismatch" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+                        |> Expect.equal "mismatch" (SigningOutcome.Refused SigningRefusal.ChallengeMismatch)
 
                         (Session.credentialOf "prescriber" state).WrongCount
                         |> Expect.equal "not counted" 0
@@ -3089,23 +3122,26 @@ module SessionStubTests =
                             |> Array.mapi (fun i sc ->
                                 { OrderContext.empty with
                                     Id = $"c-{i}"
+                                    Patient = stubPatient
                                     Scenarios = [| sc |]
                                 }
                             )
 
-                        let planted = { planted with OrderContexts = contexts }
                         let plan = OrderPlan.create stubPatient contexts
+
+                        let planted = { planted with Digest = StubDatabase.digest (parsed plan) }
 
                         match
                             submit
                                 (stateOf [ opened ] [] [ "s-1", planted ])
                                 "s-1"
-                                { submission "s-1" "1234" "k" with Plan = plan }
+                                { submission "s-1" "1234" "k" with Plan = parsed plan }
                             |> snd
                         with
-                        | SigningResponse.Submitted(signed, _) ->
-                            signed.OrderContexts
-                            |> Expect.equal "the version holds the two contexts" contexts
+                        | SigningOutcome.Submitted(version, _) ->
+                            version.Plan.Contexts
+                            |> Array.map _.Id
+                            |> Expect.equal "the version holds the two contexts" (contexts |> Array.map _.Id)
                         | other -> failtest $"expected Submitted, got {other}"
                     }
 
@@ -3115,12 +3151,18 @@ module SessionStubTests =
                         let context stepped =
                             { OrderContext.empty with
                                 Id = "c-1"
+                                Patient = stubPatient
                                 OrderContext.Filter.Generic = Some stepped
                                 Scenarios = once
                             }
 
                         let planted =
-                            { snd (challenged "s-1" t0) with OrderContexts = [| context "as challenged" |] }
+                            { snd (challenged "s-1" t0) with
+                                Digest =
+                                    StubDatabase.digest (
+                                        parsed (OrderPlan.create stubPatient [| context "as challenged" |])
+                                    )
+                            }
 
                         let plan = OrderPlan.create stubPatient [| context "stepped since" |]
 
@@ -3128,10 +3170,10 @@ module SessionStubTests =
                             submit
                                 (stateOf [ opened ] [] [ "s-1", planted ])
                                 "s-1"
-                                { submission "s-1" "1234" "k" with Plan = plan }
+                                { submission "s-1" "1234" "k" with Plan = parsed plan }
 
                         answer
-                        |> Expect.equal "mismatch" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+                        |> Expect.equal "mismatch" (SigningOutcome.Refused SigningRefusal.ChallengeMismatch)
 
                         (Session.credentialOf "prescriber" state).WrongCount
                         |> Expect.equal "not counted" 0
@@ -3147,7 +3189,7 @@ module SessionStubTests =
                                 [
                                     sid,
                                     { unverified with
-                                        Patient = otherData
+                                        Digest = StubDatabase.digest (parsed (OrderPlan.create otherData [||]))
                                         Reading = None
                                     }
                                 ]
@@ -3156,12 +3198,12 @@ module SessionStubTests =
                             submit
                                 ready
                                 "s-1"
-                                { submission "s-1" "1234" "k-1" with Plan = OrderPlan.create otherData [||] }
+                                { submission "s-1" "1234" "k-1" with Plan = parsed (OrderPlan.create otherData [||]) }
 
                         match answer with
-                        | SigningResponse.Submitted(signed, _) ->
-                            signed.Patient |> Expect.equal "the data signed" otherData
-                            signed.Verified |> Expect.isFalse "no reading"
+                        | SigningOutcome.Submitted(version, _) ->
+                            (toSigned version).Patient |> Expect.equal "the data signed" otherData
+                            version.Verified |> Expect.isFalse "no reading"
 
                             state.Sessions["s-1"].Session.PatientContext
                             |> Expect.equal
@@ -3184,7 +3226,7 @@ module SessionStubTests =
                                 [
                                     sid,
                                     { over with
-                                        Patient = otherData
+                                        Digest = StubDatabase.digest (parsed (OrderPlan.create otherData [||]))
                                         Reading = Some otherData
                                     }
                                 ]
@@ -3193,11 +3235,11 @@ module SessionStubTests =
                             submit
                                 ready
                                 "s-1"
-                                { submission "s-1" "1234" "k-1" with Plan = OrderPlan.create otherData [||] }
+                                { submission "s-1" "1234" "k-1" with Plan = parsed (OrderPlan.create otherData [||]) }
 
                         match answer with
-                        | SigningResponse.Submitted(signed, _) ->
-                            signed.Verified |> Expect.isTrue "the reading"
+                        | SigningOutcome.Submitted(version, _) ->
+                            version.Verified |> Expect.isTrue "the reading"
 
                             state.Sessions["s-1"].Session.PatientContext
                             |> Option.bind _.Patient
@@ -3219,7 +3261,7 @@ module SessionStubTests =
                             submitAt t0 (counter "id") broken state "s-1" (submission "s-1" "0000" "k-3")
 
                         third
-                        |> Expect.equal "the limit" (SigningResponse.Refused SigningRefusal.PinLimit)
+                        |> Expect.equal "the limit" (SigningOutcome.Refused SigningRefusal.PinLimit)
 
                         state.Sessions |> Map.containsKey "s-1" |> Expect.isFalse "ended"
                         (Session.credentialOf "prescriber" state).LockedUntil |> Expect.isSome "locked"
@@ -3229,24 +3271,24 @@ module SessionStubTests =
                         "refuses on the challenge: none, expired, another nonce, another plan (Rule 43), with the PIN never looked at" {
                         submit (stateOf [ opened ] [] []) "s-1" (submission "s-1" "1234" "k")
                         |> snd
-                        |> Expect.equal "none" (SigningResponse.Refused SigningRefusal.ChallengeExpired)
+                        |> Expect.equal "none" (SigningOutcome.Refused SigningRefusal.ChallengeExpired)
 
                         submitAt (t0 + minutes 3.0) (counter "id") ignore ready "s-1" (submission "s-1" "1234" "k")
                         |> snd
-                        |> Expect.equal "expired" (SigningResponse.Refused SigningRefusal.ChallengeExpired)
+                        |> Expect.equal "expired" (SigningOutcome.Refused SigningRefusal.ChallengeExpired)
 
                         submit ready "s-1" { submission "s-1" "1234" "k" with Challenge = "c-other" }
                         |> snd
-                        |> Expect.equal "another nonce" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+                        |> Expect.equal "another nonce" (SigningOutcome.Refused SigningRefusal.ChallengeMismatch)
 
                         let state, answer =
                             submit
                                 ready
                                 "s-1"
-                                { submission "s-1" "0000" "k" with Plan = OrderPlan.create otherData [||] }
+                                { submission "s-1" "0000" "k" with Plan = parsed (OrderPlan.create otherData [||]) }
 
                         answer
-                        |> Expect.equal "another plan" (SigningResponse.Refused SigningRefusal.ChallengeMismatch)
+                        |> Expect.equal "another plan" (SigningOutcome.Refused SigningRefusal.ChallengeMismatch)
 
                         (Session.credentialOf "prescriber" state).WrongCount
                         |> Expect.equal "not counted" 0
@@ -3260,7 +3302,7 @@ module SessionStubTests =
                             submitAt t0 (counter "id") send ready "s-1" (submission "s-1" "0000" "k-1")
 
                         first
-                        |> Expect.equal "two left" (SigningResponse.Refused(SigningRefusal.PinWrong 2))
+                        |> Expect.equal "two left" (SigningOutcome.Refused(SigningRefusal.PinWrong 2))
 
                         state.Challenges
                         |> Map.containsKey "s-1"
@@ -3270,20 +3312,20 @@ module SessionStubTests =
                             submitAt t0 (counter "id") send state "s-1" (submission "s-1" "1234" "k-2")
                             |> snd
                         with
-                        | SigningResponse.Submitted _ -> ()
+                        | SigningOutcome.Submitted _ -> ()
                         | other -> failtest $"expected Submitted on the same challenge, got {other}"
 
                         let state, second =
                             submitAt (t0 + seconds 10.0) (counter "id") send state "s-1" (submission "s-1" "0000" "k-2")
 
                         second
-                        |> Expect.equal "one left" (SigningResponse.Refused(SigningRefusal.PinWrong 1))
+                        |> Expect.equal "one left" (SigningOutcome.Refused(SigningRefusal.PinWrong 1))
 
                         let state, third =
                             submitAt (t0 + seconds 20.0) (counter "id") send state "s-1" (submission "s-1" "0000" "k-3")
 
                         third
-                        |> Expect.equal "the limit" (SigningResponse.Refused SigningRefusal.PinLimit)
+                        |> Expect.equal "the limit" (SigningOutcome.Refused SigningRefusal.PinLimit)
 
                         state.Sessions |> Map.containsKey "s-1" |> Expect.isFalse "the Session is gone"
 
@@ -3332,7 +3374,7 @@ module SessionStubTests =
                             submitAt inside (counter "id") send relaunched "s-2" (submission "s-2" "1234" "k-4")
 
                         answer
-                        |> Expect.equal "locked" (SigningResponse.Refused(SigningRefusal.Locked until))
+                        |> Expect.equal "locked" (SigningOutcome.Refused(SigningRefusal.Locked until))
 
                         (Session.credentialOf "prescriber" state).WrongCount
                         |> Expect.equal "not counted" 3
@@ -3347,7 +3389,7 @@ module SessionStubTests =
                         pushed
                         |> Expect.equal
                             "locked longer"
-                            (SigningResponse.Refused(SigningRefusal.Locked(inside + minutes 2.0)))
+                            (SigningOutcome.Refused(SigningRefusal.Locked(inside + minutes 2.0)))
 
                         (Session.credentialOf "prescriber" state).WrongCount |> Expect.equal "counted" 4
 
@@ -3355,7 +3397,7 @@ module SessionStubTests =
                         let state = { state with Challenges = Map.ofList [ challenged "s-2" later ] }
 
                         match submitAt later (counter "id") send state "s-2" (submission "s-2" "1234" "k-6") with
-                        | state, SigningResponse.Submitted _ ->
+                        | state, SigningOutcome.Submitted _ ->
                             (Session.credentialOf "prescriber" state).WrongCount |> Expect.equal "zeroed" 0
                         | _, other -> failtest $"expected Submitted, got {other}"
                     }

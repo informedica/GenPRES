@@ -91,6 +91,8 @@ type SessionTerms =
     | ``Signing Refusal Pin Wrong``
     | ``Signing Refusal Pin Limit``
     | ``Signing Refusal Locked``
+    | ``Signing Refusal Store Failed``
+    | ``Signing Refusal Plan Unreadable``
     | ``Signing Send Failed``
     // Rules 21, 22 (plan 635 PR 4): the record moved on, told once per version with {0} who
     // signed it and {1} when; the button that takes the version up (UC-4 step 4); and what
@@ -166,6 +168,8 @@ let english term =
     | ``Signing Refusal Pin Limit`` ->
         "The PIN was entered wrong three times. Your session was ended and signing is locked for a while."
     | ``Signing Refusal Locked`` -> "Signing is locked until {0}."
+    | ``Signing Refusal Store Failed`` -> "The version could not be stored. Nothing changed; sign again."
+    | ``Signing Refusal Plan Unreadable`` -> "The plan could not be read. Reload the page and sign again."
     | ``Signing Send Failed`` -> "The signature could not be sent. Try again."
     | ``Session Newer Version`` -> "{0} signed a newer version at {1}."
     | ``Session Open Newest`` -> "Open the newest version"
@@ -240,6 +244,8 @@ let dutch term =
     | ``Signing Refusal Pin Limit`` ->
         "De pincode is drie keer verkeerd ingevoerd. Uw sessie is beëindigd en ondertekenen is een tijdje geblokkeerd."
     | ``Signing Refusal Locked`` -> "Ondertekenen is geblokkeerd tot {0}."
+    | ``Signing Refusal Store Failed`` -> "De versie kon niet worden opgeslagen. Er is niets veranderd; onderteken opnieuw."
+    | ``Signing Refusal Plan Unreadable`` -> "Het plan kon niet worden gelezen. Laad de pagina opnieuw en onderteken opnieuw."
     | ``Signing Send Failed`` -> "De handtekening kon niet worden verstuurd. Probeer het opnieuw."
     | ``Session Newer Version`` -> "{0} heeft om {1} een nieuwere versie ondertekend."
     | ``Session Open Newest`` -> "Open de nieuwste versie"

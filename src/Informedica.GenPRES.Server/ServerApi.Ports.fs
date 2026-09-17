@@ -126,6 +126,32 @@ type Mail =
 type MailPort = { send: Mail -> unit }
 
 
+/// The signature as the session service takes it: the plan parsed at the boundary, the
+/// OpenedToken the Session holds, the challenge it was issued, the PIN, and the client's own
+/// key so that the commit takes effect once. Never logged.
+type Signature =
+    {
+        Plan: GenOrder.OrderPlan
+        Opened: OpenedToken
+        Challenge: string
+        Pin: string
+        IdemKey: string
+    }
+
+
+/// The answer of the session service to a signing command, on domain values; the command
+/// handler maps it to the wire's `SigningResponse`.
+[<RequireQualifiedAccess>]
+type SigningOutcome =
+    // the challenge over exactly this plan; comes back with the PIN
+    | ChallengeIssued of challenge: string
+    // no challenge yet: the token, and the data as it stands, none when it could not be read
+    | DataNotice of token: string * data: Patient option
+    // the version committed, and a fresh OpenedToken over it
+    | Submitted of GenOrder.OrderPlanVersion * OpenedToken
+    | Refused of SigningRefusal
+
+
 /// The session adapter's answer to a presentation. The session id is the server's to put in
 /// the cookie; the composition root maps this to the client's `LaunchOutcome` without it.
 /// `RedirectTo` carries the `state` the edge writes to the state cookie next to the url
@@ -198,10 +224,10 @@ type SessionPort =
         supplyPin: string -> string -> string -> Async<SupplyPinResult>
         // an attempt the browser gave up on (CloseSession while enrolling)
         dropEnrolment: string -> Async<unit>
-        // a signing challenge over the plan as shown, for the Session the cookie names
-        challenge: string -> OrderPlan * OpenedToken * string option -> Async<SigningResponse>
-        // the signature, for the Session the cookie names
-        submit: string -> Submission -> Async<SigningResponse>
+        // a signing challenge over the plan as shown, parsed, for the Session the cookie names
+        challenge: string -> GenOrder.OrderPlan * OpenedToken * string option -> Async<SigningOutcome>
+        // the signature, its plan parsed, for the Session the cookie names
+        submit: string -> Signature -> Async<SigningOutcome>
         // every computing request: the Session the cookie names is marked seen and told
         // whether the record moved on or the Session ended
         seen: string -> OpenedToken option -> Async<RecordNotice option>

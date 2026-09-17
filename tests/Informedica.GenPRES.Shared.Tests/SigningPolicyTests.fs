@@ -80,6 +80,8 @@ let tests =
                         Terms.``Signing Refusal Pin Wrong``
                         Terms.``Signing Refusal Pin Limit``
                         Terms.``Signing Refusal Locked``
+                        Terms.``Signing Refusal Store Failed``
+                        Terms.``Signing Refusal Plan Unreadable``
                         Terms.``Signing Send Failed``
                     ] do
                     english term |> Expect.notEqual $"default for {term}" $"{term}"
@@ -136,6 +138,8 @@ let tests =
                     SigningRefusal.PinWrong 2, "<Signing Refusal Pin Wrong>"
                     SigningRefusal.PinLimit, "<Signing Refusal Pin Limit>"
                     SigningRefusal.Locked untilUtc, "<Signing Refusal Locked>"
+                    SigningRefusal.StoreFailed, "<Signing Refusal Store Failed>"
+                    SigningRefusal.PlanUnreadable, "<Signing Refusal Plan Unreadable>"
                 ]
                 |> List.iter (fun (refusal, term) -> refusalSentence named refusal |> Expect.equal $"{refusal}" term)
 

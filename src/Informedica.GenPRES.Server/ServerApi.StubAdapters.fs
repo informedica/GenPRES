@@ -349,7 +349,48 @@ below and opens GenPRES on it. Development and test servers only.</p>
 /// as parameters so the tests can fix them.
 module StubDatabase =
 
+    /// The digest of an order plan: SHA-256 over the canonical form of its Dto, the
+    /// serialization the store writes, so that two plans equal as domain values digest equal
+    /// whatever the client's JSON looked like.
+    let digest (plan: Informedica.GenOrder.Lib.Types.OrderPlan) =
+        plan
+        |> Informedica.GenOrder.Lib.OrderPlan.Dto.toDto
+        |> Informedica.GenOrder.Lib.Canonical.serialize
+        |> System.Text.Encoding.UTF8.GetBytes
+        |> System.Security.Cryptography.SHA256.HashData
+        |> Convert.ToHexString
+
+
+    /// The in-memory store keeps the state itself: a write lands by being in it.
+    let persistNothing (_: Session.Persist) = Session.StoreOutcome.Written
+
+
+    /// The write phase of the state-replacing helper: the step run, its write run, and the
+    /// returned state kept only if the write landed. A failed write leaves the state as it was
+    /// and answers `StoreFailed`; a conflict is another server's sign, the head changed,
+    /// answered as a stale sign against the version that won.
+    let submitWith
+        (persist: Session.Persist -> Session.StoreOutcome)
+        (step: Session.State -> Session.State * SigningOutcome * Session.Persist option)
+        (state: Session.State)
+        : Session.State * SigningOutcome
+        =
+        let next, answer, write = step state
+
+        match write with
+        | None -> next, answer
+        | Some write ->
+            match persist write with
+            | Session.StoreOutcome.Written -> next, answer
+            | Session.StoreOutcome.Conflict winner ->
+                state, SigningOutcome.Refused(SigningRefusal.Blocked(Session.StoredVersion.head winner))
+            | Session.StoreOutcome.Failed _ -> state, SigningOutcome.Refused SigningRefusal.StoreFailed
+
+
+    /// The session port over an in-memory store. `demo` is the server's flag, told on every
+    /// context of a version the client gets.
     let makeSessionPort
+        (demo: bool)
         (now: unit -> DateTime)
         (newId: unit -> string)
         (newCode: unit -> string)
@@ -365,6 +406,10 @@ module StubDatabase =
         =
         let gate = obj ()
         let mutable state = initial
+
+        let toSigned =
+            Informedica.GenOrder.Lib.OrderPlanVersion.Dto.toDto
+            >> SessionMapper.toSigned demo
 
         let update f =
             lock
@@ -387,6 +432,7 @@ module StubDatabase =
                                 Session.callback
                                     (now ())
                                     newId
+                                    toSigned
                                     newCode
                                     codeMac
                                     idp.redeem
@@ -408,6 +454,7 @@ module StubDatabase =
                                 Session.supplyPin
                                     (now ())
                                     newId
+                                    toSigned
                                     newSalt
                                     codeMac
                                     registry.standing
@@ -422,13 +469,30 @@ module StubDatabase =
             dropEnrolment = fun attempt -> async { return update (fun s -> Session.dropEnrolment attempt s, ()) }
             challenge =
                 fun sid request ->
-                    async { return update (fun s -> Session.challenge (now ()) newId patientData.read sid request s) }
+                    async {
+                        return update (fun s -> Session.challenge (now ()) newId digest patientData.read sid request s)
+                    }
             submit =
-                fun sid submission ->
+                fun sid signature ->
                     async {
                         return
-                            update (fun s -> Session.commit (now ()) newId registry.standing mail.send sid submission s)
+                            update (
+                                submitWith
+                                    persistNothing
+                                    (fun s ->
+                                        Session.commit
+                                            (now ())
+                                            newId
+                                            digest
+                                            toSigned
+                                            registry.standing
+                                            mail.send
+                                            sid
+                                            signature
+                                            s
+                                    )
+                            )
                     }
             seen = fun sid opened -> async { return update (Session.seen (now ()) sid opened) }
-            openVersion = fun sid id -> async { return update (Session.openVersion (now ()) newId sid id) }
+            openVersion = fun sid id -> async { return update (Session.openVersion (now ()) newId toSigned sid id) }
         }
