@@ -1365,19 +1365,40 @@ module SqlSessions =
     /// User changed. Demo servers only; production has no seed and refuses the key today.
     /// </summary>
     let seed (cs: string) (now: DateTime) (credentials: Map<string, Credential>) =
-        use conn = new SqliteConnection(cs)
-        conn.Open()
+        try
+            use conn = new SqliteConnection(cs)
+            conn.Open()
+            use tx = conn.BeginTransaction()
 
-        let missing =
-            credentials
-            |> Map.toList
-            |> List.filter (fun (login, _) -> loadCredential conn login |> Option.isNone)
+            try
+                for login, credential in credentials |> Map.toList do
+                    // one statement asks and writes: a credential another server set between a
+                    // question and an answer of ours would otherwise be replaced by the demo
+                    // PIN, and the newest event is the one that signs
+                    exec
+                        conn
+                        tx
+                        """
+                        insert into credential_event
+                            (user_id, event, pin_salt, pin_hash, wrong_count, locked_until, at)
+                        select $u, 'seeded', $salt, $hash, $wrong, null, $at
+                        where not exists (select 1 from credential_event where user_id = $u)
+                        """
+                        [
+                            "$u", box login
+                            "$salt", nullable (credential.PinHash |> Option.map _.Salt)
+                            "$hash", nullable (credential.PinHash |> Option.map _.Hash)
+                            "$wrong", box credential.WrongCount
+                            "$at", box (ms now)
+                        ]
 
-        missing
-        |> List.map (fun (login, credential) -> Session.WriteCredential(login, "seeded", credential, now))
-        |> function
-            | [] -> Session.StoreOutcome.Written
-            | writes -> runWrites cs writes
+                tx.Commit()
+                Session.StoreOutcome.Written
+            with e ->
+                tx.Rollback()
+                Session.StoreOutcome.Failed e.Message
+        with e ->
+            Session.StoreOutcome.Failed e.Message
 
 
     /// The session port over the state in the database.

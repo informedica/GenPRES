@@ -1434,7 +1434,24 @@ let credentialLoadTests =
                     SqlSessions.seed cs t0 seeded |> ignore
                     rows () |> Expect.equal "the second start adds nothing" (first + 1L)
 
+                    // the PIN was set while this start was seeding: the seed asks and writes in
+                    // one statement, so the demo PIN cannot land after it and become the newest
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteCredential("no-pin", "pin-set", credentialOf "5555", t0)
+                        ]
+                    |> ignore
+
+                    SqlSessions.seed cs t0 seeded |> ignore
+
                     use conn = connect cs
+
+                    match SqlSessions.loadCredential conn "no-pin" with
+                    | Some c ->
+                        PinHash.verify "5555" c.PinHash.Value
+                        |> Expect.isTrue "the PIN they enrolled with"
+                    | None -> failtest "expected the credential"
 
                     match SqlSessions.loadCredential conn "prescriber" with
                     | Some c ->
