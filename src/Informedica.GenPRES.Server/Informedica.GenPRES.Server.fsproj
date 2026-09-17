@@ -19,6 +19,7 @@
     <Compile Include="ServerApi.Services.fs" />
     <Compile Include="ServerApi.Session.fs" />
     <Compile Include="ServerApi.StubAdapters.fs" />
+    <Compile Include="ServerApi.SqlAdapters.fs" />
     <Compile Include="ServerApi.Adapters.fs" />
     <Compile Include="ServerApi.Compute.fs" />
     <Compile Include="ServerApi.FormularyCommand.fs" />
@@ -32,6 +33,7 @@
     <Compile Include="ServerApi.CompositionRoot.fs" />
     <Compile Include="ServerApi.ApiImpl.fs" />
     <Compile Include="Server.fs" />
+    <EmbeddedResource Include="Sql\*.sql" LogicalName="Sql/%(Filename)%(Extension)" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\MemoryStream.fsx" />
   </ItemGroup>
