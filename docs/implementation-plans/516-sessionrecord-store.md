@@ -214,14 +214,15 @@ asserts the rows a request appends equal the writes it returned, and a sign appe
 `order_plan` row. The machine's own `dropExpired` keeps pruning the in-memory `State`; that is
 memory, not the store.
 
-A mail follows the same rule, for the same reason. `supplyPin` mails that the PIN was set and
-`commit` mails that signing is locked, today from inside the pure function through the injected
-`send`, before the request's writes are run. Once those writes reach a database, a failed write
-would leave a mail sent for an act that did not happen, and the retry would mail again. So from
-step 7, where the credential, code and enrolment rows land, a member returns its mails next to
-its writes and the adapter sends them after the writes landed, never before. Until then no mail
-belongs to a row: the credential, the code and the enrolment live in memory, and the session
-rows of step 6 carry no mail of their own.
+A mail follows the same rule, for the same reason. The machine mails three things, today from
+inside the pure function through the injected `send` and before the request's writes are run:
+the confirmation code when a launch suspends into enrolment, that the PIN was set at
+`supplyPin`, and that signing is locked at the third wrong PIN. Once a request's writes reach a
+database, a failed write would leave a mail sent for an act that did not happen, and a retry
+could mail again. So from step 6c, where the first writes of those requests land, a member
+returns its mails next to its writes and the adapter sends them only after the writes landed,
+never before; step 7 adds the credential and code rows under the same rule. Until 6c nothing of
+these acts is stored, so no mail can outlive a failed write.
 
 ### Config and wiring
 
@@ -837,16 +838,17 @@ as decision 1 says, `Session.redeem` and `Session.openAfterRedeem` in the machin
 loading before and between them, with the machine tests that the two halves answer as
 `callback` did (a reloaded callback included, `Opened` and `Superseded`), a test that the
 IdentityProvider's code is redeemed once, and a test that a load failing after the redeem
-records no outcome and a re-presentation of the Launch then opens. ADR-0007 § 2 to Accepted. DEVELOPMENT.md, the uc-01 stand-ins table and the "Not built" lists updated where
+records no outcome and a re-presentation of the Launch then opens. The mails of a request
+returned as values and sent by the adapter after its writes landed ("Writes as values"), with
+the test that a request whose writes fail sends none. ADR-0007 § 2 to Accepted. DEVELOPMENT.md, the uc-01 stand-ins table and the "Not built" lists updated where
 Sessions now survive a restart.
 
 ### Step 7 — feat(server): credentials, codes, enrolments, the demo seed
 
 Migration 3 (`credential_event`, `confirmation_code`, `code_try`, `code_spent`, `enrolment`,
 `enrolment_dropped`); the members `findEnrolment`, `supplyPin`, `dropEnrolment` on the slice,
-with their `Persist` cases; the mails returned as values next to the writes and sent by the
-adapter only after they landed, so that a failed write mails nothing and its retry mails once
-("Writes as values");
+with their `Persist` cases; the credential and code rows under the mail rule of step 6c, so
+that a failed write mails nothing and its retry mails once;
 the seed for `GENPRES_PROD=0` with the credentials of `StubCredentials.seed`: the three
 Prescribers with the PIN 1234, `no-pin` without a PIN, each written only when its login has no
 credential event yet. Tests: a second start adds no row, and a PIN set by enrolment survives a
