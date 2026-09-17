@@ -2213,7 +2213,11 @@ module OrderPlanDtoTests =
                             |> Canonical.serialize
                             |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
                             |> OrderPlanVersion.Dto.fromDto
-                            |> Expect.equal "the same version" (Ok Fixtures.version)
+                            // in canonical form: a local DateTime reads back as the same instant in UTC
+                            |> Result.map (OrderPlanVersion.Dto.toDto >> Canonical.serialize)
+                            |> Expect.equal
+                                "the same version"
+                                (Ok(Fixtures.version |> OrderPlanVersion.Dto.toDto |> Canonical.serialize))
                         }
 
                         test "a null root is missing by its name, never a crash" {

@@ -341,6 +341,8 @@ module Canonical =
                 NullValueHandling = NullValueHandling.Include,
                 Formatting = Formatting.None,
                 DateFormatHandling = DateFormatHandling.IsoDateFormat,
+                // every DateTime in UTC, so the form never depends on the machine's time zone
+                DateTimeZoneHandling = DateTimeZoneHandling.Utc,
                 ContractResolver = PopulateResolver()
             )
 

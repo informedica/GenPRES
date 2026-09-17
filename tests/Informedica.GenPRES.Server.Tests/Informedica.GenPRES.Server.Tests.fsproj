@@ -22,10 +22,12 @@
     <Compile Include="OrderPlanSwitchTests.fs" />
     <Compile Include="SessionStoreTests.fs" />
     <Compile Include="SqlSchemaTests.fs" />
+    <Compile Include="SqlRecordTests.fs" />
     <Compile Include="AgreementTests.fs" />
     <Compile Include="HttpTests.fs" />
     <Compile Include="ConfigTests.fs" />
     <Compile Include="Program.fs" />
+    <Content Include="fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Scripts/load.fsx" />
     <None Include="Scripts/Tests.fsx" />
     <None Include="Scripts\Tests2.fsx" />
