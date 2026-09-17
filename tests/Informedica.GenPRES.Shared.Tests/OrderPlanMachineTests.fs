@@ -231,9 +231,24 @@ let tests =
                              ])
                     }
 
-                    test "without a patient there is nothing to open the version for" {
-                        transition (OrderPlanMsg.Version(head, "r-1")) noPatient
-                        |> Expect.equal "nothing" (noPatient, [])
+                    test "the version arriving before its patient is kept and opened when the patient does" {
+                        // a Session opens: the plan machine hears the version first, the patient it
+                        // was opened with one message later
+                        let kept, effects = transition (OrderPlanMsg.Version(head, "r-1")) noPatient
+
+                        (kept, effects)
+                        |> Expect.equal "kept, nothing asked yet" (OrderPlanState.awaiting two.OrderContexts, [])
+
+                        transition (OrderPlanMsg.PatientChanged(Some patient, "r-2")) kept
+                        |> Expect.equal
+                            "the version's contexts opened for the patient"
+                            (loading patient two.OrderContexts "r-2",
+                             [
+                                 OrderPlanEffect.CallPlan(OrderPlanCommand.Open(draft, two.OrderContexts), "r-2")
+                             ])
+
+                        transition (OrderPlanMsg.PatientChanged(None, "r-3")) kept
+                        |> Expect.equal "no patient after all: the version is let go" (noPatient, [])
                     }
                 ]
 
@@ -446,8 +461,8 @@ let stagesTests =
             test "nothing lands without a patient; the dialog selects only over a plan held" {
                 OrderPlanCart.step
                     (OrderPlanCartMsg.Landed(OrderPlanCommand.Open(draft, [||]), Ok one))
-                    OrderPlanCart.NoPatient
-                |> Expect.equal "no patient" (OrderPlanCart.NoPatient, [])
+                    (OrderPlanCart.NoPatient [||])
+                |> Expect.equal "no patient" (OrderPlanCart.NoPatient [||], [])
 
                 transition (OrderPlanMsg.Select(Some "c-1")) (loading patient [||] "r-1")
                 |> Expect.equal "nothing to select yet" (loading patient [||] "r-1", [])

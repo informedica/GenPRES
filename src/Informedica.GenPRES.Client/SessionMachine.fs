@@ -107,7 +107,7 @@ type SessionEffect =
     | KeepKey of thumbprint: string
     // the orders of the version the Session opened with go into the cart, over the
     // patient as the client holds it after SetPatient (normal values applied); interpreted as
-    // a FilterOrderPlan over them
+    // the plan machine's Version, which keeps the version while that patient is on its way
     | LoadCart of SignedOrderPlan
     // processSession OpenVersion; `from` comes back in Reopened
     | CallOpenVersion of id: string * from: OpenedToken option
@@ -136,8 +136,8 @@ module Session =
 
     /// The state and effects of a Session that just opened: the patient goes through
     /// UpdatePatient, the key of this Session is the one to keep, and the orders of the version
-    /// it opened with go into the cart, after the patient so that the cart is built
-    /// over it.
+    /// it opened with go into the cart. The patient reaches the plan machine a message later
+    /// than the version does, so the machine keeps the version until it has.
     let opened (session: SessionOpened) =
         Session.Open session,
         [

@@ -22,7 +22,10 @@ open Shared.Api
 /// The plan as the clinical model has it: no request ids here.
 [<RequireQualifiedAccess>]
 type OrderPlanCart =
-    | NoPatient
+    // no patient: the contexts of the version the Session opened with, kept until there is a
+    // patient to open them for, since the Session tells its version before the patient it
+    // opened with has reached the plan; empty when there is no such version
+    | NoPatient of awaiting: OrderContext[]
     // a patient held, no plan answered yet: the contexts being opened, so that a patient change
     // meanwhile opens the same ones again and a signed version being opened is not lost
     | Unopened of Patient * opening: OrderContext[]
@@ -103,11 +106,11 @@ module OrderPlanCart =
     let step (msg: OrderPlanCartMsg) (plan: OrderPlanCart) : OrderPlanCart * OrderPlanCartIntent list =
         match msg, plan with
         // no patient, no plan
-        | OrderPlanCartMsg.PatientChanged None, _ -> OrderPlanCart.NoPatient, []
+        | OrderPlanCartMsg.PatientChanged None, _ -> OrderPlanCart.NoPatient [||], []
 
-        // the first plan for a patient: the empty one, opened
-        | OrderPlanCartMsg.PatientChanged(Some pat), OrderPlanCart.NoPatient ->
-            OrderPlanCart.Unopened(pat, [||]), [ OrderPlanCartIntent.Open(pat, [||]) ]
+        // the first plan for a patient: the version kept for it, or the empty one, opened
+        | OrderPlanCartMsg.PatientChanged(Some pat), OrderPlanCart.NoPatient awaiting ->
+            OrderPlanCart.Unopened(pat, awaiting), [ OrderPlanCartIntent.Open(pat, awaiting) ]
         // the patient changed while an open is under way: the same contexts opened again for
         // the new patient
         | OrderPlanCartMsg.PatientChanged(Some pat), OrderPlanCart.Unopened(_, opening) ->
@@ -117,9 +120,9 @@ module OrderPlanCart =
             let tp = { tp with Patient = pat }
             OrderPlanCart.Opened(pat, tp), [ OrderPlanCartIntent.Recalculate tp ]
 
-        // the signed version replaces whatever plan there was; without a patient there is
-        // nothing to open it for
-        | OrderPlanCartMsg.Version _, OrderPlanCart.NoPatient -> plan, []
+        // the signed version replaces whatever plan there was; before the patient it was
+        // opened with has arrived, its contexts are kept and opened when the patient does
+        | OrderPlanCartMsg.Version head, OrderPlanCart.NoPatient _ -> OrderPlanCart.NoPatient head.OrderContexts, []
         | OrderPlanCartMsg.Version head, OrderPlanCart.Unopened(pat, _) ->
             OrderPlanCart.Unopened(pat, head.OrderContexts), [ OrderPlanCartIntent.Open(pat, head.OrderContexts) ]
         | OrderPlanCartMsg.Version head, OrderPlanCart.Opened(pat, _) ->
@@ -130,7 +133,7 @@ module OrderPlanCart =
         | OrderPlanCartMsg.Command _, _ -> plan, []
 
         // nothing was asked without a patient, so nothing lands there
-        | OrderPlanCartMsg.Landed _, OrderPlanCart.NoPatient -> plan, []
+        | OrderPlanCartMsg.Landed _, OrderPlanCart.NoPatient _ -> plan, []
         // an answer lands for the patient held
         | OrderPlanCartMsg.Landed(sent, Ok tp), OrderPlanCart.Unopened(pat, _)
         | OrderPlanCartMsg.Landed(sent, Ok tp), OrderPlanCart.Opened(pat, _) -> answered pat sent tp
@@ -152,8 +155,9 @@ module OrderPlanCart =
 
 /// The plan, the one request under way (the command sent and the id the answer must name; none
 /// while idle) and the context the dialog shows, by id: the client's own, next to whatever is in
-/// flight. Built through the constructors below only, which admit the four combinations that can
-/// occur: no patient with nothing under way, an open under way, a plan held, a change under way.
+/// flight. Built through the constructors below only, which admit the five combinations that can
+/// occur: no patient with nothing under way, a version awaiting its patient, an open under way,
+/// a plan held, a change under way.
 type OrderPlanState =
     private
         {
@@ -198,7 +202,17 @@ module OrderPlanState =
 
     let noPatient =
         {
-            Cart = OrderPlanCart.NoPatient
+            Cart = OrderPlanCart.NoPatient [||]
+            InFlight = None
+            Selected = None
+        }
+
+
+    /// No patient yet: the contexts of the version the Session opened with, kept for the
+    /// patient on its way, nothing under way, the dialog closed.
+    let awaiting (contexts: OrderContext[]) =
+        {
+            Cart = OrderPlanCart.NoPatient contexts
             InFlight = None
             Selected = None
         }
@@ -234,7 +248,7 @@ module OrderPlanState =
     /// The plan the state holds, none before the first answer.
     let plan (state: OrderPlanState) =
         match state.Cart with
-        | OrderPlanCart.NoPatient
+        | OrderPlanCart.NoPatient _
         | OrderPlanCart.Unopened _ -> None
         | OrderPlanCart.Opened(_, tp) -> Some tp
 
@@ -246,7 +260,7 @@ module OrderPlanState =
     /// The patient the plan is for, none without one.
     let patient (state: OrderPlanState) =
         match state.Cart with
-        | OrderPlanCart.NoPatient -> None
+        | OrderPlanCart.NoPatient _ -> None
         | OrderPlanCart.Unopened(pat, _) -> Some pat
         | OrderPlanCart.Opened(pat, _) -> Some pat
 
@@ -269,7 +283,7 @@ module OrderPlanState =
     /// it.
     let toDeferred (state: OrderPlanState) : Deferred<OrderPlan> =
         match state.Cart, state.InFlight with
-        | OrderPlanCart.NoPatient, _ -> HasNotStartedYet
+        | OrderPlanCart.NoPatient _, _ -> HasNotStartedYet
         | OrderPlanCart.Unopened _, _ -> InProgress
         | OrderPlanCart.Opened(_, tp), Some(sent, _) -> Provisional(meanwhile tp sent)
         | OrderPlanCart.Opened(_, tp), None -> Resolved tp
@@ -317,7 +331,7 @@ module OrderPlanState =
 
         let selected =
             match msg, plan with
-            | _, OrderPlanCart.NoPatient -> None
+            | _, OrderPlanCart.NoPatient _ -> None
             | OrderPlanCartMsg.PatientChanged _, _
             | OrderPlanCartMsg.Version _, _ -> None
             | OrderPlanCartMsg.Filter _, OrderPlanCart.Opened _ when state.InFlight.IsNone -> None
@@ -326,7 +340,7 @@ module OrderPlanState =
 
         let inFlight =
             match plan with
-            | OrderPlanCart.NoPatient -> None
+            | OrderPlanCart.NoPatient _ -> None
             | _ -> state.InFlight
 
         apply
