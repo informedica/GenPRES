@@ -598,3 +598,40 @@ let tests =
                     }
                 )
         ]
+
+
+/// The temporary files the SQLite store factory made, deleted once every suite over them ran.
+let minted = System.Collections.Concurrent.ConcurrentBag<string>()
+
+
+/// A SQLite store over a fresh file with the schema applied, one per port: the suites run in
+/// parallel and sign for the same patient.
+let newSqliteStore () =
+    let path = Path.Combine(Path.GetTempPath(), $"genpres-{Guid.NewGuid()}.db")
+    minted.Add path
+
+    let cs =
+        SqliteConnectionStringBuilder(DataSource = path, Pooling = false).ToString()
+
+    SqlSchema.apply cs |> ignore
+    SqlDatabase.store ignore cs
+
+
+/// The composition suites of the in-memory port, run again over SQLite, so that the two stores
+/// cannot drift on the record. Sequenced, so that the deletion of the files runs after the
+/// suites that opened them.
+[<Tests>]
+let compositionOverSqlite =
+    testSequenced
+    <| testList
+        "the composition suites over SQLite"
+        [
+            StubAdapterTests.SessionStubTests.compositionSuites "suites" newSqliteStore
+
+            test "the files the store factory made are deleted" {
+                for path in minted do
+                    File.Delete path
+
+                minted |> Seq.filter File.Exists |> Seq.isEmpty |> Expect.isTrue "no file left"
+            }
+        ]
