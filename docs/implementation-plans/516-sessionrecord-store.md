@@ -554,7 +554,8 @@ lock orders them and the outcome is the same.
 **Two signs of the same number.** Two server processes load the same head for a patient and
 both sign: the second insert violates `unique (patient_id, no)`, the adapter re-reads the head
 and refuses the sign as stale, naming the head; `openVersion` then opens the row that won. The
-mapping is proven on the file in step 3, the interleaving with two port instances in step 4a. A crash between the insert and the reply is a
+mapping is proven on the file in step 3, the race through two port instances, made certain by a
+barrier before the insert, in step 4a. A crash between the insert and the reply is a
 different case: the retry's load already holds the written row, so `commit` refuses the sign
 as stale before any insert; proven through the port in step 4a.
 
@@ -566,7 +567,9 @@ superseded, and the login has no open Session until the next open appends a row.
 
 ## Steps
 
-Each step is one PR of 200 changed lines or fewer. A step with new F# source is a
+Each step is one PR of 200 changed source lines or fewer, counted as CONTRIBUTING.md counts
+them: the shipped code under `src/` (F#, SQL, project files); tests, prototype scripts,
+documentation and lock files do not count. A step with new F# source is a
 prototype-script PR (`chore(server)`; the review bot, Greptile, is not run on script-only PRs)
 followed by a "migrate" PR from master that lands the source and removes the script
 (`feat(server)`, with a changelog block in the commit body). A docs, build or test-only step is
@@ -580,13 +583,14 @@ an entry in `.claude/docs/session-log.md`; every step runs `dotnet run Build`,
 
 `docs`. This text as `docs/implementation-plans/516-sessionrecord-store.md`; ADR-0007 § 4
 amended and its status line; the other documents of the table under "This plan leads the other
-documents"; split as 0a (the plan and the ADR) and 0b (the rest) if over 200 lines. Closed by a
+documents"; as 0a (the plan and the ADR) and 0b (the rest), to keep each review to one kind of
+change; documentation does not count toward the source line limit. Closed by a
 grep over `docs/` and the server comments for "interim", "516 step", "plan 516", "schema
 version" and "SQLite".
 
 ### Step 1 — build: Paket, the key, the opt-in entries
 
-`build`, ~60 lines.
+`build`, no source lines apart from the Server's `paket.references`.
 
 - `paket.dependencies` Main group: `nuget Microsoft.Data.Sqlite` (10.x for net10.0);
   `paket.lock`; `src/Informedica.GenPRES.Server/paket.references`. The test project gets it
@@ -630,8 +634,8 @@ Prototype `Scripts/SqlSchema.fsx`.
 
 ### Step 3 — feat(server): the record and the first stored fixture
 
-Prototype `Scripts/SqlRecord.fsx`. 3a the store, 3b the fixture and its two tests, when one
-migrate PR would pass 200 lines.
+Prototype `Scripts/SqlRecord.fsx`. The migrate PR stays within the source line limit (about 90
+source lines); the fixture and the tests do not count.
 
 - Source: `SqlAdapters.fs`, module `SqlDatabase` (~90 lines): `jsonVersionWritten = 1`,
   `jsonVersionRead = 1`; `upgrade : int -> string -> Result<string, string>` (identity at 1;
@@ -696,16 +700,18 @@ Prototype `Scripts/SqlPort.fsx`.
   after the row was written (the crash between the insert and the reply) is refused as stale
   with `SigningRefusal.Blocked` naming the head, nothing written, and `openVersion` opens the
   row; `StoreFailed` through the port on a read-only file.
-- The two-signs race on the file, for two server processes over one file. Calling one port
-  twice cannot produce it: its lock orders the two requests and the second load already sees
-  the first row. Calling two port instances cannot either, since each call runs its load, its
-  commit and its insert in one synchronous lock body, so B's load still follows A's insert. The
-  test therefore takes the steps of two port instances apart, through the same functions the
-  port runs: two states, A's and B's, each loaded with `SqlDatabase.store cs` before either
-  commits; A's `submitWith store.persist` over `Session.commit` (written, order plan version 1);
-  then B's on its own earlier load (the insert violates `unique (patient_id, no)`, answered
-  `Blocked` naming A's row, B's state unchanged); a fresh load for B then opens A's row with
-  `Session.openVersion`.
+- The two-signs race on the file, through two complete port instances over one file, standing
+  for two server processes. One port cannot produce it, since its lock orders the two requests.
+  Two instances have two locks, so their calls can interleave, but only by chance; the test
+  makes the interleaving certain with a barrier. Each instance gets a `RecordStore` wrapping
+  `SqlDatabase.store cs` whose `persist` waits on one shared `System.Threading.Barrier` of two
+  (with a timeout, so a refusal that never reaches `persist` fails the test instead of hanging
+  it). Both Sessions open on the same empty record and are challenged; then both `submit` calls
+  start on their own threads. Each loads, commits and reaches `persist` before either inserts.
+  One insert lands, order plan version 1; the other violates `unique (patient_id, no)` and is
+  answered `SigningRefusal.Blocked` naming the row that landed, its port's state unchanged.
+  The test asserts one `Submitted` and one `Blocked`, whichever port wins, one `order_plan` row,
+  and that the losing Session's `openVersion` then opens the winning row.
 
 ### Step 4b — feat(server): the composition switch and the production guard
 
@@ -729,7 +735,7 @@ One PR, no prototype.
 
 ### Step 5 — test(server): the composition suites over both ports
 
-~110 lines. `StubAdapterTests.fs`: `makePortWith (newStore: unit -> StubDatabase.RecordStore)
+Tests only, no source lines. `StubAdapterTests.fs`: `makePortWith (newStore: unit -> StubDatabase.RecordStore)
 outbox`, `envWithStubMail newStore ()`, `envWithStub newStore ()`, a fresh store per port, since
 the suites run in parallel and sign for the same patient; the four composition suites
 (`compositionTests`, `enrolmentCompositionTests`, `signingCompositionTests`,
