@@ -1090,15 +1090,21 @@ module SqlSessions =
     /// the transaction it writes in is its own.
     /// </summary>
     let load (warn: string -> unit) (cs: string) (now: unit -> DateTime) (slice: StubDatabase.Slice) state =
-        use conn = new SqliteConnection(cs)
-        conn.Open()
+        // a request with no rows to read never opens the file: a Launch whose seal does not
+        // verify is refused as invalid whatever the database is doing
+        let withConnection f =
+            use conn = new SqliteConnection(cs)
+            conn.Open()
+            f conn
 
         match slice with
         | StubDatabase.Slice.Nothing -> state
-        | StubDatabase.Slice.LaunchNonce nonce -> withLaunch warn cs conn (now ()) "nonce" nonce state
-        | StubDatabase.Slice.LaunchState value -> withLaunch warn cs conn (now ()) "state" value state
-        | StubDatabase.Slice.Login login -> withLogin warn cs conn (now ()) login state
-        | StubDatabase.Slice.Session sid -> withSession warn cs conn (now ()) sid state
+        | StubDatabase.Slice.LaunchNonce nonce ->
+            withConnection (fun conn -> withLaunch warn cs conn (now ()) "nonce" nonce state)
+        | StubDatabase.Slice.LaunchState value ->
+            withConnection (fun conn -> withLaunch warn cs conn (now ()) "state" value state)
+        | StubDatabase.Slice.Login login -> withConnection (fun conn -> withLogin warn cs conn (now ()) login state)
+        | StubDatabase.Slice.Session sid -> withConnection (fun conn -> withSession warn cs conn (now ()) sid state)
         // the attempt's own rows arrive with the credentials; the record of the patient it
         // was launched on is what an open out of it needs now
         | StubDatabase.Slice.Enrolment attempt ->

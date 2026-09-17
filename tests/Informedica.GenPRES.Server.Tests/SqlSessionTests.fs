@@ -1066,3 +1066,47 @@ let sliceTests =
                 )
             }
         ]
+
+
+[<Tests>]
+let raceTests =
+    testList
+        "the rows decide the races"
+        [
+            test "two opens of one login that met the same predecessor: the newer stands" {
+                withSessions (fun cs ->
+                    // both servers load before either writes, so neither sees the other's open
+                    use conn = connect cs
+                    let _, warn = warnings ()
+                    let a = SqlSessions.withLogin warn cs conn t0 "prescriber" emptyState
+                    let b = SqlSessions.withLogin warn cs conn t0 "prescriber" emptyState
+
+                    a.Sessions |> Expect.isEmpty "nothing for the login yet"
+                    b.Sessions |> Expect.isEmpty "for either of them"
+
+                    for sid in [ "s-a"; "s-b" ] do
+                        let session = sessionOf sid "prescriber" None None
+
+                        SqlSessions.runWrites
+                            cs
+                            [
+                                Session.OpenSession(sid, session)
+                                Session.RecordOpenedWith(sid, session, t0)
+                            ]
+                        |> Expect.equal "both opens land" Session.StoreOutcome.Written
+
+                    // the ordering of the rows decides it, not a lock either server held
+                    match loadedSession cs "s-a" with
+                    | Some(Choice2Of2(Some(SessionEnding.SupersededByLaunch, _))) -> ()
+                    | other -> failtest $"expected the older Session superseded, got %A{other}"
+
+                    match loadedSession cs "s-b" with
+                    | Some(Choice1Of2(Ok _)) -> ()
+                    | other -> failtest $"expected the newer Session open, got %A{other}"
+
+                    // and the login has exactly one Session a request can find
+                    SqlSessions.newestOfLogin conn "prescriber"
+                    |> Expect.equal "the newer one" (Some "s-b")
+                )
+            }
+        ]
