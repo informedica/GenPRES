@@ -21,8 +21,8 @@ the canonical serialization of `OrderPlan.Dto`. This plan gives that machine a s
 
 The design is in `docs/scenarios/integration/`: [uc-01](../scenarios/integration/uc-01-launch.md)
 leads the launch sequence, and the V8 document holds the rules cited here (Actor 5, Concept 9,
-Rules 2, 8 to 12, 19 to 21, 32, 36, 40 to 46). Read the design and the machine before this plan.
-Where the design and this plan disagree, the design wins.
+Rules 2, 8 to 12, 19 to 21, 32, 36, 40 to 46). For the store, this plan leads: where the V8
+document or a use case disagrees with it, the plan wins and that document is aligned in step 0.
 
 The decisions this plan rests on are in [ADR-0007](../adr/0007-session-persistence.md), as
 amended in step 0, and [ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) § 6.
@@ -245,12 +245,14 @@ New F# is prototyped in `src/Informedica.GenPRES.Server/Scripts/` first, in the 
 ## This plan leads the other documents
 
 Step 0 amends ADR-0007 § 4; this plan follows the amended ADR and leads every other document
-that describes the store. Where plan 725, the roadmap documents or a code comment say something
-else about the store, they are aligned in step 0, the first PR. The numbered rules of the
-integration design are the requirements the store implements and are not touched.
+that describes the store, the integration design included. Where the V8 document, a use case,
+plan 725, the roadmap documents or a code comment say something else about the store, the plan
+wins and that document is aligned in step 0, the first PR.
 
 | Document | Aligned in step 0 |
 |---|---|
+| `docs/scenarios/integration/GenPRES-MainEHR-Integration-V8.md` | every rule and concept on the store (Actor 5, Concept 9, Rules 2, 8 to 12, 19 to 21, 32, 36, 40 to 46) checked against this plan; where a rule says otherwise (the store's engine, the order of building, what survives a restart before step 6), the rule is aligned to the plan |
+| `docs/scenarios/integration/uc-01-launch.md`, `uc-03-prescribe-and-sign.md`, `uc-04-two-users.md` | the steps and extensions on the store aligned to this plan; the stand-ins table and the "Not built" lists, which describe running behaviour, change with the step that makes them false (4b, 6, 8, 9) |
 | `docs/adr/0007-session-persistence.md` | § 4 amended: SQLite is the test and development database, not an interim; the acceptance schedule in the status line (§ 1 and § 4 at step 4b, § 2 at step 6, § 3 accepted already); every "plan 516 step N" on this plan's numbering |
 | `docs/adr/0008-contract-model-dto-mapping-boundary.md` | the plan 516 references checked against this plan's steps and the `order_plan` schema; the vocabulary table gains the **migration number** next to the order plan version and the JSON structure version |
 | `docs/implementation-plans/725-contract-model-dto-domain-flow.md` | the gate sentences on this plan's numbering: `order_plan` and the first fixture are steps 2–3, `session_opened_with` is step 6, `challenge` and `data_notice` are step 8; the vocabulary table gains the migration number |
@@ -258,7 +260,7 @@ integration design are the requirements the store implements and are not touched
 | `docs/roadmap/feature-patient-persistence.md` § 5, `docs/roadmap/backlog.md` (storage backends) | "left open" becomes: decided by ADR-0007 and this plan for test and development; the production engine remains open |
 | `scripts/CheckDependencyRule.fsx` | the two `contractAllowances` reasons for `ServerApi.Adapters.fs` and `ServerApi.StubAdapters.fs`, which still say "until plan 725 Phase 5": the session identity types (`UserContext`, `OpenedToken`, the refusals and endings) stay contract by ADR-0008 R6 and ADR-0007 § 3; a contract-free session domain is its own issue |
 | comments in `GenORDER.Lib/OrderPlan.fs` (`OrderPlanVersion.Dto`), `ServerApi.Session.fs`, `ServerApi.Ports.fs` | checked: "the database keeps the structure version beside the row", nothing about an interim |
-| `DEVELOPMENT.md`, the uc-01 stand-ins table, the "Not built" lists of uc-01/03/04 | **not** in step 0: they describe running behaviour and change with the step that makes them false (4b, 6, 8, 9) |
+| `DEVELOPMENT.md` | **not** in step 0: it describes running behaviour and changes with the step that makes it false (4b, 6, 8, 9) |
 
 ## Schema
 
