@@ -505,9 +505,9 @@ module SessionStubTests =
             $"%06d{n.Value}"
 
 
-    /// A port with a settable clock, a counting id source, the seal check bound to the clock, a
-    /// stub directory of its own and the given outbox.
-    let makePortWith (outbox: StubMail.Outbox) =
+    /// A port over a store made by `newStore`, with a settable clock, a counting id source, the
+    /// seal check bound to the clock, a stub directory of its own and the given outbox.
+    let makePortWith (newStore: unit -> StubDatabase.RecordStore) (outbox: StubMail.Outbox) =
         let clock = ref t0
         let count = ref 0
 
@@ -515,7 +515,8 @@ module SessionStubTests =
             StubDirectory.make (fun () -> clock.Value) (fun () -> $"code-{Guid.NewGuid()}")
 
         let port =
-            StubDatabase.makeSessionPort
+            StubDatabase.makeSessionPortWith
+                (newStore ())
                 (fun () -> clock.Value)
                 (fun () ->
                     count.Value <- count.Value + 1
@@ -534,7 +535,8 @@ module SessionStubTests =
         port, clock, directory
 
 
-    let makePort () = makePortWith (StubMail.make ())
+    let makePort () =
+        makePortWith (fun () -> StubDatabase.inMemory) (StubMail.make ())
 
 
     let thumbprintTests =
@@ -3475,10 +3477,11 @@ module SessionStubTests =
         cookie
 
 
-    /// The stub env with a fresh session port over its own stub directory and outbox.
-    let envWithStubMail () =
+    /// The stub env with a fresh session port over a store of `newStore`, its own stub directory
+    /// and outbox.
+    let envWithStubMail newStore () =
         let outbox = StubMail.make ()
-        let port, _, directory = makePortWith outbox
+        let port, _, directory = makePortWith newStore outbox
 
         directory,
         outbox,
@@ -3486,8 +3489,8 @@ module SessionStubTests =
         { makeEnv (formularyAlwaysOk Formulary.empty) (orderContextAlwaysOk OrderContext.empty) with session = port }
 
 
-    let envWithStub () =
-        let directory, _, env = envWithStubMail ()
+    let envWithStub newStore () =
+        let directory, _, env = envWithStubMail newStore ()
         directory, env
 
 
@@ -3662,7 +3665,7 @@ module SessionStubTests =
             ]
 
 
-    let compositionTests =
+    let compositionTests (newStore: unit -> StubDatabase.RecordStore) =
         testList
             "processLaunch, processCallback and processSession"
             [
@@ -3673,7 +3676,7 @@ module SessionStubTests =
                             IsDemo = false
                         }
 
-                    let _, env = envWithStub ()
+                    let _, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
                     let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
@@ -3683,7 +3686,7 @@ module SessionStubTests =
 
                 testAsync
                     "PresentLaunch: a sealed Launch answers RedirectTo and writes the state cookie, not the session cookie" {
-                    let _, env = envWithStub ()
+                    let _, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, heldState = memoryStateCookie None
 
@@ -3697,7 +3700,7 @@ module SessionStubTests =
                 }
 
                 testAsync "PresentLaunch: a refusal writes no cookie" {
-                    let _, env = envWithStub ()
+                    let _, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, heldState = memoryStateCookie None
 
@@ -3716,7 +3719,7 @@ module SessionStubTests =
                 }
 
                 testAsync "processCallback: Opened writes the session id to the cookie and sends the browser to the app" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -3743,7 +3746,7 @@ module SessionStubTests =
                 }
 
                 testAsync "processCallback: a refusal writes no session cookie and names the reason in the url" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -3763,7 +3766,7 @@ module SessionStubTests =
                 }
 
                 testAsync "processCallback: without the state cookie the callback is invalid" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, heldState = memoryStateCookie None
 
@@ -3797,7 +3800,7 @@ module SessionStubTests =
 
                 testAsync
                     "processCallback: a reload after a newer launch of the same login keeps the newer session's cookie" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -3848,14 +3851,14 @@ module SessionStubTests =
                 }
 
                 testAsync "GetSession: no cookie is None" {
-                    let _, env = envWithStub ()
+                    let _, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession
                     response |> Expect.equal "none" (SessionResponse.SessionResp None)
                 }
 
                 testAsync "GetSession: the cookie of an opened session finds it, without the id" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -3882,7 +3885,7 @@ module SessionStubTests =
 
                 testAsync
                     "GetSession: after a newer launch of the same login the ending is told until the client closes to acknowledge (Rule 11)" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -3942,14 +3945,14 @@ module SessionStubTests =
                 }
 
                 testAsync "GetSession: a cookie for an unknown session is None" {
-                    let _, env = envWithStub ()
+                    let _, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie (Some "stale")
                     let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.GetSession
                     response |> Expect.equal "none" (SessionResponse.SessionResp None)
                 }
 
                 testAsync "CloseSession: closes the session and deletes the cookie" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -3975,7 +3978,7 @@ module SessionStubTests =
                 }
 
                 testAsync "CloseSession without a cookie still deletes (idempotent)" {
-                    let _, env = envWithStub ()
+                    let _, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
 
                     let! response = SessionCommand.processCmd env cookie (noEnrolment ()) SessionCommand.CloseSession
@@ -3985,7 +3988,7 @@ module SessionStubTests =
                 }
 
                 testAsync "CloseSession deletes the cookie even when the port's close throws" {
-                    let _, env = envWithStub ()
+                    let _, env = envWithStub newStore ()
 
                     let env =
                         { env with
@@ -4007,7 +4010,7 @@ module SessionStubTests =
                 }
 
                 testAsync "sessionDisabled refuses every launch and callback as invalid and finds nothing" {
-                    let _, env = envWithStub ()
+                    let _, env = envWithStub newStore ()
                     let env = { env with session = Adapters.sessionDisabled }
                     let cookie, held = memoryCookie (Some "any")
                     let stateCookie, _ = memoryStateCookie (Some "st")
@@ -4048,13 +4051,13 @@ module SessionStubTests =
         body.Substring(i, 6)
 
 
-    let enrolmentCompositionTests =
+    let enrolmentCompositionTests (newStore: unit -> StubDatabase.RecordStore) =
         testList
             "processCallback and processSession while enrolling (UC-2)"
             [
                 testAsync
                     "no-pin: the callback sets the enrolment cookie, GetSession tells the pending enrolment, SupplyPin opens and swaps the cookies" {
-                    let directory, outbox, env = envWithStubMail ()
+                    let directory, outbox, env = envWithStubMail newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
                     let enrolment, attempt, until = memoryEnrolmentCookie None
@@ -4112,7 +4115,7 @@ module SessionStubTests =
                 }
 
                 testAsync "a void code deletes the enrolment cookie; a gone attempt at GetSession does too" {
-                    let directory, _, env = envWithStubMail ()
+                    let directory, _, env = envWithStubMail newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
                     let enrolment, attempt, _ = memoryEnrolmentCookie None
@@ -4140,7 +4143,7 @@ module SessionStubTests =
 
                 testAsync
                     "SupplyPin without an enrolment cookie is expired; CloseSession while enrolling drops the attempt" {
-                    let directory, _, env = envWithStubMail ()
+                    let directory, _, env = envWithStubMail newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -4169,7 +4172,7 @@ module SessionStubTests =
                 }
 
                 testAsync "the Session wins over a stale enrolment cookie" {
-                    let directory, _, env = envWithStubMail ()
+                    let directory, _, env = envWithStubMail newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
                     let enrolment, _, _ = memoryEnrolmentCookie (Some "stale")
@@ -4193,7 +4196,7 @@ module SessionStubTests =
                 }
 
                 testAsync "an enrolling callback replaces the Session this browser still held" {
-                    let directory, _, env = envWithStubMail ()
+                    let directory, _, env = envWithStubMail newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
                     let enrolment, attempt, _ = memoryEnrolmentCookie None
@@ -4231,7 +4234,7 @@ module SessionStubTests =
                     let cookie, _ = memoryCookie None
                     let enrolment, attempt, _ = memoryEnrolmentCookie (Some "any")
 
-                    let env = { snd (envWithStub ()) with session = Adapters.sessionDisabled }
+                    let env = { snd (envWithStub newStore ()) with session = Adapters.sessionDisabled }
 
                     let! refused =
                         SessionCommand.processCmd env cookie enrolment (SessionCommand.SupplyPin("123456", "2468"))
@@ -4244,7 +4247,7 @@ module SessionStubTests =
             ]
 
 
-    let signingCompositionTests =
+    let signingCompositionTests (newStore: unit -> StubDatabase.RecordStore) =
         /// The Session the cookie names, as the client holds it.
         let sessionOf env cookie =
             async {
@@ -4266,7 +4269,7 @@ module SessionStubTests =
             "processSigning"
             [
                 testAsync "without a cookie: refused, the port never asked" {
-                    let _, env = envWithStub ()
+                    let _, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
 
                     let! answer =
@@ -4281,7 +4284,7 @@ module SessionStubTests =
 
                 testAsync
                     "a Prescriber's Session: the challenge is issued over the plan as shown; the cookie is untouched" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, held = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -4320,7 +4323,7 @@ module SessionStubTests =
                 }
 
                 testAsync "a Prescriber over the no-data patient: a notice, then the challenge, unverified" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -4357,7 +4360,7 @@ module SessionStubTests =
 
                 testAsync
                     "Submit: the signature through the real hop; three wrong PINs end the Session and GetSession says so" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -4437,7 +4440,7 @@ module SessionStubTests =
                 }
 
                 testAsync "two browsers on one patient: B signs, A is blocked with B's head (Rule 20)" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookieA, _ = memoryCookie None
                     let cookieB, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
@@ -4512,7 +4515,7 @@ module SessionStubTests =
                 }
 
                 testAsync "a Reader's Session is refused" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -4535,7 +4538,7 @@ module SessionStubTests =
                 }
 
                 testAsync "the production port refuses whatever the cookie says" {
-                    let _, env = envWithStub ()
+                    let _, env = envWithStub newStore ()
                     let env = { env with session = Adapters.sessionDisabled }
                     let cookie, _ = memoryCookie (Some "s-1")
 
@@ -4563,7 +4566,7 @@ module SessionStubTests =
 
     /// A computing member over the cookie: the request computes as before, and
     /// the reply carries what the Session is told.
-    let computeCompositionTests =
+    let computeCompositionTests (newStore: unit -> StubDatabase.RecordStore) =
         let settings =
             {
                 ServerSettings.Language = Shared.Localization.Dutch
@@ -4587,7 +4590,7 @@ module SessionStubTests =
             "a computing member in a Session"
             [
                 testAsync "without a cookie: computed as before, nothing told (UC-7)" {
-                    let _, env = envWithStub ()
+                    let _, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
                     let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
@@ -4601,7 +4604,7 @@ module SessionStubTests =
                 }
 
                 testAsync "an open Session with its own token and no head: computed, nothing told" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
 
@@ -4625,7 +4628,7 @@ module SessionStubTests =
                 }
 
                 testAsync "a Session superseded by a newer launch: computed, and the ending told (Rule 11)" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookieA, _ = memoryCookie None
                     let cookieB, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
@@ -4666,7 +4669,7 @@ module SessionStubTests =
                 }
 
                 testAsync "OpenVersion without a cookie: no Session; with one and an unknown id: the Session as it is" {
-                    let directory, env = envWithStub ()
+                    let directory, env = envWithStub newStore ()
                     let cookie, _ = memoryCookie None
                     let stateCookie, _ = memoryStateCookie None
                     let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
@@ -4692,6 +4695,22 @@ module SessionStubTests =
             ]
 
 
+    /// The in-memory store, one per port.
+    let inMemory () = StubDatabase.inMemory
+
+
+    /// The four composition suites over the store `newStore` makes, a fresh one per port.
+    let compositionSuites name (newStore: unit -> StubDatabase.RecordStore) =
+        testList
+            name
+            [
+                compositionTests newStore
+                enrolmentCompositionTests newStore
+                signingCompositionTests newStore
+                computeCompositionTests newStore
+            ]
+
+
     let tests =
         testList
             "Session"
@@ -4700,10 +4719,10 @@ module SessionStubTests =
                 sealTests
                 SessionTests.tests
                 stubLaunchTests
-                compositionTests
-                enrolmentCompositionTests
-                signingCompositionTests
-                computeCompositionTests
+                compositionTests inMemory
+                enrolmentCompositionTests inMemory
+                signingCompositionTests inMemory
+                computeCompositionTests inMemory
             ]
 
 
