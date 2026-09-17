@@ -599,8 +599,7 @@ module SqlSessions =
 
     /// The ending of a Session, when it has one: the row of an act, or the supersession that a
     /// newer session row of its login is, read whatever became of that newer row, so that
-    /// closing it never hands the login back. An acknowledged ending is told no more, and a
-    /// closed Session is gone: the second answer says which.
+    /// closing it never hands the login back. The second answer says the Session is gone.
     let loadEnding (conn: SqliteConnection) (sid: string) (login: string option) (id: int64) =
         let acknowledged =
             rows conn "select 1 from session_acknowledged where session_id = $sid" [ "$sid", box sid ] ignore
@@ -628,14 +627,16 @@ module SqlSessions =
             |> Option.map (fun at -> SessionEnding.SupersededByLaunch, at)
 
         if acknowledged then
-            None, ending |> Option.map fst = Some "closed"
+            // whatever the Session ended of, the User was told and asked to leave: it is gone
+            // and never told again, as the machine drops an ending it acknowledges
+            None, true
         else
             match ending with
             | Some("closed", _) -> None, true
             | Some("wrong-pin-limit", at) -> Some(SessionEnding.WrongPinLimit, at), false
             | Some("unreadable", at) -> Some(SessionEnding.Unreadable, at), false
-            // a word no ending has, and no row at all: the newer Session of the login, if any
-            | Some _
+            // free text: a word this release cannot read still ended the Session
+            | Some(_, at) -> Some(SessionEnding.Unreadable, at), false
             | None -> superseded, false
 
 

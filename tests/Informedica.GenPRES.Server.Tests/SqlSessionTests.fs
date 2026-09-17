@@ -381,6 +381,48 @@ let sessionTests =
                 )
             }
 
+            test "an ending the User acknowledged leaves no Session, whatever it ended of" {
+                withSessions (fun cs ->
+                    insertSession cs "s-1" (Some "prescriber") "prescriber"
+                    insertOpenedWith cs "s-1" None 1 (Some patientJson)
+
+                    insertRow
+                        cs
+                        "insert into session_ending (session_id, ending, at) values ('s-1', 'wrong-pin-limit', $at)"
+                        [ "$at", box (SqlSessions.ms t0) ]
+
+                    match loadedSession cs "s-1" with
+                    | Some(Choice2Of2(Some(SessionEnding.WrongPinLimit, _))) -> ()
+                    | other -> failtest $"expected the PIN limit, got %A{other}"
+
+                    // the User was told and asked to leave: the Session is gone, not open again
+                    insertRow
+                        cs
+                        "insert into session_acknowledged (session_id, at) values ('s-1', $at)"
+                        [ "$at", box (SqlSessions.ms t0) ]
+
+                    match loadedSession cs "s-1" with
+                    | Some(Choice2Of2 None) -> ()
+                    | other -> failtest $"expected no Session, told nothing, got %A{other}"
+                )
+            }
+
+            test "an ending word this release does not know ends the Session all the same" {
+                withSessions (fun cs ->
+                    insertSession cs "s-1" (Some "prescriber") "prescriber"
+                    insertOpenedWith cs "s-1" None 1 (Some patientJson)
+
+                    insertRow
+                        cs
+                        "insert into session_ending (session_id, ending, at) values ('s-1', 'left-the-building', $at)"
+                        [ "$at", box (SqlSessions.ms t0) ]
+
+                    match loadedSession cs "s-1" with
+                    | Some(Choice2Of2(Some(SessionEnding.Unreadable, at))) -> at |> Expect.equal "when it ended" t0
+                    | other -> failtest $"expected unreadable, got %A{other}"
+                )
+            }
+
             test "a patient this release cannot read makes the Session unreadable" {
                 withSessions (fun cs ->
                     insertSession cs "s-1" (Some "prescriber") "prescriber"
