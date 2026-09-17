@@ -28,7 +28,7 @@ let v1 = lazy (versionOf 1 prescriber t0 domainPlan.Value)
 
 
 /// Inserts a row as SQL, bypassing `persist`, for rows no release of this code would write.
-let insertRow (cs: string) (versionId: string) (no: int) (jsonVersion: int) (plan: string) =
+let insertRowAt (cs: string) (signedAt: int64) (versionId: string) (no: int) (jsonVersion: int) (plan: string) =
     use conn = new SqliteConnection(cs)
     conn.Open()
     use cmd = conn.CreateCommand()
@@ -44,12 +44,15 @@ let insertRow (cs: string) (versionId: string) (no: int) (jsonVersion: int) (pla
     cmd.Parameters.AddWithValue("$id", versionId) |> ignore
     cmd.Parameters.AddWithValue("$no", no) |> ignore
 
-    cmd.Parameters.AddWithValue("$at", DateTimeOffset(t0, TimeSpan.Zero).ToUnixTimeMilliseconds())
-    |> ignore
+    cmd.Parameters.AddWithValue("$at", signedAt) |> ignore
 
     cmd.Parameters.AddWithValue("$jv", jsonVersion) |> ignore
     cmd.Parameters.AddWithValue("$plan", plan) |> ignore
     cmd.ExecuteNonQuery() |> ignore
+
+
+let insertRow cs =
+    insertRowAt cs (DateTimeOffset(t0, TimeSpan.Zero).ToUnixTimeMilliseconds())
 
 
 /// The stored fixture of structure version 1, copied to the test output.
@@ -182,6 +185,31 @@ let tests =
                         (u.No, u.SignedBy.UserId, u.SignedAt)
                         |> Expect.equal "the identity from the columns" (4, "prescriber", t0)
                     | StoredVersion.Readable _ -> failtest "the head should be unreadable"
+                )
+            }
+
+            test "a malformed value in the JSON leaves the row unreadable" {
+                withRecord (fun cs ->
+                    // a BigRational that is no number: the converter throws, not the JSON reader
+                    fixtureText().Replace("\"WeightKg\":\"32/1\"", "\"WeightKg\":\"x/y\"")
+                    |> insertRow cs "plan-1" 1 1
+
+                    match SqlDatabase.loadRecords cs "stub-patient" with
+                    | [ StoredVersion.Unreadable u ] ->
+                        u.Reason.Contains "does not read" |> Expect.isTrue $"the reason: %s{u.Reason}"
+                    | other -> failtest $"expected one unreadable row, got %A{other}"
+                )
+            }
+
+            test "a signed_at out of range leaves the row unreadable at the earliest time" {
+                withRecord (fun cs ->
+                    insertRowAt cs Int64.MaxValue "plan-1" 1 9 (fixtureText ())
+
+                    match SqlDatabase.loadRecords cs "stub-patient" with
+                    | [ StoredVersion.Unreadable u ] ->
+                        u.SignedAt |> Expect.equal "the earliest time" DateTime.MinValue
+                        u.Reason.Contains "out of range" |> Expect.isTrue $"the reason: %s{u.Reason}"
+                    | other -> failtest $"expected one unreadable row, got %A{other}"
                 )
             }
 

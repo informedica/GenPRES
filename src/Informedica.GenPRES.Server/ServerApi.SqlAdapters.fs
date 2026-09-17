@@ -205,7 +205,8 @@ module SqlDatabase =
                     |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
                     |> OrderPlanVersion.Dto.fromDto
                     |> Result.mapError (fun errs -> $"the order plan version does not parse: %A{errs}")
-                with :? Newtonsoft.Json.JsonException as e ->
+                // any exception: a converter meeting a malformed value throws its own type
+                with e ->
                     Error $"the JSON does not read: %s{e.Message}"
             )
             |> Result.bind (fun v ->
@@ -220,9 +221,16 @@ module SqlDatabase =
                     Error "the identity in the JSON disagrees with the columns"
             )
 
-        match parsed with
-        | Ok v -> StoredVersion.Readable v
-        | Error reason ->
+        // a time the column holds but DateTime cannot: the row stays, at the earliest time
+        let signedAt, reason =
+            try
+                DateTimeOffset.FromUnixTimeMilliseconds(row.SignedAt).UtcDateTime, None
+            with :? ArgumentOutOfRangeException ->
+                DateTime.MinValue, Some $"signed_at %i{row.SignedAt} is out of range"
+
+        match parsed, reason with
+        | Ok v, _ -> StoredVersion.Readable v
+        | Error parseReason, timeReason ->
             StoredVersion.Unreadable
                 {
                     Id = row.VersionId
@@ -234,8 +242,11 @@ module SqlDatabase =
                             UserId = row.SignedByUserId
                             DisplayName = row.SignedByDisplayName
                         }
-                    SignedAt = DateTimeOffset.FromUnixTimeMilliseconds(row.SignedAt).UtcDateTime
-                    Reason = reason
+                    SignedAt = signedAt
+                    Reason =
+                        timeReason
+                        |> Option.map (fun r -> $"%s{parseReason}; %s{r}")
+                        |> Option.defaultValue parseReason
                 }
 
 
