@@ -501,3 +501,245 @@ let sessionTests =
                 )
             }
         ]
+
+
+/// The Session an open writes: a Prescriber on the stub patient, with a token and a key.
+let sessionOf sid login openedWith head : Session.SessionRecord =
+    {
+        Opened =
+            {
+                User =
+                    Some
+                        {
+                            UserId = "user-1"
+                            DisplayName = "Stub Prescriber"
+                            Role = UserRole.Prescriber
+                        }
+                PatientId = Some "stub-patient"
+                Patient = Some patient
+                OpenedToken = Some(OpenedToken $"opened-%s{sid}")
+                KeyThumbprint = Some "thumb"
+                Head = head
+            }
+        Login = Some login
+        OpenedWith = openedWith
+        Seen = t0
+    }
+
+
+let launchOf nonce : Session.LaunchRecord =
+    {
+        Nonce = nonce
+        State = $"state-%s{nonce}"
+        PatientId = "stub-patient"
+        PublicKey = PublicKey "key-a"
+        Expiry = t0.AddMinutes 2.0
+        Outcome = None
+    }
+
+
+[<Tests>]
+let writerTests =
+    testList
+        "the writes of a request"
+        [
+            test "an open is written and loads back as the Session the machine held" {
+                withSessions (fun cs ->
+                    let session = sessionOf "s-1" "prescriber" None None
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.OpenSession("s-1", session)
+                            Session.RecordOpenedWith("s-1", session, t0)
+                        ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    match loadedSession cs "s-1" with
+                    | Some(Choice1Of2(Ok loaded)) -> loaded |> Expect.equal "the Session as it was" session
+                    | other -> failtest $"expected the Session, got %A{other}"
+                )
+            }
+
+            test "a heartbeat, a move to another version, and an ending, all as the loader reads them" {
+                withSessions (fun cs ->
+                    let session = sessionOf "s-1" "prescriber" None None
+                    let later = t0.AddMinutes 5.0
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.OpenSession("s-1", session)
+                            Session.RecordOpenedWith("s-1", session, t0)
+                        ]
+                    |> ignore
+
+                    let moved =
+                        { session with
+                            OpenedWith = Some "plan-1"
+                            Opened = { session.Opened with OpenedToken = Some(OpenedToken "opened-again") }
+                        }
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.RecordSeen("s-1", later)
+                            Session.RecordOpenedWith("s-1", moved, later)
+                        ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    match loadedSession cs "s-1" with
+                    | Some(Choice1Of2(Ok loaded)) ->
+                        loaded.OpenedWith |> Expect.equal "the newest opened-with" (Some "plan-1")
+
+                        loaded.Opened.OpenedToken
+                        |> Expect.equal "its token" (Some(OpenedToken "opened-again"))
+
+                        loaded.Seen |> Expect.equal "the newest heartbeat" later
+                    | other -> failtest $"expected the Session, got %A{other}"
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.EndSession("s-1", Session.StoredEnding.Ended SessionEnding.WrongPinLimit, later)
+                        ]
+                    |> ignore
+
+                    match loadedSession cs "s-1" with
+                    | Some(Choice2Of2(Some(SessionEnding.WrongPinLimit, at))) ->
+                        at |> Expect.equal "when it ended" later
+                    | other -> failtest $"expected the PIN limit, got %A{other}"
+                )
+            }
+
+            test "a Launch and its outcome are written and read back as the launch they were" {
+                withSessions (fun cs ->
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.RecordLaunch(launchOf "n-1")
+                            Session.RecordLaunchOutcome("n-1", LaunchResult.Enrolling "attempt-1", t0)
+                        ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    use conn = connect cs
+
+                    match SqlSessions.loadLaunch conn t0 "state" "state-n-1" with
+                    | Some row ->
+                        row.PublicKey |> Expect.equal "the browser's key" (PublicKey "key-a")
+                        row.Outcome |> Expect.equal "the outcome" (Some "enrolling")
+                        row.Attempt |> Expect.equal "the attempt it named" (Some "attempt-1")
+                    | None -> failtest "expected the Launch"
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.RecordLaunch(launchOf "n-2")
+                            Session.RecordLaunchOutcome(
+                                "n-2",
+                                LaunchResult.Refused LaunchRefusal.WrongActivePatient,
+                                t0
+                            )
+                        ]
+                    |> ignore
+
+                    (SqlSessions.loadLaunch conn t0 "nonce" "n-2").Value.Outcome
+                    |> Option.map (fun word -> word.Substring "refused:".Length)
+                    |> Option.bind SqlSessions.refusalOf
+                    |> Expect.equal "the refusal it was refused with" (Some LaunchRefusal.WrongActivePatient)
+                )
+            }
+
+            test "a request's writes are one transaction: one fails, none lands" {
+                withSessions (fun cs ->
+                    let session = sessionOf "s-1" "prescriber" None None
+
+                    // the second write names a Session that was never opened
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.OpenSession("s-1", session)
+                            Session.RecordSeen("s-9", t0)
+                        ]
+                    |> function
+                        | Session.StoreOutcome.Failed _ -> ()
+                        | other -> failtest $"expected Failed, got %A{other}"
+
+                    loadedSession cs "s-1" |> Expect.isNone "the open rolled back with it"
+                )
+            }
+
+            test "another server's version of the same number is a conflict, and the rest rolls back" {
+                withSessions (fun cs ->
+                    let session = sessionOf "s-1" "prescriber" None None
+                    let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.OpenSession("s-1", session)
+                            Session.WriteVersion v1
+                        ]
+                    |> Expect.equal "the first lands" Session.StoreOutcome.Written
+
+                    let rival = { v1 with Id = "plan-rival" }
+
+                    match
+                        SqlSessions.runWrites
+                            cs
+                            [
+                                Session.WriteVersion rival
+                                Session.RecordSeen("s-1", t0)
+                            ]
+                    with
+                    | Session.StoreOutcome.Conflict head ->
+                        head |> StoredVersion.id |> Expect.equal "the row that won" v1.Id
+                    | other -> failtest $"expected Conflict, got %A{other}"
+
+                    use conn = connect cs
+                    use cmd = SqlSessions.command conn null "select count(*) from session_seen" []
+
+                    cmd.ExecuteScalar()
+                    |> unbox<int64>
+                    |> Expect.equal "the heartbeat rolled back" 0L
+                )
+            }
+
+            test "a store that cannot be written is Failed, with its reason" {
+                withSessions (fun cs ->
+                    let readOnly = $"%s{cs};Mode=ReadOnly"
+
+                    SqlSessions.runWrites readOnly [ Session.RecordLaunch(launchOf "n-1") ]
+                    |> function
+                        | Session.StoreOutcome.Failed reason -> reason |> Expect.isNotEmpty "the reason it failed"
+                        | other -> failtest $"expected Failed, got %A{other}"
+                )
+            }
+
+            test "the patient a Session shows is written as its Dto under the version it is written with" {
+                withSessions (fun cs ->
+                    let session = sessionOf "s-1" "prescriber" None None
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.OpenSession("s-1", session)
+                            Session.RecordOpenedWith("s-1", session, t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+
+                    use cmd =
+                        SqlSessions.command conn null "select json_version, patient from session_opened_with" []
+
+                    use r = cmd.ExecuteReader()
+                    r.Read() |> Expect.isTrue "the row is there"
+
+                    r.GetInt32 0
+                    |> Expect.equal "the version it was written under" SqlSessions.patientJsonWritten
+
+                    r.GetString 1 |> Expect.equal "the canonical form of its Dto" patientJson
+                )
+            }
+        ]

@@ -284,10 +284,11 @@ module SqlDatabase =
         ]
 
 
-    let private insert (connectionString: string) (v: Types.OrderPlanVersion) =
-        use conn = new SqliteConnection(connectionString)
-        conn.Open()
+    /// Inserts an order plan version on a connection, within the transaction it is given, so
+    /// that a request writing more than this one row writes them all as one.
+    let insertVersion (conn: SqliteConnection) (tx: SqliteTransaction) (v: Types.OrderPlanVersion) =
         use cmd = conn.CreateCommand()
+        cmd.Transaction <- tx
 
         cmd.CommandText <-
             """
@@ -313,6 +314,18 @@ module SqlDatabase =
         cmd.ExecuteNonQuery() |> ignore
 
 
+    let private insert (connectionString: string) (v: Types.OrderPlanVersion) =
+        use conn = new SqliteConnection(connectionString)
+        conn.Open()
+        insertVersion conn null v
+
+
+    /// True when a failure is another server's sign of the same order plan version number.
+    let isSameNumber (e: SqliteException) =
+        e.SqliteExtendedErrorCode = 2067
+        && e.Message.Contains "order_plan.patient_id, order_plan.no"
+
+
     /// <summary>
     /// Runs one order plan version: inserts it. A violated
     /// `unique (patient_id, no)` is another server's sign of the same number, answered with
@@ -324,10 +337,7 @@ module SqlDatabase =
             insert connectionString v
             Session.StoreOutcome.Written
         with
-        | :? SqliteException as e when
-            e.SqliteExtendedErrorCode = 2067
-            && e.Message.Contains "order_plan.patient_id, order_plan.no"
-            ->
+        | :? SqliteException as e when isSameNumber e ->
             try
                 match loadRecords connectionString v.PatientId with
                 | head :: _ -> Session.StoreOutcome.Conflict head
@@ -723,3 +733,172 @@ module SqlSessions =
                 )
                 |> Choice1Of2
         )
+
+
+    /// The JSON structure version this release writes for the patient a Session shows.
+    let patientJsonWritten = 1
+
+
+    let patientJson (patient: GenForm.Patient) =
+        patient |> Informedica.GenForm.Lib.Patient.Dto.toDto |> Canonical.serialize
+
+
+    /// The word an ending is stored under. Every ending matched, so that one without a word
+    /// fails to compile; a supersession is never written, since the newer Session tells it.
+    let endingWord =
+        function
+        | Session.StoredEnding.Closed -> "closed"
+        | Session.StoredEnding.Ended SessionEnding.WrongPinLimit -> "wrong-pin-limit"
+        | Session.StoredEnding.Ended SessionEnding.Unreadable -> "unreadable"
+        | Session.StoredEnding.Ended SessionEnding.SupersededByLaunch -> "superseded"
+
+
+    let exec (conn: SqliteConnection) (tx: SqliteTransaction) sql parameters =
+        use cmd = command conn tx sql parameters
+        cmd.ExecuteNonQuery() |> ignore
+
+
+    let nullable (value: 'a option) =
+        value |> Option.map box |> Option.defaultValue (box DBNull.Value)
+
+
+    /// The rows of one write. Every case matched, so that a case without a row fails to
+    /// compile.
+    let run (conn: SqliteConnection) (tx: SqliteTransaction) (write: Session.Persist) =
+        match write with
+        | Session.WriteVersion v -> SqlDatabase.insertVersion conn tx v
+        | Session.RecordLaunch r ->
+            let (PublicKey key) = r.PublicKey
+
+            exec
+                conn
+                tx
+                "insert into launch_record (nonce, state, patient_id, public_key, expiry) values ($n, $s, $p, $k, $e)"
+                [
+                    "$n", box r.Nonce
+                    "$s", box r.State
+                    "$p", box r.PatientId
+                    "$k", box key
+                    "$e", box (ms r.Expiry)
+                ]
+        | Session.RecordLaunchOutcome(nonce, outcome, at) ->
+            let word, sessionId, attempt =
+                match outcome with
+                | LaunchResult.Opened(sid, _) -> "opened", Some sid, None
+                | LaunchResult.Refused refusal -> $"refused:%s{Session.refusalWord refusal}", None, None
+                | LaunchResult.Enrolling attempt -> "enrolling", None, Some attempt
+                // a redirect is no outcome: it is what a launch is answered with until one
+                | LaunchResult.RedirectTo _ -> invalidOp "a redirect is not an outcome of a launch"
+
+            exec
+                conn
+                tx
+                "insert into launch_outcome (nonce, outcome, session_id, attempt, at) values ($n, $o, $s, $a, $at)"
+                [
+                    "$n", box nonce
+                    "$o", box word
+                    "$s", nullable sessionId
+                    "$a", nullable attempt
+                    "$at", box (ms at)
+                ]
+        | Session.OpenSession(sid, session) ->
+            exec
+                conn
+                tx
+                """
+                insert into session
+                    (session_id, login, user_id, user_display, user_role, patient_id, key_thumbprint, opened_at)
+                values ($sid, $login, $uid, $name, $role, $pid, $key, $at)
+                """
+                [
+                    "$sid", box sid
+                    "$login", nullable session.Login
+                    "$uid", nullable (session.Opened.User |> Option.map _.UserId)
+                    "$name", nullable (session.Opened.User |> Option.map _.DisplayName)
+                    "$role", nullable (session.Opened.User |> Option.map (_.Role >> roleWord))
+                    "$pid", nullable session.Opened.PatientId
+                    "$key", nullable session.Opened.KeyThumbprint
+                    "$at", box (ms session.Seen)
+                ]
+        | Session.RecordOpenedWith(sid, session, at) ->
+            let token = session.Opened.OpenedToken |> Option.map (fun (OpenedToken t) -> t)
+
+            exec
+                conn
+                tx
+                """
+                insert into session_opened_with
+                    (session_id, version_id, head_id, opened_token, json_version, patient, at)
+                values ($sid, $version, $head, $token, $jv, $patient, $at)
+                """
+                [
+                    "$sid", box sid
+                    "$version", nullable session.OpenedWith
+                    "$head", nullable (session.Opened.Head |> Option.map StoredVersion.id)
+                    "$token", nullable token
+                    "$jv", nullable (session.Opened.Patient |> Option.map (fun _ -> patientJsonWritten))
+                    "$patient", nullable (session.Opened.Patient |> Option.map patientJson)
+                    "$at", box (ms at)
+                ]
+        | Session.RecordSeen(sid, at) ->
+            exec
+                conn
+                tx
+                "insert into session_seen (session_id, at) values ($sid, $at)"
+                [ "$sid", box sid; "$at", box (ms at) ]
+        | Session.EndSession(sid, ending, at) ->
+            exec
+                conn
+                tx
+                "insert into session_ending (session_id, ending, at) values ($sid, $e, $at)"
+                [
+                    "$sid", box sid
+                    "$e", box (endingWord ending)
+                    "$at", box (ms at)
+                ]
+        | Session.AcknowledgeEnding(sid, at) ->
+            exec
+                conn
+                tx
+                "insert into session_acknowledged (session_id, at) values ($sid, $at)"
+                [ "$sid", box sid; "$at", box (ms at) ]
+
+
+    /// <summary>
+    /// Runs the writes of a request in one transaction: all of them land, or none does. A
+    /// violated `unique (patient_id, no)` on the record is another server's sign of the same
+    /// number, answered with the head as it stands; any other failure is `Failed` with its
+    /// reason, and the caller keeps the state it had, so that the next request retries.
+    /// </summary>
+    let runWrites (connectionString: string) (writes: Session.Persist list) : Session.StoreOutcome =
+        use conn = new SqliteConnection(connectionString)
+        conn.Open()
+        use tx = conn.BeginTransaction()
+
+        try
+            for write in writes do
+                run conn tx write
+
+            tx.Commit()
+            Session.StoreOutcome.Written
+        with
+        | :? SqliteException as e when SqlDatabase.isSameNumber e ->
+            tx.Rollback()
+
+            let patient =
+                writes
+                |> List.tryPick (
+                    function
+                    | Session.WriteVersion v -> Some v.PatientId
+                    | _ -> None
+                )
+
+            try
+                match patient |> Option.map (SqlDatabase.loadRecords connectionString) with
+                | Some(head :: _) -> Session.StoreOutcome.Conflict head
+                | _ -> Session.StoreOutcome.Failed e.Message
+            with reread ->
+                Session.StoreOutcome.Failed reread.Message
+        | e ->
+            tx.Rollback()
+            Session.StoreOutcome.Failed e.Message
