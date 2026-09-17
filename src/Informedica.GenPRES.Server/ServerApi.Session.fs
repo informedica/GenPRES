@@ -521,8 +521,10 @@ module Session =
         | WriteCredential of userId: string * event: string * Credential * at: DateTime
         // the confirmation code mailed when a launch suspends, and what becomes of it
         | WriteCode of PendingCode * at: DateTime
-        | CountCodeTry of userId: string * at: DateTime
-        | SpendCode of userId: string * at: DateTime
+        // the code these name is the one the request read, named by its mac: another server
+        // may have mailed a newer one meanwhile, and a try of the older must not void it
+        | CountCodeTry of userId: string * codeMac: byte[] * at: DateTime
+        | SpendCode of userId: string * codeMac: byte[] * at: DateTime
         // the launch suspended at the PIN question, the attempt given up, and every attempt of
         // a person dropped at once when their PIN is set or their code is void
         | WriteEnrolment of Enrolment * at: DateTime
@@ -961,11 +963,18 @@ module Session =
     /// The code and every attempt bound to it, gone (the PIN was set, the code is void, or
     /// the browser gave up).
     let private dropCode (now: DateTime) (userId: string) (state: State) =
+        // the code as this request read it; there is none to spend when it has already gone
+        let spent =
+            state.Codes
+            |> Map.tryFind userId
+            |> Option.map (fun code -> [ SpendCode(userId, code.CodeMac, now) ])
+            |> Option.defaultValue []
+
         { state with
             Codes = state.Codes |> Map.remove userId
             Enrolments = state.Enrolments |> Map.filter (fun _ e -> e.UserId <> userId)
         },
-        [ SpendCode(userId, now); DropEnrolmentsOf(userId, now) ]
+        spent @ [ DropEnrolmentsOf(userId, now) ]
 
 
     /// The browser gave up on its attempt (CloseSession while enrolling). The code stands for
@@ -1026,11 +1035,14 @@ module Session =
                 if tries >= maxTries then
                     // the third wrong code voids it for every attempt bound to it
                     let state, writes = dropCode now e.UserId state
-                    state, SupplyPinResult.Refused PinRefusal.CodeVoid, CountCodeTry(e.UserId, now) :: writes
+
+                    state,
+                    SupplyPinResult.Refused PinRefusal.CodeVoid,
+                    CountCodeTry(e.UserId, pending.CodeMac, now) :: writes
                 else
                     { state with Codes = state.Codes |> Map.add e.UserId { pending with Tries = tries } },
                     SupplyPinResult.Refused(PinRefusal.WrongCode(maxTries - tries)),
-                    [ CountCodeTry(e.UserId, now) ]
+                    [ CountCodeTry(e.UserId, pending.CodeMac, now) ]
             else
                 let identity =
                     {

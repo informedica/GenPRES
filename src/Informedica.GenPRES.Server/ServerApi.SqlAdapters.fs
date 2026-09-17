@@ -863,30 +863,41 @@ module SqlSessions =
                     "$expiry", box (ms code.Expiry)
                     "$at", box (ms at)
                 ]
-        // a try and a spending name the live code of the person; when it was spent meanwhile
-        // there is none to name, and then there is nothing to write either
-        | Session.CountCodeTry(userId, at) ->
+        // a try and a spending name the very code the request read, by its mac: another server
+        // may have mailed a newer one meanwhile, and a try of the older must not void it. A
+        // code already spent matches nothing, and then there is nothing to write either
+        | Session.CountCodeTry(userId, codeMac, at) ->
             exec
                 conn
                 tx
                 """
                 insert into code_try (code_id, at)
                 select c.id, $at from confirmation_code c
-                where c.user_id = $u and not exists (select 1 from code_spent s where s.code_id = c.id)
+                where c.user_id = $u and c.code_mac = $mac
+                  and not exists (select 1 from code_spent s where s.code_id = c.id)
                 order by c.id desc limit 1
                 """
-                [ "$u", box userId; "$at", box (ms at) ]
-        | Session.SpendCode(userId, at) ->
+                [
+                    "$u", box userId
+                    "$mac", box codeMac
+                    "$at", box (ms at)
+                ]
+        | Session.SpendCode(userId, codeMac, at) ->
             exec
                 conn
                 tx
                 """
                 insert or ignore into code_spent (code_id, at)
                 select c.id, $at from confirmation_code c
-                where c.user_id = $u and not exists (select 1 from code_spent s where s.code_id = c.id)
+                where c.user_id = $u and c.code_mac = $mac
+                  and not exists (select 1 from code_spent s where s.code_id = c.id)
                 order by c.id desc limit 1
                 """
-                [ "$u", box userId; "$at", box (ms at) ]
+                [
+                    "$u", box userId
+                    "$mac", box codeMac
+                    "$at", box (ms at)
+                ]
         | Session.WriteEnrolment(e, at) ->
             let (PublicKey key) = e.PublicKey
 

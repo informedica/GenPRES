@@ -2145,6 +2145,9 @@ module SessionStubTests =
                             "the attempt given up, and nothing of the code"
                             [ Session.DropEnrolmentWrite(a1, t0) ]
 
+                        // the code the last attempt spends is named by its mac, so a newer one
+                        // another server mailed meanwhile is not the one that goes
+                        let mac = state.Codes["no-pin"].CodeMac
                         let state, last = Session.dropEnrolment t0 a2 state
                         state.Codes |> Map.isEmpty |> Expect.isTrue "code gone with the last attempt"
 
@@ -2153,7 +2156,7 @@ module SessionStubTests =
                             "the last attempt spends the code and drops them all"
                             [
                                 Session.DropEnrolmentWrite(a2, t0)
-                                Session.SpendCode("no-pin", t0)
+                                Session.SpendCode("no-pin", mac, t0)
                                 Session.DropEnrolmentsOf("no-pin", t0)
                             ]
 
