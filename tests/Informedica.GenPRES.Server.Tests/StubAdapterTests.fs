@@ -1793,7 +1793,7 @@ module SessionStubTests =
                             | other -> failtest $"{other}"
 
                         // within the Launch lifetime, the attempt dropped: enrolment, relaunch
-                        let state = Session.dropEnrolment attempt state
+                        let state, _ = Session.dropEnrolment t0 attempt state
                         let _, relaunch = runE f state cb
 
                         relaunch
@@ -2137,11 +2137,28 @@ module SessionStubTests =
                         let f = enrolFixture ()
                         let state, a1 = suspendVia f seeded launch1 keyA "no-pin"
                         let state, a2 = suspendVia f state (mintFor "n-2" "patient-1") keyB "no-pin"
-                        let state = Session.dropEnrolment a1 state
+                        let state, first = Session.dropEnrolment t0 a1 state
                         state.Codes |> Map.containsKey "no-pin" |> Expect.isTrue "code stands for a2"
-                        let state = Session.dropEnrolment a2 state
+
+                        first
+                        |> Expect.equal
+                            "the attempt given up, and nothing of the code"
+                            [ Session.DropEnrolmentWrite(a1, t0) ]
+
+                        let state, last = Session.dropEnrolment t0 a2 state
                         state.Codes |> Map.isEmpty |> Expect.isTrue "code gone with the last attempt"
-                        Session.dropEnrolment "nope" state |> Expect.equal "unknown is nothing" state
+
+                        last
+                        |> Expect.equal
+                            "the last attempt spends the code and drops them all"
+                            [
+                                Session.DropEnrolmentWrite(a2, t0)
+                                Session.SpendCode("no-pin", t0)
+                                Session.DropEnrolmentsOf("no-pin", t0)
+                            ]
+
+                        Session.dropEnrolment t0 "nope" state
+                        |> Expect.equal "unknown is nothing" (state, [])
                     }
                 ]
 

@@ -830,6 +830,98 @@ module SqlSessions =
                 tx
                 "insert into session_acknowledged (session_id, at) values ($sid, $at)"
                 [ "$sid", box sid; "$at", box (ms at) ]
+        | Session.WriteCredential(userId, event, credential, at) ->
+            exec
+                conn
+                tx
+                """
+                insert into credential_event
+                    (user_id, event, pin_salt, pin_hash, wrong_count, locked_until, at)
+                values ($u, $e, $salt, $hash, $wrong, $locked, $at)
+                """
+                [
+                    "$u", box userId
+                    "$e", box event
+                    "$salt", nullable (credential.PinHash |> Option.map _.Salt)
+                    "$hash", nullable (credential.PinHash |> Option.map _.Hash)
+                    "$wrong", box credential.WrongCount
+                    "$locked", nullable (credential.LockedUntil |> Option.map ms)
+                    "$at", box (ms at)
+                ]
+        | Session.WriteCode(code, at) ->
+            exec
+                conn
+                tx
+                """
+                insert into confirmation_code (user_id, mail_address, code_mac, expiry, at)
+                values ($u, $mail, $mac, $expiry, $at)
+                """
+                [
+                    "$u", box code.UserId
+                    "$mail", box code.MailAddress
+                    "$mac", box code.CodeMac
+                    "$expiry", box (ms code.Expiry)
+                    "$at", box (ms at)
+                ]
+        // a try and a spending name the live code of the person; when it was spent meanwhile
+        // there is none to name, and then there is nothing to write either
+        | Session.CountCodeTry(userId, at) ->
+            exec
+                conn
+                tx
+                """
+                insert into code_try (code_id, at)
+                select c.id, $at from confirmation_code c
+                where c.user_id = $u and not exists (select 1 from code_spent s where s.code_id = c.id)
+                order by c.id desc limit 1
+                """
+                [ "$u", box userId; "$at", box (ms at) ]
+        | Session.SpendCode(userId, at) ->
+            exec
+                conn
+                tx
+                """
+                insert or ignore into code_spent (code_id, at)
+                select c.id, $at from confirmation_code c
+                where c.user_id = $u and not exists (select 1 from code_spent s where s.code_id = c.id)
+                order by c.id desc limit 1
+                """
+                [ "$u", box userId; "$at", box (ms at) ]
+        | Session.WriteEnrolment(e, at) ->
+            let (PublicKey key) = e.PublicKey
+
+            exec
+                conn
+                tx
+                """
+                insert into enrolment (attempt, user_id, login, display_name, patient_id, public_key, at)
+                values ($a, $u, $l, $d, $p, $k, $at)
+                """
+                [
+                    "$a", box e.Attempt
+                    "$u", box e.UserId
+                    "$l", box e.Login
+                    "$d", box e.DisplayName
+                    "$p", box e.PatientId
+                    "$k", box key
+                    "$at", box (ms at)
+                ]
+        // an attempt already given up is not an error: one request can name it twice
+        | Session.DropEnrolmentWrite(attempt, at) ->
+            exec
+                conn
+                tx
+                "insert or ignore into enrolment_dropped (attempt, at) values ($a, $at)"
+                [ "$a", box attempt; "$at", box (ms at) ]
+        | Session.DropEnrolmentsOf(userId, at) ->
+            exec
+                conn
+                tx
+                """
+                insert or ignore into enrolment_dropped (attempt, at)
+                select attempt, $at from enrolment where user_id = $u
+                """
+                [ "$u", box userId; "$at", box (ms at) ]
 
 
     /// <summary>

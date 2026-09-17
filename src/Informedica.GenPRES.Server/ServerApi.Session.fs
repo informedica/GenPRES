@@ -516,6 +516,18 @@ module Session =
         // the end of a Session that is an act, and the acknowledgement of an ending
         | EndSession of sessionId: string * StoredEnding * at: DateTime
         | AcknowledgeEnding of sessionId: string * at: DateTime
+        // the credential as it stands after the event that changed it: the PIN set, a wrong
+        // entry counted, the lock reached, a right entry clearing the count
+        | WriteCredential of userId: string * event: string * Credential * at: DateTime
+        // the confirmation code mailed when a launch suspends, and what becomes of it
+        | WriteCode of PendingCode * at: DateTime
+        | CountCodeTry of userId: string * at: DateTime
+        | SpendCode of userId: string * at: DateTime
+        // the launch suspended at the PIN question, the attempt given up, and every attempt of
+        // a person dropped at once when their PIN is set or their code is void
+        | WriteEnrolment of Enrolment * at: DateTime
+        | DropEnrolmentWrite of attempt: string * at: DateTime
+        | DropEnrolmentsOf of userId: string * at: DateTime
 
 
     type State =
@@ -755,9 +767,10 @@ module Session =
         =
         let userId = standing.User.UserId
 
-        let state =
+        let state, codeWrites =
             match state.Codes |> Map.tryFind userId with
-            | Some _ -> state
+            // a code already stands for this person: no second mail, no second row
+            | Some _ -> state, []
             | None ->
                 let code = newCode ()
 
@@ -771,19 +784,16 @@ module Session =
                         Body = body
                     }
 
-                { state with
-                    Codes =
-                        state.Codes
-                        |> Map.add
-                            userId
-                            {
-                                UserId = userId
-                                MailAddress = standing.MailAddress
-                                CodeMac = codeMac code
-                                Expiry = now + codeLifetime
-                                Tries = 0
-                            }
-                }
+                let pending =
+                    {
+                        UserId = userId
+                        MailAddress = standing.MailAddress
+                        CodeMac = codeMac code
+                        Expiry = now + codeLifetime
+                        Tries = 0
+                    }
+
+                { state with Codes = state.Codes |> Map.add userId pending }, [ WriteCode(pending, now) ]
 
         let attempt = newId ()
 
@@ -803,7 +813,9 @@ module Session =
             { state with Enrolments = state.Enrolments |> Map.add attempt enrolment }
             |> recordOutcome now record (LaunchResult.Enrolling attempt)
 
-        state, CallbackResult.Enrolling(attempt, openedUrl, until), [ outcome ]
+        state,
+        CallbackResult.Enrolling(attempt, openedUrl, until),
+        codeWrites @ [ WriteEnrolment(enrolment, now); outcome ]
 
 
     /// What the first half of a callback came to: an answer with its writes, or the identity
@@ -948,26 +960,30 @@ module Session =
 
     /// The code and every attempt bound to it, gone (the PIN was set, the code is void, or
     /// the browser gave up).
-    let private dropCode (userId: string) (state: State) =
+    let private dropCode (now: DateTime) (userId: string) (state: State) =
         { state with
             Codes = state.Codes |> Map.remove userId
             Enrolments = state.Enrolments |> Map.filter (fun _ e -> e.UserId <> userId)
-        }
+        },
+        [ SpendCode(userId, now); DropEnrolmentsOf(userId, now) ]
 
 
     /// The browser gave up on its attempt (CloseSession while enrolling). The code stands for
     /// any other attempt bound to it; when this was the last one it goes too, so that the next
     /// launch mails a fresh code.
-    let dropEnrolment (attempt: string) (state: State) : State =
+    let dropEnrolment (now: DateTime) (attempt: string) (state: State) : State * Persist list =
         match state.Enrolments |> Map.tryFind attempt with
-        | None -> state
+        | None -> state, []
         | Some e ->
             let state = { state with Enrolments = state.Enrolments |> Map.remove attempt }
+            let dropped = DropEnrolmentWrite(attempt, now)
 
             if state.Enrolments |> Map.exists (fun _ o -> o.UserId = e.UserId) then
-                state
+                // another browser is still enrolling on this code: it stands for that one
+                state, [ dropped ]
             else
-                dropCode e.UserId state
+                let state, writes = dropCode now e.UserId state
+                state, dropped :: writes
 
 
     /// The PIN comes back with the code. In order: the attempt (and its code) must stand; the
@@ -1008,11 +1024,13 @@ module Session =
                 let tries = pending.Tries + 1
 
                 if tries >= maxTries then
-                    dropCode e.UserId state, SupplyPinResult.Refused PinRefusal.CodeVoid, []
+                    // the third wrong code voids it for every attempt bound to it
+                    let state, writes = dropCode now e.UserId state
+                    state, SupplyPinResult.Refused PinRefusal.CodeVoid, CountCodeTry(e.UserId, now) :: writes
                 else
                     { state with Codes = state.Codes |> Map.add e.UserId { pending with Tries = tries } },
                     SupplyPinResult.Refused(PinRefusal.WrongCode(maxTries - tries)),
-                    []
+                    [ CountCodeTry(e.UserId, now) ]
             else
                 let identity =
                     {
@@ -1048,20 +1066,25 @@ module Session =
                         Body = body
                     }
 
-                let state =
-                    { state with Credentials = state.Credentials |> Map.add e.UserId (Credential.withPin newSalt pin) }
-                    |> dropCode e.UserId
+                let credential = Credential.withPin newSalt pin
+
+                let state, dropped =
+                    { state with Credentials = state.Credentials |> Map.add e.UserId credential }
+                    |> dropCode now e.UserId
+
+                let settled = WriteCredential(e.UserId, "pin-set", credential, now) :: dropped
 
                 match fresh with
                 | Some s when s.ActivePatientId <> Some e.PatientId ->
                     // the PIN is set and told; no Session opens for a Patient that is no longer
-                    // the active one: a relaunch is asked for
-                    state, SupplyPinResult.Refused PinRefusal.WrongActivePatient, []
+                    // the active one: a relaunch is asked for. The PIN stands all the same, so
+                    // its writes go whatever the launch comes to
+                    state, SupplyPinResult.Refused PinRefusal.WrongActivePatient, settled
                 | _ ->
                     let state, (id, session), writes =
                         openWith now newId patientData e.PatientId e.PublicKey user state
 
-                    state, SupplyPinResult.Opened(id, session), writes
+                    state, SupplyPinResult.Opened(id, session), settled @ writes
 
 
     /// A request from the Session refreshes its idle clock. Applied by every member that takes
@@ -1396,6 +1419,18 @@ module Session =
                                     let state =
                                         { state with Credentials = state.Credentials |> Map.add user.UserId credential }
 
+                                    // the credential moved whatever the PIN was: a right entry
+                                    // clears the count, a wrong one raises it, the third locks
+                                    let credentialWrite =
+                                        WriteCredential(
+                                            user.UserId,
+                                            (if right then "right"
+                                             elif credential.LockedUntil.IsSome then "locked"
+                                             else "wrong"),
+                                            credential,
+                                            now
+                                        )
+
                                     if right then
                                         let id = newId ()
 
@@ -1454,13 +1489,17 @@ module Session =
                                                 Sessions = state.Sessions |> Map.add sid opened
                                             }
                                             (SigningOutcome.Submitted(version, token))
-                                            [ WriteVersion version; RecordOpenedWith(sid, opened, now) ]
+                                            [
+                                                credentialWrite
+                                                WriteVersion version
+                                                RecordOpenedWith(sid, opened, now)
+                                            ]
                                     elif wasLocked then
                                         // this Session did nothing wrong; the lock is the credential's
                                         remember
                                             state
                                             (SigningOutcome.Refused(SigningRefusal.Locked credential.LockedUntil.Value))
-                                            []
+                                            [ credentialWrite ]
                                     elif credential |> Credential.attemptsLeft = 0 then
                                         // the wrong-PIN limit is reached now; the Session ends
                                         let subject, body = Mails.pinLimit user.DisplayName
@@ -1486,6 +1525,7 @@ module Session =
                                             }
                                             (SigningOutcome.Refused SigningRefusal.PinLimit)
                                             [
+                                                credentialWrite
                                                 EndSession(sid, StoredEnding.Ended SessionEnding.WrongPinLimit, now)
                                             ]
                                     else
@@ -1494,7 +1534,7 @@ module Session =
                                             (SigningOutcome.Refused(
                                                 SigningRefusal.PinWrong(credential |> Credential.attemptsLeft)
                                             ))
-                                            []
+                                            [ credentialWrite ]
                     | _ -> refuse SigningRefusal.NotPrescriber
 
 
