@@ -2,3 +2,4 @@ FSharp.Core
 Saturn
 Fable.Remoting.Giraffe
 IcedTasks
+Microsoft.Data.Sqlite

@@ -263,6 +263,8 @@
 # Informedica.GenPRES.Server
 !/src/Informedica.GenPRES.Server/
 !/src/Informedica.GenPRES.Server/Scripts/
+!/src/Informedica.GenPRES.Server/Sql/
+!/src/Informedica.GenPRES.Server/Sql/*.sql
 # Informedica.GenPRES.Client
 !/src/Informedica.GenPRES.Client/
 !/src/Informedica.GenPRES.Client/Scripts/
@@ -340,6 +342,8 @@
 # Add Informedica.GenPRES.Server
 !/tests/Informedica.GenPRES.Server.Tests
 !/tests/Informedica.GenPRES.Server.Tests/Scripts/
+!/tests/Informedica.GenPRES.Server.Tests/fixtures/
+!/tests/Informedica.GenPRES.Server.Tests/fixtures/*.json
 # Informedica.GenPRES.Client
 !/tests/Informedica.GenPRES.Client.Tests/
 !/tests/Informedica.GenPRES.Client.Tests/Scripts/
