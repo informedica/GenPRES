@@ -345,6 +345,117 @@ module SessionStubTests =
         |> OrderPlan.create pat
 
 
+    /// A signed version as the record holds it: the one literal of the type in these tests,
+    /// so that the shape the store keeps changes here alone.
+    let versionOf
+        (id: string)
+        (no: int)
+        (by: UserContext)
+        (at: DateTime)
+        (patientId: string)
+        (baseId: string option)
+        (contexts: OrderContext[])
+        (pat: Patient)
+        (verified: bool)
+        : SignedOrderPlan
+        =
+        {
+            Head =
+                {
+                    Id = id
+                    No = no
+                    By = by
+                    SignedAt = at
+                }
+            PatientId = patientId
+            Base = baseId
+            OrderContexts = contexts
+            Patient = pat
+            Verified = verified
+        }
+
+
+    /// The version `plan-<no>` of a patient, over `plan-<no-1>` after the first, holding no
+    /// contexts, signed on the patient data given at the time given, verified.
+    let signedAt (patientId: string) (pat: Patient) (by: UserContext) (no: int) (at: DateTime) =
+        versionOf $"plan-{no}" no by at patientId (if no > 1 then Some $"plan-{no - 1}" else None) [||] pat true
+
+
+    /// A patient's versions as the store keeps them, newest first.
+    let storedOf (versions: SignedOrderPlan list) = versions
+
+
+    /// The records of the store: each patient's versions, newest first.
+    let recordsOf (entries: (string * SignedOrderPlan list) list) =
+        entries
+        |> List.map (fun (pid, versions) -> pid, storedOf versions)
+        |> Map.ofList
+
+
+    /// The versions the store holds for a patient, as signed; none for a patient it has no
+    /// record of.
+    let versionsOf (patientId: string) (state: Session.State) =
+        state.Records |> Map.tryFind patientId |> Option.defaultValue []
+
+
+    /// A signing challenge as the store holds it.
+    let challengeOf
+        (nonce: string)
+        (pat: Patient)
+        (contexts: OrderContext[])
+        (reading: Patient option)
+        (expiry: DateTime)
+        : Session.Challenge
+        =
+        {
+            Nonce = nonce
+            Patient = pat
+            OrderContexts = contexts
+            Reading = reading
+            Expiry = expiry
+        }
+
+
+    /// A data notice as the store holds it.
+    let noticeOf (nonce: string) (data: Patient option) (expiry: DateTime) : Session.Notice =
+        {
+            Nonce = nonce
+            Data = data
+            Expiry = expiry
+        }
+
+
+    /// A Session as the store holds it after an open: the user, the patient and the data shown
+    /// for it, the token minted for the id, the version it opened with, seen at t0.
+    let sessionOf
+        (sid: string)
+        (user: UserContext option)
+        (patient: (string * Patient option) option)
+        (openedWith: string option)
+        : Session.SessionRecord
+        =
+        {
+            Session =
+                {
+                    User = user
+                    PatientContext =
+                        patient
+                        |> Option.map (fun (pid, data) ->
+                            {
+                                PatientId = pid
+                                Patient = data
+                            }
+                        )
+                    OpenedToken = Some(OpenedToken $"opened-{sid}")
+                    KeyThumbprint = Some "t"
+                    Head = None
+                }
+            Login = user |> Option.map _.UserId
+            OpenedWith = openedWith
+            Seen = t0
+        }
+
+
     /// The seal key of the tests, and another one.
     let sealKey = LaunchSeal.Key(Array.init LaunchSeal.keyLength byte)
 
@@ -633,31 +744,22 @@ module SessionStubTests =
                     test "prescriber over a record: the Session opens with the newest version as its head (Rule 19)" {
                         let ids, d = fixture ()
 
-                        let signedAs userId no : SignedOrderPlan =
-                            {
-                                Head =
-                                    {
-                                        Id = $"plan-{no}"
-                                        No = no
-                                        By =
-                                            {
-                                                UserId = userId
-                                                DisplayName = userId
-                                                Role = UserRole.Prescriber
-                                            }
-                                        SignedAt = t0
-                                    }
-                                PatientId = "patient-1"
-                                Base = (if no > 1 then Some $"plan-{no - 1}" else None)
-                                OrderContexts = [||]
-                                Patient = Shared.Models.Patient.empty
-                                Verified = true
-                            }
+                        let signedAs userId no =
+                            signedAt
+                                "patient-1"
+                                Shared.Models.Patient.empty
+                                {
+                                    UserId = userId
+                                    DisplayName = userId
+                                    Role = UserRole.Prescriber
+                                }
+                                no
+                                t0
 
                         let record =
                             { seeded with
                                 Records =
-                                    Map.ofList
+                                    recordsOf
                                         [
                                             "patient-1", [ signedAs "prescriber-b" 2; signedAs "prescriber" 1 ]
                                             "patient-2", [ signedAs "prescriber" 1 ]
@@ -686,28 +788,23 @@ module SessionStubTests =
                         let ids, d = fixture ()
                         let entered = { Shared.Models.Patient.empty with Department = Some "ICU" }
 
-                        let signed: SignedOrderPlan =
-                            {
-                                Head =
-                                    {
-                                        Id = "plan-1"
-                                        No = 1
-                                        By =
-                                            {
-                                                UserId = "prescriber"
-                                                DisplayName = "prescriber"
-                                                Role = UserRole.Prescriber
-                                            }
-                                        SignedAt = t0
-                                    }
-                                PatientId = "no-data"
-                                Base = None
-                                OrderContexts = [||]
-                                Patient = entered
-                                Verified = false
-                            }
+                        let signed =
+                            versionOf
+                                "plan-1"
+                                1
+                                {
+                                    UserId = "prescriber"
+                                    DisplayName = "prescriber"
+                                    Role = UserRole.Prescriber
+                                }
+                                t0
+                                "no-data"
+                                None
+                                [||]
+                                entered
+                                false
 
-                        let record = { seeded with Records = Map.ofList [ "no-data", [ signed ] ] }
+                        let record = { seeded with Records = recordsOf [ "no-data", [ signed ] ] }
 
                         let launch = mintFor "n-nd" "no-data"
                         let state, cb = hop ids d record launch keyA "prescriber"
@@ -727,28 +824,23 @@ module SessionStubTests =
                         let ids, d = fixture ()
                         let entered = { Shared.Models.Patient.empty with Department = Some "ICU" }
 
-                        let signed: SignedOrderPlan =
-                            {
-                                Head =
-                                    {
-                                        Id = "plan-1"
-                                        No = 1
-                                        By =
-                                            {
-                                                UserId = "prescriber"
-                                                DisplayName = "prescriber"
-                                                Role = UserRole.Prescriber
-                                            }
-                                        SignedAt = t0
-                                    }
-                                PatientId = "patient-1"
-                                Base = None
-                                OrderContexts = [||]
-                                Patient = entered
-                                Verified = true
-                            }
+                        let signed =
+                            versionOf
+                                "plan-1"
+                                1
+                                {
+                                    UserId = "prescriber"
+                                    DisplayName = "prescriber"
+                                    Role = UserRole.Prescriber
+                                }
+                                t0
+                                "patient-1"
+                                None
+                                [||]
+                                entered
+                                true
 
-                        let record = { seeded with Records = Map.ofList [ "patient-1", [ signed ] ] }
+                        let record = { seeded with Records = recordsOf [ "patient-1", [ signed ] ] }
 
                         let state, cb = hop ids d record launch1 keyA "prescriber"
                         let state, result = run ids d state cb
@@ -1961,55 +2053,22 @@ module SessionStubTests =
                     DisplayName = "Stub Prescriber B"
                 }
 
-            let signedBy (user: UserContext) no (at: DateTime) : SignedOrderPlan =
-                {
-                    Head =
-                        {
-                            Id = $"plan-{no}"
-                            No = no
-                            By = user
-                            SignedAt = at
-                        }
-                    PatientId = "pat-1"
-                    Base = if no > 1 then Some $"plan-{no - 1}" else None
-                    OrderContexts = [||]
-                    Patient = Shared.Models.Patient.empty
-                    Verified = true
-                }
+            let signedBy (user: UserContext) no (at: DateTime) =
+                signedAt "pat-1" Shared.Models.Patient.empty user no at
 
             let session
                 (user: UserContext option)
                 (patientId: string option)
                 (sid: string)
                 (openedWith: string option)
-                : Session.SessionRecord
                 =
-                {
-                    Session =
-                        {
-                            User = user
-                            PatientContext =
-                                patientId
-                                |> Option.map (fun pid ->
-                                    {
-                                        PatientId = pid
-                                        Patient = None
-                                    }
-                                )
-                            OpenedToken = Some(OpenedToken $"opened-{sid}")
-                            KeyThumbprint = Some "t"
-                            Head = None
-                        }
-                    Login = user |> Option.map _.UserId
-                    OpenedWith = openedWith
-                    Seen = t0
-                }
+                sessionOf sid user (patientId |> Option.map (fun pid -> pid, None)) openedWith
 
             let withSession (record: Session.SessionRecord) sid (state: Session.State) =
                 { state with Sessions = state.Sessions |> Map.add sid record }
 
             let withRecord patientId (versions: SignedOrderPlan list) (state: Session.State) =
-                { state with Records = state.Records |> Map.add patientId versions }
+                { state with Records = state.Records |> Map.add patientId (storedOf versions) }
 
             let own sid = Some(OpenedToken $"opened-{sid}")
 
@@ -2155,58 +2214,24 @@ module SessionStubTests =
                     DisplayName = "Stub Prescriber B"
                 }
 
-            let signedBy (user: UserContext) no : SignedOrderPlan =
-                {
-                    Head =
-                        {
-                            Id = $"plan-{no}"
-                            No = no
-                            By = user
-                            SignedAt = t0
-                        }
-                    PatientId = "pat-1"
-                    Base = if no > 1 then Some $"plan-{no - 1}" else None
-                    OrderContexts = [||]
-                    Patient = Shared.Models.Patient.empty
-                    Verified = true
-                }
+            let signedBy (user: UserContext) no =
+                signedAt "pat-1" Shared.Models.Patient.empty user no t0
 
             let session
                 (user: UserContext option)
                 (patientId: string option)
                 (sid: string)
                 (openedWith: string option)
-                : Session.SessionRecord
                 =
-                {
-                    Session =
-                        {
-                            User = user
-                            PatientContext =
-                                patientId
-                                |> Option.map (fun pid ->
-                                    {
-                                        PatientId = pid
-                                        Patient = None
-                                    }
-                                )
-                            OpenedToken = Some(OpenedToken $"opened-{sid}")
-                            KeyThumbprint = Some "t"
-                            Head = None
-                        }
-                    Login = user |> Option.map _.UserId
-                    OpenedWith = openedWith
-                    Seen = t0
-                }
+                sessionOf sid user (patientId |> Option.map (fun pid -> pid, None)) openedWith
 
-            let challenged sid : Session.Challenge =
-                {
-                    Nonce = $"c-{sid}"
-                    Patient = Shared.Models.Patient.empty
-                    OrderContexts = [||]
-                    Reading = Some Shared.Models.Patient.empty
-                    Expiry = t0.AddMinutes 2.0
-                }
+            let challenged sid =
+                challengeOf
+                    $"c-{sid}"
+                    Shared.Models.Patient.empty
+                    [||]
+                    (Some Shared.Models.Patient.empty)
+                    (t0.AddMinutes 2.0)
 
             // A opened on plan-1; B signed plan-2 meanwhile; A has a challenge and a notice standing
             let movedOn =
@@ -2216,18 +2241,9 @@ module SessionStubTests =
                             [
                                 "s-1", session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")
                             ]
-                    Records = Map.ofList [ "pat-1", [ signedBy other 2; signedBy prescriber 1 ] ]
+                    Records = recordsOf [ "pat-1", [ signedBy other 2; signedBy prescriber 1 ] ]
                     Challenges = Map.ofList [ "s-1", challenged "s-1" ]
-                    Notices =
-                        Map.ofList
-                            [
-                                "s-1",
-                                {
-                                    Nonce = "n"
-                                    Data = None
-                                    Expiry = t0.AddMinutes 2.0
-                                }
-                            ]
+                    Notices = Map.ofList [ "s-1", noticeOf "n" None (t0.AddMinutes 2.0) ]
                 }
 
             let openAt sid id state =
@@ -2310,7 +2326,7 @@ module SessionStubTests =
                         let three =
                             { movedOn with
                                 Records =
-                                    Map.ofList
+                                    recordsOf
                                         [
                                             "pat-1",
                                             [
@@ -2359,49 +2375,15 @@ module SessionStubTests =
 
             /// A Session as the store holds it after an open.
             let session sid (user: UserContext option) (patient: (string * Patient) option) openedWith =
-                sid,
-                ({
-                    Session =
-                        {
-                            User = user
-                            PatientContext =
-                                patient
-                                |> Option.map (fun (pid, data) ->
-                                    {
-                                        PatientId = pid
-                                        Patient = Some data
-                                    }
-                                )
-                            OpenedToken = Some(token sid)
-                            KeyThumbprint = Some "t"
-                            Head = None
-                        }
-                    Login = user |> Option.map _.UserId
-                    OpenedWith = openedWith
-                    Seen = t0
-                }
-                : Session.SessionRecord)
+                sid, sessionOf sid user (patient |> Option.map (fun (pid, data) -> pid, Some data)) openedWith
 
-            let signedBy (user: UserContext) no (at: DateTime) : SignedOrderPlan =
-                {
-                    Head =
-                        {
-                            Id = $"plan-{no}"
-                            No = no
-                            By = user
-                            SignedAt = at
-                        }
-                    PatientId = "stub-patient"
-                    Base = (if no > 1 then Some $"plan-{no - 1}" else None)
-                    OrderContexts = [||]
-                    Patient = stubPatient
-                    Verified = true
-                }
+            let signedBy (user: UserContext) no (at: DateTime) =
+                signedAt "stub-patient" stubPatient user no at
 
             let stateOf sessions records =
                 { seeded with
                     Sessions = Map.ofList sessions
-                    Records = Map.ofList records
+                    Records = recordsOf records
                 }
 
             let plan = OrderPlan.create stubPatient [||]
@@ -2874,52 +2856,13 @@ module SessionStubTests =
             let other = userOf "prescriber-b" UserRole.Prescriber
 
             let session sid (user: UserContext) patientId openedWith =
-                sid,
-                ({
-                    Session =
-                        {
-                            User = Some user
-                            PatientContext =
-                                Some
-                                    {
-                                        PatientId = patientId
-                                        Patient = Some stubPatient
-                                    }
-                            OpenedToken = Some(token sid)
-                            KeyThumbprint = Some "t"
-                            Head = None
-                        }
-                    Login = Some user.UserId
-                    OpenedWith = openedWith
-                    Seen = t0
-                }
-                : Session.SessionRecord)
+                sid, sessionOf sid (Some user) (Some(patientId, Some stubPatient)) openedWith
 
-            let signedBy (user: UserContext) no (at: DateTime) : SignedOrderPlan =
-                {
-                    Head =
-                        {
-                            Id = $"plan-{no}"
-                            No = no
-                            By = user
-                            SignedAt = at
-                        }
-                    PatientId = "stub-patient"
-                    Base = (if no > 1 then Some $"plan-{no - 1}" else None)
-                    OrderContexts = [||]
-                    Patient = stubPatient
-                    Verified = true
-                }
+            let signedBy (user: UserContext) no (at: DateTime) =
+                signedAt "stub-patient" stubPatient user no at
 
-            let challenged sid (at: DateTime) : string * Session.Challenge =
-                sid,
-                {
-                    Nonce = $"c-{sid}"
-                    Patient = stubPatient
-                    OrderContexts = [||]
-                    Reading = Some stubPatient
-                    Expiry = at + Session.challengeLifetime
-                }
+            let challenged sid (at: DateTime) =
+                sid, challengeOf $"c-{sid}" stubPatient [||] (Some stubPatient) (at + Session.challengeLifetime)
 
             /// The registry as the stub has it, for the logins these tests use; `demoted` is a
             /// Prescriber whose Role was withdrawn since the launch.
@@ -2950,7 +2893,7 @@ module SessionStubTests =
             let stateOf sessions records challenges =
                 { seeded with
                     Sessions = Map.ofList sessions
-                    Records = Map.ofList records
+                    Records = recordsOf records
                     Challenges = Map.ofList challenges
                 }
 
@@ -2998,7 +2941,7 @@ module SessionStubTests =
                             signed.Base |> Expect.isNone "from nothing"
                             signed.Verified |> Expect.isTrue "the challenge's reading"
                             fresh |> Expect.equal "re-minted" (OpenedToken "opened-id-2")
-                            state.Records["stub-patient"] |> Expect.equal "appended" [ signed ]
+                            state |> versionsOf "stub-patient" |> Expect.equal "appended" [ signed ]
                             state.Challenges |> Expect.isEmpty "spent"
                             state.Sessions["s-1"].OpenedWith |> Expect.equal "the new head" (Some "id-1")
                             state.Sessions["s-1"].Session.OpenedToken |> Expect.equal "held" (Some fresh)
@@ -3049,7 +2992,11 @@ module SessionStubTests =
                             submitAt (t0 + seconds 5.0) ids ignore state "s-1" (submission "s-1" "1234" "k-1")
 
                         again |> Expect.equal "the first answer" first
-                        state.Records["stub-patient"] |> List.length |> Expect.equal "one version" 1
+
+                        state
+                        |> versionsOf "stub-patient"
+                        |> List.length
+                        |> Expect.equal "one version" 1
 
                         let state, wrong = submit ready "s-1" (submission "s-1" "0000" "k-1")
 
