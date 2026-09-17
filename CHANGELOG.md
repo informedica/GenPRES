@@ -1,5 +1,5 @@
 ---
-last_commit_released: fe813aff3152e9fb90d957bf5fbdcad63dde3053
+last_commit_released: 2b354af1e3d5b43113c71b4b7ba76dfa47a111b9
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,61 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.25 - 2026-09-17
+
+### 🚀 Features
+
+* *(genform)* Prototype the measured flags on the patient ([2deb14c1](https://github.com/informedica/GenPRES/commit/2deb14c1d034c58cc94a0f14eb4cd9780603f1b8))
+* *(genform)* Add the measured flags to the patient ([1dc59c8a](https://github.com/informedica/GenPRES/commit/1dc59c8a1558ae01d134032ff2a2322c5aa28762))
+* *(genform)* Prototype Patient.validate and Patient.Dto ([ae47c39e](https://github.com/informedica/GenPRES/commit/ae47c39eb93b2fdffc73c5880d6e0b6e0ca822f8))
+* *(genform)* Add Patient.validate and Patient.Dto ([69b0184a](https://github.com/informedica/GenPRES/commit/69b0184aca4580f8fb17797bf5054de3f91bc958))
+* *(genform)* Prototype the enteral tube as an access device ([524bf1ac](https://github.com/informedica/GenPRES/commit/524bf1ac0b38e61b061845e11980ac68261100b1))
+* *(genform)* An enteral tube as an access device ([b165615b](https://github.com/informedica/GenPRES/commit/b165615bab125d21dd51c864d11245598b82ca81))
+* *(genorder)* Prototype the order plan domain types ([5e3ddb45](https://github.com/informedica/GenPRES/commit/5e3ddb450d1868183f76585d9456b5c2bade8400))
+* *(genorder)* Add the order plan domain types ([1a81d621](https://github.com/informedica/GenPRES/commit/1a81d6215bc4b407359ecbc26b07fb5d01ff7919))
+* *(genorder)* Prototype Filter.Dto, OrderScenario.Dto, canonical form ([5b6ad2ed](https://github.com/informedica/GenPRES/commit/5b6ad2edb9c21635ad901a84fe5be582068fa22a))
+* *(genorder)* Add Filter.Dto, OrderScenario.Dto and the canonical form ([92ac6bae](https://github.com/informedica/GenPRES/commit/92ac6baeb1a4350a0d543761ed58ad0df559d05f))
+* *(genorder)* Prototype the order plan Dtos ([29e66f80](https://github.com/informedica/GenPRES/commit/29e66f802025b96d69db063500ab4b02014ba137))
+* *(genorder)* Add the order plan Dtos ([befc5bc1](https://github.com/informedica/GenPRES/commit/befc5bc12470c07bfc8e58029b9712de3a8dad6f))
+* *(genorder)* Prototype the order plan rules ([323733e6](https://github.com/informedica/GenPRES/commit/323733e6abb1c7d1d72728acee1eb0fa1b6569fa))
+* *(genorder)* Order plan rules on the domain types ([466e36d0](https://github.com/informedica/GenPRES/commit/466e36d08c54b95dd56e738f143a9ce0dcefea5f))
+* *(genorder)* Prototype the evaluation around a plan context ([1454e706](https://github.com/informedica/GenPRES/commit/1454e706dbc763837d76aebc98c2905cbad397dc))
+* *(genorder)* The evaluation around a plan context ([64859521](https://github.com/informedica/GenPRES/commit/648595219880059c7e046a7106bd5612c3e81cc4))
+* *(genorder)* Prototype the rules for a patient without a department ([c8b3eac7](https://github.com/informedica/GenPRES/commit/c8b3eac7f96bbb1aed47595af352608e09608321))
+* *(genorder)* The rules for a patient without a department ([a790ee07](https://github.com/informedica/GenPRES/commit/a790ee07663cb720bdda2354b6424186b3fdcacc))
+* *(server)* Prototype the nutrition rule sets as domain values ([181353eb](https://github.com/informedica/GenPRES/commit/181353eb2f419cd7ccf57029643a9b879bf44342))
+* *(server)* The nutrition rule sets as domain values ([8bdef282](https://github.com/informedica/GenPRES/commit/8bdef28278c65dd0b531410dbcc692bb9b7fb8ec))
+* *(server)* Prototype the patient mapper ([965b520e](https://github.com/informedica/GenPRES/commit/965b520eeb962a06462466a8cbe95d4b87e2bbac))
+* *(server)* The patient mapper ([7adf399f](https://github.com/informedica/GenPRES/commit/7adf399f7de76e48856faa1b3e0ee919ed134c12))
+* *(server)* Prototype the order context mapper ([b4b368c4](https://github.com/informedica/GenPRES/commit/b4b368c4cb46bc2322b90f5609cb444c8dd8686b))
+* *(server)* The order context mapper ([86ba0048](https://github.com/informedica/GenPRES/commit/86ba0048c593c2d9a14baf7556b70b2a9a4330be))
+* *(server)* Prototype the order plan and session mappers ([91e6bee3](https://github.com/informedica/GenPRES/commit/91e6bee3b2da5792f39e136d5bd0cb931d4f50f3))
+* *(server)* The order plan and session mappers ([f5405f9f](https://github.com/informedica/GenPRES/commit/f5405f9f9b6df9b4647ce9b0c63d425bf9e2393c))
+* *(server)* Prototype the order context switch-over ([7c5acbd0](https://github.com/informedica/GenPRES/commit/7c5acbd0299fd82e81772ae404833f4abac9b3ed))
+* *(server)* The order context path on the domain-typed port ([72ea837b](https://github.com/informedica/GenPRES/commit/72ea837b39e93d3820a9776c43abf09018d814a1))
+* *(server)* Prototype the order plan port on domain values ([24c9f452](https://github.com/informedica/GenPRES/commit/24c9f452c5e121e66793277b2eccb7388f6628b4))
+* *(server)* Put the order plan port on domain values ([3389ace1](https://github.com/informedica/GenPRES/commit/3389ace1d4ed6f1a82a5a5e993fcf8964e42bf3e))
+* *(server)* Prototype the session store on domain values ([bbd3fab4](https://github.com/informedica/GenPRES/commit/bbd3fab4d71034c9293f87eda1d1cdee3b1c1cc3))
+* *(server)* Keep the session records and challenges on domain values ([4931ac94](https://github.com/informedica/GenPRES/commit/4931ac9427489cadfc71d2a17804ed7ded55eb37))
+* *(server)* Prototype the session record on domain values ([463395f6](https://github.com/informedica/GenPRES/commit/463395f66b2cbb720d9b6912e49ed2394b82cc90))
+* *(server)* Keep the session record on domain values ([c6212129](https://github.com/informedica/GenPRES/commit/c6212129e29ad8af82f404356ad7440d74938bd9))
+
+### 🐞 Bug Fixes
+
+* *(client)* Open the signed version on relaunch ([91b58845](https://github.com/informedica/GenPRES/commit/91b58845499de6df2d05b7de3158202b3f00a693))
+
+    A relaunch or a reload opened an empty order plan instead of the signed
+    version the Session opened with; the plan now opens on that version.
+* *(genform)* Keep the patient lenses on Patient, read null fields safely ([8466cdf8](https://github.com/informedica/GenPRES/commit/8466cdf8ff2ae83f29e15864ef4d08d97c7d0ac0))
+* *(genform)* Report the minimum-data failure beside parse errors ([8cabfcf5](https://github.com/informedica/GenPRES/commit/8cabfcf50d48380adf4d4e5aaeb24fa70fd16d91))
+* *(genorder)* Read null Dto fields safely in the scenario Dtos ([037cbb4d](https://github.com/informedica/GenPRES/commit/037cbb4dc1ed594efd9545dde42b9809327656b7))
+* *(genorder)* Read null Dto elements as unknown, never dereference ([01c7e1a7](https://github.com/informedica/GenPRES/commit/01c7e1a7d46adc5b5ed79c3c4d834bfaf505b8c4))
+* *(genorder)* Guard null Dto roots, match every category ([5642a9f3](https://github.com/informedica/GenPRES/commit/5642a9f35a9fb8f355d005502920540e141c1797))
+* *(server)* Recompute the totals when an order plan is opened ([c0b9ab16](https://github.com/informedica/GenPRES/commit/c0b9ab16b73ce17f06c76f32e3b8d4d6b0744c23))
+* *(server)* Open from nothing when the newest version cannot be read ([520b1c21](https://github.com/informedica/GenPRES/commit/520b1c21c16ea2609e7ab9cd8aeb311aee1b00a9))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/fe813aff3152e9fb90d957bf5fbdcad63dde3053..2b354af1e3d5b43113c71b4b7ba76dfa47a111b9)</small></strong>
 
 ## 0.1.2-alpha.24 - 2026-09-16
 
