@@ -42,11 +42,12 @@ The process is meant to support productive develpoment, not be a hindrance to it
 
 - Before making changes, describe the desired change in an issue.
 - If maintainers agree that the change would be valuable, propose a high-level implementation plan in a PR to a markdown file in [./docs/implementation-plans/](./docs/implementation-plans/). The filename should contain the issue number and a short title, e.g. 54-multilingual-user-guide.md.
-- Once an implementation plan is agreed, changes can be submitted via implementation PRs. Each implementation PR should have no more than 200 lines of changed code, and [ideally 25-100 lines](https://graphite.dev/blog/the-ideal-pr-is-50-lines-long). Use feature flags if necessary to prevent incomplete changes from being surfaced in the application.
-- Reviewers may request that complex changes are split into smaller PRs, even if the original PR's diff is less than 200
-lines.
+- Once an implementation plan is agreed, changes can be submitted via implementation PRs. Each implementation PR should have no more than 200 changed source lines, and [ideally 25-100](https://graphite.dev/blog/the-ideal-pr-is-50-lines-long). Use feature flags if necessary to prevent incomplete changes from being surfaced in the application.
+- Source lines are the changed lines of the shipped code: the files under `src/` that build into the application (F#, SQL, project files). Not counted: tests, prototype `.fsx` scripts, documentation, and lock or generated files. A PR may therefore change more lines in total, as long as its source change stays within the limit.
+- Reviewers may request that complex changes are split into smaller PRs, even if the original PR has fewer than 200 changed
+source lines.
 - Certain changes can go straight to implementation PR, without needing an issue and implementation plan:
-  - Code changes less than 25 lines.
+  - Code changes of fewer than 25 changed source lines.
   - Documentation-only changes.
 - Reviewers will ask authors to rework or resubmit PRs that don't meet the above guidelines.
 
