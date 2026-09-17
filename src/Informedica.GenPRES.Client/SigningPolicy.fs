@@ -35,6 +35,8 @@ let english (term: Terms) : string =
     | Terms.``Signing Refusal Pin Limit`` ->
         "The PIN was entered wrong three times. Your session was ended and signing is locked for a while."
     | Terms.``Signing Refusal Locked`` -> "Signing is locked until {0}."
+    | Terms.``Signing Refusal Store Failed`` -> "The version could not be stored. Nothing changed; sign again."
+    | Terms.``Signing Refusal Plan Unreadable`` -> "The plan could not be read. Reload the page and sign again."
     | Terms.``Signing Send Failed`` -> "The signature could not be sent. Try again."
     | _ -> SessionGatePolicy.english term
 
@@ -58,6 +60,8 @@ let refusalSentence (tr: Terms -> string) (refusal: SigningRefusal) =
     | SigningRefusal.PinWrong left -> tr Terms.``Signing Refusal Pin Wrong`` |> SessionGatePolicy.fill [ string left ]
     | SigningRefusal.PinLimit -> tr Terms.``Signing Refusal Pin Limit``
     | SigningRefusal.Locked until -> tr Terms.``Signing Refusal Locked`` |> SessionGatePolicy.fill [ time until ]
+    | SigningRefusal.StoreFailed -> tr Terms.``Signing Refusal Store Failed``
+    | SigningRefusal.PlanUnreadable -> tr Terms.``Signing Refusal Plan Unreadable``
 
 
 /// What the User is told once the version landed.

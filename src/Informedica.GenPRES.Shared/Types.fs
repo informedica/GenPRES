@@ -742,6 +742,10 @@ module Types =
         | PinWrong of attemptsLeft: int
         | PinLimit
         | Locked of until: DateTime
+        // the version could not be stored; nothing changed, sign again
+        | StoreFailed
+        // the plan as sent cannot be read as an order plan; nothing to sign
+        | PlanUnreadable
 
 
     /// The patient data as it stands, told before a challenge is issued when it is not what

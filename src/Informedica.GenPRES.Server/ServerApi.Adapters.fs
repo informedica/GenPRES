@@ -217,8 +217,8 @@ module Adapters =
             findEnrolment = fun _ -> async { return None }
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
-            challenge = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
-            submit = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
+            challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
+            submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ -> async { return None }
             openVersion = fun _ _ -> async { return None }
         }
@@ -314,6 +314,7 @@ module Adapters =
             // as this AppEnv
             session =
                 StubDatabase.makeSessionPort
+                    demo
                     (fun () -> DateTime.UtcNow)
                     PublicKey.randomId
                     // the confirmation code and the salt from the CSPRNG, the code mac under

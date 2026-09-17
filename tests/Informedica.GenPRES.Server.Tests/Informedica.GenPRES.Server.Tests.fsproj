@@ -10,16 +10,17 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ResourceErrorTests.fs" />
+    <Compile Include="../Informedica.GenORDER.Tests/Scenarios.fs" />
     <Compile Include="StubAdapterTests.fs" />
     <Compile Include="DoseCheckTests.fs" />
     <Compile Include="TotalsTests.fs" />
     <Compile Include="NutritionRuleSetsTests.fs" />
     <Compile Include="MappersPatientTests.fs" />
-    <Compile Include="../Informedica.GenORDER.Tests/Scenarios.fs" />
     <Compile Include="MappersOrderContextTests.fs" />
     <Compile Include="MappersOrderPlanTests.fs" />
     <Compile Include="OrderContextSwitchTests.fs" />
     <Compile Include="OrderPlanSwitchTests.fs" />
+    <Compile Include="SessionStoreTests.fs" />
     <Compile Include="HttpTests.fs" />
     <Compile Include="ConfigTests.fs" />
     <Compile Include="Program.fs" />
