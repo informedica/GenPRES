@@ -282,7 +282,12 @@ What ADR-0008 invariant 5 and §6 decide, as this plan applies it to `order_plan
 - **The serializer** and its settings are part of the JSON structure. It produces the canonical
   form the signing digest is computed over: fields in declared order, arrays as the Dto holds
   them, `BigRational` as `numerator/denominator` in lowest terms, no whitespace; two order plans
-  equal as domain values serialize equal. Plan 725 step 1.3 settles it; this plan uses it.
+  equal as domain values serialize equal. Plan 725 step 1.3 settles it; this plan uses it. The
+  digest is SHA-256 over the UTF-8 bytes of the canonical serialization of `OrderPlan.Dto`, the
+  plan alone, never over the stored `OrderPlanVersion.Dto` around it, whose id, number, signer
+  and time are minted at the commit and cannot be part of what the challenge was issued over;
+  `StubDatabase.digest` computes it so since plan 725 step 5.1, and the SQL adapter supplies
+  the same function.
 - **Loading.** A request loads the rows of its patient, as the slice loads everything else,
   never every row at startup: a second server would not see an order plan version signed after
   it started. The adapter upgrades `plan` from `json_version` to the current structure with one
@@ -387,17 +392,17 @@ maintainer's.
    startup when the connection string is set, each once, in order. A few lines, so that the
    engine amendment can replace it with a tool without a migration of the migrations. With it,
    migration 1: `launch_record`, `launch_outcome`, `session`, `session_opened_with`,
-   `session_seen`, `session_ending`, `session_acknowledged`, `order_plan`. Gate: `order_plan`
-   waits for steps 5.1 and 5.3 of plan [725](725-contract-model-dto-domain-flow.md), which
-   give the session service the domain-typed records and the write order it stores, and
-   `session_opened_with` for step 5.2 as well, the opened-session record; the other tables may
-   land before.
+   `session_seen`, `session_ending`, `session_acknowledged`, `order_plan`. Gate met
+   (2026-09-17): steps 5.1 and 5.2 of plan [725](725-contract-model-dto-domain-flow.md), #776
+   and #778, gave the session service the domain-typed records (`StoredVersion`), the write as a
+   value (`Persist`) and the opened-session record (`OpenedSession`) that `order_plan` and
+   `session_opened_with` store.
 4. The adapter, part 1: the slice loader and the append writer for launches and sessions, and
    the members `present`, `callback`, `find`, `close`, `seen`, `openVersion`, and the
-   `unreadable` ending the loader appends. Gate: plan 725 step 5.2, which adds the
-   `SessionEnding.Unreadable` case to the contract model, the client's message for it and
-   their tests; the ending is written only for the opened-with and notice rows that step
-   gives the machine. Integration tests
+   `unreadable` ending the loader appends. Gate met (2026-09-17): plan 725 step 5.2, #778,
+   added the `SessionEnding.Unreadable` case to the contract model, the client's message for it
+   and their tests; the ending is written only for the opened-with and notice rows that step
+   gave the machine. Integration tests
    against a temporary SQLite file in the Server test project, in the normal matrix: two
    launches at once, the same Launch twice, an ended Session never reopens, and the
    `StubAdapterTests` contract run against the SQL port.
@@ -405,8 +410,8 @@ maintainer's.
    `enrolment`, `enrolment_dropped`; the members `findEnrolment`, `supplyPin`, `dropEnrolment`.
 6. Migration 3 and part 3: `data_notice`, `challenge`, `challenge_spent`, `submission_answer`;
    the members `challenge` and `submit`; the first stored fixture and its test; the Rule 42
-   test. Gate: plan 725 step 5.1, since the notice's and the challenge's patient rows are
-   `Patient.Dto`.
+   test. Gate met (2026-09-17): plan 725 steps 5.1 and 5.2, #776 and #778; the notice's and
+   the challenge's patient rows are `Patient.Dto` of the domain's patient the service holds.
 7. `audit_entry` and the writer inside every member's transaction; the purge statement; the
    composition switch in `Adapters.makeAppEnvWith`; the demo seed; DEVELOPMENT.md (the key, the
    file, the seed); the CHANGELOG entry in the commit body.
