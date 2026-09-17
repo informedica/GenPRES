@@ -39,3 +39,21 @@ module OrderPlanMapper =
             OrderContexts = dto.Contexts |> Array.map (OrderContextMapper.toModel demo)
             Totals = dto.Totals |> OrderContextMapper.totalsBack
         }
+
+
+    /// The server's words for a change the plan refuses; the category's label from the rule
+    /// sets the server owns.
+    let words (ruleSets: NutritionRuleSet[]) =
+        function
+        | OrderPlanError.NoSuchContext id -> $"The plan holds no context %s{id}"
+        | OrderPlanError.NotNarrowed n -> $"The workbench holds %i{n} candidates, not one order"
+        | OrderPlanError.OrderHeld _ -> "The plan already holds this order"
+        | OrderPlanError.SupplementNeedsFeeding -> "A supplement needs a feeding in the plan"
+        | OrderPlanError.CategoryHeld category ->
+            let label =
+                ruleSets
+                |> NutritionRuleSet.tryFind category
+                |> Option.map _.Label
+                |> Option.defaultValue $"%A{category}"
+
+            $"The plan already holds a %s{label} context"

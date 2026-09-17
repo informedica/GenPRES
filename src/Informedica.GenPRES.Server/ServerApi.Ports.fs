@@ -24,18 +24,40 @@ type OrderContextPort =
 
 
 /// The one plan: every member answers the plan with its totals recomputed over its orders.
+/// The verb of a navigation is the wire's, mapped by the command handler; the plan and the
+/// contexts are parsed there too, so the port never sees the contract model.
 type OrderPlanPort =
     {
-        recalculate: OrderPlan -> Async<Result<OrderPlan, string[]>>
+        recalculate:
+            Informedica.GenOrder.Lib.Types.OrderPlan
+                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
         // the command into the context named
-        navigate: OrderPlan -> string -> OrderContextCommand -> OrderContext -> Async<Result<OrderPlan, string[]>>
+        navigate:
+            Informedica.GenOrder.Lib.Types.OrderPlan
+                -> string
+                -> (Informedica.GenOrder.Lib.Types.OrderContext -> Informedica.GenOrder.Lib.OrderContext.Command)
+                -> Informedica.GenOrder.Lib.Types.PlanContext
+                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
         // a workbench evaluated elsewhere into the plan as it is
-        addOrderContext: OrderPlan -> OrderContext -> Async<Result<OrderPlan, string[]>>
+        addOrderContext:
+            Informedica.GenOrder.Lib.Types.OrderPlan
+                -> Informedica.GenOrder.Lib.Types.PlanContext
+                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
         // a fresh workbench for a nutrition category, its filter discovered
-        newOrderContext: OrderPlan -> NutritionCategory -> Async<Result<OrderPlan, string[]>>
+        newOrderContext:
+            Informedica.GenOrder.Lib.Types.OrderPlan
+                -> Informedica.GenOrder.Lib.Types.NutritionCategory
+                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
         // the contexts named, every kind; a feeding takes its supplements with it
-        removeOrderContexts: OrderPlan -> string[] -> Async<Result<OrderPlan, string[]>>
-        openWith: Patient -> OrderContext[] -> Async<Result<OrderPlan, string[]>>
+        removeOrderContexts:
+            Informedica.GenOrder.Lib.Types.OrderPlan
+                -> string[]
+                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
+        // a signed version's patient and contexts as they were, nothing evaluated
+        openWith:
+            Informedica.GenForm.Lib.Types.Patient
+                -> Informedica.GenOrder.Lib.Types.PlanContext[]
+                -> Async<Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]>>
     }
 
 

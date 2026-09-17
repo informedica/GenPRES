@@ -42,7 +42,10 @@ module StubAdapters =
 
     /// The plan a stub port answers, from the contract model the test states it in; the
     /// counterpart of `portContext` for the order plan port.
-    let portPlan (plan: OrderPlan) = plan
+    let portPlan (plan: OrderPlan) =
+        plan
+        |> OrderPlanCommand.parsePlan
+        |> Result.defaultWith (fun e -> failtest $"no order plan: %A{e}")
 
 
     let orderContextAlwaysOk (returnCtx: OrderContext) : OrderContextPort =
@@ -100,7 +103,8 @@ module StubAdapters =
         {
             formulary = formulary
             orderContext = orderContext
-            orderPlan = planAlwaysOk (OrderPlan.create Models.Patient.empty [||])
+            // the stub platform's patient: a plan without one is no plan to the port
+            orderPlan = planAlwaysOk (OrderPlan.create StubPatientData.patient [||])
             interaction =
                 {
                     checkInteractions = fun _ -> async { return Ok [] }
@@ -5441,7 +5445,8 @@ module PlanTests =
                             addOrderContext = fun p _ -> answering "addOrderContext" p
                             newOrderContext = fun p _ -> answering "newOrderContext" p
                             removeOrderContexts = fun p _ -> answering "removeOrderContexts" p
-                            openWith = fun _ _ -> answering "openWith" (portPlan OrderPlan.empty)
+                            openWith =
+                                fun pat cs -> answering "openWith" (Informedica.GenOrder.Lib.OrderPlan.create pat cs)
                         }
 
                     let env =

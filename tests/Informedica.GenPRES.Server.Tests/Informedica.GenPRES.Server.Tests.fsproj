@@ -19,6 +19,7 @@
     <Compile Include="MappersOrderContextTests.fs" />
     <Compile Include="MappersOrderPlanTests.fs" />
     <Compile Include="OrderContextSwitchTests.fs" />
+    <Compile Include="OrderPlanSwitchTests.fs" />
     <Compile Include="HttpTests.fs" />
     <Compile Include="ConfigTests.fs" />
     <Compile Include="Program.fs" />

@@ -69,72 +69,146 @@ module Adapters =
         }
 
 
-    /// The contract model in and out over the same pipeline, for the order plan port until it
-    /// is on domain values itself.
-    let private evaluateModel demo agent logger (provider: Resources.IResourceProvider) =
-        fun (cmd: Shared.Api.OrderContextCommand) (ctx: OrderContext) ->
-            async {
-                do! setComponentName "OrderContext" agent
-
-                return ctx |> OrderContextService.evaluateModel demo logger provider cmd
-            }
-
-
+    /// The order plan port over the domain's rules: the plan's contexts through the order
+    /// context service, its totals over the provider's data, the refusals worded with the
+    /// nutrition rule sets the server owns.
     let private makeOrderPlanPort
         agent
+        logger
         (provider: Resources.IResourceProvider)
-        (evaluate: Shared.Api.OrderContextCommand -> OrderContext -> Async<Result<OrderContext, string[]>>)
+        (ruleSets: Informedica.GenOrder.Lib.Types.NutritionRuleSet[])
+        (newId: unit -> string)
         : OrderPlanPort
         =
+        let recalc plan =
+            plan |> Informedica.GenOrder.Lib.OrderPlan.recalculate (provider.GetTotals())
+
+        let refused r =
+            r |> Result.mapError (OrderPlanMapper.words ruleSets >> Array.singleton)
+
         {
             recalculate =
                 fun plan ->
                     async {
                         do! setComponentName "OrderPlan" agent
-                        return plan |> OrderPlanService.recalculate (provider.GetTotals()) |> Ok
+                        return plan |> recalc |> Ok
                     }
             navigate =
-                fun plan contextId ctxCmd ctx ->
+                fun plan contextId cmd pc ->
                     async {
                         do! setComponentName "OrderPlan" agent
-                        let recalc = OrderPlanService.recalculate (provider.GetTotals())
-                        return! OrderPlanService.navigate recalc evaluate plan contextId ctxCmd ctx
+
+                        return
+                            pc
+                            |> OrderContextService.evaluate logger provider cmd
+                            |> Result.bind (fun evaluated ->
+                                plan
+                                |> Informedica.GenOrder.Lib.OrderPlan.updateContext ruleSets contextId evaluated
+                                |> refused
+                            )
+                            |> Result.map recalc
                     }
-            newOrderContext =
-                fun plan category ->
-                    OrderPlanService.newOrderContext
-                        (OrderPlanService.recalculate (provider.GetTotals()))
-                        evaluate
-                        plan
-                        category
             addOrderContext =
-                fun plan ctx ->
+                fun plan pc ->
                     async {
                         do! setComponentName "OrderPlan" agent
 
                         return
                             plan
-                            |> OrderPlanService.addOrderContext (fun () -> System.Guid.NewGuid().ToString()) ctx
-                            |> Result.map (OrderPlanService.recalculate (provider.GetTotals()))
+                            |> Informedica.GenOrder.Lib.OrderPlan.addOrderContext newId pc
+                            |> refused
+                            |> Result.map recalc
+                    }
+            newOrderContext =
+                fun plan category ->
+                    async {
+                        do! setComponentName "OrderPlan" agent
+
+                        return
+                            match plan |> Informedica.GenOrder.Lib.OrderPlan.admits category |> refused with
+                            | Error e -> Error e
+                            | Ok() ->
+                                let set = ruleSets |> Informedica.GenOrder.Lib.NutritionRuleSet.tryFind category
+
+                                // the workbench: the plan's patient, the category's indications
+                                // and generics, nothing else offered yet and nothing selected;
+                                // the discovery keeps of what the evaluation offers only these
+                                let workbench: Informedica.GenOrder.Lib.Types.OrderContext =
+                                    {
+                                        Filter =
+                                            {
+                                                Indications =
+                                                    set |> Option.map _.Indications |> Option.defaultValue [||]
+                                                Generics = set |> Option.map _.Generics |> Option.defaultValue [||]
+                                                Routes = [||]
+                                                Forms = [||]
+                                                DoseTypes = [||]
+                                                Diluents = [||]
+                                                Components = [||]
+                                                Indication = None
+                                                Generic = None
+                                                Route = None
+                                                Form = None
+                                                DoseType = None
+                                                Diluent = None
+                                                SelectedComponents = [||]
+                                            }
+                                        Patient = plan.Patient
+                                        Scenarios = [||]
+                                    }
+
+                                let planContext =
+                                    Informedica.GenOrder.Lib.PlanContext.create
+                                        (newId ())
+                                        (Informedica.GenOrder.Lib.Types.OrderCategory.Nutrition category)
+
+                                let evaluate ctx =
+                                    ctx
+                                    |> planContext
+                                    |> OrderContextService.evaluate
+                                        logger
+                                        provider
+                                        Informedica.GenOrder.Lib.OrderContext.UpdateOrderContext
+                                    |> Result.map _.Context
+
+                                workbench
+                                |> Informedica.GenOrder.Lib.NutritionRuleSet.discover evaluate
+                                |> Result.map (fun discovered ->
+                                    let pc = discovered |> planContext
+
+                                    { plan with
+                                        Contexts =
+                                            Array.append
+                                                plan.Contexts
+                                                [|
+                                                    { pc with
+                                                        Intake =
+                                                            discovered
+                                                            |> Informedica.GenOrder.Lib.OrderContext.intake (
+                                                                provider.GetTotals()
+                                                            )
+                                                    }
+                                                |]
+                                    }
+                                    |> recalc
+                                )
                     }
             removeOrderContexts =
                 fun plan ids ->
                     async {
+                        do! setComponentName "OrderPlan" agent
+
                         return
                             plan
-                            |> OrderPlanService.removeOrderContexts ids
-                            |> OrderPlanService.recalculate (provider.GetTotals())
+                            |> Informedica.GenOrder.Lib.OrderPlan.removeOrderContexts ids
+                            |> recalc
                             |> Ok
                     }
             openWith =
                 fun pat contexts ->
                     async {
                         do! setComponentName "OrderPlan" agent
-
-                        return
-                            OrderPlanService.openWith pat contexts
-                            |> OrderPlanService.recalculate (provider.GetTotals())
-                            |> Ok
+                        return Informedica.GenOrder.Lib.OrderPlan.create pat contexts |> Ok
                     }
         }
 
@@ -189,7 +263,8 @@ module Adapters =
         {
             formulary = makeFormularyPort provider
             orderContext = makeOrderContextPort agent logger provider
-            orderPlan = makeOrderPlanPort agent provider (evaluateModel demo agent logger provider)
+            orderPlan =
+                makeOrderPlanPort agent logger provider NutritionRuleSets.all (fun () -> Guid.NewGuid().ToString())
             demo = demo
             interaction =
                 {

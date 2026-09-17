@@ -4,6 +4,7 @@ namespace Informedica.GenOrder.Lib
 // after Api.fs since a plan context nests an order context. The order plan rules join them here.
 
 open System
+open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
 
 
@@ -203,6 +204,22 @@ module OrderPlan =
             plan.Contexts
         else
             plan.Contexts |> Array.filter (fun c -> plan.Filtered |> Array.contains c.Id)
+
+
+    /// The plan with its totals recomputed over the orders of the contexts the filter keeps,
+    /// all of them when it is empty, for its patient's age and weight.
+    let recalculate (totalsData: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: OrderPlan) : OrderPlan =
+        let wght =
+            plan.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
+
+        { plan with
+            Totals =
+                plan
+                |> filtered
+                |> Array.choose PlanContext.contribution
+                |> Array.map (_.Order >> Order.Dto.toDto)
+                |> Totals.getTotals totalsData plan.Patient.Age wght
+        }
 
 
     /// Whether the plan holds a context of the nutrition category.
