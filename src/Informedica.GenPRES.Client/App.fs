@@ -1510,13 +1510,12 @@ module private Elmish =
                         match effect with
                         | OrderContextEffect.SyncFormulary filter ->
                             { state with
-                                Formulary = state.Formulary |> Deferred.map (OrderContext.syncFilterToFormulary filter)
+                                Formulary = state.Formulary |> Deferred.map (FilterSync.syncFilterToFormulary filter)
                             }
                         | OrderContextEffect.SyncParenteralia filter ->
                             { state with
                                 Parenteralia =
-                                    state.Parenteralia
-                                    |> Deferred.map (OrderContext.syncFilterToParenteralia filter)
+                                    state.Parenteralia |> Deferred.map (FilterSync.syncFilterToParenteralia filter)
                             }
                         | OrderContextEffect.GoToLifeSupport -> { state with Page = LifeSupport }
                         | OrderContextEffect.TellError errs ->
@@ -1596,7 +1595,7 @@ module private Elmish =
                     Formulary = Resolved form
                     OrderContext =
                         state.OrderContext
-                        |> OrderContextState.map (OrderContext.syncFormularyToFilter form)
+                        |> OrderContextState.map (FilterSync.syncFormularyToFilter form)
                     Parenteralia =
                         state.Parenteralia
                         |> Deferred.map (fun par ->
@@ -1653,7 +1652,7 @@ module private Elmish =
                         )
                     OrderContext =
                         state.OrderContext
-                        |> OrderContextState.map (OrderContext.syncParenteraliaToFilter par)
+                        |> OrderContextState.map (FilterSync.syncParenteraliaToFilter par)
                 }
 
             state,
