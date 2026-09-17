@@ -1,4 +1,5 @@
 #load "../../../scripts/load-dependencies.fsx"
+#r "nuget: Microsoft.Data.Sqlite, 10.0.12"
 
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net10.0/Informedica.Utils.Lib.dll"
@@ -27,6 +28,7 @@
 #load "../ServerApi.Services.fs"
 #load "../ServerApi.Session.fs"
 #load "../ServerApi.StubAdapters.fs"
+#load "../ServerApi.SqlAdapters.fs"
 #load "../ServerApi.Adapters.fs"
 #load "../ServerApi.Compute.fs"
 #load "../ServerApi.FormularyCommand.fs"
