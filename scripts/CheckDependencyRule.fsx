@@ -234,9 +234,9 @@ let contractAllowances =
         "src/Informedica.GenPRES.Server/ServerApi.Services.fs",
         "the formulary and parenteralia services typed on contract models, and the order context parse; own issue after plan 725"
         "src/Informedica.GenPRES.Server/ServerApi.Adapters.fs",
-        "the formulary, interaction and admin ports typed on contract models, own issue after plan 725; the session and patient data ports until its Phase 5"
+        "the formulary, interaction and admin ports typed on contract models, own issue after plan 725; the session port's identity types (UserContext, OpenedToken, the refusals and endings) stay contract by ADR-0008 R6 and ADR-0007 section 3, a contract-free session domain is its own issue"
         "src/Informedica.GenPRES.Server/ServerApi.StubAdapters.fs",
-        "the stub session, identity and patient data adapters typed on contract models until plan 725 Phase 5"
+        "the stub session and identity adapters answer the session identity types (UserContext, OpenedToken, the refusals and endings), which stay contract by ADR-0008 R6 and ADR-0007 section 3; a contract-free session domain is its own issue"
         "src/Informedica.GenPRES.Server/LogAnalyzer.fs",
         "admin log listing answered as a contract record, no domain behind it; own issue"
     ]

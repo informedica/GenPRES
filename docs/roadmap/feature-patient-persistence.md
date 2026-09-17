@@ -71,21 +71,26 @@ Mirroring the legacy guard: **a snapshot is written only when the patient has an
 - GenPRES therefore treats the patient id as an **opaque, trusted key**. It does not, and must not, look the patient up in MetaVision, sync demographics from it, or write back to it.
 - All persisted patient data lives in **GenPRES's own store**, populated from what the API delivers and what the clinician enters/prescribes — never from a live MetaVision query.
 
-## 5. Storage — deliberately left open
+## 5. Storage — decided for test and development, open for production
 
-The **physical storage design is out of scope for this request** and is a separate architectural decision (flagged in the meeting as taking on an external dependency, which matters more than internal code structure — owner: Mark, for review).
+The **physical storage design is out of scope for this request**. For test and development it is decided by ADR-0007 and plan 516; for production it is a separate architectural decision (flagged in the meeting as taking on an external dependency, which matters more than internal code structure — owner: Mark, for review).
 
 Assumptions fixed here:
 
-- Storage is a **relational database**. Exact product, schema, hosting (SQL vs. SQLite/flat-file, container topology, on-prem location) are **to be decided** in the architecture/persistence design step.
+- Storage is a **relational database**, append-only. For test and development it is decided by [ADR-0007](../adr/0007-session-persistence.md) and [plan 516](../implementation-plans/516-sessionrecord-store.md): SQLite, in-process, one snapshot per order plan version. The production engine, its hosting and container topology, and its on-prem location **remain open**, deferred to an amendment of ADR-0007.
 - It is **local / on-premise**, inside the hospital firewall. The MVP does **not** target the shared regional data platform.
 - The persistence layer exposes, at minimum: `save(patientId, snapshot, prescriber) → version` and `getLatest(patientId) → snapshot | none`, plus `latestVersionMetadata(patientId)` for the concurrency warning.
 
-**Open questions for the architecture step (do not block writing this request):**
+Settled by plan 516, for every engine:
 
-- Relational schema shape: one snapshot-blob column per version, vs. normalized order rows. (Legacy normalizes into key/value + text tables; a blob-per-version is simpler and matches the "atomic snapshot" intent.)
-- Retention policy for old versions.
-- How the prescriber identity is threaded from the API/user-management layer into each save.
+- Schema shape: one snapshot per order plan version, the JSON of the domain's `OrderPlanVersion.Dto` under its structure version, beside plain identity columns (patient, number, base, signer, time). Not normalized order rows.
+- Retention: nothing is deleted; every order plan version is kept.
+- Prescriber identity: the signer of the open Session, written into each version's identity columns at the signature.
+
+**Open questions for the production architecture step (do not block writing this request):**
+
+- The production engine, its hosting, backup and restore.
+- The legal basis for keeping every row.
 
 ## 6. Out of scope (MVP)
 
@@ -103,10 +108,10 @@ Assumptions fixed here:
 4. Each stored version records created-at (UTC) and the prescriber who saved it.
 5. Saving over a stored version that is newer than the one loaded surfaces a soft "saved more recently by X — continue?" warning; no data is silently lost.
 6. GenPRES performs the entire flow using only the patient id/context delivered via its API, with **zero** MetaVision calls.
-7. The storage backend is a relational database reachable only from within the hospital firewall; the concrete schema/hosting is resolved in the separate persistence-architecture task.
+7. The storage backend is a relational database reachable only from within the hospital firewall; the schema is plan 516's; the production engine and its hosting are resolved in the separate persistence-architecture task.
 
 ## 8. Dependencies
 
 - **User & access management** (prescriber identity/role) — supplies the "who" on each version; audit (10.4) rides on it.
-- **Persistence-architecture review** (owner: Mark) — settles the storage decision before implementation.
+- **Persistence-architecture review** (owner: Mark) — settles the production engine before production use; test and development run on SQLite per ADR-0007.
 - **MetaVision API contract** — defines exactly what patient/user context is delivered to GenPRES's API.

@@ -122,6 +122,7 @@ second, docs third.
 | **JSON structure** | the field names, nesting and value formats (how a `BigRational`, an option or a category is written) of a stored Dto's JSON; the serializer and its settings are part of it | the change table |
 | **JSON structure version** ("structure version" below) | the number the database adapter keeps beside a stored JSON Dto (invariant 5); a code change creates one by changing a stored Dto's JSON structure | `order_plan.json_version` in plan 516 |
 | **SQL schema** | the tables and columns; changes only by a SQL migration. A Dto change never needs one, except when it adds a new stored root; tables and columns that hold no Dto (identity, launch, audit columns, indexes) migrate as usual | plan 516 |
+| **Migration number** | the number of a SQL migration, the order the runner applies it in; the database records every one applied | `schema_version.migration` in plan 516 |
 | **Release** | the deployed server build; changes at a deploy | "an older release cannot read a record written under a newer structure version" |
 | **Database** | what the server persists, behind a database adapter | today `Session.State` in `ServerApi.Session.fs`, the session service's state and the in-memory database in one, dying with the process; the SQL tables of plan 516 later, for order plan versions, identity and the working state, loaded into that state by the SQLite adapter per request (Storage, below) |
 
@@ -484,7 +485,7 @@ How the store behaves, beyond invariant 5 and the change table.
   what it opened with, its notice, its challenge. The working state is stored like any other
   root, as Dtos under a structure version (the patient a Session shows and a notice's reading
   as `Patient.Dto`; a challenge holds the digest, never the order plan), and its rows are
-  dropped whole after their lifetime. It is stored because a restart must end nothing and a
+  kept, loading as absent after their lifetime. It is stored because a restart must end nothing and a
   second server must find it (ADR-0007, Rules 32 and 36). On the in-memory stub it lives in
   memory, carries no structure version and is gone at every startup.
 - **What a restart means.** On the store, nothing: a Session continues from its rows at its
@@ -536,7 +537,7 @@ How the store behaves, beyond invariant 5 and the change table.
   order plan shows the order plan version they signed.
 - **The stub.** The in-memory stub of `StubAdapters.fs` keeps nothing across a restart and no
   structure version; the `json_version` column, the upgrade on load and the first fixture arrive
-  with the SQLite adapter in plan 516 step 3.
+  with the SQLite adapter in plan 516 steps 2 and 3.
 - **The contract model** is not versioned: client and server are built and deployed together
   from the same Shared project, so a contract change never meets an older peer.
 
@@ -708,13 +709,13 @@ Dtos appear only in the adapters, the server mappers before `SessionPort` and th
 adapter at load and write. On the stub the working state is in memory; in the store it is
 stored as Dtos under a structure version. The identity fields (`UserContext`, `OpenedToken`,
 `SessionEnding`, the refusals) stay contract model types for now; a session domain free of them
-is still the separate refactor named here." Plan 516: `order_plan.plan` (JSON `OrderPlan.Dto`)
+is still the separate refactor named here." Plan 516: `order_plan.plan` (JSON `OrderPlanVersion.Dto`)
 replaces `scenarios`, `order_plan.json_version int not null` names its structure version, the
 identity columns (`id`, `no`, `patient_id`, `base`, `signed_by_user_id`,
 `signed_by_display_name`, `signed_at`) stay plain columns beside the JSON and are authoritative,
 so an unreadable row keeps its identity (Storage), the patient travels inside the
 order plan (no `order_plan.patient` column), and the working-state tables hold `Patient.Dto`
-under a `json_version` of their own (Storage); 516 steps 3 and 6 wait for Phase 5.
+under a `json_version` of their own (Storage); 516 steps 2, 3, 6 and 8 wait for Phase 5.
 
 ### Client (`Shared.Models`)
 
@@ -745,7 +746,7 @@ reviewer must not find it contradicted by the document next to it.
 - `docs/domain/core-domain.md`: the "Order Context: conceptual vs API payload" section and its "OrderPlan DTO", "OrderContext DTO" and "Filter DTO (transport shape)" subsections call the contract model "DTO"; rename to contract model and point at ADR-0008 for the Dto.
 - `docs/adr/0001-system-architecture.md`: §4's sentence on parsing at every inbound boundary gains a pointer to ADR-0008 for the two-step parse and the port split; the Contract ring paragraph names the contract model.
 - `docs/adr/0007-session-persistence.md` §3: the amendment of the session section (clinical records and working state as domain types, Dtos only in the adapters, the server mappers and the database adapter, identity as contract types for now).
-- `docs/implementation-plans/516-sessionrecord-store.md`: the schema sketch (`order_plan.plan` as `OrderPlan.Dto`, `order_plan.json_version`, no `order_plan.patient`), the working-state tables on `Patient.Dto` under a `json_version`, the per-request load and the write order of Storage, the upgrade-on-load and fixture rules, and the gate on Phase 5.
+- `docs/implementation-plans/516-sessionrecord-store.md`: the schema sketch (`order_plan.plan` as `OrderPlanVersion.Dto`, `order_plan.json_version`, no `order_plan.patient`), the working-state tables on `Patient.Dto` under a `json_version`, the per-request load and the write order of Storage, the upgrade-on-load and fixture rules, and the gate on Phase 5.
 - the signing and session plans (622, 635, 667) where they describe `Records`, `Challenges` or `Notices` as contract records or the ports as typed on contract models: a note pointing at ADR-0008, no rewrite.
 - `docs/domain/genorder-operational-rules-to-orders.md`: `OrderPlan`, `PlanContext` and `OrderPlanVersion` as domain types next to `OrderContext`.
 
@@ -781,7 +782,7 @@ reviewer must not find it contradicted by the document next to it.
 4.3 Delete `OrderPlanService`, `NutritionPlanService`, old `evaluate` body (~-330). Fitness: remove the `Services.fs` allowance.
 4.4 `Ports.fs`/`Adapters.fs` cleanup; allowances re-worded to name only the ports still typed on contract models.
 
-**Phase 5, the database holds Dtos (issue G), 4 PRs, depends on 1 + 3.1 + 3.3, not on 2 or 4. Must merge before plan 516 step 3.** `Session.fs` is the session service behind `SessionPort`, not the database adapter; the port split of Part 1 and the Storage section apply.
+**Phase 5, the database holds Dtos (issue G), 4 PRs, depends on 1 + 3.1 + 3.3, not on 2 or 4. Must merge before plan 516 step 2.** `Session.fs` is the session service behind `SessionPort`, not the database adapter; the port split of Part 1 and the Storage section apply.
 5.0 Test prep in `StubAdapterTests`: every `Challenge`/`Notice`/`Records` literal through builders. ~120, tests only. (4.0 and 5.0 both edit that file: land 4.0 first, or both preps in one PR.)
 5.1 `Records` on `StoredVersion` (readable or unreadable, Storage), `Challenges`/`Notices` on domain values; `Challenge.Digest` over the canonical form; `SigningCommand` parses the challenge and the submission with `ofModel >> OrderPlan.Dto.fromDto` and refuses on `Error`; `challenge` keeps the digest, `commit` validates against the state and returns `State * SigningResponse * Persist option`; the adapter's state-replacing helper `update` runs the `Persist` (the SQLite adapter inserts `toDto` of the version, the stub does nothing) under the lock and assigns the state only if the insert succeeded, else answers `SigningRefusal.StoreFailed` (R10, the write order of Storage); `digest : OrderPlan -> string` supplied by `makeSessionPort` as a parameter of `challenge`/`commit`; `SessionPort.challenge/submit` on `OrderPlan`, `openVersion` on `StoredVersion`; `StoredVersion` in `Session.fs`; the stub keeps no structure version (Storage). ~260, tight. Test: signing suites in `StubAdapterTests` (:2860-3160: "as challenged", "twice", changed context refused) pass with the digest; an order plan re-ordered by the client is a mismatch; an order plan whose order fails `fromDto` is refused at challenge and at commit, never stored; two order plans equal as domain values digest equal whatever the client's JSON field order or whitespace; a failed write leaves the state unchanged and answers `StoreFailed` (a stub `Persist` that fails on demand); a violated `(patient_id, no)` constraint is answered as a stale sign, not `StoreFailed`; an unreadable row loads as an `Unreadable` entry and a newer unreadable row stays the head; a sign while the head is unreadable is refused; after a simulated crash between the write and the reply, the next load has the row as the head, a retry from the same base is refused as stale, and `openVersion` shows it. Signing path, no dosing. Review slowly.
 5.2 `SessionRecord.Opened` session-state record on domain values; `Mappers.Session.toOpened`; `find/present/callback/supplyPin/openVersion` map in the command handlers; `PatientDataPort.read` on `Patient`; the stub patient adapter parses its own reading with `Patient.Dto.fromDto`.; `SessionEnding.Unreadable` added to `Shared.Types` and its gate message in the client, the ending the SQL adapter appends when a Session's opened-with or notice row cannot be read (Storage). ~200. Test: open/openVersion/Head cases; `ConfigTests`. The `Unreadable` ending is shown by the client suite.
@@ -803,7 +804,7 @@ O5 MCP host output records map from `OrderContext.Dto`. After 1.4.
 
 - Workflow: every step is a branch on the fork, cut from upstream `master`, and reaches upstream only as a PR accepted there; nothing is committed to `master` on the fork or on upstream. "Merged" and "land" in this plan mean accepted upstream. A step whose dependency is not yet accepted either waits for it, or is stacked on the dependency's fork branch and rebased onto `master` once that PR is accepted. The two worktrees below are two such fork branches; worktree A starts Phase 4 only after Phase 3 from worktree B has been accepted upstream and pulled into A's base.
 - Sequence: 0 -> 0.5 -> 1 -> {2 ‖ 3} -> 4 -> 6, with 5 branching after 1 + 3.1 + 3.3. Gate: Phase 0 is merged before 0.5 or 1 starts, so that every code PR reviews against ADR-0008 and documents that agree with it. Every step leaves `dotnet run ServerTests`, the Fable compile and the fitness script green. The contract model changes in one case only, `SessionEnding.Unreadable` (step 5.2), which the client shows like any ending; no feature flag.
-- Gate for plan 516: 5.1 and 5.3 merged before 516 step 3 (`order_plan` migration), and 5.2 as well for its `session_opened_with` table; 5.1 before 516 step 6 (`challenge`, `data_notice` tables), whose patient rows are `Patient.Dto`. 516 steps 2 (Paket) and the identity part of step 4 (launch tables) may proceed in parallel.
+- Gate for plan 516: 5.1 and 5.3 merged before 516 steps 2 and 3 (the `order_plan` migration and the first fixture), and 5.2 as well before step 6 (its `session_opened_with` table); 5.1 before 516 step 8 (`challenge`, `data_notice` tables), whose patient rows are `Patient.Dto`. 516 step 1 (Paket) may proceed in parallel.
 - Worktrees (siblings of the checkout): A = 1 -> 2 -> 4 -> 6; B = 1 -> 3 -> 5. 3.1 and 2.x touch different files.
 - Size: about 3,000-3,500 changed lines over ~27 code PRs, roughly half tests and docs, plus the 4 docs PRs of Phase 0. Solo at 3-4 PRs a week: 7-9 weeks; two worktrees: 5-6 weeks. Slow-review PRs: 4.1 and 5.1.
 

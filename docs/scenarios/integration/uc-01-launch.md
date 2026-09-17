@@ -107,7 +107,7 @@ sequenceDiagram
   LaunchRecord, so a reload of the callback within the Launch's lifetime is answered as the
   first time: the same Session, the same refusal, or the same enrolment. A reload whose Session
   has since been superseded is redirected to `#/session` all the same, and the next `GetSession`
-  tells the ending. After the lifetime the record is dropped whole, and the callback is refused
+  tells the ending. After the lifetime the record stays and loads as absent, and the callback is refused
   `invalid`.
 
 ## Step 5: check and open

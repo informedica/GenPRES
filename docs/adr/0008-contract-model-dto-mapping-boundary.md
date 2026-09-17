@@ -3,7 +3,8 @@
 **Date**: 2026-09-16
 
 **Status**: Accepted (2026-09-16: the documents of Phase 0 of plan 725 refer to this ADR instead
-of restating it, #728 and #729, and the fitness test of rule R9 runs in CI, #731)
+of restating it, #728 and #729, and the fitness test of rule R9 runs in CI, #731); § 6 amended
+2026-09-17: the working state's rows are kept, never dropped (ADR-0007 § 2)
 
 **Related Issues**: [#725 — One data-flow pattern: contract model, domain Dto, domain-typed ports](https://github.com/informedica/GenPRES/issues/725),
 [#516 — GenPRES SessionRecord Store](https://github.com/informedica/GenPRES/issues/516),
@@ -95,6 +96,7 @@ sequenceDiagram
 | **JSON structure** | the field names, nesting and value formats (how a `BigRational`, an option or a category is written) of a stored Dto's JSON; the serializer and its settings are part of it | the serializer of plan 725 step 1.3 |
 | **JSON structure version** ("structure version") | the number the database adapter keeps beside a stored JSON Dto; a code change creates one by changing a stored Dto's JSON structure | `order_plan.json_version` in plan 516 |
 | **SQL schema** | the tables and columns; changes only by a SQL migration. A Dto change never needs one, except when it adds a new stored root | plan 516 |
+| **migration number** | the number of a SQL migration, the order the runner applies it in; the database records every one applied | `schema_version.migration` in plan 516 |
 | **release** | the deployed server build; changes at a deploy | — |
 | **database** | what the server persists, behind a database adapter | today nothing is persisted and `Session.State` holds everything in memory; later, the SQL tables of plan 516 |
 
@@ -162,7 +164,7 @@ alternative, ports typed on Dtos, is recorded below.
 | R9 | A fitness test enforces mechanically what can be: the contract model stays in the edge files, no domain library references Shared, and Shared references nothing but `FSharp.Core` and an explicit list of Fable-compatible packages. The rest of this table is checked by the laws or in review, as the column says. | the fitness test itself, in CI |
 | R10 | The write path is an inbound path: the signing sequence of §6, which parses the model before anything is stored and writes `toDto` of the domain value under a structure version beside the root. | the signing tests of plan 725 step 5.1 and law L1 |
 
-### 6. What the database holds, and what stays in memory
+### 6. What the database holds, and what stays in memory — amended 2026-09-17
 
 - **Stored.** Plan 516 stores the order plan versions, the one long-lived root, and whatever
   identity or audit data must survive a restart.
@@ -173,8 +175,8 @@ alternative, ports typed on Dtos, is recorded below.
   while the in-memory stub is the database, carry no structure version there, and are gone at
   every startup. In the store of plan 516 they are stored like any other root, as Dtos under a
   structure version, because a restart must end nothing and a second server must find them
-  (ADR-0007, Rules 32 and 36). Their rows are short-lived and dropped whole after their
-  lifetime. One the release cannot read is not kept as an unreadable entry: an opened-with or a
+  (ADR-0007, Rules 32 and 36). Their rows are short-lived and kept: after their lifetime they
+  load as absent, and nothing is deleted. One the release cannot read is not kept as an unreadable entry: an opened-with or a
   notice ends the Session with a new `SessionEnding` case, `Unreadable`, appended as a
   `session_ending` row and told at the next request; a challenge is refused.
 - **Loading, and `StoredVersion`.** The adapter loads a patient's order plan versions when a
@@ -237,8 +239,9 @@ its decisions table.
 - ADR-0007 §3 is amended: the session state holds the clinical records and its working state as
   domain values, Dtos appear only in the adapters (the server mappers and the database adapter),
   and identity stays as contract types
-  until a session domain exists. Plan 516 stores `order_plan.plan` as `OrderPlan.Dto` under
-  `order_plan.json_version`, and the working state the same way in its own tables.
+  until a session domain exists. Plan 516 stores `order_plan.plan` as `OrderPlanVersion.Dto`, the
+  order plan with its identity, under `order_plan.json_version`, and the working state the same
+  way in its own tables.
 - [`docs/domain/core-domain.md`](../domain/core-domain.md) calls the wire records the contract
   model, not "DTO"; the GenORDER domain document gains the three types.
 - The session service keeps its identity types and signing rules in the server, the named
