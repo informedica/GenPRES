@@ -207,7 +207,7 @@ and the new `State` is assigned only when every write and the commit of the tran
 succeeded. Any failure rolls the transaction back, keeps the old `State`, and answers the member's
 store failure: for `submit`, a violated `unique (patient_id, no)` is `Conflict` and answered as a
 stale sign, any other failure `StoreFailed`; for `challenge`, `StoreFailed`; for a member with no
-refusal to give, the call fails (open decision 6). A list without an order plan version follows
+refusal to give, the call fails (decision 6). A list without an order plan version follows
 the same rule. A member writes exactly what it returns: a test per member
 asserts the rows a request appends equal the writes it returned, and a sign appends exactly one
 `order_plan` row. The machine's own `dropExpired` keeps pruning the in-memory `State`; that is
@@ -458,8 +458,11 @@ What ADR-0008 invariant 5 and § 6 decide, as this plan applies it to `order_pla
   a crash between the insert and the reply, the load already holds the newer row, so
   `commit`'s `blockedBy` refuses the sign as stale before anything is written (the existing
   test "after a crash between the write and the reply the row is the head" in
-  `SessionStoreTests.fs`). A load that throws leaves the state as it was, since the lock's body
-  assigns nothing, and the call fails; open decision 6.
+  `SessionStoreTests.fs`). A load that throws (a locked or missing file) leaves the state as it
+  was, since the lock's body assigns nothing, and is logged. `challenge` and `submit` answer
+  `SigningRefusal.StoreFailed`, as a failed write does, so the prescriber can retry; every other
+  member that loads (`callback`, `supplyPin`, `openVersion`, `seen`) fails the call, so no
+  Session opens or switches without the head (decision 6).
 - **The working state** follows the same rule in its own tables: `session_opened_with.patient`
   and `data_notice`'s patient are `Patient.Dto` JSON under a `json_version`, upgraded and parsed
   at load; a challenge stores the digest, the nonce, the expiry and its reading, never the order
@@ -721,6 +724,11 @@ Prototype `Scripts/SqlPort.fsx`.
 
   `Records` holds the patient of the last request that loaded, replaced on every load; a
   request that loads nothing leaves it unchanged.
+- A load that throws (decision 6): `challenge` and `submit` catch it inside the lock and answer
+  `SigningOutcome.Refused SigningRefusal.StoreFailed`, the state unchanged; `callback`,
+  `supplyPin`, `openVersion` and `seen` let it propagate, so the call fails. `SqlDatabase.store`
+  takes `warn: string -> unit`, which `makeAppEnvWith` builds from the server's logger, and
+  warns once per failed load and once per unreadable row it loads.
 - Source, `SqlAdapters.fs`: `SqlDatabase.store cs = { load = fun pid s -> { s with Records =
   Map.ofList [ pid, loadRecords cs pid ] }; persist = persist cs }`;
   `SqlDatabase.makeSessionPort cs = StubDatabase.makeSessionPortWith (store cs)`;
@@ -736,7 +744,9 @@ Prototype `Scripts/SqlPort.fsx`.
   `OpenedSession.Head = Some (Readable v)`, the next sign is `No 2`; a retry from the old base
   after the row was written (the crash between the insert and the reply) is refused as stale
   with `SigningRefusal.Blocked` naming the head, nothing written, and `openVersion` opens the
-  row; `StoreFailed` through the port on a read-only file.
+  row; `StoreFailed` through the port on a read-only file; a load that throws (the file
+  removed from under the port, or a store whose `load` raises) answers `challenge` and `submit`
+  with `StoreFailed` and leaves the state unchanged, while `openVersion` and `callback` fail.
 - The two-signs race on the file, through two complete port instances over one file, standing
   for two server processes. One port cannot produce it, since its lock orders the two requests.
   Two instances have two locks, so their calls can interleave, but only by chance; the test
@@ -872,12 +882,16 @@ admin ports on domain values, the LogAnalyzer record, the contract-free session 
 5. The three Dutch rows of the localization workbook for the contract terms plan 725 added
    (`Signing Refusal Store Failed`, `Signing Refusal Plan Unreadable`, `Session Ending
    Unreadable`); the maintainer's.
-6. A load that fails. `SqlDatabase.loadRecords` throwing (a locked or missing file) leaves the
-   port's state unchanged and fails the call, which the client sees as a failed request, not as
-   a refusal. Whether `challenge` and `submit` answer it as `StoreFailed` instead, and what the
-   other loading members answer, is decided before step 4a.
 
-Decided: the demo seed on SQLite is the seed of the stub, `StubCredentials.seed` (2026-09-17).
+Decided:
+
+- The demo seed on SQLite is the seed of the stub, `StubCredentials.seed` (2026-09-17).
+- Decision 6, a load that fails (2026-09-17). `SqlDatabase.loadRecords` throwing (a locked or
+  missing file) leaves the port's state unchanged and is logged. `challenge` and `submit`
+  answer `SigningRefusal.StoreFailed`, the refusal a failed write already gets, so the
+  prescriber sees that the store failed and can retry. `callback`, `supplyPin`, `openVersion`
+  and `seen` fail the call, which the client sees as a failed request: a launch, an enrolment
+  or a reopen that cannot read the record does not open or switch a Session without its head.
 
 ## Confidence
 
