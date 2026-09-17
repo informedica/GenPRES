@@ -822,8 +822,10 @@ the writes it returned and that a sign appends exactly one `order_plan` row; the
 structure version and fixture for `Patient.Dto`; the race tests "two launches of the same
 User", "the same Launch presented twice", "an ended Session cannot reopen". `callback` split
 as decision 1 says, `Session.redeem` and `Session.openAfterRedeem` in the machine and the port
-loading between them, with the machine tests that the two halves answer as `callback` did and a
-test that the IdentityProvider's code is redeemed once. ADR-0007 § 2 to Accepted. DEVELOPMENT.md, the uc-01 stand-ins table and the "Not built" lists updated where
+loading before and between them, with the machine tests that the two halves answer as
+`callback` did (a reloaded callback included, `Opened` and `Superseded`), a test that the
+IdentityProvider's code is redeemed once, and a test that a load failing after the redeem
+records no outcome and a re-presentation of the Launch then opens. ADR-0007 § 2 to Accepted. DEVELOPMENT.md, the uc-01 stand-ins table and the "Not built" lists updated where
 Sessions now survive a restart.
 
 ### Step 7 — feat(server): credentials, codes, enrolments, the demo seed
@@ -896,17 +898,34 @@ Decided:
   login's newest `session` row, so a slice keyed by what the request carries cannot load that
   row up front. `callback` is split in two pure halves, run in one request under the port's
   lock (and from step 6 in its one transaction):
-  - `Session.redeem`, over the launch record found by the callback's `state`: the answers from
-    the record's outcome (a reload of the callback), the refusals before an identity (no
-    browser identity), and otherwise the one call to the IdentityProvider's `redeem` and to the
-    UserRegistry's `standing`. It answers either a finished `State * CallbackResult` or the
-    record, the identity and the standing.
+  - The port first loads what the callback names before any identity: the launch record found
+    by the callback's `state`, its outcome, and, when the outcome names a Session, that
+    Session's row with the login's newest `session` row, so that its ending is known.
+  - `Session.redeem`, over that slice: the answers from the record's outcome (a reload of the
+    callback: `Opened` while the Session it names still stands, `Superseded` once a newer row
+    for its login exists), the refusals before an identity (no browser identity), and
+    otherwise the one call to the IdentityProvider's `redeem` and to the UserRegistry's
+    `standing`. It answers either a finished `State * CallbackResult` or the record, the
+    identity and the standing.
   - The port then loads by the login and the patient: the login's newest `session` row, the
     user's credential, and the patient's record.
   - `Session.openAfterRedeem`, over that slice: the wrong active patient, the suspension into
     enrolment, or the open, with its writes as values.
 
-  The code is redeemed once, and each half loads only what it can name. Rejected: running
+  The code is redeemed once, and each half loads only what it can name.
+
+  A failure between the redeem and the commit (the second load throws, or the transaction
+  rolls back) records nothing: no outcome, no Session, and the call fails (decision 6). The
+  IdentityProvider's code is spent by then, and no redemption result is stored to reuse it:
+  storing the identity a code bought before the open is decided would be a second, half-done
+  outcome of the launch. Recovery is a new hop. The launch record has no outcome, so a
+  presentation of the same Launch from the same browser key within its lifetime is answered
+  with the redirect to the IdentityProvider again, which issues a fresh code; after the
+  lifetime, or when the browser no longer holds the Launch, a relaunch from MainEHR. A reload of
+  the failed callback URL itself carries the spent code and is refused `no-identity`, which is
+  recorded as the launch's outcome, so that Launch then answers the refusal and only a relaunch
+  opens. Step 6 tests it: a store whose second load throws leaves the launch record without an
+  outcome, and a re-presentation of the Launch then opens. Rejected: running
   `callback` whole, loading by the login it found and running it again, since a one-time code
   cannot be redeemed twice without a cache that hides the repeat. `supplyPin` needs no split:
   its enrolment already names the login. The split is also the command side's usual shape:
