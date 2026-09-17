@@ -424,7 +424,10 @@ module SqlSessions =
     open System
     open Microsoft.Data.Sqlite
     open Shared.Types
+    // the canonical serializer the stored Dtos are written with
+    open Informedica.GenOrder.Lib
 
+    module GenForm = Informedica.GenForm.Lib.Types
 
     /// Unix milliseconds, the form the columns hold, and back.
     let ms (at: DateTime) =
@@ -524,3 +527,198 @@ module SqlSessions =
             )
         |> List.filter (fun row -> now <= row.Expiry)
         |> List.tryHead
+
+
+    /// The highest JSON structure version this release reads for a stored patient. As for an
+    /// order plan version, a change ships as expand, then contract; the version it writes
+    /// lands with the writer that stores one.
+    let patientJsonRead = 1
+
+
+    /// Brings stored patient JSON to the structure this release reads. There are no steps yet.
+    let upgradePatient (version: int) (json: string) : Result<string, string> =
+        if version < 1 then
+            Error $"JSON structure version %i{version} does not exist"
+        elif version > patientJsonRead then
+            Error $"JSON structure version %i{version} is newer than this release knows"
+        else
+            Ok json
+
+
+    /// The patient a stored row holds, upgraded and parsed; the JSON a release writes for one
+    /// lands with the writer that stores it.
+    let readPatient (version: int) (json: string) : Result<GenForm.Patient, string> =
+        upgradePatient version json
+        |> Result.bind (fun json ->
+            try
+                json
+                |> Canonical.deserialize<Informedica.GenForm.Lib.Patient.Dto.Dto>
+                |> Informedica.GenForm.Lib.Patient.Dto.fromDto
+                |> Result.mapError (fun errs -> $"the patient does not parse: %A{errs}")
+            // any exception: a converter meeting a malformed value throws its own type
+            with e ->
+                Error $"the JSON does not read: %s{e.Message}"
+        )
+
+
+    /// What a Session opened with, the newest row: the token, the id of the version it opened
+    /// with, the head it saw, and the patient data it shows, whose reason for not reading
+    /// makes the Session unreadable.
+    let loadOpenedWith (conn: SqliteConnection) (sid: string) =
+        rows
+            conn
+            """
+            select version_id, head_id, opened_token, json_version, patient
+            from session_opened_with where session_id = $sid order by id desc limit 1
+            """
+            [ "$sid", box sid ]
+            (fun r ->
+                let patient =
+                    match r.IsDBNull 3, r.IsDBNull 4 with
+                    | false, false -> readPatient (r.GetInt32 3) (r.GetString 4) |> Result.map Some
+                    | _ -> Ok None // a Session that opened on no patient data at all
+
+                {|
+                    VersionId = textOrNull r 0
+                    HeadId = textOrNull r 1
+                    OpenedToken = textOrNull r 2 |> Option.map OpenedToken
+                    Patient = patient
+                |}
+            )
+        |> List.tryHead
+
+
+    let loadSeen (conn: SqliteConnection) (sid: string) =
+        rows
+            conn
+            "select at from session_seen where session_id = $sid order by id desc limit 1"
+            [ "$sid", box sid ]
+            (fun r -> at (r.GetInt64 0))
+        |> List.tryHead
+
+
+    /// The ending of a Session, when it has one: the row of an act, or the supersession that a
+    /// newer session row of its login is, read whatever became of that newer row, so that
+    /// closing it never hands the login back. An acknowledged ending is told no more, and a
+    /// closed Session is gone: the second answer says which.
+    let loadEnding (conn: SqliteConnection) (sid: string) (login: string option) (id: int64) =
+        let acknowledged =
+            rows conn "select 1 from session_acknowledged where session_id = $sid" [ "$sid", box sid ] ignore
+            |> List.isEmpty
+            |> not
+
+        let ending =
+            rows
+                conn
+                "select ending, at from session_ending where session_id = $sid"
+                [ "$sid", box sid ]
+                (fun r -> r.GetString 0, at (r.GetInt64 1))
+            |> List.tryHead
+
+        let superseded =
+            login
+            |> Option.bind (fun login ->
+                rows
+                    conn
+                    "select opened_at from session where login = $login and id > $id order by id desc limit 1"
+                    [ "$login", box login; "$id", box id ]
+                    (fun r -> at (r.GetInt64 0))
+                |> List.tryHead
+            )
+            |> Option.map (fun at -> SessionEnding.SupersededByLaunch, at)
+
+        if acknowledged then
+            None, ending |> Option.map fst = Some "closed"
+        else
+            match ending with
+            | Some("closed", _) -> None, true
+            | Some("wrong-pin-limit", at) -> Some(SessionEnding.WrongPinLimit, at), false
+            | Some("unreadable", at) -> Some(SessionEnding.Unreadable, at), false
+            // a word no ending has, and no row at all: the newer Session of the login, if any
+            | Some _
+            | None -> superseded, false
+
+
+    /// The User a session row holds: a Session opened without a launch has none, and a Role
+    /// this release cannot read makes the row one it cannot make sense of.
+    let userOf (userId: string option) (displayName: string option) (role: string option) =
+        match userId, displayName, role with
+        | Some userId, Some name, Some word ->
+            match roleOf word with
+            | Some role ->
+                Ok(
+                    Some
+                        {
+                            UserId = userId
+                            DisplayName = name
+                            Role = role
+                        }
+                )
+            | None -> Error $"the Role %s{word} is not one this release knows"
+        | None, None, None -> Ok None
+        | _ -> Error "the Session holds a User this release cannot read"
+
+
+    /// The Session of an id as the state holds it: the row, what it opened with, its heartbeat
+    /// and the head it opened on, through the `headOf` its caller loads the record with. One
+    /// this release cannot read is answered with the reason, and ends as unreadable; an ended
+    /// Session is answered with its ending, a closed one with none at all.
+    let loadSession (conn: SqliteConnection) (headOf: string -> StoredVersion option) (sid: string) =
+        rows
+            conn
+            """
+            select id, login, user_id, user_display, user_role, patient_id, key_thumbprint, opened_at
+            from session where session_id = $sid
+            """
+            [ "$sid", box sid ]
+            (fun r ->
+                {|
+                    Id = r.GetInt64 0
+                    Login = textOrNull r 1
+                    UserId = textOrNull r 2
+                    UserDisplay = textOrNull r 3
+                    UserRole = textOrNull r 4
+                    PatientId = textOrNull r 5
+                    KeyThumbprint = textOrNull r 6
+                    OpenedAt = at (r.GetInt64 7)
+                |}
+            )
+        |> List.tryHead
+        |> Option.map (fun row ->
+            match loadEnding conn sid row.Login row.Id with
+            | Some ending, _ -> Choice2Of2(Some ending)
+            | None, true -> Choice2Of2 None
+            | None, false ->
+                let opened = loadOpenedWith conn sid
+
+                let read =
+                    userOf row.UserId row.UserDisplay row.UserRole
+                    |> Result.bind (fun user ->
+                        opened
+                        |> Option.map _.Patient
+                        |> Option.defaultValue (Ok None)
+                        |> Result.map (fun patient -> user, patient)
+                    )
+
+                read
+                |> Result.map (fun (user, patient) ->
+                    let session: Session.SessionRecord =
+                        {
+                            Opened =
+                                {
+                                    User = user
+                                    PatientId = row.PatientId
+                                    Patient = patient
+                                    OpenedToken = opened |> Option.bind _.OpenedToken
+                                    KeyThumbprint = row.KeyThumbprint
+                                    Head = opened |> Option.bind _.HeadId |> Option.bind headOf
+                                }
+                            Login = row.Login
+                            OpenedWith = opened |> Option.bind _.VersionId
+                            Seen = loadSeen conn sid |> Option.defaultValue row.OpenedAt
+                        }
+
+                    session
+                )
+                |> Choice1Of2
+        )
