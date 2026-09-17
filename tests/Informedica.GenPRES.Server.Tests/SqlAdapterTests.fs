@@ -763,6 +763,37 @@ let tests =
                     }
                 )
 
+
+            testOnFile
+                "the mail of a request that writes but is not a sign goes out too"
+                (fun cs ->
+                    async {
+                        let port, directory, outbox = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let! sid, opened = openAs port directory "n-1" "prescriber"
+                        let! signature = challenged port sid opened "k-1"
+
+                        // three wrong PINs: the Session ends at the limit and the User is told
+                        for attempt in [ "0000"; "0001"; "0002" ] do
+                            let! _ =
+                                port.submit
+                                    sid
+                                    { signature with
+                                        Pin = attempt
+                                        IdemKey = attempt
+                                    }
+
+                            ()
+
+                        outbox.sent ()
+                        |> List.exists (fun m -> m.Subject.Contains "signing")
+                        |> Expect.isTrue $"the lock was mailed: %A{outbox.sent () |> List.map _.Subject}"
+
+                        match! port.find sid with
+                        | SessionLookup.Ended SessionEnding.WrongPinLimit -> ()
+                        | other -> failtest $"expected the Session ended at the limit, got %A{other}"
+                    }
+                )
+
         ]
 
 

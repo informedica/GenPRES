@@ -527,6 +527,9 @@ module StubDatabase =
                     collected.Clear()
                     let next, result = failWith persisting f (store.load slice state)
                     state <- next
+                    // a step that asked for no writes has nothing that can be refused, so what
+                    // it stands on is already in the state and its mail goes out with it
+                    flush true
                     result
                 )
 
@@ -546,6 +549,7 @@ module StubDatabase =
                     | Ok s ->
                         let next, result = f s
                         state <- next
+                        flush true
                         result
                 )
 
@@ -621,7 +625,7 @@ module StubDatabase =
                             signing
                                 (Slice.Session sid)
                                 (challengeWith
-                                    store.persist
+                                    persisting
                                     (fun s -> Session.challenge (now ()) newId digest patientData.read sid request s))
                     }
             submit =
@@ -631,7 +635,7 @@ module StubDatabase =
                             signing
                                 (Slice.Session sid)
                                 (submitWith
-                                    store.persist
+                                    persisting
                                     (fun s ->
                                         Session.commit
                                             (now ())
