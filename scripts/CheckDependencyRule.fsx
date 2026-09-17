@@ -235,7 +235,7 @@ let contractAllowances =
 
     [
         "src/Informedica.GenPRES.Server/ServerApi.Services.fs",
-        "services typed on contract models; thinned to domain values (plan 725 Phase 4)"
+        "the formulary and parenteralia services typed on contract models, and the order context parse; own issue after plan 725 Phase 4"
         "src/Informedica.GenPRES.Server/ServerApi.Adapters.fs", ports
         "src/Informedica.GenPRES.Server/ServerApi.StubAdapters.fs", ports
         "src/Informedica.GenPRES.Server/LogAnalyzer.fs",
