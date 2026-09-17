@@ -29,7 +29,11 @@ let categories =
 
 
 /// The shape of a plan: per context its category and how many scenarios it holds (none, one
-/// or two, so that it contributes an order or not), and whether the row filter keeps it.
+/// or two, so that it contributes an order or not), and whether the row filter names it. A
+/// filter that names no context is the empty filter, which the contract model reads as
+/// keeping every context, so a plan whose rows are all hidden cannot be stated and is not
+/// generated; the shape with every context unnamed is the plan without a filter, and both
+/// copies have to agree on that reading too.
 type Shape = { Contexts: (OrderCategory * int * bool) list }
 
 
