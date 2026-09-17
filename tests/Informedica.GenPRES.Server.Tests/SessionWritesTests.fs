@@ -72,6 +72,13 @@ let caseName (w: Session.Persist) =
     | Session.RecordSeen _ -> "RecordSeen"
     | Session.EndSession _ -> "EndSession"
     | Session.AcknowledgeEnding _ -> "AcknowledgeEnding"
+    | Session.WriteCredential _ -> "WriteCredential"
+    | Session.WriteCode _ -> "WriteCode"
+    | Session.CountCodeTry _ -> "CountCodeTry"
+    | Session.SpendCode _ -> "SpendCode"
+    | Session.WriteEnrolment _ -> "WriteEnrolment"
+    | Session.DropEnrolmentWrite _ -> "DropEnrolmentWrite"
+    | Session.DropEnrolmentsOf _ -> "DropEnrolmentsOf"
 
 
 let names writes = writes |> List.map caseName
@@ -297,7 +304,14 @@ let machineTests =
                 | SigningOutcome.Submitted _ ->
                     writes
                     |> names
-                    |> Expect.equal "the writes" [ "RecordSeen"; "WriteVersion"; "RecordOpenedWith" ]
+                    |> Expect.equal
+                        "the writes, the right PIN clearing the count among them"
+                        [
+                            "RecordSeen"
+                            "WriteCredential"
+                            "WriteVersion"
+                            "RecordOpenedWith"
+                        ]
                 | other -> failtest $"expected Submitted, got %A{other}"
 
                 // three wrong PINs: the last ends the Session
@@ -311,16 +325,23 @@ let machineTests =
                 |> Expect.equal "the limit" (SigningOutcome.Refused SigningRefusal.PinLimit)
 
                 writes
-                |> List.filter (
-                    function
-                    | Session.EndSession _ -> true
-                    | _ -> false
-                )
+                |> names
                 |> Expect.equal
-                    "the ending"
-                    [
-                        Session.EndSession(sid, Session.StoredEnding.Ended SessionEnding.WrongPinLimit, t0)
-                    ]
+                    "the credential that reached the limit, then the ending"
+                    [ "RecordSeen"; "WriteCredential"; "EndSession" ]
+
+                match
+                    writes
+                    |> List.tryPick (
+                        function
+                        | Session.WriteCredential(_, event, credential, _) -> Some(event, credential)
+                        | _ -> None
+                    )
+                with
+                | Some(event, credential) ->
+                    event |> Expect.equal "the lock is the event" "locked"
+                    credential.LockedUntil |> Expect.isSome "and the credential carries it"
+                | None -> failtest "expected the credential write"
             }
         ]
 
@@ -443,5 +464,129 @@ let portTests =
                     | SigningOutcome.Submitted(v, _) -> v.No |> Expect.equal "version 1" 1
                     | other -> failtest $"expected Submitted, got %A{other}"
                 | other -> failtest $"expected ChallengeIssued, got %A{other}"
+            }
+        ]
+
+
+/// A launch of `no-pin`, which suspends at the PIN question: the state, the attempt and the
+/// writes the suspension returned.
+let suspended () =
+    let d = directory ()
+    let newId = ids ()
+    let state, cb = presentedFor "no-pin" "n-1" d newId seeded
+
+    match callbackCounting d newId (ref 0) state cb with
+    | state, CallbackResult.Enrolling(attempt, _, _), writes -> state, attempt, writes, newId, d
+    | _, other, _ -> failtest $"expected Enrolling, got %A{other}"
+
+
+[<Tests>]
+let credentialWrites =
+    testList
+        "the writes of the credential, the code and the attempts"
+        [
+            test "a launch that suspends writes the code it mailed and the attempt it made" {
+                let _, _, writes, _, _ = suspended ()
+
+                names writes
+                |> Expect.equal
+                    "the code, the attempt, and what the launch came to"
+                    [ "WriteCode"; "WriteEnrolment"; "RecordLaunchOutcome" ]
+            }
+
+            test "a second launch of the same person writes the attempt but no second code" {
+                let state, _, _, newId, _ = suspended ()
+                let d = directory ()
+                let state, cb = presentedFor "no-pin" "n-2" d newId state
+
+                match callbackCounting d newId (ref 0) state cb with
+                | _, CallbackResult.Enrolling _, writes ->
+                    names writes
+                    |> Expect.equal
+                        "no second code: the one that stands is the one to enter"
+                        [ "WriteEnrolment"; "RecordLaunchOutcome" ]
+                | _, other, _ -> failtest $"expected Enrolling, got %A{other}"
+            }
+
+            test "a wrong code counts a try; the third voids the code for every attempt" {
+                let state, attempt, _, newId, d = suspended ()
+
+                let supply state code =
+                    Session.supplyPin
+                        t0
+                        newId
+                        salts
+                        codeMac
+                        d.registry.standing
+                        StubPatientData.port.read
+                        ignore
+                        attempt
+                        code
+                        "2468"
+                        state
+
+                let state, _, first = supply state "000000"
+                names first |> Expect.equal "the try is counted" [ "CountCodeTry" ]
+
+                let state, _, _ = supply state "000000"
+                let _, answer, third = supply state "000000"
+
+                answer
+                |> Expect.equal "the code is void" (SupplyPinResult.Refused PinRefusal.CodeVoid)
+
+                names third
+                |> Expect.equal
+                    "the last try, then the code spent and every attempt of that person dropped"
+                    [ "CountCodeTry"; "SpendCode"; "DropEnrolmentsOf" ]
+            }
+
+            test "the PIN set writes the credential, spends the code and drops the attempts" {
+                let state, attempt, _, newId, d = suspended ()
+                let code = "000001"
+
+                let _, answer, writes =
+                    Session.supplyPin
+                        t0
+                        newId
+                        salts
+                        codeMac
+                        d.registry.standing
+                        StubPatientData.port.read
+                        ignore
+                        attempt
+                        code
+                        "2468"
+                        state
+
+                match answer with
+                | SupplyPinResult.Opened _ ->
+                    names writes
+                    |> Expect.equal
+                        "the credential first, then the code and the attempts, then the open"
+                        [
+                            "WriteCredential"
+                            "SpendCode"
+                            "DropEnrolmentsOf"
+                            "OpenSession"
+                            "RecordOpenedWith"
+                        ]
+
+                    match
+                        writes
+                        |> List.tryPick (
+                            function
+                            | Session.WriteCredential(userId, event, credential, _) -> Some(userId, event, credential)
+                            | _ -> None
+                        )
+                    with
+                    | Some(userId, event, credential) ->
+                        userId |> Expect.equal "the person who enrolled" "no-pin"
+                        event |> Expect.equal "the event it was" "pin-set"
+                        credential.WrongCount |> Expect.equal "counted from zero" 0
+
+                        PinHash.verify "2468" credential.PinHash.Value
+                        |> Expect.isTrue "the PIN they chose"
+                    | None -> failtest "expected the credential write"
+                | other -> failtest $"expected Opened, got %A{other}"
             }
         ]

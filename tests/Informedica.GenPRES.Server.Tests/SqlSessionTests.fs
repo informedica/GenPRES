@@ -1110,3 +1110,163 @@ let raceTests =
                 )
             }
         ]
+
+
+let credentialOf pin =
+    Credential.withPin (fun n -> Array.init n byte) pin
+
+
+let pendingOf userId mac : Session.PendingCode =
+    {
+        UserId = userId
+        MailAddress = "n***@stub.example"
+        CodeMac = mac
+        Expiry = t0.AddMinutes 15.0
+        Tries = 0
+    }
+
+
+let enrolmentOf attempt userId : Session.Enrolment =
+    {
+        Attempt = attempt
+        UserId = userId
+        Login = userId
+        DisplayName = "Stub Prescriber"
+        PatientId = "stub-patient"
+        PublicKey = PublicKey "key-a"
+    }
+
+
+/// The mac of the live code of a person: the newest row that is not spent.
+module SqlCredentialsLoad =
+
+    let liveMac (cs: string) (userId: string) =
+        use conn = connect cs
+
+        use cmd =
+            SqlSessions.command
+                conn
+                null
+                """
+                select c.code_mac from confirmation_code c
+                where c.user_id = $u and not exists (select 1 from code_spent s where s.code_id = c.id)
+                order by c.id desc limit 1
+                """
+                [ ("$u", box userId) ]
+
+        match cmd.ExecuteScalar() with
+        | null -> None
+        | value -> Some(unbox<byte[]> value)
+
+
+let count (cs: string) (sql: string) =
+    use conn = connect cs
+    use cmd = SqlSessions.command conn null sql []
+    cmd.ExecuteScalar() |> unbox<int64>
+
+
+[<Tests>]
+let credentialWriteTests =
+    testList
+        "the credential, code and enrolment rows a request writes"
+        [
+            test "the writes of a launch that suspends, and of the PIN that follows" {
+                withSessions (fun cs ->
+                    let mac = [| 1uy; 2uy; 3uy |]
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteCode(pendingOf "no-pin" mac, t0)
+                            Session.WriteEnrolment(enrolmentOf "a-1" "no-pin", t0)
+                        ]
+                    |> Expect.equal "the suspension lands" Session.StoreOutcome.Written
+
+                    count cs "select count(*) from confirmation_code" |> Expect.equal "the code" 1L
+                    count cs "select count(*) from enrolment" |> Expect.equal "the attempt" 1L
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.CountCodeTry("no-pin", mac, t0)
+                            Session.WriteCredential("no-pin", "pin-set", credentialOf "2468", t0)
+                            Session.SpendCode("no-pin", mac, t0)
+                            Session.DropEnrolmentsOf("no-pin", t0)
+                        ]
+                    |> Expect.equal "the PIN lands" Session.StoreOutcome.Written
+
+                    count cs "select count(*) from code_try" |> Expect.equal "the try counted" 1L
+                    count cs "select count(*) from code_spent" |> Expect.equal "the code spent" 1L
+
+                    count cs "select count(*) from enrolment_dropped"
+                    |> Expect.equal "the attempt dropped with it" 1L
+
+                    count cs "select count(*) from credential_event"
+                    |> Expect.equal "and the credential written" 1L
+                )
+            }
+
+            test "a try names the code the request read, not whatever is newest" {
+                withSessions (fun cs ->
+                    let read = [| 1uy |]
+                    let newer = [| 2uy |]
+
+                    // one server reads a code; another mails a newer one before the first writes
+                    SqlSessions.runWrites cs [ Session.WriteCode(pendingOf "no-pin" read, t0) ]
+                    |> ignore
+
+                    SqlSessions.runWrites cs [ Session.WriteCode(pendingOf "no-pin" newer, t0) ]
+                    |> ignore
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.CountCodeTry("no-pin", read, t0)
+                            Session.SpendCode("no-pin", read, t0)
+                        ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    use conn = connect cs
+
+                    use cmd =
+                        SqlSessions.command
+                            conn
+                            null
+                            "select c.code_mac from code_spent s join confirmation_code c on c.id = s.code_id"
+                            []
+
+                    cmd.ExecuteScalar()
+                    |> unbox<byte[]>
+                    |> Expect.equal "the code that was read is the one spent" read
+
+                    // the newer code still stands: nobody has entered it yet
+                    SqlCredentialsLoad.liveMac cs "no-pin"
+                    |> Expect.equal "the newer code is still the live one" (Some newer)
+                )
+            }
+
+            test "a code already spent takes no further try, and dropping twice is no error" {
+                withSessions (fun cs ->
+                    let mac = [| 9uy |]
+
+                    SqlSessions.runWrites cs [ Session.WriteCode(pendingOf "no-pin" mac, t0) ]
+                    |> ignore
+
+                    SqlSessions.runWrites cs [ Session.SpendCode("no-pin", mac, t0) ] |> ignore
+                    SqlSessions.runWrites cs [ Session.CountCodeTry("no-pin", mac, t0) ] |> ignore
+
+                    count cs "select count(*) from code_try"
+                    |> Expect.equal "nothing to count a try against" 0L
+
+                    SqlSessions.runWrites cs [ Session.WriteEnrolment(enrolmentOf "a-1" "no-pin", t0) ]
+                    |> ignore
+
+                    for _ in 1..2 do
+                        SqlSessions.runWrites cs [ Session.DropEnrolmentWrite("a-1", t0) ]
+                        |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    count cs "select count(*) from enrolment_dropped"
+                    |> Expect.equal "dropped once" 1L
+                )
+            }
+        ]

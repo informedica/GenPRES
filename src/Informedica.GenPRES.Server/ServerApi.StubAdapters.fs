@@ -617,7 +617,7 @@ module StubDatabase =
                     }
             dropEnrolment =
                 fun attempt ->
-                    async { return update (Slice.Enrolment attempt) (fun s -> Session.dropEnrolment attempt s, (), []) }
+                    async { return update (Slice.Enrolment attempt) (Session.dropEnrolment (now ()) attempt >> asUnit) }
             challenge =
                 fun sid request ->
                     async {
