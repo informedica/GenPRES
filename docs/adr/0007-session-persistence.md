@@ -2,9 +2,13 @@
 
 **Date**: 2026-09-08
 
-**Status**: Proposed (rewritten 2026-09-13; the engine is deferred to an amendment, Decision 4);
-§ 3: Accepted (amended 2026-09-16 for ADR-0008; accepted 2026-09-17, when the session service came
-to hold what the section says it holds, plan 725 Phase 5, #776 and #778)
+**Status**: Proposed (rewritten 2026-09-13; the production engine is deferred to an amendment,
+Decision 4); § 3: Accepted (amended 2026-09-16 for ADR-0008; accepted 2026-09-17, when the
+session service came to hold what the section says it holds, plan 725 Phase 5, #776 and #778);
+§ 4 amended 2026-09-17: SQLite is the test and development database. Acceptance
+schedule, per plan 516: § 1 and § 4 when its step 4b lands (a store exists, SQLite runs it, the
+switch is the one named), § 2 when its step 6 lands (the launch race proves the append-only
+rule on the session table).
 
 **Related Issues**: [#516 — GenPRES SessionRecord Store](https://github.com/informedica/GenPRES/issues/516),
 [#580 — Scope switch to expose only the accredited parts in production](https://github.com/informedica/GenPRES/issues/580)
@@ -88,28 +92,33 @@ version, because a restart must end nothing (Rule 32). The identity fields (`Use
 ring rule keeps the contract out of Core and Infrastructure. A session domain free of them is a
 refactor with a plan of its own, not a precondition for a store.
 
-### 4. The engine is deferred; SQLite is the interim
+### 4. SQLite for development and tests; the production engine is deferred — amended 2026-09-17
 
-Development and tests run on SQLite, in-process, through `Microsoft.Data.Sqlite`. That is what
-lets the schema, the adapter and the race tests exist before an engine is chosen. It is an
-interim, not a candidate: one file, one writer, one server, so it cannot serve Rule 36 and never
-runs in production. Production keeps the session subsystem disabled until the scope switch
-(#580) decides what it exposes.
+Development and tests run on SQLite, in-process, through `Microsoft.Data.Sqlite`. SQLite is the
+test and development database and stays in that role: it is what lets the schema, the adapter
+and the race tests exist before a production engine is chosen, and what a developer and the CI
+matrix keep running afterwards. It is not a candidate for production: one file, one server
+process, so it cannot serve Rule 36, and it never runs in production. With `GENPRES_PROD=1` the
+server refuses to start when `GENPRES_DB_CONNECTION` is set; that guard stands until #580, when
+the production engine's own rule replaces it. Production keeps the session subsystem disabled
+until the scope switch (#580) decides what it exposes.
 
 The production engine, the access library and the migration tooling are one linked decision,
 recorded as a dated amendment to this ADR before #580 exposes Sessions in production. The
 amendment answers: which engine, and whether operations run it; hand-written SQL, a mapper or an
-ORM; a migration runner or the scripts as they are; what the interim SQL has to change (id
-generation, JSON, timestamps). The interim proves the append-only shape and the machine over it.
+ORM; a migration runner or the scripts as they are; what the SQL as written for SQLite has to
+change (id generation, JSON, timestamps). SQLite proves the append-only shape and the machine
+over it.
 The engine's own isolation behavior is proven by running the same test suite on it.
 
 ## Consequences
 
 - First database dependency in the repository: `Microsoft.Data.Sqlite`, in the `Main` Paket
-  group, interim.
+  group, for development and tests.
 - `GENPRES_DB_CONNECTION` is the one switch: set, the SQL adapter; unset, the in-memory stub.
-  For now the value is a SQLite connection string. The fail-closed rule for production lands
-  with #580.
+  For development and tests the value is a SQLite connection string. Production refuses the key
+  until #580, which lands the production engine's rule and the fail-closed rule that production
+  requires a store.
 - Demo and a bare `dotnet run` keep the stub unless the key is set; a demo on SQLite keeps its
   Sessions across a restart, as Rule 32 says.
 - The integration tests run in the normal CI matrix, on every OS, against a temporary file. No

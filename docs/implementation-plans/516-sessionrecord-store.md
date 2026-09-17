@@ -12,17 +12,20 @@ and per browser (Rule 8), a Launch spent once (Rule 2), an ended Session that ne
 Today the Database is a stand-in. The pure `Session` machine in
 `src/Informedica.GenPRES.Server/ServerApi.Session.fs` runs the launch, the enrolment, the signing
 and the session-bound compute over one `State` value, and `StubDatabase.makeSessionPort`
-(`ServerApi.StubAdapters.fs`) runs it behind one lock, in memory, forgotten at restart. This plan
-gives that machine a store.
+(`ServerApi.StubAdapters.fs`) runs it behind one lock, in memory, forgotten at restart. Plan 725
+gave the machine what a store needs: the signed order plan versions as domain values
+(`StoredVersion`, readable or unreadable), the write of a commit as a value (`Persist`,
+`StoreOutcome`, `StubDatabase.submitWith`), the opened Session as a record (`OpenedSession`),
+the ending for a row the release cannot read (`SessionEnding.Unreadable`), and the digest over
+the canonical serialization of `OrderPlan.Dto`. This plan gives that machine a store.
 
 The design is in `docs/scenarios/integration/`: [uc-01](../scenarios/integration/uc-01-launch.md)
 leads the launch sequence, and the V8 document holds the rules cited here (Actor 5, Concept 9,
 Rules 2, 8 to 12, 19 to 21, 32, 36, 40 to 46). Read the design and the machine before this plan.
-Where the design and this plan disagree, the design wins; where the machine and this plan
-disagree, the plan is wrong about the code.
+Where the design and this plan disagree, the design wins.
 
-The decisions this plan rests on, and the one it defers, are in
-[ADR-0007](../adr/0007-session-persistence.md).
+The decisions this plan rests on are in [ADR-0007](../adr/0007-session-persistence.md), as
+amended in step 0, and [ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) § 6.
 
 ## Scope
 
@@ -31,23 +34,24 @@ In scope:
 - A table for everything in `Session.State`: launches, sessions with what they opened with and
   their heartbeats, endings and acknowledgements, credentials, confirmation codes, enrolments,
   the order plan versions, data notices, challenges, answered Submissions. The order plan
-  versions are in because `commit` appends the version in the same act that verifies the PIN
-  and re-mints the OpenedToken; credentials, codes and enrolments are in because `supplyPin`
-  sets the PIN and opens the Session in one act. Splitting any of these across a store and
-  memory would split a transaction the code keeps whole. The working state (what a Session
-  opened with, its notice, its challenge) is in because a restart must end nothing and a
-  second server must find it (Rules 32 and 36); on the in-memory stub it stays in memory, as
-  [ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) §6 says.
+  versions are in because `commit` appends the order plan version in the same act that verifies
+  the PIN and re-mints the OpenedToken; credentials, codes and enrolments are in because
+  `supplyPin` sets the PIN and opens the Session in one act. Splitting any of these across a
+  store and memory would split a transaction the code keeps whole. The working state (what a
+  Session opened with, its notice, its challenge) is in because a restart must end nothing and
+  a second server must find it (Rules 32 and 36); on the in-memory stub it stays in memory, as
+  ADR-0008 § 6 says.
 - Every stored order plan and patient (a challenge's reading included) as a domain Dto under
-  a JSON structure version, upgraded on load (ADR-0008 invariant 5; the section "Stored Dtos
-  and their structure version" below).
+  a JSON structure version, upgraded on load (ADR-0008 invariant 5; "Stored Dtos and their
+  structure version" below).
 - The audit table and its writer (Rule 46), inside the same transaction as each act.
-- A SQL implementation of `SessionPort`, on SQLite for now.
-- Versioned schema scripts and the small runner that applies them.
-- The composition switch on `GENPRES_DB_CONNECTION`.
-- An integration suite against the real file, in the normal CI matrix.
+- A SQL implementation of `SessionPort` on SQLite, the test and development database.
+- Versioned schema scripts, each with a migration number, and the small runner that applies
+  them.
+- The composition switch on `GENPRES_DB_CONNECTION`, and the rule that production refuses it.
+- An integration suite against a real file, in the normal CI matrix.
 
-Out of scope, each a follow-up issue filed in step 8:
+Out of scope, each a follow-up issue filed in step 10:
 
 - The production engine, the access library and the migration tooling: the ADR-0007 amendment.
 - The idle and absolute lifetimes and the sweep (Rules 10, 41). `Session.touch` refreshes
@@ -56,7 +60,8 @@ Out of scope, each a follow-up issue filed in step 8:
   has no Session.
 - The audit reader, and the audit's retention.
 - The signed request of uc-01 step 7.
-- What production exposes (#580). Production keeps `Adapters.sessionDisabled` until then.
+- What production exposes (#580). Production keeps `Adapters.sessionDisabled`, the session port
+  that refuses everything, until then.
 - A session domain free of the contract types, so that it could move to Core.
 
 ## Approaches considered
@@ -64,21 +69,26 @@ Out of scope, each a follow-up issue filed in step 8:
 ### The engine
 
 1. Choose the production engine now and develop on it.
-2. Develop and test on SQLite, in-process; choose the engine when production needs it.
+2. Develop and test on SQLite, in-process; choose the production engine when production needs
+   it.
 
-Nothing in this plan depends on the engine, and the operations question is open. Approach 2,
-per ADR-0007 Decision 4. SQLite is one file, one writer, one server: it proves the append-only
-shape and the machine over it, and nothing about the final engine's isolation.
+Approach 2, per ADR-0007 Decision 4 as amended in step 0: SQLite is the test and development
+database and stays in that role; it never serves production. Nothing in this plan depends on
+the production engine, and the operations question is open. SQLite is one file, one server
+process: it proves the append-only shape and the machine over it, and nothing about the
+production engine's isolation.
 
 ### The port
 
-1. Load the whole `State`, run the pure function, commit with a version. Exact and simple, but
-   every request reads every patient's record.
+1. Load the whole `State`, run the pure function, commit under an optimistic-concurrency
+   check. Exact and simple, but every request reads every patient's record.
 2. Rewrite each `Session.*` function into read, decide, write against tables. The pure machine
    and its tests (`SessionMachineTests.fs`, `StubAdapterTests.fs`) go with it.
 3. The slice. Load the rows a request can touch, keyed by what the request carries, into a
    `State`; run the pure function unchanged; append what changed, in one transaction. The stub
    and the SQL adapter run the same machine, and `SessionPort` does not change shape.
+
+Approach 3.
 
 ### The storage shape
 
@@ -86,13 +96,37 @@ shape and the machine over it, and nothing about the final engine's isolation.
 2. Append-only rows; per key only the newest row can be open, and it is unless an ending names
    it; the ordering decides the races.
 
-Actor 5 and Rule 40 as amended on 2026-09-09 say 2. The first draft of this plan said 1 and
+Actor 5 and Rule 40 as amended on 2026-09-09 say 2. An earlier draft of this plan said 1 and
 argued that Rule 8's two keys and the first open with no predecessor needed locks; the amended
 rule answers both: newest by id per key, a first opening needs no predecessor.
 
+### The order of building
+
+1. The earlier order of this plan: the launch and session tables and their slice first, the
+   record's write last.
+2. Record first: the `order_plan` table and the write behind `submitWith` first, the identity
+   tables and the session slice after.
+
+Approach 2, decided 2026-09-17:
+
+- The write path exists and is tested: `Session.commit` returns the write as a value,
+  `StubDatabase.submitWith` maps `Written | Conflict | Failed`, and `SessionStoreTests.fs`
+  covers Failed, Conflict, the unreadable head and crash-after-write with a fake `persist`. The
+  SQL record is a real `persist` plus a loader for one table.
+- The session slice carries the one unsolved question, the keying of `callback` (open decision
+  1). Record first meets it after the migration runner, the store, the fixture, the temp-file
+  test discipline and the composition switch exist.
+- A visible result early: with the key set, a restart of `dotnet run` keeps the record and a
+  relaunch opens on the stored head.
+
+Limit until step 6: sessions, launches, credentials, codes, enrolments, notices and challenges
+stay in memory as on the stub; a restart still ends every Session. Rule 32 (a server restart
+ends nothing) holds for the record only.
+
 ## Chosen approach
 
-The slice over append-only tables, on SQLite, in the Server project next to the stub.
+The slice over append-only tables, on SQLite, in the Server project next to the stub, the record
+first.
 
 ### What a request loads and what it appends
 
@@ -101,21 +135,32 @@ what the request carries: the nonce or the `state` of a Launch, the session id f
 and that Session's login, the user id of a credential, the patient id of a record, the
 idempotency key of a Submission. The pure function runs over that `State` as it runs over the
 stub's. The adapter then compares the `State` it got back with the one it loaded and appends a
-row for every difference. One transaction per member; SQLite serializes writers by construction,
-and the final engine runs the write serializable with one retry (Rule 42).
+row for every difference, with one exception: `Records` is written only through the `Persist`
+value `commit` returns, run by `StubDatabase.submitWith`, and never by the compare-and-append
+writer, which would otherwise insert the new order plan version a second time. From step 6, one
+transaction per member; SQLite serializes writers by construction, and the production engine
+runs the write serializable with one retry (Rule 42). Before step 6 there is no transaction
+around a request: the load and the insert are separate calls on separate connections, ordered
+by the port's lock.
 
 | `State` field | Tables | The slice reads | An append is |
 | ------------- | ------ | --------------- | ------------ |
 | `Launches` | `launch_record`, `launch_outcome` | the record by nonce or by `state`, with its outcome | the record at the first presentation; the outcome once, at the callback |
 | `Sessions` | `session`, `session_opened_with`, `session_seen` | the row by session id, the newest row for its login, the newest opened-with (its patient a `Patient.Dto` upgraded and parsed at load), the newest heartbeat | a session at an open; an opened-with at an open, at `openVersion` and at a commit; a heartbeat at every `touch` |
-| `Endings` | `session_ending`, `session_acknowledged`, and `session` itself | a session row whose login has a newer session row is `SupersededByLaunch` at that row's `opened_at`, whatever became of the newer row; the newest row for the login is open unless an ending names it; `wrong-pin-limit` is a row; an acknowledged ending is hidden; a `closed` row loads as no Session at all | `wrong-pin-limit` at the third wrong PIN; `closed` at `close`, with the acknowledgement; `unreadable` when the Session's opened-with or notice row cannot be read (the stored-Dtos section below) |
+| `Endings` | `session_ending`, `session_acknowledged`, and `session` itself | a session row whose login has a newer session row is `SupersededByLaunch` at that row's `opened_at`, whatever became of the newer row; the newest row for the login is open unless an ending names it; `wrong-pin-limit` is a row; an acknowledged ending is hidden; a `closed` row loads as no Session at all | `wrong-pin-limit` at the third wrong PIN; `closed` at `close`, with the acknowledgement; `unreadable` when the Session's opened-with or notice row cannot be read |
 | `Credentials` | `credential_event` | the newest event for the user id | an event at every change: PIN set, wrong entry, lock, right entry |
 | `Codes` | `confirmation_code`, `code_try`, `code_spent` | the newest unspent code for the user id, with its tries counted | a code when mailed; a try per wrong code; spent when the PIN is set, the tries run out, or the last attempt is dropped |
-| `Enrolments` | `enrolment`, `enrolment_dropped` | the attempt by id, then the user id it names, then every undropped attempt and the code of that user: `dropEnrolment` spends the code only when no other attempt stands, and `supplyPin` drops every attempt bound to the code | an attempt when the launch suspends; dropped at `dropEnrolment`; all of a user's attempts dropped when the PIN is set or the code is void |
-| `Records` | `order_plan` | every order plan version for the patient id, newest first, each upgraded from its `json_version` and parsed with `fromDto` as it loads; an unreadable row is kept as an unreadable entry (ADR-0008 §6) | an order plan version at a commit, in the request's transaction; a violated `unique (patient_id, no)` is another server's sign, answered as a stale sign, the head changed |
+| `Enrolments` | `enrolment`, `enrolment_dropped` | the attempt by id, then the user id it names, then every undropped attempt and the code of that user | an attempt when the launch suspends; dropped at `dropEnrolment`; all of a user's attempts dropped when the PIN is set or the code is void |
+| `Records` | `order_plan` | every order plan version for the patient id, newest first by `no`, each upgraded from its `json_version` and parsed with `fromDto` as it loads; an unreadable row is kept as an unreadable entry (ADR-0008 § 6) | an order plan version at a commit, through `Persist` only, in the request's transaction from step 6; a violated `unique (patient_id, no)` is another server's sign, answered as a stale sign, the head changed |
 | `Notices`, `Challenges` | `data_notice`, `challenge`, `challenge_spent` | the newest unexpired row for the session id; a notice's patient is a `Patient.Dto` upgraded and parsed at load, a challenge holds the digest, not the order plan | a row when issued; a newer row replaces; spent at a commit or an `openVersion` |
 | `Answered` | `submission_answer` | the row for the session id and the idempotency key | the answer, once, refusals included (Rule 45) |
 | the audit | `audit_entry` | nothing | one entry per act, in the same transaction |
+
+Until step 6 only the `Records` row of this table is live: `SqlDatabase.store` loads the
+patient's `order_plan` rows into `Records` before the pure function runs and writes the one row
+`commit` asks for; everything else stays in the in-memory `State` behind the lock, as on the
+stub. From step 6 the loader takes over the other rows one field at a time, each step naming
+which.
 
 Supersession is the one ending with no row of its own. That is Rule 40 as the design states it:
 the ordering of the `session` table decides which Session of a login stands, and the loser is
@@ -140,35 +185,119 @@ separate statement, never part of a request's transaction, and never touches `se
 
 ### Config and wiring
 
-`GENPRES_DB_CONNECTION` is the one switch. Set, `Adapters.makeAppEnvWith` wires the SQL
-adapter with the same parameters it gives the stub: the clock, the id and code generators, the
-salt source, the code mac, the seal verification, the IdentityProvider, UserRegistry,
-PatientDataPlatform and MailService ports. Unset, it wires `StubDatabase` as today. For the
-interim the value is a SQLite connection string; the default file lives under `data/`, which is
-untracked.
+`GENPRES_DB_CONNECTION` is the one switch. Set, `Adapters.makeAppEnvWith` receives it as a
+parameter (`store: string option`, next to `demo`), applies the migrations and wires the SQL
+adapter with the same arguments it gives the stub: the ten dependencies of
+`StubDatabase.makeSessionPort` (the clock, the id, code and salt generators, the code mac, the
+seal verification, the IdentityProvider, UserRegistry, PatientDataPlatform and MailService
+ports) and the initial state. Unset, it wires `StubDatabase` as today.
+`Adapters.makeAppEnv`, which tests and the MCP host build, passes `None`: no production caller
+other than `Server.fs` opens the database; the SQL tests open temporary files of their own.
 
-Production is untouched by this plan: `Server.fs` swaps in `Adapters.sessionDisabled` when
-`GENPRES_PROD=1`, and the fail-closed rule that production requires a connection string lands
-with #580, in the shape of `validateProductionPassword`.
+The value is a SQLite connection string. A relative `Data Source` is rooted at
+`AppPath.rootPath ()`, the root the server already resolves for `data/cache`: `GENPRES_ROOT`
+when set (`/app` in the image, set by the Dockerfile), else the folder holding `.env` (the repo
+root in a checkout); the `.env.example` line says so. The default file lives
+under `data/`, which the opt-in `.gitignore` leaves untracked; nothing is added for it.
 
-The stub seeds four logins with a PIN so that the walkthrough in DEVELOPMENT.md works. The SQL
-store gets the same seed from a script that runs only when `GENPRES_PROD=0`, so a demo on SQLite
-behaves as the demo on the stub, with Sessions that survive a restart.
+Production refuses SQLite. With `GENPRES_PROD=1` and `GENPRES_DB_CONNECTION` set, the server
+refuses to start with a message naming the setting, in `Config.validateStartup`, the way a short
+production password is refused. The guard refuses the key itself, not SQLite as such, and is
+temporary: it stands until #580, when the production engine, which will likely read the same
+key, replaces it with that engine's rule. Until then production keeps
+`Adapters.sessionDisabled`; what production's store is, and the fail-closed rule that production
+requires one, land with #580.
+
+`StubCredentials.seed` gives four logins a credential so that the walkthrough in DEVELOPMENT.md
+works: `prescriber`, `prescriber-b` and `prescriber-other-patient` with the PIN 1234, and
+`no-pin` with none, so that it enrols; a Reader has no credential. The SQL store gets the same
+seed when `GENPRES_PROD=0` (decided 2026-09-17), so a demo on SQLite behaves as the demo on the
+stub, with Sessions that survive a restart once step 6 is in. Credentials are append-only
+events, so the seed writes a login's credential only when that login has no credential event
+yet: a restart adds no rows and never resets a PIN the user changed.
 
 ### Placement
 
 The adapter is `ServerApi.SqlAdapters.fs` next to `ServerApi.StubAdapters.fs`, in the
 Presentation ring, which may read the setting and may reference the contract. The `.sql` scripts
-are embedded resources of the Server project. No new project: see ADR-0007 Decision 3.
+are embedded resources of the Server project under `Sql/`. No new project: see ADR-0007
+Decision 3.
 
-### Schema sketch
+### Connections and files
+
+One `SqliteConnection` per call, `use`d; Microsoft.Data.Sqlite pools connections, and the port's
+lock already serializes writers in the one server process. The default rollback journal, not
+WAL: one server process, one lock, and no `-wal`/`-shm` files to clean on three OSes. Tests
+append `Pooling=False` so a temporary file can be deleted on Windows. The SQLite native library
+package (`SQLitePCLRaw.bundle_e_sqlite3`, transitive) ships in the Docker image, since the test
+and development engine stays; production never opens it.
+
+### Prototypes
+
+New F# is prototyped in `src/Informedica.GenPRES.Server/Scripts/` first, in the shape of
+`Scripts/Signing.fsx`: `#I __SOURCE_DIRECTORY__`, `#r "nuget: Expecto, 10.2.3"`,
+`#load "load.fsx"`, modules shadowing the source, Expecto tests inline. `Scripts/load.fsx`
+`#load`s every server source file in compile order, so once `ServerApi.SqlAdapters.fs` exists
+`load.fsx` itself carries `#r "nuget: Microsoft.Data.Sqlite"`; otherwise every existing script
+(`Signing.fsx`, `Launch.fsx`, `Enrolment.fsx` and the rest) stops compiling.
+`scripts/load-dependencies.fsx` stays as it is.
+
+## This plan leads the other documents
+
+Step 0 amends ADR-0007 § 4; this plan follows the amended ADR and leads every other document
+that describes the store. Where plan 725, the roadmap documents or a code comment say something
+else about the store, they are aligned in step 0, the first PR. The numbered rules of the
+integration design are the requirements the store implements and are not touched.
+
+| Document | Aligned in step 0 |
+|---|---|
+| `docs/adr/0007-session-persistence.md` | § 4 amended: SQLite is the test and development database, not an interim; the acceptance schedule in the status line (§ 1 and § 4 at step 4b, § 2 at step 6, § 3 accepted already); every "plan 516 step N" on this plan's numbering |
+| `docs/adr/0008-contract-model-dto-mapping-boundary.md` | the plan 516 references checked against this plan's steps and the `order_plan` schema; the vocabulary table gains the **migration number** next to the order plan version and the JSON structure version |
+| `docs/implementation-plans/725-contract-model-dto-domain-flow.md` | the gate sentences on this plan's numbering: `order_plan` and the first fixture are steps 2–3, `session_opened_with` is step 6, `challenge` and `data_notice` are step 8; the vocabulary table gains the migration number |
+| `docs/roadmap/mvpap2019-gap-overview.md` | decision D2 and the rows that cite #516: the test and development database, not an interim; the rows point at this plan's steps |
+| `docs/roadmap/feature-patient-persistence.md` § 5, `docs/roadmap/backlog.md` (storage backends) | "left open" becomes: decided by ADR-0007 and this plan for test and development; the production engine remains open |
+| `scripts/CheckDependencyRule.fsx` | the two `contractAllowances` reasons for `ServerApi.Adapters.fs` and `ServerApi.StubAdapters.fs`, which still say "until plan 725 Phase 5": the session identity types (`UserContext`, `OpenedToken`, the refusals and endings) stay contract by ADR-0008 R6 and ADR-0007 § 3; a contract-free session domain is its own issue |
+| comments in `GenORDER.Lib/OrderPlan.fs` (`OrderPlanVersion.Dto`), `ServerApi.Session.fs`, `ServerApi.Ports.fs` | checked: "the database keeps the structure version beside the row", nothing about an interim |
+| `DEVELOPMENT.md`, the uc-01 stand-ins table, the "Not built" lists of uc-01/03/04 | **not** in step 0: they describe running behaviour and change with the step that makes them false (4b, 6, 8, 9) |
+
+## Schema
 
 SQLite, kept to the portable core: an integer id the engine generates, `TEXT` for JSON, Unix
-milliseconds for time. The engine amendment reviews what its script differs in (id generation,
-a JSON type, timestamps). The tables of the first migration; the rest are named in the table
-above with their keys.
+milliseconds for time. The production engine's amendment reviews what its script differs in
+(id generation, a JSON type, timestamps). The runner creates `schema_version` before it reads
+it, so no migration contains that table. Migration 1 is `order_plan` (step 2); migration 2 the launch and session tables (step 6); migration 3 the credential, code
+and enrolment tables (step 7); migration 4 the notice, challenge and answer tables (step 8);
+migration 5 `audit_entry` (step 9). The tables named in the loader table above and not listed
+here follow the same rules, with the keys the table names.
 
 ```sql
+-- Created by the runner, not by a migration. The migrations applied, one row each, in order.
+create table if not exists schema_version (
+    migration  integer primary key,       -- the migration number
+    applied_at integer not null           -- unix ms
+);
+
+-- Concept 12. The clinical store: every order plan version, never changed. The identity
+-- columns are authoritative and let an unreadable row keep its place (ADR-0008 section 6);
+-- the order plan itself, the patient it was signed on included, is the JSON Dto of the
+-- domain's OrderPlanVersion, under the structure version it was written with. signed_at
+-- holds Unix milliseconds; the JSON holds the DateTime's full ticks. A readable entry takes
+-- every value from the JSON, the columns serve the unreadable entry. Loading orders by no.
+create table order_plan (
+    id                     integer primary key,
+    version_id             text not null unique,
+    no                     integer not null,
+    patient_id             text not null,
+    base                   text null,     -- the version_id it was built on
+    signed_by_user_id      text not null,
+    signed_by_display_name text not null,
+    signed_at              integer not null,
+    verified               integer not null, -- 0 | 1: the platform's reading at the challenge
+    json_version           integer not null, -- the JSON structure version of plan
+    plan                   text not null,    -- json: OrderPlanVersion.Dto (GenORDER)
+    unique (patient_id, no)                  -- also the index for loading by patient
+);
+
 -- Rule 2, uc-01 steps 4.2 and 5.7. One row per Launch, written before the identity hop;
 -- the outcome is a second row, written once. Both dropped whole after the expiry.
 create table launch_record (
@@ -204,17 +333,23 @@ create table session (
 create index ix_session_login on session (login, id);
 
 -- What the Session opened with (Rule 19) and the token that names it (Rule 34): written at
--- the open, at openVersion and at a commit. The newest row counts. The patient is the JSON
--- Dto of the GenFORM Patient under its structure version (ADR-0008 invariant 5); a row the
--- release cannot read ends the Session at its next request.
+-- the open, at openVersion and at a commit. The newest row counts. version_id is what the
+-- Session opened with, a readable order plan version only; head_id is the head it saw,
+-- whatever its case: an open on an unreadable head opens from nothing (version_id null)
+-- and still holds that head (head_id set). Both name order_plan rows, from which the
+-- loader rebuilds OpenedSession.Head. The patient is the JSON Dto of the GenFORM Patient
+-- under its structure version, null when the Session opened on no data; a row the release
+-- cannot read ends the Session at its next request.
 create table session_opened_with (
     id           integer primary key,
     session_id   text not null references session (session_id),
     version_id   text null,              -- null: from nothing
-    opened_token text not null,
-    json_version integer not null,       -- the JSON structure version of patient
-    patient      text not null,          -- json: Patient.Dto, the data the Session shows
-    at           integer not null
+    head_id      text null,              -- null: the patient had no order plan version
+    opened_token text null,              -- null: a Session without one
+    json_version integer null,           -- the JSON structure version of patient
+    patient      text null,              -- json: Patient.Dto, the data the Session shows
+    at           integer not null,
+    check ((patient is null) = (json_version is null))
 );
 
 -- Rule 9. Heartbeats. Rows older than the newest for a Session may be dropped whole.
@@ -238,26 +373,6 @@ create table session_acknowledged (
     at         integer not null
 );
 
--- Concept 12. The clinical store: every order plan version, never changed. The identity
--- columns are authoritative and let an unreadable row keep its place (ADR-0008 section 6);
--- the order plan itself, the patient it was signed on included, is the JSON Dto of the
--- domain's OrderPlanVersion, under the structure version it was written with.
-create table order_plan (
-    id                     integer primary key,
-    version_id             text not null unique,
-    no                     integer not null,
-    patient_id             text not null,
-    base                   text null,     -- the version_id it was built on
-    signed_by_user_id      text not null,
-    signed_by_display_name text not null,
-    signed_at              integer not null,
-    verified               integer not null, -- 0 | 1: the platform's reading at the challenge
-    json_version           integer not null, -- the JSON structure version of plan
-    plan                   text not null,    -- json: OrderPlanVersion.Dto (GenORDER)
-    unique (patient_id, no)
-);
-create index ix_order_plan_patient on order_plan (patient_id, id);
-
 -- Rule 46. What was done, by whom, to which Session, in the same transaction as the act.
 create table audit_entry (
     id         integer primary key,
@@ -272,65 +387,147 @@ create table audit_entry (
 
 No updatable state column, no partial unique index, no lock table, no `UPDATE` anywhere.
 
-### Stored Dtos and their structure version
+## Stored Dtos and their structure version
 
-What ADR-0008 invariant 5 and §6 decide, as this plan applies it to `order_plan`:
+What ADR-0008 invariant 5 and § 6 decide, as this plan applies it to `order_plan`:
 
 - **What a row holds.** `plan` is the JSON of `OrderPlanVersion.Dto`, `toDto` of the domain
   value `commit` returns, never the contract model the client sent; the patient travels inside
   it. `json_version` is the JSON structure version it was written under and never changes.
-- **The serializer** and its settings are part of the JSON structure. It produces the canonical
-  form the signing digest is computed over: fields in declared order, arrays as the Dto holds
-  them, `BigRational` as `numerator/denominator` in lowest terms, no whitespace; two order plans
-  equal as domain values serialize equal. Plan 725 step 1.3 settles it; this plan uses it. The
-  digest is SHA-256 over the UTF-8 bytes of the canonical serialization of `OrderPlan.Dto`, the
-  plan alone, never over the stored `OrderPlanVersion.Dto` around it, whose id, number, signer
-  and time are minted at the commit and cannot be part of what the challenge was issued over;
-  `StubDatabase.digest` computes it so since plan 725 step 5.1, and the SQL adapter supplies
-  the same function.
-- **Loading.** A request loads the rows of its patient, as the slice loads everything else,
-  never every row at startup: a second server would not see an order plan version signed after
-  it started. The adapter upgrades `plan` from `json_version` to the current structure with one
-  pure function per step, on raw JSON, and parses it with `fromDto`; `Session.State.Records`
-  holds the result as domain values. A row it cannot load,
-  because `json_version` is newer than the release knows, an upgrade step fails, `fromDto`
-  refuses it, or the JSON's identity disagrees with the columns, is kept as an unreadable entry
-  built from the identity columns and the reason, and logged. The head of a patient is the
-  newest entry whatever its case; a sign is refused while the head is unreadable.
-- **Writing.** `commit` returns the write as a value; the adapter's state-replacing helper runs
-  it, inserting the row with the current `json_version` in the request's transaction, and
-  assigns the new state only if the insert succeeded, else answers `StoreFailed` and leaves the
-  state unchanged. Within one process the lock orders validation and write; across servers the
-  transaction and the unique constraint on `(patient_id, no)` do. A violated constraint is
-  another server's sign of the same number: it is answered as a stale sign, the head changed,
-  not as `StoreFailed`.
+  `OrderPlanVersion.Dto` itself carries no structure version: the column beside the row does.
+- **The serializer** and its settings are part of the JSON structure. `Canonical.serialize`
+  produces the canonical form the signing digest is computed over: fields in declared order,
+  arrays as the Dto holds them, `BigRational` as `numerator/denominator` in lowest terms, an
+  option as its value or null, no whitespace; two order plans equal as domain values serialize
+  equal. The digest is SHA-256 over the UTF-8 bytes of the canonical serialization of
+  `OrderPlan.Dto`, the plan alone, never over the stored `OrderPlanVersion.Dto` around it, whose
+  id, number, signer and time are minted at the commit and cannot be part of what the challenge
+  was issued over; `StubDatabase.digest` computes it, and the SQL adapter uses the same function.
+- **Loading.** A request loads the rows of its patient, never every row at startup: a second
+  server would not see an order plan version signed after it started. The adapter upgrades
+  `plan` from `json_version` to the current structure with one pure function per step, on raw
+  JSON, and parses it with `fromDto`; `Session.State.Records` holds the result as domain values.
+  A row it cannot load, because `json_version` is newer than the release knows, an upgrade step
+  fails, `fromDto` refuses it, or the JSON's identity disagrees with the columns, is kept as an
+  unreadable entry built from the identity columns and the reason, and logged. The head of a
+  patient is the newest entry whatever its case; a sign is refused while the head is unreadable.
+- **Writing.** `commit` returns the write as a value; `StubDatabase.submitWith` runs it through
+  the store's `persist`, which inserts the row with the current `json_version`, and assigns the
+  new state only if the insert succeeded. Until step 6 the load and the insert are two calls on
+  two connections under the port's lock, not one transaction; from step 6 each member runs in
+  one transaction. A `SqliteException` with extended code 2067 whose message names
+  `order_plan.patient_id, order_plan.no` is another server's sign of the same number: the head
+  is re-read and the sign is answered as a stale sign (`SigningRefusal.Blocked` naming the
+  head), not as `StoreFailed`. Any other exception, other constraint failures included, is
+  `StoreFailed`, with the state unchanged so that the next Submission is the retry.
+- **Where the constraint is reached.** Only when two server processes interleave: both load
+  the same head, both sign, the second insert fails. Within one process, and for a retry after
+  a crash between the insert and the reply, the load already holds the newer row, so
+  `commit`'s `blockedBy` refuses the sign as stale before anything is written (the existing
+  test "after a crash between the write and the reply the row is the head" in
+  `SessionStoreTests.fs`). A load that throws leaves the state as it was, since the lock's body
+  assigns nothing, and the call fails; open decision 6.
 - **The working state** follows the same rule in its own tables: `session_opened_with.patient`
   and `data_notice`'s patient are `Patient.Dto` JSON under a `json_version`, upgraded and parsed
   at load; a challenge stores the digest, the nonce, the expiry and its reading, never the order
   plan. These rows live minutes to a Session's length and are dropped whole, so a row the
   release cannot read is not kept as an unreadable entry: an opened-with or a notice it cannot
-  read ends the Session with a new `SessionEnding` case, `Unreadable`, appended as a
-  `session_ending` row (`unreadable`) and told at the next request; a challenge it cannot read
-  is refused.
-- **Every JSON structure change** comes with four things: a new `json_version`, an upgrade
-  step, a downgrade step, and a stored fixture at the old structure version with a test that
-  the upgraded fixture parses and maps to the expected contract model (law L5 of plan 725). A
-  snapshot of the serialized graph per structure version fails when the shape changes and the
-  number does not. Rows are never rewritten. A release cannot read a row written under a
-  newer `json_version`, and an upgrade drains the old servers (Rule 36), so a structure change
-  ships as expand, then contract: release N+1 reads the new structure but still writes the
-  old, serializing the current Dto and applying the raw-JSON downgrade step before the insert
-  under `json_version` N; release N+2 writes the new once no release N server is left and
-  drops the downgrade step. The adapter holds the structure it reads up to and the one it
-  writes as two build constants. A value the old structure cannot hold is not written before
-  N+2. Test: `upgrade (downgrade (toDto x))` parses back to `x` for what the release writes,
-  and the downgraded JSON matches the fixture's shape. No server then meets a row it cannot
-  read during a drain, and a rollback by one release is safe; by more than one it is not
-  supported once such rows exist.
+  read ends the Session with `SessionEnding.Unreadable`, appended as a `session_ending` row
+  (`unreadable`) and told at the next request; a challenge it cannot read is refused.
+- **Every JSON structure change.**
+  - It comes with four artefacts: a new `json_version`, an upgrade step, a downgrade step, and a
+    stored fixture at the new structure version. A stored fixture is never regenerated: it is
+    what a release wrote under its structure version, and every later release must still read
+    it; the old files stay. Rows are never rewritten.
+  - It ships as expand, then contract, because a release cannot read a row written under a
+    newer `json_version` and an upgrade drains the old servers (Rule 36). Release N+1 reads the
+    new structure but still writes the old: it serializes the current Dto and applies the
+    raw-JSON downgrade step before the insert under `json_version` N. Release N+2 writes the new
+    once no release N server is left, and drops the downgrade step. A value the old structure
+    cannot hold is not written before N+2. The adapter holds the two as build constants,
+    `jsonVersionRead` and `jsonVersionWritten`.
+  - The tests, one per build constant, so that release N+1 passes them. L5, for every stored
+    fixture: upgraded to `jsonVersionRead` it parses (law L5 of plan 725). The read snapshot,
+    on the fixture for `jsonVersionRead`: deserialize, `fromDto`, `toDto`, serialize gives the
+    fixture text back. The write snapshot, on the fixture for `jsonVersionWritten`: upgraded
+    and parsed, then written as the release writes (`toDto`, serialize, the downgrade steps down
+    to `jsonVersionWritten`), gives the fixture text back. Until the first structure change the
+    two fixtures are the same file. And `upgrade (downgrade (toDto x))` parses back to `x` for
+    what the release writes.
+  - Rollback: no server meets a row it cannot read during a drain, and a rollback by one release
+    is safe; by more than one it is not supported once rows of the newer structure exist.
 
-### The races, walked through
+## The storage flow
 
-Each race is proven on SQLite for the logic of the slice and the appends. The final engine
+One request under the port's lock, after step 4b: the record slice loaded, the pure machine run,
+the write applied, the state assigned only when the write landed.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant H as SigningCommand
+    participant P as SQL session port
+    participant S as Session machine (pure)
+    participant D as SQLite order_plan
+
+    C->>H: Submit (plan, opened token, challenge, PIN, idem key)
+    H->>H: parse the plan at the inbound boundary
+    H->>P: submit sid signature
+    activate P
+    P->>P: lock, patientOf state = Sessions[sid].Opened.PatientId
+    P->>D: select rows where patient_id = pid order by no desc
+    D-->>P: rows (json_version, plan JSON, identity columns)
+    P->>P: readRow each: Readable or Unreadable with reason
+    P->>P: state with Records = [pid, versions]
+    P->>S: commit now newId digest standing send sid signature state
+    S-->>P: next state, outcome, Some (WriteVersion v) or None
+    alt nothing to write (a refusal, or an answer already remembered)
+        P->>P: assign next state
+    else WriteVersion v
+        P->>D: insert order_plan (identity columns, json_version 1, canonical JSON)
+        alt inserted
+            D-->>P: ok
+            P->>P: Written, assign next state (head = v, token re-minted)
+        else unique (patient_id, no) failed
+            D-->>P: SqliteException 2067
+            P->>D: select the head for pid again
+            D-->>P: the row that won
+            P->>P: Conflict winner, keep the old state, Refused Blocked (head winner)
+        else any other error
+            D-->>P: exception
+            P->>P: Failed reason, keep the old state, Refused StoreFailed
+        end
+    end
+    P-->>H: SigningOutcome
+    deactivate P
+    H-->>C: SigningResponse (the order plan version mapped to the contract model)
+```
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant P as SQL session port
+    participant S as Session machine (pure)
+    participant D as SQLite order_plan
+
+    B->>P: callback (code, state) after the identity hop
+    activate P
+    P->>P: lock, patientOf = Launches[state].PatientId
+    P->>D: select rows for the patient
+    D-->>P: rows, or none
+    P->>S: callback ... state with Records loaded
+    S->>S: redeem, then openWith: head = headOf patient, OpenedWith = head id
+    S-->>P: next state (session record holds Head), Opened session
+    P->>P: assign next state
+    P-->>B: redirect, session cookie
+    deactivate P
+    B->>P: find sid (GetSession)
+    P-->>B: the session record's Head, no read of the file
+```
+
+## The races, walked through
+
+Each race is proven on SQLite for the logic of the slice and the appends. The production engine
 re-proves it for its own isolation, with the same tests.
 
 **Two launches of the same User, two Launches (uc-01 ext 8b).** Both nonces are unspent, so
@@ -348,9 +545,16 @@ none, is refused as spent. A reloaded callback within the lifetime is answered f
 
 **A commit against a superseding open (Rule 42).** The commit loads the Session, the credential,
 the challenge and the record; a concurrent open for the same login appends a newer session row.
-On the final engine the two run serializable and one is retried once; the retried commit reloads,
-reads its ending off the newer row, and refuses with `NoSession`. On SQLite the writer lock
-orders them and the outcome is the same.
+On the production engine the two run serializable and one is retried once; the retried commit
+reloads, reads its ending off the newer row, and refuses with `NoSession`. On SQLite the writer
+lock orders them and the outcome is the same.
+
+**Two signs of the same number.** Two server processes load the same head for a patient and
+both sign: the second insert violates `unique (patient_id, no)`, the adapter re-reads the head
+and refuses the sign as stale, naming the head; `openVersion` then opens the row that won. The
+mapping is proven on the file in step 3, the interleaving with two port instances in step 4a. A crash between the insert and the reply is a
+different case: the retry's load already holds the written row, so `commit` refuses the sign
+as stale before any insert; proven through the port in step 4a.
 
 **An ended Session cannot reopen.** There is no row whose insertion makes an ended Session open
 again: `session` is written once per open, and an ending, a newer row for the login or a
@@ -358,73 +562,300 @@ again: `session` is written once per open, and an ending, a newer row for the lo
 login back to an older one either: the older row still has a newer row above it, so it stays
 superseded, and the login has no open Session until the next open appends a row.
 
+## Steps
+
+Each step is one PR of 200 changed lines or fewer. A step with new F# source is a
+prototype-script PR (`chore(server)`; the review bot, Greptile, is not run on script-only PRs)
+followed by a "migrate" PR from master that lands the source and removes the script
+(`feat(server)`, with a changelog block in the commit body). A docs, build or test-only step is
+one PR, no prototype first. Step 4b is wiring only, a parameter threaded from `Config` to
+`makeAppEnvWith`, and goes as one PR without a prototype. Every PR gets an As-built row here and
+an entry in `.claude/docs/session-log.md`; every step runs `dotnet run Build`,
+`dotnet test tests/Informedica.GenPRES.Server.Tests/`,
+`dotnet fsi scripts/CheckDependencyRule.fsx` and Fantomas on the touched files.
+
+### Step 0 — docs: this plan and the aligned documents
+
+`docs`. This text as `docs/implementation-plans/516-sessionrecord-store.md`; ADR-0007 § 4
+amended and its status line; the other documents of the table under "This plan leads the other
+documents"; split as 0a (the plan and the ADR) and 0b (the rest) if over 200 lines. Closed by a
+grep over `docs/` and the server comments for "interim", "516 step", "plan 516", "schema
+version" and "SQLite".
+
+### Step 1 — build: Paket, the key, the opt-in entries
+
+`build`, ~60 lines.
+
+- `paket.dependencies` Main group: `nuget Microsoft.Data.Sqlite` (10.x for net10.0);
+  `paket.lock`; `src/Informedica.GenPRES.Server/paket.references`. The test project gets it
+  through its project reference and names `SqliteConnection` and `SqliteException` from there,
+  as it already names `Unquote` and `IcedTasks` from the libraries. It is not added to the test
+  project's `paket.references`: that file lists the `Test` group only, and a package listed in
+  two groups is emitted twice and warns NU1504/NU1506 (DEVELOPMENT.md, "Paket groups"). The step
+  proves the transitive reference by compiling one test that opens a connection.
+- `.env.example`: `# GENPRES_DB_CONNECTION=Data Source=data/genpres.db`, commented, with the
+  root sentence of "Config and wiring".
+- `.gitignore`: `!/src/Informedica.GenPRES.Server/Sql/`,
+  `!/src/Informedica.GenPRES.Server/Sql/*.sql`,
+  `!/tests/Informedica.GenPRES.Server.Tests/fixtures/`,
+  `!/tests/Informedica.GenPRES.Server.Tests/fixtures/*.json`.
+
+Proves: restore and build on the three CI OSes with the native library package.
+
+### Step 2 — feat(server): the migration runner and migration 1
+
+Prototype `Scripts/SqlSchema.fsx`.
+
+- Source: new `ServerApi.SqlAdapters.fs`, module `SqlSchema` (~50 lines), compile item between
+  `ServerApi.StubAdapters.fs` and `ServerApi.Adapters.fs`; `Sql/001-order-plan.sql`
+  (`order_plan` as in the schema); fsproj
+  `<EmbeddedResource Include="Sql\*.sql" LogicalName="Sql/%(Filename)%(Extension)" />`;
+  `Scripts/load.fsx` gains `#r "nuget: Microsoft.Data.Sqlite"` and the `#load` of the new file.
+- `SqlSchema.apply cs`: the manifest resource names with the `Sql/` prefix, sorted ordinal, the
+  leading integer as the migration number; `create table if not exists schema_version`; `select
+  max(migration)`; for each script above it one transaction: the script as one `SqliteCommand`
+  (Microsoft.Data.Sqlite runs every statement of a `CommandText`), then the `schema_version`
+  row. Replaceable by a tool at the production engine's amendment without touching the scripts.
+- Tests, new `SqlSchemaTests.fs` (compile item after `SessionStoreTests.fs`, before
+  `AgreementTests.fs`), which also holds the `withDb` helper the later SQL test files use: a
+  temporary file `Path.Combine(Path.GetTempPath(), $"genpres-{Guid.NewGuid()}.db")` with
+  `Pooling=False`, `SqlSchema.apply` on it, deleted in `finally`. A fresh file gets
+  migration number 1 and the table; a second `apply` applies nothing; a duplicate `(patient_id,
+  no)` raises `SqliteException` with `SqliteErrorCode = 19`, `SqliteExtendedErrorCode = 2067` and
+  a message naming `order_plan.patient_id, order_plan.no`; the file is deleted after.
+- No `Shared.` in the new file, so no fitness-test allowance; `GENPRES_DB_CONNECTION` may be
+  named in the Server, which is in the DMZ.
+
+### Step 3 — feat(server): the record and the first stored fixture
+
+Prototype `Scripts/SqlRecord.fsx`. 3a the store, 3b the fixture and its two tests, when one
+migrate PR would pass 200 lines.
+
+- Source: `SqlAdapters.fs`, module `SqlDatabase` (~90 lines): `jsonVersionWritten = 1`,
+  `jsonVersionRead = 1`; `upgrade : int -> string -> Result<string, string>` (identity at 1;
+  above `jsonVersionRead`, `Error "JSON structure version n is newer than this release knows"`);
+  `readRow` (columns and JSON → `StoredVersion`); `loadRecords : string -> string ->
+  StoredVersion list` (connection string, patient id, `order by no desc`); `persist : string ->
+  Session.Persist -> Session.StoreOutcome` as "Writing" above (`base` as `DBNull` for `None`,
+  `signed_at` via `DateTimeOffset(v.SignedAt, TimeSpan.Zero).ToUnixTimeMilliseconds()`, `plan`
+  = `Canonical.serialize (OrderPlanVersion.Dto.toDto v)`).
+- Fixture `tests/Informedica.GenPRES.Server.Tests/fixtures/order_plan_v1.json`: the canonical
+  JSON of `OrderPlanVersion.Dto.toDto` of `versionOf 1 prescriber t0 domainPlan.Value` (the
+  builders of `SessionStoreTests.fs`), produced once by the prototype, committed, fsproj
+  `Content` copied to output, read from `AppContext.BaseDirectory`. The fixture tests never
+  compare against a value built from those builders or from `Scenarios.fs`: a change to a test
+  scenario is not a change of the JSON structure and must not break them.
+- Tests, `SqlRecordTests.fs`:
+  - `loadRecords` after `persist v` = `[Readable v]` on the real file;
+  - a second `persist` with the same `no` → `Conflict` of the row that won, re-read;
+  - a second `persist` with the same `version_id` and a new `no` → `Failed`, not `Conflict`
+    (pins the message match);
+  - `persist` against `Mode=ReadOnly` → `Failed` with the reason;
+  - three unreadable rows inserted by SQL (`json_version` 9; JSON `Id` ≠ `version_id`; a plan
+    `fromDto` refuses, the bogus unit of the existing unreadable tests) each load as
+    `Unreadable`, and the newest stays the head;
+  - L5: `text |> upgrade 1 |> Result.map (Canonical.deserialize<OrderPlanVersion.Dto.Dto> >>
+    OrderPlanVersion.Dto.fromDto)` is `Ok (Ok _)`, with the id `plan-1` and the number 1;
+  - the read snapshot and the write snapshot of "Every JSON structure change", both over
+    `order_plan_v1.json`, since `jsonVersionRead` and `jsonVersionWritten` are both 1: a field
+    added, removed or renamed in the Dto fails them while the structure version stays 1.
+
+### Step 4a — feat(server): the port over the store, the stub generalised
+
+Prototype `Scripts/SqlPort.fsx`.
+
+- Source, `StubAdapters.fs` (~35 changed lines): `type RecordStore = { load: string ->
+  Session.State -> Session.State; persist: Session.Persist -> Session.StoreOutcome }`;
+  `inMemory = { load = fun _ s -> s; persist = persistNothing }`; `makeSessionPortWith (store:
+  RecordStore) now newId ... initial` = today's body with `update` taking a `patientOf:
+  Session.State -> string option` and running `store.load pid` before the step, and `submit`
+  passing `store.persist` to `submitWith`; `makeSessionPort = makeSessionPortWith inMemory`, so
+  the existing call sites (`Adapters.makeAppEnvWith`, the two in `StubAdapterTests.fs`) do not
+  change.
+- Which members load the record:
+
+  | Member | Patient id from | Loads |
+  |---|---|---|
+  | `callback` (opens through `openWith`, reads `headOf`) | the launch record found by `cb.State` in `state.Launches` | yes |
+  | `supplyPin` (opens too) | `state.Enrolments[attempt].PatientId` | yes |
+  | `openVersion`, `seen`, `challenge`, `submit` (`headOf`, `blockedBy`, `unreadableHead`) | `state.Sessions[sid].Opened.PatientId` | yes |
+  | `find` (answers the head held on the session record since the open), `present`, `close`, `findEnrolment`, `dropEnrolment` | none | no |
+
+  `Records` holds the patient of the last request that loaded, replaced on every load; a
+  request that loads nothing leaves it unchanged.
+- Source, `SqlAdapters.fs`: `SqlDatabase.store cs = { load = fun pid s -> { s with Records =
+  Map.ofList [ pid, loadRecords cs pid ] }; persist = persist cs }`;
+  `SqlDatabase.makeSessionPort cs = StubDatabase.makeSessionPortWith (store cs)`;
+  `SqlDatabase.connectionString` rooting a relative `DataSource` at `AppPath.rootPath ()`
+  through `SqliteConnectionStringBuilder`.
+- Tests, `SqlAdapterTests.fs` (compile item after `SqlRecordTests.fs`), with the `withDb` helper
+  of step 2: sign through the port; a second port over the same file (the restart); relaunch →
+  `OpenedSession.Head = Some (Readable v)`, the next sign is `No 2`; a retry from the old base
+  after the row was written (the crash between the insert and the reply) is refused as stale
+  with `SigningRefusal.Blocked` naming the head, nothing written, and `openVersion` opens the
+  row; `StoreFailed` through the port on a read-only file.
+- The two-signs race on the file, for two server processes over one file. Calling one port
+  twice cannot produce it: its lock orders the two requests and the second load already sees
+  the first row. Calling two port instances cannot either, since each call runs its load, its
+  commit and its insert in one synchronous lock body, so B's load still follows A's insert. The
+  test therefore takes the steps of two port instances apart, through the same functions the
+  port runs: two states, A's and B's, each loaded with `SqlDatabase.store cs` before either
+  commits; A's `submitWith store.persist` over `Session.commit` (written, order plan version 1);
+  then B's on its own earlier load (the insert violates `unique (patient_id, no)`, answered
+  `Blocked` naming A's row, B's state unchanged); a fresh load for B then opens A's row with
+  `Session.openVersion`.
+
+### Step 4b — feat(server): the composition switch and the production guard
+
+One PR, no prototype.
+
+- Source: `Server.fs`, `Config.Settings.DbConnection: string option`, `fromEnv`, the banner
+  ("set (file)" or "unset"), `validateStartup` refusing `GENPRES_PROD=1` with the key set;
+  `Host.build` passes the key. `Adapters.fs`, `makeAppEnvWith` gains `store: string option`:
+  `Some cs` → `SqlSchema.apply cs` then `SqlDatabase.makeSessionPort cs` with the arguments the
+  stub gets; `None` → the stub. Its two callers change: `Server.fs` passes the key, and
+  `makeAppEnv` passes `None`, so its callers in `TotalsTests.fs` and `ResourceErrorTests.fs`
+  stay as they are.
+- Tests: `ConfigTests.fs`, `fromEnv` reads the key, and `validateStartup` refuses production
+  with it and accepts demo with it; `SqlAdapterTests.fs`, `makeAppEnvWith` with `Some` of a
+  temp-file connection string applies migration 1 and returns an environment whose session port
+  writes one `order_plan` row on a sign, and with `None` returns the stub.
+- Docs: `DEVELOPMENT.md`, a subsection after the signing walkthrough (set the key, restart,
+  relaunch opens on the signed order plan version, delete the file to reset; production refuses
+  the key); the "restart the server" bullet and the stand-ins paragraph qualified ("on the stub";
+  "the record survives on SQLite"). ADR-0007 § 1 and § 4 to Accepted, dated.
+
+### Step 5 — test(server): the composition suites over both ports
+
+~110 lines. `StubAdapterTests.fs`: `makePortWith (newStore: unit -> StubDatabase.RecordStore)
+outbox`, `envWithStubMail newStore ()`, `envWithStub newStore ()`, a fresh store per port, since
+the suites run in parallel and sign for the same patient; the four composition suites
+(`compositionTests`, `enrolmentCompositionTests`, `signingCompositionTests`,
+`computeCompositionTests`) take `newStore`, and `SessionStubTests.tests` composes them with
+`fun () -> inMemory`. `SqlAdapterTests.fs`: "the composition suites over SQLite", a store
+factory minting a temp file per port, in a
+`testSequenced` list whose last test deletes the files the factory minted, sequenced so that
+the deletion runs after every suite that opened them. Proves: the stub and the SQL port cannot
+drift on the record; the harness for step 6 exists.
+
+### Step 6 — feat(server): the identity tables and the session slice
+
+Two or three PRs. Migration 2 (`launch_record`, `launch_outcome`, `session`,
+`session_opened_with`, `session_seen`, `session_ending`, `session_acknowledged`); the slice
+loader for `Launches`, `Sessions`, `Endings`; the compare-and-append writer, which leaves
+`Records` to `Persist`, with a test that a sign writes exactly one `order_plan` row; the
+`Unreadable` ending; a JSON
+structure version and fixture for `Patient.Dto`; the race tests "two launches of the same
+User", "the same Launch presented twice", "an ended Session cannot reopen". Open decision 1
+(the keying of `callback`) is decided and recorded here before the code. ADR-0007 § 2 to
+Accepted. DEVELOPMENT.md, the uc-01 stand-ins table and the "Not built" lists updated where
+Sessions now survive a restart.
+
+### Step 7 — feat(server): credentials, codes, enrolments, the demo seed
+
+Migration 3 (`credential_event`, `confirmation_code`, `code_try`, `code_spent`, `enrolment`,
+`enrolment_dropped`); the members `findEnrolment`, `supplyPin`, `dropEnrolment` on the slice;
+the seed for `GENPRES_PROD=0` with the credentials of `StubCredentials.seed`: the three
+Prescribers with the PIN 1234, `no-pin` without a PIN, each written only when its login has no
+credential event yet. Tests: a second start adds no row, and a PIN set by enrolment survives a
+restart.
+
+### Step 8 — feat(server): notices, challenges, answered Submissions
+
+Migration 4 (`data_notice`, `challenge`, `challenge_spent`, `submission_answer`); the members
+`challenge` and `submit` fully on the slice; the Rule 42 race test. The "Not built" list of
+uc-03 updated.
+
+### Step 9 — feat(server): audit, purge, docs
+
+Migration 5 (`audit_entry`) and the writer inside every member's transaction; the purge
+statement; DEVELOPMENT.md and the uc documents in their final wording (uc-04's "a store that
+decides this race across more than one server" stays until the production engine).
+
+### Step 10 — the follow-up issues
+
+No commit. The issues of "out of scope", the production engine's amendment first; and the
+plan 725 follow-ups still unfiled: its trailing phases O1–O5, the formulary, interaction and
+admin ports on domain values, the LogAnalyzer record, the contract-free session domain.
+
+## Verification
+
+- Step 2: the schema tests on a temporary file, on the developer machine and in the three-OS
+  CI matrix (`dotnet run ServerTests`; nothing to add to CI).
+- Step 3: the record tests, the L5 test and the JSON-shape snapshot over the committed fixture.
+- Step 4b walkthrough (`GENPRES_PROD=0`, `GENPRES_DB_CONNECTION` set): launch as `prescriber`,
+  prescribe paracetamol, sign as order plan version 1; stop and start the server; launch again:
+  the relaunch's callback loads the head from the file, the Order Plan page shows the order and
+  the sign button; sign again: order plan version 2; delete the file and restart: the next sign
+  is order plan version 1 again. Key unset: the stub, as today. `GENPRES_PROD=1` with the key:
+  the server refuses to start and names the setting.
+- Step 5: the four composition suites pass over `inMemory` and over SQLite.
+- Step 6: the three race tests on the file; the composition suites still pass over both ports.
+
 ## Open decisions
 
-1. The slice, or restructuring the machine. The slice keeps the machine and its tests; what it
-   has not proven is that every member's slice can be keyed from its request alone.
-   `callback` finds the record by `state`, hence the unique index; `commit` needs the whole
-   record for the patient, which `blockedBy` reads.
-2. The engine amendment: who asks the hospital's operations, and by when relative to #580.
+1. The keying of `callback`. `Session.callback` learns the login only after `redeem` runs
+   inside the pure function, while `openWith` decides supersession from the login's newest
+   `session` row. Two ways out: load the login's newest row after `redeem` inside the
+   transaction and re-run the open, or split `callback` into redeem and open. Decided before
+   step 6.
+2. The production engine's amendment: who asks the hospital's operations, and by when relative
+   to #580.
 3. The clock. `now` stays the server clock passed in as a parameter; the order of events is the
    id column, never a timestamp. When more than one server runs, a bound on clock skew needs
    stating for the lifetimes that compare `now` with an expiry.
 4. Audit retention and its legal basis. `audit_entry` names mail addresses (Rule 27).
-5. The demo seed on SQLite: the same four logins as the stub, or none.
+5. The three Dutch rows of the localization workbook for the contract terms plan 725 added
+   (`Signing Refusal Store Failed`, `Signing Refusal Plan Unreadable`, `Session Ending
+   Unreadable`); the maintainer's.
+6. A load that fails. `SqlDatabase.loadRecords` throwing (a locked or missing file) leaves the
+   port's state unchanged and fails the call, which the client sees as a failed request, not as
+   a refusal. Whether `challenge` and `submit` answer it as `StoreFailed` instead, and what the
+   other loading members answer, is decided before step 4a.
+
+Decided: the demo seed on SQLite is the seed of the stub, `StubCredentials.seed` (2026-09-17).
 
 ## Confidence
 
-Medium. The append-only shape is the design's own and the machine already exists; the slice is
-the part that is new, and it is checked member by member in step 4 before anything else builds
-on it. How much of the interim SQL survives the engine choice is unknown, which is why it stays
-within the portable core.
+Medium. The append-only shape is the design's own, the machine exists, and the record's write
+path is tested; the session slice is the part that is new, met in step 6 with the store, the
+runner and the shared suites in place. How much of the SQL survives the production engine's
+choice is unknown, which is why it stays within the portable core.
 
-## Steps
+## As-built
 
-Each step is one PR of 200 changed lines or fewer. New F# is prototyped in
-`src/Informedica.GenPRES.Server/Scripts/` first; the PR that lands source files is the
-maintainer's.
+| Step | PR | Essentials |
+|---|---|---|
 
-1. This plan and ADR-0007.
-2. Paket: `Microsoft.Data.Sqlite` in the `Main` group and in the Server's `paket.references`;
-   `GENPRES_DB_CONNECTION` in `.env.example`, commented out; the default file path allow-listed
-   under `data/`.
-3. The script runner: a `schema_version` table, `.sql` files embedded in the Server, applied at
-   startup when the connection string is set, each once, in order. A few lines, so that the
-   engine amendment can replace it with a tool without a migration of the migrations. With it,
-   migration 1: `launch_record`, `launch_outcome`, `session`, `session_opened_with`,
-   `session_seen`, `session_ending`, `session_acknowledged`, `order_plan`. Gate met
-   (2026-09-17): steps 5.1 and 5.2 of plan [725](725-contract-model-dto-domain-flow.md), #776
-   and #778, gave the session service the domain-typed records (`StoredVersion`), the write as a
-   value (`Persist`) and the opened-session record (`OpenedSession`) that `order_plan` and
-   `session_opened_with` store.
-4. The adapter, part 1: the slice loader and the append writer for launches and sessions, and
-   the members `present`, `callback`, `find`, `close`, `seen`, `openVersion`, and the
-   `unreadable` ending the loader appends. Gate met (2026-09-17): plan 725 step 5.2, #778,
-   added the `SessionEnding.Unreadable` case to the contract model, the client's message for it
-   and their tests; the ending is written only for the opened-with and notice rows that step
-   gave the machine. Integration tests
-   against a temporary SQLite file in the Server test project, in the normal matrix: two
-   launches at once, the same Launch twice, an ended Session never reopens, and the
-   `StubAdapterTests` contract run against the SQL port.
-5. Migration 2 and part 2: `credential_event`, `confirmation_code`, `code_try`, `code_spent`,
-   `enrolment`, `enrolment_dropped`; the members `findEnrolment`, `supplyPin`, `dropEnrolment`.
-6. Migration 3 and part 3: `data_notice`, `challenge`, `challenge_spent`, `submission_answer`;
-   the members `challenge` and `submit`; the first stored fixture and its test; the Rule 42
-   test. Gate met (2026-09-17): plan 725 steps 5.1 and 5.2, #776 and #778; the notice's and
-   the challenge's patient rows are `Patient.Dto` of the domain's patient the service holds.
-7. `audit_entry` and the writer inside every member's transaction; the purge statement; the
-   composition switch in `Adapters.makeAppEnvWith`; the demo seed; DEVELOPMENT.md (the key, the
-   file, the seed); the CHANGELOG entry in the commit body.
-8. The follow-up issues listed under "out of scope", the engine amendment first.
+## Changes from the plan this replaces
 
-## Testing
+Written 2026-09-13, before plan 725. The step map, new to old:
 
-- Unit: the machine is unchanged, so `SessionMachineTests` and `StubAdapterTests` stand as they
-  are.
-- Contract: the `StubAdapterTests` suite runs against both ports, so the stub and the SQL
-  adapter cannot drift.
-- Integration: on SQLite, in the normal CI matrix on every OS, against a temporary file. Required
-  on any PR that touches the adapter or a migration.
-- The race tests are regression evidence for the SQL as written and for the append-only shape.
-  They are re-run unchanged on the final engine as part of its amendment, where they become
-  evidence about that engine's isolation.
+| New | Old | Content |
+|---|---|---|
+| 0 | 1, revisited | the plan, ADR-0007 amended and its acceptance schedule, the aligned documents |
+| 1 | 2 | Paket, the key, the opt-in entries |
+| 2 | 3, the runner and `order_plan` only | the migration runner, migration 1 |
+| 3 | the fixture of 6 | the record: load, persist, the first stored fixture |
+| 4a | new | the port over the store, the stub generalised |
+| 4b | the switch of 7 | the composition switch, the production guard, docs, ADR-0007 § 1 and § 4 |
+| 5 | the shared port test suites line of Testing | the composition suites over both ports |
+| 6 | 3, the identity tables, and 4 | the launch and session tables, the session slice, ADR-0007 § 2 |
+| 7 | 5, plus the seed of 7 | credentials, codes, enrolments, the demo seed |
+| 8 | 6 | notices, challenges, answered Submissions, the Rule 42 test |
+| 9 | 7, the rest | audit, purge, docs |
+| 10 | 8 | the follow-up issues |
+
+And in the text: SQLite is the test and development database, not an interim (ADR-0007 § 4
+amended); the types plan 725 built are named instead of described as to-build; the database
+file stays untracked (the old step 2 said "allow-listed under `data/`", which under the opt-in
+`.gitignore` would track it) and the `.sql` and fixture folders get the opt-in entries; the
+`order_plan` index duplicating the unique constraint is dropped, the `signed_at` rule stated,
+loading by `no`; `session_opened_with.patient`, `opened_token` and `json_version` nullable, and
+a `head_id` column, since an open on an unreadable head holds a head it did not open with;
+`schema_version` created by the runner and its column `version` renamed `migration`;
+`Scripts/load.fsx` carries the SQLite package reference; the fixture tests independent of the
+test scenarios; the constraint path and the crash retry told apart, the race tested with two port instances; `Records` written through `Persist` only; the snapshot per build constant; the seed written once per login; the production guard marked temporary; the `session_opened_with` nulls tied by a check; the relative `Data Source` rooted at
+`AppPath.rootPath ()`; the production guard added; "commit with a version" reworded "commit
+under an optimistic-concurrency check" and "appends the version" "appends the order plan
+version"; the two sequence diagrams; the "the plan is wrong about the code" sentence dropped.
