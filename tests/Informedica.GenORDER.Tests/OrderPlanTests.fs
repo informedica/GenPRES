@@ -151,6 +151,66 @@ let tests =
                 p.Contexts[0].Intake |> Expect.equal "no intake yet" Totals.empty
             }
 
+            test "the totals are recomputed over the orders of the contexts the filter keeps, for the patient's weight" {
+                // a continuous infusion solved to its bounds: an order with a volume
+                let infusion =
+                    match
+                        Scenarios.morfCont
+                        |> Medication.toOrderDto
+                        |> Order.Dto.fromDto
+                        |> Result.mapError string
+                        |> Result.bind (fun o ->
+                            OrderProcessor.processPipeline OrderLogging.noOp (CalcMinMax o)
+                            |> Result.mapError (fun (_, e) -> $"%A{e}")
+                        )
+                    with
+                    | Ok o -> { scenario "o-inf" with Order = { o with Id = Id "o-inf" } }
+                    | Error e -> failtest $"fixture order could not be solved: %s{e}"
+
+                let volume: Informedica.GenForm.Lib.Types.Data.TotalsData =
+                    {
+                        Name = "volume"
+                        MinAge = None
+                        MaxAge = None
+                        MinWeight = None
+                        MaxWeight = None
+                        Unit = Some Units.Volume.milliLiter
+                        Adj = None
+                        TimeUnit = Some Units.Time.day
+                        MinPerTime = None
+                        MaxPerTime = None
+                        MinPerTimeAdj = None
+                        MaxPerTimeAdj = None
+                    }
+
+                let child =
+                    { Patient.patient with Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 32N) }
+
+                let p =
+                    { OrderPlan.create child [| drug "c-supp" "o-supp" |] with
+                        Contexts =
+                            [|
+                                drug "c-supp" "o-supp"
+                                PlanContext.create "c-inf" OrderCategory.Drug (context [| infusion |])
+                            |]
+                    }
+
+                let all = p |> OrderPlan.recalculate [| volume |]
+                all.Totals.Volume |> Expect.isSome "the infusion has a volume"
+                all.Totals.Energy |> Expect.isNone "no data for energy"
+                { all with Totals = p.Totals } |> Expect.equal "nothing else changes" p
+
+                { p with Filtered = [| "c-supp" |] }
+                |> OrderPlan.recalculate [| volume |]
+                |> _.Totals
+                |> Expect.equal "the suppository alone has no volume" Totals.empty
+
+                { p with Patient = Patient.patient }
+                |> OrderPlan.recalculate [| volume |]
+                |> _.Totals
+                |> Expect.equal "no weight, no totals" Totals.empty
+            }
+
             test "the filter names contexts: empty keeps all, otherwise those named" {
                 let tpn = nutrition "c-1" NutritionCategory.TPN [| "o-tpn" |]
                 let p = plan [| drug "c-d" "o-drug"; tpn |]
