@@ -890,6 +890,7 @@ choice is unknown, which is why it stays within the portable core.
 | Step | PR | Essentials |
 |---|---|---|
 | 0a, the plan revised | #785 | this plan replaces the plan of 2026-09-13; ADR-0007 § 2 amended (append-only, nothing deleted, writes returned as values) and § 4 amended (SQLite for development and tests, production refuses the key until #580) and the acceptance schedule in its status line |
+| 0b, the documents aligned | #787 | nothing dropped in V8 Actor 5, uc-01 step 4.5, the model script, plan 409 and ADR-0008 § 6 (amended); ADR-0008 and plan 725 on this plan's numbering, `OrderPlanVersion.Dto` and the migration number; D2 and the #516 rows of the gap overview; the persistence request and the backlog decided for test and development; the allowance reasons of the fitness script |
 
 ## Changes from the plan this replaces
 

@@ -207,14 +207,17 @@ dispensed → administered), each referencing its publication id (item 4).
 durable, queryable order state across sessions and users.
 
 **Dependencies.** Needs 4 (order↔publication binding) and 8 (orders are patient data →
-access control + audit mandatory). Storage tech choice is **open**.
+access control + audit mandatory). Storage tech: relational and append-only, SQLite for test
+and development ([ADR-0007](../adr/0007-session-persistence.md), plan 516); the production
+engine is **open**.
 
 **Affected areas.**
 - New order persistence adapter (server-side)
 - Order model state machine (DU per `core-domain.md` Order Management Cycle)
 
 **Acceptance criteria.**
-- Create/read/update/query orders by patient + status.
+- Create/read/query orders by patient + status; a state transition appends a row, never
+  updates one.
 - Each persisted order references its publication id.
 - State transitions enforced (no illegal transitions).
 - All access audited (ties to 8).
