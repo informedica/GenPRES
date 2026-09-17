@@ -66,6 +66,13 @@ let parse (text: string) =
     |> OrderPlanVersion.Dto.fromDto
 
 
+/// The stored form of a readable entry; None when it is unreadable.
+let storedForm =
+    function
+    | StoredVersion.Readable v -> Some(SqlDatabase.toJson v)
+    | StoredVersion.Unreadable _ -> None
+
+
 let reasonOf =
     function
     | StoredVersion.Unreadable u -> Some u.Reason
@@ -82,8 +89,10 @@ let tests =
                     SqlDatabase.persist cs (Session.WriteVersion v1.Value)
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
+                    // compared in the stored form: a DateTime reads back as the same instant in UTC
                     SqlDatabase.loadRecords cs "stub-patient"
-                    |> Expect.equal "the one version, readable" [ StoredVersion.Readable v1.Value ]
+                    |> List.map storedForm
+                    |> Expect.equal "the one version, readable" [ Some(SqlDatabase.toJson v1.Value) ]
 
                     SqlDatabase.loadRecords cs "another-patient"
                     |> Expect.isEmpty "another patient has none"
@@ -104,8 +113,12 @@ let tests =
                                 }
                         }
 
-                    SqlDatabase.persist cs (Session.WriteVersion rival)
-                    |> Expect.equal "the row that won" (Session.StoreOutcome.Conflict(StoredVersion.Readable v1.Value))
+                    match SqlDatabase.persist cs (Session.WriteVersion rival) with
+                    | Session.StoreOutcome.Conflict winner ->
+                        winner
+                        |> storedForm
+                        |> Expect.equal "the row that won" (Some(SqlDatabase.toJson v1.Value))
+                    | other -> failtest $"expected Conflict, got %A{other}"
                 )
             }
 
