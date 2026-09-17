@@ -398,7 +398,7 @@ Contributors must also disclose when code submitted in a pull request is **vibe 
 
 ## Checklist for Automated Edits
 
-- [ ] Small, focused change with < 300 LOC modified when possible.
+- [ ] Small, focused change: no more than 200 changed source lines (shipped code under `src/`; tests, scripts, docs and lock files not counted), see CONTRIBUTING.md.
 - [ ] Add or update unit tests covering the change.
 - [ ] Ensure `dotnet run servertests` passes locally for affected projects.
 - [ ] Update the `Data` record comments and the column-contract test if spreadsheet column names or semantics change.
