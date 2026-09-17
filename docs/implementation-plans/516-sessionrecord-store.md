@@ -214,6 +214,15 @@ asserts the rows a request appends equal the writes it returned, and a sign appe
 `order_plan` row. The machine's own `dropExpired` keeps pruning the in-memory `State`; that is
 memory, not the store.
 
+A mail follows the same rule, for the same reason. `supplyPin` mails that the PIN was set and
+`commit` mails that signing is locked, today from inside the pure function through the injected
+`send`, before the request's writes are run. Once those writes reach a database, a failed write
+would leave a mail sent for an act that did not happen, and the retry would mail again. So from
+step 7, where the credential, code and enrolment rows land, a member returns its mails next to
+its writes and the adapter sends them after the writes landed, never before. Until then no mail
+belongs to a row: the credential, the code and the enrolment live in memory, and the session
+rows of step 6 carry no mail of their own.
+
 ### Config and wiring
 
 `GENPRES_DB_CONNECTION` is the one switch. Set, `Adapters.makeAppEnvWith` receives it as a
@@ -835,7 +844,9 @@ Sessions now survive a restart.
 
 Migration 3 (`credential_event`, `confirmation_code`, `code_try`, `code_spent`, `enrolment`,
 `enrolment_dropped`); the members `findEnrolment`, `supplyPin`, `dropEnrolment` on the slice,
-with their `Persist` cases;
+with their `Persist` cases; the mails returned as values next to the writes and sent by the
+adapter only after they landed, so that a failed write mails nothing and its retry mails once
+("Writes as values");
 the seed for `GENPRES_PROD=0` with the credentials of `StubCredentials.seed`: the three
 Prescribers with the PIN 1234, `no-pin` without a PIN, each written only when its login has no
 credential event yet. Tests: a second start adds no row, and a PIN set by enrolment survives a
