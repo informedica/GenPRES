@@ -328,12 +328,13 @@ module Adapters =
 
                         SqlSchema.apply cs |> ignore
 
-                        SqlDatabase.makeSessionPort
+                        SqlSessions.makeSessionPort
                             (fun msg ->
                                 Informedica.Utils.Lib.ConsoleWriter.NewLineTime.writeWarningMessage
                                     $"session store: %s{msg}"
                             )
                             cs
+                            (fun () -> DateTime.UtcNow)
 
                 makeSessionPort
                     (fun () -> DateTime.UtcNow)

@@ -21,7 +21,7 @@ module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
 
 
 /// A port over a record store, with the clock at t0, a directory and an outbox of its own.
-let portOver (store: StubDatabase.RecordStore) =
+let portOver (store: StubDatabase.SessionStore) =
     let outbox = StubMail.make ()
 
     let directory =
@@ -56,16 +56,16 @@ let versionOf writes =
 
 
 /// A store over the file that fails its loads while `failing` is set.
-let failingOver (cs: string) (failing: bool ref) : StubDatabase.RecordStore =
-    let inner = SqlDatabase.store ignore cs
+let failingOver (cs: string) (failing: bool ref) : StubDatabase.SessionStore =
+    let inner = SqlSessions.store ignore cs (fun () -> t0)
 
     { inner with
         load =
-            fun pid s ->
+            fun slice s ->
                 if failing.Value then
                     raise (IOException "the database file is locked")
                 else
-                    inner.load pid s
+                    inner.load slice s
     }
 
 
@@ -213,7 +213,7 @@ let tests =
                 "a signed version survives a restart; the relaunch opens on it and the next sign is 2"
                 (fun cs ->
                     async {
-                        let port, directory, _ = portOver (SqlDatabase.store ignore cs)
+                        let port, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
                         let! sid, opened = openAs port directory "n-1" "prescriber"
                         let! signature = challenged port sid opened "k-1"
                         let! first = port.submit sid signature
@@ -221,7 +221,7 @@ let tests =
                         let firstId = submittedId first
 
                         // the restart: a second port over the same file, from the seed
-                        let port, directory, _ = portOver (SqlDatabase.store ignore cs)
+                        let port, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
                         let! sid, opened = openAs port directory "n-2" "prescriber"
 
                         match opened.Head with
@@ -237,10 +237,10 @@ let tests =
                 )
 
             testOnFile
-                "after a crash between the insert and the reply, the retry is refused as stale and nothing more is written"
+                "after a crash between the insert and the reply, the retry is refused and nothing more is written"
                 (fun cs ->
                     async {
-                        let inner = SqlDatabase.store ignore cs
+                        let inner = SqlSessions.store ignore cs (fun () -> t0)
                         let written = ref None
 
                         // the insert lands, the reply is lost: the port keeps its old state
@@ -267,12 +267,13 @@ let tests =
                             "answered as a store failure"
                             (SigningOutcome.Refused SigningRefusal.StoreFailed)
 
+                        // the writes landed and the token they re-minted with them, so the
+                        // Session the retry loads has moved on from the one the signature names
                         let! retry = port.submit sid { signature with IdemKey = "k-2" }
 
                         match retry with
-                        | SigningOutcome.Refused(SigningRefusal.Blocked head) ->
-                            Some head.Id |> Expect.equal "the row that was written" written.Value
-                        | other -> failtest $"expected Blocked, got %A{other}"
+                        | SigningOutcome.Refused SigningRefusal.StaleToken -> ()
+                        | other -> failtest $"expected the signature refused, got %A{other}"
 
                         rows cs |> Expect.equal "one row" 1L
 
@@ -292,8 +293,18 @@ let tests =
                         let readOnly =
                             SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
 
+                        // everything lands but the signature, whose writes go to a database
+                        // that refuses them
+                        let inner = SqlSessions.store ignore cs (fun () -> t0)
+
                         let store =
-                            { SqlDatabase.store ignore cs with persist = SqlDatabase.persist readOnly }
+                            { inner with
+                                persist =
+                                    fun writes ->
+                                        match versionOf writes with
+                                        | Some _ -> SqlSessions.runWrites readOnly writes
+                                        | None -> inner.persist writes
+                            }
 
                         let port, directory, _ = portOver store
                         let! sid, opened = openAs port directory "n-1" "prescriber"
@@ -400,10 +411,9 @@ let tests =
                                 let! failed = fails (port.supplyPin attempt code "2468")
                                 failed |> Expect.isTrue "the call fails"
 
+                                failing.Value <- false
                                 let! pending = port.findEnrolment attempt
                                 pending |> Expect.isSome "the attempt stands"
-
-                                failing.Value <- false
 
                                 match! port.supplyPin attempt code "2468" with
                                 | SupplyPinResult.Opened _ -> ()
@@ -427,6 +437,9 @@ let tests =
                                 let! failed = fails (port.openVersion sid id)
                                 failed |> Expect.isTrue "the call fails"
 
+                                // `find` reads the store too, so the store has to answer again
+                                // before the Session can be asked for
+                                failing.Value <- false
                                 let! after = port.find sid
                                 after |> Expect.equal "the Session as it was" before
                             }
@@ -445,6 +458,7 @@ let tests =
                                 let! failed = fails (port.seen sid opened.OpenedToken)
                                 failed |> Expect.isTrue "the call fails"
 
+                                failing.Value <- false
                                 let! after = port.find sid
                                 after |> Expect.equal "the Session as it was" before
                             }
@@ -463,8 +477,12 @@ let tests =
 
                         Informedica.GenPRES.Server.Tests.SqlRecordTests.insertRow cs "plan-2" 2 9 fixture
 
-                        let store = SqlDatabase.store warnings.Add cs
-                        let loaded = store.load "stub-patient" seeded
+                        // a Session over that patient: loading it brings the record with it
+                        let port, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let! sid, _ = openAs port directory "n-1" "prescriber"
+
+                        let store = SqlSessions.store warnings.Add cs (fun () -> t0)
+                        let loaded = store.load (StubDatabase.Slice.Session sid) seeded
                         loaded.Records["stub-patient"] |> List.length |> Expect.equal "both versions" 2
                         warnings.Count |> Expect.equal "one unreadable version" 1
 
@@ -477,7 +495,12 @@ let tests =
 
                         Expect.throws
                             "the load throws"
-                            (fun () -> (SqlDatabase.store warnings.Add missing).load "stub-patient" seeded |> ignore)
+                            (fun () ->
+                                (SqlSessions.store warnings.Add missing (fun () -> t0)).load
+                                    (StubDatabase.Slice.Session "s-1")
+                                    seeded
+                                |> ignore
+                            )
 
                         warnings.Count |> Expect.equal "and one failed load" 2
                     }
@@ -554,7 +577,7 @@ let tests =
                         let barrier = new Barrier(2)
 
                         let meeting () =
-                            let inner = SqlDatabase.store ignore cs
+                            let inner = SqlSessions.store ignore cs (fun () -> t0)
 
                             { inner with
                                 persist =
@@ -611,6 +634,89 @@ let tests =
                         | None -> failtest "the losing Session should open the winning row"
                     }
                 )
+
+            testOnFile
+                "a Session outlives the server that opened it"
+                (fun cs ->
+                    async {
+                        let first, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let! sid, _ = openAs first directory "n-1" "prescriber"
+
+                        // another server over the same file, holding nothing in memory
+                        let second, _, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+
+                        match! second.find sid with
+                        | SessionLookup.Found opened ->
+                            opened.User
+                            |> Option.map _.DisplayName
+                            |> Expect.equal "the User it opened for" (Some "Stub Prescriber")
+                        | other -> failtest $"expected the Session, got %A{other}"
+                    }
+                )
+
+            testOnFile
+                "two launches of the same User: the newer stands, the older is told"
+                (fun cs ->
+                    async {
+                        let a, directoryA, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let! first, _ = openAs a directoryA "n-1" "prescriber"
+
+                        // a second server, which knows nothing of the first Session but its rows
+                        let b, directoryB, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let! second, _ = openAs b directoryB "n-2" "prescriber"
+
+                        second |> Expect.notEqual "a Session of its own" first
+
+                        match! a.find first with
+                        | SessionLookup.Ended SessionEnding.SupersededByLaunch -> ()
+                        | other -> failtest $"expected the older Session superseded, got %A{other}"
+
+                        match! b.find second with
+                        | SessionLookup.Found _ -> ()
+                        | other -> failtest $"expected the newer Session open, got %A{other}"
+                    }
+                )
+
+            testOnFile
+                "the same Launch presented twice is answered as it was the first time"
+                (fun cs ->
+                    async {
+                        let port, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let! sid, _ = openAs port directory "n-1" "prescriber"
+
+                        // the same browser, the same Launch: the outcome it already came to
+                        match! port.present (mintFor "n-1" "stub-patient", keyA) with
+                        | LaunchResult.Opened(id, _) -> id |> Expect.equal "the Session it opened" sid
+                        | other -> failtest $"expected the open it came to, got %A{other}"
+
+                        // another browser presenting it: spent
+                        match! port.present (mintFor "n-1" "stub-patient", PublicKey "key-B") with
+                        | LaunchResult.Refused LaunchRefusal.LaunchSpent -> ()
+                        | other -> failtest $"expected spent, got %A{other}"
+                    }
+                )
+
+            testOnFile
+                "an ended Session cannot reopen, on this server or another"
+                (fun cs ->
+                    async {
+                        let port, directory, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+                        let! sid, _ = openAs port directory "n-1" "prescriber"
+
+                        do! port.close sid
+
+                        match! port.find sid with
+                        | SessionLookup.NotFound -> ()
+                        | other -> failtest $"expected no Session, got %A{other}"
+
+                        let next, _, _ = portOver (SqlSessions.store ignore cs (fun () -> t0))
+
+                        match! next.find sid with
+                        | SessionLookup.NotFound -> ()
+                        | other -> failtest $"expected no Session on a fresh server either, got %A{other}"
+                    }
+                )
+
         ]
 
 
@@ -628,7 +734,7 @@ let newSqliteStore () =
         SqliteConnectionStringBuilder(DataSource = path, Pooling = false).ToString()
 
     SqlSchema.apply cs |> ignore
-    SqlDatabase.store ignore cs
+    SqlSessions.store ignore cs (fun () -> t0)
 
 
 /// The composition suites of the in-memory port, run again over SQLite, so that the two stores

@@ -428,39 +428,44 @@ module StubDatabase =
 
 
     /// <summary>
-    /// Where the record lives: `load` puts a patient's order plan versions into the state
-    /// before a request runs, `persist` runs the write of a commit. The in-memory store keeps
-    /// the record in the state itself; the SQL store reads and writes the database.
+    /// What a request carries that names the rows it can touch. The port names it, the store
+    /// reads the rows under it, and the pure machine runs over what came back; a store that
+    /// keeps the state in memory ignores it.
     /// </summary>
-    type RecordStore =
+    [<RequireQualifiedAccess>]
+    type Slice =
+        // the request acts on what it brings: there is nothing to read for it
+        | Nothing
+        // a Launch presented, by the nonce sealed in it
+        | LaunchNonce of string
+        // a callback, by the state it carries
+        | LaunchState of string
+        // the Sessions of a login, so that an open sees the one it supersedes
+        | Login of string
+        // a Session, by the id in the cookie
+        | Session of string
+        // an enrolment attempt; its own rows arrive with the credentials
+        | Enrolment of string
+
+
+    /// <summary>
+    /// Where the session state lives: `load` puts the rows a slice names into the state before
+    /// a request runs, `persist` appends what it wrote. The in-memory store keeps everything in
+    /// the state itself; the SQL store reads and writes the database.
+    /// </summary>
+    type SessionStore =
         {
-            load: string -> Session.State -> Session.State
+            load: Slice -> Session.State -> Session.State
             persist: Session.Persist list -> Session.StoreOutcome
         }
 
 
-    /// The record kept in the state: nothing to load, a write lands by being in it.
+    /// The state kept in memory: nothing to load, a write lands by being in it.
     let inMemory =
         {
             load = fun _ s -> s
             persist = persistNothing
         }
-
-
-    /// The patient of the launch a callback returns to.
-    let patientOfCallback (cb: Callback) (s: Session.State) =
-        s.Launches
-        |> Map.tryPick (fun _ r -> if r.State = cb.State then Some r.PatientId else None)
-
-
-    /// The patient of an enrolment attempt.
-    let patientOfAttempt (attempt: string) (s: Session.State) =
-        s.Enrolments |> Map.tryFind attempt |> Option.map _.PatientId
-
-
-    /// The patient of a Session.
-    let patientOfSession (sid: string) (s: Session.State) =
-        s.Sessions |> Map.tryFind sid |> Option.bind _.Opened.PatientId
 
 
     /// <summary>
@@ -469,7 +474,7 @@ module StubDatabase =
     /// as it was; a signing request answers it as a store failure, any other request fails.
     /// </summary>
     let makeSessionPortWith
-        (store: RecordStore)
+        (store: SessionStore)
         (now: unit -> DateTime)
         (newId: unit -> string)
         (newCode: unit -> string)
@@ -486,27 +491,22 @@ module StubDatabase =
         let gate = obj ()
         let mutable state = initial
 
-        let loaded patientOf =
-            match patientOf state with
-            | Some pid -> store.load pid state
-            | None -> state
-
-        let update patientOf f =
+        let update slice f =
             lock
                 gate
                 (fun () ->
-                    let next, result = failWith store.persist f (loaded patientOf)
+                    let next, result = failWith store.persist f (store.load slice state)
                     state <- next
                     result
                 )
 
-        let signing patientOf f =
+        let signing slice f =
             lock
                 gate
                 (fun () ->
                     match
                         (try
-                            Ok(loaded patientOf)
+                            Ok(store.load slice state)
                          with _ ->
                              Error())
                     with
@@ -517,44 +517,53 @@ module StubDatabase =
                         result
                 )
 
-        let none _ = None
+        // a Launch names its rows only once its seal is read; one that does not verify names
+        // nothing, and the machine refuses it in the same breath
+        let launchSlice (launch, _) =
+            match verify launch with
+            | Ok claims -> Slice.LaunchNonce claims.Nonce
+            | Error _ -> Slice.Nothing
+
+        // the two halves of a callback, with the login's rows loaded between them: the machine
+        // learns the login when the code is redeemed, and the open decides which Session it
+        // supersedes from the newest of that login
+        let callbackStep cb s =
+            match Session.redeem (now ()) idp.redeem registry.standing s cb with
+            | Session.Redeemed.Answered(s, result, writes) -> s, result, writes
+            | Session.Redeemed.Identified(record, identity, standing) ->
+                store.load (Slice.Login identity.Login) s
+                |> Session.openAfterRedeem
+                    (now ())
+                    newId
+                    newCode
+                    codeMac
+                    patientData.read
+                    mail.send
+                    (record, identity, standing)
 
         {
             present =
                 fun launch ->
                     async {
-                        return update none (fun s -> Session.present (now ()) newId verify idp.authorizeUrl s launch)
-                    }
-            callback =
-                fun cb ->
-                    async {
                         return
                             update
-                                (patientOfCallback cb)
-                                (fun s ->
-                                    Session.callback
-                                        (now ())
-                                        newId
-                                        newCode
-                                        codeMac
-                                        idp.redeem
-                                        registry.standing
-                                        patientData.read
-                                        mail.send
-                                        s
-                                        cb
-                                )
+                                (launchSlice launch)
+                                (fun s -> Session.present (now ()) newId verify idp.authorizeUrl s launch)
                     }
-            find = fun id -> async { return update none (Session.find (now ()) id) }
-            close = fun id -> async { return update none (Session.close (now ()) id >> asUnit) }
+            callback = fun cb -> async { return update (Slice.LaunchState cb.State) (callbackStep cb) }
+            find = fun id -> async { return update (Slice.Session id) (Session.find (now ()) id) }
+            close = fun id -> async { return update (Slice.Session id) (Session.close (now ()) id >> asUnit) }
             findEnrolment =
-                fun attempt -> async { return update none (Session.findEnrolment (now ()) attempt >> noWrites) }
+                fun attempt ->
+                    async {
+                        return update (Slice.Enrolment attempt) (Session.findEnrolment (now ()) attempt >> noWrites)
+                    }
             supplyPin =
                 fun attempt code pin ->
                     async {
                         return
                             update
-                                (patientOfAttempt attempt)
+                                (Slice.Enrolment attempt)
                                 (fun s ->
                                     Session.supplyPin
                                         (now ())
@@ -571,13 +580,14 @@ module StubDatabase =
                                 )
                     }
             dropEnrolment =
-                fun attempt -> async { return update none (fun s -> Session.dropEnrolment attempt s, (), []) }
+                fun attempt ->
+                    async { return update (Slice.Enrolment attempt) (fun s -> Session.dropEnrolment attempt s, (), []) }
             challenge =
                 fun sid request ->
                     async {
                         return
                             signing
-                                (patientOfSession sid)
+                                (Slice.Session sid)
                                 (challengeWith
                                     store.persist
                                     (fun s -> Session.challenge (now ()) newId digest patientData.read sid request s))
@@ -587,7 +597,7 @@ module StubDatabase =
                     async {
                         return
                             signing
-                                (patientOfSession sid)
+                                (Slice.Session sid)
                                 (submitWith
                                     store.persist
                                     (fun s ->
@@ -602,9 +612,9 @@ module StubDatabase =
                                             s
                                     ))
                     }
-            seen = fun sid opened -> async { return update (patientOfSession sid) (Session.seen (now ()) sid opened) }
+            seen = fun sid opened -> async { return update (Slice.Session sid) (Session.seen (now ()) sid opened) }
             openVersion =
-                fun sid id -> async { return update (patientOfSession sid) (Session.openVersion (now ()) newId sid id) }
+                fun sid id -> async { return update (Slice.Session sid) (Session.openVersion (now ()) newId sid id) }
         }
 
 
