@@ -197,8 +197,9 @@ other than `Server.fs` opens the database; the SQL tests open temporary files of
 The value is a SQLite connection string. A relative `Data Source` is rooted at
 `AppPath.rootPath ()`, the root the server already resolves for `data/cache`: `GENPRES_ROOT`
 when set (`/app` in the image, set by the Dockerfile), else the folder holding `.env` (the repo
-root in a checkout); the `.env.example` line says so. The default file lives
-under `data/`, which the opt-in `.gitignore` leaves untracked; nothing is added for it.
+root in a checkout); the `.env.example` line says so. The default file is
+`data/db/genpres.db`, in the folder the container mounts (step 4b), which the opt-in
+`.gitignore` leaves untracked; nothing is added for it.
 
 Production refuses SQLite. With `GENPRES_PROD=1` and `GENPRES_DB_CONNECTION` set, the server
 refuses to start with a message naming the setting, in `Config.validateStartup`, the way a short
@@ -599,8 +600,9 @@ version" and "SQLite".
   project's `paket.references`: that file lists the `Test` group only, and a package listed in
   two groups is emitted twice and warns NU1504/NU1506 (DEVELOPMENT.md, "Paket groups"). The step
   proves the transitive reference by compiling one test that opens a connection.
-- `.env.example`: `# GENPRES_DB_CONNECTION=Data Source=data/genpres.db`, commented, with the
-  root sentence of "Config and wiring".
+- `.env.example`: `# GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db`, commented, with the
+  root sentence of "Config and wiring". The same path serves `dotnet run` and the container
+  mount of step 4b.
 - `.gitignore`: `!/src/Informedica.GenPRES.Server/Sql/`,
   `!/src/Informedica.GenPRES.Server/Sql/*.sql`,
   `!/tests/Informedica.GenPRES.Server.Tests/fixtures/`,
@@ -732,6 +734,15 @@ One PR, no prototype.
   relaunch opens on the signed order plan version, delete the file to reset; production refuses
   the key); the "restart the server" bullet and the stand-ins paragraph qualified ("on the stub";
   "the record survives on SQLite"). ADR-0007 § 1 and § 4 to Accepted, dated.
+- Docker: `compose.yaml` forwards the key, `GENPRES_DB_CONNECTION: ${GENPRES_DB_CONNECTION:-}`,
+  empty meaning the stub as today, and mounts `./data/db:/app/data/db`, so the file survives a
+  recreated container (`docker compose up -d` after a pull, `down` then `up`). With the key set
+  to `Data Source=data/db/genpres.db`, the relative path is rooted at `GENPRES_ROOT=/app` and
+  lands in the mounted folder. `.env.example` and the `data/` folder name use the same path, and
+  the opt-in `.gitignore` leaves `data/db/` untracked. DEVELOPMENT.md, in the Docker section:
+  set the key in `.env`, and reset by stopping the container and deleting the file in
+  `./data/db` on the host. The image itself needs nothing: the runtime stage is Debian-based,
+  so the native library loads, and it runs as root, so `/app/data/db` is writable.
 
 ### Step 5 — test(server): the composition suites over both ports
 
@@ -797,6 +808,10 @@ admin ports on domain values, the LogAnalyzer record, the contract-free session 
   the sign button; sign again: order plan version 2; delete the file and restart: the next sign
   is order plan version 1 again. Key unset: the stub, as today. `GENPRES_PROD=1` with the key:
   the server refuses to start and names the setting.
+- Step 4b in Docker (a locally built image, `.env` with `GENPRES_PROD=0` and the key set): sign
+  order plan version 1; `docker compose down` and `docker compose up -d`; relaunch: the order
+  plan opens on version 1 from `./data/db/genpres.db`; delete that file with the container
+  stopped: the next sign is order plan version 1 again.
 - Step 5: the four composition suites pass over `inMemory` and over SQLite.
 - Step 6: the three race tests on the file; the composition suites still pass over both ports.
 
