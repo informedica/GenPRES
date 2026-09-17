@@ -137,6 +137,33 @@ let machineTests =
                 | other -> failtest $"expected Opened, got %A{other}"
             }
 
+            test "callback: the two halves answer as the callback does" {
+                let d = directory ()
+                let newId = ids ()
+                let state, cb = presentedFor "prescriber" "n-1" d newId seeded
+
+                match Session.redeem t0 d.idp.redeem d.registry.standing state cb with
+                | Session.Redeemed.Identified(record, identity, standing) ->
+                    let _, answer, writes =
+                        Session.openAfterRedeem
+                            t0
+                            newId
+                            (codes ())
+                            codeMac
+                            StubPatientData.port.read
+                            ignore
+                            (record, identity, standing)
+                            state
+
+                    match answer with
+                    | CallbackResult.Opened _ ->
+                        writes
+                        |> names
+                        |> Expect.contains "the outcome is written" "RecordLaunchOutcome"
+                    | other -> failtest $"expected Opened, got %A{other}"
+                | other -> failtest $"expected Identified, got %A{other}"
+            }
+
             test "callback: a refusal writes the outcome only" {
                 let d = directory ()
                 let newId = ids ()
