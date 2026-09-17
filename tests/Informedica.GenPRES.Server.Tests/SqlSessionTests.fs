@@ -19,7 +19,7 @@ open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 /// A fresh database with every migration applied.
 let withSessions f =
     withDb (fun cs ->
-        SqlSchema.apply cs |> Expect.equal "migrations 1 and 2" [ 1; 2 ]
+        SqlSchema.apply cs |> Expect.equal "every migration" [ 1; 2; 3 ]
         f cs
     )
 
