@@ -5,7 +5,8 @@
 **Status**: Proposed (rewritten 2026-09-13; the production engine is deferred to an amendment,
 Decision 4); § 3: Accepted (amended 2026-09-16 for ADR-0008; accepted 2026-09-17, when the
 session service came to hold what the section says it holds, plan 725 Phase 5, #776 and #778);
-§ 4 amended 2026-09-17: SQLite is the test and development database. Acceptance
+§ 2 and § 4 amended 2026-09-17: nothing is deleted, and SQLite is the test and development
+database. Acceptance
 schedule, per plan 516: § 1 and § 4 when its step 4b lands (a store exists, SQLite runs it, the
 switch is the one named), § 2 when its step 6 lands (the launch race proves the append-only
 rule on the session table).
@@ -53,7 +54,7 @@ GenPRES Server the only writer, reached through SQL. Relational and not key-valu
 memory: Rule 42 commits a Session check and a clinical append in one multi-row transaction, and
 Rules 32 and 36 rule out memory.
 
-### 2. Append-only, as the design states
+### 2. Append-only, nothing deleted — amended 2026-09-17
 
 Every table is insert-only. For a User, and for a browser, only the newest row for that key by
 the table's own monotonic id can be the open Session: it is open unless an ending names it, and
@@ -61,12 +62,12 @@ every older row for the key is superseded by it, whatever became of it. The newe
 first and its ending read second, never the other way round, so that closing the newest cannot
 surface an older one. An opening may name the Session it replaces, but the ordering decides
 (Rule 40; UC-1 ext 8b). A first opening needs no predecessor, and an ended Session cannot be
-written back to open. Heartbeats, data notices, challenges,
-answered Submissions and LaunchRecords are dropped whole after their lifetime, never rewritten.
-No `UPDATE`, no row lock. A commit that touches two chains (Rule 42) runs serializable and is
-retried once.
-
-This restates the design's rule so that a schema review can point at it; it decides nothing new.
+written back to open. Nothing is deleted either: heartbeats, data notices, challenges, answered
+Submissions, confirmation codes and LaunchRecords stay after their lifetime, and a lifetime is
+read at load, a row past it loading as absent. No `UPDATE`, no `DELETE`, no purge, no row lock.
+A commit that touches two chains (Rule 42) runs serializable and is retried once. The writes a
+request makes are the values the `Session` machine returns for it, never rows derived by
+comparing states. A test or development database starts fresh by deleting its file.
 
 ### 3. The store is an adapter of the `Session` machine — amended 2026-09-16
 

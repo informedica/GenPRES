@@ -58,7 +58,7 @@ Out of scope, each a follow-up issue filed in step 10:
   `Seen` and nothing acts on it yet.
 - Anonymous opens and the Rule 14 bound. No anonymous open exists: a browser without a cookie
   has no Session.
-- The audit reader, and the audit's retention.
+- The audit reader.
 - The signed request of uc-01 step 7.
 - What production exposes (#580). Production keeps `Adapters.sessionDisabled`, the session port
   that refuses everything, until then.
@@ -134,11 +134,11 @@ Each `SessionPort` member loads a `State` holding only the rows its request can 
 what the request carries: the nonce or the `state` of a Launch, the session id from the cookie
 and that Session's login, the user id of a credential, the patient id of a record, the
 idempotency key of a Submission. The pure function runs over that `State` as it runs over the
-stub's. The adapter then compares the `State` it got back with the one it loaded and appends a
-row for every difference, with one exception: `Records` is written only through the `Persist`
-value `commit` returns, run by `StubDatabase.submitWith`, and never by the compare-and-append
-writer, which would otherwise insert the new order plan version a second time. From step 6, one
-transaction per member; SQLite serializes writers by construction, and the production engine
+stub's, and returns, next to the new `State` and its answer, the writes it decided as values:
+one `Persist` case per fact, as `commit` already returns `WriteVersion` for an order plan
+version. The adapter runs those writes and nothing else; it never derives rows by comparing the
+`State` before and after. The stub runs no writes, since its `State` in memory already holds
+them. From step 6, one transaction per member; SQLite serializes writers by construction, and the production engine
 runs the write serializable with one retry (Rule 42). Before step 6 there is no transaction
 around a request: the load and the insert are separate calls on separate connections, ordered
 by the port's lock.
@@ -177,11 +177,34 @@ so both load the attempt, then every undropped attempt and the code of the user 
 suspended launches of one User therefore behave as they do on the stub: dropping one leaves the
 code to the other, and setting the PIN in one ends both.
 
-What is dropped whole, and when: a launch record and its outcome after the Launch's expiry; a
-heartbeat older than the newest for its Session; a data notice and a challenge after two
-minutes; an answer after the challenge lifetime; a spent code and its tries. The purge is a
-separate statement, never part of a request's transaction, and never touches `session`,
-`session_ending` or `order_plan`.
+Nothing is deleted. Every table is append-only, the short-lived rows included: a launch record
+and its outcome, heartbeats, data notices, challenges, answered Submissions, codes and their
+tries stay after their lifetime. A lifetime is read at load, never enforced by removing rows: a
+launch record past its Launch's expiry, a notice or a challenge past two minutes, an answer past
+the challenge lifetime, a spent code, load as absent; only the newest heartbeat of a Session is
+read. The tables grow with use, which a test and development database accepts; a developer
+starts fresh by deleting the database file, which the next start creates again.
+
+### Writes as values
+
+Each `Session` member returns `State * 'answer * Persist list`. `Persist` is the one type of
+write, extended per step with one case per fact the tables record:
+
+| Step | `Persist` cases added | Tables |
+|---|---|---|
+| 3 | `WriteVersion` (exists) | `order_plan` |
+| 6 | `RecordLaunch`, `RecordLaunchOutcome`, `OpenSession`, `RecordOpenedWith`, `RecordSeen`, `EndSession`, `AcknowledgeEnding` | the launch and session tables |
+| 7 | `AppendCredentialEvent`, `IssueCode`, `RecordCodeTry`, `SpendCode`, `StartEnrolment`, `DropEnrolment` | the credential, code and enrolment tables |
+| 8 | `IssueNotice`, `IssueChallenge`, `SpendChallenge`, `RememberAnswer` | the notice, challenge and answer tables |
+| 9 | `AppendAudit` | `audit_entry` |
+
+`commit` returns `Persist option` today; step 6 turns it into `Persist list` for every member,
+and `StubDatabase.submitWith` into a runner for a list: the order plan version's insert decides
+the outcome as it does now (`Written`, `Conflict`, `Failed`), and the other writes of the same
+request go in the same transaction. A member writes exactly what it returns: a test per member
+asserts the rows a request appends equal the writes it returned, and a sign appends exactly one
+`order_plan` row. The machine's own `dropExpired` keeps pruning the in-memory `State`; that is
+memory, not the store.
 
 ### Config and wiring
 
@@ -252,10 +275,10 @@ wins and that document is aligned in step 0, the first PR.
 
 | Document | Aligned in step 0 |
 |---|---|
-| `docs/scenarios/integration/GenPRES-MainEHR-Integration-V8.md` | every rule and concept on the store (Actor 5, Concept 9, Rules 2, 8 to 12, 19 to 21, 32, 36, 40 to 46) checked against this plan; where a rule says otherwise (the store's engine, the order of building, what survives a restart before step 6), the rule is aligned to the plan |
-| `docs/scenarios/integration/uc-01-launch.md`, `uc-03-prescribe-and-sign.md`, `uc-04-two-users.md` | the steps and extensions on the store aligned to this plan; the stand-ins table and the "Not built" lists, which describe running behaviour, change with the step that makes them false (4b, 6, 8, 9) |
-| `docs/adr/0007-session-persistence.md` | § 4 amended: SQLite is the test and development database, not an interim; the acceptance schedule in the status line (§ 1 and § 4 at step 4b, § 2 at step 6, § 3 accepted already); every "plan 516 step N" on this plan's numbering |
-| `docs/adr/0008-contract-model-dto-mapping-boundary.md` | the plan 516 references checked against this plan's steps and the `order_plan` schema; the vocabulary table gains the **migration number** next to the order plan version and the JSON structure version |
+| `docs/scenarios/integration/GenPRES-MainEHR-Integration-V8.md` | Actor 5's "what may be forgotten (an old idle heartbeat) is dropped whole" removed: nothing is dropped; every rule and concept on the store (Actor 5, Concept 9, Rules 2, 8 to 12, 19 to 21, 32, 36, 40 to 46) checked against this plan; where a rule says otherwise (the store's engine, the order of building, what survives a restart before step 6), the rule is aligned to the plan |
+| `docs/scenarios/integration/uc-01-launch.md`, `uc-03-prescribe-and-sign.md`, `uc-04-two-users.md` | the steps and extensions on the store aligned to this plan (uc-01: after the lifetime the LaunchRecord loads as absent instead of being dropped); the stand-ins table and the "Not built" lists, which describe running behaviour, change with the step that makes them false (4b, 6, 8, 9) |
+| `docs/adr/0007-session-persistence.md` | § 2 amended: nothing is dropped, lifetimes are read at load; § 4 amended: SQLite is the test and development database, not an interim; the acceptance schedule in the status line (§ 1 and § 4 at step 4b, § 2 at step 6, § 3 accepted already); every "plan 516 step N" on this plan's numbering |
+| `docs/adr/0008-contract-model-dto-mapping-boundary.md` | § 6 "dropped whole after their lifetime" becomes "kept, loading as absent after their lifetime"; the plan 516 references checked against this plan's steps and the `order_plan` schema; the vocabulary table gains the **migration number** next to the order plan version and the JSON structure version |
 | `docs/implementation-plans/725-contract-model-dto-domain-flow.md` | the gate sentences on this plan's numbering: `order_plan` and the first fixture are steps 2–3, `session_opened_with` is step 6, `challenge` and `data_notice` are step 8; the vocabulary table gains the migration number |
 | `docs/roadmap/mvpap2019-gap-overview.md` | decision D2 and the rows that cite #516: the test and development database, not an interim; the rows point at this plan's steps |
 | `docs/roadmap/feature-patient-persistence.md` § 5, `docs/roadmap/backlog.md` (storage backends) | "left open" becomes: decided by ADR-0007 and this plan for test and development; the production engine remains open |
@@ -302,7 +325,7 @@ create table order_plan (
 );
 
 -- Rule 2, uc-01 steps 4.2 and 5.7. One row per Launch, written before the identity hop;
--- the outcome is a second row, written once. Both dropped whole after the expiry.
+-- the outcome is a second row, written once. Both stay; past the expiry they load as absent.
 create table launch_record (
     nonce       text primary key,
     state       text not null unique,   -- the callback finds the record by it
@@ -355,7 +378,7 @@ create table session_opened_with (
     check ((patient is null) = (json_version is null))
 );
 
--- Rule 9. Heartbeats. Rows older than the newest for a Session may be dropped whole.
+-- Rule 9. Heartbeats, one row per request. All stay; the loader reads the newest.
 create table session_seen (
     id         integer primary key,
     session_id text not null references session (session_id),
@@ -433,8 +456,8 @@ What ADR-0008 invariant 5 and § 6 decide, as this plan applies it to `order_pla
 - **The working state** follows the same rule in its own tables: `session_opened_with.patient`
   and `data_notice`'s patient are `Patient.Dto` JSON under a `json_version`, upgraded and parsed
   at load; a challenge stores the digest, the nonce, the expiry and its reading, never the order
-  plan. These rows live minutes to a Session's length and are dropped whole, so a row the
-  release cannot read is not kept as an unreadable entry: an opened-with or a notice it cannot
+  plan. These rows matter for minutes to a Session's length and then load as absent, so a row
+  the release cannot read is not kept as an unreadable entry: an opened-with or a notice it cannot
   read ends the Session with `SessionEnding.Unreadable`, appended as a `session_ending` row
   (`unreadable`) and told at the next request; a challenge it cannot read is refused.
 - **Every JSON structure change.**
@@ -761,8 +784,10 @@ drift on the record; the harness for step 6 exists.
 
 Two or three PRs. Migration 2 (`launch_record`, `launch_outcome`, `session`,
 `session_opened_with`, `session_seen`, `session_ending`, `session_acknowledged`); the slice
-loader for `Launches`, `Sessions`, `Endings`; the compare-and-append writer, which leaves
-`Records` to `Persist`, with a test that a sign writes exactly one `order_plan` row; the
+loader for `Launches`, `Sessions`, `Endings`; the writes as values of "Writes as values": the
+members return `Persist list`, the step 6 cases added, `submitWith` generalised to a list, and
+the SQL runner that appends them in one transaction; the tests that each member appends exactly
+the writes it returned and that a sign appends exactly one `order_plan` row; the
 `Unreadable` ending; a JSON
 structure version and fixture for `Patient.Dto`; the race tests "two launches of the same
 User", "the same Launch presented twice", "an ended Session cannot reopen". Open decision 1
@@ -773,7 +798,8 @@ Sessions now survive a restart.
 ### Step 7 — feat(server): credentials, codes, enrolments, the demo seed
 
 Migration 3 (`credential_event`, `confirmation_code`, `code_try`, `code_spent`, `enrolment`,
-`enrolment_dropped`); the members `findEnrolment`, `supplyPin`, `dropEnrolment` on the slice;
+`enrolment_dropped`); the members `findEnrolment`, `supplyPin`, `dropEnrolment` on the slice,
+with their `Persist` cases;
 the seed for `GENPRES_PROD=0` with the credentials of `StubCredentials.seed`: the three
 Prescribers with the PIN 1234, `no-pin` without a PIN, each written only when its login has no
 credential event yet. Tests: a second start adds no row, and a PIN set by enrolment survives a
@@ -782,13 +808,13 @@ restart.
 ### Step 8 — feat(server): notices, challenges, answered Submissions
 
 Migration 4 (`data_notice`, `challenge`, `challenge_spent`, `submission_answer`); the members
-`challenge` and `submit` fully on the slice; the Rule 42 race test. The "Not built" list of
+`challenge` and `submit` fully on the slice, with their `Persist` cases; the Rule 42 race test. The "Not built" list of
 uc-03 updated.
 
-### Step 9 — feat(server): audit, purge, docs
+### Step 9 — feat(server): audit, docs
 
-Migration 5 (`audit_entry`) and the writer inside every member's transaction; the purge
-statement; DEVELOPMENT.md and the uc documents in their final wording (uc-04's "a store that
+Migration 5 (`audit_entry`) and the `AppendAudit` write inside every member's transaction;
+DEVELOPMENT.md and the uc documents in their final wording (uc-04's "a store that
 decides this race across more than one server" stays until the production engine).
 
 ### Step 10 — the follow-up issues
@@ -827,7 +853,9 @@ admin ports on domain values, the LogAnalyzer record, the contract-free session 
 3. The clock. `now` stays the server clock passed in as a parameter; the order of events is the
    id column, never a timestamp. When more than one server runs, a bound on clock skew needs
    stating for the lifetimes that compare `now` with an expiry.
-4. Audit retention and its legal basis. `audit_entry` names mail addresses (Rule 27).
+4. The legal basis for keeping every row. Nothing is deleted, and `audit_entry` and the
+   credential and code tables name mail addresses (Rule 27); whether that holds for production
+   is part of the production engine's amendment.
 5. The three Dutch rows of the localization workbook for the contract terms plan 725 added
    (`Signing Refusal Store Failed`, `Signing Refusal Plan Unreadable`, `Session Ending
    Unreadable`); the maintainer's.
@@ -849,7 +877,7 @@ choice is unknown, which is why it stays within the portable core.
 
 | Step | PR | Essentials |
 |---|---|---|
-| 0a, the plan revised | #785 | this plan replaces the plan of 2026-09-13; ADR-0007 § 4 amended (SQLite for development and tests, production refuses the key until #580) and the acceptance schedule in its status line |
+| 0a, the plan revised | #785 | this plan replaces the plan of 2026-09-13; ADR-0007 § 2 amended (append-only, nothing deleted, writes returned as values) and § 4 amended (SQLite for development and tests, production refuses the key until #580) and the acceptance schedule in its status line |
 
 ## Changes from the plan this replaces
 
@@ -867,7 +895,7 @@ Written 2026-09-13, before plan 725. The step map, new to old:
 | 6 | 3, the identity tables, and 4 | the launch and session tables, the session slice, ADR-0007 § 2 |
 | 7 | 5, plus the seed of 7 | credentials, codes, enrolments, the demo seed |
 | 8 | 6 | notices, challenges, answered Submissions, the Rule 42 test |
-| 9 | 7, the rest | audit, purge, docs |
+| 9 | 7, the rest, without the purge | audit, docs |
 | 10 | 8 | the follow-up issues |
 
 And in the text: SQLite is the test and development database, not an interim (ADR-0007 § 4
@@ -877,7 +905,9 @@ file stays untracked (the old step 2 said "allow-listed under `data/`", which un
 `order_plan` index duplicating the unique constraint is dropped, the `signed_at` rule stated,
 loading by `no`; `session_opened_with.patient`, `opened_token` and `json_version` nullable, and
 a `head_id` column, since an open on an unreadable head holds a head it did not open with;
-`schema_version` created by the runner and its column `version` renamed `migration`;
+`schema_version` created by the runner and its column `version` renamed `migration`; nothing is
+deleted, the purge removed and lifetimes read at load; writes returned as values by every
+member instead of a compare-and-append writer;
 `Scripts/load.fsx` carries the SQLite package reference; the fixture tests independent of the
 test scenarios; the constraint path and the crash retry told apart, the race tested with two port instances; `Records` written through `Persist` only; the snapshot per build constant; the seed written once per login; the production guard marked temporary; the `session_opened_with` nulls tied by a check; the relative `Data Source` rooted at
 `AppPath.rootPath ()`; the production guard added; "commit with a version" reworded "commit
