@@ -11,6 +11,43 @@ open ServerApi
 
 /// Stub adapters for isolated application-layer testing.
 /// No IResourceProvider, no network, no data loading.
+/// The machine's members as the tests below read them: the answer without the writes the
+/// member also returns now. What each member writes is tested in `SessionWritesTests.fs`.
+module Machine =
+
+    let private answered (state, answer, _: ServerApi.Session.Persist list) = state, answer
+
+    let present now newId verify authorizeUrl state launch =
+        ServerApi.Session.present now newId verify authorizeUrl state launch |> answered
+
+    let callback now newId newCode codeMac redeem standing patientData send state cb =
+        ServerApi.Session.callback now newId newCode codeMac redeem standing patientData send state cb
+        |> answered
+
+    let supplyPin now newId newSalt codeMac standing patientData send attempt code pin state =
+        ServerApi.Session.supplyPin now newId newSalt codeMac standing patientData send attempt code pin state
+        |> answered
+
+    let find now id state =
+        ServerApi.Session.find now id state |> answered
+
+    let close now id state =
+        ServerApi.Session.close now id state |> fst
+
+    let touch now sid state =
+        ServerApi.Session.touch now sid state |> fst
+
+    let seen now sid opened state =
+        ServerApi.Session.seen now sid opened state |> answered
+
+    let openVersion now newId sid id state =
+        ServerApi.Session.openVersion now newId sid id state |> answered
+
+    let challenge now newId digest patientData sid request state =
+        ServerApi.Session.challenge now newId digest patientData sid request state
+        |> answered
+
+
 module StubAdapters =
 
     let private notStubbed _ =
@@ -603,7 +640,7 @@ module SessionStubTests =
         /// Presents, then plays the stub IdP for `choice`, and returns the callback the browser brings.
         let hop (ids: unit -> string) (directory: StubDirectory.Directory) state launch key choice =
             let state, result =
-                Session.present t0 ids (verifyAt t0) directory.idp.authorizeUrl state (launch, key)
+                Machine.present t0 ids (verifyAt t0) directory.idp.authorizeUrl state (launch, key)
 
             match result with
             | LaunchResult.RedirectTo(_, st) ->
@@ -629,7 +666,7 @@ module SessionStubTests =
 
         /// The callback at t0 with a throwaway outbox: for the tests that never suspend.
         let run (ids: unit -> string) (directory: StubDirectory.Directory) state cb =
-            Session.callback
+            Machine.callback
                 t0
                 ids
                 (codes ())
@@ -644,13 +681,13 @@ module SessionStubTests =
 
         let presentTests =
             testList
-                "Session.present"
+                "Machine.present"
                 [
                     test "a sealed Launch is recorded under its nonce and sent to the IdentityProvider" {
                         let ids, d = fixture ()
 
                         let state, result =
-                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
+                            Machine.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         match result with
                         | LaunchResult.RedirectTo(url, st) ->
@@ -666,10 +703,10 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let state, first =
-                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
+                            Machine.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         let state2, again =
-                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyA)
+                            Machine.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyA)
 
                         again |> Expect.equal "same redirect" first
                         state2 |> Expect.equal "same state" state
@@ -679,10 +716,10 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let state, _ =
-                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
+                            Machine.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         let _, other =
-                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyB)
+                            Machine.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyB)
 
                         other |> Expect.equal "spent" (LaunchResult.Refused LaunchRefusal.LaunchSpent)
                     }
@@ -693,7 +730,7 @@ module SessionStubTests =
                         let state, opened = run ids d state cb
 
                         let _, again =
-                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyA)
+                            Machine.present t0 ids (verifyAt t0) d.idp.authorizeUrl state (launch1, keyA)
 
                         match opened, again with
                         | CallbackResult.Opened(id, _), LaunchResult.Opened(id', session) ->
@@ -709,7 +746,7 @@ module SessionStubTests =
                         let ids, d = fixture ()
 
                         let _, invalid =
-                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (Launch "junk", keyA)
+                            Machine.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (Launch "junk", keyA)
 
                         invalid
                         |> Expect.equal "invalid" (LaunchResult.Refused LaunchRefusal.LaunchInvalid)
@@ -717,7 +754,7 @@ module SessionStubTests =
                         let late = t0 + lifetime + TimeSpan.FromSeconds 1.0
 
                         let state, expired =
-                            Session.present late ids (verifyAt late) d.idp.authorizeUrl seeded (launch1, keyA)
+                            Machine.present late ids (verifyAt late) d.idp.authorizeUrl seeded (launch1, keyA)
 
                         expired
                         |> Expect.equal "expired" (LaunchResult.Refused LaunchRefusal.LaunchExpired)
@@ -729,7 +766,7 @@ module SessionStubTests =
 
         let callbackTests =
             testList
-                "Session.callback"
+                "Machine.callback"
                 [
                     test "prescriber: the Session opens for the Launch's Patient, the outcome is recorded" {
                         let ids, d = fixture ()
@@ -850,7 +887,7 @@ module SessionStubTests =
                             r.OpenedWith |> Expect.isNone "not opened with a version it cannot show"
 
                             state
-                            |> Session.seen t0 id r.Opened.OpenedToken
+                            |> Machine.seen t0 id r.Opened.OpenedToken
                             |> snd
                             |> Expect.equal
                                 "told the record moved on"
@@ -1033,7 +1070,7 @@ module SessionStubTests =
                         let late = t0 + lifetime + TimeSpan.FromSeconds 1.0
 
                         let state2, result =
-                            Session.callback
+                            Machine.callback
                                 late
                                 ids
                                 (codes ())
@@ -1058,7 +1095,7 @@ module SessionStubTests =
                         let launch = mintFor "n-nd" "no-data"
 
                         let state, result =
-                            Session.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch, keyA)
+                            Machine.present t0 ids (verifyAt t0) d.idp.authorizeUrl seeded (launch, keyA)
 
                         let st =
                             match result with
@@ -1126,14 +1163,14 @@ module SessionStubTests =
                             | CallbackResult.Opened(id, _) -> id
                             | other -> failtest $"{other}"
 
-                        let state, told = Session.find t0 id1 state
+                        let state, told = Machine.find t0 id1 state
 
                         told
                         |> Expect.equal "told" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
 
                         // the answer was lost, or the tab comes back much later: the cookie came
                         // again, so is the ending
-                        let _, again = Session.find t0 id1 state
+                        let _, again = Machine.find t0 id1 state
 
                         again
                         |> Expect.equal "told again" (SessionLookup.Ended SessionEnding.SupersededByLaunch)
@@ -1455,7 +1492,7 @@ module SessionStubTests =
 
         let credentialStoreTests =
             testList
-                "Session.callback over the credential store"
+                "Machine.callback over the credential store"
                 [
                     test "a Prescriber the store does not know at all has no PIN either, and suspends" {
                         let ids, d = fixture ()
@@ -1563,7 +1600,7 @@ module SessionStubTests =
 
         let hopE (f: Fixture) state launch key choice =
             let state, result =
-                Session.present t0 f.ids (verifyAt t0) f.d.idp.authorizeUrl state (launch, key)
+                Machine.present t0 f.ids (verifyAt t0) f.d.idp.authorizeUrl state (launch, key)
 
             match result with
             | LaunchResult.RedirectTo(_, st) ->
@@ -1578,7 +1615,7 @@ module SessionStubTests =
 
 
         let runAt now (f: Fixture) state cb =
-            Session.callback
+            Machine.callback
                 now
                 f.ids
                 f.newCode
@@ -1608,7 +1645,7 @@ module SessionStubTests =
 
 
         let supplyAt now (f: Fixture) state attempt code pin =
-            Session.supplyPin
+            Machine.supplyPin
                 now
                 f.ids
                 salts
@@ -1778,7 +1815,7 @@ module SessionStubTests =
                         let state, _ = suspendVia f seeded launch1 keyA "no-pin"
 
                         let _, again =
-                            Session.present t0 f.ids (verifyAt t0) f.d.idp.authorizeUrl state (launch1, keyA)
+                            Machine.present t0 f.ids (verifyAt t0) f.d.idp.authorizeUrl state (launch1, keyA)
 
                         match again with
                         | LaunchResult.Enrolling _ -> ()
@@ -1987,7 +2024,7 @@ module SessionStubTests =
                             |> Option.map (fun s -> { s with ActivePatientId = Some "other-patient" })
 
                         let state, result =
-                            Session.supplyPin
+                            Machine.supplyPin
                                 t0
                                 f.ids
                                 salts
@@ -2019,7 +2056,7 @@ module SessionStubTests =
                             |> Option.map (fun s -> { s with User = { s.User with Role = UserRole.Reader } })
 
                         let _, result =
-                            Session.supplyPin
+                            Machine.supplyPin
                                 t0
                                 f.ids
                                 salts
@@ -2046,7 +2083,7 @@ module SessionStubTests =
                         let code = mailedCode f
 
                         let _, result =
-                            Session.supplyPin
+                            Machine.supplyPin
                                 t0
                                 f.ids
                                 salts
@@ -2150,10 +2187,10 @@ module SessionStubTests =
                 |> withSession (session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")) "s-1"
 
             testList
-                "Session.seen"
+                "Machine.seen"
                 [
                     test "an unknown Session with no ending: nothing to say, nothing touched" {
-                        let state, notice = Session.emptyState |> Session.seen t1 "s-1" (own "s-1")
+                        let state, notice = Session.emptyState |> Machine.seen t1 "s-1" (own "s-1")
                         notice |> Expect.isNone "no notice"
                         state |> Expect.equal "unchanged" Session.emptyState
                     }
@@ -2164,7 +2201,7 @@ module SessionStubTests =
                                 Endings = Map.ofList [ "s-1", (SessionEnding.SupersededByLaunch, t0) ]
                             }
 
-                        let _, notice = state |> Session.seen t1 "s-1" (own "s-1")
+                        let _, notice = state |> Machine.seen t1 "s-1" (own "s-1")
 
                         notice
                         |> Expect.equal "ended" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
@@ -2175,16 +2212,16 @@ module SessionStubTests =
                             Session.emptyState
                             |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
 
-                        let state, _ = state |> Session.seen t1 "s-1" None
+                        let state, _ = state |> Machine.seen t1 "s-1" None
                         state.Sessions["s-1"].Seen |> Expect.equal "seen now" t1
 
-                        let state, _ = state |> Session.seen (t1.AddMinutes 1.0) "s-1" (own "s-1")
+                        let state, _ = state |> Machine.seen (t1.AddMinutes 1.0) "s-1" (own "s-1")
                         state.Sessions["s-1"].Seen |> Expect.equal "seen again" (t1.AddMinutes 1.0)
                     }
 
                     test "touching an unknown Session changes nothing" {
                         Session.emptyState
-                        |> Session.touch t1 "s-9"
+                        |> Machine.touch t1 "s-9"
                         |> Expect.equal "unchanged" Session.emptyState
                     }
 
@@ -2194,7 +2231,7 @@ module SessionStubTests =
                             |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
 
                         fromNothing
-                        |> Session.seen t1 "s-1" (own "s-1")
+                        |> Machine.seen t1 "s-1" (own "s-1")
                         |> snd
                         |> Expect.isNone "no head"
 
@@ -2204,13 +2241,13 @@ module SessionStubTests =
                             |> withSession (session (Some prescriber) (Some "pat-1") "s-1" (Some "plan-1")) "s-1"
 
                         onHead
-                        |> Session.seen t1 "s-1" (own "s-1")
+                        |> Machine.seen t1 "s-1" (own "s-1")
                         |> snd
                         |> Expect.isNone "on the head"
                     }
 
                     test "the Session's own token, a newer head: whose and when, nothing opened (Rules 21, 22)" {
-                        let state, notice = movedOn |> Session.seen t1 "s-1" (own "s-1")
+                        let state, notice = movedOn |> Machine.seen t1 "s-1" (own "s-1")
 
                         notice
                         |> Expect.equal "newer version" (Some(RecordNotice.NewerVersion (signedBy other 2 t1).Head))
@@ -2223,17 +2260,17 @@ module SessionStubTests =
                         Session.emptyState
                         |> withRecord "pat-1" [ signedBy other 1 t1 ]
                         |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
-                        |> Session.seen t1 "s-1" (own "s-1")
+                        |> Machine.seen t1 "s-1" (own "s-1")
                         |> snd
                         |> Expect.isSome "newer version"
                     }
 
                     test "a token that is not the Session's, or none: nothing to say, still touched" {
-                        let state, notice = movedOn |> Session.seen t1 "s-1" (own "s-2")
+                        let state, notice = movedOn |> Machine.seen t1 "s-1" (own "s-2")
                         notice |> Expect.isNone "foreign token"
                         state.Sessions["s-1"].Seen |> Expect.equal "seen" t1
 
-                        movedOn |> Session.seen t1 "s-1" None |> snd |> Expect.isNone "no token"
+                        movedOn |> Machine.seen t1 "s-1" None |> snd |> Expect.isNone "no token"
                     }
 
                     test "an anonymous Session, or one without a Patient: nothing to say" {
@@ -2243,13 +2280,13 @@ module SessionStubTests =
                             |> withSession (session None (Some "pat-1") "s-a" None) "s-a"
                             |> withSession (session (Some prescriber) None "s-n" None) "s-n"
 
-                        state |> Session.seen t1 "s-a" (own "s-a") |> snd |> Expect.isNone "anonymous"
-                        state |> Session.seen t1 "s-n" (own "s-n") |> snd |> Expect.isNone "no patient"
+                        state |> Machine.seen t1 "s-a" (own "s-a") |> snd |> Expect.isNone "anonymous"
+                        state |> Machine.seen t1 "s-n" (own "s-n") |> snd |> Expect.isNone "no patient"
                     }
 
                     test "the notice is stateless: the same request says it again" {
-                        let state, first = movedOn |> Session.seen t1 "s-1" (own "s-1")
-                        let _, second = state |> Session.seen (t1.AddMinutes 1.0) "s-1" (own "s-1")
+                        let state, first = movedOn |> Machine.seen t1 "s-1" (own "s-1")
+                        let _, second = state |> Machine.seen (t1.AddMinutes 1.0) "s-1" (own "s-1")
                         second |> Expect.equal "again" first
                     }
 
@@ -2258,7 +2295,7 @@ module SessionStubTests =
                             Session.emptyState
                             |> withSession (session (Some prescriber) (Some "pat-1") "s-1" None) "s-1"
 
-                        let state, found = state |> Session.find t1 "s-1"
+                        let state, found = state |> Machine.find t1 "s-1"
 
                         (match found with
                          | SessionLookup.Found _ -> true
@@ -2314,10 +2351,10 @@ module SessionStubTests =
                 }
 
             let openAt sid id state =
-                Session.openVersion t1 (counter "id") sid id state
+                Machine.openVersion t1 (counter "id") sid id state
 
             testList
-                "Session.openVersion"
+                "Machine.openVersion"
                 [
                     test "no Session: nothing to open" {
                         Session.emptyState |> openAt "s-9" "plan-2" |> snd |> Expect.equal "none" None
@@ -2392,7 +2429,7 @@ module SessionStubTests =
 
                         // the notice is gone with it
                         state
-                        |> Session.seen t1 "s-1" (Some(OpenedToken "opened-id-1"))
+                        |> Machine.seen t1 "s-1" (Some(OpenedToken "opened-id-1"))
                         |> snd
                         |> Expect.isNone "no notice"
                     }
@@ -2425,7 +2462,7 @@ module SessionStubTests =
                         |> Expect.equal "the head still blocks" (Some "plan-3")
 
                         state
-                        |> Session.seen t1 "s-1" state.Sessions["s-1"].Opened.OpenedToken
+                        |> Machine.seen t1 "s-1" state.Sessions["s-1"].Opened.OpenedToken
                         |> snd
                         |> Expect.isSome "and the notice says so again (Rule 21)"
                     }
@@ -2469,7 +2506,7 @@ module SessionStubTests =
                 session "s-1" (Some prescriber) (Some("stub-patient", stubPatient)) None
 
             let ask now nonces state sid (plan, opened) =
-                Session.challenge
+                Machine.challenge
                     now
                     nonces
                     StubDatabase.digest
@@ -2479,7 +2516,7 @@ module SessionStubTests =
                     state
 
             let askWith notice now nonces state sid (plan, opened) =
-                Session.challenge
+                Machine.challenge
                     now
                     nonces
                     StubDatabase.digest
@@ -2489,7 +2526,7 @@ module SessionStubTests =
                     state
 
             testList
-                "Session.challenge"
+                "Machine.challenge"
                 [
                     test
                         "refuses: no Session, the anonymous Session, no Patient; the plan's own data is the User's (Rules 33, 44)" {
@@ -2537,7 +2574,7 @@ module SessionStubTests =
                     test
                         "no reading at the reread (the adapter answers none for a reading that is no patient): told unverified" {
                         let state, answer =
-                            Session.challenge
+                            Machine.challenge
                                 t0
                                 (counter "n")
                                 StubDatabase.digest

@@ -45,6 +45,16 @@ let portOver (store: StubDatabase.RecordStore) =
     port, directory, outbox
 
 
+/// The order plan version of a request's writes, when it has one.
+let versionOf writes =
+    writes
+    |> List.tryPick (
+        function
+        | Session.WriteVersion v -> Some v
+        | _ -> None
+    )
+
+
 /// A store over the file that fails its loads while `failing` is set.
 let failingOver (cs: string) (failing: bool ref) : StubDatabase.RecordStore =
     let inner = SqlDatabase.store ignore cs
@@ -238,13 +248,13 @@ let tests =
                             { inner with
                                 persist =
                                     fun writes ->
-                                        match inner.persist writes with
-                                        | Session.StoreOutcome.Written ->
-                                            for Session.WriteVersion v in writes do
-                                                written.Value <- Some v.Id
-
+                                        match inner.persist writes, versionOf writes with
+                                        | Session.StoreOutcome.Written, Some v ->
+                                            // only the signature loses its reply; every other
+                                            // request of the Session lands as it would
+                                            written.Value <- Some v.Id
                                             Session.StoreOutcome.Failed "the reply was lost"
-                                        | other -> other
+                                        | outcome, _ -> outcome
                             }
 
                         let port, directory, _ = portOver crashing
@@ -549,8 +559,11 @@ let tests =
                             { inner with
                                 persist =
                                     fun writes ->
-                                        if not (barrier.SignalAndWait(TimeSpan.FromSeconds 10.0)) then
-                                            raise (TimeoutException "the other port never reached its write")
+                                        // only a signature meets the other port: every other
+                                        // request writes its own rows and passes
+                                        if (versionOf writes).IsSome then
+                                            if not (barrier.SignalAndWait(TimeSpan.FromSeconds 10.0)) then
+                                                raise (TimeoutException "the other port never reached its write")
 
                                         inner.persist writes
                             }

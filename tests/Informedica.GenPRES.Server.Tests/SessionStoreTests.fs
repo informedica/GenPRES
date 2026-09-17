@@ -115,7 +115,7 @@ let stateOf sessions records =
     }
 
 let ask now nonces state sid (p, opened) =
-    Session.challenge now nonces StubDatabase.digest StubPatientData.port.read sid (p, opened, None) state
+    Machine.challenge now nonces StubDatabase.digest StubPatientData.port.read sid (p, opened, None) state
 
 let signature sid pin key (p: Types.OrderPlan) : Signature =
     {
@@ -141,6 +141,7 @@ let versionWritten writes =
     |> List.tryPick (
         function
         | Session.WriteVersion v -> Some v
+        | _ -> None
     )
 
 
@@ -360,7 +361,7 @@ let tests =
                 let s = session "s-1" prescriber (Some "plan-1")
 
                 let st, answer =
-                    Session.openVersion t0 (counter "id") "s-1" "plan-2" (stateOf [ s ] records)
+                    Machine.openVersion t0 (counter "id") "s-1" "plan-2" (stateOf [ s ] records)
 
                 answer |> Expect.equal "the Session as it is" (Some (snd s).Opened)
 
@@ -389,7 +390,7 @@ let tests =
                 write |> versionWritten |> Expect.isNone "no version written"
 
                 let st, opened =
-                    Session.openVersion (t0 + seconds 10.0) (counter "id") "s-1" "plan-1" st
+                    Machine.openVersion (t0 + seconds 10.0) (counter "id") "s-1" "plan-1" st
 
                 opened
                 |> Option.bind _.Head

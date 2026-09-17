@@ -173,6 +173,13 @@ module StoredVersion =
         | StoredVersion.Unreadable u -> u.No
 
 
+    /// The id of a version that can be read; none for one that cannot.
+    let readableId =
+        function
+        | StoredVersion.Readable v -> Some v.Id
+        | StoredVersion.Unreadable _ -> None
+
+
     /// What identifies the version to the client: whose, and when.
     let head (version: StoredVersion) : OrderPlanHead =
         match version with

@@ -338,15 +338,17 @@ module SqlDatabase =
 
 
     /// <summary>
-    /// Runs the writes of a request: the order plan versions of the list, one by one, the
-    /// first that does not land being the request's outcome. The facts the launch and session
-    /// rows record, and the transaction over the whole list, arrive with their tables.
+    /// Runs the writes of a request. Only the order plan versions of a list reach the database
+    /// while the launch and session rows still live in memory; the first write that does not
+    /// land is the request's outcome. One transaction over the whole list, and the other facts
+    /// with it, arrives with those tables.
     /// </summary>
     let persist (connectionString: string) (writes: Session.Persist list) : Session.StoreOutcome =
         writes
         |> List.choose (
             function
             | Session.WriteVersion v -> Some v
+            | _ -> None
         )
         |> List.fold
             (fun outcome v ->
