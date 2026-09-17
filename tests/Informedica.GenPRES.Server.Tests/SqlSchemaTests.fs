@@ -57,29 +57,30 @@ let tests =
     testList
         "SqlSchema"
         [
-            test "a fresh file gets migration 1, embedded, and the order_plan table" {
+            test "a fresh file gets every embedded migration, in order, and their tables" {
                 withDb (fun cs ->
-                    SqlSchema.apply cs |> Expect.equal "migration 1 applied" [ 1 ]
+                    let applied = SqlSchema.apply cs
+                    applied |> Expect.equal "in order, from 1" [ 1 .. applied.Length ]
 
                     scalar cs "select group_concat(migration) from schema_version"
                     |> string
-                    |> Expect.equal "schema_version records it" "1"
+                    |> Expect.equal "schema_version records them" (applied |> List.map string |> String.concat ",")
 
                     scalar cs "select count(*) from sqlite_master where type = 'table' and name = 'order_plan'"
                     |> unbox<int64>
-                    |> Expect.equal "the table exists" 1L
+                    |> Expect.equal "the record's table exists" 1L
                 )
             }
 
             test "a second apply applies nothing" {
                 withDb (fun cs ->
-                    SqlSchema.apply cs |> ignore
+                    let applied = SqlSchema.apply cs |> List.length
 
                     SqlSchema.apply cs |> Expect.isEmpty "nothing above the highest number"
 
                     scalar cs "select count(*) from schema_version"
                     |> unbox<int64>
-                    |> Expect.equal "still one row" 1L
+                    |> Expect.equal "the same rows" (int64 applied)
                 )
             }
 

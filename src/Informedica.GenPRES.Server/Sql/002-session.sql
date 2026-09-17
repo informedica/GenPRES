@@ -49,13 +49,17 @@ create table session_opened_with (
     at           integer not null,       -- unix ms
     check ((patient is null) = (json_version is null))
 );
+-- as for the heartbeats: the newest row of one Session, not a scan of every row
+create index ix_session_opened_with on session_opened_with (session_id, id);
 
--- A request from the Session, one row each. All stay; the loader reads the newest.
+-- A request from the Session, one row each. All stay; the loader reads the newest, which the
+-- index makes a lookup instead of a scan of every Session's history.
 create table session_seen (
     id         integer primary key,
     session_id text not null references session (session_id),
     at         integer not null          -- unix ms
 );
+create index ix_session_seen on session_seen (session_id, id);
 
 -- The endings that are acts. A supersession is no row: it is read off a newer session row of
 -- the same login.
