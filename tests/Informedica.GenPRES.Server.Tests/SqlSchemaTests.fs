@@ -57,18 +57,35 @@ let tests =
     testList
         "SqlSchema"
         [
-            test "a fresh file gets every embedded migration, in order, and their tables" {
+            test "a fresh file gets the embedded migrations, in order, and their tables" {
                 withDb (fun cs ->
-                    let applied = SqlSchema.apply cs
-                    applied |> Expect.equal "in order, from 1" [ 1 .. applied.Length ]
+                    SqlSchema.apply cs |> Expect.equal "migrations 1 and 2" [ 1; 2 ]
 
                     scalar cs "select group_concat(migration) from schema_version"
                     |> string
-                    |> Expect.equal "schema_version records them" (applied |> List.map string |> String.concat ",")
+                    |> Expect.equal "schema_version records them" "1,2"
 
-                    scalar cs "select count(*) from sqlite_master where type = 'table' and name = 'order_plan'"
-                    |> unbox<int64>
-                    |> Expect.equal "the record's table exists" 1L
+                    // named one by one, so that a migration missing from the assembly's
+                    // resources fails here instead of at the first request that needs its rows
+                    let tables =
+                        scalar
+                            cs
+                            "select group_concat(name) from (select name from sqlite_master where type = 'table' order by name)"
+                        |> string
+                        |> fun names -> names.Split ','
+
+                    for table in
+                        [
+                            "order_plan"
+                            "launch_record"
+                            "launch_outcome"
+                            "session"
+                            "session_opened_with"
+                            "session_seen"
+                            "session_ending"
+                            "session_acknowledged"
+                        ] do
+                        tables |> Expect.contains $"the table %s{table}" table
                 )
             }
 
