@@ -806,23 +806,28 @@ module Session =
         state, CallbackResult.Enrolling(attempt, openedUrl, until), [ outcome ]
 
 
-    /// The callback from the IdentityProvider and the checks that follow it: the state against
-    /// the cookie, the code redeemed for the identity, the registry asked for the Role and the
-    /// active Patient, the credential read. A Prescriber whose credential has no PIN is not
-    /// refused: the launch suspends until the PIN is set. A callback reload while the attempt
-    /// stands is answered with it again; once it is gone, a relaunch is asked for.
-    let callback
+    /// What the first half of a callback came to: an answer with its writes, or the identity
+    /// and the standing a launch goes on to the open with.
+    [<RequireQualifiedAccess>]
+    type Redeemed =
+        | Answered of State * CallbackResult * Persist list
+        | Identified of LaunchRecord * BrowserIdentity * UserStanding
+
+
+    /// <summary>
+    /// The first half of the callback: the state against the cookie, a reloaded callback
+    /// answered from the launch's outcome, else the code redeemed once for the identity and
+    /// the registry asked once for the Role and the active Patient. Needs the launch record
+    /// and the Session its outcome names, nothing keyed by the login: a store loads those
+    /// first, and the login's rows after, for `openAfterRedeem`.
+    /// </summary>
+    let redeem
         (now: DateTime)
-        (newId: unit -> string)
-        (newCode: unit -> string)
-        (codeMac: string -> byte[])
-        (redeem: string -> BrowserIdentity option)
+        (redeemCode: string -> BrowserIdentity option)
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: string -> GenForm.Patient option)
-        (send: Mail -> unit)
         (state: State)
         (cb: Callback)
-        : State * CallbackResult * Persist list
+        : Redeemed
         =
         let state = dropExpired now state
 
@@ -832,45 +837,97 @@ module Session =
             |> Seq.map snd
             |> Seq.tryFind (fun r -> r.State = cb.State)
 
+        let answer result = Redeemed.Answered(state, result, [])
+
         let invalid =
-            state, CallbackResult.Refused(LaunchRefusal.LaunchInvalid, refusedUrl LaunchRefusal.LaunchInvalid), []
+            CallbackResult.Refused(LaunchRefusal.LaunchInvalid, refusedUrl LaunchRefusal.LaunchInvalid)
 
         match cb.StateCookie, byState with
         | Some cookie, Some record when cookie = cb.State && cb.State <> "" ->
             match record.Outcome with
             | Some(LaunchResult.Opened(id, _)) when state.Sessions |> Map.containsKey id ->
-                state, CallbackResult.Opened(id, openedUrl), []
-            | Some(LaunchResult.Opened _) -> state, CallbackResult.Superseded openedUrl, []
-            | Some(LaunchResult.Refused refusal) -> state, CallbackResult.Refused(refusal, refusedUrl refusal), []
+                answer (CallbackResult.Opened(id, openedUrl))
+            | Some(LaunchResult.Opened _) -> answer (CallbackResult.Superseded openedUrl)
+            | Some(LaunchResult.Refused refusal) -> answer (CallbackResult.Refused(refusal, refusedUrl refusal))
             | Some(LaunchResult.Enrolling attempt) ->
                 match state.Enrolments |> Map.tryFind attempt with
-                | Some e -> state, CallbackResult.Enrolling(attempt, openedUrl, state.Codes[e.UserId].Expiry), []
+                | Some e -> answer (CallbackResult.Enrolling(attempt, openedUrl, state.Codes[e.UserId].Expiry))
                 | None ->
-                    state,
-                    CallbackResult.Refused(LaunchRefusal.EnrolmentRequired, refusedUrl LaunchRefusal.EnrolmentRequired),
-                    []
+                    answer (
+                        CallbackResult.Refused(
+                            LaunchRefusal.EnrolmentRequired,
+                            refusedUrl LaunchRefusal.EnrolmentRequired
+                        )
+                    )
             | Some(LaunchResult.RedirectTo _)
             | None ->
                 let identity =
                     match cb.Error, cb.Code with
-                    | None, Some code -> redeem code
+                    | None, Some code -> redeemCode code
                     | _ -> None
 
                 match identity with
-                | None -> refuse now record LaunchRefusal.NoBrowserIdentity state
+                | None -> Redeemed.Answered(refuse now record LaunchRefusal.NoBrowserIdentity state)
                 | Some identity ->
                     match standing identity with
-                    | None -> refuse now record LaunchRefusal.NoRole state
-                    | Some standing when standing.ActivePatientId <> Some record.PatientId ->
-                        refuse now record LaunchRefusal.WrongActivePatient state
-                    | Some standing when
-                        standing.User.Role = UserRole.Prescriber
-                        && not (credentialOf standing.User.UserId state |> Credential.pinSet)
-                        ->
-                        suspend now newId newCode codeMac send record identity standing state
-                    | Some standing -> openSession now newId patientData record standing state
-        | _, None -> invalid
-        | _ -> invalid
+                    | None -> Redeemed.Answered(refuse now record LaunchRefusal.NoRole state)
+                    | Some standing -> Redeemed.Identified(record, identity, standing)
+        | _, None -> answer invalid
+        | _ -> answer invalid
+
+
+    /// <summary>
+    /// The second half of the callback, over the login's Sessions, the credential and the
+    /// patient's record: the active Patient checked, the launch suspended at the PIN question
+    /// when a Prescriber's credential has no PIN, else the open.
+    /// </summary>
+    let openAfterRedeem
+        (now: DateTime)
+        (newId: unit -> string)
+        (newCode: unit -> string)
+        (codeMac: string -> byte[])
+        (patientData: string -> GenForm.Patient option)
+        (send: Mail -> unit)
+        (record: LaunchRecord, identity: BrowserIdentity, standing: UserStanding)
+        (state: State)
+        : State * CallbackResult * Persist list
+        =
+        let state = dropExpired now state
+
+        if standing.ActivePatientId <> Some record.PatientId then
+            refuse now record LaunchRefusal.WrongActivePatient state
+        elif
+            standing.User.Role = UserRole.Prescriber
+            && not (credentialOf standing.User.UserId state |> Credential.pinSet)
+        then
+            suspend now newId newCode codeMac send record identity standing state
+        else
+            openSession now newId patientData record standing state
+
+
+    /// The callback from the IdentityProvider and the checks that follow it, the two halves
+    /// over one state: the state against the cookie, the code redeemed for the identity, the
+    /// registry asked for the Role and the active Patient, the credential read. A Prescriber
+    /// whose credential has no PIN is not refused: the launch suspends until the PIN is set. A
+    /// callback reload while the attempt stands is answered with it again; once it is gone, a
+    /// relaunch is asked for.
+    let callback
+        (now: DateTime)
+        (newId: unit -> string)
+        (newCode: unit -> string)
+        (codeMac: string -> byte[])
+        (redeemCode: string -> BrowserIdentity option)
+        (standing: BrowserIdentity -> UserStanding option)
+        (patientData: string -> GenForm.Patient option)
+        (send: Mail -> unit)
+        (state: State)
+        (cb: Callback)
+        : State * CallbackResult * Persist list
+        =
+        match redeem now redeemCode standing state cb with
+        | Redeemed.Answered(state, result, writes) -> state, result, writes
+        | Redeemed.Identified(record, identity, standing) ->
+            openAfterRedeem now newId newCode codeMac patientData send (record, identity, standing) state
 
 
     /// What a browser holding an attempt is told at GetSession: whom the launch is for and where

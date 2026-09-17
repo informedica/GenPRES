@@ -978,6 +978,7 @@ choice is unknown, which is why it stays within the portable core.
 | 6a, prototype | #801 | `Scripts/SqlWrites.fsx`: `Persist` gains the step 6 cases and `StoredEnding`; every member returns `State * answer * Persist list`; `touch` returns the heartbeat, `close` takes `now`; `callback` split into `Session.redeem` and `Session.openAfterRedeem` and composed from them; the port's `runWith`, `submitWith`, `challengeWith` and `failWith` over a list; nine tests. Differences noted: `openVersion` keeps its heartbeat, and `redeem` also answers the no-role refusal |
 | 6a, migrate 1 of 3 | #802 | `Persist` a union, `commit` returning `Persist list`; `RecordStore.persist` and `persistNothing` over a list, `runWith` running a request's writes as one with `submitWith` its signing case; `SqlDatabase.persistVersion` and `persist` over a list. The prototype is one shape change of 350 added source lines, so it lands in three PRs |
 | 6a, migrate 2 of 3 | #803 | `StoredEnding` and the step 6 `Persist` cases; `present`, `callback`, `supplyPin`, `find`, `close`, `seen`, `openVersion` and `challenge` return their writes, `touch` the heartbeat, `close` takes `now`; the port's `challengeWith` and `failWith`; `StoredVersion.readableId`; `SessionWritesTests.fs` and the `Machine` shim in the suites |
+| 6a, migrate 3 of 3 | #804 | `Session.redeem` and `Session.openAfterRedeem`, `callback` composing them (decision 1); the test that the halves answer and write as the whole does. 6a done; 6b next |
 
 ## Changes from the plan this replaces
 
