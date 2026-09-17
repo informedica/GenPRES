@@ -370,38 +370,6 @@ module SqlDatabase =
 
 
     /// <summary>
-    /// The record in the database: a load replaces the state's record with the patient's order
-    /// plan versions, a write inserts one. `warn` hears of every load that throws, which is
-    /// then rethrown, and of every unreadable version a load finds.
-    /// </summary>
-    let store (warn: string -> unit) (connectionString: string) : StubDatabase.RecordStore =
-        {
-            load =
-                fun pid s ->
-                    let versions =
-                        try
-                            loadRecords connectionString pid
-                        with e ->
-                            warn $"the record could not be loaded: %s{e.Message}"
-                            reraise ()
-
-                    for v in versions do
-                        match v with
-                        | StoredVersion.Unreadable u ->
-                            warn $"order plan version %s{u.Id} (number %i{u.No}) cannot be read: %s{u.Reason}"
-                        | StoredVersion.Readable _ -> ()
-
-                    { s with Records = Map.ofList [ pid, versions ] }
-            persist = persist connectionString
-        }
-
-
-    /// The session port over the record in the database.
-    let makeSessionPort warn connectionString =
-        StubDatabase.makeSessionPortWith (store warn connectionString)
-
-
-    /// <summary>
     /// A connection string with a relative data source rooted at `root`, and the folder of the
     /// file created when it is missing: SQLite creates the file, never its folder.
     /// </summary>
@@ -909,11 +877,23 @@ module SqlSessions =
 
     // ---- the rows a request can touch -------------------------------------------------------
 
-    /// The record of a patient, as the state holds it.
-    let withRecord (cs: string) (patientId: string option) (state: Session.State) =
+    /// <summary>
+    /// The record of a patient, as the state holds it. `warn` hears of every version this
+    /// release cannot read, so that a head a sign is refused against says why in the log.
+    /// </summary>
+    let withRecord (warn: string -> unit) (cs: string) (patientId: string option) (state: Session.State) =
         match patientId with
         | None -> state
-        | Some pid -> { state with Records = state.Records |> Map.add pid (SqlDatabase.loadRecords cs pid) }
+        | Some pid ->
+            let versions = SqlDatabase.loadRecords cs pid
+
+            for v in versions do
+                match v with
+                | StoredVersion.Unreadable u ->
+                    warn $"order plan version %s{u.Id} (number %i{u.No}) cannot be read: %s{u.Reason}"
+                | StoredVersion.Readable _ -> ()
+
+            { state with Records = state.Records |> Map.add pid versions }
 
 
     /// A Session and its ending, and the record of the patient it was opened on. A Session
@@ -957,7 +937,7 @@ module SqlSessions =
             }
             // the record first: the Session names the version it opened with by id, and that
             // id is only a version once the patient's rows are there to find it among
-            |> withRecord cs (patientOfSession conn sid)
+            |> withRecord warn cs (patientOfSession conn sid)
 
         match loadSession conn (headIn state) sid with
         | None
@@ -1067,7 +1047,7 @@ module SqlSessions =
         match loadLaunch conn now by value with
         | None -> state
         | Some row ->
-            let state = state |> withRecord cs (Some row.PatientId)
+            let state = state |> withRecord warn cs (Some row.PatientId)
 
             let headOf id =
                 state.Records
@@ -1102,3 +1082,50 @@ module SqlSessions =
             match row.SessionId with
             | Some sid -> withSession warn cs conn now sid state
             | None -> state
+
+
+    /// <summary>
+    /// The rows a slice names, read into the state a request runs over. Every load is a fresh
+    /// connection: the rows a request works on are the rows as they stand when it starts, and
+    /// the transaction it writes in is its own.
+    /// </summary>
+    let load (warn: string -> unit) (cs: string) (now: unit -> DateTime) (slice: StubDatabase.Slice) state =
+        use conn = new SqliteConnection(cs)
+        conn.Open()
+
+        match slice with
+        | StubDatabase.Slice.Nothing -> state
+        | StubDatabase.Slice.LaunchNonce nonce -> withLaunch warn cs conn (now ()) "nonce" nonce state
+        | StubDatabase.Slice.LaunchState value -> withLaunch warn cs conn (now ()) "state" value state
+        | StubDatabase.Slice.Login login -> withLogin warn cs conn (now ()) login state
+        | StubDatabase.Slice.Session sid -> withSession warn cs conn (now ()) sid state
+        // the attempt's own rows arrive with the credentials; the record of the patient it
+        // was launched on is what an open out of it needs now
+        | StubDatabase.Slice.Enrolment attempt ->
+            state.Enrolments
+            |> Map.tryFind attempt
+            |> Option.map _.PatientId
+            |> fun pid -> withRecord warn cs pid state
+
+
+    /// <summary>
+    /// The session state in the database: a load reads the rows a slice names, a write appends
+    /// what a request did, in one transaction. `warn` hears of every row the release cannot
+    /// read; a load that throws is rethrown, which the port answers as the store failing.
+    /// </summary>
+    let store (warn: string -> unit) (cs: string) (now: unit -> DateTime) : StubDatabase.SessionStore =
+        {
+            load =
+                fun slice s ->
+                    try
+                        load warn cs now slice s
+                    with e ->
+                        warn $"the session store could not be read: %s{e.Message}"
+                        reraise ()
+            persist = runWrites cs
+        }
+
+
+    /// The session port over the state in the database.
+    let makeSessionPort warn cs now =
+        StubDatabase.makeSessionPortWith (store warn cs now)

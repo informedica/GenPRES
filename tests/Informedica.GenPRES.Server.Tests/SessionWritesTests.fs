@@ -326,7 +326,7 @@ let machineTests =
 
 
 /// A port with the clock at t0 over a store.
-let portOver (store: StubDatabase.RecordStore) =
+let portOver (store: StubDatabase.SessionStore) =
     let d = directory ()
 
     let port =

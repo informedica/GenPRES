@@ -544,7 +544,7 @@ module SessionStubTests =
 
     /// A port over a store made by `newStore`, with a settable clock, a counting id source, the
     /// seal check bound to the clock, a stub directory of its own and the given outbox.
-    let makePortWith (newStore: unit -> StubDatabase.RecordStore) (outbox: StubMail.Outbox) =
+    let makePortWith (newStore: unit -> StubDatabase.SessionStore) (outbox: StubMail.Outbox) =
         let clock = ref t0
         let count = ref 0
 
@@ -3702,7 +3702,7 @@ module SessionStubTests =
             ]
 
 
-    let compositionTests (newStore: unit -> StubDatabase.RecordStore) =
+    let compositionTests (newStore: unit -> StubDatabase.SessionStore) =
         testList
             "processLaunch, processCallback and processSession"
             [
@@ -4088,7 +4088,7 @@ module SessionStubTests =
         body.Substring(i, 6)
 
 
-    let enrolmentCompositionTests (newStore: unit -> StubDatabase.RecordStore) =
+    let enrolmentCompositionTests (newStore: unit -> StubDatabase.SessionStore) =
         testList
             "processCallback and processSession while enrolling (UC-2)"
             [
@@ -4284,7 +4284,7 @@ module SessionStubTests =
             ]
 
 
-    let signingCompositionTests (newStore: unit -> StubDatabase.RecordStore) =
+    let signingCompositionTests (newStore: unit -> StubDatabase.SessionStore) =
         /// The Session the cookie names, as the client holds it.
         let sessionOf env cookie =
             async {
@@ -4603,7 +4603,7 @@ module SessionStubTests =
 
     /// A computing member over the cookie: the request computes as before, and
     /// the reply carries what the Session is told.
-    let computeCompositionTests (newStore: unit -> StubDatabase.RecordStore) =
+    let computeCompositionTests (newStore: unit -> StubDatabase.SessionStore) =
         let settings =
             {
                 ServerSettings.Language = Shared.Localization.Dutch
@@ -4737,7 +4737,7 @@ module SessionStubTests =
 
 
     /// The four composition suites over the store `newStore` makes, a fresh one per port.
-    let compositionSuites name (newStore: unit -> StubDatabase.RecordStore) =
+    let compositionSuites name (newStore: unit -> StubDatabase.SessionStore) =
         testList
             name
             [
