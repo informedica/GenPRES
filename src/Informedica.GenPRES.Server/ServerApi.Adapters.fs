@@ -331,11 +331,17 @@ module Adapters =
                         // the demo logins get their credential in the file, once: the machine
                         // reads credentials from the rows now, so a seed only in memory would
                         // leave every seeded Prescriber without a PIN
-                        SqlSessions.seed
-                            cs
-                            DateTime.UtcNow
-                            (StubCredentials.seed System.Security.Cryptography.RandomNumberGenerator.GetBytes)
-                        |> ignore
+                        match
+                            SqlSessions.seed
+                                cs
+                                DateTime.UtcNow
+                                (StubCredentials.seed System.Security.Cryptography.RandomNumberGenerator.GetBytes)
+                        with
+                        | Session.StoreOutcome.Written -> ()
+                        // a demo whose seed did not land has no Prescriber who can sign, and
+                        // nothing later would say why: the start is refused instead
+                        | outcome ->
+                            invalidOp $"the session store could not be seeded with the demo credentials: %A{outcome}"
 
                         SqlSessions.makeSessionPort
                             (fun msg ->

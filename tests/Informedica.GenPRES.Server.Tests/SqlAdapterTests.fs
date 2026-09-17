@@ -569,6 +569,34 @@ let tests =
                     }
                 )
 
+            test "a seed that does not land refuses the start" {
+                // a migrated file that was never seeded, opened read-only: the migrations have
+                // nothing left to apply, so it is the seed that fails. Without the credentials
+                // no Prescriber could sign, and nothing later would say why
+                Informedica.GenPRES.Server.Tests.SqlSchemaTests.withDb (fun cs ->
+                    SqlSchema.apply cs |> ignore
+
+                    let readOnly =
+                        SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
+
+                    let directory = StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId
+                    let key = LaunchSeal.newKey Security.Cryptography.RandomNumberGenerator.GetBytes
+
+                    Expect.throwsT<InvalidOperationException>
+                        "the start is refused"
+                        (fun () ->
+                            Adapters.makeAppEnvWith
+                                true
+                                (Some readOnly)
+                                key
+                                directory
+                                (StubMail.make ()).port
+                                (unloadedProvider ())
+                            |> ignore
+                        )
+                )
+            }
+
             test "makeAppEnvWith without a connection string keeps the record in memory" {
                 let directory = StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId
                 let key = LaunchSeal.newKey Security.Cryptography.RandomNumberGenerator.GetBytes

@@ -1066,7 +1066,9 @@ module SqlSessions =
     /// other attempt of the person it names, that person's live code and their credential.
     let withEnrolment (conn: SqliteConnection) (now: DateTime) (attempt: string) (state: Session.State) =
         match loadEnrolments conn "attempt" attempt |> List.tryHead with
-        | None -> state
+        // the rows are what stands here too: an attempt another server dropped is gone, and
+        // must not be continued from what this server still held for it
+        | None -> { state with Enrolments = state.Enrolments |> Map.remove attempt }
         | Some e ->
             let attempts = loadEnrolments conn "user" e.UserId
 

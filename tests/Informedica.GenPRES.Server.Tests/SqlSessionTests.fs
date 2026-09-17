@@ -1370,6 +1370,17 @@ let credentialLoadTests =
                     SqlSessions.withEnrolment conn t0 "a-1" emptyState
                     |> fun s -> s.Enrolments |> Expect.isEmpty "nothing to continue"
 
+                    // and a server that still held it does not continue it either: an attempt
+                    // another server dropped is gone, whatever this one has in memory
+                    let held =
+                        { emptyState with Enrolments = Map.ofList [ "a-1", enrolmentOf "a-1" "no-pin" ] }
+
+                    SqlSessions.withEnrolment conn t0 "a-1" held
+                    |> fun s ->
+                        s.Enrolments
+                        |> Map.containsKey "a-1"
+                        |> Expect.isFalse "the attempt it held is gone"
+
                     SqlSessions.loadEnrolments conn "user" "no-pin"
                     |> List.length
                     |> Expect.equal "the other attempt still stands" 1
