@@ -1,5 +1,4 @@
-/// The nutrition rule sets the server owns: one per category, the values the nutrition
-/// service still holds, the label the client shows.
+/// The nutrition rule sets the server owns: one per category, the label the client shows.
 module Informedica.GenPRES.Server.Tests.NutritionRuleSetsTests
 
 open Expecto
@@ -18,7 +17,7 @@ let categories =
     ]
 
 
-/// The contract model's category, for the service's copy and the client's label.
+/// The contract model's category, for the client's label.
 let sharedCategory category =
     match category with
     | NutritionCategory.EnteralFeeding -> Shared.Types.NutritionCategory.EnteralFeeding
@@ -26,11 +25,6 @@ let sharedCategory category =
     | NutritionCategory.TPN -> Shared.Types.NutritionCategory.TPN
     | NutritionCategory.Lipid -> Shared.Types.NutritionCategory.Lipid
     | NutritionCategory.ElectrolyteGlucose -> Shared.Types.NutritionCategory.ElectrolyteGlucose
-
-
-/// The service's copy of a category, until step 4.3 removes it.
-let serviceCopy category =
-    category |> sharedCategory |> ServerApi.NutritionPlanService.getDoseRuleSet
 
 
 [<Tests>]
@@ -50,16 +44,6 @@ let tests =
                     |> NutritionRuleSet.tryFind category
                     |> Option.map _.Category
                     |> Expect.equal $"{category} found" (Some category)
-            }
-
-            test "each set says what the service's copy says" {
-                for category in categories do
-                    let set = NutritionRuleSets.all |> NutritionRuleSet.tryFind category |> Option.get
-                    let copy = serviceCopy category
-                    set.Label |> Expect.equal $"{category} label" copy.Label
-                    set.Indications |> Expect.equal $"{category} indications" copy.Indications
-                    set.Generics |> Expect.equal $"{category} generics" copy.Generics
-                    copy.DoseTypes |> Expect.isEmpty $"{category}: no dose types to carry"
             }
 
             test "each label is the one the client shows for the category" {
