@@ -84,7 +84,10 @@ engine is still to be chosen ([#516](https://github.com/informedica/GenPRES/issu
 - The notice at the next launch, and the acknowledgement only A can give (Rule 11;
   [session-endings](session-endings.md)).
 - The carry-over of unsigned work into a relaunched tab ([#518](https://github.com/informedica/GenPRES/issues/518)).
-- The audit of the refusal (Rule 46).
+- The audit of a Session superseded by a newer launch, and of the refusal it is told (Rule 46).
+  A close and the PIN limit are audited on the SQLite store, since each writes an ending; a
+  supersession writes none — the newer Session is what tells it — so there is nothing to audit
+  it from.
 - An upgrade that serves open Sessions by the version they opened on: one version runs.
 
 ---

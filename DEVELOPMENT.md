@@ -202,14 +202,22 @@ development database ([ADR-0007](docs/adr/0007-session-persistence.md) § 2 and 
 came to, the Sessions with what they opened with and their endings, the credentials, the
 confirmation codes, the enrolment attempts, the signed order plan versions, and what a Session
 holds in flight — the data notice it was told, the signing challenge it answers, and the answer
-a Submission was given, so that the same one is answered once however many servers run.
+a Submission was given, so that a Submission sent twice is answered from the row the first one
+wrote, whichever server takes the repeat. Two servers given the same Submission at once are a
+different thing: neither sees the other's answer until one of them has committed, so one signs
+and the other is refused as stale. Sending it twice is safe; sending it twice at once is a race
+the store decides, not a guarantee it removes.
 
-Every act is written to an audit table beside them, in the same transaction as the act itself: a
-launch and what it came to, an open, a Session ended, an order plan version signed and a
-signature refused, a PIN set, a code mailed or entered wrongly, a challenge issued and a version
-opened. Nothing is ever deleted — not a heartbeat, not a spent challenge, not an audit entry. A
-row past its lifetime loads as absent rather than being dropped, so the file only grows; to
-start from nothing, delete it (step 5 below).
+The acts that write something are audited beside them, in the same transaction as the act
+itself: a launch and what it came to, an open, a Session closed or ended at the PIN limit, an
+order plan version signed and a signature refused, a PIN set, a code mailed or entered wrongly,
+a challenge issued, a notice told and a version opened. An act with nothing to write has nothing
+to audit, and a Session superseded by a newer launch is one: no row says it ended, since the
+newer Session is what tells it, so no entry does either.
+
+Nothing is ever deleted — not a heartbeat, not a spent challenge, not an audit entry. A row past
+its lifetime loads as absent rather than being dropped, so the file only grows; to start from
+nothing, delete it (step 7 below).
 
 The demo credentials are written to the file at start-up, once per login: a login that already
 has one is left alone, so a PIN a User set is never replaced by the seeded `1234`.
@@ -226,8 +234,10 @@ has one is left alone, so a PIN a User set is never replaced by the seeded `1234
    launch `no-pin` again: the Session opens directly, on the PIN you chose. Three wrong PINs at
    a signature survive a restart too, lock and all.
 5. Press **Ondertekenen**, and with the PIN dialog open stop and start the server; then enter
-   the PIN. The signature goes through: the challenge it answers was written to the file when it
-   was issued.
+   the PIN, **within two minutes of pressing the button**. The signature goes through: the
+   challenge it answers was written to the file when it was issued. A challenge lives two
+   minutes whatever happens to the server, so a slower restart leaves it past its lifetime, the
+   store loads it as absent, and the signature is refused and asked again.
 6. Read what was done: `sqlite3 data/db/genpres.db "select at, action, outcome, session_id,
    actor from audit_entry order by id"`.
 7. To start from nothing, stop the server and delete `data/db/genpres.db`.
