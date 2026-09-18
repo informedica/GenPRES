@@ -1,5 +1,5 @@
 ---
-last_commit_released: 2b354af1e3d5b43113c71b4b7ba76dfa47a111b9
+last_commit_released: f57dfab229f71b443604d89bf84e11b8629abaea
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,106 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.26 - 2026-09-18
+
+### 🚀 Features
+
+* *(server)* Add the SQL migration runner ([889bc4c9](https://github.com/informedica/GenPRES/commit/889bc4c9a53ded2d6c023db29bf04ccb1eefddb6))
+
+    The session store's SQLite migration runner: numbered SQL scripts
+    embedded in the server, each applied once, in order, in a transaction
+    with its schema_version row. Not wired into the server yet.
+* *(server)* Add the order plan record on SQLite ([3700c5f4](https://github.com/informedica/GenPRES/commit/3700c5f411c3862522e758646f9e59bb808c2493))
+
+    The order plan record on SQLite: a patient's signed order plan
+    versions loaded newest first and a signature's version inserted, the
+    plan as canonical JSON under a JSON structure version. A row the
+    release cannot read is kept as an unreadable entry with its identity
+    and reason; a second version with the same number is a conflict. Not
+    wired into the server yet.
+* *(server)* Run the session port over a record store ([c16558c1](https://github.com/informedica/GenPRES/commit/c16558c1e9a43392464dbe3b3f5ee088def3d4d7))
+
+    The session port runs over a record store: in memory as before, or
+    the order plan record on SQLite, loaded per request and written by a
+    signature. A record that cannot be loaded is answered as a store
+    failure when signing. Not wired into the server yet.
+* *(server)* Keep the order plan record in SQLite when set ([7d11d3f9](https://github.com/informedica/GenPRES/commit/7d11d3f9e4076f11fcc5a092af1eae41f5039007))
+
+    The signed order plan versions can survive a restart in test and
+    development: set GENPRES_DB_CONNECTION to a SQLite connection string,
+    for example Data Source=data/db/genpres.db. Sessions, launches and
+    credentials still live in memory. Production refuses to start with the
+    setting.
+* *(server)* Run a request's writes as a list ([8f5b61b1](https://github.com/informedica/GenPRES/commit/8f5b61b12212300abbd36776821b114790eaae59))
+* *(server)* Every member returns the writes of its request ([b8609e62](https://github.com/informedica/GenPRES/commit/b8609e62a999bd292a681c0760159c51ede1f9b2))
+* *(server)* Split callback into redeem and open ([b010eef5](https://github.com/informedica/GenPRES/commit/b010eef5d69050f533b938774a61222713ff431e))
+* *(server)* Load a Launch from the session store ([e9ee8431](https://github.com/informedica/GenPRES/commit/e9ee843101695e31c612243601652836ac65fdfe))
+
+    The session store on SQLite can read a Launch back from its rows.
+* *(server)* Load a Session from the session store ([119e83d6](https://github.com/informedica/GenPRES/commit/119e83d60887a52051e3dcd3379af6fea2c39605))
+
+    The session store on SQLite can read a Session back from its rows.
+* *(server)* Write a request's session rows in one transaction ([503340b3](https://github.com/informedica/GenPRES/commit/503340b34d119b025ab79193a60600f3d0e46f41))
+
+    The session store on SQLite writes what a request did as one transaction.
+* *(server)* Read the rows a request can touch into its state ([53d12600](https://github.com/informedica/GenPRES/commit/53d12600bbf54ea8ff33b9ab8fecc2975c8ab345))
+
+    The session store on SQLite reads back the rows a request works on.
+* *(server)* The port loads the rows a request can touch ([a3678df4](https://github.com/informedica/GenPRES/commit/a3678df4d74f2eb9e798e30675471b8952749e06))
+
+    Sessions, launches and their endings survive a restart of the server on
+    the SQLite store, and a second server sees them.
+* *(server)* No mail leaves before the writes that earned it land ([ae130081](https://github.com/informedica/GenPRES/commit/ae130081ff8778e970bdf5ef06e6ddcc87a50973))
+
+    A request whose writes the session store refuses no longer sends mail.
+* *(server)* The machine returns its credential, code and enrolment writes ([6e26206a](https://github.com/informedica/GenPRES/commit/6e26206a096436097805faa66510a7b8884cc104))
+
+    The session store keeps what a PIN, a confirmation code and an enrolment
+    attempt did.
+* *(server)* A credential, a code and an attempt are read from the store ([84bb370d](https://github.com/informedica/GenPRES/commit/84bb370d7c2bb0a0fb278a386578022e8b286f48))
+
+    A PIN set by enrolment, and the wrong-PIN count that guards signing,
+    survive a restart of the server.
+* *(server)* The machine returns what a Session holds in flight ([44e00933](https://github.com/informedica/GenPRES/commit/44e00933ad295f7cc5c6b58ea0c25a6ab4189159))
+
+    The session store keeps the signing challenge a Session holds and the
+    answer a Submission was given.
+* *(server)* A Session reads back the notice, the challenge and the answer it was given ([2ed459a8](https://github.com/informedica/GenPRES/commit/2ed459a8685674a0ee203238193052916b33f118))
+
+    A signing challenge and the answer a Submission was given survive a
+    restart of the server, and a second server reads them.
+* *(server)* Audit what a request did, with the writes it did it by ([e1a95d23](https://github.com/informedica/GenPRES/commit/e1a95d2343050b85d228b500830986708aeb7253))
+
+    Every act of a Session — a launch and what it came to, an open, a
+    signature and its refusals, a PIN set, a code mailed or entered wrongly,
+    and the end of a Session — is now written to the audit table of the
+    SQLite session store, in the same transaction as the act itself. A
+    request that fails leaves no audit entry behind.
+
+### 🐞 Bug Fixes
+
+* *(genorder)* Write every DateTime in the canonical form as UTC ([72176c29](https://github.com/informedica/GenPRES/commit/72176c296b81105504b0847e2a618a36b81eee3e))
+* *(server)* Keep malformed order plan rows as unreadable ([3178d810](https://github.com/informedica/GenPRES/commit/3178d810bd1ec92d6041fa71a53d1c07ea69bbbd))
+* *(server)* A stored Role word this release does not know is no Role ([c52cd321](https://github.com/informedica/GenPRES/commit/c52cd3218773acd316e6ae63066a7e78c39c0d5c))
+* *(server)* An ended Session never loads back open ([22bb3383](https://github.com/informedica/GenPRES/commit/22bb33830a3e6eb960b4b0b22d8a54efb6f08c72))
+* *(server)* A database that cannot be reached fails the writes, not the request ([7943365a](https://github.com/informedica/GenPRES/commit/7943365a4ed315d6ba4c19a0920502f830035c13))
+* *(server)* What a load reads is what the state holds after it ([d17a8a8c](https://github.com/informedica/GenPRES/commit/d17a8a8ca15d879bcc4a40fa57118c19aade228b))
+* *(server)* A request with no rows to read never opens the database ([4cadfd0d](https://github.com/informedica/GenPRES/commit/4cadfd0dc36ac71683e4431901cb8a22cfb4f7ee))
+* *(server)* Every mail a request earned is sent, not only a sign's ([2589cbb8](https://github.com/informedica/GenPRES/commit/2589cbb82b37acee20f8c95a12cd330f598fa246))
+* *(server)* A try and a spending name the code the request read ([9ea2ade5](https://github.com/informedica/GenPRES/commit/9ea2ade50a588a7ef77858af8037961da12ff748))
+* *(server)* An attempt another server dropped is gone, and a seed that fails refuses the start ([3b00ea5b](https://github.com/informedica/GenPRES/commit/3b00ea5bd63d464710c69b9eaede8c271d963231))
+* *(server)* A store that cannot be prepared refuses the start, it does not crash ([30be51b1](https://github.com/informedica/GenPRES/commit/30be51b17a2cc5a464056fc1885bb3eec5bdf15e))
+* *(server)* The seed asks and writes in one statement ([77f1d57e](https://github.com/informedica/GenPRES/commit/77f1d57edb0cc577ca0f2d5e2f573b9fb9369bdb))
+* *(server)* The newest row is the only candidate, for a challenge as for a code ([0fd53687](https://github.com/informedica/GenPRES/commit/0fd53687f1df479cb595cba9851b583b33216a69))
+* *(server)* Audit the request, not the write alone ([59079962](https://github.com/informedica/GenPRES/commit/590799629945b261bdc2ccd3d65f2e4b7734fe87))
+
+    The audit of the SQLite session store now records a challenge issued, a
+    notice told and a version opened, records an open once rather than twice,
+    times a launch by the request that made it, and names the Session and the
+    person on every entry of a request that knows them.
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/2b354af1e3d5b43113c71b4b7ba76dfa47a111b9..f57dfab229f71b443604d89bf84e11b8629abaea)</small></strong>
 
 ## 0.1.2-alpha.25 - 2026-09-17
 
