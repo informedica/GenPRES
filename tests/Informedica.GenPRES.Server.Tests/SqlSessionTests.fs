@@ -1270,3 +1270,194 @@ let credentialWriteTests =
                 )
             }
         ]
+
+
+[<Tests>]
+let credentialLoadTests =
+    testList
+        "the credential, code and enrolment rows a request reads"
+        [
+            test "a credential is its newest event, and a person without one has none" {
+                withSessions (fun cs ->
+                    use conn = connect cs
+                    SqlSessions.loadCredential conn "no-pin" |> Expect.isNone "never enrolled"
+
+                    let withPin = credentialOf "1234"
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteCredential("prescriber", "pin-set", withPin, t0)
+                            Session.WriteCredential(
+                                "prescriber",
+                                "wrong",
+                                { withPin with WrongCount = 1 },
+                                t0.AddMinutes 1.0
+                            )
+                        ]
+                    |> ignore
+
+                    match SqlSessions.loadCredential conn "prescriber" with
+                    | Some c ->
+                        c.WrongCount |> Expect.equal "the count of the newest event" 1
+                        PinHash.verify "1234" c.PinHash.Value |> Expect.isTrue "the PIN it still holds"
+                    | None -> failtest "expected the credential"
+                )
+            }
+
+            test "the live code is the newest unspent one, with its tries counted" {
+                withSessions (fun cs ->
+                    let mac = [| 7uy |]
+                    use conn = connect cs
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteCode(pendingOf "no-pin" mac, t0)
+                            Session.CountCodeTry("no-pin", mac, t0)
+                        ]
+                    |> ignore
+
+                    SqlSessions.loadCode conn t0 "no-pin"
+                    |> Option.map _.Tries
+                    |> Expect.equal "the wrong code counted" (Some 1)
+
+                    SqlSessions.loadCode conn (t0.AddMinutes 16.0) "no-pin"
+                    |> Expect.isNone "past its fifteen minutes it is no code"
+
+                    SqlSessions.runWrites cs [ Session.SpendCode("no-pin", mac, t0) ] |> ignore
+
+                    SqlSessions.loadCode conn t0 "no-pin"
+                    |> Expect.isNone "spent, and never an older one in its place"
+                )
+            }
+
+            test "an attempt brings its person's other attempts, their code and their credential" {
+                withSessions (fun cs ->
+                    let mac = [| 8uy |]
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteCode(pendingOf "no-pin" mac, t0)
+                            Session.WriteEnrolment(enrolmentOf "a-1" "no-pin", t0)
+                            Session.WriteEnrolment(enrolmentOf "a-2" "no-pin", t0)
+                            Session.WriteEnrolment(enrolmentOf "a-3" "someone-else", t0)
+                            Session.WriteCredential("no-pin", "seeded", Credential.empty, t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+                    let state = SqlSessions.withEnrolment conn t0 "a-1" emptyState
+
+                    state.Enrolments
+                    |> Map.toList
+                    |> List.map fst
+                    |> List.sort
+                    |> Expect.equal "both attempts of that person, and no other's" [ "a-1"; "a-2" ]
+
+                    state.Codes
+                    |> Map.containsKey "no-pin"
+                    |> Expect.isTrue "the code they are bound to"
+
+                    state.Credentials
+                    |> Map.containsKey "no-pin"
+                    |> Expect.isTrue "and the credential the PIN will be set on"
+
+                    // the attempt given up is not found again
+                    SqlSessions.runWrites cs [ Session.DropEnrolmentWrite("a-1", t0) ] |> ignore
+
+                    SqlSessions.withEnrolment conn t0 "a-1" emptyState
+                    |> fun s -> s.Enrolments |> Expect.isEmpty "nothing to continue"
+
+                    // and a server that still held it does not continue it either: an attempt
+                    // another server dropped is gone, whatever this one has in memory
+                    let held =
+                        { emptyState with Enrolments = Map.ofList [ "a-1", enrolmentOf "a-1" "no-pin" ] }
+
+                    SqlSessions.withEnrolment conn t0 "a-1" held
+                    |> fun s ->
+                        s.Enrolments
+                        |> Map.containsKey "a-1"
+                        |> Expect.isFalse "the attempt it held is gone"
+
+                    SqlSessions.loadEnrolments conn "user" "no-pin"
+                    |> List.length
+                    |> Expect.equal "the other attempt still stands" 1
+                )
+            }
+
+            test "a Session brings the credential of the person it belongs to" {
+                withSessions (fun cs ->
+                    let session = sessionOf "s-1" "prescriber" None None
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.OpenSession("s-1", session)
+                            Session.RecordOpenedWith("s-1", session, t0)
+                            Session.WriteCredential("user-1", "seeded", credentialOf "1234", t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+                    let _, warn = warnings ()
+                    let state = SqlSessions.withSession warn cs conn t0 "s-1" emptyState
+
+                    match state.Credentials |> Map.tryFind "user-1" with
+                    | Some c -> PinHash.verify "1234" c.PinHash.Value |> Expect.isTrue "the PIN it signs with"
+                    | None -> failtest "expected the credential of the signer"
+                )
+            }
+
+            test "the seed writes a login once, and never over a PIN the User set" {
+                withSessions (fun cs ->
+                    let seeded = StubCredentials.seed (fun n -> Array.init n byte)
+
+                    SqlSessions.seed cs t0 seeded
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    let rows () =
+                        count cs "select count(*) from credential_event"
+
+                    let first = rows ()
+                    first |> Expect.equal "one row per seeded login" (int64 seeded.Count)
+
+                    // the User changes their PIN, and the server is started again
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteCredential("prescriber", "pin-set", credentialOf "9999", t0)
+                        ]
+                    |> ignore
+
+                    SqlSessions.seed cs t0 seeded |> ignore
+                    rows () |> Expect.equal "the second start adds nothing" (first + 1L)
+
+                    // the PIN was set while this start was seeding: the seed asks and writes in
+                    // one statement, so the demo PIN cannot land after it and become the newest
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteCredential("no-pin", "pin-set", credentialOf "5555", t0)
+                        ]
+                    |> ignore
+
+                    SqlSessions.seed cs t0 seeded |> ignore
+
+                    use conn = connect cs
+
+                    match SqlSessions.loadCredential conn "no-pin" with
+                    | Some c ->
+                        PinHash.verify "5555" c.PinHash.Value
+                        |> Expect.isTrue "the PIN they enrolled with"
+                    | None -> failtest "expected the credential"
+
+                    match SqlSessions.loadCredential conn "prescriber" with
+                    | Some c ->
+                        PinHash.verify "9999" c.PinHash.Value |> Expect.isTrue "the PIN they set"
+                        PinHash.verify "1234" c.PinHash.Value |> Expect.isFalse "not the seeded one"
+                    | None -> failtest "expected the credential"
+                )
+            }
+        ]
