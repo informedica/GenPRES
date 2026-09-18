@@ -1,6 +1,11 @@
 -- Migration 4 (plan 516 step 8): what a Session has in flight — the data notice it was told,
 -- the signing challenge it holds, and the answer a Submission was given. Append-only like the
 -- rest; all three live minutes and are dropped whole, never kept as unreadable entries.
+--
+-- Nothing drops them yet: a lifetime is read at load, so a row past it is already absent to
+-- every request, but it stays on disk until the sweep that removes these three tables and the
+-- launch rows exists (#516). The sweep is a statement of its own, never part of a request's
+-- transaction, and never touches the session, credential or order_plan rows, which are kept.
 
 -- Rule 44. The notice that the patient data could not be verified, one per Session, for two
 -- minutes. The reading is the patient as the platform gave it, stored as its Dto under a
