@@ -883,3 +883,81 @@ let compositionOverSqlite =
                 minted |> Seq.filter File.Exists |> Seq.isEmpty |> Expect.isTrue "no file left"
             }
         ]
+
+
+[<Tests>]
+let flightOverSqlite =
+    testList
+        "what a Session holds in flight, over SQLite"
+        [
+            testOnFile
+                "a challenge outlives the server that issued it, and is answered once"
+                (fun cs ->
+                    async {
+                        let port, directory, _ = portOn cs
+                        let! sid, opened = openAs port directory "n-1" "prescriber"
+                        let! signature = challenged port sid opened "k-1"
+
+                        // another server, which knows nothing but the rows: the challenge the
+                        // first one issued is the one this signature answers
+                        let next, _, _ = portOn cs
+                        let! answer = next.submit sid signature
+                        answer |> noOf |> Expect.equal "order plan version 1" (Some 1)
+
+                        // and the same Submission again, on a third server: answered once, from
+                        // the row. What comes back is the version as the store holds it —
+                        // rebuilt from its Dto, so equal in identity and in stored form rather
+                        // than the same value the first answer carried
+                        let third, _, _ = portOn cs
+                        let! again = third.submit sid signature
+
+                        again
+                        |> submittedId
+                        |> Expect.equal "the version it signed before" (submittedId answer)
+
+                        let canonical outcome =
+                            match outcome with
+                            | SigningOutcome.Submitted(v, token) -> SqlDatabase.toJson v, token
+                            | other -> failtest $"expected Submitted, got %A{other}"
+
+                        canonical again
+                        |> Expect.equal "the same version and the same token" (canonical answer)
+
+                        rows cs |> Expect.equal "one row in the record" 1L
+                    }
+                )
+
+            testOnFile
+                "a challenge spent by a signature is not answered a second time"
+                (fun cs ->
+                    async {
+                        let port, directory, _ = portOn cs
+                        let! sid, opened = openAs port directory "n-1" "prescriber"
+                        let! signature = challenged port sid opened "k-1"
+                        let! signed = port.submit sid signature
+
+                        let token =
+                            match signed with
+                            | SigningOutcome.Submitted(_, token) -> token
+                            | other -> failtest $"expected Submitted, got %A{other}"
+
+                        // the same challenge under a new key, and the token the signature
+                        // minted, so that it is the challenge and not the token that refuses
+                        let next, _, _ = portOn cs
+
+                        let! again =
+                            next.submit
+                                sid
+                                { signature with
+                                    IdemKey = "k-2"
+                                    Opened = token
+                                }
+
+                        match again with
+                        | SigningOutcome.Refused SigningRefusal.ChallengeExpired -> ()
+                        | other -> failtest $"expected the challenge spent, got %A{other}"
+
+                        rows cs |> Expect.equal "still one row in the record" 1L
+                    }
+                )
+        ]

@@ -1648,3 +1648,82 @@ let flightWriteTests =
                 )
             }
         ]
+
+
+[<Tests>]
+let newestOnlyTests =
+    testList
+        "the newest row is the only candidate"
+        [
+            test "a challenge another replaced does not come back when the newer one is spent" {
+                withSessions (fun cs ->
+                    withOpenSession cs
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteChallenge("s-1", challengeOf "c-1", t0)
+                            Session.WriteChallenge("s-1", challengeOf "c-2", t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+
+                    match SqlSessions.loadChallenge conn t0 "s-1" with
+                    | Some(Ok c) -> c.Nonce |> Expect.equal "the newer one" "c-2"
+                    | other -> failtest $"expected the newer challenge, got %A{other}"
+
+                    // the data changed, so the newer challenge is spent: the Session has no
+                    // challenge at all, and not the one that was replaced before it
+                    SqlSessions.runWrites cs [ Session.SpendChallenge("s-1", "c-2", t0) ] |> ignore
+
+                    SqlSessions.loadChallenge conn t0 "s-1"
+                    |> Expect.isNone "no challenge, and never the replaced one"
+                )
+            }
+
+            test "a code another replaced does not come back when the newer one is spent" {
+                withSessions (fun cs ->
+                    let first = [| 1uy |]
+                    let second = [| 2uy |]
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteCode(pendingOf "no-pin" first, t0)
+                            Session.WriteCode(pendingOf "no-pin" second, t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+
+                    SqlSessions.loadCode conn t0 "no-pin"
+                    |> Option.map _.CodeMac
+                    |> Expect.equal "the code that was mailed last" (Some second)
+
+                    SqlSessions.runWrites cs [ Session.SpendCode("no-pin", second, t0) ] |> ignore
+
+                    SqlSessions.loadCode conn t0 "no-pin"
+                    |> Expect.isNone "no code, and never the one it replaced"
+                )
+            }
+
+            test "the newest challenge past its lifetime is no challenge, not an older one" {
+                withSessions (fun cs ->
+                    withOpenSession cs
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteChallenge("s-1", challengeOf "c-1", t0)
+                            Session.WriteChallenge("s-1", challengeOf "c-2", t0)
+                        ]
+                    |> ignore
+
+                    use conn = connect cs
+
+                    SqlSessions.loadChallenge conn (t0.AddMinutes 3.0) "s-1"
+                    |> Expect.isNone "both are past it, and the older is no fallback"
+                )
+            }
+        ]

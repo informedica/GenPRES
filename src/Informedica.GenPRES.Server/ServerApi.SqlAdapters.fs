@@ -1103,31 +1103,36 @@ module SqlSessions =
         |> List.tryHead
 
 
-    /// The live confirmation code of a person: the newest row that is neither spent nor past
-    /// its lifetime, with its wrong tries counted. Never an older code in place of a spent one.
+    /// <summary>
+    /// The live confirmation code of a person: the newest row, and only that row, with its
+    /// wrong tries counted. It is the code unless it is spent or past its lifetime, in which
+    /// case the person has none — never an older code in place of the one that was mailed last.
+    /// </summary>
     let loadCode (conn: SqliteConnection) (now: DateTime) (userId: string) =
         rows
             conn
             """
             select c.id, c.mail_address, c.code_mac, c.expiry,
-                   (select count(*) from code_try t where t.code_id = c.id)
+                   (select count(*) from code_try t where t.code_id = c.id),
+                   exists (select 1 from code_spent s where s.code_id = c.id)
             from confirmation_code c
-            where c.user_id = $u and not exists (select 1 from code_spent s where s.code_id = c.id)
+            where c.user_id = $u
             order by c.id desc limit 1
             """
             [ ("$u", box userId) ]
             (fun r ->
-                {
+                r.GetInt64 5 = 1L,
+                ({
                     UserId = userId
                     MailAddress = r.GetString 1
                     CodeMac = r.GetFieldValue<byte[]> 2
                     Expiry = at (r.GetInt64 3)
                     Tries = r.GetInt32 4
                 }
-                : Session.PendingCode
+                : Session.PendingCode)
             )
         |> List.tryHead
-        |> Option.filter (fun code -> now <= code.Expiry)
+        |> Option.bind (fun (spent, code) -> if spent || now > code.Expiry then None else Some code)
 
 
     /// An enrolment attempt that was not given up, and every undropped attempt of the person it
@@ -1184,6 +1189,150 @@ module SqlSessions =
         match loadCredential conn userId with
         | None -> { state with Credentials = state.Credentials |> Map.remove userId }
         | Some c -> { state with Credentials = state.Credentials |> Map.add userId c }
+
+
+    // ---- what a Session holds in flight -------------------------------------------------------
+
+    /// The live data notice of a Session: the newest row within its two minutes. A reading this
+    /// release cannot read makes the Session unreadable, as an opened-with does.
+    let loadNotice (conn: SqliteConnection) (now: DateTime) (sid: string) =
+        rows
+            conn
+            """
+            select nonce, json_version, data, expiry
+            from data_notice where session_id = $sid order by id desc limit 1
+            """
+            [ ("$sid", box sid) ]
+            (fun r ->
+                let data =
+                    match r.IsDBNull 1, r.IsDBNull 2 with
+                    | false, false -> readPatient (r.GetInt32 1) (r.GetString 2) |> Result.map Some
+                    | _ -> Ok None
+
+                data
+                |> Result.map (fun data ->
+                    {
+                        Nonce = r.GetString 0
+                        Data = data
+                        Expiry = at (r.GetInt64 3)
+                    }
+                    : Session.Notice
+                )
+            )
+        |> List.tryHead
+        |> Option.filter (fun notice ->
+            match notice with
+            | Ok n -> now <= n.Expiry
+            // an unreadable row is answered whatever its lifetime says: the Session ends on it
+            | Error _ -> true
+        )
+
+
+    /// The live challenge of a Session: the newest row that is neither spent nor past its
+    /// lifetime.
+    let loadChallenge (conn: SqliteConnection) (now: DateTime) (sid: string) =
+        rows
+            conn
+            """
+            select c.nonce, c.digest, c.json_version, c.reading, c.expiry,
+                   exists (select 1 from challenge_spent s where s.challenge_id = c.id)
+            from challenge c
+            where c.session_id = $sid
+            order by c.id desc limit 1
+            """
+            [ ("$sid", box sid) ]
+            (fun r ->
+                let reading =
+                    match r.IsDBNull 2, r.IsDBNull 3 with
+                    | false, false -> readPatient (r.GetInt32 2) (r.GetString 3) |> Result.map Some
+                    | _ -> Ok None
+
+                let spent = r.GetInt64 5 = 1L
+
+                reading
+                |> Result.map (fun reading ->
+                    spent,
+                    ({
+                        Nonce = r.GetString 0
+                        Digest = r.GetString 1
+                        Reading = reading
+                        Expiry = at (r.GetInt64 4)
+                    }
+                    : Session.Challenge)
+                )
+            )
+        |> List.tryHead
+        |> Option.bind (fun challenge ->
+            match challenge with
+            | Ok(spent, c) -> if spent || now > c.Expiry then None else Some(Ok c)
+            // a row this release cannot read ends the Session, whatever became of it
+            | Error reason -> Some(Error reason)
+        )
+
+
+    /// The signing refusal a stored word names, with what the row kept beside it. `headOf`
+    /// rebuilds the head that blocked from the record the caller loaded.
+    let signingRefusalOf (headOf: string -> StoredVersion option) (word: string) versionId left until =
+        match word with
+        | "no-session" -> Some SigningRefusal.NoSession
+        | "no-patient" -> Some SigningRefusal.NoPatient
+        | "not-prescriber" -> Some SigningRefusal.NotPrescriber
+        | "blocked" ->
+            versionId
+            |> Option.bind headOf
+            |> Option.map (StoredVersion.head >> SigningRefusal.Blocked)
+        | "stale-token" -> Some SigningRefusal.StaleToken
+        | "challenge-mismatch" -> Some SigningRefusal.ChallengeMismatch
+        | "challenge-expired" -> Some SigningRefusal.ChallengeExpired
+        | "pin-wrong" -> left |> Option.map SigningRefusal.PinWrong
+        | "pin-limit" -> Some SigningRefusal.PinLimit
+        | "locked" -> until |> Option.map SigningRefusal.Locked
+        | "store-failed" -> Some SigningRefusal.StoreFailed
+        | "plan-unreadable" -> Some SigningRefusal.PlanUnreadable
+        | _ -> None
+
+
+    /// What the Submission under this key was answered, when it was answered at all. A row the
+    /// release cannot rebuild — an answer word it does not know, or a version that is gone —
+    /// is no answer, and the Submission is run again, which a signature may do.
+    let loadAnswer
+        (conn: SqliteConnection)
+        (headOf: string -> StoredVersion option)
+        (sid: string)
+        (key: string)
+        : (SigningOutcome * DateTime) option
+        =
+        rows
+            conn
+            """
+            select answer, version_id, opened_token, attempts_left, locked_until, at
+            from submission_answer where session_id = $sid and idem_key = $k
+            """
+            [ ("$sid", box sid); ("$k", box key) ]
+            (fun r ->
+                let word = r.GetString 0
+                let versionId = textOrNull r 1
+                let token = textOrNull r 2
+                let left = if r.IsDBNull 3 then None else Some(r.GetInt32 3)
+                let until = if r.IsDBNull 4 then None else Some(at (r.GetInt64 4))
+                let answeredAt = at (r.GetInt64 5)
+
+                let outcome =
+                    if word = "submitted" then
+                        match versionId |> Option.bind headOf, token with
+                        | Some(StoredVersion.Readable v), Some t -> Some(SigningOutcome.Submitted(v, OpenedToken t))
+                        // the version it names cannot be read: there is no answer to repeat
+                        | _ -> None
+                    elif word.StartsWith "refused:" then
+                        signingRefusalOf headOf (word.Substring "refused:".Length) versionId left until
+                        |> Option.map SigningOutcome.Refused
+                    else
+                        None
+
+                outcome |> Option.map (fun outcome -> outcome, answeredAt)
+            )
+        |> List.tryHead
+        |> Option.flatten
 
 
     // ---- the rows a request can touch -------------------------------------------------------
@@ -1260,11 +1409,39 @@ module SqlSessions =
             { state with Endings = state.Endings |> Map.add sid (SessionEnding.Unreadable, now) }
         | Some(Choice1Of2(Ok session)) ->
             { state with Sessions = state.Sessions |> Map.add sid session }
+            // what it holds in flight, read the same way: a notice or a challenge this
+            // release cannot read ends the Session, as an opened-with does
+            let inFlight (state: Session.State) =
+                match loadNotice conn now sid, loadChallenge conn now sid with
+                | Some(Error reason), _
+                | _, Some(Error reason) ->
+                    warn $"the Session %s{sid} cannot be read and ends: %s{reason}"
+
+                    { state with
+                        Sessions = state.Sessions |> Map.remove sid
+                        Endings = state.Endings |> Map.add sid (SessionEnding.Unreadable, now)
+                    }
+                | notice, challenge ->
+                    { state with
+                        Notices =
+                            notice
+                            |> Option.bind Result.toOption
+                            |> Option.map (fun n -> state.Notices |> Map.add sid n)
+                            |> Option.defaultValue (state.Notices |> Map.remove sid)
+                        Challenges =
+                            challenge
+                            |> Option.bind Result.toOption
+                            |> Option.map (fun c -> state.Challenges |> Map.add sid c)
+                            |> Option.defaultValue (state.Challenges |> Map.remove sid)
+                    }
+
+            { state with Sessions = state.Sessions |> Map.add sid session }
             // the credential of the person it belongs to, which its next signature is checked
             // against, and which the wrong-PIN count and the lock live on
             |> match session.Opened.User with
                | Some user -> withCredential conn user.UserId
                | None -> id
+            |> inFlight
 
 
     /// The id of the newest Session of a login, whatever became of it: the row the loader
@@ -1422,6 +1599,21 @@ module SqlSessions =
             withConnection (fun conn -> withLaunch warn cs conn (now ()) "state" value state)
         | StubDatabase.Slice.Login login -> withConnection (fun conn -> withLogin warn cs conn (now ()) login state)
         | StubDatabase.Slice.Session sid -> withConnection (fun conn -> withSession warn cs conn (now ()) sid state)
+        | StubDatabase.Slice.Submission(sid, key) ->
+            withConnection (fun conn ->
+                let state = withSession warn cs conn (now ()) sid state
+
+                let headOf id =
+                    state.Records
+                    |> Map.toSeq
+                    |> Seq.collect snd
+                    |> Seq.tryFind (fun v -> StoredVersion.id v = id)
+
+                // the answer this key was already given, when it was given one at all
+                match loadAnswer conn headOf sid key with
+                | Some answer -> { state with Answered = state.Answered |> Map.add (sid, key) answer }
+                | None -> { state with Answered = state.Answered |> Map.remove (sid, key) }
+            )
         // the attempt, every other attempt of the person it names, their code and their
         // credential, and the record of the patient an open out of it would show
         | StubDatabase.Slice.Enrolment attempt ->

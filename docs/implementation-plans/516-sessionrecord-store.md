@@ -614,6 +614,17 @@ barrier before the insert, in step 4a. A crash between the insert and the reply 
 different case: the retry's load already holds the written row, so `commit` refuses the sign
 as stale before any insert; proven through the port in step 4a.
 
+**The same Submission answered by two servers (Rule 45).** Two servers meet the same Session
+and the same idempotency key, neither has an answer for it yet, and both run `commit`. The
+writes of a commit are one transaction, so the loser's `unique (patient_id, no)` rolls its whole
+transaction back: it stores no answer, and its caller is told the sign was blocked by the
+version that won. One version exists and one answer row, the winner's, and a retry under that
+key is told what the record says. The claim is deliberately not taken before the work: a row
+written first would turn a crash between the claim and the commit into a key that can never be
+signed again. The version, not the key, is what must exist exactly once, and the unique
+constraint on the record is what guarantees it. What the loser is told is the production
+engine's to change, where the commit runs serializable and is retried once.
+
 **An ended Session cannot reopen.** There is no row whose insertion makes an ended Session open
 again: `session` is written once per open, and an ending, a newer row for the login or a
 `wrong-pin-limit` row, is never removed. Closing the newest Session of a login does not hand the
@@ -1003,6 +1014,7 @@ choice is unknown, which is why it stays within the portable core.
 | 7, migrate 3 of 3 | #816 | the documents a stored credential makes false: DEVELOPMENT.md (the SQLite section now keeps PINs and enrolments, with a walkthrough step for it, and the seed written once per login), uc-01's stand-ins table and its "not built" list, and the comment on `StubCredentials.seed`. Step 7 done; step 8 next |
 | 8, prototype | #817 | `Sql/004-notices.sql` (migration 4: `data_notice`, `challenge`, `challenge_spent`, `submission_answer`) and `Scripts/SessionNotices.fsx`: the writes, the live notice and challenge, a challenge spent by the nonce the request answered, and the answer a Submission was given. Decided here: an answer names the version it signed and the head that blocked by id, rebuilt from the record, and a refusal keeps only what its case carries; a row this release cannot rebuild is no answer, so the Submission runs again. Six tests |
 | 8, migrate 1 of 2 | #818 | `Persist` gains `WriteNotice`, `WriteChallenge`, `SpendChallenge` and `RememberAnswer`; `challenge`, `commit` and `openVersion` return them and `SqlSessions.run` writes the rows. A challenge is spent by the nonce the request read: a commit spends the one it answered, a notice the one it invalidates, an opened version the one it had. Three tests, and the `commit` writes test expects the spending and the remembering |
+| 8, migrate 2 of 2 | #819 | `loadNotice`, `loadChallenge`, `signingRefusalOf` and `loadAnswer`; `withSession` brings the live notice and challenge, an unreadable one ending the Session; a new `Slice.Submission(sessionId, idemKey)` so `submit` has the answer its key was given. An answer is rebuilt from the record by id, so a repeat gets the version as the store holds it, equal in identity and canonical form. Two port tests over one file; the second needs the token the signature minted, or `StaleToken` refuses before the challenge is looked at. Step 8 done but for the purge |
 
 ## Changes from the plan this replaces
 
