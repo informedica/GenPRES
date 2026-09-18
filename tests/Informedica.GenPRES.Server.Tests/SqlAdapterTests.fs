@@ -318,7 +318,7 @@ let tests =
                                 persist =
                                     fun writes ->
                                         match versionOf writes with
-                                        | Some _ -> SqlSessions.runWrites readOnly writes
+                                        | Some _ -> SqlSessions.runWrites readOnly (fun () -> Store.t0) writes
                                         | None -> inner.persist writes
                             }
 
@@ -784,7 +784,7 @@ let tests =
                                 persist =
                                     fun writes ->
                                         if refusing.Value then
-                                            SqlSessions.runWrites readOnly writes
+                                            SqlSessions.runWrites readOnly (fun () -> Store.t0) writes
                                         else
                                             inner.persist writes
                             }

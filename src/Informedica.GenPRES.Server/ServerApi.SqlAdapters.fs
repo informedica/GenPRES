@@ -1029,13 +1029,219 @@ module SqlSessions =
                 ]
 
 
+    /// One line of the audit: when, to which Session, by whom, what was done and how it came
+    /// out, with what the action needs beside its name.
+    type AuditEntry =
+        {
+            At: DateTime
+            SessionId: string option
+            Actor: string option
+            Action: string
+            Outcome: string
+            Detail: string option
+        }
+
+
+    let auditEntry at action outcome =
+        {
+            At = at
+            SessionId = None
+            Actor = None
+            Action = action
+            Outcome = outcome
+            Detail = None
+        }
+
+
+    /// A string as a JSON literal, quoted and escaped. The detail of an entry is JSON, and a
+    /// patient id or an attempt is whatever the launch carried, so nothing is pasted in raw.
+    let jsonText (text: string) =
+        Newtonsoft.Json.JsonConvert.ToString text
+
+
+    /// <summary>
+    /// What a write says about the request it belongs to: the Session it acts on, and the
+    /// person it acts for. Every case matched, as `auditOf` matches them, so that a write that
+    /// comes to name a Session or a person cannot quietly stop naming it in the audit.
+    /// </summary>
+    let namedBy (write: Session.Persist) : string option * string option =
+        match write with
+        | Session.OpenSession(sid, session)
+        | Session.RecordOpenedWith(sid, session, _) -> Some sid, session.Opened.User |> Option.map _.UserId
+        | Session.RecordSeen(sid, _)
+        | Session.EndSession(sid, _, _)
+        | Session.AcknowledgeEnding(sid, _)
+        | Session.WriteNotice(sid, _, _)
+        | Session.WriteChallenge(sid, _, _)
+        | Session.SpendChallenge(sid, _, _)
+        | Session.RememberAnswer(sid, _, _, _) -> Some sid, None
+        | Session.WriteVersion v -> None, Some v.SignedBy.UserId
+        | Session.WriteCredential(userId, _, _, _)
+        | Session.CountCodeTry(userId, _, _)
+        | Session.SpendCode(userId, _, _)
+        | Session.DropEnrolmentsOf(userId, _) -> None, Some userId
+        | Session.WriteCode(code, _) -> None, Some code.UserId
+        | Session.WriteEnrolment(enrolment, _) -> None, Some enrolment.UserId
+        | Session.RecordLaunch _
+        | Session.RecordLaunchOutcome _
+        | Session.DropEnrolmentWrite _ -> None, None
+
+
+    /// <summary>
+    /// The audit of one write. Every case matched, so that a write nobody thought to audit
+    /// fails to compile; the writes that carry only a fact of an act another write already
+    /// audits return nothing, said here rather than left out. What the write does not know —
+    /// the Session a signature was made in, the person whose Session ended — `auditOf` fills in
+    /// from the rest of the request.
+    /// </summary>
+    let entryOf (now: DateTime) (write: Session.Persist) : AuditEntry option =
+        match write with
+        // a launch record carries the Launch's expiry, not the time it was made: the entry is
+        // timed by the request that wrote it
+        | Session.RecordLaunch r ->
+            Some { auditEntry now "launched" "ok" with Detail = Some $"""{{"patient":%s{jsonText r.PatientId}}}""" }
+        | Session.RecordLaunchOutcome(_, outcome, at) ->
+            match outcome with
+            // the Session this launch opened is audited by the open itself, which the same
+            // request writes; a second entry would count one open twice
+            | LaunchResult.Opened _ -> None
+            | LaunchResult.Refused refusal ->
+                Some
+                    { auditEntry at "launch" "refused" with
+                        Detail = Some $"""{{"refusal":%s{jsonText (Session.refusalWord refusal)}}}"""
+                    }
+            | LaunchResult.Enrolling attempt ->
+                Some { auditEntry at "enrolling" "ok" with Detail = Some $"""{{"attempt":%s{jsonText attempt}}}""" }
+            // a redirect is no outcome: it is what a launch is answered with until one
+            | LaunchResult.RedirectTo _ -> None
+        | Session.OpenSession(sid, session) ->
+            Some
+                { auditEntry session.Seen "session-opened" "ok" with
+                    SessionId = Some sid
+                    Actor = session.Opened.User |> Option.map _.UserId
+                }
+        | Session.EndSession(sid, ending, at) ->
+            Some
+                { auditEntry at "session-ended" "ok" with
+                    SessionId = Some sid
+                    Detail = Some $"""{{"ending":%s{jsonText (endingWord ending)}}}"""
+                }
+        | Session.WriteVersion v ->
+            Some
+                { auditEntry v.SignedAt "signed" "ok" with
+                    Actor = Some v.SignedBy.UserId
+                    Detail =
+                        Some $"""{{"version":%s{jsonText v.Id},"no":%i{v.No},"patient":%s{jsonText v.PatientId}}}"""
+                }
+        | Session.WriteCredential(userId, event, _, at) ->
+            Some { auditEntry at $"credential-%s{event}" "ok" with Actor = Some userId }
+        | Session.WriteCode(code, at) -> Some { auditEntry at "code-mailed" "ok" with Actor = Some code.UserId }
+        | Session.CountCodeTry(userId, _, at) ->
+            Some { auditEntry at "code-entered" "refused" with Actor = Some userId }
+        | Session.WriteNotice(sid, _, at) -> Some { auditEntry at "notice-told" "ok" with SessionId = Some sid }
+        | Session.WriteChallenge(sid, _, at) -> Some { auditEntry at "challenge-issued" "ok" with SessionId = Some sid }
+        | Session.RememberAnswer(sid, _, outcome, at) ->
+            match outcome with
+            // the signature itself is audited by the version it wrote
+            | SigningOutcome.Submitted _ -> None
+            | SigningOutcome.Refused refusal ->
+                let word, _, _, _ = refusalRow refusal
+
+                Some
+                    { auditEntry at "sign" "refused" with
+                        SessionId = Some sid
+                        Detail = Some $"""{{"refusal":%s{jsonText word}}}"""
+                    }
+            // a challenge and a notice are answers of `challenge`, which remembers nothing
+            | _ -> None
+        // facts of an act that another of its writes audits: the heartbeat of a request, what
+        // a Session opened with, an ending acknowledged, a code or a challenge used up, and the
+        // enrolment attempts an act of the person's already tells
+        | Session.RecordOpenedWith _
+        | Session.RecordSeen _
+        | Session.AcknowledgeEnding _
+        | Session.SpendCode _
+        | Session.WriteEnrolment _
+        | Session.DropEnrolmentWrite _
+        | Session.DropEnrolmentsOf _
+        | Session.SpendChallenge _ -> None
+
+
+    /// <summary>
+    /// What a request did, read off the writes it returned. The request is the unit, not the
+    /// single write: an act is told apart by the writes it brings together, and what one write
+    /// knows about the Session and the person is known to every entry of the request.
+    /// </summary>
+    let auditOf (now: DateTime) (writes: Session.Persist list) : AuditEntry list =
+        let named = writes |> List.map namedBy
+
+        // a version opened is the one act with no write of its own: it writes what the Session
+        // now opens with, as an open and a signature also do, and nothing else. It is told
+        // apart by what it does not write.
+        let versionOpened =
+            let opensWith =
+                writes
+                |> List.exists (
+                    function
+                    | Session.RecordOpenedWith _ -> true
+                    | _ -> false
+                )
+
+            let openedOrSigned =
+                writes
+                |> List.exists (
+                    function
+                    | Session.OpenSession _
+                    | Session.WriteVersion _ -> true
+                    | _ -> false
+                )
+
+            if opensWith && not openedOrSigned then
+                [ auditEntry now "version-opened" "ok" ]
+            else
+                []
+
+        versionOpened @ (writes |> List.choose (entryOf now))
+        |> List.map (fun e ->
+            { e with
+                SessionId = e.SessionId |> Option.orElse (named |> List.tryPick fst)
+                Actor = e.Actor |> Option.orElse (named |> List.tryPick snd)
+            }
+        )
+
+
+    /// The entries of a request, in the transaction that carries its writes.
+    let appendAudit (conn: SqliteConnection) (tx: SqliteTransaction) (now: DateTime) (writes: Session.Persist list) =
+        for e in auditOf now writes do
+            exec
+                conn
+                tx
+                """
+                insert into audit_entry (at, session_id, actor, action, outcome, detail)
+                values ($at, $sid, $actor, $action, $outcome, $detail)
+                """
+                [
+                    "$at", box (ms e.At)
+                    "$sid", nullable e.SessionId
+                    "$actor", nullable e.Actor
+                    "$action", box e.Action
+                    "$outcome", box e.Outcome
+                    "$detail", nullable e.Detail
+                ]
+
+
     /// <summary>
     /// Runs the writes of a request in one transaction: all of them land, or none does. A
     /// violated `unique (patient_id, no)` on the record is another server's sign of the same
     /// number, answered with the head as it stands; any other failure is `Failed` with its
     /// reason, and the caller keeps the state it had, so that the next request retries.
     /// </summary>
-    let runWrites (connectionString: string) (writes: Session.Persist list) : Session.StoreOutcome =
+    let runWrites
+        (connectionString: string)
+        (now: unit -> DateTime)
+        (writes: Session.Persist list)
+        : Session.StoreOutcome
+        =
         // opening the file and starting the transaction are inside the try as well: a database
         // that cannot be reached is the store failing, which the caller retries, never an
         // exception escaping the request
@@ -1048,6 +1254,7 @@ module SqlSessions =
                 for write in writes do
                     run conn tx write
 
+                appendAudit conn tx (now ()) writes
                 tx.Commit()
                 Session.StoreOutcome.Written
             with
@@ -1408,7 +1615,6 @@ module SqlSessions =
 
             { state with Endings = state.Endings |> Map.add sid (SessionEnding.Unreadable, now) }
         | Some(Choice1Of2(Ok session)) ->
-            { state with Sessions = state.Sessions |> Map.add sid session }
             // what it holds in flight, read the same way: a notice or a challenge this
             // release cannot read ends the Session, as an opened-with does
             let inFlight (state: Session.State) =
@@ -1641,7 +1847,7 @@ module SqlSessions =
                     with e ->
                         warn $"the session store could not be read: %s{e.Message}"
                         reraise ()
-            persist = runWrites cs
+            persist = runWrites cs now
         }
 
 
