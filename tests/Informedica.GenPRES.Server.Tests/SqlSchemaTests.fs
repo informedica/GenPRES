@@ -59,11 +59,11 @@ let tests =
         [
             test "a fresh file gets the embedded migrations, in order, and their tables" {
                 withDb (fun cs ->
-                    SqlSchema.apply cs |> Expect.equal "migrations 1, 2 and 3" [ 1; 2; 3 ]
+                    SqlSchema.apply cs |> Expect.equal "every migration, in order" [ 1; 2; 3; 4 ]
 
                     scalar cs "select group_concat(migration) from schema_version"
                     |> string
-                    |> Expect.equal "schema_version records them" "1,2,3"
+                    |> Expect.equal "schema_version records them" "1,2,3,4"
 
                     // named one by one, so that a migration missing from the assembly's
                     // resources fails here instead of at the first request that needs its rows
@@ -90,6 +90,10 @@ let tests =
                             "code_spent"
                             "enrolment"
                             "enrolment_dropped"
+                            "data_notice"
+                            "challenge"
+                            "challenge_spent"
+                            "submission_answer"
                         ] do
                         tables |> Expect.contains $"the table %s{table}" table
                 )
