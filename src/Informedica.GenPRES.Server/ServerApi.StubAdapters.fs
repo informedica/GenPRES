@@ -445,8 +445,11 @@ module StubDatabase =
         | Login of string
         // a Session, by the id in the cookie
         | Session of string
-        // an enrolment attempt; its own rows arrive with the credentials
+        // an enrolment attempt and its person's rows
         | Enrolment of string
+        // a Submission: the Session it comes from, and the answer its key was already given,
+        // so that the same Submission sent twice is answered once
+        | Submission of sessionId: string * idemKey: string
 
 
     /// <summary>
@@ -634,7 +637,7 @@ module StubDatabase =
                     async {
                         return
                             signing
-                                (Slice.Session sid)
+                                (Slice.Submission(sid, signature.IdemKey))
                                 (submitWith
                                     persisting
                                     (fun s ->
