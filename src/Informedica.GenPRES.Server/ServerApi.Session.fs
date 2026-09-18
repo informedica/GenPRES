@@ -530,6 +530,13 @@ module Session =
         | WriteEnrolment of Enrolment * at: DateTime
         | DropEnrolmentWrite of attempt: string * at: DateTime
         | DropEnrolmentsOf of userId: string * at: DateTime
+        // what a Session holds in flight: the notice it was told, the challenge it answers,
+        // the challenge a commit or an opened version used up, named by the nonce the request
+        // read, and what a Submission was answered so that the same one is answered once
+        | WriteNotice of sessionId: string * Notice * at: DateTime
+        | WriteChallenge of sessionId: string * Challenge * at: DateTime
+        | SpendChallenge of sessionId: string * nonce: string * at: DateTime
+        | RememberAnswer of sessionId: string * idemKey: string * SigningOutcome * at: DateTime
 
 
     type State =
@@ -1240,13 +1247,19 @@ module Session =
                             OpenedWith = Some id
                         }
 
+                    let spent =
+                        state.Challenges
+                        |> Map.tryFind sid
+                        |> Option.map (fun c -> [ SpendChallenge(sid, c.Nonce, now) ])
+                        |> Option.defaultValue []
+
                     { state with
                         Sessions = state.Sessions |> Map.add sid session
                         Challenges = state.Challenges |> Map.remove sid
                         Notices = state.Notices |> Map.remove sid
                     },
                     Some opened,
-                    seen @ [ RecordOpenedWith(sid, session, now) ]
+                    seen @ spent @ [ RecordOpenedWith(sid, session, now) ]
 
 
     /// An order appears once in a plan.
@@ -1310,21 +1323,26 @@ module Session =
                     if (current.IsNone || current <> record.Opened.Patient) && accepted.IsNone then
                         let nonce = newId ()
 
+                        let notice =
+                            {
+                                Nonce = nonce
+                                Data = current
+                                Expiry = now + challengeLifetime
+                            }
+
+                        // a challenge over the data before the change must not be signed
+                        let spent =
+                            state.Challenges
+                            |> Map.tryFind sid
+                            |> Option.map (fun c -> [ SpendChallenge(sid, c.Nonce, now) ])
+                            |> Option.defaultValue []
+
                         { state with
-                            Notices =
-                                state.Notices
-                                |> Map.add
-                                    sid
-                                    {
-                                        Nonce = nonce
-                                        Data = current
-                                        Expiry = now + challengeLifetime
-                                    }
-                            // a challenge over the data before the change must not be signed
+                            Notices = state.Notices |> Map.add sid notice
                             Challenges = state.Challenges |> Map.remove sid
                         },
                         SigningOutcome.DataNotice(nonce, current),
-                        seen
+                        seen @ spent @ [ WriteNotice(sid, notice, now) ]
                     // no challenge over a plan that names an order twice
                     elif duplicateOrders plan then
                         refuse SigningRefusal.ChallengeMismatch
@@ -1335,21 +1353,20 @@ module Session =
                         | None, None ->
                             let nonce = newId ()
 
+                            let challenge =
+                                {
+                                    Nonce = nonce
+                                    Digest = digest plan
+                                    Reading = current
+                                    Expiry = now + challengeLifetime
+                                }
+
                             { state with
                                 Notices = state.Notices |> Map.remove sid
-                                Challenges =
-                                    state.Challenges
-                                    |> Map.add
-                                        sid
-                                        {
-                                            Nonce = nonce
-                                            Digest = digest plan
-                                            Reading = current
-                                            Expiry = now + challengeLifetime
-                                        }
+                                Challenges = state.Challenges |> Map.add sid challenge
                             },
                             SigningOutcome.ChallengeIssued nonce,
-                            seen
+                            seen @ [ WriteChallenge(sid, challenge, now) ]
 
 
     /// The commit of a signature, one act, checked in order: the Session with a User and a
@@ -1391,11 +1408,12 @@ module Session =
                 match state.Answered |> Map.tryFind (sid, signature.IdemKey) with
                 | Some(answer, _) -> state, answer, seen
                 | None ->
-                    // the answer is remembered from here on, under this Session and the key
+                    // the answer is remembered from here on, under this Session and the key, so
+                    // that the same Submission sent again is answered once and the same way
                     let remember (state: State) answer writes =
                         { state with Answered = state.Answered |> Map.add (sid, signature.IdemKey) (answer, now) },
                         answer,
-                        seen @ writes
+                        seen @ writes @ [ RememberAnswer(sid, signature.IdemKey, answer, now) ]
 
                     let refuse refusal =
                         remember state (SigningOutcome.Refused refusal) []
@@ -1505,6 +1523,8 @@ module Session =
                                                 credentialWrite
                                                 WriteVersion version
                                                 RecordOpenedWith(sid, opened, now)
+                                                // the challenge this signature answered, used up
+                                                SpendChallenge(sid, challenge.Nonce, now)
                                             ]
                                     elif wasLocked then
                                         // this Session did nothing wrong; the lock is the credential's

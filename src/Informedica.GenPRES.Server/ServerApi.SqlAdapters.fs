@@ -730,6 +730,25 @@ module SqlSessions =
         value |> Option.map box |> Option.defaultValue (box DBNull.Value)
 
 
+    /// The word a refusal is stored under, and what of it the row keeps beside the word. Every
+    /// refusal matched, so that one without a word fails to compile; `Blocked` keeps the id of
+    /// the head that blocked, which is an order_plan row the answer is rebuilt from.
+    let refusalRow (refusal: SigningRefusal) =
+        match refusal with
+        | SigningRefusal.NoSession -> "no-session", None, None, None
+        | SigningRefusal.NoPatient -> "no-patient", None, None, None
+        | SigningRefusal.NotPrescriber -> "not-prescriber", None, None, None
+        | SigningRefusal.Blocked head -> "blocked", Some head.Id, None, None
+        | SigningRefusal.StaleToken -> "stale-token", None, None, None
+        | SigningRefusal.ChallengeMismatch -> "challenge-mismatch", None, None, None
+        | SigningRefusal.ChallengeExpired -> "challenge-expired", None, None, None
+        | SigningRefusal.PinWrong left -> "pin-wrong", None, Some left, None
+        | SigningRefusal.PinLimit -> "pin-limit", None, None, None
+        | SigningRefusal.Locked until -> "locked", None, None, Some until
+        | SigningRefusal.StoreFailed -> "store-failed", None, None, None
+        | SigningRefusal.PlanUnreadable -> "plan-unreadable", None, None, None
+
+
     /// The rows of one write. Every case matched, so that a case without a row fails to
     /// compile.
     let run (conn: SqliteConnection) (tx: SqliteTransaction) (write: Session.Persist) =
@@ -933,6 +952,81 @@ module SqlSessions =
                 select attempt, $at from enrolment where user_id = $u
                 """
                 [ "$u", box userId; "$at", box (ms at) ]
+        | Session.WriteNotice(sid, notice, at) ->
+            exec
+                conn
+                tx
+                """
+                insert into data_notice (session_id, nonce, json_version, data, expiry, at)
+                values ($sid, $n, $jv, $data, $e, $at)
+                """
+                [
+                    "$sid", box sid
+                    "$n", box notice.Nonce
+                    "$jv", nullable (notice.Data |> Option.map (fun _ -> patientJsonWritten))
+                    "$data", nullable (notice.Data |> Option.map patientJson)
+                    "$e", box (ms notice.Expiry)
+                    "$at", box (ms at)
+                ]
+        | Session.WriteChallenge(sid, challenge, at) ->
+            exec
+                conn
+                tx
+                """
+                insert into challenge (session_id, nonce, digest, json_version, reading, expiry, at)
+                values ($sid, $n, $d, $jv, $reading, $e, $at)
+                """
+                [
+                    "$sid", box sid
+                    "$n", box challenge.Nonce
+                    "$d", box challenge.Digest
+                    "$jv", nullable (challenge.Reading |> Option.map (fun _ -> patientJsonWritten))
+                    "$reading", nullable (challenge.Reading |> Option.map patientJson)
+                    "$e", box (ms challenge.Expiry)
+                    "$at", box (ms at)
+                ]
+        // the challenge a commit used, named by its nonce: another server may have issued a
+        // newer one, and spending that one would take a challenge the User is answering
+        | Session.SpendChallenge(sid, nonce, at) ->
+            exec
+                conn
+                tx
+                """
+                insert or ignore into challenge_spent (challenge_id, at)
+                select c.id, $at from challenge c
+                where c.session_id = $sid and c.nonce = $n
+                  and not exists (select 1 from challenge_spent s where s.challenge_id = c.id)
+                order by c.id desc limit 1
+                """
+                [ "$sid", box sid; "$n", box nonce; "$at", box (ms at) ]
+        | Session.RememberAnswer(sid, key, outcome, at) ->
+            let answer, versionId, token, left, until =
+                match outcome with
+                | SigningOutcome.Submitted(v, OpenedToken t) -> "submitted", Some v.Id, Some t, None, None
+                | SigningOutcome.Refused refusal ->
+                    let word, blocked, left, until = refusalRow refusal
+                    $"refused:%s{word}", blocked, None, left, until
+                // a challenge and a notice are answers of `challenge`, which remembers nothing
+                | other -> invalidOp $"a Submission is not answered with %A{other}"
+
+            exec
+                conn
+                tx
+                """
+                insert or ignore into submission_answer
+                    (session_id, idem_key, answer, version_id, opened_token, attempts_left, locked_until, at)
+                values ($sid, $k, $a, $v, $t, $left, $until, $at)
+                """
+                [
+                    "$sid", box sid
+                    "$k", box key
+                    "$a", box answer
+                    "$v", nullable versionId
+                    "$t", nullable token
+                    "$left", nullable left
+                    "$until", nullable (until |> Option.map ms)
+                    "$at", box (ms at)
+                ]
 
 
     /// <summary>
