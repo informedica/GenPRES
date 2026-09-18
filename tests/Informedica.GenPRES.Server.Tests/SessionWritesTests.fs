@@ -79,6 +79,10 @@ let caseName (w: Session.Persist) =
     | Session.WriteEnrolment _ -> "WriteEnrolment"
     | Session.DropEnrolmentWrite _ -> "DropEnrolmentWrite"
     | Session.DropEnrolmentsOf _ -> "DropEnrolmentsOf"
+    | Session.WriteNotice _ -> "WriteNotice"
+    | Session.WriteChallenge _ -> "WriteChallenge"
+    | Session.SpendChallenge _ -> "SpendChallenge"
+    | Session.RememberAnswer _ -> "RememberAnswer"
 
 
 let names writes = writes |> List.map caseName
@@ -311,6 +315,9 @@ let machineTests =
                             "WriteCredential"
                             "WriteVersion"
                             "RecordOpenedWith"
+                            // the challenge it answered, used up, and the answer kept
+                            "SpendChallenge"
+                            "RememberAnswer"
                         ]
                 | other -> failtest $"expected Submitted, got %A{other}"
 
@@ -327,8 +334,13 @@ let machineTests =
                 writes
                 |> names
                 |> Expect.equal
-                    "the credential that reached the limit, then the ending"
-                    [ "RecordSeen"; "WriteCredential"; "EndSession" ]
+                    "the credential that reached the limit, the ending, and the answer remembered"
+                    [
+                        "RecordSeen"
+                        "WriteCredential"
+                        "EndSession"
+                        "RememberAnswer"
+                    ]
 
                 match
                     writes
@@ -588,5 +600,125 @@ let credentialWrites =
                         |> Expect.isTrue "the PIN they chose"
                     | None -> failtest "expected the credential write"
                 | other -> failtest $"expected Opened, got %A{other}"
+            }
+        ]
+
+
+[<Tests>]
+let flightWrites =
+    testList
+        "the writes of what a Session holds in flight"
+        [
+            test "a challenge is written, and the one it replaces is spent" {
+                let state, sid, newId = opened ()
+
+                let token = state.Sessions[sid].Opened.OpenedToken.Value
+
+                let issue state =
+                    Session.challenge
+                        t0
+                        newId
+                        StubDatabase.digest
+                        StubPatientData.port.read
+                        sid
+                        (Store.domainPlan.Value, token, None)
+                        state
+
+                let state, first, writes = issue state
+
+                names writes
+                |> Expect.equal "the heartbeat and the challenge" [ "RecordSeen"; "WriteChallenge" ]
+
+                match first with
+                | SigningOutcome.ChallengeIssued _ -> ()
+                | other -> failtest $"expected ChallengeIssued, got %A{other}"
+
+                // a second challenge in the same Session: the one it replaces is not spent by
+                // the write, it is replaced by a newer row the loader reads instead
+                let _, _, again = issue state
+
+                names again
+                |> Expect.equal "the heartbeat and the newer challenge" [ "RecordSeen"; "WriteChallenge" ]
+            }
+
+            test "a notice is written, and it spends the challenge it invalidates" {
+                let state, sid, newId = opened ()
+                let token = state.Sessions[sid].Opened.OpenedToken.Value
+
+                // a challenge first, then data the Session did not open on
+                let state, _, _ =
+                    Session.challenge
+                        t0
+                        newId
+                        StubDatabase.digest
+                        StubPatientData.port.read
+                        sid
+                        (Store.domainPlan.Value, token, None)
+                        state
+
+                let moved _ =
+                    { StubPatientData.patient with Department = Some "ICU" }
+                    |> Patient.parse
+                    |> Result.toOption
+
+                let _, answer, writes =
+                    Session.challenge t0 newId StubDatabase.digest moved sid (Store.domainPlan.Value, token, None) state
+
+                match answer with
+                | SigningOutcome.DataNotice _ ->
+                    names writes
+                    |> Expect.equal
+                        "the challenge over the old data is spent, and the notice written"
+                        [ "RecordSeen"; "SpendChallenge"; "WriteNotice" ]
+                | other -> failtest $"expected DataNotice, got %A{other}"
+            }
+
+            test "an answer is remembered once: the same Submission writes nothing more" {
+                let state, sid, newId = opened ()
+                let token = state.Sessions[sid].Opened.OpenedToken.Value
+
+                let state, challenge, _ =
+                    Session.challenge
+                        t0
+                        newId
+                        StubDatabase.digest
+                        StubPatientData.port.read
+                        sid
+                        (Store.domainPlan.Value, token, None)
+                        state
+
+                let nonce =
+                    match challenge with
+                    | SigningOutcome.ChallengeIssued n -> n
+                    | other -> failtest $"expected ChallengeIssued, got %A{other}"
+
+                let signature: Signature =
+                    {
+                        Plan = Store.domainPlan.Value
+                        Opened = token
+                        Challenge = nonce
+                        Pin = "1234"
+                        IdemKey = "k-1"
+                    }
+
+                let state, answer, writes =
+                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid signature state
+
+                writes
+                |> List.exists (
+                    function
+                    | Session.RememberAnswer(_, "k-1", _, _) -> true
+                    | _ -> false
+                )
+                |> Expect.isTrue "the answer is kept under the key it came with"
+
+                // the same Submission again: the answer it already has, and only the heartbeat
+                let _, again, writes =
+                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid signature state
+
+                again |> Expect.equal "answered as the first time" answer
+
+                names writes
+                |> Expect.equal "nothing written but the heartbeat" [ "RecordSeen" ]
             }
         ]
