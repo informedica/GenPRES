@@ -614,6 +614,17 @@ barrier before the insert, in step 4a. A crash between the insert and the reply 
 different case: the retry's load already holds the written row, so `commit` refuses the sign
 as stale before any insert; proven through the port in step 4a.
 
+**The same Submission answered by two servers (Rule 45).** Two servers meet the same Session
+and the same idempotency key, neither has an answer for it yet, and both run `commit`. The
+writes of a commit are one transaction, so the loser's `unique (patient_id, no)` rolls its whole
+transaction back: it stores no answer, and its caller is told the sign was blocked by the
+version that won. One version exists and one answer row, the winner's, and a retry under that
+key is told what the record says. The claim is deliberately not taken before the work: a row
+written first would turn a crash between the claim and the commit into a key that can never be
+signed again. The version, not the key, is what must exist exactly once, and the unique
+constraint on the record is what guarantees it. What the loser is told is the production
+engine's to change, where the commit runs serializable and is retried once.
+
 **An ended Session cannot reopen.** There is no row whose insertion makes an ended Session open
 again: `session` is written once per open, and an ending, a newer row for the login or a
 `wrong-pin-limit` row, is never removed. Closing the newest Session of a login does not hand the
