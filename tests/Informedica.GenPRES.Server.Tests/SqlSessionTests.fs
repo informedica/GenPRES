@@ -1727,3 +1727,124 @@ let newestOnlyTests =
                 )
             }
         ]
+
+
+/// What the audit rows of a database say, oldest first.
+let auditRows (cs: string) =
+    use conn = connect cs
+
+    SqlSessions.rows
+        conn
+        "select action, outcome, session_id, actor from audit_entry order by id"
+        []
+        (fun r -> r.GetString 0, r.GetString 1, SqlSessions.textOrNull r 2, SqlSessions.textOrNull r 3)
+
+
+[<Tests>]
+let auditTests =
+    testList
+        "the audit of what a request did"
+        [
+            test "an open is audited once, by the act and not by its facts" {
+                let session = sessionOf "s-1" "prescriber" None None
+
+                [
+                    Session.OpenSession("s-1", session)
+                    Session.RecordOpenedWith("s-1", session, t0)
+                    Session.RecordSeen("s-1", t0)
+                ]
+                |> List.choose SqlSessions.auditOf
+                |> List.map (fun e -> e.Action, e.SessionId, e.Actor)
+                |> Expect.equal
+                    "the open alone, by whom and to which Session"
+                    [ "session-opened", Some "s-1", Some "user-1" ]
+            }
+
+            test "a launch and what it came to are audited, honoured or refused" {
+                [ Session.RecordLaunch(launchOf "n-1") ]
+                |> List.choose SqlSessions.auditOf
+                |> List.map _.Action
+                |> Expect.equal "the launch" [ "launched" ]
+
+                [
+                    Session.RecordLaunchOutcome("n-1", LaunchResult.Refused LaunchRefusal.WrongActivePatient, t0)
+                ]
+                |> List.choose SqlSessions.auditOf
+                |> List.map (fun e -> e.Action, e.Outcome, e.Detail)
+                |> Expect.equal
+                    "the refusal, by the word the store holds it under"
+                    [
+                        "launch", "refused", Some """{"refusal":"wrong-patient"}"""
+                    ]
+
+                [
+                    Session.RecordLaunchOutcome("n-1", LaunchResult.Enrolling "a-1", t0)
+                ]
+                |> List.choose SqlSessions.auditOf
+                |> List.map _.Action
+                |> Expect.equal "the launch suspended into enrolment" [ "enrolling" ]
+            }
+
+            test "a signature is audited by the version it wrote, and a refusal by itself" {
+                let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
+
+                [
+                    Session.WriteVersion v1
+                    Session.RememberAnswer("s-1", "k-1", SigningOutcome.Submitted(v1, OpenedToken "t"), t0)
+                ]
+                |> List.choose SqlSessions.auditOf
+                |> List.map (fun e -> e.Action, e.Actor)
+                |> Expect.equal "the signature, once" [ "signed", Some Store.prescriber.UserId ]
+
+                [
+                    Session.RememberAnswer("s-1", "k-1", SigningOutcome.Refused SigningRefusal.PinLimit, t0)
+                ]
+                |> List.choose SqlSessions.auditOf
+                |> List.map (fun e -> e.Action, e.Outcome, e.Detail)
+                |> Expect.equal "the refusal, by its word" [ "sign", "refused", Some """{"refusal":"pin-limit"}""" ]
+            }
+
+            test "the end of a Session is audited with the ending it was" {
+                [
+                    Session.EndSession("s-1", Session.StoredEnding.Ended SessionEnding.WrongPinLimit, t0)
+                    Session.AcknowledgeEnding("s-1", t0)
+                ]
+                |> List.choose SqlSessions.auditOf
+                |> List.map (fun e -> e.Action, e.Detail)
+                |> Expect.equal "the ending, once" [ "session-ended", Some """{"ending":"wrong-pin-limit"}""" ]
+            }
+
+            test "the entries land with the writes they describe" {
+                withSessions (fun cs ->
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.RecordLaunch(launchOf "n-1")
+                            Session.OpenSession("s-1", sessionOf "s-1" "prescriber" None None)
+                        ]
+                    |> Expect.equal "both wrote" Session.StoreOutcome.Written
+
+                    auditRows cs
+                    |> List.map (fun (action, _, _, _) -> action)
+                    |> Expect.equal "one entry per act, in the order of the writes" [ "launched"; "session-opened" ]
+                )
+            }
+
+            test "a request that fails leaves no entry behind" {
+                withSessions (fun cs ->
+                    // the Session the second write names was never opened, so its row is refused
+                    // and the whole transaction rolls back, the audit with it
+                    let outcome =
+                        SqlSessions.runWrites
+                            cs
+                            [
+                                Session.RecordLaunch(launchOf "n-1")
+                                Session.RecordSeen("s-gone", t0)
+                            ]
+
+                    (outcome = Session.StoreOutcome.Written) |> Expect.isFalse "the request failed"
+
+                    auditRows cs |> Expect.isEmpty "nothing was done, so nothing is audited"
+                )
+            }
+        ]

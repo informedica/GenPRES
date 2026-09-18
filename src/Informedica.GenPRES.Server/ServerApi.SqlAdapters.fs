@@ -1029,6 +1029,129 @@ module SqlSessions =
                 ]
 
 
+    /// One line of the audit: when, to which Session, by whom, what was done and how it came
+    /// out, with what the action needs beside its name.
+    type AuditEntry =
+        {
+            At: DateTime
+            SessionId: string option
+            Actor: string option
+            Action: string
+            Outcome: string
+            Detail: string option
+        }
+
+
+    let auditEntry at action outcome =
+        {
+            At = at
+            SessionId = None
+            Actor = None
+            Action = action
+            Outcome = outcome
+            Detail = None
+        }
+
+
+    /// <summary>
+    /// The audit of one write. An entry is derived from what a request already said it did, so
+    /// that it describes an act that landed and nothing else: the writes run in one transaction,
+    /// and the entries with them. Every case matched, so that a write nobody thought to audit
+    /// fails to compile; the writes that only carry a fact the act is already audited by — the
+    /// heartbeat, what a Session opened with — are audited as nothing, said here rather than
+    /// left out.
+    /// </summary>
+    let auditOf (write: Session.Persist) : AuditEntry option =
+        match write with
+        | Session.RecordLaunch r ->
+            Some { auditEntry r.Expiry "launched" "ok" with Detail = Some $"""{{"patient":"%s{r.PatientId}"}}""" }
+        | Session.RecordLaunchOutcome(_, outcome, at) ->
+            match outcome with
+            | LaunchResult.Opened(sid, opened) ->
+                Some
+                    { auditEntry at "opened" "ok" with
+                        SessionId = Some sid
+                        Actor = opened.User |> Option.map _.UserId
+                    }
+            | LaunchResult.Refused refusal ->
+                Some
+                    { auditEntry at "launch" "refused" with
+                        Detail = Some $"""{{"refusal":"%s{Session.refusalWord refusal}"}}"""
+                    }
+            | LaunchResult.Enrolling attempt ->
+                Some { auditEntry at "enrolling" "ok" with Detail = Some $"""{{"attempt":"%s{attempt}"}}""" }
+            // a redirect is no outcome: it is what a launch is answered with until one
+            | LaunchResult.RedirectTo _ -> None
+        | Session.OpenSession(sid, session) ->
+            Some
+                { auditEntry session.Seen "session-opened" "ok" with
+                    SessionId = Some sid
+                    Actor = session.Opened.User |> Option.map _.UserId
+                }
+        | Session.EndSession(sid, ending, at) ->
+            Some
+                { auditEntry at "session-ended" "ok" with
+                    SessionId = Some sid
+                    Detail = Some $"""{{"ending":"%s{endingWord ending}"}}"""
+                }
+        | Session.WriteVersion v ->
+            Some
+                { auditEntry v.SignedAt "signed" "ok" with
+                    Actor = Some v.SignedBy.UserId
+                    Detail = Some $"""{{"version":"%s{v.Id}","no":%i{v.No},"patient":"%s{v.PatientId}"}}"""
+                }
+        | Session.WriteCredential(userId, event, _, at) ->
+            Some { auditEntry at $"credential-%s{event}" "ok" with Actor = Some userId }
+        | Session.WriteCode(code, at) -> Some { auditEntry at "code-mailed" "ok" with Actor = Some code.UserId }
+        | Session.CountCodeTry(userId, _, at) ->
+            Some { auditEntry at "code-entered" "refused" with Actor = Some userId }
+        | Session.RememberAnswer(sid, _, outcome, at) ->
+            match outcome with
+            // the signature itself is audited by the version it wrote
+            | SigningOutcome.Submitted _ -> None
+            | SigningOutcome.Refused refusal ->
+                let word, _, _, _ = refusalRow refusal
+
+                Some
+                    { auditEntry at "sign" "refused" with
+                        SessionId = Some sid
+                        Detail = Some $"""{{"refusal":"%s{word}"}}"""
+                    }
+            // a challenge and a notice are answers of `challenge`, which remembers nothing
+            | _ -> None
+        // facts of an act that is audited by another of its writes
+        | Session.RecordOpenedWith _
+        | Session.RecordSeen _
+        | Session.AcknowledgeEnding _
+        | Session.SpendCode _
+        | Session.WriteEnrolment _
+        | Session.DropEnrolmentWrite _
+        | Session.DropEnrolmentsOf _
+        | Session.WriteNotice _
+        | Session.WriteChallenge _
+        | Session.SpendChallenge _ -> None
+
+
+    /// The entries of a request, in the transaction that carries its writes.
+    let appendAudit (conn: SqliteConnection) (tx: SqliteTransaction) (writes: Session.Persist list) =
+        for e in writes |> List.choose auditOf do
+            exec
+                conn
+                tx
+                """
+                insert into audit_entry (at, session_id, actor, action, outcome, detail)
+                values ($at, $sid, $actor, $action, $outcome, $detail)
+                """
+                [
+                    "$at", box (ms e.At)
+                    "$sid", nullable e.SessionId
+                    "$actor", nullable e.Actor
+                    "$action", box e.Action
+                    "$outcome", box e.Outcome
+                    "$detail", nullable e.Detail
+                ]
+
+
     /// <summary>
     /// Runs the writes of a request in one transaction: all of them land, or none does. A
     /// violated `unique (patient_id, no)` on the record is another server's sign of the same
@@ -1048,6 +1171,7 @@ module SqlSessions =
                 for write in writes do
                     run conn tx write
 
+                appendAudit conn tx writes
                 tx.Commit()
                 Session.StoreOutcome.Written
             with
@@ -1408,7 +1532,6 @@ module SqlSessions =
 
             { state with Endings = state.Endings |> Map.add sid (SessionEnding.Unreadable, now) }
         | Some(Choice1Of2(Ok session)) ->
-            { state with Sessions = state.Sessions |> Map.add sid session }
             // what it holds in flight, read the same way: a notice or a challenge this
             // release cannot read ends the Session, as an opened-with does
             let inFlight (state: Session.State) =
