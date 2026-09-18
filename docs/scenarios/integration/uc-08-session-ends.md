@@ -65,11 +65,14 @@ same User and same Patient only. The code has no such read; the cart of the supe
 is dropped when the gate shows. A User who wants the work keeps the old tab open until it is
 signed. This is [#518](https://github.com/informedica/GenPRES/issues/518).
 
-**A restart forgets the Session.** The design has a Session's standing live in its record, so
-that a restart ends nothing. Today the record is the process's memory: after a restart the
+**A restart forgets the Session, unless the store is set.** The design has a Session's standing
+live in its record, so that a restart ends nothing (Rule 32). With
+`GENPRES_DB_CONNECTION` set this holds: the cookie still names the Session, the server reads it
+back from the file with its ending, its credential and what it opened with, and a second server
+reads the same. Without the key the record is the process's memory, and after a restart the
 cookie names no Session, `GetSession` answers `SessionResp None`, and the Client opens
-anonymously, without a notice, the cart of the old Session gone with the page. The store of
-[#516](https://github.com/informedica/GenPRES/issues/516) is what changes this.
+anonymously, without a notice, the cart of the old Session gone with the page. The production
+engine is still to be chosen ([#516](https://github.com/informedica/GenPRES/issues/516)).
 
 ## Not built
 

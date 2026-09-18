@@ -157,8 +157,10 @@ its key. A late answer to an earlier request is dropped.
 
 ## Not built
 
-The audit of every Submission, committed or refused (Rule 46). The KnowledgeRuleSet the plan
-was checked under (Concept 18): nothing records which rules computed the orders. The bounded
+The audit of every Submission, committed or refused (Rule 46), is written on the SQLite store
+and nowhere else: the in-memory store audits nothing, and no one can read the table back yet
+([#516](https://github.com/informedica/GenPRES/issues/516)). The KnowledgeRuleSet the plan was
+checked under (Concept 18): nothing records which rules computed the orders. The bounded
 grace when the registry is down (Rule 38): the commit fails closed at once. The decay of the
 wrong-PIN count with time (Rule 28): the cap of a day stands in for it. The MVP overview lists
 the last two as issues to file
