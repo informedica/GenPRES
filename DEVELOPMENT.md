@@ -122,9 +122,10 @@ for the MailService too ([plan 615](docs/implementation-plans/615-enrolment-with
 3. Enter the code, a PIN of four to six digits, and the PIN again, and press **Set PIN**. The
    Session opens as **Stub Prescriber (no PIN)**, and the outbox shows a second mail, "GenPRES:
    your PIN was set".
-4. Launch `no-pin` again, in this or another browser: the Session opens directly. The PIN lives
-   as long as the server runs. The seeded Prescribers (`prescriber`, `prescriber-b`,
-   `prescriber-other-patient`) start with the PIN `1234`.
+4. Launch `no-pin` again, in this or another browser: the Session opens directly. The PIN
+   lives as long as the server runs, or across restarts on SQLite (below). The seeded
+   Prescribers (`prescriber`, `prescriber-b`, `prescriber-other-patient`) start with the PIN
+   `1234`.
 
 Things worth trying here:
 
@@ -193,14 +194,18 @@ Things worth trying here:
 - **Restart the server**: on the in-memory store the record is gone with everything else; the
   next signature is version 1 again. On SQLite (below) the record survives.
 
-#### Keeping Sessions and the record across a restart: SQLite
+#### Keeping Sessions, PINs and the record across a restart: SQLite
 
-The session store can keep the launches, the Sessions, their endings and the signed order plan
-versions in a SQLite file, the test and development database
+The session store can keep the launches, the Sessions, their endings, the credentials, the
+confirmation codes, the enrolment attempts and the signed order plan versions in a SQLite file,
+the test and development database
 ([ADR-0007](docs/adr/0007-session-persistence.md) § 2 and § 4,
-[plan 516](docs/implementation-plans/516-sessionrecord-store.md)). Credentials, confirmation
-codes and enrolments still live in memory for now, so `no-pin` enrols again after a restart and
-a PIN set by enrolment is forgotten.
+[plan 516](docs/implementation-plans/516-sessionrecord-store.md)). The data notices, the signing
+challenges and the answers a Submission was given still live in memory for now, so a challenge
+does not outlive the server that issued it.
+
+The demo credentials are written to the file at start-up, once per login: a login that already
+has one is left alone, so a PIN a User set is never replaced by the seeded `1234`.
 
 1. Set the key, in `.env` or on the command line:
    `GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db`. A relative path is rooted at the
@@ -210,7 +215,10 @@ a PIN set by enrolment is forgotten.
 3. Stop the server and start it again, and reload the tab without launching: the Session is
    still there. The cookie names it, the server reads it back from the file, and the Order Plan
    opens on the version you signed; the next signature is version 2.
-4. To start from nothing, stop the server and delete `data/db/genpres.db`.
+4. Launch as `no-pin` and enrol with a PIN of your own, then stop and start the server and
+   launch `no-pin` again: the Session opens directly, on the PIN you chose. Three wrong PINs at
+   a signature survive a restart too, lock and all.
+5. To start from nothing, stop the server and delete `data/db/genpres.db`.
 
 Production refuses the key: with `GENPRES_PROD=1` and `GENPRES_DB_CONNECTION` set, the server
 refuses to start and names the setting. The file is never tracked: the opt-in `.gitignore`
@@ -234,12 +242,13 @@ leaves `data/db/` out.
 - **Production**: `GENPRES_PROD=1 GENPRES_PASSWORD=<16+ chars> dotnet run`; `/stub/launch`
   and `/authorize` are 404, `/callback` redirects to `refused=invalid`.
 
-The stand-ins keep in memory what no store holds yet: the one-time codes, the credentials and
-confirmation codes, the outbox, and, on the in-memory store, the launches, the sessions, the
-endings and the signed versions of every order plan. On the in-memory store a restart forgets
-all of it: the browser's session cookie no longer finds a Session and the record starts from
-nothing. On SQLite the Session, its ending and the record survive; `no-pin` still has to enrol
-again, since credentials are not stored yet.
+The stand-ins keep in memory what no store holds yet: the IdentityProvider's one-time codes,
+the outbox, the data notices and the signing challenges, and, on the in-memory store,
+everything else besides. On the in-memory store a restart forgets all of it: the browser's
+session cookie no longer finds a Session, `no-pin` has to enrol again, and the record starts
+from nothing. On SQLite the Session, its ending, the credential a User enrolled with and the
+record all survive; a challenge issued before the restart does not, so a signature started
+across one is asked for again.
 
 #### Cookies and the development proxy
 

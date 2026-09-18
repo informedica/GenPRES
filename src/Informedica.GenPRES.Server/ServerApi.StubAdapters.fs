@@ -187,7 +187,8 @@ module StubPatientData =
 
 /// The credential half of the Database, seeded for the stub logins: the Prescribers that sign
 /// have the PIN `1234`, `no-pin` has none and enrols, a Reader has no credential because a
-/// Reader never signs. Per host start; a PIN set by enrolment lives as long as the host.
+/// Reader never signs. On the in-memory store these live as long as the host; on the SQLite
+/// store the start writes them once per login and a PIN a User set is never written over.
 module StubCredentials =
 
     /// The PIN every seeded stub Prescriber has. Development and test servers only.
