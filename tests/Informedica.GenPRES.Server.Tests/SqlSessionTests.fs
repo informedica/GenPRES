@@ -1461,3 +1461,190 @@ let credentialLoadTests =
                 )
             }
         ]
+
+
+/// A Session for the rows that hang off one.
+let withOpenSession (cs: string) =
+    let session = sessionOf "s-1" "prescriber" None None
+    SqlSessions.runWrites cs [ Session.OpenSession("s-1", session) ] |> ignore
+
+
+let noticeOf nonce data : Session.Notice =
+    {
+        Nonce = nonce
+        Data = data
+        Expiry = t0.AddMinutes 2.0
+    }
+
+
+let challengeOf nonce : Session.Challenge =
+    {
+        Nonce = nonce
+        Digest = "digest-1"
+        Reading = None
+        Expiry = t0.AddMinutes 2.0
+    }
+
+
+let scalarOf (cs: string) (sql: string) =
+    use conn = connect cs
+    use cmd = SqlSessions.command conn null sql []
+    cmd.ExecuteScalar()
+
+
+[<Tests>]
+let flightWriteTests =
+    testList
+        "the rows of what a Session holds in flight"
+        [
+            test "a notice and a challenge are written with what they carry" {
+                withSessions (fun cs ->
+                    withOpenSession cs
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteNotice("s-1", noticeOf "n-1" (Some patient), t0)
+                            Session.WriteChallenge("s-1", challengeOf "c-1", t0)
+                        ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    scalarOf cs "select data from data_notice"
+                    |> unbox<string>
+                    |> Expect.equal "the patient it showed, as its Dto" patientJson
+
+                    scalarOf cs "select json_version from data_notice"
+                    |> unbox<int64>
+                    |> Expect.equal "under the version it was written with" (int64 SqlSessions.patientJsonWritten)
+
+                    scalarOf cs "select digest from challenge"
+                    |> unbox<string>
+                    |> Expect.equal "the digest it was issued over" "digest-1"
+
+                    // a reading that could not be taken is no reading, and no structure version
+                    scalarOf cs "select count(*) from challenge where reading is null and json_version is null"
+                    |> unbox<int64>
+                    |> Expect.equal "the challenge carries neither" 1L
+                )
+            }
+
+            test "a challenge is spent by the nonce the request read" {
+                withSessions (fun cs ->
+                    withOpenSession cs
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.WriteChallenge("s-1", challengeOf "c-1", t0)
+                            Session.WriteChallenge("s-1", challengeOf "c-2", t0)
+                        ]
+                    |> ignore
+
+                    SqlSessions.runWrites cs [ Session.SpendChallenge("s-1", "c-1", t0) ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    scalarOf cs "select c.nonce from challenge_spent s join challenge c on c.id = s.challenge_id"
+                    |> unbox<string>
+                    |> Expect.equal "the one the request answered, not the newer" "c-1"
+
+                    // spending it again, and spending one that is not there, are no error
+                    for nonce in [ "c-1"; "nothing" ] do
+                        SqlSessions.runWrites cs [ Session.SpendChallenge("s-1", nonce, t0) ]
+                        |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    count cs "select count(*) from challenge_spent" |> Expect.equal "spent once" 1L
+                )
+            }
+
+            test "an answer names the version it signed and is not written over" {
+                withSessions (fun cs ->
+                    withOpenSession cs
+                    let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
+                    SqlSessions.runWrites cs [ Session.WriteVersion v1 ] |> ignore
+
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.RememberAnswer(
+                                "s-1",
+                                "k-1",
+                                SigningOutcome.Submitted(v1, OpenedToken "opened-again"),
+                                t0
+                            )
+                        ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    scalarOf cs "select version_id from submission_answer"
+                    |> unbox<string>
+                    |> Expect.equal "the version it signed" v1.Id
+
+                    scalarOf cs "select opened_token from submission_answer"
+                    |> unbox<string>
+                    |> Expect.equal "and the token minted with it" "opened-again"
+
+                    // the same key again: the answer that was given stands
+                    SqlSessions.runWrites
+                        cs
+                        [
+                            Session.RememberAnswer("s-1", "k-1", SigningOutcome.Refused SigningRefusal.StaleToken, t0)
+                        ]
+                    |> ignore
+
+                    scalarOf cs "select answer from submission_answer"
+                    |> unbox<string>
+                    |> Expect.equal "the first answer, not the second" "submitted"
+
+                    count cs "select count(*) from submission_answer" |> Expect.equal "one row" 1L
+                )
+            }
+
+            test "every refusal reaches a column, by a word of its own and with what it carries" {
+                withSessions (fun cs ->
+                    withOpenSession cs
+                    let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
+                    SqlSessions.runWrites cs [ Session.WriteVersion v1 ] |> ignore
+                    let until = t0.AddMinutes 1.0
+
+                    let refusals =
+                        [
+                            SigningRefusal.NoSession
+                            SigningRefusal.NoPatient
+                            SigningRefusal.NotPrescriber
+                            SigningRefusal.Blocked(StoredVersion.head (StoredVersion.Readable v1))
+                            SigningRefusal.StaleToken
+                            SigningRefusal.ChallengeMismatch
+                            SigningRefusal.ChallengeExpired
+                            SigningRefusal.PinWrong 2
+                            SigningRefusal.PinLimit
+                            SigningRefusal.Locked until
+                            SigningRefusal.StoreFailed
+                            SigningRefusal.PlanUnreadable
+                        ]
+
+                    for i, refusal in refusals |> List.indexed do
+                        SqlSessions.runWrites
+                            cs
+                            [
+                                Session.RememberAnswer("s-1", $"k-%i{i}", SigningOutcome.Refused refusal, t0)
+                            ]
+                        |> Expect.equal $"%A{refusal} written" Session.StoreOutcome.Written
+
+                    scalarOf cs "select count(distinct answer) from submission_answer"
+                    |> unbox<int64>
+                    |> Expect.equal "a word of its own for every refusal" (int64 refusals.Length)
+
+                    // the three that carry something keep it beside the word
+                    scalarOf cs "select version_id from submission_answer where answer = 'refused:blocked'"
+                    |> unbox<string>
+                    |> Expect.equal "the head that blocked" v1.Id
+
+                    scalarOf cs "select attempts_left from submission_answer where answer = 'refused:pin-wrong'"
+                    |> unbox<int64>
+                    |> Expect.equal "the tries that remain" 2L
+
+                    scalarOf cs "select locked_until from submission_answer where answer = 'refused:locked'"
+                    |> unbox<int64>
+                    |> Expect.equal "until when it is locked" (SqlSessions.ms until)
+                )
+            }
+        ]
