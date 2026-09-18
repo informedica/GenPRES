@@ -33,6 +33,12 @@ let connect (cs: string) =
 let t0 = DateTime(2026, 9, 17, 8, 0, 0, DateTimeKind.Utc)
 
 
+/// The writes of a request, run on the fixture's clock: the audit of a write with no time of
+/// its own is timed by the request.
+let runWrites (cs: string) (writes: Session.Persist list) =
+    SqlSessions.runWrites cs (fun () -> t0) writes
+
+
 /// The rows a presented Launch and its callback leave behind; the writer that returns them
 /// from the machine's writes is the next step, so the test writes them itself.
 let insertLaunch (cs: string) (nonce: string) (expiry: DateTime) =
@@ -548,7 +554,7 @@ let writerTests =
                 withSessions (fun cs ->
                     let session = sessionOf "s-1" "prescriber" None None
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.OpenSession("s-1", session)
@@ -567,7 +573,7 @@ let writerTests =
                     let session = sessionOf "s-1" "prescriber" None None
                     let later = t0.AddMinutes 5.0
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.OpenSession("s-1", session)
@@ -581,7 +587,7 @@ let writerTests =
                             Opened = { session.Opened with OpenedToken = Some(OpenedToken "opened-again") }
                         }
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.RecordSeen("s-1", later)
@@ -599,7 +605,7 @@ let writerTests =
                         loaded.Seen |> Expect.equal "the newest heartbeat" later
                     | other -> failtest $"expected the Session, got %A{other}"
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.EndSession("s-1", Session.StoredEnding.Ended SessionEnding.WrongPinLimit, later)
@@ -615,7 +621,7 @@ let writerTests =
 
             test "a Launch and its outcome are written and read back as the launch they were" {
                 withSessions (fun cs ->
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.RecordLaunch(launchOf "n-1")
@@ -632,7 +638,7 @@ let writerTests =
                         row.Attempt |> Expect.equal "the attempt it named" (Some "attempt-1")
                     | None -> failtest "expected the Launch"
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.RecordLaunch(launchOf "n-2")
@@ -656,7 +662,7 @@ let writerTests =
                     let session = sessionOf "s-1" "prescriber" None None
 
                     // the second write names a Session that was never opened
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.OpenSession("s-1", session)
@@ -678,7 +684,7 @@ let writerTests =
                     let session =
                         sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable v1))
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.OpenSession("s-1", session)
@@ -689,7 +695,7 @@ let writerTests =
                     let rival = { v1 with Id = "plan-rival" }
 
                     match
-                        SqlSessions.runWrites
+                        runWrites
                             cs
                             [
                                 Session.WriteVersion rival
@@ -713,7 +719,7 @@ let writerTests =
                 withSessions (fun cs ->
                     let readOnly = $"%s{cs};Mode=ReadOnly"
 
-                    SqlSessions.runWrites readOnly [ Session.RecordLaunch(launchOf "n-1") ]
+                    runWrites readOnly [ Session.RecordLaunch(launchOf "n-1") ]
                     |> function
                         | Session.StoreOutcome.Failed reason -> reason |> Expect.isNotEmpty "the reason it failed"
                         | other -> failtest $"expected Failed, got %A{other}"
@@ -729,7 +735,7 @@ let writerTests =
                     )
                         .ToString()
 
-                SqlSessions.runWrites missing [ Session.RecordLaunch(launchOf "n-1") ]
+                runWrites missing [ Session.RecordLaunch(launchOf "n-1") ]
                 |> function
                     | Session.StoreOutcome.Failed reason -> reason |> Expect.isNotEmpty "the reason it failed"
                     | other -> failtest $"expected Failed, got %A{other}"
@@ -739,7 +745,7 @@ let writerTests =
                 withSessions (fun cs ->
                     let session = sessionOf "s-1" "prescriber" None None
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.OpenSession("s-1", session)
@@ -787,7 +793,7 @@ let sliceTests =
                     let session =
                         sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable v1))
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.OpenSession("s-1", session)
@@ -825,7 +831,7 @@ let sliceTests =
                     let newer = sessionOf "s-2" "prescriber" None None
 
                     for sid, session in [ "s-1", older; "s-2", newer ] do
-                        SqlSessions.runWrites
+                        runWrites
                             cs
                             [
                                 Session.OpenSession(sid, session)
@@ -852,7 +858,7 @@ let sliceTests =
                 withSessions (fun cs ->
                     let launch = launchOf "n-1"
 
-                    SqlSessions.runWrites cs [ Session.RecordLaunch launch ] |> ignore
+                    runWrites cs [ Session.RecordLaunch launch ] |> ignore
 
                     let held =
                         { emptyState with Launches = emptyState.Launches |> Map.add "n-1" launch }
@@ -878,7 +884,7 @@ let sliceTests =
                 withSessions (fun cs ->
                     let session = sessionOf "s-1" "prescriber" None None
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.OpenSession("s-1", session)
@@ -891,7 +897,7 @@ let sliceTests =
                         { emptyState with Sessions = emptyState.Sessions |> Map.add "s-1" session }
 
                     // another server ends it
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.EndSession("s-1", Session.StoredEnding.Ended SessionEnding.WrongPinLimit, t0)
@@ -938,7 +944,7 @@ let sliceTests =
                     for sid in [ "s-1"; "s-2" ] do
                         let session = sessionOf sid "prescriber" None None
 
-                        SqlSessions.runWrites
+                        runWrites
                             cs
                             [
                                 Session.OpenSession(sid, session)
@@ -971,7 +977,7 @@ let sliceTests =
                 withSessions (fun cs ->
                     let session = sessionOf "s-1" "prescriber" None None
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.RecordLaunch(launchOf "n-1")
@@ -1008,7 +1014,7 @@ let sliceTests =
                 withSessions (fun cs ->
                     let session = sessionOf "s-1" "prescriber" None None
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.RecordLaunch(launchOf "n-1")
@@ -1037,7 +1043,7 @@ let sliceTests =
 
             test "a refused launch, an enrolling one, and one past its lifetime" {
                 withSessions (fun cs ->
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.RecordLaunch(launchOf "n-1")
@@ -1087,7 +1093,7 @@ let raceTests =
                     for sid in [ "s-a"; "s-b" ] do
                         let session = sessionOf sid "prescriber" None None
 
-                        SqlSessions.runWrites
+                        runWrites
                             cs
                             [
                                 Session.OpenSession(sid, session)
@@ -1174,7 +1180,7 @@ let credentialWriteTests =
                 withSessions (fun cs ->
                     let mac = [| 1uy; 2uy; 3uy |]
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.WriteCode(pendingOf "no-pin" mac, t0)
@@ -1185,7 +1191,7 @@ let credentialWriteTests =
                     count cs "select count(*) from confirmation_code" |> Expect.equal "the code" 1L
                     count cs "select count(*) from enrolment" |> Expect.equal "the attempt" 1L
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.CountCodeTry("no-pin", mac, t0)
@@ -1212,13 +1218,11 @@ let credentialWriteTests =
                     let newer = [| 2uy |]
 
                     // one server reads a code; another mails a newer one before the first writes
-                    SqlSessions.runWrites cs [ Session.WriteCode(pendingOf "no-pin" read, t0) ]
-                    |> ignore
+                    runWrites cs [ Session.WriteCode(pendingOf "no-pin" read, t0) ] |> ignore
 
-                    SqlSessions.runWrites cs [ Session.WriteCode(pendingOf "no-pin" newer, t0) ]
-                    |> ignore
+                    runWrites cs [ Session.WriteCode(pendingOf "no-pin" newer, t0) ] |> ignore
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.CountCodeTry("no-pin", read, t0)
@@ -1249,20 +1253,19 @@ let credentialWriteTests =
                 withSessions (fun cs ->
                     let mac = [| 9uy |]
 
-                    SqlSessions.runWrites cs [ Session.WriteCode(pendingOf "no-pin" mac, t0) ]
-                    |> ignore
+                    runWrites cs [ Session.WriteCode(pendingOf "no-pin" mac, t0) ] |> ignore
 
-                    SqlSessions.runWrites cs [ Session.SpendCode("no-pin", mac, t0) ] |> ignore
-                    SqlSessions.runWrites cs [ Session.CountCodeTry("no-pin", mac, t0) ] |> ignore
+                    runWrites cs [ Session.SpendCode("no-pin", mac, t0) ] |> ignore
+                    runWrites cs [ Session.CountCodeTry("no-pin", mac, t0) ] |> ignore
 
                     count cs "select count(*) from code_try"
                     |> Expect.equal "nothing to count a try against" 0L
 
-                    SqlSessions.runWrites cs [ Session.WriteEnrolment(enrolmentOf "a-1" "no-pin", t0) ]
+                    runWrites cs [ Session.WriteEnrolment(enrolmentOf "a-1" "no-pin", t0) ]
                     |> ignore
 
                     for _ in 1..2 do
-                        SqlSessions.runWrites cs [ Session.DropEnrolmentWrite("a-1", t0) ]
+                        runWrites cs [ Session.DropEnrolmentWrite("a-1", t0) ]
                         |> Expect.equal "written" Session.StoreOutcome.Written
 
                     count cs "select count(*) from enrolment_dropped"
@@ -1284,7 +1287,7 @@ let credentialLoadTests =
 
                     let withPin = credentialOf "1234"
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.WriteCredential("prescriber", "pin-set", withPin, t0)
@@ -1310,7 +1313,7 @@ let credentialLoadTests =
                     let mac = [| 7uy |]
                     use conn = connect cs
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.WriteCode(pendingOf "no-pin" mac, t0)
@@ -1325,7 +1328,7 @@ let credentialLoadTests =
                     SqlSessions.loadCode conn (t0.AddMinutes 16.0) "no-pin"
                     |> Expect.isNone "past its fifteen minutes it is no code"
 
-                    SqlSessions.runWrites cs [ Session.SpendCode("no-pin", mac, t0) ] |> ignore
+                    runWrites cs [ Session.SpendCode("no-pin", mac, t0) ] |> ignore
 
                     SqlSessions.loadCode conn t0 "no-pin"
                     |> Expect.isNone "spent, and never an older one in its place"
@@ -1336,7 +1339,7 @@ let credentialLoadTests =
                 withSessions (fun cs ->
                     let mac = [| 8uy |]
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.WriteCode(pendingOf "no-pin" mac, t0)
@@ -1365,7 +1368,7 @@ let credentialLoadTests =
                     |> Expect.isTrue "and the credential the PIN will be set on"
 
                     // the attempt given up is not found again
-                    SqlSessions.runWrites cs [ Session.DropEnrolmentWrite("a-1", t0) ] |> ignore
+                    runWrites cs [ Session.DropEnrolmentWrite("a-1", t0) ] |> ignore
 
                     SqlSessions.withEnrolment conn t0 "a-1" emptyState
                     |> fun s -> s.Enrolments |> Expect.isEmpty "nothing to continue"
@@ -1391,7 +1394,7 @@ let credentialLoadTests =
                 withSessions (fun cs ->
                     let session = sessionOf "s-1" "prescriber" None None
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.OpenSession("s-1", session)
@@ -1424,7 +1427,7 @@ let credentialLoadTests =
                     first |> Expect.equal "one row per seeded login" (int64 seeded.Count)
 
                     // the User changes their PIN, and the server is started again
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.WriteCredential("prescriber", "pin-set", credentialOf "9999", t0)
@@ -1436,7 +1439,7 @@ let credentialLoadTests =
 
                     // the PIN was set while this start was seeding: the seed asks and writes in
                     // one statement, so the demo PIN cannot land after it and become the newest
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.WriteCredential("no-pin", "pin-set", credentialOf "5555", t0)
@@ -1466,7 +1469,7 @@ let credentialLoadTests =
 /// A Session for the rows that hang off one.
 let withOpenSession (cs: string) =
     let session = sessionOf "s-1" "prescriber" None None
-    SqlSessions.runWrites cs [ Session.OpenSession("s-1", session) ] |> ignore
+    runWrites cs [ Session.OpenSession("s-1", session) ] |> ignore
 
 
 let noticeOf nonce data : Session.Notice =
@@ -1501,7 +1504,7 @@ let flightWriteTests =
                 withSessions (fun cs ->
                     withOpenSession cs
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.WriteNotice("s-1", noticeOf "n-1" (Some patient), t0)
@@ -1532,7 +1535,7 @@ let flightWriteTests =
                 withSessions (fun cs ->
                     withOpenSession cs
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.WriteChallenge("s-1", challengeOf "c-1", t0)
@@ -1540,7 +1543,7 @@ let flightWriteTests =
                         ]
                     |> ignore
 
-                    SqlSessions.runWrites cs [ Session.SpendChallenge("s-1", "c-1", t0) ]
+                    runWrites cs [ Session.SpendChallenge("s-1", "c-1", t0) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     scalarOf cs "select c.nonce from challenge_spent s join challenge c on c.id = s.challenge_id"
@@ -1549,7 +1552,7 @@ let flightWriteTests =
 
                     // spending it again, and spending one that is not there, are no error
                     for nonce in [ "c-1"; "nothing" ] do
-                        SqlSessions.runWrites cs [ Session.SpendChallenge("s-1", nonce, t0) ]
+                        runWrites cs [ Session.SpendChallenge("s-1", nonce, t0) ]
                         |> Expect.equal "written" Session.StoreOutcome.Written
 
                     count cs "select count(*) from challenge_spent" |> Expect.equal "spent once" 1L
@@ -1560,9 +1563,9 @@ let flightWriteTests =
                 withSessions (fun cs ->
                     withOpenSession cs
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
-                    SqlSessions.runWrites cs [ Session.WriteVersion v1 ] |> ignore
+                    runWrites cs [ Session.WriteVersion v1 ] |> ignore
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.RememberAnswer(
@@ -1583,7 +1586,7 @@ let flightWriteTests =
                     |> Expect.equal "and the token minted with it" "opened-again"
 
                     // the same key again: the answer that was given stands
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.RememberAnswer("s-1", "k-1", SigningOutcome.Refused SigningRefusal.StaleToken, t0)
@@ -1602,7 +1605,7 @@ let flightWriteTests =
                 withSessions (fun cs ->
                     withOpenSession cs
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
-                    SqlSessions.runWrites cs [ Session.WriteVersion v1 ] |> ignore
+                    runWrites cs [ Session.WriteVersion v1 ] |> ignore
                     let until = t0.AddMinutes 1.0
 
                     let refusals =
@@ -1622,7 +1625,7 @@ let flightWriteTests =
                         ]
 
                     for i, refusal in refusals |> List.indexed do
-                        SqlSessions.runWrites
+                        runWrites
                             cs
                             [
                                 Session.RememberAnswer("s-1", $"k-%i{i}", SigningOutcome.Refused refusal, t0)
@@ -1659,7 +1662,7 @@ let newestOnlyTests =
                 withSessions (fun cs ->
                     withOpenSession cs
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.WriteChallenge("s-1", challengeOf "c-1", t0)
@@ -1675,7 +1678,7 @@ let newestOnlyTests =
 
                     // the data changed, so the newer challenge is spent: the Session has no
                     // challenge at all, and not the one that was replaced before it
-                    SqlSessions.runWrites cs [ Session.SpendChallenge("s-1", "c-2", t0) ] |> ignore
+                    runWrites cs [ Session.SpendChallenge("s-1", "c-2", t0) ] |> ignore
 
                     SqlSessions.loadChallenge conn t0 "s-1"
                     |> Expect.isNone "no challenge, and never the replaced one"
@@ -1687,7 +1690,7 @@ let newestOnlyTests =
                     let first = [| 1uy |]
                     let second = [| 2uy |]
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.WriteCode(pendingOf "no-pin" first, t0)
@@ -1701,7 +1704,7 @@ let newestOnlyTests =
                     |> Option.map _.CodeMac
                     |> Expect.equal "the code that was mailed last" (Some second)
 
-                    SqlSessions.runWrites cs [ Session.SpendCode("no-pin", second, t0) ] |> ignore
+                    runWrites cs [ Session.SpendCode("no-pin", second, t0) ] |> ignore
 
                     SqlSessions.loadCode conn t0 "no-pin"
                     |> Expect.isNone "no code, and never the one it replaced"
@@ -1712,7 +1715,7 @@ let newestOnlyTests =
                 withSessions (fun cs ->
                     withOpenSession cs
 
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.WriteChallenge("s-1", challengeOf "c-1", t0)
@@ -1735,9 +1738,18 @@ let auditRows (cs: string) =
 
     SqlSessions.rows
         conn
-        "select action, outcome, session_id, actor from audit_entry order by id"
+        "select action, outcome, session_id, actor, at from audit_entry order by id"
         []
-        (fun r -> r.GetString 0, r.GetString 1, SqlSessions.textOrNull r 2, SqlSessions.textOrNull r 3)
+        (fun r -> r.GetString 0, r.GetString 1, SqlSessions.textOrNull r 2, SqlSessions.textOrNull r 3, r.GetInt64 4)
+
+
+let actions (cs: string) =
+    auditRows cs |> List.map (fun (action, _, _, _, _) -> action)
+
+
+/// The audit of one request, as the store derives it.
+let audited writes =
+    SqlSessions.auditOf t0 writes |> List.map (fun e -> e.Action, e.Outcome)
 
 
 [<Tests>]
@@ -1745,31 +1757,41 @@ let auditTests =
     testList
         "the audit of what a request did"
         [
-            test "an open is audited once, by the act and not by its facts" {
+            test "an open is audited once, by the act and not by its facts nor by the launch" {
                 let session = sessionOf "s-1" "prescriber" None None
 
-                [
-                    Session.OpenSession("s-1", session)
-                    Session.RecordOpenedWith("s-1", session, t0)
-                    Session.RecordSeen("s-1", t0)
-                ]
-                |> List.choose SqlSessions.auditOf
+                let entries =
+                    SqlSessions.auditOf
+                        t0
+                        [
+                            Session.OpenSession("s-1", session)
+                            Session.RecordOpenedWith("s-1", session, t0)
+                            Session.RecordLaunchOutcome("n-1", LaunchResult.Opened("s-1", session.Opened), t0)
+                        ]
+
+                entries
                 |> List.map (fun e -> e.Action, e.SessionId, e.Actor)
                 |> Expect.equal
                     "the open alone, by whom and to which Session"
                     [ "session-opened", Some "s-1", Some "user-1" ]
             }
 
-            test "a launch and what it came to are audited, honoured or refused" {
-                [ Session.RecordLaunch(launchOf "n-1") ]
-                |> List.choose SqlSessions.auditOf
-                |> List.map _.Action
-                |> Expect.equal "the launch" [ "launched" ]
+            test "a launch is timed by the request, not by the Launch's expiry" {
+                let launch = launchOf "n-1"
 
-                [
-                    Session.RecordLaunchOutcome("n-1", LaunchResult.Refused LaunchRefusal.WrongActivePatient, t0)
-                ]
-                |> List.choose SqlSessions.auditOf
+                SqlSessions.auditOf t0 [ Session.RecordLaunch launch ]
+                |> List.map (fun e -> e.Action, e.At)
+                |> Expect.equal "the time the launch was made" [ "launched", t0 ]
+
+                launch.Expiry |> Expect.notEqual "which is not when it runs out" t0
+            }
+
+            test "what a launch came to is audited, refused or suspended into enrolment" {
+                SqlSessions.auditOf
+                    t0
+                    [
+                        Session.RecordLaunchOutcome("n-1", LaunchResult.Refused LaunchRefusal.WrongActivePatient, t0)
+                    ]
                 |> List.map (fun e -> e.Action, e.Outcome, e.Detail)
                 |> Expect.equal
                     "the refusal, by the word the store holds it under"
@@ -1777,46 +1799,114 @@ let auditTests =
                         "launch", "refused", Some """{"refusal":"wrong-patient"}"""
                     ]
 
-                [
-                    Session.RecordLaunchOutcome("n-1", LaunchResult.Enrolling "a-1", t0)
-                ]
-                |> List.choose SqlSessions.auditOf
-                |> List.map _.Action
-                |> Expect.equal "the launch suspended into enrolment" [ "enrolling" ]
+                audited
+                    [
+                        Session.RecordLaunchOutcome("n-1", LaunchResult.Enrolling "a-1", t0)
+                    ]
+                |> Expect.equal "the launch suspended into enrolment" [ "enrolling", "ok" ]
             }
 
-            test "a signature is audited by the version it wrote, and a refusal by itself" {
+            test "a signature is audited by the version it wrote, in the Session that made it" {
                 let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
+                let session = sessionOf "s-1" "prescriber" None None
 
-                [
-                    Session.WriteVersion v1
-                    Session.RememberAnswer("s-1", "k-1", SigningOutcome.Submitted(v1, OpenedToken "t"), t0)
-                ]
-                |> List.choose SqlSessions.auditOf
-                |> List.map (fun e -> e.Action, e.Actor)
-                |> Expect.equal "the signature, once" [ "signed", Some Store.prescriber.UserId ]
+                SqlSessions.auditOf
+                    t0
+                    [
+                        Session.WriteVersion v1
+                        Session.RecordOpenedWith("s-1", session, t0)
+                        Session.SpendChallenge("s-1", "c-1", t0)
+                        Session.RememberAnswer("s-1", "k-1", SigningOutcome.Submitted(v1, OpenedToken "t"), t0)
+                    ]
+                |> List.map (fun e -> e.Action, e.SessionId, e.Actor)
+                |> Expect.equal
+                    "the signature, once, naming the Session the rest of the request named"
+                    [ "signed", Some "s-1", Some Store.prescriber.UserId ]
+            }
 
-                [
-                    Session.RememberAnswer("s-1", "k-1", SigningOutcome.Refused SigningRefusal.PinLimit, t0)
-                ]
-                |> List.choose SqlSessions.auditOf
+            test "a refused signature is audited by itself, by the word of the refusal" {
+                SqlSessions.auditOf
+                    t0
+                    [
+                        Session.RememberAnswer("s-1", "k-1", SigningOutcome.Refused SigningRefusal.PinLimit, t0)
+                    ]
                 |> List.map (fun e -> e.Action, e.Outcome, e.Detail)
-                |> Expect.equal "the refusal, by its word" [ "sign", "refused", Some """{"refusal":"pin-limit"}""" ]
+                |> Expect.equal "the refusal" [ "sign", "refused", Some """{"refusal":"pin-limit"}""" ]
+            }
+
+            test "a PIN set, a code mailed and a code entered wrongly each say who" {
+                SqlSessions.auditOf
+                    t0
+                    [
+                        Session.WriteCredential("no-pin", "pin-set", credentialOf "1234", t0)
+                        Session.WriteCode(pendingOf "no-pin" [| 1uy |], t0)
+                        Session.CountCodeTry("no-pin", [| 1uy |], t0)
+                    ]
+                |> List.map (fun e -> e.Action, e.Outcome, e.Actor)
+                |> Expect.equal
+                    "each act, by the person it was for"
+                    [
+                        "credential-pin-set", "ok", Some "no-pin"
+                        "code-mailed", "ok", Some "no-pin"
+                        "code-entered", "refused", Some "no-pin"
+                    ]
             }
 
             test "the end of a Session is audited with the ending it was" {
-                [
-                    Session.EndSession("s-1", Session.StoredEnding.Ended SessionEnding.WrongPinLimit, t0)
-                    Session.AcknowledgeEnding("s-1", t0)
-                ]
-                |> List.choose SqlSessions.auditOf
-                |> List.map (fun e -> e.Action, e.Detail)
-                |> Expect.equal "the ending, once" [ "session-ended", Some """{"ending":"wrong-pin-limit"}""" ]
+                SqlSessions.auditOf
+                    t0
+                    [
+                        Session.EndSession("s-1", Session.StoredEnding.Ended SessionEnding.WrongPinLimit, t0)
+                        Session.AcknowledgeEnding("s-1", t0)
+                    ]
+                |> List.map (fun e -> e.Action, e.SessionId, e.Detail)
+                |> Expect.equal
+                    "the ending, once"
+                    [
+                        "session-ended", Some "s-1", Some """{"ending":"wrong-pin-limit"}"""
+                    ]
+            }
+
+            test "a challenge issued and a notice told are acts of their own" {
+                audited
+                    [
+                        Session.RecordSeen("s-1", t0)
+                        Session.WriteChallenge("s-1", challengeOf "c-1", t0)
+                    ]
+                |> Expect.equal "the challenge" [ "challenge-issued", "ok" ]
+
+                audited
+                    [
+                        Session.RecordSeen("s-1", t0)
+                        Session.WriteNotice("s-1", noticeOf "c-1" None, t0)
+                    ]
+                |> Expect.equal "the notice" [ "notice-told", "ok" ]
+            }
+
+            test "a version opened is audited, though no write of it is its own" {
+                let session = sessionOf "s-1" "prescriber" None None
+
+                // what openVersion writes: the heartbeat, the challenge it used up, and what the
+                // Session now opens with. An open and a signature write that too, and are
+                // audited by what they write besides it
+                SqlSessions.auditOf
+                    t0
+                    [
+                        Session.RecordSeen("s-1", t0)
+                        Session.SpendChallenge("s-1", "c-1", t0)
+                        Session.RecordOpenedWith("s-1", session, t0)
+                    ]
+                |> List.map (fun e -> e.Action, e.SessionId, e.Actor)
+                |> Expect.equal "the version opened" [ "version-opened", Some "s-1", Some "user-1" ]
+            }
+
+            test "a request that only says it was seen is no act, and no entry" {
+                audited [ Session.RecordSeen("s-1", t0) ] |> Expect.isEmpty "nothing was done"
             }
 
             test "the entries land with the writes they describe" {
                 withSessions (fun cs ->
-                    SqlSessions.runWrites
+                    runWrites
                         cs
                         [
                             Session.RecordLaunch(launchOf "n-1")
@@ -1824,8 +1914,7 @@ let auditTests =
                         ]
                     |> Expect.equal "both wrote" Session.StoreOutcome.Written
 
-                    auditRows cs
-                    |> List.map (fun (action, _, _, _) -> action)
+                    actions cs
                     |> Expect.equal "one entry per act, in the order of the writes" [ "launched"; "session-opened" ]
                 )
             }
@@ -1835,7 +1924,7 @@ let auditTests =
                     // the Session the second write names was never opened, so its row is refused
                     // and the whole transaction rolls back, the audit with it
                     let outcome =
-                        SqlSessions.runWrites
+                        runWrites
                             cs
                             [
                                 Session.RecordLaunch(launchOf "n-1")
