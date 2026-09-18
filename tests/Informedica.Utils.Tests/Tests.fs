@@ -219,52 +219,193 @@ module Tests =
                 ]
 
 
-    module FileTests =
+    module DirectoryTests =
 
         open System.IO
+        open Expecto.Flip
+
+
+        /// Runs f against a fresh temp directory tree and deletes it afterwards.
+        /// GetFullPath because on macOS the temp path is a symlink (/var -> /private/var)
+        /// and Directory.GetParent does not resolve it: comparing a walked path with a
+        /// constructed one needs both to be built the same way.
+        let private withTempTree f =
+            let root =
+                Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
+                |> Path.GetFullPath
+
+            System.IO.Directory.CreateDirectory root |> ignore
+
+            try
+                f root
+            finally
+                try
+                    System.IO.Directory.Delete(root, true)
+                with _ ->
+                    ()
+
+
+        /// Creates root/a/b/c and returns the deepest directory.
+        let private nested root =
+            let deep = Path.Combine(root, "a", "b", "c")
+            System.IO.Directory.CreateDirectory deep |> ignore
+            deep
+
+
+        let private writeFile dir name =
+            let path = Path.Combine(dir, name)
+            File.WriteAllText(path, "x")
+            path
+
 
         [<Tests>]
         let tests =
             testList
-                "File.findParent"
+                "Directory"
                 [
-                    test "returns Some for a file in current directory" {
-                        // Use this test file name as the sentinel
-                        let _ = Directory.GetCurrentDirectory()
-                        let _ = "Informedica.Utils.Tests.dll" // built test assembly name typically in bin during run
-                        // We can't rely on exact file presence; instead, write a temp file and clean up
-                        let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
-                        Directory.CreateDirectory(tempDir) |> ignore
-                        let nestedDir = Path.Combine(tempDir, "a", "b")
-                        Directory.CreateDirectory(nestedDir) |> ignore
-                        let targetFile = Path.Combine(tempDir, "sentinel.txt")
-                        File.WriteAllText(targetFile, "x")
-                        // search starting in nestedDir for sentinel.txt
-                        let found = File.findParent nestedDir "sentinel.txt"
+                    test "tryFindUpward searches the start directory itself" {
+                        withTempTree (fun root ->
+                            let deep = nested root
 
-                        try
-                            Expect.equal found (Some tempDir) "Should find parent directory that contains the file"
-                        finally
-                            try
-                                Directory.Delete(tempDir, true)
-                            with _ ->
-                                ()
+                            deep
+                            |> Directory.tryFindUpward (fun d -> d = deep)
+                            |> Expect.equal "the search is inclusive of startDir" (Some deep)
+                        )
                     }
 
-                    test "returns None when file does not exist in any ancestor" {
-                        let tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))
-                        Directory.CreateDirectory(tempDir) |> ignore
-                        let nestedDir = Path.Combine(tempDir, "a", "b")
-                        Directory.CreateDirectory(nestedDir) |> ignore
-                        let found = File.findParent nestedDir "definitely-not-existing-12345.xyz"
+                    test "tryFindUpward finds the nearest matching ancestor" {
+                        withTempTree (fun root ->
+                            let deep = nested root
+                            let mid = Path.Combine(root, "a", "b")
+                            writeFile mid "marker.txt" |> ignore
+                            writeFile root "marker.txt" |> ignore
 
-                        try
-                            Expect.equal found None "Should return None when file not found"
-                        finally
-                            try
-                                Directory.Delete(tempDir, true)
-                            with _ ->
-                                ()
+                            deep
+                            |> Directory.tryFindUpward (fun d -> File.Exists(Path.Combine(d, "marker.txt")))
+                            |> Expect.equal "the nearest ancestor wins, not the outermost" (Some mid)
+                        )
+                    }
+
+                    test "tryFindUpward returns None when the filesystem root is reached" {
+                        withTempTree (fun root ->
+                            let deep = nested root
+
+                            deep
+                            |> Directory.tryFindUpward (fun _ -> false)
+                            |> Expect.equal "a predicate that never holds walks out and stops" None
+                        )
+                    }
+
+                    test "tryFindUpward is None for an empty or whitespace start directory" {
+                        ""
+                        |> Directory.tryFindUpward (fun _ -> true)
+                        |> Expect.equal "empty is None, not an exception" None
+
+                        "   "
+                        |> Directory.tryFindUpward (fun _ -> true)
+                        |> Expect.equal "whitespace is None, not an exception" None
+                    }
+
+                    test "tryFindUpward walks the ancestors of a directory that does not exist" {
+                        withTempTree (fun root ->
+                            let missing = Path.Combine(root, "does-not-exist", "either")
+                            writeFile root "marker.txt" |> ignore
+
+                            missing
+                            |> Directory.tryFindUpward (fun d -> File.Exists(Path.Combine(d, "marker.txt")))
+                            |> Expect.equal "GetParent is a string operation, so the walk continues" (Some root)
+                        )
+                    }
+
+                    test "tryFindUpward continues past a directory whose predicate throws" {
+                        withTempTree (fun root ->
+                            // The guard is per directory: one that cannot be enumerated
+                            // (permissions) counts as no match rather than ending the search.
+                            // Simulated at the predicate, since making a directory unreadable
+                            // is not portable across CI runners.
+                            let deep = nested root
+                            let mid = Path.Combine(root, "a", "b")
+
+                            let found dir =
+                                try
+                                    if dir = mid then
+                                        raise (UnauthorizedAccessException "simulated")
+                                    else
+                                        File.Exists(Path.Combine(dir, "marker.txt"))
+                                with _ ->
+                                    false
+
+                            writeFile root "marker.txt" |> ignore
+
+                            deep
+                            |> Directory.tryFindUpward found
+                            |> Expect.equal "the walk continues past the directory it cannot read" (Some root)
+                        )
+                    }
+
+                    test "tryFindFileUpward returns the full path of the file" {
+                        withTempTree (fun root ->
+                            let deep = nested root
+                            let expected = writeFile root ".env"
+
+                            deep
+                            |> Directory.tryFindFileUpward ".env"
+                            |> Expect.equal "the file path is what loadDotEnv reads" (Some expected)
+                        )
+                    }
+
+                    test "tryFindFileUpward is None when no ancestor holds the file" {
+                        withTempTree (fun root ->
+                            let deep = nested root
+
+                            deep
+                            |> Directory.tryFindFileUpward "definitely-not-existing-12345.xyz"
+                            |> Expect.equal "nothing found" None
+                        )
+                    }
+
+                    test "tryFindDirWithFile returns the directory, not the file" {
+                        withTempTree (fun root ->
+                            let deep = nested root
+                            writeFile root ".env" |> ignore
+
+                            deep
+                            |> Directory.tryFindDirWithFile ".env"
+                            |> Expect.equal "the directory holding the file" (Some root)
+                        )
+                    }
+
+                    test "tryFindParent matches the file name ignoring case" {
+                        withTempTree (fun root ->
+                            let deep = nested root
+                            writeFile root "SENTINEL.TXT" |> ignore
+
+                            deep
+                            |> Directory.tryFindParent "sentinel.txt"
+                            |> Expect.equal "case is ignored" (Some root)
+                        )
+                    }
+
+                    test "tryFindParent accepts a file as its start" {
+                        withTempTree (fun root ->
+                            let deep = nested root
+                            let startFile = writeFile deep "start-here.txt"
+                            writeFile root "sentinel.txt" |> ignore
+
+                            startFile
+                            |> Directory.tryFindParent "sentinel.txt"
+                            |> Expect.equal "a file start is taken as its directory" (Some root)
+                        )
+                    }
+
+                    test "tryFindParent is None when no ancestor holds the file" {
+                        withTempTree (fun root ->
+                            let deep = nested root
+
+                            deep
+                            |> Directory.tryFindParent "definitely-not-existing-12345.xyz"
+                            |> Expect.equal "nothing found" None
+                        )
                     }
                 ]
 

@@ -116,6 +116,7 @@ let allowances =
 
     [
         // Utils.Lib: whole IO modules awaiting the pure/IO split
+        allowFile "src/Informedica.Utils.Lib/Directory.fs" utilsSplit
         allowFile "src/Informedica.Utils.Lib/File.fs" utilsSplit
         allowFile "src/Informedica.Utils.Lib/Env.fs" utilsSplit
         allowFile "src/Informedica.Utils.Lib/App.fs" utilsSplit

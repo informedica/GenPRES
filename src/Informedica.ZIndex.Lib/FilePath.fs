@@ -13,20 +13,10 @@ module FilePath =
     /// Find the data directory by searching up from the given starting directory
     /// The data directory must contain a 'zindex' subfolder to be valid
     let findDataDir startDir =
-        let rec search dir =
-            if String.IsNullOrEmpty(dir) then
-                None
-            else
-                let dataPath = Path.Combine(dir, "data")
-                let zindexPath = Path.Combine(dataPath, "zindex")
-                // Only accept data directories that contain the zindex subfolder
-                if Directory.Exists(dataPath) && Directory.Exists(zindexPath) then
-                    Some dataPath
-                else
-                    let parent = Directory.GetParent(dir)
-                    if parent <> null then search parent.FullName else None
-
-        search startDir
+        startDir
+        // Only accept data directories that contain the zindex subfolder
+        |> Directory.tryFindUpward (fun dir -> System.IO.Directory.Exists(Path.Combine(dir, "data", "zindex")))
+        |> Option.map (fun dir -> Path.Combine(dir, "data"))
 
 
     /// Find the data directory by searching up from the given starting directory (internal for testing)
