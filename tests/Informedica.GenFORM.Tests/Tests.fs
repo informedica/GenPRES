@@ -666,7 +666,7 @@ module DoseRuleProductTests =
                         |> Expect.isFalse "the DoseRule carries attached products"
                 }
 
-                // Regression (PR #361 GenFORM v2): a component-based combination
+                // Regression (GenFORM v2): a component-based combination
                 // dose rule must keep its combination generic label, not be
                 // collapsed onto its single marker substance. Otherwise the
                 // combination (e.g. amoxicilline/clavulaanzuur) is filed under the
@@ -697,7 +697,7 @@ module DoseRuleProductTests =
                     |> Expect.equal "label stays the combination, not the marker substance" "amoxicilline/clavulaanzuur"
                 }
 
-                // Regression (PR #361 GenFORM v2): the substance rows of one
+                // Regression (GenFORM v2): the substance rows of one
                 // component must collapse into a single DoseRule with one
                 // component carrying every substance limit. Rows are grouped by
                 // semantic identity (hashId), never by DataId/GroupId/SortNo,
@@ -1362,7 +1362,7 @@ module DoseRuleRoundtripTests =
     // `lazy`, not plain values: a module-level binding runs in this module's static
     // constructor, i.e. during Expecto's test discovery. Anything that throws there
     // takes down the whole assembly, which then reports zero tests instead of one
-    // failure — exactly how issue #523 hid a red build behind "0 failed". Lazy is
+    // failure — exactly how a red build once hid behind "0 failed". Lazy is
     // thread-safe by default, so each is still computed at most once even though
     // Expecto runs tests in parallel.
     let private data = lazy (load<DoseRuleData[]> "doserules.json")
@@ -3810,7 +3810,7 @@ module Tests =
         // `lazy` for the same reason as DoseRuleRoundtripTests' fixtures: as a plain
         // value this reads three files and runs the loader in this module's static
         // constructor, during test discovery, where a throw costs the whole assembly
-        // its results rather than failing the one test that needs this (issue #523).
+        // its results rather than failing the one test that needs this.
         let private sampleDoseRule =
             lazy
                 (let data = fixture<DoseRuleData[]> "doserules.json"
@@ -4014,7 +4014,7 @@ module Tests =
                 ]
 
 
-    /// External formulary links (issue #529): `Source.getLink` is pure over an NKF index
+    /// External formulary links: `Source.getLink` is pure over an NKF index
     /// that may be empty, and `SourceLoader` is the IO leaf that must fail as a `Result`.
     module SourceLinkTests =
 

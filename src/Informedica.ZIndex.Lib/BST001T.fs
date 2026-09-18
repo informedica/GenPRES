@@ -92,7 +92,7 @@ module BST001T =
 
     // Split raw/memoized so the G-Standaard file is read on first use rather than in
     // this file's static constructor, where a missing data/zindex/ (a fresh checkout,
-    // a worktree) threw and poisoned the type for the process. See issue #523.
+    // a worktree) threw and poisoned the type for the process.
     let private _data () =
         FilePath.GStandPath() + "/" + name
         |> File.readAllLines

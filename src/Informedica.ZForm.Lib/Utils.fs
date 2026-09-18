@@ -74,7 +74,7 @@ module Web =
 
     /// The configured GENPRES_URL_ID, resolved on first use rather than at module
     /// initialisation, so it sees the process's final working directory and
-    /// environment. Memoized, so .env is read at most once. See issue #523.
+    /// environment. Memoized, so .env is read at most once.
     let genpresUrlId: unit -> string option = Memoization.memoize _genpresUrlId
 
 

@@ -895,7 +895,7 @@ module SessionStubTests =
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
-                    test "no-data over a record: the Session opens on the patient the head was signed on (#640)" {
+                    test "no-data over a record: the Session opens on the patient the head was signed on" {
                         let ids, d = fixture ()
                         let entered = { StubPatientData.patient with Department = Some "ICU" }
 
@@ -933,7 +933,7 @@ module SessionStubTests =
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
-                    test "a reading wins over the patient the head was signed on (Concept 2, #640)" {
+                    test "a reading wins over the patient the head was signed on (Concept 2)" {
                         let ids, d = fixture ()
                         let entered = { StubPatientData.patient with Department = Some "ICU" }
 
@@ -2574,7 +2574,7 @@ module SessionStubTests =
                         |> Expect.equal "entered data: issued" (SigningOutcome.ChallengeIssued "n-1")
                     }
 
-                    test "a Session opened on the signed patient, no reading: told unverified as before (Rule 44, #640)" {
+                    test "a Session opened on the signed patient, no reading: told unverified as before (Rule 44)" {
                         let state, answer =
                             stateOf
                                 [
@@ -3045,7 +3045,7 @@ module SessionStubTests =
 
                             state.Sessions["s-1"].Opened.Patient
                             |> Expect.equal
-                                "verified: the Session's patient is the reading, unchanged (#640)"
+                                "verified: the Session's patient is the reading, unchanged"
                                 (Some(parsePatient stubPatient))
 
                             state.Answered[("s-1", "k-1")] |> fst |> Expect.equal "remembered" answer
@@ -3241,7 +3241,7 @@ module SessionStubTests =
                         |> Expect.equal "not counted" 0
                     }
 
-                    test "unverified: the Session's patient becomes the data signed, so a resume shows it (#640)" {
+                    test "unverified: the Session's patient becomes the data signed, so a resume shows it" {
                         let sid, unverified = challenged "s-1" t0
 
                         let ready =
@@ -3275,7 +3275,7 @@ module SessionStubTests =
                         | other -> failtest $"expected Submitted, got {other}"
                     }
 
-                    test "a changed reading accepted at the notice: the Session's patient is that reading (#640)" {
+                    test "a changed reading accepted at the notice: the Session's patient is that reading" {
                         let sid, over = challenged "s-1" t0
 
                         let ready =

@@ -1508,8 +1508,8 @@ module EquationsTests =
                     }
 
                 test "getEquations is memoised: repeat calls return the same instance" {
-                    // Issue #530: memoize used to be applied per call, so every call
-                    // built and missed a fresh cache and returned a new list.
+                    // memoize used to be applied per call, so every call built and
+                    // missed a fresh cache and returned a new list.
                     let first = EquationMapping.getEquations 3
                     let second = EquationMapping.getEquations 3
 
@@ -1519,7 +1519,7 @@ module EquationsTests =
             ]
 
 
-// Regression tests for issue #381: after the orderable dose quantity is
+// Regression tests: after the orderable dose quantity is
 // changed so that dose quantity <> orderable quantity (orb_dos_cnt <> 1),
 // changing an individual component orderable quantity used to over-determine
 // the orderable dose quantity onto an off-increment value. The solver then
@@ -1580,7 +1580,7 @@ module OrderProcessorTests =
     [<Tests>]
     let tests =
         testList
-            "OrderProcessor component change after dose-quantity change (issue #381)"
+            "OrderProcessor component change after dose-quantity change"
             [
                 test "component orderable quantity change does not crash the solver after a dose-quantity change" {
                     let afterDoseChange = solvedTpn () |> lowerOrderableDoseQuantity

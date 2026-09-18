@@ -108,7 +108,7 @@ let validateStartupTests =
                 | Ok _ -> failtest "expected Error"
             }
 
-            test "production without a password starts with one warning and the url id (#590)" {
+            test "production without a password starts with one warning and the url id" {
                 match
                     Map [ "GENPRES_PROD", "1"; "GENPRES_URL_ID", "sheet-id" ]
                     |> settings
@@ -338,7 +338,7 @@ let languageTests =
                 | Error msg -> msg |> Expect.stringContains "password first" "GENPRES_PASSWORD"
                 | Ok _ -> failtest "expected Error"
 
-                // a missing password is a warning (#590), so it does not mask the language error
+                // a missing password is a warning, so it does not mask the language error
                 match
                     Map [ "GENPRES_PROD", "1"; "GENPRES_LANG", "klingon" ]
                     |> settings

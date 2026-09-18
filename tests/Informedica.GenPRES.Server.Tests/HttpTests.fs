@@ -9,7 +9,7 @@ open Microsoft.AspNetCore.Http
 let immutable = "public, max-age=31536000, immutable"
 
 
-/// Status code, request path, expected Cache-Control (#568).
+/// Status code, request path, expected Cache-Control.
 let cacheControlCases =
     [
         200, "/", "no-cache"
