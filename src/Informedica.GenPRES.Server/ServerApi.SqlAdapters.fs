@@ -1103,31 +1103,36 @@ module SqlSessions =
         |> List.tryHead
 
 
-    /// The live confirmation code of a person: the newest row that is neither spent nor past
-    /// its lifetime, with its wrong tries counted. Never an older code in place of a spent one.
+    /// <summary>
+    /// The live confirmation code of a person: the newest row, and only that row, with its
+    /// wrong tries counted. It is the code unless it is spent or past its lifetime, in which
+    /// case the person has none — never an older code in place of the one that was mailed last.
+    /// </summary>
     let loadCode (conn: SqliteConnection) (now: DateTime) (userId: string) =
         rows
             conn
             """
             select c.id, c.mail_address, c.code_mac, c.expiry,
-                   (select count(*) from code_try t where t.code_id = c.id)
+                   (select count(*) from code_try t where t.code_id = c.id),
+                   exists (select 1 from code_spent s where s.code_id = c.id)
             from confirmation_code c
-            where c.user_id = $u and not exists (select 1 from code_spent s where s.code_id = c.id)
+            where c.user_id = $u
             order by c.id desc limit 1
             """
             [ ("$u", box userId) ]
             (fun r ->
-                {
+                r.GetInt64 5 = 1L,
+                ({
                     UserId = userId
                     MailAddress = r.GetString 1
                     CodeMac = r.GetFieldValue<byte[]> 2
                     Expiry = at (r.GetInt64 3)
                     Tries = r.GetInt32 4
                 }
-                : Session.PendingCode
+                : Session.PendingCode)
             )
         |> List.tryHead
-        |> Option.filter (fun code -> now <= code.Expiry)
+        |> Option.bind (fun (spent, code) -> if spent || now > code.Expiry then None else Some code)
 
 
     /// An enrolment attempt that was not given up, and every undropped attempt of the person it
@@ -1229,10 +1234,10 @@ module SqlSessions =
         rows
             conn
             """
-            select c.nonce, c.digest, c.json_version, c.reading, c.expiry
+            select c.nonce, c.digest, c.json_version, c.reading, c.expiry,
+                   exists (select 1 from challenge_spent s where s.challenge_id = c.id)
             from challenge c
             where c.session_id = $sid
-              and not exists (select 1 from challenge_spent s where s.challenge_id = c.id)
             order by c.id desc limit 1
             """
             [ ("$sid", box sid) ]
@@ -1242,22 +1247,26 @@ module SqlSessions =
                     | false, false -> readPatient (r.GetInt32 2) (r.GetString 3) |> Result.map Some
                     | _ -> Ok None
 
+                let spent = r.GetInt64 5 = 1L
+
                 reading
                 |> Result.map (fun reading ->
-                    {
+                    spent,
+                    ({
                         Nonce = r.GetString 0
                         Digest = r.GetString 1
                         Reading = reading
                         Expiry = at (r.GetInt64 4)
                     }
-                    : Session.Challenge
+                    : Session.Challenge)
                 )
             )
         |> List.tryHead
-        |> Option.filter (fun challenge ->
+        |> Option.bind (fun challenge ->
             match challenge with
-            | Ok c -> now <= c.Expiry
-            | Error _ -> true
+            | Ok(spent, c) -> if spent || now > c.Expiry then None else Some(Ok c)
+            // a row this release cannot read ends the Session, whatever became of it
+            | Error reason -> Some(Error reason)
         )
 
 
