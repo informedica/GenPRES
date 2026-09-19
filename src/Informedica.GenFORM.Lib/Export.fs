@@ -41,23 +41,23 @@ module Analyze =
     type PassResult =
         {
             Label: string
-            // number of input dose rule data rows
+            /// number of input dose rule data rows
             InputDataCount: int
-            // input rows that pass validation AND carry a substance or a dose limit
+            /// input rows that pass validation AND carry a substance or a dose limit
             SurvivingDataCount: int
-            // non-empty dose rules generated from the validated rows (empty-limit rules dropped)
+            /// non-empty dose rules generated from the validated rows (empty-limit rules dropped)
             ForwardDoseRuleCount: int
-            // distinct dose rule data rows reverse-generated from the forward dose rules
+            /// distinct dose rule data rows reverse-generated from the forward dose rules
             GeneratedDataCount: int
-            // input rows not contained in any same-identity generated row
+            /// input rows not contained in any same-identity generated row
             Missing: DoseRuleData[]
-            // missing because no generated row shares the categorical identity
+            /// missing because no generated row shares the categorical identity
             NoIdMatch: DoseRuleData[]
-            // missing because identity matched but quantitative values were not contained
+            /// missing because identity matched but quantitative values were not contained
             QuantMiss: DoseRuleData[]
-            // reverse-of-forward, merged (feeds the next pass)
+            /// reverse-of-forward, merged (feeds the next pass)
             Generated: DoseRuleData[]
-            // generated rows indexed by categorical identity (for reasonLines)
+            /// generated rows indexed by categorical identity (for reasonLines)
             GenById: Map<string, DoseRuleData[]>
         }
 
@@ -80,15 +80,15 @@ module Analyze =
     /// </summary>
     type FixpointDelta =
         {
-            // number of rows in PASS 1 output (gen1)
+            /// number of rows in PASS 1 output (gen1)
             Gen1Count: int
-            // number of rows in PASS 2 output (gen2 = reverse-of-forward of gen1)
+            /// number of rows in PASS 2 output (gen2 = reverse-of-forward of gen1)
             Gen2Count: int
-            // gen1 rowKeys absent from gen2 (rows folded away by the second forward)
+            /// gen1 rowKeys absent from gen2 (rows folded away by the second forward)
             InP1NotP2: int
-            // gen2 rowKeys absent from gen1 (rows that appear only after re-forwarding)
+            /// gen2 rowKeys absent from gen1 (rows that appear only after re-forwarding)
             InP2NotP1: int
-            // the actual gen1 rows that vanish in gen2 (same-identity dose-value folds)
+            /// the actual gen1 rows that vanish in gen2 (same-identity dose-value folds)
             Collapsed: DoseRuleData[]
         }
 

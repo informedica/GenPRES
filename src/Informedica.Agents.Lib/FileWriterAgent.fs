@@ -9,7 +9,7 @@ module FileWriterAgent =
     open System.Collections.Generic
 
 
-    // Messages for the file writer agent
+    /// Messages for the file writer agent
     type FileWriterMsg =
         | Append of path: string * lines: string[]
         | Flush of AsyncReplyChannel<unit>

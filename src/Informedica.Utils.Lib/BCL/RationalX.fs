@@ -103,10 +103,10 @@ module private RationalXHelpers =
 [<Struct; CustomEquality; CustomComparison>]
 type RationalX =
 
-    // small tier: reduced, Q > 0 (the zero-initialized default 0/0 is guarded)
+    /// small tier: reduced, Q > 0 (the zero-initialized default 0/0 is guarded)
     val internal P: int64
     val internal Q: int64
-    // big tier: null => small (use P/Q); non-null => spilled (use Big.Value)
+    /// big tier: null => small (use P/Q); non-null => spilled (use Big.Value)
     val internal Big: BigCell
 
     internal new(p: int64, q: int64)
