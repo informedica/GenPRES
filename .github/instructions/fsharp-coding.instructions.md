@@ -138,9 +138,10 @@ Three things the compiler enforces on such a block, all as FS3390:
 - a `<param name="...">` that names no parameter is an error, so a rename has to carry the
   comment with it.
 
-FS3390 is only switched on in four projects today (GenSOLVER, GenUNITS, GenORDER, Utils).
-In the others a malformed block fails silently, which is the stronger reason to keep a
-block plain unless it has earned its tags.
+FS3390 is only switched on in four of the nineteen projects under `src/` today — GenSOLVER,
+GenUNITS, GenORDER and Utils, plus three test projects and one benchmark. In the other
+fifteen a malformed block fails silently, which is the stronger reason to keep a block
+plain unless it has earned its tags.
 
 #### No backticks, no `<c>` in a plain block
 
