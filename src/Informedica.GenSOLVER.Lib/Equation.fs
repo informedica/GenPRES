@@ -370,13 +370,7 @@ module Equation =
                     | _, []
                     | _, [ _ ] -> n, acc
                     | i, y :: xs ->
-                        // skip calculation if the variable is already solved
-                        // or if this is the last calculation (i.e., previous calculations
-                        // where unchanged)
-                        (*
-                    if y |> Variable.isSolved ||
-                       n = c && c > 2 && y |> Variable.hasValues then None
-                    *)
+                        // skip the calculation if the variable is already solved
                         if y |> Variable.isSolved then
                             None
                         else
@@ -393,15 +387,6 @@ module Equation =
                                 n, None
                             | Some var ->
                                 let yNew = y @<- var
-
-                                (*
-                            let s = y.Name |> Name.toString
-                            if s.Contains("samenstelling c.gluc 10%]_orb_qty") then
-                                printfn "\n=== comparing"
-                                printfn $"old y: {y.Values |> Variable.ValueRange.toString false}"
-                                printfn $"new y: {yNew.Values |> Variable.ValueRange.toString false}"
-                                printfn ""
-                            *)
 
                                 if yNew <> y then
                                     // log finishing the calculation

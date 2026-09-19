@@ -131,17 +131,6 @@ module Solver =
 
                 match que with
                 | [] -> acc |> Ok
-                (*
-                    // can be used for debugging purposes
-                    match acc |> List.filter (Equation.check onlyMinIncrMax >> not) with
-                    | []      -> acc |> Ok
-                    | invalid ->
-                        writeErrorMessage "invalid equations"
-
-                        invalid
-                        |> Exceptions.SolverInvalidEquations
-                        |> Exceptions.raiseExc (Some log) []
-                    *)
 
                 | eq :: tail ->
                     // need to calculate a result first to enable tail call optimization
@@ -197,16 +186,6 @@ module Solver =
                         (onlyMinIncrMax, rpl) |> Events.SolverStartSolving |> Logger.logDebug log
 
                         loop 0 rpl (Ok rst)
-                (*
-                    // switch to different mechanism to either
-                    // sequential solve equations or in parallel
-                    if onlyMinIncrMax (* || not useParallel*) then
-                        // sequential avoiding unnescessary loops
-                        loop 0 rpl (Ok rst)
-                    else
-                        // more efficient with longer running calculations
-                        parallelLoop onlyMinIncrMax log sortQue 0 rpl (Ok rst)
-                    *)
                 with
                 | Exceptions.SolverException errs -> Error(rpl @ rst, errs)
                 | e ->

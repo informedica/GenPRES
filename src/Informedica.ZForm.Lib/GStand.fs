@@ -391,14 +391,6 @@ module GStand =
                     else
                         d.frequency :: frs
 
-                (*
-                let inds =
-                    if inds |> List.exists ((=) d.indication) then
-                        inds
-                    else
-                        d.indication :: inds
-                *)
-
                 //let gstdsrs = d.doserule :: gstdsrs
 
                 let norm = foldMaximize d.normDose norm_
