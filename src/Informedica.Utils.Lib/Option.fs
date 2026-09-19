@@ -6,12 +6,12 @@ namespace Informedica.Utils.Lib
 module Option =
 
 
-    /// Create a `None`
+    /// Create a None
     let none _ = None
 
 
-    /// Choose `opt1` or `opt2` based on a
-    /// predicate function `cp`
+    /// Choose opt1 or opt2 based on a
+    /// predicate function cp
     let choose cp opt1 opt2 =
         match opt1, opt2 with
         | None, None -> None

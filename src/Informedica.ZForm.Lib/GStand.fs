@@ -41,7 +41,7 @@ module GStand =
         |> Seq.map (fun (k, v) -> k, v |> Seq.map snd)
 
 
-    /// An empty `CreateConfig`.
+    /// An empty CreateConfig.
     let config =
         {
             GPKs = []
@@ -136,7 +136,7 @@ module GStand =
 
     /// <summary>
     /// Map GStand frequency string to a valid
-    /// frequency `ValueUnit`.
+    /// frequency <c>ValueUnit</c>.
     /// </summary>
     /// <param name="freq">The frequency to map</param>
     /// <returns>The mapped frequency</returns>
@@ -333,7 +333,7 @@ module GStand =
 
 
     /// <summary>
-    /// Folds a sequence of `Dosages` to a single `Dosages`
+    /// Folds a sequence of <c>Dosages</c> to a single <c>Dosages</c>
     /// by minimizing the min and maximizing the max values.
     /// </summary>
     /// <param name="ds">The sequence of Dosages</param>
@@ -506,7 +506,7 @@ module GStand =
 
 
     /// <summary>
-    /// Create the `Dosages` for a given list of `DoseRules` for
+    /// Create the <c>Dosages</c> for a given list of <c>DoseRules</c> for
     /// a Substance.
     /// </summary>
     /// <param name="cfg">The Config</param>
@@ -533,7 +533,7 @@ module GStand =
 
 
     /// <summary>
-    /// Create the `Dosages` for a given list of `DoseRules` for
+    /// Create the <c>Dosages</c> for a given list of <c>DoseRules</c> for
     /// a PatientCategory.
     /// </summary>
     /// <param name="cfg">The Config</param>

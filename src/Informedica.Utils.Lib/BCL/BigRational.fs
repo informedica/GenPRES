@@ -1,7 +1,7 @@
 namespace Informedica.Utils.Lib.BCL
 
 
-/// Helper functions for `BigRational`
+/// Helper functions for BigRational
 /// Note: needs the ModuleSuffix to prevent build error with
 /// BigRational type definition
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -25,7 +25,7 @@ module BigRational =
     exception BigRationalException of Message
 
 
-    /// Raise exception with message `m`
+    /// Raise exception with message m
     let raiseExc m = m |> BigRationalException |> raise
 
 
@@ -33,7 +33,7 @@ module BigRational =
     // Identity functions
     //----------------------------------------------------------------------------
 
-    /// Apply a `f` to bigrational `x`
+    /// Apply a f to bigrational x
     let apply f (x: BigRational) = f x
 
 
@@ -47,7 +47,7 @@ module BigRational =
 
 
     /// Parse a string and pass the result
-    /// either to `succ` or `fail` function
+    /// either to succ or fail function
     let parseCont succ fail s =
         try
             s |> BigRational.Parse |> succ
@@ -56,14 +56,14 @@ module BigRational =
 
 
     /// Parse a string to a bigrational
-    /// Raises an exception `Message` when
+    /// Raises an exception Message when
     /// the string cannot be parsed
     let parse = parseCont id raiseExc
 
 
     /// Try to parse a string and
-    /// return `None` if it fails
-    /// otherwise `Some` bigrational
+    /// return None if it fails
+    /// otherwise Some bigrational
     let tryParse = parseCont Some (fun _ -> None)
 
 
@@ -88,8 +88,8 @@ module BigRational =
     let fixPrecision n = toDouble >> (Double.fixPrecision n)
 
 
-    /// Try to convert a float `f` to
-    /// a `BigRational`.
+    /// Try to convert a float f to
+    /// a BigRational.
     let fromFloat f =
         f
         |> Double.floatToFract
@@ -125,8 +125,8 @@ module BigRational =
     let toString v = (v |> id).ToString()
 
 
-    /// Convert an optional `BigRational` to a `string`.
-    /// If `None` then return empty `string`.
+    /// Convert an optional BigRational to a string.
+    /// If None then return empty string.
     let optToString =
         function
         | Some v' -> v' |> toString
@@ -165,14 +165,14 @@ module BigRational =
 
 
     /// Get the greatest common divisor
-    /// of two BigRationals `a` and `b`
+    /// of two BigRationals a and b
     let gcd (a: BigRational) (b: BigRational) =
         let den = a.Denominator * b.Denominator
         let num = BigInteger.gcd (a.Numerator * b.Denominator) (b.Numerator * a.Denominator)
         (num |> BigRational.FromBigInt) / (den |> BigRational.FromBigInt)
 
 
-    /// Checks whether `v` is a multiple of `incr`
+    /// Checks whether v is a multiple of incr
     let isMultiple (incr: BigRational) (v: BigRational) =
         if incr = 0N then
             false
@@ -210,7 +210,7 @@ module BigRational =
 
 
     /// Perform a calculation when
-    /// both `n1` and `n2` are 'some'
+    /// both n1 and n2 are 'some'
     let calculate n1 o n2 =
         match n1, n2 with
         | Some x1, Some x2 -> x1 |> o <| x2 |> Some
@@ -220,8 +220,8 @@ module BigRational =
     //let inline triangular n = (n * (n + (n/n))) / ((n + n) / n)
 
 
-    /// Calculate the set of possible solutions with a concentration `conc` up
-    /// to a maximum value `max` in descending order
+    /// Calculate the set of possible solutions with a concentration conc up
+    /// to a maximum value max in descending order
     let calcConc max conc =
         seq {
             for f in (BigInteger.farey max false) do
@@ -233,7 +233,7 @@ module BigRational =
 
 
     /// Generic function to calculate all divisors
-    /// of `n`, using a `modulo` function
+    /// of n, using a modulo function
     let inline getDivisors modulo zero one two n =
         let n = abs n
 
@@ -253,8 +253,8 @@ module BigRational =
 
         getDivisors modulo 0N 1N 2N
 
-    /// Generic function to check whether a `divisor`
-    /// is a divisor of a `dividend`, i.e. the number being
+    /// Generic function to check whether a divisor
+    /// is a divisor of a dividend, i.e. the number being
     /// divided
     let inline isDivisor zero dividend divisor = dividend % divisor = zero
 
@@ -268,8 +268,8 @@ module BigRational =
     let isDivisorOfBigInt (dividend: bigint) (divisor: bigint) = isDivisor 0I dividend divisor
 
 
-    /// Reduce a ratio where `num` is the
-    /// numerator and `denom` is the denominator
+    /// Reduce a ratio where num is the
+    /// numerator and denom is the denominator
     let reduceRatio num denom =
         let n = num / (gcd num denom)
         let denom = denom / (gcd n denom)
@@ -284,17 +284,17 @@ module BigRational =
 
     /// Calculate a rational factor ratio for a given input value based on conditions.
     ///
-    /// This function takes an input value `v` of type `BigRational` and a tuple `r` containing the following components:
-    ///   - `n`: An optional numerator.
-    ///   - `nIsMult`: A boolean flag indicating whether the numerator should be a multiple of n (`true`) or exact value (`false`).
-    ///   - `d`: An optional denominator.
-    ///   - `dIsMult`: A boolean flag indicating whether the denominator should be a multiple of d (`true`) or exact value (`false`).
+    /// This function takes an input value v of type BigRational and a tuple r containing the following components:
+    ///   - n: An optional numerator.
+    ///   - nIsMult: A boolean flag indicating whether the numerator should be a multiple of n (true) or exact value (false).
+    ///   - d: An optional denominator.
+    ///   - dIsMult: A boolean flag indicating whether the denominator should be a multiple of d (true) or exact value (false).
     /// Parameters:
-    ///   - v: The input value for which the factor ratio is calculated (of type `BigRational`).
+    ///   - v: The input value for which the factor ratio is calculated (of type BigRational).
     ///   - r: A tuple containing the conditions and components for calculating the factor ratio.
     /// Returns:
-    ///   - If the calculated factor ratio accurately represents the original value, returns `Some (n, d)`.
-    ///   - Otherwise, returns `None`.
+    ///   - If the calculated factor ratio accurately represents the original value, returns Some (n, d).
+    ///   - Otherwise, returns None.
     let valueToFactorRatio v r =
         let vn, vd = numDenom v
         let toBigR = BigRational.FromBigInt
@@ -327,12 +327,12 @@ module BigRational =
         | Some(n, d) -> Some(n.Numerator, d.Numerator)
 
 
-    /// ToDo: doesn't return `NoOp` but fails,
+    /// ToDo: doesn't return NoOp but fails,
     /// have to rewrite
     ///
-    /// Match an operator `op` to either
+    /// Match an operator op to either
     /// multiplication, division, addition
-    /// or subtraction, returns `NoOp` when
+    /// or subtraction, returns NoOp when
     /// the operation is neither.
     let (|Mul|Div|Add|Sub|) op =
         match op with
@@ -372,11 +372,11 @@ module BigRational =
                 res
 
 
-    /// Order-preserving distinct over a `BigRational` array using the default
-    /// .NET equality comparer. Because `BigRational` (RationalX) is a struct that
-    /// implements `IEquatable<_>`, this takes the unboxed equality path, avoiding
-    /// the per-element boxing that F#'s structural `Array.distinct` incurs for a
-    /// `[<CustomEquality>]` struct. Behaviour matches `Array.distinct` (keeps the
+    /// Order-preserving distinct over a BigRational array using the default
+    /// .NET equality comparer. Because BigRational (RationalX) is a struct that
+    /// implements IEquatable<_>, this takes the unboxed equality path, avoiding
+    /// the per-element boxing that F#'s structural Array.distinct incurs for a
+    /// [<CustomEquality>] struct. Behaviour matches Array.distinct (keeps the
     /// first occurrence of each value).
     let distinct (xs: BigRational[]) : BigRational[] =
         if xs.Length < 2 then
@@ -392,7 +392,7 @@ module BigRational =
             res.ToArray()
 
 
-    /// Calculates the nearest multiple of the given `multiple` based on whether it's required
+    /// Calculates the nearest multiple of the given multiple based on whether it's required
     /// to be a minimum or maximum value.
     ///
     /// - Parameters:
@@ -419,8 +419,8 @@ module BigRational =
 
 
     /// <summary>
-    /// Calculates the smallest multiple of a specified quantity (`multiple`) that is greater
-    /// than or equal to the given `value`.
+    /// Calculates the smallest multiple of a specified quantity (<c>multiple</c>) that is greater
+    /// than or equal to the given <c>value</c>.
     /// </summary>
     /// <example>
     /// <code>
@@ -431,8 +431,8 @@ module BigRational =
 
 
     /// <summary>
-    /// Calculates the largest multiple of a specified quantity (`multiple`) that is less than
-    /// or equal to the given `value`.
+    /// Calculates the largest multiple of a specified quantity (<c>multiple</c>) that is less than
+    /// or equal to the given <c>value</c>.
     /// </summary>
     /// <example>
     /// <code>
@@ -444,7 +444,7 @@ module BigRational =
 
     /// <summary>
     /// Calculates the minimum or maximum value that can be obtained by adding (or subtracting)
-    /// positive increments to a given starting value (`minOrMax`).
+    /// positive increments to a given starting value (<c>minOrMax</c>).
     /// </summary>
     /// <param name="isMax">Specifies whether the maximum value is being calculated.</param>
     /// <param name="isIncl">Indicates whether the result should be inclusive or exclusive of <paramref name="minOrMax"/>.</param>
@@ -474,7 +474,7 @@ module BigRational =
 
     /// <summary>
     /// Calculates the maximum value (inclusive) that can be obtained by adding positive increments
-    /// to a given starting value (`minOrMax`) and returning the smallest result.
+    /// to a given starting value (<c>minOrMax</c>) and returning the smallest result.
     /// </summary>
     /// <example>
     /// <code>
@@ -486,7 +486,7 @@ module BigRational =
 
     /// <summary>
     /// Calculates the maximum value (exclusive) that can be obtained by adding positive increments
-    /// to a given starting value (`minOrMax`) and returning the smallest result.
+    /// to a given starting value (<c>minOrMax</c>) and returning the smallest result.
     /// </summary>
     /// <example>
     /// <code>
@@ -498,7 +498,7 @@ module BigRational =
 
     /// <summary>
     /// Calculates the minimum value (inclusive) that can be obtained by adding positive increments
-    /// to a given starting value (`minOrMax`) and returning the smallest result.
+    /// to a given starting value (<c>minOrMax</c>) and returning the smallest result.
     /// </summary>
     /// <example>
     /// <code>
@@ -511,7 +511,7 @@ module BigRational =
 
     /// <summary>
     /// Calculates the minimum value (exclusive) that can be obtained by adding positive increments
-    /// to a given starting value (`minOrMax`) and returning the smallest result.
+    /// to a given starting value (<c>minOrMax</c>) and returning the smallest result.
     /// </summary>
     /// <example>
     /// <code>
