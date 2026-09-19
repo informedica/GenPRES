@@ -239,7 +239,7 @@ type Credential =
     {
         PinHash: PinHash option
         WrongCount: int
-        // signing is locked until this moment; a delay, not a state
+        /// signing is locked until this moment; a delay, not a state
         LockedUntil: DateTime option
     }
 
@@ -462,7 +462,7 @@ module Session =
         {
             Nonce: string
             Digest: string
-            // the platform's reading at the challenge, none when it could not be read
+            /// the platform's reading at the challenge, none when it could not be read
             Reading: GenForm.Patient option
             Expiry: DateTime
         }
@@ -499,35 +499,35 @@ module Session =
     /// A write the machine asks for, as a value: one case per fact the store records. A member
     /// returns the writes of its request next to the new state and its answer.
     type Persist =
-        // the order plan version of a commit; the Launch and what its callback came to
+        /// the order plan version of a commit; the Launch and what its callback came to
         | WriteVersion of GenOrder.OrderPlanVersion
         | RecordLaunch of LaunchRecord
         | RecordLaunchOutcome of nonce: string * LaunchResult * at: DateTime
-        // the Session opened, what it opened with (at the open, at a version opened and at a
-        // commit), and a request from it
+        /// the Session opened, what it opened with (at the open, at a version opened and at a
+        /// commit), and a request from it
         | OpenSession of sessionId: string * SessionRecord
         | RecordOpenedWith of sessionId: string * SessionRecord * at: DateTime
         | RecordSeen of sessionId: string * at: DateTime
-        // the end of a Session that is an act, and the acknowledgement of an ending
+        /// the end of a Session that is an act, and the acknowledgement of an ending
         | EndSession of sessionId: string * StoredEnding * at: DateTime
         | AcknowledgeEnding of sessionId: string * at: DateTime
-        // the credential as it stands after the event that changed it: the PIN set, a wrong
-        // entry counted, the lock reached, a right entry clearing the count
+        /// the credential as it stands after the event that changed it: the PIN set, a wrong
+        /// entry counted, the lock reached, a right entry clearing the count
         | WriteCredential of userId: string * event: string * Credential * at: DateTime
-        // the confirmation code mailed when a launch suspends, and what becomes of it
+        /// the confirmation code mailed when a launch suspends, and what becomes of it
         | WriteCode of PendingCode * at: DateTime
-        // the code these name is the one the request read, named by its mac: another server
-        // may have mailed a newer one meanwhile, and a try of the older must not void it
+        /// the code these name is the one the request read, named by its mac: another server
+        /// may have mailed a newer one meanwhile, and a try of the older must not void it
         | CountCodeTry of userId: string * codeMac: byte[] * at: DateTime
         | SpendCode of userId: string * codeMac: byte[] * at: DateTime
-        // the launch suspended at the PIN question, the attempt given up, and every attempt of
-        // a person dropped at once when their PIN is set or their code is void
+        /// the launch suspended at the PIN question, the attempt given up, and every attempt of
+        /// a person dropped at once when their PIN is set or their code is void
         | WriteEnrolment of Enrolment * at: DateTime
         | DropEnrolmentWrite of attempt: string * at: DateTime
         | DropEnrolmentsOf of userId: string * at: DateTime
-        // what a Session holds in flight: the notice it was told, the challenge it answers,
-        // the challenge a commit or an opened version used up, named by the nonce the request
-        // read, and what a Submission was answered so that the same one is answered once
+        /// what a Session holds in flight: the notice it was told, the challenge it answers,
+        /// the challenge a commit or an opened version used up, named by the nonce the request
+        /// read, and what a Submission was answered so that the same one is answered once
         | WriteNotice of sessionId: string * Notice * at: DateTime
         | WriteChallenge of sessionId: string * Challenge * at: DateTime
         | SpendChallenge of sessionId: string * nonce: string * at: DateTime
@@ -540,18 +540,18 @@ module Session =
             Sessions: Map<string, SessionRecord>
             Endings: Map<string, SessionEnding * DateTime>
             Credentials: Map<string, Credential>
-            // the live confirmation code per person
+            /// the live confirmation code per person
             Codes: Map<string, PendingCode>
-            // the launches suspended at the PIN question, by attempt
+            /// the launches suspended at the PIN question, by attempt
             Enrolments: Map<string, Enrolment>
-            // every version of each patient's order plan, newest first, readable or not
+            /// every version of each patient's order plan, newest first, readable or not
             Records: Map<string, StoredVersion list>
-            // the live data notice per Session
+            /// the live data notice per Session
             Notices: Map<string, Notice>
-            // the live challenge per Session
+            /// the live challenge per Session
             Challenges: Map<string, Challenge>
-            // what a Submission was answered, by Session and by the client's key, so that a
-            // retry gets the same answer
+            /// what a Submission was answered, by Session and by the client's key, so that a
+            /// retry gets the same answer
             Answered: Map<string * string, SigningOutcome * DateTime>
         }
 

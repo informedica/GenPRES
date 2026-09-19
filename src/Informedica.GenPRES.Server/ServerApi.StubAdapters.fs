@@ -435,20 +435,20 @@ module StubDatabase =
     /// </summary>
     [<RequireQualifiedAccess>]
     type Slice =
-        // the request acts on what it brings: there is nothing to read for it
+        /// the request acts on what it brings: there is nothing to read for it
         | Nothing
-        // a Launch presented, by the nonce sealed in it
+        /// a Launch presented, by the nonce sealed in it
         | LaunchNonce of string
-        // a callback, by the state it carries
+        /// a callback, by the state it carries
         | LaunchState of string
-        // the Sessions of a login, so that an open sees the one it supersedes
+        /// the Sessions of a login, so that an open sees the one it supersedes
         | Login of string
-        // a Session, by the id in the cookie
+        /// a Session, by the id in the cookie
         | Session of string
-        // an enrolment attempt and its person's rows
+        /// an enrolment attempt and its person's rows
         | Enrolment of string
-        // a Submission: the Session it comes from, and the answer its key was already given,
-        // so that the same Submission sent twice is answered once
+        /// a Submission: the Session it comes from, and the answer its key was already given,
+        /// so that the same Submission sent twice is answered once
         | Submission of sessionId: string * idemKey: string
 
 

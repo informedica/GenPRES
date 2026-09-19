@@ -26,11 +26,11 @@ module Types =
     /// </summary>
     type OrderVariable =
         {
-            // The Constraints to apply to the Variable
+            /// The Constraints to apply to the Variable
             DefinedConstraints: Constraints
-            // The Calculated constraints
+            /// The Calculated constraints
             CalculatedConstraints: Constraints
-            // Stores the values/range
+            /// Stores the values/range
             Variable: Variable
 
         }
@@ -40,13 +40,13 @@ module Types =
     /// </summary>
     and Constraints =
         {
-            // The minimum value constraint
+            /// The minimum value constraint
             Min: Minimum option
-            // The maximum value constraint
+            /// The maximum value constraint
             Max: Maximum option
-            // The increment constraint for stepping values
+            /// The increment constraint for stepping values
             Incr: Increment option
-            // A set of allowed values
+            /// A set of allowed values
             Values: ValueSet option
         }
 
@@ -116,21 +116,21 @@ module Types =
     /// </summary>
     type Dose =
         {
-            // The quantity of the dose
+            /// The quantity of the dose
             Quantity: Quantity
-            // The quantity per time unit
+            /// The quantity per time unit
             PerTime: PerTime
-            // The rate of administration
+            /// The rate of administration
             Rate: Rate
-            // The total quantity
+            /// The total quantity
             Total: Total
-            // The adjusted quantity for dose calculations
+            /// The adjusted quantity for dose calculations
             QuantityAdjust: QuantityAdjust
-            // The adjusted quantity per time for dose calculations
+            /// The adjusted quantity per time for dose calculations
             PerTimeAdjust: PerTimeAdjust
-            // The adjusted rate for dose calculations
+            /// The adjusted rate for dose calculations
             RateAdjust: RateAdjust
-            // The adjusted total for dose calculations
+            /// The adjusted total for dose calculations
             TotalAdjust: TotalAdjust
         }
 
@@ -138,17 +138,17 @@ module Types =
     /// Models an Item (substance) in a Component
     type Item =
         {
-            // The name of the item
+            /// The name of the item
             Name: Name
-            // The quantity of an Item in a Component
+            /// The quantity of an Item in a Component
             ComponentQuantity: Quantity
-            // The quantity of an Item in an Orderable
+            /// The quantity of an Item in an Orderable
             OrderableQuantity: Quantity
-            // The Item concentration in a Component
+            /// The Item concentration in a Component
             ComponentConcentration: Concentration
-            // The Item concentration in an Orderable
+            /// The Item concentration in an Orderable
             OrderableConcentration: Concentration
-            // The Item Dose administered
+            /// The Item Dose administered
             Dose: Dose
         }
 
@@ -156,27 +156,27 @@ module Types =
     /// Models a Component in an Orderable
     type Component =
         {
-            // The unique identifier of the component
+            /// The unique identifier of the component
             Id: Id
-            // The name of a Component
+            /// The name of a Component
             Name: Name
-            // The pharmaceutical form of a component
+            /// The pharmaceutical form of a component
             Form: string
-            // The quantity of a Component
+            /// The quantity of a Component
             ComponentQuantity: Quantity
-            // The quantity of a Component in an Orderable
+            /// The quantity of a Component in an Orderable
             OrderableQuantity: Quantity
-            // The count of a Component in an Orderable
+            /// The count of a Component in an Orderable
             OrderableCount: Count
-            // The quantity of a Component in an Order
+            /// The quantity of a Component in an Order
             OrderQuantity: Quantity
-            // The count of a Component in an Order
+            /// The count of a Component in an Order
             OrderCount: Count
-            // The concentration of a Component in an Orderable
+            /// The concentration of a Component in an Orderable
             OrderableConcentration: Concentration
-            // The Component Dose administered
+            /// The Component Dose administered
             Dose: Dose
-            // The Items in a Component
+            /// The Items in a Component
             Items: Item list
         }
 
@@ -184,19 +184,19 @@ module Types =
     /// Models an Orderable item that can be prescribed
     type Orderable =
         {
-            // The name of the orderable
+            /// The name of the orderable
             Name: Name
-            // The quantity of an orderable
+            /// The quantity of an orderable
             OrderableQuantity: Quantity
-            // The quantity of an orderable in an order
+            /// The quantity of an orderable in an order
             OrderQuantity: Quantity
-            // The orderable count in an order
+            /// The orderable count in an order
             OrderCount: Count
-            // The count of doses in an orderable quantity
+            /// The count of doses in an orderable quantity
             DoseCount: Count
-            // The dose of an orderable
+            /// The dose of an orderable
             Dose: Dose
-            // The list of components in an orderable
+            /// The list of components in an orderable
             Components: Component list
         }
 
@@ -210,19 +210,19 @@ module Types =
     /// Models a complete order with all its properties
     type Order =
         {
-            // The id of an order
+            /// The id of an order
             Id: Id
-            // Used to adjust doses based on patient parameters
+            /// Used to adjust doses based on patient parameters
             Adjust: Quantity
-            // The orderable item being prescribed
+            /// The orderable item being prescribed
             Orderable: Orderable
-            // How the Orderable is prescribed
+            /// How the Orderable is prescribed
             Schedule: Schedule
-            // The route of administration for the order
+            /// The route of administration for the order
             Route: string
-            // The duration of an order
+            /// The duration of an order
             Duration: Time
-            // The start and optional stop time of the order
+            /// The start and optional stop time of the order
             StartStop: StartStop
         }
 
@@ -232,9 +232,9 @@ module Types =
         | Once
         | OnceTimed of Time
         | Continuous of Time
-        // A discontinuous prescription with a frequency
+        /// A discontinuous prescription with a frequency
         | Discontinuous of Frequency
-        // A discontinuous prescription with both frequency and time
+        /// A discontinuous prescription with both frequency and time
         | Timed of Frequency * Time
 
 
@@ -331,33 +331,33 @@ module Types =
     /// to an Orderable and a Prescription.
     type Medication =
         {
-            // Identifies the specific medication order
+            /// Identifies the specific medication order
             Id: string
-            // The name of the order
+            /// The name of the order
             Name: string
-            // The list of drug products that can be used for the order
+            /// The list of drug products that can be used for the order
             Components: ProductComponent list
-            // The min max quantity
+            /// The min max quantity
             Quantity: MinMax
-            // The quantities of the medication order
+            /// The quantities of the medication order
             Quantities: ValueUnit option
-            // The route by which the order is applied
+            /// The route by which the order is applied
             Route: string
-            // The type of order
+            /// The type of order
             OrderType: OrderType
-            // The unit to adjust the dose with
-            // AdjustUnit : Unit option
-            // The list of possible frequency values
+            /// The unit to adjust the dose with
+            /// AdjustUnit : Unit option
+            /// The list of possible frequency values
             Frequencies: ValueUnit option
-            // The min and/or max time for the infusion time
+            /// The min and/or max time for the infusion time
             Time: MinMax
-            // The dose limits for a medication order
+            /// The dose limits for a medication order
             Dose: DoseLimit option
-            // The amount of orderable that will be given each time
+            /// The amount of orderable that will be given each time
             DoseCount: MinMax
-            // Dividability option
+            /// Dividability option
             Div: BigRational option
-            // The adjust quantity for the adjusted dose calculations
+            /// The adjust quantity for the adjusted dose calculations
             Adjust: ValueUnit option
         }
 
@@ -368,38 +368,38 @@ module Types =
     /// for the main component.
     and ProductComponent =
         {
-            // The name of the product
+            /// The name of the product
             Name: string
-            // The pharmaceutical form of the product
+            /// The pharmaceutical form of the product
             Form: string
-            // The quantities of the product
-            // Note: the first (main) component has the same unit as
-            // the medication order unit
+            /// The quantities of the product
+            /// Note: the first (main) component has the same unit as
+            /// the medication order unit
             Quantities: ValueUnit option
-            // The "divisibility" of the products
+            /// The "divisibility" of the products
             Divisible: BigRational option
-            // The dose limits for the product
+            /// The dose limits for the product
             Dose: DoseLimit option
-            // The solution limits for a product
+            /// The solution limits for a product
             Solution: SolutionLimit option
-            // The list of substances contained in the product
+            /// The list of substances contained in the product
             Substances: SubstanceItem list
         }
 
     /// A substance in a product. A substance maps to an Item in a Component.
     and SubstanceItem =
         {
-            // The name of the substance
+            /// The name of the substance
             Name: string
-            // Quantities only needed for reconstitution scenarios
-            // to tie a specific reconstitution to a quantity
+            /// Quantities only needed for reconstitution scenarios
+            /// to tie a specific reconstitution to a quantity
             Quantities: ValueUnit option
-            // The possible concentrations of the substance
-            // in the products
+            /// The possible concentrations of the substance
+            /// in the products
             Concentrations: ValueUnit option
-            // The dose limits for a substance
+            /// The dose limits for a substance
             Dose: DoseLimit option
-            // The solution limits for a substance
+            /// The solution limits for a substance
             Solution: SolutionLimit option
         }
 
@@ -407,39 +407,39 @@ module Types =
     /// Represents totals for various nutrients and substances
     type Totals =
         {
-            // Total volume
+            /// Total volume
             Volume: string option
-            // Total energy content
+            /// Total energy content
             Energy: string option
-            // Total protein content
+            /// Total protein content
             Protein: string option
-            // Total carbohydrate content
+            /// Total carbohydrate content
             Carbohydrate: string option
-            // Total fat content
+            /// Total fat content
             Fat: string option
-            // Total sodium content
+            /// Total sodium content
             Sodium: string option
-            // Total potassium content
+            /// Total potassium content
             Potassium: string option
-            // Total chloride content
+            /// Total chloride content
             Chloride: string option
-            // Total calcium content
+            /// Total calcium content
             Calcium: string option
-            // Total phosphate content
+            /// Total phosphate content
             Phosphate: string option
-            // Total magnesium content
+            /// Total magnesium content
             Magnesium: string option
-            // Total iron content
+            /// Total iron content
             Iron: string option
-            // Total vitamin D content
+            /// Total vitamin D content
             VitaminD: string option
-            // Total ethanol content
+            /// Total ethanol content
             Ethanol: string option
-            // Total propylene glycol content
+            /// Total propylene glycol content
             Propyleenglycol: string option
-            // Total benzyl alcohol content
+            /// Total benzyl alcohol content
             BenzylAlcohol: string option
-            // Total boric acid content
+            /// Total boric acid content
             BoricAcid: string option
         }
 
@@ -469,45 +469,45 @@ module Types =
     /// </summary>
     type OrderScenario =
         {
-            // The scenario number
+            /// The scenario number
             No: int
-            // The name of the order
+            /// The name of the order
             Name: string
-            // The indication for the order
+            /// The indication for the order
             Indication: string
-            // The pharmaceutical form of the order
+            /// The pharmaceutical form of the order
             Form: string
-            // The route of the order
+            /// The route of the order
             Route: string
-            // The dose type of the order
+            /// The dose type of the order
             DoseType: DoseType
-            // An optional diluent
+            /// An optional diluent
             Diluent: string option
-            // The component name
+            /// The component name
             Component: string option
-            // The substance name
+            /// The substance name
             Item: string option
-            // The list of diluents to choose from
+            /// The list of diluents to choose from
             Diluents: string[]
-            // The list of components to print out
+            /// The list of components to print out
             Components: string[]
-            // The list of substances to print out
+            /// The list of substances to print out
             Items: string[]
-            // The prescription instructions
+            /// The prescription instructions
             Prescription: TextBlock[][]
-            // The preparation instructions
+            /// The preparation instructions
             Preparation: TextBlock[][]
-            // The administration instructions
+            /// The administration instructions
             Administration: TextBlock[][]
-            // The order itself
+            /// The order itself
             Order: Order
-            // Whether to use adjust calculations
+            /// Whether to use adjust calculations
             UseAdjust: bool
-            // Whether to use a renal rule
+            /// Whether to use a renal rule
             UseRenalRule: bool
-            // The renal rule name
+            /// The renal rule name
             RenalRule: string option
-            // Associated product identifiers
+            /// Associated product identifiers
             ProductsIds: string[]
         }
 
@@ -515,33 +515,33 @@ module Types =
     /// Filter for selecting order scenarios based on various criteria
     type Filter =
         {
-            // The list of indications to select from
+            /// The list of indications to select from
             Indications: string[]
-            // The list of generics to select from
+            /// The list of generics to select from
             Generics: string[]
-            // The list of routes to select from
+            /// The list of routes to select from
             Routes: string[]
-            // The list of pharmaceutical forms to select from
+            /// The list of pharmaceutical forms to select from
             Forms: string[]
-            // The possible dose types
+            /// The possible dose types
             DoseTypes: DoseType[]
-            // The list of diluents to choose from
+            /// The list of diluents to choose from
             Diluents: string[]
-            // The list of components that can be used
+            /// The list of components that can be used
             Components: string[]
-            // The selected indication
+            /// The selected indication
             Indication: string option
-            // The selected generic
+            /// The selected generic
             Generic: string option
-            // The selected route
+            /// The selected route
             Route: string option
-            // The selected pharmaceutical form
+            /// The selected pharmaceutical form
             Form: string option
-            // The selected dose type
+            /// The selected dose type
             DoseType: DoseType option
-            // The diluent to use
+            /// The diluent to use
             Diluent: string option
-            // The list of components that are selected
+            /// The list of components that are selected
             SelectedComponents: string[]
         }
 
@@ -566,11 +566,11 @@ module Types =
     /// </summary>
     type OrderContext =
         {
-            // The filter for selecting scenarios
+            /// The filter for selecting scenarios
             Filter: Filter
-            // The patient information
+            /// The patient information
             Patient: Patient
-            // The list of available scenarios
+            /// The list of available scenarios
             Scenarios: OrderScenario[]
         }
 
@@ -607,13 +607,13 @@ module Types =
     /// </remarks>
     type PlanContext =
         {
-            // The context's id in the order plan
+            /// The context's id in the order plan
             Id: string
-            // A drug, or the nutrition category the context holds
+            /// A drug, or the nutrition category the context holds
             Category: OrderCategory
-            // The order context, evaluated within its own patient
+            /// The order context, evaluated within its own patient
             Context: OrderContext
-            // The totals over the one scenario the context is narrowed to
+            /// The totals over the one scenario the context is narrowed to
             Intake: Totals
         }
 
@@ -626,13 +626,13 @@ module Types =
     /// </summary>
     type OrderPlan =
         {
-            // The patient data as shown, the data a version is signed on
+            /// The patient data as shown, the data a version is signed on
             Patient: Patient
-            // The ids of the contexts the row filter keeps; empty for all of them
+            /// The ids of the contexts the row filter keeps; empty for all of them
             Filtered: string[]
-            // Every order context of the plan, drug and nutrition alike
+            /// Every order context of the plan, drug and nutrition alike
             Contexts: PlanContext[]
-            // The totals over the orders of the filtered contexts
+            /// The totals over the orders of the filtered contexts
             Totals: Totals
         }
 
@@ -641,13 +641,13 @@ module Types =
     /// root, never a constant in this library.
     type NutritionRuleSet =
         {
-            // The category the set serves
+            /// The category the set serves
             Category: NutritionCategory
-            // The label shown for the category
+            /// The label shown for the category
             Label: string
-            // The indications the category's dose rules are filtered on
+            /// The indications the category's dose rules are filtered on
             Indications: string[]
-            // The generics the category's dose rules are filtered on
+            /// The generics the category's dose rules are filtered on
             Generics: string[]
         }
 
@@ -655,9 +655,9 @@ module Types =
     /// Who signed an order plan version
     type Signer =
         {
-            // The user id at the identity provider
+            /// The user id at the identity provider
             UserId: string
-            // The name shown for the signer
+            /// The name shown for the signer
             DisplayName: string
         }
 
@@ -670,22 +670,22 @@ module Types =
     /// </summary>
     type OrderPlanVersion =
         {
-            // The version's own id
+            /// The version's own id
             Id: string
-            // The version number, one above the patient's previous version
+            /// The version number, one above the patient's previous version
             No: int
-            // The patient the plan belongs to
+            /// The patient the plan belongs to
             PatientId: string
-            // The id of the version this one was built on; None for the first
+            /// The id of the version this one was built on; None for the first
             Base: string option
-            // Who signed
+            /// Who signed
             SignedBy: Signer
-            // When
+            /// When
             SignedAt: DateTime
-            // The order plan as signed
+            /// The order plan as signed
             Plan: OrderPlan
-            // Whether the patient data was verified against the platform's reading
-            // at the challenge
+            /// Whether the patient data was verified against the platform's reading
+            /// at the challenge
             Verified: bool
         }
 
@@ -694,32 +694,32 @@ module Types =
     /// that the label of a category stays out of the domain.
     [<RequireQualifiedAccess>]
     type OrderPlanError =
-        // The plan holds no context with the id
+        /// The plan holds no context with the id
         | NoSuchContext of id: string
-        // The workbench holds the number of candidates, not one order
+        /// The workbench holds the number of candidates, not one order
         | NotNarrowed of candidates: int
-        // The plan already holds the order
+        /// The plan already holds the order
         | OrderHeld of orderId: string
-        // A supplement needs a feeding in the plan
+        /// A supplement needs a feeding in the plan
         | SupplementNeedsFeeding
-        // The plan already holds a context of the category
+        /// The plan already holds a context of the category
         | CategoryHeld of NutritionCategory
 
 
     /// Why a Dto does not parse to its domain value.
     [<RequireQualifiedAccess>]
     type DtoError =
-        // A dose type string the Dto carries that names no dose type
+        /// A dose type string the Dto carries that names no dose type
         | UnknownDoseType of string
-        // A text block kind the Dto carries that names no kind
+        /// A text block kind the Dto carries that names no kind
         | UnknownTextKind of string
-        // The order of a scenario could not be created from its Dto
+        /// The order of a scenario could not be created from its Dto
         | OrderNotCreated of string
-        // An order category string the Dto carries that names no category
+        /// An order category string the Dto carries that names no category
         | UnknownCategory of string
-        // A nested Dto a serializer left null, by field name
+        /// A nested Dto a serializer left null, by field name
         | Missing of string
-        // The patient of a context or an order plan is none
+        /// The patient of a context or an order plan is none
         | Patient of Informedica.GenForm.Lib.Types.PatientError
 
 
