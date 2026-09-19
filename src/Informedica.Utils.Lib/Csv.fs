@@ -18,21 +18,21 @@ module Csv =
 
     /// Flexible parsing function with optional option wrapping and error handling.
     ///
-    /// This function attempts parsing using the provided `tryParse` function.
-    /// Depending on the `isOption` flag, the parsed value can be wrapped in an `Option` or not.
-    /// If parsing fails, it handles errors by returning `None` or throwing an exception.
+    /// This function attempts parsing using the provided tryParse function.
+    /// Depending on the isOption flag, the parsed value can be wrapped in an Option or not.
+    /// If parsing fails, it handles errors by returning None or throwing an exception.
     ///
     /// Parameters:
-    ///   - isOption: Flag indicating whether to wrap the parsed value in an `Option`.
+    ///   - isOption: Flag indicating whether to wrap the parsed value in an Option.
     ///   - typeDescr: Description of the target type for error messages.
-    ///   - tryParse: Function attempting to parse the input value and returning an `Option`.
+    ///   - tryParse: Function attempting to parse the input value and returning an Option.
     ///   - x: Input value to be parsed.
     ///
     /// Returns:
-    ///   - Parsed value (wrapped in `Option` if `isOption` is true).
+    ///   - Parsed value (wrapped in Option if isOption is true).
     ///
     /// Exceptions:
-    ///   - Throws an exception with error message if parsing fails and `isOption` is false.
+    ///   - Throws an exception with error message if parsing fails and isOption is false.
     let inline parse isOption typeDescr tryParse x =
         match tryParse x with
         | Some n -> if not isOption then box n else n |> Some |> box

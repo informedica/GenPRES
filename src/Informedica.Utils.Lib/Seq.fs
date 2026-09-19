@@ -17,7 +17,7 @@ module Seq =
 
 
     /// Pick elements from a sequence
-    /// using a list of indices `pl`
+    /// using a list of indices pl
     let pickSeq pl xs =
         pl
         |> List.choose (fun i ->
@@ -29,7 +29,7 @@ module Seq =
         |> Seq.ofList
 
 
-    /// Filter a sequence of sequences using a predicate function `p`.
+    /// Filter a sequence of sequences using a predicate function p.
     /// The purpose of this function is to filter the elements of the
     /// input sequence xs based on the condition that at least one element
     /// in each subsequence (inside xs) satisfies the predicate function p.

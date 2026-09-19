@@ -21,11 +21,11 @@ module Decimal =
     //----------------------------------------------------------------------------
 
     /// Get the double value of a string
-    /// using `InvariantCulture`
+    /// using InvariantCulture
     let parse (s: string) = Decimal.Parse(s, CultureInfo.InvariantCulture)
 
 
-    /// Get a `float Option` from a string
+    /// Get a float Option from a string
     let tryParse (s: string) =
         let style = NumberStyles.Any
         let cult = CultureInfo.InvariantCulture
