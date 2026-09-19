@@ -145,7 +145,6 @@ let allowances =
         allowToken "src/Informedica.GenSOLVER.Lib/Variable.fs" "printfn" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/Equation.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/Equation.fs" "writeErrorMessage" viaLogger
-        allowToken "src/Informedica.GenSOLVER.Lib/Equation.fs" "printfn" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/Solver.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/Solver.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/SolverLogging.fs" "AgentLogging" factory
