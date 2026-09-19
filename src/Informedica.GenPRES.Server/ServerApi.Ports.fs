@@ -204,16 +204,16 @@ module StoredVersion =
 /// The command handlers map it to what the client keeps.
 type OpenedSession =
     {
-        // None = anonymous session: opened without a launch, no User, no Role
+        /// None = anonymous session: opened without a launch, no User, no Role
         User: UserContext option
-        // None = launch without an active patient
+        /// None = launch without an active patient
         PatientId: string option
-        // the data shown for the patient: the platform's reading, else the head's, else none
+        /// the data shown for the patient: the platform's reading, else the head's, else none
         Patient: GenForm.Patient option
         OpenedToken: OpenedToken option
-        // RFC 7638 thumbprint of the public key this Session will sign requests with
+        /// RFC 7638 thumbprint of the public key this Session will sign requests with
         KeyThumbprint: string option
-        // the head of the record it opened with; None from nothing
+        /// the head of the record it opened with; None from nothing
         Head: StoredVersion option
     }
 
@@ -235,11 +235,11 @@ type Signature =
 /// handler maps it to the wire's `SigningResponse`.
 [<RequireQualifiedAccess>]
 type SigningOutcome =
-    // the challenge over exactly this plan; comes back with the PIN
+    /// the challenge over exactly this plan; comes back with the PIN
     | ChallengeIssued of challenge: string
-    // no challenge yet: the token, and the data as it stands, none when it could not be read
+    /// no challenge yet: the token, and the data as it stands, none when it could not be read
     | DataNotice of token: string * data: GenForm.Patient option
-    // the version committed, and a fresh OpenedToken over it
+    /// the version committed, and a fresh OpenedToken over it
     | Submitted of GenOrder.OrderPlanVersion * OpenedToken
     | Refused of SigningRefusal
 
@@ -253,7 +253,7 @@ type LaunchResult =
     | Opened of sessionId: string * OpenedSession
     | RedirectTo of url: string * state: string
     | Refused of LaunchRefusal
-    // the launch suspended at the PIN question; the browser holds the attempt in a cookie
+    /// the launch suspended at the PIN question; the browser holds the attempt in a cookie
     | Enrolling of attemptId: string
 
 
@@ -274,11 +274,11 @@ type Callback =
 type CallbackResult =
     | Opened of sessionId: string * redirect: string
     | Refused of LaunchRefusal * redirect: string
-    // a reload of a callback whose Session a newer launch has since replaced: the browser
-    // goes to the app on whatever cookie it holds, which is the newer Session's
+    /// a reload of a callback whose Session a newer launch has since replaced: the browser
+    /// goes to the app on whatever cookie it holds, which is the newer Session's
     | Superseded of redirect: string
-    // the launch suspended at the PIN question: the attempt for the enrolment cookie, and
-    // how long the code it is bound to lives
+    /// the launch suspended at the PIN question: the attempt for the enrolment cookie, and
+    /// how long the code it is bound to lives
     | Enrolling of attemptId: string * redirect: string * until: System.DateTime
 
 

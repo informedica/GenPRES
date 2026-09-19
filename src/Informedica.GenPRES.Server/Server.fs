@@ -33,23 +33,23 @@ module Config =
     /// The GENPRES_* settings (and SERVER_PORT) as the server uses them.
     type Settings =
         {
-            // SERVER_PORT, default 8085
+            /// SERVER_PORT, default 8085
             Port: uint16
-            // GENPRES_PROD = "1"
+            /// GENPRES_PROD = "1"
             IsProd: bool
-            // GENPRES_URL_ID; None when unset or blank
+            /// GENPRES_URL_ID; None when unset or blank
             UrlId: string option
-            // GENPRES_PASSWORD; None when unset or blank
+            /// GENPRES_PASSWORD; None when unset or blank
             Password: string option
-            // GENPRES_TRUSTED_PROXIES, parsed; loopback pair when unset
+            /// GENPRES_TRUSTED_PROXIES, parsed; loopback pair when unset
             TrustedProxies: System.Net.IPAddress[]
-            // GENPRES_LOG, raw, banner only (Logging.fs reads it itself)
+            /// GENPRES_LOG, raw, banner only (Logging.fs reads it itself)
             Log: string
-            // GENPRES_DEBUG, raw, banner only
+            /// GENPRES_DEBUG, raw, banner only
             Debug: string
-            // GENPRES_LANG, raw; None when unset or blank. Parsed by `language`.
+            /// GENPRES_LANG, raw; None when unset or blank. Parsed by language.
             Lang: string option
-            // GENPRES_DB_CONNECTION, the SQLite session store; None when unset or blank
+            /// GENPRES_DB_CONNECTION, the SQLite session store; None when unset or blank
             DbConnection: string option
         }
 
