@@ -62,8 +62,7 @@ type OrderContextWorkbenchIntent =
 module OrderContextWorkbench =
 
     /// The workbench emptied for the patient.
-    let emptyFor (pat: Patient) =
-        OrderContext.empty |> OrderContext.setPatient pat
+    let emptyFor (pat: Patient) = OrderContext.empty |> OrderContext.setPatient pat
 
 
     /// What the server says when the filter matches no dose rule; the page then starts over.
@@ -123,17 +122,11 @@ module OrderContextWorkbench =
             let ctx = { ctx with Patient = pat }
             OrderContextWorkbench.Evaluated(pat, ctx), [ OrderContextWorkbenchIntent.Evaluate ctx ]
         | OrderContextWorkbenchMsg.Seed ctx, OrderContextWorkbench.Evaluated(pat, _) ->
-            workbench,
-            [
-                OrderContextWorkbenchIntent.Evaluate { ctx with Patient = pat }
-            ]
+            workbench, [ OrderContextWorkbenchIntent.Evaluate { ctx with Patient = pat } ]
 
         // a command over the workbench held, always for the patient held
         | OrderContextWorkbenchMsg.Command(cmd, ctx), OrderContextWorkbench.Evaluated(pat, _) ->
-            workbench,
-            [
-                OrderContextWorkbenchIntent.Call(cmd, { ctx with Patient = pat })
-            ]
+            workbench, [ OrderContextWorkbenchIntent.Call(cmd, { ctx with Patient = pat }) ]
         // nothing to command without a patient or before the first evaluation
         | OrderContextWorkbenchMsg.Command _, OrderContextWorkbench.NoPatient
         | OrderContextWorkbenchMsg.Command _, OrderContextWorkbench.Unevaluated _ -> workbench, []
@@ -374,9 +367,7 @@ module OrderContextState =
 
             apply
                 request
-                [
-                    OrderContextWorkbenchIntent.Evaluate { sent with Patient = pat }
-                ]
+                [ OrderContextWorkbenchIntent.Evaluate { sent with Patient = pat } ]
                 { state with Workbench = workbench }
 
         | OrderContextMsg.PatientChanged(pat, request), _, _ ->

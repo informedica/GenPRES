@@ -576,17 +576,17 @@ module Types =
 
 
     /// Opaque launch token, sealed by the MainEHR LaunchScript; the client never reads it.
-    type Launch = Launch of string
+    type Launch = | Launch of string
 
 
     /// Public JWK (JSON text) of the browser key pair made at the launch.
-    type PublicKey = PublicKey of string
+    type PublicKey = | PublicKey of string
 
 
     /// Names the OrderPlan the Session opened with. Sent with every computing request and
     /// checked at every signature; later it travels inside the signed request of launch
     /// step 7, which is not built yet.
-    type OpenedToken = OpenedToken of string
+    type OpenedToken = | OpenedToken of string
 
 
     [<RequireQualifiedAccess>]

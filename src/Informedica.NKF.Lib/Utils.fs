@@ -22,11 +22,9 @@ module Utils =
         [<Literal>]
         let floatRegex = "(?<Float>[-+]?(\d*[.])?\d+)"
 
-        let matchFloat s =
-            (s |> regexMatch floatRegex).Groups["Float"].Value
+        let matchFloat s = (s |> regexMatch floatRegex).Groups["Float"].Value
 
-        let matchAlpha s =
-            (s |> regexMatch alphaRegex).Groups["Alpha"].Value
+        let matchAlpha s = (s |> regexMatch alphaRegex).Groups["Alpha"].Value
 
         let matchFloatAlpha s =
             let grps = (floatRegex + alphaRegex |> regex).Match(s).Groups

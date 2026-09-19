@@ -75,8 +75,7 @@ module Fixtures =
         }
 
 
-    let plan contexts =
-        Shared.Models.OrderPlan.create draft contexts
+    let plan contexts = Shared.Models.OrderPlan.create draft contexts
 
     let one = plan [| context "c-1" "paracetamol" |]
     let two = plan [| context "c-1" "paracetamol"; context "c-2" "ibuprofen" |]
@@ -131,17 +130,12 @@ let tests =
                 "the patient"
                 [
                     test "a patient set opens the empty plan under the request; the answer shows it" {
-                        let asked, effects =
-                            transition (OrderPlanMsg.PatientChanged(Some patient, "r-1")) noPatient
+                        let asked, effects = transition (OrderPlanMsg.PatientChanged(Some patient, "r-1")) noPatient
 
                         asked |> Expect.equal "asked" (loading patient [||] "r-1")
 
                         effects
-                        |> Expect.equal
-                            "open"
-                            [
-                                OrderPlanEffect.CallPlan(OrderPlanCommand.Open(draft, [||]), "r-1")
-                            ]
+                        |> Expect.equal "open" [ OrderPlanEffect.CallPlan(OrderPlanCommand.Open(draft, [||]), "r-1") ]
 
                         transition (OrderPlanMsg.Answered("r-1", Ok one)) asked
                         |> Expect.equal
@@ -153,8 +147,7 @@ let tests =
                         "a patient changed recalculates the plan over the new patient, the dialog closed, whatever was in flight superseded" {
                         let busy = recalculating one (Some "c-1") "r-1" (OrderPlanCommand.Recalculate one)
 
-                        let state, effects =
-                            transition (OrderPlanMsg.PatientChanged(Some other, "r-2")) busy
+                        let state, effects = transition (OrderPlanMsg.PatientChanged(Some other, "r-2")) busy
 
                         let expected = { one with Patient = otherDraft }
 
@@ -166,9 +159,7 @@ let tests =
                         effects
                         |> Expect.equal
                             "recalculate"
-                            [
-                                OrderPlanEffect.CallPlan(OrderPlanCommand.Recalculate expected, "r-2")
-                            ]
+                            [ OrderPlanEffect.CallPlan(OrderPlanCommand.Recalculate expected, "r-2") ]
 
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) state
                         |> Expect.equal "the older answer dropped" (state, [])
@@ -213,10 +204,7 @@ let tests =
                         transition (OrderPlanMsg.Answered("r-2", Ok two)) second
                         |> Expect.equal
                             "the newer shown, two drugs checked"
-                            (held two None,
-                             [
-                                 OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ]
-                             ])
+                            (held two None, [ OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ] ])
                     }
 
                     test "a patient changed while a version opens re-opens it for the new patient" {
@@ -343,8 +331,7 @@ let tests =
                     test "an order prescribed: the plan page opens on it and the workbench is cleared" {
                         let workbench = context "" "ibuprofen"
 
-                        let busy =
-                            recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench))
+                        let busy = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench))
 
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) busy
                         |> Expect.equal
@@ -390,9 +377,7 @@ let tests =
                         effects
                         |> Expect.equal
                             "recalculate"
-                            [
-                                OrderPlanEffect.CallPlan(OrderPlanCommand.Recalculate filtered, "r-1")
-                            ]
+                            [ OrderPlanEffect.CallPlan(OrderPlanCommand.Recalculate filtered, "r-1") ]
 
                         transition (OrderPlanMsg.Filter([||], "r-2")) state
                         |> Expect.equal "dropped while busy" (state, [])

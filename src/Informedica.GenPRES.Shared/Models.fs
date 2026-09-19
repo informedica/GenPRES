@@ -172,12 +172,10 @@ module Models =
             let getDays { Age.Days = ds } = ds
 
 
-            let calcYears a =
-                (a |> getYears |> float) + ((a |> getMonths |> float) / 12.)
+            let calcYears a = (a |> getYears |> float) + ((a |> getMonths |> float) / 12.)
 
 
-            let calcMonths a =
-                (a |> getYears |> int) * 12 + (a |> getMonths |> int)
+            let calcMonths a = (a |> getYears |> int) * 12 + (a |> getMonths |> int)
 
             let gestAgeToString terms lang (age: GestationalAge) =
                 let getTerm = Localization.getTerm terms
@@ -190,8 +188,7 @@ module Models =
             let toString terms lang (age: Age) =
                 let getTerm = Localization.getTerm terms lang
 
-                let inline plur s1 s2 n =
-                    if int n = 1 then $"{int n} {s1}" else $"{int n} {s2}"
+                let inline plur s1 s2 n = if int n = 1 then $"{int n} {s1}" else $"{int n} {s2}"
 
                 let d =
                     age.Days
@@ -296,8 +293,7 @@ module Models =
         let getGADays (p: Patient) = p.GestationalAge |> Option.map _.Days
 
 
-        let getRenalFunction (p: Patient) =
-            p.RenalFunction |> Option.map RenalFunction.renalToOption
+        let getRenalFunction (p: Patient) = p.RenalFunction |> Option.map RenalFunction.renalToOption
 
 
         let tryParse (s: string) =
@@ -367,8 +363,7 @@ module Models =
                 pat.Weight.Estimated
 
 
-        let getWeightInKg (pat: Patient) =
-            pat |> getWeight |> Option.map (fun x -> float x / 1000.)
+        let getWeightInKg (pat: Patient) = pat |> getWeight |> Option.map (fun x -> float x / 1000.)
 
 
         /// Get either the measured height or the
@@ -408,11 +403,9 @@ module Models =
             let toStr s n =
                 n |> Option.map (Math.fixPrecision 3 >> string >> (fun s' -> $"{s}{s'}"))
 
-            let bold s =
-                s |> Option.map (fun s -> if markDown then $"**{s}**" else s)
+            let bold s = s |> Option.map (fun s -> if markDown then $"**{s}**" else s)
 
-            let italic s =
-                s |> Option.map (fun s -> if markDown then $"*{s}*" else s)
+            let italic s = s |> Option.map (fun s -> if markDown then $"*{s}*" else s)
 
             let isAdult =
                 pat.Age
@@ -710,8 +703,7 @@ module Models =
                             normalNeoHeights
                             |> nearest pcAgeInWeeks
                             |> Option.map (fun (p3, m, p97) ->
-                                let m =
-                                    hghts |> List.nearestIndex (int m) |> (fun idx -> hghts[idx]) |> Measures.toCm
+                                let m = hghts |> List.nearestIndex (int m) |> (fun idx -> hghts[idx]) |> Measures.toCm
 
                                 int p3 * 1<cm>, m, int p97 * 1<cm>
                             )
@@ -737,8 +729,7 @@ module Models =
                             normalHeights
                             |> nearest ageInYears
                             |> Option.map (fun (p3, m, p97) ->
-                                let m =
-                                    hghts |> List.nearestIndex (int m) |> (fun idx -> hghts[idx]) |> Measures.toCm
+                                let m = hghts |> List.nearestIndex (int m) |> (fun idx -> hghts[idx]) |> Measures.toCm
 
                                 int p3 * 1<cm>, m, int p97 * 1<cm>
                             )
@@ -1071,8 +1062,7 @@ module Models =
 
 
         let calcTube n =
-            let textfn m =
-                $"%s{m - 0.5 |> toStr} - %s{m |> toStr} - %s{m + 0.5 |> toStr}"
+            let textfn m = $"%s{m - 0.5 |> toStr} - %s{m |> toStr} - %s{m + 0.5 |> toStr}"
 
             let formula age =
                 n + age / 4. |> Math.roundBy0_5 |> (fun m -> if m > 7. then 7. else m)
@@ -1103,8 +1093,7 @@ module Models =
 
 
         let calcDefib =
-            let formula wght =
-                joules |> List.findNearestMax (wght * 4.)
+            let formula wght = joules |> List.findNearestMax (wght * 4.)
 
             let textfn m = $"%s{m |> toStr} joule"
 
@@ -1112,8 +1101,7 @@ module Models =
 
 
         let calcCardioVersion =
-            let formula wght =
-                joules |> List.findNearestMax (wght * 2.)
+            let formula wght = joules |> List.findNearestMax (wght * 2.)
 
             let textfn m = $"%s{m |> toStr} joule"
             calcIntervention "" "reanimatie" "cardioversie" "2 joule/kg" formula textfn
@@ -1123,8 +1111,7 @@ module Models =
             let toStr = decimal >> Decimal.toStringNumberNLWithoutTrailingZeros
 
             let d, v, c =
-                let d, v =
-                    calcDoseVol wght bolus.NormDose bolus.Concentration bolus.MinDose bolus.MaxDose
+                let d, v = calcDoseVol wght bolus.NormDose bolus.Concentration bolus.MinDose bolus.MaxDose
 
                 if d > 0. then
                     d, v, bolus.Concentration
@@ -1231,11 +1218,9 @@ module Models =
                 data
                 |> Array.skip 1
                 |> Array.map (fun sl ->
-                    let getString n =
-                        Csv.getStringColumn cms sl n |> String.trim
+                    let getString n = Csv.getStringColumn cms sl n |> String.trim
 
-                    let getStringOpt n =
-                        if cms |> Array.exists ((=) n) then getString n else ""
+                    let getStringOpt n = if cms |> Array.exists ((=) n) then getString n else ""
 
                     let getFloat = Csv.getFloatOptionColumn cms sl >> Option.defaultValue 0.
 
@@ -1433,8 +1418,7 @@ module Models =
                 data
                 |> Array.skip 1
                 |> Array.map (fun sl ->
-                    let getString n =
-                        Csv.getStringColumn cms sl n |> String.trim
+                    let getString n = Csv.getStringColumn cms sl n |> String.trim
 
                     let getFloat = Csv.getFloatColumn cms sl
 
@@ -1487,8 +1471,7 @@ module Models =
                 d, doseU
 
 
-            let printAdv min max unit =
-                $"%s{min |> toStr} - %s{max |> toStr} %s{unit}"
+            let printAdv min max unit = $"%s{min |> toStr} - %s{max |> toStr} %s{unit}"
 
             contMeds
             |> List.filter (fun m -> m.MinWeight <= wght && (wght < m.MaxWeight || m.MaxWeight = 0.))
@@ -1559,8 +1542,7 @@ module Models =
                 data
                 |> Array.skip 1
                 |> Array.map (fun sl ->
-                    let getString n =
-                        Csv.getStringColumn cms sl n |> String.trim
+                    let getString n = Csv.getStringColumn cms sl n |> String.trim
 
                     let getFloat = Csv.getFloatColumn cms sl
 
@@ -1599,8 +1581,7 @@ module Models =
                 data
                 |> Array.skip 1
                 |> Array.map (fun sl ->
-                    let getString n =
-                        Csv.getStringColumn cms sl n |> String.trim
+                    let getString n = Csv.getStringColumn cms sl n |> String.trim
 
                     let getFloat = Csv.getFloatColumn cms sl
 
@@ -1816,8 +1797,7 @@ module Models =
                 }
 
 
-            let setOvar s (ovar: OrderVariable) =
-                { ovar with Variable = ovar.Variable |> setVar s }
+            let setOvar s (ovar: OrderVariable) = { ovar with Variable = ovar.Variable |> setVar s }
 
 
         module Prescription =
@@ -2253,8 +2233,7 @@ module Models =
                 { ctx with OrderContext.Filter.Form = s }
 
 
-        let diluentChange s (ctx: OrderContext) : OrderContext =
-            { ctx with OrderContext.Filter.Diluent = s }
+        let diluentChange s (ctx: OrderContext) : OrderContext = { ctx with OrderContext.Filter.Diluent = s }
 
 
         let componentsChange cs (ctx: OrderContext) : OrderContext =
@@ -2363,8 +2342,7 @@ module Models =
         /// The orders the plan's contexts contribute: the one scenario of every context narrowed
         /// to one, in context order. A display copy of the domain's `OrderPlan.orders`; the
         /// agreement test in the server tests keeps them equal.
-        let orders (plan: OrderPlan) =
-            plan.OrderContexts |> Array.choose OrderContext.contribution
+        let orders (plan: OrderPlan) = plan.OrderContexts |> Array.choose OrderContext.contribution
 
 
         /// The contexts the filter keeps: those named by id, all of them when it is empty. A

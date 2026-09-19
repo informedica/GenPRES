@@ -21,8 +21,7 @@ module Patient =
     module LibRenal = Informedica.GenForm.Lib.RenalFunction
 
     /// A draft that is no patient: it has no age, and no measured weight and height.
-    let noPatient =
-        "Geen patiënt: een leeftijd, of een gemeten gewicht en lengte, is nodig"
+    let noPatient = "Geen patiënt: een leeftijd, of een gemeten gewicht en lengte, is nodig"
 
     /// A patient without a weight or a height, measured or estimated. Only the client estimates,
     /// so data from the platform or another host can arrive with an age alone; the rules are
@@ -232,5 +231,4 @@ module Patient =
 
 
     /// Whether a platform reading is a patient: one that is none counts as no reading.
-    let reading (dto: Patient option) =
-        dto |> Option.filter (Patient.validate >> Result.isOk)
+    let reading (dto: Patient option) = dto |> Option.filter (Patient.validate >> Result.isOk)

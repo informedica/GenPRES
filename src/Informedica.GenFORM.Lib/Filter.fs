@@ -43,5 +43,4 @@ module Filter =
         { filter with Patient = pat }
 
 
-    let calcPMAge (filter: DoseFilter) =
-        { filter with Patient = filter.Patient |> Patient.calcPMAge }
+    let calcPMAge (filter: DoseFilter) = { filter with Patient = filter.Patient |> Patient.calcPMAge }

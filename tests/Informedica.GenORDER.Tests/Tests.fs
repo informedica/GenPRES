@@ -318,8 +318,7 @@ module Pipeline =
                         |> Schedule.getTime
                         |> Option.defaultValue (OV.Time.create (Name "tme") Units.Time.hour)
 
-                    let ord =
-                        { ord0 with Schedule = Timed(frq, Time(OrderVariable.clear (let (Time tv) = tme in tv))) }
+                    let ord = { ord0 with Schedule = Timed(frq, Time(OrderVariable.clear (let (Time tv) = tme in tv))) }
 
                     let before = countValues ord
                     let res = OrderProcessor.processClearedOrder Logging.noOp ord
@@ -837,8 +836,7 @@ module DosePrintoutTests =
                             let order = createTestOrderWithConstraints false true (Some Units.Weight.kiloGram)
 
                             // Get the item from the order
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             // Verify QuantityAdjust has constraints
                             Expect.isTrue
@@ -846,8 +844,7 @@ module DosePrintoutTests =
                                 (item.Dose.QuantityAdjust |> OV.QuantityAdjust.hasConstraints)
 
                             // Verify the constraint string is generated correctly
-                            let constraintStr =
-                                item.Dose |> Orderable.Dose.Print.doseQuantityAdjustConstraints 3
+                            let constraintStr = item.Dose |> Orderable.Dose.Print.doseQuantityAdjustConstraints 3
 
                             Expect.isTrue "Constraint string should not be empty" (constraintStr |> String.length > 0)
                         }
@@ -868,8 +865,7 @@ module DosePrintoutTests =
                             Expect.isTrue "Printout should not be empty" (pres |> String.length > 0)
 
                             // Get the item to verify constraint status
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             Expect.isFalse
                                 "QuantityAdjust should not have constraints"
@@ -879,8 +875,7 @@ module DosePrintoutTests =
                         test "Uses dosePerTimeAdjust path when QuantityAdjust has no constraints" {
                             let order = createTestOrderWithConstraints false false (Some Units.Weight.kiloGram)
 
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             // When no constraints, should use PerTimeAdjust for display
                             let perTimeAdjustStr = item.Dose |> Orderable.Dose.Print.dosePerTimeAdjustTo false 3
@@ -904,8 +899,7 @@ module DosePrintoutTests =
                             Expect.isTrue "Printout should not be empty" (pres |> String.length > 0)
 
                             // Should include constraint information when Quantity has constraints
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             Expect.isTrue
                                 "Quantity should have constraints"
@@ -919,8 +913,7 @@ module DosePrintoutTests =
                         test "Constraint printout uses doseQuantityConstraints when Quantity has constraints" {
                             let order = createTestOrderWithConstraints true false None
 
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             // When useAdj=false and Quantity has constraints, isPerDose is true
                             Expect.isTrue
@@ -946,8 +939,7 @@ module DosePrintoutTests =
                             // Printout should still work (using PerTime path)
                             Expect.isTrue "Printout should not be empty" (pres |> String.length > 0)
 
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             Expect.isFalse
                                 "Quantity should not have constraints"
@@ -957,8 +949,7 @@ module DosePrintoutTests =
                         test "Uses dosePerTime path when Quantity has no constraints" {
                             let order = createTestOrderWithConstraints false false None
 
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             // When no constraints, should use PerTime for display
                             let perTimeStr = item.Dose |> Orderable.Dose.Print.dosePerTimeTo false 3
@@ -1022,8 +1013,7 @@ module DosePrintoutTests =
                             // For Once orders with adjusted dose, should show QuantityAdjust
                             Expect.isTrue "Once order printout should not be empty" (pres |> String.length > 0)
 
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             Expect.isTrue
                                 "QuantityAdjust should have constraints in Once order"
@@ -1138,8 +1128,7 @@ module TypeTests =
                 }
 
                 test "a nutrition context carries its category" {
-                    let pc =
-                        OrderPlanFixtures.planContext "ctx-2" (OrderCategory.Nutrition NutritionCategory.TPN)
+                    let pc = OrderPlanFixtures.planContext "ctx-2" (OrderCategory.Nutrition NutritionCategory.TPN)
 
                     match pc.Category with
                     | OrderCategory.Nutrition cat -> cat |> Expect.equal "TPN" NutritionCategory.TPN
@@ -1166,11 +1155,7 @@ module TypeTests =
                 }
 
                 test "an order plan version stores the whole plan and its identity" {
-                    let plan =
-                        OrderPlanFixtures.plan
-                            [|
-                                OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug
-                            |]
+                    let plan = OrderPlanFixtures.plan [| OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug |]
 
                     let version =
                         {
@@ -1361,8 +1346,7 @@ module OrderVariableTests =
                             ValueUnit.create Units.Mass.milliGram [| 1N / 8N |] // 0,125 mg
                         |]
 
-                    let exp =
-                        ValueUnit.create Units.Mass.milliGram [| 1N / 4N; 1N / 16N; 1N / 8N |] |> Some
+                    let exp = ValueUnit.create Units.Mass.milliGram [| 1N / 4N; 1N / 16N; 1N / 8N |] |> Some
 
                     vus
                     |> ValueUnit.collect
@@ -1738,11 +1722,7 @@ module DtoTests =
                             |> Filter.Dto.fromDto
                             |> Expect.equal
                                 "both"
-                                (Error
-                                    [
-                                        DtoError.UnknownDoseType "weekly"
-                                        DtoError.UnknownDoseType "hourly"
-                                    ])
+                                (Error [ DtoError.UnknownDoseType "weekly"; DtoError.UnknownDoseType "hourly" ])
                         }
                     ]
 
@@ -1950,10 +1930,7 @@ module OrderPlanDtoTests =
                 Generics = [| "paracetamol" |]
                 Routes = [| "rect" |]
                 Forms = [| "zetpil" |]
-                DoseTypes =
-                    [|
-                        Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag"
-                    |]
+                DoseTypes = [| Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag" |]
                 Diluents = [||]
                 Components = [| "paracetamol" |]
                 Indication = Some "koorts"

@@ -104,9 +104,7 @@ module Signing =
                 ]
             | None ->
                 Signing.Requesting(plan, Some notice.Token, notice.Token),
-                [
-                    SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token)
-                ]
+                [ SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token) ]
         | SigningMsg.Accept, _ -> state, []
 
         // the plan submitted is the plan challenged, never the live cart, under the caller's key
@@ -128,11 +126,7 @@ module Signing =
         // an answer lands only on the Submission it answers
         | SigningMsg.SubmitAnswered(answered, _), Signing.Submitting(_, _, key) when answered <> key -> state, []
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Submitted(signed, token))), Signing.Submitting _ ->
-            Signing.Idle,
-            [
-                SigningEffect.RenewToken token
-                SigningEffect.TellSigned signed
-            ]
+            Signing.Idle, [ SigningEffect.RenewToken token; SigningEffect.TellSigned signed ]
         // the dialog stays open with what went wrong (tries left, or locked)
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused(SigningRefusal.PinWrong _ as refusal))),
           Signing.Submitting(challenge, plan, _)

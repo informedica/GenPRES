@@ -56,8 +56,6 @@ module FixtureJson =
             Converters = cs
         )
 
-    let serialize (x: 'a) =
-        JsonConvert.SerializeObject(x, settings)
+    let serialize (x: 'a) = JsonConvert.SerializeObject(x, settings)
 
-    let deSerialize<'T> (s: string) : 'T =
-        JsonConvert.DeserializeObject<'T>(s, settings)
+    let deSerialize<'T> (s: string) : 'T = JsonConvert.DeserializeObject<'T>(s, settings)

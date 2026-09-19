@@ -71,8 +71,7 @@ module Zindex =
                 else
                     [ 0 .. ((pl |> List.length) - 1) ]
 
-            let args =
-                pl |> List.fold (fun s p -> s + " (xs |> Array.item " + string p + ")") ""
+            let args = pl |> List.fold (fun s p -> s + " (xs |> Array.item " + string p + ")") ""
 
             "(fun xs -> create {args})" |> String.replace "{args}" args
 

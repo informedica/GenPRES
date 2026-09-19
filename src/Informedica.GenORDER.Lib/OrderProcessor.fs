@@ -175,11 +175,9 @@ module OrderProcessor =
 
 
     let processChangeProperty cmd ord =
-        let setFreq step =
-            OrderPropertyChange.proc [ ScheduleFrequency step ]
+        let setFreq step = OrderPropertyChange.proc [ ScheduleFrequency step ]
 
-        let setDose step =
-            OrderPropertyChange.proc [ OrderableDose step ]
+        let setDose step = OrderPropertyChange.proc [ OrderableDose step ]
 
         let setCmpOrbQty cmp step =
             OrderPropertyChange.proc [ ComponentOrderableQuantity(cmp, step) ]
@@ -529,14 +527,11 @@ module OrderProcessor =
 
         let increaseIncrementStep ord = ord |> increaseIncrements logger 10 10
 
-        let calcValuesStep useMax skipRate ord =
-            ord |> minIncrMaxToValues useMax true skipRate logger |> Ok
+        let calcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues useMax true skipRate logger |> Ok
 
-        let reCalcValuesStep useMax skipRate ord =
-            ord |> minIncrMaxToValues useMax false skipRate logger |> Ok
+        let reCalcValuesStep useMax skipRate ord = ord |> minIncrMaxToValues useMax false skipRate logger |> Ok
 
-        let solveStep ord =
-            solveOrder "Solve Order Step" true logger ord
+        let solveStep ord = solveOrder "Solve Order Step" true logger ord
 
         let calcNormDoseStep = solveNormDose logger
 

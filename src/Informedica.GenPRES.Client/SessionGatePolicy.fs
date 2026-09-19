@@ -102,29 +102,16 @@ let fill (args: string list) (s: string) =
 
 
 /// Joins translated sentences into one body; an empty translation adds no sentence.
-let sentences (xs: string list) =
-    xs |> List.filter String.notEmpty |> String.concat " "
+let sentences (xs: string list) = xs |> List.filter String.notEmpty |> String.concat " "
 
 
 /// The sentences of a refusal: what happened, then what the User can do. Every sentence is one
 /// term, so no translation is ever embedded in another.
 let refusalBody (tr: Terms -> string) refusal =
     match refusal with
-    | LaunchRefusal.LaunchExpired ->
-        [
-            tr Terms.``Session Refusal Expired``
-            tr Terms.``Session Relaunch``
-        ]
-    | LaunchRefusal.LaunchSpent ->
-        [
-            tr Terms.``Session Refusal Spent``
-            tr Terms.``Session Relaunch``
-        ]
-    | LaunchRefusal.LaunchInvalid ->
-        [
-            tr Terms.``Session Refusal Invalid``
-            tr Terms.``Session Relaunch``
-        ]
+    | LaunchRefusal.LaunchExpired -> [ tr Terms.``Session Refusal Expired``; tr Terms.``Session Relaunch`` ]
+    | LaunchRefusal.LaunchSpent -> [ tr Terms.``Session Refusal Spent``; tr Terms.``Session Relaunch`` ]
+    | LaunchRefusal.LaunchInvalid -> [ tr Terms.``Session Refusal Invalid``; tr Terms.``Session Relaunch`` ]
     | LaunchRefusal.NoBrowserIdentity -> [ tr Terms.``Session Refusal No Browser Identity`` ]
     | LaunchRefusal.NoRole -> [ tr Terms.``Session Refusal No Role`` ]
     | LaunchRefusal.WrongActivePatient -> [ tr Terms.``Session Refusal Wrong Patient`` ]
@@ -292,12 +279,7 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
         Some
             {
                 Title = tr Terms.``Session Gate Refused``
-                Body =
-                    sentences
-                        [
-                            refusalSentence tr refusal
-                            tr Terms.``Session Relaunch``
-                        ]
+                Body = sentences [ refusalSentence tr refusal; tr Terms.``Session Relaunch`` ]
                 Busy = false
                 Actions = []
                 Form = None

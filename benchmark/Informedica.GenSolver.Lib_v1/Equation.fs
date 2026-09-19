@@ -143,8 +143,7 @@ module Equation =
 
     /// Check whether an `Equation` contains
     /// a `Variable` **v**
-    let contains v =
-        toVars >> (List.exists (Variable.eqName v))
+    let contains v = toVars >> (List.exists (Variable.eqName v))
 
     /// Check whether `Equation`s
     /// **eq1** and **eq2** are equal
@@ -233,8 +232,7 @@ module Equation =
     let calculationToString b op1 op2 y xs =
         let varToStr = Variable.toString b
 
-        let opToStr op =
-            $" {op |> Variable.Operators.toString} "
+        let opToStr op = $" {op |> Variable.Operators.toString} "
 
         let cost = xs |> List.map Variable.count |> List.reduce (*)
         let x1 = xs |> List.head
@@ -247,11 +245,9 @@ module Equation =
     /// changed `Variable`s.
     let solve onlyMinIncrMax log eq =
         // helper functions
-        let without x xs =
-            xs |> List.filter (Variable.eqName x >> not)
+        let without x xs = xs |> List.filter (Variable.eqName x >> not)
 
-        let replAdd x xs =
-            xs |> List.replaceOrAdd (Variable.eqName x) x
+        let replAdd x xs = xs |> List.replaceOrAdd (Variable.eqName x) x
 
         let (<==) = if onlyMinIncrMax then (@<-) else (^<-)
 

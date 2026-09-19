@@ -732,8 +732,7 @@ module Tests =
 
                 // pins the documented behaviour: eqsGroup does NOT reduce to lowest terms
                 test "does not cancel common factors: (mass*vol)/vol <> mass" {
-                    let d =
-                        CombiUnit(CombiUnit(Mass(KiloGram 1N), OpTimes, Volume(Liter 1N)), OpPer, Volume(Liter 1N))
+                    let d = CombiUnit(CombiUnit(Mass(KiloGram 1N), OpTimes, Volume(Liter 1N)), OpPer, Volume(Liter 1N))
 
                     Group.eqsGroup d (Mass(KiloGram 1N)) |> Expect.isFalse ""
                 }
@@ -752,8 +751,7 @@ module Tests =
             "use case tests"
             [
                 test "100 mg/mL droplet fluid with 40 droplets per mL then 1 droplet = 2.5 mg" {
-                    let fluid =
-                        100N |> createSingle (Units.Mass.milliGram |> per Units.Volume.milliLiter)
+                    let fluid = 100N |> createSingle (Units.Mass.milliGram |> per Units.Volume.milliLiter)
 
                     let dr = 1N |> createSingle (Units.Volume.dropletWithDropsPerMl 40N)
                     let exp = 25N / 10N |> createSingle Units.Mass.milliGram
@@ -847,16 +845,14 @@ module Tests =
         let mg v = singleWithUnit Units.Mass.milliGram v
         let g v = singleWithUnit Units.Mass.gram v
 
-        let mL v =
-            singleWithUnit Units.Volume.milliLiter v
+        let mL v = singleWithUnit Units.Volume.milliLiter v
 
         let mgWith vs = vs |> withUnit Units.Mass.milliGram
 
         let mgPerML v =
             singleWithUnit (Units.Mass.milliGram |> per Units.Volume.milliLiter) v
 
-        let gen name v =
-            singleWithUnit (Units.General.general name) v
+        let gen name v = singleWithUnit (Units.General.general name) v
 
         testList
             "toToken"

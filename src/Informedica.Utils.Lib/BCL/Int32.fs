@@ -25,5 +25,4 @@ module Int32 =
 
     /// Returns the string representation of the Int32 as a Dutch number.
     /// Example: 1234567 becomes 1.234.567
-    let toStringNumberNL (n: int) =
-        n.ToString("N0", CultureInfo.GetCultureInfo("nl"))
+    let toStringNumberNL (n: int) = n.ToString("N0", CultureInfo.GetCultureInfo("nl"))

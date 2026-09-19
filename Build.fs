@@ -377,20 +377,7 @@ Target.create
     (fun _ ->
         run dotnet [ "test"; sln; "--no-build"; "--no-restore" ] "."
 
-        run
-            dotnet
-            [
-                "fable"
-                "-o"
-                "output"
-                "-s"
-                "-e"
-                ".jsx"
-                "--run"
-                "npx"
-                "vite"
-            ]
-            clientPath
+        run dotnet [ "fable"; "-o"; "output"; "-s"; "-e"; ".jsx"; "--run"; "npx"; "vite" ] clientPath
 
     //    run dotnet [ "fable"; "-o"; "output"; "-e"; ".jsx" ] clientTestsPath
     //    run npx [ "mocha"; "output" ] clientTestsPath
@@ -403,20 +390,7 @@ Target.create
         [
             //        "server", dotnet [ "watch"; "run"; "--no-restore" ] serverTestsPath
             "client",
-            dotnet
-                [
-                    "fable"
-                    "watch"
-                    "-o"
-                    "output"
-                    "-s"
-                    "-e"
-                    ".jsx"
-                    "--run"
-                    "npx"
-                    "vite"
-                ]
-                clientTestsPath
+            dotnet [ "fable"; "watch"; "-o"; "output"; "-s"; "-e"; ".jsx"; "--run"; "npx"; "vite" ] clientTestsPath
         ]
         |> runParallel
     )
@@ -472,13 +446,7 @@ let buildDockerImage () =
         docker
         ([ "build" ]
          @ platformArgs
-         @ [
-             "--build-arg"
-             $"APP_VERSION={version}"
-             "-t"
-             dockerImage
-             "."
-         ])
+         @ [ "--build-arg"; $"APP_VERSION={version}"; "-t"; dockerImage; "." ])
         "."
 
 

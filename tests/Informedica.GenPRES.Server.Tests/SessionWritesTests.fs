@@ -325,8 +325,7 @@ let machineTests =
                 let wrong (state, _, _) key =
                     Session.commit t0 newId StubDatabase.digest Store.registry ignore sid (signature "9999" key) state
 
-                let _, last, writes =
-                    [ "w-2"; "w-3" ] |> List.fold wrong (wrong (state, (), []) "w-1")
+                let _, last, writes = [ "w-2"; "w-3" ] |> List.fold wrong (wrong (state, (), []) "w-1")
 
                 last
                 |> Expect.equal "the limit" (SigningOutcome.Refused SigningRefusal.PinLimit)
@@ -335,12 +334,7 @@ let machineTests =
                 |> names
                 |> Expect.equal
                     "the credential that reached the limit, the ending, and the answer remembered"
-                    [
-                        "RecordSeen"
-                        "WriteCredential"
-                        "EndSession"
-                        "RememberAnswer"
-                    ]
+                    [ "RecordSeen"; "WriteCredential"; "EndSession"; "RememberAnswer" ]
 
                 match
                     writes

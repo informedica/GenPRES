@@ -54,26 +54,19 @@ module TestSolver =
     let createMaxExcl = create (Maximum.create false)
     let createIncr = create Increment.create
 
-    let createValSet u v =
-        v |> Array.ofSeq |> ValueUnit.create u |> ValueSet.create
+    let createValSet u v = v |> Array.ofSeq |> ValueUnit.create u |> ValueSet.create
 
-    let setIncr u n vals =
-        vals |> createIncr u |> IncrProp |> setProp n
+    let setIncr u n vals = vals |> createIncr u |> IncrProp |> setProp n
 
-    let setMinIncl u n min =
-        min |> createMinIncl u |> MinProp |> setProp n
+    let setMinIncl u n min = min |> createMinIncl u |> MinProp |> setProp n
 
-    let setMinExcl u n min =
-        min |> createMinExcl u |> MinProp |> setProp n
+    let setMinExcl u n min = min |> createMinExcl u |> MinProp |> setProp n
 
-    let setMaxIncl u n max =
-        max |> createMaxIncl u |> MaxProp |> setProp n
+    let setMaxIncl u n max = max |> createMaxIncl u |> MaxProp |> setProp n
 
-    let setMaxExcl u n max =
-        max |> createMaxExcl u |> MaxProp |> setProp n
+    let setMaxExcl u n max = max |> createMaxExcl u |> MaxProp |> setProp n
 
-    let setValues u n vals =
-        vals |> createValSet u |> ValsProp |> setProp n
+    let setValues u n vals = vals |> createValSet u |> ValsProp |> setProp n
 
     let logger =
         fun (_: string) -> () //File.AppendAllLines("examples.log", [s])
@@ -87,23 +80,17 @@ module TestSolver =
 
     let solveMinMax = Api.solveAll true logger
 
-    let solveMinIncl u n min =
-        solve n (min |> createMinIncl u |> MinProp)
+    let solveMinIncl u n min = solve n (min |> createMinIncl u |> MinProp)
 
-    let solveMinExcl u n min =
-        solve n (min |> createMinExcl u |> MinProp)
+    let solveMinExcl u n min = solve n (min |> createMinExcl u |> MinProp)
 
-    let solveMaxIncl u n max =
-        solve n (max |> createMaxIncl u |> MaxProp)
+    let solveMaxIncl u n max = solve n (max |> createMaxIncl u |> MaxProp)
 
-    let solveMaxExcl u n max =
-        solve n (max |> createMaxExcl u |> MaxProp)
+    let solveMaxExcl u n max = solve n (max |> createMaxExcl u |> MaxProp)
 
-    let solveIncr u n incr =
-        solve n (incr |> createIncr u |> IncrProp)
+    let solveIncr u n incr = solve n (incr |> createIncr u |> IncrProp)
 
-    let solveValues u n vals =
-        solve n (vals |> createValSet u |> ValsProp)
+    let solveValues u n vals = solve n (vals |> createValSet u |> ValsProp)
 
     let init = Api.init
     let nonZeroNegative = Api.nonZeroNegative

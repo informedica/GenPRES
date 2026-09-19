@@ -26,8 +26,7 @@ module Utils =
     module Result =
 
 
-        let createError source exn : Result<_, Message list> =
-            [ Message.createExnMsg source exn ] |> Error
+        let createError source exn : Result<_, Message list> = [ Message.createExnMsg source exn ] |> Error
 
 
         let mapErrorSource s r : Result<_, Message list> =
@@ -109,8 +108,7 @@ module Utils =
         /// // returns (Some 1N, None)
         /// </code>
         /// </example>
-        let tupleBrOpt brs1 brs2 =
-            brs1 |> Array.tryHead, brs2 |> Array.tryHead
+        let tupleBrOpt brs1 brs2 = brs1 |> Array.tryHead, brs2 |> Array.tryHead
 
 
     module Calculations =

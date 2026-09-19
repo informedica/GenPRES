@@ -104,11 +104,7 @@ module Config =
                 | false, _ -> None
             )
         )
-        |> Option.defaultValue
-            [|
-                System.Net.IPAddress.Loopback
-                System.Net.IPAddress.IPv6Loopback
-            |]
+        |> Option.defaultValue [| System.Net.IPAddress.Loopback; System.Net.IPAddress.IPv6Loopback |]
 
 
     // SECURITY: in production mode (GENPRES_PROD=1) a GENPRES_PASSWORD shorter
@@ -665,13 +661,11 @@ module Host =
         // runs its function per request, so the env must not be built in there.
         // the key the stub LaunchScript seals Launches under: per host start, so a
         // token from an earlier run is "not sealed under the key"
-        let launchKey =
-            LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes
+        let launchKey = LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes
 
         // the stub IdentityProvider and UserRegistry: one-time codes and the active
         // patient per identity choice, issued by /authorize and redeemed at the callback
-        let directory =
-            StubDirectory.make (fun () -> System.DateTime.UtcNow) PublicKey.randomId
+        let directory = StubDirectory.make (fun () -> System.DateTime.UtcNow) PublicKey.randomId
 
         // the stub MailService: an outbox the /stub/mail page shows, so the tester
         // reads a confirmation code where a User would read their mail

@@ -84,8 +84,7 @@ type LoggerType =
 let internal loggerLock = obj ()
 
 
-let mutable loggers: Map<LoggerType * Level, AgentLogging.AgentLogger> =
-    [] |> Map.ofList
+let mutable loggers: Map<LoggerType * Level, AgentLogging.AgentLogger> = [] |> Map.ofList
 
 
 let getLogger (level: Level) (loggerType: LoggerType) =

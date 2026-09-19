@@ -207,11 +207,9 @@ module FileDirectoryAgent =
         RemovePolicy dir |> agent.Post
         agent
 
-    let prune dir (agent: Agent<FileDirectoryMsg>) =
-        agent.PostAndReply(fun rc -> Prune(dir, rc))
+    let prune dir (agent: Agent<FileDirectoryMsg>) = agent.PostAndReply(fun rc -> Prune(dir, rc))
 
-    let pruneAsync dir (agent: Agent<FileDirectoryMsg>) =
-        agent.PostAndAsyncReply(fun rc -> Prune(dir, rc))
+    let pruneAsync dir (agent: Agent<FileDirectoryMsg>) = agent.PostAndAsyncReply(fun rc -> Prune(dir, rc))
 
     let enforce dir maxFiles (agent: Agent<FileDirectoryMsg>) =
         agent.PostAndReply(fun rc -> Enforce(dir, maxFiles, None, rc))
@@ -221,5 +219,4 @@ module FileDirectoryAgent =
 
     let stop (agent: Agent<FileDirectoryMsg>) = agent.PostAndReply(fun rc -> Stop rc)
 
-    let stopAsync (agent: Agent<FileDirectoryMsg>) =
-        agent.PostAndAsyncReply(fun rc -> Stop rc)
+    let stopAsync (agent: Agent<FileDirectoryMsg>) = agent.PostAndAsyncReply(fun rc -> Stop rc)

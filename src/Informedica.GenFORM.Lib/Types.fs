@@ -374,34 +374,27 @@ module Types =
         }
 
 
-        static member Gender_ =
-            (fun (p: Patient) -> p.Gender), (fun g (p: Patient) -> { p with Gender = g })
+        static member Gender_ = (fun (p: Patient) -> p.Gender), (fun g (p: Patient) -> { p with Gender = g })
 
         static member Age_ = (fun (p: Patient) -> p.Age), (fun a (p: Patient) -> { p with Age = a })
 
-        static member Weight_ =
-            (fun (p: Patient) -> p.Weight), (fun w (p: Patient) -> { p with Weight = w })
+        static member Weight_ = (fun (p: Patient) -> p.Weight), (fun w (p: Patient) -> { p with Weight = w })
 
-        static member Height_ =
-            (fun (p: Patient) -> p.Height), (fun b (p: Patient) -> { p with Height = b })
+        static member Height_ = (fun (p: Patient) -> p.Height), (fun b (p: Patient) -> { p with Height = b })
 
-        static member GestAge_ =
-            (fun (p: Patient) -> p.GestAge), (fun a (p: Patient) -> { p with GestAge = a })
+        static member GestAge_ = (fun (p: Patient) -> p.GestAge), (fun a (p: Patient) -> { p with GestAge = a })
 
-        static member PMAge_ =
-            (fun (p: Patient) -> p.PMAge), (fun a (p: Patient) -> { p with PMAge = a })
+        static member PMAge_ = (fun (p: Patient) -> p.PMAge), (fun a (p: Patient) -> { p with PMAge = a })
 
         static member Department_ =
             (fun (p: Patient) -> p.Department), (fun d (p: Patient) -> { p with Department = d })
 
-        static member Access_ =
-            (fun (p: Patient) -> p.Access), (fun a (p: Patient) -> { p with Access = a })
+        static member Access_ = (fun (p: Patient) -> p.Access), (fun a (p: Patient) -> { p with Access = a })
 
         static member RenalFunction_ =
             (fun (p: Patient) -> p.RenalFunction), (fun r (p: Patient) -> { p with RenalFunction = r })
 
-        static member Location_ =
-            (fun (p: Patient) -> p.Location), (fun l (p: Patient) -> { p with Location = l })
+        static member Location_ = (fun (p: Patient) -> p.Location), (fun l (p: Patient) -> { p with Location = l })
 
 
     /// Why a value is no patient, or why a Dto does not parse to one.

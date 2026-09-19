@@ -299,16 +299,8 @@ module Group =
             ]
         | Group.MolarGroup -> [ 1N |> Mole |> Molar; 1N |> MilliMole |> Molar ]
         | Group.InterNatUnitGroup -> [ 1N |> MIU |> International; 1N |> IU |> International ]
-        | Group.WeightGroup ->
-            [
-                1N |> WeightKiloGram |> Weight
-                1N |> WeightGram |> Weight
-            ]
-        | Group.HeightGroup ->
-            [
-                1N |> HeightMeter |> Height
-                1N |> HeightCentiMeter |> Height
-            ]
+        | Group.WeightGroup -> [ 1N |> WeightKiloGram |> Weight; 1N |> WeightGram |> Weight ]
+        | Group.HeightGroup -> [ 1N |> HeightMeter |> Height; 1N |> HeightCentiMeter |> Height ]
         | Group.BSAGroup -> [ 1N |> M2 |> BSA ]
         | Group.EnergyGroup -> [ 1N |> Calorie |> Energy; 1N |> KiloCalorie |> Energy ]
         | Group.CombiGroup _ -> []

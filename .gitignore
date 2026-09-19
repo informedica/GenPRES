@@ -1,9 +1,10 @@
 # Use an opt-in strategy
 *
 
-# Add .gitignore and .gitattributes
+# Add .gitignore, .gitattributes and the blame ignore list
 !.gitignore
 !.gitattributes
+!.git-blame-ignore-revs
 !.dockerignore
 !compose.yaml
 

@@ -35,8 +35,7 @@ module OrderPlan =
             | (Resolved tp | Provisional tp), Some id -> planCommand (Api.OrderPlanCommand.Navigate(tp, id, cmd, ctx))
             | _ -> ()
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization

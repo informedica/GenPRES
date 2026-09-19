@@ -162,7 +162,7 @@ module Calculations =
             | CreatinineMilligramPerDeciLiter of float<mg / dL>
 
 
-        type Cystatin = CystatinMilligramPerLiter of float<mg / L>
+        type Cystatin = | CystatinMilligramPerLiter of float<mg / L>
 
 
         type Urea =

@@ -108,8 +108,7 @@ let tests =
             }
 
             testAsync "the port's refusal is the answer" {
-                let port: OrderContextPort =
-                    { evaluate = fun _ _ -> async { return Error [| "ctx error" |] } }
+                let port: OrderContextPort = { evaluate = fun _ _ -> async { return Error [| "ctx error" |] } }
 
                 let! answer =
                     OrderContextCommand.processCmd

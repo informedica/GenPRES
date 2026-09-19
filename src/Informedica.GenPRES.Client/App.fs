@@ -281,12 +281,7 @@ module private Elmish =
                         |> Option.defaultValue OrderContext.empty
 
                     Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
-                | None ->
-                    Cmd.batch
-                        [
-                            Cmd.ofMsg (LoadFormulary Started)
-                            Cmd.ofMsg (LoadParenteralia Started)
-                        ]
+                | None -> Cmd.batch [ Cmd.ofMsg (LoadFormulary Started); Cmd.ofMsg (LoadParenteralia Started) ]
 
             state, refresh
 
@@ -313,12 +308,10 @@ module private Elmish =
         state, Cmd.batch [ cmd; told ]
 
 
-    let applyFormulary (state: State) (form: Formulary) =
-        { state with Formulary = Resolved form }, Cmd.none
+    let applyFormulary (state: State) (form: Formulary) = { state with Formulary = Resolved form }, Cmd.none
 
 
-    let applyParenteralia (state: State) (par: Parenteralia) =
-        { state with Parenteralia = Resolved par }, Cmd.none
+    let applyParenteralia (state: State) (par: Parenteralia) = { state with Parenteralia = Resolved par }, Cmd.none
 
 
     /// The interactions notice on the snackbar, and its withdrawal: only the notice itself is
@@ -357,8 +350,7 @@ module private Elmish =
             { state with InteractionDrugNames = Resolved names }, Cmd.none
 
 
-    let loadFormulary opened =
-        createApiMsg serverApi.processFormulary opened LoadFormulary
+    let loadFormulary opened = createApiMsg serverApi.processFormulary opened LoadFormulary
 
 
     let loadParenteralia opened =
@@ -557,8 +549,7 @@ module private Elmish =
     /// reload, the back button nor a copied url. Goes through the History API
     /// directly: Router.navigate would dispatch the navigation event and
     /// re-enter UrlChanged.
-    let eraseLaunch () =
-        Browser.Dom.history.replaceState (null, "", "#/session")
+    let eraseLaunch () = Browser.Dom.history.replaceState (null, "", "#/session")
 
 
     let initialState pat page lang discl =
@@ -1732,7 +1723,8 @@ open Elmish
 
 
 type private ConcreteAppEnv
-    (state: State, dispatch: Msg -> unit, bm: Deferred<Intervention list>, cm: Deferred<Intervention list>) =
+    (state: State, dispatch: Msg -> unit, bm: Deferred<Intervention list>, cm: Deferred<Intervention list>)
+    =
 
     interface AppEnv.ILocalization with
         member _.LocalizationTerms = state.Localization
@@ -1751,8 +1743,7 @@ type private ConcreteAppEnv
 
         member _.Selected = OrderPlanState.selected state.OrderPlan
 
-        member _.Select id =
-            OrderPlanMsg(OrderPlanMsg.Select id) |> dispatch
+        member _.Select id = OrderPlanMsg(OrderPlanMsg.Select id) |> dispatch
 
         member _.Filter ids =
             OrderPlanMsg(OrderPlanMsg.Filter(ids, newRequest ())) |> dispatch
@@ -1783,16 +1774,13 @@ type private ConcreteAppEnv
         member _.Close() = SessionMsg SessionMsg.Close |> dispatch
         member _.Retry() = SessionMsg SessionMsg.Retry |> dispatch
 
-        member _.OpenAnonymously() =
-            SessionMsg SessionMsg.OpenAnonymous |> dispatch
+        member _.OpenAnonymously() = SessionMsg SessionMsg.OpenAnonymous |> dispatch
 
-        member _.SupplyPin code pin =
-            SessionMsg(SessionMsg.SupplyPin(code, pin)) |> dispatch
+        member _.SupplyPin code pin = SessionMsg(SessionMsg.SupplyPin(code, pin)) |> dispatch
 
         member _.MovedOn = state.MovedOn
 
-        member _.OpenVersion id =
-            SessionMsg(SessionMsg.OpenVersion id) |> dispatch
+        member _.OpenVersion id = SessionMsg(SessionMsg.OpenVersion id) |> dispatch
 
     interface AppEnv.ISigning with
         member _.Signing = state.Signing
@@ -1801,15 +1789,13 @@ type private ConcreteAppEnv
         member _.Sign plan =
             SigningMsg(SigningMsg.Sign(plan, Guid.NewGuid().ToString())) |> dispatch
 
-        member _.Accept() =
-            SigningMsg SigningMsg.Accept |> dispatch
+        member _.Accept() = SigningMsg SigningMsg.Accept |> dispatch
 
         // one key per confirmation, so the commit takes effect once; the machine keeps it for a retry
         member _.Confirm pin =
             SigningMsg(SigningMsg.Confirm(pin, Guid.NewGuid().ToString())) |> dispatch
 
-        member _.Cancel() =
-            SigningMsg SigningMsg.Cancel |> dispatch
+        member _.Cancel() = SigningMsg SigningMsg.Cancel |> dispatch
 
     interface AppEnv.IAuthentication with
         member _.IsAuthenticated = state.IsAuthenticated
@@ -1831,13 +1817,11 @@ type private ConcreteAppEnv
     interface AppEnv.IContinuousMedication with
         member _.ContinuousMedication = cm
 
-        member _.OnSelectContinuousMedicationItem s =
-            OnSelectContinuousMedicationItem s |> dispatch
+        member _.OnSelectContinuousMedicationItem s = OnSelectContinuousMedicationItem s |> dispatch
 
         member _.ContinuousMedicationFilter = state.ContinuousMedsFilter
 
-        member _.OnContinuousMedicationFilterChange f =
-            UpdateContinuousMedsFilter f |> dispatch
+        member _.OnContinuousMedicationFilterChange f = UpdateContinuousMedsFilter f |> dispatch
 
 
 [<Literal>]
@@ -1904,8 +1888,7 @@ let View () =
         | "info" -> 3000 |> box
         | _ -> null
 
-    let bm =
-        calculateInterventions EmergencyTreatment.calculate state.BolusMedication state.PatientDraft
+    let bm = calculateInterventions EmergencyTreatment.calculate state.BolusMedication state.PatientDraft
 
     let cm =
         let calc =

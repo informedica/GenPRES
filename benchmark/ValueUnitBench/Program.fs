@@ -57,12 +57,10 @@ type ValueUnitBenchmarks() =
         add2 <- ValueUnit.create times (mkVals 4 600 1000)
 
     [<Benchmark>]
-    member _.Mul_mgPerMl_x_mL_400() =
-        ValueUnit.calc true (*) mul1 mul2 |> resultSize
+    member _.Mul_mgPerMl_x_mL_400() = ValueUnit.calc true (*) mul1 mul2 |> resultSize
 
     [<Benchmark>]
-    member _.Add_times_600() =
-        ValueUnit.calc true (+) add1 add2 |> resultSize
+    member _.Add_times_600() = ValueUnit.calc true (+) add1 add2 |> resultSize
 
 
 let quickReport () =

@@ -86,30 +86,25 @@ module Csv =
             | Some i -> row |> Array.item i |> tryCast<'T> dataType
 
 
-    let getStringColumn columns sl s =
-        getColumn<string> StringData columns sl s
+    let getStringColumn columns sl s = getColumn<string> StringData columns sl s
 
 
     let getInt32Column columns sl s = getColumn<int> Int32Data columns sl s
 
 
-    let getInt32OptionColumn columns sl s =
-        getColumn<int option> Int32OptionData columns sl s
+    let getInt32OptionColumn columns sl s = getColumn<int option> Int32OptionData columns sl s
 
 
     let getFloatColumn columns sl s = getColumn<float> FloatData columns sl s
 
 
-    let getFloatOptionColumn columns sl s =
-        getColumn<float option> FloatOptionData columns sl s
+    let getFloatOptionColumn columns sl s = getColumn<float option> FloatOptionData columns sl s
 
 
-    let getDecimalColumn columns sl s =
-        getColumn<decimal> DecimalData columns sl s
+    let getDecimalColumn columns sl s = getColumn<decimal> DecimalData columns sl s
 
 
-    let getDecimalOptionColumn columns sl s =
-        getColumn<decimal option> DecimalOptionData columns sl s
+    let getDecimalOptionColumn columns sl s = getColumn<decimal option> DecimalOptionData columns sl s
 
 
     let parseCSV (s: string) =
@@ -129,22 +124,14 @@ module Csv =
 
 
         // Test tryCast
-        let testTryCast () =
-            test <@ "123" |> tryCast Int32Data = 123 @>
+        let testTryCast () = test <@ "123" |> tryCast Int32Data = 123 @>
 
 
         // Test parseCSV
         let testParseCSV () =
             let testCsv = "a\",\"b\",\"c\n1\",\"2\",\"3\n4\",\"5\",\"6"
 
-            test
-                <@
-                    parseCSV testCsv = [|
-                        [| "a"; "b"; "c" |]
-                        [| "1"; "2"; "3" |]
-                        [| "4"; "5"; "6" |]
-                    |]
-                @>
+            test <@ parseCSV testCsv = [| [| "a"; "b"; "c" |]; [| "1"; "2"; "3" |]; [| "4"; "5"; "6" |] |] @>
 
 
         // Test getStringColumn

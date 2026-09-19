@@ -98,8 +98,7 @@ module String =
 
 
     /// Return the rest of a string as a string
-    let restString s =
-        if s = "" then "" else subString 1 ((s |> length) - 1) s
+    let restString s = if s = "" then "" else subString 1 ((s |> length) - 1) s
 
 
     /// Removes the last 'n' characters from the input string 's'.
@@ -151,8 +150,7 @@ module String =
 module Math =
 
 
-    let roundBy s n =
-        (n / s) |> round |> double |> (fun f -> f * s)
+    let roundBy s n = (n / s) |> round |> double |> (fun f -> f * s)
 
 
     let roundBy0_5 = roundBy 0.5
@@ -364,8 +362,7 @@ module Decimal =
     /// * 6.6666 |> fixPrecision 3 = 6.67
     /// etc
     /// If n < 0 then the value is not changed.
-    let fixPrecision n (d: decimal) =
-        if n < 0 then d else Math.Round(d, d |> getPrecision n)
+    let fixPrecision n (d: decimal) = if n < 0 then d else Math.Round(d, d |> getPrecision n)
 
 
     //----------------------------------------------------------------------------
@@ -403,8 +400,7 @@ module Decimal =
     /// Returns a string representation of a float in Dutch format without trailing zeros
     /// and with a fixed precision.
     /// Example: 0.0666m |> toStringNumberNLWithoutTrailingZerosFixPrecision 2 = "0.067"
-    let toStringNumberNLWithoutTrailingZerosFixPrecision n =
-        fixPrecision n >> toStringNumberNLWithoutTrailingZeros
+    let toStringNumberNLWithoutTrailingZerosFixPrecision n = fixPrecision n >> toStringNumberNLWithoutTrailingZeros
 
 
 module Csv =
@@ -437,16 +433,13 @@ module Csv =
             | Some i -> sl |> Array.item i |> tryCast dt
 
 
-    let getStringColumn columns sl s =
-        getColumn StringData columns sl s |> unbox<string>
+    let getStringColumn columns sl s = getColumn StringData columns sl s |> unbox<string>
 
 
-    let getFloatColumn columns sl s =
-        getColumn FloatData columns sl s |> unbox<float>
+    let getFloatColumn columns sl s = getColumn FloatData columns sl s |> unbox<float>
 
 
-    let getFloatOptionColumn columns sl s =
-        getColumn FloatOptionData columns sl s |> unbox<float option>
+    let getFloatOptionColumn columns sl s = getColumn FloatOptionData columns sl s |> unbox<float option>
 
 
     let parseCSV (s: string) =

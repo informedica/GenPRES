@@ -221,8 +221,7 @@ module Equation =
     /// Check whether an `Equation` contains
     /// a `Variable` **v**
     /// </summary>
-    let contains v =
-        toVars >> (List.exists (Variable.eqName v))
+    let contains v = toVars >> (List.exists (Variable.eqName v))
 
 
     /// <summary>
@@ -335,8 +334,7 @@ module Equation =
     let calculationToString b op1 op2 y xs =
         let varToStr = if b then Variable.toString b else Variable.toStringShort
 
-        let opToStr op =
-            $" {op |> Variable.Operators.toString} "
+        let opToStr op = $" {op |> Variable.Operators.toString} "
 
         let cost = xs |> List.map Variable.count |> List.reduce (*)
         let x1 = xs |> List.head

@@ -60,20 +60,7 @@ let pcmSupp =
                             { Medication.substanceItem with
                                 Name = "paracetamol"
                                 Concentrations =
-                                    [|
-                                        120
-                                        240
-                                        500
-                                        1_000
-                                        125
-                                        250
-                                        60
-                                        30
-                                        360
-                                        90
-                                        750
-                                        180
-                                    |]
+                                    [| 120; 240; 500; 1_000; 125; 250; 60; 30; 360; 90; 750; 180 |]
                                     |> Array.map BigRational.fromInt
                                     |> ValueUnit.withUnit cu
                                     |> Some

@@ -123,8 +123,7 @@ module OrderContextMapper =
 
     let blocks (bs: TextBlock[][]) = bs |> Array.map (Array.map textBlock)
 
-    let blocksBack (bs: TextBlockDto.Dto[][]) =
-        bs |> Array.map (Array.map textBlockBack)
+    let blocksBack (bs: TextBlockDto.Dto[][]) = bs |> Array.map (Array.map textBlockBack)
 
 
     let filter (f: Filter) : FilterDto.Dto =

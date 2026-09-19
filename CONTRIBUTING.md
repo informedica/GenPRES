@@ -135,6 +135,18 @@ F# files staged for commit are automatically formatted by [Fantomas](https://git
 
 > **Caveat**: Fantomas always formats the **full working-tree** version of each file, not just the hunks you staged. If you used `git add -p` to stage only specific hunks, the unstaged hunks of the same file will be silently pulled into the commit. The hook prints a warning when this is about to happen — read it carefully and abort the commit if necessary.
 
+Which files the hook picks up is an allowlist in `.husky/task-runner.json`: `src/`, `tests/`, `benchmark/` plus the root `Build.fs` and `Helpers.fs`. It is deliberately the same set that CI's `dotnet fantomas --check .` covers, so a commit cannot pass the hook and then fail the format check.
+
+**`.fsx` scripts are not formatted at all** — `.fantomasignore` excludes them, so the script-based development workflow is free of formatting churn. The same file also excludes `tests/Informedica.Agents.Tests/Tests.fs`, which Fantomas miscompiles (its own output fails validation, still true in 8.0.0).
+
+Two files govern the result and must be bumped together: `.editorconfig` pins the style, and `.config/dotnet-tools.json` pins the Fantomas version. Neither is sufficient alone — Fantomas has changed defaults and removed settings across majors, so a version bump without reviewing the resulting diff can reformat the tree silently. Since Fantomas 8 a misspelled `fsharp_` key warns on stderr instead of being ignored, so a clean `dotnet fantomas --check .` also validates `.editorconfig`.
+
+`git blame` skips the repository-wide reformat commit if you opt in once:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
 You can also run Fantomas manually on the entire repo:
 
 ```bash

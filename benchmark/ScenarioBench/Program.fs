@@ -36,8 +36,7 @@ let scenarioMeds: (string * Medication)[] =
     |]
 
 /// Build an Order from a Medication template (not timed — done once in setup).
-let buildOrder (med: Medication) : Order =
-    med |> Medication.toOrderDto |> Order.Dto.fromDto |> Result.get
+let buildOrder (med: Medication) : Order = med |> Medication.toOrderDto |> Order.Dto.fromDto |> Result.get
 
 /// Solve one order through the full pipeline; return a cheap hash so the JIT /
 /// BenchmarkDotNet cannot dead-code-eliminate the work.

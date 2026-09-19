@@ -40,14 +40,12 @@ module MinMaxTests =
 
     open Informedica.GenUnits.Lib
 
-    let fromDecimal (v: decimal) u =
-        v |> BigRational.fromDecimal |> ValueUnit.createSingle u
+    let fromDecimal (v: decimal) u = v |> BigRational.fromDecimal |> ValueUnit.createSingle u
 
     let ageInMo = (fun n -> fromDecimal n Units.Time.month)
     let ageInYr = (fun n -> fromDecimal n Units.Time.year)
 
-    let ageInclOneMo, ageExclOneYr =
-        1m |> ageInMo |> Inclusive, 1m |> ageInYr |> Exclusive
+    let ageInclOneMo, ageExclOneYr = 1m |> ageInMo |> Inclusive, 1m |> ageInYr |> Exclusive
 
     let ageRange =
         MinMax.empty
@@ -157,8 +155,7 @@ module DoseRangeTests =
         Informedica.Utils.Lib.Env.getItem "GENPRES_URL_ID" |> Option.isSome
 
     /// `test` when GENPRES_URL_ID is configured, otherwise a skipped (pending) test.
-    let testUrl name =
-        if hasUrlId then test name else ptest name
+    let testUrl name = if hasUrlId then test name else ptest name
 
     let setMinNormDose = Optic.set DoseRange.Optics.inclMinNormLens
     let setMaxNormDose = Optic.set DoseRange.Optics.inclMaxNormLens

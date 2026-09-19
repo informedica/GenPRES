@@ -30,8 +30,7 @@ module Prescribe =
         let planCommand = envOrderPlan.OrderPlanCommand
         let draft = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
@@ -120,8 +119,7 @@ module Prescribe =
             | Provisional _ -> true
             | _ -> false
 
-        let isSourceLoading source =
-            isAnythingLoading && loadingSource = Some source
+        let isSourceLoading source = isAnythingLoading && loadingSource = Some source
 
         let select = ViewHelpers.filterSelect isAnythingLoading
 
@@ -184,8 +182,7 @@ module Prescribe =
         let progress =
             match orderContext with
             | HasNotStartedYet ->
-                let enterPatientData =
-                    Terms.``Patient enter patient data`` |> getTerm "Voer eerst patient gegevens in"
+                let enterPatientData = Terms.``Patient enter patient data`` |> getTerm "Voer eerst patient gegevens in"
 
                 JSX.jsx $"<>{enterPatientData}</>"
             | _ -> null

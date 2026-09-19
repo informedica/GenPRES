@@ -53,8 +53,7 @@ module AppPath =
     /// <summary>True when <paramref name="dir"/> contains a <c>data/zindex</c> sub-directory.</summary>
     /// <param name="dir">The directory to test.</param>
     /// <returns><c>true</c> if <c>dir/data/zindex</c> exists.</returns>
-    let hasZindex dir =
-        System.IO.Directory.Exists(Path.Combine(dir, "data", "zindex"))
+    let hasZindex dir = System.IO.Directory.Exists(Path.Combine(dir, "data", "zindex"))
 
 
     /// <summary>
@@ -135,5 +134,4 @@ module AppPath =
     /// <summary>
     /// The <c>data/cache/interactions/</c> directory.
     /// </summary>
-    let interactionsDir () =
-        Path.Combine(cacheDir (), "interactions")
+    let interactionsDir () = Path.Combine(cacheDir (), "interactions")

@@ -92,10 +92,7 @@ module OrderPlanCart =
         let prescribed =
             match sent with
             | OrderPlanCommand.AddOrderContext _ ->
-                [
-                    OrderPlanCartIntent.GoToPlanPage
-                    OrderPlanCartIntent.ResetWorkbench
-                ]
+                [ OrderPlanCartIntent.GoToPlanPage; OrderPlanCartIntent.ResetWorkbench ]
             | _ -> []
 
         OrderPlanCart.Opened(pat, tp), interactions tp @ prescribed

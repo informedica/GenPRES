@@ -37,8 +37,7 @@ module ValueUnit =
         let toDecimalKg =
             toMeasure Group.WeightGroup BigRational.toDecimal Conversions.kgFromDecimal Units.Weight.kiloGram "kg"
 
-        let toIntDay =
-            toMeasure Group.TimeGroup BigRational.ToInt32 Conversions.dayFromInt Units.Time.day "day"
+        let toIntDay = toMeasure Group.TimeGroup BigRational.ToInt32 Conversions.dayFromInt Units.Time.day "day"
 
         let toIntWeek =
             toMeasure Group.TimeGroup BigRational.ToInt32 Conversions.weekFromInt Units.Time.week "week"
@@ -50,26 +49,20 @@ module ValueUnit =
             toMeasure Group.TimeGroup BigRational.ToInt32 Conversions.yearFromInt Units.Time.year "year"
 
 
-        let inline fromMeasure u conv v =
-            v |> conv |> BigRational.fromDecimal |> singleWithUnit u
+        let inline fromMeasure u conv v = v |> conv |> BigRational.fromDecimal |> singleWithUnit u
 
 
-        let fromIntGram (v: int<gram>) =
-            v |> fromMeasure Units.Weight.gram (int >> decimal)
+        let fromIntGram (v: int<gram>) = v |> fromMeasure Units.Weight.gram (int >> decimal)
 
         let fromDecimalM2 (v: decimal<bsa>) = v |> fromMeasure Units.BSA.m2 decimal
 
-        let fromIntDay (v: int<day>) =
-            v |> fromMeasure Units.Time.day (int >> decimal)
+        let fromIntDay (v: int<day>) = v |> fromMeasure Units.Time.day (int >> decimal)
 
-        let fromIntWeek (v: int<week>) =
-            v |> fromMeasure Units.Time.week (int >> decimal)
+        let fromIntWeek (v: int<week>) = v |> fromMeasure Units.Time.week (int >> decimal)
 
-        let fromIntMonth (v: int<month>) =
-            v |> fromMeasure Units.Time.month (int >> decimal)
+        let fromIntMonth (v: int<month>) = v |> fromMeasure Units.Time.month (int >> decimal)
 
-        let fromIntYear (v: int<year>) =
-            v |> fromMeasure Units.Time.year (int >> decimal)
+        let fromIntYear (v: int<year>) = v |> fromMeasure Units.Time.year (int >> decimal)
 
 
     module Calculations =

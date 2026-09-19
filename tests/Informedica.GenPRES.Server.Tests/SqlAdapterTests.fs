@@ -24,8 +24,7 @@ module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
 let portOver (store: StubDatabase.SessionStore) =
     let outbox = StubMail.make ()
 
-    let directory =
-        StubDirectory.make (fun () -> t0) (fun () -> $"code-{Guid.NewGuid()}")
+    let directory = StubDirectory.make (fun () -> t0) (fun () -> $"code-{Guid.NewGuid()}")
 
     let port =
         StubDatabase.makeSessionPortWith
@@ -72,8 +71,7 @@ let failingOver (cs: string) (failing: bool ref) : StubDatabase.SessionStore =
 /// A port over the database of a connection string, seeded as the composition root seeds it:
 /// the machine reads a credential from the rows now, so a stub Prescriber without one in the
 /// file could not sign.
-let portOn (cs: string) =
-    portOver (SqlSessions.store ignore cs (fun () -> t0))
+let portOn (cs: string) = portOver (SqlSessions.store ignore cs (fun () -> t0))
 
 
 /// Presents a Launch for the stub patient and returns the callback for a login.
@@ -306,8 +304,7 @@ let tests =
                 "a write the database refuses answers StoreFailed through the port"
                 (fun cs ->
                     async {
-                        let readOnly =
-                            SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
+                        let readOnly = SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
 
                         // everything lands but the signature, whose writes go to a database
                         // that refuses them
@@ -526,8 +523,7 @@ let tests =
                 let root = Path.Combine(Path.GetTempPath(), $"genpres-root-{Guid.NewGuid()}")
 
                 try
-                    let cs =
-                        SqlDatabase.connectionString root "Data Source=data/db/genpres.db;Pooling=False"
+                    let cs = SqlDatabase.connectionString root "Data Source=data/db/genpres.db;Pooling=False"
 
                     SqliteConnectionStringBuilder(cs).DataSource
                     |> Expect.equal "rooted" (Path.Combine(root, "data/db/genpres.db"))
@@ -606,8 +602,7 @@ let tests =
                 let directory = StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId
                 let key = LaunchSeal.newKey Security.Cryptography.RandomNumberGenerator.GetBytes
 
-                let env =
-                    Adapters.makeAppEnvWith true None key directory (StubMail.make ()).port (unloadedProvider ())
+                let env = Adapters.makeAppEnvWith true None key directory (StubMail.make ()).port (unloadedProvider ())
 
                 async {
                     let! sid, opened = openLive key env.session directory "prescriber"
@@ -648,10 +643,7 @@ let tests =
                         let! signatureB = challenged portB sidB openedB "k-b"
 
                         let! answers =
-                            [
-                                portA.submit sidA signatureA
-                                portB.submit sidB signatureB
-                            ]
+                            [ portA.submit sidA signatureA; portB.submit sidB signatureB ]
                             |> List.map (fun a -> Async.StartAsTask a |> Async.AwaitTask)
                             |> Async.Parallel
 
@@ -672,8 +664,7 @@ let tests =
                         let winner = submittedId submitted[0]
                         blocked[0].Id |> Expect.equal "blocked by the row that landed" winner
 
-                        let loserPort, loserSid =
-                            if noOf answers[0] = None then portA, sidA else portB, sidB
+                        let loserPort, loserSid = if noOf answers[0] = None then portA, sidA else portB, sidB
 
                         match! loserPort.openVersion loserSid winner with
                         | Some reopened ->
@@ -771,8 +762,7 @@ let tests =
                 "a request whose writes the store refuses sends no mail"
                 (fun cs ->
                     async {
-                        let readOnly =
-                            SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
+                        let readOnly = SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
 
                         // the launch lands, so the hop reaches the PIN question; the writes of
                         // the callback that suspends into enrolment do not
@@ -856,8 +846,7 @@ let newSqliteStore () =
     let path = Path.Combine(Path.GetTempPath(), $"genpres-{Guid.NewGuid()}.db")
     minted.Add path
 
-    let cs =
-        SqliteConnectionStringBuilder(DataSource = path, Pooling = false).ToString()
+    let cs = SqliteConnectionStringBuilder(DataSource = path, Pooling = false).ToString()
 
     SqlSchema.apply cs |> ignore
     // the credentials the suites sign with, in the file the port reads them from

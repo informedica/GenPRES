@@ -136,8 +136,7 @@ let tests =
 
             test "a read-only database fails with the reason" {
                 withRecord (fun cs ->
-                    let readOnly =
-                        SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
+                    let readOnly = SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
 
                     match SqlDatabase.persist readOnly [ Session.WriteVersion v1.Value ] with
                     | Session.StoreOutcome.Failed reason -> reason |> Expect.isNotEmpty "a reason"

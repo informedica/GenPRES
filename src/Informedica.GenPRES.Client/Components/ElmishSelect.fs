@@ -50,8 +50,7 @@ module ElmishSelect =
         =
         let depArr = [||] //[| box props.dispatch |]
 
-        let state, dispatch =
-            React.useElmish (init props.selected, update props.updateSelected, depArr)
+        let state, dispatch = React.useElmish (init props.selected, update props.updateSelected, depArr)
 
         let handleChange =
             fun ev ->

@@ -138,8 +138,7 @@ module Variable =
             /// // returns Increment (ValueUnit ([|3000N|], Mass (MilliGram 1N)))
             /// </code>
             /// </example>
-            let intersect (Increment incr1) (Increment incr2) =
-                incr1 |> ValueUnit.intersect incr2 |> create
+            let intersect (Increment incr1) (Increment incr2) = incr1 |> ValueUnit.intersect incr2 |> create
 
 
             /// <summary>
@@ -198,8 +197,7 @@ module Variable =
             /// <summary>
             /// Get the increment as a list of BigRationals
             /// </summary>
-            let toList (Increment incr) =
-                incr |> ValueUnit.getValue |> Array.toList
+            let toList (Increment incr) = incr |> ValueUnit.getValue |> Array.toList
 
 
             /// <summary>
@@ -211,8 +209,7 @@ module Variable =
             /// <summary>
             /// Get the number of values in the increment
             /// </summary>
-            let count (Increment incr) =
-                incr |> ValueUnit.getValue |> Array.length
+            let count (Increment incr) = incr |> ValueUnit.getValue |> Array.length
 
 
             /// <summary>
@@ -294,8 +291,7 @@ module Variable =
             /// </summary>
             /// <param name="fIncl">The function to apply to an inclusive `Minimum`</param>
             /// <param name="fExcl">The function to apply to an exclusive `Minimum`</param>
-            let map fIncl fExcl =
-                apply (fIncl >> (create true)) (fExcl >> (create false))
+            let map fIncl fExcl = apply (fIncl >> (create true)) (fExcl >> (create false))
 
 
             /// <summary>
@@ -369,8 +365,7 @@ module Variable =
             /// min2 |> Minimum.minGTEmin min1 // returns false!
             /// </code>
             /// </example>
-            let minGTEmin minRight minLeft =
-                minRight = minLeft || minGTmin minRight minLeft
+            let minGTEmin minRight minLeft = minRight = minLeft || minGTmin minRight minLeft
 
 
             /// <summary>
@@ -611,8 +606,7 @@ module Variable =
             /// </summary>
             /// <param name="fIncl">The function to apply to an inclusive `Maximum`</param>
             /// <param name="fExcl">The function to apply to an exclusive `Maximum`</param>
-            let map fIncl fExcl =
-                apply (fIncl >> (create true)) (fExcl >> (create false))
+            let map fIncl fExcl = apply (fIncl >> (create true)) (fExcl >> (create false))
 
 
             /// <summary>
@@ -687,8 +681,7 @@ module Variable =
             /// max2 |> Maximum.maxGTEmax max1 // returns false!
             /// </code>
             /// </example>
-            let maxGTEmax maxRight maxLeft =
-                maxRight = maxLeft || maxGTmax maxRight maxLeft
+            let maxGTEmax maxRight maxLeft = maxRight = maxLeft || maxGTmax maxRight maxLeft
 
 
             /// <summary>
@@ -948,8 +941,7 @@ module Variable =
             /// <summary>
             /// Count the number of values in a `ValueSet`.
             /// </summary>
-            let count (ValueSet vu) =
-                vu |> ValueUnit.getValue |> Array.length
+            let count (ValueSet vu) = vu |> ValueUnit.getValue |> Array.length
 
 
             /// <summary>
@@ -1675,8 +1667,7 @@ module Variable =
         /// Note that the resulting max is always inclusive and smaller than
         /// or equal to the original max and is a multiple of **incr**.
         /// </remarks>
-        let incrMaxToValueRange incr max =
-            (incr, max |> maxMultipleOf incr) |> IncrMax
+        let incrMaxToValueRange incr max = (incr, max |> maxMultipleOf incr) |> IncrMax
 
 
         /// <summary>
@@ -1901,19 +1892,15 @@ module Variable =
 
             let fMax max = incrMaxToValueRange newIncr max
 
-            let fMinMax (min, max) =
-                minIncrMaxToValueRange onlyMinIncrMax min newIncr max
+            let fMinMax (min, max) = minIncrMaxToValueRange onlyMinIncrMax min newIncr max
 
             let fIncr = restrict >> Incr
 
-            let fMinIncr (min, incr) =
-                minIncrToValueRange min (incr |> restrict)
+            let fMinIncr (min, incr) = minIncrToValueRange min (incr |> restrict)
 
-            let fIncrMax (incr, max) =
-                incrMaxToValueRange (incr |> restrict) max
+            let fIncrMax (incr, max) = incrMaxToValueRange (incr |> restrict) max
 
-            let fMinIncrMax (min, incr, max) =
-                minIncrMaxToValueRange onlyMinIncrMax min (incr |> restrict) max
+            let fMinIncrMax (min, incr, max) = minIncrMaxToValueRange onlyMinIncrMax min (incr |> restrict) max
 
             let fValueSet = filter None (Some newIncr) None >> ValSet
 
@@ -1954,19 +1941,15 @@ module Variable =
 
             let fMax max = minMaxToValueRange newMin max
 
-            let fMinMax (min, max) =
-                minMaxToValueRange (min |> restrict) max
+            let fMinMax (min, max) = minMaxToValueRange (min |> restrict) max
 
             let fIncr incr = minIncrToValueRange newMin incr
 
-            let fMinIncr (min, incr) =
-                minIncrToValueRange (min |> restrict) incr
+            let fMinIncr (min, incr) = minIncrToValueRange (min |> restrict) incr
 
-            let fIncrMax (incr, max) =
-                minIncrMaxToValueRange onlyMinIncrMax newMin incr max
+            let fIncrMax (incr, max) = minIncrMaxToValueRange onlyMinIncrMax newMin incr max
 
-            let fMinIncrMax (min, incr, max) =
-                minIncrMaxToValueRange onlyMinIncrMax (min |> restrict) incr max
+            let fMinIncrMax (min, incr, max) = minIncrMaxToValueRange onlyMinIncrMax (min |> restrict) incr max
 
             let fValueSet = filter (Some newMin) None None >> ValSet
 
@@ -2004,19 +1987,15 @@ module Variable =
 
             let fMax max = max |> restrict |> Max
 
-            let fMinMax (min, max) =
-                minMaxToValueRange min (max |> restrict)
+            let fMinMax (min, max) = minMaxToValueRange min (max |> restrict)
 
             let fIncr incr = incrMaxToValueRange incr newMax
 
-            let fMinIncr (min, incr) =
-                minIncrMaxToValueRange onlyMinIncrMax min incr newMax
+            let fMinIncr (min, incr) = minIncrMaxToValueRange onlyMinIncrMax min incr newMax
 
-            let fIncrMax (incr, max) =
-                incrMaxToValueRange incr (max |> restrict)
+            let fIncrMax (incr, max) = incrMaxToValueRange incr (max |> restrict)
 
-            let fMinIncrMax (min, incr, max) =
-                minIncrMaxToValueRange onlyMinIncrMax min incr (max |> restrict)
+            let fMinIncrMax (min, incr, max) = minIncrMaxToValueRange onlyMinIncrMax min incr (max |> restrict)
 
             let fValueSet = filter None None (Some newMax) >> ValSet
 
@@ -2046,8 +2025,7 @@ module Variable =
         /// </code>
         /// </example>
         let setValueSet newVs (vr: ValueRange) =
-            let min, incr, max, oldVs =
-                vr |> getMin, vr |> getIncr, vr |> getMax, vr |> getValSet
+            let min, incr, max, oldVs = vr |> getMin, vr |> getIncr, vr |> getMax, vr |> getValSet
 
             match oldVs with
             | None -> newVs |> filter min incr max
@@ -2128,11 +2106,9 @@ module Variable =
         /// </code>
         /// </example>
         let minIncrMaxCount min incr max =
-            let min =
-                min |> Minimum.multipleOf incr |> Minimum.toValueUnit |> ValueUnit.getBaseValue
+            let min = min |> Minimum.multipleOf incr |> Minimum.toValueUnit |> ValueUnit.getBaseValue
 
-            let max =
-                max |> Maximum.multipleOf incr |> Maximum.toValueUnit |> ValueUnit.getBaseValue
+            let max = max |> Maximum.multipleOf incr |> Maximum.toValueUnit |> ValueUnit.getBaseValue
 
             incr
             |> Increment.toValueUnit
@@ -2247,8 +2223,7 @@ module Variable =
 
         /// Convert a `ValueRange` to a `string`.
         let toString exact vr =
-            let fVs vs =
-                print exact false None None None (Some vs)
+            let fVs vs = print exact false None None None (Some vs)
 
             let unr = print exact false None None None None
 
@@ -2342,8 +2317,7 @@ module Variable =
                     | true, true -> true
                     | _ -> false
 
-                let createZero incl =
-                    0N |> ValueUnit.singleWithUnit ZeroUnit |> c incl |> Some
+                let createZero incl = 0N |> ValueUnit.singleWithUnit ZeroUnit |> c incl |> Some
 
                 let vu1IsZero, vu2IsZero =
                     vu1Opt |> Option.map ValueUnit.isZero |> Option.defaultValue false,
@@ -2767,14 +2741,11 @@ module Variable =
 
             let fIncr incr = set [ incr |> IncrProp ]
 
-            let fMinIncr (min, incr) =
-                set [ min |> MinProp; incr |> IncrProp ]
+            let fMinIncr (min, incr) = set [ min |> MinProp; incr |> IncrProp ]
 
-            let fIncrMax (incr, max) =
-                set [ incr |> IncrProp; max |> MaxProp ]
+            let fIncrMax (incr, max) = set [ incr |> IncrProp; max |> MaxProp ]
 
-            let fMinIncrMax (min, incr, max) =
-                set [ min |> MinProp; incr |> IncrProp; max |> MaxProp ]
+            let fMinIncrMax (min, incr, max) = set [ min |> MinProp; incr |> IncrProp; max |> MaxProp ]
 
             let fVs vs = set [ vs |> ValsProp ]
 
@@ -2798,8 +2769,7 @@ module Variable =
         /// vr1 |> diffWith vr2
         /// </code>
         /// </example>
-        let diffWith vr1 vr2 =
-            vr1 |> toProperties |> Set.difference (vr2 |> toProperties)
+        let diffWith vr1 vr2 = vr1 |> toProperties |> Set.difference (vr2 |> toProperties)
 
 
         /// <summary>
@@ -2927,8 +2897,7 @@ module Variable =
 
     /// Check whether a `Variable` **v** contains
     /// a value **v**.
-    let contains v vr =
-        vr |> getValueRange |> ValueRange.contains v
+    let contains v vr = vr |> getValueRange |> ValueRange.contains v
 
 
     /// Change `Name` to **n**.
@@ -2952,13 +2921,11 @@ module Variable =
 
     /// Set the values to a `ValueRange`
     /// that prevents zero or negative values.
-    let setNonZeroOrNegative v =
-        { v with Values = v.Values |> ValueRange.nonZeroNonNegative }
+    let setNonZeroOrNegative v = { v with Values = v.Values |> ValueRange.nonZeroNonNegative }
 
 
     /// Get the number of distinct values
-    let count v =
-        v |> getValueRange |> ValueRange.cardinality
+    let count v = v |> getValueRange |> ValueRange.cardinality
 
 
     /// Checks whether **v1** and **v2** have the
@@ -2968,8 +2935,7 @@ module Variable =
 
     /// Check whether the `ValueRange` of **v1**
     /// and **v2** are equal.
-    let eqValues var1 var2 =
-        var1 |> getValueRange = (var2 |> getValueRange)
+    let eqValues var1 var2 = var1 |> getValueRange = (var2 |> getValueRange)
 
 
     /// Checks whether a `Variable` **v** is solved,
@@ -3047,15 +3013,13 @@ module Variable =
     /// 'Prunes' the ValueRange of a Variable
     /// </summary>
     /// <param name="var"></param>
-    let prune var =
-        { var with Values = var.Values |> ValueRange.prune }
+    let prune var = { var with Values = var.Values |> ValueRange.prune }
 
 
     /// <summary>
     /// Set the unit of a Variable
     /// </summary>
-    let setUnit unit var =
-        { var with Values = var.Values |> ValueRange.setUnit unit }
+    let setUnit unit var = { var with Values = var.Values |> ValueRange.setUnit unit }
 
 
     module Operators =
@@ -3068,8 +3032,7 @@ module Variable =
 
         let inline (^-) vr1 vr2 = calc (^-) (vr1, vr2)
 
-        let inline (^<-) vr1 vr2 =
-            vr2 |> getValueRange |> setValueRange false vr1
+        let inline (^<-) vr1 vr2 = vr2 |> getValueRange |> setValueRange false vr1
 
 
         let inline (@*) vr1 vr2 = calc (@*) (vr1, vr2)
@@ -3080,8 +3043,7 @@ module Variable =
 
         let inline (@-) vr1 vr2 = calc (@-) (vr1, vr2)
 
-        let inline (@<-) vr1 vr2 =
-            vr2 |> getValueRange |> setValueRange true vr1
+        let inline (@<-) vr1 vr2 = vr2 |> getValueRange |> setValueRange true vr1
 
 
         /// Constant 1
@@ -3105,20 +3067,16 @@ module Variable =
             |> createSucc (Name.createExc "three")
 
         /// Check whether the operator is subtraction
-        let opIsSubtr op =
-            (three |> op <| two) |> eqValues (three ^- two) // = 1
+        let opIsSubtr op = (three |> op <| two) |> eqValues (three ^- two) // = 1
 
         /// Check whether the operator is addition
-        let opIsAdd op =
-            (three |> op <| two) |> eqValues (three ^+ two) // = 5
+        let opIsAdd op = (three |> op <| two) |> eqValues (three ^+ two) // = 5
 
         /// Check whether the operator is multiplication
-        let opIsMult op =
-            (three |> op <| two) |> eqValues (three ^* two) // = 6
+        let opIsMult op = (three |> op <| two) |> eqValues (three ^* two) // = 6
 
         /// Check whether the operator is divsion
-        let opIsDiv op =
-            (three |> op <| two) |> eqValues (three ^/ two) // = 3/2
+        let opIsDiv op = (three |> op <| two) |> eqValues (three ^/ two) // = 3/2
 
 
         let toString op =
@@ -3216,8 +3174,7 @@ module Variable =
                 dto.IsNonZeroNegative <- true
                 dto
             | _ ->
-                let incr =
-                    v.Values |> ValueRange.getIncr |> Option.map (Increment.toValueUnit >> vuToDto)
+                let incr = v.Values |> ValueRange.getIncr |> Option.map (Increment.toValueUnit >> vuToDto)
 
                 let minincl =
                     match v.Values |> ValueRange.getMin with
@@ -3229,14 +3186,11 @@ module Variable =
                     | Some m -> m |> Maximum.isExcl |> not
                     | None -> false
 
-                let min =
-                    v.Values |> ValueRange.getMin |> Option.map (Minimum.toValueUnit >> vuToDto)
+                let min = v.Values |> ValueRange.getMin |> Option.map (Minimum.toValueUnit >> vuToDto)
 
-                let max =
-                    v.Values |> ValueRange.getMax |> Option.map (Maximum.toValueUnit >> vuToDto)
+                let max = v.Values |> ValueRange.getMax |> Option.map (Maximum.toValueUnit >> vuToDto)
 
-                let vals =
-                    v.Values |> ValueRange.getValSet |> Option.map (ValueSet.toValueUnit >> vuToDto)
+                let vals = v.Values |> ValueRange.getValSet |> Option.map (ValueSet.toValueUnit >> vuToDto)
 
                 dto.Incr <- incr
                 dto.Min <- min

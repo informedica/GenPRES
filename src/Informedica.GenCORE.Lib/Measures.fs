@@ -150,16 +150,14 @@ module Conversions =
     let centi = decimal Constants.centi
 
 
-    let weeksToDays (weeks: int<week>) =
-        weeks * Constants.daysInWeek |> int |> dayFromInt
+    let weeksToDays (weeks: int<week>) = weeks * Constants.daysInWeek |> int |> dayFromInt
 
 
     let daysToWeeks (days: int<day>) =
         (int days) / Constants.daysInWeek |> weekFromInt, (int days) % Constants.daysInWeek |> dayFromInt
 
 
-    let intYearsToDays (years: int<year>) =
-        years * Constants.daysInYear |> int |> dayFromInt
+    let intYearsToDays (years: int<year>) = years * Constants.daysInYear |> int |> dayFromInt
 
 
     let decimalYearsToIntDays (years: decimal<year>) =
@@ -172,15 +170,13 @@ module Conversions =
     let intGramToDecKg (gram: int<gram>) = (decimal gram) / kilo |> kgFromDecimal
 
 
-    let decKgToIntGram (kg: decimal<kg>) =
-        kg |> decimalKgToDecimalGram |> decimal |> int |> gramFromInt
+    let decKgToIntGram (kg: decimal<kg>) = kg |> decimalKgToDecimalGram |> decimal |> int |> gramFromInt
 
 
     let decMtoDecCm (m: decimal<m>) = m * centi |> decimal |> cmFromDecimal
 
 
-    let decMtoIntCm (m: decimal<m>) =
-        m * centi |> decimal |> int |> cmFromInt
+    let decMtoIntCm (m: decimal<m>) = m * centi |> decimal |> int |> cmFromInt
 
 
     let inline intToString u1 u2 x =
@@ -202,16 +198,14 @@ module Conversions =
     let dayToString u1 u2 (d: int<day>) = intToString u1 u2 d
 
 
-    let milliLiterToLiter (x: decimal<mL>) =
-        x / (Constants.milli |> decimal) |> decimal |> literFromDecimal
+    let milliLiterToLiter (x: decimal<mL>) = x / (Constants.milli |> decimal) |> decimal |> literFromDecimal
 
 
     let literToMilliLiter (x: decimal<L>) =
         x * (Constants.milli |> decimal) |> decimal |> milliLiterFromDecimal
 
 
-    let deciLiterToLiter (x: decimal<dL>) =
-        x / (Constants.deci |> decimal) |> decimal |> literFromDecimal
+    let deciLiterToLiter (x: decimal<dL>) = x / (Constants.deci |> decimal) |> decimal |> literFromDecimal
 
 
     let literToDeciLiter (x: decimal<dL>) =
@@ -240,5 +234,4 @@ module Conversions =
         let toMilliMolePerLiter (urea: float<mg / dL>) = (urea |> float) * kMilliMolePerLiter
 
 
-        let toMilliGramPerDeciLiter (urea: float<mmol / L>) =
-            (urea |> float) * kMilliGramPerDeciLiter
+        let toMilliGramPerDeciLiter (urea: float<mmol / L>) = (urea |> float) * kMilliGramPerDeciLiter

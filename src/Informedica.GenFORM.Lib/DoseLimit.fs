@@ -97,19 +97,18 @@ module DoseLimit =
             DoseLimitTarget = dl.DoseLimitTarget
             AdjustUnit = dl.AdjustUnit
             DoseUnit = dl.DoseUnit
-        } = dl
+        }
+            =
+            dl
 
 
-    let isSubstanceLimit (dl: DoseLimit) =
-        dl.DoseLimitTarget |> LimitTarget.isSubstanceTarget
+    let isSubstanceLimit (dl: DoseLimit) = dl.DoseLimitTarget |> LimitTarget.isSubstanceTarget
 
 
-    let isComponentLimit (dl: DoseLimit) =
-        dl.DoseLimitTarget |> LimitTarget.isComponentTarget
+    let isComponentLimit (dl: DoseLimit) = dl.DoseLimitTarget |> LimitTarget.isComponentTarget
 
 
-    let isShapeLimit (dl: DoseLimit) =
-        dl.DoseLimitTarget |> LimitTarget.isOrderableTarget
+    let isShapeLimit (dl: DoseLimit) = dl.DoseLimitTarget |> LimitTarget.isOrderableTarget
 
 
     let getNormDose minMax =

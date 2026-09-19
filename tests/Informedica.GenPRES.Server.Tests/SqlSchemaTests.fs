@@ -14,11 +14,9 @@ open ServerApi
 /// Runs `f` on the connection string of a fresh temporary database file, without pooling so
 /// that the file can be deleted on every OS, and deletes the file afterwards.
 let withDb (f: string -> 'a) =
-    let path =
-        Path.Combine(Path.GetTempPath(), $"genpres-%s{Guid.NewGuid().ToString()}.db")
+    let path = Path.Combine(Path.GetTempPath(), $"genpres-%s{Guid.NewGuid().ToString()}.db")
 
-    let cs =
-        SqliteConnectionStringBuilder(DataSource = path, Pooling = false).ToString()
+    let cs = SqliteConnectionStringBuilder(DataSource = path, Pooling = false).ToString()
 
     try
         f cs

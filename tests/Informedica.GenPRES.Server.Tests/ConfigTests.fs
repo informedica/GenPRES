@@ -5,11 +5,7 @@ open Expecto.Flip
 open Server
 
 
-let loopback =
-    [|
-        System.Net.IPAddress.Loopback
-        System.Net.IPAddress.IPv6Loopback
-    |]
+let loopback = [| System.Net.IPAddress.Loopback; System.Net.IPAddress.IPv6Loopback |]
 
 
 let trustedProxiesTests =
@@ -87,8 +83,7 @@ let startup urlId : Config.Startup =
 
 
 let validateStartupTests =
-    let settings (m: Map<string, string>) =
-        Config.fromEnv (fun key -> m |> Map.tryFind key)
+    let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
 
     let sixteen = String.replicate 16 "x"
 
@@ -274,8 +269,7 @@ let fromEnvTests =
 
 
 let languageTests =
-    let settings (m: Map<string, string>) =
-        Config.fromEnv (fun key -> m |> Map.tryFind key)
+    let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
 
     testList
         "GENPRES_LANG"
@@ -326,12 +320,7 @@ let languageTests =
 
             test "the language is checked after the password and before the url id" {
                 match
-                    Map
-                        [
-                            "GENPRES_PROD", "1"
-                            "GENPRES_PASSWORD", "short"
-                            "GENPRES_LANG", "klingon"
-                        ]
+                    Map [ "GENPRES_PROD", "1"; "GENPRES_PASSWORD", "short"; "GENPRES_LANG", "klingon" ]
                     |> settings
                     |> Config.validateStartup
                 with

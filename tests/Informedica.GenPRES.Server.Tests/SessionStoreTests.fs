@@ -163,8 +163,7 @@ let tests =
         "the session store on domain values"
         [
             test "the challenge keeps the digest of the plan, never the plan" {
-                let state, answer =
-                    ask t0 (counter "n") (stateOf [ opened ] []) "s-1" (domainPlan.Value, token "s-1")
+                let state, answer = ask t0 (counter "n") (stateOf [ opened ] []) "s-1" (domainPlan.Value, token "s-1")
 
                 answer |> Expect.equal "issued" (SigningOutcome.ChallengeIssued "n-1")
 
@@ -225,14 +224,8 @@ let tests =
                             |]
                     )
 
-                for p in
-                    [
-                        changed
-                        reordered
-                        { domainPlan.Value with Filtered = [| "c-0" |] }
-                    ] do
-                    let _, answer, write =
-                        commitAt t0 (counter "id") ready.Value "s-1" (signature "s-1" "1234" "k-1" p)
+                for p in [ changed; reordered; { domainPlan.Value with Filtered = [| "c-0" |] } ] do
+                    let _, answer, write = commitAt t0 (counter "id") ready.Value "s-1" (signature "s-1" "1234" "k-1" p)
 
                     answer
                     |> Expect.equal "mismatch" (SigningOutcome.Refused SigningRefusal.ChallengeMismatch)
@@ -303,8 +296,7 @@ let tests =
 
             test
                 "a violated constraint is another server's sign: a stale sign against the version that won, not StoreFailed" {
-                let winner =
-                    StoredVersion.Readable(versionOf 1 other (t0 - minutes 1.0) domainPlan.Value)
+                let winner = StoredVersion.Readable(versionOf 1 other (t0 - minutes 1.0) domainPlan.Value)
 
                 let state, answer =
                     submitWith
@@ -325,8 +317,7 @@ let tests =
 
             test
                 "an unreadable row is the head when it is the newest; a sign against it is refused whatever the base; it cannot be opened" {
-                let readable =
-                    StoredVersion.Readable(versionOf 1 prescriber (t0 - minutes 5.0) domainPlan.Value)
+                let readable = StoredVersion.Readable(versionOf 1 prescriber (t0 - minutes 5.0) domainPlan.Value)
 
                 let newest = unreadable 2 other (t0 - minutes 1.0)
                 let records = [ "stub-patient", [ newest; readable ] ]
@@ -337,8 +328,7 @@ let tests =
                 for openedWith in [ Some "plan-1"; Some "plan-2"; None ] do
                     let s = session "s-1" prescriber openedWith
 
-                    let _, answer =
-                        ask t0 (counter "n") (stateOf [ s ] records) "s-1" (domainPlan.Value, token "s-1")
+                    let _, answer = ask t0 (counter "n") (stateOf [ s ] records) "s-1" (domainPlan.Value, token "s-1")
 
                     answer
                     |> Expect.equal
@@ -360,8 +350,7 @@ let tests =
 
                 let s = session "s-1" prescriber (Some "plan-1")
 
-                let st, answer =
-                    Machine.openVersion t0 (counter "id") "s-1" "plan-2" (stateOf [ s ] records)
+                let st, answer = Machine.openVersion t0 (counter "id") "s-1" "plan-2" (stateOf [ s ] records)
 
                 answer |> Expect.equal "the Session as it is" (Some (snd s).Opened)
 
@@ -389,8 +378,7 @@ let tests =
 
                 write |> versionWritten |> Expect.isNone "no version written"
 
-                let st, opened =
-                    Machine.openVersion (t0 + seconds 10.0) (counter "id") "s-1" "plan-1" st
+                let st, opened = Machine.openVersion (t0 + seconds 10.0) (counter "id") "s-1" "plan-1" st
 
                 opened
                 |> Option.bind _.Head

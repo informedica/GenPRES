@@ -1218,13 +1218,11 @@ module FormularyParser =
 
         let parse s =
 
-            let ms =
-                "\s+(\d+|\d+.\d+|\d+\s*-\s*\d+|\d+\s*-\s*\d+.\d+|\d+.\d+\s*-\s*\d+|\d+.\d+\s*-\s*\d+.\d+)\z"
+            let ms = "\s+(\d+|\d+.\d+|\d+\s*-\s*\d+|\d+\s*-\s*\d+.\d+|\d+.\d+\s*-\s*\d+|\d+.\d+\s*-\s*\d+.\d+)\z"
 
             let replaceList = [ " Eénmalig op dag 1" ]
 
-            let canonicalize s =
-                replaceList |> List.fold (fun a r -> a |> String.replace r "") s
+            let canonicalize s = replaceList |> List.fold (fun a r -> a |> String.replace r "") s
 
             let s': string =
                 ("#" + s
@@ -1274,8 +1272,7 @@ module FormularyParser =
 
 
         let parseQuantityUnit c (s1, s2) =
-            let double s =
-                s |> String.replace "." "" |> String.replace "," "." |> tryParse
+            let double s = s |> String.replace "." "" |> String.replace "," "." |> tryParse
 
             let split = (String.split " ") >> (List.filter String.notEmpty)
 

@@ -34,7 +34,7 @@ module Generators =
             }
 
 
-    type MinMax = MinMax of BigRational * BigRational
+    type MinMax = | MinMax of BigRational * BigRational
 
     let minMaxArb () =
         bigRGenerator
@@ -51,7 +51,7 @@ module Generators =
         |> Arb.convert MinMax (fun (MinMax(min, max)) -> min, max)
 
 
-    type ListOf37<'a> = ListOf37 of 'a List
+    type ListOf37<'a> = | ListOf37 of 'a List
 
     let listOf37Arb () =
         Gen.listOfLength 37 Arb.generate
@@ -72,8 +72,7 @@ module Generators =
         }
 
 
-    let testProp testName prop =
-        prop |> testPropertyWithConfig config testName
+    let testProp testName prop = prop |> testPropertyWithConfig config testName
 
 
 module GenericLabelTests =
@@ -207,11 +206,7 @@ module ProductFilterTests =
             Form = "tablet"
             Routes = [| "oraal" |]
             Substances = [| para |]
-            TradeProducts =
-                [
-                    trade "H1" "BrandX" [ para ]
-                    trade "H2" "BrandY" [ para ]
-                ]
+            TradeProducts = [ trade "H1" "BrandX" [ para ]; trade "H2" "BrandY" [ para ] ]
         }
 
     // paracetamol drank, oraal; carries sorbitol that the trade product does not
@@ -287,8 +282,7 @@ module ProductFilterTests =
                 }
 
                 test "brand refines to products carrying that trade product" {
-                    let result =
-                        prods |> Product.filter routeMapping "oraal" "paracetamol" "" "BrandX" [||] [||]
+                    let result = prods |> Product.filter routeMapping "oraal" "paracetamol" "" "BrandX" [||] [||]
 
                     result
                     |> Array.map _.GPK
@@ -300,8 +294,7 @@ module ProductFilterTests =
                 }
 
                 test "hpk list refines and narrows substances to the trade product" {
-                    let result =
-                        prods |> Product.filter routeMapping "oraal" "paracetamol" "" "" [||] [| "H3" |]
+                    let result = prods |> Product.filter routeMapping "oraal" "paracetamol" "" "" [||] [| "H3" |]
 
                     result
                     |> Array.map _.GPK
@@ -339,8 +332,7 @@ module DoseRuleProductTests =
 
 
     /// String non-empty (avoids depending on a BCL open in this module).
-    let private ne s =
-        s |> System.String.IsNullOrWhiteSpace |> not
+    let private ne s = s |> System.String.IsNullOrWhiteSpace |> not
 
 
     module PT = ProductFilterTests
@@ -555,8 +547,7 @@ module DoseRuleProductTests =
 
     /// Build the DoseRules for the given raw rows (empty FormRoutes is safe:
     /// addFormLimits only sets FormLimit, product attachment is unaffected).
-    let buildRules (data: DoseRuleData[]) =
-        DoseRuleLoader.fromData routeMapping [||] prods data |> fst
+    let buildRules (data: DoseRuleData[]) = DoseRuleLoader.fromData routeMapping [||] prods data |> fst
 
 
     /// Sorted, distinct GPKs attached to a set of DoseRules.
@@ -580,12 +571,10 @@ module DoseRuleProductTests =
     let formRow = mkData "citalopram" "ORAAL" "tablet" "" [||] [||]
     let brandRow = mkData "bupropion" "ORAAL" "" "Zyban" [||] [||]
 
-    let gpksRow =
-        mkData "adrenaline" "INTRAMUSCULAIR" "" "" [| "170925"; "170933" |] [||]
+    let gpksRow = mkData "adrenaline" "INTRAMUSCULAIR" "" "" [| "170925"; "170933" |] [||]
     // Same gpks narrowing, plus a Form that would (if applied) exclude every
     // adrenaline injection product — proves Form is dropped when GPKs win.
-    let gpksFormRow =
-        mkData "adrenaline" "INTRAMUSCULAIR" "tablet" "" [| "170925"; "170933" |] [||]
+    let gpksFormRow = mkData "adrenaline" "INTRAMUSCULAIR" "tablet" "" [| "170925"; "170933" |] [||]
 
 
     /// Build a (component, substance) row with an optional MaxQty dose value,
@@ -921,8 +910,7 @@ module DoseRuleToDataTests =
     /// recovers the categorical identity and the form/brand/gpks narrowing.
     /// (The full quantitative round-trip runs against live data in
     /// Scratch/Informedica.GenForm.Lib.fsx.)
-    let private roundTrip (data: DoseRuleData[]) =
-        data |> DP.buildRules |> Array.collect DoseRule.toData
+    let private roundTrip (data: DoseRuleData[]) = data |> DP.buildRules |> Array.collect DoseRule.toData
 
 
     /// <summary>
@@ -989,8 +977,7 @@ module DoseRuleToDataTests =
         /// The DoseRules columns, taken from the ONE production list so the two
         /// cannot drift. <c>headers</c> is a single tab-joined line.
         let doseRuleColumns =
-            let fromHeaders =
-                DoseRuleData.headers |> List.head |> String.split "\t" |> List.map String.trim
+            let fromHeaders = DoseRuleData.headers |> List.head |> String.split "\t" |> List.map String.trim
 
             // "Loc" is read by the parser but missing from `headers` - see the TODO
             // there. Declared here because the sheet does carry it.
@@ -1054,15 +1041,7 @@ module DoseRuleToDataTests =
                 (Mapping.parseSheet Mapping.totalsRow >> Result.isOk)
 
                 "Reconstitution",
-                [
-                    "GPK"
-                    "Route"
-                    "Loc"
-                    "Dep"
-                    "DiluentVol"
-                    "ExpansionVol"
-                    "Diluents"
-                ],
+                [ "GPK"; "Route"; "Loc"; "Dep"; "DiluentVol"; "ExpansionVol"; "Diluents" ],
                 [],
                 [],
                 (Product.Reconstitution.parseReconstitution >> Result.isOk)
@@ -1371,15 +1350,13 @@ module DoseRuleRoundtripTests =
 
     // fr = [||]: fromData uses FormRoute only for FormLimit, which toData does not
     // emit and the round-trip does not compare (as DoseRuleProductTests do).
-    let private forward (d: DoseRuleData[]) =
-        DoseRuleLoader.fromData rm.Value [||] prods.Value d |> fst
+    let private forward (d: DoseRuleData[]) = DoseRuleLoader.fromData rm.Value [||] prods.Value d |> fst
 
 
     // ---- comparison machinery (mirrors the scratch Analyse module) ----
     let private unitStr (u: Unit) = u |> Units.toStringEngShortWithoutGroup
 
-    let private brStr (br: BigRational option) =
-        br |> Option.map _.ToString() |> Option.defaultValue ""
+    let private brStr (br: BigRational option) = br |> Option.map _.ToString() |> Option.defaultValue ""
 
     let private genKey (g: GenericData) =
         [
@@ -1815,8 +1792,7 @@ module Tests =
 
     module AdjustDoseLimitTests =
 
-        let mkLimit v u =
-            Limit.Inclusive(ValueUnit.singleWithUnit u v)
+        let mkLimit v u = Limit.Inclusive(ValueUnit.singleWithUnit u v)
 
         let mg = Units.Mass.milliGram
         let mgPerKg = Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
@@ -1826,11 +1802,9 @@ module Tests =
         let mgPerKgPerDay = mgPerKg |> ValueUnit.per day
         let perDay = Units.Count.times |> ValueUnit.per day
 
-        let pat15kg =
-            { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 15N) }
+        let pat15kg = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 15N) }
 
-        let pat24kg =
-            { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 24N) }
+        let pat24kg = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 24N) }
 
         /// A frequency ValueUnit set (per day) from a list of frequencies.
         let freqSet (vs: bigint list) =
@@ -2139,11 +2113,7 @@ module Tests =
                 // PerTimeAdjust vs MaxQty (exercises the fixed freq block)
                 "bupropion",
                 baseFields "bupropion" "ORAAL" "discontinuous" "1;2" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "150"
-                    "MaxPerTime", "300"
-                    "MinPerTimeAdj", "3"
-                ]
+                @ [ "MaxQty", "150"; "MaxPerTime", "300"; "MinPerTimeAdj", "3" ]
                 "carbamazepine",
                 baseFields "carbamazepine" "ORAAL" "discontinuous" "2;3" "mg" "kg" "dag"
                 @ [
@@ -2154,11 +2124,7 @@ module Tests =
                 ]
                 "ceftaroline<12",
                 baseFields "ceftaroline" "INTRAVENEUS" "timed" "3" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "400"
-                    "MinPerTimeAdj", "36"
-                    "MaxPerTimeAdj", "36"
-                ]
+                @ [ "MaxQty", "400"; "MinPerTimeAdj", "36"; "MaxPerTimeAdj", "36" ]
                 "ceftaroline>12",
                 baseFields "ceftaroline" "INTRAVENEUS" "timed" "3" "mg" "kg" "dag"
                 @ [
@@ -2169,11 +2135,7 @@ module Tests =
                 ]
                 "dasatinib",
                 baseFields "dasatinib" "ORAAL" "discontinuous" "1" "mg" "m2" "dag"
-                @ [
-                    "MaxQty", "110"
-                    "MinPerTimeAdj", "65"
-                    "MaxPerTimeAdj", "65"
-                ]
+                @ [ "MaxQty", "110"; "MinPerTimeAdj", "65"; "MaxPerTimeAdj", "65" ]
                 "fluconazol",
                 baseFields "fluconazol" "ORAAL" "discontinuous" "1" "mg" "kg" "dag"
                 @ [
@@ -2192,32 +2154,16 @@ module Tests =
                 ]
                 "methylprednisolon",
                 baseFields "methylprednisolon" "INTRAVENEUS" "timed" "1" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "1000"
-                    "MinPerTimeAdj", "10"
-                    "MaxPerTimeAdj", "10"
-                ]
+                @ [ "MaxQty", "1000"; "MinPerTimeAdj", "10"; "MaxPerTimeAdj", "10" ]
                 "natriumfosfaat",
                 baseFields "natriumfosfaat" "RECTAAL" "discontinuous" "1" "mL" "kg" "dag"
-                @ [
-                    "MaxQty", "133"
-                    "MinPerTimeAdj", "2.5"
-                    "MaxPerTimeAdj", "2.5"
-                ]
+                @ [ "MaxQty", "133"; "MinPerTimeAdj", "2.5"; "MaxPerTimeAdj", "2.5" ]
                 "posaconazol",
                 baseFields "posaconazol" "INTRAVENEUS" "discontinuous" "2" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "300"
-                    "MinPerTimeAdj", "12"
-                    "MaxPerTimeAdj", "12"
-                ]
+                @ [ "MaxQty", "300"; "MinPerTimeAdj", "12"; "MaxPerTimeAdj", "12" ]
                 "rifampicine",
                 baseFields "rifampicine" "ORAAL" "discontinuous" "1" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "600"
-                    "MinPerTimeAdj", "20"
-                    "MaxPerTimeAdj", "20"
-                ]
+                @ [ "MaxQty", "600"; "MinPerTimeAdj", "20"; "MaxPerTimeAdj", "20" ]
 
                 // QuantityAdjust vs MaxQty (regression: already-correct block)
                 "adenosine",
@@ -2240,23 +2186,13 @@ module Tests =
                 @ [ "MaxQty", "37.5"; "MinQtyAdj", "0.3"; "MaxQtyAdj", "0.5" ]
                 "fysostigmine",
                 baseFields "fysostigmine" "INTRAVENEUS" "discontinuous" "1;2;3;4" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "0.5"
-                    "MinQtyAdj", "0.02"
-                    "MaxQtyAdj", "0.02"
-                    "MaxPerTime", "2"
-                ]
+                @ [ "MaxQty", "0.5"; "MinQtyAdj", "0.02"; "MaxQtyAdj", "0.02"; "MaxPerTime", "2" ]
                 "mepivacaine",
                 baseFields "mepivacaine" "EPIDURAAL" "once" "" "mg" "kg" ""
                 @ [ "MaxQty", "400"; "MinQtyAdj", "10" ]
                 "metamizol",
                 baseFields "metamizol" "INTRAVENEUS" "discontinuous" "1;2;3;4" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "1000"
-                    "MinQtyAdj", "8"
-                    "MaxQtyAdj", "16"
-                    "MaxPerTime", "4000"
-                ]
+                @ [ "MaxQty", "1000"; "MinQtyAdj", "8"; "MaxQtyAdj", "16"; "MaxPerTime", "4000" ]
                 "midazolam",
                 baseFields "midazolam" "OROMUCOSAAL" "once" "" "mg" "kg" ""
                 @ [ "MaxQty", "10"; "MinQtyAdj", "0.2"; "MaxQtyAdj", "0.5" ]
@@ -2277,12 +2213,7 @@ module Tests =
                 ]
                 "ibuprofen",
                 baseFields "ibuprofen" "INTRAVENEUS" "discontinuous" "1;2;3;4" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "400"
-                    "MinQtyAdj", "10"
-                    "MaxQtyAdj", "10"
-                    "MaxPerTimeAdj", "40"
-                ]
+                @ [ "MaxQty", "400"; "MinQtyAdj", "10"; "MaxQtyAdj", "10"; "MaxPerTimeAdj", "40" ]
             ]
 
         let data =
@@ -2302,8 +2233,7 @@ module Tests =
 
         // --- helpers (mirror the exploratory MaxQtyConflicts.fsx script) ---
 
-        let scale (r: BigRational) vu =
-            vu |> ValueUnit.applyToValue (Array.map (fun x -> x * r))
+        let scale (r: BigRational) vu = vu |> ValueUnit.applyToValue (Array.map (fun x -> x * r))
 
         /// The adjust value (kg or m2) that just pushes the adjusted dose past
         /// MaxQty at the lowest frequency. For multi-frequency rules this lands
@@ -2396,11 +2326,9 @@ module Tests =
 
                 let fu = fvu |> ValueUnit.getUnit
 
-                let ge v l =
-                    v >? Limit.getValueUnit l || v = Limit.getValueUnit l
+                let ge v l = v >? Limit.getValueUnit l || v = Limit.getValueUnit l
 
-                let le v l =
-                    v <? Limit.getValueUnit l || v = Limit.getValueUnit l
+                let le v l = v <? Limit.getValueUnit l || v = Limit.getValueUnit l
 
                 // the absolute PerTime cap must be able to admit the lower adjusted
                 // target (an unpinned quantity can otherwise not both reach the
@@ -2659,11 +2587,7 @@ module Tests =
                     testList
                         "L2, fromDto d |> Result.map toDto = Ok d"
                         [
-                            for name, pat in
-                                [
-                                    "a child", Fixtures.child
-                                    "a premature", Fixtures.premature
-                                ] do
+                            for name, pat in [ "a child", Fixtures.child; "a premature", Fixtures.premature ] do
                                 test $"{name}'s Dto round-trips" {
                                     let dto = pat |> Patient.Dto.toDto
 
@@ -2708,11 +2632,7 @@ module Tests =
                                 |> Patient.Dto.fromDto
                                 |> Expect.equal
                                     "both named"
-                                    (Error
-                                        [
-                                            PatientError.UnknownGender ""
-                                            PatientError.UnknownAccess ""
-                                        ])
+                                    (Error [ PatientError.UnknownGender ""; PatientError.UnknownAccess "" ])
                             }
 
                             test "null arrays are read as empty" {
@@ -2739,10 +2659,7 @@ module Tests =
                                 |> Expect.equal
                                     "both"
                                     (Error
-                                        [
-                                            PatientError.UnknownGender "x"
-                                            PatientError.NoAgeOrMeasuredWeightAndHeight
-                                        ])
+                                        [ PatientError.UnknownGender "x"; PatientError.NoAgeOrMeasuredWeightAndHeight ])
                             }
 
                             test "a draft with no age and no measured weight and height" {
@@ -3726,8 +3643,7 @@ module Tests =
                     }
 
                     test "DoseLimit.isSubstanceLimit true when SubstanceLimitTarget is set" {
-                        let dl =
-                            { DoseLimit.limit with DoseLimitTarget = SubstanceLimitTarget "paracetamol" }
+                        let dl = { DoseLimit.limit with DoseLimitTarget = SubstanceLimitTarget "paracetamol" }
 
                         dl
                         |> DoseLimit.isSubstanceLimit
@@ -3768,8 +3684,7 @@ module Tests =
             mm.Min
             |> Option.map (Limit.getValueUnit >> ValueUnit.getValue >> Array.map BigRational.toDouble)
 
-        let private mk v u =
-            v |> ValueUnit.singleWithUnit u |> Limit.inclusive
+        let private mk v u = v |> ValueUnit.singleWithUnit u |> Limit.inclusive
 
         let private mmOf vmin vmax u =
             {
@@ -3966,8 +3881,7 @@ module Tests =
                     }
 
                     test "UNIT-GUARD rangesComparable false for Count/kg/day vs IU/kg/week" {
-                        let perKg u =
-                            u |> ValueUnit.per Units.Weight.kiloGram
+                        let perKg u = u |> ValueUnit.per Units.Weight.kiloGram
 
                         let countKgDay = Units.Count.times |> perKg |> ValueUnit.per Units.Time.day
                         let iuKgWeek = Units.InterNational.iu |> perKg |> ValueUnit.per Units.Time.week
@@ -4002,8 +3916,7 @@ module Tests =
                                 calls <- calls + 1
                                 Seq.empty
 
-                        let result =
-                            Check.checkDoseRuleWithProvider fakeProvider Patient.patient sampleDoseRule.Value
+                        let result = Check.checkDoseRuleWithProvider fakeProvider Patient.patient sampleDoseRule.Value
 
                         calls > 0 |> Expect.isTrue "injected provider was invoked"
 
@@ -4184,12 +4097,7 @@ module Tests =
                         let a = kInt "ca"
                         let b = kInt "cb"
 
-                        let reg =
-                            Map
-                                [
-                                    a.Name, derive (fun r -> r.Get b)
-                                    b.Name, derive (fun r -> r.Get a)
-                                ]
+                        let reg = Map [ a.Name, derive (fun r -> r.Get b); b.Name, derive (fun r -> r.Get a) ]
 
                         let threw =
                             try
@@ -4286,9 +4194,7 @@ module Tests =
                         eng.Warnings
                         |> Expect.equal
                             "outage surfaces as a Warning"
-                            [
-                                Warning "NKF links not loaded: kinderformularium.nl down"
-                            ]
+                            [ Warning "NKF links not loaded: kinderformularium.nl down" ]
                     }
                 ]
 

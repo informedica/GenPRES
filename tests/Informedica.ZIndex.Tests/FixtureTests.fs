@@ -209,8 +209,4 @@ module FixtureTests =
     let tests =
         testList
             "ZIndex synthetic fixture tests"
-            [
-                BstTableTests.tests
-                SubstanceTests.tests
-                GenPresProductTests.tests
-            ]
+            [ BstTableTests.tests; SubstanceTests.tests; GenPresProductTests.tests ]

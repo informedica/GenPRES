@@ -244,8 +244,7 @@ module SolutionRule =
 
 
     /// Helper function to get the distinct values of a member of SolutionRule.
-    let private getMember getter (rules: SolutionRule[]) =
-        rules |> Array.map getter |> Array.distinct |> Array.sort
+    let private getMember getter (rules: SolutionRule[]) = rules |> Array.map getter |> Array.distinct |> Array.sort
 
 
     /// Get all the distinct Generics from the given SolutionRules.

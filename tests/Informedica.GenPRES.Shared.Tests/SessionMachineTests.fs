@@ -109,11 +109,7 @@ module SessionMachineTests =
                     transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) launching
                     |> Expect.equal
                         "open"
-                        (Session.Open full,
-                         [
-                             SessionEffect.SetPatient(Some patient)
-                             SessionEffect.KeepKey "thumb"
-                         ])
+                        (Session.Open full, [ SessionEffect.SetPatient(Some patient); SessionEffect.KeepKey "thumb" ])
                 }
 
                 test "Opened over a record loads its head into the cart, after the patient (Rule 19)" {
@@ -224,8 +220,7 @@ module SessionMachineTests =
                 test "three errors in a row from Anonymous end Unreachable after three calls" {
                     let err = SessionMsg.Outcome(launchA, keyA, Error "down")
 
-                    let state, effects =
-                        run Session.Anonymous [ SessionMsg.Present(launchA, keyA); err; err; err ]
+                    let state, effects = run Session.Anonymous [ SessionMsg.Present(launchA, keyA); err; err; err ]
 
                     state |> Expect.equal "unreachable" (Session.Unreachable(launchA, keyA, 3))
 
@@ -449,13 +444,7 @@ module SessionMachineTests =
             "refusal at the callback, anonymous open, close"
             [
                 test "RefusedAtCallback is Refused without a retry, from any state" {
-                    for state in
-                        [
-                            Session.Anonymous
-                            launching
-                            Session.Resuming
-                            Session.Open full
-                        ] do
+                    for state in [ Session.Anonymous; launching; Session.Resuming; Session.Open full ] do
                         transition (SessionMsg.RefusedAtCallback LaunchRefusal.NoBrowserIdentity) state
                         |> Expect.equal "refused, no retry" (Session.Refused(LaunchRefusal.NoBrowserIdentity, None), [])
                 }
@@ -502,25 +491,13 @@ module SessionMachineTests =
                 }
 
                 test "CloseFailed outside Closing is dropped" {
-                    for state in
-                        [
-                            Session.Open full
-                            Session.Anonymous
-                            launching
-                            Session.Resuming
-                        ] do
+                    for state in [ Session.Open full; Session.Anonymous; launching; Session.Resuming ] do
                         transition (SessionMsg.CloseFailed "down") state
                         |> Expect.equal "unchanged" (state, [])
                 }
 
                 test "Closed outside Closing is dropped" {
-                    for state in
-                        [
-                            Session.Open full
-                            Session.Anonymous
-                            launching
-                            Session.Resuming
-                        ] do
+                    for state in [ Session.Open full; Session.Anonymous; launching; Session.Resuming ] do
                         transition SessionMsg.Closed state |> Expect.equal "unchanged" (state, [])
                 }
 
@@ -559,13 +536,7 @@ module SessionMachineTests =
                         "ended"
                         (Session.Ended SessionEnding.WrongPinLimit, [ SessionEffect.CallCloseSession ])
 
-                    for state in
-                        [
-                            Session.Anonymous
-                            Session.Closing full
-                            Session.Resuming
-                            launching
-                        ] do
+                    for state in [ Session.Anonymous; Session.Closing full; Session.Resuming; launching ] do
                         transition (SessionMsg.EndedByServer SessionEnding.WrongPinLimit) state
                         |> Expect.equal $"{state}" (state, [])
                 }
@@ -636,10 +607,7 @@ module SessionMachineTests =
                     transition (SessionMsg.OpenVersion "plan-2") (Session.Open full)
                     |> Expect.equal
                         "call"
-                        (Session.Open full,
-                         [
-                             SessionEffect.CallOpenVersion("plan-2", full.OpenedToken)
-                         ])
+                        (Session.Open full, [ SessionEffect.CallOpenVersion("plan-2", full.OpenedToken) ])
 
                     transition (SessionMsg.OpenVersion "plan-2") Session.Anonymous
                     |> Expect.equal "dropped" (Session.Anonymous, [])
@@ -651,10 +619,7 @@ module SessionMachineTests =
                     |> Expect.equal
                         "reopened"
                         (Session.Open reopened,
-                         [
-                             SessionEffect.LoadCart head
-                             SessionEffect.TellVersionOpened head.Head
-                         ])
+                         [ SessionEffect.LoadCart head; SessionEffect.TellVersionOpened head.Head ])
                 }
 
                 test "MovedOn.receive: news once per version, ordered by No, not by arrival (Rules 20 to 22)" {

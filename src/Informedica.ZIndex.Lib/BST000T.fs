@@ -92,8 +92,7 @@ module BST000T =
     /// Get a specific record from the BST000T file
     /// </summary>
     /// <param name="n">The name of the table</param>
-    let table n =
-        records () |> Array.find (fun r -> r.MDBST = n)
+    let table n = records () |> Array.find (fun r -> r.MDBST = n)
 
 
     /// <summary>

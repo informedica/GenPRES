@@ -115,8 +115,7 @@ module DoseRule =
                     let names = names |> String.concat ", "
                     $"* %s{names}"
 
-            let indication_md indication =
-                $"\n\n## Indicatie: %s{indication}\n\n---\n"
+            let indication_md indication = $"\n\n## Indicatie: %s{indication}\n\n---\n"
 
             let doseCapt_md = "\n\n#### Doseringen\n\n"
 
@@ -900,8 +899,7 @@ module DoseRule =
 
         let mmTuple = MinMax.toValueTuple
 
-        let freqs =
-            dr.Frequencies |> Option.map ValueUnit.getValue |> Option.defaultValue [||]
+        let freqs = dr.Frequencies |> Option.map ValueUnit.getValue |> Option.defaultValue [||]
 
         {
             DoseType = doseType
@@ -1022,8 +1020,7 @@ module DoseRule =
     let routes = getMember _.Route
 
 
-    let doseTypes (dsrs: DoseRule[]) =
-        dsrs |> Array.map _.DoseType |> Array.distinct
+    let doseTypes (dsrs: DoseRule[]) = dsrs |> Array.map _.DoseType |> Array.distinct
 
 
     /// Extract all the departments from the DoseRules.
@@ -1044,8 +1041,7 @@ module DoseRule =
 
 
     /// Extract all frequencies from the DoseRules as strings.
-    let frequencies (drs: DoseRule array) =
-        drs |> Array.map Print.printFreqs |> Array.distinct
+    let frequencies (drs: DoseRule array) = drs |> Array.map Print.printFreqs |> Array.distinct
 
 
     let useAdjust (dr: DoseRule) =
@@ -1054,8 +1050,7 @@ module DoseRule =
             |> Array.collect _.SubstanceLimits
             |> Array.exists DoseLimit.useAdjust
 
-        let compUseAdj =
-            dr.ComponentLimits |> Array.choose _.Limit |> Array.exists DoseLimit.useAdjust
+        let compUseAdj = dr.ComponentLimits |> Array.choose _.Limit |> Array.exists DoseLimit.useAdjust
 
         let formUseAdj = false
         // TODO figure out whether or not to use this

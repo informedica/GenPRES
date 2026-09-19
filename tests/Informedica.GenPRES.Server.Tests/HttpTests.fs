@@ -43,8 +43,7 @@ let cacheControlTests =
         ]
 
 
-let setCookieHeader (ctx: HttpContext) =
-    ctx.Response.Headers.SetCookie.ToString()
+let setCookieHeader (ctx: HttpContext) = ctx.Response.Headers.SetCookie.ToString()
 
 
 /// The session cookie adapter over a bare HttpContext.
@@ -78,19 +77,19 @@ let sessionCookieTests =
                 let withCookie (value: string) =
                     let ctx = DefaultHttpContext()
                     ctx.Request.Headers.Cookie <- Microsoft.Extensions.Primitives.StringValues value
-                    (Server.Http.sessionCookie ctx).read ()
+                    (Server.Http.sessionCookie ctx).read()
 
                 withCookie "genpres_session=abc; other=1" |> Expect.equal "present" (Some "abc")
                 withCookie "other=1" |> Expect.isNone "absent"
                 withCookie "genpres_session=" |> Expect.isNone "blank"
 
-                (Server.Http.sessionCookie (DefaultHttpContext())).read ()
+                (Server.Http.sessionCookie (DefaultHttpContext())).read()
                 |> Expect.isNone "no header"
             }
 
             test "delete expires the cookie on the same path" {
                 let ctx = DefaultHttpContext()
-                (Server.Http.sessionCookie ctx).delete ()
+                (Server.Http.sessionCookie ctx).delete()
                 let header = setCookieHeader ctx
 
                 header |> Expect.stringStarts "name emptied" "genpres_session=;"
@@ -219,8 +218,8 @@ let enrolmentCookieTests =
                 ctx.Request.Headers.Cookie <-
                     Microsoft.Extensions.Primitives.StringValues "genpres_enrolment=a-1; other=1"
 
-                (Server.Http.enrolmentCookie ctx).read () |> Expect.equal "read" (Some "a-1")
-                (Server.Http.enrolmentCookie ctx).delete ()
+                (Server.Http.enrolmentCookie ctx).read() |> Expect.equal "read" (Some "a-1")
+                (Server.Http.enrolmentCookie ctx).delete()
 
                 setCookieHeader ctx
                 |> Expect.stringContains "deleted" "genpres_enrolment=; expires="

@@ -35,8 +35,7 @@ module private RationalXHelpers =
     let inline hash64 (x: int64) = int (x ^^^ (x >>> 32))
 
     /// Greatest common divisor of two int64 values (always non-negative).
-    let rec gcd64 (a: int64) (b: int64) : int64 =
-        if b = 0L then absL a else gcd64 b (a % b)
+    let rec gcd64 (a: int64) (b: int64) : int64 = if b = 0L then absL a else gcd64 b (a % b)
 
     /// Normalize an int64 fraction: reduce by gcd, force a positive denominator.
     let normPair (p: int64) (q: int64) : int64 * int64 =
@@ -49,8 +48,7 @@ module private RationalXHelpers =
         if q < 0L then (-p, -q) else (p, q)
 
     /// Build an MBR from an int64 pair (MBR normalizes itself).
-    let sToLarge (p: int64) (q: int64) : MBR =
-        MBR.FromBigIntFraction(bigint p, bigint q)
+    let sToLarge (p: int64) (q: int64) : MBR = MBR.FromBigIntFraction(bigint p, bigint q)
 
     let minB = BigInteger Int64.MinValue
     let maxB = BigInteger Int64.MaxValue
@@ -111,14 +109,16 @@ type RationalX =
     // big tier: null => small (use P/Q); non-null => spilled (use Big.Value)
     val internal Big: BigCell
 
-    internal new(p: int64, q: int64) =
+    internal new(p: int64, q: int64)
+        =
         {
             P = p
             Q = q
             Big = null
         }
 
-    internal new(cell: BigCell) =
+    internal new(cell: BigCell)
+        =
         {
             P = 0L
             Q = 0L

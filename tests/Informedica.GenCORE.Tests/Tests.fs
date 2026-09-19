@@ -175,8 +175,7 @@ module Tests =
         module Calculator = MinMax.Calculator
 
 
-        let minGTmax (maxIncl, max) (minIncl, min) =
-            if minIncl && maxIncl then min > max else min >= max
+        let minGTmax (maxIncl, max) (minIncl, min) = if minIncl && maxIncl then min > max else min >= max
 
         let validate (min: (bool * BigRational) option) max = Calculator.validate minGTmax min max
 
@@ -185,11 +184,9 @@ module Tests =
                 "MinMaxTests.validate2"
                 [
                     fun min max ->
-                        let min =
-                            min |> Option.map (fun (minIncl, min) -> minIncl, min |> BigRational.fromInt)
+                        let min = min |> Option.map (fun (minIncl, min) -> minIncl, min |> BigRational.fromInt)
 
-                        let max =
-                            max |> Option.map (fun (maxIncl, max) -> maxIncl, max |> BigRational.fromInt)
+                        let max = max |> Option.map (fun (maxIncl, max) -> maxIncl, max |> BigRational.fromInt)
 
                         try
                             validate min max
@@ -208,11 +205,9 @@ module Tests =
 
 
                     fun min max ->
-                        let min =
-                            min |> Option.map (fun (minIncl, min) -> minIncl, min |> BigRational.fromInt)
+                        let min = min |> Option.map (fun (minIncl, min) -> minIncl, min |> BigRational.fromInt)
 
-                        let max =
-                            max |> Option.map (fun (maxIncl, max) -> maxIncl, max |> BigRational.fromInt)
+                        let max = max |> Option.map (fun (maxIncl, max) -> maxIncl, max |> BigRational.fromInt)
 
                         try
                             validate min max
@@ -297,8 +292,7 @@ module Tests =
             |> mmToStr
 
 
-        let fromDecimal (v: decimal) u =
-            v |> BigRational.fromDecimal |> ValueUnit.createSingle u
+        let fromDecimal (v: decimal) u = v |> BigRational.fromDecimal |> ValueUnit.createSingle u
 
 
         let ageInMo = (fun n -> fromDecimal n Units.Time.month)
@@ -307,12 +301,10 @@ module Tests =
         let ageInYr = (fun n -> fromDecimal n Units.Time.year)
 
 
-        let ageInclOneMo, ageExclOneYr =
-            1m |> ageInMo |> Inclusive, 1m |> ageInYr |> Exclusive
+        let ageInclOneMo, ageExclOneYr = 1m |> ageInMo |> Inclusive, 1m |> ageInYr |> Exclusive
 
 
-        let ageRange =
-            MinMax.empty |> MinMax.setMin ageInclOneMo |> MinMax.setMax ageExclOneYr
+        let ageRange = MinMax.empty |> MinMax.setMin ageInclOneMo |> MinMax.setMax ageExclOneYr
 
 
         let valueComp =
@@ -675,8 +667,7 @@ module Tests =
 
         module EnteralAccessTests =
 
-            let enteralAccessGenerator _ =
-                Arb.generate<EnteralAccess> |> Gen.sample 0 10
+            let enteralAccessGenerator _ = Arb.generate<EnteralAccess> |> Gen.sample 0 10
 
             let samples =
                 enteralAccessGenerator 10
@@ -705,8 +696,7 @@ module Tests =
 
         module VenousAccessTests =
 
-            let venousAccessGenerator _ =
-                Arb.generate<VenousAccess> |> Gen.sample 0 10
+            let venousAccessGenerator _ = Arb.generate<VenousAccess> |> Gen.sample 0 10
 
             let samples =
                 venousAccessGenerator 10

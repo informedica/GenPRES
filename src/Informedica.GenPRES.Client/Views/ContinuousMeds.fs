@@ -18,8 +18,7 @@ module ContinuousMeds =
         let filterState = envContinuous.ContinuousMedicationFilter
         let onFilterChange = envContinuous.OnContinuousMedicationFilterChange
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         let patient = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
 
@@ -173,31 +172,32 @@ module ContinuousMeds =
 
         let makePrintTableRows data =
             data
-            |> Array.map (fun
-                              (r:
-                                  {|
-                                      cells:
-                                          {|
-                                              field: string
-                                              value: string
-                                          |}[]
-                                      actions: ReactElement option
-                                  |}) ->
-                let row = r.cells |> Array.map (fun c -> c.field, c.value) |> Map.ofArray
+            |> Array.map
+                (fun
+                    (r:
+                        {|
+                            cells:
+                                {|
+                                    field: string
+                                    value: string
+                                |}[]
+                            actions: ReactElement option
+                        |}) ->
+                    let row = r.cells |> Array.map (fun c -> c.field, c.value) |> Map.ofArray
 
-                let get f =
-                    row |> Map.tryFind f |> Option.defaultValue "" |> _.Replace("*", "")
+                    let get f =
+                        row |> Map.tryFind f |> Option.defaultValue "" |> _.Replace("*", "")
 
-                let id = get "id"
-                let catagory = get "catagory"
-                let medication = get "medication"
-                let quantity = get "quantity"
-                let solution = get "solution"
-                let dose = get "dose"
-                let advice = get "advice"
+                    let id = get "id"
+                    let catagory = get "catagory"
+                    let medication = get "medication"
+                    let quantity = get "quantity"
+                    let solution = get "solution"
+                    let dose = get "dose"
+                    let advice = get "advice"
 
-                JSX.jsx
-                    $"""
+                    JSX.jsx
+                        $"""
                 import TableRow from '@mui/material/TableRow';
                 import TableCell from '@mui/material/TableCell';
 
@@ -210,7 +210,7 @@ module ContinuousMeds =
                     <TableCell>{advice}</TableCell>
                 </TableRow>
                 """
-            )
+                )
             |> unbox<seq<ReactElement>>
             |> React.Fragment
 

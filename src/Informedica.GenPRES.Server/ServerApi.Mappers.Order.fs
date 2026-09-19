@@ -137,8 +137,7 @@ module Mappers =
         // 1/10 mL/hour (Dose.stepRate).
         let mlTenth = Units.Volume.milliLiter |> tenthOf
 
-        let mlPerHourTenth =
-            Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour |> tenthOf
+        let mlPerHourTenth = Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour |> tenthOf
 
         // The rate / quantity an order navigates DO get the server's ×10 outer step when
         // their calculated increment is the 1/10 mL[/hour] coarse increment.
@@ -445,8 +444,7 @@ module Mappers =
                 |> List.tryFind (fun d -> d.Delimiter = char && d.IsActive currentItem)
 
             /// Check if a character is any delimiter
-            let tryFindDelimiter char =
-                delimiters |> List.tryFind (fun d -> d.Delimiter = char)
+            let tryFindDelimiter char = delimiters |> List.tryFind (fun d -> d.Delimiter = char)
 
             /// Process each character through the state machine
             let processChar (currentItem, completedItems) char =

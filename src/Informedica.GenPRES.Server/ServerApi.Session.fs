@@ -20,8 +20,7 @@ module PublicKey =
         Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
 
 
-    let private sha256 (s: string) =
-        s |> Encoding.UTF8.GetBytes |> SHA256.HashData
+    let private sha256 (s: string) = s |> Encoding.UTF8.GetBytes |> SHA256.HashData
 
 
     /// The required members of a JWK per key type, in the lexicographic order RFC 7638
@@ -79,15 +78,14 @@ module PublicKey =
 
 
     /// A random, unguessable id for a session cookie: 256 bits from the CSPRNG, base64url.
-    let randomId () =
-        RandomNumberGenerator.GetBytes 32 |> base64Url
+    let randomId () = RandomNumberGenerator.GetBytes 32 |> base64Url
 
 
 module LaunchSeal =
 
     /// The key the Launch is sealed under. 32 bytes from a CSPRNG (`newKey`); shared with the
     /// LaunchScript in the real integration, made per host start for the stub.
-    type Key = Key of byte[]
+    type Key = | Key of byte[]
 
 
     /// What a Launch says once the seal is verified.
@@ -135,8 +133,7 @@ module LaunchSeal =
             None
 
 
-    let mac (Key key) (data: byte[]) =
-        System.Security.Cryptography.HMACSHA256.HashData(key, data)
+    let mac (Key key) (data: byte[]) = System.Security.Cryptography.HMACSHA256.HashData(key, data)
 
 
     let private json = System.Text.Json.JsonSerializerOptions()
@@ -337,8 +334,7 @@ module Credential =
 
 
     /// The wrong entries left before the limit.
-    let attemptsLeft (credential: Credential) =
-        max 0 (wrongPinLimit - credential.WrongCount)
+    let attemptsLeft (credential: Credential) = max 0 (wrongPinLimit - credential.WrongCount)
 
 
 module Pin =
@@ -405,8 +401,7 @@ module Session =
 
     let openedUrl = "/#/session"
 
-    let refusedUrl refusal =
-        $"/#/session?refused={refusalWord refusal}"
+    let refusedUrl refusal = $"/#/session?refused={refusalWord refusal}"
 
 
     /// A Session as the store holds it: what it is open on, the login it belongs to (a User
@@ -576,8 +571,7 @@ module Session =
         }
 
 
-    let initialState (credentials: Map<string, Credential>) =
-        { emptyState with Credentials = credentials }
+    let initialState (credentials: Map<string, Credential>) = { emptyState with Credentials = credentials }
 
 
     /// How long a confirmation code lives: a mail round trip, not a Session's idle gap. Bounds
@@ -733,10 +727,7 @@ module Session =
         },
         (id, opened),
         // the superseded Sessions need no write: the newer Session of their login tells it
-        [
-            OpenSession(id, session)
-            RecordOpenedWith(id, session, now)
-        ]
+        [ OpenSession(id, session); RecordOpenedWith(id, session, now) ]
 
 
     let private recordOutcome now (record: LaunchRecord) outcome (state: State) =
@@ -748,8 +739,7 @@ module Session =
         let state, (id, session), writes =
             openWith now newId patientData record.PatientId record.PublicKey standing.User state
 
-        let state, outcome =
-            recordOutcome now record (LaunchResult.Opened(id, session)) state
+        let state, outcome = recordOutcome now record (LaunchResult.Opened(id, session)) state
 
         state, CallbackResult.Opened(id, openedUrl), writes @ [ outcome ]
 
@@ -783,8 +773,7 @@ module Session =
             | None ->
                 let code = newCode ()
 
-                let subject, body =
-                    Mails.confirmationCode identity.DisplayName code (int codeLifetime.TotalMinutes)
+                let subject, body = Mails.confirmationCode identity.DisplayName code (int codeLifetime.TotalMinutes)
 
                 send
                     {
@@ -1063,8 +1052,7 @@ module Session =
                 // settles the PIN and the launch continues on what it had.
                 let fresh = standing identity
 
-                let address =
-                    fresh |> Option.map _.MailAddress |> Option.defaultValue pending.MailAddress
+                let address = fresh |> Option.map _.MailAddress |> Option.defaultValue pending.MailAddress
 
                 let user =
                     fresh
@@ -1100,8 +1088,7 @@ module Session =
                     // its writes go whatever the launch comes to
                     state, SupplyPinResult.Refused PinRefusal.WrongActivePatient, settled
                 | _ ->
-                    let state, (id, session), writes =
-                        openWith now newId patientData e.PatientId e.PublicKey user state
+                    let state, (id, session), writes = openWith now newId patientData e.PatientId e.PublicKey user state
 
                     state, SupplyPinResult.Opened(id, session), settled @ writes
 
@@ -1132,10 +1119,7 @@ module Session =
     let close (now: DateTime) (id: string) (state: State) : State * Persist list =
         let writes =
             if state.Sessions |> Map.containsKey id then
-                [
-                    EndSession(id, StoredEnding.Closed, now)
-                    AcknowledgeEnding(id, now)
-                ]
+                [ EndSession(id, StoredEnding.Closed, now); AcknowledgeEnding(id, now) ]
             elif state.Endings |> Map.containsKey id then
                 [ AcknowledgeEnding(id, now) ]
             else
@@ -1292,8 +1276,7 @@ module Session =
         =
         let state, seen = dropExpired now state |> touch now sid
 
-        let refuse refusal =
-            state, SigningOutcome.Refused refusal, seen
+        let refuse refusal = state, SigningOutcome.Refused refusal, seen
 
         match state.Sessions |> Map.tryFind sid with
         | None -> refuse SigningRefusal.NoSession
@@ -1395,8 +1378,7 @@ module Session =
         =
         let state, seen = dropExpired now state |> touch now sid
 
-        let refuse refusal =
-            state, SigningOutcome.Refused refusal, seen
+        let refuse refusal = state, SigningOutcome.Refused refusal, seen
 
         match state.Sessions |> Map.tryFind sid with
         | None -> refuse SigningRefusal.NoSession
@@ -1415,8 +1397,7 @@ module Session =
                         answer,
                         seen @ writes @ [ RememberAnswer(sid, signature.IdemKey, answer, now) ]
 
-                    let refuse refusal =
-                        remember state (SigningOutcome.Refused refusal) []
+                    let refuse refusal = remember state (SigningOutcome.Refused refusal) []
 
                     let identity =
                         {
@@ -1575,5 +1556,4 @@ module Session =
 
 
     /// The mac of a code under the host key: what the store keeps instead of the digits.
-    let codeMac (key: LaunchSeal.Key) (code: string) =
-        LaunchSeal.mac key (Text.Encoding.UTF8.GetBytes code)
+    let codeMac (key: LaunchSeal.Key) (code: string) = LaunchSeal.mac key (Text.Encoding.UTF8.GetBytes code)

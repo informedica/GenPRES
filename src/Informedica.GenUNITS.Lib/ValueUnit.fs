@@ -10,7 +10,7 @@ open Informedica.Utils.Lib
 /// (type-first convention) and so its intrinsic operator members live in the
 /// same module group as the arithmetic (calc/eqs/cmp/convertTo) they delegate
 /// to.
-type ValueUnit = ValueUnit of BigRational[] * Unit
+type ValueUnit = | ValueUnit of BigRational[] * Unit
 
 
 module ValueUnit =
@@ -405,8 +405,7 @@ module ValueUnit =
     /// Convert a value to v to the
     /// base value of unit u.
     /// For example u = mg v = 1 -> 1/1000
-    let valueToBase u v =
-        v |> Multipliers.toBase (u |> Multipliers.getMultiplier)
+    let valueToBase u v = v |> Multipliers.toBase (u |> Multipliers.getMultiplier)
 
     /// Get the value of a ValueUnit as
     /// a base value.
@@ -423,8 +422,7 @@ module ValueUnit =
     /// Convert a value to v to the
     /// unit value of unit u.
     /// For example u = mg v = 1 -> 1000
-    let valueToUnit u v =
-        v |> Multipliers.toUnit (u |> Multipliers.getMultiplier)
+    let valueToUnit u v = v |> Multipliers.toUnit (u |> Multipliers.getMultiplier)
 
 
     /// Get the value of a ValueUnit as
@@ -507,8 +505,7 @@ module ValueUnit =
     /// filter (fun br -> (br / 2000N).Denominator = 1I) (ValueUnit ([|1N; 2N; 3N; -1N; -2N; -3N|], Mass (KiloGram 1N)))
     /// </code>
     /// </example>
-    let filter pred =
-        toBase >> applyToValue (Array.filter pred) >> toUnit
+    let filter pred = toBase >> applyToValue (Array.filter pred) >> toUnit
 
 
     // Apply an array function to a ValueUnit
@@ -1083,8 +1080,7 @@ module ValueUnit =
     /// removeBigRationalMultiples (ValueUnit ([|2N..1N..10N|], Mass (KiloGram 1N)))
     /// </code>
     /// </example>
-    let removeBigRationalMultiples =
-        toBase >> applyToValue Array.removeBigRationalMultiples >> toUnit
+    let removeBigRationalMultiples = toBase >> applyToValue Array.removeBigRationalMultiples >> toUnit
 
 
     /// <summary>
@@ -1175,8 +1171,7 @@ module ValueUnit =
     /// takeLast 2 (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N)))
     /// </code>
     /// </example>
-    let takeLast n =
-        applyToValue (Array.rev >> Array.take n >> Array.rev)
+    let takeLast n = applyToValue (Array.rev >> Array.take n >> Array.rev)
 
 
     /// <summary>
@@ -1270,8 +1265,7 @@ module ValueUnit =
     /// unitToReadableDutchString (Mass (KiloGram 1N)) = "kg"
     /// </code>
     /// </example>
-    let unitToReadableDutchString u =
-        u |> Units.toString None None false Units.Dutch Units.Short
+    let unitToReadableDutchString u = u |> Units.toString None None false Units.Dutch Units.Short
 
     /// <summary>
     /// Get the user readable string version of a unit in Dutch short format
@@ -1343,22 +1337,19 @@ module ValueUnit =
     /// Get the user readable string version in Dutch with verbosity short,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalDutchShort =
-        toString true (BigRational.toDecimal >> string) Units.Dutch Units.Short
+    let toStringDecimalDutchShort = toString true (BigRational.toDecimal >> string) Units.Dutch Units.Short
 
     /// <summary>
     /// Get the user readable string version in Dutch with verbosity long,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalDutchLong =
-        toString true (BigRational.toDecimal >> string) Units.Dutch Units.Long
+    let toStringDecimalDutchLong = toString true (BigRational.toDecimal >> string) Units.Dutch Units.Long
 
     /// <summary>
     /// Get the user readable string version in English with verbosity short,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalEngShort =
-        toString true (BigRational.toDecimal >> string) Units.English Units.Short
+    let toStringDecimalEngShort = toString true (BigRational.toDecimal >> string) Units.English Units.Short
 
     /// <summary>
     /// Get the user readable string version in English with verbosity short,
@@ -1371,8 +1362,7 @@ module ValueUnit =
     /// Get the user readable string version in English with verbosity long,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalEngLong =
-        toString true (BigRational.toDecimal >> string) Units.English Units.Long
+    let toStringDecimalEngLong = toString true (BigRational.toDecimal >> string) Units.English Units.Long
 
 
     /// <summary>
