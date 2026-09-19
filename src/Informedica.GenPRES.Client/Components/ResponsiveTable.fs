@@ -4,6 +4,7 @@ namespace Components
 module ResponsiveTable =
 
     open System
+    open Shared
     open Fable.Core
     open Feliz
     open Fable.Core.JsInterop
@@ -52,7 +53,7 @@ module ResponsiveTable =
                     let content =
                         row.cells
                         |> Array.choose (fun cell ->
-                            if cell.field = "id" || String.IsNullOrWhiteSpace(cell.value) then
+                            if cell.field = "id" || cell.value |> String.isNullOrWhiteSpace then
                                 None
                             else
                                 Some cell

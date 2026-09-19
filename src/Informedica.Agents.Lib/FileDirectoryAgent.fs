@@ -6,6 +6,8 @@ module FileDirectoryAgent =
     open System.IO
     open System.Collections.Generic
 
+    open Informedica.Utils.Lib.BCL
+
     /// Messages for the directory maintenance agent
     type FileDirectoryMsg =
         | SetPolicy of dir: string * maxFiles: int * searchPattern: string option
@@ -25,17 +27,15 @@ module FileDirectoryAgent =
     let private defaultPattern = "*"
 
     let private normalizeDir (pathOrDir: string) =
-        if String.IsNullOrWhiteSpace pathOrDir then
+        if pathOrDir |> String.isNullOrWhiteSpace then
             invalidArg (nameof pathOrDir) "Directory/path must not be null or empty"
 
         let p = Path.GetFullPath pathOrDir
         // If it's an existing directory, use it as-is
         if Directory.Exists p then
             p
-        else if
-            // If it's an existing file, use its directory
-            File.Exists p
-        then
+        // If it's an existing file, use its directory
+        else if File.Exists p then
             match Path.GetDirectoryName p with
             | null
             | "" -> Directory.GetCurrentDirectory()

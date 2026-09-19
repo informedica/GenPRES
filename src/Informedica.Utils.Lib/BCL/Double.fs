@@ -179,7 +179,7 @@ module Double =
             |> Seq.rev
             |> String.concat " "
 
-        if String.IsNullOrEmpty(decimalPart) then
+        if decimalPart |> String.isNullOrEmpty then
             formattedInteger
         else
             formattedInteger + "," + decimalPart

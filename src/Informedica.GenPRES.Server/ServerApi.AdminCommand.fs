@@ -7,6 +7,7 @@ module AdminCommand =
     open System.Security.Cryptography
     open System.Text
     open Shared.Api
+    open Informedica.Utils.Lib.BCL
 
 
     let tokenLifetime = TimeSpan.FromHours 1.0
@@ -16,8 +17,7 @@ module AdminCommand =
     /// setting that is set but empty (the Dockerfile's `ENV GENPRES_PASSWORD=`), and an empty
     /// password compared with an empty secret would match, so blanks fail closed here as well
     /// as at the port.
-    let private nonBlank (secret: string option) =
-        secret |> Option.filter (String.IsNullOrWhiteSpace >> not)
+    let private nonBlank (secret: string option) = secret |> Option.filter String.notEmpty
 
 
     /// SECURITY: `FixedTimeEquals` so equal-length comparisons do not leak through per-byte
@@ -48,7 +48,7 @@ module AdminCommand =
         match nonBlank secret with
         | None -> false
         | Some secret ->
-            if String.IsNullOrWhiteSpace token then
+            if token |> String.isNullOrWhiteSpace then
                 false
             else
                 match token.Split '.' with

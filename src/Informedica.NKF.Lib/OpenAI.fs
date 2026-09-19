@@ -45,7 +45,7 @@ module OpenAI =
 
 
     let tryCreateAbsMaxDose s =
-        if s |> String.IsNullOrEmpty then
+        if s |> String.isNullOrEmpty then
             None
         else
             try
@@ -64,7 +64,7 @@ module OpenAI =
 
 
     let tryCreateMaxDose s =
-        if s |> String.IsNullOrEmpty then
+        if s |> String.isNullOrEmpty then
             None
         else
             try

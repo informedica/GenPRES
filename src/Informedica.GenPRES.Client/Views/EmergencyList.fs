@@ -150,7 +150,7 @@ module EmergencyList =
                 |> List.distinctBy (fun item -> item.Category, item.Name, item.InterventionDoseText)
                 |> List.toArray
                 |> Array.mapi (fun i m ->
-                    let b = m.InterventionDoseText |> String.IsNullOrWhiteSpace
+                    let b = m.InterventionDoseText |> String.isNullOrWhiteSpace
 
                     let sentence =
                         let s =

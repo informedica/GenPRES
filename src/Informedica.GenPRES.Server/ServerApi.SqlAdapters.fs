@@ -152,6 +152,7 @@ module SqlDatabase =
     open System.IO
     open Microsoft.Data.Sqlite
     open Informedica.GenOrder.Lib
+    open Informedica.Utils.Lib.BCL
 
 
     /// The highest JSON structure version this release reads.
@@ -377,7 +378,7 @@ module SqlDatabase =
         let builder = SqliteConnectionStringBuilder value
 
         if
-            not (String.IsNullOrWhiteSpace builder.DataSource)
+            builder.DataSource |> String.notEmpty
             && builder.DataSource <> ":memory:"
             && not (Path.IsPathRooted builder.DataSource)
         then

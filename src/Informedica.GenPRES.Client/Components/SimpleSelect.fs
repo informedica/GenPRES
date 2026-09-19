@@ -5,6 +5,7 @@ module SimpleSelect =
 
 
     open System
+    open Shared
     open Fable.Core
     open Fable.Core.JsInterop
     open Feliz
@@ -127,7 +128,7 @@ module SimpleSelect =
                 value
                 |> string
                 |> function
-                    | s when s |> String.IsNullOrWhiteSpace -> None
+                    | s when s |> String.isNullOrWhiteSpace -> None
                     | s -> s |> Some
                 |> props.updateSelected
 
@@ -150,7 +151,7 @@ module SimpleSelect =
                 """
             )
 
-        let isClear = displaySelected |> Option.defaultValue "" |> String.IsNullOrWhiteSpace
+        let isClear = displaySelected |> Option.defaultValue "" |> String.isNullOrWhiteSpace
 
         let clearButton =
             match props.isLoading, isClear with

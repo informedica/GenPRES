@@ -16,6 +16,8 @@ module Directory =
     open System
     open System.IO
 
+    open Informedica.Utils.Lib.BCL
+
 
     /// <summary>
     /// Walk up the directory tree from <paramref name="startDir"/> (inclusive),
@@ -27,7 +29,7 @@ module Directory =
     /// <returns>The first matching directory, or <c>None</c> if none matches.</returns>
     let tryFindUpward (found: string -> bool) (startDir: string) : string option =
         let rec search dir =
-            if String.IsNullOrWhiteSpace dir then
+            if dir |> String.isNullOrWhiteSpace then
                 None
             elif found dir then
                 Some dir
@@ -36,7 +38,7 @@ module Directory =
                 | null -> None
                 | p -> search p.FullName
 
-        if String.IsNullOrWhiteSpace startDir then
+        if startDir |> String.isNullOrWhiteSpace then
             None
         else
             search startDir
@@ -72,7 +74,7 @@ module Directory =
     let tryFindParent (fileToFind: string) (startDir: string) =
         let startFrom path =
             try
-                if String.IsNullOrWhiteSpace path then
+                if path |> String.isNullOrWhiteSpace then
                     None
                 elif System.IO.Directory.Exists path then
                     Some path

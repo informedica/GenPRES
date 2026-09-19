@@ -6,6 +6,8 @@ module Fireworks =
     open System
     open Newtonsoft.Json
 
+    open Informedica.Utils.Lib.BCL
+
     type Models = { data: Model list }
 
     and Model =
@@ -247,7 +249,7 @@ module Fireworks =
     // Define the API key and endpoint
     let apiKey =
         let var = Environment.GetEnvironmentVariable("FIREWORKS_API_KEY")
-        if var |> String.IsNullOrEmpty then None else var |> Some
+        if var |> String.isNullOrEmpty then None else var |> Some
 
 
     let list () =

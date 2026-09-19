@@ -33,6 +33,8 @@ module AppPath =
     open System
     open System.IO
 
+    open Informedica.Utils.Lib.BCL
+
 
     /// <summary>
     /// Name of the environment variable that, when set, forces the application
@@ -69,7 +71,7 @@ module AppPath =
     let tryGetRootInternal genpresRoot currentDir assemblyBaseDir =
         let fromEnv =
             match genpresRoot with
-            | Some v when not (String.IsNullOrWhiteSpace v) && Directory.Exists v -> Some v
+            | Some v when v |> String.notEmpty && Directory.Exists v -> Some v
             | _ -> None
 
         fromEnv

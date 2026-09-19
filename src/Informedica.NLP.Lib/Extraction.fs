@@ -42,7 +42,8 @@ module Extraction =
                 if zero |> JsonConvert.SerializeObject = (unitRecord |> JsonConvert.SerializeObject) then
                     Ok s
                 else
-                    let unitField = unitRecord |> get |> (fun s -> if s |> String.empty then "" else s)
+                    let unitField =
+                        unitRecord |> get |> (fun s -> if s |> String.isNullOrWhiteSpace then "" else s)
 
                     match unitField |> String.split "/" with
                     | [ u ] when u |> isValidUnit ->
@@ -136,7 +137,7 @@ module Extraction =
             |}
         // just return zero if there is no time unit
         let jsonFreq =
-            if timeUnit |> String.isNullOrWhiteSpace |> not then
+            if timeUnit |> String.notEmpty then
                 jsonFreq
             else
                 fun _ _ _ state -> state, zero

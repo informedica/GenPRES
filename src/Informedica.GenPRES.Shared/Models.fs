@@ -1696,8 +1696,7 @@ module Models =
                 // split a rendered variable in its value part and its unit,
                 // the unit is the last token as units never contain a space
                 let split s =
-                    let tokens =
-                        s |> String.split " " |> Array.filter (String.isNullOrWhiteSpace >> not)
+                    let tokens = s |> String.split " " |> Array.filter String.notEmpty
 
                     {|
                         Value = tokens |> Array.truncate (tokens.Length - 1) |> String.concat ""
@@ -1706,7 +1705,7 @@ module Models =
 
                 vars
                 |> Array.map (renderValue prec)
-                |> Array.filter (String.isNullOrWhiteSpace >> not)
+                |> Array.filter String.notEmpty
                 |> Array.map split
                 |> Array.groupBy _.Unit
                 |> Array.map (fun (unit, items) ->
@@ -2058,7 +2057,7 @@ module Models =
             | Timed s
             | Discontinuous s
             | Continuous s ->
-                if String.isNullOrWhiteSpace s |> not then
+                if s |> String.notEmpty then
                     s
                 else
                     match doseType with

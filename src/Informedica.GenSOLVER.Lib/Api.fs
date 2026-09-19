@@ -22,7 +22,6 @@ module Api =
     /// <param name="eqs">List of strings</param>
     /// <returns>List of Equations</returns>
     let init eqs =
-        let notEmpty = String.IsNullOrWhiteSpace >> not
         let prodEqs, sumEqs = eqs |> List.partition (String.contains "*")
         let createProdEqs = List.map (EQD.createProd >> EQD.fromDto)
         let createSumEqs = List.map (EQD.createSum >> EQD.fromDto)
@@ -32,7 +31,7 @@ module Api =
             |> List.map (String.splitAt '=')
             |> List.map (Array.collect (String.splitAt op))
             |> List.map (Array.map String.trim)
-            |> List.map (Array.filter notEmpty)
+            |> List.map (Array.filter String.notEmpty)
             |> List.map (Array.map VRD.withName)
 
         (parse prodEqs '*' |> createProdEqs) @ (parse sumEqs '+' |> createSumEqs)

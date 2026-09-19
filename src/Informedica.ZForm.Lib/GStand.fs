@@ -629,7 +629,7 @@ module GStand =
             | h :: _ -> h |> String.trim
             | _ -> ""
         )
-        |> Seq.filter (fun n -> n |> String.isNullOrWhiteSpace |> not)
+        |> Seq.filter (fun n -> n |> String.notEmpty)
         |> Seq.toList
 
 

@@ -41,6 +41,8 @@ type Logger =
 [<RequireQualifiedAccess>]
 module Logging =
 
+    open Informedica.Utils.Lib.BCL
+
 
     /// Create a message with timestamp and level
     let createMessage level (msg: IMessage) =
@@ -117,7 +119,7 @@ module Logging =
             msg.Message
             |> formatter
             |> fun s ->
-                if not (String.IsNullOrEmpty s) then
+                if s |> String.notNullOrEmpty then
                     printfn $"%s{s}"
         )
 
@@ -128,7 +130,7 @@ module Logging =
             msg.Message
             |> formatter
             |> fun s ->
-                if not (String.IsNullOrEmpty s) then
+                if s |> String.notNullOrEmpty then
                     let text = [ $"{msg.TimeStamp}: {msg.Level}"; s ]
                     System.IO.File.AppendAllLines(path, text)
         )
@@ -221,6 +223,7 @@ module AgentLogging =
 
     open Informedica.Utils.Lib
     open Informedica.Agents.Lib
+    open Informedica.Utils.Lib.BCL
 
     module W = FileWriterAgent
 
@@ -475,7 +478,7 @@ module AgentLogging =
                             //AgentLoggerDefaults.defaultFormatter ev.Message
                             config.Formatter ev.Message
 
-                        if String.IsNullOrWhiteSpace text then
+                        if text |> String.isNullOrWhiteSpace then
                             None
                         else
                             sb.Clear() |> ignore

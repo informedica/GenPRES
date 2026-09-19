@@ -177,9 +177,9 @@ module PatientCategory =
                              // all patients rule
                              if p |> isEmpty then
                                  true
+                             // if gestational is set and < full term filter out all
+                             // dose rules with no gestational age or pm age
                              else if
-                                 // if gestational is set and < full term filter out all
-                                 // dose rules with no gestational age or pm age
                                  filter.Patient.GestAge.IsSome
                                  && p.GestAge = MinMax.empty
                                  && p.PMAge = MinMax.empty
@@ -238,11 +238,9 @@ module PatientCategory =
                              // all patients rule
                              if p |> isEmpty then
                                  true
-                             else if
-                                 // if gestational is set and < full term filter out all
-                                 // dose rules with no gestational age or pm age
-                                 pat.GestAge.IsSome && p.GestAge = MinMax.empty && p.PMAge = MinMax.empty
-                             then
+                             // if gestational is set and < full term filter out all
+                             // dose rules with no gestational age or pm age
+                             else if pat.GestAge.IsSome && p.GestAge = MinMax.empty && p.PMAge = MinMax.empty then
                                  pat.GestAge.Value >=? Utils.ValueUnit.ageFullTerm
                              else
                                  pat.GestAge
@@ -419,7 +417,7 @@ module PatientCategory =
             weight
         ]
         |> List.filter String.notEmpty
-        |> List.filter (String.isNullOrWhiteSpace >> not)
+        |> List.filter String.notEmpty
         |> String.concat ", "
 
 
@@ -588,7 +586,7 @@ module Patient =
             |> Option.defaultValue ""
         ]
         |> List.filter String.notEmpty
-        |> List.filter (String.isNullOrWhiteSpace >> not)
+        |> List.filter String.notEmpty
         |> String.concat ", "
 
 

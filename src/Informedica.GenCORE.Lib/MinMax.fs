@@ -1007,7 +1007,7 @@ module MinMax =
     ///          "min 10 mg" (min only), "max 10 mg" (max only)
     let parseMinMax (s: string) : Result<MinMax, string> =
 
-        if s |> String.IsNullOrWhiteSpace then
+        if s |> String.isNullOrWhiteSpace then
             Ok empty
         else
             let s = s.Trim()

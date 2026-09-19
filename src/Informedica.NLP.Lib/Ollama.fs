@@ -634,11 +634,11 @@ Can you try again answering?
 
                 let su, au, tu =
                     freqs.doseUnits.substanceUnit,
-                    (if freqs.doseUnits.adjustUnit |> String.IsNullOrEmpty then
+                    (if freqs.doseUnits.adjustUnit |> String.isNullOrEmpty then
                          None
                      else
                          freqs.doseUnits.adjustUnit |> Some),
-                    if freqs.doseUnits.timeUnit |> String.IsNullOrEmpty then
+                    if freqs.doseUnits.timeUnit |> String.isNullOrEmpty then
                         None
                     else
                         freqs.doseUnits.timeUnit |> Some

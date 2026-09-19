@@ -5,6 +5,7 @@ module Autocomplete =
 
 
     open System
+    open Shared
     open Fable.Core
     open Fable.Core.JsInterop
 
@@ -27,7 +28,7 @@ module Autocomplete =
                 ev?target?innerText
                 |> string
                 |> function
-                    | s when s |> String.IsNullOrWhiteSpace || s = "undefined" -> None
+                    | s when s |> String.isNullOrWhiteSpace || s = "undefined" -> None
                     | s -> s |> Some
                 |> props.updateSelected
 

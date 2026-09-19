@@ -70,7 +70,7 @@ module DoseRule =
                     $"%s{dl.Quantity |> printMinMaxDose perDose}"
                 ]
                 |> List.map String.trim
-                |> List.filter (String.IsNullOrEmpty >> not)
+                |> List.filter String.notNullOrEmpty
                 |> String.concat ", "
                 |> fun s -> $"%s{dl.DoseLimitTarget |> LimitTarget.toString} %s{wrap}%s{s}{wrap}"
             )
@@ -131,11 +131,11 @@ module DoseRule =
 
                 let s =
                     [
-                        if intv |> String.isNullOrWhiteSpace |> not then
+                        if intv |> String.notEmpty then
                             $" %s{intv}"
-                        if time |> String.isNullOrWhiteSpace |> not then
+                        if time |> String.notEmpty then
                             $" inloop tijd %s{time}"
-                        if dur |> String.isNullOrWhiteSpace |> not then
+                        if dur |> String.notEmpty then
                             $" %s{dur}"
                     ]
                     |> String.concat ", "
@@ -234,7 +234,7 @@ module DoseRule =
                                                 )
                                             )
                                             |> Array.map (fun p ->
-                                                if p.GPK |> String.IsNullOrWhiteSpace then
+                                                if p.GPK |> String.isNullOrWhiteSpace then
                                                     p.Label
                                                 else
                                                     $"{p.GPK} - {p.Label}"
@@ -545,7 +545,7 @@ module DoseRule =
                 SubstanceLimits =
                     rs
                     // if a substance the limit is a substance limit
-                    |> Array.filter (_.ScheduleData.DoseLimitData.Substance >> String.isNullOrWhiteSpace >> not)
+                    |> Array.filter (_.ScheduleData.DoseLimitData.Substance >> String.notEmpty)
                     |> getDoseLimits
             }
         )

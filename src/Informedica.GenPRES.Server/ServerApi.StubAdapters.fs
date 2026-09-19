@@ -8,6 +8,7 @@ namespace ServerApi
 
 open System
 open Shared.Types
+open Informedica.Utils.Lib.BCL
 
 
 /// The IdentityProvider and the UserRegistry as one stub directory over an identity choice made
@@ -319,7 +320,7 @@ below and opens GenPRES on it. Development and test servers only.</p>
     /// Mints the Launch for a posted PatientId; blank falls back to the stub patient.
     let mint (now: DateTime) (newNonce: unit -> string) (key: LaunchSeal.Key) (pid: string) =
         let pid =
-            if String.IsNullOrWhiteSpace pid then
+            if pid |> String.isNullOrWhiteSpace then
                 "stub-patient"
             else
                 pid.Trim()
@@ -346,7 +347,7 @@ below and opens GenPRES on it. Development and test servers only.</p>
     /// The choice and the Patient back from the cookie; None for anything else.
     let parseIdentityCookie (value: string option) : (string * string) option =
         match value with
-        | Some v when not (String.IsNullOrWhiteSpace v) ->
+        | Some v when v |> String.notEmpty ->
             match v.Split('.') with
             | [| choice; pid |] when choices |> List.contains (Uri.UnescapeDataString choice) ->
                 Some(Uri.UnescapeDataString choice, Uri.UnescapeDataString pid)

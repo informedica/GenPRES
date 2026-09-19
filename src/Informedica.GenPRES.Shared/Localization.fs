@@ -391,13 +391,13 @@ module Localization =
             csv
             |> Array.skip 1
             |> Array.choose (fun row ->
-                if row.Length > 0 && not (System.String.IsNullOrWhiteSpace row[0]) then
+                if row.Length > 0 && row[0] |> String.notEmpty then
                     let termKey = row[0].Trim()
 
                     let translations =
                         localeColumns
                         |> Array.choose (fun (colIdx, locale) ->
-                            if colIdx < row.Length && not (System.String.IsNullOrWhiteSpace row[colIdx]) then
+                            if colIdx < row.Length && row[colIdx] |> String.notEmpty then
                                 Some(locale, row[colIdx].Trim())
                             else
                                 None

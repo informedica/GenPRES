@@ -23,7 +23,22 @@ module Measures =
 module String =
 
 
+    /// True when `s` is null, empty, or only white space.
     let isNullOrWhiteSpace (s: String) = String.IsNullOrWhiteSpace(s)
+
+
+    /// True when `s` has content other than white space. The negation of
+    /// `isNullOrWhiteSpace`; a null string is not "not empty".
+    let notEmpty = isNullOrWhiteSpace >> not
+
+
+    /// True when `s` is null or zero-length. White space counts as content
+    /// here, unlike `isNullOrWhiteSpace`.
+    let isNullOrEmpty (s: String) = String.IsNullOrEmpty(s)
+
+
+    /// True when `s` has at least one character, white space included.
+    let notNullOrEmpty = isNullOrEmpty >> not
 
 
     let replace (s1: string) s2 (s: string) = s.Replace(s1, s2)
@@ -42,7 +57,7 @@ module String =
     /// string t starts with character c
     let countFirstChar c t =
         let _, count =
-            if String.IsNullOrEmpty(t) then
+            if t |> isNullOrEmpty then
                 (false, 0)
             else
                 t
@@ -129,7 +144,7 @@ module String =
         |> function
             | [| n; d |] ->
                 let d = d |> removeTrailing [ "0" ]
-                if d |> String.IsNullOrEmpty then n else n + "," + d
+                if d |> isNullOrEmpty then n else n + "," + d
             | _ -> s
 
 
@@ -374,7 +389,7 @@ module Decimal =
             |> Seq.rev
             |> String.concat " "
 
-        if String.IsNullOrEmpty(decimalPart) then
+        if decimalPart |> String.isNullOrEmpty then
             formattedInteger
         else
             formattedInteger + "," + decimalPart
@@ -436,7 +451,7 @@ module Csv =
 
     let parseCSV (s: string) =
         s.Split("\n")
-        |> Array.filter (String.isNullOrWhiteSpace >> not)
+        |> Array.filter String.notEmpty
         |> Array.map (String.replace "\",\"" "|")
         |> Array.map (String.replace "\"" "")
         |> Array.map (fun s -> s.Split("|") |> Array.map _.Trim())
@@ -449,7 +464,7 @@ module TextBlock =
 
     /// Convert a string to a Valid TextBlock with numbers shown as Bold TextItems
     let fromString (text: string) : TextBlock =
-        if String.IsNullOrWhiteSpace text then
+        if text |> String.isNullOrWhiteSpace then
             Valid [| Normal "" |]
         else
             // Split text into parts where numbers (including decimals, commas, and hyphens) are separated
@@ -462,7 +477,7 @@ module TextBlock =
                     if pos < text.Length then
                         let remaining = text.Substring(pos)
 
-                        if not (String.IsNullOrWhiteSpace remaining) then
+                        if remaining |> String.notEmpty then
                             Normal remaining :: acc
                         else
                             acc
@@ -476,7 +491,7 @@ module TextBlock =
                         if m.Index > pos then
                             let before = text.Substring(pos, m.Index - pos)
 
-                            if not (String.IsNullOrWhiteSpace before) then
+                            if before |> String.notEmpty then
                                 Bold m.Value :: Normal before :: acc
                             else
                                 Bold m.Value :: acc

@@ -9,6 +9,8 @@ module Env =
     open System.Diagnostics
     open System.Runtime.InteropServices
 
+    open Informedica.Utils.Lib.BCL
+
 
     /// Returns current process environment variables as a dictionary (portable)
     /// - Uses the current process environment only (works on all platforms)
@@ -57,7 +59,7 @@ module Env =
             |> Array.iter (fun line ->
                 let trimmed = line.Trim()
 
-                if not (String.IsNullOrEmpty(trimmed)) && not (trimmed.StartsWith("#")) then
+                if trimmed |> String.notNullOrEmpty && not (trimmed.StartsWith("#")) then
                     match trimmed.IndexOf('=') with
                     | -1 -> ()
                     | idx ->

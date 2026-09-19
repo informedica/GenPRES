@@ -9,6 +9,7 @@ module SolverLogging =
     open Types.Logging
     open Types.Events
     open Informedica.Logging.Lib
+    open Informedica.Utils.Lib.BCL
 
     module Name = Variable.Name
     module ValueRange = Variable.ValueRange
@@ -211,7 +212,7 @@ module SolverLogging =
                     event.Message
                     |> formatter
                     |> fun s ->
-                        if not (String.IsNullOrEmpty s) then
+                        if s |> String.notNullOrEmpty then
                             f s
             Enabled = fun _ -> true
         }

@@ -5,6 +5,7 @@ module MultipleSelect =
 
 
     open System
+    open Shared
     open Fable.Core
     open Fable.Core.JsInterop
 
@@ -29,7 +30,7 @@ module MultipleSelect =
                 value
                 |> string
                 |> function
-                    | s when s |> String.IsNullOrWhiteSpace -> [||]
+                    | s when s |> String.isNullOrWhiteSpace -> [||]
                     | s -> props.values |> Array.map snd |> Array.filter s.Contains
 
                 |> props.updateSelected

@@ -7,6 +7,7 @@ open Shared.Types
 module Adapters =
 
     open Informedica.GenForm.Lib
+    open Informedica.Utils.Lib.BCL
     // after the contract model, so that the order context and order plan ports, on domain
     // values, read unqualified; the other ports name only what the contract model has
     open Informedica.GenOrder.Lib
@@ -318,7 +319,7 @@ module Adapters =
                     secret =
                         fun () ->
                             Informedica.Utils.Lib.Env.getItem "GENPRES_PASSWORD"
-                            |> Option.filter (String.IsNullOrWhiteSpace >> not)
+                            |> Option.filter String.notEmpty
                     now = fun () -> DateTimeOffset.UtcNow
                     listLogFiles =
                         fun () ->

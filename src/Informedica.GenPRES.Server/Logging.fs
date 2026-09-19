@@ -103,7 +103,7 @@ let getLogger (level: Level) (loggerType: LoggerType) =
 
 let loggingEnabled =
     Env.getItem "GENPRES_LOG"
-    |> Option.map (fun s -> s |> String.trim |> String.isNullOrWhiteSpace |> not)
+    |> Option.map (fun s -> s |> String.trim |> String.notEmpty)
     |> Option.defaultValue false
 
 

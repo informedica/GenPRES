@@ -48,16 +48,22 @@ module String =
     let length = NullCheck.nullOrDef (fun s -> (s |> get).Length) 0
 
 
-    /// Check if string is null or only white space
+    /// True when `s` is null, empty, or only white space.
     let isNullOrWhiteSpace = String.IsNullOrWhiteSpace
 
 
-    /// Check if string is null or only white space
-    let empty s = String.IsNullOrWhiteSpace(s)
+    /// True when `s` has content other than white space. The negation of
+    /// `isNullOrWhiteSpace`; a null string is not "not empty".
+    let notEmpty = isNullOrWhiteSpace >> not
 
 
-    /// Check if string is not null or only white space
-    let notEmpty = empty >> not
+    /// True when `s` is null or zero-length. White space counts as content
+    /// here, unlike `isNullOrWhiteSpace`.
+    let isNullOrEmpty = String.IsNullOrEmpty
+
+
+    /// True when `s` has at least one character, white space included.
+    let notNullOrEmpty = isNullOrEmpty >> not
 
 
     /// Replace `os` with `ns` in string `s`.
@@ -178,7 +184,7 @@ module String =
     /// Count the number of times character
     /// c appears in string t
     let countChar c t =
-        if String.IsNullOrEmpty(c) then
+        if c |> isNullOrEmpty then
             invalidArg (nameof c) ("Cannot count empty string in text: '" + t + "'")
 
         (c |> regex).Matches(t).Count
@@ -188,7 +194,7 @@ module String =
     /// string t starts with character c
     let countFirstChar c t =
         let _, count =
-            if String.IsNullOrEmpty(t) then
+            if t |> isNullOrEmpty then
                 (false, 0)
             else
                 t
@@ -230,7 +236,7 @@ module String =
         |> function
             | [| n; d |] ->
                 let d = d |> removeTrailing [ "0" ]
-                if d |> String.IsNullOrEmpty then n else n + "," + d
+                if d |> isNullOrEmpty then n else n + "," + d
             | _ -> s
 
 

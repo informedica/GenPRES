@@ -6,6 +6,8 @@ module OpenAI =
     open System
     open Newtonsoft.Json
 
+    open Informedica.Utils.Lib.BCL
+
     module EndPoints =
 
 
@@ -236,7 +238,7 @@ module OpenAI =
     // Define the API key and endpoint
     let apiKey =
         let var = Environment.GetEnvironmentVariable("OPEN_AI_KEY")
-        if var |> String.IsNullOrEmpty then None else var |> Some
+        if var |> String.isNullOrEmpty then None else var |> Some
 
 
     let list () =
@@ -582,11 +584,11 @@ Can you try again answering?
 
                 let su, au, tu =
                     freqs.doseUnits.substanceUnit,
-                    (if freqs.doseUnits.adjustUnit |> String.IsNullOrEmpty then
+                    (if freqs.doseUnits.adjustUnit |> String.isNullOrEmpty then
                          None
                      else
                          freqs.doseUnits.adjustUnit |> Some),
-                    if freqs.doseUnits.timeUnit |> String.IsNullOrEmpty then
+                    if freqs.doseUnits.timeUnit |> String.isNullOrEmpty then
                         None
                     else
                         freqs.doseUnits.timeUnit |> Some

@@ -154,8 +154,8 @@ module SolutionRule =
                         {
                             SolutionLimitTarget =
                                 match l.Substance, l.Component with
-                                | s, _ when s |> String.isNullOrWhiteSpace |> not -> s |> SubstanceLimitTarget
-                                | _, c when c |> String.isNullOrWhiteSpace |> not -> c |> ComponentLimitTarget
+                                | s, _ when s |> String.notEmpty -> s |> SubstanceLimitTarget
+                                | _, c when c |> String.notEmpty -> c |> ComponentLimitTarget
                                 | _ -> invalidOp "Solution limit should be either a substance or a component limit"
                             Quantity = (l.MinQty, l.MaxQty) |> fromTupleInclIncl u
                             QuantityAdj = (l.MinQtyAdj, l.MaxQtyAdj) |> fromTupleInclIncl au
@@ -343,7 +343,7 @@ module SolutionRule =
                     |> mmToStr
                     |> fun s -> $""" in {s} {sr.Diluents |> Array.map _.Generic |> String.concat "/"}"""
                 |> fun s ->
-                    if s |> String.isNullOrWhiteSpace |> not then
+                    if s |> String.notEmpty then
                         s
                     else
                         sr.Volumes
@@ -509,19 +509,18 @@ module SolutionRule =
                                                             let concBlock =
                                                                 parts
                                                                 |> Array.map _.conc
-                                                                |> Array.filter (String.isNullOrWhiteSpace >> not)
+                                                                |> Array.filter String.notEmpty
                                                                 |> Array.distinct
                                                                 |> String.concat "\n"
 
-                                                            [| heads; concBlock |]
-                                                            |> Array.filter (String.isNullOrWhiteSpace >> not)
+                                                            [| heads; concBlock |] |> Array.filter String.notEmpty
                                                         )
 
                                                     let dosePercBlock = printDosePerc r
 
                                                     [|
                                                         yield! targetBlocks
-                                                        if dosePercBlock |> String.isNullOrWhiteSpace |> not then
+                                                        if dosePercBlock |> String.notEmpty then
                                                             yield dosePercBlock
                                                     |]
                                             )
@@ -553,9 +552,7 @@ module SolutionRule =
                                             if s |> String.isNullOrWhiteSpace then "" else $"{s}"
 
                                         let header =
-                                            [ dt; pat; dose ]
-                                            |> List.filter (String.isNullOrWhiteSpace >> not)
-                                            |> String.concat ", "
+                                            [ dt; pat; dose ] |> List.filter String.notEmpty |> String.concat ", "
 
                                         {| acc with
                                             rules = rs

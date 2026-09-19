@@ -25,6 +25,7 @@
 #load "load.fsx"
 
 open Shared.Localization
+open Informedica.Utils.Lib.BCL
 
 
 /// One parser for env value, url parameter and sheet header (Shared/Scripts/Localization.fsx).
@@ -73,8 +74,7 @@ module Config =
         }
 
 
-    let nonBlank (raw: string option) =
-        raw |> Option.filter (System.String.IsNullOrWhiteSpace >> not)
+    let nonBlank (raw: string option) = raw |> Option.filter String.notEmpty
 
 
     let minProductionPasswordLength = 16
