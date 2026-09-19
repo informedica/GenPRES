@@ -3,8 +3,8 @@ namespace Informedica.GenOrder.Lib
 
 /// <summary>
 /// Types and functions that deal with an order.
-/// An `Order` models the `Prescription` of an
-/// `Orderable` with a `StartStop` start date and
+/// An <c>Order</c> models the <c>Prescription</c> of an
+/// <c>Orderable</c> with a <c>StartStop</c> start date and
 /// stop date.
 /// </summary>
 //[<RequireQualifiedAccess>]
@@ -23,7 +23,7 @@ module Order =
     module Increment = Informedica.GenSolver.Lib.Variable.ValueRange.Increment
 
     /// Types and functions to deal
-    /// with an `Orderable`, i.e., something
+    /// with an Orderable, i.e., something
     /// that can be ordered.
     [<RequireQualifiedAccess>]
     module Orderable =
@@ -47,7 +47,7 @@ module Order =
             module TotalAdjust = OrderVariable.TotalAdjust
             module Literals = EquationMapping.Literals
 
-            /// Apply **f** to a `Dose`
+            /// Apply f to a Dose
             let apply f (dos: Dose) = f dos
 
 
@@ -56,7 +56,7 @@ module Order =
 
 
             /// <summary>
-            /// Create a `Dose` with
+            /// Create a <c>Dose</c> with
             /// </summary>
             /// <param name="qty">The quantity of the dose</param>
             /// <param name="ptm">The per time of the dose</param>
@@ -80,7 +80,7 @@ module Order =
 
 
             /// <summary>
-            /// Create a new `Dose` with
+            /// Create a new <c>Dose</c> with
             /// </summary>
             /// <param name="n">The name of the dose</param>
             let createNew n =
@@ -811,8 +811,8 @@ module Order =
 
 
         /// Type and functions that models an
-        /// `Order` `Item` that is contained in
-        /// a `Component`
+        /// Order Item that is contained in
+        /// a Component
         [<RequireQualifiedAccess>]
         module Item =
 
@@ -822,7 +822,7 @@ module Order =
             module Rate = OrderVariable.Rate
             module Literals = EquationMapping.Literals
 
-            /// Apply **f** to an `item`
+            /// Apply f to an item
             let apply f (itm: Item) = itm |> f
 
 
@@ -831,7 +831,7 @@ module Order =
 
 
             /// <summary>
-            /// Create an `Item` with
+            /// Create an <c>Item</c> with
             /// </summary>
             /// <param name="n">The name of the Item</param>
             /// <param name="cmp_qty">The quantity of the item in the Component</param>
@@ -851,7 +851,7 @@ module Order =
 
 
             /// <summary>
-            /// Create a new `Item` with
+            /// Create a new <c>Item</c> with
             /// </summary>
             /// <param name="id">The Id of the Item</param>
             /// <param name="orbN">The name of the Orderable</param>
@@ -870,7 +870,7 @@ module Order =
                 create (itmN |> Name.fromString) cmp_qty orb_qty cmp_cnc orb_cnc dos
 
 
-            /// Get the `Name` of an `Item`
+            /// Get the Name of an Item
             let getName itm = (itm |> inf).Name
 
 
@@ -929,7 +929,7 @@ module Order =
             let isOrderableQuantityCleared itm = (itm |> inf).OrderableQuantity |> Quantity.isCleared
 
 
-            /// Get the `Item` dose
+            /// Get the Item dose
             let getDose itm = (itm |> inf).Dose
 
 
@@ -1142,9 +1142,9 @@ module Order =
 
 
         /// Types and functions to model a
-        /// `Component` in an `Orderable`.
-        /// A `Component` contains a list
-        /// of `Item`s
+        /// Component in an Orderable.
+        /// A Component contains a list
+        /// of Items
         [<RequireQualifiedAccess>]
         module Component =
 
@@ -1155,7 +1155,7 @@ module Order =
             module Count = OrderVariable.Count
             module Literals = EquationMapping.Literals
 
-            /// Apply **f** to a `Component` **comp**
+            /// Apply f to a Component comp
             let apply f (comp: Component) = comp |> f
 
 
@@ -1164,7 +1164,7 @@ module Order =
 
 
             /// <summary>
-            /// Create a `Component` with
+            /// Create a <c>Component</c> with
             /// </summary>
             /// <param name="id">The Id of the Component</param>
             /// <param name="nm">The name of the Component</param>
@@ -1194,7 +1194,7 @@ module Order =
 
 
             /// <summary>
-            /// Create a new `Component` with
+            /// Create a new <c>Component</c> with
             /// </summary>
             /// <param name="id">The Id of the Component</param>
             /// <param name="orbN">The name of the Orderable</param>
@@ -1227,11 +1227,11 @@ module Order =
                 applyToItems (_.Name >> Name.toString >> String.equalsCapInsens s)
 
 
-            /// Get the name of a `Component`
+            /// Get the name of a Component
             let getName cmp = (cmp |> inf).Name
 
 
-            /// Get the `Item`s in an `Component`
+            /// Get the Items in an Component
             let getItems cmp = (cmp |> inf).Items
 
 
@@ -1677,7 +1677,7 @@ module Order =
         module Literals = EquationMapping.Literals
 
 
-        /// Apply **f** to `Orderable` `ord`
+        /// Apply f to Orderable ord
         let apply f (orb: Orderable) = orb |> f
 
 
@@ -1686,7 +1686,7 @@ module Order =
 
 
         /// <summary>
-        /// Create an `Orderable` with
+        /// Create an <c>Orderable</c> with
         /// </summary>
         /// <param name="n">The name of the Orderable</param>
         /// <param name="orb_qty">The quantity of the Orderable</param>
@@ -1708,7 +1708,7 @@ module Order =
 
 
         /// <summary>
-        /// Create a new `Orderable` with
+        /// Create a new <c>Orderable</c> with
         /// </summary>
         /// <param name="id">The Id of the Orderable</param>
         /// <param name="orbN">The name of the Orderable</param>
@@ -1725,11 +1725,11 @@ module Order =
             create (orbN |> Name.fromString) orb_qty ord_qty ord_cnt dos_cnt dos []
 
 
-        /// Get the name of the `Orderable`
+        /// Get the name of the Orderable
         let getName orb = (orb |> inf).Name
 
 
-        /// Get the Components in an `Orderable`
+        /// Get the Components in an Orderable
         let getComponents orb = (orb |> inf).Components
 
 
@@ -1872,7 +1872,7 @@ module Order =
         let isOrderableQuantityCleared orb = (orb |> inf).OrderableQuantity |> Quantity.isCleared
 
 
-        /// Get the `Orderable` dose
+        /// Get the Orderable dose
         let getDose orb = (orb |> inf).Dose
 
 
@@ -2164,55 +2164,55 @@ module Order =
         let freqTime tu1 tu2 n = (Frequency.create n tu1, Time.create n tu2)
 
 
-        /// Create a Once `Prescription`
+        /// Create a Once Prescription
         let once tu1 tu2 n = let _, _ = n |> freqTime tu1 tu2 in Once
 
 
-        /// Create a OnceTimed `Prescription`
+        /// Create a OnceTimed Prescription
         let onceTimed tu1 tu2 n = let _, tme = n |> freqTime tu1 tu2 in tme |> OnceTimed
 
 
-        /// Create a Continuous `Prescription`
+        /// Create a Continuous Prescription
         let continuous tu1 tu2 n = let _, tme = n |> freqTime tu1 tu2 in tme |> Continuous
 
 
-        /// Create a Discontinuous `Prescription`
+        /// Create a Discontinuous Prescription
         let discontinuous tu1 tu2 n = let frq, _ = n |> freqTime tu1 tu2 in frq |> Discontinuous
 
 
-        /// Create a Timed `Prescription`
+        /// Create a Timed Prescription
         let timed tu1 tu2 n = let frq, tme = n |> freqTime tu1 tu2 in (frq, tme) |> Timed
 
 
-        /// Check whether a `Prescription` is Once
+        /// Check whether a Prescription is Once
         let isOnce =
             function
             | Once -> true
             | _ -> false
 
 
-        /// Check whether a `Prescription` is Once
+        /// Check whether a Prescription is Once
         let isOnceTimed =
             function
             | OnceTimed _ -> true
             | _ -> false
 
 
-        /// Check whether a `Prescription` is Discontinuous
+        /// Check whether a Prescription is Discontinuous
         let isDiscontinuous =
             function
             | Discontinuous _ -> true
             | _ -> false
 
 
-        /// Check whether a `Prescription` is Continuous
+        /// Check whether a Prescription is Continuous
         let isContinuous =
             function
             | Continuous _ -> true
             | _ -> false
 
 
-        /// Check whether a `Prescription` is Timed
+        /// Check whether a Prescription is Timed
         let isTimed =
             function
             | Timed _ -> true
@@ -2582,12 +2582,12 @@ module Order =
 
     /// Types and functions that
     /// model a start and stop date time
-    /// of an `Order`
+    /// of an Order
     [<RequireQualifiedAccess>]
     module StartStop =
 
 
-        /// Get the string representation of a `StartStop`
+        /// Get the string representation of a StartStop
         let toString startStop =
             match startStop with
             | Start dt -> dt |> DateTime.formattedString "dd-MM-yy" |> sprintf "%s"
@@ -2620,7 +2620,7 @@ module Order =
             | _ -> DiscontinuousOrder
 
 
-    /// Apply `f` to `Order` `ord`
+    /// Apply f to Order ord
     let apply f (ord: Order) = ord |> f
 
 
@@ -2743,7 +2743,7 @@ module Order =
 
 
     /// <summary>
-    /// Create an `Order` with
+    /// Create an <c>Order</c> with
     /// </summary>
     /// <param name="id">The id of the Order</param>
     /// <param name="adj_qty">The adjust quantity of the Order</param>
@@ -2765,7 +2765,7 @@ module Order =
 
 
     /// <summary>
-    /// Create a new `Order` with
+    /// Create a new <c>Order</c> with
     /// </summary>
     /// <param name="id">The id of the Order</param>
     /// <param name="orbN">The name of the Orderable</param>
@@ -2786,11 +2786,11 @@ module Order =
         create (id |> Id.create) adj orb sch route tme sts
 
 
-    /// Get the Adjust quantity of an `Order`
+    /// Get the Adjust quantity of an Order
     let getAdjust ord = (ord |> inf).Adjust
 
 
-    /// Get the Orderable of an `Order`
+    /// Get the Orderable of an Order
     let getOrderable ord = (ord |> inf).Orderable
 
 

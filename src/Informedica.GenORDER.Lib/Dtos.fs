@@ -104,7 +104,7 @@ module TextBlock =
 
 
 /// The string form of a dose type, for the Dtos: the category and its text as
-/// `DoseType.toString` writes them, and the same read back strictly.
+/// DoseType.toString writes them, and the same read back strictly.
 module DoseTypeDto =
 
     let toString (dt: DoseType) = dt |> DoseType.toString
@@ -308,7 +308,7 @@ module Canonical =
                 some.Invoke(null, [| v |])
 
 
-    /// The Dto classes of the libraries (`Order.Dto.Dto`, `Orderable.Dto.Dto`, ...) have no
+    /// The Dto classes of the libraries (Order.Dto.Dto, Orderable.Dto.Dto, ...) have no
     /// parameterless constructor and every property settable, so on read they are created
     /// uninitialized and populated from the JSON, property by property. Records and unions
     /// keep Newtonsoft's own construction.
@@ -356,7 +356,7 @@ module Canonical =
     let deserialize<'a> (s: string) = JsonConvert.DeserializeObject<'a>(s, settings)
 
 
-/// The string form of an order category, for the Dtos: `drug`, or `nutrition:` and the
+/// The string form of an order category, for the Dtos: drug, or nutrition: and the
 /// category's name.
 module OrderCategoryDto =
 
