@@ -66,7 +66,7 @@ module OpenAI =
             }
 
 
-        // Function to create a ModelInput with default values
+        /// Function to create a ModelInput with default values
         let defaultChatInput model (msg: Message) (msgs: Message list) : ChatInput =
             let map msg =
                 {|

@@ -328,7 +328,7 @@ module GStand =
         |}
 
 
-    // fold maximize with preservation of min
+    /// fold maximize with preservation of min
     let foldMaximize (mm: MinMax) (mm_: MinMax) = [ mm; mm_ ] |> MinMax.foldMaximize true true
 
 
@@ -587,7 +587,7 @@ module GStand =
         )
 
 
-    // Get the ATC codes for a GenPresProduct.
+    /// Get the ATC codes for a GenPresProduct.
     let getATCs gpk (gpp: ZIndexTypes.GenPresProduct) =
         gpp.GenericProducts
         |> Array.filter (fun gp ->
@@ -599,11 +599,11 @@ module GStand =
         |> Array.distinct
 
 
-    // Get the list of routes for a GenPresProduct.
+    /// Get the list of routes for a GenPresProduct.
     let getRoutes (gpp: ZIndexTypes.GenPresProduct) = gpp.GenericProducts |> Array.collect _.Route |> Array.distinct
 
 
-    // Get the list of ATC groups for a GenPresProduct.
+    /// Get the list of ATC groups for a GenPresProduct.
     let getATCGroups gpk (gpp: ZIndexTypes.GenPresProduct) =
 
         ATC.get ()

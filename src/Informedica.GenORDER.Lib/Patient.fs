@@ -99,7 +99,7 @@ module Patient =
         let ageAgeList = Option.map ageFromValueUnit >> (Option.defaultValue []), (ageToValueUnit >> Some)
 
 
-        // Helper pair for the get/set below
+        /// Helper pair for the get/set below
         let gestPMAgeList =
             let ageFromDec d =
                 d
