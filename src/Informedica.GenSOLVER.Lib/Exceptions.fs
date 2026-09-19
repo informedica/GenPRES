@@ -7,8 +7,8 @@ module Exceptions =
     exception SolverException of Exceptions.Message list
 
 
-    /// Raise an `EquationException` with `Message` `m` and adds it to
-    /// the list of `errs`.
+    /// Raise an EquationException with Message m and adds it to
+    /// the list of errs.
     let raiseExc log errs m =
 
         match log with
