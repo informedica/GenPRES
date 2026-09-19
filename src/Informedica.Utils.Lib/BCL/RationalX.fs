@@ -389,7 +389,7 @@ type RationalX =
             this.Big.Value.ToString()
 
 
-/// Numeric literal support so `0N`, `1N`, `1000N`, ... produce `RationalX`.
+/// Numeric literal support so 0N, 1N, 1000N, ... produce RationalX.
 [<AutoOpen>]
 module NumericLiteralN =
 
@@ -400,6 +400,6 @@ module NumericLiteralN =
     let FromString (s: string) = RationalX.Parse s
 
 
-/// Drop-in alias: existing code that refers to the `BigRational` type now uses
-/// the faster two-tier `RationalX`. Coexists with the `BigRational` module.
+/// Drop-in alias: existing code that refers to the BigRational type now uses
+/// the faster two-tier RationalX. Coexists with the BigRational module.
 type BigRational = RationalX

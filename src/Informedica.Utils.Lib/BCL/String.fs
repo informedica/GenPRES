@@ -1,6 +1,6 @@
 namespace Informedica.Utils.Lib.BCL
 
-/// Helper functions for `System.String`
+/// Helper functions for System.String
 //open System.Security.Cryptography
 [<RequireQualifiedAccess>]
 module String =
@@ -10,7 +10,7 @@ module String =
 
     open Informedica.Utils.Lib
 
-    /// Apply `f` to string `s`
+    /// Apply f to string s
     let apply f (s: string) = f s
 
 
@@ -18,21 +18,21 @@ module String =
     let get = apply id
 
 
-    /// Split string `s` at character `c`
+    /// Split string s at character c
     let splitAt c s =
         s |> NullCheck.nullOrDef (fun s' -> (s' |> get).Split([| c |])) [||]
 
 
     /// Concatenate an array of chars to a string
-    /// Example: `[|'a'; 'b'; 'c'|] |> arrayConcat` yields `"abc"`
+    /// Example: [|'a'; 'b'; 'c'|] |> arrayConcat yields "abc"
     let arrayConcat (cs: char[]) = String.Concat(cs)
 
 
-    /// Check if string `s2` contains string `s1`
+    /// Check if string s2 contains string s1
     let contains = NullCheck.nullOrDef2 (fun s1 s2 -> (s2 |> get).Contains(s1)) false
 
 
-    /// Trim string `s`
+    /// Trim string s
     let trim = NullCheck.nullOrDef (fun s -> (s |> get).Trim()) ""
 
 
@@ -48,25 +48,25 @@ module String =
     let length = NullCheck.nullOrDef (fun s -> (s |> get).Length) 0
 
 
-    /// True when `s` is null, empty, or only white space.
+    /// True when s is null, empty, or only white space.
     let isNullOrWhiteSpace = String.IsNullOrWhiteSpace
 
 
-    /// True when `s` has content other than white space. The negation of
-    /// `isNullOrWhiteSpace`; a null string is not "not empty".
+    /// True when s has content other than white space. The negation of
+    /// isNullOrWhiteSpace; a null string is not "not empty".
     let notEmpty = isNullOrWhiteSpace >> not
 
 
-    /// True when `s` is null or zero-length. White space counts as content
-    /// here, unlike `isNullOrWhiteSpace`.
+    /// True when s is null or zero-length. White space counts as content
+    /// here, unlike isNullOrWhiteSpace.
     let isNullOrEmpty = String.IsNullOrEmpty
 
 
-    /// True when `s` has at least one character, white space included.
+    /// True when s has at least one character, white space included.
     let notNullOrEmpty = isNullOrEmpty >> not
 
 
-    /// Replace `os` with `ns` in string `s`.
+    /// Replace os with ns in string s.
     let replace = NullCheck.nullOrDef3 (fun os ns s -> (s |> get).Replace(os, ns)) ""
 
 
@@ -74,7 +74,7 @@ module String =
     let toString o = o |> NullCheck.nullOrDef _.ToString() ""
 
 
-    /// Get a substring starting at `start` with length `length`
+    /// Get a substring starting at start with length length
     let subString start length =
         let sub s =
             if start < 0 || s |> String.length < start + length || start + length < 0 then
@@ -130,21 +130,21 @@ module String =
     let isLetter s = List.exists (fun s' -> s' = s) letters
 
 
-    /// Check if string `s1` equals `s2`
+    /// Check if string s1 equals s2
     let equals s1 s2 = s1 = s2
 
 
-    /// Check if string `s1` equals `s2` caps insensitive
+    /// Check if string s1 equals s2 caps insensitive
     let equalsCapInsens s1 s2 = s1 |> toLower |> trim = (s2 |> toLower |> trim)
 
 
-    /// Split a string `s` at string `dels`
+    /// Split a string s at string dels
     let split (dels: string) (s: string) =
         NullCheck.nullOrDef2 (fun (s': string) (dels': string) -> s'.Split(dels') |> Array.toList) [] s dels
 
 
-    /// Check whether **s1** starts with
-    /// **s2** using string comparison **eqs**
+    /// Check whether s1 starts with
+    /// s2 using string comparison eqs
     let startsWithEqs eqs s2 s1 =
         let sw s1 s2 =
             if s2 |> String.length > (s1 |> String.length) then
@@ -155,13 +155,13 @@ module String =
         NullCheck.nullOrDef2 sw false s1 s2
 
 
-    /// Check whether **s1** starts with
-    /// **s2** caps sensitive
+    /// Check whether s1 starts with
+    /// s2 caps sensitive
     let startsWith = startsWithEqs equals
 
 
-    /// Check whether **s1** starts with
-    /// **s2** caps insensitive
+    /// Check whether s1 starts with
+    /// s2 caps insensitive
     let startsWithCapsInsensitive = startsWithEqs equalsCapInsens
 
 
@@ -169,12 +169,12 @@ module String =
     let regex s = Regex(s)
 
     /// Replace a regular expression in a string
-    /// Example: `regexReplace @"[\d-]" "" "abc123" |> equals "abc"`
+    /// Example: regexReplace @"[\d-]" "" "abc123" |> equals "abc"
     let regexReplace regS (replS: string) (s: string) = (regS |> regex).Replace(s, replS)
 
 
     /// Replace all numbers in a string
-    /// Example: `replaceNumbers "123" "a" |> equals "a"`
+    /// Example: replaceNumbers "123" "a" |> equals "a"
     let replaceNumbers = regexReplace @"[\d-]"
 
 
@@ -237,7 +237,7 @@ module String =
             | _ -> s
 
 
-    /// Check if string `s1` contains `s2` caps insensitive
+    /// Check if string s1 contains s2 caps insensitive
     let containsCapsInsens s2 s1 =
         let s1 = s1 |> toLower
         let s2 = s2 |> toLower
