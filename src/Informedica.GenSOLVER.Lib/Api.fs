@@ -56,17 +56,17 @@ module Api =
 
 
     /// <summary>
-    /// Solve an `Equations` list
+    /// Solve an <c>Equations</c> list
     /// </summary>
     /// <returns>A result type of the solved equations</returns>
     /// <remarks>
-    /// This function is a wrapper around `Solver.solveAll`
+    /// This function is a wrapper around <c>Solver.solveAll</c>
     /// </remarks>
     let solveAll = Solver.solveAll
 
 
     /// <summary>
-    /// Solve an `Equations` list with
+    /// Solve an <c>Equations</c> list with
     /// </summary>
     /// <param name="onlyMinIncrMax">True if only min, incr and max values are to be used</param>
     /// <param name="sortQue">The algorithm to sort the equations</param>

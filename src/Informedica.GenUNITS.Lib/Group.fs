@@ -8,8 +8,8 @@ open Informedica.GenUnits.Lib.Core
 
 
 /// Classification of a Unit into a Group (Mass, Volume, Time, ...). The type
-/// lives at namespace level so the `Group` module below can shadow it
-/// (type-first convention, like `List` type + `List` module).
+/// lives at namespace level so the Group module below can shadow it
+/// (type-first convention, like List type + List module).
 type Group =
     | NoGroup
     | ZeroGroup

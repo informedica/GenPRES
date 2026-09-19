@@ -6,7 +6,7 @@ open Informedica.Utils.Lib
 
 
 /// A ValueUnit pairs an array of values with a Unit. Declared at namespace
-/// level (not in Types.fs) so the `ValueUnit` module below can shadow it
+/// level (not in Types.fs) so the ValueUnit module below can shadow it
 /// (type-first convention) and so its intrinsic operator members live in the
 /// same module group as the arithmetic (calc/eqs/cmp/convertTo) they delegate
 /// to.
@@ -65,11 +65,11 @@ module ValueUnit =
 
 
     /// Backward-compatible re-export of the Group functions, which now live
-    /// in Informedica.GenUnits.Lib.Group, under the historical `ValueUnit.Group` path. A real
+    /// in Informedica.GenUnits.Lib.Group, under the historical ValueUnit.Group path. A real
     /// (non-abbreviation) module so the members are exported to consumers.
     module Group =
 
-        /// Re-export the Group type so the historical `ValueUnit.Group.Group`
+        /// Re-export the Group type so the historical ValueUnit.Group.Group
         /// type path keeps resolving for consumers.
         type Group = Informedica.GenUnits.Lib.Group
 
@@ -1543,9 +1543,9 @@ module ValueUnit =
 
 
 /// Intrinsic operator augmentation for ValueUnit. Lives in the same module
-/// group as the type definition (above) so `a * b`, `a =? b`, etc. resolve via
-/// member lookup. The `ValueUnit.Operators` module additionally exposes the
-/// same operations as the distinct `*? /? +? -?` symbols.
+/// group as the type definition (above) so a * b, a =? b, etc. resolve via
+/// member lookup. The ValueUnit.Operators module additionally exposes the
+/// same operations as the distinct *? /? +? -? symbols.
 type ValueUnit with
 
     static member (*)(vu1, vu2) = ValueUnit.calc true (*) vu1 vu2
