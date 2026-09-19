@@ -18,12 +18,12 @@ module Source =
         }
 
 
-    /// Resolve the external formulary link for a <c>Source</c> / <c>GenericLabel</c>
-    /// pair, or <c>None</c> when there is none.
+    /// Resolve the external formulary link for a Source / GenericLabel
+    /// pair, or None when there is none.
     ///
-    /// A function type rather than a data dependency so that <c>DoseRule.Print</c>
+    /// A function type rather than a data dependency so that DoseRule.Print
     /// stays pure and the NKF fetch can live in the loader that the resource registry
-    /// composes. Mirrors <c>Check.GStandProvider</c>.
+    /// composes. Mirrors Check.GStandProvider.
     type LinkProvider = Source -> GenericLabel -> string option
 
 

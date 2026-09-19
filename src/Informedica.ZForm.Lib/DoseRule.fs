@@ -396,9 +396,8 @@ module DoseRule =
     /// The indication is identified by the name of
     /// the dosage.
     /// </summary>
-    /// Per dosage the following `DoseRange`
     /// <remarks>
-    /// items can be defined:
+    /// Per dosage the following <c>DoseRange</c> items can be defined:
     /// <list type="bullet">
     ///     <item>
     ///         <term>StartDosage</term>
@@ -414,7 +413,7 @@ module DoseRule =
     ///     </item>
     ///     <item>
     ///         <term>TotalDosage</term>
-    ///         <description>dosage per time period, has a `Frequency`</description>
+    ///         <description>dosage per time period, has a <c>Frequency</c></description>
     ///     </item>
     /// </list>
     /// The frequency is defined by a list of possible frequencies

@@ -113,8 +113,8 @@ module Check =
         | _ -> "aantal en/of tijdseenheid verschilt"
 
 
-    /// IR 4.5.2: the rule's frequency set <paramref name="genform"/> is acceptable
-    /// when it is a SUBSET of the G-Standaard reference set <paramref name="gstand"/>
+    /// IR 4.5.2: the rule's frequency set genform is acceptable
+    /// when it is a SUBSET of the G-Standaard reference set gstand
     /// (i.e. every prescribed frequency is allowed), or the time units are
     /// interchangeable and the counts are equal. Extracted so the subset direction
     /// (genform ⊆ gstand) is unit-testable — see CheckTests.

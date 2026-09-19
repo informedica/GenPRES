@@ -54,7 +54,7 @@ module Mapping =
 
 
     /// Map one row of the "Routes" sheet. Named rather than inlined into
-    /// <c>getRouteMapping</c> so the column contract can be tested without IO.
+    /// getRouteMapping so the column contract can be tested without IO.
     let routeMappingRow (get: string -> string) (_: string -> float option) =
         {
             Long = get "ZIndex"
