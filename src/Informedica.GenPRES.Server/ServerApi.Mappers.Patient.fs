@@ -9,9 +9,9 @@ open Shared.Models
 /// Where patient data enters from the client. The wire carries a draft, every field optional;
 /// a draft becomes a patient here, or the request is refused, so that no draft reaches the
 /// services and the rules below them. Every member that receives patient data runs this
-/// before anything else. The mapping is two steps: `ofModel`, the contract model as the
-/// domain's Dto, total; then the Dto's own `fromDto`, which reports every reason the data is
-/// no patient. `toModel` is the way back.
+/// before anything else. The mapping is two steps: ofModel, the contract model as the
+/// domain's Dto, total; then the Dto's own fromDto, which reports every reason the data is
+/// no patient. toModel is the way back.
 module Patient =
 
     module Lib = Informedica.GenForm.Lib.Types
@@ -181,7 +181,7 @@ module Patient =
 
 
     /// The server's words for a reason the Dto is no patient. Only the first can come from
-    /// the contract model, since `ofModel` writes what the Dto reads; the rest are named for
+    /// the contract model, since ofModel writes what the Dto reads; the rest are named for
     /// a Dto from elsewhere.
     let words =
         function

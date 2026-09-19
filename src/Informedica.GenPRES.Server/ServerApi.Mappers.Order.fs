@@ -72,7 +72,7 @@ module Mappers =
 
         /// The per-click increment used by the outer (first/last) navigation buttons: the
         /// calculated increment (OrderVariable.step uses CalculatedConstraints.Incr for the
-        /// useCalc path). When `coarse` is given and the calculated increment equals it, the
+        /// useCalc path). When coarse is given and the calculated increment equals it, the
         /// count is multiplied by 10 — mirroring the server's role-specific special cases.
         /// Generic order variables pass None so NO multiple is applied (the ×10 must only
         /// happen for the rate / quantity that the server actually multiplies). Optional —

@@ -9,18 +9,18 @@ open Informedica.GenCore.Lib.Ranges
 
 
 /// <summary>
-/// Round-trips data through the reverse map `DoseRule.toData` to check it.
+/// Round-trips data through the reverse map <c>DoseRule.toData</c> to check it.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The reverse map lives in `DoseRule.fs`; this module just runs it and reports
+/// The reverse map lives in <c>DoseRule.fs</c>; this module just runs it and reports
 /// which rows make the trip.
 /// </para>
 /// <para>
 /// The forward map gives every rule identity (source, generic, route, ..., dose type
 /// + dose text) a single dose rule, so it merges all source rows that share an
 /// identity into one. Reversing that rule cannot recover the separate inputs, so
-/// instead of checking input = output, `runPass` checks CONTAINMENT: every input
+/// instead of checking input = output, <c>runPass</c> checks CONTAINMENT: every input
 /// row matches some output row with the same identity (the output may hold more
 /// detail). Quantities are compared in canonical units, so 1000 mg and 1 g count as
 /// equal.
@@ -187,10 +187,10 @@ module Analyze =
 
     /// <summary>
     /// Frequency set, one canonical token per value. Mirrors the forward path,
-    /// which builds DoseRule.Frequencies with `Utils.Units.freqUnit` (times/time)
-    /// and `ValueUnit.withUnit`, then normalizes via `ValueUnit.toToken` so equivalent
+    /// which builds DoseRule.Frequencies with <c>Utils.Units.freqUnit</c> (times/time)
+    /// and <c>ValueUnit.withUnit</c>, then normalizes via <c>ValueUnit.toToken</c> so equivalent
     /// time-units collapse. Per-value tokens keep the subset semantics used by
-    /// `containedIn`.
+    /// <c>containedIn</c>.
     /// </summary>
     let freqSet (d: DoseRuleData) : Set<string> =
         let s = d.ScheduleData
@@ -250,7 +250,7 @@ module Analyze =
     /// </summary>
     /// <param name="gen">The generated row that may contain the original.</param>
     /// <param name="orig">The original input row being checked for containment.</param>
-    /// <returns>True when every quantitative leaf of `orig` is present and equal in `gen`.</returns>
+    /// <returns>True when every quantitative leaf of <c>orig</c> is present and equal in <c>gen</c>.</returns>
     let containedIn (gen: DoseRuleData) (orig: DoseRuleData) =
         // every entry in the smaller map equals the corresponding entry in the larger one
         let subMap (om: Map<string, string>) (gm: Map<string, string>) =
@@ -318,7 +318,7 @@ module Analyze =
 
     /// <summary>
     /// The reason line(s) why a single input row is missing, against a pass's
-    /// `GenById`: picks the generated sibling that matches the most leaves and
+    /// <c>GenById</c>: picks the generated sibling that matches the most leaves and
     /// shows what it lacks.
     /// </summary>
     /// <param name="genById">Generated rows indexed by categorical identity.</param>
@@ -359,13 +359,13 @@ module Analyze =
 
     /// <summary>
     /// One round-trip + FORWARD containment check over <paramref name="input"/>.
-    /// Pure: returns the `PassResult` (stats + generated set); does not print.
+    /// Pure: returns the <c>PassResult</c> (stats + generated set); does not print.
     /// </summary>
     /// <param name="forward">Rebuilds DoseRuleData[] -> DoseRule[] (passed in so this
     /// module stays free of any live provider).</param>
     /// <param name="label">Human-readable name identifying the pass (for reporting).</param>
     /// <param name="input">The dose rule data rows to round-trip and check.</param>
-    /// <returns>The `PassResult` with statistics and the generated dataset.</returns>
+    /// <returns>The <c>PassResult</c> with statistics and the generated dataset.</returns>
     let runPass (forward: DoseRuleData[] -> DoseRule[]) (label: string) (input: DoseRuleData[]) : PassResult =
         let survivingInput = surviving input
         let fwd = input |> forward
@@ -398,11 +398,11 @@ module Analyze =
 
     /// <summary>
     /// Direct fixpoint delta: rows in <paramref name="gen1"/> not in
-    /// <paramref name="gen2"/> (and vice versa), keyed by `rowKey`.
+    /// <paramref name="gen2"/> (and vice versa), keyed by <c>rowKey</c>.
     /// </summary>
     /// <param name="gen1">PASS 1 generated dataset.</param>
     /// <param name="gen2">PASS 2 generated dataset (reverse-of-forward of gen1).</param>
-    /// <returns>The `FixpointDelta` with the per-direction counts and collapsed rows.</returns>
+    /// <returns>The <c>FixpointDelta</c> with the per-direction counts and collapsed rows.</returns>
     let fixpointDelta (gen1: DoseRuleData[]) (gen2: DoseRuleData[]) : FixpointDelta =
         let g1Keys = gen1 |> Array.map rowKey |> Set.ofArray
         let g2Keys = gen2 |> Array.map rowKey |> Set.ofArray
@@ -437,7 +437,7 @@ module Export =
 
     /// <summary>
     /// Attach the no-patient G-Standaard check to each rule, in parallel.
-    /// `Check` is a RuleCheck { FreqCheck; DoseCheck }: the graded signals (severity
+    /// <c>Check</c> is a RuleCheck { FreqCheck; DoseCheck }: the graded signals (severity
     /// other than Within) split by kind — FrequencyMismatch -> FreqCheck, the dose-limit
     /// severities (over norm/absolute, under norm, unit mismatch, no monitoring) ->
     /// DoseCheck. None when there is nothing to report (limits agree with G-Standaard).
@@ -445,12 +445,12 @@ module Export =
     /// <remarks>
     /// G-Standaard dose-rule check WITHOUT a specific patient: the patient only scopes
     /// the G-Standaard query; the actual narrowing is done by the rule's OWN category,
-    /// so an empty base patient (`Patient.patient`) returns the full G-Standaard dose
+    /// so an empty base patient (<c>Patient.patient</c>) returns the full G-Standaard dose
     /// set and the check is scoped purely by the rule itself.
     /// </remarks>
     /// <param name="provider">Resource provider supplying the G-Standaard provider.</param>
     /// <param name="drs">The dose rules to annotate with check signals.</param>
-    /// <returns>The dose rules with their `Check` field populated.</returns>
+    /// <returns>The dose rules with their <c>Check</c> field populated.</returns>
     let withChecks (provider: Resources.IResourceProvider) drs =
         let gStand = provider.GetGStandProvider()
 

@@ -47,7 +47,7 @@ module FormularyService =
             | [| _; _; _; msg |] -> msg.Contains "frequenties"
             | _ -> false
 
-        /// Format a raw check line for display. `singleRule` drops the
+        /// Format a raw check line for display. singleRule drops the
         /// patient-category field when only one dose rule is in scope.
         let formatLine (singleRule: bool) (s: string) =
             match s |> String.split "\t" with
@@ -85,7 +85,7 @@ module FormularyService =
         ///   - otherwise              → one block per signal, colored by its
         ///                              Severity (advisory = orange, absolute =
         ///                              red, etc.)
-        /// `NoMonitoring` sentinels are dropped once real violations exist so a
+        /// NoMonitoring sentinels are dropped once real violations exist so a
         /// non-violation isn't painted as a violation.
         let build
             (parseTextItem: string -> TextItem[])

@@ -83,7 +83,7 @@ module PublicKey =
 
 module LaunchSeal =
 
-    /// The key the Launch is sealed under. 32 bytes from a CSPRNG (`newKey`); shared with the
+    /// The key the Launch is sealed under. 32 bytes from a CSPRNG (newKey); shared with the
     /// LaunchScript in the real integration, made per host start for the stub.
     type Key = | Key of byte[]
 
@@ -139,7 +139,7 @@ module LaunchSeal =
     let private json = System.Text.Json.JsonSerializerOptions()
 
 
-    /// Seals the claims: `base64url(json) + "." + base64url(HMAC-SHA256(key, json))`.
+    /// Seals the claims: base64url(json) + "." + base64url(HMAC-SHA256(key, json)).
     let mint (key: Key) (claims: Claims) : Launch =
         let payload =
             {
@@ -153,8 +153,8 @@ module LaunchSeal =
 
 
     /// Verifies the seal (constant-time), then the lifetime. Anything that is not a
-    /// Launch sealed under the key is `LaunchInvalid`; a Launch past its expiry is
-    /// `LaunchExpired`.
+    /// Launch sealed under the key is LaunchInvalid; a Launch past its expiry is
+    /// LaunchExpired.
     let verify (now: DateTime) (key: Key) (Launch text) : Result<Claims, LaunchRefusal> =
         let parts = if isNull text then [||] else text.Split('.')
 
@@ -217,7 +217,7 @@ module PinHash =
         )
 
 
-    /// Derives the hash of a PIN under a fresh salt from `newSalt` (the CSPRNG in the host).
+    /// Derives the hash of a PIN under a fresh salt from newSalt (the CSPRNG in the host).
     let make (newSalt: int -> byte[]) (pin: string) : PinHash =
         let salt = newSalt saltLength
 
@@ -280,8 +280,8 @@ module Credential =
     let lockMax = TimeSpan.FromHours 24.0
 
 
-    /// The delay after `count` wrong entries. The entry that reaches the limit locks for
-    /// `lockBase`; each one after it doubles that, up to `lockMax`.
+    /// The delay after count wrong entries. The entry that reaches the limit locks for
+    /// lockBase; each one after it doubles that, up to lockMax.
     let lockFor (count: int) =
         // 2^11 minutes is already past a day; the bound keeps `pown` in range
         let doublings = min 11 (max 0 (count - wrongPinLimit))
@@ -299,7 +299,7 @@ module Credential =
     /// is verified here and nowhere else. A right PIN while unlocked zeroes the count and
     /// clears the lock; a right PIN
     /// while locked is refused and counts nothing; a wrong PIN adds one and, at the limit or
-    /// beyond it, locks for `lockFor` from now, so a wrong entry while locked pushes the
+    /// beyond it, locks for lockFor from now, so a wrong entry while locked pushes the
     /// delay out and doubles it.
     let verify (now: DateTime) (pin: string) (credential: Credential) : bool * Credential =
         let locked = isLocked now credential
@@ -349,7 +349,7 @@ module Pin =
 
 module MailHint =
 
-    /// `n***@stub.example`: enough for the User to know which mailbox, not enough for a
+    /// n***@stub.example: enough for the User to know which mailbox, not enough for a
     /// shoulder to read the address.
     let ofAddress (address: string) =
         match address.IndexOf '@' with
@@ -383,11 +383,11 @@ module Mails =
 /// time, the open as one act that closes the User's other Sessions, the launch suspended at
 /// the PIN question and the enrolment that lifts it, the credential with its wrong-PIN lock,
 /// the signing challenge and the commit of a version, and what a Session is told when the
-/// record moved on. Pure over a `State` record: the clock, the ids, the codes and the ports
-/// are parameters. `StubDatabase.makeSessionPort` runs it over an in-memory store.
+/// record moved on. Pure over a State record: the clock, the ids, the codes and the ports
+/// are parameters. StubDatabase.makeSessionPort runs it over an in-memory store.
 module Session =
 
-    /// The refusal words of `#/session?refused=<word>`; the client's `parseRefusal` reads them.
+    /// The refusal words of #/session?refused=<word>; the client's parseRefusal reads them.
     let refusalWord refusal =
         match refusal with
         | LaunchRefusal.LaunchExpired -> "expired"
@@ -405,7 +405,7 @@ module Session =
 
 
     /// A Session as the store holds it: what it is open on, the login it belongs to (a User
-    /// has at most one open Session), the id of the version it opened with (`None` from
+    /// has at most one open Session), the id of the version it opened with (None from
     /// nothing, or from a head that cannot be read), which a Submission is checked against,
     /// and when it was last seen (nothing acts on it yet; the idle and absolute lifetimes of
     /// Rule 10 are not built).
@@ -445,7 +445,7 @@ module Session =
 
 
     /// A data notice as the store holds it: one per Session, the platform's reading it was
-    /// told over (`None`: unreadable), for two minutes.
+    /// told over (None: unreadable), for two minutes.
     type Notice =
         {
             Nonce: string
@@ -829,7 +829,7 @@ module Session =
     /// answered from the launch's outcome, else the code redeemed once for the identity and
     /// the registry asked once for the Role and the active Patient. Needs the launch record
     /// and the Session its outcome names, nothing keyed by the login: a store loads those
-    /// first, and the login's rows after, for `openAfterRedeem`.
+    /// first, and the login's rows after, for <c>openAfterRedeem</c>.
     /// </summary>
     let redeem
         (now: DateTime)
@@ -1094,7 +1094,7 @@ module Session =
 
 
     /// A request from the Session refreshes its idle clock. Applied by every member that takes
-    /// the session cookie's id, `close` excepted: a close ends the Session, it does not keep
+    /// the session cookie's id, close excepted: a close ends the Session, it does not keep
     /// it alive. Nothing to refresh when there is no such Session.
     let touch (now: DateTime) (sid: string) (state: State) : State * Persist list =
         match state.Sessions |> Map.tryFind sid with
@@ -1173,7 +1173,7 @@ module Session =
             | _ -> state, None, writes
 
 
-    /// Version `id` becomes what the Session opened with. No Session, an anonymous one or one
+    /// Version id becomes what the Session opened with. No Session, an anonymous one or one
     /// without a Patient: nothing to open. An id the record does not hold for the Session's
     /// Patient (a stale button, a restart), and a version the release cannot read: nothing
     /// opens, the Session as it is; the next request tells what the head is. The version
@@ -1362,7 +1362,7 @@ module Session =
     /// the OpenedToken re-minted over it and the Session's patient set to the reading at the
     /// challenge, else the data signed, and the third value is the write for the adapter to
     /// run; on a refusal it is none. The answer is remembered under the key, refusals too.
-    /// Three wrong PINs end the Session (`WrongPinLimit`), lock signing and mail the User; a
+    /// Three wrong PINs end the Session (WrongPinLimit), lock signing and mail the User; a
     /// wrong PIN while locked pushes the lock out; a right PIN while locked is refused and
     /// counts nothing.
     let commit

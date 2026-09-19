@@ -94,8 +94,8 @@ type UserStanding =
     }
 
 
-/// The IdentityProvider. `authorizeUrl` is where the browser is sent with the `state`;
-/// `redeem` exchanges the callback's code for the identity over the server's own connection.
+/// The IdentityProvider. authorizeUrl is where the browser is sent with the state;
+/// redeem exchanges the callback's code for the identity over the server's own connection.
 type IdentityProviderPort =
     {
         authorizeUrl: string -> string
@@ -108,7 +108,7 @@ type UserRegistryPort = { standing: BrowserIdentity -> UserStanding option }
 
 /// The PatientDataPlatform, read once at the launch and again at a challenge, as the domain's
 /// patient: the adapter parses what the platform gives, and a reading that is no patient is
-/// no reading. `None` is not a refusal: the Session opens without imported data.
+/// no reading. None is not a refusal: the Session opens without imported data.
 type PatientDataPort = { read: string -> GenForm.Patient option }
 
 
@@ -232,7 +232,7 @@ type Signature =
 
 
 /// The answer of the session service to a signing command, on domain values; the command
-/// handler maps it to the wire's `SigningResponse`.
+/// handler maps it to the wire's SigningResponse.
 [<RequireQualifiedAccess>]
 type SigningOutcome =
     /// the challenge over exactly this plan; comes back with the PIN
@@ -245,8 +245,8 @@ type SigningOutcome =
 
 
 /// The session adapter's answer to a presentation. The session id is the server's to put in
-/// the cookie; the composition root maps this to the client's `LaunchOutcome` without it.
-/// `RedirectTo` carries the `state` the edge writes to the state cookie next to the url
+/// the cookie; the composition root maps this to the client's LaunchOutcome without it.
+/// RedirectTo carries the state the edge writes to the state cookie next to the url
 /// that carries it to the IdentityProvider.
 [<RequireQualifiedAccess>]
 type LaunchResult =
@@ -257,7 +257,7 @@ type LaunchResult =
     | Enrolling of attemptId: string
 
 
-/// What the callback from the IdentityProvider brings: the `state` from the url and from the
+/// What the callback from the IdentityProvider brings: the state from the url and from the
 /// cookie, and either a code or the IdentityProvider's error.
 type Callback =
     {

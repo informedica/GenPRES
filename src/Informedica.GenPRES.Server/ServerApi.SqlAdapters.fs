@@ -7,9 +7,9 @@ namespace ServerApi
 
 /// <summary>
 /// The SQL schema of the session store, applied as numbered migrations. Each migration is a
-/// script `Sql/NNN-name.sql`; its number is the leading integer of the file name. The runner
-/// records every migration it applied in `schema_version` and applies each script above the
-/// highest recorded number, each in a transaction of its own with its `schema_version` row.
+/// script <c>Sql/NNN-name.sql</c>; its number is the leading integer of the file name. The runner
+/// records every migration it applied in <c>schema_version</c> and applies each script above the
+/// highest recorded number, each in a transaction of its own with its <c>schema_version</c> row.
 /// </summary>
 module SqlSchema =
 
@@ -72,7 +72,7 @@ module SqlSchema =
         migrations
 
 
-    /// The migrations embedded in an assembly under `Sql/`.
+    /// The migrations embedded in an assembly under Sql/.
     let embedded (assembly: Assembly) =
         assembly.GetManifestResourceNames()
         |> Array.filter (fun n -> n.StartsWith(prefix, StringComparison.Ordinal) && n.EndsWith ".sql")
@@ -94,8 +94,8 @@ module SqlSchema =
 
     /// <summary>
     /// Applies to the database of the connection string every migration above the highest
-    /// number `schema_version` records, and returns the numbers it applied, in order. Each
-    /// migration runs in one transaction with its `schema_version` row, and the highest number
+    /// number <c>schema_version</c> records, and returns the numbers it applied, in order. Each
+    /// migration runs in one transaction with its <c>schema_version</c> row, and the highest number
     /// is read inside that transaction, so a migration applied meanwhile by another process is
     /// skipped, not applied twice. A script that fails rolls its migration back and raises.
     /// </summary>
@@ -141,9 +141,9 @@ module SqlSchema =
 
 
 /// <summary>
-/// The record on SQLite: the order plan versions of a patient loaded from `order_plan`, and
+/// The record on SQLite: the order plan versions of a patient loaded from <c>order_plan</c>, and
 /// the write of a commit inserted there. The plan is stored as the canonical JSON of
-/// `OrderPlanVersion.Dto` under a JSON structure version; a row this release cannot read
+/// <c>OrderPlanVersion.Dto</c> under a JSON structure version; a row this release cannot read
 /// loads as an unreadable entry built from the identity columns, never dropped.
 /// </summary>
 module SqlDatabase =
@@ -177,7 +177,7 @@ module SqlDatabase =
     let toJson (v: Types.OrderPlanVersion) = v |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
 
 
-    /// An `order_plan` row as read, before its JSON is parsed.
+    /// An order_plan row as read, before its JSON is parsed.
     type Row =
         {
             VersionId: string
@@ -193,7 +193,7 @@ module SqlDatabase =
 
 
     /// <summary>
-    /// A row as the record holds it: upgraded, parsed with `fromDto`, and checked against its
+    /// A row as the record holds it: upgraded, parsed with <c>fromDto</c>, and checked against its
     /// identity columns; else unreadable with the reason, its identity from the columns, which
     /// are authoritative.
     /// </summary>
@@ -327,8 +327,8 @@ module SqlDatabase =
 
     /// <summary>
     /// Runs one order plan version: inserts it. A violated
-    /// `unique (patient_id, no)` is another server's sign of the same number, answered with
-    /// the head as it stands now; any other failure, other constraints included, is `Failed`
+    /// <c>unique (patient_id, no)</c> is another server's sign of the same number, answered with
+    /// the head as it stands now; any other failure, other constraints included, is <c>Failed</c>
     /// with the reason, so that the caller keeps its state and the next Submission retries.
     /// </summary>
     let persistVersion (connectionString: string) (v: Types.OrderPlanVersion) : Session.StoreOutcome =
@@ -369,7 +369,7 @@ module SqlDatabase =
 
 
     /// <summary>
-    /// A connection string with a relative data source rooted at `root`, and the folder of the
+    /// A connection string with a relative data source rooted at <c>root</c>, and the folder of the
     /// file created when it is missing: SQLite creates the file, never its folder.
     /// </summary>
     let connectionString (root: string) (value: string) =
@@ -471,7 +471,7 @@ module SqlSessions =
 
 
     /// <summary>
-    /// The Launch of a nonce or of a callback's `state`, with what its callback came to, while
+    /// The Launch of a nonce or of a callback's <c>state</c>, with what its callback came to, while
     /// it is within its lifetime; past it the record loads as absent, as a dropped row would.
     /// The Session an outcome names is rebuilt by the caller, which has the session rows.
     /// </summary>
@@ -635,7 +635,7 @@ module SqlSessions =
 
 
     /// The Session of an id as the state holds it: the row, what it opened with, its heartbeat
-    /// and the head it opened on, through the `headOf` its caller loads the record with. One
+    /// and the head it opened on, through the headOf its caller loads the record with. One
     /// this release cannot read is answered with the reason, and ends as unreadable; an ended
     /// Session is answered with its ending, a closed one with none at all.
     let loadSession (conn: SqliteConnection) (headOf: string -> StoredVersion option) (sid: string) =
@@ -727,7 +727,7 @@ module SqlSessions =
 
 
     /// The word a refusal is stored under, and what of it the row keeps beside the word. Every
-    /// refusal matched, so that one without a word fails to compile; `Blocked` keeps the id of
+    /// refusal matched, so that one without a word fails to compile; Blocked keeps the id of
     /// the head that blocked, which is an order_plan row the answer is rebuilt from.
     let refusalRow (refusal: SigningRefusal) =
         match refusal with
@@ -1044,7 +1044,7 @@ module SqlSessions =
 
     /// <summary>
     /// What a write says about the request it belongs to: the Session it acts on, and the
-    /// person it acts for. Every case matched, as `auditOf` matches them, so that a write that
+    /// person it acts for. Every case matched, as <c>auditOf</c> matches them, so that a write that
     /// comes to name a Session or a person cannot quietly stop naming it in the audit.
     /// </summary>
     let namedBy (write: Session.Persist) : string option * string option =
@@ -1074,7 +1074,7 @@ module SqlSessions =
     /// The audit of one write. Every case matched, so that a write nobody thought to audit
     /// fails to compile; the writes that carry only a fact of an act another write already
     /// audits return nothing, said here rather than left out. What the write does not know —
-    /// the Session a signature was made in, the person whose Session ended — `auditOf` fills in
+    /// the Session a signature was made in, the person whose Session ended — <c>auditOf</c> fills in
     /// from the rest of the request.
     /// </summary>
     let entryOf (now: DateTime) (write: Session.Persist) : AuditEntry option =
@@ -1215,8 +1215,8 @@ module SqlSessions =
 
     /// <summary>
     /// Runs the writes of a request in one transaction: all of them land, or none does. A
-    /// violated `unique (patient_id, no)` on the record is another server's sign of the same
-    /// number, answered with the head as it stands; any other failure is `Failed` with its
+    /// violated <c>unique (patient_id, no)</c> on the record is another server's sign of the same
+    /// number, answered with the head as it stands; any other failure is <c>Failed</c> with its
     /// reason, and the caller keeps the state it had, so that the next request retries.
     /// </summary>
     let runWrites
@@ -1326,8 +1326,8 @@ module SqlSessions =
 
 
     /// An enrolment attempt that was not given up, and every undropped attempt of the person it
-    /// names: `dropEnrolment` spends the shared code only when no other attempt of that person
-    /// stands, and `supplyPin` drops them all, so both need the wider slice.
+    /// names: dropEnrolment spends the shared code only when no other attempt of that person
+    /// stands, and supplyPin drops them all, so both need the wider slice.
     let loadEnrolments (conn: SqliteConnection) (by: string) (value: string) =
         rows
             conn
@@ -1460,7 +1460,7 @@ module SqlSessions =
         )
 
 
-    /// The signing refusal a stored word names, with what the row kept beside it. `headOf`
+    /// The signing refusal a stored word names, with what the row kept beside it. headOf
     /// rebuilds the head that blocked from the record the caller loaded.
     let signingRefusalOf (headOf: string -> StoredVersion option) (word: string) versionId left until =
         match word with
@@ -1528,7 +1528,7 @@ module SqlSessions =
     // ---- the rows a request can touch -------------------------------------------------------
 
     /// <summary>
-    /// The record of a patient, as the state holds it. `warn` hears of every version this
+    /// The record of a patient, as the state holds it. <c>warn</c> hears of every version this
     /// release cannot read, so that a head a sign is refused against says why in the log.
     /// </summary>
     let withRecord (warn: string -> unit) (cs: string) (patientId: string option) (state: Session.State) =
@@ -1648,8 +1648,8 @@ module SqlSessions =
     /// What a Session was opened with, whatever became of it since. A Launch that opened a
     /// Session keeps that answer for its lifetime, so that a browser presenting it again is
     /// sent to the app rather than through the hop a second time, and the cookie decides which
-    /// Session it lands on. `loadSession` answers an ended Session with its ending and no
-    /// `OpenedSession` at all, so the launch's outcome is rebuilt from the rows directly.
+    /// Session it lands on. <c>loadSession</c> answers an ended Session with its ending and no
+    /// <c>OpenedSession</c> at all, so the launch's outcome is rebuilt from the rows directly.
     /// </summary>
     let openedOf (conn: SqliteConnection) (headOf: string -> StoredVersion option) (sid: string) =
         rows
@@ -1818,7 +1818,7 @@ module SqlSessions =
 
     /// <summary>
     /// The session state in the database: a load reads the rows a slice names, a write appends
-    /// what a request did, in one transaction. `warn` hears of every row the release cannot
+    /// what a request did, in one transaction. <c>warn</c> hears of every row the release cannot
     /// read; a load that throws is rethrown, which the port answers as the store failing.
     /// </summary>
     let store (warn: string -> unit) (cs: string) (now: unit -> DateTime) : StubDatabase.SessionStore =

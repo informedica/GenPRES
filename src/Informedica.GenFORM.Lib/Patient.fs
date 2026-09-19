@@ -35,7 +35,7 @@ module Gender =
 
 
     /// A gender from its string form; an empty string is AnyGender, anything else
-    /// that `toString` never writes is None.
+    /// that toString never writes is None.
     let tryFromString s =
         match s |> String.toLower |> String.trim with
         | "man" -> Some Male
@@ -440,7 +440,7 @@ module AccessDevice =
         | _ -> None
 
 
-/// The string form of a renal function, for the Dto: `egfr:min:max` with an empty
+/// The string form of a renal function, for the Dto: egfr:min:max with an empty
 /// bound for None, or the name of a dialysis.
 module RenalFunction =
 

@@ -15,9 +15,9 @@ module GenericLabel =
 
     /// The base generic substance name, without the form/brand qualifier.
     /// Used for lookups against external sources (e.g. the G-Standaard) that
-    /// key on the substance name only — e.g. `GenericBrand ("glycopyrronium",
-    /// "Sialanar")` resolves to `"glycopyrronium"`, not `"glycopyrronium
-    /// (Sialanar)"`.
+    /// key on the substance name only — e.g. GenericBrand ("glycopyrronium",
+    /// "Sialanar") resolves to "glycopyrronium", not "glycopyrronium
+    /// (Sialanar)".
     let genericName =
         function
         | Shorthand s -> s
