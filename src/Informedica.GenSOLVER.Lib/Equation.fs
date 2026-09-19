@@ -1,10 +1,10 @@
 namespace Informedica.GenSolver.Lib
 
 
-/// Functions that handle the `Equation` type that
-/// either represents a `ProductEquation` </br>
-/// y = x1 \* x2 * ... \* xn </br>
-/// or a `SumEquations` </br>
+/// Functions that handle the Equation type that
+/// either represents a ProductEquation
+/// y = x1 * x2 * ... * xn
+/// or a SumEquation
 /// y = x1 + x2 + ... + xn
 module Equation =
 

@@ -196,9 +196,9 @@ module BigRational =
     let opIsDiv op = (three |> op <| two) = three / two // = 3/2
 
 
-    /// Match an operator `op` to either
+    /// Match an operator op to either
     /// multiplication, division, addition
-    /// or subtraction. </br>
+    /// or subtraction.
     /// Returns NoMatch otherwise
     let (|Mult|Div|Add|Subtr|NoMatch|) op =
         match op with

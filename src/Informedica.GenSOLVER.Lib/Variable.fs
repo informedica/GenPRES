@@ -3469,21 +3469,21 @@ module Variable =
         | Some n -> var |> setNthValue n
 
 
-    /// Set the minimum value of a Variable
-    /// <param name="var">The Variable to set the minimum value for</param>
-    /// <returns>The Variable with the new minimum value</returns>
+    /// <summary>Set the minimum value of a Variable.</summary>
+    /// <param name="var">The Variable to set the minimum value for.</param>
+    /// <returns>The Variable with the new minimum value.</returns>
     let setMinValue var = { var with Values = var.Values |> ValueRange.setMinValue }
 
 
-    /// Set the maximum value of a Variable
-    /// <param name="var">The Variable to set the maximum value for</param>
-    /// <returns>The Variable with the new maximum value</returns>
+    /// <summary>Set the maximum value of a Variable.</summary>
+    /// <param name="var">The Variable to set the maximum value for.</param>
+    /// <returns>The Variable with the new maximum value.</returns>
     let setMaxValue var = { var with Values = var.Values |> ValueRange.setMaxValue }
 
 
-    /// Set the median value of a Variable
-    /// <param name="var">The Variable to set the median value for</param>
-    /// <returns>The Variable with the new median value</returns>
+    /// <summary>Set the median value of a Variable.</summary>
+    /// <param name="var">The Variable to set the median value for.</param>
+    /// <returns>The Variable with the new median value.</returns>
     let setMedianValue var = { var with Values = var.Values |> ValueRange.setMedianValue }
 
 
@@ -3491,10 +3491,10 @@ module Variable =
     let getUnit var = var |> getValueRange |> ValueRange.getUnit
 
 
-    /// Set the unit of a Variable
-    /// <param name="unt">The unit to set</param>
-    /// <param name="var">The Variable to set the unit for</param>
-    /// <returns>The Variable with the new unit</returns>
+    /// <summary>Set the unit of a Variable.</summary>
+    /// <param name="unt">The unit to set.</param>
+    /// <param name="var">The Variable to set the unit for.</param>
+    /// <returns>The Variable with the new unit.</returns>
     let setUnit unt var =
         { var with Values = var |> getValueRange |> ValueRange.setUnit unt }
 

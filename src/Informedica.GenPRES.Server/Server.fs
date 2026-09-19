@@ -246,8 +246,8 @@ module Config =
         }
 
 
-    /// Reads every setting through <c>getEnv</c>. Pure: pass <c>Env.getItem</c>
-    /// for the real environment, a <c>Map.tryFind</c> in tests.
+    /// Reads every setting through getEnv. Pure: pass Env.getItem
+    /// for the real environment, a Map.tryFind in tests.
     let fromEnv (getEnv: string -> string option) : Settings =
         {
             Port = "SERVER_PORT" |> getEnv |> Option.map uint16 |> Option.defaultValue 8085us
@@ -265,7 +265,7 @@ module Config =
         }
 
 
-    /// The start-up banner. Secrets are redacted; <c>systemInfo</c> is passed
+    /// The start-up banner. Secrets are redacted; systemInfo is passed
     /// in because collecting it is an effect.
     let banner (systemInfo: string) (settings: Settings) =
         $"""
@@ -291,7 +291,7 @@ GENPRES_DB_CONNECTION = {if settings.DbConnection.IsSome then
 
 /// HTTP handlers, middleware and the hosted service: everything that runs
 /// per request or per host lifetime. Nothing here reads the environment;
-/// the values it needs arrive as parameters from <c>Host.build</c>.
+/// the values it needs arrive as parameters from Host.build.
 module Http =
 
     // B3 — Returns the immediate peer IP. After UseForwardedHeaders runs
@@ -635,7 +635,7 @@ module Http =
 
 
 /// The composition root: wires settings, the resource provider and the
-/// Http pieces into a Saturn application. Only <c>main</c> calls this.
+/// Http pieces into a Saturn application. Only main calls this.
 module Host =
 
     /// The cached GenFORM resource provider for a Sheet ID, with the

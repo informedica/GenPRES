@@ -72,5 +72,5 @@ module SourceLoader =
                 exn
 
 
-    /// Fetch the NKF medication index from <c>nkfUrl</c>.
+    /// Fetch the NKF medication index from nkfUrl.
     let fetchNKFMedications () = fetchNKFMedicationsFrom nkfUrl
