@@ -114,16 +114,16 @@ module Config =
     // SECURITY: in production mode (GENPRES_PROD=1) a GENPRES_PASSWORD shorter
     // than minProductionPasswordLength characters refuses the start: a weak
     // secret would otherwise stay live in the admin commands, which read the
-    // variable themselves. A missing or blank password does not refuse
-    // (issue #590): the server starts on the configured data with admin
-    // operations disabled, which those same commands enforce by failing
-    // closed on the unset variable, and it prints a warning. Demo/dev mode
+    // variable themselves. A missing or blank password does not refuse:
+    // the server starts on the configured data with admin operations
+    // disabled, which those same commands enforce by failing closed on
+    // the unset variable, and it prints a warning. Demo/dev mode
     // accepts any value (or none).
     let minProductionPasswordLength = 16
 
 
     /// <summary>
-    /// The production password policy. <c>Ok None</c>: nothing to say.
+    /// The production password policy. <c>Ok None</c>: nothing to warn about.
     /// <c>Ok (Some warning)</c>: the server starts with admin operations
     /// disabled and prints the warning. <c>Error</c>: the message the server
     /// refuses to start with.
@@ -437,7 +437,7 @@ module Http =
     /// Without a Cache-Control header browsers apply heuristic freshness
     /// (RFC 9111 §4.2.2, typically 10 % of now − Last-Modified), which is how
     /// a long-running container ends up with clients that never see a new
-    /// index.html and keep loading the previous hashed bundle (#568).
+    /// index.html and keep loading the previous hashed bundle.
     ///
     /// The status check matters: a 404 for an asset that this instance does
     /// not have yet (a rolling deploy, a stale index.html) must never be
@@ -883,7 +883,7 @@ let main _ =
     // reported with an exit code, not an exception: in the Docker image the
     // runtime used to be PID 1, and the SIGABRT it sends itself after an
     // unhandled exception was dropped, leaving the container "running" with
-    // nothing listening (issue #572). A genuine crash elsewhere is still an
+    // nothing listening. A genuine crash elsewhere is still an
     // unhandled exception on purpose; tini as PID 1 turns it into exit 134.
     match
         Config.validateStartup settings
@@ -895,7 +895,7 @@ let main _ =
         writeErrorMessage msg
         1
     | Ok startup ->
-        // a degraded but permitted configuration (issue #590) is said once, before hosting
+        // a degraded but permitted configuration is written once, before hosting
         startup.Warnings |> List.iter writeWarningMessage
         Host.build settings (Host.resourceProvider startup.UrlId) |> run
         0

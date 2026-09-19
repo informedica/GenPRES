@@ -94,7 +94,7 @@ module DoseRule =
         /// an empty index — rendered below as the existing "*Lokaal*" fallback — is
         /// reported as a resource <c>Warning</c>, and is refreshed by an admin
         /// ReloadResources. Keeping the fetch here made this module impure and its cache
-        /// unreachable by that reload. See issue #529.
+        /// unreachable by that reload.
         /// </param>
         /// <param name="rules">The dose rules to render.</param>
         let toMarkdown (getLink: Source.LinkProvider) (rules: DoseRule array) =

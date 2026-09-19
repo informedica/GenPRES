@@ -175,7 +175,7 @@ module EquationMapping =
         |> List.map fst
 
 
-    // Memoised once at module init (issue #530). Kept private and wrapped below so the
+    // Memoised once at module init. Kept private and wrapped below so the
     // public binding stays an argument-taking function: a function value compiles to a
     // property returning FSharpFunc, a different .NET shape.
     let private memoizedGetEquations = Memoization.memoize getEquations_

@@ -523,8 +523,8 @@ module Export =
         |> File.writeTextToFile fileName
 
         let dir =
-            fileName
-            |> File.findParent Environment.CurrentDirectory
+            Environment.CurrentDirectory
+            |> Directory.tryFindParent fileName
             |> Option.defaultValue "."
 
         $"{dir}/{fileName}"

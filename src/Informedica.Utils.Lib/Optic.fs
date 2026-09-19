@@ -18,8 +18,8 @@ type Isomorphism<'a, 'b> = ('a -> 'b) * ('b -> 'a)
 /// </summary>
 /// <remarks>
 /// A non-SRTP, non-inline replacement for the parts of Aether this codebase
-/// actually uses. See issue #450: Aether's cross-assembly inline SRTP dispatch
-/// broke under SDK 10.0.400 (dotnet/fsharp#20253). `Lens`/`Prism` here are the
+/// actually uses. Aether's cross-assembly inline SRTP dispatch broke under
+/// SDK 10.0.400 (dotnet/fsharp#20253). `Lens`/`Prism` here are the
 /// same plain tuple shapes Aether uses, so existing lens/prism *values* defined
 /// elsewhere as `('a -> 'b) * ('b -> 'a -> 'a)` need no changes; only the
 /// dispatch functions below replace Aether's `Optic.get`/`Optic.set` and the

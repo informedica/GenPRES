@@ -20,10 +20,10 @@ module Tests =
     // (e.g. DoseRuleTests.frqs/rts) transitively touch raw ZIndex tables. Those
     // reads are memoized, and the underlying `Lazy` caches a thrown exception as
     // readily as a result, so a single touch before the fixtures exist fails for
-    // the whole test process. (Before issue #523 it was worse still: the read ran
-    // in BST001T's own type initializer, poisoning the type rather than one memo
-    // entry.) The `dotnet test` adapter bypasses Main.fs, so forcing the fixture
-    // here is what makes the synthetic-data tests pass under `dotnet test`.
+    // the whole test process. (It was worse still when the read ran in BST001T's
+    // own type initializer, poisoning the type rather than one memo entry.) The
+    // `dotnet test` adapter bypasses Main.fs, so forcing the fixture here is what
+    // makes the synthetic-data tests pass under `dotnet test`.
     // (Main.fs forces the same cached value for the `dotnet run` path.)
     do fixtureCreatedFiles |> ignore
 
@@ -736,8 +736,8 @@ module Tests =
                 ]
 
 
-    /// Guards the deferred-read property from issue #526: no ZIndex module may read a
-    /// G-Standaard file while merely initialising.
+    /// Guards the deferred-read property: no ZIndex module may read a G-Standaard
+    /// file while merely initialising.
     ///
     /// Two of the three ways that could regress are already closed without a test.
     /// Reverting `posl` or `records` to a value breaks every call site — applying a
