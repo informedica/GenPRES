@@ -157,9 +157,9 @@ module Check =
     /// margin and how infusion-rate checks are handled.
     type CheckConfig =
         {
-            // Upper margin multiplier on the G-Standaard max for non-risk substances
+            /// Upper margin multiplier on the G-Standaard max for non-risk substances
             MarginUpper: BigRational
-            // Whether infusion-rate rows are dropped or kept-but-labelled (HIGH-2)
+            /// Whether infusion-rate rows are dropped or kept-but-labelled (HIGH-2)
             RateCheckMode: RateCheckMode
         }
 
