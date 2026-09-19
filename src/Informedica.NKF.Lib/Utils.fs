@@ -43,8 +43,6 @@ module Utils =
         let cachePath () =
             Path.Combine(Informedica.Utils.Lib.AppPath.cacheDir (), "pediatric.cache")
 
-        (*
-        *)
         let writeTextToFile path (text: string) = File.WriteAllText(path, text)
 
         let exists path = File.Exists(path)

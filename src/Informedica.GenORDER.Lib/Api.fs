@@ -451,19 +451,6 @@ module OrderContext =
 
         open Informedica.Logging.Lib
 
-        (*
-        /// <summary>
-        /// Increase the Orderable Quantity and Rate Increment of an Order.
-        /// This allows speedy calculation by avoiding a large amount
-        /// of possible values.
-        /// </summary>
-        /// <param name="logger">The OrderLogger to use</param>
-        /// <param name="ord">The Order to increase the increment of</param>
-        let increaseIncrements logger ord = Order.increaseIncrements logger 10 10 ord
-
-
-        let setNormDose logger normDose ord = Order.solveNormDose logger normDose ord
-        *)
 
         let changeRuleProductsDivisible pr =
             { pr with
@@ -546,25 +533,6 @@ module OrderContext =
 
                     Ok(ord, pr)
                 | Error(ord, m) -> Error(ord, pr, m)
-
-        (*
-        /// <summary>
-        /// Evaluate a PrescriptionRule. The PrescriptionRule can result in
-        /// multiple Orders, depending on the SolutionRules.
-        /// </summary>
-        /// <param name="logger">Logger for diagnostics</param>
-        /// <param name="pr">The prescription rule to evaluate</param>
-        /// <returns>
-        /// An array of Results, containing the Order and the PrescriptionRule.
-        /// </returns>
-        let evaluateRule logger (pr : PrescriptionRule) =
-            pr
-            |> Medication.fromRule logger
-            |> Array.choose (Medication.toOrderDto >> Order.Dto.fromDto >> Result.toOption)
-            // Note: multiple solution rules can result in multiple medication templates
-            |> Array.map (fun ord -> async { return ord |> evaluateOrder logger pr })
-            |> Async.Parallel
-        *)
 
 
         /// <summary>
@@ -1205,10 +1173,6 @@ Scenarios: {scenarios}
 
         ctx |> toString $"Order Context" |> log
 
-        (*
-        ctx.Scenarios
-        |> Array.iter (_.Order >> Order.stringTable >> log)
-        *)
 
         log $"\n===\n"
         cmd
