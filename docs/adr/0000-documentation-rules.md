@@ -31,7 +31,11 @@ Guide the reader in this order, and stop at the first level that does the job:
 
 1. **Types** — make illegal states unrepresentable; give APIs distinct types.
 2. **Names** — functions and modules whose names say what they do.
-3. **Comments** — XML documentation on public APIs, `//` comments for the *why* of an implementation.
+3. **Comments** — `///` XML documentation on everything a caller can name, record fields and
+   discriminated union cases included; `//` comments inside a body for the *why* of an
+   implementation. A comment says the thing in words and cites no rule, plan or issue number.
+   The form is fixed in
+   [`fsharp-coding.instructions.md`](../../.github/instructions/fsharp-coding.instructions.md#documentation-and-comments).
 4. **Tests** — an illustrative example belongs in an Expecto test, not in prose.
 5. **Commit messages** — a code change is explained in the commit that makes it
    (see `.github/instructions/commit-message.instructions.md`).

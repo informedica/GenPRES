@@ -69,56 +69,100 @@ Additional style guidance:
 
 ### Documentation and Comments
 
-- Use `///` for XML documentation comments that appear in IntelliSense popups
-- Use `//` for regular comments that document code internally but don't appear in popups
-- XML documentation should be used for:
-  - Type definitions and their purpose
-  - Public functions and their behavior
-  - Module-level documentation
-- Regular comments should be used for:
-  - Record fields and discriminated union cases
-  - Private implementation details
-  - Code clarifications and explanations
-- Format XML documentation consistently:
-  - Use `<summary>` tags for multi-line descriptions
-  - Use single-line `///` for simple descriptions
-  - Include parameter and return value documentation when helpful
-  - Include examples (`<example>`) and remarks (`<remarks>`) for non-trivial APIs
+#### `///` documents the API, `//` explains the implementation
+
+- Use `///` on everything a caller can name: modules, types, functions, members,
+  **record fields and discriminated union cases**. Only `///` reaches an IntelliSense
+  popup and the generated API reference; a `//` above a declaration documents it for
+  nobody but the next reader of that file.
+- Use `//` inside a function body, for the *why* of an implementation choice — the
+  constraint, the ordering, the workaround that the code cannot state itself.
+- A short trailing `//` beside a discriminated union case stays allowed for notation that
+  is not prose (`| MinIncr of Minimum * Increment // <min .. incr ..>`), but it is no
+  longer a reason to skip the `///` line: the same notation is safe inside a plain `///`
+  block, where angle brackets are escaped for you.
 
 ```fsharp
-// Good - XML documentation for types and public APIs
-/// <summary>
-/// Represents a patient with their medical information
-/// </summary>
-/// <remarks>
-/// Enforces that illegal states (e.g., empty name) are prevented by smart constructors.
-/// </remarks>
+/// A patient with the medical information an order is calculated from.
+/// Illegal states are prevented by the smart constructors in the Patient module.
 type Patient =
     {
-        // The unique identifier for the patient
+        /// The unique identifier for the patient.
         Id: PatientId
-        // The patient's full name
+        /// The patient's full name; never empty.
         Name: string
-        // Optional date of birth
+        /// Absent for a patient whose age is estimated rather than known.
         DateOfBirth: DateTime option
     }
-
-/// <summary>Calculates the appropriate dosage for a patient.</summary>
-/// <param name="bodyWeight">Body weight in kg.</param>
-/// <param name="medication">Medication type used to determine factor.</param>
-/// <returns>Dose in mg.</returns>
-/// <example>
-/// let dose = calculateDosage 70.0<kg> Paracetamol
-/// </example>
-let calculateDosage bodyWeight medication = ...
-
-// Good - Regular comments for implementation details
-let private processData input =
-    // Convert input to internal format first
-    let normalized = normalizeInput input
-    // Apply business rules
-    applyRules normalized
 ```
+
+#### A doc comment is either plain prose or XML — never both
+
+The compiler decides per block. If the block starts with a `<`, the whole block is emitted
+as XML verbatim: tags work, and every literal `<` has to be escaped. Otherwise the whole
+block is escaped and wrapped in an implicit `<summary>`: angle brackets are safe, and any
+tag you write shows up as literal text.
+
+Mixing the two loses information in both directions. Prose before a `<param>` turns the
+tags into visible markup; prose after a `<summary>` sits outside every element and never
+reaches the popup or the reference page at all.
+
+**Default to plain prose**, one line or several. It needs no tags to produce a summary.
+
+```fsharp
+/// Split string s at character c.
+let split c s = ...
+
+/// Picks the nearest candidate at or above the target, and the highest
+/// candidate below it when there is none at or above.
+let pickNearestHigherElseLower target candidates = ...
+```
+
+**Reach for XML only when a tag carries information the prose cannot**: a unit, a bound,
+what an empty input does, what the function raises. Then the block is *all* elements,
+starting with `<summary>`.
+
+```fsharp
+/// <summary>Creates an Increment from a ValueUnit.</summary>
+/// <param name="vu">The value and unit; must hold at least one non-zero value.</param>
+/// <returns>An Increment over the non-zero values of <paramref name="vu"/>.</returns>
+/// <exception cref="Exceptions.ValueRangeEmptyIncrementException">When the ValueUnit is empty.</exception>
+let createIncrement vu = ...
+```
+
+Three things the compiler enforces on such a block, all as FS3390:
+
+- it must be well-formed XML, so a literal angle bracket is `&lt;` / `&gt;` — including a
+  unit of measure in an example, `70.0&lt;kg&gt;`;
+- `<param>` is all or nothing: document one parameter and the compiler asks for the rest;
+- a `<param name="...">` that names no parameter is an error, so a rename has to carry the
+  comment with it.
+
+FS3390 is only switched on in four projects today (GenSOLVER, GenUNITS, GenORDER, Utils).
+In the others a malformed block fails silently, which is the stronger reason to keep a
+block plain unless it has earned its tags.
+
+#### No backticks, no `<c>` in a plain block
+
+`UsesMarkdownComments` is `false` in the root `Directory.Build.props`, so a `///` comment is
+never Markdown: `` `ValueUnit` `` reaches the popup and the reference page as a literal
+backtick. Write the identifier bare in a plain block. `<c>` and `<code>` work only inside a
+block that is already XML.
+
+#### Never `(* … *)`
+
+Not for documentation and not for commented-out code. Delete the code; `git log` is the
+record of what was there.
+
+#### Comments are self-contained
+
+A comment says the thing in words. It does not cite a rule, concept, extension, use-case
+step, implementation plan or issue number: the citation goes stale as soon as that
+document is renumbered, moved or closed, and the reader has to leave the file to learn
+what the code does. Two exceptions:
+
+- a comment on code that is **not built yet** keeps the rule it will be built to;
+- a **stop-gap** keeps the issue number that will remove it.
 
 ### Type Definitions
 
@@ -568,11 +612,10 @@ test "floating point comparison with tolerance" {
 
 ### Documentation
 
-- Use XML documentation for public APIs
-- Include examples in documentation when helpful
-- Document complex algorithms or business rules
-- Keep comments focused on "why" rather than "what"
-- Consider literate programming or script-based samples for runnable docs when appropriate
+See [Documentation and Comments](#documentation-and-comments) above for the `///` and `//`
+rules. Beyond those: document a complex algorithm or a business rule where the code cannot
+state it, keep a comment focused on *why* rather than *what*, and consider a script-based
+sample when a runnable example is worth more than prose.
 
 ### Performance Considerations
 

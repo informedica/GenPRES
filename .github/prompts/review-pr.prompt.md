@@ -14,6 +14,10 @@ Review the changes in this pull request for correctness, safety, and adherence t
 - [ ] F# code follows the style guidelines in `.github/instructions/fsharp-coding.instructions.md`
 - [ ] Code formatting follows `.github/instructions/fsharp-code-formatting.instructions.md`
 - [ ] Commit messages follow `.github/instructions/commit-message.instructions.md`
+- [ ] New or changed public declarations — modules, types, functions, members, record fields,
+      discriminated union cases — are documented with `///`, not `//`
+- [ ] Comments say the thing in words and cite no rule, use-case step, plan or issue number
+      (a stop-gap, or code not built yet, may keep its citation)
 
 ### Testing
 - [ ] Tests are added or updated for changed logic
@@ -22,7 +26,7 @@ Review the changes in this pull request for correctness, safety, and adherence t
 
 ### Medical Safety
 - [ ] Changes to dosing logic, rules, or parsing are accompanied by unit tests
-- [ ] Spreadsheet column name/semantic changes are reflected in the `Data` record field comments in `src/Informedica.GenFORM.Lib/Types.fs` and the `ColumnContract` test
+- [ ] Spreadsheet column name/semantic changes are reflected in the `Data` record `///` field comments in `src/Informedica.GenFORM.Lib/Types.fs` and the `ColumnContract` test
 - [ ] No hardcoded medication values — all rules come from Google Spreadsheets
 
 ### Dependencies
