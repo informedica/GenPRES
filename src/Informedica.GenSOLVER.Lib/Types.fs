@@ -7,8 +7,8 @@ module rec Types =
     open Informedica.GenUnits.Lib
 
     /// <summary>
-    /// Represents a non-empty/null string identifying a `Variable`.
-    /// `Name` can be no longer than 1000 characters and cannot be
+    /// Represents a non-empty/null string identifying a <c>Variable</c>.
+    /// <c>Name</c> can be no longer than 1000 characters and cannot be
     /// a null string
     /// </summary>
     type Name = | Name of string
@@ -16,7 +16,7 @@ module rec Types =
 
     /// <summary>
     /// The minimal value in
-    /// a `ValueRange`. Can be inclusive
+    /// a <c>ValueRange</c>. Can be inclusive
     /// or exclusive.
     /// </summary>
     type Minimum =
@@ -26,7 +26,7 @@ module rec Types =
 
     /// <summary>
     /// The maximum value in
-    /// a `ValueRange`. Can be inclusive
+    /// a <c>ValueRange</c>. Can be inclusive
     /// or exclusive.
     /// </summary>
     type Maximum =
@@ -50,18 +50,18 @@ module rec Types =
     /// Represents a domain of rational numbers.
     /// </summary>
     /// <remarks>
-    /// A `ValueRange` can be one of the following:
+    /// A <c>ValueRange</c> can be one of the following:
     /// <list type="bullet">
-    /// <item><description>`Unrestricted`: any rational number</description></item>
-    /// <item><description>`NonZeroNoneNegative`: any positive rational number greater than zero</description></item>
-    /// <item><description>`Min`: has a minimum</description></item>
-    /// <item><description>`Max`: has a maximum</description></item>
-    /// <item><description>`MinMax`: has both a minimum and maximum</description></item>
-    /// <item><description>`Incr`: any number that is a multiple of an increment</description></item>
-    /// <item><description>`MinIncr`: a minimum with the domain consisting of multiples of one increment</description></item>
-    /// <item><description>`IncrMax`: a domain of multiples of an increment with a maximum</description></item>
-    /// <item><description>`MinIncrMax`: a minimum with a domain of multiples of an increment with a maximum</description></item>
-    /// <item><description>`ValSet`: a set of discrete values</description></item>
+    /// <item><description><c>Unrestricted</c>: any rational number</description></item>
+    /// <item><description><c>NonZeroNoneNegative</c>: any positive rational number greater than zero</description></item>
+    /// <item><description><c>Min</c>: has a minimum</description></item>
+    /// <item><description><c>Max</c>: has a maximum</description></item>
+    /// <item><description><c>MinMax</c>: has both a minimum and maximum</description></item>
+    /// <item><description><c>Incr</c>: any number that is a multiple of an increment</description></item>
+    /// <item><description><c>MinIncr</c>: a minimum with the domain consisting of multiples of one increment</description></item>
+    /// <item><description><c>IncrMax</c>: a domain of multiples of an increment with a maximum</description></item>
+    /// <item><description><c>MinIncrMax</c>: a minimum with a domain of multiples of an increment with a maximum</description></item>
+    /// <item><description><c>ValSet</c>: a set of discrete values</description></item>
     /// </list>
     /// </remarks>
     type ValueRange =
@@ -79,10 +79,10 @@ module rec Types =
 
     /// <summary>
     /// Represents a variable in an
-    /// `Equation`. The variable is
-    /// identified by `Name` and has
-    /// a `Values` described by the
-    /// `ValueRange`.
+    /// <c>Equation</c>. The variable is
+    /// identified by <c>Name</c> and has
+    /// a <c>Values</c> described by the
+    /// <c>ValueRange</c>.
     /// </summary>
     type Variable =
         {
@@ -92,7 +92,7 @@ module rec Types =
 
 
     /// <summary>
-    /// Represents a property of a `Variable`.
+    /// Represents a property of a <c>Variable</c>.
     /// </summary>
     type Property =
         | MinProp of Minimum
@@ -102,8 +102,8 @@ module rec Types =
 
 
     /// <summary>
-    /// An equation is either a `ProductEquation`
-    /// or a `SumEquation`, the first variable is the
+    /// An equation is either a <c>ProductEquation</c>
+    /// or a <c>SumEquation</c>, the first variable is the
     /// dependent variable, i.e., the result of the
     /// equation, the second part are the independent
     /// variables in the equation
@@ -114,9 +114,9 @@ module rec Types =
 
 
     /// <summary>
-    /// The `Result` of solving an `Equation`
-    /// is that either the `Equation` is the
-    /// same or has `Changed`.
+    /// The <c>Result</c> of solving an <c>Equation</c>
+    /// is that either the <c>Equation</c> is the
+    /// same or has <c>Changed</c>.
     /// </summary>
     type SolveResult =
         | Unchanged
@@ -125,7 +125,7 @@ module rec Types =
 
 
     /// <summary>
-    /// Represents a constraint on a `Variable`.
+    /// Represents a constraint on a <c>Variable</c>.
     /// I.e., either a set of values or an increment,
     /// minimum or maximum.
     /// </summary>

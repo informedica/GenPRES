@@ -33,8 +33,8 @@ module Utils =
 
     module MinMax =
 
-        /// Turn a `MinMax` to a string with
-        /// `mins` and `maxs` as annotations
+        /// Turn a MinMax to a string with
+        /// mins and maxs as annotations
         /// for resp. the min and max value.
         let toString = Informedica.GenForm.Lib.Utils.MinMax.toString
 
@@ -72,7 +72,7 @@ module WrappedString =
         let toString (Id s) = s
 
 
-    /// Helper functions for `Informedica.GenSolver.Variable.Name` type
+    /// Helper functions for Informedica.GenSolver.Variable.Name type
     module Name =
 
         open Informedica.GenSolver.Lib
@@ -88,7 +88,7 @@ module WrappedString =
 
 
         /// <summary>
-        /// Create a `Name` from a list of strings. The strings
+        /// Create a <c>Name</c> from a list of strings. The strings
         /// will be concatenated with a dot.
         ///</summary>
         let create ns =
@@ -98,11 +98,11 @@ module WrappedString =
                 printfn $"cannot create name with {ns}"
                 raise e
 
-        /// Get the string from a `Name`
+        /// Get the string from a Name
         let toString = Name.toString
 
 
-        /// Create a `Name` from a string
+        /// Create a Name from a string
         let fromString = Name.createExc
 
 
@@ -116,7 +116,7 @@ module WrappedString =
 
 
         /// <summary>
-        /// Add a string to a `Name`. The string will be
+        /// Add a string to a <c>Name</c>. The string will be
         /// added with an underscore.
         /// </summary>
         /// <param name="s">The string to add</param>

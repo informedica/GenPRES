@@ -452,7 +452,7 @@ module Types =
     type NormDose = Informedica.GenForm.Lib.Types.NormDose
 
 
-    /// Type alias for the GenForm product component (formerly `Product`).
+    /// Type alias for the GenForm product component (formerly Product).
     type Product = Informedica.GenForm.Lib.Types.ProductComponent
 
 
