@@ -189,12 +189,12 @@ module EquationMapping =
 
 
     /// <summary>
-    /// Create an Equations mapping for an `Order`
+    /// Create an Equations mapping for an <c>Order</c>
     /// </summary>
     /// <param name="ord">The Order to Map</param>
     /// <param name="eqs">The equations as a string list</param>
     /// <returns>
-    /// A tuple of `SumMapping` and `ProductMapping`
+    /// A tuple of <c>SumMapping</c> and <c>ProductMapping</c>
     /// </returns>
     let getEqsMapping (ord: Order) (eqs: string list) =
         let sumEqs = eqs |> List.filter (String.contains "sum")
