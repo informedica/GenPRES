@@ -14,6 +14,7 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Feliz
 open System
+open Shared
 
 type IUrlSearchParameters =
     abstract entries: unit -> seq<string array>
@@ -134,7 +135,7 @@ module Router =
         |> String.split '/'
         |> List.ofArray
         |> List.collect (fun segment ->
-            if String.IsNullOrWhiteSpace segment then
+            if segment |> String.isNullOrWhiteSpace then
                 []
             else
                 let segment = segment.TrimEnd '#'

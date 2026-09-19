@@ -184,7 +184,7 @@ module String =
     /// Count the number of times character
     /// c appears in string t
     let countChar c t =
-        if String.IsNullOrEmpty(c) then
+        if c |> isNullOrEmpty then
             invalidArg (nameof c) ("Cannot count empty string in text: '" + t + "'")
 
         (c |> regex).Matches(t).Count
@@ -194,7 +194,7 @@ module String =
     /// string t starts with character c
     let countFirstChar c t =
         let _, count =
-            if String.IsNullOrEmpty(t) then
+            if t |> isNullOrEmpty then
                 (false, 0)
             else
                 t
@@ -236,7 +236,7 @@ module String =
         |> function
             | [| n; d |] ->
                 let d = d |> removeTrailing [ "0" ]
-                if d |> String.IsNullOrEmpty then n else n + "," + d
+                if d |> isNullOrEmpty then n else n + "," + d
             | _ -> s
 
 

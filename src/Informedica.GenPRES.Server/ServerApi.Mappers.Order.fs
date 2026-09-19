@@ -476,5 +476,5 @@ module Mappers =
             |> Seq.fold processChar (Normal "", [])
             |> fun (lastItem, items) -> lastItem :: items
             |> List.rev
-            |> List.filter (fun item -> item |> getText |> String.isNullOrWhiteSpace |> not)
+            |> List.filter (fun item -> item |> getText |> String.notEmpty)
             |> List.toArray

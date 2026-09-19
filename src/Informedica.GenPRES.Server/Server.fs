@@ -12,6 +12,7 @@ open Microsoft.Extensions.DependencyInjection
 open System.Threading.Tasks
 
 open Informedica.Utils.Lib
+open Informedica.Utils.Lib.BCL
 
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Builder
@@ -58,8 +59,7 @@ module Config =
     // reported truthfully instead of looking injected, and so an empty
     // Docker env never flows into getCachedProviderWithDataUrlId to
     // surface much later as a confusing "cannot find column" error.
-    let nonBlank (raw: string option) =
-        raw |> Option.filter (System.String.IsNullOrWhiteSpace >> not)
+    let nonBlank (raw: string option) = raw |> Option.filter String.notEmpty
 
 
     /// Banner display string for the password: never the value itself.
@@ -359,7 +359,7 @@ module Http =
             read =
                 fun state ->
                     match ctx.Request.Cookies.TryGetValue(launchStateCookieName state) with
-                    | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
+                    | true, value when value |> String.notEmpty -> Some value
                     | _ -> None
             write =
                 fun state ->
@@ -394,7 +394,7 @@ module Http =
             read =
                 fun () ->
                     match ctx.Request.Cookies.TryGetValue enrolmentCookieName with
-                    | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
+                    | true, value when value |> String.notEmpty -> Some value
                     | _ -> None
             write =
                 fun attempt until ->
@@ -416,7 +416,7 @@ module Http =
             read =
                 fun () ->
                     match ctx.Request.Cookies.TryGetValue sessionCookieName with
-                    | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
+                    | true, value when value |> String.notEmpty -> Some value
                     | _ -> None
             write =
                 fun id -> ctx.Response.Cookies.Append(sessionCookieName, id, sessionCookieOptions ctx.Request.IsHttps)
@@ -446,7 +446,7 @@ module Http =
     /// </remarks>
     let cacheControlFor (statusCode: int) (path: string) =
         let isAsset =
-            not (System.String.IsNullOrEmpty path)
+            path |> String.notNullOrEmpty
             && path.StartsWith("/assets/", System.StringComparison.OrdinalIgnoreCase)
 
         if isAsset && statusCode >= 200 && statusCode < 300 then

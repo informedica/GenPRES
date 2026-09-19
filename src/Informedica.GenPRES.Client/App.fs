@@ -1428,7 +1428,7 @@ module private Elmish =
                     meds
                     |> List.map _.Hospital
                     |> List.distinct
-                    |> List.filter (String.isNullOrWhiteSpace >> not)
+                    |> List.filter String.notEmpty
                     |> List.toArray
                     |> Resolved
             },

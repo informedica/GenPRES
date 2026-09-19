@@ -103,7 +103,7 @@ let fill (args: string list) (s: string) =
 
 /// Joins translated sentences into one body; an empty translation adds no sentence.
 let sentences (xs: string list) =
-    xs |> List.filter (String.isNullOrWhiteSpace >> not) |> String.concat " "
+    xs |> List.filter String.notEmpty |> String.concat " "
 
 
 /// The sentences of a refusal: what happened, then what the User can do. Every sentence is one
