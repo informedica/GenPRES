@@ -281,7 +281,7 @@ module EquationMapping =
                         writeErrorMessage $"could not match {e}"
                         ""
                 )
-                |> List.filter (String.isNullOrWhiteSpace >> not)
+                |> List.filter String.notEmpty
                 |> List.map (String.replace "[orb]" $"{orbN |> Name.toString}")
                 |> SumMapping
 

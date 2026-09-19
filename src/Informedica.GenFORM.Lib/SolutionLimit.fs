@@ -4,6 +4,7 @@ namespace Informedica.GenForm.Lib
 module SolutionLimit =
 
     open System
+    open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
 
@@ -48,12 +49,12 @@ module SolutionLimit =
         [
             let qty = sl.Quantity |> mmToStr
 
-            if not (String.IsNullOrWhiteSpace qty) then
+            if qty |> String.notEmpty then
                 $"{FieldLabels.Quantity} {qty}"
 
             let qtyAdj = sl.QuantityAdj |> mmToStr
 
-            if not (String.IsNullOrWhiteSpace qtyAdj) then
+            if qtyAdj |> String.notEmpty then
                 $"{FieldLabels.QuantityAdjust} {qtyAdj}"
 
             sl.Quantities
@@ -64,6 +65,6 @@ module SolutionLimit =
 
             let conc = sl.Concentration |> mmToStr
 
-            if not (String.IsNullOrWhiteSpace conc) then
+            if conc |> String.notEmpty then
                 $"{FieldLabels.Concentration} {conc}"
         ]

@@ -163,7 +163,7 @@ module Medication =
 
         /// Parse BigRational option from string (e.g., "2" or "1,5")
         let parseBigRationalOpt (s: string) =
-            if s |> String.IsNullOrWhiteSpace then
+            if s |> String.isNullOrWhiteSpace then
                 None
             else
                 // Handle Dutch decimal format (comma)
@@ -185,7 +185,7 @@ module Medication =
         /// Handles: "3;4 x/dag", "1, 10 mg/mL", "1 000 mg", "0,5 mL", "1 stuk"
         /// Note: comma-space "," is value separator, comma without space is Dutch decimal
         let parseValueUnit (s: string) : Result<ValueUnit, string> =
-            if s |> String.IsNullOrWhiteSpace then
+            if s |> String.isNullOrWhiteSpace then
                 Error "Empty ValueUnit string"
             else
                 s |> ValueUnit.fromString
@@ -193,7 +193,7 @@ module Medication =
 
         /// Parse ValueUnit option (returns Ok None for empty string)
         let parseValueUnitOpt (s: string) : Result<ValueUnit option, string> =
-            if s |> String.IsNullOrWhiteSpace then
+            if s |> String.isNullOrWhiteSpace then
                 Ok None
             else
                 parseValueUnit s |> Result.map Some
@@ -251,7 +251,7 @@ module Medication =
         /// e.g., "paracetamol, [qty-adj] 10 - 20 mg/kg/dosis"
         /// Note: Cannot split naively by comma because Dutch decimals use comma (e.g., "5,4")
         let parseDoseLimitOpt target (s: string) : Result<DoseLimit option, string> =
-            if s |> String.IsNullOrWhiteSpace then
+            if s |> String.isNullOrWhiteSpace then
                 Ok None
             else
                 // All known field labels
@@ -352,7 +352,7 @@ module Medication =
                     let fullLabel = $"[{labelContent}]"
 
                     // Skip empty values - they represent default/unset fields
-                    if valueStr |> String.IsNullOrWhiteSpace then
+                    if valueStr |> String.isNullOrWhiteSpace then
                         () // Skip this field
                     elif fullLabel = DoseLimit.FieldLabels.DoseUnit then
                         let dun = valueStr |> UnitsParse.fromString
@@ -372,7 +372,7 @@ module Medication =
                         | None -> errors <- $"Unknown field label: {fullLabel}" :: errors
 
                 // If no labeled matches and we have constraintsStr, return error requiring labels
-                if matches.Count = 0 && not (constraintsStr |> String.IsNullOrWhiteSpace) then
+                if matches.Count = 0 && constraintsStr |> String.notEmpty then
                     errors <-
                         "DoseLimit fields must use labels like [qty], [qty-adj], [per-time], etc. Unlabeled input is not supported."
                         :: errors
@@ -387,7 +387,7 @@ module Medication =
         /// Parse SolutionLimit from formatted string using labeled fields
         /// Labels: [qty] for Quantity, [qty-adj] for QuantityAdj, [conc] for Concentration
         let parseSolutionLimitOpt (s: string) : Result<SolutionLimit option, string> =
-            if s |> String.IsNullOrWhiteSpace then
+            if s |> String.isNullOrWhiteSpace then
                 Ok None
             else
                 // Match labeled fields: [label] value
@@ -403,7 +403,7 @@ module Medication =
                     let label = m.Groups[1].Value.Trim().ToLowerInvariant()
                     let valueStr = m.Groups[2].Value.Trim()
 
-                    if not (valueStr |> String.IsNullOrWhiteSpace) then
+                    if valueStr |> String.notEmpty then
                         match label with
                         | "qts" ->
                             match parseValueUnitOpt valueStr with
@@ -771,7 +771,7 @@ module Medication =
         let toStr =
             DoseLimit.toString
             >> List.map String.trim
-            >> List.filter (String.isNullOrWhiteSpace >> not)
+            >> List.filter String.notEmpty
             >> String.concat ", "
 
         Option.map toStr >> Option.defaultValue ""
@@ -781,7 +781,7 @@ module Medication =
         let toStr =
             SolutionLimit.toString
             >> List.map String.trim
-            >> List.filter (String.isNullOrWhiteSpace >> not)
+            >> List.filter String.notEmpty
             >> String.concat ", "
 
         Option.map toStr >> Option.defaultValue ""

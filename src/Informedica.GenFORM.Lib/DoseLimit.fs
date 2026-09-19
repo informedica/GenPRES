@@ -193,6 +193,6 @@ module DoseLimit =
                 $"%s{dl.Quantity |> printMinMaxDose FieldLabels.Quantity perDose}"
             ]
             |> List.map String.trim
-            |> List.filter (String.IsNullOrEmpty >> not)
+            |> List.filter String.notNullOrEmpty
             |> String.concat ", "
         ]

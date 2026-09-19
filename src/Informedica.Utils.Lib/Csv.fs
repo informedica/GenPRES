@@ -114,7 +114,7 @@ module Csv =
 
     let parseCSV (s: string) =
         s.Split("\n")
-        |> Array.filter (String.isNullOrWhiteSpace >> not)
+        |> Array.filter String.notEmpty
         // replace comma between quotes with a special character
         |> Array.map (String.replace "\",\"" "")
         // remove quotes

@@ -4,6 +4,7 @@ open System
 open System.ComponentModel
 
 open Informedica.GenForm.Lib.Resources
+open Informedica.Utils.Lib.BCL
 
 open ModelContextProtocol.Server
 open Microsoft.Extensions.DependencyInjection
@@ -19,7 +20,7 @@ module McpHelpers =
         JsonConvert.SerializeObject(obj, Formatting.Indented)
 
     let optStr (s: string) =
-        if String.IsNullOrWhiteSpace s then None else Some s
+        if s |> String.isNullOrWhiteSpace then None else Some s
 
     let optFloat (v: Nullable<float>) =
         if v.HasValue then Some v.Value else None

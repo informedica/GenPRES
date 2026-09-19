@@ -97,7 +97,7 @@ module DoseRule =
             if mms = "" then s else s + n + ": " + mms + " " + u + del
 
         let adds s1 s2 s3 =
-            if s2 |> String.IsNullOrWhiteSpace then
+            if s2 |> String.isNullOrWhiteSpace then
                 s3
             else
                 let s3 = if s1 = "" then s3 else s3 + s1 + ": "
@@ -107,7 +107,7 @@ module DoseRule =
             dr.GenericProduct
             |> Seq.fold
                 (fun a gp ->
-                    let s' = if a |> String.IsNullOrWhiteSpace then "" else ", "
+                    let s' = if a |> String.isNullOrWhiteSpace then "" else ", "
                     s' + gp.Name
                 )
                 ""
@@ -116,7 +116,7 @@ module DoseRule =
             dr.PrescriptionProduct
             |> Seq.fold
                 (fun a gp ->
-                    let s' = if a |> String.IsNullOrWhiteSpace then "" else ", "
+                    let s' = if a |> String.isNullOrWhiteSpace then "" else ", "
                     s' + gp.Name
                 )
                 ""
@@ -125,7 +125,7 @@ module DoseRule =
             dr.TradeProduct
             |> Seq.fold
                 (fun a gp ->
-                    let s' = if a |> String.IsNullOrWhiteSpace then "" else ", "
+                    let s' = if a |> String.isNullOrWhiteSpace then "" else ", "
                     s' + gp.Name
                 )
                 ""

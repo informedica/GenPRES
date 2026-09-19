@@ -5,6 +5,7 @@ open System
 open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Resources
 open Informedica.GenOrder.Lib
+open Informedica.Utils.Lib.BCL
 
 open Patient.Optics
 
@@ -326,7 +327,7 @@ module GenOrderTools =
                         | Warning s
                         | Alert s -> s
                     )
-                    |> Array.filter (fun s -> s |> String.IsNullOrWhiteSpace |> not)
+                    |> Array.filter (fun s -> s |> String.notEmpty)
                     |> String.concat " | "
                     |> fun s -> if s.Length > 300 then s[..299] else s
 

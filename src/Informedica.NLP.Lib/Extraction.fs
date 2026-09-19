@@ -137,7 +137,7 @@ module Extraction =
             |}
         // just return zero if there is no time unit
         let jsonFreq =
-            if timeUnit |> String.isNullOrWhiteSpace |> not then
+            if timeUnit |> String.notEmpty then
                 jsonFreq
             else
                 fun _ _ _ state -> state, zero

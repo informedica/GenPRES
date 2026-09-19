@@ -7,6 +7,7 @@ module OrderLogging =
 
     open Informedica.GenSolver.Lib
     open Informedica.GenUnits.Lib
+    open Informedica.Utils.Lib.BCL
     open Informedica.GenOrder.Lib
     open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open Informedica.Logging.Lib
@@ -242,7 +243,7 @@ messages: {msgs.Value.Count}
                     event.Message
                     |> formatter
                     |> fun s ->
-                        if not (String.IsNullOrEmpty s) then
+                        if s |> String.notNullOrEmpty then
                             f s
             Enabled = fun _ -> true
         }

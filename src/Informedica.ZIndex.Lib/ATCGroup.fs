@@ -187,7 +187,7 @@ module ATCGroup =
                             Synonyms =
                                 gp.PrescriptionProducts
                                 |> Array.collect (fun pp -> pp.TradeProducts |> Array.map _.Brand)
-                                |> Array.filter (String.isNullOrWhiteSpace >> not)
+                                |> Array.filter String.notEmpty
                                 |> String.concat ";"
                             Product =
                                 gp.PrescriptionProducts

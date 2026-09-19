@@ -21,7 +21,7 @@ module Variable =
         let create succ fail s =
             let s = s |> String.trim
 
-            if s |> String.IsNullOrWhiteSpace then
+            if s |> String.isNullOrWhiteSpace then
                 Exceptions.NameNullOrWhiteSpaceException |> fail
             else if s |> String.length <= 1000 then
                 s |> Name |> succ

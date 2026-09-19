@@ -2858,7 +2858,7 @@ module Order =
         |> List.append ("Orderable" :: (ord.Orderable |> Orderable.toString))
         |> List.append ("Schedule" :: (ord.Schedule |> Schedule.toString))
         |> List.append ("Route" :: [ ord.Route ])
-        |> List.filter (String.isNullOrWhiteSpace >> not)
+        |> List.filter String.notEmpty
 
 
     /// <summary>
@@ -2870,7 +2870,7 @@ module Order =
         |> List.append ("Orderable" :: (ord.Orderable |> Orderable.toStringWithConstraints))
         |> List.append ("Schedule" :: (ord.Schedule |> Schedule.toStringWithConstraints))
         |> List.append ("Route" :: [ ord.Route ])
-        |> List.filter (String.isNullOrWhiteSpace >> not)
+        |> List.filter String.notEmpty
 
 
     let print ord =
