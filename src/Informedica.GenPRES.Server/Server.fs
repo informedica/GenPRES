@@ -85,14 +85,14 @@ module Config =
         |> Option.defaultValue "NOT SET"
 
 
-    // B3 — Trusted reverse-proxy allow-list for ForwardedHeadersMiddleware.
-    // Default = loopback only (matches the Plesk → Kestrel hop on the
-    // public demo deployments and any local-dev setup). Override with
-    // GENPRES_TRUSTED_PROXIES as a comma-separated list of IPs, e.g.
-    //     GENPRES_TRUSTED_PROXIES="10.0.0.5, 10.0.0.6"
-    // for a hospital LAN behind a known nginx fleet. Unparseable values
-    // are silently dropped — fail-open on the parser, fail-closed on the
-    // allow-list (no entry = no XFF trust).
+    /// The reverse proxies whose X-Forwarded-For header is believed.
+    /// Default = loopback only, which matches the Plesk to Kestrel hop on the
+    /// public demo deployments and any local-dev setup. Override with
+    /// GENPRES_TRUSTED_PROXIES as a comma-separated list of IPs, e.g.
+    ///     GENPRES_TRUSTED_PROXIES="10.0.0.5, 10.0.0.6"
+    /// for a hospital LAN behind a known nginx fleet. Unparseable values
+    /// are silently dropped — fail-open on the parser, fail-closed on the
+    /// allow-list: no entry means no forwarded header is believed at all.
     let parseTrustedProxies (raw: string option) =
         raw
         |> nonBlank
@@ -107,14 +107,14 @@ module Config =
         |> Option.defaultValue [| System.Net.IPAddress.Loopback; System.Net.IPAddress.IPv6Loopback |]
 
 
-    // SECURITY: in production mode (GENPRES_PROD=1) a GENPRES_PASSWORD shorter
-    // than minProductionPasswordLength characters refuses the start: a weak
-    // secret would otherwise stay live in the admin commands, which read the
-    // variable themselves. A missing or blank password does not refuse:
-    // the server starts on the configured data with admin operations
-    // disabled, which those same commands enforce by failing closed on
-    // the unset variable, and it prints a warning. Demo/dev mode
-    // accepts any value (or none).
+    /// The shortest admin password production accepts.
+    /// In production mode (GENPRES_PROD=1) a GENPRES_PASSWORD shorter than this
+    /// refuses the start: a weak secret would otherwise stay live in the admin
+    /// commands, which read the variable themselves. A missing or blank password
+    /// does not refuse: the server starts on the configured data with admin
+    /// operations disabled, which those same commands enforce by failing closed
+    /// on the unset variable, and it prints a warning. Demo and dev mode accept
+    /// any value, or none.
     let minProductionPasswordLength = 16
 
 
@@ -294,12 +294,13 @@ GENPRES_DB_CONNECTION = {if settings.DbConnection.IsSome then
 /// the values it needs arrive as parameters from Host.build.
 module Http =
 
-    // B3 — Returns the immediate peer IP. After UseForwardedHeaders runs
-    // (registered via app_config in Host.build) this is the real client IP
-    // for requests that arrived through a known proxy, and the actual peer
-    // for direct connections. The previous version trusted X-Forwarded-For
-    // from any source (finding B3); that path is now obsolete and the
-    // rate limiter's partition cardinality is bounded by real ingress IPs.
+    /// Returns the immediate peer IP. After UseForwardedHeaders runs
+    /// (registered via app_config in Host.build) this is the real client IP
+    /// for requests that arrived through a known proxy, and the actual peer
+    /// for direct connections. An earlier version read X-Forwarded-For from
+    /// any source, so anyone could pick their own rate-limiter partition and
+    /// make the limiter hold an unbounded number of them; reading the peer
+    /// address after the middleware has substituted it closes both.
     let getClientIP (context: HttpContext) =
         match context.Connection.RemoteIpAddress with
         | null -> "unknown"
@@ -451,27 +452,26 @@ module Http =
             "no-cache"
 
 
-    // B2 — Security response header baseline. ASP.NET middleware (wired via
-    // app_config) using Response.OnStarting so headers land on every flushed
-    // response: static files, Giraffe routes, the 404 fallback, and
-    // Fable.Remoting error responses alike. Also owns the Cache-Control
-    // policy (cacheControlFor above), because this is the one hook that
-    // runs on static responses and Saturn's use_static does not expose
-    // StaticFileOptions.OnPrepareResponse.
-    //
-    // CSP allow-list reflects the SPA's actual fetches: same-origin scripts
-    // (Fable bundle), maxcdn + Google Fonts for CSS, gstatic for fonts,
-    // docs.google.com for the runtime Sheet fetches. Drop docs.google.com
-    // once Sheet access is proxied server-side. X-Powered-By is stripped in
-    // case nginx/Plesk injects it.
-    //
-    // style-src includes 'unsafe-inline' because MUI's styling engine
-    // (Emotion) injects per-component <style> tags at runtime. Without it
-    // every MUI component renders unstyled. script-src remains strict
-    // ('self' only) so XSS exposure is bounded to CSS injection, which
-    // cannot execute code. Tightening this further requires wiring an
-    // Emotion CacheProvider with a per-request nonce — tracked as a
-    // follow-up to the security review.
+    /// The security response headers, set on every response. ASP.NET middleware
+    /// (wired via app_config) using Response.OnStarting so headers land on every flushed
+    /// response: static files, Giraffe routes, the 404 fallback, and
+    /// Fable.Remoting error responses alike. Also owns the Cache-Control
+    /// policy (cacheControlFor above), because this is the one hook that
+    /// runs on static responses and Saturn's use_static does not expose
+    /// StaticFileOptions.OnPrepareResponse.
+    ///
+    /// CSP allow-list reflects the SPA's actual fetches: same-origin scripts
+    /// (Fable bundle), maxcdn + Google Fonts for CSS, gstatic for fonts,
+    /// docs.google.com for the runtime Sheet fetches. Drop docs.google.com
+    /// once Sheet access is proxied server-side. X-Powered-By is stripped in
+    /// case nginx/Plesk injects it.
+    ///
+    /// style-src includes 'unsafe-inline' because MUI's styling engine
+    /// (Emotion) injects per-component style tags at runtime. Without it
+    /// every MUI component renders unstyled. script-src remains strict
+    /// ('self' only) so XSS exposure is bounded to CSS injection, which
+    /// cannot execute code. Tightening this further would mean wiring an
+    /// Emotion CacheProvider with a per-request nonce.
     let securityHeadersMiddleware (ctx: HttpContext) (next: System.Func<Task>) : Task =
         ctx.Response.OnStarting(fun () ->
             let h = ctx.Response.Headers
@@ -498,28 +498,30 @@ module Http =
         next.Invoke()
 
 
-    // A2 — Per-IP fixed-window rate limiter applied to every HTTP request.
-    // 60 requests / 10 s window / IP (= 6 r/s sustained, 60-request burst),
-    // no queue: overflow = 429 instantly.
-    //
-    // Sized for actual SPA usage: a single Gender radio click fans out to
-    // ~4 RPCs, a clinician filling a form chains ~10 such actions in a few
-    // seconds — 60-burst absorbs it. Sustained 6 r/s still cuts scripted
-    // brute force on ValidatePassword by an order of magnitude.
-    //
-    // Partition key uses getClientIP, which now returns the real client IP
-    // resolved by ASP.NET's ForwardedHeadersMiddleware (configured with the
-    // trustedProxies allow-list). XFF is honoured only when the immediate
-    // connection comes from a known proxy, so spoofed XFF cannot bypass
-    // the limiter and cannot inflate partition cardinality (finding B3
-    // addressed for C1, configurable via GENPRES_TRUSTED_PROXIES for C2).
-    //
-    // QueueLimit = 0 = no queue, no QueueProcessingOrder needed (overflow
-    // is rejected with 429 immediately).
-    //
-    // Proper per-attempt auth lockout — which would only touch the password
-    // path — needs Remoting.fromContext to lift client-IP into
-    // validatePassword and is still deferred.
+    /// A per-IP fixed-window rate limiter applied to every HTTP request.
+    /// 60 requests per 10 s window per IP (6 r/s sustained, 60-request burst),
+    /// no queue: overflow is answered 429 instantly.
+    ///
+    /// Sized for actual SPA usage: a single Gender radio click fans out to
+    /// about 4 RPCs, and a clinician filling a form chains about 10 such
+    /// actions in a few seconds, which the 60-request burst absorbs. Sustained
+    /// 6 r/s still cuts scripted brute force on ValidatePassword by an order
+    /// of magnitude.
+    ///
+    /// The partition key is getClientIP, which returns the real client IP
+    /// resolved by ASP.NET's ForwardedHeadersMiddleware, configured with the
+    /// trusted-proxy allow-list. A forwarded header is believed only when the
+    /// immediate connection comes from a proxy on that list, so a spoofed one
+    /// can neither bypass the limiter nor make it hold an unbounded number of
+    /// partitions. The list defaults to loopback and is set for a hospital LAN
+    /// through GENPRES_TRUSTED_PROXIES.
+    ///
+    /// QueueLimit = 0 means no queue, so no QueueProcessingOrder is needed:
+    /// overflow is rejected with 429 immediately.
+    ///
+    /// A per-attempt lockout on the password path alone would need
+    /// Remoting.fromContext to lift the client IP into validatePassword, and
+    /// is still deferred.
     let addRateLimiting (services: IServiceCollection) =
         services.AddRateLimiter(fun (opts: RateLimiterOptions) ->
             opts.RejectionStatusCode <- 429
@@ -563,12 +565,13 @@ module Http =
                 next ctx
 
 
-    // L1 — Defense-in-depth wrapper. The original Fable.Remoting.Giraffe 5.24
-    // ABI drift against Giraffe 7+ (MissingMethodException / TypeLoadException
-    // from Giraffe.Core.setBodyFromString, leaking full .NET type signatures)
-    // is resolved upstream in Fable.Remoting.Giraffe 6.1.0. This wrapper is
-    // retained as belt-and-braces so any future reflection/ABI fault returns
-    // a clean 400 instead of a raw exception body.
+    /// A defence-in-depth wrapper that turns a reflection or ABI fault into a
+    /// clean 400. Fable.Remoting.Giraffe 5.24 drifted against Giraffe 7 and
+    /// above: Giraffe.Core.setBodyFromString raised MissingMethodException or
+    /// TypeLoadException, and the error path put the full .NET type signature
+    /// in the response body. That is fixed upstream in Fable.Remoting.Giraffe
+    /// 6.1.0, and this wrapper is kept so a future fault of the same shape
+    /// cannot leak one either.
     let safeWebApi (webApi: HttpHandler) : HttpHandler =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
@@ -823,8 +826,8 @@ module Host =
             service_config (fun services ->
                 services.AddHostedService<Http.LoggerShutdown>() |> ignore
 
-                // B3 — Configure ForwardedHeadersMiddleware so XFF is only
-                // honoured for connections from the trustedProxies allow-list
+                // Configure ForwardedHeadersMiddleware so a forwarded header is
+                // only believed for connections from the trusted-proxy allow-list
                 // (loopback by default, overridable via GENPRES_TRUSTED_PROXIES).
                 // X-Forwarded-Proto from the same proxies sets Request.IsHttps,
                 // which is what makes the session cookie Secure behind a
@@ -842,7 +845,7 @@ module Host =
                 services
             )
 
-            // B3 ForwardedHeaders → B2 security headers → A2 rate limiter.
+            // Forwarded headers, then the security headers, then the rate limiter.
             // UseForwardedHeaders must run first so the rate limiter sees the
             // real client IP via ctx.Connection.RemoteIpAddress.
             // UseRateLimiter activates the limiter registered via
