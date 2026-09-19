@@ -343,7 +343,7 @@ module Equation =
         $"""{y |> varToStr} = {x1 |> varToStr}{op2 |> opToStr}{xs |> List.map varToStr |> String.concat (op1 |> opToStr)} (cost: {cost})"""
 
 
-    // perform the calculations on the vars
+    /// perform the calculations on the vars
     let private calcVars log op1 op2 vars =
         // perform a calculation with op1 for list reduction and
         // op1 for the first var and the reduced list
@@ -432,7 +432,7 @@ module Equation =
             loop log onlyMinIncrMax op1 op2 acc vars
 
 
-    // The actual solving function
+    /// The actual solving function
     let private solve_ onlyMinIncrMax log eq =
 
         let reorder = List.rotations >> List.mapi (fun i x -> i, x)

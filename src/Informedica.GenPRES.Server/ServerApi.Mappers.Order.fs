@@ -125,8 +125,8 @@ module Mappers =
                 level
 
 
-        // Generic mapping: no outer ×10 multiple (used for every order variable that is
-        // not navigated as a rate or quantity).
+        /// Generic mapping: no outer ×10 multiple (used for every order variable that is
+        /// not navigated as a rate or quantity).
         let mapToOrderVariable = mapToOrderVariableWith None
 
         let tenthOf u =

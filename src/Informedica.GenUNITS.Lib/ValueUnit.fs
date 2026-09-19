@@ -508,7 +508,7 @@ module ValueUnit =
     let filter pred = toBase >> applyToValue (Array.filter pred) >> toUnit
 
 
-    // Apply an array function to a ValueUnit
+    /// Apply an array function to a ValueUnit
     let internal applyArrayFunction fArr fVal vu =
         let u = vu |> getUnit
         vu |> getValue |> fArr fVal |> create u
@@ -571,7 +571,7 @@ module ValueUnit =
             | OpDivItem of Operator
 
 
-        // Takes a list of UnitItems and create a Unit from it
+        /// Takes a list of UnitItems and create a Unit from it
         let listToUnit ul =
             let rec toUnit ul u =
                 match ul with
@@ -608,10 +608,10 @@ module ValueUnit =
         | _ -> [ u ]
 
 
-    // Separate numerators from denominators of a unit.
-    // The recursion is always entered at the numerator, so the
-    // isNum flag (true = numerator, false = denominator) is an
-    // internal concern hidden behind the one-argument numDenom.
+    /// Separate numerators from denominators of a unit.
+    /// The recursion is always entered at the numerator, so the
+    /// isNum flag (true = numerator, false = denominator) is an
+    /// internal concern hidden behind the one-argument numDenom.
     let internal numDenom u =
         let rec loop isNum u =
             match u with
@@ -633,12 +633,12 @@ module ValueUnit =
         loop true u
 
 
-    // Build a unit from a list of numerators and denominators.
-    // Uses an accumulator to build the unit and a boolean to indicate
-    // whether there is a count unit in the numerator.
-    // isCount is true when there is a count unit in the numerator
-    // and false when there is no count unit in the numerator.
-    // Note when ns = ds then the result is isCount = true and u = NoUnit
+    /// Build a unit from a list of numerators and denominators.
+    /// Uses an accumulator to build the unit and a boolean to indicate
+    /// whether there is a count unit in the numerator.
+    /// isCount is true when there is a count unit in the numerator
+    /// and false when there is no count unit in the numerator.
+    /// Note when ns = ds then the result is isCount = true and u = NoUnit
     let rec build ns ds (isCount, u) =
         match ns with
         | [] ->
@@ -955,9 +955,9 @@ module ValueUnit =
             |> Some
 
 
-    // Helper function to calculate the min or max value
-    // that is inclusive or exclusive and is a multiple of
-    // increment 'incr'.
+    /// Helper function to calculate the min or max value
+    /// that is inclusive or exclusive and is a multiple of
+    /// increment 'incr'.
     let internal multipleOf f incr vu =
         vu
         |> toBase

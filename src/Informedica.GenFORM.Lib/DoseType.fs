@@ -92,8 +92,8 @@ module DoseType =
         | NoDoseType -> ""
 
 
-    // category-only string; inverse of `parse`
-    // and the category arm of `toString`. Keeps the mapping in one place.
+    /// The category-only string; the inverse of parse
+    /// and the category arm of toString. Keeps the mapping in one place.
     let toCategory =
         function
         | Once _ -> "once"

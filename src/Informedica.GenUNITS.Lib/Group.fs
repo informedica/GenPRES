@@ -136,10 +136,10 @@ module Group =
         | _ -> [ g ]
 
 
-    // Separate numerators from denominators of a group.
-    // The recursion is always entered at the numerator, so the
-    // isNum flag (true = numerator, false = denominator) is an
-    // internal concern hidden behind the one-argument numDenom.
+    /// Separate numerators from denominators of a group.
+    /// The recursion is always entered at the numerator, so the
+    /// isNum flag (true = numerator, false = denominator) is an
+    /// internal concern hidden behind the one-argument numDenom.
     let numDenom g =
         let rec loop isNum g =
             match g with
