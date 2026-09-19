@@ -340,8 +340,7 @@ below and opens GenPRES on it. Development and test servers only.</p>
 
 
     /// The stub identity cookie value for a choice and the Patient the page made active.
-    let identityCookie (choice: string) (pid: string) =
-        $"{Uri.EscapeDataString choice}.{Uri.EscapeDataString pid}"
+    let identityCookie (choice: string) (pid: string) = $"{Uri.EscapeDataString choice}.{Uri.EscapeDataString pid}"
 
 
     /// The choice and the Patient back from the cookie; None for anything else.

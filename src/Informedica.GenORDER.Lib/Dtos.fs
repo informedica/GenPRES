@@ -277,8 +277,7 @@ module Canonical =
         override _.ReadJson(reader: JsonReader, _: Type, _: obj, _: JsonSerializer) =
             match (reader.Value :?> string).Split '/' with
             | [| n; d |] ->
-                let big (x: string) =
-                    x |> System.Numerics.BigInteger.Parse |> BigRational.fromBigInt
+                let big (x: string) = x |> System.Numerics.BigInteger.Parse |> BigRational.fromBigInt
 
                 big n / big d :> obj
             | _ -> raise (JsonSerializationException "a BigRational is written as numerator/denominator")
@@ -351,12 +350,10 @@ module Canonical =
         s
 
 
-    let serialize (x: 'a) =
-        JsonConvert.SerializeObject(x, settings)
+    let serialize (x: 'a) = JsonConvert.SerializeObject(x, settings)
 
 
-    let deserialize<'a> (s: string) =
-        JsonConvert.DeserializeObject<'a>(s, settings)
+    let deserialize<'a> (s: string) = JsonConvert.DeserializeObject<'a>(s, settings)
 
 
 /// The string form of an order category, for the Dtos: `drug`, or `nutrition:` and the

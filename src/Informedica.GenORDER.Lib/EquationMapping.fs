@@ -98,12 +98,7 @@ module EquationMapping =
     // (and Fantomas keeps them on one line at every use site).
     let discTimed = [ Literals.discontinuous; Literals.timed ]
 
-    let discContTimed =
-        [
-            Literals.discontinuous
-            Literals.continuous
-            Literals.timed
-        ]
+    let discContTimed = [ Literals.discontinuous; Literals.continuous; Literals.timed ]
 
     let contTimedOnceTimed = [ Literals.continuous; Literals.timed; Literals.onceTimed ]
 
@@ -218,34 +213,19 @@ module EquationMapping =
 
         let idN = [ ord.Id |> Id.toString ] |> Name.create
 
-        let orbN =
-            [
-                ord.Id |> Id.toString
-                ord.Orderable.Name |> Name.toString
-            ]
-            |> Name.create
+        let orbN = [ ord.Id |> Id.toString; ord.Orderable.Name |> Name.toString ] |> Name.create
 
         ord.Orderable.Components
         |> List.fold
             (fun acc c ->
-                let cmpN =
-                    [
-                        yield! orbN |> Name.toStringList
-                        c.Name |> Name.toString
-                    ]
-                    |> Name.create
+                let cmpN = [ yield! orbN |> Name.toStringList; c.Name |> Name.toString ] |> Name.create
 
                 let itms =
                     c.Items
                     |> List.collect (fun i ->
                         itmEqs
                         |> List.map (fun s ->
-                            let itmN =
-                                [
-                                    yield! cmpN |> Name.toStringList
-                                    i.Name |> Name.toString
-                                ]
-                                |> Name.create
+                            let itmN = [ yield! cmpN |> Name.toStringList; i.Name |> Name.toString ] |> Name.create
 
                             s
                             |> String.replace "[cmp]" $"{cmpN |> Name.toString}"
@@ -266,12 +246,7 @@ module EquationMapping =
                     | [ lv; rv ] ->
                         ord.Orderable.Components
                         |> List.map (fun c ->
-                            let cmpN =
-                                [
-                                    yield! orbN |> Name.toStringList
-                                    c.Name |> Name.toString
-                                ]
-                                |> Name.create
+                            let cmpN = [ yield! orbN |> Name.toStringList; c.Name |> Name.toString ] |> Name.create
 
                             rv |> String.replace "[cmp]" $"{cmpN |> Name.toString}"
                         )

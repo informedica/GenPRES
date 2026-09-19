@@ -23,12 +23,10 @@ module StringBuilder =
     let newLine2 sb = sb |> appendLine "" |> appendLine ""
 
     /// Append and format the given string to the StringBuilder.
-    let appendFormat (fs: string) vs (sb: StringBuilder) =
-        sb.AppendFormat(fs, (vs |> List.toArray))
+    let appendFormat (fs: string) vs (sb: StringBuilder) = sb.AppendFormat(fs, (vs |> List.toArray))
 
     /// Append and format the given string as a new line to the StringBuilder.
-    let appendLineFormat (fs: string) vs (sb: StringBuilder) =
-        sb.AppendFormat(fs + "\n", (vs |> List.toArray))
+    let appendLineFormat (fs: string) vs (sb: StringBuilder) = sb.AppendFormat(fs + "\n", (vs |> List.toArray))
 
     /// Replace all occurrences of the given string with the given string in the StringBuilder.
     let replace (s1: string) s2 (sb: StringBuilder) = sb.Replace(s1, s2)

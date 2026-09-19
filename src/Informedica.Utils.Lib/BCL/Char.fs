@@ -37,8 +37,7 @@ module Char =
 
 
     /// Checks if a `Char` is a letter
-    let isLetter c =
-        letters |> Seq.exists ((=) (c |> toLower))
+    let isLetter c = letters |> Seq.exists ((=) (c |> toLower))
 
 
     /// Checks if a `Char` is a small caps letter

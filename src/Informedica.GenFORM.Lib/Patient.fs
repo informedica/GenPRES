@@ -93,7 +93,9 @@ module PatientCategory =
         { empty with
             Department = p.Department
             Access = p.Access
-        } = p
+        }
+            =
+            p
 
 
     // TODO:
@@ -409,13 +411,7 @@ module PatientCategory =
             | None, Some max -> $"gewicht tot %s{max |> toStr}"
             | None, None -> ""
 
-        [
-            pat.Department |> Option.defaultValue ""
-            gender
-            neonate
-            age
-            weight
-        ]
+        [ pat.Department |> Option.defaultValue ""; gender; neonate; age; weight ]
         |> List.filter String.notEmpty
         |> List.filter String.notEmpty
         |> String.concat ", "

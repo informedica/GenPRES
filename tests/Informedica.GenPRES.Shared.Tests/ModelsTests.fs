@@ -85,8 +85,7 @@ let mayAddTests =
             Category = OrderCategory.Nutrition category
         }
 
-    let plan contexts =
-        { OrderPlan.empty with OrderContexts = contexts }
+    let plan contexts = { OrderPlan.empty with OrderContexts = contexts }
 
     let all =
         [
@@ -216,8 +215,7 @@ module EstimateFixtures =
     let weights = Some [ row "M" 10. 25. 32. 40. ]
     let heights = Some [ row "M" 10. 130. 140. 150. ]
 
-    let estimated (dto: Patient) =
-        dto |> Patient.applyNormalValues weights heights None None
+    let estimated (dto: Patient) = dto |> Patient.applyNormalValues weights heights None None
 
 
 open EstimateFixtures

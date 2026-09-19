@@ -32,12 +32,10 @@ module Filters =
         getPrescriptionRules logger provider >> PrescriptionRule.generics
 
 
-    let getRoutes logger (provider: IResourceProvider) =
-        getPrescriptionRules logger provider >> PrescriptionRule.routes
+    let getRoutes logger (provider: IResourceProvider) = getPrescriptionRules logger provider >> PrescriptionRule.routes
 
 
-    let getForms logger (provider: IResourceProvider) =
-        getPrescriptionRules logger provider >> PrescriptionRule.forms
+    let getForms logger (provider: IResourceProvider) = getPrescriptionRules logger provider >> PrescriptionRule.forms
 
 
     let getFrequencies logger (provider: IResourceProvider) =
@@ -130,8 +128,7 @@ module OrderScenario =
 
 
     let setOrderTableFormat (sc: OrderScenario) =
-        let prs, prp, adm =
-            sc.Order |> Order.Print.printOrderToTableFormat sc.UseAdjust true sc.Items
+        let prs, prp, adm = sc.Order |> Order.Print.printOrderToTableFormat sc.UseAdjust true sc.Items
 
         { sc with
             Prescription = prs |> Array.map (Array.map replace)
@@ -228,8 +225,7 @@ module OrderScenario =
             }
 
 
-        let private blocksToDto (bs: TextBlock[][]) =
-            bs |> Array.map (Array.map TextBlock.Dto.toDto)
+        let private blocksToDto (bs: TextBlock[][]) = bs |> Array.map (Array.map TextBlock.Dto.toDto)
 
 
         let private blocksFromDto (bs: TextBlock.Dto.Dto[][]) =
@@ -281,8 +277,7 @@ module OrderScenario =
                 "OrderScenario"
                 dto
                 (fun dto ->
-                    let doseType =
-                        dto.DoseType |> DoseTypeDto.fromString |> Result.mapError List.singleton
+                    let doseType = dto.DoseType |> DoseTypeDto.fromString |> Result.mapError List.singleton
 
                     let prescription = dto.Prescription |> DtoResult.orEmpty |> blocksFromDto
                     let preparation = dto.Preparation |> DtoResult.orEmpty |> blocksFromDto
@@ -630,8 +625,7 @@ module OrderContext =
 
 
     let create logger provider (pat: Patient) =
-        let pat =
-            { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
+        let pat = { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
 
         let prs = pat |> getPrescriptionRules logger provider
 
@@ -813,20 +807,16 @@ module OrderContext =
         }
 
 
-    let setFilterGeneric gen ctx =
-        { ctx with OrderContext.Filter.Generic = Some gen }
+    let setFilterGeneric gen ctx = { ctx with OrderContext.Filter.Generic = Some gen }
 
 
-    let setFilterRoute rte ctx =
-        { ctx with OrderContext.Filter.Route = Some rte }
+    let setFilterRoute rte ctx = { ctx with OrderContext.Filter.Route = Some rte }
 
 
-    let setFilterIndication ind ctx =
-        { ctx with OrderContext.Filter.Indication = Some ind }
+    let setFilterIndication ind ctx = { ctx with OrderContext.Filter.Indication = Some ind }
 
 
-    let setFilterForm frm ctx =
-        { ctx with OrderContext.Filter.Form = Some frm }
+    let setFilterForm frm ctx = { ctx with OrderContext.Filter.Form = Some frm }
 
 
     let checkDiluentChange (ctx: OrderContext) =
@@ -934,7 +924,9 @@ Scenarios: {scenarios}
                             sc.Preparation
                             |> Array.exists (Array.exists Order.Print.textBlockIsEmpty >> not)
                         )
-                        |> Array.length = 0
+                        |> Array.length
+                            =
+                            0
                     then
                         scs
                     else
@@ -1015,17 +1007,14 @@ Scenarios: {scenarios}
             || inputFilter.Route.IsSome
             || inputFilter.DoseType.IsSome
 
-        let outputIsEmpty =
-            ctx.Filter.Generics |> Array.isEmpty && ctx.Filter.Indications |> Array.isEmpty
+        let outputIsEmpty = ctx.Filter.Generics |> Array.isEmpty && ctx.Filter.Indications |> Array.isEmpty
 
         match result with
         | Error e when inputHadSelections && outputIsEmpty ->
             // propagate the underlying error when getRules failed
             Error e
         | _ when inputHadSelections && outputIsEmpty ->
-            [
-                ErrorMsg("Geen doseerregels gevonden voor het geselecteerde filter", None)
-            ]
+            [ ErrorMsg("Geen doseerregels gevonden voor het geselecteerde filter", None) ]
             |> Error
         | _ ->
             let prs =
@@ -1169,8 +1158,7 @@ Scenarios: {scenarios}
     /// The totals over the orders of the context's scenarios, for its patient's age and
     /// weight.
     let intake (totalsData: Types.Data.TotalsData[]) (ctx: OrderContext) : Totals =
-        let wght =
-            ctx.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
+        let wght = ctx.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
 
         ctx.Scenarios
         |> Array.map (_.Order >> Order.Dto.toDto)
@@ -1305,8 +1293,7 @@ module Formulary =
     module Prescription = Order.Schedule
 
 
-    let getDoseRules provider filter =
-        Api.getDoseRules provider |> Api.filterDoseRules provider filter
+    let getDoseRules provider filter = Api.getDoseRules provider |> Api.filterDoseRules provider filter
 
 
     let getSolutionRules provider generic form route =

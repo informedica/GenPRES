@@ -35,8 +35,7 @@ let t0 = DateTime(2026, 9, 17, 8, 0, 0, DateTimeKind.Utc)
 
 /// The writes of a request, run on the fixture's clock: the audit of a write with no time of
 /// its own is timed by the request.
-let runWrites (cs: string) (writes: Session.Persist list) =
-    SqlSessions.runWrites cs (fun () -> t0) writes
+let runWrites (cs: string) (writes: Session.Persist list) = SqlSessions.runWrites cs (fun () -> t0) writes
 
 
 /// The rows a presented Launch and its callback leave behind; the writer that returns them
@@ -80,8 +79,7 @@ let insertOutcome (cs: string) (nonce: string) (outcome: string) (attempt: strin
 let patient =
     Informedica.GenPRES.Server.Tests.StubAdapterTests.SessionStubTests.parsePatient StubPatientData.patient
 
-let patientJson =
-    patient |> Informedica.GenForm.Lib.Patient.Dto.toDto |> Canonical.serialize
+let patientJson = patient |> Informedica.GenForm.Lib.Patient.Dto.toDto |> Canonical.serialize
 
 
 /// The rows an open leaves behind; the writer that returns them from the machine's writes is
@@ -351,23 +349,14 @@ let sessionTests =
 
             test "the endings that are acts, and an acknowledged one told no more" {
                 withSessions (fun cs ->
-                    for sid, ending in
-                        [
-                            "s-1", "wrong-pin-limit"
-                            "s-2", "unreadable"
-                            "s-3", "closed"
-                        ] do
+                    for sid, ending in [ "s-1", "wrong-pin-limit"; "s-2", "unreadable"; "s-3", "closed" ] do
                         insertSession cs sid (Some $"user-%s{sid}") "prescriber"
                         insertOpenedWith cs sid None 1 (Some patientJson)
 
                         insertRow
                             cs
                             "insert into session_ending (session_id, ending, at) values ($sid, $e, $at)"
-                            [
-                                "$sid", box sid
-                                "$e", box ending
-                                "$at", box (SqlSessions.ms t0)
-                            ]
+                            [ "$sid", box sid; "$e", box ending; "$at", box (SqlSessions.ms t0) ]
 
                     insertRow
                         cs
@@ -662,12 +651,7 @@ let writerTests =
                     let session = sessionOf "s-1" "prescriber" None None
 
                     // the second write names a Session that was never opened
-                    runWrites
-                        cs
-                        [
-                            Session.OpenSession("s-1", session)
-                            Session.RecordSeen("s-9", t0)
-                        ]
+                    runWrites cs [ Session.OpenSession("s-1", session); Session.RecordSeen("s-9", t0) ]
                     |> function
                         | Session.StoreOutcome.Failed _ -> ()
                         | other -> failtest $"expected Failed, got %A{other}"
@@ -681,27 +665,14 @@ let writerTests =
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
 
                     // the Session opened on the version it signed, which the rows name by id
-                    let session =
-                        sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable v1))
+                    let session = sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable v1))
 
-                    runWrites
-                        cs
-                        [
-                            Session.OpenSession("s-1", session)
-                            Session.WriteVersion v1
-                        ]
+                    runWrites cs [ Session.OpenSession("s-1", session); Session.WriteVersion v1 ]
                     |> Expect.equal "the first lands" Session.StoreOutcome.Written
 
                     let rival = { v1 with Id = "plan-rival" }
 
-                    match
-                        runWrites
-                            cs
-                            [
-                                Session.WriteVersion rival
-                                Session.RecordSeen("s-1", t0)
-                            ]
-                    with
+                    match runWrites cs [ Session.WriteVersion rival; Session.RecordSeen("s-1", t0) ] with
                     | Session.StoreOutcome.Conflict head ->
                         head |> StoredVersion.id |> Expect.equal "the row that won" v1.Id
                     | other -> failtest $"expected Conflict, got %A{other}"
@@ -755,8 +726,7 @@ let writerTests =
 
                     use conn = connect cs
 
-                    use cmd =
-                        SqlSessions.command conn null "select json_version, patient from session_opened_with" []
+                    use cmd = SqlSessions.command conn null "select json_version, patient from session_opened_with" []
 
                     use r = cmd.ExecuteReader()
                     r.Read() |> Expect.isTrue "the row is there"
@@ -790,8 +760,7 @@ let sliceTests =
 
                     // the Session opened on the version that was signed, which the rows name
                     // by its id alone
-                    let session =
-                        sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable v1))
+                    let session = sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable v1))
 
                     runWrites
                         cs
@@ -860,8 +829,7 @@ let sliceTests =
 
                     runWrites cs [ Session.RecordLaunch launch ] |> ignore
 
-                    let held =
-                        { emptyState with Launches = emptyState.Launches |> Map.add "n-1" launch }
+                    let held = { emptyState with Launches = emptyState.Launches |> Map.add "n-1" launch }
 
                     use conn = connect cs
                     let _, warn = warnings ()
@@ -893,8 +861,7 @@ let sliceTests =
                     |> ignore
 
                     // the state of the server that opened it, which still holds it
-                    let held =
-                        { emptyState with Sessions = emptyState.Sessions |> Map.add "s-1" session }
+                    let held = { emptyState with Sessions = emptyState.Sessions |> Map.add "s-1" session }
 
                     // another server ends it
                     runWrites
@@ -1118,8 +1085,7 @@ let raceTests =
         ]
 
 
-let credentialOf pin =
-    Credential.withPin (fun n -> Array.init n byte) pin
+let credentialOf pin = Credential.withPin (fun n -> Array.init n byte) pin
 
 
 let pendingOf userId mac : Session.PendingCode =
@@ -1375,8 +1341,7 @@ let credentialLoadTests =
 
                     // and a server that still held it does not continue it either: an attempt
                     // another server dropped is gone, whatever this one has in memory
-                    let held =
-                        { emptyState with Enrolments = Map.ofList [ "a-1", enrolmentOf "a-1" "no-pin" ] }
+                    let held = { emptyState with Enrolments = Map.ofList [ "a-1", enrolmentOf "a-1" "no-pin" ] }
 
                     SqlSessions.withEnrolment conn t0 "a-1" held
                     |> fun s ->
@@ -1420,18 +1385,13 @@ let credentialLoadTests =
                     SqlSessions.seed cs t0 seeded
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
-                    let rows () =
-                        count cs "select count(*) from credential_event"
+                    let rows () = count cs "select count(*) from credential_event"
 
                     let first = rows ()
                     first |> Expect.equal "one row per seeded login" (int64 seeded.Count)
 
                     // the User changes their PIN, and the server is started again
-                    runWrites
-                        cs
-                        [
-                            Session.WriteCredential("prescriber", "pin-set", credentialOf "9999", t0)
-                        ]
+                    runWrites cs [ Session.WriteCredential("prescriber", "pin-set", credentialOf "9999", t0) ]
                     |> ignore
 
                     SqlSessions.seed cs t0 seeded |> ignore
@@ -1439,11 +1399,7 @@ let credentialLoadTests =
 
                     // the PIN was set while this start was seeding: the seed asks and writes in
                     // one statement, so the demo PIN cannot land after it and become the newest
-                    runWrites
-                        cs
-                        [
-                            Session.WriteCredential("no-pin", "pin-set", credentialOf "5555", t0)
-                        ]
+                    runWrites cs [ Session.WriteCredential("no-pin", "pin-set", credentialOf "5555", t0) ]
                     |> ignore
 
                     SqlSessions.seed cs t0 seeded |> ignore
@@ -1743,8 +1699,7 @@ let auditRows (cs: string) =
         (fun r -> r.GetString 0, r.GetString 1, SqlSessions.textOrNull r 2, SqlSessions.textOrNull r 3, r.GetInt64 4)
 
 
-let actions (cs: string) =
-    auditRows cs |> List.map (fun (action, _, _, _, _) -> action)
+let actions (cs: string) = auditRows cs |> List.map (fun (action, _, _, _, _) -> action)
 
 
 /// The audit of one request, as the store derives it.
@@ -1795,14 +1750,9 @@ let auditTests =
                 |> List.map (fun e -> e.Action, e.Outcome, e.Detail)
                 |> Expect.equal
                     "the refusal, by the word the store holds it under"
-                    [
-                        "launch", "refused", Some """{"refusal":"wrong-patient"}"""
-                    ]
+                    [ "launch", "refused", Some """{"refusal":"wrong-patient"}""" ]
 
-                audited
-                    [
-                        Session.RecordLaunchOutcome("n-1", LaunchResult.Enrolling "a-1", t0)
-                    ]
+                audited [ Session.RecordLaunchOutcome("n-1", LaunchResult.Enrolling "a-1", t0) ]
                 |> Expect.equal "the launch suspended into enrolment" [ "enrolling", "ok" ]
             }
 
@@ -1862,9 +1812,7 @@ let auditTests =
                 |> List.map (fun e -> e.Action, e.SessionId, e.Detail)
                 |> Expect.equal
                     "the ending, once"
-                    [
-                        "session-ended", Some "s-1", Some """{"ending":"wrong-pin-limit"}"""
-                    ]
+                    [ "session-ended", Some "s-1", Some """{"ending":"wrong-pin-limit"}""" ]
             }
 
             test "a challenge issued and a notice told are acts of their own" {
@@ -1924,12 +1872,7 @@ let auditTests =
                     // the Session the second write names was never opened, so its row is refused
                     // and the whole transaction rolls back, the audit with it
                     let outcome =
-                        runWrites
-                            cs
-                            [
-                                Session.RecordLaunch(launchOf "n-1")
-                                Session.RecordSeen("s-gone", t0)
-                            ]
+                        runWrites cs [ Session.RecordLaunch(launchOf "n-1"); Session.RecordSeen("s-gone", t0) ]
 
                     (outcome = Session.StoreOutcome.Written) |> Expect.isFalse "the request failed"
 

@@ -303,8 +303,7 @@ module Fireworks =
 
                         match answer.message.content |> validator with
                         | Ok _ ->
-                            let validationResult =
-                                answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
+                            let validationResult = answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
 
                             input |> Chat.print
                             return Ok validationResult
@@ -379,8 +378,7 @@ module Fireworks =
 
                         match answer.message.content |> validator with
                         | Ok _ ->
-                            let validationResult =
-                                answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
+                            let validationResult = answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
 
                             return Ok(validationResult, input)
                         | Error err ->
@@ -433,10 +431,7 @@ module Fireworks =
             | Ok response ->
                 let response = response.Response.choices |> List.last |> _.message
 
-                [
-                    message
-                    Message.okMessage response.role response.content
-                ]
+                [ message; Message.okMessage response.role response.content ]
                 |> List.append messages
             | Error s ->
                 printfn $"oops: {s}"

@@ -173,8 +173,7 @@ module Array =
 
 
         // Test prepend
-        let testPrepend () =
-            test <@ [| 1; 2 |] |> prepend [| 3; 4 |] = [| 1; 2; 3; 4 |] @>
+        let testPrepend () = test <@ [| 1; 2 |] |> prepend [| 3; 4 |] = [| 1; 2; 3; 4 |] @>
 
 
         // Test pickArray
@@ -189,10 +188,8 @@ module Array =
         let testArrayFilter () =
             test
                 <@
-                    arrayFilter (fun x -> x % 2 = 0) [| [| 1; 3 |]; [| 4; 5; 6 |]; [| 7; 8; 9 |] |] = [|
-                        [| 4; 5; 6 |]
-                        [| 7; 8; 9 |]
-                    |]
+                    arrayFilter (fun x -> x % 2 = 0) [| [| 1; 3 |]; [| 4; 5; 6 |]; [| 7; 8; 9 |] |] =
+                        [| [| 4; 5; 6 |]; [| 7; 8; 9 |] |]
                 @>
 
             test <@ arrayFilter (fun x -> x % 2 = 0) [| [| 1; 3 |]; [| 5; 7 |]; [| 9; 11 |] |] = [||] @>
@@ -203,12 +200,8 @@ module Array =
         let testCollectArrays () =
             test
                 <@
-                    collectArrays (fun x -> x % 2 = 0) [| [| 1; 2; 3 |]; [| 4; 5; 6 |]; [| 7; 8; 9 |] |] = [|
-                        2
-                        4
-                        6
-                        8
-                    |]
+                    collectArrays (fun x -> x % 2 = 0) [| [| 1; 2; 3 |]; [| 4; 5; 6 |]; [| 7; 8; 9 |] |] =
+                        [| 2; 4; 6; 8 |]
                 @>
 
             test <@ collectArrays (fun x -> x % 2 = 0) [| [| 1; 2; 3 |]; [| 5; 7 |]; [| 9; 11 |] |] = [| 2 |] @>

@@ -23,7 +23,7 @@ module Types =
         | OpMinus
 
 
-    type CountUnit = Times of BigRational
+    type CountUnit = | Times of BigRational
 
     type MassUnit =
         | KiloGram of BigRational
@@ -72,7 +72,7 @@ module Types =
         | HeightMeter of BigRational
         | HeightCentiMeter of BigRational
 
-    type BSAUnit = M2 of BigRational
+    type BSAUnit = | M2 of BigRational
 
     type EnergyUnit =
         | Calorie of BigRational

@@ -61,54 +61,54 @@ module Types =
 
 
     /// Type that represents a time duration
-    type Time = Time of OrderVariable
+    type Time = | Time of OrderVariable
 
 
     /// Type that represents a count
-    type Count = Count of OrderVariable
+    type Count = | Count of OrderVariable
 
 
     /// Type that represents a frequency
-    type Frequency = Frequency of OrderVariable
+    type Frequency = | Frequency of OrderVariable
 
 
     /// Type that represents a quantity
-    type Quantity = Quantity of OrderVariable
+    type Quantity = | Quantity of OrderVariable
 
 
     /// Type that represents a quantity per time unit
-    type PerTime = PerTime of OrderVariable
+    type PerTime = | PerTime of OrderVariable
 
     /// Type that represents a rate
-    type Rate = Rate of OrderVariable
+    type Rate = | Rate of OrderVariable
 
 
     /// Type that represents a total quantity
-    type Total = Total of OrderVariable
+    type Total = | Total of OrderVariable
 
 
     /// Type that represents a concentration
-    type Concentration = Concentration of OrderVariable
+    type Concentration = | Concentration of OrderVariable
 
 
     /// Type that represents an adjusted quantity for dose calculations
-    type QuantityAdjust = QuantityAdjust of OrderVariable
+    type QuantityAdjust = | QuantityAdjust of OrderVariable
 
 
     /// Type that represents an adjusted quantity per time for dose calculations
-    type PerTimeAdjust = PerTimeAdjust of OrderVariable
+    type PerTimeAdjust = | PerTimeAdjust of OrderVariable
 
 
     /// Type that represents an adjusted rate for dose calculations
-    type RateAdjust = RateAdjust of OrderVariable
+    type RateAdjust = | RateAdjust of OrderVariable
 
 
     /// Type that represents an adjusted total for dose calculations
-    type TotalAdjust = TotalAdjust of OrderVariable
+    type TotalAdjust = | TotalAdjust of OrderVariable
 
 
     /// An Id is represented by a string
-    type Id = Id of string
+    type Id = | Id of string
 
 
     /// <summary>

@@ -96,8 +96,7 @@ module Patient =
             ]
 
         // Helper pair (to list of Age / from list of Age) for the get/set below
-        let ageAgeList =
-            Option.map ageFromValueUnit >> (Option.defaultValue []), (ageToValueUnit >> Some)
+        let ageAgeList = Option.map ageFromValueUnit >> (Option.defaultValue []), (ageToValueUnit >> Some)
 
 
         // Helper pair for the get/set below
@@ -192,15 +191,13 @@ module Patient =
     let getGestAge (p: Patient) = p.GestAge |> fst gestPMAgeList
 
 
-    let setGestAge ags (p: Patient) =
-        { p with GestAge = ags |> snd gestPMAgeList }
+    let setGestAge ags (p: Patient) = { p with GestAge = ags |> snd gestPMAgeList }
 
 
     let getPMAge (p: Patient) = p.PMAge |> fst gestPMAgeList
 
 
-    let setPMAge ags (p: Patient) =
-        { p with PMAge = ags |> snd gestPMAgeList }
+    let setPMAge ags (p: Patient) = { p with PMAge = ags |> snd gestPMAgeList }
 
 
     let getDepartment (p: Patient) = p.Department

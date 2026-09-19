@@ -53,8 +53,7 @@ module Logging =
         }
 
     /// Log a message with a specific level
-    let logWith level (logger: Logger) (msg: IMessage) =
-        msg |> createMessage level |> logger.Log
+    let logWith level (logger: Logger) (msg: IMessage) = msg |> createMessage level |> logger.Log
 
 
     /// Log an informative message.
@@ -255,8 +254,7 @@ module AgentLogging =
         }
 
         interface IDisposable with
-            member this.Dispose() =
-                this.DisposeWorkAsync() |> Async.RunSynchronously |> ignore
+            member this.Dispose() = this.DisposeWorkAsync() |> Async.RunSynchronously |> ignore
 
         interface IAsyncDisposable with
             member this.DisposeAsync() =
@@ -383,8 +381,7 @@ module AgentLogging =
 
 
         /// Create a configuration with a custom flush threshold
-        let withFlushThreshold (threshold: int) (config: AgentLoggerConfig) =
-            { config with FlushThreshold = threshold }
+        let withFlushThreshold (threshold: int) (config: AgentLoggerConfig) = { config with FlushThreshold = threshold }
 
 
         /// Create a configuration with a custom minimum flush interval
@@ -703,20 +700,16 @@ module AgentLogging =
 
 
     /// Create a console logger with default settings
-    let createConsole () =
-        createAgentLogger AgentLoggerDefaults.config
+    let createConsole () = createAgentLogger AgentLoggerDefaults.config
 
     /// Create a debug logger with verbose settings
-    let createDebug () =
-        createAgentLogger AgentLoggerDefaults.debug
+    let createDebug () = createAgentLogger AgentLoggerDefaults.debug
 
     /// Create a production logger with minimal output
-    let createProduction () =
-        createAgentLogger AgentLoggerDefaults.production
+    let createProduction () = createAgentLogger AgentLoggerDefaults.production
 
     /// Create a high-performance logger for heavy workloads
-    let createHighPerformance () =
-        createAgentLogger AgentLoggerDefaults.highPerformance
+    let createHighPerformance () = createAgentLogger AgentLoggerDefaults.highPerformance
 
     /// Create a custom logger with the specified formatter
     let createWithFormatter (formatter: IMessage -> string) =

@@ -132,8 +132,7 @@ let tests =
                         PatientCategory.empty
                     ]
 
-                let rows pat =
-                    categories |> List.map (PatientCategory.filterPatient pat)
+                let rows pat = categories |> List.map (PatientCategory.filterPatient pat)
 
                 stub
                 |> ServerApi.Mappers.mapFromSharedPatient

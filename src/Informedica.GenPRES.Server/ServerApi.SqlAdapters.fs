@@ -174,8 +174,7 @@ module SqlDatabase =
 
 
     /// The JSON this release writes for an order plan version.
-    let toJson (v: Types.OrderPlanVersion) =
-        v |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
+    let toJson (v: Types.OrderPlanVersion) = v |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
 
 
     /// An `order_plan` row as read, before its JSON is parsed.
@@ -299,8 +298,7 @@ module SqlDatabase =
             values ($id, $no, $patient, $base, $user, $name, $at, $verified, $json_version, $plan)
             """
 
-        let add (name: string) (value: obj) =
-            cmd.Parameters.AddWithValue(name, value) |> ignore
+        let add (name: string) (value: obj) = cmd.Parameters.AddWithValue(name, value) |> ignore
 
         add "$id" v.Id
         add "$no" v.No
@@ -409,11 +407,9 @@ module SqlSessions =
     module GenForm = Informedica.GenForm.Lib.Types
 
     /// Unix milliseconds, the form the columns hold, and back.
-    let ms (at: DateTime) =
-        DateTimeOffset(at, TimeSpan.Zero).ToUnixTimeMilliseconds()
+    let ms (at: DateTime) = DateTimeOffset(at, TimeSpan.Zero).ToUnixTimeMilliseconds()
 
-    let at (ms: int64) =
-        DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime
+    let at (ms: int64) = DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime
 
 
     /// The refusal a stored word names; the word is the one the client reads off the address.
@@ -471,8 +467,7 @@ module SqlSessions =
         ]
 
 
-    let textOrNull (r: SqliteDataReader) (i: int) =
-        if r.IsDBNull i then None else Some(r.GetString i)
+    let textOrNull (r: SqliteDataReader) (i: int) = if r.IsDBNull i then None else Some(r.GetString i)
 
 
     /// <summary>
@@ -839,11 +834,7 @@ module SqlSessions =
                 conn
                 tx
                 "insert into session_ending (session_id, ending, at) values ($sid, $e, $at)"
-                [
-                    "$sid", box sid
-                    "$e", box (endingWord ending)
-                    "$at", box (ms at)
-                ]
+                [ "$sid", box sid; "$e", box (endingWord ending); "$at", box (ms at) ]
         | Session.AcknowledgeEnding(sid, at) ->
             exec
                 conn
@@ -897,11 +888,7 @@ module SqlSessions =
                   and not exists (select 1 from code_spent s where s.code_id = c.id)
                 order by c.id desc limit 1
                 """
-                [
-                    "$u", box userId
-                    "$mac", box codeMac
-                    "$at", box (ms at)
-                ]
+                [ "$u", box userId; "$mac", box codeMac; "$at", box (ms at) ]
         | Session.SpendCode(userId, codeMac, at) ->
             exec
                 conn
@@ -913,11 +900,7 @@ module SqlSessions =
                   and not exists (select 1 from code_spent s where s.code_id = c.id)
                 order by c.id desc limit 1
                 """
-                [
-                    "$u", box userId
-                    "$mac", box codeMac
-                    "$at", box (ms at)
-                ]
+                [ "$u", box userId; "$mac", box codeMac; "$at", box (ms at) ]
         | Session.WriteEnrolment(e, at) ->
             let (PublicKey key) = e.PublicKey
 
@@ -1056,8 +1039,7 @@ module SqlSessions =
 
     /// A string as a JSON literal, quoted and escaped. The detail of an entry is JSON, and a
     /// patient id or an attempt is whatever the launch carried, so nothing is pasted in raw.
-    let jsonText (text: string) =
-        Newtonsoft.Json.JsonConvert.ToString text
+    let jsonText (text: string) = Newtonsoft.Json.JsonConvert.ToString text
 
 
     /// <summary>
@@ -1895,5 +1877,4 @@ module SqlSessions =
 
 
     /// The session port over the state in the database.
-    let makeSessionPort warn cs now =
-        StubDatabase.makeSessionPortWith (store warn cs now)
+    let makeSessionPort warn cs now = StubDatabase.makeSessionPortWith (store warn cs now)

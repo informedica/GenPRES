@@ -19,22 +19,7 @@ module BST001T =
     /// <summary>
     /// Position of the fields in the record
     /// </summary>
-    let posl =
-        [
-            0004
-            0001
-            0020
-            0003
-            0010
-            0050
-            0008
-            0002
-            0001
-            0004
-            0002
-            0006
-            0017
-        ]
+    let posl = [ 0004; 0001; 0020; 0003; 0010; 0050; 0008; 0002; 0001; 0004; 0002; 0006; 0017 ]
 
 
     /// Tabel: BST001T: Bestand 001 Rubrieken

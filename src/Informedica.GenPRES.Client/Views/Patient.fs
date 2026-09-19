@@ -91,10 +91,7 @@ module Patient =
             match pat with
             | Some p when p |> Patient.validate |> Result.isOk -> [ p |> toString ]
             | Some p -> [ p |> toString; missing ]
-            | None ->
-                [
-                    term "Voer patient gegevens in" Terms.``Patient enter patient data``
-                ]
+            | None -> [ term "Voer patient gegevens in" Terms.``Patient enter patient data`` ]
             |> List.filter (fun s -> s <> "")
             |> String.concat "\n\n"
             |> Markdown.markdown.children
@@ -111,8 +108,7 @@ module Patient =
         let patient = envPatient.Draft
         let updatePatient = envPatient.UpdatePatient
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         // the patient is the subject of every workbench and plan request: while one is under
         // way the panel is greyed, so that the patient cannot change under it

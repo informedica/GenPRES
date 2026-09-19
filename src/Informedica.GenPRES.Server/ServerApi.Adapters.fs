@@ -84,8 +84,7 @@ module Adapters =
         (newId: unit -> string)
         : OrderPlanPort
         =
-        let recalc plan =
-            plan |> OrderPlan.recalculate (provider.GetTotals())
+        let recalc plan = plan |> OrderPlan.recalculate (provider.GetTotals())
 
         let refused r =
             r |> Result.mapError (OrderPlanMapper.words ruleSets >> Array.singleton)
@@ -251,8 +250,7 @@ module Adapters =
         | None -> Ok()
         | Some value ->
             try
-                let cs =
-                    SqlDatabase.connectionString (Informedica.Utils.Lib.AppPath.rootPath ()) value
+                let cs = SqlDatabase.connectionString (Informedica.Utils.Lib.AppPath.rootPath ()) value
 
                 SqlSchema.apply cs |> ignore
 
@@ -354,8 +352,7 @@ module Adapters =
                     match store with
                     | None -> StubDatabase.makeSessionPort
                     | Some value ->
-                        let cs =
-                            SqlDatabase.connectionString (Informedica.Utils.Lib.AppPath.rootPath ()) value
+                        let cs = SqlDatabase.connectionString (Informedica.Utils.Lib.AppPath.rootPath ()) value
 
                         SqlSessions.makeSessionPort
                             (fun msg ->

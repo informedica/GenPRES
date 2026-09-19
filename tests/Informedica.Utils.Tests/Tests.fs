@@ -807,8 +807,7 @@ module Tests =
             // which does NOT fit int64 and therefore must spill to the big tier.
             let twoPow63 = -(bigint Int64.MinValue)
 
-            let minV () =
-                BigRational.FromInt64Fraction(Int64.MinValue, 1L)
+            let minV () = BigRational.FromInt64Fraction(Int64.MinValue, 1L)
 
             testList
                 "RationalX edge cases"
@@ -1025,8 +1024,7 @@ module Tests =
 
         let inline tryParse<'T> dt (p: string -> 'T option) (s: string) = s |> Csv.parse true dt p |> unbox<'T>
 
-        let parseString (s: string) =
-            s |> Csv.parse false Csv.StringData Some |> unbox<string>
+        let parseString (s: string) = s |> Csv.parse false Csv.StringData Some |> unbox<string>
 
         let parserTests =
             testList
@@ -1175,15 +1173,7 @@ module Tests =
                 ]
 
         [<Tests>]
-        let tests =
-            testList
-                "Csv"
-                [
-                    parserTests
-                    tryCastTests
-                    tryGetColumnTests
-                    parseCsvTests
-                ]
+        let tests = testList "Csv" [ parserTests; tryCastTests; tryGetColumnTests; parseCsvTests ]
 
 
     module RingBufferTests =
@@ -1576,13 +1566,7 @@ module Tests =
         let allTests =
             testList
                 "Informedica.Utils.Lib RingBuffer Tests"
-                [
-                    basicTests
-                    edgeTests
-                    propertyTests
-                    performanceTests
-                    orderingTests
-                ]
+                [ basicTests; edgeTests; propertyTests; performanceTests; orderingTests ]
 
 
     module JsonSecurity =
@@ -1800,8 +1784,7 @@ module Tests =
                 Max: int option
             }
 
-        let min_: Lens<MM, int option> =
-            (fun mm -> mm.Min), (fun v mm -> { mm with Min = v })
+        let min_: Lens<MM, int option> = (fun mm -> mm.Min), (fun v mm -> { mm with Min = v })
 
         type Limit =
             | Inclusive of int
@@ -1913,8 +1896,7 @@ module Tests =
                     test "3-level Lens.composeLens + Lens.composePrism: matching case" {
                         let dr = { NormWeight = Inclusive 3, "mg" }
 
-                        let inclMinNormWeight_ =
-                            Lens.composePrism (Lens.composeLens normWeight_ fst_) inclusive_
+                        let inclMinNormWeight_ = Lens.composePrism (Lens.composeLens normWeight_ fst_) inclusive_
 
                         Optic.getOpt inclMinNormWeight_ dr |> equals (Some 3) "get through 3 levels"
 
@@ -1925,8 +1907,7 @@ module Tests =
                     test "3-level Lens.composeLens + Lens.composePrism: non-matching case is a no-op" {
                         let dr = { NormWeight = Exclusive 3, "mg" }
 
-                        let inclMinNormWeight_ =
-                            Lens.composePrism (Lens.composeLens normWeight_ fst_) inclusive_
+                        let inclMinNormWeight_ = Lens.composePrism (Lens.composeLens normWeight_ fst_) inclusive_
 
                         Optic.getOpt inclMinNormWeight_ dr |> equals None "None on non-matching case"
                         Optic.set inclMinNormWeight_ 99 dr |> equals dr "set is a no-op"

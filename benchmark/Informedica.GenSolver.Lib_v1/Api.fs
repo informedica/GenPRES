@@ -63,8 +63,7 @@ module Api =
     /// Make a list of `EQD`
     /// to contain only positive
     /// values as solutions
-    let nonZeroNegative eqs =
-        eqs |> List.map Equation.nonZeroOrNegative
+    let nonZeroNegative eqs = eqs |> List.map Equation.nonZeroOrNegative
 
 
     let applyConstraints onlyMinIncrMax log eqs cs =

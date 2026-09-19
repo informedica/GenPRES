@@ -7,12 +7,10 @@ module Validus =
     open Validus
 
 
-    let map f validator =
-        fun s x -> validator s x |> Result.map f
+    let map f validator = fun s x -> validator s x |> Result.map f
 
 
-    let mapOpt f validator =
-        fun s x -> validator s x |> Result.map (Option.map f)
+    let mapOpt f validator = fun s x -> validator s x |> Result.map (Option.map f)
 
 
     module Validators =

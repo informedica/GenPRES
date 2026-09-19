@@ -223,8 +223,7 @@ module SessionGatePolicyTests =
                 }
 
                 test "NoBrowserIdentity with a retry offers it" {
-                    let gate =
-                        gateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launch, key)))
+                    let gate = gateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launch, key)))
 
                     gate.Actions |> Expect.equal "retry" [ Action.Retry ]
                     gate.Body |> Expect.stringContains "try again" "Try again"
@@ -279,8 +278,7 @@ module SessionGatePolicyTests =
                             }
 
                         test "Refused NoBrowserIdentity with a retry" {
-                            let gate =
-                                namedGateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launch, key)))
+                            let gate = namedGateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launch, key)))
 
                             gate.Body
                             |> Expect.equal "body" "<Session Refusal No Browser Identity> <Session Retry>"

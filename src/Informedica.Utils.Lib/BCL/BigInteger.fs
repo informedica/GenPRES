@@ -18,14 +18,12 @@ module BigInteger =
 
     /// Calculate the greatest common divisor of a sequence of `bigint`s
     /// Example: `gcdSeq [2I; 4I; 6I]` returns `2I`
-    let gcdSeq (xs: bigint seq) =
-        Euclid.GreatestCommonDivisor(xs |> Array.ofSeq)
+    let gcdSeq (xs: bigint seq) = Euclid.GreatestCommonDivisor(xs |> Array.ofSeq)
 
 
     /// Calculate the least common multiple of a sequence of `bigint`s
     /// Example: `lcmSeq [2I; 4I; 6I]` returns `12I`
-    let lcmSeq (xs: bigint seq) =
-        Euclid.LeastCommonMultiple(xs |> Array.ofSeq)
+    let lcmSeq (xs: bigint seq) = Euclid.LeastCommonMultiple(xs |> Array.ofSeq)
 
 
     /// Calculate the greatest common divisor of two `bigint`s

@@ -361,8 +361,7 @@ module Medication =
                         | Some un -> dl <- { dl with DoseUnit = un }
                         | None -> errors <- $"Unknown dose unit: {valueStr}" :: errors
                     else
-                        let labelMatch =
-                            fieldParsers |> List.tryFind (fun (label, _, _) -> label = fullLabel)
+                        let labelMatch = fieldParsers |> List.tryFind (fun (label, _, _) -> label = fullLabel)
 
                         match labelMatch with
                         | Some(label, parser, setter) ->
@@ -391,8 +390,7 @@ module Medication =
                 Ok None
             else
                 // Match labeled fields: [label] value
-                let labeledFieldRegex =
-                    System.Text.RegularExpressions.Regex(@"\[([^\]]+)\]\s*([^[]*)")
+                let labeledFieldRegex = System.Text.RegularExpressions.Regex(@"\[([^\]]+)\]\s*([^[]*)")
 
                 let matches = labeledFieldRegex.Matches(s)
 
@@ -751,8 +749,7 @@ module Medication =
     module Limit = Limit
 
 
-    let private tryHead m =
-        Array.map m >> Array.tryHead >> Option.defaultValue ""
+    let private tryHead m = Array.map m >> Array.tryHead >> Option.defaultValue ""
 
 
     let valueUnitOptToString =
@@ -958,8 +955,7 @@ module Medication =
     let toString (med: Medication) =
         let emptyStr = ""
 
-        let optToStr f opt =
-            opt |> Option.map f |> Option.defaultValue emptyStr
+        let optToStr f opt = opt |> Option.map f |> Option.defaultValue emptyStr
 
         let mmToStr =
             MinMax.toString
@@ -1548,10 +1544,7 @@ module Medication =
             cmpDto
 
         /// Create component DTOs from medication order template components
-        let createComponentDtos (med: Medication) =
-            [
-                for pc in med.Components -> createSingleComponentDto med pc
-            ]
+        let createComponentDtos (med: Medication) = [ for pc in med.Components -> createSingleComponentDto med pc ]
 
         /// Set basic orderable-level constraints
         let setOrderableConstraints (orbDto: Order.Orderable.Dto.Dto) (med: Medication) =

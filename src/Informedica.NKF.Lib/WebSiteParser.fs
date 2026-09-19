@@ -72,8 +72,7 @@ module WebSiteParser =
         |> Seq.head
 
 
-    let getItemType desc v d =
-        d |> desc true (HtmlNode.hasAttribute "itemType" v)
+    let getItemType desc v d = d |> desc true (HtmlNode.hasAttribute "itemType" v)
 
 
     let getItemTypeFromDoc = getItemType HtmlDocument.descendants
@@ -82,12 +81,10 @@ module WebSiteParser =
     let getItemTypeFromNode = getItemType HtmlNode.descendants
 
 
-    let getIndications d =
-        d |> getItemTypeFromDoc "https://schema.org/MedicalIndication"
+    let getIndications d = d |> getItemTypeFromDoc "https://schema.org/MedicalIndication"
 
 
-    let doseSchedule n =
-        n |> getItemTypeFromNode "http://schema.org/DoseSchedule"
+    let doseSchedule n = n |> getItemTypeFromNode "http://schema.org/DoseSchedule"
 
 
     let getItemProp v n =
@@ -297,8 +294,7 @@ module WebSiteParser =
             |]
 
 
-    let cacheFormulary (ds: Drug.Drug[]) =
-        ds |> Json.serialize |> File.writeTextToFile (File.cachePath ())
+    let cacheFormulary (ds: Drug.Drug[]) = ds |> Json.serialize |> File.writeTextToFile (File.cachePath ())
 
 
     let _getFormulary () =

@@ -21,8 +21,7 @@ module Result =
             test <@ actual = expected @>
 
         // Test get error
-        let testGetError () =
-            raises<System.Exception> <@ Error "error" |> get @>
+        let testGetError () = raises<System.Exception> <@ Error "error" |> get @>
 
         // Test all
         let testAll () =

@@ -22,8 +22,7 @@ let ctx: OrderContext =
         Patient = patient
     }
 
-let plan: OrderPlan =
-    { Shared.Models.OrderPlan.create patient [| ctx |] with Filtered = [| "c-1" |] }
+let plan: OrderPlan = { Shared.Models.OrderPlan.create patient [| ctx |] with Filtered = [| "c-1" |] }
 
 
 let answering (seen: string list ref) name (p: Informedica.GenOrder.Lib.Types.OrderPlan) =

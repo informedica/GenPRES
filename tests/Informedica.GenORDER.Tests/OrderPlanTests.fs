@@ -80,8 +80,7 @@ module Fixtures =
         PlanContext.create id (OrderCategory.Nutrition category) (context (orderIds |> Array.map scenario))
 
 
-    let plan contexts =
-        OrderPlan.create Patient.patient contexts
+    let plan contexts = OrderPlan.create Patient.patient contexts
 
 
     let ids (p: OrderPlan) =
@@ -133,11 +132,7 @@ let tests =
             }
 
             test "the nutrition contexts are the ones with a nutrition category" {
-                plan
-                    [|
-                        drug "c-d" "o-d"
-                        nutrition "c-t" NutritionCategory.TPN [||]
-                    |]
+                plan [| drug "c-d" "o-d"; nutrition "c-t" NutritionCategory.TPN [||] |]
                 |> OrderPlan.nutritionContexts
                 |> Array.map _.Id
                 |> Expect.equal "the tpn" [| "c-t" |]
@@ -183,8 +178,7 @@ let tests =
                         MaxPerTimeAdj = None
                     }
 
-                let child =
-                    { Patient.patient with Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 32N) }
+                let child = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit Units.Weight.kiloGram 32N) }
 
                 let p =
                     { OrderPlan.create child [| drug "c-supp" "o-supp" |] with
@@ -227,12 +221,7 @@ let tests =
             }
 
             test "an evaluated context takes its place, with the id and category the plan gave it" {
-                let p =
-                    plan
-                        [|
-                            drug "c-d" "o-drug"
-                            nutrition "c-1" NutritionCategory.Lipid [||]
-                        |]
+                let p = plan [| drug "c-d" "o-drug"; nutrition "c-1" NutritionCategory.Lipid [||] |]
 
                 let evaluated =
                     { PlanContext.create "" OrderCategory.Drug (context [| scenario "o-lipid" |]) with
@@ -389,11 +378,7 @@ let tests =
                 |> OrderPlan.admits NutritionCategory.EnteralSupplement
                 |> Expect.equal "a supplement under a feeding admitted" (Ok())
 
-                plan
-                    [|
-                        feeding
-                        nutrition "c-s" NutritionCategory.EnteralSupplement [||]
-                    |]
+                plan [| feeding; nutrition "c-s" NutritionCategory.EnteralSupplement [||] |]
                 |> OrderPlan.admits NutritionCategory.EnteralSupplement
                 |> Expect.equal "a second supplement admitted" (Ok())
 
@@ -401,10 +386,7 @@ let tests =
                 |> OrderPlan.admits NutritionCategory.TPN
                 |> Expect.equal "another category admitted" (Ok())
 
-                plan
-                    [|
-                        nutrition "c-e" NutritionCategory.ElectrolyteGlucose [||]
-                    |]
+                plan [| nutrition "c-e" NutritionCategory.ElectrolyteGlucose [||] |]
                 |> OrderPlan.admits NutritionCategory.ElectrolyteGlucose
                 |> Expect.equal "a second electrolyte line admitted" (Ok())
 
@@ -661,8 +643,7 @@ let evaluateTests =
             }
 
             test "an evaluation that fails is the answer, and no intake is computed" {
-                let intake _ =
-                    failtest "no intake on a failed evaluation"
+                let intake _ = failtest "no intake on a failed evaluation"
 
                 let pc = PlanContext.create "c-1" OrderCategory.Drug pcmContext
 
@@ -685,50 +666,37 @@ let evaluateTests =
 /// raises, so a test sees which branch the lookup takes and nothing else.
 type NoRules() =
     interface Resources.IResourceProvider with
-        member _.Get _ =
-            raise (System.NotImplementedException())
+        member _.Get _ = raise (System.NotImplementedException())
 
-        member _.GetData() =
-            raise (System.NotImplementedException())
+        member _.GetData() = raise (System.NotImplementedException())
 
-        member _.GetUnitMappings() =
-            raise (System.NotImplementedException())
+        member _.GetUnitMappings() = raise (System.NotImplementedException())
 
         member _.GetRouteMappings() = [||]
 
-        member _.GetValidForms() =
-            raise (System.NotImplementedException())
+        member _.GetValidForms() = raise (System.NotImplementedException())
 
-        member _.GetFormRoutes() =
-            raise (System.NotImplementedException())
+        member _.GetFormRoutes() = raise (System.NotImplementedException())
 
-        member _.GetFormularyProducts() =
-            raise (System.NotImplementedException())
+        member _.GetFormularyProducts() = raise (System.NotImplementedException())
 
-        member _.GetReconstitution() =
-            raise (System.NotImplementedException())
+        member _.GetReconstitution() = raise (System.NotImplementedException())
 
-        member _.GetParenteralMeds() =
-            raise (System.NotImplementedException())
+        member _.GetParenteralMeds() = raise (System.NotImplementedException())
 
-        member _.GetEnteralFeeding() =
-            raise (System.NotImplementedException())
+        member _.GetEnteralFeeding() = raise (System.NotImplementedException())
 
-        member _.GetProducts() =
-            raise (System.NotImplementedException())
+        member _.GetProducts() = raise (System.NotImplementedException())
 
         member _.GetDoseRules() = [||]
         member _.GetSolutionRules() = [||]
         member _.GetRenalRules() = [||]
 
-        member _.GetTotals() =
-            raise (System.NotImplementedException())
+        member _.GetTotals() = raise (System.NotImplementedException())
 
-        member _.GetGStandProvider() =
-            raise (System.NotImplementedException())
+        member _.GetGStandProvider() = raise (System.NotImplementedException())
 
-        member _.GetResourceInfo() =
-            raise (System.NotImplementedException())
+        member _.GetResourceInfo() = raise (System.NotImplementedException())
 
 
 /// The rules for a patient without a department: the lookup runs on the context as held,
@@ -766,8 +734,7 @@ let rulesTests =
             }
 
             test "without a weight and a height the context is made afresh" {
-                let held =
-                    { EvaluateFixtures.pcmContext with Patient = { EvaluateFixtures.child with Weight = None } }
+                let held = { EvaluateFixtures.pcmContext with Patient = { EvaluateFixtures.child with Weight = None } }
 
                 let ctx, rules = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
 

@@ -32,8 +32,7 @@ module Tests =
                     [
 
                         test "no incr and no vals returns NonNavigable" {
-                            let ovar =
-                                Order.OrderVariable.create "test" emptyVar emptyVar emptyVar None IsNormal
+                            let ovar = Order.OrderVariable.create "test" emptyVar emptyVar emptyVar None IsNormal
 
                             match ovar with
                             | Order.OrderVariable.NonNavigable -> ()
@@ -44,8 +43,7 @@ module Tests =
                             let varWithMin =
                                 Order.Variable.create "test" false (vu [| 0m |] |> Some) false None None false None
 
-                            let ovar =
-                                Order.OrderVariable.create "test" emptyVar emptyVar varWithMin None IsNormal
+                            let ovar = Order.OrderVariable.create "test" emptyVar emptyVar varWithMin None IsNormal
 
                             match ovar with
                             | Order.OrderVariable.NonNavigable -> ()
@@ -64,8 +62,7 @@ module Tests =
                                     false
                                     (vu [| 1m; 2m; 3m |] |> Some)
 
-                            let ovar =
-                                Order.OrderVariable.create "test" emptyVar emptyVar varWithVals None IsNormal
+                            let ovar = Order.OrderVariable.create "test" emptyVar emptyVar varWithVals None IsNormal
 
                             match ovar with
                             | Order.OrderVariable.Selectable -> ()
@@ -76,8 +73,7 @@ module Tests =
                             let varWithVals =
                                 Order.Variable.create "test" false None false None None false (vu [| 5m; 10m |] |> Some)
 
-                            let ovar =
-                                Order.OrderVariable.create "test" emptyVar emptyVar varWithVals None IsNormal
+                            let ovar = Order.OrderVariable.create "test" emptyVar emptyVar varWithVals None IsNormal
 
                             match ovar with
                             | Order.OrderVariable.Selectable -> ()
@@ -103,8 +99,7 @@ module Tests =
                             let varWithOneVal =
                                 Order.Variable.create "test" false None false None None false (vu [| 1m |] |> Some)
 
-                            let ovar =
-                                Order.OrderVariable.create "test" emptyVar emptyVar varWithOneVal None IsNormal
+                            let ovar = Order.OrderVariable.create "test" emptyVar emptyVar varWithOneVal None IsNormal
 
                             match ovar with
                             | Order.OrderVariable.NonNavigable -> ()
@@ -233,10 +228,7 @@ module Tests =
                             // interpolated instead of written out
                             let exp = $"{91.7m}-{104m} / {9.17m}-{10.4m} mg/kg/dag"
 
-                            [|
-                                rangeVar "mg/kg/dag" 91.7m 104m
-                                rangeVar "mg/kg/dag" 9.17m 10.4m
-                            |]
+                            [| rangeVar "mg/kg/dag" 91.7m 104m; rangeVar "mg/kg/dag" 9.17m 10.4m |]
                             |> Order.Variable.renderValues 3
                             |> Expect.equal $"should render as {exp}" exp
                         }
@@ -244,11 +236,7 @@ module Tests =
                         test "three items with a range each are rendered as three ranges" {
                             let exp = "1-2 / 3-4 / 5-6 mg"
 
-                            [|
-                                rangeVar "mg" 1m 2m
-                                rangeVar "mg" 3m 4m
-                                rangeVar "mg" 5m 6m
-                            |]
+                            [| rangeVar "mg" 1m 2m; rangeVar "mg" 3m 4m; rangeVar "mg" 5m 6m |]
                             |> Order.Variable.renderValues 3
                             |> Expect.equal $"should render as {exp}" exp
                         }

@@ -299,8 +299,7 @@ module Analyze =
             )
         )
 
-    let trunc n (s: string) =
-        if s.Length > n then s[.. n - 1] + "…" else s
+    let trunc n (s: string) = if s.Length > n then s[.. n - 1] + "…" else s
 
     let rowLine (d: DoseRuleData) =
         let l = d.ScheduleData.DoseLimitData
@@ -382,8 +381,7 @@ module Analyze =
                 | None -> true
             )
 
-        let noIdMatch, quantMiss =
-            missing |> Array.partition (fun o -> genById.ContainsKey(idKey o) |> not)
+        let noIdMatch, quantMiss = missing |> Array.partition (fun o -> genById.ContainsKey(idKey o) |> not)
 
         {
             Label = label
@@ -459,8 +457,7 @@ module Export =
         // annotate: `Check` is a field on both DoseRule and DoseRuleData, so the
         // record-update target must be pinned to DoseRule.
         let check (dr: DoseRule) : DoseRule =
-            let signals =
-                dr |> Check.checkDoseRuleWithProvider gStand Patient.patient |> _.signals
+            let signals = dr |> Check.checkDoseRuleWithProvider gStand Patient.patient |> _.signals
 
             // Messages for the severities matching `keep`, deduped and joined; None when
             // empty. dataToCsv collapses tabs/newlines, so " | " keeps multiple messages

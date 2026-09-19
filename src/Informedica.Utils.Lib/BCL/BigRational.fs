@@ -97,8 +97,7 @@ module BigRational =
 
 
     /// Convert a BigRational to a float
-    let toFloat br =
-        ((br |> id).Numerator |> float) / (br.Denominator |> float)
+    let toFloat br = ((br |> id).Numerator |> float) / (br.Denominator |> float)
 
 
     /// Create a BigRational from a decimal
@@ -358,7 +357,7 @@ module BigRational =
             let b0 = vs2[0]
             Array.init n (fun x -> op vs1[x] b0)
         | _ ->
-            let res = Array.zeroCreate<_> (n * m)
+            let res = Array.zeroCreate<_>(n * m)
 
             if n = 0 || m = 0 then
                 res
@@ -558,8 +557,7 @@ module BigRational =
                 <@
                     let v = 1N / 3N
 
-                    let r: BigRational option * bool * BigRational option * bool =
-                        (None, false, None, false)
+                    let r: BigRational option * bool * BigRational option * bool = (None, false, None, false)
 
                     match valueToFactorRatio v r with
                     | None -> false
@@ -580,8 +578,7 @@ module BigRational =
                 <@
                     let v = 2N
 
-                    let r: BigRational option * bool * BigRational option * bool =
-                        (None, false, Some 2N, false)
+                    let r: BigRational option * bool * BigRational option * bool = (None, false, Some 2N, false)
 
                     match valueToFactorRatio v r with
                     | None -> false
@@ -592,8 +589,7 @@ module BigRational =
                 <@
                     let v = 1N / 2N
 
-                    let r: BigRational option * bool * BigRational option * bool =
-                        (None, false, Some 2N, false)
+                    let r: BigRational option * bool * BigRational option * bool = (None, false, Some 2N, false)
 
                     match valueToFactorRatio v r with
                     | None -> false
@@ -604,8 +600,7 @@ module BigRational =
                 <@
                     let v = 3N / 10N
 
-                    let r: BigRational option * bool * BigRational option * bool =
-                        (None, false, Some 2N, false)
+                    let r: BigRational option * bool * BigRational option * bool = (None, false, Some 2N, false)
 
                     match valueToFactorRatio v r with
                     | None -> true

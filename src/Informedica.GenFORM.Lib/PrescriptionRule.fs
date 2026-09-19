@@ -211,8 +211,7 @@ module PrescriptionRule =
         doseRules
         |> DoseRule.filter routeMapping filter
         |> Array.map (fun dr ->
-            let dr, newWarns =
-                dr |> DoseRule.reconstitute routeMapping pat.Location pat.Department
+            let dr, newWarns = dr |> DoseRule.reconstitute routeMapping pat.Location pat.Department
 
             warns.AddRange(newWarns)
 

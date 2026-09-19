@@ -36,16 +36,7 @@ let scenario: OrderScenario =
         [||]
         [| "paracetamol" |]
         [| "paracetamol" |]
-        [|
-            [|
-                Valid
-                    [|
-                        Normal "paracetamol "
-                        Bold "240 mg"
-                        Normal " 3 x/dag"
-                    |]
-            |]
-        |]
+        [| [| Valid [| Normal "paracetamol "; Bold "240 mg"; Normal " 3 x/dag" |] |] |]
         [| [| Caution [| Normal "zetpil "; Italic "240 mg" |] |] |]
         [| [| Warning [| Normal "rectaal" |] |] |]
         order
@@ -102,10 +93,7 @@ let tests =
                         Scenarios =
                             [|
                                 { scenario with
-                                    Prescription =
-                                        [|
-                                            [| Valid [| Normal ""; Bold "240 mg"; Normal "  " |] |]
-                                        |]
+                                    Prescription = [| [| Valid [| Normal ""; Bold "240 mg"; Normal "  " |] |] |]
                                 }
                             |]
                     }
@@ -137,11 +125,7 @@ let tests =
                     pc.Context.Scenarios[0].Prescription
                     |> Expect.equal
                         "marked-up text"
-                        [|
-                            [|
-                                Informedica.GenOrder.Lib.Types.Valid "paracetamol #240 mg# 3 x/dag"
-                            |]
-                        |]
+                        [| [| Informedica.GenOrder.Lib.Types.Valid "paracetamol #240 mg# 3 x/dag" |] |]
 
                     pc.Intake.Energy |> Expect.equal "the intake" (Some "#50 kcal#/dag")
                 | Error e -> failtest $"no plan context: %A{e}"
@@ -167,14 +151,7 @@ let tests =
             }
 
             test "text: rendering and parsing are inverse on items with text; a blank item is dropped" {
-                let items =
-                    [|
-                        Normal "a "
-                        Bold "b"
-                        Normal " and "
-                        Italic "c"
-                        Normal " d"
-                    |]
+                let items = [| Normal "a "; Bold "b"; Normal " and "; Italic "c"; Normal " d" |]
 
                 items
                 |> OrderContextMapper.TextItem.render

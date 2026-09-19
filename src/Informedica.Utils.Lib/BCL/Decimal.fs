@@ -22,8 +22,7 @@ module Decimal =
 
     /// Get the double value of a string
     /// using `InvariantCulture`
-    let parse (s: string) =
-        Decimal.Parse(s, CultureInfo.InvariantCulture)
+    let parse (s: string) = Decimal.Parse(s, CultureInfo.InvariantCulture)
 
 
     /// Get a `float Option` from a string
@@ -100,8 +99,7 @@ module Decimal =
     /// * 6.6666 |> fixPrecision 3 = 6.67
     /// etc
     /// If n < 0 then the value is not changed.
-    let fixPrecision n (d: decimal) =
-        if n < 0 then d else Math.Round(d, d |> getPrecision n)
+    let fixPrecision n (d: decimal) = if n < 0 then d else Math.Round(d, d |> getPrecision n)
 
 
     //----------------------------------------------------------------------------
@@ -138,5 +136,4 @@ module Decimal =
     /// Returns a string representation of a float in Dutch format without trailing zeros
     /// and with a fixed precision.
     /// Example: 0.0666m |> toStringNumberNLWithoutTrailingZerosFixPrecision 2 = "0.067"
-    let toStringNumberNLWithoutTrailingZerosFixPrecision n =
-        fixPrecision n >> toStringNumberNLWithoutTrailingZeros
+    let toStringNumberNLWithoutTrailingZerosFixPrecision n = fixPrecision n >> toStringNumberNLWithoutTrailingZeros

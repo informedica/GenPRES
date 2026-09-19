@@ -108,17 +108,16 @@ let tests =
                     let parsed = SessionStubTests.parsed plan
 
                     let orders =
-                        Shared.Models.OrderPlan.orders plan |> Array.map _.Order.Id = (Domain.orders parsed
-                                                                                       |> Array.map orderId)
+                        Shared.Models.OrderPlan.orders plan |> Array.map _.Order.Id =
+                            (Domain.orders parsed |> Array.map orderId)
 
                     let filtered =
-                        Shared.Models.OrderPlan.filtered plan |> Array.map _.Id = (Domain.filtered parsed
-                                                                                   |> Array.map _.Id)
+                        Shared.Models.OrderPlan.filtered plan |> Array.map _.Id =
+                            (Domain.filtered parsed |> Array.map _.Id)
 
                     let nutrition =
-                        Shared.Models.OrderPlan.nutritionContexts plan |> Array.map _.Id = (Domain.nutritionContexts
-                                                                                                parsed
-                                                                                            |> Array.map _.Id)
+                        Shared.Models.OrderPlan.nutritionContexts plan |> Array.map _.Id =
+                            (Domain.nutritionContexts parsed |> Array.map _.Id)
 
                     orders && filtered && nutrition
                 )
@@ -133,18 +132,15 @@ let tests =
                     Array.zip plan.OrderContexts parsed.Contexts
                     |> Array.forall (fun (ctx, pc) ->
                         let contribution =
-                            Shared.Models.OrderContext.contribution ctx |> Option.map _.Order.Id = (DomainContext.contribution
-                                                                                                        pc
-                                                                                                    |> Option.map
-                                                                                                        orderId)
+                            Shared.Models.OrderContext.contribution ctx |> Option.map _.Order.Id =
+                                (DomainContext.contribution pc |> Option.map orderId)
 
                         let category =
                             Shared.Models.OrderContext.nutritionCategory ctx
-                            |> Option.map OrderCategory.Nutrition = (DomainContext.nutritionCategory pc
-                                                                     |> Option.map (
-                                                                         Types.OrderCategory.Nutrition
-                                                                         >> OrderContextMapper.Category.ofDomain
-                                                                     ))
+                            |> Option.map OrderCategory.Nutrition
+                                =
+                                (DomainContext.nutritionCategory pc
+                                 |> Option.map (Types.OrderCategory.Nutrition >> OrderContextMapper.Category.ofDomain))
 
                         contribution && category
                     )
@@ -159,11 +155,10 @@ let tests =
 
                     categories
                     |> List.forall (fun category ->
-                        Shared.Models.OrderPlan.mayAdd category plan = (parsed
-                                                                        |> Domain.admits (
-                                                                            OrderPlanMapper.nutritionCategory category
-                                                                        )
-                                                                        |> Result.isOk)
+                        Shared.Models.OrderPlan.mayAdd category plan =
+                            (parsed
+                             |> Domain.admits (OrderPlanMapper.nutritionCategory category)
+                             |> Result.isOk)
                     )
                 )
         ]

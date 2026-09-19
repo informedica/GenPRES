@@ -16,13 +16,11 @@ module ValueUnit =
 
 
     /// Return the Unit as a string.
-    let unitToString =
-        Units.toString None None false Units.Localization.English Units.Short
+    let unitToString = Units.toString None None false Units.Localization.English Units.Short
 
 
     /// Try create a Unit from a string.
-    let readableStringToWeightUnit s =
-        $"%s{s}[Weight]" |> UnitsParse.fromString
+    let readableStringToWeightUnit s = $"%s{s}[Weight]" |> UnitsParse.fromString
 
 
     /// Try create a BSA Unit from a string.
@@ -39,8 +37,7 @@ module ValueUnit =
 
     /// Create a `ValueUnit` using a float value
     /// `v` and a `Unit` `u`.
-    let fromFloat (v: float) u =
-        v |> decimal |> BigRational.fromDecimal |> createSingle u
+    let fromFloat (v: float) u = v |> decimal |> BigRational.fromDecimal |> createSingle u
 
 
     let timeInMinute = (fun n -> fromFloat n Units.Time.minute)
@@ -72,14 +69,12 @@ module ValueUnit =
 
     /// Create a frequency unit
     /// per `n` days
-    let freqUnitPerNday n =
-        1N |> Units.Count.nTimes |> per (Units.Time.nDay n)
+    let freqUnitPerNday n = 1N |> Units.Count.nTimes |> per (Units.Time.nDay n)
 
 
     /// Create a frequency unit
     /// per `n` hours
-    let freqUnitPerNHour n =
-        1N |> Units.Count.nTimes |> per (Units.Time.nHour n)
+    let freqUnitPerNHour n = 1N |> Units.Count.nTimes |> per (Units.Time.nHour n)
 
 
     /// Freq unit per 1 hour.
@@ -104,8 +99,7 @@ module ValueUnit =
 
     /// Check whether a unit `u`
     /// is a time unit.
-    let isTimeUnit u =
-        (u |> Group.unitToGroup) = Group.TimeGroup
+    let isTimeUnit u = (u |> Group.unitToGroup) = Group.TimeGroup
 
 
     /// Helper functions to quicly create

@@ -111,8 +111,7 @@ let cachedProviderErrorStateTests =
         [
 
             test "loader returns Error, GetResourceInfo shows IsLoaded = false" {
-                let provider =
-                    CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+                let provider = CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
 
                 let info = (provider :> IResourceProvider).GetResourceInfo()
 
@@ -122,8 +121,7 @@ let cachedProviderErrorStateTests =
             }
 
             test "all resource getters return empty arrays when loader failed" {
-                let provider =
-                    CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+                let provider = CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
 
                 (provider :> IResourceProvider).GetUnitMappings()
                 |> Expect.equal "UnitMappings should be empty" [||]
@@ -141,11 +139,9 @@ let cachedProviderErrorStateTests =
             test "getNKFLinkProvider serves FK-only links instead of throwing when loader failed" {
                 // Nothing is registered on a failed load, so `Get` would raise
                 // KeyNotFoundException; a decorative link must not fail a request.
-                let provider =
-                    CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+                let provider = CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
 
-                let getLink =
-                    Informedica.GenForm.Lib.Api.getNKFLinkProvider (provider :> IResourceProvider)
+                let getLink = Informedica.GenForm.Lib.Api.getNKFLinkProvider (provider :> IResourceProvider)
 
                 let label = GenericLabel.fromShorthand "paracetamol"
 
@@ -159,14 +155,12 @@ let cachedProviderErrorStateTests =
             test "getNKFLinkProvider degrades when the key is unresolved on a loaded provider" {
                 // The state a reload race leaves behind: IsLoaded says yes, the resolved
                 // map has no nkfLinkProvider. An IsLoaded guard would not catch this.
-                let provider =
-                    CachedResourceProvider((fun () -> loadAllResourcesWithRegistry okRegistry), None)
+                let provider = CachedResourceProvider((fun () -> loadAllResourcesWithRegistry okRegistry), None)
 
                 (provider :> IResourceProvider).GetResourceInfo().IsLoaded
                 |> Expect.isTrue "precondition: provider is loaded"
 
-                let getLink =
-                    Informedica.GenForm.Lib.Api.getNKFLinkProvider (provider :> IResourceProvider)
+                let getLink = Informedica.GenForm.Lib.Api.getNKFLinkProvider (provider :> IResourceProvider)
 
                 getLink (Source.identified "FK") (GenericLabel.fromShorthand "paracetamol")
                 |> Expect.isSome "FK link served instead of KeyNotFoundException"
@@ -266,8 +260,7 @@ let processCmdGuardTests =
         [
 
             test "processFormulary returns Error when provider IsLoaded = false" {
-                let provider =
-                    CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
+                let provider = CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
                 let env = ServerApi.Adapters.makeAppEnv provider
 
@@ -290,8 +283,7 @@ let processCmdGuardTests =
             }
 
             test "processParenteralia returns Error when provider IsLoaded = false" {
-                let provider =
-                    CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
+                let provider = CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
 
                 let env = ServerApi.Adapters.makeAppEnv provider
 
@@ -322,8 +314,7 @@ let adminReloadTests =
         "admin reload over a failing provider"
         [
             test "a reload that leaves the provider unloaded answers its messages, not success" {
-                let provider =
-                    CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+                let provider = CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
 
                 let env = ServerApi.Adapters.makeAppEnv provider
 

@@ -101,8 +101,7 @@ module PlanContext =
                 "PlanContext"
                 dto
                 (fun dto ->
-                    let category =
-                        dto.Category |> OrderCategoryDto.fromString |> Result.mapError List.singleton
+                    let category = dto.Category |> OrderCategoryDto.fromString |> Result.mapError List.singleton
 
                     let context = Nested.required "Context" dto.Context OrderContext.Dto.fromDto
                     let intake = Nested.required "Intake" dto.Intake Totals.Dto.fromDto
@@ -129,8 +128,7 @@ module PlanContext =
 module NutritionRuleSet =
 
     /// The set serving a category, if the composition root supplied one.
-    let tryFind category (sets: NutritionRuleSet[]) =
-        sets |> Array.tryFind (fun s -> s.Category = category)
+    let tryFind category (sets: NutritionRuleSet[]) = sets |> Array.tryFind (fun s -> s.Category = category)
 
 
     /// The context's pick lists narrowed to the set: when the set names indications or
@@ -157,8 +155,7 @@ module NutritionRuleSet =
     /// workbench already carried, so a category's rule set bounds what is offered. The
     /// evaluation is passed in, so the discovery is what it does with the answer.
     let discover (evaluate: OrderContext -> Result<OrderContext, 'e>) (ctx: OrderContext) =
-        let offered (xs: 'a[]) (ys: 'a[]) =
-            ys |> Array.filter (fun y -> xs |> Array.contains y)
+        let offered (xs: 'a[]) (ys: 'a[]) = ys |> Array.filter (fun y -> xs |> Array.contains y)
 
         ctx
         |> evaluate
@@ -194,8 +191,7 @@ module OrderPlan =
 
     /// The orders the plan's contexts contribute: the one scenario of every context narrowed
     /// to one, in context order.
-    let orders (plan: OrderPlan) =
-        plan.Contexts |> Array.choose PlanContext.contribution
+    let orders (plan: OrderPlan) = plan.Contexts |> Array.choose PlanContext.contribution
 
 
     /// The contexts the filter keeps: those named by id, all of them when it is empty.
@@ -209,8 +205,7 @@ module OrderPlan =
     /// The plan with its totals recomputed over the orders of the contexts the filter keeps,
     /// all of them when it is empty, for its patient's age and weight.
     let recalculate (totalsData: Informedica.GenForm.Lib.Types.Data.TotalsData[]) (plan: OrderPlan) : OrderPlan =
-        let wght =
-            plan.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
+        let wght = plan.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
 
         { plan with
             Totals =

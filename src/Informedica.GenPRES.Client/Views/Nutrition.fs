@@ -23,11 +23,7 @@ module Nutrition =
         | None -> false
 
 
-    let private enteral =
-        [
-            NutritionCategory.EnteralFeeding
-            NutritionCategory.EnteralSupplement
-        ]
+    let private enteral = [ NutritionCategory.EnteralFeeding; NutritionCategory.EnteralSupplement ]
 
 
     let private parenteral =
@@ -388,8 +384,7 @@ module Nutrition =
         =
         let weightKg = ViewHelpers.PrintView.patientWeight (props.plan.Patient |> Some)
 
-        let parenteralContexts =
-            props.plan.OrderContexts |> Array.filter (isOneOf parenteral)
+        let parenteralContexts = props.plan.OrderContexts |> Array.filter (isOneOf parenteral)
 
         let tableSx =
             {|
@@ -431,8 +426,7 @@ module Nutrition =
                             let cmpQty = cmp.OrderableQuantity |> OrderVariable.displayString
                             let fixPrec2 = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 2
 
-                            let doseAdj =
-                                cmp.Dose.QuantityAdjust |> OrderVariable.displayStringFormatted fixPrec2
+                            let doseAdj = cmp.Dose.QuantityAdjust |> OrderVariable.displayStringFormatted fixPrec2
 
                             JSX.jsx
                                 $"""
@@ -982,8 +976,7 @@ module Nutrition =
             | Some ord ->
                 let warning = ord.Orderable.Dose.Quantity.Level |> getWarning
 
-                let label =
-                    ord.Orderable.Dose.Quantity |> ViewHelpers.ovarLabel "toedien hoeveelheid"
+                let label = ord.Orderable.Dose.Quantity |> ViewHelpers.ovarLabel "toedien hoeveelheid"
 
                 let vals = ord.Orderable.Dose.Quantity |> ViewHelpers.ovarValsWithRange string 3
 
@@ -1390,8 +1383,7 @@ module Nutrition =
         let orderPlan = envOrderPlan.OrderPlan
         let planCommand = envOrderPlan.OrderPlanCommand
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
@@ -1402,8 +1394,7 @@ module Nutrition =
         let progress =
             match orderPlan with
             | HasNotStartedYet when patient.IsNone ->
-                let msg =
-                    Terms.``Patient enter patient data`` |> getTerm "Voer patient gegevens in ..."
+                let msg = Terms.``Patient enter patient data`` |> getTerm "Voer patient gegevens in ..."
 
                 JSX.jsx $"<>{msg}</>"
             | _ -> ViewHelpers.progressOrEmpty orderPlan

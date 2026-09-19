@@ -407,8 +407,7 @@ module Resources =
 
 
     /// Load all resources at once using the default registry.
-    let loadAllResources dataUrlId =
-        loadAllResourcesWithRegistry (defaultRegistry dataUrlId)
+    let loadAllResources dataUrlId = loadAllResourcesWithRegistry (defaultRegistry dataUrlId)
 
 
     /// A plain provider over an already-loaded resource set.
@@ -497,45 +496,34 @@ module Resources =
                 )
 
         interface IResourceProvider with
-            member this.Get(key: ResourceKey<'T>) : 'T =
-                this.getFromCache (fun l -> l.Resolved[key.Name] :?> 'T)
+            member this.Get(key: ResourceKey<'T>) : 'T = this.getFromCache (fun l -> l.Resolved[key.Name] :?> 'T)
 
             member this.GetData() = this.getFromCache _.State.Data
 
-            member this.GetUnitMappings() =
-                this.getFromCache _.State.Data.UnitMappings
+            member this.GetUnitMappings() = this.getFromCache _.State.Data.UnitMappings
 
-            member this.GetRouteMappings() =
-                this.getFromCache _.State.Data.RouteMappings
+            member this.GetRouteMappings() = this.getFromCache _.State.Data.RouteMappings
 
-            member this.GetValidForms() =
-                this.getFromCache _.State.Data.ValidForms
+            member this.GetValidForms() = this.getFromCache _.State.Data.ValidForms
 
-            member this.GetFormRoutes() =
-                this.getFromCache _.State.Data.FormRoutes
+            member this.GetFormRoutes() = this.getFromCache _.State.Data.FormRoutes
 
-            member this.GetFormularyProducts() =
-                this.getFromCache _.State.Data.FormularyProducts
+            member this.GetFormularyProducts() = this.getFromCache _.State.Data.FormularyProducts
 
-            member this.GetReconstitution() =
-                this.getFromCache _.State.Reconstitution
+            member this.GetReconstitution() = this.getFromCache _.State.Reconstitution
 
-            member this.GetEnteralFeeding() =
-                this.getFromCache _.State.EnteralFeeding
+            member this.GetEnteralFeeding() = this.getFromCache _.State.EnteralFeeding
 
-            member this.GetParenteralMeds() =
-                this.getFromCache _.State.ParenteralMeds
+            member this.GetParenteralMeds() = this.getFromCache _.State.ParenteralMeds
 
             member this.GetProducts() = this.getFromCache _.State.Products
             member this.GetDoseRules() = this.getFromCache _.State.DoseRules
             member this.GetSolutionRules() = this.getFromCache _.State.SolutionRules
             member this.GetRenalRules() = this.getFromCache _.State.RenalRules
 
-            member this.GetTotals() =
-                this.getFromCache _.State.Data.TotalsData
+            member this.GetTotals() = this.getFromCache _.State.Data.TotalsData
 
             member this.GetGStandProvider() =
                 this.getFromCache (fun l -> l.Resolved[Keys.gStandProvider.Name] :?> Check.GStandProvider)
 
-            member this.GetResourceInfo() =
-                this.getFromCache (fun l -> resourceInfo l.State)
+            member this.GetResourceInfo() = this.getFromCache (fun l -> resourceInfo l.State)

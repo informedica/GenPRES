@@ -46,8 +46,7 @@ module Double =
 
     /// Get the double value of a string
     /// using `InvariantCulture`
-    let parse (s: string) =
-        Double.Parse(s, CultureInfo.InvariantCulture)
+    let parse (s: string) = Double.Parse(s, CultureInfo.InvariantCulture)
 
 
     /// Get a `float Option` from a string
@@ -193,5 +192,4 @@ module Double =
     /// Returns a string representation of a float in Dutch format without trailing zeros
     /// and with a fixed precision.
     /// Example: 0.0666 |> toStringNumberNLWithoutTrailingZerosFixPrecision 2 = "0.067"
-    let toStringNumberNLWithoutTrailingZerosFixPrecision n =
-        fixPrecision n >> toStringNumberNLWithoutTrailingZeros
+    let toStringNumberNLWithoutTrailingZerosFixPrecision n = fixPrecision n >> toStringNumberNLWithoutTrailingZeros

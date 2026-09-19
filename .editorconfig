@@ -1,5 +1,12 @@
 root = true
 
+# =============================================================================
+# Defaults for every file in the repository.
+#
+# Fantomas reads indent_size, max_line_length, end_of_line and
+# insert_final_newline directly from these standard keys -- there are no
+# fsharp_ prefixed equivalents. Per-language overrides live at the bottom.
+# =============================================================================
 [*]
 indent_style = space
 indent_size = 4
@@ -8,18 +15,141 @@ trim_trailing_whitespace = true
 # Final newlines are necessary for a lot of unix tools to work as expected. See
 # https://stackoverflow.com/questions/729692/why-should-text-files-end-with-a-newline for more info.
 insert_final_newline = true
-max_line_length=120
+max_line_length = 120
+# Unset, Fantomas falls back to System.Environment.NewLine: Windows contributors
+# emit CRLF where macOS/Linux emit LF, producing whole-file diffs with no content
+# change. Pin it.
+end_of_line = lf
 
-# Settings to get close to the style described in ./.github/instructions/fsharp-code-formatting.md
-# Known Fantomas limitations (not configurable):
-# - if/then/else: cannot keep simple `then` on same line with complex `else` on next line
-# - pipeline: cannot force `|>` to start-of-line positioning
-[*.fs]
+
+# =============================================================================
+# F# / Fantomas
+#
+# Scope: .fs, .fsi and .fsx.
+#   The pre-commit hook (.husky/task-runner.json) formats .fs files only.
+#   Scripts are excluded from formatting altogether by ./.fantomasignore, so
+#   nothing here reaches them; the section covers .fsx anyway because an editor
+#   formatting on save reads this file directly, not the ignore list.
+#
+# Style target: ./.github/instructions/fsharp-code-formatting.instructions.md
+#
+# This file pins the settings, not the tool. Fantomas has changed defaults
+# (bracket style in 8) and removed settings (fsharp_strict_mode in 6,
+# fsharp_max_dot_get_expression_width in 7) across major versions, so the
+# version pinned in ./.config/dotnet-tools.json is what actually guarantees a
+# stable format. Bump the two together and review the resulting diff.
+#
+# Several settings below already match the default of the pinned version and
+# are declared anyway, so that a future default change cannot move the format
+# without a visible edit here. Each is marked.
+#
+# Files that must not be formatted (generated sources, scripts, a file that
+# Fantomas miscompiles) belong in ./.fantomasignore -- editorconfig sections
+# cannot exclude them.
+#
+# Since Fantomas 8, a misspelled fsharp_ key produces a warning instead of
+# being ignored, and keys and values are matched case-insensitively.
+# =============================================================================
+[*.{fs,fsi,fsx}]
+
+# --- Bracket placement -------------------------------------------------------
+# Brackets get their own lines once an expression goes multiline. This became
+# the Fantomas default in version 8; it was `cramped` in 6 and 7. Pinned so the
+# format does not depend on which version a contributor happens to run.
 fsharp_multiline_bracket_style = aligned
-fsharp_align_function_signature_to_indentation = true
-fsharp_keep_max_number_of_blank_lines = 2
-fsharp_multi_line_lambda_closing_newline=true
-fsharp_max_value_binding_width=80
+
+# --- When an expression breaks to multiple lines ------------------------------
+# These four thresholds are the character budget for a single line, and they are
+# set together so the budget is consistent. All four are below
+# max_line_length = 120 on purpose: they decide whether something *may* stay on
+# one line, and a binding that only just fits at 120 is hard to read.
+#
+# Fantomas defaults are 80 / 40 / 80 / 60. The function binding default of 40 is
+# the one that breaks most often in practice, so it is raised in proportion to
+# the others rather than left alone.
+fsharp_max_value_binding_width = 100
+fsharp_max_function_binding_width = 65
+# Controls when a pipeline or other infix chain breaks. Lower this to force
+# short pipelines onto multiple lines. The position of |> itself is not
+# configurable: Fantomas always puts the operator at the start of the
+# continuation line, which is the intended style here. (At the default.)
+fsharp_max_infix_operator_expression = 80
+# At the default.
+fsharp_max_if_then_else_short_width = 60
+
+# Records break on ITEM COUNT rather than character width: one field may stay
+# inline, two or more get a line each. The point is editing -- fields can be
+# reordered, added or deleted as whole lines, and each shows up as a one-line
+# diff instead of rewriting a shared line.
+#
+# NOTE: in this mode fsharp_max_record_width is not read at all, so it is
+# deliberately absent rather than set-and-inert. max_line_length still applies
+# in both modes. fsharp_max_record_number_of_items is at the default.
 fsharp_record_multiline_formatter = number_of_items
+fsharp_max_record_number_of_items = 1
+
+# Lists and arrays stay on character width. The diff argument above rests on
+# fields being named and reorderable, which positional literals are not:
+# under number_of_items, [ "mg"; "mL" ] becomes four lines and [ 1; 2; 3 ]
+# becomes five. Given how much literal unit and dosing data this codebase
+# carries, width is the better rule here.
+#
+# To reconsider: set fsharp_array_or_list_multiline_formatter = number_of_items
+# with fsharp_max_array_or_list_number_of_items = 4, run Fantomas over the tree
+# and compare the diff before committing.
 fsharp_array_or_list_multiline_formatter = character_width
-fsharp_max_array_or_list_width = 60
+fsharp_max_array_or_list_width = 80
+
+# --- Discriminated unions -----------------------------------------------------
+# Leading bar on every case, including the first. Adding or removing a case is
+# then a one-line diff, for the same reason records break per field.
+fsharp_bar_before_discriminated_union_declaration = true
+
+# --- Vertical space -----------------------------------------------------------
+# Fantomas does not insert blank lines around nested multiline expressions, and
+# keeps author-placed runs of up to two. Runs of three or more are collapsed to
+# two. This is what keeps AAA-style test sections intact. The first is at the
+# default.
+# https://blog.ploeh.dk/2013/06/24/a-heuristic-for-formatting-code-according-to-the-aaa-pattern
+fsharp_blank_lines_around_nested_multiline_expressions = false
+fsharp_keep_max_number_of_blank_lines = 2
+
+# --- Layout -------------------------------------------------------------------
+# The three G-Research settings. The Fantomas documentation recommends enabling
+# them as a group rather than cherry-picking, since they are designed to produce
+# one consistent signature style. The third is at the default.
+fsharp_align_function_signature_to_indentation = true
+fsharp_alternative_long_member_definitions = true
+fsharp_newline_between_type_definition_and_members = true
+
+# Puts the closing bracket of a multiline lambda on its own line.
+fsharp_multi_line_lambda_closing_newline = true
+
+
+# =============================================================================
+# Everything else
+# =============================================================================
+
+# Two trailing spaces are a hard line break in Markdown, so the repository-wide
+# trim would silently change rendered output.
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+# Two-space indent is the convention for these formats, and matching it avoids
+# churn from tools that reformat on write (prettier, npm, most YAML editors).
+[*.{json,jsonc,json5,yml,yaml,js,jsx,ts,tsx,mjs,cjs,css,scss,html,svg,xml}]
+indent_size = 2
+
+# MSBuild and NuGet files.
+[*.{csproj,fsproj,props,targets,config,nuspec}]
+indent_size = 2
+
+[*.{sln,slnx}]
+indent_style = tab
+
+[*.{sh,bash}]
+indent_size = 2
+
+[Makefile]
+indent_style = tab

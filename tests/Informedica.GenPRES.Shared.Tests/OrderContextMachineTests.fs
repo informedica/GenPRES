@@ -37,8 +37,7 @@ module Fixtures =
     let inFlight = inFlightFor patient
 
     /// An evaluation under way.
-    let evaluatingFor pat =
-        inFlightFor pat OrderContextCommand.UpdateOrderContext
+    let evaluatingFor pat = inFlightFor pat OrderContextCommand.UpdateOrderContext
 
     let evaluating = evaluatingFor patient
 
@@ -97,8 +96,7 @@ let tests =
                         "a patient changed keeps the filter and evaluates it for the new patient, whatever was in flight superseded" {
                         let busy = evaluating paracetamol paracetamol "r-1"
 
-                        let state, effects =
-                            transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
+                        let state, effects = transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
 
                         let expected = { paracetamol with Patient = otherDraft }
 
@@ -116,8 +114,7 @@ let tests =
                         let chosen = { paracetamol with OrderContext.Filter.Generic = Some "ibuprofen" }
                         let busy = evaluating chosen paracetamol "r-1"
 
-                        let state, effects =
-                            transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
+                        let state, effects = transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
 
                         let sent = { chosen with Patient = otherDraft }
                         let found = { paracetamol with Patient = otherDraft }
@@ -250,10 +247,7 @@ let tests =
                     test "no dose rules for the filter: back to the first page, the empty workbench evaluated again" {
                         let busy = evaluating paracetamol paracetamol "r-1"
 
-                        let errs =
-                            [|
-                                "Geen doseerregels gevonden voor het geselecteerde filter"
-                            |]
+                        let errs = [| "Geen doseerregels gevonden voor het geselecteerde filter" |]
 
                         transition (OrderContextMsg.Answered("r-1", Error errs)) busy
                         |> Expect.equal
@@ -374,8 +368,7 @@ let stagesTests =
                 "the context shown is the one sent while a change is under way, else the one held; none before the first evaluation" {
                 let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
 
-                let busy =
-                    inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1"
+                let busy = inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1"
 
                 busy |> OrderContextState.context |> Expect.equal "the one sent" (Some stepped)
 

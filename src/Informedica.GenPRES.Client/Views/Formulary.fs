@@ -173,8 +173,7 @@ module Formulary =
         let formulary = envFormulary.Formulary
         let updateFormulary = envFormulary.UpdateFormulary
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization

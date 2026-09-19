@@ -87,8 +87,7 @@ module Api =
     /// Set all variables in a list of equations to a non-zero or negative value
     /// </summary>
     /// <param name="eqs">The list of Equations</param>
-    let nonZeroNegative eqs =
-        eqs |> List.map Equation.nonZeroOrNegative
+    let nonZeroNegative eqs = eqs |> List.map Equation.nonZeroOrNegative
 
 
     /// <summary>

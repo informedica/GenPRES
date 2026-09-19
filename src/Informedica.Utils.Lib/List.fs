@@ -124,8 +124,7 @@ module List =
     // Logic
     //----------------------------------------------------------------------------
 
-    let hasExactlyOne pred xs =
-        xs |> List.filter pred |> List.length = 1
+    let hasExactlyOne pred xs = xs |> List.filter pred |> List.length = 1
 
 
     //----------------------------------------------------------------------------
@@ -133,8 +132,7 @@ module List =
     //----------------------------------------------------------------------------
 
 
-    let tryFindInList pred xs =
-        xs |> List.collect id |> List.tryFind pred
+    let tryFindInList pred xs = xs |> List.collect id |> List.tryFind pred
 
     /// Try to find the first element with **n**
     /// in a list of list **xsl**
@@ -236,8 +234,7 @@ module List =
             []
 
 
-    let distinct xs =
-        xs |> Seq.ofList |> Seq.distinct |> Seq.toList
+    let distinct xs = xs |> Seq.ofList |> Seq.distinct |> Seq.toList
 
 
     let replaceOrAdd pred x xs =

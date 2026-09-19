@@ -40,8 +40,7 @@ let patient () =
     |> Result.defaultWith (fun e -> invalidOp $"no patient: %A{e}")
 
 
-let emptyPlan () =
-    Informedica.GenOrder.Lib.OrderPlan.create (patient ()) [||]
+let emptyPlan () = Informedica.GenOrder.Lib.OrderPlan.create (patient ()) [||]
 
 
 let emptyContext () =

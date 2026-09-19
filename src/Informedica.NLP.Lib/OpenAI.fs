@@ -292,8 +292,7 @@ module OpenAI =
 
                         match answer.message.content |> validator with
                         | Ok _ ->
-                            let validationResult =
-                                answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
+                            let validationResult = answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
 
                             return Ok validationResult
                         | Error err ->
@@ -364,8 +363,7 @@ module OpenAI =
 
                         match answer.message.content |> validator with
                         | Ok _ ->
-                            let validationResult =
-                                answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
+                            let validationResult = answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
 
                             return Ok(validationResult, input)
                         | Error err ->
@@ -418,10 +416,7 @@ module OpenAI =
             | Ok response ->
                 let response = response.Response.choices |> List.last |> _.message
 
-                [
-                    message
-                    Message.okMessage response.role response.content
-                ]
+                [ message; Message.okMessage response.role response.content ]
                 |> List.append messages
             | Error s ->
                 printfn $"oops: {s}"
@@ -561,8 +556,7 @@ Can you try again answering?
                 | Error(_, input) -> input, zero
 
 
-        let doseUnits model text =
-            Extraction.createDoseUnits getJson getJson getJson model text
+        let doseUnits model text = Extraction.createDoseUnits getJson getJson getJson model text
 
 
         let frequencies model text =

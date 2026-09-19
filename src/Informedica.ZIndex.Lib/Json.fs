@@ -30,8 +30,7 @@ module Json =
     /// </summary>
     /// <param name="p">The path to the file</param>
     /// <param name="o">The object to serialize</param>
-    let cache p o =
-        o |> serialize |> File.writeTextToFile p
+    let cache p o = o |> serialize |> File.writeTextToFile p
 
 
     /// <summary>

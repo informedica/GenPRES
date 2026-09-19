@@ -68,8 +68,7 @@ module SessionMapper =
 
     /// The patient data a notice is about, as the Dto; none when the reading could not be
     /// read.
-    let noticeData (notice: DataNotice) =
-        notice.Data |> Option.map Patient.ofModel
+    let noticeData (notice: DataNotice) = notice.Data |> Option.map Patient.ofModel
 
 
     let notice (token: string) (data: Informedica.GenForm.Lib.Patient.Dto.Dto option) : DataNotice =

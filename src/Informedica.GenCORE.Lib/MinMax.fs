@@ -16,7 +16,7 @@ and Limit =
     | Inclusive of ValueUnit
     | Exclusive of ValueUnit
 
-and LimitIncr = LimitIncr of ValueUnit
+and LimitIncr = | LimitIncr of ValueUnit
 
 
 module Errors =
@@ -89,8 +89,7 @@ module Limit =
     let getValue = getValueUnit >> ValueUnit.getValue >> Array.tryHead
 
 
-    let inline apply fIncl fExcl =
-        map (fIncl >> Inclusive) (fExcl >> Exclusive)
+    let inline apply fIncl fExcl = map (fIncl >> Inclusive) (fExcl >> Exclusive)
 
 
     let inline map2 fInclIncl fInclExcl fExclIncl fExclExcl lim1 lim2 =
@@ -295,20 +294,16 @@ module Limit =
         | Some v1, Some v2 -> comp v1 v2
 
 
-    let optLT isMin1 isMin2 =
-        compOpt (gt isMin1 isMin2) false true false
+    let optLT isMin1 isMin2 = compOpt (gt isMin1 isMin2) false true false
 
 
-    let optST isMin1 isMin2 =
-        compOpt (st isMin1 isMin2) false false true
+    let optST isMin1 isMin2 = compOpt (st isMin1 isMin2) false false true
 
 
-    let optLTE isMin1 isMin2 =
-        compOpt (gte isMin1 isMin2) false true false
+    let optLTE isMin1 isMin2 = compOpt (gte isMin1 isMin2) false true false
 
 
-    let optSTE isMin1 isMin2 =
-        compOpt (ste isMin1 isMin2) false false true
+    let optSTE isMin1 isMin2 = compOpt (ste isMin1 isMin2) false false true
 
 
     let minGTmax min max = min |> gt false true max
@@ -342,12 +337,10 @@ module Limit =
         | Exclusive vu -> vu |> calc exclMultOf
 
 
-    let minToMultipleOf =
-        toMultipleOf BigRational.minInclMultipleOf BigRational.minExclMultipleOf
+    let minToMultipleOf = toMultipleOf BigRational.minInclMultipleOf BigRational.minExclMultipleOf
 
 
-    let maxToMultipleOf =
-        toMultipleOf BigRational.maxInclMultipleOf BigRational.maxExclMultipleOf
+    let maxToMultipleOf = toMultipleOf BigRational.maxInclMultipleOf BigRational.maxExclMultipleOf
 
 
     let calcLimitIncr (LimitIncr vu) =

@@ -319,8 +319,7 @@ module Check =
                     if u |> Option.isNone then
                         mm
                     else
-                        let convert =
-                            Option.map (Limit.getValueUnit >> ValueUnit.convertTo u.Value >> Limit.inclusive)
+                        let convert = Option.map (Limit.getValueUnit >> ValueUnit.convertTo u.Value >> Limit.inclusive)
 
                         {
                             Min = mm.Min |> convert
@@ -611,8 +610,7 @@ module Check =
     let checkDoseRuleWith (cfg: CheckConfig) (getDosageRules: GStandProvider) (pat: Patient) (dr: DoseRule) =
         let m = dr |> matchWithZIndex getDosageRules pat |> createMapping
 
-        let eqsAny (candidates: DoseType list) (dt: DoseType) =
-            candidates |> List.exists (DoseType.eqsType dt)
+        let eqsAny (candidates: DoseType list) (dt: DoseType) = candidates |> List.exists (DoseType.eqsType dt)
 
         // Derive rate fields for a given dose-limit target from m.zindex.dosages,
         // mirroring the perTimeAdjust* pattern in createMapping.
@@ -688,8 +686,7 @@ module Check =
 
                 // HIGH-1: one-sided, risk-aware margin on the norm dose. Risk
                 // substances (GPRISC = "*") get no margin.
-                let toMinMax vuOpt =
-                    vuOpt |> marginedTestRange gstand.highRisk cfg.MarginUpper
+                let toMinMax vuOpt = vuOpt |> marginedTestRange gstand.highRisk cfg.MarginUpper
 
                 // MEDIUM-2: grade a test range against the advisory (norm) and the
                 // absolute reference ranges (IR 4.6.2): a norm breach is advisory,
@@ -699,8 +696,7 @@ module Check =
                     // IR safety guard: never feed incomparable unit groups to cmp
                     // (e.g. Count/kg/day vs IU/kg/week, droplet vs mg) — that throws.
                     // Emit a typed warning instead of crashing or (previously) a fake pass.
-                    let incomparable ref =
-                        ref |> MinMax.isEmpty |> not && not (rangesComparable ref test)
+                    let incomparable ref = ref |> MinMax.isEmpty |> not && not (rangesComparable ref test)
 
                     if (test |> MinMax.isEmpty |> not) && (incomparable normRef || incomparable absRef) then
                         Some IncomparableUnits,

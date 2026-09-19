@@ -30,8 +30,7 @@ module FileWriterAgent =
     let detectEncoding (path: string) : Encoding =
         try
             if File.Exists path then
-                use fs =
-                    new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite ||| FileShare.Delete)
+                use fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite ||| FileShare.Delete)
 
                 if fs.Length >= 3L then
                     let b1 = fs.ReadByte()
@@ -225,9 +224,7 @@ module FileWriterAgent =
         writer
 
 
-    let flushAsync (writer: Agent<FileWriterMsg>) =
-        writer.PostAndAsyncReply(fun rc -> Flush rc)
+    let flushAsync (writer: Agent<FileWriterMsg>) = writer.PostAndAsyncReply(fun rc -> Flush rc)
 
 
-    let stopAsync (writer: Agent<FileWriterMsg>) =
-        writer.PostAndAsyncReply(fun rc -> Stop rc)
+    let stopAsync (writer: Agent<FileWriterMsg>) = writer.PostAndAsyncReply(fun rc -> Stop rc)

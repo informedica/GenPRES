@@ -123,8 +123,7 @@ let npx args dir = createProcessFromPath "npx" args dir
 let run proc arg dir = proc arg dir |> Proc.run |> ignore
 
 
-let runParallel processes =
-    processes |> Proc.Parallel.run |> ignore
+let runParallel processes = processes |> Proc.Parallel.run |> ignore
 
 
 let runOrDefault args =

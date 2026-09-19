@@ -71,8 +71,7 @@ module String =
 
 
     /// Convert object to string
-    let toString o =
-        o |> NullCheck.nullOrDef _.ToString() ""
+    let toString o = o |> NullCheck.nullOrDef _.ToString() ""
 
 
     /// Get a substring starting at `start` with length `length`
@@ -94,8 +93,7 @@ module String =
 
 
     /// Return the rest of a string as a string
-    let restString s =
-        if s = "" then "" else subString 1 ((s |> length) - 1) s
+    let restString s = if s = "" then "" else subString 1 ((s |> length) - 1) s
 
 
     /// Removes the last 'n' characters from the input string 's'.
@@ -137,8 +135,7 @@ module String =
 
 
     /// Check if string `s1` equals `s2` caps insensitive
-    let equalsCapInsens s1 s2 =
-        s1 |> toLower |> trim = (s2 |> toLower |> trim)
+    let equalsCapInsens s1 s2 = s1 |> toLower |> trim = (s2 |> toLower |> trim)
 
 
     /// Split a string `s` at string `dels`

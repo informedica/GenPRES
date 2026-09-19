@@ -18,8 +18,7 @@ let parseTextItem (s: string) =
         [| Normal s |]
 
 
-let tab (target: string) (route: string) (pat: string) (msg: string) =
-    $"%s{target}\t%s{route}\t%s{pat}\t%s{msg}"
+let tab (target: string) (route: string) (pat: string) (msg: string) = $"%s{target}\t%s{route}\t%s{pat}\t%s{msg}"
 
 
 let ctorName =
@@ -142,8 +141,7 @@ let doseCheckTests =
             test "violation alongside sentinel → sentinel dropped" {
                 let sentinel = Check.NoMonitoring, "geen doseer bewaking gevonden voor paracetamol"
 
-                let breach =
-                    sigOf Check.OverAbsolute "paracetamol" "oraal" "0-1 jaar" "keer dosering niet in bereik"
+                let breach = sigOf Check.OverAbsolute "paracetamol" "oraal" "0-1 jaar" "keer dosering niet in bereik"
 
                 let result = [| sentinel; breach |] |> DoseCheck.build parseTextItem false
 

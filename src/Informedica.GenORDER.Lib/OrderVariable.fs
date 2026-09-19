@@ -166,8 +166,7 @@ module Variable =
     /// </summary>
     /// <param name="vu">The ValueUnit to set as a ValueSet</param>
     /// <param name="var">The Variable to set the ValueSet to</param>
-    let replaceValuesWithValueUnit vu (var: Variable) =
-        { var with Values = vu |> ValueSet.create |> ValSet }
+    let replaceValuesWithValueUnit vu (var: Variable) = { var with Values = vu |> ValueSet.create |> ValSet }
 
 
 /// Functions that deal with the `OrderVariable` type
@@ -383,8 +382,7 @@ module OrderVariable =
 
 
         /// Get the Unit from a `Constraints` record
-        let getUnit (cs: Constraints) =
-            cs |> toValueRange |> ValueRange.getUnit
+        let getUnit (cs: Constraints) = cs |> toValueRange |> ValueRange.getUnit
 
 
     /// <summary>
@@ -499,8 +497,7 @@ module OrderVariable =
             | _ -> false
 
 
-    let getNormValue ovar =
-        ovar |> getConstraints |> Constraints.getNorm
+    let getNormValue ovar = ovar |> getConstraints |> Constraints.getNorm
 
 
     /// <summary>
@@ -643,8 +640,7 @@ module OrderVariable =
 
 
     /// Set the 'Name' to the `Variable` of the `OrderVariable`.
-    let setName n ovar =
-        { ovar with Variable = ovar.Variable |> Variable.setName n }
+    let setName n ovar = { ovar with Variable = ovar.Variable |> Variable.setName n }
 
 
     /// <summary>
@@ -831,13 +827,11 @@ module OrderVariable =
 
 
     /// Set the minimum value of the Variable of an OrderVariable
-    let setMinValue (ovar: OrderVariable) =
-        { ovar with Variable = ovar.Variable |> Variable.setMinValue }
+    let setMinValue (ovar: OrderVariable) = { ovar with Variable = ovar.Variable |> Variable.setMinValue }
 
 
     /// Set the maximum value of the Variable of an OrderVariable
-    let setMaxValue (ovar: OrderVariable) =
-        { ovar with Variable = ovar.Variable |> Variable.setMaxValue }
+    let setMaxValue (ovar: OrderVariable) = { ovar with Variable = ovar.Variable |> Variable.setMaxValue }
 
 
     /// Set the median value of the Variable of an OrderVariable
@@ -900,14 +894,12 @@ module OrderVariable =
 
 
     /// Clear the Values of the Variable of an OrderVariable
-    let clear (ovar: OrderVariable) =
-        { ovar with Variable = ovar.Variable |> Variable.clear }
+    let clear (ovar: OrderVariable) = { ovar with Variable = ovar.Variable |> Variable.clear }
 
 
     /// Check whether the Values of the Variable of an OrderVariable
     /// are cleared, i.e., unrestricted
-    let isCleared (ovar: OrderVariable) =
-        ovar.Variable |> Variable.isUnrestricted
+    let isCleared (ovar: OrderVariable) = ovar.Variable |> Variable.isUnrestricted
 
 
     /// <summary>
@@ -1430,8 +1422,7 @@ module OrderVariable =
         /// </summary>
         /// <param name="n">The Name of the Time</param>
         /// <param name="un">The Unit of the Time</param>
-        let create n un =
-            un |> createNew (n |> Name.add name) |> Time.Time
+        let create n un = un |> createNew (n |> Name.add name) |> Time.Time
 
 
         /// Turn a `Time` to a string
@@ -1719,8 +1710,7 @@ module OrderVariable =
 
 
         /// Apply selected indices to the values of a Concentration
-        let applyIndices indices =
-            toOrdVar >> applyIndices indices >> Concentration
+        let applyIndices indices = toOrdVar >> applyIndices indices >> Concentration
 
 
         /// Check whether a Concentration is non-zero positive
@@ -1753,14 +1743,12 @@ module OrderVariable =
 
         /// Set the Values (or use the increment)
         /// to the nth value (if not > max)
-        let setNthValue nth =
-            toOrdVar >> setNthValue nth >> Concentration
+        let setNthValue nth = toOrdVar >> setNthValue nth >> Concentration
 
 
         /// Set the Values (or use the increment)
         /// to the percentage of all values (if not > max)
-        let setPercValue perc =
-            toOrdVar >> setPercValue perc >> Concentration
+        let setPercValue perc = toOrdVar >> setPercValue perc >> Concentration
 
 
         /// Set a Concentration to non-zero positive values
@@ -1797,12 +1785,10 @@ module OrderVariable =
         /// </summary>
         /// <param name="n">The Name of the Quantity</param>
         /// <param name="un">The Unit of the Quantity</param>
-        let create n un =
-            un |> createNew (n |> Name.add name) |> Quantity
+        let create n un = un |> createNew (n |> Name.add name) |> Quantity
 
 
-        let convertFirstUnit u =
-            toOrdVar >> convertFirstUnit u >> Quantity
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> Quantity
 
 
         /// Turn a `Quantity` to a string
@@ -1835,16 +1821,14 @@ module OrderVariable =
         let applyOnlyMaxConstraints = toOrdVar >> applyOnlyMaxConstraints >> Quantity
 
 
-        let applyOnlyMinIncrConstraints =
-            toOrdVar >> applyOnlyMinIncrConstraints >> Quantity
+        let applyOnlyMinIncrConstraints = toOrdVar >> applyOnlyMinIncrConstraints >> Quantity
 
 
         /// Apply the constraints of a Quantity to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
 
 
-        let applyIndices indices =
-            toOrdVar >> applyIndices indices >> Quantity
+        let applyIndices indices = toOrdVar >> applyIndices indices >> Quantity
 
 
         /// Check whether a Quantity is non-zero positive
@@ -1865,8 +1849,7 @@ module OrderVariable =
         /// </summary>
         /// <param name="maxCount">The maximum number of values in the ValueRange</param>
         /// <param name="incrs">The list of increments to choose from</param>
-        let increaseIncrement maxCount incrs =
-            toOrdVar >> increaseIncrement maxCount incrs >> Quantity
+        let increaseIncrement maxCount incrs = toOrdVar >> increaseIncrement maxCount incrs >> Quantity
 
 
         /// Check whether a Quantity is solved
@@ -1896,8 +1879,7 @@ module OrderVariable =
 
         /// Set the Values (or use the increment)
         /// to the percentage of all values (if not > max)
-        let setPercValue perc =
-            toOrdVar >> setPercValue perc >> Quantity
+        let setPercValue perc = toOrdVar >> setPercValue perc >> Quantity
 
 
         /// Clear the values of a Quantity
@@ -1983,13 +1965,11 @@ module OrderVariable =
 
 
         /// Convert the first unit of a PerTime (e.g., mg/kg/day -> g/kg/day)
-        let convertFirstUnit u =
-            toOrdVar >> convertFirstUnit u >> PerTime
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> PerTime
 
 
         /// Convert the time unit of a PerTime (e.g., mg/kg/day -> mg/kg/week)
-        let convertTimeUnit u =
-            toOrdVar >> convertTimeUnit u >> PerTime
+        let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> PerTime
 
 
         /// Turn a `PerTime` to a string
@@ -2148,8 +2128,7 @@ module OrderVariable =
         /// </summary>
         /// <param name="maxCount">The maximum number of values in the ValueRange</param>
         /// <param name="incrs">The list of increments to choose from</param>
-        let increaseIncrement maxCount incrs =
-            toOrdVar >> increaseIncrement maxCount incrs >> Rate
+        let increaseIncrement maxCount incrs = toOrdVar >> increaseIncrement maxCount incrs >> Rate
 
 
         /// Check whether a Rate is solved
@@ -2226,8 +2205,7 @@ module OrderVariable =
         /// </summary>
         /// <param name="n">The Name of the Total</param>
         /// <param name="un">The Unit of the Total</param>
-        let create n un =
-            un |> createNew (n |> Name.add name) |> Total
+        let create n un = un |> createNew (n |> Name.add name) |> Total
 
 
         /// Convert the first unit of a Total (e.g., mg -> g)
@@ -2327,12 +2305,10 @@ module OrderVariable =
 
 
         /// Convert the first unit of a QuantityAdjust (e.g., mg/kg -> g/kg)
-        let convertFirstUnit u =
-            toOrdVar >> convertFirstUnit u >> QuantityAdjust
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> QuantityAdjust
 
         /// Set the nearest value of a QuantityAdjust to a given ValueUnit
-        let setNearestValue vu =
-            toOrdVar >> setNearestValue vu >> QuantityAdjust
+        let setNearestValue vu = toOrdVar >> setNearestValue vu >> QuantityAdjust
 
 
         /// Turn a `QuantityAdjust` to a string
@@ -2410,8 +2386,7 @@ module OrderVariable =
 
         /// Set a `PerTimeAdjust` with an OrderVariable
         /// in a list of OrderVariables.
-        let fromOrdVar =
-            fromOrdVar toOrdVar (map ValueUnit.correctAdjustOrder >> PerTimeAdjust)
+        let fromOrdVar = fromOrdVar toOrdVar (map ValueUnit.correctAdjustOrder >> PerTimeAdjust)
 
 
         /// <summary>
@@ -2432,17 +2407,14 @@ module OrderVariable =
 
 
         /// Convert the first unit of a PerTimeAdjust (e.g., mg/kg/day -> g/kg/day)
-        let convertFirstUnit u =
-            toOrdVar >> convertFirstUnit u >> PerTimeAdjust
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> PerTimeAdjust
 
 
         /// Convert the time unit of a PerTimeAdjust (e.g., mg/kg/day -> mg/kg/week)
-        let convertTimeUnit u =
-            toOrdVar >> convertTimeUnit u >> PerTimeAdjust
+        let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> PerTimeAdjust
 
 
-        let setNearestValue vu =
-            toOrdVar >> setNearestValue vu >> PerTimeAdjust
+        let setNearestValue vu = toOrdVar >> setNearestValue vu >> PerTimeAdjust
 
 
         let toString = toOrdVar >> (toString false)
@@ -2527,8 +2499,7 @@ module OrderVariable =
 
         /// Set a `RateAdjust` with an OrderVariable
         /// in a list of OrderVariables.
-        let fromOrdVar =
-            fromOrdVar toOrdVar (map ValueUnit.correctAdjustOrder >> RateAdjust)
+        let fromOrdVar = fromOrdVar toOrdVar (map ValueUnit.correctAdjustOrder >> RateAdjust)
 
 
         /// <summary>
@@ -2549,13 +2520,11 @@ module OrderVariable =
 
 
         /// Convert the first unit of a RateAdjust (e.g., mL/kg/h -> L/kg/h)
-        let convertFirstUnit u =
-            toOrdVar >> convertFirstUnit u >> RateAdjust
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> RateAdjust
 
 
         /// Convert the time unit of a RateAdjust (e.g., mL/kg/h -> mL/kg/min)
-        let convertTimeUnit u =
-            toOrdVar >> convertTimeUnit u >> RateAdjust
+        let convertTimeUnit u = toOrdVar >> convertTimeUnit u >> RateAdjust
 
 
         /// Turn a `RateAdjust` to a string
@@ -2660,8 +2629,7 @@ module OrderVariable =
 
 
         /// Convert the first unit of a TotalAdjust (e.g., mL/kg -> L/kg)
-        let convertFirstUnit u =
-            toOrdVar >> convertFirstUnit u >> TotalAdjust
+        let convertFirstUnit u = toOrdVar >> convertFirstUnit u >> TotalAdjust
 
 
         /// Turn a `TotalAdjust` to a string

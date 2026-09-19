@@ -133,11 +133,4 @@ module NutritionRuleSets =
 
 
     /// Every set, one per category, for the composition root.
-    let all: NutritionRuleSet[] =
-        [|
-            enteralFeeding
-            enteralSupplement
-            tpn
-            lipid
-            electrolyteGlucose
-        |]
+    let all: NutritionRuleSet[] = [| enteralFeeding; enteralSupplement; tpn; lipid; electrolyteGlucose |]
