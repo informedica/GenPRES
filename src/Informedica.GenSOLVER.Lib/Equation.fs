@@ -41,11 +41,11 @@ module Equation =
 
 
     /// <summary>
-    /// Create an `Equation` with an **y** and
-    /// **xs**. Fails if a variable is added more
-    /// than one time using the **fail** function.
+    /// Create an <c>Equation</c> with an y and
+    /// xs. Fails if a variable is added more
+    /// than one time using the fail function.
     /// The type of Equation product or sum
-    /// is determined by the constructor **c**.
+    /// is determined by the constructor c.
     /// </summary>
     let create c succ fail (y, xs) =
         y :: xs
@@ -56,40 +56,40 @@ module Equation =
 
 
     /// <summary>
-    /// Create a `ProductEquation` with an **y** and
-    /// **xs**. Fails if a variable is added more
-    /// than one time using the **fail** function.
+    /// Create a <c>ProductEquation</c> with an y and
+    /// xs. Fails if a variable is added more
+    /// than one time using the fail function.
     /// </summary>
     let createProductEq = create ProductEquation
 
 
     /// <summary>
-    /// Create a `SumEquation` with an **y** and
-    /// **xs**. Fails if a variable is added more
-    /// than one time using the **fail** function.
+    /// Create a <c>SumEquation</c> with an y and
+    /// xs. Fails if a variable is added more
+    /// than one time using the fail function.
     /// </summary>
     let createSumEq = create SumEquation
 
 
     /// <summary>
-    /// Create a `ProductEquation` with an **y** and
-    /// **xs**. Fails if a variable is added more
+    /// Create a <c>ProductEquation</c> with an y and
+    /// xs. Fails if a variable is added more
     /// than one time, raising an exception.
     /// </summary>
     let createProductEqExc = createProductEq id (Exceptions.raiseExc None [])
 
 
     /// <summary>
-    /// Create a `SumEquation` with an **y** and
-    /// **xs**. Fails if a variable is added more
+    /// Create a <c>SumEquation</c> with an y and
+    /// xs. Fails if a variable is added more
     /// than one time, raising an exception.
     /// </summary>
     let createSumEqExc = createSumEq id (Exceptions.raiseExc None [])
 
 
     /// <summary>
-    /// Apply **fp** to a `ProductEquation` and
-    /// **fs** to a `SumEquation`.
+    /// Apply fp to a <c>ProductEquation</c> and
+    /// fs to a <c>SumEquation</c>.
     /// </summary>
     let apply fp fs =
         function
@@ -98,19 +98,19 @@ module Equation =
 
 
     /// <summary>
-    /// Check whether an `Equation` is a product equation
+    /// Check whether an <c>Equation</c> is a product equation
     /// </summary>
     let isProduct = apply (fun _ _ -> true) (fun _ _ -> false)
 
 
     /// <summary>
-    /// Check whether an `Equation` is a sum equation
+    /// Check whether an <c>Equation</c> is a sum equation
     /// </summary>
     let isSum = apply (fun _ _ -> true) (fun _ _ -> false)
 
 
     /// <summary>
-    /// Turn an `Equation` into a list of `Variable`
+    /// Turn an <c>Equation</c> into a list of <c>Variable</c>
     /// </summary>
     let toVars =
         let f y xs = y :: xs
@@ -118,7 +118,7 @@ module Equation =
 
 
     /// <summary>
-    /// Get the count of `Variable`s in an `Equation`
+    /// Get the count of <c>Variable</c>s in an <c>Equation</c>
     /// </summary>
     /// <param name="onlyMinMax">Whether only min max is used</param>
     /// <param name="eq">The equation</param>
@@ -159,7 +159,7 @@ module Equation =
 
 
     /// <summary>
-    /// Get product of the `Variable`s in an `Equation`
+    /// Get product of the <c>Variable</c>s in an <c>Equation</c>
     /// </summary>
     let countProduct eq =
         //match eq with
@@ -176,7 +176,7 @@ module Equation =
 
 
     /// <summary>
-    /// Get the string representation of an `Equation`
+    /// Get the string representation of an <c>Equation</c>
     /// </summary>
     let toString exact eq =
         let op = if eq |> isProduct then " * " else " + "
@@ -189,7 +189,7 @@ module Equation =
 
 
     /// <summary>
-    /// Get the string representation of an `Equation`
+    /// Get the string representation of an <c>Equation</c>
     /// </summary>
     let toStringShort eq =
         let op = if eq |> isProduct then " * " else " + "
@@ -202,8 +202,8 @@ module Equation =
 
 
     /// <summary>
-    /// Make sure that the `Variables` in the
-    /// `Equation` can only contain positive
+    /// Make sure that the <c>Variables</c> in the
+    /// <c>Equation</c> can only contain positive
     /// non-zero values.
     /// </summary>
     let nonZeroOrNegative eq =
@@ -218,15 +218,15 @@ module Equation =
 
 
     /// <summary>
-    /// Check whether an `Equation` contains
-    /// a `Variable` **v**
+    /// Check whether an <c>Equation</c> contains
+    /// a <c>Variable</c> v
     /// </summary>
     let contains v = toVars >> (List.exists (Variable.eqName v))
 
 
     /// <summary>
-    /// Check whether `Equation`s
-    /// **eq1** and **eq2** are equal
+    /// Check whether <c>Equation</c>s
+    /// eq1 and eq2 are equal
     /// </summary>
     let equals eq1 eq2 =
         let vrs1 = eq1 |> toVars
@@ -237,8 +237,8 @@ module Equation =
 
 
     /// <summary>
-    /// Find a `Variable` **vr** in
-    /// an `Equation` **eq** and return
+    /// Find a <c>Variable</c> vr in
+    /// an <c>Equation</c> eq and return
     /// the result in a list
     /// </summary>
     let find var eq =
@@ -248,8 +248,8 @@ module Equation =
 
 
     /// <summary>
-    /// Find a `Variable` with `Name`
-    /// **n** in an `Equation` **eq**
+    /// Find a <c>Variable</c> with <c>Name</c>
+    /// n in an <c>Equation</c> eq
     /// and return the result as a list
     /// </summary>
     let findName n eq =
@@ -257,8 +257,8 @@ module Equation =
 
 
     /// <summary>
-    /// Replace a `Variable` **v** in the
-    /// `Equation` **e**.
+    /// Replace a <c>Variable</c> v in the
+    /// <c>Equation</c> e.
     /// </summary>
     let replace var eq =
         let r c v vs =
@@ -281,7 +281,7 @@ module Equation =
 
     /// <summary>
     /// Check whether an equation will change by calc
-    /// This is different from `isSolved`!! If all
+    /// This is different from <c>isSolved</c>!! If all
     /// the variables are unrestricted, then the equation
     /// is not solvable but is also not solved.
     /// </summary>
@@ -541,28 +541,28 @@ module Equation =
 
         type VariableDto = Variable.Dto.Dto
 
-        /// `Dto` for an `Equation`
+        /// Dto for an Equation
         type Dto =
             {
                 Vars: VariableDto[]
                 IsProdEq: bool
             }
 
-        /// Create a `Dto` with `vars` (variable dto array)
-        /// that is either a `ProductEquation` or a `SumEquation`
+        /// Create a Dto with vars (variable dto array)
+        /// that is either a ProductEquation or a SumEquation
         let create isProd vars =
             {
                 Vars = vars
                 IsProdEq = isProd
             }
 
-        /// Create a `ProductEquation` `Dto`
+        /// Create a ProductEquation Dto
         let createProd = create true
 
-        /// Create a `SumEquation` `Dto`
+        /// Create a SumEquation Dto
         let createSum = create false
 
-        /// Return the `string` representation of a `Dto`
+        /// Return the string representation of a Dto
         let toString exact (dto: Dto) =
             let op = if dto.IsProdEq then "*" else "+"
             let varToString = Variable.Dto.toString exact
@@ -578,7 +578,7 @@ module Equation =
                 s.Substring(0, s.Length - 2)
 
 
-        /// Create a `Dto` and raise an exception if it fails
+        /// Create a Dto and raise an exception if it fails
         let fromDto dto =
             let succ = id
             let fail = Exceptions.raiseExc None []
@@ -594,7 +594,7 @@ module Equation =
                 else
                     e |> createSumEq succ fail
 
-        /// Create a `Dto` from an `Equation` **e**
+        /// Create a Dto from an Equation e
         let toDto e =
             let c isProd y xs =
                 {

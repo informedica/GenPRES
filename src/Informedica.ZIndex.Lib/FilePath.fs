@@ -42,7 +42,7 @@ module FilePath =
     /// The base data directory, resolved by the unified AppPath resolver.
     ///
     /// A function, not a value: as a value this ran in this file's static constructor
-    /// and forced AppPath's `lazy` root at whatever moment anything in FilePath was
+    /// and forced AppPath's lazy root at whatever moment anything in FilePath was
     /// first touched — before an Env.loadDotEnv () could set GENPRES_ROOT, defeating
     /// the deferral documented at AppPath.fs. No cache is needed; AppPath.root is
     /// already lazy, so this is a Path.Combine and a concat.
