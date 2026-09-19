@@ -48,16 +48,22 @@ module String =
     let length = NullCheck.nullOrDef (fun s -> (s |> get).Length) 0
 
 
-    /// Check if string is null or only white space
+    /// True when `s` is null, empty, or only white space.
     let isNullOrWhiteSpace = String.IsNullOrWhiteSpace
 
 
-    /// Check if string is null or only white space
-    let empty s = String.IsNullOrWhiteSpace(s)
+    /// True when `s` has content other than white space. The negation of
+    /// `isNullOrWhiteSpace`; a null string is not "not empty".
+    let notEmpty = isNullOrWhiteSpace >> not
 
 
-    /// Check if string is not null or only white space
-    let notEmpty = empty >> not
+    /// True when `s` is null or zero-length. White space counts as content
+    /// here, unlike `isNullOrWhiteSpace`.
+    let isNullOrEmpty = String.IsNullOrEmpty
+
+
+    /// True when `s` has at least one character, white space included.
+    let notNullOrEmpty = isNullOrEmpty >> not
 
 
     /// Replace `os` with `ns` in string `s`.

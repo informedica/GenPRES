@@ -23,7 +23,22 @@ module Measures =
 module String =
 
 
+    /// True when `s` is null, empty, or only white space.
     let isNullOrWhiteSpace (s: String) = String.IsNullOrWhiteSpace(s)
+
+
+    /// True when `s` has content other than white space. The negation of
+    /// `isNullOrWhiteSpace`; a null string is not "not empty".
+    let notEmpty = isNullOrWhiteSpace >> not
+
+
+    /// True when `s` is null or zero-length. White space counts as content
+    /// here, unlike `isNullOrWhiteSpace`.
+    let isNullOrEmpty (s: String) = String.IsNullOrEmpty(s)
+
+
+    /// True when `s` has at least one character, white space included.
+    let notNullOrEmpty = isNullOrEmpty >> not
 
 
     let replace (s1: string) s2 (s: string) = s.Replace(s1, s2)

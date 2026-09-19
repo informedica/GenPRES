@@ -42,7 +42,8 @@ module Extraction =
                 if zero |> JsonConvert.SerializeObject = (unitRecord |> JsonConvert.SerializeObject) then
                     Ok s
                 else
-                    let unitField = unitRecord |> get |> (fun s -> if s |> String.empty then "" else s)
+                    let unitField =
+                        unitRecord |> get |> (fun s -> if s |> String.isNullOrWhiteSpace then "" else s)
 
                     match unitField |> String.split "/" with
                     | [ u ] when u |> isValidUnit ->
