@@ -44,15 +44,15 @@ module Api =
 
 
     /// <summary>
-    /// The Nederlands Kinder Formularium link lookup, for `DoseRule.Print.toMarkdown`.
+    /// The Nederlands Kinder Formularium link lookup, for <c>DoseRule.Print.toMarkdown</c>.
     /// </summary>
     /// <remarks>
-    /// When only the NKF fetch failed the registry already serves `Source.getLink []`
-    /// (FK links intact, NKF links gone); see `Keys.nkfLinkProvider`. When the whole
-    /// resource load failed nothing is registered at all and `Get` raises
-    /// `KeyNotFoundException`, so serve that same degraded provider here: a decorative
-    /// link must never fail a request. One provider call, not an `IsLoaded` check followed
-    /// by `Get`: a `CachedResourceProvider` takes its lock per call, so a reload failing
+    /// When only the NKF fetch failed the registry already serves <c>Source.getLink []</c>
+    /// (FK links intact, NKF links gone); see <c>Keys.nkfLinkProvider</c>. When the whole
+    /// resource load failed nothing is registered at all and <c>Get</c> raises
+    /// <c>KeyNotFoundException</c>, so serve that same degraded provider here: a decorative
+    /// link must never fail a request. One provider call, not an <c>IsLoaded</c> check followed
+    /// by <c>Get</c>: a <c>CachedResourceProvider</c> takes its lock per call, so a reload failing
     /// between the two would still throw.
     /// </remarks>
     let getNKFLinkProvider (provider: IResourceProvider) : Source.LinkProvider =

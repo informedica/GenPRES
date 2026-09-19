@@ -72,7 +72,7 @@ module Config =
 
     /// Banner display string for the Sheet ID: only the last 5 chars, so it
     /// never lands in logs or screenshots intact. Built here, not in the
-    /// banner template, so the `NOT SET` path doesn't render as `***NOT SET`.
+    /// banner template, so the NOT SET path doesn't render as ***NOT SET.
     let redactUrlId (raw: string option) =
         raw
         |> nonBlank

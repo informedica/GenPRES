@@ -12,10 +12,10 @@ open Informedica.Utils.Lib.BCL
 
 
 /// The IdentityProvider and the UserRegistry as one stub directory over an identity choice made
-/// on the stub launch page: `prescriber`, `reader`, `prescriber-other-patient`, `no-pin`,
-/// `unknown` (a login the registry does not know), `none` (no identity: the stub IdP's
-/// `/authorize` never issues a code for it). The active Patient of a choice is the one the
-/// launch page was given, except for `prescriber-other-patient`.
+/// on the stub launch page: prescriber, reader, prescriber-other-patient, no-pin,
+/// unknown (a login the registry does not know), none (no identity: the stub IdP's
+/// /authorize never issues a code for it). The active Patient of a choice is the one the
+/// launch page was given, except for prescriber-other-patient.
 module StubDirectory =
 
     let choices =
@@ -51,7 +51,7 @@ module StubDirectory =
 
 
     /// The registry's answer for a login, given the Patient the launch page made active. Whether
-    /// a PIN is set is not the registry's to say: `no-pin` differs from `prescriber` only in
+    /// a PIN is set is not the registry's to say: no-pin differs from prescriber only in
     /// the credential store's seed.
     let standingOf (activePatientId: string) (identity: BrowserIdentity) : UserStanding option =
         let standing role activePatientId =
@@ -77,7 +77,7 @@ module StubDirectory =
 
 
     /// The directory: one-time codes (the stub IdP) and the active Patient per login (the stub
-    /// registry), behind a lock. `issue` is what `/authorize` calls once it read the identity
+    /// registry), behind a lock. issue is what /authorize calls once it read the identity
     /// choice and the active Patient from the stub cookie.
     type Directory =
         {
@@ -151,7 +151,7 @@ module StubDirectory =
 
 
 /// The PatientDataPlatform stub: one fixed patient for every PatientId, so a launch fills the
-/// patient panel from the platform, except that `no-data` has no record at all, so the
+/// patient panel from the platform, except that no-data has no record at all, so the
 /// Session opens on what was signed last, or on nothing.
 module StubPatientData =
 
@@ -187,7 +187,7 @@ module StubPatientData =
 
 
 /// The credential half of the Database, seeded for the stub logins: the Prescribers that sign
-/// have the PIN `1234`, `no-pin` has none and enrols, a Reader has no credential because a
+/// have the PIN 1234, no-pin has none and enrols, a Reader has no credential because a
 /// Reader never signs. On the in-memory store these live as long as the host; on the SQLite
 /// store the start writes them once per login and a PIN a User set is never written over.
 module StubCredentials =
@@ -208,7 +208,7 @@ module StubCredentials =
 
 /// The MailService stub: an outbox behind a lock and a page that shows it, newest
 /// first, so the tester reads a confirmation code where a User would read their mail.
-/// `Server.fs` mounts `GET /stub/mail` in full scope only.
+/// Server.fs mounts GET /stub/mail in full scope only.
 module StubMail =
 
     let path = "/stub/mail"
@@ -235,7 +235,7 @@ module StubMail =
     let private encode (s: string) = System.Net.WebUtility.HtmlEncode s
 
 
-    /// The outbox as a page. No inline script or style, so the CSP (`default-src 'self'`)
+    /// The outbox as a page. No inline script or style, so the CSP (default-src 'self')
     /// holds; every field is HTML-encoded, the body keeps its line breaks.
     let page (mails: Mail list) =
         let items =
@@ -265,8 +265,8 @@ newest first. Development and test servers only.</p>
 
 
 /// The stub LaunchScript as a page the server serves in full scope: it mints a
-/// sealed Launch for a chosen PatientId and opens the client on it. Pure here; `Server.fs`
-/// mounts `GET /stub/launch` (the page) and `POST /stub/launch` (mint + redirect).
+/// sealed Launch for a chosen PatientId and opens the client on it. Pure here; Server.fs
+/// mounts GET /stub/launch (the page) and POST /stub/launch (mint + redirect).
 module StubLaunch =
 
     let path = "/stub/launch"
@@ -277,7 +277,7 @@ module StubLaunch =
 
 
     /// The form for a list of identity choices (the stub directory's). No inline script or
-    /// style, so the CSP (`default-src 'self'`) holds. The PatientId `no-data` opens a Session
+    /// style, so the CSP (default-src 'self') holds. The PatientId no-data opens a Session
     /// without imported data.
     let pageFor (choices: string list) =
         let options =
@@ -355,7 +355,7 @@ below and opens GenPRES on it. Development and test servers only.</p>
 
 
 /// The Database stub: the session state in memory behind one lock, forgotten at restart. Runs
-/// the pure `Session` functions over it; the clock, the ids, the codes and the ports come in
+/// the pure Session functions over it; the clock, the ids, the codes and the ports come in
 /// as parameters so the tests can fix them.
 module StubDatabase =
 
@@ -378,7 +378,7 @@ module StubDatabase =
     /// <summary>
     /// The write phase of a request: the step run, its writes run as one, and the returned
     /// state kept only if they landed. When they did not, the state stays as it was and the
-    /// request answers what `onFailure` makes of the store's outcome. A step without writes
+    /// request answers what <c>onFailure</c> makes of the store's outcome. A step without writes
     /// asks the store nothing.
     /// </summary>
     let runWith
@@ -400,7 +400,7 @@ module StubDatabase =
 
     /// A signature's writes that did not land: a conflict is another server's sign, the head
     /// changed, answered as a stale sign against the version that won; anything else
-    /// `StoreFailed`, so that the next Submission is the retry.
+    /// StoreFailed, so that the next Submission is the retry.
     let submitWith persist step state =
         runWith
             persist
@@ -412,12 +412,12 @@ module StubDatabase =
             state
 
 
-    /// A challenge's writes that did not land: `StoreFailed`.
+    /// A challenge's writes that did not land: StoreFailed.
     let challengeWith persist step state =
         runWith persist (fun _ -> SigningOutcome.Refused SigningRefusal.StoreFailed) step state
 
 
-    /// A member that answers nothing and one that writes nothing, in the shape `runWith` takes.
+    /// A member that answers nothing and one that writes nothing, in the shape runWith takes.
     let private asUnit (state, writes) = state, (), writes
 
     let private noWrites (state, answer) = state, answer, []
@@ -453,8 +453,8 @@ module StubDatabase =
 
 
     /// <summary>
-    /// Where the session state lives: `load` puts the rows a slice names into the state before
-    /// a request runs, `persist` appends what it wrote. The in-memory store keeps everything in
+    /// Where the session state lives: <c>load</c> puts the rows a slice names into the state before
+    /// a request runs, <c>persist</c> appends what it wrote. The in-memory store keeps everything in
     /// the state itself; the SQL store reads and writes the database.
     /// </summary>
     type SessionStore =

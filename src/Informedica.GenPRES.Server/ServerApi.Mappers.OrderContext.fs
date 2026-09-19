@@ -12,11 +12,11 @@ open Shared.Types
 /// plan gave the context.
 module OrderContextMapper =
 
-    /// The marked-up text the domain holds, from the items the client shows: bold between `#`,
-    /// italic between `|`, the rest as it is. The markup has no escape, on this side or in
-    /// `Mappers.parseTextItem`: a `#` or `|` inside an item's text is not representable. That
+    /// The marked-up text the domain holds, from the items the client shows: bold between #,
+    /// italic between |, the rest as it is. The markup has no escape, on this side or in
+    /// Mappers.parseTextItem: a # or | inside an item's text is not representable. That
     /// never arises, since the client authors no item; every item is what the parser cut from
-    /// the domain's text, so none holds a delimiter, and on those `render` is the parser's
+    /// the domain's text, so none holds a delimiter, and on those render is the parser's
     /// inverse. A domain text that needs a literal delimiter is the markup grammar's to solve,
     /// in the printer that writes it.
     module TextItem =
@@ -165,7 +165,7 @@ module OrderContextMapper =
 
 
     /// A scenario with its order as the domain's Dto, numbered by its place, the text blocks
-    /// as marked-up text. Total: an order that cannot be created is `fromDto`'s to report.
+    /// as marked-up text. Total: an order that cannot be created is fromDto's to report.
     let scenario no (sc: OrderScenario) : ScenarioDto.Dto =
         {
             No = no

@@ -383,7 +383,7 @@ module Adapters =
 
 
     /// An env with its own seal key and stub directory: what tests and the MCP host build. The
-    /// server builds `makeAppEnvWith` so that its stub pages share the key and the directory.
+    /// server builds makeAppEnvWith so that its stub pages share the key and the directory.
     let makeAppEnv (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
         // the demo flag as the server reads it, once
         let demo =

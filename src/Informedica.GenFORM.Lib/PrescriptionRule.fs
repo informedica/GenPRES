@@ -377,9 +377,9 @@ module PrescriptionRule =
         }
 
 
-    /// Get the string representation of an array of PrescriptionRules. `getLink` is
-    /// forwarded to `DoseRule.Print.toMarkdown`; pass `Api.getNKFLinkProvider provider`,
-    /// or `Source.noLinks` when no external links are wanted.
+    /// Get the string representation of an array of PrescriptionRules. getLink is
+    /// forwarded to DoseRule.Print.toMarkdown; pass Api.getNKFLinkProvider provider,
+    /// or Source.noLinks when no external links are wanted.
     let toMarkdown (getLink: Source.LinkProvider) (prs: PrescriptionRule[]) =
         [
             yield!

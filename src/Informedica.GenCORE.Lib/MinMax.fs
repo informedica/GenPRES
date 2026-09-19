@@ -11,7 +11,7 @@ type MinMax =
         Max: Limit option
     }
 
-/// Can be either `Inclusive` or `Exclusive`
+/// Can be either Inclusive or Exclusive
 and Limit =
     | Inclusive of ValueUnit
     | Exclusive of ValueUnit
@@ -285,7 +285,7 @@ module Limit =
 
 
     /// Calculate the comparison of 2
-    /// optional `Value` types `v1` and `v2`.
+    /// optional Value types v1 and v2.
     let compOpt comp nn sn ns v1 v2 =
         match v1, v2 with
         | None, None -> nn
@@ -363,7 +363,7 @@ module Limit =
         | Exclusive vu -> $"excl|{vu |> ValueUnit.toToken}"
 
 
-/// Functions to handle a `MinMax` type.
+/// Functions to handle a MinMax type.
 /// The concept is that of a range definition with
 /// either a min value, a max value, none or both.
 /// The min and/or max value can be inclusive or exclusive
@@ -491,7 +491,7 @@ module MinMax =
     let createExact vu = createInclIncl vu vu
 
 
-    /// A `MinMax` range with value 1, can
+    /// A MinMax range with value 1, can
     /// be used in calculations as a "unit"
     /// with multiplication and division
     let one u =
@@ -517,9 +517,9 @@ module MinMax =
             | Error _ -> mm
 
 
-    /// Set the min value to `min` only
-    /// when the condition `cond` appies
-    /// to the `MinMax` `mm`.
+    /// Set the min value to min only
+    /// when the condition cond appies
+    /// to the MinMax mm.
     let setMinCond cond min (mm: MinMax) =
         match mm.Min, mm.Max with
         | Some m, Some max ->
@@ -532,9 +532,9 @@ module MinMax =
         | Some m, None -> if cond min m |> not then mm else mm |> setMin (Some min)
 
 
-    /// Set the max value to `max` only
-    /// when the condition `cond` applies
-    /// to the `MinMax` `mm`.
+    /// Set the max value to max only
+    /// when the condition cond applies
+    /// to the MinMax mm.
     let setMaxCond cond max (mm: MinMax) =
         match mm.Min, mm.Max with
         | Some min, Some m ->
@@ -547,9 +547,9 @@ module MinMax =
         | None, Some m -> if cond max m |> not then mm else mm |> setMax (Some max)
 
 
-    /// Calculate the resulting `MinMax` value
-    /// based on a list of `MinMax` values according
-    /// to a conditioning rule `cond`.
+    /// Calculate the resulting MinMax value
+    /// based on a list of MinMax values according
+    /// to a conditioning rule cond.
     let foldCond presMin presMax minCond maxCond (mms: MinMax list) =
         mms
         |> List.fold
@@ -577,19 +577,19 @@ module MinMax =
 
 
     /// Calculate the smallest range from
-    /// a list of `MinMax` values.
+    /// a list of MinMax values.
     let foldMinimize presMin presMax =
         foldCond presMin presMax (Limit.gt true true) (Limit.st false false)
 
 
     /// Calculate the largest range from
-    /// a list of `MinMax` values.
+    /// a list of MinMax values.
     let foldMaximize presMin presMax =
         foldCond presMin presMax (Limit.st true true) (Limit.gt false false)
 
 
-    /// Check whether a value `v` is in
-    /// the range of a `MinMax` `mm`.
+    /// Check whether a value v is in
+    /// the range of a MinMax mm.
     let inRange v (mm: MinMax) =
         match mm.Min, mm.Max with
         | None, None -> true
@@ -635,8 +635,8 @@ module MinMax =
             | Error _ -> empty
 
 
-    /// perform a calculation `op` to
-    /// 2 values `v1` and `v2`.
+    /// perform a calculation op to
+    /// 2 values v1 and v2.
     let calcLimit op v1 v2 =
         match v1, v2 with
         | Inclusive v1, Inclusive v2 -> v1 |> op <| v2 |> Inclusive
@@ -645,8 +645,8 @@ module MinMax =
         | Exclusive v1, Inclusive v2 -> v1 |> op <| v2 |> Exclusive
 
 
-    /// Perform a calculation for `Value` types
-    /// of the `MinMax` values `mm1` and `mm2`.
+    /// Perform a calculation for Value types
+    /// of the MinMax values mm1 and mm2.
     let calc op (mm1: MinMax) (mm2: MinMax) =
         let c m1 m2 =
             match m1, m2 with
@@ -661,8 +661,8 @@ module MinMax =
         }
 
 
-    /// Convert the units of the `ValueUnit` values
-    /// in a `MinMax` `mm` to unit `u`.
+    /// Convert the units of the ValueUnit values
+    /// in a MinMax mm to unit u.
     let convertTo u (mm: MinMax) =
         let convert = Limit.apply (ValueUnit.convertTo u) (ValueUnit.convertTo u) >> Some
 
@@ -678,8 +678,8 @@ module MinMax =
         }
 
 
-    /// Set the units of the `ValueUnit` values
-    /// in a `MinMax` `mm` to unit `u`.
+    /// Set the units of the ValueUnit values
+    /// in a MinMax mm to unit u.
     let withUnit u (mm: MinMax) =
         let f = fun vu -> vu |> ValueUnit.getValue |> ValueUnit.create u
 
@@ -712,7 +712,7 @@ module MinMax =
         |> Option.map (Limit.getValueUnit >> ValueUnit.getUnit)
 
 
-    /// Extension methods for the `Value` type
+    /// Extension methods for the Value type
     /// to enable lenses.
     type Limit with
 
@@ -742,8 +742,8 @@ module MinMax =
             )
 
 
-    /// Contains the lenses for the `Value` and
-    /// the `MinMax` type.
+    /// Contains the lenses for the Value and
+    /// the MinMax type.
     module Optics =
 
 
@@ -840,7 +840,7 @@ module MinMax =
         let setExclMax = snd exclMaxLens
 
 
-    /// The dto object to represent a `MinMax` type
+    /// The dto object to represent a MinMax type
     module Dto =
 
         type Dto() =
@@ -960,8 +960,8 @@ module MinMax =
                 dto
 
 
-    /// Turn a `MinMax` to a string with
-    /// `mins` and `maxs` as annotations
+    /// Turn a MinMax to a string with
+    /// mins and maxs as annotations
     /// for resp. the min and max value.
     let toString
         vuToStr
@@ -1059,7 +1059,7 @@ module MinMax =
                 ValueUnit.fromString s |> Result.map createExact
 
 
-/// Extension methods for the `Limit` type
+/// Extension methods for the Limit type
 type Limit with
 
 
@@ -1068,7 +1068,7 @@ type Limit with
     static member (/)(v1, v2) = MinMax.calcLimit (/) v1 v2
 
 
-/// Extension methods for the `MinMax` type
+/// Extension methods for the MinMax type
 type MinMax with
 
 

@@ -237,8 +237,8 @@ module Utils =
                 |> Option.defaultValue false
 
 
-        /// Turn a `MinMax` to a string with
-        /// `mins` and `maxs` as annotations
+        /// Turn a MinMax to a string with
+        /// mins and maxs as annotations
         /// for resp. the min and max value.
         let toString
             minInclStr

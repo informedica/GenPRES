@@ -5,7 +5,7 @@ open Informedica.GenOrder.Lib
 
 /// The nutrition rule sets: what each nutrition category draws from, the indications and the
 /// generics its dose rules are filtered on, and the label shown for it. Configuration the
-/// server owns; the composition root hands `all` to the order plan rules.
+/// server owns; the composition root hands all to the order plan rules.
 module NutritionRuleSets =
 
     let enteralFeeding: NutritionRuleSet =

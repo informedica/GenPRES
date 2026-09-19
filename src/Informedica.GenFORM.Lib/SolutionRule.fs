@@ -315,7 +315,7 @@ module SolutionRule =
 
         /// Split a SolutionLimit into its display parts so callers can de-duplicate
         /// trailing lines that are identical across multiple limits of the same rule.
-        /// `includeSubstanceName = false` suppresses the inline substance prefix
+        /// includeSubstanceName = false suppresses the inline substance prefix
         /// (used when the substance is rendered as a separate heading).
         let printSolutionLimit (sr: SolutionRule) (includeSubstanceName: bool) (limit: SolutionLimit) =
             let mmToStr = MinMax.toString "min. " "min. " "max. " "max. "
