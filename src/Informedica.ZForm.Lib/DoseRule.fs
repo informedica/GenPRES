@@ -1105,11 +1105,11 @@ module DoseRule =
 
 
             type Dto() =
-                // The patient group the doserules applies
+                /// The patient group the doserules applies
                 member val Patient = PatientCategory.Dto.dto () with get, set
-                // List of forms that have a dosage
+                /// List of forms that have a dosage
                 member val FormDosage = Dosage.Dto.dto () with get, set
-                // List of substances that have a dosage
+                /// List of substances that have a dosage
                 member val SubstanceDosages: Dosage.Dto.Dto list = [] with get, set
 
             let dto () = Dto()
@@ -1986,19 +1986,19 @@ Synoniemen: {synonym}
 
         type Dto() =
             member val Generic = "" with get, set
-            // List of synonyms for the generic
+            /// List of synonyms for the generic
             member val Synomyms: string list = [] with get, set
-            // The ATC code
+            /// The ATC code
             member val ATC = "" with get, set
-            // ATCTherapyGroup the doserule applies to
+            /// ATCTherapyGroup the doserule applies to
             member val ATCTherapyGroup = "" with get, set
-            // ATCTherapySubGroup the doserule applies to
+            /// ATCTherapySubGroup the doserule applies to
             member val ATCTherapySubGroup = "" with get, set
-            // The generic group the doserule applies to
+            /// The generic group the doserule applies to
             member val GenericGroup = "" with get, set
-            // The generic subgroup the doserule applies to
+            /// The generic subgroup the doserule applies to
             member val GenericSubGroup = "" with get, set
-            // The doserules per indication(-s)
+            /// The doserules per indication(-s)
             member val Indications: IndicationDosage.Dto.Dto list = [] with get, set
 
 

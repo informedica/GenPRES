@@ -10,10 +10,10 @@ module Source =
     /// its URL is built from.
     type NKFMedication =
         {
-            // The generic name as the NKF spells it: trimmed, lower case, and with
-            // combination preparations joined by "+".
+            /// The generic name as the NKF spells it: trimmed, lower case, and with
+            /// combination preparations joined by "+".
             Generic: string
-            // The NKF's own id, the first path segment of a medication URL.
+            /// The NKF's own id, the first path segment of a medication URL.
             Id: string
         }
 
