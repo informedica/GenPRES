@@ -1406,11 +1406,11 @@ module OrderVariable =
         let isWithinConstraints useCalc = toOrdVar >> isWithinConstraints useCalc
 
 
-        /// Apply the constraints of a Count to the OrderVariable Variable
         /// Apply a function to the OrderVariable in a Count
         let apply f = toOrdVar >> f >> count
 
 
+        /// Apply the constraints of a Count to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> count
 
 
@@ -1519,11 +1519,11 @@ module OrderVariable =
         let isWithinConstraints useCalc = toOrdVar >> isWithinConstraints useCalc
 
 
-        /// Apply the constraints of a Time to the OrderVariable Variable
         /// Apply a function to the OrderVariable in a Time
         let apply f = toOrdVar >> f >> time
 
 
+        /// Apply the constraints of a Time to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> time
 
 
@@ -1776,11 +1776,11 @@ module OrderVariable =
         let isWithinConstraints useCalc = toOrdVar >> isWithinConstraints useCalc
 
 
-        /// Apply the constraints of a Concentration to the OrderVariable Variable
         /// Apply a function to the OrderVariable in a Concentration
         let apply f = toOrdVar >> f >> Concentration
 
 
+        /// Apply the constraints of a Concentration to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
 
@@ -1899,11 +1899,11 @@ module OrderVariable =
         let applyOnlyMinIncrConstraints = toOrdVar >> applyOnlyMinIncrConstraints >> Quantity
 
 
-        /// Apply the constraints of a Quantity to the OrderVariable Variable
         /// Apply a function to the OrderVariable in a Quantity
         let apply f = toOrdVar >> f >> Quantity
 
 
+        /// Apply the constraints of a Quantity to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
 
 
@@ -2079,11 +2079,11 @@ module OrderVariable =
         let isWithinConstraints useCalc = toOrdVar >> isWithinConstraints useCalc
 
 
-        /// Apply the constraints of a PerTime to the OrderVariable Variable
         /// Apply a function to the OrderVariable in a PerTime
         let apply f = toOrdVar >> f >> PerTime
 
 
+        /// Apply the constraints of a PerTime to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> PerTime
 
 
@@ -2187,11 +2187,11 @@ module OrderVariable =
         let isWithinConstraints useCalc = toOrdVar >> isWithinConstraints useCalc
 
 
-        /// Apply the constraints of a Rate to the OrderVariable Variable
         /// Apply a function to the OrderVariable in a Rate
         let apply f = toOrdVar >> f >> Rate
 
 
+        /// Apply the constraints of a Rate to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Rate
 
 
@@ -2325,11 +2325,11 @@ module OrderVariable =
         let isWithinConstraints useCalc = toOrdVar >> isWithinConstraints useCalc
 
 
-        /// Apply the constraints of a Total to the OrderVariable Variable
         /// Apply a function to the OrderVariable in a Total
         let apply f = toOrdVar >> f >> Total
 
 
+        /// Apply the constraints of a Total to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> Total
 
 
@@ -2428,11 +2428,11 @@ module OrderVariable =
 
         let applyOnlyMaxConstraints = toOrdVar >> applyOnlyMaxConstraints >> QuantityAdjust
 
-        /// Apply the constraints of a QuantityAdjust to the OrderVariable Variable
         /// Apply a function to the OrderVariable in a QuantityAdjust
         let apply f = toOrdVar >> f >> QuantityAdjust
 
 
+        /// Apply the constraints of a QuantityAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
 
         /// Check whether a QuantityAdjust is non-zero positive
@@ -2537,11 +2537,11 @@ module OrderVariable =
         let isWithinConstraints useCalc = toOrdVar >> isWithinConstraints useCalc
 
 
-        /// Apply the constraints of a PerTimeAdjust to the OrderVariable Variable
         /// Apply a function to the OrderVariable in a PerTimeAdjust
         let apply f = toOrdVar >> f >> PerTimeAdjust
 
 
+        /// Apply the constraints of a PerTimeAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> PerTimeAdjust
 
 
@@ -2653,11 +2653,11 @@ module OrderVariable =
         let isWithinConstraints useCalc = toOrdVar >> isWithinConstraints useCalc
 
 
-        /// Apply the constraints of a RateAdjust to the OrderVariable Variable
         /// Apply a function to the OrderVariable in a RateAdjust
         let apply f = toOrdVar >> f >> RateAdjust
 
 
+        /// Apply the constraints of a RateAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> RateAdjust
 
 
@@ -2758,11 +2758,11 @@ module OrderVariable =
         /// Check whether a TotalAdjust is within its constraints
         let isWithinConstraints useCalc = toOrdVar >> isWithinConstraints useCalc
 
-        /// Apply the constraints of a TotalAdjust to the OrderVariable Variable
         /// Apply a function to the OrderVariable in a TotalAdjust
         let apply f = toOrdVar >> f >> TotalAdjust
 
 
+        /// Apply the constraints of a TotalAdjust to the OrderVariable Variable
         let applyConstraints = toOrdVar >> applyConstraints >> TotalAdjust
 
 
