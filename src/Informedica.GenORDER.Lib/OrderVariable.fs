@@ -217,6 +217,64 @@ module OrderVariable =
         let get (cs: Constraints) = cs.Min, cs.Incr, cs.Max, cs.Values
 
 
+        /// The values the order variable may take. A ValueUnit holding no value constrains
+        /// nothing, and neither does None.
+        let setValues vu (cs: Constraints) =
+            { cs with Values = vu |> Option.filter (ValueUnit.isEmpty >> not) |> Option.map ValueSet.create }
+
+
+        /// The step between the values the order variable may take. A ValueUnit holding no
+        /// value constrains nothing, and neither does None.
+        let setIncr vu (cs: Constraints) =
+            { cs with Incr = vu |> Option.filter (ValueUnit.isEmpty >> not) |> Option.map Increment.create }
+
+
+        /// The lower bound, inclusive or not. None is no lower bound, so a caller that means
+        /// to leave the bound alone must not call this.
+        let setMin incl vu (cs: Constraints) = { cs with Min = vu |> Option.map (Minimum.create incl) }
+
+
+        /// The upper bound, inclusive or not. None is no upper bound, so a caller that means
+        /// to leave the bound alone must not call this.
+        let setMax incl vu (cs: Constraints) = { cs with Max = vu |> Option.map (Maximum.create incl) }
+
+
+        /// <summary>
+        /// The inclusive bounds of a MinMax, each left as it was where the MinMax does not
+        /// give it.
+        /// </summary>
+        /// <param name="calcNormDose">
+        /// Whether a MinMax naming one value rather than a range is a norm dose, which is
+        /// widened by a tenth either way so that the solver has somewhere to go
+        /// </param>
+        /// <param name="minMax">The MinMax to take the bounds from</param>
+        /// <param name="cs">The Constraints to set them on</param>
+        let setMinMax calcNormDose (minMax: MinMax) (cs: Constraints) =
+            let isNormDose =
+                calcNormDose
+                && (
+                    match minMax.Min, minMax.Max with
+                    | Some minLimit, Some maxLimit -> minLimit |> Limit.eq maxLimit
+                    | _ -> false
+                )
+
+            let bound f =
+                Option.map Limit.getValueUnit
+                >> Option.map (fun vu ->
+                    if isNormDose then
+                        vu * (f |> ValueUnit.singleWithUnit Units.Count.times)
+                    else
+                        vu
+                )
+
+            let min = minMax.Min |> bound (90N / 100N)
+            let max = minMax.Max |> bound (11N / 10N)
+
+            cs
+            |> fun cs -> if min |> Option.isSome then cs |> setMin true min else cs
+            |> fun cs -> if max |> Option.isSome then cs |> setMax true max else cs
+
+
         /// Check whether a Constraints record is non-zero positive
         let isNonZeroPositive (cs: Constraints) =
             cs.Max.IsNone
@@ -506,6 +564,10 @@ module OrderVariable =
     /// <param name="cs">The Constraints to set</param>
     /// <param name="ovar">The OrderVariable</param>
     let setConstraints cs (ovar: OrderVariable) = { ovar with DefinedConstraints = cs }
+
+
+    /// Change the Constraints of an OrderVariable, leaving everything else alone.
+    let mapConstraints f (ovar: OrderVariable) = ovar |> setConstraints (ovar |> getConstraints |> f)
 
 
     let setCalculatedConstraints (ovar: OrderVariable) =
@@ -1345,6 +1407,10 @@ module OrderVariable =
 
 
         /// Apply the constraints of a Count to the OrderVariable Variable
+        /// Apply a function to the OrderVariable in a Count
+        let apply f = toOrdVar >> f >> count
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> count
 
 
@@ -1454,6 +1520,10 @@ module OrderVariable =
 
 
         /// Apply the constraints of a Time to the OrderVariable Variable
+        /// Apply a function to the OrderVariable in a Time
+        let apply f = toOrdVar >> f >> time
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> time
 
 
@@ -1514,6 +1584,7 @@ module OrderVariable =
         let fromOrdVar = fromOrdVar toOrdVar Frequency
 
 
+        /// Apply a function to the OrderVariable in a Frequency
         let apply f = toOrdVar >> f >> Frequency
 
 
@@ -1706,6 +1777,10 @@ module OrderVariable =
 
 
         /// Apply the constraints of a Concentration to the OrderVariable Variable
+        /// Apply a function to the OrderVariable in a Concentration
+        let apply f = toOrdVar >> f >> Concentration
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> Concentration
 
 
@@ -1825,6 +1900,10 @@ module OrderVariable =
 
 
         /// Apply the constraints of a Quantity to the OrderVariable Variable
+        /// Apply a function to the OrderVariable in a Quantity
+        let apply f = toOrdVar >> f >> Quantity
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> Quantity
 
 
@@ -2001,6 +2080,10 @@ module OrderVariable =
 
 
         /// Apply the constraints of a PerTime to the OrderVariable Variable
+        /// Apply a function to the OrderVariable in a PerTime
+        let apply f = toOrdVar >> f >> PerTime
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> PerTime
 
 
@@ -2105,6 +2188,10 @@ module OrderVariable =
 
 
         /// Apply the constraints of a Rate to the OrderVariable Variable
+        /// Apply a function to the OrderVariable in a Rate
+        let apply f = toOrdVar >> f >> Rate
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> Rate
 
 
@@ -2239,6 +2326,10 @@ module OrderVariable =
 
 
         /// Apply the constraints of a Total to the OrderVariable Variable
+        /// Apply a function to the OrderVariable in a Total
+        let apply f = toOrdVar >> f >> Total
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> Total
 
 
@@ -2338,6 +2429,10 @@ module OrderVariable =
         let applyOnlyMaxConstraints = toOrdVar >> applyOnlyMaxConstraints >> QuantityAdjust
 
         /// Apply the constraints of a QuantityAdjust to the OrderVariable Variable
+        /// Apply a function to the OrderVariable in a QuantityAdjust
+        let apply f = toOrdVar >> f >> QuantityAdjust
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> QuantityAdjust
 
         /// Check whether a QuantityAdjust is non-zero positive
@@ -2443,6 +2538,10 @@ module OrderVariable =
 
 
         /// Apply the constraints of a PerTimeAdjust to the OrderVariable Variable
+        /// Apply a function to the OrderVariable in a PerTimeAdjust
+        let apply f = toOrdVar >> f >> PerTimeAdjust
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> PerTimeAdjust
 
 
@@ -2555,6 +2654,10 @@ module OrderVariable =
 
 
         /// Apply the constraints of a RateAdjust to the OrderVariable Variable
+        /// Apply a function to the OrderVariable in a RateAdjust
+        let apply f = toOrdVar >> f >> RateAdjust
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> RateAdjust
 
 
@@ -2656,6 +2759,10 @@ module OrderVariable =
         let isWithinConstraints useCalc = toOrdVar >> isWithinConstraints useCalc
 
         /// Apply the constraints of a TotalAdjust to the OrderVariable Variable
+        /// Apply a function to the OrderVariable in a TotalAdjust
+        let apply f = toOrdVar >> f >> TotalAdjust
+
+
         let applyConstraints = toOrdVar >> applyConstraints >> TotalAdjust
 
 
