@@ -1381,6 +1381,30 @@ module OrderBuilderTests =
         testList
             "Medication.OrderBuilder, the shape pass"
             [
+                for orderType in [ AnyOrder; ProcessOrder ] do
+                    test $"an order type of {orderType} is refused, not raised" {
+                        { Scenarios.pcmSupp with OrderType = orderType }
+                        |> Medication.toOrder
+                        |> Result.isError
+                        |> Expect.isTrue "a medication that cannot be ordered gives an Error"
+                    }
+
+                test "a medication that cannot be ordered leaves the others alone" {
+                    let meds =
+                        [|
+                            { Scenarios.pcmSupp with OrderType = AnyOrder }
+                            Scenarios.pcmSupp
+                            { Scenarios.amfo with OrderType = ProcessOrder }
+                            Scenarios.amfo
+                        |]
+
+                    // what rule evaluation does with the orders it builds
+                    meds
+                    |> Array.choose (Medication.toOrder >> Result.toOption)
+                    |> Array.length
+                    |> Expect.equal "the two that can be ordered are kept" 2
+                }
+
                 for name, med in fixtures do
                     test $"{name} is the order the Dto path builds, whole" {
                         // both paths read the clock, so the start says nothing about the build

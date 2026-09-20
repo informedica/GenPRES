@@ -549,7 +549,15 @@ module OrderContext =
                 |> Array.collect (fun pr ->
                     pr
                     |> Medication.fromRule logger
-                    |> Array.choose (Medication.toOrder >> Result.toOption)
+                    |> Array.choose (fun med ->
+                        match med |> Medication.toOrder with
+                        | Ok ord -> Some ord
+                        // a medication that cannot become an order is left out of the
+                        // scenarios, so say which one and why, or it goes missing in silence
+                        | Error msg ->
+                            $"no order for %s{med.Name}: %A{msg}" |> writeErrorMessage
+                            None
+                    )
                     |> Array.map (fun ord -> ord, pr)
                 )
 
