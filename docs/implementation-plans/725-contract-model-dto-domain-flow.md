@@ -795,7 +795,7 @@ reviewer must not find it contradicted by the document next to it.
 
 **Optional trailing phases, each its own issue, droppable (decided: follow-ups).**
 O1 `Totals.getTotals` takes `Order[]`; parse once in `OrderService.getTotals`/`OrderPlan.recalculate`. ~60. **dosing**: `TotalsTests` + a golden nutrition order plan.
-O2 `Medication.toOrder : Medication -> Result<Order,_>` replacing `toOrderDto >> Order.Dto.fromDto` at `Api.fs:430,451`, `Nutrition.fs:40`; then `OrderDtoHelpers` on domain types. **dosing**: `Scenarios.fs` golden outputs must not change.
+O2 `Medication.toOrder : Medication -> Result<Order,_>` replacing `toOrderDto >> Order.Dto.fromDto` at `Api.fs:430,451`, `Nutrition.fs:40`; then `OrderDtoHelpers` on domain types. **dosing**: `Scenarios.fs` golden outputs must not change. Its own plan: [831](831-medication-to-order.md), which corrects the two call sites named here.
 O3 GenSOLVER `Api` builds equations without `Equation.Dto`. Note only.
 O4 ZIndex/NKF caches on Dtos. Independent of the contract model. Note only.
 O5 MCP host output records map from `OrderContext.Dto`. After 1.4.
