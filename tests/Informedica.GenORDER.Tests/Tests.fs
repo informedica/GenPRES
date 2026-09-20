@@ -1323,6 +1323,43 @@ module MedicationParserTests =
             ]
 
 
+module OrderBuilderTests =
+
+    open Informedica.GenOrder.Lib.Medication
+
+    /// The names of every order variable of an order, in order.
+    let private names (ord: Order) =
+        ord
+        |> Order.toOrdVars
+        |> List.map (OrderVariable.getName >> Informedica.GenSolver.Lib.Variable.Name.toString)
+
+    let private fixtures =
+        [
+            "pcmSupp", Scenarios.pcmSupp
+            "amfo", Scenarios.amfo
+            "morfCont", Scenarios.morfCont
+            "pcmDrink", Scenarios.pcmDrink
+            "cotrim", Scenarios.cotrim
+            "tpn", Scenarios.tpn
+            "tpnComplete", Scenarios.tpnComplete
+            "fullMedication", Scenarios.fullMedication
+        ]
+
+    let tests =
+        testList
+            "Medication.OrderBuilder, the shape pass"
+            [
+                for name, med in fixtures do
+                    test $"{name} is built with the order variables the order has" {
+                        let built = med |> OrderBuilder.newOrder |> OrderBuilder.withComponents med
+
+                        match med |> Medication.toOrder with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord -> built |> names |> Expect.equal "the same order variables" (ord |> names)
+                    }
+            ]
+
+
 module ConstraintsTests =
 
     open Informedica.GenCore.Lib.Ranges
@@ -2379,4 +2416,5 @@ let tests =
             MedicationParserTests.tests
             OrderVariableTests.tests
             ConstraintsTests.tests
+            OrderBuilderTests.tests
         ]

@@ -1721,6 +1721,51 @@ module Medication =
             dto.Adjust.Constraints.ValsOpt <- med.Adjust |> vuToDto
 
 
+    /// An Order built from a Medication: the shape first, then one pass per constraint
+    /// concern, each pass pure and each leaving the rest of the order alone.
+    module OrderBuilder =
+
+
+        /// The schedule an order type asks for. An order that is neither prescribed nor
+        /// administered has no schedule to build, and no order either.
+        let scheduleOf (med: Medication) =
+            match med.OrderType with
+            | OnceOrder -> Order.Schedule.once NoUnit NoUnit
+            | OnceTimedOrder -> Order.Schedule.onceTimed NoUnit NoUnit
+            | ContinuousOrder -> Order.Schedule.continuous NoUnit NoUnit
+            | DiscontinuousOrder -> Order.Schedule.discontinuous NoUnit NoUnit
+            | TimedOrder -> Order.Schedule.timed NoUnit NoUnit
+            | AnyOrder
+            | ProcessOrder ->
+                $"a medication order cannot have the order type %A{med.OrderType}"
+                |> NotSupportedException
+                |> raise
+
+
+        /// The empty order an order type asks for: its schedule, its id, its name and its
+        /// route, and no component yet.
+        let newOrder (med: Medication) =
+            med |> scheduleOf |> Order.createNew med.Id med.Name <| med.Route
+
+
+        /// The components of the medication and their items, as shape alone: every order
+        /// variable is the empty one its name gives it, and no constraint is set here.
+        let withComponents (med: Medication) (ord: Order) =
+            let components =
+                med.Components
+                |> List.map (fun pc ->
+                    let cmp = Order.Orderable.Component.createNew med.Id med.Name pc.Name pc.Form
+
+                    { cmp with
+                        Items =
+                            pc.Substances
+                            |> List.map (fun si -> Order.Orderable.Item.createNew med.Id med.Name pc.Name si.Name)
+                    }
+                )
+
+            { ord with Orderable = { ord.Orderable with Components = components } }
+
+
     /// <summary>
     /// Convert a Medication order to an Order DTO for the solver system
     /// </summary>
