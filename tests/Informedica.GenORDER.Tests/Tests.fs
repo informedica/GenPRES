@@ -1338,17 +1338,9 @@ module OrderBuilderTests =
     let private viaDto (med: Medication) = med |> Medication.toOrderDto |> Order.Dto.fromDto
 
 
-    let private fixtures =
-        [
-            "pcmSupp", Scenarios.pcmSupp
-            "amfo", Scenarios.amfo
-            "morfCont", Scenarios.morfCont
-            "pcmDrink", Scenarios.pcmDrink
-            "cotrim", Scenarios.cotrim
-            "tpn", Scenarios.tpn
-            "tpnComplete", Scenarios.tpnComplete
-            "fullMedication", Scenarios.fullMedication
-        ]
+    /// The scenarios the orders are recorded for, so that a scenario cannot be added to one
+    /// list of fixtures and forgotten in the other.
+    let private fixtures = GoldenOrders.all |> List.map (fun g -> g.Name, g.Medication)
 
     /// The constraints of every order variable of an order, by name, for those whose name has
     /// the given number of parts: four for an item, three for a component, two for the
@@ -1475,6 +1467,49 @@ module OrderBuilderTests =
                             built
                             |> constraintsOfDepth 3
                             |> Expect.equal "the same component constraints" (ord |> constraintsOfDepth 3)
+                    }
+            ]
+
+
+module GoldenOrderTests =
+
+    /// The full processing an order goes through before a prescriber sees it, with the name of
+    /// every stage that reported an error. A stage that fails carries its order on to the next
+    /// one, as the application does, so what the stages produced is still there to compare.
+    let private solve (ord: Order) =
+        let run (name, cmd) (o, errs) =
+            match o |> cmd |> OrderProcessor.processPipeline Logging.noOp with
+            | Ok o -> o, errs
+            | Error(o, _) -> o, errs @ [ name ]
+
+        (ord, [])
+        |> run ("CalcMinMax", CalcMinMax)
+        |> run ("IncreaseIncrements", IncreaseIncrements)
+        |> run ("CalcValues", CalcValues)
+        |> run ("SolveOrder", SolveOrder)
+
+
+    let private lines (s: string) =
+        s |> String.split "\n" |> List.map String.trim |> List.filter String.notEmpty
+
+    let tests =
+        testList
+            "the orders the scenarios solve to"
+            [
+                for golden in GoldenOrders.all do
+                    test $"{golden.Name} solves to the order it did" {
+                        match golden.Medication |> Medication.toOrder with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord ->
+                            let solved, errs = ord |> solve
+
+                            errs |> Expect.equal "the same stages report an error" golden.Errors
+
+                            solved
+                            |> Order.toString
+                            |> List.map String.trim
+                            |> List.filter String.notEmpty
+                            |> Expect.equal "the same solved order" (golden.Order |> lines)
                     }
             ]
 
@@ -2545,5 +2580,6 @@ let tests =
             MedicationParserTests.tests
             OrderVariableTests.tests
             ConstraintsTests.tests
+            GoldenOrderTests.tests
             OrderBuilderTests.tests
         ]
