@@ -1323,6 +1323,112 @@ module MedicationParserTests =
             ]
 
 
+module ConstraintsTests =
+
+    open Informedica.GenCore.Lib.Ranges
+    open Informedica.GenSolver.Lib.Variable.ValueRange
+
+    module Constraints = OrderVariable.Constraints
+
+    let private mg = Units.Mass.milliGram
+    let private one = 1N |> ValueUnit.singleWithUnit mg
+    let private two = 2N |> ValueUnit.singleWithUnit mg
+    let private empty = ValueUnit.create mg [||]
+
+    /// A Constraints with all four fields set, to see which of them a setter leaves alone.
+    let private full =
+        Constraints.create
+            (one |> Minimum.create true |> Some)
+            (two |> Increment.create |> Some)
+            (two |> Maximum.create true |> Some)
+            (one |> ValueSet.create |> Some)
+
+    let tests =
+        testList
+            "OrderVariable.Constraints setters"
+            [
+                test "setValues of a ValueUnit without values is no value set" {
+                    full
+                    |> Constraints.setValues (Some empty)
+                    |> _.Values
+                    |> Expect.isNone "an empty ValueUnit constrains nothing"
+                }
+
+                test "setIncr of a ValueUnit without values is no increment" {
+                    full
+                    |> Constraints.setIncr (Some empty)
+                    |> _.Incr
+                    |> Expect.isNone "an empty ValueUnit constrains nothing"
+                }
+
+                test "setValues of None is no value set" {
+                    full
+                    |> Constraints.setValues None
+                    |> _.Values
+                    |> Expect.isNone "None constrains nothing"
+                }
+
+                test "setMin leaves the other three alone" {
+                    let cs = full |> Constraints.setMin false (Some two)
+
+                    (cs.Incr, cs.Max, cs.Values)
+                    |> Expect.equal "only the minimum changed" (full.Incr, full.Max, full.Values)
+                }
+
+                test "setMin carries whether the bound is inclusive" {
+                    full
+                    |> Constraints.setMin false (Some two)
+                    |> _.Min
+                    |> Option.map Minimum.isIncl
+                    |> Expect.equal "an exclusive minimum stays exclusive" (Some false)
+                }
+
+                test "setMax of None is no upper bound" {
+                    full
+                    |> Constraints.setMax true None
+                    |> _.Max
+                    |> Expect.isNone "None is no upper bound"
+                }
+
+                test "setMinMax leaves a bound the MinMax does not give" {
+                    let cs = full |> Constraints.setMinMax false MinMax.empty
+
+                    (cs.Min, cs.Max) |> Expect.equal "neither bound moved" (full.Min, full.Max)
+                }
+
+                test "setMinMax widens a norm dose by a tenth either way" {
+                    let mm =
+                        { MinMax.empty with
+                            Min = one |> Limit.Inclusive |> Some
+                            Max = one |> Limit.Inclusive |> Some
+                        }
+
+                    let cs = full |> Constraints.setMinMax true mm
+
+                    let value =
+                        Option.map (Minimum.toValueUnit >> ValueUnit.getValue >> Array.head)
+                        >> Option.defaultValue 0N
+
+                    (cs.Min |> value, cs.Max |> Option.map (Maximum.toValueUnit >> ValueUnit.getValue >> Array.head))
+                    |> Expect.equal "nine tenths and eleven tenths of the norm" (9N / 10N, Some(11N / 10N))
+                }
+
+                test "setMinMax takes a range as it is" {
+                    let mm =
+                        { MinMax.empty with
+                            Min = one |> Limit.Inclusive |> Some
+                            Max = two |> Limit.Inclusive |> Some
+                        }
+
+                    full
+                    |> Constraints.setMinMax true mm
+                    |> _.Max
+                    |> Option.map (Maximum.toValueUnit >> ValueUnit.getValue >> Array.head)
+                    |> Expect.equal "a range is not a norm dose" (Some 2N)
+                }
+            ]
+
+
 module OrderVariableTests =
 
     // Hermetic tests for ValueUnit.collect — no resources are loaded. All
@@ -2282,4 +2388,5 @@ let tests =
             PatientConstructorTests.tests
             MedicationParserTests.tests
             OrderVariableTests.tests
+            ConstraintsTests.tests
         ]
