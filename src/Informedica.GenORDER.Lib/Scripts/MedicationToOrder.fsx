@@ -77,20 +77,9 @@ module Harness =
 
     /// Both paths read the clock, so an order's start and stop say nothing about the build
     /// that made it. Normalising them leaves a comparison of everything that does.
-    ///
-    /// The component id is normalised for the same reason, but only until plan 831 step C1
-    /// lands: the Dto path drops it, so an order that went through a Dto carries the empty id
-    /// and one built directly carries the real one. Once `Component.Dto.toDto` writes the id,
-    /// this half goes and the two agree on it.
     let normalize (ord: Order) =
         { ord with
             StartStop = DateTime.MinValue |> StartStop.Start
-            Orderable =
-                { ord.Orderable with
-                    Components =
-                        ord.Orderable.Components
-                        |> List.map (fun cmp -> { cmp with Id = "" |> Id.create })
-                }
         }
 
 
