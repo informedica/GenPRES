@@ -82,10 +82,15 @@ reads it, so every order built through the round trip carries the empty id altho
 `Component.createNew` sets it from the medication id. Nothing reads the field, so no dose
 depends on it, but a direct build keeps the real id and the orders would not compare equal.
 The missing line is written here, before the pipeline lands, so that the baseline already has
-the real id and the equivalence proof below is over one thing at a time. Because
-`Component.Dto` is nested in a stored order plan version, that is a change of the stored JSON
-structure: it takes a new structure version, an upgrade step and a stored fixture, and ships
-under the expand-then-contract rule of ADR-0008.
+the real id and the equivalence proof below is over one thing at a time.
+
+That is a correction of a value, not of a structure. `Id` is already a field of the component
+Dto and is already serialized — a stored order plan version says `"Id":""` today — so the field
+names, the nesting and the value formats all stay as they are. No new JSON structure version,
+no upgrade step, no fixture: ADR-0008's machinery is for a shape that changed, and this shape
+does not. Rows signed before the change keep the empty id and are never rewritten. A digest is
+taken over the serialized form, so one issued before the change and answered after it does not
+match and is refused; a challenge lives two minutes, which is the whole of that window.
 
 ## Confidence
 
@@ -103,7 +108,7 @@ by the maintainer.
 |---|---|---|
 | 0 | This document. | 0 |
 | A | `Medication.toOrder` as the existing composition, and the two call sites switched to it. Identical by construction; the seam every later step changes behind. | ~10 |
-| C1 | `Component.Dto.toDto` writes the id; the structure version this release writes and reads goes up, with its upgrade step. | ~40 |
+| C1 | `Component.Dto.toDto` writes the id. | ~1 |
 | C2 | The round-trip law and the signing-digest tests for the id now surviving. | 0 |
 | H | The equivalence harness as a script: both paths over every scenario fixture, unsolved and solved. | 0 |
 | B0 | The field-wise `Constraints` setters, with the guards, and a `map` over the order-variable wrappers. | ~45 |
