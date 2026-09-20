@@ -1740,3 +1740,7 @@ module Medication =
         OrderDtoHelpers.setAdjustmentConstraints dto med
 
         dto
+
+
+    /// Build an Order from a Medication, or say why it could not be built.
+    let toOrder (med: Medication) : Result<Order, Exceptions.Message> = med |> toOrderDto |> Order.Dto.fromDto
