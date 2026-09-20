@@ -2070,6 +2070,203 @@ module Medication =
             |> mapComponents (fun pc cmp -> cmp |> withComponentQtyConc med pc |> withComponentDose med pc) med
 
 
+        /// Several values in a unit, or nothing when there is no unit to give them.
+        let valuesOrNone u brs =
+            if u = NoUnit then
+                None
+            else
+                brs |> ValueUnit.withUnit u |> Some
+
+
+        /// The time unit a frequency is counted over: the denominator of its unit.
+        let frequencyTimeUnit (med: Medication) =
+            med.Frequencies
+            |> Option.map (ValueUnit.getUnit >> ValueUnit.getUnits)
+            |> function
+                | Some [ _; tu ] -> Some tu
+                | _ -> None
+
+
+        /// How much of the orderable is given, and how often it is counted. A medication that
+        /// names its quantities takes those; one that does not takes anything above nothing.
+        let withOrderableQuantity (med: Medication) (ord: Order) =
+            let zero = med |> orderableUnit |> Option.bind (fun u -> 0N |> singleOrNone u)
+            let con f = OrderVariable.mapConstraints f
+
+            { ord with
+                Orderable =
+                    { ord.Orderable with
+                        DoseCount =
+                            ord.Orderable.DoseCount
+                            |> OrderVariable.Count.apply (con (OrderVariable.Constraints.setMinMax false med.DoseCount))
+                        OrderableQuantity =
+                            ord.Orderable.OrderableQuantity
+                            |> OrderVariable.Quantity.apply (
+                                con (fun cs ->
+                                    cs
+                                    |> OrderVariable.Constraints.setMinMax false med.Quantity
+                                    |> fun cs ->
+                                        match med.Quantities with
+                                        | None -> cs |> OrderVariable.Constraints.setMin false zero
+                                        | Some _ -> cs |> OrderVariable.Constraints.setValues med.Quantities
+                                )
+                            )
+                    }
+            }
+
+
+        /// What the dose rule allows of the orderable as a whole. Where it allows nothing, a
+        /// dose quantity and a dose per time still get a unit, so that they can take part in
+        /// the sums.
+        let withOrderableDose (med: Medication) (ord: Order) =
+            let ou = med |> orderableUnit
+            let rateUnit = ou |> Option.map (ValueUnit.per Units.Time.hour)
+            let freqTimeUnit = med |> frequencyTimeUnit
+            let incr = med |> divisibility None
+            let con f = OrderVariable.mapConstraints f
+
+            let rate (dl: DoseLimit option) (dos: Dose) =
+                { dos with
+                    Rate =
+                        dos.Rate
+                        |> OrderVariable.Rate.apply (
+                            con (fun cs ->
+                                // an infusion rate steps by a tenth unless something says
+                                // otherwise
+                                cs
+                                |> OrderVariable.Constraints.setIncr (
+                                    rateUnit |> Option.bind (fun ru -> [| 1N / 10N |] |> valuesOrNone ru)
+                                )
+                                |> fun cs ->
+                                    match dl with
+                                    | None -> cs
+                                    | Some dl -> cs |> OrderVariable.Constraints.setMinMax false dl.Rate
+                            )
+                        )
+                    RateAdjust =
+                        match dl with
+                        | None -> dos.RateAdjust
+                        | Some dl ->
+                            dos.RateAdjust
+                            |> OrderVariable.RateAdjust.apply (
+                                con (OrderVariable.Constraints.setMinMax false dl.RateAdjust)
+                            )
+                }
+
+            let quantity isOnce (dl: DoseLimit option) (dos: Dose) =
+                let zeroQty = ou |> Option.bind (fun u -> 0N |> singleOrNone u)
+
+                let zeroPerTime =
+                    match ou, freqTimeUnit with
+                    | Some u, Some tu -> 0N |> singleOrNone (u |> ValueUnit.per tu)
+                    | _ -> None
+
+                { dos with
+                    Quantity =
+                        dos.Quantity
+                        |> OrderVariable.Quantity.apply (
+                            con (fun cs ->
+                                cs
+                                |> OrderVariable.Constraints.setIncr incr
+                                |> fun cs ->
+                                    match dl with
+                                    | None -> cs |> OrderVariable.Constraints.setMin false zeroQty
+                                    | Some dl ->
+                                        cs
+                                        |> OrderVariable.Constraints.setMinMax false dl.Quantity
+                                        |> fun cs ->
+                                            if dl.Quantity |> MinMax.isEmpty then
+                                                cs |> OrderVariable.Constraints.setMin false zeroQty
+                                            else
+                                                cs
+                            )
+                        )
+                    QuantityAdjust =
+                        match dl with
+                        | None -> dos.QuantityAdjust
+                        | Some dl ->
+                            dos.QuantityAdjust
+                            |> OrderVariable.QuantityAdjust.apply (
+                                con (OrderVariable.Constraints.setMinMax true dl.QuantityAdjust)
+                            )
+                    PerTime =
+                        match dl, isOnce with
+                        | None, _ ->
+                            dos.PerTime
+                            |> OrderVariable.PerTime.apply (con (OrderVariable.Constraints.setMin false zeroPerTime))
+                        | Some _, true -> dos.PerTime
+                        | Some dl, false ->
+                            dos.PerTime
+                            |> OrderVariable.PerTime.apply (
+                                con (fun cs ->
+                                    cs
+                                    |> OrderVariable.Constraints.setMinMax false dl.PerTime
+                                    |> fun cs ->
+                                        if dl.PerTime |> MinMax.isEmpty then
+                                            cs |> OrderVariable.Constraints.setMin false zeroPerTime
+                                        else
+                                            cs
+                                )
+                            )
+                    PerTimeAdjust =
+                        match dl, isOnce with
+                        | Some dl, false ->
+                            dos.PerTimeAdjust
+                            |> OrderVariable.PerTimeAdjust.apply (
+                                con (OrderVariable.Constraints.setMinMax true dl.PerTimeAdjust)
+                            )
+                        | _ -> dos.PerTimeAdjust
+                }
+
+            // a timed order is taken to be a solution: what is not given a value is stepped by
+            // the coarsest step the products allow
+            let timed (orb: Orderable) =
+                let stepUnlessValued cs =
+                    if cs.Values |> Option.isSome then
+                        cs
+                    else
+                        cs |> OrderVariable.Constraints.setIncr incr
+
+                { orb with
+                    Dose =
+                        { orb.Dose with
+                            Quantity = orb.Dose.Quantity |> OrderVariable.Quantity.apply (con stepUnlessValued)
+                        }
+                    OrderableQuantity = orb.OrderableQuantity |> OrderVariable.Quantity.apply (con stepUnlessValued)
+                }
+
+            // with one component and no dose of its own, the orderable doses as that component
+            let dose =
+                match med.Dose, med.Components with
+                | None, [ single ] -> single.Dose
+                | _ -> med.Dose
+
+            let withDose f (orb: Orderable) = { orb with Dose = orb.Dose |> f }
+
+            let orderable =
+                { ord.Orderable with
+                    OrderableQuantity =
+                        ord.Orderable.OrderableQuantity
+                        |> OrderVariable.Quantity.apply (con (OrderVariable.Constraints.setIncr incr))
+                }
+                |> fun orb ->
+                    match med.OrderType with
+                    | AnyOrder
+                    | ProcessOrder -> orb
+                    | ContinuousOrder -> orb |> withDose (rate dose)
+                    | OnceOrder -> orb |> withDose (quantity true dose)
+                    | OnceTimedOrder -> orb |> withDose (rate dose) |> withDose (quantity true dose)
+                    | DiscontinuousOrder -> orb |> withDose (quantity false dose)
+                    | TimedOrder -> orb |> timed |> withDose (rate dose) |> withDose (quantity false dose)
+
+            { ord with Orderable = orderable }
+
+
+        /// Every constraint the orderable carries.
+        let withOrderableConstraints (med: Medication) (ord: Order) =
+            ord |> withOrderableQuantity med |> withOrderableDose med
+
+
     /// <summary>
     /// Convert a Medication order to an Order DTO for the solver system
     /// </summary>

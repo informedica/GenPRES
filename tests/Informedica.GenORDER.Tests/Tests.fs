@@ -1402,6 +1402,24 @@ module OrderBuilderTests =
                     }
 
                 for name, med in fixtures do
+                    test $"{name} constrains its orderable as the order does" {
+                        let built =
+                            med
+                            |> OrderBuilder.newOrder
+                            |> OrderBuilder.withComponents med
+                            |> OrderBuilder.withItemConstraints med
+                            |> OrderBuilder.withComponentConstraints med
+                            |> OrderBuilder.withOrderableConstraints med
+
+                        match med |> Medication.toOrder with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord ->
+                            built
+                            |> constraintsOfDepth 2
+                            |> Expect.equal "the same orderable constraints" (ord |> constraintsOfDepth 2)
+                    }
+
+                for name, med in fixtures do
                     test $"{name} constrains its components as the order does" {
                         let built =
                             med
