@@ -1345,6 +1345,33 @@ module OrderBuilderTests =
             "fullMedication", Scenarios.fullMedication
         ]
 
+    /// The constraints of every order variable of an order, by name, for those whose name has
+    /// the given number of parts: four for an item, three for a component, two for the
+    /// orderable and one for the order itself.
+    let private constraintsOfDepth depth (ord: Order) =
+        ord
+        |> Order.toOrdVars
+        |> List.choose (fun ovar ->
+            let n =
+                ovar
+                |> OrderVariable.getName
+                |> Informedica.GenSolver.Lib.Variable.Name.toString
+
+            let parts =
+                n
+                |> String.split "]"
+                |> List.head
+                |> String.replace "[" ""
+                |> String.split "."
+                |> List.length
+
+            if parts = depth then
+                Some(n, ovar |> OrderVariable.getConstraints)
+            else
+                None
+        )
+        |> List.sortBy fst
+
     let tests =
         testList
             "Medication.OrderBuilder, the shape pass"
@@ -1356,6 +1383,22 @@ module OrderBuilderTests =
                         match med |> Medication.toOrder with
                         | Error e -> failtest $"could not build the order: %A{e}"
                         | Ok ord -> built |> names |> Expect.equal "the same order variables" (ord |> names)
+                    }
+
+                for name, med in fixtures do
+                    test $"{name} constrains its items as the order does" {
+                        let built =
+                            med
+                            |> OrderBuilder.newOrder
+                            |> OrderBuilder.withComponents med
+                            |> OrderBuilder.withItemConstraints med
+
+                        match med |> Medication.toOrder with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord ->
+                            built
+                            |> constraintsOfDepth 4
+                            |> Expect.equal "the same item constraints" (ord |> constraintsOfDepth 4)
                     }
             ]
 
