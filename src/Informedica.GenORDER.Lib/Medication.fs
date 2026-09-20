@@ -2267,6 +2267,96 @@ module Medication =
             ord |> withOrderableQuantity med |> withOrderableDose med
 
 
+        /// How often the order is given and how long an administration takes. A schedule only
+        /// carries what its kind has: a once order has neither, a continuous one no frequency.
+        let withPrescription (med: Medication) (ord: Order) =
+            let con f = OrderVariable.mapConstraints f
+
+            let onFrequency (frq: Frequency) =
+                frq
+                |> OrderVariable.Frequency.apply (
+                    con (fun cs ->
+                        cs
+                        |> OrderVariable.Constraints.setValues med.Frequencies
+                        |> fun cs ->
+                            match med.Frequencies with
+                            | None -> cs
+                            // a frequency is a whole number of times
+                            | Some fu ->
+                                cs
+                                |> OrderVariable.Constraints.setIncr (1N |> singleOrNone (fu |> ValueUnit.getUnit))
+                    )
+                )
+
+            let onTime (tme: Time) =
+                tme
+                |> OrderVariable.Time.apply (
+                    con (fun cs ->
+                        cs
+                        // a lower bound the medication does not give leaves the one the empty
+                        // order variable was built with, which is nothing below nothing
+                        |> fun cs ->
+                            match med.Time.Min with
+                            | None -> cs
+                            | Some _ ->
+                                cs
+                                |> OrderVariable.Constraints.setMin
+                                    true
+                                    (med.Time.Min |> Option.map Limit.getValueUnit)
+                        |> OrderVariable.Constraints.setMax
+                            med.Time.Max.IsSome
+                            (med.Time.Max |> Option.map Limit.getValueUnit)
+                    )
+                )
+
+            { ord with
+                Schedule =
+                    match ord.Schedule with
+                    | Once -> Once
+                    | OnceTimed tme -> tme |> onTime |> OnceTimed
+                    | Continuous tme -> tme |> onTime |> Continuous
+                    | Discontinuous frq -> frq |> onFrequency |> Discontinuous
+                    | Timed(frq, tme) -> (frq |> onFrequency, tme |> onTime) |> Timed
+            }
+
+
+        /// What the dose is adjusted to: the patient's weight or body surface. A weight is
+        /// bounded by what a patient can weigh, so that a typo cannot pass for a dose.
+        let withAdjustment (med: Medication) (ord: Order) =
+            let bounds cs =
+                match med.Adjust with
+                | None -> cs
+                | Some vu ->
+                    let u = vu |> ValueUnit.getUnit
+
+                    if u |> ValueUnit.Group.eqsGroup Units.Weight.kiloGram then
+                        cs
+                        |> OrderVariable.Constraints.setMin false (200N / 1000N |> singleOrNone u)
+                        |> OrderVariable.Constraints.setMax false (150N |> singleOrNone u)
+                    else
+                        cs
+
+            { ord with
+                Adjust =
+                    ord.Adjust
+                    |> OrderVariable.Quantity.apply (
+                        OrderVariable.mapConstraints (bounds >> OrderVariable.Constraints.setValues med.Adjust)
+                    )
+            }
+
+
+        /// Build an Order from a Medication: the shape, and then every constraint.
+        let build (med: Medication) =
+            med
+            |> newOrder
+            |> withComponents med
+            |> withItemConstraints med
+            |> withComponentConstraints med
+            |> withOrderableConstraints med
+            |> withPrescription med
+            |> withAdjustment med
+
+
     /// <summary>
     /// Convert a Medication order to an Order DTO for the solver system
     /// </summary>
@@ -2289,4 +2379,8 @@ module Medication =
 
 
     /// Build an Order from a Medication, or say why it could not be built.
-    let toOrder (med: Medication) : Result<Order, Exceptions.Message> = med |> toOrderDto |> Order.Dto.fromDto
+    let toOrder (med: Medication) : Result<Order, Exceptions.Message> =
+        try
+            med |> OrderBuilder.build |> Ok
+        with exn ->
+            exn |> Exceptions.OrderCouldNotBeCreated |> Error
