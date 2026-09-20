@@ -2357,30 +2357,20 @@ module Medication =
             |> withAdjustment med
 
 
-    /// <summary>
-    /// Convert a Medication order to an Order DTO for the solver system
-    /// </summary>
-    /// <param name="med">The Medication order to convert</param>
-    let toOrderDto (med: Medication) =
-        // Create the base DTO structure
-        let dto = OrderDtoHelpers.createBaseOrderDto med
-
-        // Set up the orderable with all its constraints
-        let orbDto = OrderDtoHelpers.createOrderableDto med
-        dto.Orderable <- orbDto
-
-        // Apply prescription constraints
-        OrderDtoHelpers.setPrescriptionConstraints dto med
-
-        // Apply patient adjustment constraints
-        OrderDtoHelpers.setAdjustmentConstraints dto med
-
-        dto
-
-
     /// Build an Order from a Medication, or say why it could not be built.
     let toOrder (med: Medication) : Result<Order, Exceptions.Message> =
         try
             med |> OrderBuilder.build |> Ok
         with exn ->
             exn |> Exceptions.OrderCouldNotBeCreated |> Error
+
+
+    /// Convert a Medication to an Order Dto, for the callers that still want one, chiefly the
+    /// totals; it goes when they take an Order instead. A medication that cannot be ordered
+    /// raises here, with the exception that said why, since those callers have nowhere to put
+    /// a failure; toOrder gives them the same failure as a value.
+    let toOrderDto (med: Medication) =
+        match med |> toOrder with
+        | Ok ord -> ord |> Order.Dto.toDto
+        | Error(Exceptions.OrderCouldNotBeCreated exn) -> exn |> raise
+        | Error msg -> msg |> Exceptions.OrderException |> raise

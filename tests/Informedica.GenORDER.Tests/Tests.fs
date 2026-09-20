@@ -1333,9 +1333,11 @@ module OrderBuilderTests =
         |> Order.toOrdVars
         |> List.map (OrderVariable.getName >> Informedica.GenSolver.Lib.Variable.Name.toString)
 
-    /// The path plan 831 replaces: a Medication out to an Order Dto and back. The builder is
-    /// held to this as long as it exists; once it goes, these become golden assertions.
-    let private viaDto (med: Medication) = med |> Medication.toOrderDto |> Order.Dto.fromDto
+    /// The built order out to an Order Dto and back. It was the path the builder was held to
+    /// while the old one existed; now that the Dto is made from the built order, these compare
+    /// an order with itself round tripped, which is what catches a Dto that drops a field, as
+    /// the component id once was.
+    let private roundTripped (med: Medication) = med |> Medication.toOrderDto |> Order.Dto.fromDto
 
 
     /// The scenarios the orders are recorded for, so that a scenario cannot be added to one
@@ -1371,7 +1373,7 @@ module OrderBuilderTests =
 
     let tests =
         testList
-            "Medication.OrderBuilder, the shape pass"
+            "Medication.OrderBuilder, and the Dto round trip over what it builds"
             [
                 for orderType in [ AnyOrder; ProcessOrder ] do
                     test $"an order type of {orderType} is refused, not raised" {
@@ -1380,6 +1382,15 @@ module OrderBuilderTests =
                         |> Result.isError
                         |> Expect.isTrue "a medication that cannot be ordered gives an Error"
                     }
+
+                test "asking a medication that cannot be ordered for a Dto says why" {
+                    let med = { Scenarios.pcmSupp with OrderType = AnyOrder }
+
+                    // the callers that want a Dto have nowhere to put a failure, so it is
+                    // thrown; what is thrown must still name the reason
+                    (fun () -> med |> Medication.toOrderDto |> ignore)
+                    |> Expect.throwsT<System.NotSupportedException> "the reason reaches the caller"
+                }
 
                 test "a medication that cannot be ordered leaves the others alone" {
                     let meds =
@@ -1398,35 +1409,34 @@ module OrderBuilderTests =
                 }
 
                 for name, med in fixtures do
-                    test $"{name} is the order the Dto path builds, whole" {
+                    test $"the Dto round trip returns {name}'s order unchanged" {
                         // both paths read the clock, so the start says nothing about the build
                         let atEpoch (ord: Order) =
                             { ord with StartStop = System.DateTime.MinValue |> StartStop.Start }
 
-                        match med |> viaDto, med |> Medication.toOrder with
-                        | Ok expected, Ok actual ->
-                            actual |> atEpoch |> Expect.equal "the same order" (expected |> atEpoch)
+                        match med |> roundTripped, med |> Medication.toOrder with
+                        | Ok fromDto, Ok built -> fromDto |> atEpoch |> Expect.equal "the same order" (built |> atEpoch)
                         | r1, r2 -> failtest $"a path failed: %A{r1} %A{r2}"
                     }
 
                 for name, med in fixtures do
-                    test $"{name} is built with the order variables the order has" {
+                    test $"the Dto round trip keeps every order variable of {name}" {
                         let built = med |> OrderBuilder.newOrder |> OrderBuilder.withComponents med
 
-                        match med |> viaDto with
+                        match med |> roundTripped with
                         | Error e -> failtest $"could not build the order: %A{e}"
-                        | Ok ord -> built |> names |> Expect.equal "the same order variables" (ord |> names)
+                        | Ok ord -> ord |> names |> Expect.equal "the same order variables" (built |> names)
                     }
 
                 for name, med in fixtures do
-                    test $"{name} constrains its items as the order does" {
+                    test $"the Dto round trip keeps {name}'s item constraints" {
                         let built =
                             med
                             |> OrderBuilder.newOrder
                             |> OrderBuilder.withComponents med
                             |> OrderBuilder.withItemConstraints med
 
-                        match med |> viaDto with
+                        match med |> roundTripped with
                         | Error e -> failtest $"could not build the order: %A{e}"
                         | Ok ord ->
                             built
@@ -1435,7 +1445,7 @@ module OrderBuilderTests =
                     }
 
                 for name, med in fixtures do
-                    test $"{name} constrains its orderable as the order does" {
+                    test $"the Dto round trip keeps {name}'s orderable constraints" {
                         let built =
                             med
                             |> OrderBuilder.newOrder
@@ -1444,7 +1454,7 @@ module OrderBuilderTests =
                             |> OrderBuilder.withComponentConstraints med
                             |> OrderBuilder.withOrderableConstraints med
 
-                        match med |> viaDto with
+                        match med |> roundTripped with
                         | Error e -> failtest $"could not build the order: %A{e}"
                         | Ok ord ->
                             built
@@ -1453,7 +1463,7 @@ module OrderBuilderTests =
                     }
 
                 for name, med in fixtures do
-                    test $"{name} constrains its components as the order does" {
+                    test $"the Dto round trip keeps {name}'s component constraints" {
                         let built =
                             med
                             |> OrderBuilder.newOrder
@@ -1461,7 +1471,7 @@ module OrderBuilderTests =
                             |> OrderBuilder.withItemConstraints med
                             |> OrderBuilder.withComponentConstraints med
 
-                        match med |> viaDto with
+                        match med |> roundTripped with
                         | Error e -> failtest $"could not build the order: %A{e}"
                         | Ok ord ->
                             built
