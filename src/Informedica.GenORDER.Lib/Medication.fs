@@ -1766,6 +1766,135 @@ module Medication =
             { ord with Orderable = { ord.Orderable with Components = components } }
 
 
+        /// Walk the medication and the order together. Both lists came from the same
+        /// medication in the shape pass, so they pair up by position; a mismatch means the
+        /// shape pass changed and the build should stop rather than quietly constrain the
+        /// wrong item.
+        let mapItems f (med: Medication) (ord: Order) =
+            let components =
+                List.zip med.Components ord.Orderable.Components
+                |> List.map (fun (pc, cmp) ->
+                    { cmp with Items = List.zip pc.Substances cmp.Items |> List.map (fun (si, itm) -> f pc si itm) }
+                )
+
+            { ord with Orderable = { ord.Orderable with Components = components } }
+
+
+        /// A single value in a unit, or nothing when there is no unit to give it.
+        let singleOrNone u br =
+            if u = NoUnit then
+                None
+            else
+                br |> ValueUnit.singleWithUnit u |> Some
+
+
+        /// What a solution asks of an item: how much of it the orderable may hold, and in
+        /// what concentration.
+        let withItemSolution (sl: SolutionLimit) (itm: Types.Item) =
+            { itm with
+                OrderableQuantity =
+                    itm.OrderableQuantity
+                    |> OrderVariable.Quantity.apply (
+                        OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax false sl.Quantity)
+                    )
+                OrderableConcentration =
+                    itm.OrderableConcentration
+                    |> OrderVariable.Concentration.apply (
+                        OrderVariable.mapConstraints (OrderVariable.Constraints.setMinMax true sl.Concentration)
+                    )
+            }
+
+
+        /// The quantities and concentrations the products give an item. With one component
+        /// the orderable is the component, so the concentration in the one is the
+        /// concentration in the other.
+        let withItemQtyConc (med: Medication) (si: SubstanceItem) (itm: Types.Item) =
+            let single = med.Components |> List.length = 1
+            let setVals vu =
+                OrderVariable.mapConstraints (OrderVariable.Constraints.setValues vu)
+
+            { itm with
+                ComponentConcentration =
+                    itm.ComponentConcentration
+                    |> OrderVariable.Concentration.apply (setVals si.Concentrations)
+                ComponentQuantity = itm.ComponentQuantity |> OrderVariable.Quantity.apply (setVals si.Quantities)
+                OrderableConcentration =
+                    if single then
+                        itm.OrderableConcentration
+                        |> OrderVariable.Concentration.apply (setVals si.Concentrations)
+                    else
+                        itm.OrderableConcentration
+            }
+            |> fun itm ->
+                match si.Solution with
+                | None -> itm
+                | Some sl -> itm |> withItemSolution sl
+
+
+        /// What the dose rule allows of the substance, in the terms the order type doses in.
+        let withItemDose (med: Medication) (si: SubstanceItem) (itm: Types.Item) =
+            let con f = OrderVariable.mapConstraints f
+
+            let rate (dl: DoseLimit) (dos: Dose) =
+                { dos with
+                    Rate =
+                        dos.Rate
+                        |> OrderVariable.Rate.apply (con (OrderVariable.Constraints.setMinMax false dl.Rate))
+                    RateAdjust =
+                        dos.RateAdjust
+                        |> OrderVariable.RateAdjust.apply (con (OrderVariable.Constraints.setMinMax true dl.RateAdjust))
+                }
+
+            let quantity (dl: DoseLimit) (dos: Dose) =
+                { dos with
+                    Quantity =
+                        dos.Quantity
+                        |> OrderVariable.Quantity.apply (
+                            con (fun cs ->
+                                // a dose quantity without a limit still needs a unit, so that
+                                // it can be added up with the others
+                                if dl.Quantity |> MinMax.isEmpty then
+                                    cs |> OrderVariable.Constraints.setMin false (0N |> singleOrNone dl.DoseUnit)
+                                else
+                                    cs |> OrderVariable.Constraints.setMinMax false dl.Quantity
+                            )
+                        )
+                    QuantityAdjust =
+                        dos.QuantityAdjust
+                        |> OrderVariable.QuantityAdjust.apply (
+                            con (OrderVariable.Constraints.setMinMax true dl.QuantityAdjust)
+                        )
+                    PerTime =
+                        dos.PerTime
+                        |> OrderVariable.PerTime.apply (con (OrderVariable.Constraints.setMinMax false dl.PerTime))
+                    PerTimeAdjust =
+                        dos.PerTimeAdjust
+                        |> OrderVariable.PerTimeAdjust.apply (
+                            con (OrderVariable.Constraints.setMinMax true dl.PerTimeAdjust)
+                        )
+                }
+
+            let apply =
+                match med.OrderType with
+                | AnyOrder
+                | ProcessOrder -> fun _ dos -> dos
+                | ContinuousOrder -> rate
+                | OnceOrder
+                | DiscontinuousOrder -> quantity
+                | OnceTimedOrder
+                | TimedOrder -> fun dl dos -> dos |> rate dl |> quantity dl
+
+            match si.Dose with
+            | None -> itm
+            | Some dl -> { itm with Dose = itm.Dose |> apply dl }
+
+
+        /// Every constraint an item carries.
+        let withItemConstraints (med: Medication) (ord: Order) =
+            ord
+            |> mapItems (fun _ si itm -> itm |> withItemQtyConc med si |> withItemDose med si) med
+
+
     /// <summary>
     /// Convert a Medication order to an Order DTO for the solver system
     /// </summary>
