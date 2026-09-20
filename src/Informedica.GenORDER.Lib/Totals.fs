@@ -128,11 +128,9 @@ module Totals =
         (totals: Informedica.GenForm.Lib.Types.Data.TotalsData[])
         (age: Informedica.GenUnits.Lib.ValueUnit option)
         (wght: Informedica.GenUnits.Lib.ValueUnit option)
-        (dtos: Order.Dto.Dto[])
+        (ords: Order[])
         : Totals
         =
-        let ords = dtos |> Array.choose (Order.Dto.fromDto >> Result.toOption)
-
         let calc = calc ords wght
 
         let totals =

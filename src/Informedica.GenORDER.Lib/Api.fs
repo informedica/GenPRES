@@ -1137,7 +1137,7 @@ Scenarios: {scenarios}
         let wght = ctx.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
 
         ctx.Scenarios
-        |> Array.map (_.Order >> Order.Dto.toDto)
+        |> Array.map _.Order
         |> Totals.getTotals totalsData ctx.Patient.Age wght
 
 
