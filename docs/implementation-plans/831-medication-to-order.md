@@ -181,8 +181,15 @@ Built in the order proposed, one PR at a time, each reviewed before the next sta
 | B6c | #865 | the old builder's order and orderable levels deleted |
 | B6d | #866 | its component and item levels deleted, and with them the module |
 
-`toOrderDto` remains, as a shim over `toOrder`, until [#830](https://github.com/informedica/GenPRES/issues/830)
-retypes `Totals.getTotals` on `Order` and removes its last consumer.
+`toOrderDto` remains, as a shim over `toOrder`. The step-B5 note above expected it to go with
+[#830](https://github.com/informedica/GenPRES/issues/830), as the last consumer of an Order Dto
+built from a medication; that turned out to be wrong, and the two are independent. `getTotals`
+never called `toOrderDto`: it is handed an Order Dto that `Api.intake` and `OrderPlan.recalculate`
+make from an `Order` with `Order.Dto.toDto`, and parses it straight back. #830 removes that round
+trip and touches neither `toOrderDto` nor the medication. What keeps the shim alive is its own
+callers, all of them outside the shipped code: the tests, the `Scripts/` and `Scratch/`
+prototypes, and the scenario benchmark. It goes when those take an `Order`, which is a change to
+the test projects alone and is not filed yet.
 
 Two things the work turned up, each filed rather than fixed here:
 [#867](https://github.com/informedica/GenPRES/issues/867), the fully populated scenario does not
