@@ -162,5 +162,30 @@ input.
 
 ## As built
 
+Built in the order proposed, one PR at a time, each reviewed before the next started.
+
 | Step | PR | Landed |
 |---|---|---|
+| 0 | #851 | this document, and the pointer from plan 725. Review: the component id is a value the Dto already carries, not a structure, so no structure version and no upgrade step |
+| H | #852 | the harness, and the baseline: nine fixtures equal, unsolved and solved |
+| A | #855 | `Medication.toOrder`, and the two call sites asking for an Order |
+| C1, C2 | #856 | the component id written into the Dto, and a test that fails without the line |
+| B0 | #857 | the field-wise constraint setters and the `apply` each wrapper now has. Review: `apply` and `applyConstraints` had ended up sharing one comment |
+| B1 | #858 | the shape pass |
+| B2 | #859 | the item pass |
+| B3 | #860 | the component pass |
+| B4 | #861 | the orderable pass |
+| B5 | #862 | the prescription and adjustment passes, and the flip. Review: a medication that cannot be ordered is dropped from the evaluation, so the evaluation says which one and why |
+| B6a | #863 | the solved order of every scenario recorded, with the stages that error. Review: the stage outcome is asserted rather than swallowed, and the scenarios are listed once |
+| B6b | #864 | the Order Dto made from the order that was built. Review: the exception that said why is thrown again, not replaced by a generic one |
+| B6c | #865 | the old builder's order and orderable levels deleted |
+| B6d | #866 | its component and item levels deleted, and with them the module |
+
+`toOrderDto` remains, as a shim over `toOrder`, until [#830](https://github.com/informedica/GenPRES/issues/830)
+retypes `Totals.getTotals` on `Order` and removes its last consumer.
+
+Two things the work turned up, each filed rather than fixed here:
+[#867](https://github.com/informedica/GenPRES/issues/867), the fully populated scenario does not
+process cleanly and never did, and
+[#868](https://github.com/informedica/GenPRES/issues/868), a script under `Scripts/` does not
+compile.
