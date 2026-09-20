@@ -1333,6 +1333,11 @@ module OrderBuilderTests =
         |> Order.toOrdVars
         |> List.map (OrderVariable.getName >> Informedica.GenSolver.Lib.Variable.Name.toString)
 
+    /// The path plan 831 replaces: a Medication out to an Order Dto and back. The builder is
+    /// held to this as long as it exists; once it goes, these become golden assertions.
+    let private viaDto (med: Medication) = med |> Medication.toOrderDto |> Order.Dto.fromDto
+
+
     let private fixtures =
         [
             "pcmSupp", Scenarios.pcmSupp
@@ -1377,10 +1382,22 @@ module OrderBuilderTests =
             "Medication.OrderBuilder, the shape pass"
             [
                 for name, med in fixtures do
+                    test $"{name} is the order the Dto path builds, whole" {
+                        // both paths read the clock, so the start says nothing about the build
+                        let atEpoch (ord: Order) =
+                            { ord with StartStop = System.DateTime.MinValue |> StartStop.Start }
+
+                        match med |> viaDto, med |> Medication.toOrder with
+                        | Ok expected, Ok actual ->
+                            actual |> atEpoch |> Expect.equal "the same order" (expected |> atEpoch)
+                        | r1, r2 -> failtest $"a path failed: %A{r1} %A{r2}"
+                    }
+
+                for name, med in fixtures do
                     test $"{name} is built with the order variables the order has" {
                         let built = med |> OrderBuilder.newOrder |> OrderBuilder.withComponents med
 
-                        match med |> Medication.toOrder with
+                        match med |> viaDto with
                         | Error e -> failtest $"could not build the order: %A{e}"
                         | Ok ord -> built |> names |> Expect.equal "the same order variables" (ord |> names)
                     }
@@ -1393,7 +1410,7 @@ module OrderBuilderTests =
                             |> OrderBuilder.withComponents med
                             |> OrderBuilder.withItemConstraints med
 
-                        match med |> Medication.toOrder with
+                        match med |> viaDto with
                         | Error e -> failtest $"could not build the order: %A{e}"
                         | Ok ord ->
                             built
@@ -1411,7 +1428,7 @@ module OrderBuilderTests =
                             |> OrderBuilder.withComponentConstraints med
                             |> OrderBuilder.withOrderableConstraints med
 
-                        match med |> Medication.toOrder with
+                        match med |> viaDto with
                         | Error e -> failtest $"could not build the order: %A{e}"
                         | Ok ord ->
                             built
@@ -1428,7 +1445,7 @@ module OrderBuilderTests =
                             |> OrderBuilder.withItemConstraints med
                             |> OrderBuilder.withComponentConstraints med
 
-                        match med |> Medication.toOrder with
+                        match med |> viaDto with
                         | Error e -> failtest $"could not build the order: %A{e}"
                         | Ok ord ->
                             built
