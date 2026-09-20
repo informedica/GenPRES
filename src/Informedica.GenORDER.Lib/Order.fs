@@ -1627,6 +1627,7 @@ module Order =
                 let toDto (cmp: Component) =
                     let dto = Dto()
 
+                    dto.Id <- cmp.Id |> Id.toString
                     dto.Name <- cmp.Name |> Name.toString
                     dto.Form <- cmp.Form
                     dto.ComponentQuantity <- cmp.ComponentQuantity |> Quantity.toDto
