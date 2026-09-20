@@ -56,15 +56,19 @@ module TotalsData =
         : Types.Data.TotalsData
 
 
-    /// Volume, and the substances the parenteral nutrition fixtures carry.
+    /// Volume, and the substances the parenteral nutrition fixtures carry. A row's name is what
+    /// getTotals looks the total up by, and those names are Dutch: "chloor" and "koolhydraat",
+    /// not "chloride" and "carbohydrate". A row named anything else matches no item and leaves
+    /// its field empty.
     let all =
         [|
             row "volume" Units.Volume.milliLiter
             row "energie" (Units.Energy.kiloCalorie)
             row "eiwit" (Units.Mass.gram)
+            row "koolhydraat" (Units.Mass.gram)
             row "natrium" (Units.Molar.milliMole)
             row "kalium" (Units.Molar.milliMole)
-            row "chloride" (Units.Molar.milliMole)
+            row "chloor" (Units.Molar.milliMole)
             row "calcium" (Units.Molar.milliMole)
             row "fosfaat" (Units.Molar.milliMole)
             row "magnesium" (Units.Molar.milliMole)

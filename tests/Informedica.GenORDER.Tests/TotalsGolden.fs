@@ -39,14 +39,19 @@ module Reference =
         }
 
 
+    /// A row's name is what getTotals looks the total up by, and those names are Dutch:
+    /// the Chloride field reads "chloor", the Carbohydrate field "koolhydraat". A row named
+    /// anything else matches no item and leaves its field empty, which is a test that holds
+    /// nothing rather than a test that fails.
     let all =
         [|
             row "volume" Units.Volume.milliLiter
             row "energie" Units.Energy.kiloCalorie
             row "eiwit" Units.Mass.gram
+            row "koolhydraat" Units.Mass.gram
             row "natrium" Units.Molar.milliMole
             row "kalium" Units.Molar.milliMole
-            row "chloride" Units.Molar.milliMole
+            row "chloor" Units.Molar.milliMole
             row "calcium" Units.Molar.milliMole
             row "fosfaat" Units.Molar.milliMole
             row "magnesium" Units.Molar.milliMole
@@ -88,6 +93,7 @@ let all: GoldenTotals list =
                 [
                     "Volume", "#1,47# - #22,7# mL||/kg||/dag||"
                     "Energy", "#0,13# - #8,77# kCal||/kg||/dag||"
+                    "Carbohydrate", "#0,03# - #2,19# g||/kg||/dag||"
                 ]
         }
         {
@@ -97,6 +103,7 @@ let all: GoldenTotals list =
                 [
                     "Volume", "#1,12# - #4,48# mL||/kg||/dag||"
                     "Energy", "#0,36# - #1,76# kCal||/kg||/dag||"
+                    "Carbohydrate", "#0,09# - #0,44# g||/kg||/dag||"
                 ]
         }
         {
@@ -116,6 +123,7 @@ let all: GoldenTotals list =
                 [
                     "Volume", "#13,3# - #55,3# mL||/kg||/dag||"
                     "Protein", "#0,59# - #1,47# g||/kg||/dag||"
+                    "Carbohydrate", "#0,01# - #4,27# g||/kg||/dag||"
                     "Sodium", "#2,07# - #2,58# mmol||/kg||/dag||"
                     "Potassium", "#1,48# - #1,97# mmol||/kg||/dag||"
                 ]
@@ -128,8 +136,10 @@ let all: GoldenTotals list =
                     "Volume", "#13,3# - #55,3# mL||/kg||/dag||"
                     "Energy", "#2,37# - #22,9# kCal||/kg||/dag||"
                     "Protein", "#0,59# - #1,47# g||/kg||/dag||"
+                    "Carbohydrate", "#0,01# - #4,27# g||/kg||/dag||"
                     "Sodium", "#2,07# - #2,58# mmol||/kg||/dag||"
                     "Potassium", "#1,48# - #1,97# mmol||/kg||/dag||"
+                    "Chloride", "#3,85# - #5,28# mmol||/kg||/dag||"
                     "Calcium", "#0,22# - #0,55# mmol||/kg||/dag||"
                     "Phosphate", "#0,15# - #0,37# mmol||/kg||/dag||"
                     "Magnesium", "#0,07# - #0,18# mmol||/kg||/dag||"
@@ -144,8 +154,10 @@ let together =
         "Volume", "#32,2# - #141# mL||/kg||/dag||"
         "Energy", "#2,87# - #33,5# kCal||/kg||/dag||"
         "Protein", "#1,17# - #2,93# g||/kg||/dag||"
+        "Carbohydrate", "#0,14# - #11,2# g||/kg||/dag||"
         "Sodium", "#4,15# - #5,17# mmol||/kg||/dag||"
         "Potassium", "#2,96# - #3,93# mmol||/kg||/dag||"
+        "Chloride", "#3,85# - #5,28# mmol||/kg||/dag||"
         "Calcium", "#0,22# - #0,55# mmol||/kg||/dag||"
         "Phosphate", "#0,15# - #0,37# mmol||/kg||/dag||"
         "Magnesium", "#0,07# - #0,18# mmol||/kg||/dag||"
