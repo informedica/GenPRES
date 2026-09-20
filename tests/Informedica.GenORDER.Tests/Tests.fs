@@ -194,11 +194,11 @@ module Pipeline =
                             }
                         |]
 
-                    let dto = testMedicationOrders |> List.head |> Medication.toOrderDto
+                    let ord = testMedicationOrders |> List.head |> Medication.toOrder |> Result.get
 
                     // no weight -> no per-weight aggregation -> Volume None, but the
                     // call completes without any Google-sheet access.
-                    let result = Totals.getTotals syntheticTotals None None [| dto |]
+                    let result = Totals.getTotals syntheticTotals None None [| ord |]
 
                     result.Volume |> Expect.isNone "no weight -> no volume total"
                 }

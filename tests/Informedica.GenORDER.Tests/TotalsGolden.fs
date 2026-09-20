@@ -165,10 +165,7 @@ let order (med: Medication) =
 /// The totals of the given orders, by the name of the field that holds each. A field without
 /// a value is left out, so that a total that appears where there was none fails too.
 let totalsOf (ords: Order[]) =
-    let t =
-        ords
-        |> Array.map Order.Dto.toDto
-        |> Totals.getTotals Reference.all None (Some Reference.weight)
+    let t = ords |> Totals.getTotals Reference.all None (Some Reference.weight)
 
     [
         "Volume", t.Volume

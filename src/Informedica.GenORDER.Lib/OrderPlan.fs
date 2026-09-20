@@ -212,7 +212,7 @@ module OrderPlan =
                 plan
                 |> filtered
                 |> Array.choose PlanContext.contribution
-                |> Array.map (_.Order >> Order.Dto.toDto)
+                |> Array.map _.Order
                 |> Totals.getTotals totalsData plan.Patient.Age wght
         }
 
