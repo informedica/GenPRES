@@ -549,7 +549,7 @@ module OrderContext =
                 |> Array.collect (fun pr ->
                     pr
                     |> Medication.fromRule logger
-                    |> Array.choose (Medication.toOrderDto >> Order.Dto.fromDto >> Result.toOption)
+                    |> Array.choose (Medication.toOrder >> Result.toOption)
                     |> Array.map (fun ord -> ord, pr)
                 )
 
