@@ -1,18 +1,40 @@
 /// The orders the scenarios solve to, as they were when the Order was first built from the
-/// Medication without a Dto (issue #831). They are the record of what the builder produces:
-/// the printed order after the minimum and maximum calculation, the increment increase, the
-/// value calculation and the solve.
+/// Medication without a Dto (issue #831). Each is the printed order after the minimum and
+/// maximum calculation, the increment increase, the value calculation and the solve.
 ///
 /// A change here is a change in a dose. Regenerate them only deliberately, and say in the
 /// commit what moved and why.
 module GoldenOrders
 
+open Informedica.GenOrder.Lib.Types
 
-/// Every fixture's solved order, by the name it has in Scenarios.
-let all: (string * string) list =
+
+/// A scenario, and what it produced when it was recorded.
+type GoldenOrder =
+    {
+        /// The name the scenario has in Scenarios
+        Name: string
+        /// The Medication the order is built from
+        Medication: Medication
+        /// The processing stages that reported an error, in the order they ran. Empty for an
+        /// order that processes cleanly; a stage that starts or stops erroring is a change
+        /// worth failing on, whichever way it goes.
+        Errors: string list
+        /// The printed order after the full processing
+        Order: string
+    }
+
+
+/// Every scenario an order is recorded for. This is the one list: the builder tests take
+/// their fixtures from it, so a scenario cannot be added to one and forgotten in the other.
+let all: GoldenOrder list =
     [
-        "pcmSupp",
-        """
+        {
+            Name = "pcmSupp"
+            Medication = Scenarios.pcmSupp
+            Errors = []
+            Order =
+                """
 Route
 RECTAAL
 Schedule
@@ -58,9 +80,14 @@ Orderable
 [paracetamol.paracetamol.paracetamol]_dos_tot_adj <0 ..>
 []_adj_qty [14 kg]
 """
+        }
 
-        "amfo",
-        """
+        {
+            Name = "amfo"
+            Medication = Scenarios.amfo
+            Errors = []
+            Order =
+                """
 Route
 INTRAVENEUS
 Schedule
@@ -156,9 +183,14 @@ Orderable
 [amfotericine b liposomaal.gluc 10%.koolhydraat]_dos_tot_adj <0 ..>
 []_adj_qty [14 kg]
 """
+        }
 
-        "morfCont",
-        """
+        {
+            Name = "morfCont"
+            Medication = Scenarios.morfCont
+            Errors = []
+            Order =
+                """
 Route
 INTRAVENEUS
 Schedule
@@ -242,9 +274,14 @@ Orderable
 [morfine.gluc 10%.koolhydraat]_dos_tot_adj <0 ..>
 []_adj_qty [14 kg]
 """
+        }
 
-        "pcmDrink",
-        """
+        {
+            Name = "pcmDrink"
+            Medication = Scenarios.pcmDrink
+            Errors = []
+            Order =
+                """
 Route
 or
 Schedule
@@ -290,9 +327,14 @@ Orderable
 [paracetamol drank.paracetamol.paracetamol]_dos_tot_adj <0 ..>
 []_adj_qty [10 kg]
 """
+        }
 
-        "cotrim",
-        """
+        {
+            Name = "cotrim"
+            Medication = Scenarios.cotrim
+            Errors = []
+            Order =
+                """
 Route
 or
 Schedule
@@ -350,9 +392,14 @@ Orderable
 [cotrimoxazol.cotrimoxazol.trimethoprim]_dos_tot_adj <0 ..>
 []_adj_qty [10 kg]
 """
+        }
 
-        "tpn",
-        """
+        {
+            Name = "tpn"
+            Medication = Scenarios.tpn
+            Errors = []
+            Order =
+                """
 Route
 INTRAVENEUS
 Schedule
@@ -501,9 +548,14 @@ Orderable
 [samenstelling c.gluc 10%.koolhydraat]_dos_tot_adj <0 ..>
 []_adj_qty [11 kg]
 """
+        }
 
-        "tpnComplete",
-        """
+        {
+            Name = "tpnComplete"
+            Medication = Scenarios.tpnComplete
+            Errors = []
+            Order =
+                """
 Route
 INTRAVENEUS
 Schedule
@@ -748,9 +800,14 @@ Orderable
 [samenstelling c.gluc 10%.koolhydraat]_dos_tot_adj <0 ..>
 []_adj_qty [11 kg]
 """
+        }
 
-        "fullMedication",
-        """
+        {
+            Name = "fullMedication"
+            Medication = Scenarios.fullMedication
+            Errors = [ "CalcMinMax"; "SolveOrder" ]
+            Order =
+                """
 Route
 INTRAVENEUS
 Schedule
@@ -823,5 +880,6 @@ Orderable
 [Test Medication Complete.Diluent Component.sodium]_dos_tot_adj <0 ..>
 []_adj_qty [15 kg]
 """
+        }
 
     ]
