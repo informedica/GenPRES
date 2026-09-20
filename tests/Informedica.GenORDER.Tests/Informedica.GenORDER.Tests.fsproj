@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Scenarios.fs" />
+    <Compile Include="GoldenOrders.fs" />
     <Compile Include="OrderPlanTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Main.fs" />

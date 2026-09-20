@@ -1479,6 +1479,61 @@ module OrderBuilderTests =
             ]
 
 
+module GoldenOrderTests =
+
+    /// The full processing an order goes through before a prescriber sees it.
+    let private solve (ord: Order) =
+        let run cmd o =
+            o
+            |> cmd
+            |> OrderProcessor.processPipeline Logging.noOp
+            |> function
+                | Ok o -> o
+                | Error(o, _) -> o
+
+        ord
+        |> run CalcMinMax
+        |> run IncreaseIncrements
+        |> run CalcValues
+        |> run SolveOrder
+
+
+    /// The medication a golden order was recorded for.
+    let private medicationOf =
+        function
+        | "pcmSupp" -> Scenarios.pcmSupp
+        | "amfo" -> Scenarios.amfo
+        | "morfCont" -> Scenarios.morfCont
+        | "pcmDrink" -> Scenarios.pcmDrink
+        | "cotrim" -> Scenarios.cotrim
+        | "tpn" -> Scenarios.tpn
+        | "tpnComplete" -> Scenarios.tpnComplete
+        | "fullMedication" -> Scenarios.fullMedication
+        | name -> failtest $"there is no scenario called {name}"
+
+
+    let private lines (s: string) =
+        s |> String.split "\n" |> List.map String.trim |> List.filter String.notEmpty
+
+    let tests =
+        testList
+            "the orders the scenarios solve to"
+            [
+                for name, golden in GoldenOrders.all do
+                    test $"{name} solves to the order it did" {
+                        match name |> medicationOf |> Medication.toOrder with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord ->
+                            ord
+                            |> solve
+                            |> Order.toString
+                            |> List.map String.trim
+                            |> List.filter String.notEmpty
+                            |> Expect.equal "the same solved order" (golden |> lines)
+                    }
+            ]
+
+
 module ConstraintsTests =
 
     open Informedica.GenCore.Lib.Ranges
@@ -2545,5 +2600,6 @@ let tests =
             MedicationParserTests.tests
             OrderVariableTests.tests
             ConstraintsTests.tests
+            GoldenOrderTests.tests
             OrderBuilderTests.tests
         ]
