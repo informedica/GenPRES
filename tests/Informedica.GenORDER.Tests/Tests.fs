@@ -1400,6 +1400,23 @@ module OrderBuilderTests =
                             |> constraintsOfDepth 4
                             |> Expect.equal "the same item constraints" (ord |> constraintsOfDepth 4)
                     }
+
+                for name, med in fixtures do
+                    test $"{name} constrains its components as the order does" {
+                        let built =
+                            med
+                            |> OrderBuilder.newOrder
+                            |> OrderBuilder.withComponents med
+                            |> OrderBuilder.withItemConstraints med
+                            |> OrderBuilder.withComponentConstraints med
+
+                        match med |> Medication.toOrder with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord ->
+                            built
+                            |> constraintsOfDepth 3
+                            |> Expect.equal "the same component constraints" (ord |> constraintsOfDepth 3)
+                    }
             ]
 
 

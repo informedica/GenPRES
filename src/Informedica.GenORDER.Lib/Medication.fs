@@ -1895,6 +1895,181 @@ module Medication =
             |> mapItems (fun _ si itm -> itm |> withItemQtyConc med si |> withItemDose med si) med
 
 
+        /// The unit the orderable is measured in: the one the first component is measured in.
+        let orderableUnit (med: Medication) =
+            med.Components
+            |> List.tryHead
+            |> Option.bind (fun pc -> pc.Quantities |> Option.map ValueUnit.getUnit)
+
+
+        /// The smallest step a product can be divided into. A medication that says how
+        /// divisible it is says it for the orderable; otherwise the coarsest of what its
+        /// components say.
+        let divisibility (pc: ProductComponent option) (med: Medication) =
+            let ou = med |> orderableUnit
+            let pu = pc |> Option.bind (_.Quantities >> Option.map ValueUnit.getUnit)
+
+            match ou, med.Div with
+            | Some ou, Some br when Some ou = pu -> 1N / br |> singleOrNone ou
+            | Some ou, None ->
+                let incrs =
+                    med.Components
+                    |> List.choose (fun pc ->
+                        if pc.Quantities |> Option.map ValueUnit.getUnit = pu || pu.IsNone then
+                            pc.Divisible |> Option.map (fun d -> 1N / d)
+                        else
+                            None
+                    )
+
+                if incrs |> List.isEmpty then
+                    None
+                else
+                    let u = pu |> Option.defaultValue ou
+                    incrs |> List.max |> singleOrNone u
+            | _ -> None
+
+
+        /// Walk the medication's components and the order's together.
+        let mapComponents f (med: Medication) (ord: Order) =
+            { ord with
+                Orderable =
+                    { ord.Orderable with
+                        Components =
+                            List.zip med.Components ord.Orderable.Components
+                            |> List.map (fun (pc, cmp) -> f pc cmp)
+                    }
+            }
+
+
+        /// How much of a component the orderable holds, and in what concentration. A
+        /// component can never be more than all of the orderable, and where it is the only
+        /// one it is all of it.
+        let withComponentQtyConc (med: Medication) (pc: ProductComponent) (cmp: Types.Component) =
+            let single = med.Components |> List.length = 1
+            let incr = med |> divisibility (Some pc)
+            let all = Units.Count.times |> ValueUnit.singleWithValue 1N |> Some
+            let con f = OrderVariable.mapConstraints f
+
+            { cmp with
+                OrderableConcentration =
+                    cmp.OrderableConcentration
+                    |> OrderVariable.Concentration.apply (
+                        con (fun cs ->
+                            cs
+                            |> OrderVariable.Constraints.setMax single all
+                            |> fun cs ->
+                                if single then
+                                    cs |> OrderVariable.Constraints.setValues all
+                                else
+                                    cs
+                        )
+                    )
+                ComponentQuantity =
+                    cmp.ComponentQuantity
+                    |> OrderVariable.Quantity.apply (con (OrderVariable.Constraints.setValues pc.Quantities))
+                OrderableQuantity =
+                    cmp.OrderableQuantity
+                    |> OrderVariable.Quantity.apply (
+                        con (fun cs ->
+                            cs
+                            |> OrderVariable.Constraints.setIncr incr
+                            |> fun cs ->
+                                match pc.Solution with
+                                | None -> cs
+                                | Some sol ->
+                                    cs
+                                    |> OrderVariable.Constraints.setValues sol.Quantities
+                                    |> OrderVariable.Constraints.setMinMax false sol.Quantity
+                        )
+                    )
+                Dose =
+                    if single then
+                        { cmp.Dose with
+                            Quantity =
+                                cmp.Dose.Quantity
+                                |> OrderVariable.Quantity.apply (con (OrderVariable.Constraints.setIncr incr))
+                        }
+                    else
+                        cmp.Dose
+            }
+
+
+        /// What the dose rule allows of the component. Where it allows nothing, the dose
+        /// quantity still gets a unit, so that it can be added up with the others.
+        let withComponentDose (med: Medication) (pc: ProductComponent) (cmp: Types.Component) =
+            let con f = OrderVariable.mapConstraints f
+
+            let zero =
+                pc.Quantities
+                |> Option.map ValueUnit.getUnit
+                |> Option.bind (fun u -> 0N |> singleOrNone u)
+
+            let ifGiven (mm: MinMax) f cs = if mm |> MinMax.isEmpty then cs else cs |> f
+
+            let rate (dl: DoseLimit) (dos: Dose) =
+                { dos with
+                    Rate =
+                        dos.Rate
+                        |> OrderVariable.Rate.apply (
+                            con (ifGiven dl.Rate (OrderVariable.Constraints.setMinMax false dl.Rate))
+                        )
+                    RateAdjust =
+                        dos.RateAdjust
+                        |> OrderVariable.RateAdjust.apply (
+                            con (ifGiven dl.RateAdjust (OrderVariable.Constraints.setMinMax true dl.RateAdjust))
+                        )
+                }
+
+            let quantity (dl: DoseLimit) (dos: Dose) =
+                { dos with
+                    Quantity =
+                        dos.Quantity
+                        |> OrderVariable.Quantity.apply (
+                            con (fun cs ->
+                                if dl.Quantity |> MinMax.isEmpty then
+                                    cs |> OrderVariable.Constraints.setMin false zero
+                                else
+                                    cs |> OrderVariable.Constraints.setMinMax false dl.Quantity
+                            )
+                        )
+                    QuantityAdjust =
+                        dos.QuantityAdjust
+                        |> OrderVariable.QuantityAdjust.apply (
+                            con (ifGiven dl.QuantityAdjust (OrderVariable.Constraints.setMinMax true dl.QuantityAdjust))
+                        )
+                    PerTime =
+                        dos.PerTime
+                        |> OrderVariable.PerTime.apply (
+                            con (ifGiven dl.PerTime (OrderVariable.Constraints.setMinMax false dl.PerTime))
+                        )
+                    PerTimeAdjust =
+                        dos.PerTimeAdjust
+                        |> OrderVariable.PerTimeAdjust.apply (
+                            con (ifGiven dl.PerTimeAdjust (OrderVariable.Constraints.setMinMax true dl.PerTimeAdjust))
+                        )
+                }
+
+            let apply =
+                match med.OrderType with
+                | AnyOrder
+                | ProcessOrder -> fun _ dos -> dos
+                | ContinuousOrder -> rate
+                | OnceOrder
+                | DiscontinuousOrder -> quantity
+                | OnceTimedOrder
+                | TimedOrder -> fun dl dos -> dos |> rate dl |> quantity dl
+
+            match pc.Dose with
+            | None -> cmp
+            | Some dl -> { cmp with Dose = cmp.Dose |> apply dl }
+
+
+        /// Every constraint a component carries.
+        let withComponentConstraints (med: Medication) (ord: Order) =
+            ord
+            |> mapComponents (fun pc cmp -> cmp |> withComponentQtyConc med pc |> withComponentDose med pc) med
+
+
     /// <summary>
     /// Convert a Medication order to an Order DTO for the solver system
     /// </summary>
