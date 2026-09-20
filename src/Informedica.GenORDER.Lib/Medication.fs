@@ -2367,6 +2367,10 @@ module Medication =
 
     /// Convert a Medication to an Order Dto, for the callers that still want one, chiefly the
     /// totals; it goes when they take an Order instead. A medication that cannot be ordered
-    /// raises here, as it always did, since those callers have nowhere to put a failure;
-    /// toOrder gives the same failure as a value.
-    let toOrderDto (med: Medication) = med |> toOrder |> Result.get |> Order.Dto.toDto
+    /// raises here, with the exception that said why, since those callers have nowhere to put
+    /// a failure; toOrder gives them the same failure as a value.
+    let toOrderDto (med: Medication) =
+        match med |> toOrder with
+        | Ok ord -> ord |> Order.Dto.toDto
+        | Error(Exceptions.OrderCouldNotBeCreated exn) -> exn |> raise
+        | Error msg -> msg |> Exceptions.OrderException |> raise

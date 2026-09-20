@@ -1383,6 +1383,15 @@ module OrderBuilderTests =
                         |> Expect.isTrue "a medication that cannot be ordered gives an Error"
                     }
 
+                test "asking a medication that cannot be ordered for a Dto says why" {
+                    let med = { Scenarios.pcmSupp with OrderType = AnyOrder }
+
+                    // the callers that want a Dto have nowhere to put a failure, so it is
+                    // thrown; what is thrown must still name the reason
+                    (fun () -> med |> Medication.toOrderDto |> ignore)
+                    |> Expect.throwsT<System.NotSupportedException> "the reason reaches the caller"
+                }
+
                 test "a medication that cannot be ordered leaves the others alone" {
                     let meds =
                         [|
