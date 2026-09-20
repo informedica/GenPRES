@@ -1687,6 +1687,16 @@ module DtoTests =
                     "Order.Dto, the existing Dto the scenario nests"
                     [
                         for name, ord in Fixtures.orders do
+                            test $"a component of {name}'s order carries its id into the Dto" {
+                                ord
+                                |> Order.Dto.toDto
+                                |> _.Orderable.Components
+                                |> List.map _.Id
+                                |> List.filter String.isNullOrWhiteSpace
+                                |> Expect.isEmpty "no component id is written empty"
+                            }
+
+                        for name, ord in Fixtures.orders do
                             test $"L1 for {name}'s order" {
                                 ord
                                 |> Order.Dto.toDto
