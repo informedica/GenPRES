@@ -79,6 +79,14 @@ jobs:
         GENPRES_DEBUG: 1
       run: dotnet run ServerTests
 
+    - name: Check packaging rules
+      # What may enter the Docker build context and the published output. Both rest on the
+      # last matching pattern winning, so an exclusion moved above a re-include silently
+      # re-admits everything it kept out -- including the proprietary *.cache files. Reads
+      # .dockerignore and queries the server project's Content items; needs no Docker, so
+      # every leg runs it identically.
+      run: dotnet fsi scripts/CheckPackaging.fsx
+
     - name: Check solution version provenance
       # Calls the script directly rather than `dotnet run CheckVersions` so the FAKE target that depends 
       # on Build, which transitively depends on Clean/RestoreClient, so it would redo the full restore/build 
