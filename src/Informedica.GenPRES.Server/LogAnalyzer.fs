@@ -2,6 +2,7 @@ module LogAnalyzer
 
 open System
 open System.IO
+open System.Text.Json
 open System.Text.RegularExpressions
 
 
@@ -281,6 +282,30 @@ type PipelineRun =
 // ═══════════════════════════════════════════════════════════════
 
 module Parse =
+
+    /// The text lines of a log file. A line of the JSON format holds the rendered text of one
+    /// event in its Text field, with the line feeds escaped: it is unfolded into its lines,
+    /// after a blank line where the flat format had the header line of the event, so that the
+    /// text of one event never runs into the next and line numbers count as they did. Any other
+    /// line is kept as it is, so a flat file from before the JSON format reads as it did.
+    let textLines (lines: string[]) : string[] =
+        lines
+        |> Array.collect (fun line ->
+            if line.StartsWith "{" |> not then
+                [| line |]
+            else
+                try
+                    use doc = JsonDocument.Parse line
+
+                    match doc.RootElement.TryGetProperty "Text" with
+                    | true, text when text.ValueKind = JsonValueKind.String ->
+                        let unfolded = text.GetString().Split '\n' |> Array.map _.TrimEnd('\r')
+                        Array.append [| "" |] unfolded
+                    | _ -> [| line |]
+                with :? JsonException ->
+                    [| line |]
+        )
+
 
     let private eqPattern =
         Regex(@"^\[([^\]]+)\]_(\S+)\s+(.+?)\s+=\s+\[([^\]]+)\]_(\S+)\s+(.+?)\s+(\*|\+|/)\s+\[([^\]]+)\]_(\S+)\s+(.+)$")
@@ -1085,7 +1110,7 @@ let analyzeFile (fileName: string) : Result<string, string[]> =
             if fi.Length > MaxFileSizeBytes then
                 Error [| $"Log file too large (%d{fi.Length / 1_000_000L} MB). Maximum is 50 MB." |]
             else
-                let lines = File.ReadAllLines(fullPath)
+                let lines = File.ReadAllLines(fullPath) |> Parse.textLines
                 let ctx = Parse.orderContext lines
                 let errors = Parse.errors lines
                 let eqBlocks = Parse.equationBlocks lines
