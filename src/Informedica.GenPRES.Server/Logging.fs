@@ -189,29 +189,39 @@ module EventFormat =
                 typeof<ServerLogging.Message>, ServerLogging.formatMessage
             ]
 
-    /// The text and the type name of what a log event holds. A formatter that throws still
-    /// yields a line saying so: Serilog drops an event whose formatter throws, and on this
-    /// stream a dropped event is a lost one.
-    let render (format: IMessage -> string) (logEvent: LogEvent) : string * string =
-        match logEvent |> SerilogBridge.tryEvent with
-        | None -> logEvent.RenderMessage(), "LogEvent"
-        | Some ev ->
-            let typeName = ev.Message.GetType().Name
+    /// The text and the type name of what a log event holds, rendered once however many sinks
+    /// ask for it: rendering is the expensive part of logging, a few milliseconds for a solver
+    /// event, and the file and the console both need the text. The text is kept as long as the
+    /// Event itself is alive and no longer. A formatter that throws still yields a line saying
+    /// so: Serilog drops an event whose formatter throws, and on this stream a dropped event is
+    /// a lost one.
+    type Renderer(format: IMessage -> string) =
 
-            try
-                format ev.Message, typeName
-            with ex ->
-                $"could not format %s{typeName}: %s{ex.Message}", typeName
+        let texts = Runtime.CompilerServices.ConditionalWeakTable<Event, Lazy<string * string>>()
+
+        let renderEvent (ev: Event) =
+            lazy
+                (let typeName = ev.Message.GetType().Name
+
+                 try
+                     format ev.Message, typeName
+                 with ex ->
+                     $"could not format %s{typeName}: %s{ex.Message}", typeName)
+
+        member _.Render(logEvent: LogEvent) : string * string =
+            match logEvent |> SerilogBridge.tryEvent with
+            | None -> logEvent.RenderMessage(), "LogEvent"
+            | Some ev -> texts.GetValue(ev, renderEvent).Value
 
     /// One compact JSON object per physical line: the time, the level, the type of the message
     /// and its text. A line feed inside the text is escaped, so one event is always one line,
     /// and `jq` reads the file as it is. An event whose text is blank writes nothing: the order
     /// and solver renderings return a blank for the events they leave out on purpose.
-    type JsonLines(format: IMessage -> string) =
+    type JsonLines(renderer: Renderer) =
 
         interface ITextFormatter with
             member _.Format(logEvent: LogEvent, output: TextWriter) =
-                let text, typeName = logEvent |> render format
+                let text, typeName = renderer.Render logEvent
 
                 if text |> String.notEmpty then
                     // the relaxed encoder keeps letters such as é and µ readable; quotes,
@@ -234,11 +244,11 @@ module EventFormat =
                     output.Write "\"}\n"
 
     /// Readable text for the terminal a developer is watching: the time, the level, the text.
-    type ConsoleText(format: IMessage -> string) =
+    type ConsoleText(renderer: Renderer) =
 
         interface ITextFormatter with
             member _.Format(logEvent: LogEvent, output: TextWriter) =
-                let text, _ = logEvent |> render format
+                let text, _ = renderer.Render logEvent
 
                 if text |> String.notEmpty then
                     output.Write(logEvent.Timestamp.ToString "HH:mm:ss")
@@ -257,6 +267,9 @@ module SerilogLogging =
     /// thread, so the thread that logs only enqueues, and a slow terminal can stall neither the
     /// file nor a request.
     let buildLoggerAt (path: string) (level: Level) : Serilog.Core.Logger =
+        // one renderer for both sinks, so that an event is rendered once
+        let renderer = EventFormat.Renderer EventFormat.formatMessage
+
         LoggerConfiguration()
             .MinimumLevel.Is(level |> SerilogBridge.toSerilogLevel)
             .Destructure.AsScalar<Event>()
@@ -265,15 +278,12 @@ module SerilogLogging =
             // logger this replaced queued without a bound and never blocked. The price is
             // memory: a stalled disk can hold this many events, each with the order it is about.
             .WriteTo.Async(
-                (fun a -> a.File(EventFormat.JsonLines EventFormat.formatMessage, path) |> ignore),
+                (fun a -> a.File(EventFormat.JsonLines renderer, path) |> ignore),
                 bufferSize = 100_000,
                 blockWhenFull = true
             )
             // the terminal is for watching, it may drop
-            .WriteTo.Async(
-                (fun a -> a.Console(EventFormat.ConsoleText EventFormat.formatMessage) |> ignore),
-                blockWhenFull = false
-            )
+            .WriteTo.Async((fun a -> a.Console(EventFormat.ConsoleText renderer) |> ignore), blockWhenFull = false)
             .CreateLogger()
 
     let buildLogger (level: Level) (loggerType: LoggerType) : Serilog.Core.Logger * string =

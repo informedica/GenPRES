@@ -47,7 +47,8 @@ let formatWith (formatter: ITextFormatter) (logEvent: LogEvent) =
     writer.ToString()
 
 
-let jsonLine = formatWith (Logging.EventFormat.JsonLines Logging.EventFormat.formatMessage)
+let jsonLine =
+    formatWith (Logging.EventFormat.JsonLines(Logging.EventFormat.Renderer Logging.EventFormat.formatMessage))
 
 
 /// What the production sink configuration writes to its file for the events logged.
@@ -117,11 +118,28 @@ let formatTests =
                     |> orderMessage
                     |> eventOf Level.Error
                     |> logEventOf
-                    |> Logging.EventFormat.render (fun _ -> invalidOp "boom")
+                    |> Logging.EventFormat.Renderer(fun _ -> invalidOp "boom").Render
 
                 text
                 |> Expect.stringContains "says what failed" "could not format OrderEventMessage: boom"
                 typeName |> Expect.equal "the type" "OrderEventMessage"
+            }
+
+            test "an event is rendered once, however many sinks ask" {
+                let mutable count = 0
+
+                let renderer =
+                    Logging.EventFormat.Renderer(fun _ ->
+                        count <- count + 1
+                        "text"
+                    )
+
+                let logEvent = "anything" |> orderMessage |> eventOf Level.Debug |> logEventOf
+
+                logEvent |> formatWith (Logging.EventFormat.JsonLines renderer) |> ignore
+                logEvent |> formatWith (Logging.EventFormat.ConsoleText renderer) |> ignore
+
+                count |> Expect.equal "once" 1
             }
 
             test "a log event from elsewhere keeps its own message" {
