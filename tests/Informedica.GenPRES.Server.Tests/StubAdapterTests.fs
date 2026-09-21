@@ -324,7 +324,7 @@ module SessionStubTests =
     let scenarioWithOrder (id: string) : OrderScenario =
         let order =
             Scenarios.pcmSupp
-            |> Informedica.GenOrder.Lib.Medication.toOrderDto
+            |> Informedica.GenOrder.Lib.Medication.toOrderDto Scenarios.testStart
             |> Mappers.Order.mapFromOrderToShared [| "paracetamol" |]
 
         Shared.Models.OrderScenario.create

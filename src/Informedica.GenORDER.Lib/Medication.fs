@@ -1336,9 +1336,9 @@ module Medication =
 
 
         /// The empty order an order type asks for: its schedule, its id, its name and its
-        /// route, and no component yet.
-        let newOrder (med: Medication) =
-            med |> scheduleOf |> Order.createNew med.Id med.Name <| med.Route
+        /// route, and no component yet. The start is the caller's, in UTC.
+        let newOrder (start: DateTime) (med: Medication) =
+            med |> scheduleOf |> Order.createNew start med.Id med.Name <| med.Route
 
 
         /// The components of the medication and their items, as shape alone: every order
@@ -1938,10 +1938,11 @@ module Medication =
             }
 
 
-        /// Build an Order from a Medication: the shape, and then every constraint.
-        let build (med: Medication) =
+        /// Build an Order from a Medication: the shape, and then every constraint. The start
+        /// is the caller's, in UTC.
+        let build (start: DateTime) (med: Medication) =
             med
-            |> newOrder
+            |> newOrder start
             |> withComponents med
             |> withItemConstraints med
             |> withComponentConstraints med
@@ -1950,10 +1951,11 @@ module Medication =
             |> withAdjustment med
 
 
-    /// Build an Order from a Medication, or say why it could not be built.
-    let toOrder (med: Medication) : Result<Order, Exceptions.Message> =
+    /// Build an Order from a Medication, or say why it could not be built. The start is the
+    /// caller's, in UTC.
+    let toOrder (start: DateTime) (med: Medication) : Result<Order, Exceptions.Message> =
         try
-            med |> OrderBuilder.build |> Ok
+            med |> OrderBuilder.build start |> Ok
         with exn ->
             exn |> Exceptions.OrderCouldNotBeCreated |> Error
 
@@ -1962,8 +1964,8 @@ module Medication =
     /// totals; it goes when they take an Order instead. A medication that cannot be ordered
     /// raises here, with the exception that said why, since those callers have nowhere to put
     /// a failure; toOrder gives them the same failure as a value.
-    let toOrderDto (med: Medication) =
-        match med |> toOrder with
+    let toOrderDto (start: DateTime) (med: Medication) =
+        match med |> toOrder start with
         | Ok ord -> ord |> Order.Dto.toDto
         | Error(Exceptions.OrderCouldNotBeCreated exn) -> exn |> raise
         | Error msg -> msg |> Exceptions.OrderException |> raise

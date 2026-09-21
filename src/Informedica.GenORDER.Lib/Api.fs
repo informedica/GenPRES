@@ -539,10 +539,11 @@ module OrderContext =
         /// Evaluates multiple prescription rules in parallel.
         /// Flattens all orders upfront and uses Array.Parallel for optimal performance.
         /// </summary>
+        /// <param name="start">The moment the orders start, decided by the caller, in UTC</param>
         /// <param name="logger">Logger for diagnostics</param>
         /// <param name="prs">Array of prescription rules to evaluate</param>
         /// <returns>Array of successfully evaluated order-rule pairs</returns>
-        let evaluateRules (logger: Logger) prs =
+        let evaluateRules (start: System.DateTime) (logger: Logger) prs =
             // Flatten all orders from all prescription rules upfront
             let ords =
                 prs
@@ -550,7 +551,7 @@ module OrderContext =
                     pr
                     |> Medication.fromRule logger
                     |> Array.choose (fun med ->
-                        match med |> Medication.toOrder with
+                        match med |> Medication.toOrder start with
                         | Ok ord -> Some ord
                         // a medication that cannot become an order is left out of the
                         // scenarios, so say which one and why, or it goes missing in silence
@@ -973,7 +974,7 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    let getScenarios logger provider ctx =
+    let getScenarios (start: System.DateTime) logger provider ctx =
         let inputFilter = ctx.Filter
         let ctx, result = ctx |> getRules logger provider
 
@@ -1006,12 +1007,12 @@ Scenarios: {scenarios}
                         // Note: different prescription rules can exist based on multiple pharmaceutical forms
                         // and multiple solution rules
                         prs
-                        |> evaluateRules logger
+                        |> evaluateRules start logger
                         |> function
                             | [||] ->
                                 // no valid results so evaluate again
                                 // with changed product divisibility
-                                prs |> Array.map changeRuleProductsDivisible |> evaluateRules logger
+                                prs |> Array.map changeRuleProductsDivisible |> evaluateRules start logger
                             | results -> results
                         |> processEvaluationResults
                         |> filterScenariosByPreparation
@@ -1020,13 +1021,13 @@ Scenarios: {scenarios}
             |> Ok
 
 
-    let reloadResources logger provider ctx =
+    let reloadResources (start: System.DateTime) logger provider ctx =
         Api.reloadCache logger provider
 
-        ctx |> getScenarios logger provider
+        ctx |> getScenarios start logger provider
 
 
-    let evaluate logger provider cmd =
+    let evaluate (start: System.DateTime) logger provider cmd =
         // Helper to process property commands when there's exactly one scenario with an order
         let processPropertyCmd ctx propCmd wrapResult =
             match ctx.Scenarios |> Array.tryExactlyOne with
@@ -1040,8 +1041,8 @@ Scenarios: {scenarios}
                 wrapResult ctx |> Ok
 
         match cmd with
-        | UpdateOrderContext ctx -> ctx |> getScenarios logger provider |> Result.map UpdateOrderContext
-        | ReloadResources ctx -> ctx |> reloadResources logger provider |> Result.map ReloadResources
+        | UpdateOrderContext ctx -> ctx |> getScenarios start logger provider |> Result.map UpdateOrderContext
+        | ReloadResources ctx -> ctx |> reloadResources start logger provider |> Result.map ReloadResources
         // TODO: need to implement validation
         | SelectOrderScenario ctx -> ctx |> processScenarioOrder logger CalcValues |> SelectOrderScenario |> Ok
         | UpdateOrderScenario ctx -> ctx |> processScenarioOrder logger SolveOrder |> UpdateOrderScenario |> Ok

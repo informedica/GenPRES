@@ -19,7 +19,7 @@ module Domain = Informedica.GenOrder.Lib.OrderContext
 /// it: the domain's order Dto through the order mapper.
 let order: Order =
     Scenarios.pcmSupp
-    |> Medication.toOrderDto
+    |> Medication.toOrderDto Scenarios.testStart
     |> Mappers.Order.mapFromOrderToShared [| "paracetamol" |]
 
 

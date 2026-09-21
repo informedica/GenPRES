@@ -60,6 +60,7 @@ module PlanContext =
     /// The plan context evaluated against the rules: reconciled, evaluated and its intake
     /// computed over the totals data.
     let evaluate
+        (start: System.DateTime)
         logger
         provider
         (totalsData: Types.Data.TotalsData[])
@@ -69,7 +70,7 @@ module PlanContext =
         pc
         |> evaluateWith
             (OrderContext.reconcile logger provider)
-            (OrderContext.evaluate logger provider)
+            (OrderContext.evaluate start logger provider)
             (OrderContext.intake totalsData)
             cmd
 

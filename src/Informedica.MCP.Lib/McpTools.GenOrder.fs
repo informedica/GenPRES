@@ -243,7 +243,7 @@ module GenOrderTools =
 
         match
             OrderContext.UpdateOrderContext ctx
-            |> OrderContext.evaluate OrderLogging.noOp provider
+            |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider
         with
         | Error e -> Error $"Failed to evaluate order context: {e}"
         | Ok cmd ->
@@ -307,7 +307,7 @@ module GenOrderTools =
 
         match
             OrderContext.UpdateOrderContext ctx
-            |> OrderContext.evaluate OrderLogging.noOp provider
+            |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider
         with
         | Error e -> Error $"Failed to evaluate order context: {e}"
         | Ok cmd ->

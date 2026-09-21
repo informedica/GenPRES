@@ -2765,14 +2765,13 @@ module Order =
         }
 
 
-    /// <summary>
-    /// Create a new <c>Order</c> with
-    /// </summary>
+    /// <summary>Create a new <c>Order</c>.</summary>
+    /// <param name="start">The moment the Order starts, decided by the caller, in UTC</param>
     /// <param name="id">The id of the Order</param>
     /// <param name="orbN">The name of the Orderable</param>
     /// <param name="nmeToSch">A function to create a Schedule with a Name</param>
     /// <param name="route">The Route of the Order</param>
-    let createNew id orbN nmeToSch route =
+    let createNew (start: DateTime) id orbN nmeToSch route =
         let orb = Orderable.createNew id orbN
         let n = [ id ] |> Name.create
 
@@ -2782,7 +2781,7 @@ module Order =
 
         let sch = n |> Name.add Mapping.Literals.sch |> nmeToSch
 
-        let sts = DateTime.Now |> StartStop.Start
+        let sts = start |> StartStop.Start
 
         create (id |> Id.create) adj orb sch route tme sts
 
@@ -4467,16 +4466,15 @@ module Order =
             dto
 
 
-        /// <summary>
-        /// Create a new Order Dto
-        /// </summary>
+        /// <summary>Create a new Order Dto.</summary>
+        /// <param name="start">The moment the Order starts, decided by the caller, in UTC</param>
         /// <param name="id">The id of the Order</param>
         /// <param name="orbN">The name of the Orderable</param>
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
         /// <param name="nmeToSch">A function to create an Order with Name and Schedule</param>
-        let private dto id orbN rte cmps nmeToSch =
-            let dto = createNew id orbN nmeToSch rte |> toDto
+        let private dto start id orbN rte cmps nmeToSch =
+            let dto = createNew start id orbN nmeToSch rte |> toDto
 
             dto.Orderable.Components <-
                 [
@@ -4522,54 +4520,61 @@ module Order =
         /// <summary>
         /// Create a new Order Dto with a Continuous Prescription
         /// </summary>
+        /// <param name="start">The moment the Order starts, decided by the caller, in UTC</param>
         /// <param name="id">The id of the Order</param>
         /// <param name="orbN">The name of the Orderable</param>
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
-        let continuous id orbN rte cmps =
-            Schedule.continuous Unit.NoUnit Unit.NoUnit |> dto id orbN rte cmps
+        let continuous start id orbN rte cmps =
+            Schedule.continuous Unit.NoUnit Unit.NoUnit |> dto start id orbN rte cmps
 
 
         /// <summary>
         /// Create a new Order Dto with a Once Prescription
         /// </summary>
+        /// <param name="start">The moment the Order starts, decided by the caller, in UTC</param>
         /// <param name="id">The id of the Order</param>
         /// <param name="orbN">The name of the Orderable</param>
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
-        let once id orbN rte cmps = Schedule.once Unit.NoUnit Unit.NoUnit |> dto id orbN rte cmps
+        let once start id orbN rte cmps =
+            Schedule.once Unit.NoUnit Unit.NoUnit |> dto start id orbN rte cmps
 
 
         /// <summary>
         /// Create a new Order Dto with a OnceTimed Prescription
         /// </summary>
+        /// <param name="start">The moment the Order starts, decided by the caller, in UTC</param>
         /// <param name="id">The id of the Order</param>
         /// <param name="orbN">The name of the Orderable</param>
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
-        let onceTimed id orbN rte cmps =
-            Schedule.onceTimed Unit.NoUnit Unit.NoUnit |> dto id orbN rte cmps
+        let onceTimed start id orbN rte cmps =
+            Schedule.onceTimed Unit.NoUnit Unit.NoUnit |> dto start id orbN rte cmps
 
 
         /// <summary>
         /// Create a new Order Dto with a Discontinuous Prescription
         /// </summary>
+        /// <param name="start">The moment the Order starts, decided by the caller, in UTC</param>
         /// <param name="id">The id of the Order</param>
         /// <param name="orbN">The name of the Orderable</param>
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
-        let discontinuous id orbN rte cmps =
-            Schedule.discontinuous Unit.NoUnit Unit.NoUnit |> dto id orbN rte cmps
+        let discontinuous start id orbN rte cmps =
+            Schedule.discontinuous Unit.NoUnit Unit.NoUnit |> dto start id orbN rte cmps
 
 
         /// <summary>
         /// Create a new Order Dto with a Timed Prescription
         /// </summary>
+        /// <param name="start">The moment the Order starts, decided by the caller, in UTC</param>
         /// <param name="id">The id of the Order</param>
         /// <param name="orbN">The name of the Orderable</param>
         /// <param name="rte">The Route of the Order</param>
         /// <param name="cmps">The Components of the Orderable</param>
-        let timed id orbN rte cmps = Schedule.timed Unit.NoUnit Unit.NoUnit |> dto id orbN rte cmps
+        let timed start id orbN rte cmps =
+            Schedule.timed Unit.NoUnit Unit.NoUnit |> dto start id orbN rte cmps
 
 
         let setToOnce (dto: Dto) =
