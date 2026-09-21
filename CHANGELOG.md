@@ -1,5 +1,5 @@
 ---
-last_commit_released: f57dfab229f71b443604d89bf84e11b8629abaea
+last_commit_released: 24ce3c67b7983f74341ce0a4f296025cee0f6f80
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -17,6 +17,25 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.27 - 2026-09-20
+
+### 🚀 Features
+
+* *(genorder)* An Order built from a Medication, as a pipeline ([c45760e6](https://github.com/informedica/GenPRES/commit/c45760e631e1970dc0e696355b8ea91cc1b5ec5e))
+* *(genorder)* Set the constraints of an order variable, field by field ([69b1da46](https://github.com/informedica/GenPRES/commit/69b1da468a69eddbd58d348b1d1428945e9c6f9d))
+* *(genorder)* The shape of an Order, built from a Medication ([8876f55e](https://github.com/informedica/GenPRES/commit/8876f55e8bbf4299efb5ab2cea969c16e881486f))
+* *(genorder)* The constraints an item of an Order carries ([9de2f9db](https://github.com/informedica/GenPRES/commit/9de2f9db202ad0c5ef6368cd720649512a6cd288))
+* *(genorder)* The constraints a component of an Order carries ([57623aca](https://github.com/informedica/GenPRES/commit/57623aca72c7c65294d922be8f99348bc30615e2))
+* *(genorder)* The constraints the orderable of an Order carries ([94c93070](https://github.com/informedica/GenPRES/commit/94c93070e1347819415acb4df87398887cbecad7))
+
+### 🐞 Bug Fixes
+
+* *(genorder)* A component keeps its id through the Dto ([cc05932c](https://github.com/informedica/GenPRES/commit/cc05932c14b29ae4ca4b63b5c057286ed0048d31))
+* *(genorder)* Say which medication could not be ordered ([56d4aa3e](https://github.com/informedica/GenPRES/commit/56d4aa3e0581ebebeec802761dbd74f55d7fdf53))
+* *(genorder)* Throw the reason a medication could not be ordered ([748a351b](https://github.com/informedica/GenPRES/commit/748a351bdff8b3bb91dd16fee5be7729eefbf918))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/f57dfab229f71b443604d89bf84e11b8629abaea..24ce3c67b7983f74341ce0a4f296025cee0f6f80)</small></strong>
 
 ## 0.1.2-alpha.26 - 2026-09-18
 
