@@ -162,5 +162,110 @@ let sinkTests =
         ]
 
 
+/// The events one solve of a scenario logs at Debug level, in the order they were logged.
+let solveEvents (med: Informedica.GenOrder.Lib.Types.Medication) : Event list =
+    let recorded = ResizeArray<Event>()
+
+    let collecting: Informedica.Logging.Lib.Logger =
+        {
+            Log = recorded.Add
+            Enabled = fun _ -> true
+        }
+
+    med
+    |> Informedica.GenOrder.Lib.Medication.toOrderDto Scenarios.testStart
+    |> Informedica.GenOrder.Lib.Order.Dto.fromDto
+    |> Result.map (fun ord ->
+        Informedica.GenOrder.Lib.OrderProcessor.processPipeline
+            collecting
+            (Informedica.GenOrder.Lib.Types.SolveOrder ord)
+    )
+    |> ignore
+
+    recorded |> Seq.toList
+
+
+/// The flat file the agent logger wrote for these events: per event a header line with a
+/// count, the elapsed time and the level, then the rendered text; nothing for a blank text.
+let flatLinesOf (events: Event list) =
+    events
+    |> List.map (fun ev -> ev, Logging.EventFormat.formatMessage ev.Message)
+    |> List.filter (fun (_, text) -> String.IsNullOrWhiteSpace text |> not)
+    |> List.mapi (fun i (ev, text) -> $"%i{i + 1}. 0.000: %A{ev.Level}" :: (text.Split '\n' |> Array.toList))
+    |> List.concat
+    |> List.toArray
+
+
+/// Everything the log analysis parses out of the lines of a file.
+let parsed (lines: string[]) =
+    LogAnalyzer.Parse.orderContext lines,
+    LogAnalyzer.Parse.errors lines,
+    LogAnalyzer.Parse.equationBlocks lines,
+    LogAnalyzer.Parse.constraintTables lines,
+    LogAnalyzer.Parse.pipelineSteps lines
+
+
+/// One solve at Debug level and the file the production sink wrote for it, made once: the
+/// console sink prints every event, and one solve is enough of that in a test run.
+let solved =
+    lazy
+        (let events = Scenarios.pcmDrink |> solveEvents
+         events, events |> fileLinesOf)
+
+
+let analysisTests =
+    testList
+        "the log analysis"
+        [
+            test "keeps a flat line as it is" {
+                let flat = [| "Patient: 3 jaar"; ""; "[a]_x <1..3> = [a]_y <1> * [a]_z <1..3>" |]
+
+                flat |> LogAnalyzer.Parse.textLines |> Expect.equal "unchanged" flat
+            }
+
+            test "keeps a line that only looks like JSON" {
+                let lines = [| "{not json"; "{\"Other\":1}" |]
+
+                lines |> LogAnalyzer.Parse.textLines |> Expect.equal "unchanged" lines
+            }
+
+            test "unfolds the text of a JSON line, after a blank line" {
+                [|
+                    "{\"@t\":\"x\",\"@l\":\"Debug\",\"EventType\":\"e\",\"Text\":\"one\\ntwo\"}"
+                |]
+                |> LogAnalyzer.Parse.textLines
+                |> Expect.equal "a blank and two lines" [| ""; "one"; "two" |]
+            }
+
+            test "reads a solve written by the production sink as it read the flat file" {
+                let events, fileLines = solved.Value
+
+                let ctx, errors, equationBlocks, tables, pipelineRuns =
+                    fileLines |> LogAnalyzer.Parse.textLines |> parsed
+
+                let flatCtx, flatErrors, flatEquationBlocks, flatTables, flatPipelineRuns =
+                    events |> flatLinesOf |> parsed
+
+                equationBlocks |> List.isEmpty |> Expect.isFalse "equations were parsed"
+                pipelineRuns |> List.isEmpty |> Expect.isFalse "pipeline steps were parsed"
+
+                ctx |> Expect.equal "the same order context" flatCtx
+                errors |> Expect.equal "the same errors" flatErrors
+                equationBlocks |> Expect.equal "the same equation blocks" flatEquationBlocks
+                tables |> Expect.equal "the same constraint tables" flatTables
+                pipelineRuns |> Expect.equal "the same pipeline runs" flatPipelineRuns
+            }
+
+            test "the report of a solve is not empty" {
+                let ctx, errors, equationBlocks, tables, pipelineRuns =
+                    solved.Value |> snd |> LogAnalyzer.Parse.textLines |> parsed
+
+                LogAnalyzer.Report.generate ctx errors equationBlocks tables pipelineRuns
+                |> String.IsNullOrWhiteSpace
+                |> Expect.isFalse "a report"
+            }
+        ]
+
+
 [<Tests>]
-let tests = testList "Logging Tests" [ formatTests; sinkTests ]
+let tests = testList "Logging Tests" [ formatTests; sinkTests; analysisTests ]
