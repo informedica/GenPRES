@@ -9,6 +9,9 @@ updaters:
   - regex:
       file: compose.yaml
       pattern: (?<=informedica/genpres:\$\{GENPRES_IMAGE_TAG:-)[^}]*
+  - regex:
+      file: .env.example
+      pattern: (?<=# GENPRES_IMAGE_TAG=).*
 ---
 
 # Changelog

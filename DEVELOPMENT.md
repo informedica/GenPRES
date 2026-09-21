@@ -424,18 +424,21 @@ YAML front matter at the top of the root `CHANGELOG.md`.
 ShipIt runs in CI on every push to `master` (see [Release Automation](#release-automation-github-actions)
 below) and owns the version number: the `updaters:` block in the `CHANGELOG.md` front matter points at 
 `/Project/PropertyGroup/Version` in the root `Directory.Build.props`, so the release PR bumps that
-element as well as adding the changelog section. A second, `regex` updater rewrites the default
-image tag in the root `compose.yaml` (`informedica/genpres:${GENPRES_IMAGE_TAG:-<version>}`) so a
-`git pull && docker compose pull && docker compose up -d` after a release runs the version that was
-just shipped. Do not hand-edit `<Version>` or that compose default.
+element as well as adding the changelog section. Two further `regex` updaters rewrite the version
+where it is spelled out for Docker: the default image tag in the root `compose.yaml`
+(`informedica/genpres:${GENPRES_IMAGE_TAG:-<version>}`), so a `git pull && docker compose pull &&
+docker compose up -d` after a release runs the version that was just shipped, and the commented
+`GENPRES_IMAGE_TAG` example in `.env.example`, so someone who uncomments it to pin a version pins
+the current one rather than whichever was current when that line was last touched by hand. Do not
+hand-edit `<Version>`, the compose default, or that example.
 
-The `regex` updater writes the version verbatim, whereas `tag-release.yml` folds any `+` in the
+The `regex` updaters write the version verbatim, whereas `tag-release.yml` folds any `+` in the
 version to `-` because `+` is not a legal Docker tag character. The two agree only as long as
 `<Version>` carries no SemVer build metadata. ShipIt never generates build metadata (versions come
 from conventional commits plus the `alpha.N` pre-release counter), so this holds unless someone
 hand-edits `<Version>` with a `+`, which is already disallowed above. If build metadata is ever
-introduced deliberately, replace the `regex` updater with a `command` updater that applies the same
-fold before writing `compose.yaml`.
+introduced deliberately, replace both `regex` updaters with `command` updaters that apply the same
+fold before writing `compose.yaml` and `.env.example`.
 
 To preview locally what ShipIt would generate:
 
