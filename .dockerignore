@@ -19,15 +19,6 @@
 !paket.dependencies
 !paket.lock
 !paket.references
-!paket.template
-
-!package.json
-!package-lock.json
-
-!webpack.config.js
-!vite.config.js
-!vite.config.mts
-!index.html
 
 # Add solution file
 !*.sln
@@ -35,13 +26,13 @@
 # Add fsharp project files
 !*.fsproj
 
-# Add configurarion files
-!App.config
-
 # Add fsharp source files
 !*.fs
 
-# Add source files
+# Add source files.
+# This one line carries the whole tree: Docker's `*` above is filepath.Match and does
+# not cross `/`, so nothing under src is excluded by it and no per-project re-include
+# is needed. What must stay out is excluded at the end of this file.
 !/src/
 
 # Add data folders
@@ -65,57 +56,23 @@
 /data/sources/
 /data/zindex/
 
-# Informedica.Utils.Lib
-!/src/Informedica.Utils.Lib/
-!/src/Informedica.Utils.Lib/BCL/
-# Informedica.Agents.Lib
-!/src/Informedica.Agents.Lib/
-!/src/Informedica.Agents.Lib/BCL/
-# Informedica.NLP.Lib
-!/src/Informedica.NLP.Lib/
-# Informedica.OTS.Lib
-!/src/Informedica.OTS.Lib/
-# Informedica.GenCORE.Lib
-!/src/Informedica.GenCORE.Lib/
-# Informedica.Logging.Lib
-!/src/Informedica.Logging.Lib/
-# Informedica.GenUNITS.Lib
-!/src/Informedica.GenUNITS.Lib/
-# Informedica.GenSOLVER.Lib
-!/src/Informedica.GenSOLVER.Lib/
-# Informedica.ZIndex.Lib
-!/src/Informedica.ZIndex.Lib/
-# Informedica.ZForm.Lib
-!/src/Informedica.ZForm.Lib/
-# Informedica.NKF.Lib
-!/src/Informedica.NKF.Lib/
-# Informedica.FTK.Lib
-!/src/Informedica.FTK.Lib/
-# Informedica.GenFORM.Lib
-!/src/Informedica.GenFORM.Lib/
-# Informedica.GenORDER.Lib
-!/src/Informedica.GenORDER.Lib/
-# Informedica.GenINTERACT.Lib
-!/src/Informedica.GenINTERACT.Lib/
-# Informedica.MCP.Lib
-!/src/Informedica.MCP.Lib/
-# Informedica.FHIR.Lib
-!/src/Informedica.FHIR.Lib/
-# Informedica.DataPlatform.Lib
-!/src/Informedica.DataPlatform.Lib/
-# Informedica.HIXConnect.Lib
-!/src/Informedica.HIXConnect.Lib/
-# Informedica.GenPRES.Shared
-!/src/Informedica.GenPRES.Shared/
-# Informedica.GenPRES.Server
-!/src/Informedica.GenPRES.Server/
-# Informedica.GenPRES.Client
-!/src/Informedica.GenPRES.Client/
-!/src/Informedica.GenPRES.Client/public/
-!/src/Informedica.GenPRES.Client/public/*
-!/src/Informedica.GenPRES.Client/Utils/
-!/src/Informedica.GenPRES.Client/Domain/
-!/src/Informedica.GenPRES.Client/Components/
-!/src/Informedica.GenPRES.Client/Views/
-!/src/Informedica.GenPRES.Client/Pages/
-
+# Keep build output and local trees out of the context.
+#
+# Docker reads the leading `*` differently from git: its `*` is filepath.Match, which
+# does not cross `/`, so it only excludes top-level entries. Once `!/src/` above
+# re-includes src, NOTHING below it is excluded by default -- unlike .gitignore, where a
+# slash-less `*` applies at every depth. The last matching pattern wins, so these
+# exclusions must stay at the end of the file, after the `!/src/` re-include.
+#
+# None of this ever reached the image (Dockerfile's only stage crossing is
+# `COPY --from=app-build /workspace/deploy /app`); it only bloated the context.
+/src/**/bin/
+/src/**/obj/
+# npm ci re-installs these in the app-build stage anyway.
+/src/**/node_modules/
+# Fable .jsx output; `dotnet run bundle` regenerates it (Build.fs `Clean`).
+/src/**/output/
+# Local scratch and the retired data tree (renamed data -> data_ by the AppPath
+# refactor, f8f19359); untracked, nothing reads them.
+/src/**/Scratch/
+/src/**/data_/
