@@ -12,7 +12,8 @@
 //      sees the same events;
 //   B  end to end: wall time of solving the scenario set with logging off, at Informative and
 //      at Debug;
-//   C  drain: from the last `Log` call until the logger has written everything and is disposed.
+//   C  drain: from the last `Log` call until the logger has written everything and is disposed;
+//   D  the size of the file one Debug pass leaves: the log analysis refuses a file over 50 MB.
 //
 // The requirement the numbers are held to: B within 5% of master or better at every level, A a
 // median under 1 microsecond per event (not held to master: master's call is a bare mailbox
@@ -241,11 +242,24 @@ module Measure =
         sw.Elapsed.TotalMilliseconds
 
 
-    /// The calling-thread cost per event in nanoseconds, and the drain in milliseconds, for
-    /// the recorded events logged the way the domain logs them: `Enabled` asked first.
+    /// The size of the log file in megabytes; the file is deleted, a full run would otherwise
+    /// leave gigabytes behind.
+    let sizeAndDelete (path: string) =
+        if File.Exists path then
+            let size = float (FileInfo path).Length / 1_000_000.
+            File.Delete path
+            size
+        else
+            0.
+
+
+    /// The calling-thread cost per event in nanoseconds, the drain in milliseconds and the file
+    /// size in megabytes, for the recorded events logged the way the domain logs them:
+    /// `Enabled` asked first.
     let perEvent (create: Level -> string -> Subject) =
         let once () =
-            let subject = create Level.Debug (freshPath ())
+            let path = freshPath ()
+            let subject = create Level.Debug path
             let logger = subject.Logger
 
             let logging =
@@ -256,20 +270,24 @@ module Measure =
                 )
 
             let drain = milliseconds subject.Drain
-            logging * 1_000_000. / float Input.events.Length, drain
+            logging * 1_000_000. / float Input.events.Length, drain, sizeAndDelete path
 
         once () |> ignore
 
         let results = [ for _ in 1 .. min runs 5 -> once () ]
-        results |> List.map fst |> median, results |> List.map snd |> median
+        results |> List.map (fun (ns, _, _) -> ns) |> median,
+        results |> List.map (fun (_, drain, _) -> drain) |> median,
+        results |> List.map (fun (_, _, size) -> size) |> median
 
 
     /// The wall time of one pass over the scenario set in milliseconds.
-    let endToEnd (create: unit -> Subject) =
+    let endToEnd (create: string -> Subject) =
         let once () =
-            let subject = create ()
+            let path = freshPath ()
+            let subject = create path
             let elapsed = milliseconds (fun () -> Input.solveAll subject.Logger)
             subject.Drain()
+            sizeAndDelete path |> ignore
             elapsed
 
         for _ in 1..warmups do
@@ -283,7 +301,7 @@ let report () =
         Input.solveAll Logging.noOp
 
     let off =
-        Measure.endToEnd (fun () ->
+        Measure.endToEnd (fun _ ->
             {
                 Logger = Logging.noOp
                 Drain = ignore
@@ -293,13 +311,13 @@ let report () =
     let rows =
         Subject.all
         |> List.map (fun (name, create) ->
-            let nsPerEvent, drain = Measure.perEvent create
-            let info = Measure.endToEnd (fun () -> create Level.Informative (Measure.freshPath ()))
-            let debug = Measure.endToEnd (fun () -> create Level.Debug (Measure.freshPath ()))
-            name, nsPerEvent, drain, info, debug
+            let nsPerEvent, drain, size = Measure.perEvent create
+            let info = Measure.endToEnd (create Level.Informative)
+            let debug = Measure.endToEnd (create Level.Debug)
+            name, nsPerEvent, drain, size, info, debug
         )
 
-    let _, _, _, masterInfo, masterDebug = rows |> List.head
+    let _, _, _, _, masterInfo, masterDebug = rows |> List.head
 
     let relative (x: float) (reference: float) =
         let percent = (x / reference - 1.) * 100.
@@ -312,10 +330,10 @@ let report () =
         ""
         $"End to end with logging off: %.1f{off} ms."
         ""
-        "| Logger | A: ns per event, calling thread | C: drain, ms | B: end to end at i, ms | against master | B: end to end at d, ms | against master |"
-        "|---|---|---|---|---|---|---|"
-        for name, nsPerEvent, drain, info, debug in rows do
-            $"| %s{name} | %.0f{nsPerEvent} | %.0f{drain} | %.1f{info} | %s{relative info masterInfo} | %.1f{debug} | %s{relative debug masterDebug} |"
+        "| Logger | A: ns per event, calling thread | C: drain, ms | D: file per Debug pass, MB | B: end to end at i, ms | against master | B: end to end at d, ms | against master |"
+        "|---|---|---|---|---|---|---|---|"
+        for name, nsPerEvent, drain, size, info, debug in rows do
+            $"| %s{name} | %.0f{nsPerEvent} | %.0f{drain} | %.1f{size} | %.1f{info} | %s{relative info masterInfo} | %.1f{debug} | %s{relative debug masterDebug} |"
     ]
 
 
