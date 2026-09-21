@@ -39,7 +39,7 @@ let scenarioMeds: (string * Medication)[] =
 let buildOrder (med: Medication) : Order =
     med
     |> Medication.toOrderDto Scenarios.testStart
-    |> Order.Dto.fromDto noLogger
+    |> Order.Dto.fromDto
     |> Result.get
 
 /// Solve one order through the full pipeline; return a cheap hash so the JIT /
@@ -177,7 +177,7 @@ let profile () =
                 let t0 = sw.Elapsed.TotalMilliseconds
                 let dto = Medication.toOrderDto Scenarios.testStart med
                 let t1 = sw.Elapsed.TotalMilliseconds
-                let ord = dto |> Order.Dto.fromDto timingLogger |> Result.get
+                let ord = dto |> Order.Dto.fromDto |> Result.get
                 let t2 = sw.Elapsed.TotalMilliseconds
                 OrderProcessor.processPipeline timingLogger (SolveOrder ord) |> ignore
                 let t3 = sw.Elapsed.TotalMilliseconds
