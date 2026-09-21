@@ -58,7 +58,7 @@ module HelperFunctions =
                 | Ok ord -> ord |> cmd |> OrderProcessor.processPipeline logger |> loop rest
 
         med
-        |> Informedica.GenOrder.Lib.Medication.toOrderDto
+        |> Informedica.GenOrder.Lib.Medication.toOrderDto System.DateTime.UtcNow
         |> Order.Dto.fromDto
         |> function
             | Error msg -> failwith $"{msg}"

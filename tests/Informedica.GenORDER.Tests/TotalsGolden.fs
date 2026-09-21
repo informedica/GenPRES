@@ -166,7 +166,7 @@ let together =
 
 /// The order a scenario reaches the totals path as: built, and run to its bounds.
 let order (med: Medication) =
-    match med |> Medication.toOrder with
+    match med |> Medication.toOrder Scenarios.testStart with
     | Error msg -> failtest $"no order for the scenario: %A{msg}"
     | Ok ord ->
         match OrderProcessor.processPipeline OrderLogging.noOp (CalcMinMax ord) with

@@ -108,11 +108,16 @@ module Pipeline =
             )
             |> Option.defaultValue (testMedicationOrders |> List.head)
 
-        medicationOrder |> Medication.toOrderDto |> Dto.fromDto |> Result.get
+        medicationOrder
+        |> Medication.toOrderDto Scenarios.testStart
+        |> Dto.fromDto
+        |> Result.get
 
     // Also a minimal empty order for CalcMinMax path
     let private mkEmptyOrder () =
-        Dto.discontinuous "T" "Test" "PO" [] |> Dto.fromDto |> Result.get
+        Dto.discontinuous Scenarios.testStart "T" "Test" "PO" []
+        |> Dto.fromDto
+        |> Result.get
 
     let private countValues (o: Order) =
         o |> toOrdVars |> List.filter OrderVariable.hasValues |> List.length
@@ -124,7 +129,7 @@ module Pipeline =
             | Error errs -> failtest $"Failed to parse kaliumchloride OnceTimed: {errs}"
             | Ok med ->
                 med
-                |> Medication.toOrderDto
+                |> Medication.toOrderDto Scenarios.testStart
                 |> Dto.fromDto
                 |> function
                     | Error msg -> failtest $"Failed to create order: {msg}"
@@ -194,7 +199,11 @@ module Pipeline =
                             }
                         |]
 
-                    let ord = testMedicationOrders |> List.head |> Medication.toOrder |> Result.get
+                    let ord =
+                        testMedicationOrders
+                        |> List.head
+                        |> Medication.toOrder Scenarios.testStart
+                        |> Result.get
 
                     // no weight -> no per-weight aggregation -> Volume None, but the
                     // call completes without any Google-sheet access.
@@ -251,7 +260,7 @@ module Pipeline =
                 test "paracetamol suppository (non-timed) is unaffected by staged expansion" {
                     let ord =
                         Scenarios.pcmSupp
-                        |> Medication.toOrderDto
+                        |> Medication.toOrderDto Scenarios.testStart
                         |> Dto.fromDto
                         |> function
                             | Error msg -> failtest $"{msg}"
@@ -594,11 +603,11 @@ module ToOrderDto =
             match d.OrderType with
             | AnyOrder -> "the order type cannot be 'Any'" |> failtest
             | ProcessOrder -> "the order type cannot be 'Process'" |> failtest
-            | OnceOrder -> Order.Dto.once d.Id d.Name d.Route []
-            | OnceTimedOrder -> Order.Dto.onceTimed d.Id d.Name d.Route []
-            | ContinuousOrder -> Order.Dto.continuous d.Id d.Name d.Route []
-            | DiscontinuousOrder -> Order.Dto.discontinuous d.Id d.Name d.Route []
-            | TimedOrder -> Order.Dto.timed d.Id d.Name d.Route []
+            | OnceOrder -> Order.Dto.once Scenarios.testStart d.Id d.Name d.Route []
+            | OnceTimedOrder -> Order.Dto.onceTimed Scenarios.testStart d.Id d.Name d.Route []
+            | ContinuousOrder -> Order.Dto.continuous Scenarios.testStart d.Id d.Name d.Route []
+            | DiscontinuousOrder -> Order.Dto.discontinuous Scenarios.testStart d.Id d.Name d.Route []
+            | TimedOrder -> Order.Dto.timed Scenarios.testStart d.Id d.Name d.Route []
 
         dto.Orderable <- orbDto
 
@@ -667,7 +676,7 @@ module MedicationOrderTests =
                     [
                         test "ToDto converts medication to OrderDto" {
                             let medOrd = testMedicationOrders |> List.head
-                            let dto = Medication.toOrderDto medOrd
+                            let dto = Medication.toOrderDto Scenarios.testStart medOrd
 
                             dto.Id |> Expect.equal "should match Id" medOrd.Id
                             dto.Schedule.IsDiscontinuous |> Expect.isTrue "should be discontinuous"
@@ -680,7 +689,10 @@ module MedicationOrderTests =
 
                         test "ToDto reference function to OrderDto" {
                             let medOrd = testMedicationOrders |> List.head
-                            let ord1 = Medication.toOrderDto medOrd |> Order.Dto.fromDto |> Result.get
+                            let ord1 =
+                                Medication.toOrderDto Scenarios.testStart medOrd
+                                |> Order.Dto.fromDto
+                                |> Result.get
 
                             // Check if the dto the same as ToOrderDto.toOrderDto
                             let ord2 = ToOrderDto.toOrderDto medOrd |> Order.Dto.fromDto |> Result.get
@@ -797,7 +809,7 @@ module DosePrintoutTests =
                     ]
             }
 
-        let dto = Medication.toOrderDto medicationOrder
+        let dto = Medication.toOrderDto Scenarios.testStart medicationOrder
         dto |> Dto.fromDto |> Result.map applyConstraints |> Result.get
 
     let tests =
@@ -1007,7 +1019,7 @@ module DosePrintoutTests =
                                         ]
                                 }
 
-                            let order = Medication.toOrderDto medOrd |> Dto.fromDto |> Result.get
+                            let order = Medication.toOrderDto Scenarios.testStart medOrd |> Dto.fromDto |> Result.get
                             let pres, _, _ = order |> Print.printOrderToString true [||]
 
                             // For Once orders with adjusted dose, should show QuantityAdjust
@@ -1337,7 +1349,8 @@ module OrderBuilderTests =
     /// while the old one existed; now that the Dto is made from the built order, these compare
     /// an order with itself round tripped, which is what catches a Dto that drops a field, as
     /// the component id once was.
-    let private roundTripped (med: Medication) = med |> Medication.toOrderDto |> Order.Dto.fromDto
+    let private roundTripped (med: Medication) =
+        med |> Medication.toOrderDto Scenarios.testStart |> Order.Dto.fromDto
 
 
     /// The scenarios the orders are recorded for, so that a scenario cannot be added to one
@@ -1378,7 +1391,7 @@ module OrderBuilderTests =
                 for orderType in [ AnyOrder; ProcessOrder ] do
                     test $"an order type of {orderType} is refused, not raised" {
                         { Scenarios.pcmSupp with OrderType = orderType }
-                        |> Medication.toOrder
+                        |> Medication.toOrder Scenarios.testStart
                         |> Result.isError
                         |> Expect.isTrue "a medication that cannot be ordered gives an Error"
                     }
@@ -1388,7 +1401,7 @@ module OrderBuilderTests =
 
                     // the callers that want a Dto have nowhere to put a failure, so it is
                     // thrown; what is thrown must still name the reason
-                    (fun () -> med |> Medication.toOrderDto |> ignore)
+                    (fun () -> med |> Medication.toOrderDto Scenarios.testStart |> ignore)
                     |> Expect.throwsT<System.NotSupportedException> "the reason reaches the caller"
                 }
 
@@ -1403,25 +1416,33 @@ module OrderBuilderTests =
 
                     // what rule evaluation does with the orders it builds
                     meds
-                    |> Array.choose (Medication.toOrder >> Result.toOption)
+                    |> Array.choose (Medication.toOrder Scenarios.testStart >> Result.toOption)
                     |> Array.length
                     |> Expect.equal "the two that can be ordered are kept" 2
                 }
 
                 for name, med in fixtures do
                     test $"the Dto round trip returns {name}'s order unchanged" {
-                        // both paths read the clock, so the start says nothing about the build
-                        let atEpoch (ord: Order) =
-                            { ord with StartStop = System.DateTime.MinValue |> StartStop.Start }
+                        match med |> roundTripped, med |> Medication.toOrder Scenarios.testStart with
+                        | Ok fromDto, Ok built -> fromDto |> Expect.equal "the same order" built
+                        | r1, r2 -> failtest $"a path failed: %A{r1} %A{r2}"
+                    }
 
-                        match med |> roundTripped, med |> Medication.toOrder with
-                        | Ok fromDto, Ok built -> fromDto |> atEpoch |> Expect.equal "the same order" (built |> atEpoch)
+                for name, med in fixtures do
+                    test $"two builds of {name} on the same start are equal" {
+                        match
+                            med |> Medication.toOrder Scenarios.testStart, med |> Medication.toOrder Scenarios.testStart
+                        with
+                        | Ok first, Ok second -> first |> Expect.equal "the same order" second
                         | r1, r2 -> failtest $"a path failed: %A{r1} %A{r2}"
                     }
 
                 for name, med in fixtures do
                     test $"the Dto round trip keeps every order variable of {name}" {
-                        let built = med |> OrderBuilder.newOrder |> OrderBuilder.withComponents med
+                        let built =
+                            med
+                            |> OrderBuilder.newOrder Scenarios.testStart
+                            |> OrderBuilder.withComponents med
 
                         match med |> roundTripped with
                         | Error e -> failtest $"could not build the order: %A{e}"
@@ -1432,7 +1453,7 @@ module OrderBuilderTests =
                     test $"the Dto round trip keeps {name}'s item constraints" {
                         let built =
                             med
-                            |> OrderBuilder.newOrder
+                            |> OrderBuilder.newOrder Scenarios.testStart
                             |> OrderBuilder.withComponents med
                             |> OrderBuilder.withItemConstraints med
 
@@ -1448,7 +1469,7 @@ module OrderBuilderTests =
                     test $"the Dto round trip keeps {name}'s orderable constraints" {
                         let built =
                             med
-                            |> OrderBuilder.newOrder
+                            |> OrderBuilder.newOrder Scenarios.testStart
                             |> OrderBuilder.withComponents med
                             |> OrderBuilder.withItemConstraints med
                             |> OrderBuilder.withComponentConstraints med
@@ -1466,7 +1487,7 @@ module OrderBuilderTests =
                     test $"the Dto round trip keeps {name}'s component constraints" {
                         let built =
                             med
-                            |> OrderBuilder.newOrder
+                            |> OrderBuilder.newOrder Scenarios.testStart
                             |> OrderBuilder.withComponents med
                             |> OrderBuilder.withItemConstraints med
                             |> OrderBuilder.withComponentConstraints med
@@ -1508,7 +1529,7 @@ module GoldenOrderTests =
             [
                 for golden in GoldenOrders.all do
                     test $"{golden.Name} solves to the order it did" {
-                        match golden.Medication |> Medication.toOrder with
+                        match golden.Medication |> Medication.toOrder Scenarios.testStart with
                         | Error e -> failtest $"could not build the order: %A{e}"
                         | Ok ord ->
                             let solved, errs = ord |> solve
@@ -1831,7 +1852,7 @@ module OrderProcessorTests =
     /// Build and fully solve the multi-component timed TPN scenario.
     let private solvedTpn () =
         Scenarios.tpn
-        |> Medication.toOrderDto
+        |> Medication.toOrderDto Scenarios.testStart
         |> Order.Dto.fromDto
         |> function
             | Ok o -> o
@@ -1927,7 +1948,7 @@ module DtoTests =
     module Fixtures =
 
         let order med =
-            match med |> Medication.toOrderDto |> Order.Dto.fromDto with
+            match med |> Medication.toOrderDto Scenarios.testStart |> Order.Dto.fromDto with
             | Ok o -> o
             | Error e -> failwith $"fixture order could not be created: {e}"
 
@@ -2223,7 +2244,11 @@ module OrderPlanDtoTests =
     module Fixtures =
 
         let order =
-            match Scenarios.pcmSupp |> Medication.toOrderDto |> Order.Dto.fromDto with
+            match
+                Scenarios.pcmSupp
+                |> Medication.toOrderDto Scenarios.testStart
+                |> Order.Dto.fromDto
+            with
             | Ok o -> o
             | Error e -> failwith $"fixture order could not be created: {e}"
 

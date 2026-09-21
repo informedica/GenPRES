@@ -14,7 +14,7 @@ open ServerApi
 
 let order: Order =
     Scenarios.pcmSupp
-    |> Medication.toOrderDto
+    |> Medication.toOrderDto Scenarios.testStart
     |> Mappers.Order.mapFromOrderToShared [| "paracetamol" |]
 
 

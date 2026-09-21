@@ -185,7 +185,6 @@ let allowances =
         allowToken "src/Informedica.GenORDER.Lib/Order.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/Order.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/Order.fs" "writeDebugMessage" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/Order.fs" "DateTime.Now" clock
         allowToken "src/Informedica.GenORDER.Lib/OrderProcessor.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/OrderProcessor.fs" "writeWarningMessage" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/Medication.fs" "ConsoleWriter" viaLogger

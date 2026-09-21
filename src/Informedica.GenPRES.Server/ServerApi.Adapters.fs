@@ -61,14 +61,20 @@ module Adapters =
         }
 
 
-    let private makeOrderContextPort agent logger (provider: Resources.IResourceProvider) : OrderContextPort =
+    let private makeOrderContextPort
+        agent
+        logger
+        (provider: Resources.IResourceProvider)
+        (now: unit -> DateTime)
+        : OrderContextPort
+        =
         {
             evaluate =
                 fun cmd pc ->
                     async {
                         do! setComponentName "OrderContext" agent
 
-                        return pc |> OrderContextService.evaluate logger provider cmd
+                        return pc |> OrderContextService.evaluate (now ()) logger provider cmd
                     }
         }
 
@@ -82,6 +88,7 @@ module Adapters =
         (provider: Resources.IResourceProvider)
         (ruleSets: NutritionRuleSet[])
         (newId: unit -> string)
+        (now: unit -> DateTime)
         : OrderPlanPort
         =
         let recalc plan = plan |> OrderPlan.recalculate (provider.GetTotals())
@@ -103,7 +110,7 @@ module Adapters =
 
                         return
                             pc
-                            |> OrderContextService.evaluate logger provider cmd
+                            |> OrderContextService.evaluate (now ()) logger provider cmd
                             |> Result.bind (fun evaluated ->
                                 plan |> OrderPlan.updateContext ruleSets contextId evaluated |> refused
                             )
@@ -159,7 +166,11 @@ module Adapters =
                                 let evaluate ctx =
                                     ctx
                                     |> planContext
-                                    |> OrderContextService.evaluate logger provider OrderContext.UpdateOrderContext
+                                    |> OrderContextService.evaluate
+                                        (now ())
+                                        logger
+                                        provider
+                                        OrderContext.UpdateOrderContext
                                     |> Result.map _.Context
 
                                 workbench
@@ -281,9 +292,15 @@ module Adapters =
 
         {
             formulary = makeFormularyPort provider
-            orderContext = makeOrderContextPort agent logger provider
+            orderContext = makeOrderContextPort agent logger provider (fun () -> DateTime.UtcNow)
             orderPlan =
-                makeOrderPlanPort agent logger provider NutritionRuleSets.all (fun () -> Guid.NewGuid().ToString())
+                makeOrderPlanPort
+                    agent
+                    logger
+                    provider
+                    NutritionRuleSets.all
+                    (fun () -> Guid.NewGuid().ToString())
+                    (fun () -> DateTime.UtcNow)
             demo = demo
             interaction =
                 {

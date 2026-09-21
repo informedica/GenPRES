@@ -14,7 +14,11 @@ open Expecto.Flip
 module Fixtures =
 
     let order =
-        match Scenarios.pcmSupp |> Medication.toOrderDto |> Order.Dto.fromDto with
+        match
+            Scenarios.pcmSupp
+            |> Medication.toOrderDto Scenarios.testStart
+            |> Order.Dto.fromDto
+        with
         | Ok o -> o
         | Error e -> invalidOp $"fixture order could not be created: {e}"
 
@@ -151,7 +155,7 @@ let tests =
                 let infusion =
                     match
                         Scenarios.morfCont
-                        |> Medication.toOrderDto
+                        |> Medication.toOrderDto Scenarios.testStart
                         |> Order.Dto.fromDto
                         |> Result.mapError string
                         |> Result.bind (fun o ->

@@ -285,8 +285,10 @@ module OrderContextService =
 
 
     /// The plan context evaluated against the rules: the domain's pipeline, the intake over
-    /// the provider's totals data. An exception on the way is the refusal.
+    /// the provider's totals data. The start every order built here is given is the caller's,
+    /// read from the clock at the edge. An exception on the way is the refusal.
     let evaluate
+        (start: System.DateTime)
         logger
         (provider: Resources.IResourceProvider)
         (cmd: Informedica.GenOrder.Lib.Types.OrderContext -> GenOrderContext.Command)
@@ -295,7 +297,7 @@ module OrderContextService =
         =
         try
             pc
-            |> PlanContext.evaluate logger provider (provider.GetTotals()) cmd
+            |> PlanContext.evaluate start logger provider (provider.GetTotals()) cmd
             |> Result.mapError refusal
         with e ->
             writeErrorMessage $"errored:\n{e}"

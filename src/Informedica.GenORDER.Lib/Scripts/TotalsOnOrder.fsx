@@ -108,7 +108,7 @@ module Orders =
             "fullMedication", Scenarios.fullMedication
         ]
         |> List.choose (fun (name, med) ->
-            match med |> Medication.toOrder with
+            match med |> Medication.toOrder System.DateTime.UtcNow with
             | Error msg ->
                 printfn $"%s{name}: no order at all: %A{msg}"
                 None
@@ -331,7 +331,7 @@ module Golden =
 
     /// The order a fixture reaches the totals path as: built, and run to its bounds.
     let order (med: Medication) =
-        match med |> Medication.toOrder with
+        match med |> Medication.toOrder System.DateTime.UtcNow with
         | Error msg -> failtest $"no order for the fixture: %A{msg}"
         | Ok ord ->
             match OrderProcessor.processPipeline OrderLogging.noOp (CalcMinMax ord) with

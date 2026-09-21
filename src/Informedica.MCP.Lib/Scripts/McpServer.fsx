@@ -515,7 +515,7 @@ let createOrderContext (input: CreateOrderContextInput) : Result<OrderContextSum
             | None -> c
         )
 
-    match OrderContext.UpdateOrderContext ctx |> OrderContext.evaluate OrderLogging.noOp provider with
+    match OrderContext.UpdateOrderContext ctx |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider with
     | Error e -> Error $"Failed to evaluate order context: {e}"
     | Ok cmd ->
         let result = cmd |> OrderContext.Command.get
@@ -562,7 +562,7 @@ let getOrderScenarios (input: CreateOrderContextInput) : OrderScenarioOutput[] =
             | None -> c
         )
 
-    match OrderContext.UpdateOrderContext ctx |> OrderContext.evaluate OrderLogging.noOp provider with
+    match OrderContext.UpdateOrderContext ctx |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider with
     | Error _ -> [||]
     | Ok cmd ->
         let result = cmd |> OrderContext.Command.get

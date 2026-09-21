@@ -37,7 +37,7 @@ let runScenario (txt: string) =
         | Error errs -> Error errs
         | Ok med ->
             med
-            |> Medication.toOrderDto
+            |> Medication.toOrderDto System.DateTime.UtcNow
             |> Order.Dto.fromDto
             |> function
                 | Error msg -> Error [ msg ]

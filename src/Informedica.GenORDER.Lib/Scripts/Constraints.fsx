@@ -64,7 +64,7 @@ module HelperFunctions =
                     ord |> cmd |> OrderProcessor.processPipeline logger |> loop rest
 
         med
-        |> Medication.toOrderDto
+        |> Medication.toOrderDto System.DateTime.UtcNow
         |> Order.Dto.fromDto
         |> function
             | Error msg -> failwith $"{msg}"
