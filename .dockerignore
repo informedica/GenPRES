@@ -119,3 +119,24 @@
 !/src/Informedica.GenPRES.Client/Views/
 !/src/Informedica.GenPRES.Client/Pages/
 
+
+# Keep build output and local trees out of the context.
+#
+# Docker reads the leading `*` differently from git: its `*` is filepath.Match, which
+# does not cross `/`, so it only excludes top-level entries. Once `!/src/` above
+# re-includes src, NOTHING below it is excluded by default -- unlike .gitignore, where a
+# slash-less `*` applies at every depth. The last matching pattern wins, so these
+# exclusions must stay at the end of the file, after every `!/src/...` line.
+#
+# None of this ever reached the image (Dockerfile's only stage crossing is
+# `COPY --from=app-build /workspace/deploy /app`); it only bloated the context.
+/src/**/bin/
+/src/**/obj/
+# npm ci re-installs these in the app-build stage anyway.
+/src/**/node_modules/
+# Fable .jsx output; `dotnet run bundle` regenerates it (Build.fs `Clean`).
+/src/**/output/
+# Local scratch and the retired data tree (renamed data -> data_ by the AppPath
+# refactor, f8f19359); untracked, nothing reads them.
+/src/**/Scratch/
+/src/**/data_/
