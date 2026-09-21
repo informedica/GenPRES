@@ -1,17 +1,26 @@
 namespace Informedica.GenInteract.Lib
 
-open System.IO
 open Newtonsoft.Json
 
 
 module Data =
 
+    /// Interaction data with no drug classes and no interactions.
+    /// What an absent cache amounts to.
+    let empty =
+        {
+            InteractionData.DrugClasses = []
+            Interactions = []
+        }
+
+
+    /// Read interaction data from the cached JSON the caller supplies.
+    /// Absent JSON yields empty data: finding the cache is the caller's
+    /// responsibility, and None already says it was not found.
     let fromCache (json: string option) =
         match json with
         | Some s -> JsonConvert.DeserializeObject<InteractionData>(s)
-        | None ->
-            let path = "data/cache/interactions/Data.JSON"
-            File.ReadAllText(path) |> JsonConvert.DeserializeObject<InteractionData>
+        | None -> empty
 
 
     let cacheToInteractions (json: string option) : Interaction list =

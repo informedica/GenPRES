@@ -198,9 +198,6 @@ let allowances =
         allowToken "src/Informedica.GenORDER.Lib/Api.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/Api.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/Api.fs" "writeWarningMessage" viaLogger
-        // GenINTERACT.Lib
-        allowToken "src/Informedica.GenINTERACT.Lib/Data.fs" "System.IO" "cwd-relative cache read; loader moves to the adapter project (Phase 2)"
-        allowToken "src/Informedica.GenINTERACT.Lib/Data.fs" "File." "cwd-relative cache read; loader moves to the adapter project (Phase 2)"
     ]
 
 
