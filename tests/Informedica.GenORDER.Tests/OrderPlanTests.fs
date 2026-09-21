@@ -17,7 +17,7 @@ module Fixtures =
         match
             Scenarios.pcmSupp
             |> Medication.toOrderDto Scenarios.testStart
-            |> Order.Dto.fromDto OrderLogging.noOp
+            |> Order.Dto.fromDto
         with
         | Ok o -> o
         | Error e -> invalidOp $"fixture order could not be created: {e}"
@@ -156,7 +156,7 @@ let tests =
                     match
                         Scenarios.morfCont
                         |> Medication.toOrderDto Scenarios.testStart
-                        |> Order.Dto.fromDto OrderLogging.noOp
+                        |> Order.Dto.fromDto
                         |> Result.mapError string
                         |> Result.bind (fun o ->
                             OrderProcessor.processPipeline OrderLogging.noOp (CalcMinMax o)

@@ -110,13 +110,13 @@ module Pipeline =
 
         medicationOrder
         |> Medication.toOrderDto Scenarios.testStart
-        |> Dto.fromDto noLogger
+        |> Dto.fromDto
         |> Result.get
 
     // Also a minimal empty order for CalcMinMax path
     let private mkEmptyOrder () =
         Dto.discontinuous Scenarios.testStart "T" "Test" "PO" []
-        |> Dto.fromDto noLogger
+        |> Dto.fromDto
         |> Result.get
 
     let private countValues (o: Order) =
@@ -130,7 +130,7 @@ module Pipeline =
             | Ok med ->
                 med
                 |> Medication.toOrderDto Scenarios.testStart
-                |> Dto.fromDto noLogger
+                |> Dto.fromDto
                 |> function
                     | Error msg -> failtest $"Failed to create order: {msg}"
                     | Ok ord -> ord
@@ -261,7 +261,7 @@ module Pipeline =
                     let ord =
                         Scenarios.pcmSupp
                         |> Medication.toOrderDto Scenarios.testStart
-                        |> Dto.fromDto noLogger
+                        |> Dto.fromDto
                         |> function
                             | Error msg -> failtest $"{msg}"
                             | Ok o -> o
@@ -692,11 +692,11 @@ module MedicationOrderTests =
 
                             let ord1 =
                                 Medication.toOrderDto Scenarios.testStart medOrd
-                                |> Order.Dto.fromDto Logging.noOp
+                                |> Order.Dto.fromDto
                                 |> Result.get
 
                             // Check if the dto the same as ToOrderDto.toOrderDto
-                            let ord2 = ToOrderDto.toOrderDto medOrd |> Order.Dto.fromDto Logging.noOp |> Result.get
+                            let ord2 = ToOrderDto.toOrderDto medOrd |> Order.Dto.fromDto |> Result.get
 
                             ord1.Adjust |> Expect.equal "should be equal" ord2.Adjust
                             ord1.Duration |> Expect.equal "should be equal" ord2.Duration
@@ -811,7 +811,7 @@ module DosePrintoutTests =
             }
 
         let dto = Medication.toOrderDto Scenarios.testStart medicationOrder
-        dto |> Dto.fromDto Logging.noOp |> Result.map applyConstraints |> Result.get
+        dto |> Dto.fromDto |> Result.map applyConstraints |> Result.get
 
     let tests =
         testList
@@ -1020,10 +1020,7 @@ module DosePrintoutTests =
                                         ]
                                 }
 
-                            let order =
-                                Medication.toOrderDto Scenarios.testStart medOrd
-                                |> Dto.fromDto Logging.noOp
-                                |> Result.get
+                            let order = Medication.toOrderDto Scenarios.testStart medOrd |> Dto.fromDto |> Result.get
                             let pres, _, _ = order |> Print.printOrderToString true [||]
 
                             // For Once orders with adjusted dose, should show QuantityAdjust
@@ -1354,9 +1351,7 @@ module OrderBuilderTests =
     /// an order with itself round tripped, which is what catches a Dto that drops a field, as
     /// the component id once was.
     let private roundTripped (med: Medication) =
-        med
-        |> Medication.toOrderDto Scenarios.testStart
-        |> Order.Dto.fromDto Logging.noOp
+        med |> Medication.toOrderDto Scenarios.testStart |> Order.Dto.fromDto
 
 
     /// The scenarios the orders are recorded for, so that a scenario cannot be added to one
@@ -1859,7 +1854,7 @@ module OrderProcessorTests =
     let private solvedTpn () =
         Scenarios.tpn
         |> Medication.toOrderDto Scenarios.testStart
-        |> Order.Dto.fromDto noLogger
+        |> Order.Dto.fromDto
         |> function
             | Ok o -> o
             | Error e -> failtest $"could not create tpn order: %A{e}"
@@ -1954,11 +1949,7 @@ module DtoTests =
     module Fixtures =
 
         let order med =
-            match
-                med
-                |> Medication.toOrderDto Scenarios.testStart
-                |> Order.Dto.fromDto Logging.noOp
-            with
+            match med |> Medication.toOrderDto Scenarios.testStart |> Order.Dto.fromDto with
             | Ok o -> o
             | Error e -> failwith $"fixture order could not be created: {e}"
 
@@ -2038,7 +2029,7 @@ module DtoTests =
                             test $"L1 for {name}'s order" {
                                 ord
                                 |> Order.Dto.toDto
-                                |> Order.Dto.fromDto Logging.noOp
+                                |> Order.Dto.fromDto
                                 |> Expect.equal "the same order" (Ok ord)
                             }
                     ]
@@ -2257,7 +2248,7 @@ module OrderPlanDtoTests =
             match
                 Scenarios.pcmSupp
                 |> Medication.toOrderDto Scenarios.testStart
-                |> Order.Dto.fromDto Logging.noOp
+                |> Order.Dto.fromDto
             with
             | Ok o -> o
             | Error e -> failwith $"fixture order could not be created: {e}"

@@ -286,7 +286,7 @@ module OrderScenario =
                     let order =
                         try
                             dto.Order
-                            |> Order.Dto.fromDto Informedica.Logging.Lib.Logging.noOp
+                            |> Order.Dto.fromDto
                             |> Result.mapError (fun m -> [ DtoError.OrderNotCreated $"{m}" ])
                         with exn ->
                             Error [ DtoError.OrderNotCreated exn.Message ]

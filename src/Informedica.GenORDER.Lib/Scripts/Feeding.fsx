@@ -64,7 +64,7 @@ module HelperFunctions =
 
         med
         |> Informedica.GenOrder.Lib.Medication.toOrderDto System.DateTime.UtcNow
-        |> Order.Dto.fromDto OrderLogging.noOp
+        |> Order.Dto.fromDto
         |> function
             | Error msg -> failwith $"{msg}"
             | Ok ord ->

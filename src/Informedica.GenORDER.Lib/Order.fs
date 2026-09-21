@@ -4462,7 +4462,7 @@ module Order =
             member val Stop: DateTime option = None with get, set
 
 
-        let fromDto logger (dto: Dto) =
+        let fromDto (dto: Dto) =
             try
                 let id = dto.Id |> Id.create
                 let adj_qty = dto.Adjust |> Quantity.fromDto
@@ -4477,8 +4477,6 @@ module Order =
 
                 create id adj_qty orb sch dto.Route ord_tme sts |> Ok
             with exn ->
-                exn |> Exceptions.OrderCouldNotBeCreated |> Logging.logError logger
-
                 exn |> Exceptions.OrderCouldNotBeCreated |> Error
 
 
@@ -4642,7 +4640,7 @@ module Order =
 
         let toString dto =
             dto
-            |> fromDto Logging.noOp
+            |> fromDto
             |> Result.map toString
             |> Result.defaultValue []
             |> String.concat "\n"
