@@ -1,20 +1,18 @@
 namespace Informedica.GenInteract.Lib
 
-open System.IO
 open Newtonsoft.Json
 
 
 module Data =
 
-    let fromCache (json: string option) =
-        match json with
-        | Some s -> JsonConvert.DeserializeObject<InteractionData>(s)
-        | None ->
-            let path = "data/cache/interactions/Data.JSON"
-            File.ReadAllText(path) |> JsonConvert.DeserializeObject<InteractionData>
+    /// Read interaction data from the cached JSON the caller supplies.
+    /// Finding the cache is the caller's responsibility: there is no value
+    /// standing for an absent one, so a deployment missing its interaction
+    /// data cannot be mistaken here for one that knows of no interactions.
+    let fromCache (json: string) = JsonConvert.DeserializeObject<InteractionData>(json)
 
 
-    let cacheToInteractions (json: string option) : Interaction list =
+    let cacheToInteractions (json: string) : Interaction list =
         fromCache json
         |> fun d ->
             let getDrugs n =

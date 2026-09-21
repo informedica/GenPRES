@@ -28,6 +28,26 @@ module Adapters =
     let loadInteractionJson () = interactionJsonCache.Value
 
 
+    /// Run an interaction query against the cached data, or say it is unavailable.
+    /// A missing cache is an incomplete deployment, not a patient with nothing to
+    /// report, so it fails the query rather than answering that nothing was found.
+    let private withInteractionJson f =
+        async {
+            match loadInteractionJson () with
+            | None ->
+                return
+                    Error
+                        [|
+                            "Interaction data is unavailable: data/cache/interactions/Data.JSON was not found. Interaction screening cannot run until it is restored."
+                        |]
+            | Some json ->
+                try
+                    return Ok(f json)
+                with ex ->
+                    return Error [| ex.Message |]
+        }
+
+
     let toSharedDrugInteraction (di: Informedica.GenInteract.Lib.DrugInteraction) : Shared.Types.DrugInteraction =
         {
             Name = di.Name
@@ -306,27 +326,13 @@ module Adapters =
                 {
                     checkInteractions =
                         fun drugs ->
-                            async {
-                                try
-                                    let result =
-                                        Informedica.GenInteract.Lib.Api.checkInteractions (loadInteractionJson ()) drugs
-                                        |> List.map toSharedDrugInteraction
-
-                                    return Ok result
-                                with ex ->
-                                    return Error [| ex.Message |]
-                            }
+                            withInteractionJson (fun json ->
+                                Informedica.GenInteract.Lib.Api.checkInteractions json drugs
+                                |> List.map toSharedDrugInteraction
+                            )
 
                     getDrugNames =
-                        fun () ->
-                            async {
-                                try
-                                    let result = Informedica.GenInteract.Lib.Api.getDrugNames (loadInteractionJson ())
-
-                                    return Ok result
-                                with ex ->
-                                    return Error [| ex.Message |]
-                            }
+                        fun () -> withInteractionJson (fun json -> Informedica.GenInteract.Lib.Api.getDrugNames json)
                 }
             admin =
                 {
