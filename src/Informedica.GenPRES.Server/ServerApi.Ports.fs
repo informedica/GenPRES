@@ -370,4 +370,5 @@ type AppEnv =
         // whether the server runs on the demo data; read once at start-up, told on every
         // context the client gets
         demo: bool
+        logger: Informedica.Logging.Lib.Logger
     }

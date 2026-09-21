@@ -6,9 +6,6 @@ namespace Informedica.GenSolver.Lib
 /// equations
 module Solver =
 
-    open Informedica.Utils.Lib
-    open ConsoleWriter.NewLineNoTime
-
     module EQD = Equation.Dto
     module Name = Variable.Name
 
@@ -104,8 +101,7 @@ module Solver =
                 |> Exceptions.SolverErrored
                 |> Exceptions.raiseExc (Some log) errs
             | e ->
-                let msg = $"didn't catch {e}"
-                writeErrorMessage msg
+                e |> Exceptions.UnexpectedException |> Logger.logError log
 
                 reraise ()
 
@@ -116,8 +112,6 @@ module Solver =
                 let n = n + 1
 
                 if n > (que @ acc |> List.length) * Constants.MAX_LOOP_COUNT then
-                    writeErrorMessage $"too many loops: {n}"
-
                     (n, que @ acc)
                     |> Exceptions.SolverTooManyLoops
                     |> Exceptions.raiseExc (Some log) []
@@ -125,13 +119,12 @@ module Solver =
                 let que =
                     let sorted = que |> sortQue onlyMinIncrMax
 
-                    (n, sorted) |> Events.SolverLoopedQue |> Logger.logDebug log
+                    Logger.logDebugLazy log (fun () -> (n, sorted) |> Events.SolverLoopedQue)
 
                     sorted |> List.map snd
 
                 match que with
                 | [] -> acc |> Ok
-
                 | eq :: tail ->
                     // need to calculate a result first to enable tail call optimization
                     let q, r =
@@ -183,23 +176,22 @@ module Solver =
                     match rpl with
                     | [] -> eqs |> Ok
                     | _ ->
-                        (onlyMinIncrMax, rpl) |> Events.SolverStartSolving |> Logger.logDebug log
+                        Logger.logDebugLazy log (fun () -> (onlyMinIncrMax, rpl) |> Events.SolverStartSolving)
 
                         loop 0 rpl (Ok rst)
                 with
                 | Exceptions.SolverException errs -> Error(rpl @ rst, errs)
                 | e ->
-                    let msg = $"something unexpected happened, didn't catch {e}"
-                    writeErrorMessage msg
+                    e |> Exceptions.UnexpectedException |> Logger.logError log
                     reraise ()
 
                 |> function
                     | Ok eqs ->
-                        eqs |> Events.SolverFinishedSolving |> Logger.logDebug log
+                        Logger.logDebugLazy log (fun () -> eqs |> Events.SolverFinishedSolving)
 
                         eqs |> Ok
                     | Error(eqs, m) ->
-                        eqs |> Events.SolverFinishedSolving |> Logger.logDebug log
+                        Logger.logDebugLazy log (fun () -> eqs |> Events.SolverFinishedSolving)
 
                         Error(eqs, m)
 

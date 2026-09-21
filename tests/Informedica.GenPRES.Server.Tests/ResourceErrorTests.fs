@@ -3,6 +3,7 @@ module Informedica.GenPRES.Server.Tests.ResourceErrorTests
 open Expecto
 open Expecto.Flip
 open Shared.Models
+open Informedica.Logging.Lib
 open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Resources
 
@@ -110,8 +111,34 @@ let cachedProviderErrorStateTests =
         "CachedResourceProvider error state"
         [
 
+            test "loader returns Error, logs through the injected Logger instead of the console" {
+                // Closes the MCP-host stdout-pollution gap (#416 Step 3 finding, run
+                // 2026-09-16): a load failure must reach the caller's Logger, not
+                // ConsoleWriter, or bytes land on stdout before the JSON-RPC transport
+                // opens.
+                let events = ResizeArray<Event>()
+
+                let logger: Logger =
+                    {
+                        Log = events.Add
+                        Enabled = fun _ -> true
+                    }
+
+                let provider = CachedResourceProvider(logger, (fun () -> Error [ errMsg "load failed" ]), None)
+
+                (provider :> IResourceProvider).GetResourceInfo() |> ignore
+
+                events
+                |> Seq.exists (fun e ->
+                    match e.Level, e.Message with
+                    | Level.Error, (:? Message as ErrorMsg(s, _)) -> s.Contains "load failed"
+                    | _ -> false
+                )
+                |> Expect.isTrue "the load failure should be logged as an Error event"
+            }
+
             test "loader returns Error, GetResourceInfo shows IsLoaded = false" {
-                let provider = CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+                let provider = CachedResourceProvider(Logging.noOp, (fun () -> Error [ errMsg "load failed" ]), None)
 
                 let info = (provider :> IResourceProvider).GetResourceInfo()
 
@@ -121,7 +148,7 @@ let cachedProviderErrorStateTests =
             }
 
             test "all resource getters return empty arrays when loader failed" {
-                let provider = CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+                let provider = CachedResourceProvider(Logging.noOp, (fun () -> Error [ errMsg "load failed" ]), None)
 
                 (provider :> IResourceProvider).GetUnitMappings()
                 |> Expect.equal "UnitMappings should be empty" [||]
@@ -139,7 +166,7 @@ let cachedProviderErrorStateTests =
             test "getNKFLinkProvider serves FK-only links instead of throwing when loader failed" {
                 // Nothing is registered on a failed load, so `Get` would raise
                 // KeyNotFoundException; a decorative link must not fail a request.
-                let provider = CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+                let provider = CachedResourceProvider(Logging.noOp, (fun () -> Error [ errMsg "load failed" ]), None)
 
                 let getLink = Informedica.GenForm.Lib.Api.getNKFLinkProvider (provider :> IResourceProvider)
 
@@ -155,7 +182,8 @@ let cachedProviderErrorStateTests =
             test "getNKFLinkProvider degrades when the key is unresolved on a loaded provider" {
                 // The state a reload race leaves behind: IsLoaded says yes, the resolved
                 // map has no nkfLinkProvider. An IsLoaded guard would not catch this.
-                let provider = CachedResourceProvider((fun () -> loadAllResourcesWithRegistry okRegistry), None)
+                let provider =
+                    CachedResourceProvider(Logging.noOp, (fun () -> loadAllResourcesWithRegistry okRegistry), None)
 
                 (provider :> IResourceProvider).GetResourceInfo().IsLoaded
                 |> Expect.isTrue "precondition: provider is loaded"
@@ -178,6 +206,7 @@ let cachingBehaviorTests =
 
                 let provider =
                     CachedResourceProvider(
+                        Logging.noOp,
                         (fun () ->
                             callCount <- callCount + 1
                             Error [ errMsg "load failed" ]
@@ -199,6 +228,7 @@ let cachingBehaviorTests =
 
                 let provider =
                     CachedResourceProvider(
+                        Logging.noOp,
                         (fun () ->
                             callCount <- callCount + 1
                             Error [ errMsg "load failed" ]
@@ -220,6 +250,7 @@ let cachingBehaviorTests =
 
                 let provider =
                     CachedResourceProvider(
+                        Logging.noOp,
                         (fun () ->
                             callCount <- callCount + 1
 
@@ -260,7 +291,8 @@ let processCmdGuardTests =
         [
 
             test "processFormulary returns Error when provider IsLoaded = false" {
-                let provider = CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
+                let provider =
+                    CachedResourceProvider(Logging.noOp, (fun () -> Error [ errMsg "resources unavailable" ]), None)
 
                 let env = ServerApi.Adapters.makeAppEnv provider
 
@@ -283,7 +315,8 @@ let processCmdGuardTests =
             }
 
             test "processParenteralia returns Error when provider IsLoaded = false" {
-                let provider = CachedResourceProvider((fun () -> Error [ errMsg "resources unavailable" ]), None)
+                let provider =
+                    CachedResourceProvider(Logging.noOp, (fun () -> Error [ errMsg "resources unavailable" ]), None)
 
                 let env = ServerApi.Adapters.makeAppEnv provider
 
@@ -314,7 +347,7 @@ let adminReloadTests =
         "admin reload over a failing provider"
         [
             test "a reload that leaves the provider unloaded answers its messages, not success" {
-                let provider = CachedResourceProvider((fun () -> Error [ errMsg "load failed" ]), None)
+                let provider = CachedResourceProvider(Logging.noOp, (fun () -> Error [ errMsg "load failed" ]), None)
 
                 let env = ServerApi.Adapters.makeAppEnv provider
 

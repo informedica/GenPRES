@@ -9,7 +9,6 @@ module OrderLogging =
     open Informedica.GenUnits.Lib
     open Informedica.Utils.Lib.BCL
     open Informedica.GenOrder.Lib
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open Informedica.Logging.Lib
 
     open Types.Logging
@@ -20,7 +19,21 @@ module OrderLogging =
     module Mapping = EquationMapping
 
 
-    let printOrderEqs (o: Order) eqs =
+    /// Convenience functions for logging order events
+    let logOrderEvent (logger: Logger) (event: Events.Event) = event |> OrderEventMessage |> Logging.logInfo logger
+
+
+    let logOrderWarning (logger: Logger) (event: Events.Event) = event |> OrderEventMessage |> Logging.logWarning logger
+
+
+    let logOrderEventError (logger: Logger) (event: Events.Event) =
+        event |> OrderEventMessage |> Logging.logError logger
+
+
+    let logOrderException (logger: Logger) (ex: Exceptions.Message) = ex |> OrderException |> Logging.logError logger
+
+
+    let printOrderEqs logger (o: Order) eqs =
         let toEqString op vs =
             vs
             |> List.sortBy (fun vs -> vs |> List.head)
@@ -60,7 +73,7 @@ module OrderLogging =
         {(xs |> toEqString " + ").Replace(s, "")}
         """
         with e ->
-            writeErrorMessage $"error printing: {e.ToString()}"
+            $"error printing: {e}" |> Events.OrderScenario |> logOrderEventError logger
             ""
 
 
@@ -115,78 +128,19 @@ module OrderLogging =
         | _ -> $"Unknown message type: {msg.GetType().Name}"
 
 
-    /// Create an order-specific logger using the general logging framework
-    let createLogger (baseLogger: Logger option) =
-        let formatter =
-            MessageFormatter.create
-                [
-                    typeof<OrderMessage>, formatOrderMessage
-                    typeof<SolverMessage>, SolverLogging.formatSolverMessage
-                    typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
-                ]
-
-        match baseLogger with
-        | Some logger -> logger
-        | None -> Logging.createConsole formatter
-
-
-    /// Create a file-based order logger
-    let createFileLogger (path: string) =
-        MessageFormatter.create
-            [
-                typeof<OrderMessage>, formatOrderMessage
-                typeof<SolverMessage>, SolverLogging.formatSolverMessage
-                typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
-            ]
-        |> Logging.createFile path
-
-
-    let createConsoleLogger () =
-        MessageFormatter.create
-            [
-                typeof<OrderMessage>, formatOrderMessage
-                typeof<SolverMessage>, SolverLogging.formatSolverMessage
-                typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
-            ]
-        |> Logging.createConsole
-
-    /// Create an agent-based order logger
-    let createAgentLogger config =
-        let formatter =
-            MessageFormatter.create
-                [
-                    typeof<OrderMessage>, formatOrderMessage
-                    typeof<SolverMessage>, SolverLogging.formatSolverMessage
-                    typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
-                ]
-
-        config
-        |> AgentLogging.AgentLoggerDefaults.withFormatter formatter
-        |> AgentLogging.createAgentLogger
-
-
-    /// Convenience functions for logging order events
-    let logOrderEvent (logger: Logger) (event: Events.Event) = event |> OrderEventMessage |> Logging.logInfo logger
-
-
-    let logOrderWarning (logger: Logger) (event: Events.Event) = event |> OrderEventMessage |> Logging.logWarning logger
-
-
-    let logOrderException (logger: Logger) (ex: Exceptions.Message) = ex |> OrderException |> Logging.logError logger
-
-
     /// Enhanced print function that can handle messages with context
-    let printOrderMsgWithContext (msgs: ResizeArray<float * Event> option) (msg: Event) =
+    let printOrderMsgWithContext logger (msgs: ResizeArray<float * Event> option) (msg: Event) =
         match msg.Message with
         | :? OrderMessage as m ->
             match m with
             | OrderException(Exceptions.OrderCouldNotBeCreated exn) -> $"Order couldn not be created:\n{exn}"
             | OrderException(Exceptions.OrderCouldNotBeSolved(s, o)) ->
-                writeErrorMessage
-                    $"""
+                $"""
 printing error for order {o.Orderable.Name |> Name.toString}
 messages: {msgs.Value.Count}
 """
+                |> Events.OrderScenario
+                |> logOrderEventError logger
 
                 let eqs =
                     match msgs with
@@ -205,23 +159,26 @@ messages: {msgs.Value.Count}
                             | _ -> None
                         )
                         |> fun xs ->
-                            writeInfoMessage $"found {xs |> Array.length}"
+                            $"found {xs |> Array.length}" |> Events.OrderScenario |> logOrderEvent logger
                             xs
                         |> Array.tryHead
                     | None -> None
 
                 match eqs with
                 | Some eqs ->
-                    let s = $"Terminated with {s}:\n{printOrderEqs o eqs}"
-                    writeInfoMessage $"%s{s}"
+                    let s = $"Terminated with {s}:\n{printOrderEqs logger o eqs}"
+                    $"%s{s}" |> Events.OrderScenario |> logOrderEvent logger
                     s
                 | None ->
                     let s = $"Terminated with {s}"
-                    writeInfoMessage $"%s{s}"
+                    $"%s{s}" |> Events.OrderScenario |> logOrderEvent logger
                     s
             | OrderEventMessage evt -> evt |> printOrderEvent
         | _ ->
-            writeErrorMessage $"printMsg cannot handle {msg}"
+            $"printMsg cannot handle {msg}"
+            |> Events.OrderScenario
+            |> logOrderEventError logger
+
             ""
 
 
@@ -253,30 +210,36 @@ messages: {msgs.Value.Count}
     /// <summary>
     /// Prints the scenarios for a given list of orders
     /// </summary>
+    /// <param name="logger">The logger</param>
     /// <param name="verbose">Also print the Order</param>
     /// <param name="ns">The items to print</param>
     /// <param name="orders">The list of Orders</param>
-    let printScenarios verbose ns (orders: Order list) =
+    let printScenarios logger verbose ns (orders: Order list) =
         let w =
             match orders with
             | h :: _ -> h.Adjust |> Quantity.toValueUnitStringList |> Option.defaultValue ""
             | _ -> ""
 
-        writeInfoMessage $"\n\n=== SCENARIOS for Weight: %s{w} ==="
+        $"\n\n=== SCENARIOS for Weight: %s{w} ==="
+        |> Events.OrderScenario
+        |> logOrderEvent logger
 
         orders
         |> List.iteri (fun i o ->
             o
             |> Order.Print.printOrderToString true ns
             |> fun (p, a, d) ->
-                writeInfoMessage $"%i{i + 1}\tprescription:\t%s{p}"
-                writeInfoMessage $"  \tdispensing:\t%s{a}"
-                writeInfoMessage $"  \tpreparation:\t%s{d}"
+                $"%i{i + 1}\tprescription:\t%s{p}"
+                |> Events.OrderScenario
+                |> logOrderEvent logger
+
+                $"  \tdispensing:\t%s{a}" |> Events.OrderScenario |> logOrderEvent logger
+                $"  \tpreparation:\t%s{d}" |> Events.OrderScenario |> logOrderEvent logger
 
             if verbose then
                 o
                 |> Order.toString
-                |> List.iteri (fun i s -> writeInfoMessage $"%i{i + 1}\t%s{s}")
+                |> List.iteri (fun i s -> $"%i{i + 1}\t%s{s}" |> Events.OrderScenario |> logOrderEvent logger)
 
-                writeInfoMessage "\n"
+                "\n" |> Events.OrderScenario |> logOrderEvent logger
         )

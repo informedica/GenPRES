@@ -11,9 +11,7 @@ module Exceptions =
     /// Raise an EquationException with Message m.
     let raiseExc log m o =
         match log with
-        | Some log ->
-            printfn "logging error"
-            (m, o) |> Exceptions.OrderCouldNotBeSolved |> Logging.logError log
+        | Some log -> (m, o) |> Exceptions.OrderCouldNotBeSolved |> Logging.logError log
 
         | None -> ()
 

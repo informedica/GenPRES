@@ -689,6 +689,7 @@ module MedicationOrderTests =
 
                         test "ToDto reference function to OrderDto" {
                             let medOrd = testMedicationOrders |> List.head
+
                             let ord1 =
                                 Medication.toOrderDto Scenarios.testStart medOrd
                                 |> Order.Dto.fromDto

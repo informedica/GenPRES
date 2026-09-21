@@ -19,14 +19,3 @@ module FormLogging =
             | ErrorMsg(s, None) -> $"Error: {s}"
             | ErrorMsg(s, Some ex) -> $"Error: {s}\nException: {ex.Message}"
         | _ -> "Unknown message type"
-
-
-    /// A logger that prints to the console
-    let printLogger: Logger =
-        let formatter = MessageFormatter.create [ typeof<Message>, formatMessage ]
-        Logging.createConsole formatter
-
-
-    let agentLogger =
-        MessageFormatter.create [ typeof<Message>, formatMessage ]
-        |> AgentLogging.createWithFormatter

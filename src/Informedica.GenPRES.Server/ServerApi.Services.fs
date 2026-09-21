@@ -228,14 +228,14 @@ DoseTypes: {form.DoseTypes |> Array.length}
 module ParenteraliaService =
 
     open Informedica.GenOrder.Lib
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
     open Informedica.GenForm.Lib
 
     type Parenteralia = Shared.Types.Parenteralia
 
 
-    let get provider (par: Parenteralia) : Result<Parenteralia, string> =
-        writeInfoMessage $"getting parenteralia for {par.Generic}"
+    let get logger provider (par: Parenteralia) : Result<Parenteralia, string> =
+        Logging.ServerLogging.Info $"getting parenteralia for {par.Generic}"
+        |> Informedica.Logging.Lib.Logging.logInfo logger
 
         let srs = Formulary.getSolutionRules provider par.Generic par.Form par.Route
 
@@ -300,7 +300,9 @@ module OrderContextService =
             |> PlanContext.evaluate start logger provider (provider.GetTotals()) cmd
             |> Result.mapError refusal
         with e ->
-            writeErrorMessage $"errored:\n{e}"
+            Logging.ServerLogging.Error $"errored:\n{e}"
+            |> Informedica.Logging.Lib.Logging.logError logger
+
             Error [| e.Message |]
 
 

@@ -4,7 +4,7 @@ namespace Informedica.GenForm.Lib
 module Resources =
 
     open System
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineTime
+    open Informedica.Logging.Lib
 
     type Data =
         {
@@ -232,8 +232,8 @@ module Resources =
     /// Every entry is a loader; dependencies are declared by calling r.Get and
     /// resolved lazily and once by the engine (replacing the old hand-ordered CE).
     /// FormularyProducts is one resource that ParenteralMeds / EnteralFeeding /
-    /// Products depend on, so it is fetched exactly once (no explicit lazy).
-    let defaultRegistry dataUrlId : ResourceRegistry =
+    /// Products depend on, so it is fetched exactly once (no explicit `lazy`).
+    let defaultRegistry logger dataUrlId : ResourceRegistry =
         Map
             [
                 Keys.unitMappings.Name, ofResult (fun () -> Mapping.getUnitMapping dataUrlId)
@@ -254,10 +254,16 @@ module Resources =
                 // into ProductComponents with the Formulary nutrition columns as
                 // their substances.
                 Keys.parenteralMeds.Name,
-                derive (fun r -> r.Get Keys.formularyProducts |> Product.Parenteral.get (r.Get Keys.unitMappings))
+                derive (fun r ->
+                    r.Get Keys.formularyProducts
+                    |> Product.Parenteral.get logger (r.Get Keys.unitMappings)
+                )
 
                 Keys.enteralFeeding.Name,
-                derive (fun r -> r.Get Keys.formularyProducts |> Product.Enteral.get (r.Get Keys.unitMappings))
+                derive (fun r ->
+                    r.Get Keys.formularyProducts
+                    |> Product.Enteral.get logger (r.Get Keys.unitMappings)
+                )
 
                 // IO edge: read raw source data once.
                 Keys.genPresProducts.Name,
@@ -292,6 +298,7 @@ module Resources =
                             (r.Get Keys.doseRuleData)
 
                     Product.fromGenPresProducts
+                        logger
                         (r.Get Keys.unitMappings)
                         (r.Get Keys.routeMappings)
                         (r.Get Keys.validForms)
@@ -324,7 +331,10 @@ module Resources =
                 )
 
                 Keys.renalRules.Name,
-                (fun r -> RenalRule.map (r.Get Keys.renalRuleData) |> Result.map (fun v -> box v, []))
+                (fun r ->
+                    RenalRule.map logger (r.Get Keys.renalRuleData)
+                    |> Result.map (fun v -> box v, [])
+                )
 
                 // G-Standaard dose rules served as a function-valued resource: the
                 // closure depends only on routeMappings; ZIndex caches stay memoised
@@ -407,7 +417,7 @@ module Resources =
 
 
     /// Load all resources at once using the default registry.
-    let loadAllResources dataUrlId = loadAllResourcesWithRegistry (defaultRegistry dataUrlId)
+    let loadAllResources logger dataUrlId = loadAllResourcesWithRegistry (defaultRegistry logger dataUrlId)
 
 
     /// A plain provider over an already-loaded resource set.
@@ -438,7 +448,8 @@ module Resources =
 
 
     /// Create a cached resource provider with an optional TTL (in minutes).
-    type CachedResourceProvider(loadAllResources: unit -> Result<LoadedResources, Message list>, ttlMinutes: int option)
+    type CachedResourceProvider
+        (logger: Logger, loadAllResources: unit -> Result<LoadedResources, Message list>, ttlMinutes: int option)
         =
         let mutable cached: (LoadedResources * DateTime) option = None
         let lockObj = obj ()
@@ -454,7 +465,11 @@ module Resources =
                 cached <- Some(loaded, DateTime.UtcNow)
                 loaded
             | Error msgs ->
-                writeErrorMessage $"Failed to load resources: {msgs}"
+                msgs
+                |> List.iter (fun m ->
+                    ErrorMsg($"Failed to load resources: {messageText m}", None)
+                    |> Logging.logError logger
+                )
                 // Return empty state on error and cache it to prevent retry on every request
                 let emptyLoaded =
                     {

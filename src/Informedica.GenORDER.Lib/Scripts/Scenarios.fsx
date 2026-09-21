@@ -363,7 +363,7 @@ Patient.teenager
 |> Array.head
 |> Medication.toOrderDto System.DateTime.UtcNow
 |> Order.Dto.fromDto
-|> Order.print
+|> Order.print OrderLogging.noOp
 |> ignore
 
 
@@ -377,7 +377,7 @@ Patient.teenager
 |> Array.head
 |> Medication.toOrderDto System.DateTime.UtcNow
 |> Order.Dto.fromDto
-|> Order.print
+|> Order.print OrderLogging.noOp
 |> ignore
 
 
@@ -390,4 +390,4 @@ Patient.infant
 |> fun res ->
     let ctx = res |> Result.get |> OrderContext.Command.get
 
-    ctx.Scenarios |> Array.item 0 |> _.Order |> Order.print |> ignore
+    ctx.Scenarios |> Array.item 0 |> _.Order |> Order.print OrderLogging.noOp |> ignore

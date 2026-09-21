@@ -51,7 +51,7 @@ let unitMapping = Mapping.getUnitMapping dataUrlId |> resultGet
 
 let parenterals =
     Product.getFormularyProducts dataUrlId
-    |> Result.map (Product.Parenteral.get unitMapping)
+    |> Result.map (Product.Parenteral.get FormLogging.noOp unitMapping)
     |> resultGet
 
 

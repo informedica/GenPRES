@@ -1293,6 +1293,77 @@ resource reload). The server enforces a length policy at startup:
 Never reuse a development password in production. Never commit a real
 password to the repository — `.env` is gitignored.
 
+#### Request logging: clientIP retention and the audit trail
+
+The Serilog request sink (`ServerLogging.Message.Request`, [#416](https://github.com/informedica/GenPRES/issues/416))
+logs the caller's `clientIP` on every request, in full, to the `data/logs` file sink whenever
+`GENPRES_LOG` is set. This was a deliberate call, not an oversight: GenPRES is reached only
+through a hospital's launch sequence (see [Simulating the launch sequence](#simulating-the-launch-sequence)),
+so `clientIP` is practically always the hospital's own gateway or proxy address, not a
+patient's or clinician's personal device — the system is not a public-facing API a stranger can
+reach directly. Truncating or hashing the address would trade away exactly the field an
+administrator needs to correlate a reported incident with a specific launching site, for a
+privacy benefit that mostly does not apply here. Revisit this if GenPRES is ever exposed on a
+network where an untrusted client can reach it directly, or where `clientIP` could name an
+individual rather than an institution.
+
+The same files are the medico-legal audit trail. When investigating a reported dosing
+discrepancy, start from the relevant `data/logs/genpres_*.log` file for the time window in
+question rather than reproducing the scenario from scratch.
+
+#### The log files
+
+With `GENPRES_LOG` set, the server writes one file per stream to `data/logs`
+(`genpres_request_*.log`, `genpres_order_*.log`, `genpres_resources_*.log`, and so on), and the
+MCP host writes `genpres_mcp_*.log`. Every file holds **one compact JSON object per line**:
+
+```json
+{"@t":"2026-09-21T21:09:33.1384620+02:00","@l":"Information","EventType":"Request","Text":"GET /api/x from ::1"}
+```
+
+`@t` is the time, `@l` the level (`Debug`, `Information`, `Warning`, `Error`), `EventType` the
+kind of message, and `Text` the rendered message: the same text the flat log files held, with its
+line feeds escaped, so one event is always one line. An event whose text is blank is not written.
+The line can be filtered on the time, the level and the kind of message, and searched in its text;
+the fields of a message (a patient, an equation, a variable) are not separate JSON fields yet.
+
+```bash
+# every warning and error of a run, as text
+jq -r 'select(."@l" == "Warning" or ."@l" == "Error") | .Text' data/logs/genpres_resources_*.log
+
+# the solver trace of an order log between two times
+jq -r 'select(."@t" >= "2026-09-21T21:09" and ."@t" < "2026-09-21T21:10") | .Text' data/logs/genpres_order_*.log
+```
+
+The terminal gets the same events as readable text (time, level, text), never JSON. The MCP host
+writes them to stderr, because stdout is the JSON-RPC channel of a stdio session.
+
+The thread that logs does nothing but enqueue: the event crosses to the sink as a reference and is
+rendered there, once for both sinks. The file sink buffers 100 000 events and then **blocks** the
+caller rather than drop an event; the console sink drops rather than blocks. Rendering is the
+expensive part, about 4.5 ms per event for a solver event. At `GENPRES_LOG=i` that is negligible
+(32 of the 12 068 events of three solved scenarios are above Debug level). At `GENPRES_LOG=d` the
+file is complete about a minute after such a solve, and a server that solves continuously at
+Debug level fills the buffer and then runs at the speed of rendering. Debug level is for
+diagnosing one case, not for production load.
+
+The admin log analysis reads these files, and still reads a flat file written before the JSON
+format; it refuses a file over 50 MB. One Debug pass of three scenarios is about 3 MB.
+
+The order log holds patient data (age, weight, the order itself), and JSON lines make it easier
+to query than the flat text was. Handle the files in `data/logs` as patient data.
+
+`src/Informedica.GenPRES.Server/Scripts/LoggingPerf.fsx` measures what logging costs against the
+agent logger it replaced. Median of 10 runs, three scenarios, 12 068 events per Debug pass,
+Release assemblies, logging off 52.1 ms:
+
+| Logger | ns per event, calling thread | drain | file per Debug pass | end to end at `i` | end to end at `d` |
+|---|---|---|---|---|---|
+| agent logger (before) | 92 | 54.8 s | 2.2 MB | 93.8 ms | 76.4 ms |
+| Serilog bridge | 174 | 54.7 s | 3.1 MB | 62.0 ms | 77.6 ms |
+
+Rerun it after a change to the bridge, the sinks or the formatters.
+
 #### How It Works
 
 Environment variables are resolved in this priority order (highest first):

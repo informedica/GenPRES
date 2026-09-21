@@ -2,7 +2,6 @@ namespace ServerApi
 
 open Shared.Types
 open Shared.Api
-open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
 
 /// Whether a command needs the formulary loaded.
@@ -33,7 +32,8 @@ module Compute =
 
         async {
             try
-                writeInfoMessage $"Processing command: {name cmd}"
+                Logging.ServerLogging.Info $"Processing command: {name cmd}"
+                |> Informedica.Logging.Lib.Logging.logInfo env.logger
 
                 let! notice =
                     match cookie.read () with
@@ -55,7 +55,8 @@ module Compute =
                     | Some(RecordNotice.Ended _) -> ", the Session ended"
                     | None -> ""
 
-                writeInfoMessage $"Finished processing command: {name cmd}{told}"
+                Logging.ServerLogging.Info $"Finished processing command: {name cmd}{told}"
+                |> Informedica.Logging.Lib.Logging.logInfo env.logger
 
                 return
                     result
@@ -66,16 +67,23 @@ module Compute =
                         }
                     )
             with ex ->
-                writeErrorMessage $"Error processing command: {name cmd}\n{ex}"
+                Logging.ServerLogging.Error $"Error processing command: {name cmd}\n{ex}"
+                |> Informedica.Logging.Lib.Logging.logError env.logger
+
                 return Error [| ex.Message |]
         }
 
 
     /// A member that is not computing: the same two log lines around it, nothing else.
-    let logged (what: string) (name: 'cmd -> string) (run: 'cmd -> Async<'resp>) (cmd: 'cmd) =
+    let logged (env: AppEnv) (what: string) (name: 'cmd -> string) (run: 'cmd -> Async<'resp>) (cmd: 'cmd) =
         async {
-            writeInfoMessage $"Processing {what}: {name cmd}"
+            Logging.ServerLogging.Info $"Processing {what}: {name cmd}"
+            |> Informedica.Logging.Lib.Logging.logInfo env.logger
+
             let! response = run cmd
-            writeInfoMessage $"Finished processing {what}: {name cmd}"
+
+            Logging.ServerLogging.Info $"Finished processing {what}: {name cmd}"
+            |> Informedica.Logging.Lib.Logging.logInfo env.logger
+
             return response
         }

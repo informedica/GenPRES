@@ -77,7 +77,7 @@ module Constraint =
         |> fun cs -> cs |> List.map scoreConstraint
         |> List.sortBy fst
         |> fun cs ->
-            cs |> Events.ConstraintSortOrder |> Logger.logDebug log
+            Logger.logDebugLazy log (fun () -> cs |> Events.ConstraintSortOrder)
 
             cs |> List.map snd
 
@@ -102,7 +102,7 @@ module Constraint =
 
             | var :: _ -> var |> Variable.setValueRange (c.Property |> Property.toValueRange)
         |> fun var ->
-            c |> Events.ConstraintApplied |> Logger.logDebug log
+            Logger.logDebugLazy log (fun () -> c |> Events.ConstraintApplied)
 
             var
 
@@ -124,6 +124,6 @@ module Constraint =
         eqs
         |> Solver.solveVariable onlyMinIncrMax log sortQue var
         |> fun eqs ->
-            c |> Events.ConstrainedSolved |> Logger.logDebug log
+            Logger.logDebugLazy log (fun () -> c |> Events.ConstrainedSolved)
 
             eqs
