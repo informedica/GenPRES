@@ -173,11 +173,6 @@
 !/data/cache/interactions/*.JSON
 !/data/zindex/
 !/data/zindex/BST*.test
-!/data/formulary/
-!/data/formulary/*.csv
-!/data/mapping/
-!/data/output/
-!/data/output/*.csv
 
 # Informedica.Utils.Lib
 !/src/Informedica.Utils.Lib/
