@@ -494,11 +494,18 @@ Target.create
                 "--rm"
                 "-p"
                 "8080:8085"
+                // The image ships only the *.demo cache files, so production data has to come
+                // from the host. compose.yaml mounts the same folder; without it a run started
+                // with GENPRES_PROD=1 finds no *.cache and is production in name only.
+                "-v"
+                $"{dataPath}/cache:/app/data/cache"
                 "-e"
                 "GENPRES_URL_ID"
                 "-e"
                 "GENPRES_PASSWORD"
                 // optional: forwarded only when set in the caller's environment
+                "-e"
+                "GENPRES_PROD"
                 "-e"
                 "GENPRES_LANG"
                 dockerImage

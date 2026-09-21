@@ -657,7 +657,7 @@ $env:DOCKER_PLATFORM = "linux/amd64"
 dotnet run DockerBuild
 ```
 
-**Run** — `dotnet run DockerRun` reads `GENPRES_URL_ID` and `GENPRES_PASSWORD` from the current environment and fails fast with an error if either is missing, rather than starting an unauthenticated container that the in-server `validateProductionPassword` would refuse later. Source `.env` first (single source of truth — same as `prod.sh` / `debug.sh`):
+**Run** — `dotnet run DockerRun` reads `GENPRES_URL_ID` and `GENPRES_PASSWORD` from the current environment and fails fast with an error if either is missing, rather than starting an unauthenticated container that the in-server `validateProductionPassword` would refuse later. It mounts the host's `data/cache` onto `/app/data/cache` and forwards `GENPRES_PROD`, so `GENPRES_PROD=1` gets the same production data as `compose.yaml`; the image itself ships only the `*.demo` files. Source `.env` first (single source of truth — same as `prod.sh` / `debug.sh`):
 
 ```bash
 set -a; source .env; set +a

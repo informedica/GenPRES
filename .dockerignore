@@ -45,12 +45,25 @@
 !/src/
 
 # Add data folders
+# Only the demo cache belongs in the image. The proprietary *.cache files are
+# licence-restricted and are bind-mounted onto /app/data/cache at run time.
+# The G-Standaard under data/zindex is not copied by the Dockerfile at all.
+#
+# Re-including a directory re-includes everything under it, so !/data/cache/ on
+# its own carries the *.cache files in as well. The last matching pattern wins,
+# so the exclusions below come after the re-includes and keep them out.
 !/data/
 !/data/cache/
 !/data/cache/*.demo
 !/data/cache/interactions/
 !/data/cache/interactions/*.JSON
-!/data/zindex/
+/data/cache/*.cache
+/data/data/
+/data/db/
+/data/localization/
+/data/logs/
+/data/sources/
+/data/zindex/
 
 # Informedica.Utils.Lib
 !/src/Informedica.Utils.Lib/
