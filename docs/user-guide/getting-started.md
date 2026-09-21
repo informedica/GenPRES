@@ -32,7 +32,7 @@ Open your browser to **<http://localhost:5173>**.
 You can open the application at <http://localhost:5173> **without any URL parameters**. In this mode:
 
 - The **Patient** panel expands automatically and displays *"Voer patiënt gegevens in"* (Enter patient data).
-- Medication calculations are **not available** until weight and height are provided.
+- Medication calculations are **not available** until the patient has an age, or a weight and a height.
 - You can still explore the interface, view the formulary, and navigate pages.
 
 To use all features, enter patient data either:
@@ -47,8 +47,8 @@ To use all features, enter patient data either:
 1. Open <http://localhost:5173>.
 2. The **Patient** accordion is expanded. Fill in the following fields:
    - **Age** as years, months, weeks and days — entered directly, not as a birth date
-   - **Weight** (in kg) — required to enable dose calculations
-   - **Height** (in cm) — required to enable dose calculations
+   - **Weight** (in kg) — with the height, the alternative to an age; estimated from the age otherwise
+   - **Height** (in cm) — with the weight, the alternative to an age; estimated from the age otherwise
    - **Gestational age** (weeks, days) — optional; relevant for neonates
    - **Gender** — optional
    - **Renal function** — optional; drives renal dose adjustment

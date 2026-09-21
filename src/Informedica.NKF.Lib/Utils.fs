@@ -22,11 +22,9 @@ module Utils =
         [<Literal>]
         let floatRegex = "(?<Float>[-+]?(\d*[.])?\d+)"
 
-        let matchFloat s =
-            (s |> regexMatch floatRegex).Groups["Float"].Value
+        let matchFloat s = (s |> regexMatch floatRegex).Groups["Float"].Value
 
-        let matchAlpha s =
-            (s |> regexMatch alphaRegex).Groups["Alpha"].Value
+        let matchAlpha s = (s |> regexMatch alphaRegex).Groups["Alpha"].Value
 
         let matchFloatAlpha s =
             let grps = (floatRegex + alphaRegex |> regex).Match(s).Groups
@@ -40,13 +38,11 @@ module Utils =
 
         /// The pediatric formulary cache path, resolved on each call rather than at
         /// module initialisation, so it sees the process's final working directory
-        /// and any GENPRES_ROOT set by a later Env.loadDotEnv (). See issue #523.
+        /// and any GENPRES_ROOT set by a later Env.loadDotEnv ().
         /// Not memoized: this is a string concat over AppPath's already-lazy root.
         let cachePath () =
             Path.Combine(Informedica.Utils.Lib.AppPath.cacheDir (), "pediatric.cache")
 
-        (*
-        *)
         let writeTextToFile path (text: string) = File.WriteAllText(path, text)
 
         let exists path = File.Exists(path)

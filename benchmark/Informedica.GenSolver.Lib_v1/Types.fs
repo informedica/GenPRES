@@ -13,7 +13,7 @@ module rec Types =
     /// `Name` can be no longer than 1000 characters and cannot be
     /// a null string
     /// </summary>
-    type Name = Name of string
+    type Name = | Name of string
 
 
     /// <summary>
@@ -39,13 +39,13 @@ module rec Types =
     /// <summary>
     /// A set of discrete values
     /// </summary>
-    type ValueSet = ValueSet of ValueUnit
+    type ValueSet = | ValueSet of ValueUnit
 
 
     /// <summary>
     /// A set of increments
     /// </summary>
-    type Increment = Increment of ValueUnit
+    type Increment = | Increment of ValueUnit
 
 
     /// <summary>

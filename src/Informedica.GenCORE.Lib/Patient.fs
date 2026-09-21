@@ -263,11 +263,9 @@ module AgeValue =
 
         let months = (fun (a: AgeValue) -> a.Months), (fun m a -> { a with Months = m })
 
-        let weeks =
-            (fun (a: AgeValue) -> a.Weeks), (fun w (a: AgeValue) -> { a with Weeks = w })
+        let weeks = (fun (a: AgeValue) -> a.Weeks), (fun w (a: AgeValue) -> { a with Weeks = w })
 
-        let days =
-            (fun (a: AgeValue) -> a.Days), (fun d (a: AgeValue) -> { a with Days = d })
+        let days = (fun (a: AgeValue) -> a.Days), (fun d (a: AgeValue) -> { a with Days = d })
 
 
     //[<AutoOpen>]
@@ -297,29 +295,21 @@ module AgeValue =
 
         let getDaysDef0 = getDays >> Option.defaultValue 0<day>
 
-        let getIntYears (a: AgeValue) =
-            a.Years |> Option.map int |> Option.defaultValue 0
+        let getIntYears (a: AgeValue) = a.Years |> Option.map int |> Option.defaultValue 0
 
-        let setIntYears i (a: AgeValue) =
-            { a with Years = Conversions.yearFromInt i |> Some }
+        let setIntYears i (a: AgeValue) = { a with Years = Conversions.yearFromInt i |> Some }
 
-        let getIntMonths (a: AgeValue) =
-            a.Months |> Option.map int |> Option.defaultValue 0
+        let getIntMonths (a: AgeValue) = a.Months |> Option.map int |> Option.defaultValue 0
 
-        let setIntMonths i (a: AgeValue) =
-            { a with Months = Conversions.monthFromInt i |> Some }
+        let setIntMonths i (a: AgeValue) = { a with Months = Conversions.monthFromInt i |> Some }
 
-        let getIntWeeks (a: AgeValue) =
-            a.Weeks |> Option.map int |> Option.defaultValue 0
+        let getIntWeeks (a: AgeValue) = a.Weeks |> Option.map int |> Option.defaultValue 0
 
-        let setIntWeeks i (a: AgeValue) =
-            { a with Weeks = Conversions.weekFromInt i |> Some }
+        let setIntWeeks i (a: AgeValue) = { a with Weeks = Conversions.weekFromInt i |> Some }
 
-        let getIntDays (a: AgeValue) =
-            a.Days |> Option.map int |> Option.defaultValue 0
+        let getIntDays (a: AgeValue) = a.Days |> Option.map int |> Option.defaultValue 0
 
-        let setIntDays i (a: AgeValue) =
-            { a with Days = Conversions.dayFromInt i |> Some }
+        let setIntDays i (a: AgeValue) = { a with Days = Conversions.dayFromInt i |> Some }
 
 
     let getDef0 av =
@@ -393,16 +383,13 @@ module AgeValue =
             Check.optional (Check.Int.between 0 m) |> mapOpt Conversions.yearFromInt
 
 
-        let monthValidator =
-            Check.optional (Check.Int.between 0 11) |> mapOpt Conversions.monthFromInt
+        let monthValidator = Check.optional (Check.Int.between 0 11) |> mapOpt Conversions.monthFromInt
 
 
-        let weekValidator =
-            Check.optional (Check.Int.between 0 4) |> mapOpt Conversions.weekFromInt
+        let weekValidator = Check.optional (Check.Int.between 0 4) |> mapOpt Conversions.weekFromInt
 
 
-        let dayValidator =
-            Check.optional (Check.Int.between 0 6) |> mapOpt Conversions.dayFromInt
+        let dayValidator = Check.optional (Check.Int.between 0 6) |> mapOpt Conversions.dayFromInt
 
 
     module Dto =
@@ -466,8 +453,7 @@ module BirthDate =
 
         let year = (fun (ymd: BirthDate) -> ymd.Year), (fun i ymd -> { ymd with Year = i })
 
-        let month =
-            (fun (ymd: BirthDate) -> ymd.Month), (fun i ymd -> { ymd with Month = i })
+        let month = (fun (ymd: BirthDate) -> ymd.Month), (fun i ymd -> { ymd with Month = i })
 
         let day = (fun (ymd: BirthDate) -> ymd.Day), (fun i ymd -> { ymd with Day = i })
 
@@ -480,35 +466,29 @@ module BirthDate =
 
         let getIntYear (bd: BirthDate) = bd.Year |> int
 
-        let setIntYear i (bd: BirthDate) =
-            { bd with Year = Conversions.yearFromInt i }
+        let setIntYear i (bd: BirthDate) = { bd with Year = Conversions.yearFromInt i }
 
 
         let getMonth (bd: BirthDate) = bd.Month
 
         let setMonth m (bd: BirthDate) = { bd with Month = m }
 
-        let getIntMonth (bd: BirthDate) =
-            bd.Month |> Option.map int |> Option.defaultValue 1
+        let getIntMonth (bd: BirthDate) = bd.Month |> Option.map int |> Option.defaultValue 1
 
-        let setIntMonth i (bd: BirthDate) =
-            { bd with Month = Conversions.monthFromInt i |> Some }
+        let setIntMonth i (bd: BirthDate) = { bd with Month = Conversions.monthFromInt i |> Some }
 
 
         let getDay (bd: BirthDate) = bd.Day
 
         let setDay d (bd: BirthDate) = { bd with Day = d }
 
-        let getIntDay (bd: BirthDate) =
-            bd.Day |> Option.map int |> Option.defaultValue 1
+        let getIntDay (bd: BirthDate) = bd.Day |> Option.map int |> Option.defaultValue 1
 
-        let setIntDay i (bd: BirthDate) =
-            { bd with Day = Conversions.dayFromInt i |> Some }
+        let setIntDay i (bd: BirthDate) = { bd with Day = Conversions.dayFromInt i |> Some }
 
 
     let toDate bd =
-        let y, m, d =
-            bd |> SetGet.getIntYear, bd |> SetGet.getIntMonth, bd |> SetGet.getIntDay
+        let y, m, d = bd |> SetGet.getIntYear, bd |> SetGet.getIntMonth, bd |> SetGet.getIntDay
 
         DateTime(y, m, d)
 
@@ -527,15 +507,12 @@ module BirthDate =
         open Validus
 
 
-        let yearValidator =
-            Check.Int.greaterThanOrEqualTo 1900 |> map Conversions.yearFromInt
+        let yearValidator = Check.Int.greaterThanOrEqualTo 1900 |> map Conversions.yearFromInt
 
-        let monthValidator =
-            Check.optional (Check.Int.between 1 12) |> mapOpt Conversions.monthFromInt
+        let monthValidator = Check.optional (Check.Int.between 1 12) |> mapOpt Conversions.monthFromInt
 
 
-        let dayValidator =
-            Check.optional (Check.Int.between 1 31) |> mapOpt Conversions.dayFromInt
+        let dayValidator = Check.optional (Check.Int.between 1 31) |> mapOpt Conversions.dayFromInt
 
         let ageValidator =
             let msg = sprintf "age cannot be > 120 years %s"
@@ -636,8 +613,7 @@ module PatientAge =
     let fromAgeType = AgeValue.fromAgeType >> ageValue
 
 
-    let toAgeType dt =
-        (getAgeValue dt) >> (Option.map AgeValue.toAgeType)
+    let toAgeType dt = (getAgeValue dt) >> (Option.map AgeValue.toAgeType)
 
 
     let newBorn = NewBorn |> fromAgeType
@@ -655,12 +631,10 @@ module PatientAge =
 
     module Optics =
 
-        let ageValue dt =
-            (fun pa -> pa |> getAgeValue dt), (fun av _ -> av |> AgeValue)
+        let ageValue dt = (fun pa -> pa |> getAgeValue dt), (fun av _ -> av |> AgeValue)
 
 
-    let toString =
-        map "" ((AgeValue.fromBirthDate DateTime.Now) >> AgeValue.toString) AgeValue.toString
+    let toString = map "" ((AgeValue.fromBirthDate DateTime.Now) >> AgeValue.toString) AgeValue.toString
 
 
 module WeightValue =
@@ -675,11 +649,9 @@ module WeightValue =
     let apply fKg fGram = map (fKg >> Kilogram) (fGram >> Gram)
 
 
-    let weightInGram x =
-        x |> int |> Conversions.gramFromInt |> Gram
+    let weightInGram x = x |> int |> Conversions.gramFromInt |> Gram
 
-    let weightInKg x =
-        x |> Conversions.kgFromDecimal |> Kilogram
+    let weightInKg x = x |> Conversions.kgFromDecimal |> Kilogram
 
 
     let getValue =
@@ -777,18 +749,15 @@ module WeightAtDate =
         }
 
 
-    let fromAgeType gend dt =
-        (WeightValue.fromAgeType gend) >> (Option.map (create dt))
+    let fromAgeType gend dt = (WeightValue.fromAgeType gend) >> (Option.map (create dt))
 
 
     module Optics =
 
 
-        let date =
-            (fun (w: WeightAtDate) -> w.Date), (fun dt w -> { w with WeightAtDate.Date = dt })
+        let date = (fun (w: WeightAtDate) -> w.Date), (fun dt w -> { w with WeightAtDate.Date = dt })
 
-        let weight =
-            (fun (w: WeightAtDate) -> w.Weight), (fun wv w -> { w with WeightAtDate.Weight = wv })
+        let weight = (fun (w: WeightAtDate) -> w.Weight), (fun wv w -> { w with WeightAtDate.Weight = wv })
 
 
     module Validation =
@@ -856,22 +825,19 @@ module Weight =
     let unknown = create [] None [] None
 
 
-    let fromAgeType gend dt =
-        (WeightAtDate.fromAgeType gend dt) >> (create [] None [])
+    let fromAgeType gend dt = (WeightAtDate.fromAgeType gend dt) >> (create [] None [])
 
 
     module Optics =
 
-        let actual =
-            (fun (w: Weight) -> w.Actual), (fun act w -> { w with Weight.Actual = act })
+        let actual = (fun (w: Weight) -> w.Actual), (fun act w -> { w with Weight.Actual = act })
 
         let calculation =
             (fun (w: Weight) -> w.Calculation), (fun calc w -> { w with Weight.Calculation = calc })
 
         let birth = (fun (w: Weight) -> w.Birth), (fun b w -> { w with Weight.Birth = b })
 
-        let admission =
-            (fun (w: Weight) -> w.Admission), (fun a w -> { w with Weight.Admission = a })
+        let admission = (fun (w: Weight) -> w.Admission), (fun a w -> { w with Weight.Admission = a })
 
 
     module SetGet =
@@ -903,20 +869,16 @@ module Weight =
         w |> SetGet.getCalculation |> Option.map (WeightAtDate.toString fixPrec)
 
 
-    let actualToString fixPrec w =
-        toString fixPrec w |> fun (s, _, _, _) -> s
+    let actualToString fixPrec w = toString fixPrec w |> fun (s, _, _, _) -> s
 
 
-    let birthToString fixPrec w =
-        toString fixPrec w |> fun (_, s, _, _) -> s
+    let birthToString fixPrec w = toString fixPrec w |> fun (_, s, _, _) -> s
 
 
-    let admissionToString fixPrec w =
-        toString fixPrec w |> fun (_, _, s, _) -> s
+    let admissionToString fixPrec w = toString fixPrec w |> fun (_, _, s, _) -> s
 
 
-    let calculationToString fixPrec w =
-        toString fixPrec w |> fun (_, _, _, s) -> s
+    let calculationToString fixPrec w = toString fixPrec w |> fun (_, _, _, s) -> s
 
 
     module Dto =
@@ -939,8 +901,7 @@ module Weight =
                 |> Option.map WeightAtDate.Dto.fromDto
                 |> Option.bind Result.toOption
 
-            let birth =
-                dto.Birth |> Option.map WeightValue.Dto.fromDto |> Option.bind Result.toOption
+            let birth = dto.Birth |> Option.map WeightValue.Dto.fromDto |> Option.bind Result.toOption
 
             let adm = dto.Admission |> List.choose (WeightAtDate.Dto.fromDto >> Result.toOption)
 
@@ -971,12 +932,10 @@ module HeightValue =
     let apply fM fCm = map (fM >> Meter) (fCm >> Centimeter)
 
 
-    let heightInMeter x =
-        x |> Conversions.meterFromDecimal |> Meter
+    let heightInMeter x = x |> Conversions.meterFromDecimal |> Meter
 
 
-    let heightInCm (x: decimal) =
-        x |> Conversions.cmFromDecimal |> Centimeter
+    let heightInCm (x: decimal) = x |> Conversions.cmFromDecimal |> Centimeter
 
 
     let getValue =
@@ -1074,18 +1033,15 @@ module HeightAtDate =
         }
 
 
-    let fromAgeType gend dt =
-        (HeightValue.fromAgeType gend) >> (Option.map (create dt))
+    let fromAgeType gend dt = (HeightValue.fromAgeType gend) >> (Option.map (create dt))
 
 
     module Optics =
 
 
-        let date =
-            (fun (h: HeightAtDate) -> h.Date), (fun dt h -> { h with HeightAtDate.Date = dt })
+        let date = (fun (h: HeightAtDate) -> h.Date), (fun dt h -> { h with HeightAtDate.Date = dt })
 
-        let height =
-            (fun (h: HeightAtDate) -> h.Height), (fun hv h -> { h with HeightAtDate.Height = hv })
+        let height = (fun (h: HeightAtDate) -> h.Height), (fun hv h -> { h with HeightAtDate.Height = hv })
 
 
     module Validation =
@@ -1152,14 +1108,12 @@ module Height =
     let unknown = create [] None None
 
 
-    let fromAgeType gend dt =
-        (HeightAtDate.fromAgeType gend dt) >> (create [] None)
+    let fromAgeType gend dt = (HeightAtDate.fromAgeType gend dt) >> (create [] None)
 
 
     module Optics =
 
-        let actual =
-            (fun (h: Height) -> h.Actual), (fun act h -> { h with Height.Actual = act })
+        let actual = (fun (h: Height) -> h.Actual), (fun act h -> { h with Height.Actual = act })
 
         let calculation =
             (fun (h: Height) -> h.Calculation), (fun calc h -> { h with Height.Calculation = calc })
@@ -1189,16 +1143,13 @@ module Height =
         h |> SetGet.getCalculation |> Option.map (HeightAtDate.toString fixPrec)
 
 
-    let actualToString fixPrec w =
-        toString fixPrec w |> fun (s, _, _) -> s
+    let actualToString fixPrec w = toString fixPrec w |> fun (s, _, _) -> s
 
 
-    let birthToString fixPrec w =
-        toString fixPrec w |> fun (_, s, _) -> s
+    let birthToString fixPrec w = toString fixPrec w |> fun (_, s, _) -> s
 
 
-    let calculationToString fixPrec w =
-        toString fixPrec w |> fun (_, _, s) -> s
+    let calculationToString fixPrec w = toString fixPrec w |> fun (_, _, s) -> s
 
 
     module Dto =
@@ -1215,8 +1166,7 @@ module Height =
         let fromDto (dto: Dto) =
             let act = dto.Actual |> List.choose (HeightAtDate.Dto.fromDto >> Result.toOption)
 
-            let birth =
-                dto.Birth |> Option.map HeightValue.Dto.fromDto |> Option.bind Result.toOption
+            let birth = dto.Birth |> Option.map HeightValue.Dto.fromDto |> Option.bind Result.toOption
 
             let calc =
                 dto.Calculation
@@ -1515,11 +1465,9 @@ module AgeWeeksDays =
 
     module Optics =
 
-        let weeks =
-            (fun (awd: AgeWeeksDays) -> awd.Weeks), (fun ws awd -> { awd with AgeWeeksDays.Weeks = ws })
+        let weeks = (fun (awd: AgeWeeksDays) -> awd.Weeks), (fun ws awd -> { awd with AgeWeeksDays.Weeks = ws })
 
-        let days =
-            (fun (awd: AgeWeeksDays) -> awd.Days), (fun ds awd -> { awd with AgeWeeksDays.Days = ds })
+        let days = (fun (awd: AgeWeeksDays) -> awd.Days), (fun ds awd -> { awd with AgeWeeksDays.Days = ds })
 
 
     module SetGet =
@@ -1541,8 +1489,7 @@ module AgeWeeksDays =
     let toGestation = SetGet.getWeeks >> GestationType.fromWeeks
 
 
-    let toDays (awd: AgeWeeksDays) =
-        (awd.Weeks |> Conversions.weeksToDays) + awd.Days
+    let toDays (awd: AgeWeeksDays) = (awd.Weeks |> Conversions.weeksToDays) + awd.Days
 
 
     let comp op awd1 awd2 = awd1 |> op <| awd2
@@ -1681,17 +1628,13 @@ module Patient =
         let diagnoses =
             (fun (pat: Patient) -> pat.Diagnoses), (fun diagn pat -> { pat with Patient.Diagnoses = diagn })
 
-        let Gender =
-            (fun (pat: Patient) -> pat.Gender), (fun gend pat -> { pat with Patient.Gender = gend })
+        let Gender = (fun (pat: Patient) -> pat.Gender), (fun gend pat -> { pat with Patient.Gender = gend })
 
-        let age =
-            (fun (pat: Patient) -> pat.Age), (fun age pat -> { pat with Patient.Age = age })
+        let age = (fun (pat: Patient) -> pat.Age), (fun age pat -> { pat with Patient.Age = age })
 
-        let weight =
-            (fun (pat: Patient) -> pat.Weight), (fun w pat -> { pat with Patient.Weight = w })
+        let weight = (fun (pat: Patient) -> pat.Weight), (fun w pat -> { pat with Patient.Weight = w })
 
-        let height =
-            (fun (pat: Patient) -> pat.Height), (fun h pat -> { pat with Patient.Height = h })
+        let height = (fun (pat: Patient) -> pat.Height), (fun h pat -> { pat with Patient.Height = h })
 
         let gestationalAge =
             (fun (pat: Patient) -> pat.GestationalAge), (fun gest pat -> { pat with Patient.GestationalAge = gest })

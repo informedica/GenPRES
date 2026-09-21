@@ -1,6 +1,10 @@
 namespace ServerApi
 
 
+/// The order mapper, and what the services still map by hand: the patient, the order context
+/// and the totals, each now with a mapper of its own next to this file. Those parts go once
+/// the services take the domain-typed ports; the order mapping, the dose type both ways and
+/// the text markup parser stay.
 module Mappers =
 
     open Informedica.Utils.Lib.BCL
@@ -68,7 +72,7 @@ module Mappers =
 
         /// The per-click increment used by the outer (first/last) navigation buttons: the
         /// calculated increment (OrderVariable.step uses CalculatedConstraints.Incr for the
-        /// useCalc path). When `coarse` is given and the calculated increment equals it, the
+        /// useCalc path). When coarse is given and the calculated increment equals it, the
         /// count is multiplied by 10 — mirroring the server's role-specific special cases.
         /// Generic order variables pass None so NO multiple is applied (the ×10 must only
         /// happen for the rate / quantity that the server actually multiplies). Optional —
@@ -121,8 +125,8 @@ module Mappers =
                 level
 
 
-        // Generic mapping: no outer ×10 multiple (used for every order variable that is
-        // not navigated as a rate or quantity).
+        /// Generic mapping: no outer ×10 multiple (used for every order variable that is
+        /// not navigated as a rate or quantity).
         let mapToOrderVariable = mapToOrderVariableWith None
 
         let tenthOf u =
@@ -133,8 +137,7 @@ module Mappers =
         // 1/10 mL/hour (Dose.stepRate).
         let mlTenth = Units.Volume.milliLiter |> tenthOf
 
-        let mlPerHourTenth =
-            Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour |> tenthOf
+        let mlPerHourTenth = Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour |> tenthOf
 
         // The rate / quantity an order navigates DO get the server's ×10 outer step when
         // their calculated increment is the 1/10 mL[/hour] coarse increment.
@@ -342,7 +345,7 @@ module Mappers =
         | Informedica.GenForm.Lib.Types.NoDoseType -> NoDoseType
 
 
-    let mapFromSharedPatient (pat: Types.Patient) =
+    let mapFromSharedPatient (pat: Patient) =
         { Patient.patient with
             Department = pat.Department |> Option.defaultValue "ICK" |> Some
             Age =
@@ -393,89 +396,6 @@ module Mappers =
         |> Patient.calcPMAge
 
 
-    let mapFromShared logger provider pat (ctx: OrderContext) : Informedica.GenOrder.Lib.Types.OrderContext =
-
-        let mappedCtx = OrderContext.create logger provider pat
-
-        let setFilter eqs itm items =
-            match
-                items
-                |> Array.tryFind (fun x -> itm |> Option.map (eqs x) |> Option.defaultValue false)
-            with
-            | Some x -> itm, [| x |]
-            | None -> None, items
-
-        { mappedCtx with
-            Scenarios =
-                ctx.Scenarios
-                |> Array.collect (fun sc ->
-                    match sc.Order |> Order.mapFromSharedToOrder |> Order.Dto.fromDto with
-                    | Ok ord -> [| (sc, ord) |]
-                    | Error _ -> [||]
-
-                )
-                |> Array.mapi (fun i (sc, ord) ->
-                    OrderScenario.create
-                        i
-                        sc.Name
-                        sc.Indication
-                        sc.Form
-                        sc.Route
-                        (sc.DoseType |> mapFromSharedDoseTypeToOrderDoseType)
-                        sc.Diluent
-                        sc.Component
-                        sc.Item
-                        sc.Diluents
-                        sc.Components
-                        sc.Items
-                        ord
-                        sc.UseAdjust
-                        sc.UseRenalRule
-                        sc.RenalRule
-                        sc.ProductIds
-                )
-
-            Filter =
-                let ind, inds =
-                    mappedCtx.Filter.Indications
-                    |> setFilter String.equalsCapInsens ctx.Filter.Indication
-
-                let gen, gens =
-                    mappedCtx.Filter.Generics |> setFilter String.equalsCapInsens ctx.Filter.Generic
-
-                let rte, rtes =
-                    mappedCtx.Filter.Routes |> setFilter String.equalsCapInsens ctx.Filter.Route
-
-                let shp, shps =
-                    mappedCtx.Filter.Forms |> setFilter String.equalsCapInsens ctx.Filter.Form
-
-                let dtp, dtps =
-                    mappedCtx.Filter.DoseTypes
-                    |> setFilter DoseType.eqs (ctx.Filter.DoseType |> Option.map mapFromSharedDoseTypeToOrderDoseType)
-
-                { mappedCtx.Filter with
-                    Indication = ind
-                    Indications = inds
-                    Generic = gen
-                    Generics = gens
-                    Route = rte
-                    Routes = rtes
-                    Form = shp
-                    Forms = shps
-                    DoseType = dtp
-                    DoseTypes =
-                        if dtps |> Array.length = 1 then
-                            dtps
-                        else
-                            ctx.Filter.DoseTypes |> Array.map mapFromSharedDoseTypeToOrderDoseType
-                    Diluents = ctx.Filter.Diluents
-                    Components = ctx.Filter.Components
-                    Diluent = ctx.Filter.Diluent
-                    SelectedComponents = ctx.Filter.SelectedComponents
-                }
-        }
-
-
     /// Configuration for text item delimiters
     /// Each delimiter maps to a constructor function and its delimiter character
     type private DelimiterConfig =
@@ -524,8 +444,7 @@ module Mappers =
                 |> List.tryFind (fun d -> d.Delimiter = char && d.IsActive currentItem)
 
             /// Check if a character is any delimiter
-            let tryFindDelimiter char =
-                delimiters |> List.tryFind (fun d -> d.Delimiter = char)
+            let tryFindDelimiter char = delimiters |> List.tryFind (fun d -> d.Delimiter = char)
 
             /// Process each character through the state machine
             let processChar (currentItem, completedItems) char =
@@ -555,94 +474,5 @@ module Mappers =
             |> Seq.fold processChar (Normal "", [])
             |> fun (lastItem, items) -> lastItem :: items
             |> List.rev
-            |> List.filter (fun item -> item |> getText |> String.isNullOrWhiteSpace |> not)
+            |> List.filter (fun item -> item |> getText |> String.notEmpty)
             |> List.toArray
-
-
-    let mapTextBlock (tb: Informedica.GenOrder.Lib.Types.TextBlock) =
-        match tb with
-        | Informedica.GenOrder.Lib.Types.Valid s
-        | Informedica.GenOrder.Lib.Types.Caution s
-        | Informedica.GenOrder.Lib.Types.Warning s
-        | Informedica.GenOrder.Lib.Types.Alert s ->
-            if s |> String.isNullOrWhiteSpace then
-                [||] |> Valid
-            else
-                let ti = s |> parseTextItem
-
-                match tb with
-                | Informedica.GenOrder.Lib.Types.Valid _ -> ti |> Valid
-                | Informedica.GenOrder.Lib.Types.Caution _ -> ti |> Caution
-                | Informedica.GenOrder.Lib.Types.Warning _ -> ti |> Warning
-                | Informedica.GenOrder.Lib.Types.Alert _ -> ti |> Alert
-
-
-    let mapToShared ctx (newCtx: Informedica.GenOrder.Lib.Types.OrderContext) : OrderContext =
-        { ctx with
-            Filter =
-                { ctx.Filter with
-                    Indications = newCtx.Filter.Indications
-                    Generics = newCtx.Filter.Generics
-                    Routes = newCtx.Filter.Routes
-                    Forms = newCtx.Filter.Forms
-                    DoseTypes = newCtx.Filter.DoseTypes |> Array.map mapFromOrderDoseTypeToSharedDoseType
-                    Diluents = newCtx.Filter.Diluents
-                    Components = newCtx.Filter.Components
-                    Indication = newCtx.Filter.Indication
-                    Generic = newCtx.Filter.Generic
-                    Form = newCtx.Filter.Form
-                    Route = newCtx.Filter.Route
-                    DoseType = newCtx.Filter.DoseType |> Option.map mapFromOrderDoseTypeToSharedDoseType
-                    Diluent = newCtx.Filter.Diluent
-                    SelectedComponents = newCtx.Filter.SelectedComponents
-                }
-
-            Scenarios =
-                newCtx.Scenarios
-                |> Array.map (fun sc ->
-                    Models.OrderScenario.create
-                        sc.Indication
-                        sc.Name
-                        sc.Form
-                        sc.Route
-                        (sc.DoseType |> mapFromOrderDoseTypeToSharedDoseType)
-                        sc.Diluent
-                        sc.Component
-                        sc.Item
-                        sc.Diluents
-                        sc.Components
-                        sc.Items
-                        (sc.Prescription |> Array.map (Array.map mapTextBlock))
-                        (sc.Preparation |> Array.map (Array.map mapTextBlock))
-                        (sc.Administration |> Array.map (Array.map mapTextBlock))
-                        (sc.Order |> (Order.Dto.toDto >> Order.mapFromOrderToShared sc.Items))
-                        sc.UseAdjust
-                        sc.UseRenalRule
-                        sc.RenalRule
-                        sc.ProductsIds
-                )
-        }
-
-
-    let mapToTotals (intake: Informedica.GenOrder.Lib.Types.Totals) : Totals =
-        let toTextItem = Option.map parseTextItem >> (Option.defaultValue [||])
-
-        {
-            Volume = intake.Volume |> toTextItem
-            Energy = intake.Energy |> toTextItem
-            Protein = intake.Protein |> toTextItem
-            Carbohydrate = intake.Carbohydrate |> toTextItem
-            Fat = intake.Fat |> toTextItem
-            Sodium = intake.Sodium |> toTextItem
-            Potassium = intake.Potassium |> toTextItem
-            Chloride = intake.Chloride |> toTextItem
-            Calcium = intake.Calcium |> toTextItem
-            Magnesium = intake.Magnesium |> toTextItem
-            Phosphate = intake.Phosphate |> toTextItem
-            Iron = intake.Iron |> toTextItem
-            VitaminD = intake.VitaminD |> toTextItem
-            Ethanol = intake.Ethanol |> toTextItem
-            Propyleenglycol = intake.Propyleenglycol |> toTextItem
-            BenzylAlcohol = intake.BenzylAlcohol |> toTextItem
-            BoricAcid = intake.BoricAcid |> toTextItem
-        }

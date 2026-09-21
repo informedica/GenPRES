@@ -16,11 +16,13 @@
     <Compile Include="Order.fs" />
     <Compile Include="OrderProcessor.fs" />
     <Compile Include="Totals.fs" />
+    <Compile Include="Dtos.fs" />
     <Compile Include="Medication.fs" />
     <Compile Include="Nutrition.fs" />
     <Compile Include="Patient.fs" />
     <Compile Include="OrderLogging.fs" />
     <Compile Include="Api.fs" />
+    <Compile Include="OrderPlan.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\OrderVariable.fsx" />
     <None Include="Scripts\Scenarios.fsx" />

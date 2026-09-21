@@ -34,7 +34,18 @@ type TotalsSpy() =
         member _.GetUnitMappings() = raise (NotImplementedException())
         member _.GetValidForms() = raise (NotImplementedException())
 
-let emptyPlan = Models.OrderPlan.empty
+/// The stub platform's patient in the domain: the port is typed on domain values.
+let patient () =
+    ServerApi.Patient.parse ServerApi.StubPatientData.patient
+    |> Result.defaultWith (fun e -> invalidOp $"no patient: %A{e}")
+
+
+let emptyPlan () = Informedica.GenOrder.Lib.OrderPlan.create (patient ()) [||]
+
+
+let emptyContext () =
+    ServerApi.OrderContextService.parse { Models.OrderContext.empty with Patient = ServerApi.StubPatientData.patient }
+    |> Result.defaultWith (fun e -> invalidOp $"no plan context: %A{e}")
 
 [<Tests>]
 let tests =
@@ -46,7 +57,7 @@ let tests =
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
-                let! _ = sut.orderPlan.recalculate emptyPlan
+                let! _ = sut.orderPlan.recalculate (emptyPlan ())
 
                 let countAfter = spy.CallCount
                 countBefore <! countAfter
@@ -57,13 +68,11 @@ let tests =
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
-                let dummyCmd = Shared.Api.OrderContextCommand.UpdateOrderContext
-                let! _ = sut.orderPlan.navigate emptyPlan "dummy ID" dummyCmd Models.OrderContext.empty
+                let dummyCmd = Informedica.GenOrder.Lib.OrderContext.UpdateOrderContext
+                let! _ = sut.orderPlan.navigate (emptyPlan ()) "dummy ID" dummyCmd (emptyContext ())
 
                 let countAfter = spy.CallCount
-                // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
-                // provider.GetTotals():
-                countBefore + 1 <! countAfter
+                countBefore <! countAfter
             }
 
             testAsync "newOrderContext doesn't cache totals" {
@@ -71,12 +80,22 @@ let tests =
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
-                let! _ = sut.orderPlan.newOrderContext emptyPlan NutritionCategory.TPN
+                let! _ =
+                    sut.orderPlan.newOrderContext (emptyPlan ()) Informedica.GenOrder.Lib.Types.NutritionCategory.TPN
 
                 let countAfter = spy.CallCount
-                // The + 1 is a terrible hack to account for orderCtxPort unrelatedly also calling
-                // provider.GetTotals():
-                countBefore + 1 <! countAfter
+                countBefore <! countAfter
+            }
+
+            testAsync "openWith recomputes the totals over the contexts opened" {
+                let spy = TotalsSpy()
+                let sut = ServerApi.Adapters.makeAppEnv spy
+                let countBefore = spy.CallCount
+
+                let! _ = sut.orderPlan.openWith (patient ()) [||]
+
+                let countAfter = spy.CallCount
+                countBefore <! countAfter
             }
 
             testAsync "removeOrderContexts doesn't cache totals" {
@@ -84,7 +103,7 @@ let tests =
                 let sut = ServerApi.Adapters.makeAppEnv spy
                 let countBefore = spy.CallCount
 
-                let! _ = sut.orderPlan.removeOrderContexts emptyPlan [| "dummy ID" |]
+                let! _ = sut.orderPlan.removeOrderContexts (emptyPlan ()) [| "dummy ID" |]
 
                 let countAfter = spy.CallCount
                 countBefore <! countAfter

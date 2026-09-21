@@ -13,8 +13,7 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     let cts = new CancellationTokenSource()
 
     // Track the lifetime of the mailbox processing loop without starting a second loop
-    let tcs =
-        TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
+    let tcs = TaskCompletionSource<unit>(TaskCreationOptions.RunContinuationsAsynchronously)
 
     let errEvent = Event<_>()
 
@@ -88,8 +87,7 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     /// <summary>
     /// Posts a message to the agent and synchronously waits for a reply, with a timeout.
     /// </summary>
-    member _.TryPostAndReply(messageBuilder, timeout) =
-        mbox.TryPostAndReply(messageBuilder, timeout)
+    member _.TryPostAndReply(messageBuilder, timeout) = mbox.TryPostAndReply(messageBuilder, timeout)
 
     /// <summary>
     /// Posts a message to the agent and asynchronously waits for a reply.
@@ -99,8 +97,7 @@ type Agent<'T>(body: Agent<'T> -> Async<unit>) as self =
     /// <summary>
     /// Posts a message to the agent and asynchronously waits for a reply, with a timeout.
     /// </summary>
-    member _.PostAndTryAsyncReply(messageBuilder, timeout) =
-        mbox.PostAndTryAsyncReply(messageBuilder, timeout)
+    member _.PostAndTryAsyncReply(messageBuilder, timeout) = mbox.PostAndTryAsyncReply(messageBuilder, timeout)
 
     /// <summary>
     /// Starts the agent's processing loop.
@@ -356,8 +353,7 @@ module Agent =
     /// <param name="msg">The request message.</param>
     /// <param name="agent">The agent instance.</param>
     /// <returns>An Async computation returning the reply.</returns>
-    let postAndAsyncReply msg (agent: Agent<_>) =
-        agent.PostAndAsyncReply(fun replyChannel -> msg, replyChannel)
+    let postAndAsyncReply msg (agent: Agent<_>) = agent.PostAndAsyncReply(fun replyChannel -> msg, replyChannel)
 
     /// <summary>
     /// Posts a request to the agent and asynchronously tries to receive a reply within the specified timeout.

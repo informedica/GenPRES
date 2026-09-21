@@ -3,6 +3,12 @@ namespace ServerApi
 open Shared.Types
 open Shared.Api
 
+// The ports on domain values name the domain through these; unqualified, the names below
+// are the contract model's, which the other ports still take.
+module GenOrder = Informedica.GenOrder.Lib.Types
+module GenOrderContext = Informedica.GenOrder.Lib.OrderContext
+module GenForm = Informedica.GenForm.Lib.Types
+
 
 type FormularyPort =
     {
@@ -11,22 +17,39 @@ type FormularyPort =
     }
 
 
-type OrderContextPort = { evaluate: OrderContextCommand -> OrderContext -> Async<Result<OrderContext, string[]>> }
+/// The prescribing workbench's port: the domain's command verb over a plan context, the
+/// answer a plan context with its intake. The verb is the wire's, mapped by the command
+/// handler; the context is parsed there too, so the port never sees the contract model.
+type OrderContextPort =
+    {
+        evaluate:
+            (GenOrder.OrderContext -> GenOrderContext.Command)
+                -> GenOrder.PlanContext
+                -> Async<Result<GenOrder.PlanContext, string[]>>
+    }
 
 
 /// The one plan: every member answers the plan with its totals recomputed over its orders.
+/// The verb of a navigation is the wire's, mapped by the command handler; the plan and the
+/// contexts are parsed there too, so the port never sees the contract model.
 type OrderPlanPort =
     {
-        recalculate: OrderPlan -> Async<Result<OrderPlan, string[]>>
+        recalculate: GenOrder.OrderPlan -> Async<Result<GenOrder.OrderPlan, string[]>>
         // the command into the context named
-        navigate: OrderPlan -> string -> OrderContextCommand -> OrderContext -> Async<Result<OrderPlan, string[]>>
+        navigate:
+            GenOrder.OrderPlan
+                -> string
+                -> (GenOrder.OrderContext -> GenOrderContext.Command)
+                -> GenOrder.PlanContext
+                -> Async<Result<GenOrder.OrderPlan, string[]>>
         // a workbench evaluated elsewhere into the plan as it is
-        addOrderContext: OrderPlan -> OrderContext -> Async<Result<OrderPlan, string[]>>
+        addOrderContext: GenOrder.OrderPlan -> GenOrder.PlanContext -> Async<Result<GenOrder.OrderPlan, string[]>>
         // a fresh workbench for a nutrition category, its filter discovered
-        newOrderContext: OrderPlan -> NutritionCategory -> Async<Result<OrderPlan, string[]>>
+        newOrderContext: GenOrder.OrderPlan -> GenOrder.NutritionCategory -> Async<Result<GenOrder.OrderPlan, string[]>>
         // the contexts named, every kind; a feeding takes its supplements with it
-        removeOrderContexts: OrderPlan -> string[] -> Async<Result<OrderPlan, string[]>>
-        openWith: PatientDto -> OrderContext[] -> Async<Result<OrderPlan, string[]>>
+        removeOrderContexts: GenOrder.OrderPlan -> string[] -> Async<Result<GenOrder.OrderPlan, string[]>>
+        // a signed version's patient and contexts as they were, nothing evaluated
+        openWith: GenForm.Patient -> GenOrder.PlanContext[] -> Async<Result<GenOrder.OrderPlan, string[]>>
     }
 
 
@@ -71,8 +94,8 @@ type UserStanding =
     }
 
 
-/// The IdentityProvider. `authorizeUrl` is where the browser is sent with the `state`;
-/// `redeem` exchanges the callback's code for the identity over the server's own connection.
+/// The IdentityProvider. authorizeUrl is where the browser is sent with the state;
+/// redeem exchanges the callback's code for the identity over the server's own connection.
 type IdentityProviderPort =
     {
         authorizeUrl: string -> string
@@ -83,9 +106,10 @@ type IdentityProviderPort =
 type UserRegistryPort = { standing: BrowserIdentity -> UserStanding option }
 
 
-/// The PatientDataPlatform, read once at the launch. `None` is not a refusal: the Session
-/// opens without imported data.
-type PatientDataPort = { read: string -> PatientDto option }
+/// The PatientDataPlatform, read once at the launch and again at a challenge, as the domain's
+/// patient: the adapter parses what the platform gives, and a reading that is no patient is
+/// no reading. None is not a refusal: the Session opens without imported data.
+type PatientDataPort = { read: string -> GenForm.Patient option }
 
 
 /// One mail from the Server to a User: a confirmation code, a notice that the PIN was set,
@@ -103,20 +127,137 @@ type Mail =
 type MailPort = { send: Mail -> unit }
 
 
+/// A row the release cannot read: its identity from the plain columns beside the JSON,
+/// which are authoritative, and why.
+type UnreadableVersion =
+    {
+        Id: string
+        No: int
+        PatientId: string
+        Base: string option
+        SignedBy: GenOrder.Signer
+        SignedAt: System.DateTime
+        Reason: string
+    }
+
+
+/// A version as the record holds it once loaded: parsed, or kept by its identity when the
+/// row cannot be read (a structure version newer than the release knows, an upgrade that
+/// fails, a Dto the domain refuses), so that nothing vanishes and nothing is overtaken.
+[<RequireQualifiedAccess>]
+type StoredVersion =
+    | Readable of GenOrder.OrderPlanVersion
+    | Unreadable of UnreadableVersion
+
+
+module StoredVersion =
+
+    /// Who signed, as the client knows a user: only a Prescriber signs.
+    let private signer (s: GenOrder.Signer) : UserContext =
+        {
+            UserId = s.UserId
+            DisplayName = s.DisplayName
+            Role = UserRole.Prescriber
+        }
+
+
+    let id =
+        function
+        | StoredVersion.Readable v -> v.Id
+        | StoredVersion.Unreadable u -> u.Id
+
+
+    let no =
+        function
+        | StoredVersion.Readable v -> v.No
+        | StoredVersion.Unreadable u -> u.No
+
+
+    /// The id of a version that can be read; none for one that cannot.
+    let readableId =
+        function
+        | StoredVersion.Readable v -> Some v.Id
+        | StoredVersion.Unreadable _ -> None
+
+
+    /// What identifies the version to the client: whose, and when.
+    let head (version: StoredVersion) : OrderPlanHead =
+        match version with
+        | StoredVersion.Readable v ->
+            {
+                Id = v.Id
+                No = v.No
+                By = signer v.SignedBy
+                SignedAt = v.SignedAt
+            }
+        | StoredVersion.Unreadable u ->
+            {
+                Id = u.Id
+                No = u.No
+                By = signer u.SignedBy
+                SignedAt = u.SignedAt
+            }
+
+
+/// What the store holds of an open Session: who, for which patient and on what data, the
+/// token, the key thumbprint, and the head of the record it opened with, readable or not.
+/// The command handlers map it to what the client keeps.
+type OpenedSession =
+    {
+        /// None = anonymous session: opened without a launch, no User, no Role
+        User: UserContext option
+        /// None = launch without an active patient
+        PatientId: string option
+        /// the data shown for the patient: the platform's reading, else the head's, else none
+        Patient: GenForm.Patient option
+        OpenedToken: OpenedToken option
+        /// RFC 7638 thumbprint of the public key this Session will sign requests with
+        KeyThumbprint: string option
+        /// the head of the record it opened with; None from nothing
+        Head: StoredVersion option
+    }
+
+
+/// The signature as the session service takes it: the plan parsed at the boundary, the
+/// OpenedToken the Session holds, the challenge it was issued, the PIN, and the client's own
+/// key so that the commit takes effect once. Never logged.
+type Signature =
+    {
+        Plan: GenOrder.OrderPlan
+        Opened: OpenedToken
+        Challenge: string
+        Pin: string
+        IdemKey: string
+    }
+
+
+/// The answer of the session service to a signing command, on domain values; the command
+/// handler maps it to the wire's SigningResponse.
+[<RequireQualifiedAccess>]
+type SigningOutcome =
+    /// the challenge over exactly this plan; comes back with the PIN
+    | ChallengeIssued of challenge: string
+    /// no challenge yet: the token, and the data as it stands, none when it could not be read
+    | DataNotice of token: string * data: GenForm.Patient option
+    /// the version committed, and a fresh OpenedToken over it
+    | Submitted of GenOrder.OrderPlanVersion * OpenedToken
+    | Refused of SigningRefusal
+
+
 /// The session adapter's answer to a presentation. The session id is the server's to put in
-/// the cookie; the composition root maps this to the client's `LaunchOutcome` without it.
-/// `RedirectTo` carries the `state` the edge writes to the state cookie next to the url
+/// the cookie; the composition root maps this to the client's LaunchOutcome without it.
+/// RedirectTo carries the state the edge writes to the state cookie next to the url
 /// that carries it to the IdentityProvider.
 [<RequireQualifiedAccess>]
 type LaunchResult =
-    | Opened of sessionId: string * SessionOpened
+    | Opened of sessionId: string * OpenedSession
     | RedirectTo of url: string * state: string
     | Refused of LaunchRefusal
-    // the launch suspended at the PIN question; the browser holds the attempt in a cookie
+    /// the launch suspended at the PIN question; the browser holds the attempt in a cookie
     | Enrolling of attemptId: string
 
 
-/// What the callback from the IdentityProvider brings: the `state` from the url and from the
+/// What the callback from the IdentityProvider brings: the state from the url and from the
 /// cookie, and either a code or the IdentityProvider's error.
 type Callback =
     {
@@ -133,18 +274,18 @@ type Callback =
 type CallbackResult =
     | Opened of sessionId: string * redirect: string
     | Refused of LaunchRefusal * redirect: string
-    // a reload of a callback whose Session a newer launch has since replaced: the browser
-    // goes to the app on whatever cookie it holds, which is the newer Session's
+    /// a reload of a callback whose Session a newer launch has since replaced: the browser
+    /// goes to the app on whatever cookie it holds, which is the newer Session's
     | Superseded of redirect: string
-    // the launch suspended at the PIN question: the attempt for the enrolment cookie, and
-    // how long the code it is bound to lives
+    /// the launch suspended at the PIN question: the attempt for the enrolment cookie, and
+    /// how long the code it is bound to lives
     | Enrolling of attemptId: string * redirect: string * until: System.DateTime
 
 
 /// The answer to a supplied PIN: the Session that opened, or why not.
 [<RequireQualifiedAccess>]
 type SupplyPinResult =
-    | Opened of sessionId: string * SessionOpened
+    | Opened of sessionId: string * OpenedSession
     | Refused of PinRefusal
 
 
@@ -153,7 +294,7 @@ type SupplyPinResult =
 /// acknowledges with CloseSession, which deletes the cookie and drops the ending.
 [<RequireQualifiedAccess>]
 type SessionLookup =
-    | Found of SessionOpened
+    | Found of OpenedSession
     | NotFound
     | Ended of SessionEnding
 
@@ -175,15 +316,15 @@ type SessionPort =
         supplyPin: string -> string -> string -> Async<SupplyPinResult>
         // an attempt the browser gave up on (CloseSession while enrolling)
         dropEnrolment: string -> Async<unit>
-        // a signing challenge over the plan as shown, for the Session the cookie names
-        challenge: string -> OrderPlan * OpenedToken * string option -> Async<SigningResponse>
-        // the signature, for the Session the cookie names
-        submit: string -> Submission -> Async<SigningResponse>
+        // a signing challenge over the plan as shown, parsed, for the Session the cookie names
+        challenge: string -> GenOrder.OrderPlan * OpenedToken * string option -> Async<SigningOutcome>
+        // the signature, its plan parsed, for the Session the cookie names
+        submit: string -> Signature -> Async<SigningOutcome>
         // every computing request: the Session the cookie names is marked seen and told
         // whether the record moved on or the Session ended
         seen: string -> OpenedToken option -> Async<RecordNotice option>
         // the version named becomes what the Session the cookie names opened with
-        openVersion: string -> string -> Async<SessionOpened option>
+        openVersion: string -> string -> Async<OpenedSession option>
     }
 
 
@@ -226,4 +367,7 @@ type AppEnv =
         admin: AdminPort
         requireLoaded: unit -> string[] option
         session: SessionPort
+        // whether the server runs on the demo data; read once at start-up, told on every
+        // context the client gets
+        demo: bool
     }

@@ -9,6 +9,12 @@ open Informedica.GenForm.Lib
 open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
 
+
+/// The start every order in the tests is built with, so that two orders built from the same
+/// medication are equal. Building reads no clock: the start is the caller's.
+let testStart = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+
+
 let pcmSuppText =
     """
 Id: 047f9e19-4cfc-43cb-b7ee-f88f23d2eab6
@@ -60,20 +66,7 @@ let pcmSupp =
                             { Medication.substanceItem with
                                 Name = "paracetamol"
                                 Concentrations =
-                                    [|
-                                        120
-                                        240
-                                        500
-                                        1_000
-                                        125
-                                        250
-                                        60
-                                        30
-                                        360
-                                        90
-                                        750
-                                        180
-                                    |]
+                                    [| 120; 240; 500; 1_000; 125; 250; 60; 30; 360; 90; 750; 180 |]
                                     |> Array.map BigRational.fromInt
                                     |> ValueUnit.withUnit cu
                                     |> Some

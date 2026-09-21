@@ -43,11 +43,9 @@ module Calculations =
 
         let private duBois w h = 0.007184 * (w ** 0.425) * (h ** 0.725)
 
-        let private haycock w h =
-            0.024265 * (w ** 0.5378) * (h ** 0.3964)
+        let private haycock w h = 0.024265 * (w ** 0.5378) * (h ** 0.3964)
 
-        let private gehanAndGeorge w h =
-            0.0235 * (w ** 0.51456) * (h ** 0.42246)
+        let private gehanAndGeorge w h = 0.0235 * (w ** 0.51456) * (h ** 0.42246)
 
         let private fujimoto w h = 0.008883 * (w ** 0.444) * (h ** 0.663)
 

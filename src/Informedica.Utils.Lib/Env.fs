@@ -9,6 +9,8 @@ module Env =
     open System.Diagnostics
     open System.Runtime.InteropServices
 
+    open Informedica.Utils.Lib.BCL
+
 
     /// Returns current process environment variables as a dictionary (portable)
     /// - Uses the current process environment only (works on all platforms)
@@ -44,38 +46,20 @@ module Env =
         | v -> Some v
 
 
-    /// Search upward from startDir for a file named fileName.
-    /// Returns the full path if found, None otherwise.
-    let private findFileUpward fileName startDir =
-        let rec search dir =
-            if String.IsNullOrEmpty(dir) then
-                None
-            else
-                let candidate = Path.Combine(dir, fileName)
-
-                if File.Exists(candidate) then
-                    Some candidate
-                else
-                    let parent = Directory.GetParent(dir)
-                    if parent <> null then search parent.FullName else None
-
-        search startDir
-
-
     /// Load environment variables from a .env file.
     /// Searches upward from the current directory for a .env file.
     /// Only sets variables that are not already set in the environment,
     /// preserving the override chain: shell/CI/Docker > .env > code defaults.
     /// Returns true if a .env file was found and processed.
     let loadDotEnv () =
-        match findFileUpward ".env" Environment.CurrentDirectory with
+        match Environment.CurrentDirectory |> Directory.tryFindFileUpward ".env" with
         | None -> false
         | Some path ->
             File.ReadAllLines(path)
             |> Array.iter (fun line ->
                 let trimmed = line.Trim()
 
-                if not (String.IsNullOrEmpty(trimmed)) && not (trimmed.StartsWith("#")) then
+                if trimmed |> String.notNullOrEmpty && not (trimmed.StartsWith("#")) then
                     match trimmed.IndexOf('=') with
                     | -1 -> ()
                     | idx ->

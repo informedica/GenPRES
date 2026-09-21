@@ -85,10 +85,11 @@ De URL gebruikt hash-based routing (`/#patient?...`). Ondersteunde queryparamete
 
 Voorbeeldpatiënten via queryparameters:
 
-> **Sommige van deze links zetten geen `ht` (lengte), en enkele zetten `wt` noch `ht`.** GenPRES
-> berekent pas een dosis wanneer zowel gewicht als lengte bekend zijn; het openen van zo'n link
-> geeft dus een gevuld patiëntpaneel zonder berekening — vul de ontbrekende maat aan om verder te
-> gaan. Links die al `wt` en `ht` bevatten, komen direct op een dosis uit.
+> **Sommige van deze links zetten geen `ht` (lengte), en enkele zetten `wt` noch `ht`.** Een
+> patiënt heeft een leeftijd nodig, of een gewicht en een lengte: met een leeftijd schat GenPRES
+> het gewicht en de lengte die het niet heeft en zegt dat erbij; met alleen een gewicht is er nog
+> geen patiënt en zegt het paneel wat ontbreekt — vul de lengte aan om verder te gaan. Links met
+> een leeftijd, of met `wt` en `ht`, komen direct op een dosis uit.
 
 | Leeftijd (jaren) | Leeftijd (dagen) | ZD (weken) | Gewicht (kg) | Lengte (cm) | Medicatie | Toedieningsweg | Indicatie | Link |
 |---|---|---|---|---|---|---|---|---|
@@ -163,9 +164,10 @@ Toont de berekende doseringsrange op basis van de patiëntparameters en het gese
 
 ### Stapsgewijze werkwijze
 
-1. **Voer patiëntgegevens in** in het patiëntpaneel. Zowel **gewicht als lengte** zijn nodig
-   voordat doses worden berekend — ontbreekt er één, dan blijft het paneel open en verschijnt
-   er geen dosis.
+1. **Voer patiëntgegevens in** in het patiëntpaneel. Een patiënt heeft **een leeftijd, of een
+   gewicht en een lengte** nodig voordat doses worden berekend — daaronder blijft het paneel open
+   en zegt het wat ontbreekt. Met alleen een leeftijd worden gewicht en lengte geschat, en het
+   paneel toont ze als schatting; een gemeten waarde vervangt de schatting.
 2. **Kies de indicatie en het generiek** uit de keuzelijsten.
 3. **Kies toedieningsweg, vorm en doseertype.** Alleen combinaties waarvoor een doseerregel
    bestaat, worden aangeboden.
@@ -227,7 +229,7 @@ U kunt een volledige end-to-end workflow uitvoeren zonder echte patiëntgegevens
 3. Voer op het hoofdscherm **handmatig testpatiëntgegevens in**:
    - Leeftijd: bijv. `2` jaar
    - Gewicht: bijv. `12` kg
-   - Lengte: bijv. `87` cm (verplicht — zonder lengte wordt geen dosis berekend)
+   - Lengte: bijv. `87` cm (met het gewicht het alternatief voor een leeftijd; geschat als er een leeftijd is)
    - Geslacht: `Man`
 
 4. Selecteer een medicatie, bijv. `paracetamol`.

@@ -103,7 +103,10 @@ fresh one.
 
 ## Not built
 
-The audit of every enrolment and every mail sent (Rule 46). The wrong-PIN limit at signing is
+The audit of an enrolment and of a code mailed or entered wrongly (Rule 46) is written on the
+SQLite store and nowhere else: the in-memory store audits nothing, and no one can read the table
+back yet ([#516](https://github.com/informedica/GenPRES/issues/516)); what the MailService sent
+is audited by neither. The wrong-PIN limit at signing is
 [uc-03](uc-03-prescribe-and-sign.md); a forgotten PIN is [uc-06](uc-06-forgotten-pin.md),
 which is not built.
 

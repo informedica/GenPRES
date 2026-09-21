@@ -9,5 +9,4 @@ module Router =
 
 
     [<ReactComponent>]
-    let View (props: {| onUrlChanged: string list -> unit |}) =
-        React.router [ router.onUrlChanged props.onUrlChanged ]
+    let View (props: {| onUrlChanged: string list -> unit |}) = React.router [ router.onUrlChanged props.onUrlChanged ]

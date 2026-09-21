@@ -45,5 +45,4 @@ module Generators =
         }
 
 
-    let testProp testName prop =
-        prop |> testPropertyWithConfig config testName
+    let testProp testName prop = prop |> testPropertyWithConfig config testName

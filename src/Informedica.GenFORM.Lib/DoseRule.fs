@@ -70,7 +70,7 @@ module DoseRule =
                     $"%s{dl.Quantity |> printMinMaxDose perDose}"
                 ]
                 |> List.map String.trim
-                |> List.filter (String.IsNullOrEmpty >> not)
+                |> List.filter String.notNullOrEmpty
                 |> String.concat ", "
                 |> fun s -> $"%s{dl.DoseLimitTarget |> LimitTarget.toString} %s{wrap}%s{s}{wrap}"
             )
@@ -94,7 +94,7 @@ module DoseRule =
         /// an empty index — rendered below as the existing "*Lokaal*" fallback — is
         /// reported as a resource <c>Warning</c>, and is refreshed by an admin
         /// ReloadResources. Keeping the fetch here made this module impure and its cache
-        /// unreachable by that reload. See issue #529.
+        /// unreachable by that reload.
         /// </param>
         /// <param name="rules">The dose rules to render.</param>
         let toMarkdown (getLink: Source.LinkProvider) (rules: DoseRule array) =
@@ -115,8 +115,7 @@ module DoseRule =
                     let names = names |> String.concat ", "
                     $"* %s{names}"
 
-            let indication_md indication =
-                $"\n\n## Indicatie: %s{indication}\n\n---\n"
+            let indication_md indication = $"\n\n## Indicatie: %s{indication}\n\n---\n"
 
             let doseCapt_md = "\n\n#### Doseringen\n\n"
 
@@ -131,11 +130,11 @@ module DoseRule =
 
                 let s =
                     [
-                        if intv |> String.isNullOrWhiteSpace |> not then
+                        if intv |> String.notEmpty then
                             $" %s{intv}"
-                        if time |> String.isNullOrWhiteSpace |> not then
+                        if time |> String.notEmpty then
                             $" inloop tijd %s{time}"
-                        if dur |> String.isNullOrWhiteSpace |> not then
+                        if dur |> String.notEmpty then
                             $" %s{dur}"
                     ]
                     |> String.concat ", "
@@ -234,7 +233,7 @@ module DoseRule =
                                                 )
                                             )
                                             |> Array.map (fun p ->
-                                                if p.GPK |> String.IsNullOrWhiteSpace then
+                                                if p.GPK |> String.isNullOrWhiteSpace then
                                                     p.Label
                                                 else
                                                     $"{p.GPK} - {p.Label}"
@@ -545,7 +544,7 @@ module DoseRule =
                 SubstanceLimits =
                     rs
                     // if a substance the limit is a substance limit
-                    |> Array.filter (_.ScheduleData.DoseLimitData.Substance >> String.isNullOrWhiteSpace >> not)
+                    |> Array.filter (_.ScheduleData.DoseLimitData.Substance >> String.notEmpty)
                     |> getDoseLimits
             }
         )
@@ -900,8 +899,7 @@ module DoseRule =
 
         let mmTuple = MinMax.toValueTuple
 
-        let freqs =
-            dr.Frequencies |> Option.map ValueUnit.getValue |> Option.defaultValue [||]
+        let freqs = dr.Frequencies |> Option.map ValueUnit.getValue |> Option.defaultValue [||]
 
         {
             DoseType = doseType
@@ -1022,8 +1020,7 @@ module DoseRule =
     let routes = getMember _.Route
 
 
-    let doseTypes (dsrs: DoseRule[]) =
-        dsrs |> Array.map _.DoseType |> Array.distinct
+    let doseTypes (dsrs: DoseRule[]) = dsrs |> Array.map _.DoseType |> Array.distinct
 
 
     /// Extract all the departments from the DoseRules.
@@ -1044,8 +1041,7 @@ module DoseRule =
 
 
     /// Extract all frequencies from the DoseRules as strings.
-    let frequencies (drs: DoseRule array) =
-        drs |> Array.map Print.printFreqs |> Array.distinct
+    let frequencies (drs: DoseRule array) = drs |> Array.map Print.printFreqs |> Array.distinct
 
 
     let useAdjust (dr: DoseRule) =
@@ -1054,8 +1050,7 @@ module DoseRule =
             |> Array.collect _.SubstanceLimits
             |> Array.exists DoseLimit.useAdjust
 
-        let compUseAdj =
-            dr.ComponentLimits |> Array.choose _.Limit |> Array.exists DoseLimit.useAdjust
+        let compUseAdj = dr.ComponentLimits |> Array.choose _.Limit |> Array.exists DoseLimit.useAdjust
 
         let formUseAdj = false
         // TODO figure out whether or not to use this

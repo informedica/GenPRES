@@ -9,6 +9,7 @@ module SolverLogging =
     open Types.Logging
     open Types.Events
     open Informedica.Logging.Lib
+    open Informedica.Utils.Lib.BCL
 
     module Name = Variable.Name
     module ValueRange = Variable.ValueRange
@@ -163,8 +164,7 @@ module SolverLogging =
 
     /// Create a solver-specific logger using the general logging framework
     let createLogger (baseLogger: Logger option) =
-        let formatter =
-            MessageFormatter.create [ typeof<SolverMessage>, formatSolverMessage ]
+        let formatter = MessageFormatter.create [ typeof<SolverMessage>, formatSolverMessage ]
 
         match baseLogger with
         | Some logger -> logger
@@ -173,37 +173,32 @@ module SolverLogging =
 
     /// Create a file-based solver logger
     let createFileLogger (path: string) =
-        let formatter =
-            MessageFormatter.create [ typeof<SolverMessage>, formatSolverMessage ]
+        let formatter = MessageFormatter.create [ typeof<SolverMessage>, formatSolverMessage ]
 
         Logging.createFile path formatter
 
 
     /// Create an agent-based solver logger
     let createAgentLogger () =
-        let formatter =
-            MessageFormatter.create [ typeof<SolverMessage>, formatSolverMessage ]
+        let formatter = MessageFormatter.create [ typeof<SolverMessage>, formatSolverMessage ]
 
         AgentLogging.createWithFormatter formatter
 
 
     /// Convenience functions for logging solver events
-    let logSolverEvent (logger: Logger) (event: Events.Event) =
-        event |> SolverEventMessage |> Logging.logDebug logger
+    let logSolverEvent (logger: Logger) (event: Events.Event) = event |> SolverEventMessage |> Logging.logDebug logger
 
 
     let logSolverWarning (logger: Logger) (event: Events.Event) =
         event |> SolverEventMessage |> Logging.logWarning logger
 
 
-    let logSolverException (logger: Logger) (ex: Exceptions.Message) =
-        ex |> ExceptionMessage |> Logging.logError logger
+    let logSolverException (logger: Logger) (ex: Exceptions.Message) = ex |> ExceptionMessage |> Logging.logError logger
 
 
     /// Backward compatibility - create a logger that matches the old interface
     let create (f: string -> unit) =
-        let formatter =
-            MessageFormatter.create [ typeof<SolverMessage>, formatSolverMessage ]
+        let formatter = MessageFormatter.create [ typeof<SolverMessage>, formatSolverMessage ]
 
         {
             Log =
@@ -211,7 +206,7 @@ module SolverLogging =
                     event.Message
                     |> formatter
                     |> fun s ->
-                        if not (String.IsNullOrEmpty s) then
+                        if s |> String.notNullOrEmpty then
                             f s
             Enabled = fun _ -> true
         }

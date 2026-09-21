@@ -34,6 +34,16 @@ module Gender =
         | AnyGender -> ""
 
 
+    /// A gender from its string form; an empty string is AnyGender, anything else
+    /// that toString never writes is None.
+    let tryFromString s =
+        match s |> String.toLower |> String.trim with
+        | "man" -> Some Male
+        | "vrouw" -> Some Female
+        | "" -> Some AnyGender
+        | _ -> None
+
+
     /// Check if a Filter contains a Gender.
     /// Note if AnyGender is specified, this will always return true.
     let isMatch gender filterGender =
@@ -83,7 +93,9 @@ module PatientCategory =
         { empty with
             Department = p.Department
             Access = p.Access
-        } = p
+        }
+            =
+            p
 
 
     // TODO:
@@ -167,9 +179,9 @@ module PatientCategory =
                              // all patients rule
                              if p |> isEmpty then
                                  true
+                             // if gestational is set and < full term filter out all
+                             // dose rules with no gestational age or pm age
                              else if
-                                 // if gestational is set and < full term filter out all
-                                 // dose rules with no gestational age or pm age
                                  filter.Patient.GestAge.IsSome
                                  && p.GestAge = MinMax.empty
                                  && p.PMAge = MinMax.empty
@@ -228,11 +240,9 @@ module PatientCategory =
                              // all patients rule
                              if p |> isEmpty then
                                  true
-                             else if
-                                 // if gestational is set and < full term filter out all
-                                 // dose rules with no gestational age or pm age
-                                 pat.GestAge.IsSome && p.GestAge = MinMax.empty && p.PMAge = MinMax.empty
-                             then
+                             // if gestational is set and < full term filter out all
+                             // dose rules with no gestational age or pm age
+                             else if pat.GestAge.IsSome && p.GestAge = MinMax.empty && p.PMAge = MinMax.empty then
                                  pat.GestAge.Value >=? Utils.ValueUnit.ageFullTerm
                              else
                                  pat.GestAge
@@ -401,16 +411,73 @@ module PatientCategory =
             | None, Some max -> $"gewicht tot %s{max |> toStr}"
             | None, None -> ""
 
-        [
-            pat.Department |> Option.defaultValue ""
-            gender
-            neonate
-            age
-            weight
-        ]
+        [ pat.Department |> Option.defaultValue ""; gender; neonate; age; weight ]
         |> List.filter String.notEmpty
-        |> List.filter (String.isNullOrWhiteSpace >> not)
+        |> List.filter String.notEmpty
         |> String.concat ", "
+
+
+/// The string form of an access device, for the Dto.
+module AccessDevice =
+
+    open Informedica.Utils.Lib.BCL
+
+
+    let toString =
+        function
+        | PVL -> "pvl"
+        | CVL -> "cvl"
+        | EnteralTube -> "enteral-tube"
+        | AnyAccess -> "any"
+
+
+    let tryFromString s =
+        match s |> String.toLower |> String.trim with
+        | "pvl" -> Some PVL
+        | "cvl" -> Some CVL
+        | "enteral-tube" -> Some EnteralTube
+        | "any" -> Some AnyAccess
+        | _ -> None
+
+
+/// The string form of a renal function, for the Dto: egfr:min:max with an empty
+/// bound for None, or the name of a dialysis.
+module RenalFunction =
+
+    open Informedica.Utils.Lib.BCL
+
+
+    let toString =
+        function
+        | EGFR(min, max) ->
+            let bound = Option.map string >> Option.defaultValue ""
+            $"egfr:{bound min}:{bound max}"
+        | IntermittentHemodialysis -> "intermittent-hemodialysis"
+        | ContinuousHemodialysis -> "continuous-hemodialysis"
+        | PeritonealDialysis -> "peritoneal-dialysis"
+
+
+    let tryFromString (s: string) =
+        let bound (b: string) =
+            match b.Trim() with
+            | "" -> Some None
+            | b ->
+                match System.Int32.TryParse b with
+                | true, n -> Some(Some n)
+                | _ -> None
+
+        match s |> String.toLower |> String.trim with
+        | "intermittent-hemodialysis" -> Some IntermittentHemodialysis
+        | "continuous-hemodialysis" -> Some ContinuousHemodialysis
+        | "peritoneal-dialysis" -> Some PeritonealDialysis
+        | s when s.StartsWith "egfr:" ->
+            match s.Split ':' with
+            | [| _; min; max |] ->
+                match bound min, bound max with
+                | Some min, Some max -> Some(EGFR(min, max))
+                | _ -> None
+            | _ -> None
+        | _ -> None
 
 
 module Patient =
@@ -424,7 +491,8 @@ module Patient =
 
     open Utils
 
-    /// An empty Patient.
+    /// An empty Patient. Both measured flags are set, so a weight or height given to a
+    /// copy of it counts as measured unless the copy says otherwise.
     let patient =
         {
             Location = None
@@ -434,6 +502,8 @@ module Patient =
             Age = None
             Weight = None
             Height = None
+            WeightMeasured = true
+            HeightMeasured = true
             GestAge = None
             PMAge = None
             Access = []
@@ -512,5 +582,156 @@ module Patient =
             |> Option.defaultValue ""
         ]
         |> List.filter String.notEmpty
-        |> List.filter (String.isNullOrWhiteSpace >> not)
+        |> List.filter String.notEmpty
         |> String.concat ", "
+
+
+    /// The patient the value is, or why it is none: the minimum data is an age, or a
+    /// measured weight with a measured height. Below that there is no patient, no
+    /// order context and no evaluation; a missing datum never matches a bounded range.
+    /// The minimum data, stated once for the patient and for its Dto: an age, or a
+    /// measured weight with a measured height.
+    let meetsMinimumData (age: 'a option) (weight: 'b option) weightMeasured (height: 'c option) heightMeasured =
+        age.IsSome
+        || (weight.IsSome && weightMeasured && height.IsSome && heightMeasured)
+
+
+    let validate (pat: Patient) : Result<Patient, PatientError> =
+        if meetsMinimumData pat.Age pat.Weight pat.WeightMeasured pat.Height pat.HeightMeasured then
+            Ok pat
+        else
+            Error PatientError.NoAgeOrMeasuredWeightAndHeight
+
+
+    /// The serializable shape of a Patient: primitives only, one aggregate, no logic.
+    /// Ages in days, the weight in kilograms, the height in centimetres; gender, access
+    /// and renal function as the strings their modules write.
+    module Dto =
+
+        type Dto =
+            {
+                Location: string option
+                Department: string option
+                Diagnoses: string[]
+                Gender: string
+                AgeDays: BigRational option
+                WeightKg: BigRational option
+                HeightCm: BigRational option
+                WeightMeasured: bool
+                HeightMeasured: bool
+                GestAgeDays: BigRational option
+                PMAgeDays: BigRational option
+                Access: string[]
+                RenalFunction: string option
+            }
+
+
+        let private value unit (vu: ValueUnit) =
+            vu |> ValueUnit.convertTo unit |> ValueUnit.getValue |> Array.tryExactlyOne
+
+
+        let private withUnit unit (br: BigRational) = ValueUnit.singleWithUnit unit br
+
+
+        let private toResult err =
+            function
+            | Some v -> Ok v
+            | None -> Error err
+
+
+        /// A reference field a serializer left null is read as absent, never dereferenced.
+        let private orEmpty (xs: 'a[]) = if isNull xs then [||] else xs
+
+
+        let private orBlank (s: string) = if isNull s then "" else s
+
+
+        /// Total: every patient has a Dto.
+        let toDto (pat: Patient) : Dto =
+            {
+                Location = pat.Location
+                Department = pat.Department
+                Diagnoses = pat.Diagnoses
+                Gender = pat.Gender |> Gender.toString
+                AgeDays = pat.Age |> Option.bind (value Units.Time.day)
+                WeightKg = pat.Weight |> Option.bind (value Units.Weight.kiloGram)
+                HeightCm = pat.Height |> Option.bind (value Units.Height.centiMeter)
+                WeightMeasured = pat.WeightMeasured
+                HeightMeasured = pat.HeightMeasured
+                GestAgeDays = pat.GestAge |> Option.bind (value Units.Time.day)
+                PMAgeDays = pat.PMAge |> Option.bind (value Units.Time.day)
+                Access = pat.Access |> List.map AccessDevice.toString |> List.toArray
+                RenalFunction = pat.RenalFunction |> Option.map RenalFunction.toString
+            }
+
+
+        /// The patient a Dto is, or every reason it is none: a string that names nothing,
+        /// and a value below the minimum data. Never throws, never normalizes.
+        let fromDto (dto: Dto) : Result<Patient, PatientError list> =
+            let gender =
+                dto.Gender
+                |> Option.ofObj
+                |> Option.bind Gender.tryFromString
+                |> toResult (PatientError.UnknownGender(orBlank dto.Gender))
+
+            let access =
+                dto.Access
+                |> orEmpty
+                |> Array.toList
+                |> List.map (fun s ->
+                    s
+                    |> Option.ofObj
+                    |> Option.bind AccessDevice.tryFromString
+                    |> toResult (PatientError.UnknownAccess(orBlank s))
+                )
+
+            let renal =
+                match dto.RenalFunction with
+                | None -> Ok None
+                | Some s ->
+                    s
+                    |> RenalFunction.tryFromString
+                    |> Option.map Some
+                    |> toResult (PatientError.UnknownRenalFunction s)
+
+            let errors =
+                [
+                    match gender with
+                    | Error e -> yield e
+                    | Ok _ -> ()
+                    for a in access do
+                        match a with
+                        | Error e -> yield e
+                        | Ok _ -> ()
+                    match renal with
+                    | Error e -> yield e
+                    | Ok _ -> ()
+                    // the minimum data is judged on the Dto too, so that it is reported
+                    // next to a string that names nothing, never dropped behind one
+                    if
+                        not (
+                            meetsMinimumData dto.AgeDays dto.WeightKg dto.WeightMeasured dto.HeightCm dto.HeightMeasured
+                        )
+                    then
+                        yield PatientError.NoAgeOrMeasuredWeightAndHeight
+                ]
+
+            match errors, gender, renal with
+            | [], Ok gender, Ok renal ->
+                {
+                    Location = dto.Location
+                    Department = dto.Department
+                    Diagnoses = dto.Diagnoses |> orEmpty
+                    Gender = gender
+                    Age = dto.AgeDays |> Option.map (withUnit Units.Time.day)
+                    Weight = dto.WeightKg |> Option.map (withUnit Units.Weight.kiloGram)
+                    Height = dto.HeightCm |> Option.map (withUnit Units.Height.centiMeter)
+                    WeightMeasured = dto.WeightMeasured
+                    HeightMeasured = dto.HeightMeasured
+                    GestAge = dto.GestAgeDays |> Option.map (withUnit Units.Time.day)
+                    PMAge = dto.PMAgeDays |> Option.map (withUnit Units.Time.day)
+                    Access = access |> List.choose Result.toOption
+                    RenalFunction = renal
+                }
+                |> Ok
+            | errors, _, _ -> Error errors

@@ -133,7 +133,7 @@ module Utils =
             /// Constant 3
             let three = [| 3N |] |> create Units.Count.times
 
-            /// Match an operator `op` to either multiplication, division, addition or subtraction
+            /// Match an operator op to either multiplication, division, addition or subtraction
             /// by delegating detection to the BigRational active pattern.
             let (|Mul|Div|Add|Sub|) op =
                 // Bridge the ValueUnit op to a BigRational op using dimensionless units (Count.times)

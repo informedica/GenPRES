@@ -79,7 +79,7 @@ every launch as invalid until the scope switch
    - **PatientId**, default `stub-patient`, which the stub PatientDataPlatform reads as a
      ten-year-old of 32 kg. Any text works; `no-data` stands for a patient the platform has no
      record for (ext 6a): the Session then opens on the data the last version was signed on, or
-     on nothing (#640).
+     on no patient data, the panel asking for it (#640, #646).
    - **Identity at the browser**: who the stub IdentityProvider will say is signed on. The
      table below lists the choices.
 3. Press **Launch**. The server mints a Launch sealed under a key it made at start-up, valid for
@@ -122,9 +122,10 @@ for the MailService too ([plan 615](docs/implementation-plans/615-enrolment-with
 3. Enter the code, a PIN of four to six digits, and the PIN again, and press **Set PIN**. The
    Session opens as **Stub Prescriber (no PIN)**, and the outbox shows a second mail, "GenPRES:
    your PIN was set".
-4. Launch `no-pin` again, in this or another browser: the Session opens directly. The PIN lives
-   as long as the server runs. The seeded Prescribers (`prescriber`, `prescriber-b`,
-   `prescriber-other-patient`) start with the PIN `1234`.
+4. Launch `no-pin` again, in this or another browser: the Session opens directly. The PIN
+   lives as long as the server runs, or across restarts on SQLite (below). The seeded
+   Prescribers (`prescriber`, `prescriber-b`, `prescriber-other-patient`) start with the PIN
+   `1234`.
 
 Things worth trying here:
 
@@ -190,8 +191,60 @@ Things worth trying here:
   and gets `{ Response; Notice }`: the notice names the newer version or the ending, and is
   empty otherwise; `OpenVersion` answers the Session with a fresh OpenedToken when it switches versions
   (the token stands when the version named is the one already open).
-- **Restart the server**: the record is gone with everything else; the next signature is
-  version 1 again.
+- **Restart the server**: on the in-memory store the record is gone with everything else; the
+  next signature is version 1 again. On SQLite (below) the record survives.
+
+#### Keeping Sessions, PINs and the record across a restart: SQLite
+
+The session store can keep everything a Session stands on in a SQLite file, the test and
+development database ([ADR-0007](docs/adr/0007-session-persistence.md) § 2 and § 4,
+[plan 516](docs/implementation-plans/516-sessionrecord-store.md)): the launches and what they
+came to, the Sessions with what they opened with and their endings, the credentials, the
+confirmation codes, the enrolment attempts, the signed order plan versions, and what a Session
+holds in flight — the data notice it was told, the signing challenge it answers, and the answer
+a Submission was given, so that a Submission sent twice is answered from the row the first one
+wrote, whichever server takes the repeat. Two servers given the same Submission at once are a
+different thing: neither sees the other's answer until one of them has committed, so one signs
+and the other is refused as stale. Sending it twice is safe; sending it twice at once is a race
+the store decides, not a guarantee it removes.
+
+The acts that write something are audited beside them, in the same transaction as the act
+itself: a launch and what it came to, an open, a Session closed or ended at the PIN limit, an
+order plan version signed and a signature refused, a PIN set, a code mailed or entered wrongly,
+a challenge issued, a notice told and a version opened. An act with nothing to write has nothing
+to audit, and a Session superseded by a newer launch is one: no row says it ended, since the
+newer Session is what tells it, so no entry does either.
+
+Nothing is ever deleted — not a heartbeat, not a spent challenge, not an audit entry. A row past
+its lifetime loads as absent rather than being dropped, so the file only grows; to start from
+nothing, delete it (step 7 below).
+
+The demo credentials are written to the file at start-up, once per login: a login that already
+has one is left alone, so a PIN a User set is never replaced by the seeded `1234`.
+
+1. Set the key, in `.env` or on the command line:
+   `GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db`. A relative path is rooted at the
+   folder holding `.env` (at `GENPRES_ROOT` when that is set); the folder is created, and the
+   migrations are applied at start-up. The banner says `set (SQLite session store)`.
+2. Launch as `prescriber`, prescribe and sign: order plan version 1.
+3. Stop the server and start it again, and reload the tab without launching: the Session is
+   still there. The cookie names it, the server reads it back from the file, and the Order Plan
+   opens on the version you signed; the next signature is version 2.
+4. Launch as `no-pin` and enrol with a PIN of your own, then stop and start the server and
+   launch `no-pin` again: the Session opens directly, on the PIN you chose. Three wrong PINs at
+   a signature survive a restart too, lock and all.
+5. Press **Ondertekenen**, and with the PIN dialog open stop and start the server; then enter
+   the PIN, **within two minutes of pressing the button**. The signature goes through: the
+   challenge it answers was written to the file when it was issued. A challenge lives two
+   minutes whatever happens to the server, so a slower restart leaves it past its lifetime, the
+   store loads it as absent, and the signature is refused and asked again.
+6. Read what was done: `sqlite3 data/db/genpres.db "select at, action, outcome, session_id,
+   actor from audit_entry order by id"`.
+7. To start from nothing, stop the server and delete `data/db/genpres.db`.
+
+Production refuses the key: with `GENPRES_PROD=1` and `GENPRES_DB_CONNECTION` set, the server
+refuses to start and names the setting. The file is never tracked: the opt-in `.gitignore`
+leaves `data/db/` out.
 
 #### Things worth trying
 
@@ -199,7 +252,7 @@ Things worth trying here:
 - **Replay the Launch**: copy the `#/session?launch=…` URL from the Network tab (it never stays
   in the address bar) and open it in another browser profile or an incognito window within two
   minutes: `spent`. After two minutes: `expired`. A token from an earlier server run: `invalid`,
-  the key is new at every start.
+  the sealing key is new at every start, whatever the store holds.
 - **Reload the callback**: reload `/callback?code=…&state=…` from the Network tab within two
   minutes: the same answer as the first time (Rule 45), no second Session.
 - **Two launches of the same user**: launch as `prescriber` in tab A, then again in tab B. B is
@@ -211,10 +264,12 @@ Things worth trying here:
 - **Production**: `GENPRES_PROD=1 GENPRES_PASSWORD=<16+ chars> dotnet run`; `/stub/launch`
   and `/authorize` are 404, `/callback` redirects to `refused=invalid`.
 
-The stand-ins keep everything in memory: launches by nonce, sessions, endings, one-time codes,
-credentials and confirmation codes, the outbox, the signed versions of every order plan. A
-restart forgets all of it: the browser's session cookie no longer finds a Session, `no-pin` has
-to enrol again, and the record starts from nothing.
+The stand-ins keep in memory what no store holds: the IdentityProvider's one-time codes and the
+outbox, and, on the in-memory store, everything else besides. On the in-memory store a restart
+forgets all of it: the browser's session cookie no longer finds a Session, `no-pin` has to enrol
+again, and the record starts from nothing. On SQLite the Session, its ending, the credential a
+User enrolled with, the record and the challenge a signature was part-way through all survive,
+so a signature started across a restart is finished, not asked for again.
 
 #### Cookies and the development proxy
 
@@ -369,31 +424,40 @@ YAML front matter at the top of the root `CHANGELOG.md`.
 ShipIt runs in CI on every push to `master` (see [Release Automation](#release-automation-github-actions)
 below) and owns the version number: the `updaters:` block in the `CHANGELOG.md` front matter points at 
 `/Project/PropertyGroup/Version` in the root `Directory.Build.props`, so the release PR bumps that
-element as well as adding the changelog section. A second, `regex` updater rewrites the default
-image tag in the root `compose.yaml` (`informedica/genpres:${GENPRES_IMAGE_TAG:-<version>}`) so a
-`git pull && docker compose pull && docker compose up -d` after a release runs the version that was
-just shipped. Do not hand-edit `<Version>` or that compose default.
+element as well as adding the changelog section. Two further `regex` updaters rewrite the version
+where it is spelled out for Docker: the default image tag in the root `compose.yaml`
+(`informedica/genpres:${GENPRES_IMAGE_TAG:-<version>}`), so a `git pull && docker compose pull &&
+docker compose up -d` after a release runs the version that was just shipped, and the commented
+`GENPRES_IMAGE_TAG` example in `.env.example`, so someone who uncomments it to pin a version pins
+the current one rather than whichever was current when that line was last touched by hand. Do not
+hand-edit `<Version>`, the compose default, or that example.
 
-The `regex` updater writes the version verbatim, whereas `tag-release.yml` folds any `+` in the
+The `regex` updaters write the version verbatim, whereas `tag-release.yml` folds any `+` in the
 version to `-` because `+` is not a legal Docker tag character. The two agree only as long as
 `<Version>` carries no SemVer build metadata. ShipIt never generates build metadata (versions come
 from conventional commits plus the `alpha.N` pre-release counter), so this holds unless someone
 hand-edits `<Version>` with a `+`, which is already disallowed above. If build metadata is ever
-introduced deliberately, replace the `regex` updater with a `command` updater that applies the same
-fold before writing `compose.yaml`.
+introduced deliberately, replace both `regex` updaters with `command` updaters that apply the same
+fold before writing `compose.yaml` and `.env.example`.
 
 To preview locally what ShipIt would generate:
 
 ```bash
 dotnet tool restore
-dotnet shipit --dry-run --allow-branch master --skip-merge-commit
+dotnet shipit --dry-run --allow-branch master --skip-merge-commit --skip-invalid-commit
 ```
 
 `--allow-branch` defaults to `main`; GenPRES's default branch is `master`, so it must be passed
 explicitly (`release.yml` passes it too). `--skip-merge-commit` is required for every invocation. 
 All three merge methods are enabled on the repo, so `Merge pull request ...` commits will keep 
-appearing in history, and ShipIt throws on the first one it hits instead of skipping it. `--dry-run`
-never modifies files or opens a pull request, so it's safe to run against a dirty tree.
+appearing in history, and ShipIt throws on the first one it hits instead of skipping it.
+`--skip-invalid-commit` is required too: a commit that does not follow Conventional Commits (most
+often a GitHub-UI "commit suggestion" — e.g. accepting a bot review comment — which bypasses the
+local Husky `commit-msg` hook entirely, since no local `git commit` runs) can still reach `master`
+if the required `commit-lint` PR check is overridden on merge. Without this flag ShipIt throws
+`FailedToParseCommit` and the whole release run fails; with it, that one commit is dropped from the
+changelog and the run continues. `--dry-run` never modifies files or opens a pull request, so it's
+safe to run against a dirty tree.
 
 #### What reaches the changelog
 
@@ -621,6 +685,8 @@ docker compose logs -f genpres
 The image is published by `tag-release.yml` a few minutes *after* the release PR merges, so a `docker compose pull` in that window fails with "manifest unknown"; retry shortly after.
 
 Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID` and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. A 16+ character `GENPRES_PASSWORD` enables the admin operations; without one the server starts with them disabled and warns (issue #590). `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
+
+For a demo that keeps its signed order plans across a recreated container, set `GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db` in `.env` (never with `GENPRES_PROD=1`, which refuses it). The relative path is rooted at `GENPRES_ROOT=/app`, so the file lands in `/app/data/db`, which `compose.yaml` mounts from `./data/db` on the host. To start from nothing, stop the container (`docker compose down`) and delete `./data/db/genpres.db`.
 
 **Process 1 and exit codes** — the image runs [`tini`](https://github.com/krallin/tini) as PID 1
 and starts `dotnet` under it (issue [#572](https://github.com/informedica/GenPRES/issues/572)).
@@ -1190,6 +1256,10 @@ GENPRES_PROD=0                 # Production mode: 0=demo (safe default), 1=produ
 GENPRES_DEBUG=1                # Debug mode: 0=off, 1=on
 GENPRES_LANG=nl                # Default UI language: en, nl, fr, de, es, it — see below
 GENPRES_PASSWORD=<password>    # Admin password — see policy below
+GENPRES_ROOT=<path>            # Directory holding data/; unset resolves from .env, then data/zindex, then cwd
+GENPRES_DB_CONNECTION=<conn>   # SQLite session store; unset = in-memory — see below
+GENPRES_TRUSTED_PROXIES=<ips>  # Comma-separated IPs whose X-Forwarded-For is believed; unset = loopback only
+SERVER_PORT=8085               # Kestrel's listen port (no GENPRES_ prefix); the Vite dev proxy targets it
 ```
 
 #### Default language

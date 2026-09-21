@@ -17,7 +17,7 @@ module Seq =
 
 
     /// Pick elements from a sequence
-    /// using a list of indices `pl`
+    /// using a list of indices pl
     let pickSeq pl xs =
         pl
         |> List.choose (fun i ->
@@ -29,7 +29,7 @@ module Seq =
         |> Seq.ofList
 
 
-    /// Filter a sequence of sequences using a predicate function `p`.
+    /// Filter a sequence of sequences using a predicate function p.
     /// The purpose of this function is to filter the elements of the
     /// input sequence xs based on the condition that at least one element
     /// in each subsequence (inside xs) satisfies the predicate function p.
@@ -120,8 +120,7 @@ module Seq =
     /// Check if all elements in a sequence are unique
     /// Example: allUnique seq {1;2;3} -> true
 
-    let allUnique xs =
-        (xs |> Set.ofSeq |> Set.count) = (xs |> Seq.length)
+    let allUnique xs = (xs |> Set.ofSeq |> Set.count) = (xs |> Seq.length)
 
 
     module Tests =
@@ -376,7 +375,9 @@ module Seq =
                             1
                             2
                             3
-                        }) = "[|1;2;3|]"
+                        })
+                        =
+                        "[|1;2;3|]"
                 @>
 
             test <@ toString_ "[|" "|]" ";" Seq.empty = "[||]" @>
@@ -391,7 +392,9 @@ module Seq =
                         (seq {
                             1
                             2
-                        }) = "[|1;2|]"
+                        })
+                        =
+                        "[|1;2|]"
                 @>
 
         // Test toString
@@ -404,7 +407,9 @@ module Seq =
                             2
                             3
                         }
-                    ) = "[|1;2;3|]"
+                    )
+                        =
+                        "[|1;2;3|]"
                 @>
 
             test <@ toString Seq.empty = "[||]" @>
@@ -417,7 +422,9 @@ module Seq =
                             1
                             2
                         }
-                    ) = "[|1;2|]"
+                    )
+                        =
+                        "[|1;2|]"
                 @>
 
         // Test toReadableStringSeq
@@ -430,7 +437,9 @@ module Seq =
                             2
                             3
                         }
-                    ) = "1;2;3"
+                    )
+                        =
+                        "1;2;3"
                 @>
 
             test <@ toReadableString Seq.empty = "" @>
@@ -443,7 +452,9 @@ module Seq =
                             1
                             2
                         }
-                    ) = "1;2"
+                    )
+                        =
+                        "1;2"
                 @>
 
         // Test allEqualSeq
@@ -459,7 +470,9 @@ module Seq =
                             1
                             1
                             1
-                        }) = Some 1
+                        })
+                        =
+                        Some 1
                 @>
 
             test
@@ -471,7 +484,9 @@ module Seq =
                             1
                             1
                             2
-                        }) = None
+                        })
+                        =
+                        None
                 @>
 
             test
@@ -483,7 +498,9 @@ module Seq =
                             1
                             2
                             1
-                        }) = None
+                        })
+                        =
+                        None
                 @>
 
             test
@@ -495,7 +512,9 @@ module Seq =
                             2
                             1
                             1
-                        }) = None
+                        })
+                        =
+                        None
                 @>
 
             test
@@ -507,7 +526,9 @@ module Seq =
                             1
                             2
                             3
-                        }) = None
+                        })
+                        =
+                        None
                 @>
 
         // Test allEqualToStringSeq
@@ -522,7 +543,9 @@ module Seq =
                             1
                             1
                         }
-                    ) = "1"
+                    )
+                        =
+                        "1"
                 @>
 
             test
@@ -533,7 +556,9 @@ module Seq =
                             1
                             2
                         }
-                    ) = ""
+                    )
+                        =
+                        ""
                 @>
 
             test
@@ -544,7 +569,9 @@ module Seq =
                             2
                             1
                         }
-                    ) = ""
+                    )
+                        =
+                        ""
                 @>
 
             test
@@ -555,7 +582,9 @@ module Seq =
                             1
                             1
                         }
-                    ) = ""
+                    )
+                        =
+                        ""
                 @>
 
             test
@@ -566,7 +595,9 @@ module Seq =
                             2
                             3
                         }
-                    ) = ""
+                    )
+                        =
+                        ""
                 @>
 
         // Test allEqualToOptSeq
@@ -581,7 +612,9 @@ module Seq =
                             1
                             1
                         }
-                    ) = Some 1
+                    )
+                        =
+                        Some 1
                 @>
 
             test
@@ -592,7 +625,9 @@ module Seq =
                             1
                             2
                         }
-                    ) = None
+                    )
+                        =
+                        None
                 @>
 
             test
@@ -603,7 +638,9 @@ module Seq =
                             2
                             1
                         }
-                    ) = None
+                    )
+                        =
+                        None
                 @>
 
             test
@@ -614,7 +651,9 @@ module Seq =
                             1
                             1
                         }
-                    ) = None
+                    )
+                        =
+                        None
                 @>
 
             test
@@ -625,7 +664,9 @@ module Seq =
                             2
                             3
                         }
-                    ) = None
+                    )
+                        =
+                        None
                 @>
 
         // Test someIfOneSeq
@@ -640,7 +681,9 @@ module Seq =
                             1
                             2
                         }
-                    ) = None
+                    )
+                        =
+                        None
                 @>
 
             test
@@ -651,7 +694,9 @@ module Seq =
                             2
                             3
                         }
-                    ) = None
+                    )
+                        =
+                        None
                 @>
 
         // Test pruneSeq

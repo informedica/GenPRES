@@ -4,6 +4,7 @@ namespace Components
 module ResponsiveTable =
 
     open System
+    open Shared
     open Fable.Core
     open Feliz
     open Fable.Core.JsInterop
@@ -52,7 +53,7 @@ module ResponsiveTable =
                     let content =
                         row.cells
                         |> Array.choose (fun cell ->
-                            if cell.field = "id" || String.IsNullOrWhiteSpace(cell.value) then
+                            if cell.field = "id" || cell.value |> String.isNullOrWhiteSpace then
                                 None
                             else
                                 Some cell
@@ -256,14 +257,14 @@ module ResponsiveTable =
                 showFooter: bool
                 onPrint:
                     ({|
-                        cells:
-                            {|
-                                field: string
-                                value: string
-                            |}[]
-                        actions: ReactElement option
-                    |}[]
-                        -> unit) option
+                            cells:
+                                {|
+                                    field: string
+                                    value: string
+                                |}[]
+                            actions: ReactElement option
+                        |}[]
+                            -> unit) option
                 // These two props must always be paired: both Some or both None.
                 // Mixing them (one Some, one None) will cause filter changes to be silently discarded.
                 selectedFilter: string[] option
@@ -345,11 +346,7 @@ module ResponsiveTable =
                     ==> createObj [ "backgroundColor" ==> Mui.Colors.Grey.``100`` ]
 
                     "& .MuiDataGrid-row"
-                    ==> createObj
-                            [
-                                "cursor" ==> "pointer"
-                                "transition" ==> "border-left 0.1s ease"
-                            ]
+                    ==> createObj [ "cursor" ==> "pointer"; "transition" ==> "border-left 0.1s ease" ]
 
                     "& .MuiDataGrid-row.even:hover"
                     ==> createObj

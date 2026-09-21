@@ -87,8 +87,7 @@ module RuleFinder =
     /// </summary>
     /// <param name="gpk">The Generic Product Id</param>
     /// <param name="rte">The Route</param>
-    let createGPKRouteFilter gpk rte =
-        createFilter None None None gpk "" "" rte
+    let createGPKRouteFilter gpk rte = createFilter None None None gpk "" "" rte
 
 
     /// <summary>
@@ -331,15 +330,9 @@ module RuleFinder =
 
                     createFreqDose
                         fr
-                        ([|
-                            drs' |> calcNormPerKg |> fst
-                            drs' |> calcNormPerM2 |> fst
-                         |]
+                        ([| drs' |> calcNormPerKg |> fst; drs' |> calcNormPerM2 |> fst |]
                          |> DoseRule.foldMinMax)
-                        ([|
-                            drs' |> calcAbsPerKg |> fst
-                            drs' |> calcAbsPerM2 |> fst
-                         |]
+                        ([| drs' |> calcAbsPerKg |> fst; drs' |> calcAbsPerM2 |> fst |]
                          |> DoseRule.foldMinMax)
                         (drs' |> calcNormPerKg |> snd)
                         (drs' |> calcAbsPerKg |> snd)

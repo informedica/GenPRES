@@ -25,8 +25,7 @@ module Logger =
 
 
     /// Log a solver exception as an error
-    let logError (logger: Logger) (msg: Exceptions.Message) =
-        msg |> ExceptionMessage |> Logging.logError logger
+    let logError (logger: Logger) (msg: Exceptions.Message) = msg |> ExceptionMessage |> Logging.logError logger
 
 
     /// Ignore logger for backward compatibility

@@ -89,6 +89,7 @@ module SessionGatePolicyTests =
                                 "Refused", Session.Refused(LaunchRefusal.NoRole, None)
                                 "Ended", Session.Ended SessionEnding.SupersededByLaunch
                                 "Ended at the PIN limit", Session.Ended SessionEnding.WrongPinLimit
+                                "Ended unreadable", Session.Ended SessionEnding.Unreadable
                                 "Enrolling", Session.Enrolling(pending, None)
                                 "SupplyingPin", Session.SupplyingPin pending
                                 "EnrolmentFailed", Session.EnrolmentFailed PinRefusal.CodeVoid
@@ -173,6 +174,9 @@ module SessionGatePolicyTests =
 
                     (namedGateOf (Session.Ended SessionEnding.WrongPinLimit)).Body
                     |> Expect.equal "the PIN limit (Rule 28)" "<Session Ending Pin Limit> <Session Relaunch>"
+
+                    (namedGateOf (Session.Ended SessionEnding.Unreadable)).Body
+                    |> Expect.equal "the store could not be read" "<Session Ending Unreadable> <Session Relaunch>"
                 }
 
                 test "Launching is busy, names the attempt, offers nothing" {
@@ -219,8 +223,7 @@ module SessionGatePolicyTests =
                 }
 
                 test "NoBrowserIdentity with a retry offers it" {
-                    let gate =
-                        gateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launch, key)))
+                    let gate = gateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launch, key)))
 
                     gate.Actions |> Expect.equal "retry" [ Action.Retry ]
                     gate.Body |> Expect.stringContains "try again" "Try again"
@@ -275,8 +278,7 @@ module SessionGatePolicyTests =
                             }
 
                         test "Refused NoBrowserIdentity with a retry" {
-                            let gate =
-                                namedGateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launch, key)))
+                            let gate = namedGateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launch, key)))
 
                             gate.Body
                             |> Expect.equal "body" "<Session Refusal No Browser Identity> <Session Retry>"
@@ -330,6 +332,7 @@ module SessionGatePolicyTests =
                             Terms.``Session Gate Ended``
                             Terms.``Session Ending Superseded``
                             Terms.``Session Ending Pin Limit``
+                            Terms.``Session Ending Unreadable``
                         ] do
                         english term |> Expect.notEqual $"default for {term}" $"{term}"
 

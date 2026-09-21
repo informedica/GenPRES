@@ -75,8 +75,7 @@ module DateTime =
 
 
     /// Add weeks to a DateTime
-    let addWeeks wk dt =
-        (dt |> get).AddDays((float wk) * (float daysInWeek))
+    let addWeeks wk dt = (dt |> get).AddDays((float wk) * (float daysInWeek))
 
 
     /// Add days to a DateTime
@@ -138,8 +137,7 @@ module DateTime =
 
         let dtLast, dtFirst = if date1 > date2 then date1, date2 else date2, date1
 
-        let y, date2 =
-            dtLast.Year - dtFirst.Year, dtFirst.AddYears(dtLast.Year - dtFirst.Year)
+        let y, date2 = dtLast.Year - dtFirst.Year, dtFirst.AddYears(dtLast.Year - dtFirst.Year)
 
         let y, date2 =
             if (dtLast - date2).Days < 0 then

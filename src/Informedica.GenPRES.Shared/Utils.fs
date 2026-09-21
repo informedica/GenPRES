@@ -23,7 +23,22 @@ module Measures =
 module String =
 
 
+    /// True when `s` is null, empty, or only white space.
     let isNullOrWhiteSpace (s: String) = String.IsNullOrWhiteSpace(s)
+
+
+    /// True when `s` has content other than white space. The negation of
+    /// `isNullOrWhiteSpace`; a null string is not "not empty".
+    let notEmpty = isNullOrWhiteSpace >> not
+
+
+    /// True when `s` is null or zero-length. White space counts as content
+    /// here, unlike `isNullOrWhiteSpace`.
+    let isNullOrEmpty (s: String) = String.IsNullOrEmpty(s)
+
+
+    /// True when `s` has at least one character, white space included.
+    let notNullOrEmpty = isNullOrEmpty >> not
 
 
     let replace (s1: string) s2 (s: string) = s.Replace(s1, s2)
@@ -42,7 +57,7 @@ module String =
     /// string t starts with character c
     let countFirstChar c t =
         let _, count =
-            if String.IsNullOrEmpty(t) then
+            if t |> isNullOrEmpty then
                 (false, 0)
             else
                 t
@@ -83,8 +98,7 @@ module String =
 
 
     /// Return the rest of a string as a string
-    let restString s =
-        if s = "" then "" else subString 1 ((s |> length) - 1) s
+    let restString s = if s = "" then "" else subString 1 ((s |> length) - 1) s
 
 
     /// Removes the last 'n' characters from the input string 's'.
@@ -129,15 +143,14 @@ module String =
         |> function
             | [| n; d |] ->
                 let d = d |> removeTrailing [ "0" ]
-                if d |> String.IsNullOrEmpty then n else n + "," + d
+                if d |> isNullOrEmpty then n else n + "," + d
             | _ -> s
 
 
 module Math =
 
 
-    let roundBy s n =
-        (n / s) |> round |> double |> (fun f -> f * s)
+    let roundBy s n = (n / s) |> round |> double |> (fun f -> f * s)
 
 
     let roundBy0_5 = roundBy 0.5
@@ -349,8 +362,7 @@ module Decimal =
     /// * 6.6666 |> fixPrecision 3 = 6.67
     /// etc
     /// If n < 0 then the value is not changed.
-    let fixPrecision n (d: decimal) =
-        if n < 0 then d else Math.Round(d, d |> getPrecision n)
+    let fixPrecision n (d: decimal) = if n < 0 then d else Math.Round(d, d |> getPrecision n)
 
 
     //----------------------------------------------------------------------------
@@ -374,7 +386,7 @@ module Decimal =
             |> Seq.rev
             |> String.concat " "
 
-        if String.IsNullOrEmpty(decimalPart) then
+        if decimalPart |> String.isNullOrEmpty then
             formattedInteger
         else
             formattedInteger + "," + decimalPart
@@ -388,8 +400,7 @@ module Decimal =
     /// Returns a string representation of a float in Dutch format without trailing zeros
     /// and with a fixed precision.
     /// Example: 0.0666m |> toStringNumberNLWithoutTrailingZerosFixPrecision 2 = "0.067"
-    let toStringNumberNLWithoutTrailingZerosFixPrecision n =
-        fixPrecision n >> toStringNumberNLWithoutTrailingZeros
+    let toStringNumberNLWithoutTrailingZerosFixPrecision n = fixPrecision n >> toStringNumberNLWithoutTrailingZeros
 
 
 module Csv =
@@ -422,21 +433,18 @@ module Csv =
             | Some i -> sl |> Array.item i |> tryCast dt
 
 
-    let getStringColumn columns sl s =
-        getColumn StringData columns sl s |> unbox<string>
+    let getStringColumn columns sl s = getColumn StringData columns sl s |> unbox<string>
 
 
-    let getFloatColumn columns sl s =
-        getColumn FloatData columns sl s |> unbox<float>
+    let getFloatColumn columns sl s = getColumn FloatData columns sl s |> unbox<float>
 
 
-    let getFloatOptionColumn columns sl s =
-        getColumn FloatOptionData columns sl s |> unbox<float option>
+    let getFloatOptionColumn columns sl s = getColumn FloatOptionData columns sl s |> unbox<float option>
 
 
     let parseCSV (s: string) =
         s.Split("\n")
-        |> Array.filter (String.isNullOrWhiteSpace >> not)
+        |> Array.filter String.notEmpty
         |> Array.map (String.replace "\",\"" "|")
         |> Array.map (String.replace "\"" "")
         |> Array.map (fun s -> s.Split("|") |> Array.map _.Trim())
@@ -449,7 +457,7 @@ module TextBlock =
 
     /// Convert a string to a Valid TextBlock with numbers shown as Bold TextItems
     let fromString (text: string) : TextBlock =
-        if String.IsNullOrWhiteSpace text then
+        if text |> String.isNullOrWhiteSpace then
             Valid [| Normal "" |]
         else
             // Split text into parts where numbers (including decimals, commas, and hyphens) are separated
@@ -462,7 +470,7 @@ module TextBlock =
                     if pos < text.Length then
                         let remaining = text.Substring(pos)
 
-                        if not (String.IsNullOrWhiteSpace remaining) then
+                        if remaining |> String.notEmpty then
                             Normal remaining :: acc
                         else
                             acc
@@ -476,7 +484,7 @@ module TextBlock =
                         if m.Index > pos then
                             let before = text.Substring(pos, m.Index - pos)
 
-                            if not (String.IsNullOrWhiteSpace before) then
+                            if before |> String.notEmpty then
                                 Bold m.Value :: Normal before :: acc
                             else
                                 Bold m.Value :: acc

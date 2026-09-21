@@ -6,6 +6,8 @@ module OpenAI =
     open System
     open Newtonsoft.Json
 
+    open Informedica.Utils.Lib.BCL
+
     module EndPoints =
 
 
@@ -64,7 +66,7 @@ module OpenAI =
             }
 
 
-        // Function to create a ModelInput with default values
+        /// Function to create a ModelInput with default values
         let defaultChatInput model (msg: Message) (msgs: Message list) : ChatInput =
             let map msg =
                 {|
@@ -236,7 +238,7 @@ module OpenAI =
     // Define the API key and endpoint
     let apiKey =
         let var = Environment.GetEnvironmentVariable("OPEN_AI_KEY")
-        if var |> String.IsNullOrEmpty then None else var |> Some
+        if var |> String.isNullOrEmpty then None else var |> Some
 
 
     let list () =
@@ -290,8 +292,7 @@ module OpenAI =
 
                         match answer.message.content |> validator with
                         | Ok _ ->
-                            let validationResult =
-                                answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
+                            let validationResult = answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
 
                             return Ok validationResult
                         | Error err ->
@@ -362,8 +363,7 @@ module OpenAI =
 
                         match answer.message.content |> validator with
                         | Ok _ ->
-                            let validationResult =
-                                answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
+                            let validationResult = answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
 
                             return Ok(validationResult, input)
                         | Error err ->
@@ -416,10 +416,7 @@ module OpenAI =
             | Ok response ->
                 let response = response.Response.choices |> List.last |> _.message
 
-                [
-                    message
-                    Message.okMessage response.role response.content
-                ]
+                [ message; Message.okMessage response.role response.content ]
                 |> List.append messages
             | Error s ->
                 printfn $"oops: {s}"
@@ -559,8 +556,7 @@ Can you try again answering?
                 | Error(_, input) -> input, zero
 
 
-        let doseUnits model text =
-            Extraction.createDoseUnits getJson getJson getJson model text
+        let doseUnits model text = Extraction.createDoseUnits getJson getJson getJson model text
 
 
         let frequencies model text =
@@ -582,11 +578,11 @@ Can you try again answering?
 
                 let su, au, tu =
                     freqs.doseUnits.substanceUnit,
-                    (if freqs.doseUnits.adjustUnit |> String.IsNullOrEmpty then
+                    (if freqs.doseUnits.adjustUnit |> String.isNullOrEmpty then
                          None
                      else
                          freqs.doseUnits.adjustUnit |> Some),
-                    if freqs.doseUnits.timeUnit |> String.IsNullOrEmpty then
+                    if freqs.doseUnits.timeUnit |> String.isNullOrEmpty then
                         None
                     else
                         freqs.doseUnits.timeUnit |> Some

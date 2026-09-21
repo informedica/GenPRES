@@ -187,11 +187,15 @@ authorized for this issue.
 7. **Docs** (`docs`). The Patient definition in `docs/domain/core-domain.md` and the Order
    Context section of the GenORDER document state the minimum; `uc-01` step 5.4 and
    `DEVELOPMENT.md` say "no patient data" instead of "an empty patient"; the user guide says an
-   age, or a weight and a height. Follow-up issues: server-side estimation for patients from the
-   platform or the MCP host, which also lifts the weight-and-height check of step 3; the
-   department default as a hidden filter input; weight alone and
-   height alone once an estimate exists; GenFORM tests for a `None` value against a bounded range
-   and for a weight-bounded category; the MCP tool refusing a patient below the minimum.
+   age, or a weight and a height. Follow-up issues, filed:
+   [#716](https://github.com/informedica/GenPRES/issues/716) server-side estimation for patients
+   from the platform or the MCP host, which also lifts the weight-and-height check of step 3;
+   [#717](https://github.com/informedica/GenPRES/issues/717) the department default as a hidden
+   filter input; [#718](https://github.com/informedica/GenPRES/issues/718) weight alone and
+   height alone once an estimate exists; [#719](https://github.com/informedica/GenPRES/issues/719)
+   GenFORM tests for a `None` value against a bounded range and for a weight-bounded category;
+   [#720](https://github.com/informedica/GenPRES/issues/720) the MCP tool refusing a patient below
+   the minimum.
 
 ## Verification
 
@@ -203,3 +207,51 @@ authorized for this issue.
   140 cm added makes a patient, with the notice that the age is unknown; the url
   `#patient?pg=pr&md=paracetamol` without a patient shows the snackbar and seeds nothing; the
   same url with `ad=3650` evaluates paracetamol.
+
+## As built
+
+Built in the order proposed, one PR at a time, each under review before the next started: the
+Shared and Server changes prepared as patches in a scratch worktree and applied on the word,
+the client edited directly. Every step left the build, the Shared and Server tests, the Fable
+compile, Fantomas and the dependency-rule check green.
+
+| Step | PR | Landed |
+|---|---|---|
+| plan | #704 | this document; issue #646 rewritten; plan 691's decision b pointed here; review: buildable stages, every ingress, the age-only path |
+| 1, the record renamed | #705 | `PatientDto`, `type Patient = PatientDto` after the `and` group, `PatientDto.empty` with the old name delegating; no caller touched |
+| 1b, the callers | #708 | the draft editors in a `PatientDto` module after the `Patient` module; the wire records, ports, session records, the panel and the tests on the DTO name; the abbreviation kept for the machines, the App state and the mapper |
+| 1c, the domain patient | #710 | `type Patient = private { Dto: PatientDto }` in `Models.fs`, `fromDto`, `toDto`, `PatientError`; `State.Patient` derived from `State.PatientDraft`; `Evaluated of Patient * OrderContext`, `Opened of Patient * OrderPlan`; the session and signing machines on the DTO |
+| 2, the estimate stays an estimate | #711 | `withEstimates` without the promotion into `Measured`, `setGender` out of the panel; `canCalculate` by the minimum, pulled forward from step 5 |
+| 3, the server | #712 | `ServerApi.Ingress.fs` in the four dispatchers; the weight-and-height check; `PatientContext.Patient` optional, `sessionPatient` answering none; review: every context of a plan, and the challenge's reread filtered as the open's |
+| 4, no seed before a patient | #713 | `Seeded` gone, a seed or a command on `NoPatient` dropped; the url's patient taken before its medication, a medication without a patient dropped with the panel's term on the snackbar; review: the patient update applied directly so its commands go out before the seed |
+| 5, the panel | #714 | the summary shows the draft's data and, while it is no patient, what is missing; one term |
+| 6, the notice | #715 | an info alert above the selects: age unknown, or the weight, the height or both unknown; four terms; review: the value that is missing named |
+| 7, docs | this PR | the Patient definition and the Order Context section, uc-01 5.4, the walkthrough, the user guide; this section; the follow-up issues #716 to #720 |
+| 1c undone, 2026-09-16 | | the private wrapper removed again: one record, `Types.Patient`, on the wire and in the panel; `Patient.validate` is the minimum check; the `PatientDto` module merged into `Patient`; `ServerApi.Ingress.fs` is `ServerApi.Patient.fs` |
+
+### Deviations from the text above
+
+- **The domain type lives in `Models.fs`, not `Types.fs`.** A private representation is
+  reachable only inside its declaring module, and `Types` already has a `Patient` module for the
+  age types, so `fromDto` could not sit next to the type there.
+- **The machines hold the patient beside the context or the plan.** The text said the machines'
+  patient cases hold the domain type; a context or a plan carries only the data, and the accessor
+  that answers the patient held cannot answer a domain patient from one case and data from
+  another. So `Evaluated` and `Opened` carry the patient, and `held` and `changing` take it first.
+- **The App keeps the draft next to the patient.** `State.PatientDraft` is what the panel edits
+  and the lists read, the estimate applied; `State.Patient` derives from it. The panel's draft is
+  never lost when the patient held goes from some to none, so the edge the text accepted in step 5
+  does not occur, and step 5 came down to the sentence.
+- **The ingress covers more than the text named.** Every context a plan carries, on every plan
+  command and the challenge; the formulary filter; and the challenge's reread of the platform,
+  filtered as the open's is. A plan to sign whose data is no patient answers the existing
+  `NoPatient` refusal, its comment widened, rather than a new wire case.
+- **The notice names the value that is missing.** Four terms instead of two: with an age, the
+  weight and the height can be missing separately.
+- **The workbook rows are the user's.** Five terms were added; their rows are printed by
+  `printPatientRow` and `printPrescribeRows` in `Shared/Scripts/Localization.fsx` and go into the
+  Localization workbook by hand, the Dutch fallback standing until then.
+- **Left as found.** `OrderContext.empty` and `OrderPlan.empty` keep a blank draft as their data:
+  a draft is a legitimate wire value, and the ingress refuses it. The readers of the draft stay
+  in the `Patient` module, typed on `PatientDto`; moving them to `PatientDto` is a cleanup for
+  another day.

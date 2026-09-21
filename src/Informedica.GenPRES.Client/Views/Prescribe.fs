@@ -28,9 +28,9 @@ module Prescribe =
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
         let planCommand = envOrderPlan.OrderPlanCommand
+        let draft = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
@@ -119,8 +119,7 @@ module Prescribe =
             | Provisional _ -> true
             | _ -> false
 
-        let isSourceLoading source =
-            isAnythingLoading && loadingSource = Some source
+        let isSourceLoading source = isAnythingLoading && loadingSource = Some source
 
         let select = ViewHelpers.filterSelect isAnythingLoading
 
@@ -137,9 +136,55 @@ module Prescribe =
 
         let autoComplete = ViewHelpers.autoComplete isAnythingLoading
 
+        // a patient without an age loses every dose rule with an age bound, silently, since a
+        // missing datum never matches a bounded range; one with an age but no weight and height,
+        // measured or estimated, has nothing for the rules to gate on and is refused. Said here,
+        // above the selects, while it holds.
+        let missingDimension =
+            match draft with
+            | Some dto when dto |> Patient.validate |> Result.isOk ->
+                if dto.Age.IsNone then
+                    Terms.``Prescribe Age unknown``
+                    |> getTerm "Leeftijd onbekend: alleen doseerregels zonder leeftijdsgrens worden getoond"
+                    |> Some
+                else
+                    // the estimate comes per table, and a measured value per field, so one can
+                    // be there without the other: the notice names what is missing
+                    match dto |> Patient.getWeight, dto |> Patient.getHeight with
+                    | Some _, Some _ -> None
+                    | None, None ->
+                        Terms.``Prescribe Weight and height unknown``
+                        |> getTerm "Gewicht en lengte onbekend: voer ze in, er is geen schatting"
+                        |> Some
+                    | None, Some _ ->
+                        Terms.``Prescribe Weight unknown``
+                        |> getTerm "Gewicht onbekend: voer het in, er is geen schatting"
+                        |> Some
+                    | Some _, None ->
+                        Terms.``Prescribe Height unknown``
+                        |> getTerm "Lengte onbekend: voer die in, er is geen schatting"
+                        |> Some
+            | _ -> None
+
+        let noticeSx = {| margin = 1 |}
+
+        let notice =
+            match missingDimension with
+            | None -> null
+            | Some text ->
+                JSX.jsx
+                    $"""
+                    import Alert from '@mui/material/Alert';
+
+                    <Alert severity="info" sx={noticeSx}>{text}</Alert>
+                    """
+
         let progress =
             match orderContext with
-            | HasNotStartedYet -> JSX.jsx $"<>Voer eerst patient gegevens in</>"
+            | HasNotStartedYet ->
+                let enterPatientData = Terms.``Patient enter patient data`` |> getTerm "Voer eerst patient gegevens in"
+
+                JSX.jsx $"<>{enterPatientData}</>"
             | _ -> null
 
 
@@ -513,6 +558,7 @@ module Prescribe =
 
         <div>
             <Box>
+                {notice}
                 {cards}
                 {progress}
             </Box>

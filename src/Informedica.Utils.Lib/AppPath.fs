@@ -33,6 +33,8 @@ module AppPath =
     open System
     open System.IO
 
+    open Informedica.Utils.Lib.BCL
+
 
     /// <summary>
     /// Name of the environment variable that, when set, forces the application
@@ -43,31 +45,6 @@ module AppPath =
     let GENPRES_ROOT = "GENPRES_ROOT"
 
 
-    /// <summary>
-    /// Walk up the directory tree from <paramref name="startDir"/> (inclusive),
-    /// returning the first directory for which <paramref name="found"/> holds,
-    /// or <c>None</c> when the filesystem root is reached.
-    /// </summary>
-    /// <param name="found">Predicate tested against each directory on the way up.</param>
-    /// <param name="startDir">The directory to start the upward search from.</param>
-    /// <returns>The first matching directory, or <c>None</c> if none matches.</returns>
-    let tryWalkUp found startDir =
-        let rec search dir =
-            if String.IsNullOrEmpty dir then
-                None
-            elif found dir then
-                Some dir
-            else
-                match Directory.GetParent dir with
-                | null -> None
-                | p -> search p.FullName
-
-        if String.IsNullOrEmpty startDir then
-            None
-        else
-            search startDir
-
-
     /// <summary>True when <paramref name="dir"/> directly contains a <c>.env</c> file.</summary>
     /// <param name="dir">The directory to test.</param>
     /// <returns><c>true</c> if <c>dir/.env</c> exists.</returns>
@@ -76,8 +53,7 @@ module AppPath =
     /// <summary>True when <paramref name="dir"/> contains a <c>data/zindex</c> sub-directory.</summary>
     /// <param name="dir">The directory to test.</param>
     /// <returns><c>true</c> if <c>dir/data/zindex</c> exists.</returns>
-    let hasZindex dir =
-        Directory.Exists(Path.Combine(dir, "data", "zindex"))
+    let hasZindex dir = System.IO.Directory.Exists(Path.Combine(dir, "data", "zindex"))
 
 
     /// <summary>
@@ -94,14 +70,14 @@ module AppPath =
     let tryGetRootInternal genpresRoot currentDir assemblyBaseDir =
         let fromEnv =
             match genpresRoot with
-            | Some v when not (String.IsNullOrWhiteSpace v) && Directory.Exists v -> Some v
+            | Some v when v |> String.notEmpty && Directory.Exists v -> Some v
             | _ -> None
 
         fromEnv
-        |> Option.orElseWith (fun () -> tryWalkUp hasEnv currentDir)
-        |> Option.orElseWith (fun () -> tryWalkUp hasEnv assemblyBaseDir)
-        |> Option.orElseWith (fun () -> tryWalkUp hasZindex assemblyBaseDir)
-        |> Option.orElseWith (fun () -> tryWalkUp hasZindex currentDir)
+        |> Option.orElseWith (fun () -> currentDir |> Directory.tryFindUpward hasEnv)
+        |> Option.orElseWith (fun () -> assemblyBaseDir |> Directory.tryFindUpward hasEnv)
+        |> Option.orElseWith (fun () -> assemblyBaseDir |> Directory.tryFindUpward hasZindex)
+        |> Option.orElseWith (fun () -> currentDir |> Directory.tryFindUpward hasZindex)
         |> Option.map Path.GetFullPath
 
 
@@ -158,5 +134,4 @@ module AppPath =
     /// <summary>
     /// The <c>data/cache/interactions/</c> directory.
     /// </summary>
-    let interactionsDir () =
-        Path.Combine(cacheDir (), "interactions")
+    let interactionsDir () = Path.Combine(cacheDir (), "interactions")

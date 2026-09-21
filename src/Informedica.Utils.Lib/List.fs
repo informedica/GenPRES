@@ -13,9 +13,9 @@ module List =
     let prepend xs1 xs2 = xs1 |> List.append xs2
 
 
-    /// Prism onto the element at index `i` of a list: `getOpt` returns it when the
-    /// list is long enough, `set` replaces it in place and is a no-op otherwise.
-    /// Matches Aether's `Optics.List.pos_`, which the ZForm optics compose onto.
+    /// Prism onto the element at index i of a list: getOpt returns it when the
+    /// list is long enough, set replaces it in place and is a no-op otherwise.
+    /// Matches Aether's Optics.List.pos_, which the ZForm optics compose onto.
     let pos_ (i: int) : Informedica.Utils.Lib.Optics.Prism<'v list, 'v> =
         (fun xs -> if List.length xs > i then Some(List.item i xs) else None),
         (fun v xs -> xs |> List.mapi (fun j x -> if j = i then v else x))
@@ -36,10 +36,10 @@ module List =
         | None -> xs
 
 
-    /// Replace an element **x** in a list **xs**
-    /// when the **pred** function returns `true`.
+    /// Replace an element x in a list xs
+    /// when the pred function returns true.
     /// Note: will only replace the *first* element
-    /// that satisfies the condition in **pred**
+    /// that satisfies the condition in pred
     /// Example: [1;2;3;2] |> replace (fun x -> x = 2) 4 = [1;4;3;2]
     let replace pred x xs =
         match List.tryFindIndex pred xs with
@@ -124,8 +124,7 @@ module List =
     // Logic
     //----------------------------------------------------------------------------
 
-    let hasExactlyOne pred xs =
-        xs |> List.filter pred |> List.length = 1
+    let hasExactlyOne pred xs = xs |> List.filter pred |> List.length = 1
 
 
     //----------------------------------------------------------------------------
@@ -133,13 +132,12 @@ module List =
     //----------------------------------------------------------------------------
 
 
-    let tryFindInList pred xs =
-        xs |> List.collect id |> List.tryFind pred
+    let tryFindInList pred xs = xs |> List.collect id |> List.tryFind pred
 
-    /// Try to find the first element with **n**
-    /// in a list of list **xsl**
-    /// with a function **get** to
-    /// get **n** from an element
+    /// Try to find the first element with n
+    /// in a list of list xsl
+    /// with a function get to
+    /// get n from an element
     let tryFindFirst get n xs =
         let pred x = x |> get = n
 
@@ -236,8 +234,7 @@ module List =
             []
 
 
-    let distinct xs =
-        xs |> Seq.ofList |> Seq.distinct |> Seq.toList
+    let distinct xs = xs |> Seq.ofList |> Seq.distinct |> Seq.toList
 
 
     let replaceOrAdd pred x xs =

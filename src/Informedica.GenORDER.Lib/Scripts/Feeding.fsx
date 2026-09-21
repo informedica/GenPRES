@@ -58,7 +58,7 @@ module HelperFunctions =
                 | Ok ord -> ord |> cmd |> OrderProcessor.processPipeline logger |> loop rest
 
         med
-        |> Informedica.GenOrder.Lib.Medication.toOrderDto
+        |> Informedica.GenOrder.Lib.Medication.toOrderDto System.DateTime.UtcNow
         |> Order.Dto.fromDto
         |> function
             | Error msg -> failwith $"{msg}"
@@ -174,8 +174,9 @@ FeedingTexts.feedingWithPowder
 |> function
     | Error _ -> "cannot create feeding" |> failwith
     | Ok med ->
-        let dto =
-            med |> Medication.OrderDtoHelpers.calculateDivisibility (Some med.Components[1])
+        med
+        |> Medication.OrderBuilder.divisibility (Some med.Components[1])
+        |> Option.map (ValueUnit.getUnit >> ValueUnit.unitToString)
+        |> printfn "%A"
 
-        dto |> Option.map _.Unit |> printfn "%A"
         [ OrderCommand.CalcMinMax ] |> HelperFunctions.run (Some logger) med

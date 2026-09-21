@@ -127,13 +127,7 @@ module Tests =
                         Logging.logDebug logger msg
                         Logging.logError logger msg
 
-                        let expectedLevels =
-                            [
-                                Level.Error
-                                Level.Debug
-                                Level.Warning
-                                Level.Informative
-                            ]
+                        let expectedLevels = [ Level.Error; Level.Debug; Level.Warning; Level.Informative ]
 
                         Expect.equal levels expectedLevels "All levels should be captured in reverse order"
                     }
@@ -281,10 +275,7 @@ module Tests =
                     }
 
                     test "createWithFallback should use fallback for unknown types" {
-                        let formatters =
-                            [
-                                typeof<TestMessage>, (fun (msg: IMessage) -> (msg :?> TestMessage).Text)
-                            ]
+                        let formatters = [ typeof<TestMessage>, (fun (msg: IMessage) -> (msg :?> TestMessage).Text) ]
 
                         let fallback = fun msg -> $"Fallback: {msg.GetType().Name}"
                         let formatter = MessageFormatter.createWithFallback formatters fallback
@@ -343,8 +334,7 @@ module Tests =
         let createLogEvent msg = InfoEvent msg :> IMessage
         let createWarnEvent msg code = WarnEvent(msg, code) :> IMessage
 
-        let createErrorEvent msg code details =
-            ErrorEvent(msg, code, details) :> IMessage
+        let createErrorEvent msg code details = ErrorEvent(msg, code, details) :> IMessage
 
         let createSystemMessage version = StartupMessage version :> IMessage
         let createComplexMessage msg = Simple msg :> IMessage
@@ -373,8 +363,7 @@ module Tests =
                         let infoResult = formatter (createLogEvent "System started")
                         let warnResult = formatter (createWarnEvent "Low memory" 1001)
 
-                        let errorResult =
-                            formatter (createErrorEvent "Connection failed" 2001 "Network timeout")
+                        let errorResult = formatter (createErrorEvent "Connection failed" 2001 "Network timeout")
 
                         Expect.equal infoResult "INFO: System started" "Info event should be formatted correctly"
                         Expect.equal warnResult "WARN[1001]: Low memory" "Warn event should be formatted correctly"
@@ -407,8 +396,7 @@ module Tests =
 
                         let startupResult = formatter (createSystemMessage "1.0.0")
 
-                        let configResult =
-                            formatter (createNestedMessage (WarnEvent("Invalid setting", 3001)))
+                        let configResult = formatter (createNestedMessage (WarnEvent("Invalid setting", 3001)))
 
                         Expect.equal
                             startupResult
@@ -478,8 +466,7 @@ module Tests =
 
                         let derivedResult = formatter (DerivedMessage("Test message") :> IMessage)
 
-                        let anotherDerivedResult =
-                            formatter (AnotherDerivedMessage("Error occurred", 404) :> IMessage)
+                        let anotherDerivedResult = formatter (AnotherDerivedMessage("Error occurred", 404) :> IMessage)
 
                         Expect.equal derivedResult "BASE: Test message" "Derived message should use base formatter"
 
@@ -508,8 +495,7 @@ module Tests =
 
                         let derivedResult = formatter (DerivedMessage("Test message") :> IMessage)
 
-                        let anotherDerivedResult =
-                            formatter (AnotherDerivedMessage("Error occurred", 404) :> IMessage)
+                        let anotherDerivedResult = formatter (AnotherDerivedMessage("Error occurred", 404) :> IMessage)
 
                         Expect.equal
                             derivedResult
@@ -541,8 +527,7 @@ module Tests =
 
                         let derivedResult = formatter (DerivedMessage("Test message") :> IMessage)
 
-                        let anotherDerivedResult =
-                            formatter (AnotherDerivedMessage("Error occurred", 404) :> IMessage)
+                        let anotherDerivedResult = formatter (AnotherDerivedMessage("Error occurred", 404) :> IMessage)
 
                         Expect.equal
                             derivedResult
@@ -874,8 +859,7 @@ module Tests =
                     testAsync "should handle formatter exceptions gracefully" {
                         let badFormatter = fun (_: IMessage) -> invalidOp "Formatter error!"
 
-                        let config =
-                            { AgentLogging.AgentLoggerDefaults.config with Formatter = badFormatter }
+                        let config = { AgentLogging.AgentLoggerDefaults.config with Formatter = badFormatter }
 
                         let logger = AgentLogging.createAgentLogger config
 

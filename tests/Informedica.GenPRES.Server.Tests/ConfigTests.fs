@@ -5,11 +5,7 @@ open Expecto.Flip
 open Server
 
 
-let loopback =
-    [|
-        System.Net.IPAddress.Loopback
-        System.Net.IPAddress.IPv6Loopback
-    |]
+let loopback = [| System.Net.IPAddress.Loopback; System.Net.IPAddress.IPv6Loopback |]
 
 
 let trustedProxiesTests =
@@ -87,8 +83,7 @@ let startup urlId : Config.Startup =
 
 
 let validateStartupTests =
-    let settings (m: Map<string, string>) =
-        Config.fromEnv (fun key -> m |> Map.tryFind key)
+    let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
 
     let sixteen = String.replicate 16 "x"
 
@@ -108,7 +103,7 @@ let validateStartupTests =
                 | Ok _ -> failtest "expected Error"
             }
 
-            test "production without a password starts with one warning and the url id (#590)" {
+            test "production without a password starts with one warning and the url id" {
                 match
                     Map [ "GENPRES_PROD", "1"; "GENPRES_URL_ID", "sheet-id" ]
                     |> settings
@@ -136,6 +131,33 @@ let validateStartupTests =
                     |> Config.validateStartup
                 with
                 | Error msg -> msg |> Expect.stringContains "names the setting" "GENPRES_PASSWORD"
+                | Ok _ -> failtest "expected Error"
+            }
+
+            test "demo with the session store set starts without warnings" {
+                Map
+                    [
+                        "GENPRES_URL_ID", "sheet-id"
+                        "GENPRES_DB_CONNECTION", "Data Source=data/db/genpres.db"
+                    ]
+                |> settings
+                |> Config.validateStartup
+                |> Expect.equal "Ok with the url id" (Ok(startup "sheet-id"))
+            }
+
+            test "production with the session store set is refused, naming the setting" {
+                match
+                    Map
+                        [
+                            "GENPRES_PROD", "1"
+                            "GENPRES_PASSWORD", sixteen
+                            "GENPRES_URL_ID", "sheet-id"
+                            "GENPRES_DB_CONNECTION", "Data Source=data/db/genpres.db"
+                        ]
+                    |> settings
+                    |> Config.validateStartup
+                with
+                | Error msg -> msg |> Expect.stringContains "names the setting" "GENPRES_DB_CONNECTION"
                 | Ok _ -> failtest "expected Error"
             }
 
@@ -192,6 +214,7 @@ let fromEnvTests =
                 s.TrustedProxies |> Expect.equal "loopback" loopback
                 s.Log |> Expect.equal "log" "0"
                 s.Lang |> Expect.isNone "no language"
+                s.DbConnection |> Expect.isNone "no session store"
             }
 
             test "reads every setting" {
@@ -206,6 +229,7 @@ let fromEnvTests =
                             "GENPRES_LOG", "d"
                             "GENPRES_DEBUG", "1"
                             "GENPRES_LANG", "en"
+                            "GENPRES_DB_CONNECTION", "Data Source=data/db/genpres.db"
                         ]
 
                 let s = Config.fromEnv (getEnv env)
@@ -220,6 +244,9 @@ let fromEnvTests =
                 s.Log |> Expect.equal "log" "d"
                 s.Debug |> Expect.equal "debug" "1"
                 s.Lang |> Expect.equal "language" (Some "en")
+
+                s.DbConnection
+                |> Expect.equal "session store" (Some "Data Source=data/db/genpres.db")
             }
 
             test "blank secrets are treated as unset" {
@@ -227,6 +254,11 @@ let fromEnvTests =
                 let s = Config.fromEnv (getEnv env)
                 s.UrlId |> Expect.isNone "blank url id"
                 s.Password |> Expect.isNone "blank password"
+            }
+
+            test "a blank session store is unset" {
+                let s = Config.fromEnv (getEnv (Map [ "GENPRES_DB_CONNECTION", " " ]))
+                s.DbConnection |> Expect.isNone "blank connection string"
             }
 
             test "a blank language is unset" {
@@ -237,8 +269,7 @@ let fromEnvTests =
 
 
 let languageTests =
-    let settings (m: Map<string, string>) =
-        Config.fromEnv (fun key -> m |> Map.tryFind key)
+    let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
 
     testList
         "GENPRES_LANG"
@@ -289,19 +320,14 @@ let languageTests =
 
             test "the language is checked after the password and before the url id" {
                 match
-                    Map
-                        [
-                            "GENPRES_PROD", "1"
-                            "GENPRES_PASSWORD", "short"
-                            "GENPRES_LANG", "klingon"
-                        ]
+                    Map [ "GENPRES_PROD", "1"; "GENPRES_PASSWORD", "short"; "GENPRES_LANG", "klingon" ]
                     |> settings
                     |> Config.validateStartup
                 with
                 | Error msg -> msg |> Expect.stringContains "password first" "GENPRES_PASSWORD"
                 | Ok _ -> failtest "expected Error"
 
-                // a missing password is a warning (#590), so it does not mask the language error
+                // a missing password is a warning, so it does not mask the language error
                 match
                     Map [ "GENPRES_PROD", "1"; "GENPRES_LANG", "klingon" ]
                     |> settings

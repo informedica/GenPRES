@@ -107,7 +107,7 @@ sequenceDiagram
   LaunchRecord, so a reload of the callback within the Launch's lifetime is answered as the
   first time: the same Session, the same refusal, or the same enrolment. A reload whose Session
   has since been superseded is redirected to `#/session` all the same, and the next `GetSession`
-  tells the ending. After the lifetime the record is dropped whole, and the callback is refused
+  tells the ending. After the lifetime the record stays and loads as absent, and the callback is refused
   `invalid`.
 
 ## Step 5: check and open
@@ -143,8 +143,10 @@ sequenceDiagram
   [uc-02](uc-02-enrolment.md) and continues from 5.4 once the PIN is set. A Reader is never
   asked for a PIN; the credential is not read.
 - **5.4** The patient data is read from the platform, once. Nothing found is not a refusal: the
-  Session opens on the patient data of the head of the record, the last seen, or on an empty
-  patient where there is no record, so that a data outage does not block prescribing.
+  Session opens on the patient data of the head of the record, the last seen, or on no patient
+  data where there is no record, so that a data outage does not block prescribing: the User
+  enters the data, and nothing is evaluated until it is a patient. A reading that is no patient
+  (no age, and no measured weight and height) counts as nothing found.
 - **5.5** The newest signed version of the patient's record is the head the Session starts
   from; `OpenedWith` remembers its id, and the OpenedToken is minted over it.
 - **5.6** `openWith` is one act over the one state: the login's other Sessions are removed and
@@ -231,7 +233,7 @@ Launches contend for the per-User limit.
 | IdentityProvider (4.3, 4.4) | `/authorize` and an in-memory code store | issues a one-time code for the chosen identity, or reports `no-identity`; the code is redeemed on the Server's side of the callback and pruned after the Launch lifetime |
 | UserRegistry (5.1, 5.2) | `StubDirectory` | answers Role, active Patient and mail address per identity choice: `prescriber`, `prescriber-b`, `reader`, `prescriber-other-patient`, `no-pin`, `unknown`; the seeded Prescribers have the PIN `1234` |
 | PatientDataPlatform (5.4) | `StubPatientData` | answers one fixed patient (ten years, 32 kg, 140 cm) for every PatientId, none for `no-data` |
-| GenPRES Database | one `Session.State` per server start | LaunchRecords by nonce, SessionRecords, endings, credentials, codes, enrolments, the signed record, notices, challenges, remembered answers; every transition a pure function under one lock; forgotten at a restart |
+| GenPRES Database | a SQLite file when `GENPRES_DB_CONNECTION` is set, else one `Session.State` per server start | LaunchRecords by nonce, SessionRecords, endings, credentials, codes, enrolments, the signed record, notices, challenges, remembered answers, and an audit entry per act; every transition a pure function under one lock. On the file all of it outlives a restart and a second server reads it, and nothing is ever deleted: a row past its lifetime loads as absent. The in-memory store forgets all of it |
 
 The walkthrough is in [DEVELOPMENT.md](../../../DEVELOPMENT.md#simulating-the-launch-sequence).
 
@@ -251,10 +253,12 @@ launch in another tab, if refused, cannot take the first tab's key away. Today t
 is used for one thing only: telling a retry of the same Launch from a replay by another
 browser.
 
-Also not built: the audit of every launch, honored or refused (Rule 46); the idle and
-absolute lifetimes of a Session (Rule 10; nothing acts on `Seen`); a store that survives a
-restart ([#516](https://github.com/informedica/GenPRES/issues/516)); the erasure of the
-token from the browser history ([#599](https://github.com/informedica/GenPRES/issues/599)).
+Also not built: the idle and absolute lifetimes of a Session (Rule 10; nothing acts on `Seen`);
+the erasure of the token from the browser history
+([#599](https://github.com/informedica/GenPRES/issues/599)). The audit of every launch,
+honoured or refused (Rule 46), is written on the SQLite store and nowhere else: the in-memory
+store audits nothing, and no one can read the table back yet
+([#516](https://github.com/informedica/GenPRES/issues/516)).
 
 ---
 

@@ -10,7 +10,7 @@ namespace Informedica.GenForm.Lib
 /// Split out for the same reason as <c>DoseRuleLoader</c>: <c>Source</c> is a pure leaf
 /// consumed by <c>DoseRule</c>, so it cannot hold a network call. This module is the
 /// resources-side seam, composed by <c>Resources.Keys.nkfLinkProvider</c>, which decides
-/// what a failed fetch means. See issue #529.
+/// what a failed fetch means.
 /// </remarks>
 module SourceLoader =
 
@@ -72,5 +72,5 @@ module SourceLoader =
                 exn
 
 
-    /// Fetch the NKF medication index from <c>nkfUrl</c>.
+    /// Fetch the NKF medication index from nkfUrl.
     let fetchNKFMedications () = fetchNKFMedicationsFrom nkfUrl

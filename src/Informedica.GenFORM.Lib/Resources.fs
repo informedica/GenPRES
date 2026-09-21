@@ -21,7 +21,7 @@ module Resources =
         }
 
 
-    /// Phantom-typed handle: names a resource and carries its value type `'T`.
+    /// Phantom-typed handle: names a resource and carries its value type 'T.
     type ResourceKey<'T> = { Name: string }
 
     module ResourceKey =
@@ -44,7 +44,7 @@ module Resources =
 
 
     /// Resource provider abstraction. Returns the fully built, in-memory
-    /// resource collections. Product collections are v2 `ProductComponent`s.
+    /// resource collections. Product collections are v2 ProductComponents.
     type IResourceProvider =
         /// Generic seam: resolve any registered resource by its typed key.
         abstract member Get: ResourceKey<'T> -> 'T
@@ -74,7 +74,7 @@ module Resources =
 
 
     /// Standalone v2 resource state. The raw, source-loaded data lives in the
-    /// nested `Data` record; the built domain collections live at the top level.
+    /// nested Data record; the built domain collections live at the top level.
     type ResourceState =
         {
             Data: Data
@@ -229,10 +229,10 @@ module Resources =
 
     /// Default resource registry using the standard v2 get functions.
     ///
-    /// Every entry is a loader; dependencies are declared by calling `r.Get` and
+    /// Every entry is a loader; dependencies are declared by calling r.Get and
     /// resolved lazily and once by the engine (replacing the old hand-ordered CE).
     /// FormularyProducts is one resource that ParenteralMeds / EnteralFeeding /
-    /// Products depend on, so it is fetched exactly once (no explicit `lazy`).
+    /// Products depend on, so it is fetched exactly once (no explicit lazy).
     let defaultRegistry dataUrlId : ResourceRegistry =
         Map
             [
@@ -352,9 +352,9 @@ module Resources =
             ]
 
 
-    /// The resolved resource set: the typed `ResourceState` snapshot (the stable
+    /// The resolved resource set: the typed ResourceState snapshot (the stable
     /// facade for existing consumers) plus the boxed map of every resolved
-    /// resource (serves the generic `Get` seam and function-valued resources).
+    /// resource (serves the generic Get seam and function-valued resources).
     type LoadedResources =
         {
             State: ResourceState
@@ -407,8 +407,7 @@ module Resources =
 
 
     /// Load all resources at once using the default registry.
-    let loadAllResources dataUrlId =
-        loadAllResourcesWithRegistry (defaultRegistry dataUrlId)
+    let loadAllResources dataUrlId = loadAllResourcesWithRegistry (defaultRegistry dataUrlId)
 
 
     /// A plain provider over an already-loaded resource set.
@@ -497,45 +496,34 @@ module Resources =
                 )
 
         interface IResourceProvider with
-            member this.Get(key: ResourceKey<'T>) : 'T =
-                this.getFromCache (fun l -> l.Resolved[key.Name] :?> 'T)
+            member this.Get(key: ResourceKey<'T>) : 'T = this.getFromCache (fun l -> l.Resolved[key.Name] :?> 'T)
 
             member this.GetData() = this.getFromCache _.State.Data
 
-            member this.GetUnitMappings() =
-                this.getFromCache _.State.Data.UnitMappings
+            member this.GetUnitMappings() = this.getFromCache _.State.Data.UnitMappings
 
-            member this.GetRouteMappings() =
-                this.getFromCache _.State.Data.RouteMappings
+            member this.GetRouteMappings() = this.getFromCache _.State.Data.RouteMappings
 
-            member this.GetValidForms() =
-                this.getFromCache _.State.Data.ValidForms
+            member this.GetValidForms() = this.getFromCache _.State.Data.ValidForms
 
-            member this.GetFormRoutes() =
-                this.getFromCache _.State.Data.FormRoutes
+            member this.GetFormRoutes() = this.getFromCache _.State.Data.FormRoutes
 
-            member this.GetFormularyProducts() =
-                this.getFromCache _.State.Data.FormularyProducts
+            member this.GetFormularyProducts() = this.getFromCache _.State.Data.FormularyProducts
 
-            member this.GetReconstitution() =
-                this.getFromCache _.State.Reconstitution
+            member this.GetReconstitution() = this.getFromCache _.State.Reconstitution
 
-            member this.GetEnteralFeeding() =
-                this.getFromCache _.State.EnteralFeeding
+            member this.GetEnteralFeeding() = this.getFromCache _.State.EnteralFeeding
 
-            member this.GetParenteralMeds() =
-                this.getFromCache _.State.ParenteralMeds
+            member this.GetParenteralMeds() = this.getFromCache _.State.ParenteralMeds
 
             member this.GetProducts() = this.getFromCache _.State.Products
             member this.GetDoseRules() = this.getFromCache _.State.DoseRules
             member this.GetSolutionRules() = this.getFromCache _.State.SolutionRules
             member this.GetRenalRules() = this.getFromCache _.State.RenalRules
 
-            member this.GetTotals() =
-                this.getFromCache _.State.Data.TotalsData
+            member this.GetTotals() = this.getFromCache _.State.Data.TotalsData
 
             member this.GetGStandProvider() =
                 this.getFromCache (fun l -> l.Resolved[Keys.gStandProvider.Name] :?> Check.GStandProvider)
 
-            member this.GetResourceInfo() =
-                this.getFromCache (fun l -> resourceInfo l.State)
+            member this.GetResourceInfo() = this.getFromCache (fun l -> resourceInfo l.State)

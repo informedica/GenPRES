@@ -31,68 +31,52 @@ module PatientCategory =
         let setGender g (pc: PatientCategory) = { pc with Gender = g }
 
 
-        let setInclMinGestAge vu (pc: PatientCategory) =
-            { pc with GestAge = pc.GestAge |> MinMax.setInclMin vu }
+        let setInclMinGestAge vu (pc: PatientCategory) = { pc with GestAge = pc.GestAge |> MinMax.setInclMin vu }
 
 
-        let setExclMinGestAge vu (pc: PatientCategory) =
-            { pc with GestAge = pc.GestAge |> MinMax.setExclMin vu }
+        let setExclMinGestAge vu (pc: PatientCategory) = { pc with GestAge = pc.GestAge |> MinMax.setExclMin vu }
 
 
-        let setInclMaxGestAge vu (pc: PatientCategory) =
-            { pc with GestAge = pc.GestAge |> MinMax.setInclMax vu }
+        let setInclMaxGestAge vu (pc: PatientCategory) = { pc with GestAge = pc.GestAge |> MinMax.setInclMax vu }
 
 
-        let setExclMaxGestAge vu (pc: PatientCategory) =
-            { pc with GestAge = pc.GestAge |> MinMax.setExclMax vu }
+        let setExclMaxGestAge vu (pc: PatientCategory) = { pc with GestAge = pc.GestAge |> MinMax.setExclMax vu }
 
 
-        let setInclMinAge vu (pc: PatientCategory) =
-            { pc with Age = pc.Age |> MinMax.setInclMin vu }
+        let setInclMinAge vu (pc: PatientCategory) = { pc with Age = pc.Age |> MinMax.setInclMin vu }
 
 
-        let setExclMinAge vu (pc: PatientCategory) =
-            { pc with Age = pc.Age |> MinMax.setExclMin vu }
+        let setExclMinAge vu (pc: PatientCategory) = { pc with Age = pc.Age |> MinMax.setExclMin vu }
 
 
-        let setInclMaxAge vu (pc: PatientCategory) =
-            { pc with Age = pc.Age |> MinMax.setInclMax vu }
+        let setInclMaxAge vu (pc: PatientCategory) = { pc with Age = pc.Age |> MinMax.setInclMax vu }
 
 
-        let setExclMaxAge vu (pc: PatientCategory) =
-            { pc with Age = pc.Age |> MinMax.setExclMax vu }
+        let setExclMaxAge vu (pc: PatientCategory) = { pc with Age = pc.Age |> MinMax.setExclMax vu }
 
 
-        let setInclMinWeight vu (pc: PatientCategory) =
-            { pc with Weight = pc.Weight |> MinMax.setInclMin vu }
+        let setInclMinWeight vu (pc: PatientCategory) = { pc with Weight = pc.Weight |> MinMax.setInclMin vu }
 
 
-        let setExclMinWeight vu (pc: PatientCategory) =
-            { pc with Weight = pc.Weight |> MinMax.setExclMin vu }
+        let setExclMinWeight vu (pc: PatientCategory) = { pc with Weight = pc.Weight |> MinMax.setExclMin vu }
 
 
-        let setInclMaxWeight vu (pc: PatientCategory) =
-            { pc with Weight = pc.Weight |> MinMax.setInclMax vu }
+        let setInclMaxWeight vu (pc: PatientCategory) = { pc with Weight = pc.Weight |> MinMax.setInclMax vu }
 
 
-        let setExclMaxWeight vu (pc: PatientCategory) =
-            { pc with Weight = pc.Weight |> MinMax.setExclMax vu }
+        let setExclMaxWeight vu (pc: PatientCategory) = { pc with Weight = pc.Weight |> MinMax.setExclMax vu }
 
 
-        let setInclMinBSA vu (pc: PatientCategory) =
-            { pc with BSA = pc.BSA |> MinMax.setInclMin vu }
+        let setInclMinBSA vu (pc: PatientCategory) = { pc with BSA = pc.BSA |> MinMax.setInclMin vu }
 
 
-        let setExclMinBSA vu (pc: PatientCategory) =
-            { pc with BSA = pc.BSA |> MinMax.setExclMin vu }
+        let setExclMinBSA vu (pc: PatientCategory) = { pc with BSA = pc.BSA |> MinMax.setExclMin vu }
 
 
-        let setInclMaxBSA vu (pc: PatientCategory) =
-            { pc with BSA = pc.BSA |> MinMax.setInclMax vu }
+        let setInclMaxBSA vu (pc: PatientCategory) = { pc with BSA = pc.BSA |> MinMax.setInclMax vu }
 
 
-        let setExclMaxBSA vu (pc: PatientCategory) =
-            { pc with BSA = pc.BSA |> MinMax.setExclMax vu }
+        let setExclMaxBSA vu (pc: PatientCategory) = { pc with BSA = pc.BSA |> MinMax.setExclMax vu }
 
 
     /// Get the string representation of a Gener.

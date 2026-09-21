@@ -10,8 +10,7 @@ module ZIndexFixture =
     // ── String helpers ────────────────────────────────────────────────────
 
     /// Pad or truncate a string to exactly n chars by right-padding with spaces.
-    let padR (n: int) (s: string) =
-        if s.Length >= n then s.Substring(0, n) else s.PadRight(n)
+    let padR (n: int) (s: string) = if s.Length >= n then s.Substring(0, n) else s.PadRight(n)
 
     /// Pad or truncate a number string to exactly n chars by left-padding with spaces.
     let padL (n: int) (s: string) =
@@ -379,53 +378,11 @@ module ZIndexFixture =
     let private bst642TLen = [| 4; 1; 6; 6; 4; 5; 6; 4; 2; 4; 4; 5; 5; 6 |]
     let private bst643TLen = [| 4; 1; 6; 6; 6; 6; 6; 6; 6; 6; 4; 4; 1; 6 |]
 
-    let private bst649TLen =
-        [|
-            4
-            1
-            6
-            11
-            11
-            11
-            11
-            11
-            11
-            11
-            11
-            11
-            11
-            11
-            11
-        |]
+    let private bst649TLen = [| 4; 1; 6; 11; 11; 11; 11; 11; 11; 11; 11; 11; 11; 11; 11 |]
 
     let private bst701TLen = [| 4; 1; 8; 4; 1; 6; 12; 4; 4; 6; 4; 4 |]
 
-    let private bst711TLen =
-        [|
-            4
-            1
-            8
-            8
-            4
-            5
-            4
-            5
-            7
-            4
-            4
-            5
-            6
-            4
-            4
-            4
-            4
-            8
-            4
-            4
-            7
-            4
-            5
-        |]
+    let private bst711TLen = [| 4; 1; 8; 8; 4; 5; 4; 5; 7; 4; 4; 5; 6; 4; 4; 4; 4; 8; 4; 4; 7; 4; 5 |]
 
     let private bst715TLen = [| 4; 1; 1; 8; 6; 12; 4; 5 |]
     let private bst720TLen = [| 4; 1; 8; 8 |]
@@ -490,26 +447,10 @@ module ZIndexFixture =
             |]
 
     let private bst360Record ttehnr ttehom =
-        buildRecord
-            bst360TLen
-            [|
-                "0360"
-                "0"
-                (string ttehnr).PadLeft(5)
-                "     "
-                padR 25 ttehom
-            |]
+        buildRecord bst360TLen [| "0360"; "0"; (string ttehnr).PadLeft(5); "     "; padR 25 ttehom |]
 
     let private bst380Record icpcnr icpctxt =
-        buildRecord
-            bst380TLen
-            [|
-                "0380"
-                "0"
-                (string icpcnr).PadLeft(6)
-                "     "
-                padR 60 icpctxt
-            |]
+        buildRecord bst380TLen [| "0380"; "0"; (string icpcnr).PadLeft(6); "     "; padR 60 icpctxt |]
 
     let private bst640Record gpkode gpdgst gprisc =
         buildRecord
@@ -680,15 +621,7 @@ module ZIndexFixture =
         buildRecord bst720TLen [| "0720"; "0"; id71 spkode; id71 sskode |]
 
     let private bst725Record sskode gnstam ssktwg =
-        buildRecord
-            bst725TLen
-            [|
-                "0725"
-                "0"
-                id71 sskode
-                id51 gnstam
-                (string ssktwg).PadLeft(5)
-            |]
+        buildRecord bst725TLen [| "0725"; "0"; id71 sskode; id51 gnstam; (string ssktwg).PadLeft(5) |]
 
     let private bst750Record
         gngnk
@@ -728,28 +661,10 @@ module ZIndexFixture =
             |]
 
     let private bst760Record hpkode enktdw =
-        buildRecord
-            bst760TLen
-            [|
-                "0760"
-                "0"
-                id71 hpkode
-                "    "
-                "    "
-                (string enktdw).PadLeft(5)
-            |]
+        buildRecord bst760TLen [| "0760"; "0"; id71 hpkode; "    "; "    "; (string enktdw).PadLeft(5) |]
 
     let private bst801Record atcode atoms atomse atkind =
-        buildRecord
-            bst801TLen
-            [|
-                "0801"
-                "0"
-                padR 7 atcode
-                padR 60 atoms
-                padR 60 atomse
-                padR 1 atkind
-            |]
+        buildRecord bst801TLen [| "0801"; "0"; padR 7 atcode; padR 60 atoms; padR 60 atomse; padR 1 atkind |]
 
     let private bst902Record tsnr tsitnr thnm25 thnm50 =
         buildRecord
@@ -931,11 +846,7 @@ module ZIndexFixture =
         ]
 
     let private tradeRouteRecords =
-        [
-            bst760Record 2956608 1
-            bst760Record 2956609 4
-            bst760Record 2956610 2
-        ]
+        [ bst760Record 2956608 1; bst760Record 2956609 4; bst760Record 2956610 2 ]
 
     let private textBlockRecords =
         [

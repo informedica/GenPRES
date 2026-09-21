@@ -6,6 +6,8 @@ module FileDirectoryAgent =
     open System.IO
     open System.Collections.Generic
 
+    open Informedica.Utils.Lib.BCL
+
     /// Messages for the directory maintenance agent
     type FileDirectoryMsg =
         | SetPolicy of dir: string * maxFiles: int * searchPattern: string option
@@ -25,17 +27,15 @@ module FileDirectoryAgent =
     let private defaultPattern = "*"
 
     let private normalizeDir (pathOrDir: string) =
-        if String.IsNullOrWhiteSpace pathOrDir then
+        if pathOrDir |> String.isNullOrWhiteSpace then
             invalidArg (nameof pathOrDir) "Directory/path must not be null or empty"
 
         let p = Path.GetFullPath pathOrDir
         // If it's an existing directory, use it as-is
         if Directory.Exists p then
             p
-        else if
-            // If it's an existing file, use its directory
-            File.Exists p
-        then
+        // If it's an existing file, use its directory
+        else if File.Exists p then
             match Path.GetDirectoryName p with
             | null
             | "" -> Directory.GetCurrentDirectory()
@@ -207,11 +207,9 @@ module FileDirectoryAgent =
         RemovePolicy dir |> agent.Post
         agent
 
-    let prune dir (agent: Agent<FileDirectoryMsg>) =
-        agent.PostAndReply(fun rc -> Prune(dir, rc))
+    let prune dir (agent: Agent<FileDirectoryMsg>) = agent.PostAndReply(fun rc -> Prune(dir, rc))
 
-    let pruneAsync dir (agent: Agent<FileDirectoryMsg>) =
-        agent.PostAndAsyncReply(fun rc -> Prune(dir, rc))
+    let pruneAsync dir (agent: Agent<FileDirectoryMsg>) = agent.PostAndAsyncReply(fun rc -> Prune(dir, rc))
 
     let enforce dir maxFiles (agent: Agent<FileDirectoryMsg>) =
         agent.PostAndReply(fun rc -> Enforce(dir, maxFiles, None, rc))
@@ -221,5 +219,4 @@ module FileDirectoryAgent =
 
     let stop (agent: Agent<FileDirectoryMsg>) = agent.PostAndReply(fun rc -> Stop rc)
 
-    let stopAsync (agent: Agent<FileDirectoryMsg>) =
-        agent.PostAndAsyncReply(fun rc -> Stop rc)
+    let stopAsync (agent: Agent<FileDirectoryMsg>) = agent.PostAndAsyncReply(fun rc -> Stop rc)

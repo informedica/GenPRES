@@ -10,9 +10,19 @@ open OrderPlanMachine
 
 module Fixtures =
 
-    let patient = Shared.Models.PatientDto.empty
+    let ten = { Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
 
-    let other = { patient with Department = Some "other" }
+    /// The data a plan carries, and the patient it is: an age makes the draft a patient.
+    let draft = { Shared.Models.Patient.empty with Age = Some ten }
+
+    let asPatient (dto: Patient) =
+        match dto |> Shared.Models.Patient.validate with
+        | Ok pat -> pat
+        | Error err -> invalidOp $"the fixture is no patient: %A{err}"
+
+    let patient = draft |> asPatient
+    let otherDraft = { draft with Department = Some "other" }
+    let other = otherDraft |> asPatient
 
     /// An OrderScenario with its order id and its name set, every other field a default (built by
     /// reflection: the order graph is too deep to write by hand).
@@ -65,19 +75,20 @@ module Fixtures =
         }
 
 
-    let plan contexts =
-        Shared.Models.OrderPlan.create patient contexts
+    let plan contexts = Shared.Models.OrderPlan.create draft contexts
 
     let one = plan [| context "c-1" "paracetamol" |]
     let two = plan [| context "c-1" "paracetamol"; context "c-2" "ibuprofen" |]
 
     let noPatient = OrderPlanState.noPatient
 
-    let held = OrderPlanState.held
+    let held = OrderPlanState.held patient
 
-    /// A change under way over the plan held, the one a failed change goes back to.
-    let recalculating (tp: OrderPlan) (selected: string option) request (sent: OrderPlanCommand) =
-        OrderPlanState.changing tp selected sent request
+    /// A change under way over the plan held for the patient, the one a failed change goes back to.
+    let recalculatingFor pat (tp: OrderPlan) (selected: string option) request (sent: OrderPlanCommand) =
+        OrderPlanState.changing pat tp selected sent request
+
+    let recalculating = recalculatingFor patient
 
     let loading = OrderPlanState.opening
 
@@ -100,7 +111,7 @@ module Fixtures =
             PatientId = "p"
             Base = None
             OrderContexts = two.OrderContexts
-            Patient = patient
+            Patient = draft
             Verified = true
         }
 
@@ -119,17 +130,12 @@ let tests =
                 "the patient"
                 [
                     test "a patient set opens the empty plan under the request; the answer shows it" {
-                        let asked, effects =
-                            transition (OrderPlanMsg.PatientChanged(Some patient, "r-1")) noPatient
+                        let asked, effects = transition (OrderPlanMsg.PatientChanged(Some patient, "r-1")) noPatient
 
                         asked |> Expect.equal "asked" (loading patient [||] "r-1")
 
                         effects
-                        |> Expect.equal
-                            "open"
-                            [
-                                OrderPlanEffect.CallPlan(OrderPlanCommand.Open(patient, [||]), "r-1")
-                            ]
+                        |> Expect.equal "open" [ OrderPlanEffect.CallPlan(OrderPlanCommand.Open(draft, [||]), "r-1") ]
 
                         transition (OrderPlanMsg.Answered("r-1", Ok one)) asked
                         |> Expect.equal
@@ -141,22 +147,19 @@ let tests =
                         "a patient changed recalculates the plan over the new patient, the dialog closed, whatever was in flight superseded" {
                         let busy = recalculating one (Some "c-1") "r-1" (OrderPlanCommand.Recalculate one)
 
-                        let state, effects =
-                            transition (OrderPlanMsg.PatientChanged(Some other, "r-2")) busy
+                        let state, effects = transition (OrderPlanMsg.PatientChanged(Some other, "r-2")) busy
 
-                        let expected = { one with Patient = other }
+                        let expected = { one with Patient = otherDraft }
 
                         state
                         |> Expect.equal
                             "recalculating over the new patient"
-                            (recalculating expected None "r-2" (OrderPlanCommand.Recalculate expected))
+                            (recalculatingFor other expected None "r-2" (OrderPlanCommand.Recalculate expected))
 
                         effects
                         |> Expect.equal
                             "recalculate"
-                            [
-                                OrderPlanEffect.CallPlan(OrderPlanCommand.Recalculate expected, "r-2")
-                            ]
+                            [ OrderPlanEffect.CallPlan(OrderPlanCommand.Recalculate expected, "r-2") ]
 
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) state
                         |> Expect.equal "the older answer dropped" (state, [])
@@ -192,7 +195,7 @@ let tests =
                         |> Expect.equal
                             "open with the contexts"
                             [
-                                OrderPlanEffect.CallPlan(OrderPlanCommand.Open(patient, two.OrderContexts), "r-2")
+                                OrderPlanEffect.CallPlan(OrderPlanCommand.Open(draft, two.OrderContexts), "r-2")
                             ]
 
                         transition (OrderPlanMsg.Answered("r-1", Ok one)) second
@@ -201,10 +204,7 @@ let tests =
                         transition (OrderPlanMsg.Answered("r-2", Ok two)) second
                         |> Expect.equal
                             "the newer shown, two drugs checked"
-                            (held two None,
-                             [
-                                 OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ]
-                             ])
+                            (held two None, [ OrderPlanEffect.CheckInteractions [ "paracetamol"; "ibuprofen" ] ])
                     }
 
                     test "a patient changed while a version opens re-opens it for the new patient" {
@@ -215,13 +215,28 @@ let tests =
                             "the version's contexts opened again, the older open's answer to nothing"
                             (loading other two.OrderContexts "r-2",
                              [
-                                 OrderPlanEffect.CallPlan(OrderPlanCommand.Open(other, two.OrderContexts), "r-2")
+                                 OrderPlanEffect.CallPlan(OrderPlanCommand.Open(otherDraft, two.OrderContexts), "r-2")
                              ])
                     }
 
-                    test "without a patient there is nothing to open the version for" {
-                        transition (OrderPlanMsg.Version(head, "r-1")) noPatient
-                        |> Expect.equal "nothing" (noPatient, [])
+                    test "the version arriving before its patient is kept and opened when the patient does" {
+                        // a Session opens: the plan machine hears the version first, the patient it
+                        // was opened with one message later
+                        let kept, effects = transition (OrderPlanMsg.Version(head, "r-1")) noPatient
+
+                        (kept, effects)
+                        |> Expect.equal "kept, nothing asked yet" (OrderPlanState.awaiting two.OrderContexts, [])
+
+                        transition (OrderPlanMsg.PatientChanged(Some patient, "r-2")) kept
+                        |> Expect.equal
+                            "the version's contexts opened for the patient"
+                            (loading patient two.OrderContexts "r-2",
+                             [
+                                 OrderPlanEffect.CallPlan(OrderPlanCommand.Open(draft, two.OrderContexts), "r-2")
+                             ])
+
+                        transition (OrderPlanMsg.PatientChanged(None, "r-3")) kept
+                        |> Expect.equal "no patient after all: the version is let go" (noPatient, [])
                     }
                 ]
 
@@ -316,8 +331,7 @@ let tests =
                     test "an order prescribed: the plan page opens on it and the workbench is cleared" {
                         let workbench = context "" "ibuprofen"
 
-                        let busy =
-                            recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench))
+                        let busy = recalculating one None "r-1" (OrderPlanCommand.AddOrderContext(one, workbench))
 
                         transition (OrderPlanMsg.Answered("r-1", Ok two)) busy
                         |> Expect.equal
@@ -363,9 +377,7 @@ let tests =
                         effects
                         |> Expect.equal
                             "recalculate"
-                            [
-                                OrderPlanEffect.CallPlan(OrderPlanCommand.Recalculate filtered, "r-1")
-                            ]
+                            [ OrderPlanEffect.CallPlan(OrderPlanCommand.Recalculate filtered, "r-1") ]
 
                         transition (OrderPlanMsg.Filter([||], "r-2")) state
                         |> Expect.equal "dropped while busy" (state, [])
@@ -472,24 +484,25 @@ let stagesTests =
 
                 OrderPlanCart.step
                     (OrderPlanCartMsg.Landed(OrderPlanCommand.Recalculate filtered, Error [| "not loaded" |]))
-                    (OrderPlanCart.Opened one)
+                    (OrderPlanCart.Opened(patient, one))
                 |> Expect.equal
                     "the original, told"
-                    (OrderPlanCart.Opened one, [ OrderPlanCartIntent.Tell [| "not loaded" |] ])
+                    (OrderPlanCart.Opened(patient, one), [ OrderPlanCartIntent.Tell [| "not loaded" |] ])
 
                 OrderPlanCart.step
                     (OrderPlanCartMsg.Landed(OrderPlanCommand.Recalculate filtered, Ok filtered))
-                    (OrderPlanCart.Opened one)
+                    (OrderPlanCart.Opened(patient, one))
                 |> Expect.equal
                     "the plan answered, its drugs checked"
-                    (OrderPlanCart.Opened filtered, [ OrderPlanCartIntent.CheckInteractions [ "paracetamol" ] ])
+                    (OrderPlanCart.Opened(patient, filtered),
+                     [ OrderPlanCartIntent.CheckInteractions [ "paracetamol" ] ])
             }
 
             test "nothing lands without a patient; the dialog selects only over a plan held" {
                 OrderPlanCart.step
-                    (OrderPlanCartMsg.Landed(OrderPlanCommand.Open(patient, [||]), Ok one))
-                    OrderPlanCart.NoPatient
-                |> Expect.equal "no patient" (OrderPlanCart.NoPatient, [])
+                    (OrderPlanCartMsg.Landed(OrderPlanCommand.Open(draft, [||]), Ok one))
+                    (OrderPlanCart.NoPatient [||])
+                |> Expect.equal "no patient" (OrderPlanCart.NoPatient [||], [])
 
                 transition (OrderPlanMsg.Select(Some "c-1")) (loading patient [||] "r-1")
                 |> Expect.equal "nothing to select yet" (loading patient [||] "r-1", [])

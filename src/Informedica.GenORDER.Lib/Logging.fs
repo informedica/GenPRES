@@ -8,8 +8,7 @@ module Logging =
 
 
     /// Log a solver event with a specific level
-    let logMessage level (logger: Logger) (evt: Events.Event) =
-        evt |> OrderEventMessage |> Logging.logWith level logger
+    let logMessage level (logger: Logger) (evt: Events.Event) = evt |> OrderEventMessage |> Logging.logWith level logger
 
 
     /// Log an informative solver event
@@ -21,8 +20,7 @@ module Logging =
 
 
     /// Log a solver exception as an error
-    let logError (logger: Logger) (msg: Exceptions.Message) =
-        msg |> OrderException |> Logging.logError logger
+    let logError (logger: Logger) (msg: Exceptions.Message) = msg |> OrderException |> Logging.logError logger
 
 
     /// Ignore logger for backward compatibility
@@ -38,8 +36,7 @@ module Logging =
 
     /// Log an order event built lazily: the thunk (and any expensive work inside
     /// it) runs only if the logger would consume an informative message.
-    let logInfoLazy (logger: Logger) (mk: unit -> Events.Event) =
-        logMessageLazy Level.Informative logger mk
+    let logInfoLazy (logger: Logger) (mk: unit -> Events.Event) = logMessageLazy Level.Informative logger mk
 
 
     /// Log an order event built lazily: the thunk runs only if the logger would

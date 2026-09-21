@@ -3,7 +3,9 @@
 // Architecture fitness test for ADR-0001 (docs/adr/0001-system-architecture.md):
 // project references point inward, the core never reaches network, filesystem,
 // environment, clock or entropy, and only the DMZ (the server-side outer ring) knows
-// configuration and owns entry points.
+// configuration and owns entry points. And for ADR-0008 rule R9
+// (docs/adr/0008-contract-model-dto-mapping-boundary.md): the contract model stays in
+// the server's edge files, no domain library names it, and Shared stays transpilable.
 //
 // The ring map and the project reader live in scripts/DependencyRule.fsx, shared with
 // scripts/ProjectGraph.fsx. The allow-lists (project references there, source-level
@@ -96,6 +98,8 @@ let bannedTokens =
         "MailboxProcessor"
         "FileWriterAgent"
         "AgentLogging"
+        // T6: the contract model (ADR-0008 R9); a domain library never sees Shared
+        "Shared."
     ]
 
 
@@ -112,6 +116,7 @@ let allowances =
 
     [
         // Utils.Lib: whole IO modules awaiting the pure/IO split
+        allowFile "src/Informedica.Utils.Lib/Directory.fs" utilsSplit
         allowFile "src/Informedica.Utils.Lib/File.fs" utilsSplit
         allowFile "src/Informedica.Utils.Lib/Env.fs" utilsSplit
         allowFile "src/Informedica.Utils.Lib/App.fs" utilsSplit
@@ -140,7 +145,6 @@ let allowances =
         allowToken "src/Informedica.GenSOLVER.Lib/Variable.fs" "printfn" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/Equation.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/Equation.fs" "writeErrorMessage" viaLogger
-        allowToken "src/Informedica.GenSOLVER.Lib/Equation.fs" "printfn" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/Solver.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/Solver.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenSOLVER.Lib/SolverLogging.fs" "AgentLogging" factory
@@ -166,6 +170,7 @@ let allowances =
         allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "DateTime.UtcNow" "CachedResourceProvider TTL clock; provider moves to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Export.fs" "File." "cwd-relative export file write; moves to the adapter project (Phase 2)"
+        allowToken "src/Informedica.GenFORM.Lib/Export.fs" "Directory." "cwd-relative export file write; moves to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Export.fs" "Environment.CurrentDirectory" "cwd-relative export file write; moves to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Api.fs" "Async.RunSynchronously" "parallel rule filtering blocks on Async; keep pure or move to the edge (Phase 2)"
         // GenORDER.Lib
@@ -180,7 +185,6 @@ let allowances =
         allowToken "src/Informedica.GenORDER.Lib/Order.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/Order.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/Order.fs" "writeDebugMessage" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/Order.fs" "DateTime.Now" clock
         allowToken "src/Informedica.GenORDER.Lib/OrderProcessor.fs" "ConsoleWriter" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/OrderProcessor.fs" "writeWarningMessage" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/Medication.fs" "ConsoleWriter" viaLogger
@@ -198,6 +202,51 @@ let allowances =
         allowToken "src/Informedica.GenINTERACT.Lib/Data.fs" "System.IO" "cwd-relative cache read; loader moves to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenINTERACT.Lib/Data.fs" "File." "cwd-relative cache read; loader moves to the adapter project (Phase 2)"
     ]
+
+
+/// The token by which server code names the contract model (`Shared.Types.Patient`,
+/// `open Shared.Api`); ADR-0008 R9, T5.
+let contractToken = "Shared."
+
+
+/// T5: the server files in which a code line may name the contract model, as file-name
+/// globs over `src/Informedica.GenPRES.Server/`: the mappers, the command handlers, the
+/// ports, the composition root, the session service, the compute wrapper, the API
+/// implementation and the host. Every other server file needs a `contractAllowances` entry.
+let contractEdgeFiles =
+    [
+        "ServerApi.Mappers*.fs"
+        "ServerApi.*Command.fs"
+        "ServerApi.Ports.fs"
+        "ServerApi.CompositionRoot.fs"
+        "ServerApi.Session.fs"
+        "ServerApi.Compute.fs"
+        "ServerApi.ApiImpl.fs"
+        "Server.fs"
+    ]
+
+
+/// Server files outside the edge that still name the contract model today. Phase and step
+/// numbers refer to docs/implementation-plans/725-contract-model-dto-domain-flow.md. Each
+/// entry is a ratchet: one that no longer matches fails the run.
+let contractAllowances =
+    [
+        "src/Informedica.GenPRES.Server/ServerApi.Services.fs",
+        "the formulary and parenteralia services typed on contract models, and the order context parse; own issue after plan 725"
+        "src/Informedica.GenPRES.Server/ServerApi.Adapters.fs",
+        "the formulary, interaction and admin ports typed on contract models, own issue after plan 725; the session port's identity types (UserContext, OpenedToken, the refusals and endings) stay contract by ADR-0008 R6 and ADR-0007 section 3, a contract-free session domain is its own issue"
+        "src/Informedica.GenPRES.Server/ServerApi.StubAdapters.fs",
+        "the stub session and identity adapters answer the session identity types (UserContext, OpenedToken, the refusals and endings), which stay contract by ADR-0008 R6 and ADR-0007 section 3; a contract-free session domain is its own issue"
+        "src/Informedica.GenPRES.Server/ServerApi.SqlAdapters.fs",
+        "the session store holds the same session identity types the stub answers (the refusals, the Roles, the tokens), which stay contract by ADR-0008 R6 and ADR-0007 section 3; a contract-free session domain is its own issue"
+        "src/Informedica.GenPRES.Server/LogAnalyzer.fs",
+        "admin log listing answered as a contract record, no domain behind it; own issue"
+    ]
+
+
+/// T7: the packages Shared may reference, exactly. Shared is transpiled to JavaScript for
+/// the client, so a package joins this list only when it is known to be Fable-compatible.
+let sharedPackages = [ "FSharp.Core" ]
 
 
 /// The prefixes under which settings are read, as they appear in source (`"GENPRES_URL_ID"`).
@@ -233,6 +282,17 @@ let containsToken (token: string) (line: string) =
         | i -> search (i + 1)
 
     search 0
+
+
+/// `*` in a file-name glob matches any run of characters; nothing else is special.
+let globMatches (pattern: string) (name: string) =
+    let re = "^" + Regex.Escape(pattern).Replace("\\*", ".*") + "$"
+    Regex.IsMatch(name, re)
+
+
+let isContractEdgeFile (rel: string) =
+    let name = Path.GetFileName rel
+    contractEdgeFiles |> List.exists (fun pattern -> globMatches pattern name)
 
 
 let codeLines (file: string) =
@@ -423,6 +483,72 @@ let dmzTests =
         ]
 
 
+let contractTests =
+    let serverProject () =
+        srcProjects () |> List.find (fun p -> p.Name = "Informedica.GenPRES.Server")
+
+    let sharedProject () =
+        srcProjects () |> List.find (fun p -> p.Name = "Informedica.GenPRES.Shared")
+
+    let namesContract (line: string) = containsToken contractToken line
+
+    testList
+        "T5/T7 the contract model stays at the server's edge and Shared stays transpilable"
+        [
+            test "T5 only edge files of the server name the contract model, except the allow-list" {
+                let allowed = contractAllowances |> List.map fst |> Set.ofList
+
+                serverProject().SourceFiles
+                |> List.collect (fun file ->
+                    let rel = relative file
+
+                    if isContractEdgeFile rel || allowed.Contains rel then
+                        []
+                    else
+                        codeLines file
+                        |> Array.filter (fun (_, l) -> namesContract l)
+                        |> Array.map (fun (n, _) -> $"%s{rel}:%i{n}")
+                        |> Array.toList
+                )
+                |> failWithAll "contract model named outside the server's edge"
+            }
+
+            test "T5 every contract allowance still matches something (ratchet)" {
+                let files =
+                    serverProject().SourceFiles |> List.map (fun f -> relative f, f) |> Map.ofList
+
+                contractAllowances
+                |> List.filter (fun (rel, _) ->
+                    match files |> Map.tryFind rel with
+                    | None -> true
+                    | Some full ->
+                        isContractEdgeFile rel
+                        || codeLines full |> Array.exists (fun (_, l) -> namesContract l) |> not
+                )
+                |> List.map fst
+                |> failWithAll "contract allowances that no longer match, or name an edge file; remove them"
+            }
+
+            test "T7 Shared references exactly the allowed packages and no project" {
+                let shared = sharedProject ()
+                let dir = Path.GetDirectoryName(Path.Combine(repoRoot, shared.Path))
+
+                let packages =
+                    Path.Combine(dir, "paket.references")
+                    |> File.ReadAllLines
+                    |> Array.map _.Trim()
+                    |> Array.filter (fun l -> l <> "" && not (l.StartsWith "//"))
+                    |> Array.toList
+
+                packages
+                |> Expect.equal "Shared's paket.references must equal the allow-list" sharedPackages
+
+                shared.References
+                |> Expect.isEmpty "Shared must reference no project"
+            }
+        ]
+
+
 runTestsWithCLIArgs
     []
     [| "--summary" |]
@@ -433,5 +559,6 @@ runTestsWithCLIArgs
             referenceTests
             coreTests
             dmzTests
+            contractTests
         ])
 |> exit

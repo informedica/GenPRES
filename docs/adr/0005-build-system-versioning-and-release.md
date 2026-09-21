@@ -81,7 +81,7 @@ opened. Step 1 of the implementation plan closed it. What was confirmed against 
   rewrites the `<Version>` element as part of the release PR. No git-tag intermediary,
   and therefore no change to `scripts/CheckSolutionVersions.fsx`, it keeps asserting
   that every built DLL matches whatever ShipIt wrote.
-- The invocation is `dotnet shipit --allow-branch master --skip-merge-commit`
+- The invocation is `dotnet shipit --allow-branch master --skip-merge-commit --skip-invalid-commit`
   (no `github` subcommand); `--mode` defaults to `pull-request`.
 - `docs`-, `build`-, and `chore`-typed commits are silently omitted from the
   generated changelog, as are commits that change no files. Nothing overrides
@@ -210,7 +210,15 @@ is the single `IMAGE_NAME` env-var change the 2026-08-25 amendment expected, plu
 - Every ShipIt invocation must pass `--skip-merge-commit`, indefinitely, because
   merge commits remain enabled. Omitting it makes ShipIt throw on the first
   `Merge pull request ...` commit it reaches rather than skipping it. This is
-  documented at every invocation site (`release.yml`, `DEVELOPMENT.md`).
+  documented at every invocation site (`release.yml`, `DEVELOPMENT.md`, this ADR).
+- Every ShipIt invocation must also pass `--skip-invalid-commit`, because a commit that
+  does not follow Conventional Commits can still reach `master`: most often a GitHub-UI
+  "commit suggestion" (e.g. accepting a bot review comment), which commits via the API and
+  so never runs the local Husky `commit-msg` hook, landing on `master` if the required
+  `commit-lint` PR check is overridden on merge. Omitting the flag makes ShipIt throw
+  `FailedToParseCommit` and fail the whole release run instead of dropping that one commit
+  from the changelog. This is documented at every invocation site (`release.yml`,
+  `DEVELOPMENT.md`, this ADR).
 - `CHANGELOG.md`'s current rich, hand-written prose entries (see any `[Unreleased]`
   entry today) become leaner, commit-title-derived entries under ShipIt.
   A `=== changelog ===` block in the commit message body is the escape hatch for

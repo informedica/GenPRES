@@ -16,10 +16,12 @@ A User who has forgotten their PIN can therefore sign nothing, and every guess c
 the credential: three wrong entries end the Session and lock signing for one minute, doubling
 with each further wrong entry up to a day ([uc-03](uc-03-prescribe-and-sign.md)).
 
-The one thing that resets a PIN today is a restart of the demo server. Credentials live in the
-same in-memory state as the Sessions and the record, and a restart forgets all of it: the
-seeded `1234` of the stub Prescribers is back, and an enrolled identity such as `no-pin` has to
-enrol again.
+The one thing that resets a PIN today is a restart of the demo server without
+`GENPRES_DB_CONNECTION` set. Credentials then live in the same in-memory state as the Sessions
+and the record, and a restart forgets all of it: the seeded `1234` of the stub Prescribers is
+back, and an enrolled identity such as `no-pin` has to enrol again. On the SQLite store a PIN
+survives, and the start-up seed leaves a login that already has a credential alone, so a reset
+needs deleting the file — which is no reset a User can ask for.
 
 ## What a build would need
 

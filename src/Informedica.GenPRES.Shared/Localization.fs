@@ -25,6 +25,8 @@ namespace Shared
 /// `Scripts/Localization.fsx` (the script-only policy), which also prints the sheet rows.
 type Terms =
     | ``Patient enter patient data``
+    // what a draft that is no patient yet is missing: an age, or a weight and a height
+    | ``Patient enter age or weight and height``
     | ``Patient Age``
     | ``Patient GA Age``
     | ``Patient Age year``
@@ -66,6 +68,13 @@ type Terms =
     | ``Prescribe Prescription``
     | ``Prescribe Preparation``
     | ``Prescribe Administration``
+    // the patient has no age: every dose rule with an age bound is left out
+    | ``Prescribe Age unknown``
+    // the patient has an age but no weight and height, measured or estimated: the rules gate on both
+    | ``Prescribe Weight and height unknown``
+    // one of the two missing, the other measured or estimated
+    | ``Prescribe Weight unknown``
+    | ``Prescribe Height unknown``
     | ``Order``
     | ``Order Frequency``
     | ``Order Dose``
@@ -163,6 +172,8 @@ type Terms =
     | ``Session Ending Superseded``
     // the Session ended at the third wrong PIN
     | ``Session Ending Pin Limit``
+    // the Session ended because the store holds it in a form this release cannot read
+    | ``Session Ending Unreadable``
     // the enrolment form: title, body with {0} the name and {1} the hinted
     // mail address, the three field labels, the button, and one sentence per refusal
     | ``Session Gate Enrolment``
@@ -198,6 +209,8 @@ type Terms =
     | ``Signing Refusal Pin Wrong``
     | ``Signing Refusal Pin Limit``
     | ``Signing Refusal Locked``
+    | ``Signing Refusal Store Failed``
+    | ``Signing Refusal Plan Unreadable``
     | ``Signing Send Failed``
     // the record moved on, told once per version; the button that takes the version up;
     // what is told once it is open
@@ -378,13 +391,13 @@ module Localization =
             csv
             |> Array.skip 1
             |> Array.choose (fun row ->
-                if row.Length > 0 && not (System.String.IsNullOrWhiteSpace row[0]) then
+                if row.Length > 0 && row[0] |> String.notEmpty then
                     let termKey = row[0].Trim()
 
                     let translations =
                         localeColumns
                         |> Array.choose (fun (colIdx, locale) ->
-                            if colIdx < row.Length && not (System.String.IsNullOrWhiteSpace row[colIdx]) then
+                            if colIdx < row.Length && row[colIdx] |> String.notEmpty then
                                 Some(locale, row[colIdx].Trim())
                             else
                                 None

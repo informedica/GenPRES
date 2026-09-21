@@ -56,6 +56,7 @@ type SessionTerms =
     | ``Session Ending Superseded``
     // Rule 28 (UC-3, plan 622 PR 1): the Session ended at the third wrong PIN
     | ``Session Ending Pin Limit``
+    | ``Session Ending Unreadable``
     // the enrolment form (UC-2, plan 615 PR 3): title, body with {0} the name and {1} the
     // hinted mail address, the three field labels, the button, and one sentence per refusal
     | ``Session Gate Enrolment``
@@ -91,6 +92,8 @@ type SessionTerms =
     | ``Signing Refusal Pin Wrong``
     | ``Signing Refusal Pin Limit``
     | ``Signing Refusal Locked``
+    | ``Signing Refusal Store Failed``
+    | ``Signing Refusal Plan Unreadable``
     | ``Signing Send Failed``
     // Rules 21, 22 (plan 635 PR 4): the record moved on, told once per version with {0} who
     // signed it and {1} when; the button that takes the version up (UC-4 step 4); and what
@@ -131,6 +134,7 @@ let english term =
     | ``Session Ending Superseded`` ->
         "Another launch of yours opened a newer session, and this one was closed."
     | ``Session Ending Pin Limit`` -> "The PIN was entered wrong three times, and signing is locked for a while."
+    | ``Session Ending Unreadable`` -> "This session could not be read back after an update of GenPRES."
     | ``Session Gate Enrolment`` -> "Set a PIN to continue"
     | ``Session Gate Enrolment Text`` ->
         "Welcome, {0}. A confirmation code was mailed to {1}. Enter it together with the PIN of your choice: four to six digits."
@@ -166,6 +170,8 @@ let english term =
     | ``Signing Refusal Pin Limit`` ->
         "The PIN was entered wrong three times. Your session was ended and signing is locked for a while."
     | ``Signing Refusal Locked`` -> "Signing is locked until {0}."
+    | ``Signing Refusal Store Failed`` -> "The version could not be stored. Nothing changed; sign again."
+    | ``Signing Refusal Plan Unreadable`` -> "The plan could not be read. Reload the page and sign again."
     | ``Signing Send Failed`` -> "The signature could not be sent. Try again."
     | ``Session Newer Version`` -> "{0} signed a newer version at {1}."
     | ``Session Open Newest`` -> "Open the newest version"
@@ -204,6 +210,7 @@ let dutch term =
     | ``Session Ending Superseded`` ->
         "Een andere start van u heeft een nieuwere sessie geopend; deze sessie is gesloten."
     | ``Session Ending Pin Limit`` -> "De pincode is drie keer verkeerd ingevoerd; ondertekenen is een tijdje geblokkeerd."
+    | ``Session Ending Unreadable`` -> "Deze sessie kon na een update van GenPRES niet meer worden gelezen."
     | ``Session Gate Enrolment`` -> "Stel een pincode in om verder te gaan"
     | ``Session Gate Enrolment Text`` ->
         "Welkom, {0}. Er is een bevestigingscode gemaild naar {1}. Voer die in samen met de pincode van uw keuze: vier tot zes cijfers."
@@ -240,6 +247,8 @@ let dutch term =
     | ``Signing Refusal Pin Limit`` ->
         "De pincode is drie keer verkeerd ingevoerd. Uw sessie is beëindigd en ondertekenen is een tijdje geblokkeerd."
     | ``Signing Refusal Locked`` -> "Ondertekenen is geblokkeerd tot {0}."
+    | ``Signing Refusal Store Failed`` -> "De versie kon niet worden opgeslagen. Er is niets veranderd; onderteken opnieuw."
+    | ``Signing Refusal Plan Unreadable`` -> "Het plan kon niet worden gelezen. Laad de pagina opnieuw en onderteken opnieuw."
     | ``Signing Send Failed`` -> "De handtekening kon niet worden verstuurd. Probeer het opnieuw."
     | ``Session Newer Version`` -> "{0} heeft om {1} een nieuwere versie ondertekend."
     | ``Session Open Newest`` -> "Open de nieuwste versie"
@@ -490,4 +499,135 @@ let printRenamedRow () =
     orderPlanRow |> String.concat "\t" |> printfn "%s"
 
 
-runTestsWithCLIArgs [] [||] (testList "Localization.fsx" [ tests; parseTests; renameTests ]) |> ignore
+// --- The patient panel says what is missing (plan 646, step 5) -----------------------------
+//
+// A draft below the minimum is no patient: the panel shows its data and, under it, what is
+// missing. One sentence, its own term, → `Terms`, after ``Patient enter patient data``; the row
+// → the sheet and `data/localization/*.tsv`.
+
+/// → `Shared/Localization.fs`, `Terms`.
+type PatientTerms = | ``Patient enter age or weight and height``
+
+
+let patientRow: string[] =
+    [|
+        "Patient enter age or weight and height"
+        "Enter an age, or a weight and a height"
+        "Voer een leeftijd in, of een gewicht en een lengte"
+        "Saisissez un âge, ou un poids et une taille"
+        "Geben Sie ein Alter ein, oder ein Gewicht und eine Größe"
+        "Ingrese una edad, o un peso y una talla"
+        "Inserisci un'età, o un peso e un'altezza"
+    |]
+
+
+let patientTests =
+    testList
+        "patient minimum term"
+        [
+            test "the key is the case's name, and resolves in every language" {
+                $"{``Patient enter age or weight and height``}"
+                |> Expect.equal "the key" patientRow[0]
+
+                for l in languages do
+                    getTerm [| patientRow |] l patientRow[0] |> Expect.isSome $"in {l}"
+            }
+
+            test "the Dutch says an age, or a weight and a height" {
+                getTerm [| patientRow |] Dutch patientRow[0]
+                |> Expect.equal "Dutch" (Some "Voer een leeftijd in, of een gewicht en een lengte")
+            }
+        ]
+
+
+let printPatientRow () =
+    patientRow |> String.concat "\t" |> printfn "%s"
+
+
+// --- The prescribing page says which dimension is missing (plan 646, step 6) ----------------
+//
+// A patient without an age loses every dose rule with an age bound, silently, since a missing
+// datum never matches a bounded range; a patient with an age only and no estimate has no weight
+// and height for the rules to gate on, and the server refuses it. The page says so, one
+// sentence each, → `Terms`, after ``Prescribe Administration``; the rows → the sheet.
+
+/// → `Shared/Localization.fs`, `Terms`.
+type PrescribeTerms =
+    | ``Prescribe Age unknown``
+    | ``Prescribe Weight and height unknown``
+    // one of the two missing, the other measured or estimated: the notice names the one
+    | ``Prescribe Weight unknown``
+    | ``Prescribe Height unknown``
+
+
+let prescribeRows: string[][] =
+    [|
+        [|
+            "Prescribe Age unknown"
+            "Age unknown: only dose rules without an age bound are offered"
+            "Leeftijd onbekend: alleen doseerregels zonder leeftijdsgrens worden getoond"
+            "Âge inconnu : seules les règles de dosage sans limite d'âge sont proposées"
+            "Alter unbekannt: nur Dosierregeln ohne Altersgrenze werden angeboten"
+            "Edad desconocida: solo se ofrecen reglas de dosificación sin límite de edad"
+            "Età sconosciuta: vengono proposte solo le regole di dosaggio senza limite di età"
+        |]
+        [|
+            "Prescribe Weight and height unknown"
+            "Weight and height unknown: enter them, there is no estimate"
+            "Gewicht en lengte onbekend: voer ze in, er is geen schatting"
+            "Poids et taille inconnus : saisissez-les, il n'y a pas d'estimation"
+            "Gewicht und Größe unbekannt: geben Sie sie ein, es gibt keine Schätzung"
+            "Peso y talla desconocidos: introdúzcalos, no hay estimación"
+            "Peso e altezza sconosciuti: inseriscili, non c'è una stima"
+        |]
+        [|
+            "Prescribe Weight unknown"
+            "Weight unknown: enter it, there is no estimate"
+            "Gewicht onbekend: voer het in, er is geen schatting"
+            "Poids inconnu : saisissez-le, il n'y a pas d'estimation"
+            "Gewicht unbekannt: geben Sie es ein, es gibt keine Schätzung"
+            "Peso desconocido: introdúzcalo, no hay estimación"
+            "Peso sconosciuto: inseriscilo, non c'è una stima"
+        |]
+        [|
+            "Prescribe Height unknown"
+            "Height unknown: enter it, there is no estimate"
+            "Lengte onbekend: voer die in, er is geen schatting"
+            "Taille inconnue : saisissez-la, il n'y a pas d'estimation"
+            "Größe unbekannt: geben Sie sie ein, es gibt keine Schätzung"
+            "Talla desconocida: introdúzcala, no hay estimación"
+            "Altezza sconosciuta: inseriscila, non c'è una stima"
+        |]
+    |]
+
+
+let prescribeTests =
+    testList
+        "missing dimension terms"
+        [
+            test "the keys are the cases' names, and resolve in every language" {
+                [
+                    ``Prescribe Age unknown``
+                    ``Prescribe Weight and height unknown``
+                    ``Prescribe Weight unknown``
+                    ``Prescribe Height unknown``
+                ]
+                |> List.map (fun t -> $"{t}")
+                |> Expect.equal "the keys" (prescribeRows |> Array.map (fun r -> r[0]) |> Array.toList)
+
+                for r in prescribeRows do
+                    for l in languages do
+                        getTerm prescribeRows l r[0] |> Expect.isSome $"{r[0]} in {l}"
+            }
+        ]
+
+
+let printPrescribeRows () =
+    prescribeRows |> Array.iter (fun r -> r |> String.concat "\t" |> printfn "%s")
+
+
+runTestsWithCLIArgs
+    []
+    [||]
+    (testList "Localization.fsx" [ tests; parseTests; renameTests; patientTests; prescribeTests ])
+|> ignore

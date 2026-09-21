@@ -91,7 +91,7 @@ module Types =
 
     /// The patient as the wire carries it and the panel edits it: every field optional, so a
     /// value of this type is a draft or a reading, not yet a patient.
-    type PatientDto =
+    type Patient =
         {
             Age: Age option
             GestationalAge: GestAge option
@@ -138,11 +138,6 @@ module Types =
         | IntermittentHemodialysis // intermittent hemodialysis
         | ContinuousHemodialysis
         | PeritonealDialysis
-
-
-    /// The same record under its old name, until every caller says which it means: the wire's
-    /// draft, or the patient it becomes.
-    type Patient = PatientDto
 
 
     type ValueUnit =
@@ -510,7 +505,7 @@ module Types =
             Category: OrderCategory
             DemoVersion: bool
             Filter: Filter
-            Patient: PatientDto
+            Patient: Patient
             Scenarios: OrderScenario[]
             Intake: Totals
         }
@@ -527,7 +522,7 @@ module Types =
     /// The one plan: every order for the patient, nutrition included, which is what is signed.
     type OrderPlan =
         {
-            Patient: PatientDto
+            Patient: Patient
             // the contexts shown and counted, by id; empty for all of them
             Filtered: string[]
             // the order contexts of the plan, drug and nutrition alike, each saying what it holds
@@ -552,7 +547,7 @@ module Types =
             Form: string option
             DoseType: DoseType option
             PatientCategory: string option
-            Patient: PatientDto option
+            Patient: Patient option
             Markdown: string
             DoseCheck: TextBlock[]
         }
@@ -581,17 +576,17 @@ module Types =
 
 
     /// Opaque launch token, sealed by the MainEHR LaunchScript; the client never reads it.
-    type Launch = Launch of string
+    type Launch = | Launch of string
 
 
     /// Public JWK (JSON text) of the browser key pair made at the launch.
-    type PublicKey = PublicKey of string
+    type PublicKey = | PublicKey of string
 
 
     /// Names the OrderPlan the Session opened with. Sent with every computing request and
     /// checked at every signature; later it travels inside the signed request of launch
     /// step 7, which is not built yet.
-    type OpenedToken = OpenedToken of string
+    type OpenedToken = | OpenedToken of string
 
 
     [<RequireQualifiedAccess>]
@@ -608,10 +603,12 @@ module Types =
         }
 
 
+    /// The Patient a Session is for: its id, and its data as read from the platform at the
+    /// launch, else as signed last; `None` when neither has any, so the User enters it.
     type PatientContext =
         {
             PatientId: string
-            Patient: PatientDto
+            Patient: Patient option
         }
 
 
@@ -638,7 +635,7 @@ module Types =
             Base: string option
             // every context of the plan as signed: a reopen is the plan as it was
             OrderContexts: OrderContext[]
-            Patient: PatientDto
+            Patient: Patient
             Verified: bool
         }
 
@@ -688,6 +685,9 @@ module Types =
         | SupersededByLaunch
         // the third wrong PIN at a signature
         | WrongPinLimit
+        // the store holds this Session's working state in a form this release cannot read;
+        // a relaunch opens a fresh one
+        | Unreadable
 
 
     /// What the client learns when its launch is waiting on a PIN: whom to greet and
@@ -729,7 +729,7 @@ module Types =
     type SigningRefusal =
         // no Session for the cookie, or none at all
         | NoSession
-        // the Session has no Patient: nothing to sign for
+        // the Session has no Patient, or the plan to sign carries none: nothing to sign for
         | NoPatient
         // nobody to sign as, or the Role, re-taken from the registry, is not Prescriber
         | NotPrescriber
@@ -745,6 +745,10 @@ module Types =
         | PinWrong of attemptsLeft: int
         | PinLimit
         | Locked of until: DateTime
+        // the version could not be stored; nothing changed, sign again
+        | StoreFailed
+        // the plan as sent cannot be read as an order plan; nothing to sign
+        | PlanUnreadable
 
 
     /// The patient data as it stands, told before a challenge is issued when it is not what
@@ -752,7 +756,7 @@ module Types =
     /// unverified. The User proceeds by returning the token with the next request.
     type DataNotice =
         {
-            Data: PatientDto option
+            Data: Patient option
             Token: string
         }
 

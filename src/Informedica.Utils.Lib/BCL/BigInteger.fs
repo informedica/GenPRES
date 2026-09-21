@@ -1,6 +1,6 @@
 namespace Informedica.Utils.Lib.BCL
 
-/// Helper functions for `BigInteger`
+/// Helper functions for BigInteger
 [<RequireQualifiedAccess>]
 module BigInteger =
 
@@ -8,33 +8,31 @@ module BigInteger =
     open MathNet.Numerics
 
 
-    /// Create a `bigint` from an `int`
+    /// Create a bigint from an int
     let fromInt (x: int) = bigint x
 
 
-    /// Create an `int` from a `bigint`
+    /// Create an int from a bigint
     let toInt (x: bigint) = int x
 
 
-    /// Calculate the greatest common divisor of a sequence of `bigint`s
-    /// Example: `gcdSeq [2I; 4I; 6I]` returns `2I`
-    let gcdSeq (xs: bigint seq) =
-        Euclid.GreatestCommonDivisor(xs |> Array.ofSeq)
+    /// Calculate the greatest common divisor of a sequence of bigints
+    /// Example: gcdSeq [2I; 4I; 6I] returns 2I
+    let gcdSeq (xs: bigint seq) = Euclid.GreatestCommonDivisor(xs |> Array.ofSeq)
 
 
-    /// Calculate the least common multiple of a sequence of `bigint`s
-    /// Example: `lcmSeq [2I; 4I; 6I]` returns `12I`
-    let lcmSeq (xs: bigint seq) =
-        Euclid.LeastCommonMultiple(xs |> Array.ofSeq)
+    /// Calculate the least common multiple of a sequence of bigints
+    /// Example: lcmSeq [2I; 4I; 6I] returns 12I
+    let lcmSeq (xs: bigint seq) = Euclid.LeastCommonMultiple(xs |> Array.ofSeq)
 
 
-    /// Calculate the greatest common divisor of two `bigint`s
-    /// Example: `gcd 2I 4I` returns `2I`
+    /// Calculate the greatest common divisor of two bigints
+    /// Example: gcd 2I 4I returns 2I
     let gcd (a: bigint) (b: bigint) = gcdSeq [ a; b ]
 
 
-    /// Calculate the least common multiple of two `bigint`s
-    /// Example: `lcm 2I 4I` returns `4I`
+    /// Calculate the least common multiple of two bigints
+    /// Example: lcm 2I 4I returns 4I
     let lcm (a: bigint) (b: bigint) = lcmSeq [ a; b ]
 
     /// Calculate an ordered farey sequence

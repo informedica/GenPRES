@@ -16,16 +16,16 @@ module Double =
     // Logic
     //----------------------------------------------------------------------------
 
-    /// Check whether a `Double` is a `NaN` value
+    /// Check whether a Double is a NaN value
     let isNaN = Double.IsNaN
 
 
-    /// Check whether a `Double` is positive or
+    /// Check whether a Double is positive or
     /// negative infinity
     let isInfinity n = (n = infinity) || (n = -infinity)
 
 
-    /// Check whether a `Double` is valid
+    /// Check whether a Double is valid
     let isValid n =
         (isNaN n || isInfinity n || n >= Double.MaxValue || n <= Double.MinValue) |> not
 
@@ -45,12 +45,11 @@ module Double =
     //----------------------------------------------------------------------------
 
     /// Get the double value of a string
-    /// using `InvariantCulture`
-    let parse (s: string) =
-        Double.Parse(s, CultureInfo.InvariantCulture)
+    /// using InvariantCulture
+    let parse (s: string) = Double.Parse(s, CultureInfo.InvariantCulture)
 
 
-    /// Get a `float Option` from a string
+    /// Get a float Option from a string
     let tryParse (s: string) =
         let style = NumberStyles.Any
         let cult = CultureInfo.InvariantCulture
@@ -60,7 +59,7 @@ module Double =
         | false, _ -> None
 
 
-    /// Get a `float32` from a string
+    /// Get a float32 from a string
     /// returns a 0 value when the string
     /// cannot be parsed
     let stringToFloat32 s =
@@ -146,7 +145,7 @@ module Double =
 
 
     /// Return a float as a fraction of
-    /// two `BigInteger`s
+    /// two BigIntegers
     let floatToFract v =
         if v = infinity || v = -infinity || v |> isNaN then
             None
@@ -179,7 +178,7 @@ module Double =
             |> Seq.rev
             |> String.concat " "
 
-        if String.IsNullOrEmpty(decimalPart) then
+        if decimalPart |> String.isNullOrEmpty then
             formattedInteger
         else
             formattedInteger + "," + decimalPart
@@ -193,5 +192,4 @@ module Double =
     /// Returns a string representation of a float in Dutch format without trailing zeros
     /// and with a fixed precision.
     /// Example: 0.0666 |> toStringNumberNLWithoutTrailingZerosFixPrecision 2 = "0.067"
-    let toStringNumberNLWithoutTrailingZerosFixPrecision n =
-        fixPrecision n >> toStringNumberNLWithoutTrailingZeros
+    let toStringNumberNLWithoutTrailingZerosFixPrecision n = fixPrecision n >> toStringNumberNLWithoutTrailingZeros

@@ -23,7 +23,7 @@ module Types =
         | OpMinus
 
 
-    type CountUnit = Times of BigRational
+    type CountUnit = | Times of BigRational
 
     type MassUnit =
         | KiloGram of BigRational
@@ -42,7 +42,7 @@ module Types =
         | DeciLiter of BigRational
         | MilliLiter of BigRational
         | MicroLiter of BigRational
-        // droplet has multiplier * droplets per mL
+        /// droplet has multiplier * droplets per mL
         | Droplet of BigRational * BigRational
 
     type TimeUnit =
@@ -72,7 +72,7 @@ module Types =
         | HeightMeter of BigRational
         | HeightCentiMeter of BigRational
 
-    type BSAUnit = M2 of BigRational
+    type BSAUnit = | M2 of BigRational
 
     type EnergyUnit =
         | Calorie of BigRational
@@ -80,9 +80,9 @@ module Types =
 
     type Unit =
         | NoUnit
-        // special case to enable efficient min max calculations where
-        // either min or max approaches zero, ZeroUnit means that whatever
-        // the actual unit of the value, the value is zero
+        /// special case to enable efficient min max calculations where
+        /// either min or max approaches zero, ZeroUnit means that whatever
+        /// the actual unit of the value, the value is zero
         | ZeroUnit
         | CombiUnit of Unit * Operator * Unit
         | General of (string * BigRational)

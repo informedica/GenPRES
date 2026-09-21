@@ -124,8 +124,7 @@ module GenPres =
         let lang = context.Localization
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         let orderContext = (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
         let orderPlan = (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan
@@ -137,13 +136,7 @@ module GenPres =
         let isAuthRef = React.useRef auth.IsAuthenticated
         isAuthRef.current <- auth.IsAuthenticated
 
-        let deps =
-            [|
-                box props.page
-                box lang
-                box localizationTerms
-                box orderContext
-            |]
+        let deps = [| box props.page; box lang; box localizationTerms; box orderContext |]
 
         let guardedUpdatePage page =
             if page = Global.Pages.Settings && not isAuthRef.current then

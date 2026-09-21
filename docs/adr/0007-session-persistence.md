@@ -2,7 +2,14 @@
 
 **Date**: 2026-09-08
 
-**Status**: Proposed (rewritten 2026-09-13; the engine is deferred to an amendment, Decision 4)
+**Status**: Proposed (rewritten 2026-09-13; the production engine is deferred to an amendment,
+Decision 4); § 3: Accepted (amended 2026-09-16 for ADR-0008; accepted 2026-09-17, when the
+session service came to hold what the section says it holds, plan 725 Phase 5, #776 and #778);
+§ 2 and § 4 amended 2026-09-17: nothing is deleted, and SQLite is the test and development
+database; § 1 and § 4: Accepted (2026-09-17, when plan 516 step 4b landed: a store exists,
+SQLite runs it, `GENPRES_DB_CONNECTION` switches to it and production refuses the key); § 2:
+Accepted (2026-09-18, when plan 516 step 6 landed: two launches of one User are decided by the
+ordering of the session rows, with no lock and no uniqueness on the login).
 
 **Related Issues**: [#516 — GenPRES SessionRecord Store](https://github.com/informedica/GenPRES/issues/516),
 [#580 — Scope switch to expose only the accredited parts in production](https://github.com/informedica/GenPRES/issues/580)
@@ -47,7 +54,12 @@ GenPRES Server the only writer, reached through SQL. Relational and not key-valu
 memory: Rule 42 commits a Session check and a clinical append in one multi-row transaction, and
 Rules 32 and 36 rule out memory.
 
-### 2. Append-only, as the design states
+### 2. Append-only, nothing deleted — amended 2026-09-17
+
+*Status of this section: Accepted (2026-09-18).* The launch, session, opened-with, heartbeat,
+ending and acknowledgement tables are built this way and the port reads and writes them
+(plan 516 step 6); the credential, code, enrolment, notice, challenge and audit tables follow in
+steps 7 to 9, under the same rule.
 
 Every table is insert-only. For a User, and for a browser, only the newest row for that key by
 the table's own monotonic id can be the open Session: it is open unless an ending names it, and
@@ -55,47 +67,64 @@ every older row for the key is superseded by it, whatever became of it. The newe
 first and its ending read second, never the other way round, so that closing the newest cannot
 surface an older one. An opening may name the Session it replaces, but the ordering decides
 (Rule 40; UC-1 ext 8b). A first opening needs no predecessor, and an ended Session cannot be
-written back to open. Heartbeats, data notices, challenges,
-answered Submissions and LaunchRecords are dropped whole after their lifetime, never rewritten.
-No `UPDATE`, no row lock. A commit that touches two chains (Rule 42) runs serializable and is
-retried once.
+written back to open. Nothing is deleted either: heartbeats, data notices, challenges, answered
+Submissions, confirmation codes and LaunchRecords stay after their lifetime, and a lifetime is
+read at load, a row past it loading as absent. No `UPDATE`, no `DELETE`, no purge, no row lock.
+A commit that touches two chains (Rule 42) runs serializable and is retried once. The writes a
+request makes are the values the `Session` machine returns for it, never rows derived by
+comparing states. A test or development database starts fresh by deleting its file.
 
-This restates the design's rule so that a schema review can point at it; it decides nothing new.
+### 3. The store is an adapter of the `Session` machine — amended 2026-09-16
 
-### 3. The store is an adapter of the `Session` machine
+*Status of this section: Accepted (2026-09-17).* The session service holds its records as
+`StoredVersion` values, readable or kept by their identity, and what a Session is open on as a
+record on domain values, a challenge as the digest of the plan, and the commit returns the write
+as a value for the adapter to run (plan 725 steps 5.1 and 5.2, #776 and #778). What remains of
+this section is the store itself, plan 516.
 
 The SQL adapter implements `SessionPort` next to the stub, in the Server project (the
 Presentation ring), and runs the same pure functions: it loads the rows a request can touch into
 a `State`, runs the function, and appends what changed. It reads `GENPRES_DB_CONNECTION`, which
 the DMZ may.
 
-No new Core project. The machine's records carry `SessionOpened`, `OpenedToken`, `Submission`
-and the other contract types, and ADR-0001's ring rule keeps the contract out of Core and
-Infrastructure. A session domain free of the contract is a refactor with a plan of its own, not
-a precondition for a store.
+No new Core project. The machine's clinical records (`Records`, the order plan versions) and its
+working state (`Challenges`, `Notices`, the patient a Session shows, the head it opened with)
+carry the domain types of GenORDER and GenFORM; their Dtos appear only in the adapters, the
+server mappers before `SessionPort` and the database adapter at load and write, as
+[ADR-0008](0008-contract-model-dto-mapping-boundary.md) decides. On the in-memory stub the
+working state lives in memory. Once the store exists, it is stored as Dtos under a structure
+version, because a restart must end nothing (Rule 32). The identity fields (`UserContext`,
+`OpenedToken`, `SessionEnding`, the refusals) stay contract model types for now, and ADR-0001's
+ring rule keeps the contract out of Core and Infrastructure. A session domain free of them is a
+refactor with a plan of its own, not a precondition for a store.
 
-### 4. The engine is deferred; SQLite is the interim
+### 4. SQLite for development and tests; the production engine is deferred — amended 2026-09-17
 
-Development and tests run on SQLite, in-process, through `Microsoft.Data.Sqlite`. That is what
-lets the schema, the adapter and the race tests exist before an engine is chosen. It is an
-interim, not a candidate: one file, one writer, one server, so it cannot serve Rule 36 and never
-runs in production. Production keeps the session subsystem disabled until the scope switch
-(#580) decides what it exposes.
+Development and tests run on SQLite, in-process, through `Microsoft.Data.Sqlite`. SQLite is the
+test and development database and stays in that role: it is what lets the schema, the adapter
+and the race tests exist before a production engine is chosen, and what a developer and the CI
+matrix keep running afterwards. It is not a candidate for production: one file, one server
+process, so it cannot serve Rule 36, and it never runs in production. With `GENPRES_PROD=1` the
+server refuses to start when `GENPRES_DB_CONNECTION` is set; that guard stands until #580, when
+the production engine's own rule replaces it. Production keeps the session subsystem disabled
+until the scope switch (#580) decides what it exposes.
 
 The production engine, the access library and the migration tooling are one linked decision,
 recorded as a dated amendment to this ADR before #580 exposes Sessions in production. The
 amendment answers: which engine, and whether operations run it; hand-written SQL, a mapper or an
-ORM; a migration runner or the scripts as they are; what the interim SQL has to change (id
-generation, JSON, timestamps). The interim proves the append-only shape and the machine over it.
+ORM; a migration runner or the scripts as they are; what the SQL as written for SQLite has to
+change (id generation, JSON, timestamps). SQLite proves the append-only shape and the machine
+over it.
 The engine's own isolation behavior is proven by running the same test suite on it.
 
 ## Consequences
 
 - First database dependency in the repository: `Microsoft.Data.Sqlite`, in the `Main` Paket
-  group, interim.
+  group, for development and tests.
 - `GENPRES_DB_CONNECTION` is the one switch: set, the SQL adapter; unset, the in-memory stub.
-  For now the value is a SQLite connection string. The fail-closed rule for production lands
-  with #580.
+  For development and tests the value is a SQLite connection string. Production refuses the key
+  until #580, which lands the production engine's rule and the fail-closed rule that production
+  requires a store.
 - Demo and a bare `dotnet run` keep the stub unless the key is set; a demo on SQLite keeps its
   Sessions across a restart, as Rule 32 says.
 - The integration tests run in the normal CI matrix, on every OS, against a temporary file. No
@@ -123,6 +152,9 @@ The engine's own isolation behavior is proven by running the same test suite on 
 
 - [ADR-0000: Documentation Rules](0000-documentation-rules.md) — §2, when a decision is an ADR
 - [ADR-0001: System Architecture](0001-system-architecture.md) — the dependency rule and the DMZ
+- [ADR-0008: Contract Model, Domain Dto, and the Mapping Boundary](0008-contract-model-dto-mapping-boundary.md)
+  — what the store holds: domain Dtos under a structure version, the working state in memory
+  on the stub and stored in the store
 - [`docs/scenarios/integration/GenPRES-MainEHR-Integration-V8.md`](../scenarios/integration/GenPRES-MainEHR-Integration-V8.md)
   — Actor 5, Concept 9, Rules 2, 8, 32, 36, 40, 42, 46
 - [`docs/scenarios/integration/uc-01-launch.md`](../scenarios/integration/uc-01-launch.md)

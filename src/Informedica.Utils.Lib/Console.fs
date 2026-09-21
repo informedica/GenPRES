@@ -155,17 +155,13 @@ module ConsoleWriter =
 
     module Flip =
 
-        let writeErrorMessage writeLine writeTime text =
-            writeErrorMessage text writeLine writeTime
+        let writeErrorMessage writeLine writeTime text = writeErrorMessage text writeLine writeTime
 
-        let writeWarningMessage writeLine writeTime text =
-            writeWarningMessage text writeLine writeTime
+        let writeWarningMessage writeLine writeTime text = writeWarningMessage text writeLine writeTime
 
-        let writeDebugMessage writeLine writeTime text =
-            writeDebugMessage text writeLine writeTime
+        let writeDebugMessage writeLine writeTime text = writeDebugMessage text writeLine writeTime
 
-        let writeInfoMessage writeLine writeTime text =
-            writeInfoMessage text writeLine writeTime
+        let writeInfoMessage writeLine writeTime text = writeInfoMessage text writeLine writeTime
 
 
     module NewLineTime =

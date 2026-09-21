@@ -154,8 +154,8 @@ module SolutionRule =
                         {
                             SolutionLimitTarget =
                                 match l.Substance, l.Component with
-                                | s, _ when s |> String.isNullOrWhiteSpace |> not -> s |> SubstanceLimitTarget
-                                | _, c when c |> String.isNullOrWhiteSpace |> not -> c |> ComponentLimitTarget
+                                | s, _ when s |> String.notEmpty -> s |> SubstanceLimitTarget
+                                | _, c when c |> String.notEmpty -> c |> ComponentLimitTarget
                                 | _ -> invalidOp "Solution limit should be either a substance or a component limit"
                             Quantity = (l.MinQty, l.MaxQty) |> fromTupleInclIncl u
                             QuantityAdj = (l.MinQtyAdj, l.MaxQtyAdj) |> fromTupleInclIncl au
@@ -244,8 +244,7 @@ module SolutionRule =
 
 
     /// Helper function to get the distinct values of a member of SolutionRule.
-    let private getMember getter (rules: SolutionRule[]) =
-        rules |> Array.map getter |> Array.distinct |> Array.sort
+    let private getMember getter (rules: SolutionRule[]) = rules |> Array.map getter |> Array.distinct |> Array.sort
 
 
     /// Get all the distinct Generics from the given SolutionRules.
@@ -316,7 +315,7 @@ module SolutionRule =
 
         /// Split a SolutionLimit into its display parts so callers can de-duplicate
         /// trailing lines that are identical across multiple limits of the same rule.
-        /// `includeSubstanceName = false` suppresses the inline substance prefix
+        /// includeSubstanceName = false suppresses the inline substance prefix
         /// (used when the substance is rendered as a separate heading).
         let printSolutionLimit (sr: SolutionRule) (includeSubstanceName: bool) (limit: SolutionLimit) =
             let mmToStr = MinMax.toString "min. " "min. " "max. " "max. "
@@ -325,6 +324,7 @@ module SolutionRule =
                 match sr.PatientCategory.Access with
                 | CVL -> "###### centraal: \n* "
                 | PVL -> "###### perifeer: \n* "
+                | EnteralTube -> "###### sonde: \n* "
                 | AnyAccess -> "* "
 
             let qs =
@@ -342,7 +342,7 @@ module SolutionRule =
                     |> mmToStr
                     |> fun s -> $""" in {s} {sr.Diluents |> Array.map _.Generic |> String.concat "/"}"""
                 |> fun s ->
-                    if s |> String.isNullOrWhiteSpace |> not then
+                    if s |> String.notEmpty then
                         s
                     else
                         sr.Volumes
@@ -508,19 +508,18 @@ module SolutionRule =
                                                             let concBlock =
                                                                 parts
                                                                 |> Array.map _.conc
-                                                                |> Array.filter (String.isNullOrWhiteSpace >> not)
+                                                                |> Array.filter String.notEmpty
                                                                 |> Array.distinct
                                                                 |> String.concat "\n"
 
-                                                            [| heads; concBlock |]
-                                                            |> Array.filter (String.isNullOrWhiteSpace >> not)
+                                                            [| heads; concBlock |] |> Array.filter String.notEmpty
                                                         )
 
                                                     let dosePercBlock = printDosePerc r
 
                                                     [|
                                                         yield! targetBlocks
-                                                        if dosePercBlock |> String.isNullOrWhiteSpace |> not then
+                                                        if dosePercBlock |> String.notEmpty then
                                                             yield dosePercBlock
                                                     |]
                                             )
@@ -552,9 +551,7 @@ module SolutionRule =
                                             if s |> String.isNullOrWhiteSpace then "" else $"{s}"
 
                                         let header =
-                                            [ dt; pat; dose ]
-                                            |> List.filter (String.isNullOrWhiteSpace >> not)
-                                            |> String.concat ", "
+                                            [ dt; pat; dose ] |> List.filter String.notEmpty |> String.concat ", "
 
                                         {| acc with
                                             rules = rs

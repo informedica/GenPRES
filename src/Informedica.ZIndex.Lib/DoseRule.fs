@@ -66,8 +66,7 @@ module DoseRule =
 
 
     /// Get the string representation of a RuleFrequency.
-    let freqToString (freq: RuleFrequency) =
-        (string freq.Frequency) + " " + freq.Time
+    let freqToString (freq: RuleFrequency) = (string freq.Frequency) + " " + freq.Time
 
 
     /// <summary>
@@ -97,7 +96,7 @@ module DoseRule =
             if mms = "" then s else s + n + ": " + mms + " " + u + del
 
         let adds s1 s2 s3 =
-            if s2 |> String.IsNullOrWhiteSpace then
+            if s2 |> String.isNullOrWhiteSpace then
                 s3
             else
                 let s3 = if s1 = "" then s3 else s3 + s1 + ": "
@@ -107,7 +106,7 @@ module DoseRule =
             dr.GenericProduct
             |> Seq.fold
                 (fun a gp ->
-                    let s' = if a |> String.IsNullOrWhiteSpace then "" else ", "
+                    let s' = if a |> String.isNullOrWhiteSpace then "" else ", "
                     s' + gp.Name
                 )
                 ""
@@ -116,7 +115,7 @@ module DoseRule =
             dr.PrescriptionProduct
             |> Seq.fold
                 (fun a gp ->
-                    let s' = if a |> String.IsNullOrWhiteSpace then "" else ", "
+                    let s' = if a |> String.isNullOrWhiteSpace then "" else ", "
                     s' + gp.Name
                 )
                 ""
@@ -125,7 +124,7 @@ module DoseRule =
             dr.TradeProduct
             |> Seq.fold
                 (fun a gp ->
-                    let s' = if a |> String.IsNullOrWhiteSpace then "" else ", "
+                    let s' = if a |> String.isNullOrWhiteSpace then "" else ", "
                     s' + gp.Name
                 )
                 ""
@@ -306,8 +305,7 @@ module DoseRule =
     /// <remarks>
     /// This is a memoized function.
     /// </remarks>
-    let getGenericProducts: unit -> RuleGenericProduct[] =
-        Memoization.memoize _getGenericProducts
+    let getGenericProducts: unit -> RuleGenericProduct[] = Memoization.memoize _getGenericProducts
 
 
     let _getPrescriptionProducts _ =
@@ -326,8 +324,7 @@ module DoseRule =
     /// <remarks>
     /// This is a memoized function.
     /// </remarks>
-    let getPresciptionProducts: unit -> RuleProduct[] =
-        Memoization.memoize _getPrescriptionProducts
+    let getPresciptionProducts: unit -> RuleProduct[] = Memoization.memoize _getPrescriptionProducts
 
 
     let _getTradeProducts _ =
@@ -522,11 +519,9 @@ module DoseRule =
 
     /// Get the string representation of a DoseRule.
     let toString2 (dr: DoseRule) =
-        let addString lbl s =
-            if s = "" then "" else lbl + ": " + s + ", "
+        let addString lbl s = if s = "" then "" else lbl + ": " + s + ", "
 
-        let freqToString (fr: RuleFrequency) =
-            (fr.Frequency |> string) + " " + (fr.Time |> string)
+        let freqToString (fr: RuleFrequency) = (fr.Frequency |> string) + " " + (fr.Time |> string)
 
         let minMaxToString u (mm: RuleMinMax) =
             let s =

@@ -3,7 +3,7 @@ namespace Informedica.GenOrder.Lib
 
 /// Helper functions to
 /// facilitate the use of the
-/// `Informedica.GenSolver.Lib`
+/// Informedica.GenSolver.Lib
 module Solver =
 
     open Informedica.GenSolver.Lib.Types

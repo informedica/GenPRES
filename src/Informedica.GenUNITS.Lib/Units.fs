@@ -1079,16 +1079,7 @@ module Units =
                             EngPlural = "miljIE"
                             DutchPlural = "miljIE"
                         }
-                    Synonyms =
-                        [
-                            "miljoenIE"
-                            "milj.IE"
-                            "milj.E"
-                            "miljIE"
-                            "miljonIU"
-                            "milj.IU"
-                            "milj.U"
-                        ]
+                    Synonyms = [ "miljoenIE"; "milj.IE"; "milj.E"; "miljIE"; "miljonIU"; "milj.IU"; "milj.U" ]
                 }
                 {
                     Unit = InterNational.milliIU
@@ -1671,8 +1662,7 @@ module Units =
     /// <example>
     /// toStringDutchShort (Time (Minute 1N)) = "min[Time]"
     /// </example>
-    let toStringDutchShortWithWrapper vw uw =
-        toString (Some vw) (Some uw) true Dutch Short
+    let toStringDutchShortWithWrapper vw uw = toString (Some vw) (Some uw) true Dutch Short
 
     /// <summary>
     /// Turn a unit to a dutch long string with group annotation

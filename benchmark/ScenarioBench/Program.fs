@@ -37,7 +37,10 @@ let scenarioMeds: (string * Medication)[] =
 
 /// Build an Order from a Medication template (not timed — done once in setup).
 let buildOrder (med: Medication) : Order =
-    med |> Medication.toOrderDto |> Order.Dto.fromDto |> Result.get
+    med
+    |> Medication.toOrderDto Scenarios.testStart
+    |> Order.Dto.fromDto
+    |> Result.get
 
 /// Solve one order through the full pipeline; return a cheap hash so the JIT /
 /// BenchmarkDotNet cannot dead-code-eliminate the work.
@@ -172,7 +175,7 @@ let profile () =
         for _, med in scenarioMeds do
             try
                 let t0 = sw.Elapsed.TotalMilliseconds
-                let dto = Medication.toOrderDto med
+                let dto = Medication.toOrderDto Scenarios.testStart med
                 let t1 = sw.Elapsed.TotalMilliseconds
                 let ord = dto |> Order.Dto.fromDto |> Result.get
                 let t2 = sw.Elapsed.TotalMilliseconds

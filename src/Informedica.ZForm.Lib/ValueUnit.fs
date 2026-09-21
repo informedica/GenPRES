@@ -2,7 +2,7 @@
 
 
 /// Utility methods to extend the
-/// `Informedica.GenUnits.Lib.ValueUnit` library
+/// Informedica.GenUnits.Lib.ValueUnit library
 module ValueUnit =
 
     open Informedica.Utils.Lib.BCL
@@ -16,13 +16,11 @@ module ValueUnit =
 
 
     /// Return the Unit as a string.
-    let unitToString =
-        Units.toString None None false Units.Localization.English Units.Short
+    let unitToString = Units.toString None None false Units.Localization.English Units.Short
 
 
     /// Try create a Unit from a string.
-    let readableStringToWeightUnit s =
-        $"%s{s}[Weight]" |> UnitsParse.fromString
+    let readableStringToWeightUnit s = $"%s{s}[Weight]" |> UnitsParse.fromString
 
 
     /// Try create a BSA Unit from a string.
@@ -37,10 +35,9 @@ module ValueUnit =
     let unitFromZIndexString = Mapping.stringToUnit
 
 
-    /// Create a `ValueUnit` using a float value
-    /// `v` and a `Unit` `u`.
-    let fromFloat (v: float) u =
-        v |> decimal |> BigRational.fromDecimal |> createSingle u
+    /// Create a ValueUnit using a float value
+    /// v and a Unit u.
+    let fromFloat (v: float) u = v |> decimal |> BigRational.fromDecimal |> createSingle u
 
 
     let timeInMinute = (fun n -> fromFloat n Units.Time.minute)
@@ -71,22 +68,20 @@ module ValueUnit =
 
 
     /// Create a frequency unit
-    /// per `n` days
-    let freqUnitPerNday n =
-        1N |> Units.Count.nTimes |> per (Units.Time.nDay n)
+    /// per n days
+    let freqUnitPerNday n = 1N |> Units.Count.nTimes |> per (Units.Time.nDay n)
 
 
     /// Create a frequency unit
-    /// per `n` hours
-    let freqUnitPerNHour n =
-        1N |> Units.Count.nTimes |> per (Units.Time.nHour n)
+    /// per n hours
+    let freqUnitPerNHour n = 1N |> Units.Count.nTimes |> per (Units.Time.nHour n)
 
 
     /// Freq unit per 1 hour.
     let freqPerOneHour = freqUnitPerNHour 1N
 
-    /// Create an optional `ValueUnit` using
-    /// an optional gestational age `gest` in
+    /// Create an optional ValueUnit using
+    /// an optional gestational age gest in
     /// weeks and days.
     let gestAgeInDaysAndWeeks gest =
         gest
@@ -97,15 +92,14 @@ module ValueUnit =
         )
 
 
-    /// Turn a frequency `ValueUnit` `freq`
+    /// Turn a frequency ValueUnit freq
     /// to a valueunit string representation.
     let freqToValueUnitString freq = freq |> toStringDutchLong
 
 
-    /// Check whether a unit `u`
+    /// Check whether a unit u
     /// is a time unit.
-    let isTimeUnit u =
-        (u |> Group.unitToGroup) = Group.TimeGroup
+    let isTimeUnit u = (u |> Group.unitToGroup) = Group.TimeGroup
 
 
     /// Helper functions to quicly create

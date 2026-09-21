@@ -23,11 +23,7 @@ module Nutrition =
         | None -> false
 
 
-    let private enteral =
-        [
-            NutritionCategory.EnteralFeeding
-            NutritionCategory.EnteralSupplement
-        ]
+    let private enteral = [ NutritionCategory.EnteralFeeding; NutritionCategory.EnteralSupplement ]
 
 
     let private parenteral =
@@ -388,8 +384,7 @@ module Nutrition =
         =
         let weightKg = ViewHelpers.PrintView.patientWeight (props.plan.Patient |> Some)
 
-        let parenteralContexts =
-            props.plan.OrderContexts |> Array.filter (isOneOf parenteral)
+        let parenteralContexts = props.plan.OrderContexts |> Array.filter (isOneOf parenteral)
 
         let tableSx =
             {|
@@ -431,8 +426,7 @@ module Nutrition =
                             let cmpQty = cmp.OrderableQuantity |> OrderVariable.displayString
                             let fixPrec2 = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 2
 
-                            let doseAdj =
-                                cmp.Dose.QuantityAdjust |> OrderVariable.displayStringFormatted fixPrec2
+                            let doseAdj = cmp.Dose.QuantityAdjust |> OrderVariable.displayStringFormatted fixPrec2
 
                             JSX.jsx
                                 $"""
@@ -982,8 +976,7 @@ module Nutrition =
             | Some ord ->
                 let warning = ord.Orderable.Dose.Quantity.Level |> getWarning
 
-                let label =
-                    ord.Orderable.Dose.Quantity |> ViewHelpers.ovarLabel "toedien hoeveelheid"
+                let label = ord.Orderable.Dose.Quantity |> ViewHelpers.ovarLabel "toedien hoeveelheid"
 
                 let vals = ord.Orderable.Dose.Quantity |> ViewHelpers.ovarValsWithRange string 3
 
@@ -1383,15 +1376,14 @@ module Nutrition =
 
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
-        let patient = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Patient
+        let patient = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
         // the one plan: the nutrition workbenches live in the order plan, which is there
         // with the patient
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let orderPlan = envOrderPlan.OrderPlan
         let planCommand = envOrderPlan.OrderPlanCommand
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
@@ -1402,8 +1394,7 @@ module Nutrition =
         let progress =
             match orderPlan with
             | HasNotStartedYet when patient.IsNone ->
-                let msg =
-                    Terms.``Patient enter patient data`` |> getTerm "Voer patient gegevens in ..."
+                let msg = Terms.``Patient enter patient data`` |> getTerm "Voer patient gegevens in ..."
 
                 JSX.jsx $"<>{msg}</>"
             | _ -> ViewHelpers.progressOrEmpty orderPlan
@@ -1445,9 +1436,6 @@ module Nutrition =
         let newOrderContext (plan: OrderPlan) category =
             Api.OrderPlanCommand.NewOrderContext(plan, category) |> planCommand
 
-        let hasCategory (plan: OrderPlan) cat =
-            plan.OrderContexts |> Array.exists (isOneOf [ cat ])
-
         let content =
             match orderPlan with
             | Resolved plan
@@ -1459,12 +1447,11 @@ module Nutrition =
 
                 let parenteralSlots = parenteralContexts |> Array.map (makeSlot true plan)
 
-                let hasEnteral = hasCategory plan NutritionCategory.EnteralFeeding
-                let hasTPN = hasCategory plan NutritionCategory.TPN
-                let hasLipid = hasCategory plan NutritionCategory.Lipid
+                // the buttons the plan admits a context for, as the server would rule
+                let mayAdd category = plan |> OrderPlan.mayAdd category
 
                 let enteralFeedingAddButton =
-                    if not hasEnteral then
+                    if mayAdd NutritionCategory.EnteralFeeding then
                         AddButton
                             {|
                                 label = Terms.``Nutrition Enteral Feeding`` |> getTerm "Enterale Voeding"
@@ -1475,7 +1462,7 @@ module Nutrition =
                         null
 
                 let supplementAddButton =
-                    if hasEnteral then
+                    if mayAdd NutritionCategory.EnteralSupplement then
                         AddButton
                             {|
                                 label = Terms.``Nutrition Add Supplement`` |> getTerm "Supplement toevoegen"
@@ -1487,26 +1474,27 @@ module Nutrition =
 
                 let parenteralAddButtons =
                     [|
-                        if not hasTPN then
+                        if mayAdd NutritionCategory.TPN then
                             AddButton
                                 {|
                                     label = Terms.``Nutrition TPN`` |> getTerm "TPN"
                                     onClick = fun () -> newOrderContext plan NutritionCategory.TPN
                                     disabled = isRecalculating
                                 |}
-                        if not hasLipid then
+                        if mayAdd NutritionCategory.Lipid then
                             AddButton
                                 {|
                                     label = Terms.``Nutrition Lipids`` |> getTerm "Vetten"
                                     onClick = fun () -> newOrderContext plan NutritionCategory.Lipid
                                     disabled = isRecalculating
                                 |}
-                        AddButton
-                            {|
-                                label = Terms.``Nutrition Electrolytes Glucose`` |> getTerm "Elektrolyten/Glucose"
-                                onClick = fun () -> newOrderContext plan NutritionCategory.ElectrolyteGlucose
-                                disabled = isRecalculating
-                            |}
+                        if mayAdd NutritionCategory.ElectrolyteGlucose then
+                            AddButton
+                                {|
+                                    label = Terms.``Nutrition Electrolytes Glucose`` |> getTerm "Elektrolyten/Glucose"
+                                    onClick = fun () -> newOrderContext plan NutritionCategory.ElectrolyteGlucose
+                                    disabled = isRecalculating
+                                |}
                     |]
 
                 let enteralAccordion =

@@ -114,6 +114,8 @@ module Product =
             function
             | PVL -> "PVL"
             | CVL -> "CVL"
+            // a rule never carries a tube; the form is there so the string round-trips
+            | EnteralTube -> "TUBE"
             | AnyAccess -> ""
 
 
@@ -122,6 +124,7 @@ module Product =
             match s with
             | _ when s |> String.equalsCapInsens "PVL" -> PVL
             | _ when s |> String.equalsCapInsens "CVL" -> CVL
+            | _ when s |> String.equalsCapInsens "TUBE" -> EnteralTube
             | _ -> AnyAccess
 
 
@@ -374,8 +377,7 @@ module Product =
             |> Mapping.mapUnit unitMapping
             |> Option.defaultValue NoUnit
 
-        let reqReconst =
-            Mapping.requiresReconstitution routeMapping formRoutes (gp.Route, formUnit, gp.Form)
+        let reqReconst = Mapping.requiresReconstitution routeMapping formRoutes (gp.Route, formUnit, gp.Form)
 
         let formUnit = if not reqReconst then formUnit else Units.Volume.milliLiter
 
@@ -437,8 +439,7 @@ module Product =
                 match fpOpt |> Option.map _.Divisible |> Option.defaultValue None with
                 | Some d -> d |> BigRational.fromInt |> Some
                 | None ->
-                    let rs =
-                        Mapping.filterFormRoutes routeMapping formRoutes "" (gp.Form.ToLower()) NoUnit
+                    let rs = Mapping.filterFormRoutes routeMapping formRoutes "" (gp.Form.ToLower()) NoUnit
 
                     if rs |> Array.length = 0 then None else rs[0].Divisibility
             Substances =
@@ -875,8 +876,7 @@ module Product =
 
 
     /// Get all Generics from the given Product array.
-    let generics (products: ProductComponent array) =
-        products |> Array.map _.Generic |> Array.distinct
+    let generics (products: ProductComponent array) = products |> Array.map _.Generic |> Array.distinct
 
 
     /// Get all Synonyms from the given Product array.
@@ -888,5 +888,4 @@ module Product =
 
 
     /// Get all pharmaceutical forms from the given Product array.
-    let forms (products: ProductComponent array) =
-        products |> Array.map _.Form |> Array.distinct
+    let forms (products: ProductComponent array) = products |> Array.map _.Form |> Array.distinct

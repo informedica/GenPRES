@@ -36,7 +36,8 @@ type IOrderPlan =
 /// Patient data and updates
 [<Interface>]
 type IPatient =
-    abstract Patient: Patient option
+    // the patient data as the panel edits it and the lists read it, the estimate applied
+    abstract Draft: Patient option
     abstract UpdatePatient: Patient option -> unit
 
 

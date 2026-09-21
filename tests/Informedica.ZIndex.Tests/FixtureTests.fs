@@ -7,8 +7,8 @@ open System.IO
 /// Ensures fixture files are in place before any test reads a ZIndex table.
 /// Ordering is guaranteed because F# initializes modules in compilation order:
 /// FixtureSetup (this module) precedes FixtureTests in the same file.
-/// Since issue #523 the ZIndex modules no longer read the G-Standaard files at
-/// module initialisation, so loading them is safe on its own. The reads are
+/// The ZIndex modules no longer read the G-Standaard files at module
+/// initialisation, so loading them is safe on its own. The reads are
 /// memoized, though, and a memoized failure is cached for the process just as a
 /// success is, so the fixtures must still exist before the first read.
 [<AutoOpen>]
@@ -209,8 +209,4 @@ module FixtureTests =
     let tests =
         testList
             "ZIndex synthetic fixture tests"
-            [
-                BstTableTests.tests
-                SubstanceTests.tests
-                GenPresProductTests.tests
-            ]
+            [ BstTableTests.tests; SubstanceTests.tests; GenPresProductTests.tests ]

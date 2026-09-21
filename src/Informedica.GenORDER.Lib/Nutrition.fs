@@ -35,10 +35,9 @@ module Nutrition =
                 ord
 
 
-    let proc logger changes tpn =
+    let proc (start: System.DateTime) logger changes tpn =
         tpn
-        |> Medication.toOrderDto
-        |> Order.Dto.fromDto
+        |> Medication.toOrder start
         |> Result.map (fun ord ->
             ord
             |> Order.OrderPropertyChange.proc tpnConstraints

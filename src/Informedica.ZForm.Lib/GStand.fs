@@ -41,7 +41,7 @@ module GStand =
         |> Seq.map (fun (k, v) -> k, v |> Seq.map snd)
 
 
-    /// An empty `CreateConfig`.
+    /// An empty CreateConfig.
     let config =
         {
             GPKs = []
@@ -131,13 +131,12 @@ module GStand =
 
 
     /// Try to map a GStand time period to a valid unit.
-    let mapTime s =
-        s |> parseTimeString |> UnitsParse.fromString
+    let mapTime s = s |> parseTimeString |> UnitsParse.fromString
 
 
     /// <summary>
     /// Map GStand frequency string to a valid
-    /// frequency `ValueUnit`.
+    /// frequency <c>ValueUnit</c>.
     /// </summary>
     /// <param name="freq">The frequency to map</param>
     /// <returns>The mapped frequency</returns>
@@ -152,9 +151,7 @@ module GStand =
     let mapFreqToValueUnit (freq: ZIndexTypes.RuleFrequency) =
         let map vu =
             match
-                [
-                    2N, ValueUnit.freqUnitPerNday 3N, ValueUnit.freqUnitPerNHour 36N
-                ]
+                [ 2N, ValueUnit.freqUnitPerNday 3N, ValueUnit.freqUnitPerNHour 36N ]
                 |> List.tryFind (fun (f, u, _) -> f |> ValueUnit.createSingle u = vu)
             with
             | Some(_, _, u) -> vu |> ValueUnit.convertTo u
@@ -331,13 +328,12 @@ module GStand =
         |}
 
 
-    // fold maximize with preservation of min
-    let foldMaximize (mm: MinMax) (mm_: MinMax) =
-        [ mm; mm_ ] |> MinMax.foldMaximize true true
+    /// fold maximize with preservation of min
+    let foldMaximize (mm: MinMax) (mm_: MinMax) = [ mm; mm_ ] |> MinMax.foldMaximize true true
 
 
     /// <summary>
-    /// Folds a sequence of `Dosages` to a single `Dosages`
+    /// Folds a sequence of <c>Dosages</c> to a single <c>Dosages</c>
     /// by minimizing the min and maximizing the max values.
     /// </summary>
     /// <param name="ds">The sequence of Dosages</param>
@@ -394,14 +390,6 @@ module GStand =
                         frs
                     else
                         d.frequency :: frs
-
-                (*
-                let inds =
-                    if inds |> List.exists ((=) d.indication) then
-                        inds
-                    else
-                        d.indication :: inds
-                *)
 
                 //let gstdsrs = d.doserule :: gstdsrs
 
@@ -510,7 +498,7 @@ module GStand =
 
 
     /// <summary>
-    /// Create the `Dosages` for a given list of `DoseRules` for
+    /// Create the <c>Dosages</c> for a given list of <c>DoseRules</c> for
     /// a Substance.
     /// </summary>
     /// <param name="cfg">The Config</param>
@@ -537,7 +525,7 @@ module GStand =
 
 
     /// <summary>
-    /// Create the `Dosages` for a given list of `DoseRules` for
+    /// Create the <c>Dosages</c> for a given list of <c>DoseRules</c> for
     /// a PatientCategory.
     /// </summary>
     /// <param name="cfg">The Config</param>
@@ -591,7 +579,7 @@ module GStand =
         )
 
 
-    // Get the ATC codes for a GenPresProduct.
+    /// Get the ATC codes for a GenPresProduct.
     let getATCs gpk (gpp: ZIndexTypes.GenPresProduct) =
         gpp.GenericProducts
         |> Array.filter (fun gp ->
@@ -603,12 +591,11 @@ module GStand =
         |> Array.distinct
 
 
-    // Get the list of routes for a GenPresProduct.
-    let getRoutes (gpp: ZIndexTypes.GenPresProduct) =
-        gpp.GenericProducts |> Array.collect _.Route |> Array.distinct
+    /// Get the list of routes for a GenPresProduct.
+    let getRoutes (gpp: ZIndexTypes.GenPresProduct) = gpp.GenericProducts |> Array.collect _.Route |> Array.distinct
 
 
-    // Get the list of ATC groups for a GenPresProduct.
+    /// Get the list of ATC groups for a GenPresProduct.
     let getATCGroups gpk (gpp: ZIndexTypes.GenPresProduct) =
 
         ATC.get ()
@@ -629,7 +616,7 @@ module GStand =
             | h :: _ -> h |> String.trim
             | _ -> ""
         )
-        |> Seq.filter (fun n -> n |> String.isNullOrWhiteSpace |> not)
+        |> Seq.filter (fun n -> n |> String.notEmpty)
         |> Seq.toList
 
 
@@ -904,8 +891,8 @@ module GStand =
                                                         match
                                                             ns
                                                             |> List.filter (fun d ->
-                                                                d |> Dosage.Optics.getFrequencyTimeUnit = (sd
-                                                                                                           |> Dosage.Optics.getFrequencyTimeUnit)
+                                                                d |> Dosage.Optics.getFrequencyTimeUnit =
+                                                                    (sd |> Dosage.Optics.getFrequencyTimeUnit)
                                                                 || sd |> Dosage.Optics.getFrequencyValues = []
                                                             )
                                                         with
@@ -994,8 +981,7 @@ module GStand =
         )
         |> groupByFst
         |> Seq.map (fun (r, gpps) ->
-            let gen, atc, tg, tsg, pg, sg =
-                r.generic, r.atc5, r.mainGroup, r.subGroup, r.pharmacologic, r.substance
+            let gen, atc, tg, tsg, pg, sg = r.generic, r.atc5, r.mainGroup, r.subGroup, r.pharmacologic, r.substance
 
             // create empty dose rule
             let dr = create gen [] atc tg tsg pg sg []
