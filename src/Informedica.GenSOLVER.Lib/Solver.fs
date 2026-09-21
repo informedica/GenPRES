@@ -26,7 +26,7 @@ module Solver =
 
     /// <summary>
     /// Format a set of equations to print.
-    /// Using **f** to allow additional processing
+    /// Using f to allow additional processing
     /// of the string.
     /// </summary>
     /// <param name="exact">Whether to print the exact value</param>
@@ -47,22 +47,22 @@ module Solver =
 
 
     /// <summary>
-    /// Checks whether a list of `Equation` **eqs**
-    /// contains an `Equation` **eq**
+    /// Checks whether a list of <c>Equation</c> eqs
+    /// contains an <c>Equation</c> eq
     /// </summary>
-    /// <param name="eq">The `Equation` to check for</param>
-    /// <param name="eqs">The list of `Equation` to check in</param>
+    /// <param name="eq">The <c>Equation</c> to check for</param>
+    /// <param name="eqs">The list of <c>Equation</c> to check in</param>
     let contains eq eqs = eqs |> List.exists ((=) eq)
 
 
     /// <summary>
-    /// Replace a list of `Variable` **vs**
-    /// in a list of `Equation` **es**, return
-    /// a list of replaced `Equation` and a list
-    /// of unchanged `Equation`
+    /// Replace a list of <c>Variable</c> vs
+    /// in a list of <c>Equation</c> es, return
+    /// a list of replaced <c>Equation</c> and a list
+    /// of unchanged <c>Equation</c>
     /// </summary>
-    /// <param name="vars">The list of `Variable` to replace</param>
-    /// <param name="eqs">The list of `Equation` to replace in</param>
+    /// <param name="vars">The list of <c>Variable</c> to replace</param>
+    /// <param name="eqs">The list of <c>Equation</c> to replace in</param>
     let replace vars eqs =
         let rpl, rst =
             eqs
@@ -131,17 +131,6 @@ module Solver =
 
                 match que with
                 | [] -> acc |> Ok
-                (*
-                    // can be used for debugging purposes
-                    match acc |> List.filter (Equation.check onlyMinIncrMax >> not) with
-                    | []      -> acc |> Ok
-                    | invalid ->
-                        writeErrorMessage "invalid equations"
-
-                        invalid
-                        |> Exceptions.SolverInvalidEquations
-                        |> Exceptions.raiseExc (Some log) []
-                    *)
 
                 | eq :: tail ->
                     // need to calculate a result first to enable tail call optimization
@@ -197,16 +186,6 @@ module Solver =
                         (onlyMinIncrMax, rpl) |> Events.SolverStartSolving |> Logger.logDebug log
 
                         loop 0 rpl (Ok rst)
-                (*
-                    // switch to different mechanism to either
-                    // sequential solve equations or in parallel
-                    if onlyMinIncrMax (* || not useParallel*) then
-                        // sequential avoiding unnescessary loops
-                        loop 0 rpl (Ok rst)
-                    else
-                        // more efficient with longer running calculations
-                        parallelLoop onlyMinIncrMax log sortQue 0 rpl (Ok rst)
-                    *)
                 with
                 | Exceptions.SolverException errs -> Error(rpl @ rst, errs)
                 | e ->

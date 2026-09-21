@@ -65,12 +65,7 @@ module UnitsParse =
         UnitDetails.units
         |> List.filter (fun ud -> ud.Group <> Group.WeightGroup)
         |> List.tryFind (fun ud ->
-            [
-                ud.Abbreviation.Dut
-                ud.Abbreviation.Eng
-                ud.Name.Dut
-                ud.Name.Eng
-            ]
+            [ ud.Abbreviation.Dut; ud.Abbreviation.Eng; ud.Name.Dut; ud.Name.Eng ]
             |> List.append ud.Synonyms
             |> List.exists (String.equalsCapInsens (u |> String.replaceNumbers ""))
         )

@@ -108,7 +108,7 @@ The pages read the workbench as a `Deferred<OrderContext>` projected from
 | `HasNotStartedYet` | `OrderContextWorkbench.NoPatient` | no patient, no workbench | empty |
 | `InProgress` | `OrderContextWorkbench.Unevaluated`, the first evaluation under way | in flight, **no** prior value | loading placeholder / spinner |
 | `Provisional of 't` | `OrderContextWorkbench.Evaluated held`, `InFlight ((cmd, sent), request)` | in flight, **the context sent kept**, not yet confirmed | preliminary value stays visible |
-| `Resolved of 't` | `OrderContextWorkbench.Evaluated ctx` with nothing under way; `OrderContextWorkbench.Seeded` | answer received, or a filter seeded from the url | confirmed value |
+| `Resolved of 't` | `OrderContextWorkbench.Evaluated ctx` with nothing under way | answer received | confirmed value |
 
 Stepping uses **`Provisional`** (not `InProgress`), which is why the previous
 dose quantity remains on screen as a preliminary result instead of blanking out.

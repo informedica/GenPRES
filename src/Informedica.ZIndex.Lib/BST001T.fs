@@ -19,22 +19,7 @@ module BST001T =
     /// <summary>
     /// Position of the fields in the record
     /// </summary>
-    let posl =
-        [
-            0004
-            0001
-            0020
-            0003
-            0010
-            0050
-            0008
-            0002
-            0001
-            0004
-            0002
-            0006
-            0017
-        ]
+    let posl = [ 0004; 0001; 0020; 0003; 0010; 0050; 0008; 0002; 0001; 0004; 0002; 0006; 0017 ]
 
 
     /// Tabel: BST001T: Bestand 001 Rubrieken
@@ -92,7 +77,7 @@ module BST001T =
 
     // Split raw/memoized so the G-Standaard file is read on first use rather than in
     // this file's static constructor, where a missing data/zindex/ (a fresh checkout,
-    // a worktree) threw and poisoned the type for the process. See issue #523.
+    // a worktree) threw and poisoned the type for the process.
     let private _data () =
         FilePath.GStandPath() + "/" + name
         |> File.readAllLines

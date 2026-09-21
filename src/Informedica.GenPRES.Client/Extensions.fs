@@ -52,6 +52,7 @@ module StaticFile =
 [<RequireQualifiedAccess>]
 module Config =
     open System
+    open Shared
     open Fable.Core
 
     /// Returns the value of a configured variable using its key.
@@ -63,7 +64,7 @@ module Config =
     let variableOrDefault (key: string) (defaultValue: string) =
         let foundValue = variable key
 
-        if String.IsNullOrWhiteSpace foundValue then
+        if foundValue |> String.isNullOrWhiteSpace then
             defaultValue
         else
             foundValue

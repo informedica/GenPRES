@@ -17,7 +17,7 @@ module Array =
 
 
     /// Pick elements from an array
-    /// using a list of indices `pl`0
+    /// using a list of indices pl0
     let pickArray pl xs =
         match xs with
         | [||] -> [||]
@@ -27,7 +27,7 @@ module Array =
             |> Array.choose (fun i -> if i >= 0 && i < xs.Length then Some(xs[i]) else None)
 
 
-    /// Remove elements from an array using a predicate function `pred`.
+    /// Remove elements from an array using a predicate function pred.
     let remove pred xs =
         if Array.isEmpty xs then
             xs
@@ -35,7 +35,7 @@ module Array =
             xs |> Array.choose (fun x -> if Array.exists pred xs then None else Some x)
 
 
-    /// Filter an array of arrays using a predicate function `p`.
+    /// Filter an array of arrays using a predicate function p.
     /// The purpose of this function is to filter the elements of the
     /// input array xs based on the condition that at least one element
     /// in each subarray (inside xs) satisfies the predicate function p.
@@ -173,8 +173,7 @@ module Array =
 
 
         // Test prepend
-        let testPrepend () =
-            test <@ [| 1; 2 |] |> prepend [| 3; 4 |] = [| 1; 2; 3; 4 |] @>
+        let testPrepend () = test <@ [| 1; 2 |] |> prepend [| 3; 4 |] = [| 1; 2; 3; 4 |] @>
 
 
         // Test pickArray
@@ -189,10 +188,8 @@ module Array =
         let testArrayFilter () =
             test
                 <@
-                    arrayFilter (fun x -> x % 2 = 0) [| [| 1; 3 |]; [| 4; 5; 6 |]; [| 7; 8; 9 |] |] = [|
-                        [| 4; 5; 6 |]
-                        [| 7; 8; 9 |]
-                    |]
+                    arrayFilter (fun x -> x % 2 = 0) [| [| 1; 3 |]; [| 4; 5; 6 |]; [| 7; 8; 9 |] |] =
+                        [| [| 4; 5; 6 |]; [| 7; 8; 9 |] |]
                 @>
 
             test <@ arrayFilter (fun x -> x % 2 = 0) [| [| 1; 3 |]; [| 5; 7 |]; [| 9; 11 |] |] = [||] @>
@@ -203,12 +200,8 @@ module Array =
         let testCollectArrays () =
             test
                 <@
-                    collectArrays (fun x -> x % 2 = 0) [| [| 1; 2; 3 |]; [| 4; 5; 6 |]; [| 7; 8; 9 |] |] = [|
-                        2
-                        4
-                        6
-                        8
-                    |]
+                    collectArrays (fun x -> x % 2 = 0) [| [| 1; 2; 3 |]; [| 4; 5; 6 |]; [| 7; 8; 9 |] |] =
+                        [| 2; 4; 6; 8 |]
                 @>
 
             test <@ collectArrays (fun x -> x % 2 = 0) [| [| 1; 2; 3 |]; [| 5; 7 |]; [| 9; 11 |] |] = [| 2 |] @>

@@ -32,6 +32,16 @@ nuget Unquote
 nuget ModelContextProtocol 1.2.0
 nuget Microsoft.Extensions.Hosting
 
+// The session store's test and development database (ADR-0007 section 4, plan 516).
+// Production never opens it.
+nuget Microsoft.Data.Sqlite ~> 10
+// Paket takes the newest transitive version; Microsoft.Data.Sqlite 10 is built against
+// SQLitePCLRaw 2.1, and 3.x is a breaking major, so the bundle, its core and its native
+// library stay on 2.1, the versions NuGet itself would pick.
+nuget SQLitePCLRaw.bundle_e_sqlite3 ~> 2.1.12
+nuget SQLitePCLRaw.core ~> 2.1.12
+nuget SQLitePCLRaw.lib.e_sqlite3 ~> 2.1.12
+
 // Fable / Elmish / Feliz packages, referenced only by Informedica.GenPRES.Client.
 group Client
   source https://api.nuget.org/v3/index.json

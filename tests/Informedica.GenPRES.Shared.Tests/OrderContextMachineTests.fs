@@ -9,23 +9,37 @@ open OrderContextMachine
 
 module Fixtures =
 
-    let patient = Shared.Models.PatientDto.empty
-    let other = { patient with Department = Some "other" }
+    let ten = { Shared.Models.Patient.Age.ageZero with Age.Years = 10<year> }
+
+    /// The data a context carries, and the patient it is: an age makes the draft a patient.
+    let draft = { Shared.Models.Patient.empty with Age = Some ten }
+
+    let asPatient (dto: Patient) =
+        match dto |> Shared.Models.Patient.validate with
+        | Ok pat -> pat
+        | Error err -> invalidOp $"the fixture is no patient: %A{err}"
+
+    let patient = draft |> asPatient
+    let otherDraft = { draft with Department = Some "other" }
+    let other = otherDraft |> asPatient
 
     let empty = OrderContextState.emptyFor patient
 
     let paracetamol = { empty with OrderContext.Filter.Generic = Some "paracetamol" }
 
     let noPatient = OrderContextState.noPatient
-    let seeded = OrderContextState.seeded
 
-    let held = OrderContextState.held
+    let heldFor = OrderContextState.held
+    let held = heldFor patient
 
     /// A command under way over the context sent; the one held is what a failed change goes back to.
-    let inFlight = OrderContextState.changing
+    let inFlightFor = OrderContextState.changing
+    let inFlight = inFlightFor patient
 
     /// An evaluation under way.
-    let evaluating = inFlight OrderContextCommand.UpdateOrderContext
+    let evaluatingFor pat = inFlightFor pat OrderContextCommand.UpdateOrderContext
+
+    let evaluating = evaluatingFor patient
 
     let opening = OrderContextState.opening
 
@@ -82,13 +96,12 @@ let tests =
                         "a patient changed keeps the filter and evaluates it for the new patient, whatever was in flight superseded" {
                         let busy = evaluating paracetamol paracetamol "r-1"
 
-                        let state, effects =
-                            transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
+                        let state, effects = transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
 
-                        let expected = { paracetamol with Patient = other }
+                        let expected = { paracetamol with Patient = otherDraft }
 
                         state
-                        |> Expect.equal "evaluating for the new patient" (evaluating expected expected "r-2")
+                        |> Expect.equal "evaluating for the new patient" (evaluatingFor other expected expected "r-2")
 
                         effects |> Expect.equal "the call and the syncs" (evaluated expected "r-2")
 
@@ -101,53 +114,44 @@ let tests =
                         let chosen = { paracetamol with OrderContext.Filter.Generic = Some "ibuprofen" }
                         let busy = evaluating chosen paracetamol "r-1"
 
-                        let state, effects =
-                            transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
+                        let state, effects = transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busy
 
-                        let sent = { chosen with Patient = other }
-                        let found = { paracetamol with Patient = other }
+                        let sent = { chosen with Patient = otherDraft }
+                        let found = { paracetamol with Patient = otherDraft }
 
                         state
-                        |> Expect.equal "the selection evaluated for the new patient" (evaluating sent found "r-2")
+                        |> Expect.equal
+                            "the selection evaluated for the new patient"
+                            (evaluatingFor other sent found "r-2")
 
                         effects |> Expect.equal "the call and the syncs" (evaluated sent "r-2")
 
                         transition (OrderContextMsg.Answered("r-2", Error [| "not loaded" |])) state
                         |> Expect.equal
                             "a refusal restores the last evaluated, for the new patient"
-                            (held found, restored found [| "not loaded" |])
+                            (heldFor other found, restored found [| "not loaded" |])
                     }
 
-                    test "no patient: no workbench; a seed keeps waiting" {
+                    test "no patient: no workbench" {
                         transition (OrderContextMsg.PatientChanged(None, "r-1")) shown
                         |> Expect.equal "no patient" (noPatient, [])
-
-                        transition (OrderContextMsg.PatientChanged(None, "r-1")) (seeded paracetamol)
-                        |> Expect.equal "the seed waits" (seeded paracetamol, [])
                     }
                 ]
 
             testList
                 "the seed"
                 [
-                    test "a filter before a patient waits, and is evaluated once the patient is set" {
-                        let waiting, effects =
-                            transition (OrderContextMsg.Seed(paracetamol, "r-1")) noPatient
+                    test "a filter before a patient is dropped: the patient is part of it" {
+                        transition (OrderContextMsg.Seed(paracetamol, "r-1")) noPatient
+                        |> Expect.equal "dropped" (noPatient, [])
 
-                        waiting |> Expect.equal "seeded" (seeded paracetamol)
-                        effects |> Expect.isEmpty "nothing to evaluate yet"
-
-                        let state, effects =
-                            transition (OrderContextMsg.PatientChanged(Some patient, "r-2")) waiting
-
-                        state
-                        |> Expect.equal "evaluated for the patient" (evaluating paracetamol paracetamol "r-2")
-
-                        effects |> Expect.equal "the call and the syncs" (evaluated paracetamol "r-2")
+                        transition (OrderContextMsg.PatientChanged(Some patient, "r-2")) noPatient
+                        |> fst
+                        |> Expect.equal "the empty workbench opened, nothing waited" (opening patient "r-2")
                     }
 
                     test "a filter with a patient held is evaluated at once, for that patient" {
-                        let fromUrl = { paracetamol with Patient = other }
+                        let fromUrl = { paracetamol with Patient = otherDraft }
                         let state, effects = transition (OrderContextMsg.Seed(fromUrl, "r-1")) shown
 
                         state |> Expect.equal "evaluating" (evaluating paracetamol paracetamol "r-1")
@@ -155,11 +159,11 @@ let tests =
                         effects |> Expect.equal "for the patient held" (evaluated paracetamol "r-1")
                     }
 
-                    test "a command before a patient is the seed" {
+                    test "a command before a patient is dropped" {
                         transition
                             (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, paracetamol, "r-1"))
                             noPatient
-                        |> Expect.equal "seeded" (seeded paracetamol, [])
+                        |> Expect.equal "dropped" (noPatient, [])
                     }
                 ]
 
@@ -170,10 +174,10 @@ let tests =
                         let changed =
                             { paracetamol with
                                 OrderContext.Filter.Generic = Some "ibuprofen"
-                                Patient = other
+                                Patient = otherDraft
                             }
 
-                        let forPatient = { changed with Patient = patient }
+                        let forPatient = { changed with Patient = draft }
 
                         let busy, effects =
                             transition
@@ -243,10 +247,7 @@ let tests =
                     test "no dose rules for the filter: back to the first page, the empty workbench evaluated again" {
                         let busy = evaluating paracetamol paracetamol "r-1"
 
-                        let errs =
-                            [|
-                                "Geen doseerregels gevonden voor het geselecteerde filter"
-                            |]
+                        let errs = [| "Geen doseerregels gevonden voor het geselecteerde filter" |]
 
                         transition (OrderContextMsg.Answered("r-1", Error errs)) busy
                         |> Expect.equal
@@ -302,14 +303,10 @@ let projectionTests =
     testList
         "OrderContextState.toDeferred"
         [
-            test "no patient: not started; a seed and the context held: resolved" {
+            test "no patient: not started; the context held: resolved; nothing is resolved unevaluated" {
                 noPatient
                 |> OrderContextState.toDeferred
                 |> Expect.equal "not started" HasNotStartedYet
-
-                seeded paracetamol
-                |> OrderContextState.toDeferred
-                |> Expect.equal "the seed, shown while it waits" (Resolved paracetamol)
 
                 shown
                 |> OrderContextState.toDeferred
@@ -343,39 +340,35 @@ let stagesTests =
                         (OrderContextCommand.UpdateOrderContext, stepped),
                         Error [| "not loaded" |]
                     ))
-                    (OrderContextWorkbench.Evaluated paracetamol)
+                    (OrderContextWorkbench.Evaluated(patient, paracetamol))
                 |> Expect.equal
                     "the original, told and synced"
-                    (OrderContextWorkbench.Evaluated paracetamol,
+                    (OrderContextWorkbench.Evaluated(patient, paracetamol),
                      [
                          OrderContextWorkbenchIntent.Tell [| "not loaded" |]
                          OrderContextWorkbenchIntent.Sync paracetamol.Filter
                      ])
             }
 
-            test "nothing lands where nothing was asked: a seed, or no patient" {
+            test "nothing lands where nothing was asked: no patient" {
                 let landed =
                     OrderContextWorkbenchMsg.Landed(
                         (OrderContextCommand.UpdateOrderContext, paracetamol),
                         Ok paracetamol
                     )
 
-                OrderContextWorkbench.step landed (OrderContextWorkbench.Seeded paracetamol)
-                |> Expect.equal "the seed" (OrderContextWorkbench.Seeded paracetamol, [])
-
                 OrderContextWorkbench.step landed OrderContextWorkbench.NoPatient
                 |> Expect.equal "no patient" (OrderContextWorkbench.NoPatient, [])
 
-                transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) (seeded paracetamol)
-                |> Expect.equal "no request under way to land on" (seeded paracetamol, [])
+                transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) noPatient
+                |> Expect.equal "no request under way to land on" (noPatient, [])
             }
 
             test
                 "the context shown is the one sent while a change is under way, else the one held; none before the first evaluation" {
                 let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
 
-                let busy =
-                    inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1"
+                let busy = inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1"
 
                 busy |> OrderContextState.context |> Expect.equal "the one sent" (Some stepped)
 

@@ -76,8 +76,7 @@ module DoseRule =
 
 
         /// An empty DoseRange.
-        let empty =
-            create MinMax.empty emptyWeight emptyBSA MinMax.empty emptyWeight emptyBSA
+        let empty = create MinMax.empty emptyWeight emptyBSA MinMax.empty emptyWeight emptyBSA
 
 
         /// <summary>
@@ -309,8 +308,7 @@ module DoseRule =
                 else
                     nb / (nub |> MinMax.one) |> optRate, ab / (aub |> MinMax.one) |> optRate
 
-            let mmToStr =
-                MinMax.toString vuToStr vuToStr "van (incl) " "van (excl) " "tot (incl) " "tot (excl) "
+            let mmToStr = MinMax.toString vuToStr vuToStr "van (incl) " "van (excl) " "tot (incl) " "tot (excl) "
 
             norm |> mmToStr >+ (nw |> mmToStr) >+ (nb |> mmToStr)
             |> (fun s ->
@@ -398,9 +396,8 @@ module DoseRule =
     /// The indication is identified by the name of
     /// the dosage.
     /// </summary>
-    /// Per dosage the following `DoseRange`
     /// <remarks>
-    /// items can be defined:
+    /// Per dosage the following <c>DoseRange</c> items can be defined:
     /// <list type="bullet">
     ///     <item>
     ///         <term>StartDosage</term>
@@ -416,7 +413,7 @@ module DoseRule =
     ///     </item>
     ///     <item>
     ///         <term>TotalDosage</term>
-    ///         <description>dosage per time period, has a `Frequency`</description>
+    ///         <description>dosage per time period, has a <c>Frequency</c></description>
     ///     </item>
     /// </list>
     /// The frequency is defined by a list of possible frequencies
@@ -543,8 +540,7 @@ module DoseRule =
             let setFrequencyTimeUnit = Optic.set timeUnitFrequencyLens
 
 
-            let minIntervalValueFrequencyLens =
-                Dosage.TotalDosage_ >-> snd_ >-> Frequency.MinimalInterval_
+            let minIntervalValueFrequencyLens = Dosage.TotalDosage_ >-> snd_ >-> Frequency.MinimalInterval_
 
 
             let inclMinNormStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.inclMinNormLens
@@ -559,217 +555,166 @@ module DoseRule =
             let exclMaxNormStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.exclMaxNormLens
 
 
-            let normWeightUnitStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.normWeightUnitLens
+            let normWeightUnitStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.normWeightUnitLens
 
 
-            let inclMinNormWeightStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.inclMinNormWeightLens
+            let inclMinNormWeightStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.inclMinNormWeightLens
 
 
-            let exclMinNormWeightStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.exclMinNormWeightLens
+            let exclMinNormWeightStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.exclMinNormWeightLens
 
 
-            let inclMaxNormWeightStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.inclMaxNormWeightLens
+            let inclMaxNormWeightStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.inclMaxNormWeightLens
 
 
-            let exclMaxNormWeightStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.exclMaxNormWeightLens
+            let exclMaxNormWeightStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.exclMaxNormWeightLens
 
 
             let normBSAUnitStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.normBSAUnitLens
 
 
-            let inclMinNormBSAStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.inclMinNormBSALens
+            let inclMinNormBSAStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.inclMinNormBSALens
 
 
-            let exclMinNormBSAStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.exclMinNormBSALens
+            let exclMinNormBSAStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.exclMinNormBSALens
 
 
-            let inclMaxNormBSAStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.inclMaxNormBSALens
+            let inclMaxNormBSAStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.inclMaxNormBSALens
 
 
-            let exclMaxNormBSAStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.exclMaxNormBSALens
+            let exclMaxNormBSAStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.exclMaxNormBSALens
 
 
-            let inclMinNormSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.inclMinNormLens
+            let inclMinNormSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.inclMinNormLens
 
 
-            let exclMinNormSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.exclMinNormLens
+            let exclMinNormSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.exclMinNormLens
 
 
-            let inclMaxNormSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.inclMaxNormLens
+            let inclMaxNormSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.inclMaxNormLens
 
 
-            let exclMaxNormSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.exclMaxNormLens
+            let exclMaxNormSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.exclMaxNormLens
 
 
-            let normWeightUnitSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.normWeightUnitLens
+            let normWeightUnitSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.normWeightUnitLens
 
 
-            let inclMinNormWeightSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.inclMinNormWeightLens
+            let inclMinNormWeightSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.inclMinNormWeightLens
 
 
-            let exclMinNormWeightSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.exclMinNormWeightLens
+            let exclMinNormWeightSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.exclMinNormWeightLens
 
 
-            let inclMaxNormWeightSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.inclMaxNormWeightLens
+            let inclMaxNormWeightSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.inclMaxNormWeightLens
 
 
-            let exclMaxNormWeightSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.exclMaxNormWeightLens
+            let exclMaxNormWeightSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.exclMaxNormWeightLens
 
 
-            let normBSAUnitSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.normBSAUnitLens
+            let normBSAUnitSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.normBSAUnitLens
 
 
-            let inclMinNormBSASingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.inclMinNormBSALens
+            let inclMinNormBSASingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.inclMinNormBSALens
 
 
-            let exclMinNormBSASingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.exclMinNormBSALens
+            let exclMinNormBSASingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.exclMinNormBSALens
 
 
-            let inclMaxNormBSASingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.inclMaxNormBSALens
+            let inclMaxNormBSASingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.inclMaxNormBSALens
 
 
-            let exclMaxNormBSASingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.exclMaxNormBSALens
+            let exclMaxNormBSASingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.exclMaxNormBSALens
 
 
             let rateUnitRateDosagePrism = Dosage.RateDosage_ >-> snd_
 
 
-            let normWeightUnitRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.normWeightUnitLens
+            let normWeightUnitRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.normWeightUnitLens
 
 
-            let inclMinNormRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinNormLens
+            let inclMinNormRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinNormLens
 
 
-            let exclMinNormRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinNormLens
+            let exclMinNormRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinNormLens
 
 
-            let inclMaxNormRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxNormLens
+            let inclMaxNormRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxNormLens
 
 
-            let exclMaxNormRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxNormLens
+            let exclMaxNormRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxNormLens
 
 
-            let inclMinNormWeightRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinNormWeightLens
+            let inclMinNormWeightRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinNormWeightLens
 
 
-            let exclMinNormWeightRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinNormWeightLens
+            let exclMinNormWeightRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinNormWeightLens
 
 
-            let inclMaxNormWeightRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxNormWeightLens
+            let inclMaxNormWeightRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxNormWeightLens
 
 
-            let exclMaxNormWeightRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxNormWeightLens
+            let exclMaxNormWeightRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxNormWeightLens
 
 
-            let normBSAUnitRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.normBSAUnitLens
+            let normBSAUnitRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.normBSAUnitLens
 
 
-            let inclMinNormBSARateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinNormBSALens
+            let inclMinNormBSARateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinNormBSALens
 
 
-            let exclMinNormBSARateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinNormBSALens
+            let exclMinNormBSARateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinNormBSALens
 
 
-            let inclMaxNormBSARateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxNormBSALens
+            let inclMaxNormBSARateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxNormBSALens
 
 
-            let exclMaxNormBSARateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxNormBSALens
+            let exclMaxNormBSARateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxNormBSALens
 
 
             let timeUnitTotalDosagePrism = Dosage.TotalDosage_ >-> snd_
 
 
-            let normWeightUnitTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.normWeightUnitLens
+            let normWeightUnitTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.normWeightUnitLens
 
 
-            let inclMinNormTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinNormLens
+            let inclMinNormTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinNormLens
 
 
-            let exclMinNormTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinNormLens
+            let exclMinNormTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinNormLens
 
 
-            let inclMaxNormTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxNormLens
+            let inclMaxNormTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxNormLens
 
 
-            let exclMaxNormTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxNormLens
+            let exclMaxNormTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxNormLens
 
 
-            let inclMinNormWeightTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinNormWeightLens
+            let inclMinNormWeightTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinNormWeightLens
 
 
-            let exclMinNormWeightTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinNormWeightLens
+            let exclMinNormWeightTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinNormWeightLens
 
 
-            let inclMaxNormWeightTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxNormWeightLens
+            let inclMaxNormWeightTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxNormWeightLens
 
 
-            let exclMaxNormWeightTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxNormWeightLens
+            let exclMaxNormWeightTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxNormWeightLens
 
 
-            let normBSAUnitTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.normBSAUnitLens
+            let normBSAUnitTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.normBSAUnitLens
 
 
-            let inclMinNormBSATotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinNormBSALens
+            let inclMinNormBSATotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinNormBSALens
 
 
-            let exclMinNormBSATotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinNormBSALens
+            let exclMinNormBSATotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinNormBSALens
 
 
-            let inclMaxNormBSATotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxNormBSALens
+            let inclMaxNormBSATotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxNormBSALens
 
 
-            let exclMaxNormBSATotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxNormBSALens
+            let exclMaxNormBSATotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxNormBSALens
 
 
             let inclMinAbsStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.inclMinAbsLens
@@ -784,43 +729,34 @@ module DoseRule =
             let exclMaxAbsStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.exclMaxAbsLens
 
 
-            let absWeightUnitStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.absWeightUnitLens
+            let absWeightUnitStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.absWeightUnitLens
 
 
-            let inclMinAbsWeightStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.inclMinAbsWeightLens
+            let inclMinAbsWeightStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.inclMinAbsWeightLens
 
 
-            let exclMinAbsWeightStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.exclMinAbsWeightLens
+            let exclMinAbsWeightStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.exclMinAbsWeightLens
 
 
-            let inclMaxAbsWeightStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.inclMaxAbsWeightLens
+            let inclMaxAbsWeightStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.inclMaxAbsWeightLens
 
 
-            let exclMaxAbsWeightStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.exclMaxAbsWeightLens
+            let exclMaxAbsWeightStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.exclMaxAbsWeightLens
 
 
             let absBSAUnitStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.absBSAUnitLens
 
 
-            let inclMinAbsBSAStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.inclMinAbsBSALens
+            let inclMinAbsBSAStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.inclMinAbsBSALens
 
 
-            let exclMinAbsBSAStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.exclMinAbsBSALens
+            let exclMinAbsBSAStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.exclMinAbsBSALens
 
 
-            let inclMaxAbsBSAStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.inclMaxAbsBSALens
+            let inclMaxAbsBSAStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.inclMaxAbsBSALens
 
 
-            let exclMaxAbsBSAStartDosagePrism =
-                Dosage.StartDosage_ >-> DoseRange.exclMaxAbsBSALens
+            let exclMaxAbsBSAStartDosagePrism = Dosage.StartDosage_ >-> DoseRange.exclMaxAbsBSALens
 
 
             let inclMinAbsSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.inclMinAbsLens
@@ -835,161 +771,123 @@ module DoseRule =
             let exclMaxAbsSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.exclMaxAbsLens
 
 
-            let absWeightUnitSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.absWeightUnitLens
+            let absWeightUnitSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.absWeightUnitLens
 
 
-            let inclMinAbsWeightSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.inclMinAbsWeightLens
+            let inclMinAbsWeightSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.inclMinAbsWeightLens
 
 
-            let exclMinAbsWeightSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.exclMinAbsWeightLens
+            let exclMinAbsWeightSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.exclMinAbsWeightLens
 
 
-            let inclMaxAbsWeightSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.inclMaxAbsWeightLens
+            let inclMaxAbsWeightSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.inclMaxAbsWeightLens
 
 
-            let exclMaxAbsWeightSingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.exclMaxAbsWeightLens
+            let exclMaxAbsWeightSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.exclMaxAbsWeightLens
 
 
             let absBSAUnitSingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.absBSAUnitLens
 
 
-            let inclMinAbsBSASingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.inclMinAbsBSALens
+            let inclMinAbsBSASingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.inclMinAbsBSALens
 
 
-            let exclMinAbsBSASingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.exclMinAbsBSALens
+            let exclMinAbsBSASingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.exclMinAbsBSALens
 
 
-            let inclMaxAbsBSASingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.inclMaxAbsBSALens
+            let inclMaxAbsBSASingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.inclMaxAbsBSALens
 
 
-            let exclMaxAbsBSASingleDosagePrism =
-                Dosage.SingleDosage_ >-> DoseRange.exclMaxAbsBSALens
+            let exclMaxAbsBSASingleDosagePrism = Dosage.SingleDosage_ >-> DoseRange.exclMaxAbsBSALens
 
 
-            let inclMinAbsRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinAbsLens
+            let inclMinAbsRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinAbsLens
 
 
-            let exclMinAbsRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinAbsLens
+            let exclMinAbsRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinAbsLens
 
 
-            let inclMaxAbsRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxAbsLens
+            let inclMaxAbsRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxAbsLens
 
 
-            let exclMaxAbsRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxAbsLens
+            let exclMaxAbsRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxAbsLens
 
 
-            let absWeightUnitRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.absWeightUnitLens
+            let absWeightUnitRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.absWeightUnitLens
 
 
-            let inclMinAbsWeightRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinAbsWeightLens
+            let inclMinAbsWeightRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinAbsWeightLens
 
 
-            let exclMinAbsWeightRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinAbsWeightLens
+            let exclMinAbsWeightRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinAbsWeightLens
 
 
-            let inclMaxAbsWeightRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxAbsWeightLens
+            let inclMaxAbsWeightRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxAbsWeightLens
 
 
-            let exclMaxAbsWeightRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxAbsWeightLens
+            let exclMaxAbsWeightRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxAbsWeightLens
 
 
-            let absBSAUnitRateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.absBSAUnitLens
+            let absBSAUnitRateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.absBSAUnitLens
 
 
-            let inclMinAbsBSARateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinAbsBSALens
+            let inclMinAbsBSARateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMinAbsBSALens
 
 
-            let exclMinAbsBSARateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinAbsBSALens
+            let exclMinAbsBSARateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMinAbsBSALens
 
 
-            let inclMaxAbsBSARateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxAbsBSALens
+            let inclMaxAbsBSARateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.inclMaxAbsBSALens
 
 
-            let exclMaxAbsBSARateDosagePrism =
-                Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxAbsBSALens
+            let exclMaxAbsBSARateDosagePrism = Dosage.RateDosage_ >-> fst_ >-> DoseRange.exclMaxAbsBSALens
 
 
-            let inclMinAbsTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinAbsLens
+            let inclMinAbsTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinAbsLens
 
 
-            let exclMinAbsTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinAbsLens
+            let exclMinAbsTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinAbsLens
 
 
-            let inclMaxAbsTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxAbsLens
+            let inclMaxAbsTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxAbsLens
 
 
-            let exclMaxAbsTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxAbsLens
+            let exclMaxAbsTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxAbsLens
 
 
-            let absWeightUnitTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.absWeightUnitLens
+            let absWeightUnitTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.absWeightUnitLens
 
 
-            let inclMinAbsWeightTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinAbsWeightLens
+            let inclMinAbsWeightTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinAbsWeightLens
 
 
-            let exclMinAbsWeightTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinAbsWeightLens
+            let exclMinAbsWeightTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinAbsWeightLens
 
 
-            let inclMaxAbsWeightTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxAbsWeightLens
+            let inclMaxAbsWeightTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxAbsWeightLens
 
 
-            let exclMaxAbsWeightTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxAbsWeightLens
+            let exclMaxAbsWeightTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxAbsWeightLens
 
 
-            let absBSAUnitTotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.absBSAUnitLens
+            let absBSAUnitTotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.absBSAUnitLens
 
 
-            let inclMinAbsBSATotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinAbsBSALens
+            let inclMinAbsBSATotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMinAbsBSALens
 
 
-            let exclMinAbsBSATotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinAbsBSALens
+            let exclMinAbsBSATotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMinAbsBSALens
 
 
-            let inclMaxAbsBSATotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxAbsBSALens
+            let inclMaxAbsBSATotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.inclMaxAbsBSALens
 
 
-            let exclMaxAbsBSATotalDosagePrism =
-                Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxAbsBSALens
+            let exclMaxAbsBSATotalDosagePrism = Dosage.TotalDosage_ >-> fst_ >-> DoseRange.exclMaxAbsBSALens
 
 
         /// Get the string representation of a Frequency.
         let freqsToStr (freqs: Frequency) =
-            let fu =
-                freqs.TimeUnit |> ValueUnit.unitToReadableDutchString |> String.replace "x/" ""
+            let fu = freqs.TimeUnit |> ValueUnit.unitToReadableDutchString |> String.replace "x/" ""
 
 
             if freqs.Frequencies |> List.isConsecutive 0N 1N |> not then
@@ -1037,8 +935,7 @@ module DoseRule =
 
             let frqs = total |> snd
 
-            let fu =
-                frqs.TimeUnit |> ValueUnit.unitToReadableDutchString |> String.replace "x/" ""
+            let fu = frqs.TimeUnit |> ValueUnit.unitToReadableDutchString |> String.replace "x/" ""
 
             let drToStr = DoseRange.toString None
 
@@ -1208,11 +1105,11 @@ module DoseRule =
 
 
             type Dto() =
-                // The patient group the doserules applies
+                /// The patient group the doserules applies
                 member val Patient = PatientCategory.Dto.dto () with get, set
-                // List of forms that have a dosage
+                /// List of forms that have a dosage
                 member val FormDosage = Dosage.Dto.dto () with get, set
-                // List of substances that have a dosage
+                /// List of substances that have a dosage
                 member val SubstanceDosages: Dosage.Dto.Dto list = [] with get, set
 
             let dto () = Dto()
@@ -1472,8 +1369,7 @@ module DoseRule =
 
         module Optics =
 
-            let getFormDosage n =
-                List.pos_ n >?> RouteDosage.FormDosages_
+            let getFormDosage n = List.pos_ n >?> RouteDosage.FormDosages_
 
             let formDosages = RouteDosage.FormDosages_
 
@@ -1535,8 +1431,7 @@ module DoseRule =
 
         module Optics =
 
-            let getRouteDosage n =
-                List.pos_ n >?> IndicationDosage.RouteDosages_
+            let getRouteDosage n = List.pos_ n >?> IndicationDosage.RouteDosages_
 
             let setIndications = Optic.set IndicationDosage.Indications_
 
@@ -1789,8 +1684,7 @@ module DoseRule =
                     dr |> setFormDosages inds rt pds
 
 
-        let formDosagePrism n1 n2 n3 =
-            Prism.composePrism (formDosagesPrism n1 n2) (List.pos_ n3)
+        let formDosagePrism n1 n2 n3 = Prism.composePrism (formDosagesPrism n1 n2) (List.pos_ n3)
 
 
         let inline private formDosageProductsGetter prism inds rt frm dr =
@@ -1811,8 +1705,7 @@ module DoseRule =
         let setTradeProducts = formDosageProductsSetter FormDosage.Optics.tradeProducts
 
 
-        let patientDosagesPrism n1 n2 n3 =
-            formDosagePrism n1 n2 n3 >?> FormDosage.Optics.patientDosages
+        let patientDosagesPrism n1 n2 n3 = formDosagePrism n1 n2 n3 >?> FormDosage.Optics.patientDosages
 
 
         let getPatientDosages inds rt frm dr =
@@ -1833,14 +1726,12 @@ module DoseRule =
             match dr |> indxPatient inds rt frm pat with
             | Some _ -> dr
             | None ->
-                let pds =
-                    dr |> getPatientDosages inds rt frm |> List.prepend [ createPatientDosage pat ]
+                let pds = dr |> getPatientDosages inds rt frm |> List.prepend [ createPatientDosage pat ]
 
                 dr |> setPatientDosages inds rt frm pds
 
 
-        let patientDosagePrism n1 n2 n3 n4 =
-            Prism.composePrism (patientDosagesPrism n1 n2 n3) (List.pos_ n4)
+        let patientDosagePrism n1 n2 n3 n4 = Prism.composePrism (patientDosagesPrism n1 n2 n3) (List.pos_ n4)
 
 
         let substanceDosagesPrism n1 n2 n3 n4 =
@@ -1910,8 +1801,7 @@ module DoseRule =
     /// <param name="gen">The Generic</param>
     /// <param name="u">The new SubstanceUnit</param>
     /// <param name="dr">The DoseRule</param>
-    let convertSubstanceUnitTo gen u dr =
-        convertTo Dosage.convertSubstanceUnitTo gen u dr
+    let convertSubstanceUnitTo gen u dr = convertTo Dosage.convertSubstanceUnitTo gen u dr
 
 
     /// <summary>
@@ -1920,8 +1810,7 @@ module DoseRule =
     /// <param name="gen">The Generic</param>
     /// <param name="u">The new RateUnit</param>
     /// <param name="dr">The DoseRule</param>
-    let convertRateUnitTo gen u dr =
-        convertTo Dosage.convertRateUnitTo gen u dr
+    let convertRateUnitTo gen u dr = convertTo Dosage.convertRateUnitTo gen u dr
 
 
     module Operators =
@@ -2015,8 +1904,7 @@ Synoniemen: {synonym}
     /// <param name="printRules">Whether to print the original DoseRules</param>
     /// <param name="dr">The DoseRule</param>
     let toStringWithConfig (config: TextConfig) printRules (dr: DoseRule) =
-        let gpsToString (gps: GenericProductLabel list) =
-            gps |> List.map _.Label |> String.concat ", "
+        let gpsToString (gps: GenericProductLabel list) = gps |> List.map _.Label |> String.concat ", "
 
         config.MainText
         |> String.replace "{generic}" dr.Generic
@@ -2098,19 +1986,19 @@ Synoniemen: {synonym}
 
         type Dto() =
             member val Generic = "" with get, set
-            // List of synonyms for the generic
+            /// List of synonyms for the generic
             member val Synomyms: string list = [] with get, set
-            // The ATC code
+            /// The ATC code
             member val ATC = "" with get, set
-            // ATCTherapyGroup the doserule applies to
+            /// ATCTherapyGroup the doserule applies to
             member val ATCTherapyGroup = "" with get, set
-            // ATCTherapySubGroup the doserule applies to
+            /// ATCTherapySubGroup the doserule applies to
             member val ATCTherapySubGroup = "" with get, set
-            // The generic group the doserule applies to
+            /// The generic group the doserule applies to
             member val GenericGroup = "" with get, set
-            // The generic subgroup the doserule applies to
+            /// The generic subgroup the doserule applies to
             member val GenericSubGroup = "" with get, set
-            // The doserules per indication(-s)
+            /// The doserules per indication(-s)
             member val Indications: IndicationDosage.Dto.Dto list = [] with get, set
 
 

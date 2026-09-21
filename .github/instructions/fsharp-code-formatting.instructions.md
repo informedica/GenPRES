@@ -203,6 +203,18 @@ let result = calculate x
 let outcome = transform y
 ```
 
+## Comments
+
+Fantomas does not touch the body of a comment, so nothing here is enforced by the
+formatter. The rules live in
+[F# Coding Instructions](fsharp-coding.instructions.md#documentation-and-comments):
+`///` on everything a caller can name, including record fields and discriminated union
+cases; `//` inside a body for the *why*; a block that is either plain prose or all XML
+elements, never both; no backticks; no `(* … *)`.
+
+Fantomas will not rewrap a long comment either, so break one by hand at the same 120
+columns the rest of the file keeps to.
+
 ## Interface Definitions
 
 Always use the `[<Interface>]` attribute on interfaces to prevent accidental conversion to abstract classes. The `IXxx` naming convention alone is not sufficient.

@@ -7,8 +7,8 @@ module Memoization =
     open System.Collections.Concurrent
 
     /// <summary>
-    /// Memoize a function `f` according
-    /// to its parameter `x`
+    /// Memoize a function <c>f</c> according
+    /// to its parameter <c>x</c>
     /// </summary>
     /// <param name="f">The function to memoize</param>
     /// <remarks>

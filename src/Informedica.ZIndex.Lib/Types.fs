@@ -137,7 +137,7 @@ module Types =
 
     /// <summary>
     /// A Z-Index Prescription Product
-    /// </summary>/>
+    /// </summary>
     /// <remarks>
     /// A prescription product is a generic product with
     /// the quantity and container of the product.

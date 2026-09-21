@@ -291,8 +291,7 @@ module Ollama =
                     | Ok result ->
                         let answer = result |> JsonConvert.SerializeObject
 
-                        let messages =
-                            [ attemptMessage; answer |> Message.assistant ] |> List.append messages
+                        let messages = [ attemptMessage; answer |> Message.assistant ] |> List.append messages
 
                         match answer |> attemptMessage.Validator with
                         | Ok res ->
@@ -422,10 +421,7 @@ module Ollama =
             | Ok response ->
                 let response = response.Response
 
-                [
-                    message
-                    Message.okMessage response.message.role response.message.content
-                ]
+                [ message; Message.okMessage response.message.role response.message.content ]
                 |> List.append messages
             | Error s ->
                 printfn $"oops: {s}"
@@ -598,8 +594,7 @@ Can you try again answering?
 
 
         let doseUnits model text =
-            let parseEmpty s =
-                if s |> String.isNullOrWhiteSpace then "" else s
+            let parseEmpty s = if s |> String.isNullOrWhiteSpace then "" else s
 
             monad {
                 let! doseUnits = Extraction.createDoseUnits getJson getJson getJson model text
@@ -634,11 +629,11 @@ Can you try again answering?
 
                 let su, au, tu =
                     freqs.doseUnits.substanceUnit,
-                    (if freqs.doseUnits.adjustUnit |> String.IsNullOrEmpty then
+                    (if freqs.doseUnits.adjustUnit |> String.isNullOrEmpty then
                          None
                      else
                          freqs.doseUnits.adjustUnit |> Some),
-                    if freqs.doseUnits.timeUnit |> String.IsNullOrEmpty then
+                    if freqs.doseUnits.timeUnit |> String.isNullOrEmpty then
                         None
                     else
                         freqs.doseUnits.timeUnit |> Some

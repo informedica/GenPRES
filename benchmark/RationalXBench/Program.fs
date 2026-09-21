@@ -52,8 +52,7 @@ module Check =
 
     let private toRX (n: int64, d: int64) = RX.FromInt64Fraction(n, d)
 
-    let private toMB (n: int64, d: int64) =
-        MB.FromBigIntFraction(bigint n, bigint d)
+    let private toMB (n: int64, d: int64) = MB.FromBigIntFraction(bigint n, bigint d)
 
     /// (maxAbsDoubleDiff, spillCount, total) for (a*b)/c across the pool.
     let run () =

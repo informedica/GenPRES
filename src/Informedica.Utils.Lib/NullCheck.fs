@@ -11,8 +11,7 @@ module NullCheck =
     /// Check if values v1 or v2 are null
     /// If null return default value d
     /// Else return f of v1 and v2
-    let nullOrDef2 f d v1 v2 =
-        if isNull v1 || isNull v2 then d else f v1 v2
+    let nullOrDef2 f d v1 v2 = if isNull v1 || isNull v2 then d else f v1 v2
 
     /// Check if values v1, v2 or v3 are null
     /// If one or more are null return default value d

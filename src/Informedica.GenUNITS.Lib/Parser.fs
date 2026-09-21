@@ -62,8 +62,7 @@ module Parser =
     /// <example>
     /// Example: "1.2" |> run pBigRat -> Success: 6/5
     /// </example>
-    let pBigRat: Parser<BigRational, unit> =
-        pnumber |>> (BigRational.fromFloat >> Option.defaultValue 0N)
+    let pBigRat: Parser<BigRational, unit> = pnumber |>> (BigRational.fromFloat >> Option.defaultValue 0N)
 
 
     /// <summary>

@@ -25,8 +25,7 @@ module Interactions =
             | _ -> []
 
 
-        let getCombinedDrugs planDrugs manualDrugs =
-            (planDrugs @ manualDrugs) |> List.distinct
+        let getCombinedDrugs planDrugs manualDrugs = (planDrugs @ manualDrugs) |> List.distinct
 
 
         type State =
@@ -90,8 +89,7 @@ module Interactions =
                     newState, Cmd.none
 
             | RemoveDrug drug ->
-                let newState =
-                    { state with ManualDrugs = state.ManualDrugs |> List.filter (fun d -> d <> drug) }
+                let newState = { state with ManualDrugs = state.ManualDrugs |> List.filter (fun d -> d <> drug) }
 
                 triggerCheck newState.ManualDrugs
                 newState, Cmd.none
@@ -118,16 +116,14 @@ module Interactions =
         let checkInteractions = envInteractions.CheckInteractions
         let orderPlan = (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
-        let state, dispatch =
-            React.useElmish (init (), update orderPlan checkInteractions, [| box orderPlan |])
+        let state, dispatch = React.useElmish (init (), update orderPlan checkInteractions, [| box orderPlan |])
 
         let planDrugs = getPlanDrugs orderPlan
 
@@ -214,8 +210,7 @@ module Interactions =
         let drug2Label = Terms.``Interactions Drug 2`` |> getTerm "Medicatie 2"
         let classLabel = Terms.``Interactions Class`` |> getTerm "Interactie klasse"
 
-        let noneFoundLabel =
-            Terms.``Interactions None Found`` |> getTerm "Geen interacties gevonden"
+        let noneFoundLabel = Terms.``Interactions None Found`` |> getTerm "Geen interacties gevonden"
 
         let interactionTable =
             if interactionRows.Length > 0 then

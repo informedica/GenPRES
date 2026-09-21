@@ -1,6 +1,6 @@
 namespace Informedica.Utils.Lib.BCL
 
-/// Utility methods to handle a `Char` in a
+/// Utility methods to handle a Char in a
 /// functional style
 [<RequireQualifiedAccess>]
 module Char =
@@ -8,7 +8,7 @@ module Char =
     open System
 
 
-    /// Applies a function to a `Char`
+    /// Applies a function to a Char
     let apply f (c: char) = f c
 
 
@@ -24,7 +24,7 @@ module Char =
     let capitals = [| 'A' .. 'Z' |]
 
 
-    /// Checks if a `Char` is a capital letter
+    /// Checks if a Char is a capital letter
     let isCapital c = capitals |> Seq.exists ((=) c)
 
 
@@ -36,12 +36,11 @@ module Char =
     let toUpper = Char.ToUpper
 
 
-    /// Checks if a `Char` is a letter
-    let isLetter c =
-        letters |> Seq.exists ((=) (c |> toLower))
+    /// Checks if a Char is a letter
+    let isLetter c = letters |> Seq.exists ((=) (c |> toLower))
 
 
-    /// Checks if a `Char` is a small caps letter
+    /// Checks if a Char is a small caps letter
     let isLower c =
         if c |> isLetter |> not then
             false

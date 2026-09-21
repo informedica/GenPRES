@@ -42,11 +42,12 @@ The process is meant to support productive develpoment, not be a hindrance to it
 
 - Before making changes, describe the desired change in an issue.
 - If maintainers agree that the change would be valuable, propose a high-level implementation plan in a PR to a markdown file in [./docs/implementation-plans/](./docs/implementation-plans/). The filename should contain the issue number and a short title, e.g. 54-multilingual-user-guide.md.
-- Once an implementation plan is agreed, changes can be submitted via implementation PRs. Each implementation PR should have no more than 200 lines of changed code, and [ideally 25-100 lines](https://graphite.dev/blog/the-ideal-pr-is-50-lines-long). Use feature flags if necessary to prevent incomplete changes from being surfaced in the application.
-- Reviewers may request that complex changes are split into smaller PRs, even if the original PR's diff is less than 200
-lines.
+- Once an implementation plan is agreed, changes can be submitted via implementation PRs. Each implementation PR should have no more than 200 changed source lines, and [ideally 25-100](https://graphite.dev/blog/the-ideal-pr-is-50-lines-long). Use feature flags if necessary to prevent incomplete changes from being surfaced in the application.
+- Source lines are the changed lines of the shipped code: the files under `src/` that build into the application (F#, SQL, project files). Not counted: tests, prototype `.fsx` scripts, documentation, and lock or generated files. A PR may therefore change more lines in total, as long as its source change stays within the limit.
+- Reviewers may request that complex changes are split into smaller PRs, even if the original PR has fewer than 200 changed
+source lines.
 - Certain changes can go straight to implementation PR, without needing an issue and implementation plan:
-  - Code changes less than 25 lines.
+  - Code changes of fewer than 25 changed source lines.
   - Documentation-only changes.
 - Reviewers will ask authors to rework or resubmit PRs that don't meet the above guidelines.
 
@@ -133,6 +134,18 @@ Documented in [./DEVELOPMENT.md](./DEVELOPMENT.md).
 F# files staged for commit are automatically formatted by [Fantomas](https://github.com/fsprojects/fantomas) via the Husky pre-commit hook. The hook delegates to `.husky/scripts/format-staged.sh`, which receives the staged F# files as positional arguments, runs `dotnet fantomas` on them, and re-stages the formatted output.
 
 > **Caveat**: Fantomas always formats the **full working-tree** version of each file, not just the hunks you staged. If you used `git add -p` to stage only specific hunks, the unstaged hunks of the same file will be silently pulled into the commit. The hook prints a warning when this is about to happen — read it carefully and abort the commit if necessary.
+
+Which files the hook picks up is an allowlist in `.husky/task-runner.json`: `src/`, `tests/`, `benchmark/` plus the root `Build.fs` and `Helpers.fs`. It is deliberately the same set that CI's `dotnet fantomas --check .` covers, so a commit cannot pass the hook and then fail the format check.
+
+**`.fsx` scripts are not formatted at all** — `.fantomasignore` excludes them, so the script-based development workflow is free of formatting churn. The same file also excludes `tests/Informedica.Agents.Tests/Tests.fs`, which Fantomas miscompiles (its own output fails validation, still true in 8.0.0).
+
+Two files govern the result and must be bumped together: `.editorconfig` pins the style, and `.config/dotnet-tools.json` pins the Fantomas version. Neither is sufficient alone — Fantomas has changed defaults and removed settings across majors, so a version bump without reviewing the resulting diff can reformat the tree silently. Since Fantomas 8 a misspelled `fsharp_` key warns on stderr instead of being ignored, so a clean `dotnet fantomas --check .` also validates `.editorconfig`.
+
+`git blame` skips the repository-wide reformat commit if you opt in once:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
 
 You can also run Fantomas manually on the entire repo:
 

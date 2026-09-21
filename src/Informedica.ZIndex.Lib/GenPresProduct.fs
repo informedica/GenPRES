@@ -272,8 +272,7 @@ module GenPresProduct =
 
 
     /// Get all GenericProducts for all GenPresProducts.
-    let getGenericProducts () =
-        get [] |> Array.collect _.GenericProducts
+    let getGenericProducts () = get [] |> Array.collect _.GenericProducts
 
 
     /// <summary>

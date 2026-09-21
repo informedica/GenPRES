@@ -5,6 +5,7 @@ module StateSelect =
 
 
     open System
+    open Shared
     open Fable.Core
     open Feliz
     open Fable.Core.JsInterop
@@ -25,7 +26,7 @@ module StateSelect =
                 ev?target?value
                 |> string
                 |> function
-                    | s when s |> String.IsNullOrWhiteSpace -> None
+                    | s when s |> String.isNullOrWhiteSpace -> None
                     | s -> s |> Some
                 |> props.updateSelected
 
@@ -40,7 +41,7 @@ module StateSelect =
                 """
             )
 
-        let isClear = props.selected |> Option.defaultValue "" |> String.IsNullOrWhiteSpace
+        let isClear = props.selected |> Option.defaultValue "" |> String.isNullOrWhiteSpace
 
         let clearButton =
             JSX.jsx

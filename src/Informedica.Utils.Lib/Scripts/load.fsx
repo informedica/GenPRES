@@ -25,6 +25,7 @@
 #load "../Set.fs"
 #load "../RingBuffer.fs"
 #load "../Path.fs"
+#load "../Directory.fs"
 #load "../File.fs"
 #load "../Csv.fs"
 #load "../Env.fs"

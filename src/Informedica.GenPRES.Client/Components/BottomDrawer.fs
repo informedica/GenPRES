@@ -23,8 +23,7 @@ module BottomDrawer =
                 paddingBottom = 2
             |}
 
-        let drawerSx =
-            {| ``& .MuiDrawer-paper`` = {| bgcolor = Mui.Colors.Grey.``100`` |} |}
+        let drawerSx = {| ``& .MuiDrawer-paper`` = {| bgcolor = Mui.Colors.Grey.``100`` |} |}
 
         JSX.jsx
             $"""

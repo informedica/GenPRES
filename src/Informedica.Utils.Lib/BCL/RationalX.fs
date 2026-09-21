@@ -35,8 +35,7 @@ module private RationalXHelpers =
     let inline hash64 (x: int64) = int (x ^^^ (x >>> 32))
 
     /// Greatest common divisor of two int64 values (always non-negative).
-    let rec gcd64 (a: int64) (b: int64) : int64 =
-        if b = 0L then absL a else gcd64 b (a % b)
+    let rec gcd64 (a: int64) (b: int64) : int64 = if b = 0L then absL a else gcd64 b (a % b)
 
     /// Normalize an int64 fraction: reduce by gcd, force a positive denominator.
     let normPair (p: int64) (q: int64) : int64 * int64 =
@@ -49,8 +48,7 @@ module private RationalXHelpers =
         if q < 0L then (-p, -q) else (p, q)
 
     /// Build an MBR from an int64 pair (MBR normalizes itself).
-    let sToLarge (p: int64) (q: int64) : MBR =
-        MBR.FromBigIntFraction(bigint p, bigint q)
+    let sToLarge (p: int64) (q: int64) : MBR = MBR.FromBigIntFraction(bigint p, bigint q)
 
     let minB = BigInteger Int64.MinValue
     let maxB = BigInteger Int64.MaxValue
@@ -105,20 +103,22 @@ module private RationalXHelpers =
 [<Struct; CustomEquality; CustomComparison>]
 type RationalX =
 
-    // small tier: reduced, Q > 0 (the zero-initialized default 0/0 is guarded)
+    /// small tier: reduced, Q > 0 (the zero-initialized default 0/0 is guarded)
     val internal P: int64
     val internal Q: int64
-    // big tier: null => small (use P/Q); non-null => spilled (use Big.Value)
+    /// big tier: null => small (use P/Q); non-null => spilled (use Big.Value)
     val internal Big: BigCell
 
-    internal new(p: int64, q: int64) =
+    internal new(p: int64, q: int64)
+        =
         {
             P = p
             Q = q
             Big = null
         }
 
-    internal new(cell: BigCell) =
+    internal new(cell: BigCell)
+        =
         {
             P = 0L
             Q = 0L
@@ -389,7 +389,7 @@ type RationalX =
             this.Big.Value.ToString()
 
 
-/// Numeric literal support so `0N`, `1N`, `1000N`, ... produce `RationalX`.
+/// Numeric literal support so 0N, 1N, 1000N, ... produce RationalX.
 [<AutoOpen>]
 module NumericLiteralN =
 
@@ -400,6 +400,6 @@ module NumericLiteralN =
     let FromString (s: string) = RationalX.Parse s
 
 
-/// Drop-in alias: existing code that refers to the `BigRational` type now uses
-/// the faster two-tier `RationalX`. Coexists with the `BigRational` module.
+/// Drop-in alias: existing code that refers to the BigRational type now uses
+/// the faster two-tier RationalX. Coexists with the BigRational module.
 type BigRational = RationalX

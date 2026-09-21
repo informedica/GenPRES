@@ -40,14 +40,12 @@ module MinMaxTests =
 
     open Informedica.GenUnits.Lib
 
-    let fromDecimal (v: decimal) u =
-        v |> BigRational.fromDecimal |> ValueUnit.createSingle u
+    let fromDecimal (v: decimal) u = v |> BigRational.fromDecimal |> ValueUnit.createSingle u
 
     let ageInMo = (fun n -> fromDecimal n Units.Time.month)
     let ageInYr = (fun n -> fromDecimal n Units.Time.year)
 
-    let ageInclOneMo, ageExclOneYr =
-        1m |> ageInMo |> Inclusive, 1m |> ageInYr |> Exclusive
+    let ageInclOneMo, ageExclOneYr = 1m |> ageInMo |> Inclusive, 1m |> ageInYr |> Exclusive
 
     let ageRange =
         MinMax.empty
@@ -150,15 +148,14 @@ module DoseRangeTests =
     // only demo/cached data is available) these tests cannot run, so skip them.
     // The DTO round-trip tests below need no sheet data and always run.
     // Duplicates the resolution in ZForm.Lib Web.genpresUrlId rather than calling it:
-    // that is now a deferred, memoized accessor (issue #523), and forcing it here to
+    // that is now a deferred, memoized accessor, and forcing it here to
     // build the test list would defeat the deferral.
     let private hasUrlId =
         Informedica.Utils.Lib.Env.loadDotEnv () |> ignore
         Informedica.Utils.Lib.Env.getItem "GENPRES_URL_ID" |> Option.isSome
 
     /// `test` when GENPRES_URL_ID is configured, otherwise a skipped (pending) test.
-    let testUrl name =
-        if hasUrlId then test name else ptest name
+    let testUrl name = if hasUrlId then test name else ptest name
 
     let setMinNormDose = Optic.set DoseRange.Optics.inclMinNormLens
     let setMaxNormDose = Optic.set DoseRange.Optics.inclMaxNormLens

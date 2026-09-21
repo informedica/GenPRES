@@ -1,5 +1,5 @@
 ---
-last_commit_released: c815c7f092b179578db5d03204a7425bd4d20409
+last_commit_released: 24ce3c67b7983f74341ce0a4f296025cee0f6f80
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -9,6 +9,9 @@ updaters:
   - regex:
       file: compose.yaml
       pattern: (?<=informedica/genpres:\$\{GENPRES_IMAGE_TAG:-)[^}]*
+  - regex:
+      file: .env.example
+      pattern: (?<=# GENPRES_IMAGE_TAG=).*
 ---
 
 # Changelog
@@ -17,6 +20,203 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.27 - 2026-09-20
+
+### 🚀 Features
+
+* *(genorder)* An Order built from a Medication, as a pipeline ([c45760e6](https://github.com/informedica/GenPRES/commit/c45760e631e1970dc0e696355b8ea91cc1b5ec5e))
+* *(genorder)* Set the constraints of an order variable, field by field ([69b1da46](https://github.com/informedica/GenPRES/commit/69b1da468a69eddbd58d348b1d1428945e9c6f9d))
+* *(genorder)* The shape of an Order, built from a Medication ([8876f55e](https://github.com/informedica/GenPRES/commit/8876f55e8bbf4299efb5ab2cea969c16e881486f))
+* *(genorder)* The constraints an item of an Order carries ([9de2f9db](https://github.com/informedica/GenPRES/commit/9de2f9db202ad0c5ef6368cd720649512a6cd288))
+* *(genorder)* The constraints a component of an Order carries ([57623aca](https://github.com/informedica/GenPRES/commit/57623aca72c7c65294d922be8f99348bc30615e2))
+* *(genorder)* The constraints the orderable of an Order carries ([94c93070](https://github.com/informedica/GenPRES/commit/94c93070e1347819415acb4df87398887cbecad7))
+
+### 🐞 Bug Fixes
+
+* *(genorder)* A component keeps its id through the Dto ([cc05932c](https://github.com/informedica/GenPRES/commit/cc05932c14b29ae4ca4b63b5c057286ed0048d31))
+* *(genorder)* Say which medication could not be ordered ([56d4aa3e](https://github.com/informedica/GenPRES/commit/56d4aa3e0581ebebeec802761dbd74f55d7fdf53))
+* *(genorder)* Throw the reason a medication could not be ordered ([748a351b](https://github.com/informedica/GenPRES/commit/748a351bdff8b3bb91dd16fee5be7729eefbf918))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/f57dfab229f71b443604d89bf84e11b8629abaea..24ce3c67b7983f74341ce0a4f296025cee0f6f80)</small></strong>
+
+## 0.1.2-alpha.26 - 2026-09-18
+
+### 🚀 Features
+
+* *(server)* Add the SQL migration runner ([889bc4c9](https://github.com/informedica/GenPRES/commit/889bc4c9a53ded2d6c023db29bf04ccb1eefddb6))
+
+    The session store's SQLite migration runner: numbered SQL scripts
+    embedded in the server, each applied once, in order, in a transaction
+    with its schema_version row. Not wired into the server yet.
+* *(server)* Add the order plan record on SQLite ([3700c5f4](https://github.com/informedica/GenPRES/commit/3700c5f411c3862522e758646f9e59bb808c2493))
+
+    The order plan record on SQLite: a patient's signed order plan
+    versions loaded newest first and a signature's version inserted, the
+    plan as canonical JSON under a JSON structure version. A row the
+    release cannot read is kept as an unreadable entry with its identity
+    and reason; a second version with the same number is a conflict. Not
+    wired into the server yet.
+* *(server)* Run the session port over a record store ([c16558c1](https://github.com/informedica/GenPRES/commit/c16558c1e9a43392464dbe3b3f5ee088def3d4d7))
+
+    The session port runs over a record store: in memory as before, or
+    the order plan record on SQLite, loaded per request and written by a
+    signature. A record that cannot be loaded is answered as a store
+    failure when signing. Not wired into the server yet.
+* *(server)* Keep the order plan record in SQLite when set ([7d11d3f9](https://github.com/informedica/GenPRES/commit/7d11d3f9e4076f11fcc5a092af1eae41f5039007))
+
+    The signed order plan versions can survive a restart in test and
+    development: set GENPRES_DB_CONNECTION to a SQLite connection string,
+    for example Data Source=data/db/genpres.db. Sessions, launches and
+    credentials still live in memory. Production refuses to start with the
+    setting.
+* *(server)* Run a request's writes as a list ([8f5b61b1](https://github.com/informedica/GenPRES/commit/8f5b61b12212300abbd36776821b114790eaae59))
+* *(server)* Every member returns the writes of its request ([b8609e62](https://github.com/informedica/GenPRES/commit/b8609e62a999bd292a681c0760159c51ede1f9b2))
+* *(server)* Split callback into redeem and open ([b010eef5](https://github.com/informedica/GenPRES/commit/b010eef5d69050f533b938774a61222713ff431e))
+* *(server)* Load a Launch from the session store ([e9ee8431](https://github.com/informedica/GenPRES/commit/e9ee843101695e31c612243601652836ac65fdfe))
+
+    The session store on SQLite can read a Launch back from its rows.
+* *(server)* Load a Session from the session store ([119e83d6](https://github.com/informedica/GenPRES/commit/119e83d60887a52051e3dcd3379af6fea2c39605))
+
+    The session store on SQLite can read a Session back from its rows.
+* *(server)* Write a request's session rows in one transaction ([503340b3](https://github.com/informedica/GenPRES/commit/503340b34d119b025ab79193a60600f3d0e46f41))
+
+    The session store on SQLite writes what a request did as one transaction.
+* *(server)* Read the rows a request can touch into its state ([53d12600](https://github.com/informedica/GenPRES/commit/53d12600bbf54ea8ff33b9ab8fecc2975c8ab345))
+
+    The session store on SQLite reads back the rows a request works on.
+* *(server)* The port loads the rows a request can touch ([a3678df4](https://github.com/informedica/GenPRES/commit/a3678df4d74f2eb9e798e30675471b8952749e06))
+
+    Sessions, launches and their endings survive a restart of the server on
+    the SQLite store, and a second server sees them.
+* *(server)* No mail leaves before the writes that earned it land ([ae130081](https://github.com/informedica/GenPRES/commit/ae130081ff8778e970bdf5ef06e6ddcc87a50973))
+
+    A request whose writes the session store refuses no longer sends mail.
+* *(server)* The machine returns its credential, code and enrolment writes ([6e26206a](https://github.com/informedica/GenPRES/commit/6e26206a096436097805faa66510a7b8884cc104))
+
+    The session store keeps what a PIN, a confirmation code and an enrolment
+    attempt did.
+* *(server)* A credential, a code and an attempt are read from the store ([84bb370d](https://github.com/informedica/GenPRES/commit/84bb370d7c2bb0a0fb278a386578022e8b286f48))
+
+    A PIN set by enrolment, and the wrong-PIN count that guards signing,
+    survive a restart of the server.
+* *(server)* The machine returns what a Session holds in flight ([44e00933](https://github.com/informedica/GenPRES/commit/44e00933ad295f7cc5c6b58ea0c25a6ab4189159))
+
+    The session store keeps the signing challenge a Session holds and the
+    answer a Submission was given.
+* *(server)* A Session reads back the notice, the challenge and the answer it was given ([2ed459a8](https://github.com/informedica/GenPRES/commit/2ed459a8685674a0ee203238193052916b33f118))
+
+    A signing challenge and the answer a Submission was given survive a
+    restart of the server, and a second server reads them.
+* *(server)* Audit what a request did, with the writes it did it by ([e1a95d23](https://github.com/informedica/GenPRES/commit/e1a95d2343050b85d228b500830986708aeb7253))
+
+    Every act of a Session — a launch and what it came to, an open, a
+    signature and its refusals, a PIN set, a code mailed or entered wrongly,
+    and the end of a Session — is now written to the audit table of the
+    SQLite session store, in the same transaction as the act itself. A
+    request that fails leaves no audit entry behind.
+
+### 🐞 Bug Fixes
+
+* *(genorder)* Write every DateTime in the canonical form as UTC ([72176c29](https://github.com/informedica/GenPRES/commit/72176c296b81105504b0847e2a618a36b81eee3e))
+* *(server)* Keep malformed order plan rows as unreadable ([3178d810](https://github.com/informedica/GenPRES/commit/3178d810bd1ec92d6041fa71a53d1c07ea69bbbd))
+* *(server)* A stored Role word this release does not know is no Role ([c52cd321](https://github.com/informedica/GenPRES/commit/c52cd3218773acd316e6ae63066a7e78c39c0d5c))
+* *(server)* An ended Session never loads back open ([22bb3383](https://github.com/informedica/GenPRES/commit/22bb33830a3e6eb960b4b0b22d8a54efb6f08c72))
+* *(server)* A database that cannot be reached fails the writes, not the request ([7943365a](https://github.com/informedica/GenPRES/commit/7943365a4ed315d6ba4c19a0920502f830035c13))
+* *(server)* What a load reads is what the state holds after it ([d17a8a8c](https://github.com/informedica/GenPRES/commit/d17a8a8ca15d879bcc4a40fa57118c19aade228b))
+* *(server)* A request with no rows to read never opens the database ([4cadfd0d](https://github.com/informedica/GenPRES/commit/4cadfd0dc36ac71683e4431901cb8a22cfb4f7ee))
+* *(server)* Every mail a request earned is sent, not only a sign's ([2589cbb8](https://github.com/informedica/GenPRES/commit/2589cbb82b37acee20f8c95a12cd330f598fa246))
+* *(server)* A try and a spending name the code the request read ([9ea2ade5](https://github.com/informedica/GenPRES/commit/9ea2ade50a588a7ef77858af8037961da12ff748))
+* *(server)* An attempt another server dropped is gone, and a seed that fails refuses the start ([3b00ea5b](https://github.com/informedica/GenPRES/commit/3b00ea5bd63d464710c69b9eaede8c271d963231))
+* *(server)* A store that cannot be prepared refuses the start, it does not crash ([30be51b1](https://github.com/informedica/GenPRES/commit/30be51b17a2cc5a464056fc1885bb3eec5bdf15e))
+* *(server)* The seed asks and writes in one statement ([77f1d57e](https://github.com/informedica/GenPRES/commit/77f1d57edb0cc577ca0f2d5e2f573b9fb9369bdb))
+* *(server)* The newest row is the only candidate, for a challenge as for a code ([0fd53687](https://github.com/informedica/GenPRES/commit/0fd53687f1df479cb595cba9851b583b33216a69))
+* *(server)* Audit the request, not the write alone ([59079962](https://github.com/informedica/GenPRES/commit/590799629945b261bdc2ccd3d65f2e4b7734fe87))
+
+    The audit of the SQLite session store now records a challenge issued, a
+    notice told and a version opened, records an open once rather than twice,
+    times a launch by the request that made it, and names the Session and the
+    person on every entry of a request that knows them.
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/2b354af1e3d5b43113c71b4b7ba76dfa47a111b9..f57dfab229f71b443604d89bf84e11b8629abaea)</small></strong>
+
+## 0.1.2-alpha.25 - 2026-09-17
+
+### 🚀 Features
+
+* *(genform)* Prototype the measured flags on the patient ([2deb14c1](https://github.com/informedica/GenPRES/commit/2deb14c1d034c58cc94a0f14eb4cd9780603f1b8))
+* *(genform)* Add the measured flags to the patient ([1dc59c8a](https://github.com/informedica/GenPRES/commit/1dc59c8a1558ae01d134032ff2a2322c5aa28762))
+* *(genform)* Prototype Patient.validate and Patient.Dto ([ae47c39e](https://github.com/informedica/GenPRES/commit/ae47c39eb93b2fdffc73c5880d6e0b6e0ca822f8))
+* *(genform)* Add Patient.validate and Patient.Dto ([69b0184a](https://github.com/informedica/GenPRES/commit/69b0184aca4580f8fb17797bf5054de3f91bc958))
+* *(genform)* Prototype the enteral tube as an access device ([524bf1ac](https://github.com/informedica/GenPRES/commit/524bf1ac0b38e61b061845e11980ac68261100b1))
+* *(genform)* An enteral tube as an access device ([b165615b](https://github.com/informedica/GenPRES/commit/b165615bab125d21dd51c864d11245598b82ca81))
+* *(genorder)* Prototype the order plan domain types ([5e3ddb45](https://github.com/informedica/GenPRES/commit/5e3ddb450d1868183f76585d9456b5c2bade8400))
+* *(genorder)* Add the order plan domain types ([1a81d621](https://github.com/informedica/GenPRES/commit/1a81d6215bc4b407359ecbc26b07fb5d01ff7919))
+* *(genorder)* Prototype Filter.Dto, OrderScenario.Dto, canonical form ([5b6ad2ed](https://github.com/informedica/GenPRES/commit/5b6ad2edb9c21635ad901a84fe5be582068fa22a))
+* *(genorder)* Add Filter.Dto, OrderScenario.Dto and the canonical form ([92ac6bae](https://github.com/informedica/GenPRES/commit/92ac6baeb1a4350a0d543761ed58ad0df559d05f))
+* *(genorder)* Prototype the order plan Dtos ([29e66f80](https://github.com/informedica/GenPRES/commit/29e66f802025b96d69db063500ab4b02014ba137))
+* *(genorder)* Add the order plan Dtos ([befc5bc1](https://github.com/informedica/GenPRES/commit/befc5bc12470c07bfc8e58029b9712de3a8dad6f))
+* *(genorder)* Prototype the order plan rules ([323733e6](https://github.com/informedica/GenPRES/commit/323733e6abb1c7d1d72728acee1eb0fa1b6569fa))
+* *(genorder)* Order plan rules on the domain types ([466e36d0](https://github.com/informedica/GenPRES/commit/466e36d08c54b95dd56e738f143a9ce0dcefea5f))
+* *(genorder)* Prototype the evaluation around a plan context ([1454e706](https://github.com/informedica/GenPRES/commit/1454e706dbc763837d76aebc98c2905cbad397dc))
+* *(genorder)* The evaluation around a plan context ([64859521](https://github.com/informedica/GenPRES/commit/648595219880059c7e046a7106bd5612c3e81cc4))
+* *(genorder)* Prototype the rules for a patient without a department ([c8b3eac7](https://github.com/informedica/GenPRES/commit/c8b3eac7f96bbb1aed47595af352608e09608321))
+* *(genorder)* The rules for a patient without a department ([a790ee07](https://github.com/informedica/GenPRES/commit/a790ee07663cb720bdda2354b6424186b3fdcacc))
+* *(server)* Prototype the nutrition rule sets as domain values ([181353eb](https://github.com/informedica/GenPRES/commit/181353eb2f419cd7ccf57029643a9b879bf44342))
+* *(server)* The nutrition rule sets as domain values ([8bdef282](https://github.com/informedica/GenPRES/commit/8bdef28278c65dd0b531410dbcc692bb9b7fb8ec))
+* *(server)* Prototype the patient mapper ([965b520e](https://github.com/informedica/GenPRES/commit/965b520eeb962a06462466a8cbe95d4b87e2bbac))
+* *(server)* The patient mapper ([7adf399f](https://github.com/informedica/GenPRES/commit/7adf399f7de76e48856faa1b3e0ee919ed134c12))
+* *(server)* Prototype the order context mapper ([b4b368c4](https://github.com/informedica/GenPRES/commit/b4b368c4cb46bc2322b90f5609cb444c8dd8686b))
+* *(server)* The order context mapper ([86ba0048](https://github.com/informedica/GenPRES/commit/86ba0048c593c2d9a14baf7556b70b2a9a4330be))
+* *(server)* Prototype the order plan and session mappers ([91e6bee3](https://github.com/informedica/GenPRES/commit/91e6bee3b2da5792f39e136d5bd0cb931d4f50f3))
+* *(server)* The order plan and session mappers ([f5405f9f](https://github.com/informedica/GenPRES/commit/f5405f9f9b6df9b4647ce9b0c63d425bf9e2393c))
+* *(server)* Prototype the order context switch-over ([7c5acbd0](https://github.com/informedica/GenPRES/commit/7c5acbd0299fd82e81772ae404833f4abac9b3ed))
+* *(server)* The order context path on the domain-typed port ([72ea837b](https://github.com/informedica/GenPRES/commit/72ea837b39e93d3820a9776c43abf09018d814a1))
+* *(server)* Prototype the order plan port on domain values ([24c9f452](https://github.com/informedica/GenPRES/commit/24c9f452c5e121e66793277b2eccb7388f6628b4))
+* *(server)* Put the order plan port on domain values ([3389ace1](https://github.com/informedica/GenPRES/commit/3389ace1d4ed6f1a82a5a5e993fcf8964e42bf3e))
+* *(server)* Prototype the session store on domain values ([bbd3fab4](https://github.com/informedica/GenPRES/commit/bbd3fab4d71034c9293f87eda1d1cdee3b1c1cc3))
+* *(server)* Keep the session records and challenges on domain values ([4931ac94](https://github.com/informedica/GenPRES/commit/4931ac9427489cadfc71d2a17804ed7ded55eb37))
+* *(server)* Prototype the session record on domain values ([463395f6](https://github.com/informedica/GenPRES/commit/463395f66b2cbb720d9b6912e49ed2394b82cc90))
+* *(server)* Keep the session record on domain values ([c6212129](https://github.com/informedica/GenPRES/commit/c6212129e29ad8af82f404356ad7440d74938bd9))
+
+### 🐞 Bug Fixes
+
+* *(client)* Open the signed version on relaunch ([91b58845](https://github.com/informedica/GenPRES/commit/91b58845499de6df2d05b7de3158202b3f00a693))
+
+    A relaunch or a reload opened an empty order plan instead of the signed
+    version the Session opened with; the plan now opens on that version.
+* *(genform)* Keep the patient lenses on Patient, read null fields safely ([8466cdf8](https://github.com/informedica/GenPRES/commit/8466cdf8ff2ae83f29e15864ef4d08d97c7d0ac0))
+* *(genform)* Report the minimum-data failure beside parse errors ([8cabfcf5](https://github.com/informedica/GenPRES/commit/8cabfcf50d48380adf4d4e5aaeb24fa70fd16d91))
+* *(genorder)* Read null Dto fields safely in the scenario Dtos ([037cbb4d](https://github.com/informedica/GenPRES/commit/037cbb4dc1ed594efd9545dde42b9809327656b7))
+* *(genorder)* Read null Dto elements as unknown, never dereference ([01c7e1a7](https://github.com/informedica/GenPRES/commit/01c7e1a7d46adc5b5ed79c3c4d834bfaf505b8c4))
+* *(genorder)* Guard null Dto roots, match every category ([5642a9f3](https://github.com/informedica/GenPRES/commit/5642a9f35a9fb8f355d005502920540e141c1797))
+* *(server)* Recompute the totals when an order plan is opened ([c0b9ab16](https://github.com/informedica/GenPRES/commit/c0b9ab16b73ce17f06c76f32e3b8d4d6b0744c23))
+* *(server)* Open from nothing when the newest version cannot be read ([520b1c21](https://github.com/informedica/GenPRES/commit/520b1c21c16ea2609e7ab9cd8aeb311aee1b00a9))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/fe813aff3152e9fb90d957bf5fbdcad63dde3053..2b354af1e3d5b43113c71b4b7ba76dfa47a111b9)</small></strong>
+
+## 0.1.2-alpha.24 - 2026-09-16
+
+### 🚀 Features
+
+* *(api)* Draft the patient a draft becomes ([fe539071](https://github.com/informedica/GenPRES/commit/fe539071b689453b2aa0a999dc6cfa06329fc17e))
+* *(api)* The patient a draft becomes ([7a0b0137](https://github.com/informedica/GenPRES/commit/7a0b0137254dabc3539d47ce43be3347971a55be))
+* *(client)* Draft the term for what a draft is missing ([1a43dd42](https://github.com/informedica/GenPRES/commit/1a43dd424062b1ff06ee228fe55050965dde8f68))
+* *(client)* The panel says what a draft is missing ([027f7141](https://github.com/informedica/GenPRES/commit/027f714147a5224873507a256b74ed60e4af4330))
+* *(client)* Draft the terms for a missing dimension ([8ac411be](https://github.com/informedica/GenPRES/commit/8ac411be88814b67187b2e339f9e27fa2944298d))
+* *(client)* The prescribing page says which dimension is missing ([0dd15f4e](https://github.com/informedica/GenPRES/commit/0dd15f4e57b6573b82a92a21ea202f9ba6aa3c2b))
+
+### 🐞 Bug Fixes
+
+* *(client)* Draft the estimate kept apart from the measured value ([3dfcb776](https://github.com/informedica/GenPRES/commit/3dfcb77608d6875ef64117e89ca3dcf906bf031b))
+* *(client)* The estimate stays an estimate ([6485096e](https://github.com/informedica/GenPRES/commit/6485096ee26f310330380516fe5e3cc7892862d4))
+* *(client)* The url's patient before its medication ([f2a5e06a](https://github.com/informedica/GenPRES/commit/f2a5e06ac1502edefe5bb714c2710a479c558c4a))
+* *(client)* The notice names the value that is missing ([8c3e8c69](https://github.com/informedica/GenPRES/commit/8c3e8c69733909d3fa934842414528f22effa88e))
+* *(server)* Draft the ingress where patient data enters ([421bdddc](https://github.com/informedica/GenPRES/commit/421bdddc827bf2e8ed3dd8344ab45aaaa86ab6fa))
+* *(server)* A draft becomes a patient at the ingress, no data is none ([536b9276](https://github.com/informedica/GenPRES/commit/536b927654e00dac18c3a32dec18a103961fb5cd))
+* *(server)* Every context's data at the ingress, and the reread ([175aa7f2](https://github.com/informedica/GenPRES/commit/175aa7f26c877f8303548b6684d148b1f9312d73))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/c815c7f092b179578db5d03204a7425bd4d20409..fe813aff3152e9fb90d957bf5fbdcad63dde3053)</small></strong>
 
 ## 0.1.2-alpha.23 - 2026-09-14
 

@@ -23,7 +23,7 @@ module Check =
 
 
     /// Graded outcome of a dose-check signal (IR Doseringscontrole 4.6.2).
-    /// `Within` is a pass; the others are signals of decreasing/typed concern.
+    /// Within is a pass; the others are signals of decreasing/typed concern.
     type Severity =
         | Within
         | AdvisoryOverNorm // > norm max, <= absolute max (IR tekst 1)
@@ -53,7 +53,7 @@ module Check =
 
 
     /// IR 4.6.1 limit-selection priority: m2 (BSA) -> per kg -> absolute. Prefer
-    /// the BSA range when present, else weight, else empty. `convWeight`/`convBSA`
+    /// the BSA range when present, else weight, else empty. convWeight/convBSA
     /// stamp the adjust (and optional time) unit.
     let pickAdjust
         (weightMM: MinMax)
@@ -113,8 +113,8 @@ module Check =
         | _ -> "aantal en/of tijdseenheid verschilt"
 
 
-    /// IR 4.5.2: the rule's frequency set <paramref name="genform"/> is acceptable
-    /// when it is a SUBSET of the G-Standaard reference set <paramref name="gstand"/>
+    /// IR 4.5.2: the rule's frequency set genform is acceptable
+    /// when it is a SUBSET of the G-Standaard reference set gstand
     /// (i.e. every prescribed frequency is allowed), or the time units are
     /// interchangeable and the counts are equal. Extracted so the subset direction
     /// (genform ⊆ gstand) is unit-testable — see CheckTests.
@@ -134,8 +134,8 @@ module Check =
 
 
     /// IR 4.6.1.3/4.6.1.4 replacement for the old symmetric +-10% band.
-    /// `isRisk = true` (GPRISC = "*") => exact, no margin. Otherwise the margin is
-    /// one-sided on the max (`marginUpper`, e.g. 12/10 for 120%).
+    /// isRisk = true (GPRISC = "*") => exact, no margin. Otherwise the margin is
+    /// one-sided on the max (marginUpper, e.g. 12/10 for 120%).
     let marginedTestRange (isRisk: bool) (marginUpper: BigRational) (vuOpt: ValueUnit option) : MinMax =
         match vuOpt with
         | None -> MinMax.empty
@@ -153,13 +153,13 @@ module Check =
             }
 
 
-    /// Configuration for `checkDoseRuleWith`: the (provider-configurable) upper
+    /// Configuration for checkDoseRuleWith: the (provider-configurable) upper
     /// margin and how infusion-rate checks are handled.
     type CheckConfig =
         {
-            // Upper margin multiplier on the G-Standaard max for non-risk substances
+            /// Upper margin multiplier on the G-Standaard max for non-risk substances
             MarginUpper: BigRational
-            // Whether infusion-rate rows are dropped or kept-but-labelled (HIGH-2)
+            /// Whether infusion-rate rows are dropped or kept-but-labelled (HIGH-2)
             RateCheckMode: RateCheckMode
         }
 
@@ -241,7 +241,7 @@ module Check =
     type GStandProvider = Patient -> gen -> frm -> rte -> Informedica.ZForm.Lib.Types.DoseRule seq
 
 
-    /// The live (side-effecting) `GStandProvider` backed by `GStand.createDoseRules`.
+    /// The live (side-effecting) GStandProvider backed by GStand.createDoseRules.
     let gStandProvider routeMapping : GStandProvider = createDoseRulesWithMapping routeMapping
 
 
@@ -271,7 +271,7 @@ module Check =
         }
 
 
-    /// Full unit (incl. combi units) of a `MinMax`, taken from its min or max limit.
+    /// Full unit (incl. combi units) of a MinMax, taken from its min or max limit.
     let rangeUnit (mm: MinMax) =
         match mm.Min |> Option.map Limit.getValueUnit, mm.Max |> Option.map Limit.getValueUnit with
         | Some vu, _
@@ -319,8 +319,7 @@ module Check =
                     if u |> Option.isNone then
                         mm
                     else
-                        let convert =
-                            Option.map (Limit.getValueUnit >> ValueUnit.convertTo u.Value >> Limit.inclusive)
+                        let convert = Option.map (Limit.getValueUnit >> ValueUnit.convertTo u.Value >> Limit.inclusive)
 
                         {
                             Min = mm.Min |> convert
@@ -611,8 +610,7 @@ module Check =
     let checkDoseRuleWith (cfg: CheckConfig) (getDosageRules: GStandProvider) (pat: Patient) (dr: DoseRule) =
         let m = dr |> matchWithZIndex getDosageRules pat |> createMapping
 
-        let eqsAny (candidates: DoseType list) (dt: DoseType) =
-            candidates |> List.exists (DoseType.eqsType dt)
+        let eqsAny (candidates: DoseType list) (dt: DoseType) = candidates |> List.exists (DoseType.eqsType dt)
 
         // Derive rate fields for a given dose-limit target from m.zindex.dosages,
         // mirroring the perTimeAdjust* pattern in createMapping.
@@ -688,8 +686,7 @@ module Check =
 
                 // HIGH-1: one-sided, risk-aware margin on the norm dose. Risk
                 // substances (GPRISC = "*") get no margin.
-                let toMinMax vuOpt =
-                    vuOpt |> marginedTestRange gstand.highRisk cfg.MarginUpper
+                let toMinMax vuOpt = vuOpt |> marginedTestRange gstand.highRisk cfg.MarginUpper
 
                 // MEDIUM-2: grade a test range against the advisory (norm) and the
                 // absolute reference ranges (IR 4.6.2): a norm breach is advisory,
@@ -699,8 +696,7 @@ module Check =
                     // IR safety guard: never feed incomparable unit groups to cmp
                     // (e.g. Count/kg/day vs IU/kg/week, droplet vs mg) — that throws.
                     // Emit a typed warning instead of crashing or (previously) a fake pass.
-                    let incomparable ref =
-                        ref |> MinMax.isEmpty |> not && not (rangesComparable ref test)
+                    let incomparable ref = ref |> MinMax.isEmpty |> not && not (rangesComparable ref test)
 
                     if (test |> MinMax.isEmpty |> not) && (incomparable normRef || incomparable absRef) then
                         Some IncomparableUnits,
@@ -946,14 +942,14 @@ module Check =
 
     /// Pure dose-check over a single rule given an injected data provider.
     /// In production the provider comes from the Resources layer
-    /// (`Api.getGStandProvider`), not built ad hoc from a route mapping.
+    /// (Api.getGStandProvider), not built ad hoc from a route mapping.
     let checkDoseRuleWithProvider (getDosageRules: GStandProvider) (pat: Patient) (dr: DoseRule) =
         checkDoseRuleWith checkConfigDef getDosageRules pat dr
 
 
-    /// Dose-check over many rules. `log` and the data provider are injected so the
+    /// Dose-check over many rules. log and the data provider are injected so the
     /// orchestration is pure given its dependencies; callers wire the live ones
-    /// (e.g. the server passes `Api.getGStandProvider provider`).
+    /// (e.g. the server passes Api.getGStandProvider provider).
     let checkAllWith (log: int -> DoseRule -> unit) (getDosageRules: GStandProvider) (pat: Patient) (drs: DoseRule[]) =
         drs
         |> Array.mapi (fun i dr ->

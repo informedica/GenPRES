@@ -5,6 +5,7 @@ open System
 open Informedica.GenForm.Lib
 open Informedica.GenForm.Lib.Resources
 open Informedica.GenOrder.Lib
+open Informedica.Utils.Lib.BCL
 
 open Patient.Optics
 
@@ -242,7 +243,7 @@ module GenOrderTools =
 
         match
             OrderContext.UpdateOrderContext ctx
-            |> OrderContext.evaluate OrderLogging.noOp provider
+            |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider
         with
         | Error e -> Error $"Failed to evaluate order context: {e}"
         | Ok cmd ->
@@ -306,7 +307,7 @@ module GenOrderTools =
 
         match
             OrderContext.UpdateOrderContext ctx
-            |> OrderContext.evaluate OrderLogging.noOp provider
+            |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider
         with
         | Error e -> Error $"Failed to evaluate order context: {e}"
         | Ok cmd ->
@@ -326,7 +327,7 @@ module GenOrderTools =
                         | Warning s
                         | Alert s -> s
                     )
-                    |> Array.filter (fun s -> s |> String.IsNullOrWhiteSpace |> not)
+                    |> Array.filter (fun s -> s |> String.notEmpty)
                     |> String.concat " | "
                     |> fun s -> if s.Length > 300 then s[..299] else s
 

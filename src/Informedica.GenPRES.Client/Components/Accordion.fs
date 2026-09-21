@@ -36,8 +36,7 @@ module Accordion =
                 ``& .MuiAccordionSummary-content.Mui-expanded`` = {| margin = 0 |}
             |}
 
-        let detailsPadding =
-            props.detailsPaddingTop |> Option.defaultValue (if props.isMobile then 1 else 2)
+        let detailsPadding = props.detailsPaddingTop |> Option.defaultValue (if props.isMobile then 1 else 2)
 
         let ariaControls = props.ariaControls |> Option.defaultValue ""
 

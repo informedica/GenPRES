@@ -275,8 +275,7 @@ module DoseRuleData =
     let dataToCsv (data: DoseRuleData[]) =
         let brsToString = Array.map (BigRational.toDouble >> string) >> String.concat ";"
 
-        let brOptToString =
-            Option.map (BigRational.toDouble >> string) >> Option.defaultValue ""
+        let brOptToString = Option.map (BigRational.toDouble >> string) >> Option.defaultValue ""
 
         // A cell must never contain the TSV delimiters. Free-text fields (and the
         // generated Check message, which is itself tab-formatted) can carry tabs and
@@ -516,8 +515,7 @@ module DoseRuleData =
     let doseRuleDataToString dd =
         let showOpt = Option.map string >> Option.defaultValue "-"
 
-        let showStr s =
-            if s |> String.isNullOrWhiteSpace then "-" else s
+        let showStr s = if s |> String.isNullOrWhiteSpace then "-" else s
 
         let showArray toStr xs =
             if xs |> Array.isEmpty then

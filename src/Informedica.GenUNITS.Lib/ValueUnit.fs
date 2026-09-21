@@ -6,11 +6,11 @@ open Informedica.Utils.Lib
 
 
 /// A ValueUnit pairs an array of values with a Unit. Declared at namespace
-/// level (not in Types.fs) so the `ValueUnit` module below can shadow it
+/// level (not in Types.fs) so the ValueUnit module below can shadow it
 /// (type-first convention) and so its intrinsic operator members live in the
 /// same module group as the arithmetic (calc/eqs/cmp/convertTo) they delegate
 /// to.
-type ValueUnit = ValueUnit of BigRational[] * Unit
+type ValueUnit = | ValueUnit of BigRational[] * Unit
 
 
 module ValueUnit =
@@ -65,11 +65,11 @@ module ValueUnit =
 
 
     /// Backward-compatible re-export of the Group functions, which now live
-    /// in Informedica.GenUnits.Lib.Group, under the historical `ValueUnit.Group` path. A real
+    /// in Informedica.GenUnits.Lib.Group, under the historical ValueUnit.Group path. A real
     /// (non-abbreviation) module so the members are exported to consumers.
     module Group =
 
-        /// Re-export the Group type so the historical `ValueUnit.Group.Group`
+        /// Re-export the Group type so the historical ValueUnit.Group.Group
         /// type path keeps resolving for consumers.
         type Group = Informedica.GenUnits.Lib.Group
 
@@ -405,8 +405,7 @@ module ValueUnit =
     /// Convert a value to v to the
     /// base value of unit u.
     /// For example u = mg v = 1 -> 1/1000
-    let valueToBase u v =
-        v |> Multipliers.toBase (u |> Multipliers.getMultiplier)
+    let valueToBase u v = v |> Multipliers.toBase (u |> Multipliers.getMultiplier)
 
     /// Get the value of a ValueUnit as
     /// a base value.
@@ -423,8 +422,7 @@ module ValueUnit =
     /// Convert a value to v to the
     /// unit value of unit u.
     /// For example u = mg v = 1 -> 1000
-    let valueToUnit u v =
-        v |> Multipliers.toUnit (u |> Multipliers.getMultiplier)
+    let valueToUnit u v = v |> Multipliers.toUnit (u |> Multipliers.getMultiplier)
 
 
     /// Get the value of a ValueUnit as
@@ -507,11 +505,10 @@ module ValueUnit =
     /// filter (fun br -> (br / 2000N).Denominator = 1I) (ValueUnit ([|1N; 2N; 3N; -1N; -2N; -3N|], Mass (KiloGram 1N)))
     /// </code>
     /// </example>
-    let filter pred =
-        toBase >> applyToValue (Array.filter pred) >> toUnit
+    let filter pred = toBase >> applyToValue (Array.filter pred) >> toUnit
 
 
-    // Apply an array function to a ValueUnit
+    /// Apply an array function to a ValueUnit
     let internal applyArrayFunction fArr fVal vu =
         let u = vu |> getUnit
         vu |> getValue |> fArr fVal |> create u
@@ -574,7 +571,7 @@ module ValueUnit =
             | OpDivItem of Operator
 
 
-        // Takes a list of UnitItems and create a Unit from it
+        /// Takes a list of UnitItems and create a Unit from it
         let listToUnit ul =
             let rec toUnit ul u =
                 match ul with
@@ -611,10 +608,10 @@ module ValueUnit =
         | _ -> [ u ]
 
 
-    // Separate numerators from denominators of a unit.
-    // The recursion is always entered at the numerator, so the
-    // isNum flag (true = numerator, false = denominator) is an
-    // internal concern hidden behind the one-argument numDenom.
+    /// Separate numerators from denominators of a unit.
+    /// The recursion is always entered at the numerator, so the
+    /// isNum flag (true = numerator, false = denominator) is an
+    /// internal concern hidden behind the one-argument numDenom.
     let internal numDenom u =
         let rec loop isNum u =
             match u with
@@ -636,12 +633,12 @@ module ValueUnit =
         loop true u
 
 
-    // Build a unit from a list of numerators and denominators.
-    // Uses an accumulator to build the unit and a boolean to indicate
-    // whether there is a count unit in the numerator.
-    // isCount is true when there is a count unit in the numerator
-    // and false when there is no count unit in the numerator.
-    // Note when ns = ds then the result is isCount = true and u = NoUnit
+    /// Build a unit from a list of numerators and denominators.
+    /// Uses an accumulator to build the unit and a boolean to indicate
+    /// whether there is a count unit in the numerator.
+    /// isCount is true when there is a count unit in the numerator
+    /// and false when there is no count unit in the numerator.
+    /// Note when ns = ds then the result is isCount = true and u = NoUnit
     let rec build ns ds (isCount, u) =
         match ns with
         | [] ->
@@ -760,12 +757,6 @@ module ValueUnit =
             let vs1 = vu1 |> toBaseValue
             let vs2 = vu2 |> toBaseValue
             BigRational.calcCartesian op vs1 vs2 |> BigRational.distinct
-
-        (*
-            Array.allPairs vs1 vs2
-            |> Array.map (fun (v1, v2) -> v1 |> op <| v2)
-            |> Array.distinct
-            *)
 
         // calculate new combi unit
         let u =
@@ -964,9 +955,9 @@ module ValueUnit =
             |> Some
 
 
-    // Helper function to calculate the min or max value
-    // that is inclusive or exclusive and is a multiple of
-    // increment 'incr'.
+    /// Helper function to calculate the min or max value
+    /// that is inclusive or exclusive and is a multiple of
+    /// increment 'incr'.
     let internal multipleOf f incr vu =
         vu
         |> toBase
@@ -1083,8 +1074,7 @@ module ValueUnit =
     /// removeBigRationalMultiples (ValueUnit ([|2N..1N..10N|], Mass (KiloGram 1N)))
     /// </code>
     /// </example>
-    let removeBigRationalMultiples =
-        toBase >> applyToValue Array.removeBigRationalMultiples >> toUnit
+    let removeBigRationalMultiples = toBase >> applyToValue Array.removeBigRationalMultiples >> toUnit
 
 
     /// <summary>
@@ -1175,8 +1165,7 @@ module ValueUnit =
     /// takeLast 2 (ValueUnit ([|1N; 2N; 3N|], Mass (KiloGram 1N)))
     /// </code>
     /// </example>
-    let takeLast n =
-        applyToValue (Array.rev >> Array.take n >> Array.rev)
+    let takeLast n = applyToValue (Array.rev >> Array.take n >> Array.rev)
 
 
     /// <summary>
@@ -1270,8 +1259,7 @@ module ValueUnit =
     /// unitToReadableDutchString (Mass (KiloGram 1N)) = "kg"
     /// </code>
     /// </example>
-    let unitToReadableDutchString u =
-        u |> Units.toString None None false Units.Dutch Units.Short
+    let unitToReadableDutchString u = u |> Units.toString None None false Units.Dutch Units.Short
 
     /// <summary>
     /// Get the user readable string version of a unit in Dutch short format
@@ -1343,22 +1331,19 @@ module ValueUnit =
     /// Get the user readable string version in Dutch with verbosity short,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalDutchShort =
-        toString true (BigRational.toDecimal >> string) Units.Dutch Units.Short
+    let toStringDecimalDutchShort = toString true (BigRational.toDecimal >> string) Units.Dutch Units.Short
 
     /// <summary>
     /// Get the user readable string version in Dutch with verbosity long,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalDutchLong =
-        toString true (BigRational.toDecimal >> string) Units.Dutch Units.Long
+    let toStringDecimalDutchLong = toString true (BigRational.toDecimal >> string) Units.Dutch Units.Long
 
     /// <summary>
     /// Get the user readable string version in English with verbosity short,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalEngShort =
-        toString true (BigRational.toDecimal >> string) Units.English Units.Short
+    let toStringDecimalEngShort = toString true (BigRational.toDecimal >> string) Units.English Units.Short
 
     /// <summary>
     /// Get the user readable string version in English with verbosity short,
@@ -1371,8 +1356,7 @@ module ValueUnit =
     /// Get the user readable string version in English with verbosity long,
     /// value as decimal, and group annotation
     /// </summary>
-    let toStringDecimalEngLong =
-        toString true (BigRational.toDecimal >> string) Units.English Units.Long
+    let toStringDecimalEngLong = toString true (BigRational.toDecimal >> string) Units.English Units.Long
 
 
     /// <summary>
@@ -1553,9 +1537,9 @@ module ValueUnit =
 
 
 /// Intrinsic operator augmentation for ValueUnit. Lives in the same module
-/// group as the type definition (above) so `a * b`, `a =? b`, etc. resolve via
-/// member lookup. The `ValueUnit.Operators` module additionally exposes the
-/// same operations as the distinct `*? /? +? -?` symbols.
+/// group as the type definition (above) so a * b, a =? b, etc. resolve via
+/// member lookup. The ValueUnit.Operators module additionally exposes the
+/// same operations as the distinct *? /? +? -? symbols.
 type ValueUnit with
 
     static member (*)(vu1, vu2) = ValueUnit.calc true (*) vu1 vu2

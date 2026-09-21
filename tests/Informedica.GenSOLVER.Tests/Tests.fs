@@ -40,7 +40,7 @@ module Generators =
             }
 
 
-    type MinMax = MinMax of BigRational * BigRational
+    type MinMax = | MinMax of BigRational * BigRational
 
     let minMaxArb () =
         bigRGenerator
@@ -57,7 +57,7 @@ module Generators =
         |> Arb.convert MinMax (fun (MinMax(min, max)) -> min, max)
 
 
-    type ListOf37<'a> = ListOf37 of 'a List
+    type ListOf37<'a> = | ListOf37 of 'a List
 
     let listOf37Arb () =
         Gen.listOfLength 37 Arb.generate
@@ -78,8 +78,7 @@ module Generators =
         }
 
 
-    let testProp testName prop =
-        prop |> testPropertyWithConfig config testName
+    let testProp testName prop = prop |> testPropertyWithConfig config testName
 
 
 module Expecto =
@@ -140,26 +139,19 @@ module TestSolver =
     let createMaxExcl = create (Maximum.create false)
     let createIncr = create Increment.create
 
-    let createValSet u v =
-        v |> Array.ofSeq |> ValueUnit.create u |> ValueSet.create
+    let createValSet u v = v |> Array.ofSeq |> ValueUnit.create u |> ValueSet.create
 
-    let setIncr u n vals =
-        vals |> createIncr u |> IncrProp |> setProp n
+    let setIncr u n vals = vals |> createIncr u |> IncrProp |> setProp n
 
-    let setMinIncl u n min =
-        min |> createMinIncl u |> MinProp |> setProp n
+    let setMinIncl u n min = min |> createMinIncl u |> MinProp |> setProp n
 
-    let setMinExcl u n min =
-        min |> createMinExcl u |> MinProp |> setProp n
+    let setMinExcl u n min = min |> createMinExcl u |> MinProp |> setProp n
 
-    let setMaxIncl u n max =
-        max |> createMaxIncl u |> MaxProp |> setProp n
+    let setMaxIncl u n max = max |> createMaxIncl u |> MaxProp |> setProp n
 
-    let setMaxExcl u n max =
-        max |> createMaxExcl u |> MaxProp |> setProp n
+    let setMaxExcl u n max = max |> createMaxExcl u |> MaxProp |> setProp n
 
-    let setValues u n vals =
-        vals |> createValSet u |> ValsProp |> setProp n
+    let setValues u n vals = vals |> createValSet u |> ValsProp |> setProp n
 
     let logger =
         fun (_: string) -> () //File.AppendAllLines("examples.log", [s])
@@ -173,23 +165,17 @@ module TestSolver =
 
     let solveMinMax = Api.solveAll true logger
 
-    let solveMinIncl u n min =
-        solve n (min |> createMinIncl u |> MinProp)
+    let solveMinIncl u n min = solve n (min |> createMinIncl u |> MinProp)
 
-    let solveMinExcl u n min =
-        solve n (min |> createMinExcl u |> MinProp)
+    let solveMinExcl u n min = solve n (min |> createMinExcl u |> MinProp)
 
-    let solveMaxIncl u n max =
-        solve n (max |> createMaxIncl u |> MaxProp)
+    let solveMaxIncl u n max = solve n (max |> createMaxIncl u |> MaxProp)
 
-    let solveMaxExcl u n max =
-        solve n (max |> createMaxExcl u |> MaxProp)
+    let solveMaxExcl u n max = solve n (max |> createMaxExcl u |> MaxProp)
 
-    let solveIncr u n incr =
-        solve n (incr |> createIncr u |> IncrProp)
+    let solveIncr u n incr = solve n (incr |> createIncr u |> IncrProp)
 
-    let solveValues u n vals =
-        solve n (vals |> createValSet u |> ValsProp)
+    let solveValues u n vals = solve n (vals |> createValSet u |> ValsProp)
 
     let init = Api.init
     let nonZeroNegative = Api.nonZeroNegative
@@ -288,8 +274,7 @@ module Tests =
                             ]
 
 
-                let create brs =
-                    Units.Count.times |> ValueUnit.withValue brs |> Increment.create
+                let create brs = Units.Count.times |> ValueUnit.withValue brs |> Increment.create
 
                 let validIncr (Increment s) =
                     s |> ValueUnit.isEmpty |> not
@@ -632,8 +617,7 @@ module Tests =
                             |> Generators.testProp "construct and deconstruct min there and back again"
 
                             test "100 mg < 1 g" {
-                                let min1 =
-                                    Units.Mass.milliGram |> ValueUnit.singleWithValue 100N |> Minimum.create true
+                                let min1 = Units.Mass.milliGram |> ValueUnit.singleWithValue 100N |> Minimum.create true
 
                                 let min2 = Units.Mass.gram |> ValueUnit.singleWithValue 1N |> Minimum.create true
 
@@ -735,8 +719,7 @@ module Tests =
                             |> Generators.testProp "max1 incl > max2 excl, also when max1 = max2"
 
                             test "100 mg < 1 g" {
-                                let min1 =
-                                    Units.Mass.milliGram |> ValueUnit.singleWithValue 100N |> Maximum.create true
+                                let min1 = Units.Mass.milliGram |> ValueUnit.singleWithValue 100N |> Maximum.create true
 
                                 let min2 = Units.Mass.gram |> ValueUnit.singleWithValue 1N |> Maximum.create true
 
@@ -796,8 +779,7 @@ module Tests =
 
                 module ValueSet = Variable.ValueRange.ValueSet
 
-                let create brs =
-                    Units.Count.times |> ValueUnit.withValue brs |> ValueSet.create
+                let create brs = Units.Count.times |> ValueUnit.withValue brs |> ValueSet.create
 
                 let validVals (ValueSet s) =
                     s |> ValueUnit.isEmpty |> not
@@ -824,7 +806,9 @@ module Tests =
                                                 && (clean
                                                     |> ValueUnit.create Units.Count.times
                                                     |> ValueUnit.removeBigRationalMultiples
-                                                    |> ValueUnit.valueCount) = clean.Length
+                                                    |> ValueUnit.valueCount)
+                                                    =
+                                                    clean.Length
                                             then
                                                 vs |> validVals
                                             else
@@ -1094,8 +1078,7 @@ module Tests =
                     let printLeft left = if left |> snd then "[" else "<"
                     let printRight right = if right |> snd then "]" else ">"
 
-                    let printVal v =
-                        v |> fst |> Option.map string |> Option.defaultValue ""
+                    let printVal v = v |> fst |> Option.map string |> Option.defaultValue ""
 
                     let result =
                         try
@@ -1799,12 +1782,7 @@ module Tests =
                                     let x1 = ValueRange.Unrestricted
                                     let x2 = ValueRange.Unrestricted
 
-                                    [
-                                        calc (+) (x1, x2)
-                                        calc (-) (x1, x2)
-                                        calc (*) (x1, x2)
-                                        calc (/) (x1, x2)
-                                    ]
+                                    [ calc (+) (x1, x2); calc (-) (x1, x2); calc (*) (x1, x2); calc (/) (x1, x2) ]
                                     |> List.forall (fun x -> x = ValueRange.Unrestricted)
                                     |> Expect.isTrue "should all be Unrestricted"
                                 }
@@ -2121,9 +2099,7 @@ module Tests =
 
 
         let eqs =
-            [
-                "ParacetamolDoseTotal = ParacetamolDoseTotalAdjust * Adjust"
-            ]
+            [ "ParacetamolDoseTotal = ParacetamolDoseTotalAdjust * Adjust" ]
             |> TestSolver.init
 
         let mg = Units.Mass.milliGram

@@ -9,11 +9,17 @@
   <ItemGroup>
     <Compile Include="Logging.fs" />
     <Compile Include="LogAnalyzer.fs" />
-    <Compile Include="ServerApi.Mappers.fs" />
+    <Compile Include="ServerApi.Mappers.Order.fs" />
     <Compile Include="ServerApi.Ports.fs" />
+    <Compile Include="ServerApi.NutritionRuleSets.fs" />
+    <Compile Include="ServerApi.Mappers.Patient.fs" />
+    <Compile Include="ServerApi.Mappers.OrderContext.fs" />
+    <Compile Include="ServerApi.Mappers.OrderPlan.fs" />
+    <Compile Include="ServerApi.Mappers.Session.fs" />
     <Compile Include="ServerApi.Services.fs" />
     <Compile Include="ServerApi.Session.fs" />
     <Compile Include="ServerApi.StubAdapters.fs" />
+    <Compile Include="ServerApi.SqlAdapters.fs" />
     <Compile Include="ServerApi.Adapters.fs" />
     <Compile Include="ServerApi.Compute.fs" />
     <Compile Include="ServerApi.FormularyCommand.fs" />
@@ -27,6 +33,7 @@
     <Compile Include="ServerApi.CompositionRoot.fs" />
     <Compile Include="ServerApi.ApiImpl.fs" />
     <Compile Include="Server.fs" />
+    <EmbeddedResource Include="Sql\*.sql" LogicalName="Sql/%(Filename)%(Extension)" />
     <None Include="Scripts\load.fsx" />
     <None Include="Scripts\MemoryStream.fsx" />
   </ItemGroup>

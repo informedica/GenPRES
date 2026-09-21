@@ -1,0 +1,10 @@
+# Commits that only reformat, and that git blame should look through.
+#
+# Opt in once, per clone:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# GitHub and GitLab read this file by name and apply it to their blame views
+# without any configuration.
+
+# style: adopt Fantomas 8 and pin the format budget
+1715748808e62f41dab2dd137a6acd9e4e8c0956

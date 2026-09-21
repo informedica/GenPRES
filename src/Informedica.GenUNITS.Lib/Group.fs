@@ -8,8 +8,8 @@ open Informedica.GenUnits.Lib.Core
 
 
 /// Classification of a Unit into a Group (Mass, Volume, Time, ...). The type
-/// lives at namespace level so the `Group` module below can shadow it
-/// (type-first convention, like `List` type + `List` module).
+/// lives at namespace level so the Group module below can shadow it
+/// (type-first convention, like List type + List module).
 type Group =
     | NoGroup
     | ZeroGroup
@@ -136,10 +136,10 @@ module Group =
         | _ -> [ g ]
 
 
-    // Separate numerators from denominators of a group.
-    // The recursion is always entered at the numerator, so the
-    // isNum flag (true = numerator, false = denominator) is an
-    // internal concern hidden behind the one-argument numDenom.
+    /// Separate numerators from denominators of a group.
+    /// The recursion is always entered at the numerator, so the
+    /// isNum flag (true = numerator, false = denominator) is an
+    /// internal concern hidden behind the one-argument numDenom.
     let numDenom g =
         let rec loop isNum g =
             match g with
@@ -299,16 +299,8 @@ module Group =
             ]
         | Group.MolarGroup -> [ 1N |> Mole |> Molar; 1N |> MilliMole |> Molar ]
         | Group.InterNatUnitGroup -> [ 1N |> MIU |> International; 1N |> IU |> International ]
-        | Group.WeightGroup ->
-            [
-                1N |> WeightKiloGram |> Weight
-                1N |> WeightGram |> Weight
-            ]
-        | Group.HeightGroup ->
-            [
-                1N |> HeightMeter |> Height
-                1N |> HeightCentiMeter |> Height
-            ]
+        | Group.WeightGroup -> [ 1N |> WeightKiloGram |> Weight; 1N |> WeightGram |> Weight ]
+        | Group.HeightGroup -> [ 1N |> HeightMeter |> Height; 1N |> HeightCentiMeter |> Height ]
         | Group.BSAGroup -> [ 1N |> M2 |> BSA ]
         | Group.EnergyGroup -> [ 1N |> Calorie |> Energy; 1N |> KiloCalorie |> Energy ]
         | Group.CombiGroup _ -> []

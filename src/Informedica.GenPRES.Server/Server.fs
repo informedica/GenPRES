@@ -12,6 +12,7 @@ open Microsoft.Extensions.DependencyInjection
 open System.Threading.Tasks
 
 open Informedica.Utils.Lib
+open Informedica.Utils.Lib.BCL
 
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Builder
@@ -32,22 +33,24 @@ module Config =
     /// The GENPRES_* settings (and SERVER_PORT) as the server uses them.
     type Settings =
         {
-            // SERVER_PORT, default 8085
+            /// SERVER_PORT, default 8085
             Port: uint16
-            // GENPRES_PROD = "1"
+            /// GENPRES_PROD = "1"
             IsProd: bool
-            // GENPRES_URL_ID; None when unset or blank
+            /// GENPRES_URL_ID; None when unset or blank
             UrlId: string option
-            // GENPRES_PASSWORD; None when unset or blank
+            /// GENPRES_PASSWORD; None when unset or blank
             Password: string option
-            // GENPRES_TRUSTED_PROXIES, parsed; loopback pair when unset
+            /// GENPRES_TRUSTED_PROXIES, parsed; loopback pair when unset
             TrustedProxies: System.Net.IPAddress[]
-            // GENPRES_LOG, raw, banner only (Logging.fs reads it itself)
+            /// GENPRES_LOG, raw, banner only (Logging.fs reads it itself)
             Log: string
-            // GENPRES_DEBUG, raw, banner only
+            /// GENPRES_DEBUG, raw, banner only
             Debug: string
-            // GENPRES_LANG, raw; None when unset or blank. Parsed by `language`.
+            /// GENPRES_LANG, raw; None when unset or blank. Parsed by language.
             Lang: string option
+            /// GENPRES_DB_CONNECTION, the SQLite session store; None when unset or blank
+            DbConnection: string option
         }
 
 
@@ -56,8 +59,7 @@ module Config =
     // reported truthfully instead of looking injected, and so an empty
     // Docker env never flows into getCachedProviderWithDataUrlId to
     // surface much later as a confusing "cannot find column" error.
-    let nonBlank (raw: string option) =
-        raw |> Option.filter (System.String.IsNullOrWhiteSpace >> not)
+    let nonBlank (raw: string option) = raw |> Option.filter String.notEmpty
 
 
     /// Banner display string for the password: never the value itself.
@@ -70,7 +72,7 @@ module Config =
 
     /// Banner display string for the Sheet ID: only the last 5 chars, so it
     /// never lands in logs or screenshots intact. Built here, not in the
-    /// banner template, so the `NOT SET` path doesn't render as `***NOT SET`.
+    /// banner template, so the NOT SET path doesn't render as ***NOT SET.
     let redactUrlId (raw: string option) =
         raw
         |> nonBlank
@@ -83,14 +85,14 @@ module Config =
         |> Option.defaultValue "NOT SET"
 
 
-    // B3 — Trusted reverse-proxy allow-list for ForwardedHeadersMiddleware.
-    // Default = loopback only (matches the Plesk → Kestrel hop on the
-    // public demo deployments and any local-dev setup). Override with
-    // GENPRES_TRUSTED_PROXIES as a comma-separated list of IPs, e.g.
-    //     GENPRES_TRUSTED_PROXIES="10.0.0.5, 10.0.0.6"
-    // for a hospital LAN behind a known nginx fleet. Unparseable values
-    // are silently dropped — fail-open on the parser, fail-closed on the
-    // allow-list (no entry = no XFF trust).
+    /// The reverse proxies whose X-Forwarded-For header is believed.
+    /// Default = loopback only, which matches the Plesk to Kestrel hop on the
+    /// public demo deployments and any local-dev setup. Override with
+    /// GENPRES_TRUSTED_PROXIES as a comma-separated list of IPs, e.g.
+    ///     GENPRES_TRUSTED_PROXIES="10.0.0.5, 10.0.0.6"
+    /// for a hospital LAN behind a known nginx fleet. Unparseable values
+    /// are silently dropped — fail-open on the parser, fail-closed on the
+    /// allow-list: no entry means no forwarded header is believed at all.
     let parseTrustedProxies (raw: string option) =
         raw
         |> nonBlank
@@ -102,26 +104,22 @@ module Config =
                 | false, _ -> None
             )
         )
-        |> Option.defaultValue
-            [|
-                System.Net.IPAddress.Loopback
-                System.Net.IPAddress.IPv6Loopback
-            |]
+        |> Option.defaultValue [| System.Net.IPAddress.Loopback; System.Net.IPAddress.IPv6Loopback |]
 
 
-    // SECURITY: in production mode (GENPRES_PROD=1) a GENPRES_PASSWORD shorter
-    // than minProductionPasswordLength characters refuses the start: a weak
-    // secret would otherwise stay live in the admin commands, which read the
-    // variable themselves. A missing or blank password does not refuse
-    // (issue #590): the server starts on the configured data with admin
-    // operations disabled, which those same commands enforce by failing
-    // closed on the unset variable, and it prints a warning. Demo/dev mode
-    // accepts any value (or none).
+    /// The shortest admin password production accepts.
+    /// In production mode (GENPRES_PROD=1) a GENPRES_PASSWORD shorter than this
+    /// refuses the start: a weak secret would otherwise stay live in the admin
+    /// commands, which read the variable themselves. A missing or blank password
+    /// does not refuse: the server starts on the configured data with admin
+    /// operations disabled, which those same commands enforce by failing closed
+    /// on the unset variable, and it prints a warning. Demo and dev mode accept
+    /// any value, or none.
     let minProductionPasswordLength = 16
 
 
     /// <summary>
-    /// The production password policy. <c>Ok None</c>: nothing to say.
+    /// The production password policy. <c>Ok None</c>: nothing to warn about.
     /// <c>Ok (Some warning)</c>: the server starts with admin operations
     /// disabled and prints the warning. <c>Error</c>: the message the server
     /// refuses to start with.
@@ -199,13 +197,28 @@ module Config =
 
 
     /// <summary>
-    /// Every start-up guard in one place: the production password policy, the
+    /// The session store in production: the SQLite store is for test and development only, so
+    /// production refuses <c>GENPRES_DB_CONNECTION</c>. Until the scope switch (#580) decides
+    /// what production's store is, the refusal is of the setting itself.
+    /// </summary>
+    let validateStore (isProd: bool) (dbConnection: string option) : Result<unit, string> =
+        match isProd, dbConnection with
+        | true, Some _ ->
+            Error
+                "GENPRES_PROD=1 but GENPRES_DB_CONNECTION is set. \
+                 The SQLite session store is for test and development only; unset it to start in production."
+        | _ -> Ok()
+
+
+    /// <summary>
+    /// Every start-up guard in one place: the session store, the production password policy, the
     /// language, then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries
     /// the URL ID the host needs and the warnings to print; <c>Error</c> is the
     /// message the server exits with.
     /// </summary>
     let validateStartup (settings: Settings) : Result<Startup, string> =
-        validateProductionPassword settings.IsProd settings.Password
+        validateStore settings.IsProd settings.DbConnection
+        |> Result.bind (fun () -> validateProductionPassword settings.IsProd settings.Password)
         |> Result.bind (fun warning ->
             language settings
             |> Result.bind (fun _ ->
@@ -233,8 +246,8 @@ module Config =
         }
 
 
-    /// Reads every setting through <c>getEnv</c>. Pure: pass <c>Env.getItem</c>
-    /// for the real environment, a <c>Map.tryFind</c> in tests.
+    /// Reads every setting through getEnv. Pure: pass Env.getItem
+    /// for the real environment, a Map.tryFind in tests.
     let fromEnv (getEnv: string -> string option) : Settings =
         {
             Port = "SERVER_PORT" |> getEnv |> Option.map uint16 |> Option.defaultValue 8085us
@@ -248,10 +261,11 @@ module Config =
             Log = getEnv "GENPRES_LOG" |> Option.defaultValue "0"
             Debug = getEnv "GENPRES_DEBUG" |> Option.defaultValue "i"
             Lang = getEnv "GENPRES_LANG" |> nonBlank
+            DbConnection = getEnv "GENPRES_DB_CONNECTION" |> nonBlank
         }
 
 
-    /// The start-up banner. Secrets are redacted; <c>systemInfo</c> is passed
+    /// The start-up banner. Secrets are redacted; systemInfo is passed
     /// in because collecting it is an effect.
     let banner (systemInfo: string) (settings: Settings) =
         $"""
@@ -263,6 +277,10 @@ GENPRES_PROD = {if settings.IsProd then "1" else "0"}
 GENPRES_DEBUG = {settings.Debug}
 GENPRES_LANG = {settings |> displayLanguage}
 GENPRES_PASSWORD = {settings.Password |> displayPassword}
+GENPRES_DB_CONNECTION = {if settings.DbConnection.IsSome then
+                             "set (SQLite session store)"
+                         else
+                             "unset (in-memory session store)"}
 
 === System Info ===
 
@@ -273,15 +291,16 @@ GENPRES_PASSWORD = {settings.Password |> displayPassword}
 
 /// HTTP handlers, middleware and the hosted service: everything that runs
 /// per request or per host lifetime. Nothing here reads the environment;
-/// the values it needs arrive as parameters from <c>Host.build</c>.
+/// the values it needs arrive as parameters from Host.build.
 module Http =
 
-    // B3 — Returns the immediate peer IP. After UseForwardedHeaders runs
-    // (registered via app_config in Host.build) this is the real client IP
-    // for requests that arrived through a known proxy, and the actual peer
-    // for direct connections. The previous version trusted X-Forwarded-For
-    // from any source (finding B3); that path is now obsolete and the
-    // rate limiter's partition cardinality is bounded by real ingress IPs.
+    /// Returns the immediate peer IP. After UseForwardedHeaders runs
+    /// (registered via app_config in Host.build) this is the real client IP
+    /// for requests that arrived through a known proxy, and the actual peer
+    /// for direct connections. An earlier version read X-Forwarded-For from
+    /// any source, so anyone could pick their own rate-limiter partition and
+    /// make the limiter hold an unbounded number of them; reading the peer
+    /// address after the middleware has substituted it closes both.
     let getClientIP (context: HttpContext) =
         match context.Connection.RemoteIpAddress with
         | null -> "unknown"
@@ -337,7 +356,7 @@ module Http =
             read =
                 fun state ->
                     match ctx.Request.Cookies.TryGetValue(launchStateCookieName state) with
-                    | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
+                    | true, value when value |> String.notEmpty -> Some value
                     | _ -> None
             write =
                 fun state ->
@@ -372,7 +391,7 @@ module Http =
             read =
                 fun () ->
                     match ctx.Request.Cookies.TryGetValue enrolmentCookieName with
-                    | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
+                    | true, value when value |> String.notEmpty -> Some value
                     | _ -> None
             write =
                 fun attempt until ->
@@ -394,7 +413,7 @@ module Http =
             read =
                 fun () ->
                     match ctx.Request.Cookies.TryGetValue sessionCookieName with
-                    | true, value when not (System.String.IsNullOrWhiteSpace value) -> Some value
+                    | true, value when value |> String.notEmpty -> Some value
                     | _ -> None
             write =
                 fun id -> ctx.Response.Cookies.Append(sessionCookieName, id, sessionCookieOptions ctx.Request.IsHttps)
@@ -415,7 +434,7 @@ module Http =
     /// Without a Cache-Control header browsers apply heuristic freshness
     /// (RFC 9111 §4.2.2, typically 10 % of now − Last-Modified), which is how
     /// a long-running container ends up with clients that never see a new
-    /// index.html and keep loading the previous hashed bundle (#568).
+    /// index.html and keep loading the previous hashed bundle.
     ///
     /// The status check matters: a 404 for an asset that this instance does
     /// not have yet (a rolling deploy, a stale index.html) must never be
@@ -424,7 +443,7 @@ module Http =
     /// </remarks>
     let cacheControlFor (statusCode: int) (path: string) =
         let isAsset =
-            not (System.String.IsNullOrEmpty path)
+            path |> String.notNullOrEmpty
             && path.StartsWith("/assets/", System.StringComparison.OrdinalIgnoreCase)
 
         if isAsset && statusCode >= 200 && statusCode < 300 then
@@ -433,27 +452,26 @@ module Http =
             "no-cache"
 
 
-    // B2 — Security response header baseline. ASP.NET middleware (wired via
-    // app_config) using Response.OnStarting so headers land on every flushed
-    // response: static files, Giraffe routes, the 404 fallback, and
-    // Fable.Remoting error responses alike. Also owns the Cache-Control
-    // policy (cacheControlFor above), because this is the one hook that
-    // runs on static responses and Saturn's use_static does not expose
-    // StaticFileOptions.OnPrepareResponse.
-    //
-    // CSP allow-list reflects the SPA's actual fetches: same-origin scripts
-    // (Fable bundle), maxcdn + Google Fonts for CSS, gstatic for fonts,
-    // docs.google.com for the runtime Sheet fetches. Drop docs.google.com
-    // once Sheet access is proxied server-side. X-Powered-By is stripped in
-    // case nginx/Plesk injects it.
-    //
-    // style-src includes 'unsafe-inline' because MUI's styling engine
-    // (Emotion) injects per-component <style> tags at runtime. Without it
-    // every MUI component renders unstyled. script-src remains strict
-    // ('self' only) so XSS exposure is bounded to CSS injection, which
-    // cannot execute code. Tightening this further requires wiring an
-    // Emotion CacheProvider with a per-request nonce — tracked as a
-    // follow-up to the security review.
+    /// The security response headers, set on every response. ASP.NET middleware
+    /// (wired via app_config) using Response.OnStarting so headers land on every flushed
+    /// response: static files, Giraffe routes, the 404 fallback, and
+    /// Fable.Remoting error responses alike. Also owns the Cache-Control
+    /// policy (cacheControlFor above), because this is the one hook that
+    /// runs on static responses and Saturn's use_static does not expose
+    /// StaticFileOptions.OnPrepareResponse.
+    ///
+    /// CSP allow-list reflects the SPA's actual fetches: same-origin scripts
+    /// (Fable bundle), maxcdn + Google Fonts for CSS, gstatic for fonts,
+    /// docs.google.com for the runtime Sheet fetches. Drop docs.google.com
+    /// once Sheet access is proxied server-side. X-Powered-By is stripped in
+    /// case nginx/Plesk injects it.
+    ///
+    /// style-src includes 'unsafe-inline' because MUI's styling engine
+    /// (Emotion) injects per-component style tags at runtime. Without it
+    /// every MUI component renders unstyled. script-src remains strict
+    /// ('self' only) so XSS exposure is bounded to CSS injection, which
+    /// cannot execute code. Tightening this further would mean wiring an
+    /// Emotion CacheProvider with a per-request nonce.
     let securityHeadersMiddleware (ctx: HttpContext) (next: System.Func<Task>) : Task =
         ctx.Response.OnStarting(fun () ->
             let h = ctx.Response.Headers
@@ -480,28 +498,30 @@ module Http =
         next.Invoke()
 
 
-    // A2 — Per-IP fixed-window rate limiter applied to every HTTP request.
-    // 60 requests / 10 s window / IP (= 6 r/s sustained, 60-request burst),
-    // no queue: overflow = 429 instantly.
-    //
-    // Sized for actual SPA usage: a single Gender radio click fans out to
-    // ~4 RPCs, a clinician filling a form chains ~10 such actions in a few
-    // seconds — 60-burst absorbs it. Sustained 6 r/s still cuts scripted
-    // brute force on ValidatePassword by an order of magnitude.
-    //
-    // Partition key uses getClientIP, which now returns the real client IP
-    // resolved by ASP.NET's ForwardedHeadersMiddleware (configured with the
-    // trustedProxies allow-list). XFF is honoured only when the immediate
-    // connection comes from a known proxy, so spoofed XFF cannot bypass
-    // the limiter and cannot inflate partition cardinality (finding B3
-    // addressed for C1, configurable via GENPRES_TRUSTED_PROXIES for C2).
-    //
-    // QueueLimit = 0 = no queue, no QueueProcessingOrder needed (overflow
-    // is rejected with 429 immediately).
-    //
-    // Proper per-attempt auth lockout — which would only touch the password
-    // path — needs Remoting.fromContext to lift client-IP into
-    // validatePassword and is still deferred.
+    /// A per-IP fixed-window rate limiter applied to every HTTP request.
+    /// 60 requests per 10 s window per IP (6 r/s sustained, 60-request burst),
+    /// no queue: overflow is answered 429 instantly.
+    ///
+    /// Sized for actual SPA usage: a single Gender radio click fans out to
+    /// about 4 RPCs, and a clinician filling a form chains about 10 such
+    /// actions in a few seconds, which the 60-request burst absorbs. Sustained
+    /// 6 r/s still cuts scripted brute force on ValidatePassword by an order
+    /// of magnitude.
+    ///
+    /// The partition key is getClientIP, which returns the real client IP
+    /// resolved by ASP.NET's ForwardedHeadersMiddleware, configured with the
+    /// trusted-proxy allow-list. A forwarded header is believed only when the
+    /// immediate connection comes from a proxy on that list, so a spoofed one
+    /// can neither bypass the limiter nor make it hold an unbounded number of
+    /// partitions. The list defaults to loopback and is set for a hospital LAN
+    /// through GENPRES_TRUSTED_PROXIES.
+    ///
+    /// QueueLimit = 0 means no queue, so no QueueProcessingOrder is needed:
+    /// overflow is rejected with 429 immediately.
+    ///
+    /// A per-attempt lockout on the password path alone would need
+    /// Remoting.fromContext to lift the client IP into validatePassword, and
+    /// is still deferred.
     let addRateLimiting (services: IServiceCollection) =
         services.AddRateLimiter(fun (opts: RateLimiterOptions) ->
             opts.RejectionStatusCode <- 429
@@ -545,12 +565,13 @@ module Http =
                 next ctx
 
 
-    // L1 — Defense-in-depth wrapper. The original Fable.Remoting.Giraffe 5.24
-    // ABI drift against Giraffe 7+ (MissingMethodException / TypeLoadException
-    // from Giraffe.Core.setBodyFromString, leaking full .NET type signatures)
-    // is resolved upstream in Fable.Remoting.Giraffe 6.1.0. This wrapper is
-    // retained as belt-and-braces so any future reflection/ABI fault returns
-    // a clean 400 instead of a raw exception body.
+    /// A defence-in-depth wrapper that turns a reflection or ABI fault into a
+    /// clean 400. Fable.Remoting.Giraffe 5.24 drifted against Giraffe 7 and
+    /// above: Giraffe.Core.setBodyFromString raised MissingMethodException or
+    /// TypeLoadException, and the error path put the full .NET type signature
+    /// in the response body. That is fixed upstream in Fable.Remoting.Giraffe
+    /// 6.1.0, and this wrapper is kept so a future fault of the same shape
+    /// cannot leak one either.
     let safeWebApi (webApi: HttpHandler) : HttpHandler =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
@@ -617,7 +638,7 @@ module Http =
 
 
 /// The composition root: wires settings, the resource provider and the
-/// Http pieces into a Saturn application. Only <c>main</c> calls this.
+/// Http pieces into a Saturn application. Only main calls this.
 module Host =
 
     /// The cached GenFORM resource provider for a Sheet ID, with the
@@ -643,20 +664,25 @@ module Host =
         // runs its function per request, so the env must not be built in there.
         // the key the stub LaunchScript seals Launches under: per host start, so a
         // token from an earlier run is "not sealed under the key"
-        let launchKey =
-            LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes
+        let launchKey = LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes
 
         // the stub IdentityProvider and UserRegistry: one-time codes and the active
         // patient per identity choice, issued by /authorize and redeemed at the callback
-        let directory =
-            StubDirectory.make (fun () -> System.DateTime.UtcNow) PublicKey.randomId
+        let directory = StubDirectory.make (fun () -> System.DateTime.UtcNow) PublicKey.randomId
 
         // the stub MailService: an outbox the /stub/mail page shows, so the tester
         // reads a confirmation code where a User would read their mail
         let mail = StubMail.make ()
 
         let env =
-            let env = Adapters.makeAppEnvWith launchKey directory mail.port provider
+            let env =
+                Adapters.makeAppEnvWith
+                    (not settings.IsProd)
+                    settings.DbConnection
+                    launchKey
+                    directory
+                    mail.port
+                    provider
 
             // Stop-gap until the scope switch (#580): a production server never opens a
             // stub Session. Drop this swap when #580 decides what production exposes.
@@ -800,8 +826,8 @@ module Host =
             service_config (fun services ->
                 services.AddHostedService<Http.LoggerShutdown>() |> ignore
 
-                // B3 — Configure ForwardedHeadersMiddleware so XFF is only
-                // honoured for connections from the trustedProxies allow-list
+                // Configure ForwardedHeadersMiddleware so a forwarded header is
+                // only believed for connections from the trusted-proxy allow-list
                 // (loopback by default, overridable via GENPRES_TRUSTED_PROXIES).
                 // X-Forwarded-Proto from the same proxies sets Request.IsHttps,
                 // which is what makes the session cookie Secure behind a
@@ -819,7 +845,7 @@ module Host =
                 services
             )
 
-            // B3 ForwardedHeaders → B2 security headers → A2 rate limiter.
+            // Forwarded headers, then the security headers, then the rate limiter.
             // UseForwardedHeaders must run first so the rate limiter sees the
             // real client IP via ctx.Connection.RemoteIpAddress.
             // UseRateLimiter activates the limiter registered via
@@ -854,14 +880,19 @@ let main _ =
     // reported with an exit code, not an exception: in the Docker image the
     // runtime used to be PID 1, and the SIGABRT it sends itself after an
     // unhandled exception was dropped, leaving the container "running" with
-    // nothing listening (issue #572). A genuine crash elsewhere is still an
+    // nothing listening. A genuine crash elsewhere is still an
     // unhandled exception on purpose; tini as PID 1 turns it into exit 134.
-    match Config.validateStartup settings with
+    match
+        Config.validateStartup settings
+        // the store is made ready here, for the same reason: a file that cannot be migrated or
+        // seeded is a refused start with a message and an exit code, not a crash while hosting
+        |> Result.bind (fun startup -> Adapters.prepareStore settings.DbConnection |> Result.map (fun () -> startup))
+    with
     | Error msg ->
         writeErrorMessage msg
         1
     | Ok startup ->
-        // a degraded but permitted configuration (issue #590) is said once, before hosting
+        // a degraded but permitted configuration is written once, before hosting
         startup.Warnings |> List.iter writeWarningMessage
         Host.build settings (Host.resourceProvider startup.UrlId) |> run
         0

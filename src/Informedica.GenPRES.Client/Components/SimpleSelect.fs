@@ -5,6 +5,7 @@ module SimpleSelect =
 
 
     open System
+    open Shared
     open Fable.Core
     open Fable.Core.JsInterop
     open Feliz
@@ -52,15 +53,13 @@ module SimpleSelect =
         // Use the raw value string as the dependency (a JS primitive compared by value)
         // so the reset only fires when the underlying value actually changes — boxing an
         // option would create a new reference every render and reset on every render.
-        let valueKey =
-            props.values |> Array.tryHead |> Option.map fst |> Option.defaultValue ""
+        let valueKey = props.values |> Array.tryHead |> Option.map fst |> Option.defaultValue ""
 
         // A monotonic counter the parent bumps on every server response. It also resets
         // the optimistic deltas when the server returns the SAME value as before — e.g. a
         // no-op step (already at the maximum) leaves the current value unchanged, so
         // valueKey never changes and would otherwise leave a stale optimistic value shown.
-        let revision =
-            props.stepper |> Option.map (fun n -> n.revision) |> Option.defaultValue 0
+        let revision = props.stepper |> Option.map (fun n -> n.revision) |> Option.defaultValue 0
 
         // useLayoutEffect (not useEffect) so the deltas are reset BEFORE the browser
         // paints the frame on which the server's new value arrives — otherwise that frame
@@ -127,7 +126,7 @@ module SimpleSelect =
                 value
                 |> string
                 |> function
-                    | s when s |> String.IsNullOrWhiteSpace -> None
+                    | s when s |> String.isNullOrWhiteSpace -> None
                     | s -> s |> Some
                 |> props.updateSelected
 
@@ -150,7 +149,7 @@ module SimpleSelect =
                 """
             )
 
-        let isClear = displaySelected |> Option.defaultValue "" |> String.IsNullOrWhiteSpace
+        let isClear = displaySelected |> Option.defaultValue "" |> String.isNullOrWhiteSpace
 
         let clearButton =
             match props.isLoading, isClear with

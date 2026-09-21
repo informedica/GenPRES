@@ -22,7 +22,6 @@ module Api =
     /// <param name="eqs">List of strings</param>
     /// <returns>List of Equations</returns>
     let init eqs =
-        let notEmpty = String.IsNullOrWhiteSpace >> not
         let prodEqs, sumEqs = eqs |> List.partition (String.contains "*")
         let createProdEqs = List.map (EQD.createProd >> EQD.fromDto)
         let createSumEqs = List.map (EQD.createSum >> EQD.fromDto)
@@ -32,7 +31,7 @@ module Api =
             |> List.map (String.splitAt '=')
             |> List.map (Array.collect (String.splitAt op))
             |> List.map (Array.map String.trim)
-            |> List.map (Array.filter notEmpty)
+            |> List.map (Array.filter String.notEmpty)
             |> List.map (Array.map VRD.withName)
 
         (parse prodEqs '*' |> createProdEqs) @ (parse sumEqs '+' |> createSumEqs)
@@ -57,17 +56,17 @@ module Api =
 
 
     /// <summary>
-    /// Solve an `Equations` list
+    /// Solve an <c>Equations</c> list
     /// </summary>
     /// <returns>A result type of the solved equations</returns>
     /// <remarks>
-    /// This function is a wrapper around `Solver.solveAll`
+    /// This function is a wrapper around <c>Solver.solveAll</c>
     /// </remarks>
     let solveAll = Solver.solveAll
 
 
     /// <summary>
-    /// Solve an `Equations` list with
+    /// Solve an <c>Equations</c> list with
     /// </summary>
     /// <param name="onlyMinIncrMax">True if only min, incr and max values are to be used</param>
     /// <param name="sortQue">The algorithm to sort the equations</param>
@@ -88,8 +87,7 @@ module Api =
     /// Set all variables in a list of equations to a non-zero or negative value
     /// </summary>
     /// <param name="eqs">The list of Equations</param>
-    let nonZeroNegative eqs =
-        eqs |> List.map Equation.nonZeroOrNegative
+    let nonZeroNegative eqs = eqs |> List.map Equation.nonZeroOrNegative
 
 
     /// <summary>

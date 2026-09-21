@@ -53,8 +53,7 @@ module DoseRuleLoader =
                 // warns when collapsed rows carry differing dose-limit values
                 let data, rowWarns = data |> DoseRuleData.dedupRowsByRowId
 
-                let cmps =
-                    data |> Array.map _.ScheduleData.DoseLimitData.Component |> Array.distinct
+                let cmps = data |> Array.map _.ScheduleData.DoseLimitData.Component |> Array.distinct
 
                 let prods =
                     cmps
@@ -151,20 +150,18 @@ module DoseRuleLoader =
 
 
     /// <summary>
-    /// Impure adapter: loads DoseRuleData via the `getData` thunk and delegates
+    /// Impure adapter: loads DoseRuleData via the <c>getData</c> thunk and delegates
     /// to the pure <c>fromData</c>, carrying the product warnings.
     /// Kept for existing callers/tests.
     /// </summary>
-    let get getData routeMapping formRoutes prods =
-        getData () |> fromData routeMapping formRoutes prods
+    let get getData routeMapping formRoutes prods = getData () |> fromData routeMapping formRoutes prods
 
 
     /// Build a GetDoseRules-shaped function from a custom data source.
-    /// `getData` reads DoseRuleData rows from `path` (e.g. a Pass-4 TSV).
+    /// getData reads DoseRuleData rows from path (e.g. a Pass-4 TSV).
     /// The result matches the ResourceConfig.GetDoseRules field shape exactly:
     /// DoseRuleData[] -> RouteMapping[] -> FormRoute[] -> ProductComponent[] ->
     /// (DoseRule[] * Message list). The leading DoseRuleData[] (the
     /// resources-loaded rows) is ignored here because this adapter reads its
-    /// rows from `path` instead.
-    let getFromGetData getData path =
-        fun (_: DoseRuleData[]) -> get (fun () -> getData path)
+    /// rows from path instead.
+    let getFromGetData getData path = fun (_: DoseRuleData[]) -> get (fun () -> getData path)

@@ -134,6 +134,9 @@ a clinical path and the validation effort is not yet scoped.
 2. `src/Informedica.GenORDER.Lib/Order.fs` (`DateTime.Now` in `StartStop.Start`) and
    `Medication.fs` (`Guid.NewGuid()` in the constructor): supplied by the caller.
    `Environment.ProcessorCount` stays allow-listed; it sizes chunks and never a result.
+   The `Order.fs` half is built (#794, PR #873): the start is a `DateTime` threaded from the
+   server's and the MCP host's clock through the order context and plan evaluation, and its
+   allowance is gone. The `Guid.NewGuid()` half is open.
 
 ### Phase 5 — DMZ consolidation at the edge (A, security-relevant)
 

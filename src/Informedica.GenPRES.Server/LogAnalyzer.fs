@@ -146,8 +146,7 @@ module Format =
 
     /// Pattern: ValueUnit ([|values|], UnitType (SubType nN))
     /// Handles nested parentheses in unit types.
-    let private valueUnitPattern =
-        Regex(@"ValueUnit\s*\(\[\|([^\|]*)\|\],\s*(\w+\s*\([^)]*\))\)")
+    let private valueUnitPattern = Regex(@"ValueUnit\s*\(\[\|([^\|]*)\|\],\s*(\w+\s*\([^)]*\))\)")
 
 
     /// Replace ValueUnit(...) patterns with readable "value unit" text.
@@ -382,8 +381,7 @@ module Parse =
             let line = lines[i]
 
             if line.Trim().StartsWith("cannot be set with this range:") then
-                let attemptedRange =
-                    line.Trim().Substring("cannot be set with this range:".Length).Trim()
+                let attemptedRange = line.Trim().Substring("cannot be set with this range:".Length).Trim()
 
                 let failVar = if i >= 1 then lines[i - 1].Trim() else ""
 
@@ -674,12 +672,10 @@ module Parse =
 
 module Analyze =
 
-    let private guidPattern =
-        Regex(@"\[?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.")
+    let private guidPattern = Regex(@"\[?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.")
 
 
-    let shortName (fullName: string) =
-        fullName.Replace("[ord.", "").Replace("[", "").Replace("]", "")
+    let shortName (fullName: string) = fullName.Replace("[ord.", "").Replace("[", "").Replace("]", "")
 
 
     let cleanGuid (name: string) = guidPattern.Replace(name, "")
@@ -737,8 +733,7 @@ module Analyze =
         domains
 
 
-    let buildEqByResult (equations: Equation list) =
-        equations |> List.groupBy _.Result.FullName |> Map.ofList
+    let buildEqByResult (equations: Equation list) = equations |> List.groupBy _.Result.FullName |> Map.ofList
 
 
     let rec traceVariable
@@ -845,12 +840,10 @@ module Report =
 
         pr ""
 
-        let isDefaultConstraint (c: string) =
-            c = "<0 ..>" || c = "<0 x..>" || c = "<0 x..1 x>"
+        let isDefaultConstraint (c: string) = c = "<0 ..>" || c = "<0 x..>" || c = "<0 x..1 x>"
 
         let printConstraintTable label (table: TableRow list) =
-            let sigConstraints =
-                table |> List.filter (fun row -> not (isDefaultConstraint row.Constraints))
+            let sigConstraints = table |> List.filter (fun row -> not (isDefaultConstraint row.Constraints))
 
             if sigConstraints.Length > 0 then
                 prf $"  %s{label}:"
@@ -1090,10 +1083,7 @@ let analyzeFile (fileName: string) : Result<string, string[]> =
             let fi = FileInfo(fullPath)
 
             if fi.Length > MaxFileSizeBytes then
-                Error
-                    [|
-                        $"Log file too large (%d{fi.Length / 1_000_000L} MB). Maximum is 50 MB."
-                    |]
+                Error [| $"Log file too large (%d{fi.Length / 1_000_000L} MB). Maximum is 50 MB." |]
             else
                 let lines = File.ReadAllLines(fullPath)
                 let ctx = Parse.orderContext lines
@@ -1102,7 +1092,6 @@ let analyzeFile (fileName: string) : Result<string, string[]> =
                 let tables = Parse.constraintTables lines
                 let pipelineRuns = Parse.pipelineSteps lines
 
-                let report =
-                    Report.generate ctx errors eqBlocks tables pipelineRuns |> Format.makeReadable
+                let report = Report.generate ctx errors eqBlocks tables pipelineRuns |> Format.makeReadable
 
                 Ok report

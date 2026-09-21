@@ -124,12 +124,12 @@ The same applies to the docker ignore file.
 
 ## Resource Loading Pattern
 
-- Sheet specs live in code: each sheet has a record in the `Data` module of `src/Informedica.GenFORM.Lib/Types.fs`, whose XML summary names the sheet and the parser and whose field comments carry the column name (where it differs), unit, separator and boolean spelling.
+- Sheet specs live in code: each sheet has a record in the `Data` module of `src/Informedica.GenFORM.Lib/Types.fs`, whose XML summary names the sheet and the parser and whose `///` field comments carry the column name (where it differs), unit, separator and boolean spelling.
 - Check that record — and the declared column lists in `DoseRuleToDataTests.ColumnContract` (`tests/Informedica.GenFORM.Tests/Tests.fs`) — for expected sheet and column names.
 - Resources are loaded from Google Sheets via `Web.getDataFromSheet dataUrlId "SheetName"`.
 - Mapping helper functions use `Csv.getStringColumn` / `Csv.getFloatOptionColumn` and call getString/getFloat-style delegates.
 - Resources are declared in the `ResourceRegistry` built by `Resources.defaultRegistry` (`Resources.fs`): a map from a `ResourceKey` name to a `ResourceLoader`. Wrap a `unit -> Result<'T, Message list>` reader with `ofResult`, derive a resource from others with `derive` / `deriveWith` (dependencies are declared by calling `r.Get Keys.x` and resolved lazily, once, by `LoadEngine`). `loadAllResourcesWithRegistry` resolves the whole map; callers reach the result through `IResourceProvider` (`Api.fs`).
-- To add/modify sheet mappings: adjust the mapper in the corresponding module (e.g., `Product.Reconstitution.parseReconstitution`, `DoseRuleData.parseDoseRuleData`), update the field comments on the matching `Data` record, and update the declared column list in the column-contract test.
+- To add/modify sheet mappings: adjust the mapper in the corresponding module (e.g., `Product.Reconstitution.parseReconstitution`, `DoseRuleData.parseDoseRuleData`), update the `///` field comments on the matching `Data` record, and update the declared column list in the column-contract test.
 - Update the mapper to read columns by name using the `get` delegate (e.g., `let get = getColumn row in get "Generic"`), parse with `BigRational.toBrs` / `getFloat` as appropriate.
 - If adding optional numeric columns, use `getFloatOptionColumn` and `Option.bind BigRational.fromFloat`.
 
@@ -444,7 +444,7 @@ FSI's `#load` directive resolves relative paths from its *include path*, **not**
 
 ## Safety and Documentation
 
-- This project targets clinical medication workflows. Any change that affects dosing, rules, parsing, or resource mapping must include: unit tests, a changelog entry, and — if spreadsheet columns or semantics changed — updated field comments on the corresponding `Data` record in `GenFORM.Lib/Types.fs` plus an updated column-contract test.
+- This project targets clinical medication workflows. Any change that affects dosing, rules, parsing, or resource mapping must include: unit tests, a changelog entry, and — if spreadsheet columns or semantics changed — updated `///` field comments on the corresponding `Data` record in `GenFORM.Lib/Types.fs` plus an updated column-contract test.
 - Add notes to CONTRIBUTING.md if the change introduces a new external dependency or changes deployment behavior.
 
 ## AI/LLM Usage Policy
@@ -461,10 +461,10 @@ Contributors must also disclose when code submitted in a pull request is **vibe 
 
 ## Checklist for Automated Edits
 
-- [ ] Small, focused change with < 300 LOC modified when possible.
+- [ ] Small, focused change: no more than 200 changed source lines (shipped code under `src/`; tests, scripts, docs and lock files not counted), see CONTRIBUTING.md.
 - [ ] Add or update unit tests covering the change.
 - [ ] Ensure `dotnet run servertests` passes locally for affected projects.
-- [ ] Update the `Data` record comments and the column-contract test if spreadsheet column names or semantics change.
+- [ ] Update the `Data` record `///` comments and the column-contract test if spreadsheet column names or semantics change.
 - [ ] Use conventional commit message with scope and short description.
 
 ## Related Documentation

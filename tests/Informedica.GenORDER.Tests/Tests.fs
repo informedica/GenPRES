@@ -108,11 +108,16 @@ module Pipeline =
             )
             |> Option.defaultValue (testMedicationOrders |> List.head)
 
-        medicationOrder |> Medication.toOrderDto |> Dto.fromDto |> Result.get
+        medicationOrder
+        |> Medication.toOrderDto Scenarios.testStart
+        |> Dto.fromDto
+        |> Result.get
 
     // Also a minimal empty order for CalcMinMax path
     let private mkEmptyOrder () =
-        Dto.discontinuous "T" "Test" "PO" [] |> Dto.fromDto |> Result.get
+        Dto.discontinuous Scenarios.testStart "T" "Test" "PO" []
+        |> Dto.fromDto
+        |> Result.get
 
     let private countValues (o: Order) =
         o |> toOrdVars |> List.filter OrderVariable.hasValues |> List.length
@@ -124,7 +129,7 @@ module Pipeline =
             | Error errs -> failtest $"Failed to parse kaliumchloride OnceTimed: {errs}"
             | Ok med ->
                 med
-                |> Medication.toOrderDto
+                |> Medication.toOrderDto Scenarios.testStart
                 |> Dto.fromDto
                 |> function
                     | Error msg -> failtest $"Failed to create order: {msg}"
@@ -194,11 +199,15 @@ module Pipeline =
                             }
                         |]
 
-                    let dto = testMedicationOrders |> List.head |> Medication.toOrderDto
+                    let ord =
+                        testMedicationOrders
+                        |> List.head
+                        |> Medication.toOrder Scenarios.testStart
+                        |> Result.get
 
                     // no weight -> no per-weight aggregation -> Volume None, but the
                     // call completes without any Google-sheet access.
-                    let result = Totals.getTotals syntheticTotals None None [| dto |]
+                    let result = Totals.getTotals syntheticTotals None None [| ord |]
 
                     result.Volume |> Expect.isNone "no weight -> no volume total"
                 }
@@ -251,7 +260,7 @@ module Pipeline =
                 test "paracetamol suppository (non-timed) is unaffected by staged expansion" {
                     let ord =
                         Scenarios.pcmSupp
-                        |> Medication.toOrderDto
+                        |> Medication.toOrderDto Scenarios.testStart
                         |> Dto.fromDto
                         |> function
                             | Error msg -> failtest $"{msg}"
@@ -318,8 +327,7 @@ module Pipeline =
                         |> Schedule.getTime
                         |> Option.defaultValue (OV.Time.create (Name "tme") Units.Time.hour)
 
-                    let ord =
-                        { ord0 with Schedule = Timed(frq, Time(OrderVariable.clear (let (Time tv) = tme in tv))) }
+                    let ord = { ord0 with Schedule = Timed(frq, Time(OrderVariable.clear (let (Time tv) = tme in tv))) }
 
                     let before = countValues ord
                     let res = OrderProcessor.processClearedOrder Logging.noOp ord
@@ -595,11 +603,11 @@ module ToOrderDto =
             match d.OrderType with
             | AnyOrder -> "the order type cannot be 'Any'" |> failtest
             | ProcessOrder -> "the order type cannot be 'Process'" |> failtest
-            | OnceOrder -> Order.Dto.once d.Id d.Name d.Route []
-            | OnceTimedOrder -> Order.Dto.onceTimed d.Id d.Name d.Route []
-            | ContinuousOrder -> Order.Dto.continuous d.Id d.Name d.Route []
-            | DiscontinuousOrder -> Order.Dto.discontinuous d.Id d.Name d.Route []
-            | TimedOrder -> Order.Dto.timed d.Id d.Name d.Route []
+            | OnceOrder -> Order.Dto.once Scenarios.testStart d.Id d.Name d.Route []
+            | OnceTimedOrder -> Order.Dto.onceTimed Scenarios.testStart d.Id d.Name d.Route []
+            | ContinuousOrder -> Order.Dto.continuous Scenarios.testStart d.Id d.Name d.Route []
+            | DiscontinuousOrder -> Order.Dto.discontinuous Scenarios.testStart d.Id d.Name d.Route []
+            | TimedOrder -> Order.Dto.timed Scenarios.testStart d.Id d.Name d.Route []
 
         dto.Orderable <- orbDto
 
@@ -668,7 +676,7 @@ module MedicationOrderTests =
                     [
                         test "ToDto converts medication to OrderDto" {
                             let medOrd = testMedicationOrders |> List.head
-                            let dto = Medication.toOrderDto medOrd
+                            let dto = Medication.toOrderDto Scenarios.testStart medOrd
 
                             dto.Id |> Expect.equal "should match Id" medOrd.Id
                             dto.Schedule.IsDiscontinuous |> Expect.isTrue "should be discontinuous"
@@ -681,7 +689,10 @@ module MedicationOrderTests =
 
                         test "ToDto reference function to OrderDto" {
                             let medOrd = testMedicationOrders |> List.head
-                            let ord1 = Medication.toOrderDto medOrd |> Order.Dto.fromDto |> Result.get
+                            let ord1 =
+                                Medication.toOrderDto Scenarios.testStart medOrd
+                                |> Order.Dto.fromDto
+                                |> Result.get
 
                             // Check if the dto the same as ToOrderDto.toOrderDto
                             let ord2 = ToOrderDto.toOrderDto medOrd |> Order.Dto.fromDto |> Result.get
@@ -798,7 +809,7 @@ module DosePrintoutTests =
                     ]
             }
 
-        let dto = Medication.toOrderDto medicationOrder
+        let dto = Medication.toOrderDto Scenarios.testStart medicationOrder
         dto |> Dto.fromDto |> Result.map applyConstraints |> Result.get
 
     let tests =
@@ -837,8 +848,7 @@ module DosePrintoutTests =
                             let order = createTestOrderWithConstraints false true (Some Units.Weight.kiloGram)
 
                             // Get the item from the order
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             // Verify QuantityAdjust has constraints
                             Expect.isTrue
@@ -846,8 +856,7 @@ module DosePrintoutTests =
                                 (item.Dose.QuantityAdjust |> OV.QuantityAdjust.hasConstraints)
 
                             // Verify the constraint string is generated correctly
-                            let constraintStr =
-                                item.Dose |> Orderable.Dose.Print.doseQuantityAdjustConstraints 3
+                            let constraintStr = item.Dose |> Orderable.Dose.Print.doseQuantityAdjustConstraints 3
 
                             Expect.isTrue "Constraint string should not be empty" (constraintStr |> String.length > 0)
                         }
@@ -868,8 +877,7 @@ module DosePrintoutTests =
                             Expect.isTrue "Printout should not be empty" (pres |> String.length > 0)
 
                             // Get the item to verify constraint status
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             Expect.isFalse
                                 "QuantityAdjust should not have constraints"
@@ -879,8 +887,7 @@ module DosePrintoutTests =
                         test "Uses dosePerTimeAdjust path when QuantityAdjust has no constraints" {
                             let order = createTestOrderWithConstraints false false (Some Units.Weight.kiloGram)
 
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             // When no constraints, should use PerTimeAdjust for display
                             let perTimeAdjustStr = item.Dose |> Orderable.Dose.Print.dosePerTimeAdjustTo false 3
@@ -904,8 +911,7 @@ module DosePrintoutTests =
                             Expect.isTrue "Printout should not be empty" (pres |> String.length > 0)
 
                             // Should include constraint information when Quantity has constraints
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             Expect.isTrue
                                 "Quantity should have constraints"
@@ -919,8 +925,7 @@ module DosePrintoutTests =
                         test "Constraint printout uses doseQuantityConstraints when Quantity has constraints" {
                             let order = createTestOrderWithConstraints true false None
 
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             // When useAdj=false and Quantity has constraints, isPerDose is true
                             Expect.isTrue
@@ -946,8 +951,7 @@ module DosePrintoutTests =
                             // Printout should still work (using PerTime path)
                             Expect.isTrue "Printout should not be empty" (pres |> String.length > 0)
 
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             Expect.isFalse
                                 "Quantity should not have constraints"
@@ -957,8 +961,7 @@ module DosePrintoutTests =
                         test "Uses dosePerTime path when Quantity has no constraints" {
                             let order = createTestOrderWithConstraints false false None
 
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             // When no constraints, should use PerTime for display
                             let perTimeStr = item.Dose |> Orderable.Dose.Print.dosePerTimeTo false 3
@@ -1016,14 +1019,13 @@ module DosePrintoutTests =
                                         ]
                                 }
 
-                            let order = Medication.toOrderDto medOrd |> Dto.fromDto |> Result.get
+                            let order = Medication.toOrderDto Scenarios.testStart medOrd |> Dto.fromDto |> Result.get
                             let pres, _, _ = order |> Print.printOrderToString true [||]
 
                             // For Once orders with adjusted dose, should show QuantityAdjust
                             Expect.isTrue "Once order printout should not be empty" (pres |> String.length > 0)
 
-                            let item =
-                                order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
+                            let item = order.Orderable.Components |> List.head |> (fun c -> c.Items |> List.head)
 
                             Expect.isTrue
                                 "QuantityAdjust should have constraints in Once order"
@@ -1052,10 +1054,164 @@ module DosePrintoutTests =
 
 module TypeTests =
 
+    /// Bare values for the order plan types: an empty context, empty totals.
+    module OrderPlanFixtures =
+
+        let filter: Filter =
+            {
+                Indications = [||]
+                Generics = [||]
+                Routes = [||]
+                Forms = [||]
+                DoseTypes = [||]
+                Diluents = [||]
+                Components = [||]
+                Indication = None
+                Generic = None
+                Route = None
+                Form = None
+                DoseType = None
+                Diluent = None
+                SelectedComponents = [||]
+            }
+
+
+        let totals: Totals =
+            {
+                Volume = None
+                Energy = None
+                Protein = None
+                Carbohydrate = None
+                Fat = None
+                Sodium = None
+                Potassium = None
+                Chloride = None
+                Calcium = None
+                Phosphate = None
+                Magnesium = None
+                Iron = None
+                VitaminD = None
+                Ethanol = None
+                Propyleenglycol = None
+                BenzylAlcohol = None
+                BoricAcid = None
+            }
+
+
+        let context: OrderContext =
+            {
+                Filter = filter
+                Patient = Patient.patient
+                Scenarios = [||]
+            }
+
+
+        let planContext id category =
+            {
+                Id = id
+                Category = category
+                Context = context
+                Intake = totals
+            }
+
+
+        let plan contexts =
+            {
+                Patient = Patient.patient
+                Filtered = [||]
+                Contexts = contexts
+                Totals = totals
+            }
+
+
     let tests =
         testList
             "Types"
             [
+                test "a plan context wraps an order context with its id, category and intake" {
+                    let pc = OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug
+
+                    pc.Context
+                    |> Expect.equal "the context is held as given" OrderPlanFixtures.context
+
+                    pc.Id |> Expect.equal "the id is the plan's" "ctx-1"
+                    pc.Category |> Expect.equal "a drug" OrderCategory.Drug
+                    pc.Intake |> Expect.equal "the intake is held as given" OrderPlanFixtures.totals
+                }
+
+                test "a nutrition context carries its category" {
+                    let pc = OrderPlanFixtures.planContext "ctx-2" (OrderCategory.Nutrition NutritionCategory.TPN)
+
+                    match pc.Category with
+                    | OrderCategory.Nutrition cat -> cat |> Expect.equal "TPN" NutritionCategory.TPN
+                    | OrderCategory.Drug -> failtest "a nutrition context is not a drug"
+                }
+
+                test "an order plan holds its contexts, its filter and its totals" {
+                    let contexts =
+                        [|
+                            OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug
+                            OrderPlanFixtures.planContext
+                                "ctx-2"
+                                (OrderCategory.Nutrition NutritionCategory.EnteralFeeding)
+                        |]
+
+                    let plan = { OrderPlanFixtures.plan contexts with Filtered = [| "ctx-2" |] }
+
+                    plan.Contexts
+                    |> Array.map _.Id
+                    |> Expect.equal "both contexts" [| "ctx-1"; "ctx-2" |]
+
+                    plan.Filtered |> Expect.equal "the filter keeps one" [| "ctx-2" |]
+                    plan.Patient |> Expect.equal "the patient as shown" Patient.patient
+                }
+
+                test "an order plan version stores the whole plan and its identity" {
+                    let plan = OrderPlanFixtures.plan [| OrderPlanFixtures.planContext "ctx-1" OrderCategory.Drug |]
+
+                    let version =
+                        {
+                            Id = "v-1"
+                            No = 1
+                            PatientId = "stub-patient"
+                            Base = None
+                            SignedBy =
+                                {
+                                    UserId = "u-1"
+                                    DisplayName = "Stub Prescriber"
+                                }
+                            SignedAt = System.DateTime(2026, 9, 16, 12, 0, 0)
+                            Plan = plan
+                            Verified = true
+                        }
+
+                    version.Plan |> Expect.equal "the plan as signed" plan
+                    version.Base |> Expect.isNone "the first version has no base"
+                    version.SignedBy.DisplayName |> Expect.equal "the signer" "Stub Prescriber"
+
+                    let second =
+                        { version with
+                            Id = "v-2"
+                            No = 2
+                            Base = Some version.Id
+                        }
+
+                    second.Base |> Expect.equal "the second is built on the first" (Some "v-1")
+                    second.Plan |> Expect.equal "the plan is copied, not recomputed" version.Plan
+                }
+
+                test "a nutrition rule set names what its category draws from" {
+                    let set =
+                        {
+                            Category = NutritionCategory.Lipid
+                            Label = "Lipid"
+                            Indications = [| "parenterale voeding" |]
+                            Generics = [| "smoflipid" |]
+                        }
+
+                    set.Generics |> Expect.equal "the generics of the set" [| "smoflipid" |]
+                }
+
                 test "OrderVariable can be created" {
                     let constraints =
                         {
@@ -1179,6 +1335,322 @@ module MedicationParserTests =
             ]
 
 
+module OrderBuilderTests =
+
+    open Informedica.GenOrder.Lib.Medication
+
+    /// The names of every order variable of an order, in order.
+    let private names (ord: Order) =
+        ord
+        |> Order.toOrdVars
+        |> List.map (OrderVariable.getName >> Informedica.GenSolver.Lib.Variable.Name.toString)
+
+    /// The built order out to an Order Dto and back. It was the path the builder was held to
+    /// while the old one existed; now that the Dto is made from the built order, these compare
+    /// an order with itself round tripped, which is what catches a Dto that drops a field, as
+    /// the component id once was.
+    let private roundTripped (med: Medication) =
+        med |> Medication.toOrderDto Scenarios.testStart |> Order.Dto.fromDto
+
+
+    /// The scenarios the orders are recorded for, so that a scenario cannot be added to one
+    /// list of fixtures and forgotten in the other.
+    let private fixtures = GoldenOrders.all |> List.map (fun g -> g.Name, g.Medication)
+
+    /// The constraints of every order variable of an order, by name, for those whose name has
+    /// the given number of parts: four for an item, three for a component, two for the
+    /// orderable and one for the order itself.
+    let private constraintsOfDepth depth (ord: Order) =
+        ord
+        |> Order.toOrdVars
+        |> List.choose (fun ovar ->
+            let n =
+                ovar
+                |> OrderVariable.getName
+                |> Informedica.GenSolver.Lib.Variable.Name.toString
+
+            let parts =
+                n
+                |> String.split "]"
+                |> List.head
+                |> String.replace "[" ""
+                |> String.split "."
+                |> List.length
+
+            if parts = depth then
+                Some(n, ovar |> OrderVariable.getConstraints)
+            else
+                None
+        )
+        |> List.sortBy fst
+
+    let tests =
+        testList
+            "Medication.OrderBuilder, and the Dto round trip over what it builds"
+            [
+                for orderType in [ AnyOrder; ProcessOrder ] do
+                    test $"an order type of {orderType} is refused, not raised" {
+                        { Scenarios.pcmSupp with OrderType = orderType }
+                        |> Medication.toOrder Scenarios.testStart
+                        |> Result.isError
+                        |> Expect.isTrue "a medication that cannot be ordered gives an Error"
+                    }
+
+                test "asking a medication that cannot be ordered for a Dto says why" {
+                    let med = { Scenarios.pcmSupp with OrderType = AnyOrder }
+
+                    // the callers that want a Dto have nowhere to put a failure, so it is
+                    // thrown; what is thrown must still name the reason
+                    (fun () -> med |> Medication.toOrderDto Scenarios.testStart |> ignore)
+                    |> Expect.throwsT<System.NotSupportedException> "the reason reaches the caller"
+                }
+
+                test "a medication that cannot be ordered leaves the others alone" {
+                    let meds =
+                        [|
+                            { Scenarios.pcmSupp with OrderType = AnyOrder }
+                            Scenarios.pcmSupp
+                            { Scenarios.amfo with OrderType = ProcessOrder }
+                            Scenarios.amfo
+                        |]
+
+                    // what rule evaluation does with the orders it builds
+                    meds
+                    |> Array.choose (Medication.toOrder Scenarios.testStart >> Result.toOption)
+                    |> Array.length
+                    |> Expect.equal "the two that can be ordered are kept" 2
+                }
+
+                for name, med in fixtures do
+                    test $"the Dto round trip returns {name}'s order unchanged" {
+                        match med |> roundTripped, med |> Medication.toOrder Scenarios.testStart with
+                        | Ok fromDto, Ok built -> fromDto |> Expect.equal "the same order" built
+                        | r1, r2 -> failtest $"a path failed: %A{r1} %A{r2}"
+                    }
+
+                for name, med in fixtures do
+                    test $"two builds of {name} on the same start are equal" {
+                        match
+                            med |> Medication.toOrder Scenarios.testStart, med |> Medication.toOrder Scenarios.testStart
+                        with
+                        | Ok first, Ok second -> first |> Expect.equal "the same order" second
+                        | r1, r2 -> failtest $"a path failed: %A{r1} %A{r2}"
+                    }
+
+                for name, med in fixtures do
+                    test $"the Dto round trip keeps every order variable of {name}" {
+                        let built =
+                            med
+                            |> OrderBuilder.newOrder Scenarios.testStart
+                            |> OrderBuilder.withComponents med
+
+                        match med |> roundTripped with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord -> ord |> names |> Expect.equal "the same order variables" (built |> names)
+                    }
+
+                for name, med in fixtures do
+                    test $"the Dto round trip keeps {name}'s item constraints" {
+                        let built =
+                            med
+                            |> OrderBuilder.newOrder Scenarios.testStart
+                            |> OrderBuilder.withComponents med
+                            |> OrderBuilder.withItemConstraints med
+
+                        match med |> roundTripped with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord ->
+                            built
+                            |> constraintsOfDepth 4
+                            |> Expect.equal "the same item constraints" (ord |> constraintsOfDepth 4)
+                    }
+
+                for name, med in fixtures do
+                    test $"the Dto round trip keeps {name}'s orderable constraints" {
+                        let built =
+                            med
+                            |> OrderBuilder.newOrder Scenarios.testStart
+                            |> OrderBuilder.withComponents med
+                            |> OrderBuilder.withItemConstraints med
+                            |> OrderBuilder.withComponentConstraints med
+                            |> OrderBuilder.withOrderableConstraints med
+
+                        match med |> roundTripped with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord ->
+                            built
+                            |> constraintsOfDepth 2
+                            |> Expect.equal "the same orderable constraints" (ord |> constraintsOfDepth 2)
+                    }
+
+                for name, med in fixtures do
+                    test $"the Dto round trip keeps {name}'s component constraints" {
+                        let built =
+                            med
+                            |> OrderBuilder.newOrder Scenarios.testStart
+                            |> OrderBuilder.withComponents med
+                            |> OrderBuilder.withItemConstraints med
+                            |> OrderBuilder.withComponentConstraints med
+
+                        match med |> roundTripped with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord ->
+                            built
+                            |> constraintsOfDepth 3
+                            |> Expect.equal "the same component constraints" (ord |> constraintsOfDepth 3)
+                    }
+            ]
+
+
+module GoldenOrderTests =
+
+    /// The full processing an order goes through before a prescriber sees it, with the name of
+    /// every stage that reported an error. A stage that fails carries its order on to the next
+    /// one, as the application does, so what the stages produced is still there to compare.
+    let private solve (ord: Order) =
+        let run (name, cmd) (o, errs) =
+            match o |> cmd |> OrderProcessor.processPipeline Logging.noOp with
+            | Ok o -> o, errs
+            | Error(o, _) -> o, errs @ [ name ]
+
+        (ord, [])
+        |> run ("CalcMinMax", CalcMinMax)
+        |> run ("IncreaseIncrements", IncreaseIncrements)
+        |> run ("CalcValues", CalcValues)
+        |> run ("SolveOrder", SolveOrder)
+
+
+    let private lines (s: string) =
+        s |> String.split "\n" |> List.map String.trim |> List.filter String.notEmpty
+
+    let tests =
+        testList
+            "the orders the scenarios solve to"
+            [
+                for golden in GoldenOrders.all do
+                    test $"{golden.Name} solves to the order it did" {
+                        match golden.Medication |> Medication.toOrder Scenarios.testStart with
+                        | Error e -> failtest $"could not build the order: %A{e}"
+                        | Ok ord ->
+                            let solved, errs = ord |> solve
+
+                            errs |> Expect.equal "the same stages report an error" golden.Errors
+
+                            solved
+                            |> Order.toString
+                            |> List.map String.trim
+                            |> List.filter String.notEmpty
+                            |> Expect.equal "the same solved order" (golden.Order |> lines)
+                    }
+            ]
+
+
+module ConstraintsTests =
+
+    open Informedica.GenCore.Lib.Ranges
+    open Informedica.GenSolver.Lib.Variable.ValueRange
+
+    module Constraints = OrderVariable.Constraints
+
+    let private mg = Units.Mass.milliGram
+    let private one = 1N |> ValueUnit.singleWithUnit mg
+    let private two = 2N |> ValueUnit.singleWithUnit mg
+    let private empty = ValueUnit.create mg [||]
+
+    /// A Constraints with all four fields set, to see which of them a setter leaves alone.
+    let private full =
+        Constraints.create
+            (one |> Minimum.create true |> Some)
+            (two |> Increment.create |> Some)
+            (two |> Maximum.create true |> Some)
+            (one |> ValueSet.create |> Some)
+
+    let tests =
+        testList
+            "OrderVariable.Constraints setters"
+            [
+                test "setValues of a ValueUnit without values is no value set" {
+                    full
+                    |> Constraints.setValues (Some empty)
+                    |> _.Values
+                    |> Expect.isNone "an empty ValueUnit constrains nothing"
+                }
+
+                test "setIncr of a ValueUnit without values is no increment" {
+                    full
+                    |> Constraints.setIncr (Some empty)
+                    |> _.Incr
+                    |> Expect.isNone "an empty ValueUnit constrains nothing"
+                }
+
+                test "setValues of None is no value set" {
+                    full
+                    |> Constraints.setValues None
+                    |> _.Values
+                    |> Expect.isNone "None constrains nothing"
+                }
+
+                test "setMin leaves the other three alone" {
+                    let cs = full |> Constraints.setMin false (Some two)
+
+                    (cs.Incr, cs.Max, cs.Values)
+                    |> Expect.equal "only the minimum changed" (full.Incr, full.Max, full.Values)
+                }
+
+                test "setMin carries whether the bound is inclusive" {
+                    full
+                    |> Constraints.setMin false (Some two)
+                    |> _.Min
+                    |> Option.map Minimum.isIncl
+                    |> Expect.equal "an exclusive minimum stays exclusive" (Some false)
+                }
+
+                test "setMax of None is no upper bound" {
+                    full
+                    |> Constraints.setMax true None
+                    |> _.Max
+                    |> Expect.isNone "None is no upper bound"
+                }
+
+                test "setMinMax leaves a bound the MinMax does not give" {
+                    let cs = full |> Constraints.setMinMax false MinMax.empty
+
+                    (cs.Min, cs.Max) |> Expect.equal "neither bound moved" (full.Min, full.Max)
+                }
+
+                test "setMinMax widens a norm dose by a tenth either way" {
+                    let mm =
+                        { MinMax.empty with
+                            Min = one |> Limit.Inclusive |> Some
+                            Max = one |> Limit.Inclusive |> Some
+                        }
+
+                    let cs = full |> Constraints.setMinMax true mm
+
+                    let value =
+                        Option.map (Minimum.toValueUnit >> ValueUnit.getValue >> Array.head)
+                        >> Option.defaultValue 0N
+
+                    (cs.Min |> value, cs.Max |> Option.map (Maximum.toValueUnit >> ValueUnit.getValue >> Array.head))
+                    |> Expect.equal "nine tenths and eleven tenths of the norm" (9N / 10N, Some(11N / 10N))
+                }
+
+                test "setMinMax takes a range as it is" {
+                    let mm =
+                        { MinMax.empty with
+                            Min = one |> Limit.Inclusive |> Some
+                            Max = two |> Limit.Inclusive |> Some
+                        }
+
+                    full
+                    |> Constraints.setMinMax true mm
+                    |> _.Max
+                    |> Option.map (Maximum.toValueUnit >> ValueUnit.getValue >> Array.head)
+                    |> Expect.equal "a range is not a norm dose" (Some 2N)
+                }
+            ]
+
+
 module OrderVariableTests =
 
     // Hermetic tests for ValueUnit.collect — no resources are loaded. All
@@ -1202,8 +1674,7 @@ module OrderVariableTests =
                             ValueUnit.create Units.Mass.milliGram [| 1N / 8N |] // 0,125 mg
                         |]
 
-                    let exp =
-                        ValueUnit.create Units.Mass.milliGram [| 1N / 4N; 1N / 16N; 1N / 8N |] |> Some
+                    let exp = ValueUnit.create Units.Mass.milliGram [| 1N / 4N; 1N / 16N; 1N / 8N |] |> Some
 
                     vus
                     |> ValueUnit.collect
@@ -1349,8 +1820,8 @@ module EquationsTests =
                     }
 
                 test "getEquations is memoised: repeat calls return the same instance" {
-                    // Issue #530: memoize used to be applied per call, so every call
-                    // built and missed a fresh cache and returned a new list.
+                    // memoize used to be applied per call, so every call built and
+                    // missed a fresh cache and returned a new list.
                     let first = EquationMapping.getEquations 3
                     let second = EquationMapping.getEquations 3
 
@@ -1360,7 +1831,7 @@ module EquationsTests =
             ]
 
 
-// Regression tests for issue #381: after the orderable dose quantity is
+// Regression tests: after the orderable dose quantity is
 // changed so that dose quantity <> orderable quantity (orb_dos_cnt <> 1),
 // changing an individual component orderable quantity used to over-determine
 // the orderable dose quantity onto an off-increment value. The solver then
@@ -1381,7 +1852,7 @@ module OrderProcessorTests =
     /// Build and fully solve the multi-component timed TPN scenario.
     let private solvedTpn () =
         Scenarios.tpn
-        |> Medication.toOrderDto
+        |> Medication.toOrderDto Scenarios.testStart
         |> Order.Dto.fromDto
         |> function
             | Ok o -> o
@@ -1421,7 +1892,7 @@ module OrderProcessorTests =
     [<Tests>]
     let tests =
         testList
-            "OrderProcessor component change after dose-quantity change (issue #381)"
+            "OrderProcessor component change after dose-quantity change"
             [
                 test "component orderable quantity change does not crash the solver after a dose-quantity change" {
                     let afterDoseChange = solvedTpn () |> lowerOrderableDoseQuantity
@@ -1464,6 +1935,669 @@ module OrderProcessorTests =
             ]
 
 
+module DtoTests =
+
+    open Informedica.Utils.Lib.BCL
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenUnits.Lib
+    open Informedica.GenForm.Lib
+    open Informedica.GenOrder.Lib
+
+
+    module Fixtures =
+
+        let order med =
+            match med |> Medication.toOrderDto Scenarios.testStart |> Order.Dto.fromDto with
+            | Ok o -> o
+            | Error e -> failwith $"fixture order could not be created: {e}"
+
+        let orders =
+            [
+                "paracetamol supp", Scenarios.pcmSupp
+                "amphotericin", Scenarios.amfo
+                "morphine", Scenarios.morfCont
+            ]
+            |> List.map (fun (n, m) -> n, order m)
+
+        let filter: Filter =
+            {
+                Indications = [| "koorts"; "pijn" |]
+                Generics = [| "paracetamol" |]
+                Routes = [| "rect"; "or" |]
+                Forms = [| "zetpil" |]
+                DoseTypes =
+                    [|
+                        Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag"
+                        Informedica.GenForm.Lib.Types.Once ""
+                    |]
+                Diluents = [||]
+                Components = [| "paracetamol" |]
+                Indication = Some "koorts"
+                Generic = Some "paracetamol"
+                Route = Some "rect"
+                Form = None
+                DoseType = Some(Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag")
+                Diluent = None
+                SelectedComponents = [| "paracetamol" |]
+            }
+
+        let scenario (ord: Order) : OrderScenario =
+            {
+                No = 1
+                Name = "paracetamol"
+                Indication = "koorts"
+                Form = "zetpil"
+                Route = "rect"
+                DoseType = Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag"
+                Diluent = None
+                Component = Some "paracetamol"
+                Item = Some "paracetamol"
+                Diluents = [||]
+                Components = [| "paracetamol" |]
+                Items = [| "paracetamol" |]
+                Prescription = [| [| Valid "paracetamol"; Caution "max 4 x/dag" |] |]
+                Preparation = [| [| Valid "zetpil 240 mg" |] |]
+                Administration = [| [| Warning "rectaal" |]; [| Alert "niet bij lever" |] |]
+                Order = ord
+                UseAdjust = true
+                UseRenalRule = false
+                RenalRule = None
+                ProductsIds = [| "gpk-1" |]
+            }
+
+
+    let tests =
+        testList
+            "Dtos"
+            [
+                testList
+                    "Order.Dto, the existing Dto the scenario nests"
+                    [
+                        for name, ord in Fixtures.orders do
+                            test $"a component of {name}'s order carries its id into the Dto" {
+                                ord
+                                |> Order.Dto.toDto
+                                |> _.Orderable.Components
+                                |> List.map _.Id
+                                |> List.filter String.isNullOrWhiteSpace
+                                |> Expect.isEmpty "no component id is written empty"
+                            }
+
+                        for name, ord in Fixtures.orders do
+                            test $"L1 for {name}'s order" {
+                                ord
+                                |> Order.Dto.toDto
+                                |> Order.Dto.fromDto
+                                |> Expect.equal "the same order" (Ok ord)
+                            }
+                    ]
+
+                testList
+                    "Filter.Dto"
+                    [
+                        test "L1, fromDto (toDto x) = Ok x" {
+                            Fixtures.filter
+                            |> Filter.Dto.toDto
+                            |> Filter.Dto.fromDto
+                            |> Expect.equal "the same filter" (Ok Fixtures.filter)
+                        }
+
+                        test "L2, fromDto d |> Result.map toDto = Ok d, in canonical form" {
+                            let dto = Fixtures.filter |> Filter.Dto.toDto
+
+                            dto
+                            |> Filter.Dto.fromDto
+                            |> Result.map (Filter.Dto.toDto >> Canonical.serialize)
+                            |> Expect.equal "the same form" (Ok(Canonical.serialize dto))
+                        }
+
+                        test "an unknown dose type is an error, and every one is reported" {
+                            { (Fixtures.filter |> Filter.Dto.toDto) with
+                                DoseTypes = [| "weekly"; "once" |]
+                                DoseType = Some "hourly"
+                            }
+                            |> Filter.Dto.fromDto
+                            |> Expect.equal
+                                "both"
+                                (Error [ DtoError.UnknownDoseType "weekly"; DtoError.UnknownDoseType "hourly" ])
+                        }
+                    ]
+
+                testList
+                    "OrderScenario.Dto"
+                    [
+                        for name, ord in Fixtures.orders do
+                            test $"L1 with {name}'s order" {
+                                let sc = Fixtures.scenario ord
+
+                                sc
+                                |> OrderScenario.Dto.toDto
+                                |> OrderScenario.Dto.fromDto
+                                |> Expect.equal "the same scenario" (Ok sc)
+                            }
+
+                        for name, ord in Fixtures.orders do
+                            test $"L2 with {name}'s order, in canonical form" {
+                                let dto = Fixtures.scenario ord |> OrderScenario.Dto.toDto
+
+                                dto
+                                |> OrderScenario.Dto.fromDto
+                                |> Result.map (OrderScenario.Dto.toDto >> Canonical.serialize)
+                                |> Expect.equal "the same form" (Ok(Canonical.serialize dto))
+                            }
+
+                        test "an unknown text kind is an error" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+
+                            { dto with
+                                Prescription =
+                                    [|
+                                        [|
+                                            {
+                                                Kind = "note"
+                                                Text = "x"
+                                            }
+                                        |]
+                                    |]
+                            }
+                            |> OrderScenario.Dto.fromDto
+                            |> Expect.equal "named" (Error [ DtoError.UnknownTextKind "note" ])
+                        }
+
+                        test "null elements are unknown ones, never a crash" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+
+                            { dto with Prescription = [| [| Unchecked.defaultof<TextBlock.Dto.Dto> |] |] }
+                            |> OrderScenario.Dto.fromDto
+                            |> Expect.equal "a block that names no kind" (Error [ DtoError.UnknownTextKind "" ])
+
+                            { (Fixtures.filter |> Filter.Dto.toDto) with DoseTypes = [| null |] }
+                            |> Filter.Dto.fromDto
+                            |> Expect.equal "a dose type that names nothing" (Error [ DtoError.UnknownDoseType "" ])
+
+                            { dto with DoseType = null }
+                            |> OrderScenario.Dto.fromDto
+                            |> Expect.equal
+                                "a scenario dose type that names nothing"
+                                (Error [ DtoError.UnknownDoseType "" ])
+                        }
+
+                        test "null arrays are read as empty, never a crash" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+
+                            let read =
+                                { dto with
+                                    Diluents = null
+                                    Prescription = [| null |]
+                                    ProductsIds = null
+                                }
+                                |> OrderScenario.Dto.fromDto
+
+                            match read with
+                            | Ok sc ->
+                                sc.Diluents |> Expect.isEmpty "no diluents"
+                                sc.Prescription |> Expect.equal "one empty line" [| [||] |]
+                                sc.ProductsIds |> Expect.isEmpty "no products"
+                            | Error e -> failtest $"expected a scenario, got {e}"
+                        }
+
+                        test "a Filter.Dto with null arrays reads as empty" {
+                            match
+                                { (Fixtures.filter |> Filter.Dto.toDto) with
+                                    Indications = null
+                                    DoseTypes = null
+                                }
+                                |> Filter.Dto.fromDto
+                            with
+                            | Ok f ->
+                                f.Indications |> Expect.isEmpty "no indications"
+                                f.DoseTypes |> Expect.isEmpty "no dose types"
+                            | Error e -> failtest $"expected a filter, got {e}"
+                        }
+
+                        test "an order that cannot be created is an error, not a dropped scenario" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+                            let broken = Order.Dto.Dto(dto.Order.Id, "paracetamol")
+                            broken.Orderable <- Unchecked.defaultof<_>
+
+                            match { dto with Order = broken } |> OrderScenario.Dto.fromDto with
+                            | Error [ DtoError.OrderNotCreated _ ] -> ()
+                            | other -> failtest $"expected one OrderNotCreated, got {other}"
+                        }
+                    ]
+
+                testList
+                    "the canonical form"
+                    [
+                        test "no whitespace, fields in declared order, a BigRational as n/d" {
+                            let s = Fixtures.filter |> Filter.Dto.toDto |> Canonical.serialize
+
+                            // no whitespace outside string values: none after a colon or a comma
+                            (s.Contains "\": " || s.Contains ", \"" || s.Contains ", [")
+                            |> Expect.isFalse "no whitespace outside strings"
+
+                            s.StartsWith "{\"Indications\":[\"koorts\",\"pijn\"],\"Generics\""
+                            |> Expect.isTrue "declared order"
+
+                            [ 1N; 3N / 4N; 10N / 4N ]
+                            |> Canonical.serialize
+                            |> Expect.equal "lowest terms" "[\"1/1\",\"3/4\",\"5/2\"]"
+                        }
+
+                        test "an option is its value or null" {
+                            (Some "x", (None: string option))
+                            |> Canonical.serialize
+                            |> Expect.equal "value or null" "{\"Item1\":\"x\",\"Item2\":null}"
+                        }
+
+                        test "two Dtos equal as values serialize equal, a re-ordered array does not" {
+                            let a = Fixtures.filter |> Filter.Dto.toDto
+
+                            let b =
+                                { Fixtures.filter with Indications = [| "koorts"; "pijn" |] }
+                                |> Filter.Dto.toDto
+
+                            let c =
+                                { Fixtures.filter with Indications = [| "pijn"; "koorts" |] }
+                                |> Filter.Dto.toDto
+
+                            Canonical.serialize a |> Expect.equal "equal" (Canonical.serialize b)
+
+                            Canonical.serialize a
+                            |> Expect.notEqual "a different order plan" (Canonical.serialize c)
+                        }
+
+                        test "a Filter.Dto reads back from its canonical form" {
+                            let dto = Fixtures.filter |> Filter.Dto.toDto
+
+                            dto
+                            |> Canonical.serialize
+                            |> Canonical.deserialize<Filter.Dto.Dto>
+                            |> Expect.equal "the same Dto" dto
+                        }
+
+                        test "an OrderScenario.Dto reads back from its canonical form, in canonical form" {
+                            let dto = Fixtures.scenario (snd Fixtures.orders[0]) |> OrderScenario.Dto.toDto
+                            let s = dto |> Canonical.serialize
+
+                            s
+                            |> Canonical.deserialize<OrderScenario.Dto.Dto>
+                            |> Canonical.serialize
+                            |> Expect.equal "the same form" s
+                        }
+                    ]
+            ]
+
+
+module OrderPlanDtoTests =
+
+    open System
+    open Informedica.Utils.Lib.BCL
+    open Expecto
+    open Expecto.Flip
+    open Informedica.GenUnits.Lib
+    open Informedica.GenForm.Lib
+    open Informedica.GenOrder.Lib
+
+
+    module Fixtures =
+
+        let order =
+            match
+                Scenarios.pcmSupp
+                |> Medication.toOrderDto Scenarios.testStart
+                |> Order.Dto.fromDto
+            with
+            | Ok o -> o
+            | Error e -> failwith $"fixture order could not be created: {e}"
+
+        let kg = Units.Weight.kiloGram
+        let cm = Units.Height.centiMeter
+        let day = Units.Time.day
+
+        let child =
+            { Patient.patient with
+                Department = Some "ICK"
+                Gender = Male
+                Age = Some(ValueUnit.singleWithUnit day 3650N)
+                Weight = Some(ValueUnit.singleWithUnit kg 32N)
+                Height = Some(ValueUnit.singleWithUnit cm 140N)
+                Access = [ PVL ]
+            }
+
+        let filter: Filter =
+            {
+                Indications = [| "koorts"; "pijn" |]
+                Generics = [| "paracetamol" |]
+                Routes = [| "rect" |]
+                Forms = [| "zetpil" |]
+                DoseTypes = [| Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag" |]
+                Diluents = [||]
+                Components = [| "paracetamol" |]
+                Indication = Some "koorts"
+                Generic = Some "paracetamol"
+                Route = Some "rect"
+                Form = Some "zetpil"
+                DoseType = Some(Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag")
+                Diluent = None
+                SelectedComponents = [| "paracetamol" |]
+            }
+
+        let scenario: OrderScenario =
+            {
+                No = 1
+                Name = "paracetamol"
+                Indication = "koorts"
+                Form = "zetpil"
+                Route = "rect"
+                DoseType = Informedica.GenForm.Lib.Types.Discontinuous "3-4 x/dag"
+                Diluent = None
+                Component = Some "paracetamol"
+                Item = Some "paracetamol"
+                Diluents = [||]
+                Components = [| "paracetamol" |]
+                Items = [| "paracetamol" |]
+                Prescription = [| [| Valid "paracetamol 240 mg 3 x/dag" |] |]
+                Preparation = [| [| Valid "zetpil 240 mg" |] |]
+                Administration = [| [| Warning "rectaal" |] |]
+                Order = order
+                UseAdjust = true
+                UseRenalRule = false
+                RenalRule = None
+                ProductsIds = [| "gpk-1" |]
+            }
+
+        let context: OrderContext =
+            {
+                Filter = filter
+                Patient = child
+                Scenarios = [| scenario |]
+            }
+
+        let totals: Totals =
+            {
+                Volume = Some "100 ml"
+                Energy = Some "50 kcal"
+                Protein = None
+                Carbohydrate = None
+                Fat = None
+                Sodium = Some "3 mmol"
+                Potassium = None
+                Chloride = None
+                Calcium = None
+                Phosphate = None
+                Magnesium = None
+                Iron = None
+                VitaminD = None
+                Ethanol = None
+                Propyleenglycol = None
+                BenzylAlcohol = None
+                BoricAcid = None
+            }
+
+        let planContext: PlanContext =
+            {
+                Id = "ctx-1"
+                Category = OrderCategory.Drug
+                Context = context
+                Intake = totals
+            }
+
+        let feeding: PlanContext =
+            { planContext with
+                Id = "ctx-2"
+                Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding
+            }
+
+        let plan: OrderPlan =
+            {
+                Patient = child
+                Filtered = [| "ctx-1" |]
+                Contexts = [| planContext; feeding |]
+                Totals = totals
+            }
+
+        let version: OrderPlanVersion =
+            {
+                Id = "v-1"
+                No = 1
+                PatientId = "stub-patient"
+                Base = None
+                SignedBy =
+                    {
+                        UserId = "u-1"
+                        DisplayName = "Stub Prescriber"
+                    }
+                SignedAt = DateTime(2026, 9, 16, 12, 0, 0, DateTimeKind.Utc)
+                Plan = plan
+                Verified = true
+            }
+
+
+    let l1 name (x: 'a) (toDto: 'a -> 'd) (fromDto: 'd -> Result<'a, DtoError list>) =
+        test $"L1 for {name}" { x |> toDto |> fromDto |> Expect.equal "the same value" (Ok x) }
+
+
+    let l2 name (x: 'a) (toDto: 'a -> 'd) (fromDto: 'd -> Result<'a, DtoError list>) =
+        test $"L2 for {name}, in canonical form" {
+            let dto = x |> toDto
+
+            dto
+            |> fromDto
+            |> Result.map (toDto >> Canonical.serialize)
+            |> Expect.equal "the same form" (Ok(Canonical.serialize dto))
+        }
+
+
+    let tests =
+        testList
+            "Order plan Dtos"
+            [
+                testList
+                    "laws"
+                    [
+                        l1 "totals" Fixtures.totals Totals.Dto.toDto Totals.Dto.fromDto
+                        l2 "totals" Fixtures.totals Totals.Dto.toDto Totals.Dto.fromDto
+                        l1 "an order context" Fixtures.context OrderContext.Dto.toDto OrderContext.Dto.fromDto
+                        l2 "an order context" Fixtures.context OrderContext.Dto.toDto OrderContext.Dto.fromDto
+                        l1 "a plan context" Fixtures.feeding PlanContext.Dto.toDto PlanContext.Dto.fromDto
+                        l2 "a plan context" Fixtures.feeding PlanContext.Dto.toDto PlanContext.Dto.fromDto
+                        l1 "an order plan" Fixtures.plan OrderPlan.Dto.toDto OrderPlan.Dto.fromDto
+                        l2 "an order plan" Fixtures.plan OrderPlan.Dto.toDto OrderPlan.Dto.fromDto
+                        l1
+                            "an order plan version"
+                            Fixtures.version
+                            OrderPlanVersion.Dto.toDto
+                            OrderPlanVersion.Dto.fromDto
+                        l2
+                            "an order plan version"
+                            Fixtures.version
+                            OrderPlanVersion.Dto.toDto
+                            OrderPlanVersion.Dto.fromDto
+                    ]
+
+                testList
+                    "categories"
+                    [
+                        test "every category round-trips as a string" {
+                            [
+                                OrderCategory.Drug
+                                OrderCategory.Nutrition NutritionCategory.EnteralFeeding
+                                OrderCategory.Nutrition NutritionCategory.EnteralSupplement
+                                OrderCategory.Nutrition NutritionCategory.TPN
+                                OrderCategory.Nutrition NutritionCategory.Lipid
+                                OrderCategory.Nutrition NutritionCategory.ElectrolyteGlucose
+                            ]
+                            |> List.map (fun c -> c |> OrderCategoryDto.toString |> OrderCategoryDto.fromString)
+                            |> List.forall Result.isOk
+                            |> Expect.isTrue "each read back"
+                        }
+
+                        test "an unknown category is an error" {
+                            { (Fixtures.feeding |> PlanContext.Dto.toDto) with Category = "nutrition:soup" }
+                            |> PlanContext.Dto.fromDto
+                            |> Expect.equal "named" (Error [ DtoError.UnknownCategory "nutrition:soup" ])
+                        }
+                    ]
+
+                testList
+                    "fromDto refuses"
+                    [
+                        test "an order plan whose patient is below the minimum data, with every context's errors" {
+                            let dto = Fixtures.plan |> OrderPlan.Dto.toDto
+
+                            let brokenContext = { dto.Contexts[0] with Category = "x" }
+
+                            { dto with
+                                Patient =
+                                    { dto.Patient with
+                                        AgeDays = None
+                                        WeightMeasured = false
+                                    }
+                                Contexts = [| brokenContext; dto.Contexts[1] |]
+                            }
+                            |> OrderPlan.Dto.fromDto
+                            |> Expect.equal
+                                "both reported"
+                                (Error
+                                    [
+                                        DtoError.Patient PatientError.NoAgeOrMeasuredWeightAndHeight
+                                        DtoError.UnknownCategory "x"
+                                    ])
+                        }
+
+                        test "a scenario whose order cannot be created is an error, not dropped" {
+                            let dto = Fixtures.context |> OrderContext.Dto.toDto
+                            let broken = Order.Dto.Dto(dto.Scenarios[0].Order.Id, "paracetamol")
+                            broken.Orderable <- Unchecked.defaultof<_>
+
+                            match
+                                { dto with Scenarios = [| { dto.Scenarios[0] with Order = broken } |] }
+                                |> OrderContext.Dto.fromDto
+                            with
+                            | Error [ DtoError.OrderNotCreated _ ] -> ()
+                            | other -> failtest $"expected one OrderNotCreated, got {other}"
+                        }
+
+                        test "null nested Dtos are missing, null arrays empty, never a crash" {
+                            let dto = Fixtures.version |> OrderPlanVersion.Dto.toDto
+
+                            { dto with
+                                SignedBy = Unchecked.defaultof<_>
+                                Plan =
+                                    { dto.Plan with
+                                        Totals = Unchecked.defaultof<_>
+                                        Filtered = null
+                                    }
+                            }
+                            |> OrderPlanVersion.Dto.fromDto
+                            |> Expect.equal
+                                "both named"
+                                (Error [ DtoError.Missing "SignedBy"; DtoError.Missing "Totals" ])
+
+                            match
+                                { dto with
+                                    Plan =
+                                        { dto.Plan with
+                                            Filtered = null
+                                            Contexts = null
+                                        }
+                                }
+                                |> OrderPlanVersion.Dto.fromDto
+                            with
+                            | Ok v ->
+                                v.Plan.Filtered |> Expect.isEmpty "no filter"
+                                v.Plan.Contexts |> Expect.isEmpty "no contexts"
+                            | Error e -> failtest $"expected a version, got {e}"
+                        }
+                    ]
+
+                testList
+                    "the stored root"
+                    [
+                        test "an order plan version reads back from its canonical form, in canonical form" {
+                            let dto = Fixtures.version |> OrderPlanVersion.Dto.toDto
+                            let s = dto |> Canonical.serialize
+
+                            s
+                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
+                            |> Canonical.serialize
+                            |> Expect.equal "the same form" s
+                        }
+
+                        test "a version read back parses to the version that was written" {
+                            Fixtures.version
+                            |> OrderPlanVersion.Dto.toDto
+                            |> Canonical.serialize
+                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
+                            |> OrderPlanVersion.Dto.fromDto
+                            // in canonical form: a local DateTime reads back as the same instant in UTC
+                            |> Result.map (OrderPlanVersion.Dto.toDto >> Canonical.serialize)
+                            |> Expect.equal
+                                "the same version"
+                                (Ok(Fixtures.version |> OrderPlanVersion.Dto.toDto |> Canonical.serialize))
+                        }
+
+                        test "a null root is missing by its name, never a crash" {
+                            let missing name = Error [ DtoError.Missing name ]
+
+                            "null"
+                            |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
+                            |> OrderPlanVersion.Dto.fromDto
+                            |> Expect.equal "a stored null" (missing "OrderPlanVersion")
+
+                            Unchecked.defaultof<OrderPlan.Dto.Dto>
+                            |> OrderPlan.Dto.fromDto
+                            |> Expect.equal "order plan" (missing "OrderPlan")
+
+                            Unchecked.defaultof<PlanContext.Dto.Dto>
+                            |> PlanContext.Dto.fromDto
+                            |> Expect.equal "plan context" (missing "PlanContext")
+
+                            Unchecked.defaultof<Signer.Dto.Dto>
+                            |> Signer.Dto.fromDto
+                            |> Expect.equal "signer" (missing "Signer")
+
+                            Unchecked.defaultof<Totals.Dto.Dto>
+                            |> Totals.Dto.fromDto
+                            |> Expect.equal "totals" (missing "Totals")
+
+                            Unchecked.defaultof<OrderContext.Dto.Dto>
+                            |> OrderContext.Dto.fromDto
+                            |> Expect.equal "order context" (missing "OrderContext")
+
+                            Unchecked.defaultof<OrderScenario.Dto.Dto>
+                            |> OrderScenario.Dto.fromDto
+                            |> Expect.equal "scenario" (missing "OrderScenario")
+
+                            Unchecked.defaultof<Filter.Dto.Dto>
+                            |> Filter.Dto.fromDto
+                            |> Expect.equal "filter" (missing "Filter")
+                        }
+
+                        test "two versions equal as values digest equal, a re-ordered plan does not" {
+                            let a = Fixtures.version |> OrderPlanVersion.Dto.toDto |> Canonical.serialize
+
+                            let b =
+                                { Fixtures.version with
+                                    Plan =
+                                        { Fixtures.plan with Contexts = [| Fixtures.feeding; Fixtures.planContext |] }
+                                }
+                                |> OrderPlanVersion.Dto.toDto
+                                |> Canonical.serialize
+
+                            Fixtures.version
+                            |> OrderPlanVersion.Dto.toDto
+                            |> Canonical.serialize
+                            |> Expect.equal "equal" a
+
+                            a |> Expect.notEqual "a different order plan" b
+                        }
+                    ]
+            ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -1471,8 +2605,16 @@ let tests =
         [
             MedicationOrderTests.tests
             TypeTests.tests
+            DtoTests.tests
+            OrderPlanDtoTests.tests
+            OrderPlanTests.tests
+            OrderPlanTests.evaluateTests
+            OrderPlanTests.rulesTests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
             MedicationParserTests.tests
             OrderVariableTests.tests
+            ConstraintsTests.tests
+            GoldenOrderTests.tests
+            OrderBuilderTests.tests
         ]

@@ -9,8 +9,7 @@ module Utils =
     open Newtonsoft.Json
 
 
-    let anonymousTypeStringToJson s =
-        s |> String.replace "|" "" |> String.replace ";" ""
+    let anonymousTypeStringToJson s = s |> String.replace "|" "" |> String.replace ";" ""
 
 
     // Create an HTTP client
@@ -48,8 +47,7 @@ Error:
 
         client.DefaultRequestHeaders.Add("User-Agent", "F# OpenAI Client")
 
-        let content =
-            new StringContent(payload, MediaTypeWithQualityHeaderValue("application/json"))
+        let content = new StringContent(payload, MediaTypeWithQualityHeaderValue("application/json"))
 
         // Asynchronous API call
         async {

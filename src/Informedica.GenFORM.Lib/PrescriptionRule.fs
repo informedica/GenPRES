@@ -211,8 +211,7 @@ module PrescriptionRule =
         doseRules
         |> DoseRule.filter routeMapping filter
         |> Array.map (fun dr ->
-            let dr, newWarns =
-                dr |> DoseRule.reconstitute routeMapping pat.Location pat.Department
+            let dr, newWarns = dr |> DoseRule.reconstitute routeMapping pat.Location pat.Department
 
             warns.AddRange(newWarns)
 
@@ -378,9 +377,9 @@ module PrescriptionRule =
         }
 
 
-    /// Get the string representation of an array of PrescriptionRules. `getLink` is
-    /// forwarded to `DoseRule.Print.toMarkdown`; pass `Api.getNKFLinkProvider provider`,
-    /// or `Source.noLinks` when no external links are wanted.
+    /// Get the string representation of an array of PrescriptionRules. getLink is
+    /// forwarded to DoseRule.Print.toMarkdown; pass Api.getNKFLinkProvider provider,
+    /// or Source.noLinks when no external links are wanted.
     let toMarkdown (getLink: Source.LinkProvider) (prs: PrescriptionRule[]) =
         [
             yield!

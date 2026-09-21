@@ -7,6 +7,10 @@ open Shared.Types
 module Adapters =
 
     open Informedica.GenForm.Lib
+    open Informedica.Utils.Lib.BCL
+    // after the contract model, so that the order context and order plan ports, on domain
+    // values, read unqualified; the other ports name only what the contract model has
+    open Informedica.GenOrder.Lib
 
 
     let private interactionJsonCache =
@@ -34,7 +38,7 @@ module Adapters =
 
     let private resolveLogger () =
         match Logging.loggingLevel with
-        | None -> None, Informedica.GenOrder.Lib.OrderLogging.noOp
+        | None -> None, OrderLogging.noOp
         | Some level ->
             let agent = Logging.getLogger level Logging.OrderLogger
             (Some agent, agent.Logger)
@@ -57,73 +61,149 @@ module Adapters =
         }
 
 
-    let private makeOrderContextPort agent logger (provider: Resources.IResourceProvider) : OrderContextPort =
+    let private makeOrderContextPort
+        agent
+        logger
+        (provider: Resources.IResourceProvider)
+        (now: unit -> DateTime)
+        : OrderContextPort
+        =
         {
             evaluate =
-                fun ctxCmd ctx ->
+                fun cmd pc ->
                     async {
                         do! setComponentName "OrderContext" agent
 
-                        return ctx |> OrderContextService.evaluate logger provider ctxCmd
+                        return pc |> OrderContextService.evaluate (now ()) logger provider cmd
                     }
         }
 
 
+    /// The order plan port over the domain's rules: the plan's contexts through the order
+    /// context service, its totals over the provider's data, the refusals worded with the
+    /// nutrition rule sets the server owns.
     let private makeOrderPlanPort
         agent
+        logger
         (provider: Resources.IResourceProvider)
-        (orderCtxPort: OrderContextPort)
+        (ruleSets: NutritionRuleSet[])
+        (newId: unit -> string)
+        (now: unit -> DateTime)
         : OrderPlanPort
         =
+        let recalc plan = plan |> OrderPlan.recalculate (provider.GetTotals())
+
+        let refused r =
+            r |> Result.mapError (OrderPlanMapper.words ruleSets >> Array.singleton)
+
         {
             recalculate =
                 fun plan ->
                     async {
                         do! setComponentName "OrderPlan" agent
-                        return plan |> OrderPlanService.recalculate (provider.GetTotals()) |> Ok
+                        return plan |> recalc |> Ok
                     }
             navigate =
-                fun plan contextId ctxCmd ctx ->
-                    async {
-                        do! setComponentName "OrderPlan" agent
-                        let recalc = OrderPlanService.recalculate (provider.GetTotals())
-                        return! OrderPlanService.navigate recalc orderCtxPort plan contextId ctxCmd ctx
-                    }
-            newOrderContext =
-                fun plan category ->
-                    OrderPlanService.newOrderContext
-                        (OrderPlanService.recalculate (provider.GetTotals()))
-                        orderCtxPort
-                        plan
-                        category
-            addOrderContext =
-                fun plan ctx ->
+                fun plan contextId cmd pc ->
                     async {
                         do! setComponentName "OrderPlan" agent
 
                         return
-                            plan
-                            |> OrderPlanService.addOrderContext (fun () -> System.Guid.NewGuid().ToString()) ctx
-                            |> Result.map (OrderPlanService.recalculate (provider.GetTotals()))
+                            pc
+                            |> OrderContextService.evaluate (now ()) logger provider cmd
+                            |> Result.bind (fun evaluated ->
+                                plan |> OrderPlan.updateContext ruleSets contextId evaluated |> refused
+                            )
+                            |> Result.map recalc
+                    }
+            addOrderContext =
+                fun plan pc ->
+                    async {
+                        do! setComponentName "OrderPlan" agent
+
+                        return plan |> OrderPlan.addOrderContext newId pc |> refused |> Result.map recalc
+                    }
+            newOrderContext =
+                fun plan category ->
+                    async {
+                        do! setComponentName "OrderPlan" agent
+
+                        return
+                            match plan |> OrderPlan.admits category |> refused with
+                            | Error e -> Error e
+                            | Ok() ->
+                                let set = ruleSets |> NutritionRuleSet.tryFind category
+
+                                // the workbench: the plan's patient, the category's indications
+                                // and generics, nothing else offered yet and nothing selected;
+                                // the discovery keeps of what the evaluation offers only these
+                                let workbench: OrderContext =
+                                    {
+                                        Filter =
+                                            {
+                                                Indications =
+                                                    set |> Option.map _.Indications |> Option.defaultValue [||]
+                                                Generics = set |> Option.map _.Generics |> Option.defaultValue [||]
+                                                Routes = [||]
+                                                Forms = [||]
+                                                DoseTypes = [||]
+                                                Diluents = [||]
+                                                Components = [||]
+                                                Indication = None
+                                                Generic = None
+                                                Route = None
+                                                Form = None
+                                                DoseType = None
+                                                Diluent = None
+                                                SelectedComponents = [||]
+                                            }
+                                        Patient = plan.Patient
+                                        Scenarios = [||]
+                                    }
+
+                                let planContext = PlanContext.create (newId ()) (OrderCategory.Nutrition category)
+
+                                let evaluate ctx =
+                                    ctx
+                                    |> planContext
+                                    |> OrderContextService.evaluate
+                                        (now ())
+                                        logger
+                                        provider
+                                        OrderContext.UpdateOrderContext
+                                    |> Result.map _.Context
+
+                                workbench
+                                |> NutritionRuleSet.discover evaluate
+                                |> Result.map (fun discovered ->
+                                    let pc = discovered |> planContext
+
+                                    { plan with
+                                        Contexts =
+                                            Array.append
+                                                plan.Contexts
+                                                [|
+                                                    { pc with
+                                                        Intake =
+                                                            discovered |> OrderContext.intake (provider.GetTotals())
+                                                    }
+                                                |]
+                                    }
+                                    |> recalc
+                                )
                     }
             removeOrderContexts =
                 fun plan ids ->
                     async {
-                        return
-                            plan
-                            |> OrderPlanService.removeOrderContexts ids
-                            |> OrderPlanService.recalculate (provider.GetTotals())
-                            |> Ok
+                        do! setComponentName "OrderPlan" agent
+
+                        return plan |> OrderPlan.removeOrderContexts ids |> recalc |> Ok
                     }
             openWith =
                 fun pat contexts ->
                     async {
                         do! setComponentName "OrderPlan" agent
-
-                        return
-                            OrderPlanService.openWith pat contexts
-                            |> OrderPlanService.recalculate (provider.GetTotals())
-                            |> Ok
+                        return OrderPlan.create pat contexts |> recalc |> Ok
                     }
         }
 
@@ -148,8 +228,8 @@ module Adapters =
             findEnrolment = fun _ -> async { return None }
             supplyPin = fun _ _ _ -> async { return SupplyPinResult.Refused PinRefusal.AttemptExpired }
             dropEnrolment = fun _ -> async { return () }
-            challenge = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
-            submit = fun _ _ -> async { return SigningResponse.Refused SigningRefusal.NoSession }
+            challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
+            submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ -> async { return None }
             openVersion = fun _ _ -> async { return None }
         }
@@ -165,7 +245,43 @@ module Adapters =
             info.Messages |> Array.map (fun msg -> FormLogging.formatMessage msg) |> Some
 
 
+    /// <summary>
+    /// The env of the server. <c>store</c> is the SQLite connection string of the session store:
+    /// set, the migrations are applied and the session port runs over the record in the
+    /// database; unset, over the record in memory.
+    /// </summary>
+    /// <summary>
+    /// The session store made ready before anything is hosted: the migrations applied and the
+    /// demo credentials seeded, each once. Answers what went wrong instead of raising, so that
+    /// a store that cannot be written is a refused start with a message and an exit code, not
+    /// a crash. A server without the setting has no store to prepare.
+    /// </summary>
+    let prepareStore (store: string option) : Result<unit, string> =
+        match store with
+        | None -> Ok()
+        | Some value ->
+            try
+                let cs = SqlDatabase.connectionString (Informedica.Utils.Lib.AppPath.rootPath ()) value
+
+                SqlSchema.apply cs |> ignore
+
+                // the machine reads a credential from the rows, so the demo logins need theirs
+                // in the file: without them no Prescriber could sign and nothing would say why
+                match
+                    SqlSessions.seed
+                        cs
+                        DateTime.UtcNow
+                        (StubCredentials.seed System.Security.Cryptography.RandomNumberGenerator.GetBytes)
+                with
+                | Session.StoreOutcome.Written -> Ok()
+                | outcome -> Error $"the session store could not be seeded with the demo credentials: %A{outcome}"
+            with e ->
+                Error $"the session store could not be prepared: %s{e.Message}"
+
+
     let makeAppEnvWith
+        (demo: bool)
+        (store: string option)
         (launchKey: LaunchSeal.Key)
         (directory: StubDirectory.Directory)
         (mail: MailPort)
@@ -173,12 +289,19 @@ module Adapters =
         : AppEnv
         =
         let agent, logger = resolveLogger ()
-        let orderCtxPort = makeOrderContextPort agent logger provider
 
         {
             formulary = makeFormularyPort provider
-            orderContext = orderCtxPort
-            orderPlan = makeOrderPlanPort agent provider orderCtxPort
+            orderContext = makeOrderContextPort agent logger provider (fun () -> DateTime.UtcNow)
+            orderPlan =
+                makeOrderPlanPort
+                    agent
+                    logger
+                    provider
+                    NutritionRuleSets.all
+                    (fun () -> Guid.NewGuid().ToString())
+                    (fun () -> DateTime.UtcNow)
+            demo = demo
             interaction =
                 {
                     checkInteractions =
@@ -211,7 +334,7 @@ module Adapters =
                     secret =
                         fun () ->
                             Informedica.Utils.Lib.Env.getItem "GENPRES_PASSWORD"
-                            |> Option.filter (String.IsNullOrWhiteSpace >> not)
+                            |> Option.filter String.notEmpty
                     now = fun () -> DateTimeOffset.UtcNow
                     listLogFiles =
                         fun () ->
@@ -239,10 +362,24 @@ module Adapters =
                             }
                 }
             requireLoaded = fun () -> notLoaded provider
-            // an in-memory stub with a two-minute Launch lifetime; its sessions live as long
-            // as this AppEnv
+            // a stub with a two-minute Launch lifetime; its sessions live as long as this
+            // AppEnv, and the record as long as its store
             session =
-                StubDatabase.makeSessionPort
+                let makeSessionPort =
+                    match store with
+                    | None -> StubDatabase.makeSessionPort
+                    | Some value ->
+                        let cs = SqlDatabase.connectionString (Informedica.Utils.Lib.AppPath.rootPath ()) value
+
+                        SqlSessions.makeSessionPort
+                            (fun msg ->
+                                Informedica.Utils.Lib.ConsoleWriter.NewLineTime.writeWarningMessage
+                                    $"session store: %s{msg}"
+                            )
+                            cs
+                            (fun () -> DateTime.UtcNow)
+
+                makeSessionPort
                     (fun () -> DateTime.UtcNow)
                     PublicKey.randomId
                     // the confirmation code and the salt from the CSPRNG, the code mac under
@@ -263,9 +400,17 @@ module Adapters =
 
 
     /// An env with its own seal key and stub directory: what tests and the MCP host build. The
-    /// server builds `makeAppEnvWith` so that its stub pages share the key and the directory.
+    /// server builds makeAppEnvWith so that its stub pages share the key and the directory.
     let makeAppEnv (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) =
+        // the demo flag as the server reads it, once
+        let demo =
+            Informedica.Utils.Lib.Env.getItem "GENPRES_PROD"
+            |> Option.map (fun v -> v <> "1")
+            |> Option.defaultValue true
+
         makeAppEnvWith
+            demo
+            None
             (LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes)
             (StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId)
             (StubMail.make ()).port

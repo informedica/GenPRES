@@ -84,8 +84,7 @@ type LoggerType =
 let internal loggerLock = obj ()
 
 
-let mutable loggers: Map<LoggerType * Level, AgentLogging.AgentLogger> =
-    [] |> Map.ofList
+let mutable loggers: Map<LoggerType * Level, AgentLogging.AgentLogger> = [] |> Map.ofList
 
 
 let getLogger (level: Level) (loggerType: LoggerType) =
@@ -103,7 +102,7 @@ let getLogger (level: Level) (loggerType: LoggerType) =
 
 let loggingEnabled =
     Env.getItem "GENPRES_LOG"
-    |> Option.map (fun s -> s |> String.trim |> String.isNullOrWhiteSpace |> not)
+    |> Option.map (fun s -> s |> String.trim |> String.notEmpty)
     |> Option.defaultValue false
 
 

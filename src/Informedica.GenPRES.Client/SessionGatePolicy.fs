@@ -74,6 +74,7 @@ let english (term: Terms) =
     | Terms.``Session Gate Ended`` -> "Your session was ended"
     | Terms.``Session Ending Superseded`` -> "Another launch of yours opened a newer session, and this one was closed."
     | Terms.``Session Ending Pin Limit`` -> "The PIN was entered wrong three times, and signing is locked for a while."
+    | Terms.``Session Ending Unreadable`` -> "This session could not be read back after an update of GenPRES."
     | Terms.``Session Gate Enrolment`` -> "Set a PIN to continue"
     | Terms.``Session Gate Enrolment Text`` ->
         "Welcome, {0}. A confirmation code was mailed to {1}. Enter it together with the PIN of your choice: four to six digits."
@@ -101,29 +102,16 @@ let fill (args: string list) (s: string) =
 
 
 /// Joins translated sentences into one body; an empty translation adds no sentence.
-let sentences (xs: string list) =
-    xs |> List.filter (String.isNullOrWhiteSpace >> not) |> String.concat " "
+let sentences (xs: string list) = xs |> List.filter String.notEmpty |> String.concat " "
 
 
 /// The sentences of a refusal: what happened, then what the User can do. Every sentence is one
 /// term, so no translation is ever embedded in another.
 let refusalBody (tr: Terms -> string) refusal =
     match refusal with
-    | LaunchRefusal.LaunchExpired ->
-        [
-            tr Terms.``Session Refusal Expired``
-            tr Terms.``Session Relaunch``
-        ]
-    | LaunchRefusal.LaunchSpent ->
-        [
-            tr Terms.``Session Refusal Spent``
-            tr Terms.``Session Relaunch``
-        ]
-    | LaunchRefusal.LaunchInvalid ->
-        [
-            tr Terms.``Session Refusal Invalid``
-            tr Terms.``Session Relaunch``
-        ]
+    | LaunchRefusal.LaunchExpired -> [ tr Terms.``Session Refusal Expired``; tr Terms.``Session Relaunch`` ]
+    | LaunchRefusal.LaunchSpent -> [ tr Terms.``Session Refusal Spent``; tr Terms.``Session Relaunch`` ]
+    | LaunchRefusal.LaunchInvalid -> [ tr Terms.``Session Refusal Invalid``; tr Terms.``Session Relaunch`` ]
     | LaunchRefusal.NoBrowserIdentity -> [ tr Terms.``Session Refusal No Browser Identity`` ]
     | LaunchRefusal.NoRole -> [ tr Terms.``Session Refusal No Role`` ]
     | LaunchRefusal.WrongActivePatient -> [ tr Terms.``Session Refusal Wrong Patient`` ]
@@ -248,6 +236,7 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
                             match ending with
                             | SessionEnding.SupersededByLaunch -> tr Terms.``Session Ending Superseded``
                             | SessionEnding.WrongPinLimit -> tr Terms.``Session Ending Pin Limit``
+                            | SessionEnding.Unreadable -> tr Terms.``Session Ending Unreadable``
                             tr Terms.``Session Relaunch``
                         ]
                 Busy = false
@@ -290,12 +279,7 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
         Some
             {
                 Title = tr Terms.``Session Gate Refused``
-                Body =
-                    sentences
-                        [
-                            refusalSentence tr refusal
-                            tr Terms.``Session Relaunch``
-                        ]
+                Body = sentences [ refusalSentence tr refusal; tr Terms.``Session Relaunch`` ]
                 Busy = false
                 Actions = []
                 Form = None

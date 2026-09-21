@@ -207,14 +207,17 @@ dispensed → administered), each referencing its publication id (item 4).
 durable, queryable order state across sessions and users.
 
 **Dependencies.** Needs 4 (order↔publication binding) and 8 (orders are patient data →
-access control + audit mandatory). Storage tech choice is **open**.
+access control + audit mandatory). Storage tech: relational and append-only, SQLite for test
+and development ([ADR-0007](../adr/0007-session-persistence.md), plan 516); the production
+engine is **open**.
 
 **Affected areas.**
 - New order persistence adapter (server-side)
 - Order model state machine (DU per `core-domain.md` Order Management Cycle)
 
 **Acceptance criteria.**
-- Create/read/update/query orders by patient + status.
+- Create/read/query orders by patient + status; a state transition appends a row, never
+  updates one.
 - Each persisted order references its publication id.
 - State transitions enforced (no illegal transitions).
 - All access audited (ties to 8).
@@ -278,9 +281,11 @@ in parallel with P1/P2.
 
 ## Open Questions
 
-- **Storage backends (items 5, 6).** Embedded (SQLite/LiteDB) vs. server DB (Postgres) vs.
-  document store? Publications are immutable blobs + manifest; orders are mutable,
-  queryable, privacy-sensitive — may warrant different stores.
+- **Storage backends (items 5, 6).** For orders, decided for test and development by
+  [ADR-0007](../adr/0007-session-persistence.md) and
+  [plan 516](../implementation-plans/516-sessionrecord-store.md): relational, append-only,
+  SQLite; the production engine remains open. For publications (immutable blobs + manifest)
+  the backend is still open, and may warrant a store of its own.
 - **Publication format (item 3).** JSON graph vs. existing CSV/TSV resource shapes vs. a
   packed archive? Must round-trip losslessly through `getFromGetData`/`toData`.
 - **Identity provider (item 8).** Self-hosted vs. OIDC/hospital SSO? EHR integration (7)

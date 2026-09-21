@@ -1161,11 +1161,11 @@ type PrivateStore =
         Answered     : Map<IdemKey, Result<OrderPlan, CommitRefusal>>
         /// Rule 2. The LaunchRecords, keyed by nonce. A Launch is spent when its record
         /// is here; the record names the Session that spent it, which is what the
-        /// replay clause answers from. A record past the Launch's lifetime is dropped
-        /// whole (UC-1 step 4.5).
+        /// replay clause answers from. A record past the Launch's lifetime stays and
+        /// loads as absent (UC-1 step 4.5).
         Launches     : Map<string, LaunchRecord>
         /// Rules 34, 43. Spent token nonces. This is what makes each work exactly
-        /// once. A mark past its lifetime can be purged.
+        /// once. A mark past its lifetime stays; nothing is deleted.
         Spent        : Set<string>
         /// Rule 46. Anonymous opens refused above the bound (Rule 14), counted per
         /// source. A count and not a line each, so a flood writes nothing that grows.

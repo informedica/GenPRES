@@ -23,8 +23,7 @@ let getLocalizedTerm (localizationTerms: Deferred<string[][]>) (lang: Localizati
 
 
 let pageToString terms locale page =
-    let getTerm term =
-        getLocalizedTerm terms locale $"{term}" term
+    let getTerm term = getLocalizedTerm terms locale $"{term}" term
 
     match page with
     | LifeSupport -> Terms.``Emergency List`` |> getTerm

@@ -34,7 +34,7 @@ module Generators =
             }
 
 
-    type MinMax = MinMax of BigRational * BigRational
+    type MinMax = | MinMax of BigRational * BigRational
 
     let minMaxArb () =
         bigRGenerator
@@ -51,7 +51,7 @@ module Generators =
         |> Arb.convert MinMax (fun (MinMax(min, max)) -> min, max)
 
 
-    type ListOf37<'a> = ListOf37 of 'a List
+    type ListOf37<'a> = | ListOf37 of 'a List
 
     let listOf37Arb () =
         Gen.listOfLength 37 Arb.generate
@@ -72,8 +72,7 @@ module Generators =
         }
 
 
-    let testProp testName prop =
-        prop |> testPropertyWithConfig config testName
+    let testProp testName prop = prop |> testPropertyWithConfig config testName
 
 
 module GenericLabelTests =
@@ -207,11 +206,7 @@ module ProductFilterTests =
             Form = "tablet"
             Routes = [| "oraal" |]
             Substances = [| para |]
-            TradeProducts =
-                [
-                    trade "H1" "BrandX" [ para ]
-                    trade "H2" "BrandY" [ para ]
-                ]
+            TradeProducts = [ trade "H1" "BrandX" [ para ]; trade "H2" "BrandY" [ para ] ]
         }
 
     // paracetamol drank, oraal; carries sorbitol that the trade product does not
@@ -287,8 +282,7 @@ module ProductFilterTests =
                 }
 
                 test "brand refines to products carrying that trade product" {
-                    let result =
-                        prods |> Product.filter routeMapping "oraal" "paracetamol" "" "BrandX" [||] [||]
+                    let result = prods |> Product.filter routeMapping "oraal" "paracetamol" "" "BrandX" [||] [||]
 
                     result
                     |> Array.map _.GPK
@@ -300,8 +294,7 @@ module ProductFilterTests =
                 }
 
                 test "hpk list refines and narrows substances to the trade product" {
-                    let result =
-                        prods |> Product.filter routeMapping "oraal" "paracetamol" "" "" [||] [| "H3" |]
+                    let result = prods |> Product.filter routeMapping "oraal" "paracetamol" "" "" [||] [| "H3" |]
 
                     result
                     |> Array.map _.GPK
@@ -339,8 +332,7 @@ module DoseRuleProductTests =
 
 
     /// String non-empty (avoids depending on a BCL open in this module).
-    let private ne s =
-        s |> System.String.IsNullOrWhiteSpace |> not
+    let private ne s = s |> System.String.IsNullOrWhiteSpace |> not
 
 
     module PT = ProductFilterTests
@@ -555,8 +547,7 @@ module DoseRuleProductTests =
 
     /// Build the DoseRules for the given raw rows (empty FormRoutes is safe:
     /// addFormLimits only sets FormLimit, product attachment is unaffected).
-    let buildRules (data: DoseRuleData[]) =
-        DoseRuleLoader.fromData routeMapping [||] prods data |> fst
+    let buildRules (data: DoseRuleData[]) = DoseRuleLoader.fromData routeMapping [||] prods data |> fst
 
 
     /// Sorted, distinct GPKs attached to a set of DoseRules.
@@ -580,12 +571,10 @@ module DoseRuleProductTests =
     let formRow = mkData "citalopram" "ORAAL" "tablet" "" [||] [||]
     let brandRow = mkData "bupropion" "ORAAL" "" "Zyban" [||] [||]
 
-    let gpksRow =
-        mkData "adrenaline" "INTRAMUSCULAIR" "" "" [| "170925"; "170933" |] [||]
+    let gpksRow = mkData "adrenaline" "INTRAMUSCULAIR" "" "" [| "170925"; "170933" |] [||]
     // Same gpks narrowing, plus a Form that would (if applied) exclude every
     // adrenaline injection product — proves Form is dropped when GPKs win.
-    let gpksFormRow =
-        mkData "adrenaline" "INTRAMUSCULAIR" "tablet" "" [| "170925"; "170933" |] [||]
+    let gpksFormRow = mkData "adrenaline" "INTRAMUSCULAIR" "tablet" "" [| "170925"; "170933" |] [||]
 
 
     /// Build a (component, substance) row with an optional MaxQty dose value,
@@ -666,7 +655,7 @@ module DoseRuleProductTests =
                         |> Expect.isFalse "the DoseRule carries attached products"
                 }
 
-                // Regression (PR #361 GenFORM v2): a component-based combination
+                // Regression (GenFORM v2): a component-based combination
                 // dose rule must keep its combination generic label, not be
                 // collapsed onto its single marker substance. Otherwise the
                 // combination (e.g. amoxicilline/clavulaanzuur) is filed under the
@@ -697,7 +686,7 @@ module DoseRuleProductTests =
                     |> Expect.equal "label stays the combination, not the marker substance" "amoxicilline/clavulaanzuur"
                 }
 
-                // Regression (PR #361 GenFORM v2): the substance rows of one
+                // Regression (GenFORM v2): the substance rows of one
                 // component must collapse into a single DoseRule with one
                 // component carrying every substance limit. Rows are grouped by
                 // semantic identity (hashId), never by DataId/GroupId/SortNo,
@@ -921,8 +910,7 @@ module DoseRuleToDataTests =
     /// recovers the categorical identity and the form/brand/gpks narrowing.
     /// (The full quantitative round-trip runs against live data in
     /// Scratch/Informedica.GenForm.Lib.fsx.)
-    let private roundTrip (data: DoseRuleData[]) =
-        data |> DP.buildRules |> Array.collect DoseRule.toData
+    let private roundTrip (data: DoseRuleData[]) = data |> DP.buildRules |> Array.collect DoseRule.toData
 
 
     /// <summary>
@@ -989,8 +977,7 @@ module DoseRuleToDataTests =
         /// The DoseRules columns, taken from the ONE production list so the two
         /// cannot drift. <c>headers</c> is a single tab-joined line.
         let doseRuleColumns =
-            let fromHeaders =
-                DoseRuleData.headers |> List.head |> String.split "\t" |> List.map String.trim
+            let fromHeaders = DoseRuleData.headers |> List.head |> String.split "\t" |> List.map String.trim
 
             // "Loc" is read by the parser but missing from `headers` - see the TODO
             // there. Declared here because the sheet does carry it.
@@ -1054,15 +1041,7 @@ module DoseRuleToDataTests =
                 (Mapping.parseSheet Mapping.totalsRow >> Result.isOk)
 
                 "Reconstitution",
-                [
-                    "GPK"
-                    "Route"
-                    "Loc"
-                    "Dep"
-                    "DiluentVol"
-                    "ExpansionVol"
-                    "Diluents"
-                ],
+                [ "GPK"; "Route"; "Loc"; "Dep"; "DiluentVol"; "ExpansionVol"; "Diluents" ],
                 [],
                 [],
                 (Product.Reconstitution.parseReconstitution >> Result.isOk)
@@ -1362,7 +1341,7 @@ module DoseRuleRoundtripTests =
     // `lazy`, not plain values: a module-level binding runs in this module's static
     // constructor, i.e. during Expecto's test discovery. Anything that throws there
     // takes down the whole assembly, which then reports zero tests instead of one
-    // failure — exactly how issue #523 hid a red build behind "0 failed". Lazy is
+    // failure — exactly how a red build once hid behind "0 failed". Lazy is
     // thread-safe by default, so each is still computed at most once even though
     // Expecto runs tests in parallel.
     let private data = lazy (load<DoseRuleData[]> "doserules.json")
@@ -1371,15 +1350,13 @@ module DoseRuleRoundtripTests =
 
     // fr = [||]: fromData uses FormRoute only for FormLimit, which toData does not
     // emit and the round-trip does not compare (as DoseRuleProductTests do).
-    let private forward (d: DoseRuleData[]) =
-        DoseRuleLoader.fromData rm.Value [||] prods.Value d |> fst
+    let private forward (d: DoseRuleData[]) = DoseRuleLoader.fromData rm.Value [||] prods.Value d |> fst
 
 
     // ---- comparison machinery (mirrors the scratch Analyse module) ----
     let private unitStr (u: Unit) = u |> Units.toStringEngShortWithoutGroup
 
-    let private brStr (br: BigRational option) =
-        br |> Option.map _.ToString() |> Option.defaultValue ""
+    let private brStr (br: BigRational option) = br |> Option.map _.ToString() |> Option.defaultValue ""
 
     let private genKey (g: GenericData) =
         [
@@ -1815,8 +1792,7 @@ module Tests =
 
     module AdjustDoseLimitTests =
 
-        let mkLimit v u =
-            Limit.Inclusive(ValueUnit.singleWithUnit u v)
+        let mkLimit v u = Limit.Inclusive(ValueUnit.singleWithUnit u v)
 
         let mg = Units.Mass.milliGram
         let mgPerKg = Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
@@ -1826,11 +1802,9 @@ module Tests =
         let mgPerKgPerDay = mgPerKg |> ValueUnit.per day
         let perDay = Units.Count.times |> ValueUnit.per day
 
-        let pat15kg =
-            { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 15N) }
+        let pat15kg = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 15N) }
 
-        let pat24kg =
-            { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 24N) }
+        let pat24kg = { Patient.patient with Weight = Some(ValueUnit.singleWithUnit kg 24N) }
 
         /// A frequency ValueUnit set (per day) from a list of frequencies.
         let freqSet (vs: bigint list) =
@@ -2139,11 +2113,7 @@ module Tests =
                 // PerTimeAdjust vs MaxQty (exercises the fixed freq block)
                 "bupropion",
                 baseFields "bupropion" "ORAAL" "discontinuous" "1;2" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "150"
-                    "MaxPerTime", "300"
-                    "MinPerTimeAdj", "3"
-                ]
+                @ [ "MaxQty", "150"; "MaxPerTime", "300"; "MinPerTimeAdj", "3" ]
                 "carbamazepine",
                 baseFields "carbamazepine" "ORAAL" "discontinuous" "2;3" "mg" "kg" "dag"
                 @ [
@@ -2154,11 +2124,7 @@ module Tests =
                 ]
                 "ceftaroline<12",
                 baseFields "ceftaroline" "INTRAVENEUS" "timed" "3" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "400"
-                    "MinPerTimeAdj", "36"
-                    "MaxPerTimeAdj", "36"
-                ]
+                @ [ "MaxQty", "400"; "MinPerTimeAdj", "36"; "MaxPerTimeAdj", "36" ]
                 "ceftaroline>12",
                 baseFields "ceftaroline" "INTRAVENEUS" "timed" "3" "mg" "kg" "dag"
                 @ [
@@ -2169,11 +2135,7 @@ module Tests =
                 ]
                 "dasatinib",
                 baseFields "dasatinib" "ORAAL" "discontinuous" "1" "mg" "m2" "dag"
-                @ [
-                    "MaxQty", "110"
-                    "MinPerTimeAdj", "65"
-                    "MaxPerTimeAdj", "65"
-                ]
+                @ [ "MaxQty", "110"; "MinPerTimeAdj", "65"; "MaxPerTimeAdj", "65" ]
                 "fluconazol",
                 baseFields "fluconazol" "ORAAL" "discontinuous" "1" "mg" "kg" "dag"
                 @ [
@@ -2192,32 +2154,16 @@ module Tests =
                 ]
                 "methylprednisolon",
                 baseFields "methylprednisolon" "INTRAVENEUS" "timed" "1" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "1000"
-                    "MinPerTimeAdj", "10"
-                    "MaxPerTimeAdj", "10"
-                ]
+                @ [ "MaxQty", "1000"; "MinPerTimeAdj", "10"; "MaxPerTimeAdj", "10" ]
                 "natriumfosfaat",
                 baseFields "natriumfosfaat" "RECTAAL" "discontinuous" "1" "mL" "kg" "dag"
-                @ [
-                    "MaxQty", "133"
-                    "MinPerTimeAdj", "2.5"
-                    "MaxPerTimeAdj", "2.5"
-                ]
+                @ [ "MaxQty", "133"; "MinPerTimeAdj", "2.5"; "MaxPerTimeAdj", "2.5" ]
                 "posaconazol",
                 baseFields "posaconazol" "INTRAVENEUS" "discontinuous" "2" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "300"
-                    "MinPerTimeAdj", "12"
-                    "MaxPerTimeAdj", "12"
-                ]
+                @ [ "MaxQty", "300"; "MinPerTimeAdj", "12"; "MaxPerTimeAdj", "12" ]
                 "rifampicine",
                 baseFields "rifampicine" "ORAAL" "discontinuous" "1" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "600"
-                    "MinPerTimeAdj", "20"
-                    "MaxPerTimeAdj", "20"
-                ]
+                @ [ "MaxQty", "600"; "MinPerTimeAdj", "20"; "MaxPerTimeAdj", "20" ]
 
                 // QuantityAdjust vs MaxQty (regression: already-correct block)
                 "adenosine",
@@ -2240,23 +2186,13 @@ module Tests =
                 @ [ "MaxQty", "37.5"; "MinQtyAdj", "0.3"; "MaxQtyAdj", "0.5" ]
                 "fysostigmine",
                 baseFields "fysostigmine" "INTRAVENEUS" "discontinuous" "1;2;3;4" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "0.5"
-                    "MinQtyAdj", "0.02"
-                    "MaxQtyAdj", "0.02"
-                    "MaxPerTime", "2"
-                ]
+                @ [ "MaxQty", "0.5"; "MinQtyAdj", "0.02"; "MaxQtyAdj", "0.02"; "MaxPerTime", "2" ]
                 "mepivacaine",
                 baseFields "mepivacaine" "EPIDURAAL" "once" "" "mg" "kg" ""
                 @ [ "MaxQty", "400"; "MinQtyAdj", "10" ]
                 "metamizol",
                 baseFields "metamizol" "INTRAVENEUS" "discontinuous" "1;2;3;4" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "1000"
-                    "MinQtyAdj", "8"
-                    "MaxQtyAdj", "16"
-                    "MaxPerTime", "4000"
-                ]
+                @ [ "MaxQty", "1000"; "MinQtyAdj", "8"; "MaxQtyAdj", "16"; "MaxPerTime", "4000" ]
                 "midazolam",
                 baseFields "midazolam" "OROMUCOSAAL" "once" "" "mg" "kg" ""
                 @ [ "MaxQty", "10"; "MinQtyAdj", "0.2"; "MaxQtyAdj", "0.5" ]
@@ -2277,12 +2213,7 @@ module Tests =
                 ]
                 "ibuprofen",
                 baseFields "ibuprofen" "INTRAVENEUS" "discontinuous" "1;2;3;4" "mg" "kg" "dag"
-                @ [
-                    "MaxQty", "400"
-                    "MinQtyAdj", "10"
-                    "MaxQtyAdj", "10"
-                    "MaxPerTimeAdj", "40"
-                ]
+                @ [ "MaxQty", "400"; "MinQtyAdj", "10"; "MaxQtyAdj", "10"; "MaxPerTimeAdj", "40" ]
             ]
 
         let data =
@@ -2302,8 +2233,7 @@ module Tests =
 
         // --- helpers (mirror the exploratory MaxQtyConflicts.fsx script) ---
 
-        let scale (r: BigRational) vu =
-            vu |> ValueUnit.applyToValue (Array.map (fun x -> x * r))
+        let scale (r: BigRational) vu = vu |> ValueUnit.applyToValue (Array.map (fun x -> x * r))
 
         /// The adjust value (kg or m2) that just pushes the adjusted dose past
         /// MaxQty at the lowest frequency. For multi-frequency rules this lands
@@ -2396,11 +2326,9 @@ module Tests =
 
                 let fu = fvu |> ValueUnit.getUnit
 
-                let ge v l =
-                    v >? Limit.getValueUnit l || v = Limit.getValueUnit l
+                let ge v l = v >? Limit.getValueUnit l || v = Limit.getValueUnit l
 
-                let le v l =
-                    v <? Limit.getValueUnit l || v = Limit.getValueUnit l
+                let le v l = v <? Limit.getValueUnit l || v = Limit.getValueUnit l
 
                 // the absolute PerTime cap must be able to admit the lower adjusted
                 // target (an unpinned quantity can otherwise not both reach the
@@ -2489,6 +2417,474 @@ module Tests =
                             res.Quantity.Min |> Expect.equal "quantity min pinned to max" res.Quantity.Max
 
                             res.PerTimeAdjust |> Expect.equal "adjusted target cleared" MinMax.empty
+                    }
+                ]
+
+
+    module PatientTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.Utils.Lib.BCL
+        open Informedica.GenUnits.Lib
+        open Informedica.GenForm.Lib
+
+        let kg = Units.Weight.kiloGram
+        let cm = Units.Height.centiMeter
+
+        let tests =
+            testList
+                "Patient"
+                [
+                    test "the empty patient has both measured flags set" {
+                        Patient.patient.WeightMeasured |> Expect.isTrue "weight counts as measured"
+                        Patient.patient.HeightMeasured |> Expect.isTrue "height counts as measured"
+                    }
+
+                    test "a patient built as a copy keeps counting as measured" {
+                        let pat =
+                            { Patient.patient with
+                                Weight = Some(ValueUnit.singleWithUnit kg 15N)
+                                Height = Some(ValueUnit.singleWithUnit cm 100N)
+                            }
+
+                        pat.WeightMeasured |> Expect.isTrue "the weight is measured"
+                        pat.HeightMeasured |> Expect.isTrue "the height is measured"
+                        pat.Weight |> Expect.isSome "the weight is held"
+                    }
+
+                    test "an estimate is the held value with its flag clear, and survives copies" {
+                        let estimated =
+                            { Patient.patient with
+                                Age = Some(ValueUnit.singleWithUnit Units.Time.year 10N)
+                                Weight = Some(ValueUnit.singleWithUnit kg 32N)
+                                WeightMeasured = false
+                            }
+
+                        let copied = { estimated with Department = Some "ICK" }
+
+                        copied.WeightMeasured |> Expect.isFalse "still an estimate after a copy"
+                        copied.HeightMeasured |> Expect.isTrue "the other flag is untouched"
+                        copied.Weight |> Expect.equal "the estimate is the held value" estimated.Weight
+                    }
+
+                    test "the measured flags are independent" {
+                        let pat =
+                            { Patient.patient with
+                                Weight = Some(ValueUnit.singleWithUnit kg (35N / 10N))
+                                Height = Some(ValueUnit.singleWithUnit cm 50N)
+                                HeightMeasured = false
+                            }
+
+                        (pat.WeightMeasured, pat.HeightMeasured)
+                        |> Expect.equal "measured weight, estimated height" (true, false)
+                    }
+                ]
+
+
+    module PatientDtoTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.Utils.Lib.BCL
+        open Informedica.GenUnits.Lib
+        open Informedica.GenForm.Lib
+
+
+        module Fixtures =
+
+            let kg = Units.Weight.kiloGram
+            let cm = Units.Height.centiMeter
+            let day = Units.Time.day
+
+            /// A ten-year-old, weight and height measured, on a PVL.
+            let child =
+                { Patient.patient with
+                    Department = Some "ICK"
+                    Gender = Male
+                    Age = Some(ValueUnit.singleWithUnit day 3650N)
+                    Weight = Some(ValueUnit.singleWithUnit kg 32N)
+                    Height = Some(ValueUnit.singleWithUnit cm 140N)
+                    Access = [ PVL ]
+                }
+
+            /// A premature of two days, 30 weeks gestation, 1.2 kg.
+            let premature =
+                { Patient.patient with
+                    Gender = Female
+                    Age = Some(ValueUnit.singleWithUnit day 2N)
+                    GestAge = Some(ValueUnit.singleWithUnit day 210N)
+                    PMAge = Some(ValueUnit.singleWithUnit day 212N)
+                    Weight = Some(ValueUnit.singleWithUnit kg (12N / 10N))
+                    Height = Some(ValueUnit.singleWithUnit cm 38N)
+                    Access = [ CVL ]
+                    RenalFunction = Some(EGFR(Some 30, Some 50))
+                }
+
+            /// No age, but a measured weight and height.
+            let measuredOnly =
+                { Patient.patient with
+                    Weight = Some(ValueUnit.singleWithUnit kg 70N)
+                    Height = Some(ValueUnit.singleWithUnit cm 175N)
+                }
+
+
+        let tests =
+            testList
+                "Patient validate and Dto"
+                [
+                    testList
+                        "validate"
+                        [
+                            test "an age alone is a patient" {
+                                { Patient.patient with Age = Some(ValueUnit.singleWithUnit Fixtures.day 3650N) }
+                                |> Patient.validate
+                                |> Result.isOk
+                                |> Expect.isTrue "a patient"
+                            }
+
+                            test "a measured weight and height without an age is a patient" {
+                                Fixtures.measuredOnly
+                                |> Patient.validate
+                                |> Result.isOk
+                                |> Expect.isTrue "a patient"
+                            }
+
+                            test "an estimated weight without an age is no patient" {
+                                { Fixtures.measuredOnly with WeightMeasured = false }
+                                |> Patient.validate
+                                |> Expect.equal
+                                    "below the minimum data"
+                                    (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+                            }
+
+                            test "the empty patient is no patient" {
+                                Patient.patient
+                                |> Patient.validate
+                                |> Expect.equal
+                                    "below the minimum data"
+                                    (Error PatientError.NoAgeOrMeasuredWeightAndHeight)
+                            }
+                        ]
+
+                    testList
+                        "L1, fromDto (toDto x) = Ok x"
+                        [
+                            for name, pat in
+                                [
+                                    "a child", Fixtures.child
+                                    "a premature", Fixtures.premature
+                                    "measured only", Fixtures.measuredOnly
+                                ] do
+                                test $"{name} round-trips" {
+                                    pat
+                                    |> Patient.Dto.toDto
+                                    |> Patient.Dto.fromDto
+                                    |> Expect.equal "the same patient" (Ok pat)
+                                }
+                        ]
+
+                    testList
+                        "L2, fromDto d |> Result.map toDto = Ok d"
+                        [
+                            for name, pat in [ "a child", Fixtures.child; "a premature", Fixtures.premature ] do
+                                test $"{name}'s Dto round-trips" {
+                                    let dto = pat |> Patient.Dto.toDto
+
+                                    dto
+                                    |> Patient.Dto.fromDto
+                                    |> Result.map Patient.Dto.toDto
+                                    |> Expect.equal "the same Dto" (Ok dto)
+                                }
+                        ]
+
+                    testList
+                        "fromDto refuses"
+                        [
+                            test "an unknown gender string" {
+                                { (Fixtures.child |> Patient.Dto.toDto) with Gender = "x" }
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal "named" (Error [ PatientError.UnknownGender "x" ])
+                            }
+
+                            test "an unknown access string, and every error is reported" {
+                                { (Fixtures.child |> Patient.Dto.toDto) with
+                                    Gender = "x"
+                                    Access = [| "pvl"; "tube" |]
+                                    RenalFunction = Some "egfr:a:b"
+                                }
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal
+                                    "all three"
+                                    (Error
+                                        [
+                                            PatientError.UnknownGender "x"
+                                            PatientError.UnknownAccess "tube"
+                                            PatientError.UnknownRenalFunction "egfr:a:b"
+                                        ])
+                            }
+
+                            test "a null gender or access string is an unknown one, never a crash" {
+                                { (Fixtures.child |> Patient.Dto.toDto) with
+                                    Gender = null
+                                    Access = [| null |]
+                                }
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal
+                                    "both named"
+                                    (Error [ PatientError.UnknownGender ""; PatientError.UnknownAccess "" ])
+                            }
+
+                            test "null arrays are read as empty" {
+                                let dto =
+                                    { (Fixtures.child |> Patient.Dto.toDto) with
+                                        Access = null
+                                        Diagnoses = null
+                                    }
+
+                                match dto |> Patient.Dto.fromDto with
+                                | Ok pat ->
+                                    pat.Access |> Expect.isEmpty "no access"
+                                    pat.Diagnoses |> Expect.isEmpty "no diagnoses"
+                                | Error e -> failtest $"expected a patient, got {e}"
+                            }
+
+                            test "an unknown string and the minimum data are reported together" {
+                                { (Fixtures.child |> Patient.Dto.toDto) with
+                                    Gender = "x"
+                                    AgeDays = None
+                                    WeightMeasured = false
+                                }
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal
+                                    "both"
+                                    (Error
+                                        [ PatientError.UnknownGender "x"; PatientError.NoAgeOrMeasuredWeightAndHeight ])
+                            }
+
+                            test "a draft with no age and no measured weight and height" {
+                                { (Fixtures.child |> Patient.Dto.toDto) with
+                                    AgeDays = None
+                                    WeightMeasured = false
+                                }
+                                |> Patient.Dto.fromDto
+                                |> Expect.equal "no patient" (Error [ PatientError.NoAgeOrMeasuredWeightAndHeight ])
+                            }
+                        ]
+
+                    testList
+                        "string forms"
+                        [
+                            test "renal function strings round-trip" {
+                                [
+                                    EGFR(Some 30, Some 50)
+                                    EGFR(None, Some 10)
+                                    EGFR(Some 50, None)
+                                    IntermittentHemodialysis
+                                    ContinuousHemodialysis
+                                    PeritonealDialysis
+                                ]
+                                |> List.map (RenalFunction.toString >> RenalFunction.tryFromString)
+                                |> Expect.equal
+                                    "each is read back"
+                                    ([
+                                        EGFR(Some 30, Some 50)
+                                        EGFR(None, Some 10)
+                                        EGFR(Some 50, None)
+                                        IntermittentHemodialysis
+                                        ContinuousHemodialysis
+                                        PeritonealDialysis
+                                     ]
+                                     |> List.map Some)
+                            }
+
+                            test "toDto converts to the canonical units" {
+                                let dto =
+                                    { Fixtures.child with
+                                        Weight = Some(ValueUnit.singleWithUnit Units.Weight.gram 32000N)
+                                        Age = Some(ValueUnit.singleWithUnit Units.Time.week 10N)
+                                    }
+                                    |> Patient.Dto.toDto
+
+                                dto.WeightKg |> Expect.equal "kilograms" (Some 32N)
+                                dto.AgeDays |> Expect.equal "days" (Some 70N)
+                            }
+                        ]
+                ]
+
+
+    /// An enteral tube as an access device: a patient's rules do not change by it, and the
+    /// string forms carry it.
+    module AccessDeviceTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.Utils.Lib.BCL
+        open Informedica.GenUnits.Lib
+        open Informedica.GenForm.Lib
+
+
+        let tests =
+            testList
+                "an enteral tube as access"
+                [
+                    test "the check on every venous row: any access takes all, no access takes all, else among" {
+                        for rule in [ PVL; CVL ] do
+                            VenousAccess.check rule [] |> Expect.isTrue $"{rule}: no access recorded"
+                            VenousAccess.check rule [ rule ] |> Expect.isTrue $"{rule}: the same"
+                            VenousAccess.check rule [ PVL; CVL ] |> Expect.isTrue $"{rule}: among both"
+
+                        VenousAccess.check PVL [ CVL ] |> Expect.isFalse "a PVL rule, CVL only"
+                        VenousAccess.check CVL [ PVL ] |> Expect.isFalse "a CVL rule, PVL only"
+
+                        for patient in [ []; [ PVL ]; [ CVL ]; [ PVL; CVL ] ] do
+                            VenousAccess.check AnyAccess patient
+                            |> Expect.isTrue $"any access for {patient}"
+                    }
+
+                    test "a tube on the patient matches what a venous access matched, and no venous rule by itself" {
+                        VenousAccess.check PVL [ PVL; EnteralTube ]
+                        |> Expect.isTrue "a PVL rule, PVL and tube"
+
+                        VenousAccess.check CVL [ PVL; EnteralTube ]
+                        |> Expect.isFalse "a CVL rule, PVL and tube"
+
+                        VenousAccess.check PVL [ EnteralTube ] |> Expect.isFalse "a PVL rule, tube only"
+                        VenousAccess.check CVL [ EnteralTube ] |> Expect.isFalse "a CVL rule, tube only"
+
+                        VenousAccess.check AnyAccess [ EnteralTube ]
+                        |> Expect.isTrue "any access, tube only"
+                    }
+
+                    test "a PVL patient matches the same categories with a tube as without" {
+                        let categories =
+                            [
+                                { PatientCategory.empty with Access = PVL }
+                                { PatientCategory.empty with Access = CVL }
+                                { PatientCategory.empty with Access = AnyAccess }
+                            ]
+
+                        let matches access =
+                            categories
+                            |> List.map (
+                                PatientCategory.filterPatient { PatientDtoTests.Fixtures.child with Access = access }
+                            )
+
+                        matches [ PVL ]
+                        |> Expect.equal "PVL: the PVL and any categories" [ true; false; true ]
+
+                        matches [ PVL; EnteralTube ]
+                        |> Expect.equal "PVL and a tube: the same" [ true; false; true ]
+
+                        matches [ EnteralTube ]
+                        |> Expect.equal "a tube only: the any category" [ false; false; true ]
+                    }
+
+                    test "a solution limit is headed by the rule's access, the tube included" {
+                        let rule access : SolutionRule =
+                            {
+                                Generic = "paracetamol"
+                                Form = None
+                                Route = "iv"
+                                Indication = None
+                                DoseType = NoDoseType
+                                PatientCategory = { PatientCategory.empty with Access = access }
+                                Dose = MinMax.empty
+                                Diluents = [||]
+                                Div = None
+                                Volumes = None
+                                Volume = MinMax.empty
+                                VolumeAdjust = MinMax.empty
+                                DripRate = MinMax.empty
+                                DosePerc = MinMax.empty
+                                SolutionLimits = [||]
+                            }
+
+                        let limit: SolutionLimit =
+                            {
+                                SolutionLimitTarget = NoLimitTarget
+                                Quantity = MinMax.empty
+                                QuantityAdj = MinMax.empty
+                                Quantities = None
+                                Concentration = MinMax.empty
+                                Products = [||]
+                            }
+
+                        let heading access =
+                            (SolutionRule.Print.printSolutionLimit (rule access) false limit).head
+
+                        heading EnteralTube |> Expect.stringStarts "a tube" "\n###### sonde: \n* "
+                        heading CVL |> Expect.stringStarts "central" "\n###### centraal: \n* "
+                        heading PVL |> Expect.stringStarts "peripheral" "\n###### perifeer: \n* "
+                        heading AnyAccess |> Expect.stringStarts "any access, no heading" "\n* "
+                    }
+
+                    test "the string forms round-trip, the tube included" {
+                        for a in [ PVL; CVL; EnteralTube; AnyAccess ] do
+                            a
+                            |> AccessDevice.toString
+                            |> AccessDevice.tryFromString
+                            |> Expect.equal $"{a} for the Dto" (Some a)
+
+                            a
+                            |> Product.Location.toString
+                            |> Product.Location.fromString
+                            |> Expect.equal $"{a} for a rule" a
+
+                        "tube" |> AccessDevice.tryFromString |> Expect.equal "not the Dto's word" None
+                    }
+                ]
+
+
+    /// The department in the dose filter: a patient without one takes a rule of any
+    /// department, a patient with one takes its department's rules and the rules for any.
+    module DepartmentTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.GenForm.Lib
+
+
+        let filterFor department : DoseFilter =
+            {
+                Indication = None
+                Generic = None
+                Form = None
+                Route = None
+                DoseType = None
+                Diluent = None
+                Components = []
+                Patient = { PatientDtoTests.Fixtures.child with Department = department }
+            }
+
+
+        let categories =
+            [
+                "ICK", { PatientCategory.empty with Department = Some "ICK" }
+                "NICU", { PatientCategory.empty with Department = Some "NICU" }
+                "any", PatientCategory.empty
+            ]
+
+
+        let matches department =
+            categories
+            |> List.map (fun (_, cat) -> cat |> PatientCategory.filter (filterFor department))
+
+
+        let tests =
+            testList
+                "the department in the dose filter"
+                [
+                    test "a patient without a department matches a rule of any department" {
+                        matches None |> Expect.equal "ICK, NICU and any" [ true; true; true ]
+                    }
+
+                    test "a patient with a department matches its own and the rules for any" {
+                        matches (Some "ICK")
+                        |> Expect.equal "ICK and any, not NICU" [ true; false; true ]
+
+                        matches (Some "NICU")
+                        |> Expect.equal "NICU and any, not ICK" [ false; true; true ]
                     }
                 ]
 
@@ -3247,8 +3643,7 @@ module Tests =
                     }
 
                     test "DoseLimit.isSubstanceLimit true when SubstanceLimitTarget is set" {
-                        let dl =
-                            { DoseLimit.limit with DoseLimitTarget = SubstanceLimitTarget "paracetamol" }
+                        let dl = { DoseLimit.limit with DoseLimitTarget = SubstanceLimitTarget "paracetamol" }
 
                         dl
                         |> DoseLimit.isSubstanceLimit
@@ -3289,8 +3684,7 @@ module Tests =
             mm.Min
             |> Option.map (Limit.getValueUnit >> ValueUnit.getValue >> Array.map BigRational.toDouble)
 
-        let private mk v u =
-            v |> ValueUnit.singleWithUnit u |> Limit.inclusive
+        let private mk v u = v |> ValueUnit.singleWithUnit u |> Limit.inclusive
 
         let private mmOf vmin vmax u =
             {
@@ -3331,7 +3725,7 @@ module Tests =
         // `lazy` for the same reason as DoseRuleRoundtripTests' fixtures: as a plain
         // value this reads three files and runs the loader in this module's static
         // constructor, during test discovery, where a throw costs the whole assembly
-        // its results rather than failing the one test that needs this (issue #523).
+        // its results rather than failing the one test that needs this.
         let private sampleDoseRule =
             lazy
                 (let data = fixture<DoseRuleData[]> "doserules.json"
@@ -3487,8 +3881,7 @@ module Tests =
                     }
 
                     test "UNIT-GUARD rangesComparable false for Count/kg/day vs IU/kg/week" {
-                        let perKg u =
-                            u |> ValueUnit.per Units.Weight.kiloGram
+                        let perKg u = u |> ValueUnit.per Units.Weight.kiloGram
 
                         let countKgDay = Units.Count.times |> perKg |> ValueUnit.per Units.Time.day
                         let iuKgWeek = Units.InterNational.iu |> perKg |> ValueUnit.per Units.Time.week
@@ -3523,8 +3916,7 @@ module Tests =
                                 calls <- calls + 1
                                 Seq.empty
 
-                        let result =
-                            Check.checkDoseRuleWithProvider fakeProvider Patient.patient sampleDoseRule.Value
+                        let result = Check.checkDoseRuleWithProvider fakeProvider Patient.patient sampleDoseRule.Value
 
                         calls > 0 |> Expect.isTrue "injected provider was invoked"
 
@@ -3535,7 +3927,7 @@ module Tests =
                 ]
 
 
-    /// External formulary links (issue #529): `Source.getLink` is pure over an NKF index
+    /// External formulary links: `Source.getLink` is pure over an NKF index
     /// that may be empty, and `SourceLoader` is the IO leaf that must fail as a `Result`.
     module SourceLinkTests =
 
@@ -3705,12 +4097,7 @@ module Tests =
                         let a = kInt "ca"
                         let b = kInt "cb"
 
-                        let reg =
-                            Map
-                                [
-                                    a.Name, derive (fun r -> r.Get b)
-                                    b.Name, derive (fun r -> r.Get a)
-                                ]
+                        let reg = Map [ a.Name, derive (fun r -> r.Get b); b.Name, derive (fun r -> r.Get a) ]
 
                         let threw =
                             try
@@ -3807,9 +4194,7 @@ module Tests =
                         eng.Warnings
                         |> Expect.equal
                             "outage surfaces as a Warning"
-                            [
-                                Warning "NKF links not loaded: kinderformularium.nl down"
-                            ]
+                            [ Warning "NKF links not loaded: kinderformularium.nl down" ]
                     }
                 ]
 
@@ -3823,6 +4208,10 @@ module Tests =
                 AdjustDoseLimitTests.tests
                 MaxQtyConflictTests.tests
                 PatientCategoryTests.tests
+                PatientTests.tests
+                PatientDtoTests.tests
+                AccessDeviceTests.tests
+                DepartmentTests.tests
                 DoseTypeTests.tests
                 LimitTargetTests.tests
                 GenericLabelTests.tests

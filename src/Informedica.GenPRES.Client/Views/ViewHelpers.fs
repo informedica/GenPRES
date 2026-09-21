@@ -139,8 +139,7 @@ module ViewHelpers =
 
     /// The value of the first (key, value) pair of a ValueUnit, if any. Shared helper for
     /// the increment/step calculations below.
-    let firstSnd (vu: Types.ValueUnit) =
-        vu.Value |> Array.tryHead |> Option.map snd
+    let firstSnd (vu: Types.ValueUnit) = vu.Value |> Array.tryHead |> Option.map snd
 
 
     /// The defined (small-step) increment: the defined constraint's increment, else the
@@ -177,8 +176,7 @@ module ViewHelpers =
 
                 // The large step follows the server-provided LargeIncr; when the server emits
                 // none, it falls back to the defined increment (behaving like the small step).
-                let largeIncr =
-                    ovar.LargeIncr |> Option.bind firstSnd |> Option.defaultValue smallIncr
+                let largeIncr = ovar.LargeIncr |> Option.bind firstSnd |> Option.defaultValue smallIncr
 
                 // The server's step applies no upper bound (it explores freely and re-solves),
                 // so the prediction follows the increment grid freely. Apply only the structural
@@ -253,8 +251,7 @@ module ViewHelpers =
     /// or no usable increment.
     /// </summary>
     let largeIncrementStepsToCeiling (ceiling: decimal option) (ovar: OrderVariable) : int option =
-        let largeIncr =
-            ovar.LargeIncr |> Option.bind firstSnd |> Option.orElse (definedIncrement ovar)
+        let largeIncr = ovar.LargeIncr |> Option.bind firstSnd |> Option.orElse (definedIncrement ovar)
 
         ovar |> stepsToCeiling ceiling largeIncr
 

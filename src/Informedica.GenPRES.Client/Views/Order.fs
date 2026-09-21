@@ -885,8 +885,7 @@ module Order =
 
         let isOrderLoading = Deferred.inProgress props.orderContext
 
-        let isFieldLoading field =
-            isOrderLoading && loadingField = Some field
+        let isFieldLoading field = isOrderLoading && loadingField = Some field
 
         // Monotonic counter bumped on every new server response (a fresh Resolved
         // orderContext). Passed into stepped selects so they reset their optimistic
@@ -1109,8 +1108,7 @@ module Order =
                        |> Option.defaultValue false
                 // orderable dose rate: shown when continuous/timed/onceTimed
                 // (stepper is always Some, so select renders even with empty vals)
-                let hasDoseRate =
-                    ord.Schedule.IsContinuous || ord.Schedule.IsTimed || ord.Schedule.IsOnceTimed
+                let hasDoseRate = ord.Schedule.IsContinuous || ord.Schedule.IsTimed || ord.Schedule.IsOnceTimed
                 // administration time: shown when has vals
                 let hasTime =
                     ord.Schedule.Time.Variable.Vals
@@ -1436,8 +1434,7 @@ module Order =
                         | Some cmp ->
                             match cmp.Items |> Array.tryFind (fun i -> i.Name = cmp.Name) with
                             | Some itm ->
-                                let change =
-                                    fun s -> (cmp.Name, itm.Name, s) |> ChangeSubstanceComponentConcentration
+                                let change = fun s -> (cmp.Name, itm.Name, s) |> ChangeSubstanceComponentConcentration
 
                                 if
                                     itm.ComponentConcentration.DefinedConstraints.Vals

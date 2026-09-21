@@ -63,7 +63,7 @@ let createScenarios (ctx: OrderContext) =
             let ctx =
                 ctx
                 |> OrderContext.UpdateOrderContext
-                |> OrderContext.evaluate OrderLogging.noOp provider
+                |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider
                 |> Result.get
                 |> OrderContext.Command.get
 
@@ -346,7 +346,7 @@ let ord =
     |> Array.head
     |> Medication.fromRule Logging.noOp
     |> Array.head
-    |> Medication.toOrderDto
+    |> Medication.toOrderDto System.DateTime.UtcNow
     |> Order.Dto.fromDto
 
 
@@ -361,7 +361,7 @@ Patient.teenager
 |> Array.head
 |> Medication.fromRule Logging.noOp
 |> Array.head
-|> Medication.toOrderDto
+|> Medication.toOrderDto System.DateTime.UtcNow
 |> Order.Dto.fromDto
 |> Order.print
 |> ignore
@@ -375,7 +375,7 @@ Patient.teenager
 |> Array.head
 |> Medication.fromRule Logging.noOp
 |> Array.head
-|> Medication.toOrderDto
+|> Medication.toOrderDto System.DateTime.UtcNow
 |> Order.Dto.fromDto
 |> Order.print
 |> ignore
@@ -386,7 +386,7 @@ Patient.infant
 |> OrderContext.create OrderLogging.noOp provider
 |> fun ctx -> { ctx with OrderContext.Filter.Generic = Some "Samenstelling B" }
 |> OrderContext.UpdateOrderContext
-|> OrderContext.evaluate OrderLogging.noOp provider
+|> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider
 |> fun res ->
     let ctx = res |> Result.get |> OrderContext.Command.get
 

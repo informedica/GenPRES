@@ -5,6 +5,7 @@ module Slider =
 
 
     open System
+    open Shared
     open Fable.Core
 
     [<JSX.Component>]
@@ -38,7 +39,7 @@ module Slider =
             |]
 
         let labelDisplay =
-            if String.IsNullOrWhiteSpace props.label then
+            if props.label |> String.isNullOrWhiteSpace then
                 null
             else
                 JSX.jsx

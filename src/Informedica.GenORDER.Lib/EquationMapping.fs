@@ -98,12 +98,7 @@ module EquationMapping =
     // (and Fantomas keeps them on one line at every use site).
     let discTimed = [ Literals.discontinuous; Literals.timed ]
 
-    let discContTimed =
-        [
-            Literals.discontinuous
-            Literals.continuous
-            Literals.timed
-        ]
+    let discContTimed = [ Literals.discontinuous; Literals.continuous; Literals.timed ]
 
     let contTimedOnceTimed = [ Literals.continuous; Literals.timed; Literals.onceTimed ]
 
@@ -175,7 +170,7 @@ module EquationMapping =
         |> List.map fst
 
 
-    // Memoised once at module init (issue #530). Kept private and wrapped below so the
+    // Memoised once at module init. Kept private and wrapped below so the
     // public binding stays an argument-taking function: a function value compiles to a
     // property returning FSharpFunc, a different .NET shape.
     let private memoizedGetEquations = Memoization.memoize getEquations_
@@ -194,12 +189,12 @@ module EquationMapping =
 
 
     /// <summary>
-    /// Create an Equations mapping for an `Order`
+    /// Create an Equations mapping for an <c>Order</c>
     /// </summary>
     /// <param name="ord">The Order to Map</param>
     /// <param name="eqs">The equations as a string list</param>
     /// <returns>
-    /// A tuple of `SumMapping` and `ProductMapping`
+    /// A tuple of <c>SumMapping</c> and <c>ProductMapping</c>
     /// </returns>
     let getEqsMapping (ord: Order) (eqs: string list) =
         let sumEqs = eqs |> List.filter (String.contains "sum")
@@ -218,34 +213,19 @@ module EquationMapping =
 
         let idN = [ ord.Id |> Id.toString ] |> Name.create
 
-        let orbN =
-            [
-                ord.Id |> Id.toString
-                ord.Orderable.Name |> Name.toString
-            ]
-            |> Name.create
+        let orbN = [ ord.Id |> Id.toString; ord.Orderable.Name |> Name.toString ] |> Name.create
 
         ord.Orderable.Components
         |> List.fold
             (fun acc c ->
-                let cmpN =
-                    [
-                        yield! orbN |> Name.toStringList
-                        c.Name |> Name.toString
-                    ]
-                    |> Name.create
+                let cmpN = [ yield! orbN |> Name.toStringList; c.Name |> Name.toString ] |> Name.create
 
                 let itms =
                     c.Items
                     |> List.collect (fun i ->
                         itmEqs
                         |> List.map (fun s ->
-                            let itmN =
-                                [
-                                    yield! cmpN |> Name.toStringList
-                                    i.Name |> Name.toString
-                                ]
-                                |> Name.create
+                            let itmN = [ yield! cmpN |> Name.toStringList; i.Name |> Name.toString ] |> Name.create
 
                             s
                             |> String.replace "[cmp]" $"{cmpN |> Name.toString}"
@@ -266,12 +246,7 @@ module EquationMapping =
                     | [ lv; rv ] ->
                         ord.Orderable.Components
                         |> List.map (fun c ->
-                            let cmpN =
-                                [
-                                    yield! orbN |> Name.toStringList
-                                    c.Name |> Name.toString
-                                ]
-                                |> Name.create
+                            let cmpN = [ yield! orbN |> Name.toStringList; c.Name |> Name.toString ] |> Name.create
 
                             rv |> String.replace "[cmp]" $"{cmpN |> Name.toString}"
                         )
@@ -281,7 +256,7 @@ module EquationMapping =
                         writeErrorMessage $"could not match {e}"
                         ""
                 )
-                |> List.filter (String.isNullOrWhiteSpace >> not)
+                |> List.filter String.notEmpty
                 |> List.map (String.replace "[orb]" $"{orbN |> Name.toString}")
                 |> SumMapping
 

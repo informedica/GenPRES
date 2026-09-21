@@ -7,6 +7,7 @@ module OrderLogging =
 
     open Informedica.GenSolver.Lib
     open Informedica.GenUnits.Lib
+    open Informedica.Utils.Lib.BCL
     open Informedica.GenOrder.Lib
     open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open Informedica.Logging.Lib
@@ -165,16 +166,13 @@ module OrderLogging =
 
 
     /// Convenience functions for logging order events
-    let logOrderEvent (logger: Logger) (event: Events.Event) =
-        event |> OrderEventMessage |> Logging.logInfo logger
+    let logOrderEvent (logger: Logger) (event: Events.Event) = event |> OrderEventMessage |> Logging.logInfo logger
 
 
-    let logOrderWarning (logger: Logger) (event: Events.Event) =
-        event |> OrderEventMessage |> Logging.logWarning logger
+    let logOrderWarning (logger: Logger) (event: Events.Event) = event |> OrderEventMessage |> Logging.logWarning logger
 
 
-    let logOrderException (logger: Logger) (ex: Exceptions.Message) =
-        ex |> OrderException |> Logging.logError logger
+    let logOrderException (logger: Logger) (ex: Exceptions.Message) = ex |> OrderException |> Logging.logError logger
 
 
     /// Enhanced print function that can handle messages with context
@@ -242,7 +240,7 @@ messages: {msgs.Value.Count}
                     event.Message
                     |> formatter
                     |> fun s ->
-                        if not (String.IsNullOrEmpty s) then
+                        if s |> String.notNullOrEmpty then
                             f s
             Enabled = fun _ -> true
         }

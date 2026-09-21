@@ -32,12 +32,10 @@ module Filters =
         getPrescriptionRules logger provider >> PrescriptionRule.generics
 
 
-    let getRoutes logger (provider: IResourceProvider) =
-        getPrescriptionRules logger provider >> PrescriptionRule.routes
+    let getRoutes logger (provider: IResourceProvider) = getPrescriptionRules logger provider >> PrescriptionRule.routes
 
 
-    let getForms logger (provider: IResourceProvider) =
-        getPrescriptionRules logger provider >> PrescriptionRule.forms
+    let getForms logger (provider: IResourceProvider) = getPrescriptionRules logger provider >> PrescriptionRule.forms
 
 
     let getFrequencies logger (provider: IResourceProvider) =
@@ -130,8 +128,7 @@ module OrderScenario =
 
 
     let setOrderTableFormat (sc: OrderScenario) =
-        let prs, prp, adm =
-            sc.Order |> Order.Print.printOrderToTableFormat sc.UseAdjust true sc.Items
+        let prs, prp, adm = sc.Order |> Order.Print.printOrderToTableFormat sc.UseAdjust true sc.Items
 
         { sc with
             Prescription = prs |> Array.map (Array.map replace)
@@ -197,6 +194,142 @@ module OrderScenario =
             useRenalRule
             pr.DoseRule.RenalRuleSource
         |> setOrderTableFormat
+
+
+    /// The serializable shape of an OrderScenario: text blocks as kind and text, the
+    /// order as its own Dto, the dose type as a string.
+    module Dto =
+
+        type Dto =
+            {
+                No: int
+                Name: string
+                Indication: string
+                Form: string
+                Route: string
+                DoseType: string
+                Diluent: string option
+                Component: string option
+                Item: string option
+                Diluents: string[]
+                Components: string[]
+                Items: string[]
+                Prescription: TextBlock.Dto.Dto[][]
+                Preparation: TextBlock.Dto.Dto[][]
+                Administration: TextBlock.Dto.Dto[][]
+                Order: Order.Dto.Dto
+                UseAdjust: bool
+                UseRenalRule: bool
+                RenalRule: string option
+                ProductsIds: string[]
+            }
+
+
+        let private blocksToDto (bs: TextBlock[][]) = bs |> Array.map (Array.map TextBlock.Dto.toDto)
+
+
+        let private blocksFromDto (bs: TextBlock.Dto.Dto[][]) =
+            bs
+            |> Array.toList
+            |> List.map (fun line ->
+                let line = line |> DtoResult.orEmpty
+
+                line
+                |> Array.toList
+                |> List.map TextBlock.Dto.fromDto
+                |> DtoResult.sequence
+                |> Result.map List.toArray
+            )
+            |> DtoResult.sequence
+            |> Result.map List.toArray
+            |> Result.mapError List.concat
+
+
+        let toDto (sc: OrderScenario) : Dto =
+            {
+                No = sc.No
+                Name = sc.Name
+                Indication = sc.Indication
+                Form = sc.Form
+                Route = sc.Route
+                DoseType = sc.DoseType |> DoseTypeDto.toString
+                Diluent = sc.Diluent
+                Component = sc.Component
+                Item = sc.Item
+                Diluents = sc.Diluents
+                Components = sc.Components
+                Items = sc.Items
+                Prescription = sc.Prescription |> blocksToDto
+                Preparation = sc.Preparation |> blocksToDto
+                Administration = sc.Administration |> blocksToDto
+                Order = sc.Order |> Order.Dto.toDto
+                UseAdjust = sc.UseAdjust
+                UseRenalRule = sc.UseRenalRule
+                RenalRule = sc.RenalRule
+                ProductsIds = sc.ProductsIds
+            }
+
+
+        /// The scenario a Dto is, or every reason it is none. An order that cannot be
+        /// created is an error, never a dropped scenario.
+        let fromDto (dto: Dto) : Result<OrderScenario, DtoError list> =
+            Nested.required
+                "OrderScenario"
+                dto
+                (fun dto ->
+                    let doseType = dto.DoseType |> DoseTypeDto.fromString |> Result.mapError List.singleton
+
+                    let prescription = dto.Prescription |> DtoResult.orEmpty |> blocksFromDto
+                    let preparation = dto.Preparation |> DtoResult.orEmpty |> blocksFromDto
+                    let administration = dto.Administration |> DtoResult.orEmpty |> blocksFromDto
+
+                    let order =
+                        try
+                            dto.Order
+                            |> Order.Dto.fromDto
+                            |> Result.mapError (fun m -> [ DtoError.OrderNotCreated $"{m}" ])
+                        with exn ->
+                            Error [ DtoError.OrderNotCreated exn.Message ]
+
+                    let errorsOf (r: Result<_, DtoError list>) =
+                        match r with
+                        | Error es -> es
+                        | Ok _ -> []
+
+                    let allErrors =
+                        errorsOf doseType
+                        @ errorsOf prescription
+                        @ errorsOf preparation
+                        @ errorsOf administration
+                        @ errorsOf order
+
+                    match allErrors, doseType, prescription, preparation, administration, order with
+                    | [], Ok doseType, Ok prescription, Ok preparation, Ok administration, Ok order ->
+                        Ok
+                            {
+                                No = dto.No
+                                Name = dto.Name
+                                Indication = dto.Indication
+                                Form = dto.Form
+                                Route = dto.Route
+                                DoseType = doseType
+                                Diluent = dto.Diluent
+                                Component = dto.Component
+                                Item = dto.Item
+                                Diluents = dto.Diluents |> DtoResult.orEmpty
+                                Components = dto.Components |> DtoResult.orEmpty
+                                Items = dto.Items |> DtoResult.orEmpty
+                                Prescription = prescription
+                                Preparation = preparation
+                                Administration = administration
+                                Order = order
+                                UseAdjust = dto.UseAdjust
+                                UseRenalRule = dto.UseRenalRule
+                                RenalRule = dto.RenalRule
+                                ProductsIds = dto.ProductsIds |> DtoResult.orEmpty
+                            }
+                    | errors, _, _, _, _, _ -> Error errors
+                )
 
 
 module OrderContext =
@@ -318,19 +451,6 @@ module OrderContext =
 
         open Informedica.Logging.Lib
 
-        (*
-        /// <summary>
-        /// Increase the Orderable Quantity and Rate Increment of an Order.
-        /// This allows speedy calculation by avoiding a large amount
-        /// of possible values.
-        /// </summary>
-        /// <param name="logger">The OrderLogger to use</param>
-        /// <param name="ord">The Order to increase the increment of</param>
-        let increaseIncrements logger ord = Order.increaseIncrements logger 10 10 ord
-
-
-        let setNormDose logger normDose ord = Order.solveNormDose logger normDose ord
-        *)
 
         let changeRuleProductsDivisible pr =
             { pr with
@@ -414,41 +534,31 @@ module OrderContext =
                     Ok(ord, pr)
                 | Error(ord, m) -> Error(ord, pr, m)
 
-        (*
-        /// <summary>
-        /// Evaluate a PrescriptionRule. The PrescriptionRule can result in
-        /// multiple Orders, depending on the SolutionRules.
-        /// </summary>
-        /// <param name="logger">Logger for diagnostics</param>
-        /// <param name="pr">The prescription rule to evaluate</param>
-        /// <returns>
-        /// An array of Results, containing the Order and the PrescriptionRule.
-        /// </returns>
-        let evaluateRule logger (pr : PrescriptionRule) =
-            pr
-            |> Medication.fromRule logger
-            |> Array.choose (Medication.toOrderDto >> Order.Dto.fromDto >> Result.toOption)
-            // Note: multiple solution rules can result in multiple medication templates
-            |> Array.map (fun ord -> async { return ord |> evaluateOrder logger pr })
-            |> Async.Parallel
-        *)
-
 
         /// <summary>
         /// Evaluates multiple prescription rules in parallel.
         /// Flattens all orders upfront and uses Array.Parallel for optimal performance.
         /// </summary>
+        /// <param name="start">The moment the orders start, decided by the caller, in UTC</param>
         /// <param name="logger">Logger for diagnostics</param>
         /// <param name="prs">Array of prescription rules to evaluate</param>
         /// <returns>Array of successfully evaluated order-rule pairs</returns>
-        let evaluateRules (logger: Logger) prs =
+        let evaluateRules (start: System.DateTime) (logger: Logger) prs =
             // Flatten all orders from all prescription rules upfront
             let ords =
                 prs
                 |> Array.collect (fun pr ->
                     pr
                     |> Medication.fromRule logger
-                    |> Array.choose (Medication.toOrderDto >> Order.Dto.fromDto >> Result.toOption)
+                    |> Array.choose (fun med ->
+                        match med |> Medication.toOrder start with
+                        | Ok ord -> Some ord
+                        // a medication that cannot become an order is left out of the
+                        // scenarios, so say which one and why, or it goes missing in silence
+                        | Error msg ->
+                            $"no order for %s{med.Name}: %A{msg}" |> writeErrorMessage
+                            None
+                    )
                     |> Array.map (fun ord -> ord, pr)
                 )
 
@@ -492,8 +602,7 @@ module OrderContext =
 
 
     let create logger provider (pat: Patient) =
-        let pat =
-            { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
+        let pat = { pat with Weight = pat.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram) }
 
         let prs = pat |> getPrescriptionRules logger provider
 
@@ -522,10 +631,14 @@ module OrderContext =
         }
 
 
-    let getRules logger provider ctx =
+    /// The rules for the context's selection and patient, and the context with its pick lists
+    /// narrowed to them. A weight and a height are needed; a department is not, a patient
+    /// without one taking the rules of every department. Without a weight and a height the
+    /// context is made afresh and there are no rules.
+    let getRules logger provider (ctx: OrderContext) =
 
         match ctx.Patient.Weight, ctx.Patient.Height, ctx.Patient.Department with
-        | Some w, Some h, d when d |> Option.isSome ->
+        | Some w, Some h, d ->
 
             let ind =
                 if ctx.Filter.Indication.IsSome then
@@ -575,6 +688,8 @@ module OrderContext =
                             PMAge = ctx.Patient.PMAge
                             Weight = Some w
                             Height = Some h
+                            WeightMeasured = ctx.Patient.WeightMeasured
+                            HeightMeasured = ctx.Patient.HeightMeasured
                             Diagnoses = [||]
                             Gender = ctx.Patient.Gender
                             Access = ctx.Patient.Access
@@ -669,20 +784,16 @@ module OrderContext =
         }
 
 
-    let setFilterGeneric gen ctx =
-        { ctx with OrderContext.Filter.Generic = Some gen }
+    let setFilterGeneric gen ctx = { ctx with OrderContext.Filter.Generic = Some gen }
 
 
-    let setFilterRoute rte ctx =
-        { ctx with OrderContext.Filter.Route = Some rte }
+    let setFilterRoute rte ctx = { ctx with OrderContext.Filter.Route = Some rte }
 
 
-    let setFilterIndication ind ctx =
-        { ctx with OrderContext.Filter.Indication = Some ind }
+    let setFilterIndication ind ctx = { ctx with OrderContext.Filter.Indication = Some ind }
 
 
-    let setFilterForm frm ctx =
-        { ctx with OrderContext.Filter.Form = Some frm }
+    let setFilterForm frm ctx = { ctx with OrderContext.Filter.Form = Some frm }
 
 
     let checkDiluentChange (ctx: OrderContext) =
@@ -790,7 +901,9 @@ Scenarios: {scenarios}
                             sc.Preparation
                             |> Array.exists (Array.exists Order.Print.textBlockIsEmpty >> not)
                         )
-                        |> Array.length = 0
+                        |> Array.length
+                            =
+                            0
                     then
                         scs
                     else
@@ -861,7 +974,7 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    let getScenarios logger provider ctx =
+    let getScenarios (start: System.DateTime) logger provider ctx =
         let inputFilter = ctx.Filter
         let ctx, result = ctx |> getRules logger provider
 
@@ -871,17 +984,14 @@ Scenarios: {scenarios}
             || inputFilter.Route.IsSome
             || inputFilter.DoseType.IsSome
 
-        let outputIsEmpty =
-            ctx.Filter.Generics |> Array.isEmpty && ctx.Filter.Indications |> Array.isEmpty
+        let outputIsEmpty = ctx.Filter.Generics |> Array.isEmpty && ctx.Filter.Indications |> Array.isEmpty
 
         match result with
         | Error e when inputHadSelections && outputIsEmpty ->
             // propagate the underlying error when getRules failed
             Error e
         | _ when inputHadSelections && outputIsEmpty ->
-            [
-                ErrorMsg("Geen doseerregels gevonden voor het geselecteerde filter", None)
-            ]
+            [ ErrorMsg("Geen doseerregels gevonden voor het geselecteerde filter", None) ]
             |> Error
         | _ ->
             let prs =
@@ -897,12 +1007,12 @@ Scenarios: {scenarios}
                         // Note: different prescription rules can exist based on multiple pharmaceutical forms
                         // and multiple solution rules
                         prs
-                        |> evaluateRules logger
+                        |> evaluateRules start logger
                         |> function
                             | [||] ->
                                 // no valid results so evaluate again
                                 // with changed product divisibility
-                                prs |> Array.map changeRuleProductsDivisible |> evaluateRules logger
+                                prs |> Array.map changeRuleProductsDivisible |> evaluateRules start logger
                             | results -> results
                         |> processEvaluationResults
                         |> filterScenariosByPreparation
@@ -911,13 +1021,13 @@ Scenarios: {scenarios}
             |> Ok
 
 
-    let reloadResources logger provider ctx =
+    let reloadResources (start: System.DateTime) logger provider ctx =
         Api.reloadCache logger provider
 
-        ctx |> getScenarios logger provider
+        ctx |> getScenarios start logger provider
 
 
-    let evaluate logger provider cmd =
+    let evaluate (start: System.DateTime) logger provider cmd =
         // Helper to process property commands when there's exactly one scenario with an order
         let processPropertyCmd ctx propCmd wrapResult =
             match ctx.Scenarios |> Array.tryExactlyOne with
@@ -931,8 +1041,8 @@ Scenarios: {scenarios}
                 wrapResult ctx |> Ok
 
         match cmd with
-        | UpdateOrderContext ctx -> ctx |> getScenarios logger provider |> Result.map UpdateOrderContext
-        | ReloadResources ctx -> ctx |> reloadResources logger provider |> Result.map ReloadResources
+        | UpdateOrderContext ctx -> ctx |> getScenarios start logger provider |> Result.map UpdateOrderContext
+        | ReloadResources ctx -> ctx |> reloadResources start logger provider |> Result.map ReloadResources
         // TODO: need to implement validation
         | SelectOrderScenario ctx -> ctx |> processScenarioOrder logger CalcValues |> SelectOrderScenario |> Ok
         | UpdateOrderScenario ctx -> ctx |> processScenarioOrder logger SolveOrder |> UpdateOrderScenario |> Ok
@@ -1010,6 +1120,28 @@ Scenarios: {scenarios}
                 (fun ctx -> SetMedianComponentQuantityProperty(ctx, cmp))
 
 
+    /// The context as an evaluation starts from it: its patient as the rules take it, its
+    /// filter reconciled against the pick lists the rules give that patient, its scenarios
+    /// as held.
+    let reconcile logger provider (ctx: OrderContext) : OrderContext =
+        let fresh = create logger provider ctx.Patient
+
+        { ctx with
+            Patient = fresh.Patient
+            Filter = Filter.reconcile fresh.Filter ctx.Filter
+        }
+
+
+    /// The totals over the orders of the context's scenarios, for its patient's age and
+    /// weight.
+    let intake (totalsData: Types.Data.TotalsData[]) (ctx: OrderContext) : Totals =
+        let wght = ctx.Patient.Weight |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram)
+
+        ctx.Scenarios
+        |> Array.map _.Order
+        |> Totals.getTotals totalsData ctx.Patient.Age wght
+
+
     let logOrderContext (logger: Logger) msg cmd =
         let log (s: string) =
             s
@@ -1050,13 +1182,79 @@ Scenarios: {scenarios}
 
         ctx |> toString $"Order Context" |> log
 
-        (*
-        ctx.Scenarios
-        |> Array.iter (_.Order >> Order.stringTable >> log)
-        *)
 
         log $"\n===\n"
         cmd
+
+
+    /// The order a context contributes to the plan: its scenario, once the context is
+    /// narrowed to exactly one; nothing while it holds several candidates or none.
+    let contribution (ctx: OrderContext) = ctx.Scenarios |> Array.tryExactlyOne
+
+
+    /// The serializable shape of an OrderContext: its filter, its patient and its scenarios,
+    /// each as its own Dto.
+    module Dto =
+
+        type Dto =
+            {
+                Filter: Filter.Dto.Dto
+                Patient: Patient.Dto.Dto
+                Scenarios: OrderScenario.Dto.Dto[]
+            }
+
+
+        let toDto (ctx: OrderContext) : Dto =
+            {
+                Filter = ctx.Filter |> Filter.Dto.toDto
+                Patient = ctx.Patient |> Informedica.GenForm.Lib.Patient.Dto.toDto
+                Scenarios = ctx.Scenarios |> Array.map OrderScenario.Dto.toDto
+            }
+
+
+        /// The context a Dto is, or every reason it is none: the filter's, the patient's
+        /// and every scenario's, a scenario that fails never dropped.
+        let fromDto (dto: Dto) : Result<OrderContext, DtoError list> =
+            Nested.required
+                "OrderContext"
+                dto
+                (fun dto ->
+                    let filter = Nested.required "Filter" dto.Filter Filter.Dto.fromDto
+
+                    let patient =
+                        Nested.required
+                            "Patient"
+                            dto.Patient
+                            (fun p ->
+                                p
+                                |> Informedica.GenForm.Lib.Patient.Dto.fromDto
+                                |> Result.mapError (List.map DtoError.Patient)
+                            )
+
+                    let scenarios =
+                        dto.Scenarios
+                        |> DtoResult.orEmpty
+                        |> Array.toList
+                        |> List.map (fun sc -> Nested.required "Scenario" sc OrderScenario.Dto.fromDto)
+                        |> DtoResult.sequence
+                        |> Result.mapError List.concat
+
+                    match filter, patient, scenarios with
+                    | Ok filter, Ok patient, Ok scenarios ->
+                        Ok
+                            {
+                                Filter = filter
+                                Patient = patient
+                                Scenarios = scenarios |> List.toArray
+                            }
+                    | _ ->
+                        let errorsOf r =
+                            match r with
+                            | Error es -> es
+                            | Ok _ -> []
+
+                        Error(errorsOf filter @ errorsOf patient @ errorsOf scenarios)
+                )
 
 
 module Formulary =
@@ -1068,8 +1266,7 @@ module Formulary =
     module Prescription = Order.Schedule
 
 
-    let getDoseRules provider filter =
-        Api.getDoseRules provider |> Api.filterDoseRules provider filter
+    let getDoseRules provider filter = Api.getDoseRules provider |> Api.filterDoseRules provider filter
 
 
     let getSolutionRules provider generic form route =

@@ -60,8 +60,7 @@ module Json =
     /// Serializes an object to a JSON string
     /// </summary>
     /// <param name="x">The object to serialize</param>
-    let serialize x =
-        JsonConvert.SerializeObject(x, settings)
+    let serialize x = JsonConvert.SerializeObject(x, settings)
 
 
     /// <summary>

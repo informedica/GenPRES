@@ -6,6 +6,8 @@ module Fireworks =
     open System
     open Newtonsoft.Json
 
+    open Informedica.Utils.Lib.BCL
+
     type Models = { data: Model list }
 
     and Model =
@@ -64,7 +66,7 @@ module Fireworks =
             }
 
 
-        // Function to create a ModelInput with default values
+        /// Function to create a ModelInput with default values
         let defaultChatInput model (msg: Message) (msgs: Message list) : ChatInput =
             let map msg =
                 {|
@@ -247,7 +249,7 @@ module Fireworks =
     // Define the API key and endpoint
     let apiKey =
         let var = Environment.GetEnvironmentVariable("FIREWORKS_API_KEY")
-        if var |> String.IsNullOrEmpty then None else var |> Some
+        if var |> String.isNullOrEmpty then None else var |> Some
 
 
     let list () =
@@ -301,8 +303,7 @@ module Fireworks =
 
                         match answer.message.content |> validator with
                         | Ok _ ->
-                            let validationResult =
-                                answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
+                            let validationResult = answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
 
                             input |> Chat.print
                             return Ok validationResult
@@ -377,8 +378,7 @@ module Fireworks =
 
                         match answer.message.content |> validator with
                         | Ok _ ->
-                            let validationResult =
-                                answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
+                            let validationResult = answer.message.content |> JsonConvert.DeserializeObject<'ReturnType>
 
                             return Ok(validationResult, input)
                         | Error err ->
@@ -431,10 +431,7 @@ module Fireworks =
             | Ok response ->
                 let response = response.Response.choices |> List.last |> _.message
 
-                [
-                    message
-                    Message.okMessage response.role response.content
-                ]
+                [ message; Message.okMessage response.role response.content ]
                 |> List.append messages
             | Error s ->
                 printfn $"oops: {s}"

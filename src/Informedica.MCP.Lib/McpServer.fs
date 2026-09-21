@@ -4,6 +4,7 @@ open System
 open System.ComponentModel
 
 open Informedica.GenForm.Lib.Resources
+open Informedica.Utils.Lib.BCL
 
 open ModelContextProtocol.Server
 open Microsoft.Extensions.DependencyInjection
@@ -15,14 +16,11 @@ open Newtonsoft.Json
 /// Shared pure helpers used by MCP tool wiring classes.
 module McpHelpers =
 
-    let toJson obj =
-        JsonConvert.SerializeObject(obj, Formatting.Indented)
+    let toJson obj = JsonConvert.SerializeObject(obj, Formatting.Indented)
 
-    let optStr (s: string) =
-        if String.IsNullOrWhiteSpace s then None else Some s
+    let optStr (s: string) = if s |> String.isNullOrWhiteSpace then None else Some s
 
-    let optFloat (v: Nullable<float>) =
-        if v.HasValue then Some v.Value else None
+    let optFloat (v: Nullable<float>) = if v.HasValue then Some v.Value else None
 
 
 /// MCP server wiring: attributed tool type definitions for GenFORM tools.
@@ -61,7 +59,8 @@ type GenFormMcpTools() =
             [<Description("Maximum patient age in months")>] maxAge: Nullable<float>,
             [<Description("Minimum body weight in kg")>] minWeight: Nullable<float>,
             [<Description("Maximum body weight in kg")>] maxWeight: Nullable<float>
-        ) =
+        )
+        =
         let input: GenFormTools.FilterDoseRulesInput =
             {
                 Generic = McpHelpers.optStr generic
@@ -94,7 +93,8 @@ type GenFormMcpTools() =
             [<Description("Administration route")>] route: string,
             [<Description("Drug form")>] form: string,
             [<Description("Clinical indication")>] indication: string
-        ) =
+        )
+        =
         let input: GenFormTools.GetPrescriptionRulesInput =
             {
                 Generic = McpHelpers.optStr generic
@@ -144,7 +144,8 @@ type GenOrderMcpTools() =
             [<Description("Drug form to pre-filter on")>] form: string,
             [<Description("Patient age in months")>] ageMonths: Nullable<float>,
             [<Description("Patient body weight in kg")>] weightKg: Nullable<float>
-        ) =
+        )
+        =
         let input: GenOrderTools.FilterOptionsInput =
             {
                 Generic = McpHelpers.optStr generic
@@ -166,7 +167,8 @@ type GenOrderMcpTools() =
             [<Description("Clinical indication")>] indication: string,
             [<Description("Administration route")>] route: string,
             [<Description("Drug form")>] form: string
-        ) =
+        )
+        =
         let input: GenOrderTools.DoseRulesForContextInput =
             {
                 Generic = McpHelpers.optStr generic
@@ -185,7 +187,8 @@ type GenOrderMcpTools() =
             [<Description("Generic drug name")>] generic: string,
             [<Description("Drug form")>] form: string,
             [<Description("Administration route")>] route: string
-        ) =
+        )
+        =
         let input: GenOrderTools.SolutionRulesForContextInput =
             {
                 Generic = McpHelpers.optStr generic
@@ -209,7 +212,8 @@ type GenOrderMcpTools() =
             [<Description("Clinical indication to pre-filter on")>] indication: string,
             [<Description("Administration route to pre-filter on")>] route: string,
             [<Description("Drug form to pre-filter on")>] form: string
-        ) =
+        )
+        =
         let input: GenOrderTools.CreateOrderContextInput =
             {
                 AgeMonths = McpHelpers.optFloat ageMonths
@@ -240,7 +244,8 @@ type GenOrderMcpTools() =
             [<Description("Clinical indication")>] indication: string,
             [<Description("Administration route")>] route: string,
             [<Description("Drug form")>] form: string
-        ) =
+        )
+        =
         let input: GenOrderTools.CreateOrderContextInput =
             {
                 AgeMonths = McpHelpers.optFloat ageMonths

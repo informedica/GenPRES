@@ -12,7 +12,7 @@ services:
     # No :latest is published (only pre-releases), so a tag is needed. The default is the
     # current release and is bumped by ShipIt's `regex` updater (CHANGELOG.md front matter)
     # in every release PR; do not hand-edit it. Set GENPRES_IMAGE_TAG in .env to pin another.
-    image: informedica/genpres:${GENPRES_IMAGE_TAG:-0.1.2-alpha.23}
+    image: informedica/genpres:${GENPRES_IMAGE_TAG:-0.1.2-alpha.27}
     container_name: genpres
     ports:
       - "${GENPRES_PORT:-8080}:8085"
@@ -27,8 +27,15 @@ services:
       GENPRES_DEBUG: ${GENPRES_DEBUG:-0}
       # Default UI language (en, nl, fr, de, es, it); empty = the server default, nl.
       GENPRES_LANG: ${GENPRES_LANG:-}
+      # The SQLite session store for test and development; empty = the in-memory store. Set it
+      # to `Data Source=data/db/genpres.db` to keep the record in the mounted ./data/db below.
+      # Production (GENPRES_PROD=1) refuses to start with it set.
+      GENPRES_DB_CONNECTION: ${GENPRES_DB_CONNECTION:-}
     volumes:
       # Production reads *.cache, which the image does not ship. The host data/cache also
       # holds the *.demo files, so the mount is harmless in demo mode.
       - ./data/cache:/app/data/cache
+      # The SQLite session store's file, when GENPRES_DB_CONNECTION points there: it survives a
+      # recreated container. Stop the container and delete the file to start from nothing.
+      - ./data/db:/app/data/db
     restart: unless-stopped

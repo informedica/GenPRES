@@ -14,8 +14,7 @@ module StopWatch =
         let result = f ()
         stopwatch.Stop()
 
-        let ms =
-            stopwatch.Elapsed.TotalMilliseconds.ToString("G", CultureInfo.InvariantCulture)
+        let ms = stopwatch.Elapsed.TotalMilliseconds.ToString("G", CultureInfo.InvariantCulture)
 
         ConsoleWriter.writeInfoMessage $"⏱  - %s{ms} ms: %s{msg}" true false
 

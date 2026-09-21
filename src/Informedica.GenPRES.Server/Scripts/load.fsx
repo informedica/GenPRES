@@ -1,4 +1,5 @@
 #load "../../../scripts/load-dependencies.fsx"
+#r "nuget: Microsoft.Data.Sqlite, 10.0.12"
 
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net10.0/Informedica.Utils.Lib.dll"
@@ -17,11 +18,17 @@
 
 #load "../Logging.fs"
 #load "../LogAnalyzer.fs"
-#load "../ServerApi.Mappers.fs"
+#load "../ServerApi.Mappers.Order.fs"
 #load "../ServerApi.Ports.fs"
+#load "../ServerApi.NutritionRuleSets.fs"
+#load "../ServerApi.Mappers.Patient.fs"
+#load "../ServerApi.Mappers.OrderContext.fs"
+#load "../ServerApi.Mappers.OrderPlan.fs"
+#load "../ServerApi.Mappers.Session.fs"
 #load "../ServerApi.Services.fs"
 #load "../ServerApi.Session.fs"
 #load "../ServerApi.StubAdapters.fs"
+#load "../ServerApi.SqlAdapters.fs"
 #load "../ServerApi.Adapters.fs"
 #load "../ServerApi.Compute.fs"
 #load "../ServerApi.FormularyCommand.fs"

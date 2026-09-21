@@ -80,6 +80,12 @@ server reads `Patient` and `Scenarios` of the submitted `OrderPlan` and ignores 
 
 ### The record (`Hop`, pure over `State`)
 
+> Note (2026-09-16): [ADR-0008](../adr/0008-contract-model-dto-mapping-boundary.md) retypes the
+> session state (`Records`, `Challenges`, `Notices`, the head a Session opened with) and the
+> order-plan half of the ports on the domain's `OrderPlanVersion` and `OrderPlan`, with the
+> contract model mapped before the port; the contract types named below are as built at the
+> time. Plan [725](725-contract-model-dto-domain-flow.md) carries the change.
+
 - `State` gains `Records: Map<patientId, SignedOrderPlan list>` (newest first);
   `Challenges: Map<sessionId, Challenge>` with `Challenge = { Nonce; Patient; Scenarios; Expiry }`,
   one per Session, a re-request replacing it, spent by removal at the commit, the lifetime two

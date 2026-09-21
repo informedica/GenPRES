@@ -261,9 +261,9 @@ module Types =
 
     type IndicationDosage =
         {
-            // The indication(-s) the dose rule applies to
+            /// The indication(-s) the dose rule applies to
             Indications: string list
-            // The dosage rules per administration route
+            /// The dosage rules per administration route
             RouteDosages: RouteDosage list
         }
 

@@ -20,10 +20,9 @@ module EmergencyList =
         let filterState = envBolus.BolusMedicationFilter
         let onFilterChange = envBolus.OnBolusMedicationFilterChange
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
-        let patient = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Patient
+        let patient = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
@@ -150,7 +149,7 @@ module EmergencyList =
                 |> List.distinctBy (fun item -> item.Category, item.Name, item.InterventionDoseText)
                 |> List.toArray
                 |> Array.mapi (fun i m ->
-                    let b = m.InterventionDoseText |> String.IsNullOrWhiteSpace
+                    let b = m.InterventionDoseText |> String.isNullOrWhiteSpace
 
                     let sentence =
                         let s =
@@ -216,30 +215,31 @@ module EmergencyList =
 
         let makePrintTableRows data =
             data
-            |> Array.map (fun
-                              (r:
-                                  {|
-                                      cells:
-                                          {|
-                                              field: string
-                                              value: string
-                                          |}[]
-                                      actions: ReactElement option
-                                  |}) ->
-                let row = r.cells |> Array.map (fun c -> c.field, c.value) |> Map.ofArray
+            |> Array.map
+                (fun
+                    (r:
+                        {|
+                            cells:
+                                {|
+                                    field: string
+                                    value: string
+                                |}[]
+                            actions: ReactElement option
+                        |}) ->
+                    let row = r.cells |> Array.map (fun c -> c.field, c.value) |> Map.ofArray
 
-                let get f =
-                    row |> Map.tryFind f |> Option.defaultValue "" |> _.Replace("*", "")
+                    let get f =
+                        row |> Map.tryFind f |> Option.defaultValue "" |> _.Replace("*", "")
 
-                let id = get "id"
-                let catagory = get "catagory"
-                let intervention = get "intervention"
-                let calculated = get "calculated"
-                let preparation = get "preparation"
-                let advice = get "advice"
+                    let id = get "id"
+                    let catagory = get "catagory"
+                    let intervention = get "intervention"
+                    let calculated = get "calculated"
+                    let preparation = get "preparation"
+                    let advice = get "advice"
 
-                JSX.jsx
-                    $"""
+                    JSX.jsx
+                        $"""
                 import TableRow from '@mui/material/TableRow';
                 import TableCell from '@mui/material/TableCell';
 
@@ -251,7 +251,7 @@ module EmergencyList =
                     <TableCell>{advice}</TableCell>
                 </TableRow>
                 """
-            )
+                )
             |> unbox<seq<ReactElement>>
             |> React.Fragment
 

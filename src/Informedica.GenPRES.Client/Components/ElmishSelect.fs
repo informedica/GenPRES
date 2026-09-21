@@ -5,6 +5,7 @@ module ElmishSelect =
 
 
     open System
+    open Shared
     open Fable.Core
     open Fable.React
     open Elmish
@@ -49,8 +50,7 @@ module ElmishSelect =
         =
         let depArr = [||] //[| box props.dispatch |]
 
-        let state, dispatch =
-            React.useElmish (init props.selected, update props.updateSelected, depArr)
+        let state, dispatch = React.useElmish (init props.selected, update props.updateSelected, depArr)
 
         let handleChange =
             fun ev ->
@@ -69,7 +69,7 @@ module ElmishSelect =
                 """
             )
 
-        let isClear = state |> Option.defaultValue "" |> String.IsNullOrWhiteSpace
+        let isClear = state |> Option.defaultValue "" |> String.isNullOrWhiteSpace
 
         let clearButton =
             JSX.jsx

@@ -15,13 +15,13 @@ module Variable =
     module Name =
 
 
-        /// Create with continuation with **succ** function
-        /// when success and **fail** function when failure.
-        /// Creates a `Name` from a`string`.
+        /// Create with continuation with succ function
+        /// when success and fail function when failure.
+        /// Creates a Name from a string.
         let create succ fail s =
             let s = s |> String.trim
 
-            if s |> String.IsNullOrWhiteSpace then
+            if s |> String.isNullOrWhiteSpace then
                 Exceptions.NameNullOrWhiteSpaceException |> fail
             else if s |> String.length <= 1000 then
                 s |> Name |> succ
@@ -29,13 +29,13 @@ module Variable =
                 s |> Exceptions.NameLongerThan1000 |> fail
 
 
-        /// Create a `Name` that, raises
-        /// an `NameException` when it fails.
+        /// Create a Name that, raises
+        /// an NameException when it fails.
         let createExc = create id (raiseExc [])
 
 
-        /// Return the `string` value of a `Name`.
-        /// If **replace** is `true` then
+        /// Return the string value of a Name.
+        /// If replace is true then
         /// replace any GUID in the name by "[ord".
         let toStringReplace replace (Name s) =
             if replace |> not then
@@ -51,11 +51,11 @@ module Variable =
                     | true, _ -> s |> String.replace g "[ord"
 
 
-        /// Return the `string` value of a `Name`.
+        /// Return the string value of a Name.
         let toString = toStringReplace false
 
 
-    /// Functions and types to create and handle `ValueRange`.
+    /// Functions and types to create and handle ValueRange.
     module ValueRange =
 
         open Informedica.GenSolver.Lib
@@ -66,11 +66,11 @@ module Variable =
 
 
             /// <summary>
-            /// Creates an `Increment` from a `ValueUnit`.
+            /// Creates an <c>Increment</c> from a <c>ValueUnit</c>.
             /// </summary>
             /// <param name="vu">The ValueUnit</param>
-            /// <returns>An `Increment`</returns>
-            /// <exception cref="Exceptions.ValueRangeEmptyIncrementException">When the `ValueUnit` is empty</exception>
+            /// <returns>An <c>Increment</c></returns>
+            /// <exception cref="Exceptions.ValueRangeEmptyIncrementException">When the <c>ValueUnit</c> is empty</exception>
             /// <remarks>
             /// Filters out negative values and removes multiples.
             /// </remarks>
@@ -86,7 +86,7 @@ module Variable =
 
 
             /// <summary>
-            /// Apply a function over the ValueUnit of `Increment`.
+            /// Apply a function over the ValueUnit of <c>Increment</c>.
             /// </summary>
             /// <param name="f">The function to apply</param>
             /// <returns>The result of applying f to the ValueUnit</returns>
@@ -94,21 +94,21 @@ module Variable =
 
 
             /// <summary>
-            /// Maps a function over the ValueUnit of `Increment`.
+            /// Maps a function over the ValueUnit of <c>Increment</c>.
             /// </summary>
             /// <param name="f">The function to map</param>
-            /// <returns>A new `Increment`</returns>
+            /// <returns>A new <c>Increment</c></returns>
             let map f (Increment vu) = vu |> f |> create
 
 
             /// <summary>
-            /// Convert an `Increment` to a `ValueUnit`.
+            /// Convert an <c>Increment</c> to a <c>ValueUnit</c>.
             /// </summary>
             let toValueUnit (Increment vu) = vu
 
 
             /// <summary>
-            /// Convert the Unit of an `Increment` to **u**.
+            /// Convert the Unit of an <c>Increment</c> to u.
             /// </summary>
             /// <param name="u">The unit to convert to</param>
             let convertToUnit u = map (ValueUnit.convertTo u)
@@ -146,7 +146,7 @@ module Variable =
 
 
             /// <summary>
-            /// Get the intersection of two `Increment`.
+            /// Get the intersection of two <c>Increment</c>.
             /// </summary>
             /// <returns>
             /// The intersection of the two increments.
@@ -162,13 +162,12 @@ module Variable =
             /// // returns Increment (ValueUnit ([|3000N|], Mass (MilliGram 1N)))
             /// </code>
             /// </example>
-            let intersect (Increment incr1) (Increment incr2) =
-                incr1 |> ValueUnit.intersect incr2 |> create
+            let intersect (Increment incr1) (Increment incr2) = incr1 |> ValueUnit.intersect incr2 |> create
 
 
             /// <summary>
-            /// Calculates the resulting increment of a calculation with **op** in
-            /// an equation: y = x1 **op** x2, where incr1 is the increment of x1,
+            /// Calculates the resulting increment of a calculation with op in
+            /// an equation: y = x1 op x2, where incr1 is the increment of x1,
             /// incr2 is the increment of x2 and y.incr is the resulting increment.
             /// </summary>
             /// <param name="op">The operator, can be mult, div, add, sub</param>
@@ -202,11 +201,11 @@ module Variable =
 
             /// <summary>
             /// Calculate an increment with
-            /// **incr1** of x1 and **incr2** of x2
-            /// in an equation: y = x1 **op** x2
+            /// incr1 of x1 and incr2 of x2
+            /// in an equation: y = x1 op x2
             /// </summary>
             /// <returns>
-            /// The resulting increment or `None` if the increment cannot be calculated.
+            /// The resulting increment or <c>None</c> if the increment cannot be calculated.
             /// </returns>
             /// <remarks>
             /// An increment can only be calculated when the operator is multiplication
@@ -227,8 +226,7 @@ module Variable =
             /// <summary>
             /// Get the increment as a list of BigRationals
             /// </summary>
-            let toList (Increment incr) =
-                incr |> ValueUnit.getValue |> Array.toList
+            let toList (Increment incr) = incr |> ValueUnit.getValue |> Array.toList
 
 
             /// <summary>
@@ -240,8 +238,7 @@ module Variable =
             /// <summary>
             /// Get the number of values in the increment
             /// </summary>
-            let count (Increment incr) =
-                incr |> ValueUnit.getValue |> Array.length
+            let count (Increment incr) = incr |> ValueUnit.getValue |> Array.length
 
 
             /// <summary>
@@ -300,7 +297,7 @@ module Variable =
 
 
             /// <summary>
-            /// Get the string representation of an `Increment`.
+            /// Get the string representation of an <c>Increment</c>.
             /// </summary>
             /// <param name="exact">Print exact or not</param>
             let toString exact (Increment incr) = $"{incr |> ValueUnit.toStr exact}"
@@ -310,13 +307,13 @@ module Variable =
 
 
             /// <summary>
-            /// Creates a `Minimum` that is
+            /// Creates a <c>Minimum</c> that is
             /// either inclusive or exclusive.
             /// </summary>
-            /// <param name="isIncl">Whether the `Minimum` is inclusive or exclusive</param>
+            /// <param name="isIncl">Whether the <c>Minimum</c> is inclusive or exclusive</param>
             /// <param name="vu">The ValueUnit</param>
-            /// <returns>A `Minimum`</returns>
-            /// <exception cref="Exceptions.ValueRangeEmptyMinimumException">When the `ValueUnit` is empty of has more than one value</exception>
+            /// <returns>A <c>Minimum</c></returns>
+            /// <exception cref="Exceptions.ValueRangeEmptyMinimumException">When the <c>ValueUnit</c> is empty of has more than one value</exception>
             let create isIncl vu =
                 if vu |> ValueUnit.isSingleValue then
 
@@ -327,10 +324,10 @@ module Variable =
 
             /// <summary>
             /// Apply fIncl or fExcl to the BigRational
-            /// value of `Minimum`
+            /// value of <c>Minimum</c>
             /// </summary>
-            /// <param name="fIncl">The function to apply to an inclusive `Minimum`</param>
-            /// <param name="fExcl">The function to apply to an exclusive `Minimum`</param>
+            /// <param name="fIncl">The function to apply to an inclusive <c>Minimum</c></param>
+            /// <param name="fExcl">The function to apply to an exclusive <c>Minimum</c></param>
             let apply fIncl fExcl =
                 function
                 | MinIncl m -> m |> fIncl
@@ -338,23 +335,21 @@ module Variable =
 
 
             /// <summary>
-            /// Map fIncl or fExcl to the BigRational value of `Minimum`
+            /// Map fIncl or fExcl to the BigRational value of <c>Minimum</c>
             /// </summary>
-            /// <param name="fIncl">The function to apply to an inclusive `Minimum`</param>
-            /// <param name="fExcl">The function to apply to an exclusive `Minimum`</param>
-            let map fIncl fExcl =
-                apply (fIncl >> (create true)) (fExcl >> (create false))
+            /// <param name="fIncl">The function to apply to an inclusive <c>Minimum</c></param>
+            /// <param name="fExcl">The function to apply to an exclusive <c>Minimum</c></param>
+            let map fIncl fExcl = apply (fIncl >> (create true)) (fExcl >> (create false))
 
 
             /// <summary>
-            /// Convert the unit of a `Minimum` to **u**.
+            /// Convert the unit of a <c>Minimum</c> to u.
             /// </summary>
             /// <param name="u">The unit to set</param>
-            let setUnit u =
-                map (ValueUnit.convertTo u) (ValueUnit.convertTo u)
+            let setUnit u = map (ValueUnit.convertTo u) (ValueUnit.convertTo u)
 
 
-            /// Convert a `Minimum` to a `ValueUnit`.
+            /// Convert a Minimum to a ValueUnit.
             let toValueUnit =
                 function
                 | MinIncl v
@@ -362,12 +357,12 @@ module Variable =
 
 
             /// <summary>
-            /// Checks whether the `Minimum` has a ZeroUnit.
+            /// Checks whether the <c>Minimum</c> has a ZeroUnit.
             /// </summary>
             let hasZeroUnit = toValueUnit >> ValueUnit.hasZeroUnit
 
 
-            /// Convert a `Minimum` to a `ValueUnit` and a `bool`
+            /// Convert a Minimum to a ValueUnit and a bool
             /// that signifies inclusive or exclusive
             let toBoolValueUnit = apply (fun vu -> true, vu) (fun vu -> false, vu)
 
@@ -388,7 +383,7 @@ module Variable =
 
 
             /// <summary>
-            /// Checks whether `Minimum` minLeft &gt; minRight
+            /// Checks whether <c>Minimum</c> minLeft &gt; minRight
             /// </summary>
             /// <remarks>
             /// Note that the fact that a Minimum is inclusive or exclusive
@@ -414,7 +409,7 @@ module Variable =
 
 
             /// <summary>
-            /// Checks whether `Minimum` minLeft &lt;= minRight
+            /// Checks whether <c>Minimum</c> minLeft &lt;= minRight
             /// </summary>
             /// <remarks>
             /// Note that the fact that a Minimum is inclusive or exclusive
@@ -431,12 +426,11 @@ module Variable =
             /// min2 |> Minimum.minSTEmin min1 // returns false!
             /// </code>
             /// </example>
-            let minSTEmin minRight minLeft =
-                minRight |> eqs minLeft || minLeft |> minGTmin minRight |> not
+            let minSTEmin minRight minLeft = minRight |> eqs minLeft || minLeft |> minGTmin minRight |> not
 
 
             /// <summary>
-            /// Checks whether `Minimum` minLeft &gt;= minRight
+            /// Checks whether <c>Minimum</c> minLeft &gt;= minRight
             /// </summary>
             /// <remarks>
             /// Note that the fact that a Minimum is inclusive or exclusive
@@ -453,12 +447,11 @@ module Variable =
             /// min2 |> Minimum.minGTEmin min1 // returns false!
             /// </code>
             /// </example>
-            let minGTEmin minRight minLeft =
-                minRight |> eqs minLeft || minGTmin minRight minLeft
+            let minGTEmin minRight minLeft = minRight |> eqs minLeft || minGTmin minRight minLeft
 
 
             /// <summary>
-            /// Checks whether `Minimum` minLeft &lt; minRight
+            /// Checks whether <c>Minimum</c> minLeft &lt; minRight
             /// </summary>
             /// <remarks>
             /// Note that the fact that a Minimum is inclusive or exclusive
@@ -479,7 +472,7 @@ module Variable =
 
 
             /// <summary>
-            /// Checks whether `Minimum` is exclusive.
+            /// Checks whether <c>Minimum</c> is exclusive.
             /// </summary>
             let isExcl =
                 function
@@ -487,24 +480,24 @@ module Variable =
                 | MinExcl _ -> true
 
 
-            /// Checks whether `Minimum` is inclusive.
+            /// Checks whether Minimum is inclusive.
             let isIncl = isExcl >> not
 
 
-            /// Checks whether `Minimum` is non-zero and positive.
+            /// Checks whether Minimum is non-zero and positive.
             let isNonZeroPositive =
                 function
                 | MinExcl vu -> vu |> ValueUnit.isZero
                 | _ -> false
 
 
-            /// Creates a `Minimum` from a `ValueUnit`.
-            /// Returns `None` if an empty set.
+            /// Creates a Minimum from a ValueUnit.
+            /// Returns None if an empty set.
             let minElement = ValueUnit.minValue >> Option.map MinIncl
 
 
             /// <summary>
-            /// Convert the Unit of a `Minimum` to the Unit of the second `Minimum`.
+            /// Convert the Unit of a <c>Minimum</c> to the Unit of the second <c>Minimum</c>.
             /// </summary>
             /// <example>
             /// <code>
@@ -521,7 +514,7 @@ module Variable =
 
 
             /// <summary>
-            /// Recalculate the minimum value of a `Minimum` as a multiple of **incr**.
+            /// Recalculate the minimum value of a <c>Minimum</c> as a multiple of incr.
             /// </summary>
             /// <param name="incr">The increment</param>
             /// <param name="min">The minimum</param>
@@ -547,7 +540,7 @@ module Variable =
 
 
             /// <summary>
-            /// Check if either the numerator or denominator of the `Minimum`
+            /// Check if either the numerator or denominator of the <c>Minimum</c>
             /// is too large, i.e., there is an 'overflow'.
             /// </summary>
             /// <remarks>
@@ -567,7 +560,7 @@ module Variable =
 
 
             /// <summary>
-            /// Make a `Minimum` non-zero and non-negative.
+            /// Make a <c>Minimum</c> non-zero and non-negative.
             /// </summary>
             let nonZeroAndPositive =
                 let fIncl vu =
@@ -617,7 +610,7 @@ module Variable =
 
 
             /// <summary>
-            /// Get the string representation of a `Minimum`.
+            /// Get the string representation of a <c>Minimum</c>.
             /// </summary>
             /// <param name="exact">Print exact or not</param>
             /// <param name="min">The minimum</param>
@@ -628,7 +621,7 @@ module Variable =
 
 
             /// <summary>
-            /// Get the markdown representation of a `Minimum`.
+            /// Get the markdown representation of a <c>Minimum</c>.
             /// </summary>
             /// <param name="isWithUnit">whether to print the unit</param>
             /// <param name="prec">The precision</param>
@@ -643,13 +636,13 @@ module Variable =
 
 
             /// <summary>
-            /// Create a `Maximum` that is
+            /// Create a <c>Maximum</c> that is
             /// either inclusive or exclusive.
             /// </summary>
-            /// <param name="isIncl">Whether the `Maximum` is inclusive or exclusive</param>
+            /// <param name="isIncl">Whether the <c>Maximum</c> is inclusive or exclusive</param>
             /// <param name="vu">The ValueUnit</param>
-            /// <returns>A `Maximum`</returns>
-            /// <exception cref="Exceptions.ValueRangeEmptyMaximumException">When the `ValueUnit` is empty of has more than one value</exception>
+            /// <returns>A <c>Maximum</c></returns>
+            /// <exception cref="Exceptions.ValueRangeEmptyMaximumException">When the <c>ValueUnit</c> is empty of has more than one value</exception>
             let create isIncl vu =
                 if vu |> ValueUnit.isSingleValue then
 
@@ -660,10 +653,10 @@ module Variable =
 
             /// <summary>
             /// Apply fIncl or fExcl to the BigRational
-            /// value of `Maximum`
+            /// value of <c>Maximum</c>
             /// </summary>
-            /// <param name="fIncl">The function to apply to an inclusive `Maximum`</param>
-            /// <param name="fExcl">The function to apply to an exclusive `Maximum`</param>
+            /// <param name="fIncl">The function to apply to an inclusive <c>Maximum</c></param>
+            /// <param name="fExcl">The function to apply to an exclusive <c>Maximum</c></param>
             let apply fIncl fExcl =
                 function
                 | MaxIncl m -> m |> fIncl
@@ -671,23 +664,21 @@ module Variable =
 
 
             /// <summary>
-            /// Map fIncl or fExcl to the BigRational value of `Maximum`
+            /// Map fIncl or fExcl to the BigRational value of <c>Maximum</c>
             /// </summary>
-            /// <param name="fIncl">The function to apply to an inclusive `Maximum`</param>
-            /// <param name="fExcl">The function to apply to an exclusive `Maximum`</param>
-            let map fIncl fExcl =
-                apply (fIncl >> (create true)) (fExcl >> (create false))
+            /// <param name="fIncl">The function to apply to an inclusive <c>Maximum</c></param>
+            /// <param name="fExcl">The function to apply to an exclusive <c>Maximum</c></param>
+            let map fIncl fExcl = apply (fIncl >> (create true)) (fExcl >> (create false))
 
 
             /// <summary>
-            /// Convert the unit of a `Maximum` to **u**.
+            /// Convert the unit of a <c>Maximum</c> to u.
             /// </summary>
             /// <param name="u">The unit to set</param>
-            let setUnit u =
-                map (ValueUnit.convertTo u) (ValueUnit.convertTo u)
+            let setUnit u = map (ValueUnit.convertTo u) (ValueUnit.convertTo u)
 
 
-            /// Convert a `Maximum` to a `ValueUnit`.
+            /// Convert a Maximum to a ValueUnit.
             let toValueUnit =
                 function
                 | MaxIncl v
@@ -695,12 +686,12 @@ module Variable =
 
 
             /// <summary>
-            /// Checks whether the `Maximum` has a ZeroUnit.
+            /// Checks whether the <c>Maximum</c> has a ZeroUnit.
             /// </summary>
             let hasZeroUnit = toValueUnit >> ValueUnit.hasZeroUnit
 
 
-            /// Convert a `Maximum` to a `ValueUnit` and a `bool`
+            /// Convert a Maximum to a ValueUnit and a bool
             /// that signifies inclusive or exclusive
             let toBoolValueUnit = apply (fun m -> true, m) (fun m -> false, m)
 
@@ -721,7 +712,7 @@ module Variable =
 
 
             /// <summary>
-            /// Checks whether `Maximum` maxLeft &gt; maxRight
+            /// Checks whether <c>Maximum</c> maxLeft &gt; maxRight
             /// </summary>
             /// <remarks>
             /// Note that the fact that a Maximum is inclusive or exclusive
@@ -747,7 +738,7 @@ module Variable =
 
 
             /// <summary>
-            /// Checks whether `Maximum` maxLeft &lt;= maxRight
+            /// Checks whether <c>Maximum</c> maxLeft &lt;= maxRight
             /// </summary>
             /// <remarks>
             /// Note that the fact that a Maximum is inclusive or exclusive
@@ -764,12 +755,11 @@ module Variable =
             /// max2 |> Maximum.maxSTEmax max1 // returns false!
             /// </code>
             /// </example>
-            let maxSTEmax maxRight maxLeft =
-                maxLeft |> eqs maxRight || maxLeft |> maxGTmax maxRight |> not
+            let maxSTEmax maxRight maxLeft = maxLeft |> eqs maxRight || maxLeft |> maxGTmax maxRight |> not
 
 
             /// <summary>
-            /// Checks whether `Maximum` maxLeft &gt;= maxRight
+            /// Checks whether <c>Maximum</c> maxLeft &gt;= maxRight
             /// </summary>
             /// <remarks>
             /// Note that the fact that a Maximum is inclusive or exclusive
@@ -786,12 +776,11 @@ module Variable =
             /// max2 |> Maximum.maxGTEmax max1 // returns false!
             /// </code>
             /// </example>
-            let maxGTEmax maxRight maxLeft =
-                maxLeft |> eqs maxRight || maxLeft |> maxGTmax maxRight
+            let maxGTEmax maxRight maxLeft = maxLeft |> eqs maxRight || maxLeft |> maxGTmax maxRight
 
 
             /// <summary>
-            /// Checks whether `Maximum` maxLeft &lt; maxRight
+            /// Checks whether <c>Maximum</c> maxLeft &lt; maxRight
             /// </summary>
             /// <remarks>
             /// Note that the fact that a Maximum is inclusive or exclusive
@@ -811,24 +800,24 @@ module Variable =
             let maxSTmax maxRight maxLeft = maxLeft |> maxGTEmax maxRight |> not
 
 
-            /// Checks whether `Maximum` is exclusive.
+            /// Checks whether Maximum is exclusive.
             let isExcl =
                 function
                 | MaxIncl _ -> false
                 | MaxExcl _ -> true
 
 
-            /// Checks whether `Maximum` is inclusive.
+            /// Checks whether Maximum is inclusive.
             let isIncl = isExcl >> not
 
 
-            /// Creates a `Maximum` from a `ValueUnit`.
-            /// Returns `None` if an empty set.
+            /// Creates a Maximum from a ValueUnit.
+            /// Returns None if an empty set.
             let maxElement = ValueUnit.maxValue >> Option.map MaxIncl
 
 
             /// <summary>
-            /// Convert the Unit of a `Maximum` to the Unit of the second `Maximum`.
+            /// Convert the Unit of a <c>Maximum</c> to the Unit of the second <c>Maximum</c>.
             /// </summary>
             /// <example>
             /// <code>
@@ -845,7 +834,7 @@ module Variable =
 
 
             /// <summary>
-            /// Recalculate the maximum value of a `Maximum` as a multiple of **incr**.
+            /// Recalculate the maximum value of a <c>Maximum</c> as a multiple of incr.
             /// </summary>
             /// <param name="incr">The increment</param>
             /// <param name="max">The maximum</param>
@@ -871,7 +860,7 @@ module Variable =
 
 
             /// <summary>
-            /// Check if either the numerator or denominator of the `Maximum`
+            /// Check if either the numerator or denominator of the <c>Maximum</c>
             /// is too large, i.e., there is an 'overflow'.
             /// </summary>
             /// <remarks>
@@ -891,7 +880,7 @@ module Variable =
 
 
             /// <summary>
-            /// Make a `Maximum` non-zero and non-negative.
+            /// Make a <c>Maximum</c> non-zero and non-negative.
             /// </summary>
             let nonZeroAndPositive max =
                 max
@@ -925,7 +914,7 @@ module Variable =
 
 
             /// <summary>
-            /// Get the string representation of a `Maximum`.
+            /// Get the string representation of a <c>Maximum</c>.
             /// </summary>
             /// <param name="exact">Print exact or not</param>
             /// <param name="max">The maximum</param>
@@ -936,7 +925,7 @@ module Variable =
 
 
             /// <summary>
-            /// Get the markdown representation of a `Maximum`.
+            /// Get the markdown representation of a <c>Maximum</c>.
             /// </summary>
             /// <param name="prec">The precision</param>
             /// <param name="max">The maximum</param>
@@ -953,12 +942,12 @@ module Variable =
 
 
             /// <summary>
-            /// Create a `ValueSet` from a `ValueUnit`.
+            /// Create a <c>ValueSet</c> from a <c>ValueUnit</c>.
             /// </summary>
             /// <param name="vu">The ValueUnit</param>
-            /// <returns>A `ValueSet`</returns>
-            /// <exception cref="Exceptions.ValueRangeEmptyValueSetException">When the `ValueSet` is empty</exception>
-            /// <exception cref="Exceptions.ValueSetOverflow">When the `ValueSet` has too many values</exception>
+            /// <returns>A <c>ValueSet</c></returns>
+            /// <exception cref="Exceptions.ValueRangeEmptyValueSetException">When the <c>ValueSet</c> is empty</exception>
+            /// <exception cref="Exceptions.ValueSetOverflow">When the <c>ValueSet</c> has too many values</exception>
             let create vu =
                 if vu |> ValueUnit.isEmpty then
                     "ValueSet create cannot be empty"
@@ -972,7 +961,7 @@ module Variable =
 
 
             /// <summary>
-            /// Get the `ValueUnit` of a `ValueSet`.
+            /// Get the <c>ValueUnit</c> of a <c>ValueSet</c>.
             /// </summary>
             let toValueUnit (ValueSet vu) = vu
 
@@ -981,15 +970,15 @@ module Variable =
 
 
             /// <summary>
-            /// Map f to the `ValueUnit` of a `ValueSet`.
+            /// Map f to the <c>ValueUnit</c> of a <c>ValueSet</c>.
             /// </summary>
             /// <param name="f">The mapping function</param>
             let map f (ValueSet vu) = vu |> f |> create
 
 
             /// <summary>
-            /// Prune the `ValueUnit` of a `ValueSet`. This means that
-            /// the number of values is reduced to a constant **PRUNE**.
+            /// Prune the <c>ValueUnit</c> of a <c>ValueSet</c>. This means that
+            /// the number of values is reduced to a constant PRUNE.
             /// </summary>
             /// <remarks>
             /// The minimum and maximum values are always kept.
@@ -1022,25 +1011,25 @@ module Variable =
 
 
             /// <summary>
-            /// Convert the unit of a `ValueSet` to **u**.
+            /// Convert the unit of a <c>ValueSet</c> to u.
             /// </summary>
             let setUnit u = map (ValueUnit.convertTo u)
 
 
             /// <summary>
-            /// Get the minimum value of a `ValueSet`.
+            /// Get the minimum value of a <c>ValueSet</c>.
             /// </summary>
             let getMin (ValueSet vu) = vu |> Minimum.minElement
 
 
             /// <summary>
-            /// Get the maximum value of a `ValueSet`.
+            /// Get the maximum value of a <c>ValueSet</c>.
             /// </summary>
             let getMax (ValueSet vu) = vu |> Maximum.maxElement
 
 
             /// <summary>
-            /// Get the median value of a `ValueSet`.
+            /// Get the median value of a <c>ValueSet</c>.
             /// </summary>
             let getMedian =
                 fun vu -> vu |> ValueUnit.medianValue |> Option.defaultValue vu
@@ -1048,26 +1037,25 @@ module Variable =
 
 
             /// <summary>
-            /// Count the number of values in a `ValueSet`.
+            /// Count the number of values in a <c>ValueSet</c>.
             /// </summary>
-            let count (ValueSet vu) =
-                vu |> ValueUnit.getValue |> Array.length
+            let count (ValueSet vu) = vu |> ValueUnit.getValue |> Array.length
 
 
             /// <summary>
-            /// Check if a `ValueSet` is solved
+            /// Check if a <c>ValueSet</c> is solved
             /// </summary>
             let isSolved = count >> ((=) 1)
 
 
             /// <summary>
-            /// Check if a `ValueSet` is empty.
+            /// Check if a <c>ValueSet</c> is empty.
             /// </summary>
             let isEmpty (ValueSet vu) = vu |> ValueUnit.isEmpty
 
 
             /// <summary>
-            /// Check if a `ValueSet` contains a value.
+            /// Check if a <c>ValueSet</c> contains a value.
             /// </summary>
             /// <param name="v">The value to check</param>
             /// <remarks>
@@ -1077,7 +1065,7 @@ module Variable =
 
 
             /// <summary>
-            /// Calculate the intersection of two `ValueSet`s.
+            /// Calculate the intersection of two <c>ValueSet</c>s.
             /// </summary>
             /// <remarks>
             /// Returns a 'ValueSet' that contains the values that are
@@ -1091,7 +1079,7 @@ module Variable =
 
 
             /// <summary>
-            /// Check if the first `ValueSet` is a subset of the second `ValueSet`.
+            /// Check if the first <c>ValueSet</c> is a subset of the second <c>ValueSet</c>.
             /// </summary>
             let isSubset vs1 vs2 =
                 let ValueSet vu1, ValueSet vu2 = vs1, vs2
@@ -1099,7 +1087,7 @@ module Variable =
 
 
             /// <summary>
-            /// Check if the first `ValueSet` is equal to the second `ValueSet`.
+            /// Check if the first <c>ValueSet</c> is equal to the second <c>ValueSet</c>.
             /// </summary>
             /// <remarks>
             /// Uses ValueUnit equality, so 1000 milligram equals 1 gram.
@@ -1111,13 +1099,13 @@ module Variable =
             /// Filters out the values that are zero or negative.
             /// </summary>
             /// <remarks>
-            /// Will throw an exception if the resulting `ValueSet` is empty.
+            /// Will throw an exception if the resulting <c>ValueSet</c> is empty.
             /// </remarks>
             let nonZeroAndPositive = map (ValueUnit.filterValues (fun br -> br > 0N))
 
 
             /// <summary>
-            /// Get the indices of the values in the first `ValueSet` that are also in the second `ValueSet`.
+            /// Get the indices of the values in the first <c>ValueSet</c> that are also in the second <c>ValueSet</c>.
             /// </summary>
             let getIndices vs1 vs2 =
                 let ValueSet vu1, ValueSet vu2 = vs1, vs2
@@ -1126,28 +1114,28 @@ module Variable =
 
 
             /// <summary>
-            /// Pick the values at the given indices from a `ValueSet`.
+            /// Pick the values at the given indices from a <c>ValueSet</c>.
             /// </summary>
             /// <param name="indices">The indices of the values to pick</param>
-            /// <returns>A `ValueSet` with the picked values</returns>
+            /// <returns>A <c>ValueSet</c> with the picked values</returns>
             let pickIndices indices =
                 function
                 | ValueSet vu -> vu |> ValueUnit.pickIndices indices |> ValueSet
 
 
             /// <summary>
-            /// Apply a binary operator to two `ValueSet`s.
+            /// Apply a binary operator to two <c>ValueSet</c>s.
             /// </summary>
             /// <param name="op">The operator to apply</param>
-            /// <param name="vs1">The first `ValueSet`</param>
-            /// <param name="vs2">The second `ValueSet`</param>
+            /// <param name="vs1">The first <c>ValueSet</c></param>
+            /// <param name="vs2">The second <c>ValueSet</c></param>
             let calc op vs1 vs2 =
                 let ValueSet vu1, ValueSet vu2 = vs1, vs2
                 vu1 |> op <| vu2 |> create
 
 
             /// <summary>
-            /// Create a `ValueSet` from an `Increment`, `Minimum` and a `Maximum`.
+            /// Create a <c>ValueSet</c> from an <c>Increment</c>, <c>Minimum</c> and a <c>Maximum</c>.
             /// </summary>
             /// <param name="min">The minimum</param>
             /// <param name="incr">The increment</param>
@@ -1155,7 +1143,7 @@ module Variable =
             /// <remarks>
             /// If the increment is the result of a calculation, it is possible
             /// that the set will contain more values that would be obtained by the
-            /// calculation. If you multiply a `ValueSet` [3;6] with a `ValueSet`
+            /// calculation. If you multiply a <c>ValueSet</c> [3;6] with a <c>ValueSet</c>
             /// [2;4;6] you get [6;12;18;24;36]. However, if you create a value set
             /// using a minimum of 6, an increment of 6 and a maximum of 36, you get
             /// [6;12;18;24;30;36]. However, 30 cannot be multiplying [3;6] with [2;4;6].
@@ -1181,10 +1169,10 @@ module Variable =
 
 
             /// <summary>
-            /// Get a string representation of a `ValueSet`.
+            /// Get a string representation of a <c>ValueSet</c>.
             /// </summary>
             /// <param name="exact">Whether values should be printed 'exact'</param>
-            /// <param name="vs">The `ValueSet`</param>
+            /// <param name="vs">The <c>ValueSet</c></param>
             let toString exact vs =
                 let (ValueSet vu) = vs
                 let count = ValueUnit.getValue >> Array.length
@@ -1198,10 +1186,10 @@ module Variable =
 
 
             /// <summary>
-            /// Get a markdown representation of a `ValueSet`.
+            /// Get a markdown representation of a <c>ValueSet</c>.
             /// </summary>
             /// <param name="prec">The precision to print values with</param>
-            /// <param name="vs">The `ValueSet`</param>
+            /// <param name="vs">The <c>ValueSet</c></param>
             let toMarkdown prec vs =
                 let (ValueSet vu) = vs
                 let count = ValueUnit.getValue >> Array.length
@@ -1277,18 +1265,18 @@ module Variable =
         // === START ValueRange ===
 
         /// <summary>
-        /// Map a function over a `ValueRange`.
+        /// Map a function over a <c>ValueRange</c>.
         /// </summary>
-        /// <param name="fMin">The function to apply to a `Minimum`</param>
-        /// <param name="fMax">The function to apply to a `Maximum`</param>
-        /// <param name="fMinMax">The function to apply to a `MinMax`</param>
-        /// <param name="fIncr">The function to apply to an `Increment`</param>
-        /// <param name="fMinIncr">The function to apply to a `MinIncr`</param>
-        /// <param name="fIncrMax">The function to apply to an `IncrMax`</param>
-        /// <param name="fMinIncrMax">The function to apply to a `MinIncrMax`</param>
-        /// <param name="fValueSet">The function to apply to a `ValueSet`</param>
-        /// <param name="vr">The `ValueRange`</param>
-        /// <returns>The mapped `ValueRange`</returns>
+        /// <param name="fMin">The function to apply to a <c>Minimum</c></param>
+        /// <param name="fMax">The function to apply to a <c>Maximum</c></param>
+        /// <param name="fMinMax">The function to apply to a <c>MinMax</c></param>
+        /// <param name="fIncr">The function to apply to an <c>Increment</c></param>
+        /// <param name="fMinIncr">The function to apply to a <c>MinIncr</c></param>
+        /// <param name="fIncrMax">The function to apply to an <c>IncrMax</c></param>
+        /// <param name="fMinIncrMax">The function to apply to a <c>MinIncrMax</c></param>
+        /// <param name="fValueSet">The function to apply to a <c>ValueSet</c></param>
+        /// <param name="vr">The <c>ValueRange</c></param>
+        /// <returns>The mapped <c>ValueRange</c></returns>
         let map fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet vr =
             match vr with
             | Unrestricted -> vr
@@ -1304,19 +1292,19 @@ module Variable =
 
 
         /// <summary>
-        /// Apply a function to a `ValueRange`.
+        /// Apply a function to a <c>ValueRange</c>.
         /// </summary>
-        /// <param name="unr">Constant for `Unrestricted`</param>
-        /// <param name="nonZero">Constant for `NonZeroNoneNegative`</param>
-        /// <param name="fMin">The function to apply to a `Minimum`</param>
-        /// <param name="fMax">The function to apply to a `Maximum`</param>
-        /// <param name="fMinMax">The function to apply to a `MinMax`</param>
-        /// <param name="fIncr">The function to apply to an `Increment`</param>
-        /// <param name="fMinIncr">The function to apply to a `MinIncr`</param>
-        /// <param name="fIncrMax">The function to apply to an `IncrMax`</param>
-        /// <param name="fMinIncrMax">The function to apply to a `MinIncrMax`</param>
-        /// <param name="fValueSet">The function to apply to a `ValueSet`</param>
-        /// <returns>The result of applying the function to the `ValueRange`</returns>
+        /// <param name="unr">Constant for <c>Unrestricted</c></param>
+        /// <param name="nonZero">Constant for <c>NonZeroNoneNegative</c></param>
+        /// <param name="fMin">The function to apply to a <c>Minimum</c></param>
+        /// <param name="fMax">The function to apply to a <c>Maximum</c></param>
+        /// <param name="fMinMax">The function to apply to a <c>MinMax</c></param>
+        /// <param name="fIncr">The function to apply to an <c>Increment</c></param>
+        /// <param name="fMinIncr">The function to apply to a <c>MinIncr</c></param>
+        /// <param name="fIncrMax">The function to apply to an <c>IncrMax</c></param>
+        /// <param name="fMinIncrMax">The function to apply to a <c>MinIncrMax</c></param>
+        /// <param name="fValueSet">The function to apply to a <c>ValueSet</c></param>
+        /// <returns>The result of applying the function to the <c>ValueRange</c></returns>
         let apply unr nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fValueSet =
             function
             | Unrestricted -> unr
@@ -1332,22 +1320,21 @@ module Variable =
 
 
         /// <summary>
-        /// Prune, limit the number of values, in a `ValueRange`.
+        /// Prune, limit the number of values, in a <c>ValueRange</c>.
         /// </summary>
         /// <remarks>
-        /// Only a `ValueSet` can be pruned. The other `ValueRange`s
+        /// Only a <c>ValueSet</c> can be pruned. The other <c>ValueRange</c>s
         /// are left untouched.
         /// </remarks>
-        let prune incr n =
-            map id id id id id id id (ValueSet.prune incr n)
+        let prune incr n = map id id id id id id id (ValueSet.prune incr n)
 
 
         /// <summary>
-        /// Map a function to the ValueUnit of a `ValueRange`.
+        /// Map a function to the ValueUnit of a <c>ValueRange</c>.
         /// </summary>
-        /// <param name="f">The function to apply to the `ValueUnit`</param>
-        /// <param name="vr">The `ValueRange`</param>
-        /// <returns>The mapped `ValueRange`</returns>
+        /// <param name="f">The function to apply to the <c>ValueUnit</c></param>
+        /// <param name="vr">The <c>ValueRange</c></param>
+        /// <returns>The mapped <c>ValueRange</c></returns>
         let mapValueUnit f vr =
             vr
             |> map
@@ -1362,11 +1349,11 @@ module Variable =
 
 
         /// <summary>
-        /// Check whether all `ValueUnit`s in a `ValueRange` belong to the same
-        /// `ValueUnit.Group`.
+        /// Check whether all <c>ValueUnit</c>s in a <c>ValueRange</c> belong to the same
+        /// <c>ValueUnit.Group</c>.
         /// </summary>
-        /// <param name="vr">The `ValueRange`</param>
-        /// <returns>True if all `ValueUnit`s belong to the same `ValueUnit.Group`</returns>
+        /// <param name="vr">The <c>ValueRange</c></param>
+        /// <returns>True if all <c>ValueUnit</c>s belong to the same <c>ValueUnit.Group</c></returns>
         let allSameUnitGroup vr =
             let fMinMax (min, max) =
                 min |> Minimum.toValueUnit |> ValueUnit.eqsGroup (max |> Maximum.toValueUnit)
@@ -1396,11 +1383,11 @@ module Variable =
 
 
         /// <summary>
-        /// Map a function to the ValueUnit of a `ValueRange`.
+        /// Map a function to the ValueUnit of a <c>ValueRange</c>.
         /// </summary>
-        /// <param name="f">The function to apply to the `ValueUnit`</param>
-        /// <param name="vr">The `ValueRange`</param>
-        /// <returns>The mapped `ValueRange`</returns>
+        /// <param name="f">The function to apply to the <c>ValueUnit</c></param>
+        /// <param name="vr">The <c>ValueRange</c></param>
+        /// <returns>The mapped <c>ValueRange</c></returns>
         let applyValueUnit f vr =
             vr
             |> apply
@@ -1417,18 +1404,18 @@ module Variable =
 
 
         /// <summary>
-        /// Convert the unit of a `ValueRange` to **u**.
+        /// Convert the unit of a <c>ValueRange</c> to u.
         /// </summary>
         /// <param name="u">The unit to convert to</param>
         let convertToUnit u = mapValueUnit (ValueUnit.convertTo u)
 
 
         /// <summary>
-        /// Get the unit of a `ValueRange` if all `ValueUnit`s belong to
-        /// the same `ValueUnit.Group`. Otherwise return `None`.
+        /// Get the unit of a <c>ValueRange</c> if all <c>ValueUnit</c>s belong to
+        /// the same <c>ValueUnit.Group</c>. Otherwise return <c>None</c>.
         /// </summary>
-        /// <param name="vr">The `ValueRange`</param>
-        /// <returns>The unit of the `ValueRange` or `None`</returns>
+        /// <param name="vr">The <c>ValueRange</c></param>
+        /// <returns>The unit of the <c>ValueRange</c> or <c>None</c></returns>
         let getUnit vr =
             if vr |> allSameUnitGroup then
                 vr |> applyValueUnit (ValueUnit.getUnit >> Some)
@@ -1437,11 +1424,11 @@ module Variable =
 
 
         /// <summary>
-        /// Check whether two `ValueRange`s have the same `ValueUnit.Group`.
+        /// Check whether two <c>ValueRange</c>s have the same <c>ValueUnit.Group</c>.
         /// </summary>
-        /// <param name="vr1">The first `ValueRange`</param>
-        /// <param name="vr2">The second `ValueRange`</param>
-        /// <returns>True if both `ValueRange`s have the same `ValueUnit.Group`</returns>
+        /// <param name="vr1">The first <c>ValueRange</c></param>
+        /// <param name="vr2">The second <c>ValueRange</c></param>
+        /// <returns>True if both <c>ValueRange</c>s have the same <c>ValueUnit.Group</c></returns>
         let eqsUnitGroup vr1 vr2 =
             match vr1 |> getUnit, vr2 |> getUnit with
             | Some un1, Some un2 -> un1 |> ValueUnit.Group.eqsGroup un2
@@ -1449,17 +1436,16 @@ module Variable =
 
 
         /// <summary>
-        /// Set the unit of a `ValueRange` to **unt**.
+        /// Set the unit of a <c>ValueRange</c> to unt.
         /// </summary>
         /// <param name="unt">The unit to set</param>
-        /// <param name="vr">The `ValueRange`</param>
-        /// <returns>The `ValueRange` with the new unit</returns>
-        let setUnit unt vr =
-            vr |> mapValueUnit (ValueUnit.setUnit unt)
+        /// <param name="vr">The <c>ValueRange</c></param>
+        /// <returns>The <c>ValueRange</c> with the new unit</returns>
+        let setUnit unt vr = vr |> mapValueUnit (ValueUnit.setUnit unt)
 
 
         /// <summary>
-        /// Count the number of values in a `ValueRange`.
+        /// Count the number of values in a <c>ValueRange</c>.
         /// Returns 0 if no count is possible.
         /// </summary>
         /// <remarks>
@@ -1487,13 +1473,13 @@ module Variable =
 
 
         /// <summary>
-        /// Checks whether a `BigRational` is between an optional
-        /// **min** and an optional **max**
+        /// Checks whether a <c>BigRational</c> is between an optional
+        /// min and an optional max
         /// </summary>
         /// <param name="min">The optional minimum</param>
         /// <param name="max">The optional maximum</param>
-        /// <param name="br">The `BigRational` to check</param>
-        /// <returns>True if **br** is between **min** and **max**</returns>
+        /// <param name="br">The <c>BigRational</c> to check</param>
+        /// <returns>True if br is between min and max</returns>
         /// <example>
         /// <code>
         /// let min = Minimum.create true ( [| 3N |] |> ValueUnit.create Units.Mass.gram) |> Some
@@ -1524,8 +1510,8 @@ module Variable =
 
 
         /// <summary>
-        /// Checks whether a `BigRational` is a multiple of an optional
-        /// **incr**.
+        /// Checks whether a <c>BigRational</c> is a multiple of an optional
+        /// incr.
         /// </summary>
         /// <param name="incrOpt"></param>
         /// <param name="br"></param>
@@ -1549,15 +1535,15 @@ module Variable =
 
 
         /// <summary>
-        /// Filter a set of `ValueSet` according
-        /// to **min** **max** and incr constraints
+        /// Filter a set of <c>ValueSet</c> according
+        /// to min max and incr constraints
         /// </summary>
         /// <param name="minOpt">The optional minimum</param>
         /// <param name="incrOpt">The optional increment</param>
         /// <param name="maxOpt">The optional maximum</param>
         /// <returns>
-        /// A `ValueSet` that contains the values that are between **min** and **max**
-        /// and that are a multiple of **incr**.
+        /// A <c>ValueSet</c> that contains the values that are between min and max
+        /// and that are a multiple of incr.
         /// </returns>
         /// <example>
         /// <code>
@@ -1575,8 +1561,7 @@ module Variable =
             with e ->
                 let min = minOpt |> Option.map (Minimum.toString false) |> Option.defaultValue ""
 
-                let incr =
-                    incrOpt |> Option.map (Increment.toString false) |> Option.defaultValue ""
+                let incr = incrOpt |> Option.map (Increment.toString false) |> Option.defaultValue ""
 
                 let max = maxOpt |> Option.map (Maximum.toString false) |> Option.defaultValue ""
                 let vs = vs |> ValueUnit.toStringDutchShort
@@ -1601,7 +1586,7 @@ module Variable =
 
 
         /// <summary>
-        /// Checks whether `Minimum` **min** > `Maximum` **max**.
+        /// Checks whether <c>Minimum</c> min > <c>Maximum</c> max.
         /// Note that inclusivity or exclusivity of a minimum and maximum must be
         /// accounted for.
         /// </summary>
@@ -1623,7 +1608,7 @@ module Variable =
 
 
         /// <summary>
-        /// Checks whether `Minimum` **min** &lt;= `Maximum` **max**
+        /// Checks whether <c>Minimum</c> min &lt;= <c>Maximum</c> max
         /// </summary>
         /// <param name="max">The maximum</param>
         /// <param name="min">The minimum</param>
@@ -1651,7 +1636,7 @@ module Variable =
 
 
         /// <summary>
-        /// Create a `Minimum` that is a multiple of **incr**.
+        /// Create a <c>Minimum</c> that is a multiple of incr.
         /// </summary>
         /// <param name="incr">The increment</param>
         /// <param name="min">The minimum</param>
@@ -1684,7 +1669,7 @@ module Variable =
 
 
         /// <summary>
-        /// Create a `Maximum` that is a multiple of **incr**.
+        /// Create a <c>Maximum</c> that is a multiple of incr.
         /// </summary>
         /// <param name="incr">The increment</param>
         /// <param name="max">The maximum</param>
@@ -1706,23 +1691,23 @@ module Variable =
             max |> Maximum.multipleOf incr
 
 
-        /// An `Unrestricted` `ValueRange`.
+        /// An Unrestricted ValueRange.
         let unrestricted = Unrestricted
 
 
-        /// A `ValueRange` that contains only non-zero, positive values.
+        /// A ValueRange that contains only non-zero, positive values.
         let nonZeroPositive = NonZeroPositive
 
 
         /// <summary>
-        /// Create a `MinMax` `ValueRange`. If **min** > **max** raises
-        /// an `MinLargerThanMax` exception. If min equals max, a `ValueSet` with
+        /// Create a <c>MinMax</c> <c>ValueRange</c>. If min > max raises
+        /// an <c>MinLargerThanMax</c> exception. If min equals max, a <c>ValueSet</c> with
         /// value min (= max).
         /// </summary>
         /// <param name="min">The minimum</param>
         /// <param name="max">The maximum</param>
-        /// <returns>A `MinMax` `ValueRange`</returns>
-        /// <exception cref="Exceptions.ValueRangeMinLargerThanMaxException">When **min** > **max**</exception>
+        /// <returns>A <c>MinMax</c> <c>ValueRange</c></returns>
+        /// <exception cref="Exceptions.ValueRangeMinLargerThanMaxException">When min > max</exception>
         let minMaxToValueRange min max =
             let minUnit, maxUnit =
                 min |> Minimum.toValueUnit |> ValueUnit.getUnit, max |> Maximum.toValueUnit |> ValueUnit.getUnit
@@ -1748,11 +1733,11 @@ module Variable =
 
 
         /// <summary>
-        /// Create a `MinIncr` `ValueRange`.
+        /// Create a <c>MinIncr</c> <c>ValueRange</c>.
         /// </summary>
         /// <param name="min">The minimum</param>
         /// <param name="incr">The increment</param>
-        /// <returns>A `MinIncr` `ValueRange`</returns>
+        /// <returns>A <c>MinIncr</c> <c>ValueRange</c></returns>
         /// <example>
         /// <code>
         /// let min = Minimum.create false ( [| 3N |] |> ValueUnit.create Units.Mass.gram)
@@ -1763,7 +1748,7 @@ module Variable =
         /// </example>
         /// <remarks>
         /// Note that the resulting min is always inclusive and greater than
-        /// or equal to the original min and is a multiple of **incr**.
+        /// or equal to the original min and is a multiple of incr.
         /// </remarks>
         let minIncrToValueRange min incr =
             // note that incr cannot have a ZeroUnit or NoUnit!
@@ -1787,11 +1772,11 @@ module Variable =
 
 
         /// <summary>
-        /// Create an `IncrMax` `ValueRange`.
+        /// Create an <c>IncrMax</c> <c>ValueRange</c>.
         /// </summary>
         /// <param name="incr">The increment</param>
         /// <param name="max">The maximum</param>
-        /// <returns>An `IncrMax` `ValueRange`</returns>
+        /// <returns>An <c>IncrMax</c> <c>ValueRange</c></returns>
         /// <example>
         /// <code>
         /// let incr = Increment.create ( [| 2N |] |> ValueUnit.create Units.Mass.gram)
@@ -1802,7 +1787,7 @@ module Variable =
         /// </example>
         /// <remarks>
         /// Note that the resulting max is always inclusive and smaller than
-        /// or equal to the original max and is a multiple of **incr**.
+        /// or equal to the original max and is a multiple of incr.
         /// </remarks>
         let incrMaxToValueRange incr max =
             // note that incr cannot have a ZeroUnit or NoUnit!
@@ -1821,12 +1806,12 @@ module Variable =
 
 
         /// <summary>
-        /// Create a `MinIncrMax` `ValueRange`.
+        /// Create a <c>MinIncrMax</c> <c>ValueRange</c>.
         /// </summary>
         /// <param name="min">The minimum</param>
         /// <param name="incr">The increment</param>
         /// <param name="max">The maximum</param>
-        /// <exception cref="Exceptions.ValueRangeMinLargerThanMaxException">When **min** > **max**</exception>
+        /// <exception cref="Exceptions.ValueRangeMinLargerThanMaxException">When min > max</exception>
         let minIncrMaxToValueRange min incr max =
             // note that incr cannot have a ZeroUnit or NoUnit!
             let minUnit, incrUnit, maxUnit =
@@ -1860,18 +1845,18 @@ module Variable =
                 MinIncrMax(min, incr, max)
 
 
-        /// Create a `Minimum` `Range` that is
+        /// Create a Minimum Range that is
         /// either inclusive or exclusive.
         let createMin isIncl m = m |> Minimum.create isIncl |> Min
 
 
-        /// Create a `Maximum` `Range` that is
+        /// Create a Maximum Range that is
         /// either inclusive or exclusive.
         let createMax isIncl m = m |> Maximum.create isIncl |> Max
 
 
         /// <summary>
-        /// Create a `Range` with a `Minimum` and a `Maximum`.
+        /// Create a <c>Range</c> with a <c>Minimum</c> and a <c>Maximum</c>.
         /// </summary>
         /// <param name="min">The minimum</param>
         /// <param name="minIncl">Whether the minimum is inclusive</param>
@@ -1884,32 +1869,32 @@ module Variable =
             minMaxToValueRange min max
 
 
-        /// Create a `ValueRange` with a `Minimum`, `Increment` and a `Maximum`.
+        /// Create a ValueRange with a Minimum, Increment and a Maximum.
         let createIncr = Increment.create >> Incr
 
 
-        /// Create a `ValueSet` `ValueRange`.
+        /// Create a ValueSet ValueRange.
         let createValSet brs = brs |> ValueSet.create |> ValSet
 
 
-        /// Create a `MinIncr` `ValueRange`.
+        /// Create a MinIncr ValueRange.
         let createMinIncr min minIncl incr =
             incr |> Increment.create |> minIncrToValueRange (Minimum.create min minIncl)
 
 
-        /// Create a `IncrMax` `ValueRange`.
+        /// Create a IncrMax ValueRange.
         let createIncrMax incr max maxIncl =
             max |> Maximum.create maxIncl |> incrMaxToValueRange (incr |> Increment.create)
 
 
         /// <summary>
-        /// Create a ValueRange depending on the values of **min**, **incr** and **max**.
+        /// Create a ValueRange depending on the values of min, incr and max.
         /// </summary>
         /// <param name="min">Optional Minimum</param>
         /// <param name="incr">Optional Increment</param>
         /// <param name="max">Optional Maximum</param>
         /// <param name="vs">Optional ValueSet</param>
-        /// <returns>A `ValueRange`</returns>
+        /// <returns>A <c>ValueRange</c></returns>
         /// <example>
         /// <code>
         /// let min = Minimum.create ( [| 3N |] |> ValueUnit.create Units.Mass.gram) |> Some
@@ -1935,7 +1920,7 @@ module Variable =
             | Some vs -> vs |> filter min incr max |> ValSet
 
 
-        /// Get an optional `Minimum` in a `ValueRange`
+        /// Get an optional Minimum in a ValueRange
         let getMin =
             apply
                 None
@@ -1950,7 +1935,7 @@ module Variable =
                 ValueSet.getMin
 
 
-        /// Get an optional `Increment` in a `ValueRange`
+        /// Get an optional Increment in a ValueRange
         let getIncr =
             apply
                 None
@@ -1965,7 +1950,7 @@ module Variable =
                 Option.none
 
 
-        /// Get an optional `Maximum` in a `ValueRange`
+        /// Get an optional Maximum in a ValueRange
         let getMax =
             apply
                 None
@@ -1980,18 +1965,17 @@ module Variable =
                 ValueSet.getMax
 
 
-        /// Get an optional `ValueSet` in a `ValueRange`
+        /// Get an optional ValueSet in a ValueRange
         let getValSet =
             apply None None Option.none Option.none Option.none Option.none Option.none Option.none Option.none Some
 
 
-        /// Get all of min, incr, max and valSet in a `ValueRange`
+        /// Get all of min, incr, max and valSet in a ValueRange
         /// as a tuple
-        let getMinIncrMaxOrValueSet vr =
-            vr |> getMin, vr |> getIncr, vr |> getMax, vr |> getValSet
+        let getMinIncrMaxOrValueSet vr = vr |> getMin, vr |> getIncr, vr |> getMax, vr |> getValSet
 
 
-        /// Check whether a `ValueRange` has a minimum that is exclusive and zero.
+        /// Check whether a ValueRange has a minimum that is exclusive and zero.
         let isMinExclusiveZero vr =
             match vr |> getMinIncrMaxOrValueSet with
             | Some min, None, None, None ->
@@ -2002,11 +1986,11 @@ module Variable =
 
 
         /// <summary>
-        /// Set the nearest value in a `ValueRange` to **vu**.
+        /// Set the nearest value in a <c>ValueRange</c> to vu.
         /// </summary>
         /// <param name="vu">The ValueUnit (value)</param>
         /// <param name="vr">The ValueRange</param>
-        /// <returns>The `ValueRange` with the nearest value to **vu**</returns>
+        /// <returns>The <c>ValueRange</c> with the nearest value to vu</returns>
         let setNearestValue vu vr =
             match vr |> getValSet with
             | None -> vr
@@ -2014,7 +1998,7 @@ module Variable =
 
 
         /// <summary>
-        /// Checks whether a value is in a `ValueRange`.
+        /// Checks whether a value is in a <c>ValueRange</c>.
         /// </summary>
         /// <param name="vu">The ValueUnit (value)</param>
         /// <param name="vr">The ValueRange</param>
@@ -2043,11 +2027,11 @@ module Variable =
 
 
         /// <summary>
-        /// Apply a new **newIncr** to a `ValueRange` **vr**.
+        /// Apply a new newIncr to a <c>ValueRange</c> vr.
         /// </summary>
         /// <param name="newIncr">The new increment</param>
-        /// <param name="vr">The `ValueRange`</param>
-        /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+        /// <param name="vr">The <c>ValueRange</c></param>
+        /// <returns>The resulting (more restrictive) <c>ValueRange</c></returns>
         /// <remarks>
         /// A new increment can only be set if it is a multiple of the previous increment.
         /// If a new increment cannot be set, the original ValueRange is returned. So
@@ -2081,14 +2065,11 @@ module Variable =
 
             let fIncr = restrict >> Incr
 
-            let fMinIncr (min, incr) =
-                minIncrToValueRange min (incr |> restrict)
+            let fMinIncr (min, incr) = minIncrToValueRange min (incr |> restrict)
 
-            let fIncrMax (incr, max) =
-                incrMaxToValueRange (incr |> restrict) max
+            let fIncrMax (incr, max) = incrMaxToValueRange (incr |> restrict) max
 
-            let fMinIncrMax (min, incr, max) =
-                minIncrMaxToValueRange min (incr |> restrict) max
+            let fMinIncrMax (min, incr, max) = minIncrMaxToValueRange min (incr |> restrict) max
 
             let fValueSet = filter None (Some newIncr) None >> ValSet
 
@@ -2097,11 +2078,11 @@ module Variable =
 
 
         /// <summary>
-        /// Apply a new `Minimum` **newMin** to a `ValueRange` **vr**.
+        /// Apply a new <c>Minimum</c> newMin to a <c>ValueRange</c> vr.
         /// </summary>
-        /// <param name="newMin">The new `Minimum`</param>
-        /// <param name="vr">The `ValueRange`</param>
-        /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+        /// <param name="newMin">The new <c>Minimum</c></param>
+        /// <param name="vr">The <c>ValueRange</c></param>
+        /// <returns>The resulting (more restrictive) <c>ValueRange</c></returns>
         /// <remarks>
         /// A new minimum can only be set if it is larger than the previous minimum.
         /// Also, when an increment is set, the new minimum must be a multiple of the
@@ -2128,18 +2109,15 @@ module Variable =
 
             let fMax max = minMaxToValueRange newMin max
 
-            let fMinMax (min, max) =
-                minMaxToValueRange (min |> restrict) max
+            let fMinMax (min, max) = minMaxToValueRange (min |> restrict) max
 
             let fIncr incr = minIncrToValueRange newMin incr
 
-            let fMinIncr (min, incr) =
-                minIncrToValueRange (min |> restrict) incr
+            let fMinIncr (min, incr) = minIncrToValueRange (min |> restrict) incr
 
             let fIncrMax (incr, max) = minIncrMaxToValueRange newMin incr max
 
-            let fMinIncrMax (min, incr, max) =
-                minIncrMaxToValueRange (min |> restrict) incr max
+            let fMinIncrMax (min, incr, max) = minIncrMaxToValueRange (min |> restrict) incr max
 
             let fValueSet = filter (Some newMin) None None >> ValSet
 
@@ -2148,15 +2126,15 @@ module Variable =
 
 
         /// <summary>
-        /// Apply a new `Maximum` **newMax** to a `ValueRange` **vr**.
+        /// Apply a new <c>Maximum</c> newMax to a <c>ValueRange</c> vr.
         /// </summary>
         /// <remarks>
-        /// If maximum cannot be set the original `ValueRange` is returned.
+        /// If maximum cannot be set the original <c>ValueRange</c> is returned.
         /// So it always returns an equal or more restrictive, ValueRange.
         /// </remarks>
-        /// <param name="newMax">The new `Maximum`</param>
-        /// <param name="vr">The `ValueRange`</param>
-        /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+        /// <param name="newMax">The new <c>Maximum</c></param>
+        /// <param name="vr">The <c>ValueRange</c></param>
+        /// <returns>The resulting (more restrictive) <c>ValueRange</c></returns>
         /// <example>
         /// <code>
         /// let max = Maximum.create true ( [| 5N |] |> ValueUnit.create Units.Mass.gram) |> Some
@@ -2176,18 +2154,15 @@ module Variable =
 
             let fMax max = max |> restrict |> Max
 
-            let fMinMax (min, max) =
-                minMaxToValueRange min (max |> restrict)
+            let fMinMax (min, max) = minMaxToValueRange min (max |> restrict)
 
             let fIncr incr = incrMaxToValueRange incr newMax
 
             let fMinIncr (min, incr) = minIncrMaxToValueRange min incr newMax
 
-            let fIncrMax (incr, max) =
-                incrMaxToValueRange incr (max |> restrict)
+            let fIncrMax (incr, max) = incrMaxToValueRange incr (max |> restrict)
 
-            let fMinIncrMax (min, incr, max) =
-                minIncrMaxToValueRange min incr (max |> restrict)
+            let fMinIncrMax (min, incr, max) = minIncrMaxToValueRange min incr (max |> restrict)
 
             let fValueSet = filter None None (Some newMax) >> ValSet
 
@@ -2196,11 +2171,11 @@ module Variable =
 
 
         /// <summary>
-        /// Apply a new `ValueSet` **newVs** to a `ValueRange` **vr**.
+        /// Apply a new <c>ValueSet</c> newVs to a <c>ValueRange</c> vr.
         /// </summary>
         /// <param name="newVs">The new ValueSet</param>
         /// <param name="vr">The ValueRange</param>
-        /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+        /// <returns>The resulting (more restrictive) <c>ValueRange</c></returns>
         /// <remarks>
         /// The resulting ValueRange will be equal or more restrictive than the original.
         /// This means that if the new ValueSet is empty, the original ValueRange is returned.
@@ -2217,8 +2192,7 @@ module Variable =
         /// </code>
         /// </example>
         let setValueSet newVs (vr: ValueRange) =
-            let min, incr, max, oldVs =
-                vr |> getMin, vr |> getIncr, vr |> getMax, vr |> getValSet
+            let min, incr, max, oldVs = vr |> getMin, vr |> getIncr, vr |> getMax, vr |> getValSet
 
             match oldVs with
             | None -> newVs |> filter min incr max
@@ -2231,13 +2205,11 @@ module Variable =
         /// a minimum that excludes zero.
         /// </summary>
         /// <param name="vr">The ValueRange</param>
-        /// <returns>The resulting (more restrictive) non zero and non negative `ValueRange`</returns>
+        /// <returns>The resulting (more restrictive) non zero and non negative <c>ValueRange</c></returns>
         let nonZeroAndPositive vr =
-            let fMin min =
-                min |> Minimum.nonZeroAndPositive |> Min
+            let fMin min = min |> Minimum.nonZeroAndPositive |> Min
 
-            let fMax max =
-                max |> Maximum.nonZeroAndPositive |> MinMax
+            let fMax max = max |> Maximum.nonZeroAndPositive |> MinMax
 
             let fMinMax (min, max) =
                 let newMin, max = max |> Maximum.nonZeroAndPositive
@@ -2291,11 +2263,9 @@ module Variable =
         /// </code>
         /// </example>
         let minIncrMaxCount min incr max =
-            let min =
-                min |> Minimum.multipleOf incr |> Minimum.toValueUnit |> ValueUnit.getBaseValue
+            let min = min |> Minimum.multipleOf incr |> Minimum.toValueUnit |> ValueUnit.getBaseValue
 
-            let max =
-                max |> Maximum.multipleOf incr |> Maximum.toValueUnit |> ValueUnit.getBaseValue
+            let max = max |> Maximum.multipleOf incr |> Maximum.toValueUnit |> ValueUnit.getBaseValue
 
             incr
             |> Increment.toValueUnit
@@ -2312,14 +2282,14 @@ module Variable =
 
 
         /// <summary>
-        /// Try and increase the increment of a `ValueRange` **vr** to an
+        /// Try and increase the increment of a <c>ValueRange</c> vr to an
         /// increment in incrs such that the resulting ValueRange contains
         /// at most maxCount values.
         /// </summary>
         /// <param name="maxCount">The maximum count</param>
         /// <param name="incrs">The increment list</param>
         /// <param name="vr">The ValueRange</param>
-        /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+        /// <returns>The resulting (more restrictive) <c>ValueRange</c></returns>
         /// <remarks>
         /// When there is no increment in the list that can be used to increase
         /// the increment of the ValueRange to the maximum count, the largest possible
@@ -2447,9 +2417,9 @@ module Variable =
             | _ -> false
 
 
-        /// Create a string (to print) representation of a `ValueRange` by
+        /// Create a string (to print) representation of a ValueRange by
         /// supplying the optional min, incr and max of the ValueRange.
-        /// `Exact` true prints exact BigRationals, when false
+        /// Exact true prints exact BigRationals, when false
         /// print as floating numbers
         let print exact isNonZero min incr max vs =
             if isNonZero then
@@ -2476,10 +2446,9 @@ module Variable =
                 | None -> printRange min incr max
 
 
-        /// Convert a `ValueRange` to a `string`.
+        /// Convert a ValueRange to a string.
         let toString exact vr =
-            let fVs vs =
-                print exact false None None None (Some vs)
+            let fVs vs = print exact false None None None (Some vs)
 
             let unr = print exact false None None None None
 
@@ -2505,7 +2474,7 @@ module Variable =
             |> apply unr nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fVs
 
 
-        /// Convert a `ValueRange` to a markdown `string`.
+        /// Convert a ValueRange to a markdown string.
         let toMarkdown prec vr =
             let print prec isNonZero min max vs =
                 if isNonZero then
@@ -2552,19 +2521,19 @@ module Variable =
             |> apply unr nonZero fMin fMax fMinMax fIncr fMinIncr fIncrMax fMinIncrMax fVs
 
 
-        /// Functions to calculate the `Minimum`
-        /// and `Maximum` in a `ValueRange`.
+        /// Functions to calculate the Minimum
+        /// and Maximum in a ValueRange.
         /// I.e. what happens when you mult, div, add or subtr
-        /// a `Range`, for example:
+        /// a Range, for example:
         /// <1N..3N] * <4N..5N> = <4N..15N>
         module MinMaxCalculator =
 
             open Utils.ValueUnit.Operators
 
 
-            /// Calculate **x1** and **x2** with operator **op**
-            /// and use **incl1** and **inc2** to determine whether
-            /// the result is inclusive. Use constructor **c** to
+            /// Calculate x1 and x2 with operator op
+            /// and use incl1 and inc2 to determine whether
+            /// the result is inclusive. Use constructor c to
             /// create the optional result.
             let calc c op x1 x2 =
                 let (vu1Opt, incl1), (vu2Opt, incl2) = x1, x2
@@ -2644,11 +2613,11 @@ module Variable =
                 | Some v1, _, Some v2, _, _, _, Sub -> v1 |> op <| v2 |> c isIncl |> Some
 
 
-            /// Calculate an optional `Minimum`
+            /// Calculate an optional Minimum
             let calcMin = calc Minimum.create
 
 
-            /// Calculate an optional `Maximum`
+            /// Calculate an optional Maximum
             let calcMax = calc Maximum.create
 
 
@@ -2674,11 +2643,11 @@ module Variable =
                     |> Some
 
 
-            /// Match a min, max tuple **min**, **max**
+            /// Match a min, max tuple min, max
             /// to:
-            /// * `PP`: both positive
-            /// * `NN`: both negative
-            /// * `NP`: one negative, the other positive
+            /// * PP: both positive
+            /// * NN: both negative
+            /// * NP: one negative, the other positive
             let (|PP|NN|NP|NZ|ZP|) (min, max) =
                 match min, max with
                 | Some min, _ when min |> ValueUnit.gtZero -> PP
@@ -2709,27 +2678,27 @@ module Variable =
                     |> Exceptions.raiseExc None []
 
 
-            /// Calculate `Minimum` option and
-            /// `Maximum` option for addition of
-            /// (**min1**, **max1**) and (**min2**, **max2)
+            /// Calculate Minimum option and
+            /// Maximum option for addition of
+            /// (min1, max1) and (min2, max2)
             let addition min1 max1 min2 max2 =
                 let min = calcMin (+) min1 min2
                 let max = calcMax (+) max1 max2
                 min, max
 
 
-            /// Calculate `Minimum` option and
-            /// `Maximum` option for subtraction of
-            /// (**min1**, **max1**) and (**min2**, **max2)
+            /// Calculate Minimum option and
+            /// Maximum option for subtraction of
+            /// (min1, max1) and (min2, max2)
             let subtraction min1 max1 min2 max2 =
                 let min = calcMin (-) min1 max2
                 let max = calcMax (-) max1 min2
                 min, max
 
 
-            /// Calculate `Minimum` option and
-            /// `Maximum` option for multiplication of
-            /// (**min1**, **max1**) and (**min2**, **max2)
+            /// Calculate Minimum option and
+            /// Maximum option for multiplication of
+            /// (min1, max1) and (min2, max2)
             let multiplication min1 max1 min2 max2 =
                 //printfn "start multiplication"
                 match ((min1 |> fst), (max1 |> fst)), ((min2 |> fst), (max2 |> fst)) with
@@ -2791,9 +2760,9 @@ module Variable =
                     maximize (calcMax (*) max1 max2) (calcMax (*) min1 min2)
 
 
-            /// Calculate `Minimum` option and
-            /// `Maximum` option for division of
-            /// (**min1**, **max1**) and (**min2**, **max2)
+            /// Calculate Minimum option and
+            /// Maximum option for division of
+            /// (min1, max1) and (min2, max2)
             let division min1 max1 min2 max2 =
                 match (min1 |> fst, max1 |> fst), (min2 |> fst, max2 |> fst) with
                 | PP, PP -> // min = min1 / max2, max =	max1 / min2
@@ -2851,15 +2820,15 @@ module Variable =
 
 
         /// <summary>
-        /// Applies an infix operator `op` (either *, /, + or -)
-        /// to `ValueRange` vr1 and vr2. If onlyMinIncrMax then
+        /// Applies an infix operator <c>op</c> (either *, /, + or -)
+        /// to <c>ValueRange</c> vr1 and vr2. If onlyMinIncrMax then
         /// only the minimum, increment and maximum are calculated.
         /// </summary>
         /// <param name="onlyMinIncrMax">Whether only the minimum, increment and maximum should be calculated</param>
         /// <param name="op">The infix operator</param>
-        /// <param name="vr1">The first `ValueRange`</param>
-        /// <param name="vr2">The second `ValueRange`</param>
-        /// <returns>The resulting `ValueRange`</returns>
+        /// <param name="vr1">The first <c>ValueRange</c></param>
+        /// <param name="vr2">The second <c>ValueRange</c></param>
+        /// <returns>The resulting <c>ValueRange</c></returns>
         /// <example>
         /// <code>
         /// let vs1 = [| 1N; 2N; 3N |] |> ValueUnit.withUnit Units.Count.times |> ValueSet.create
@@ -2964,14 +2933,14 @@ module Variable =
 
 
         /// <summary>
-        /// Checks whether a `ValueRange` vr1 is a subset of
-        /// `ValueRange` vr2.
+        /// Checks whether a <c>ValueRange</c> vr1 is a subset of
+        /// <c>ValueRange</c> vr2.
         /// </summary>
-        /// <param name="vr1">The first `ValueRange`</param>
-        /// <param name="vr2">The second `ValueRange`</param>
+        /// <param name="vr1">The first <c>ValueRange</c></param>
+        /// <param name="vr2">The second <c>ValueRange</c></param>
         /// <remarks>
-        /// Only checks whether the `ValueSet` of vr1 is a subset of
-        /// the `ValueSet` of vr2.
+        /// Only checks whether the <c>ValueSet</c> of vr1 is a subset of
+        /// the <c>ValueSet</c> of vr2.
         /// </remarks>
         /// <example>
         /// <code>
@@ -3044,7 +3013,7 @@ module Variable =
 
 
         /// <summary>
-        /// Create a set of `Properties` from a `ValueRange`.
+        /// Create a set of <c>Properties</c> from a <c>ValueRange</c>.
         /// </summary>
         /// <param name="vr"></param>
         /// <example>
@@ -3074,14 +3043,11 @@ module Variable =
 
             let fIncr incr = set [ incr |> IncrProp ]
 
-            let fMinIncr (min, incr) =
-                set [ min |> MinProp; incr |> IncrProp ]
+            let fMinIncr (min, incr) = set [ min |> MinProp; incr |> IncrProp ]
 
-            let fIncrMax (incr, max) =
-                set [ incr |> IncrProp; max |> MaxProp ]
+            let fIncrMax (incr, max) = set [ incr |> IncrProp; max |> MaxProp ]
 
-            let fMinIncrMax (min, incr, max) =
-                set [ min |> MinProp; incr |> IncrProp; max |> MaxProp ]
+            let fMinIncrMax (min, incr, max) = set [ min |> MinProp; incr |> IncrProp; max |> MaxProp ]
 
             let fVs vs = set [ vs |> ValsProp ]
 
@@ -3090,7 +3056,7 @@ module Variable =
 
 
         /// <summary>
-        /// Get the difference between two `ValueRange`s.
+        /// Get the difference between two <c>ValueRange</c>s.
         /// </summary>
         /// <param name="vr1">The first ValueRange</param>
         /// <param name="vr2">The second ValueRange</param>
@@ -3105,17 +3071,16 @@ module Variable =
         /// vr1 |> diffWith vr2
         /// </code>
         /// </example>
-        let diffWith vr1 vr2 =
-            vr1 |> toProperties |> Set.difference (vr2 |> toProperties)
+        let diffWith vr1 vr2 = vr1 |> toProperties |> Set.difference (vr2 |> toProperties)
 
 
         /// <summary>
-        /// Set a `ValueRange` expr to a `ValueRange` y.
-        /// So, the result is equal to or more restrictive than the original `y`.
+        /// Set a <c>ValueRange</c> expr to a <c>ValueRange</c> y.
+        /// So, the result is equal to or more restrictive than the original <c>y</c>.
         /// </summary>
-        /// <param name="y">The `ValueRange` to apply to</param>
-        /// <param name="expr">The `ValueRange` to apply</param>
-        /// <returns>The resulting (restricted) `ValueRange`</returns>
+        /// <param name="y">The <c>ValueRange</c> to apply to</param>
+        /// <param name="expr">The <c>ValueRange</c> to apply</param>
+        /// <returns>The resulting (restricted) <c>ValueRange</c></returns>
         /// <example>
         /// <code>
         /// let min = 2N |> ValueUnit.singleWithUnit Units.Count.times |> Minimum.create true
@@ -3174,8 +3139,8 @@ module Variable =
     module ValueSet = ValueRange.ValueSet
 
 
-    /// Create a `Variable` and passes
-    /// the result to **succ**
+    /// Create a Variable and passes
+    /// the result to succ
     let create succ n vs =
         {
             Name = n
@@ -3184,23 +3149,23 @@ module Variable =
         |> succ
 
 
-    /// Create a `Variable` and directly
+    /// Create a Variable and directly
     /// return the result.
     let createSucc = create id
 
 
-    /// A Variable with an Unrestricted `ValueRange`
+    /// A Variable with an Unrestricted ValueRange
     let empty n = Unrestricted |> createSucc n
 
 
     /// Helper create function to
-    /// store the result of a `Variable`
+    /// store the result of a Variable
     /// calculation before applying to
-    /// the actual result `Variable`.
+    /// the actual result Variable.
     let createRes = createSucc ("Result" |> Name.createExc)
 
 
-    /// Apply **f** to `Variable` **var**.
+    /// Apply f to Variable var.
     let apply f (var: Variable) = var |> f
 
 
@@ -3208,7 +3173,7 @@ module Variable =
     let get = apply id
 
 
-    /// Get the string representation of a `Variable`.
+    /// Get the string representation of a Variable.
     let toString
         exact
         ({
@@ -3219,7 +3184,7 @@ module Variable =
         vs |> ValueRange.toString exact |> sprintf "%s %s" (n |> Name.toString)
 
 
-    /// Get the string representation of a `Variable`.
+    /// Get the string representation of a Variable.
     let toStringShort
         ({
              Name = n
@@ -3231,26 +3196,25 @@ module Variable =
         |> sprintf "%s %s" (n |> Name.toStringReplace true)
 
 
-    /// Get the `Name` of a `Variable`.
+    /// Get the Name of a Variable.
     let getName v = (v |> get).Name
 
 
-    /// Get the `ValueRange of a `Variable`.
+    /// Get the ValueRange of a Variable.
     let getValueRange v = (v |> get).Values
 
 
-    /// Check whether a `Variable` **v** contains
-    /// a value **v**.
-    let contains v vr =
-        vr |> getValueRange |> ValueRange.contains v
+    /// Check whether a Variable v contains
+    /// a value v.
+    let contains v vr = vr |> getValueRange |> ValueRange.contains v
 
 
-    /// Change `Name` to **n**.
+    /// Change Name to n.
     let setName n v : Variable = { v with Name = n }
 
 
-    /// Apply a `ValueRange` **vr** to
-    /// `Variable` **v**.
+    /// Apply a ValueRange vr to
+    /// Variable v.
     let setValueRange vr var =
         try
             { var with Values = (var |> get).Values @<- vr }
@@ -3265,33 +3229,30 @@ module Variable =
             raise e
 
 
-    /// Set the values to a `ValueRange`
+    /// Set the values to a ValueRange
     /// that prevents zero or negative values.
-    let setNonZeroAndPositive v =
-        { v with Values = v.Values |> ValueRange.nonZeroAndPositive }
+    let setNonZeroAndPositive v = { v with Values = v.Values |> ValueRange.nonZeroAndPositive }
 
 
     /// Get the number of distinct values
     /// Note that the valuerange has to be a ValueSet
     /// to get a count
-    let count v =
-        v |> getValueRange |> ValueRange.cardinality
+    let count v = v |> getValueRange |> ValueRange.cardinality
 
 
-    /// Checks whether a `Variable` has
+    /// Checks whether a Variable has
     /// values (and therefore is a ValueSet).
     let hasValues var = var |> count |> (fun n -> n > 1)
 
 
-    /// Checks whether **v1** and **v2** have the
-    /// same `Name`
+    /// Checks whether v1 and v2 have the
+    /// same Name
     let eqName v1 v2 = v1 |> getName = (v2 |> getName)
 
 
-    /// Check whether the `ValueRange` of **v1**
-    /// and **v2** are equal.
-    let eqValues var1 var2 =
-        var1 |> getValueRange = (var2 |> getValueRange)
+    /// Check whether the ValueRange of v1
+    /// and v2 are equal.
+    let eqValues var1 var2 = var1 |> getValueRange = (var2 |> getValueRange)
 
 
     let eqsUnitGroup var1 var2 =
@@ -3299,20 +3260,19 @@ module Variable =
         vr1 |> ValueRange.eqsUnitGroup vr2
 
 
-    /// Checks whether a `Variable` **v** is solved,
+    /// Checks whether a Variable v is solved,
     /// i.e., there is but one possible value left.
-    let isSolved var =
-        var |> getValueRange |> _.IsValSet && var |> count = 1
+    let isSolved var = var |> getValueRange |> _.IsValSet && var |> count = 1
 
 
-    /// Checks whether a `Variable` is *solvable*
+    /// Checks whether a Variable is *solvable*
     /// i.e., can be further restricted to one value
     /// (or no values at all)
     let isSolvable = isSolved >> not
 
 
     /// Checks whether there are no restrictions to
-    /// possible values a `Variable` can contain
+    /// possible values a Variable can contain
     let isUnrestricted = getValueRange >> _.IsUnrestricted
 
 
@@ -3355,8 +3315,8 @@ module Variable =
     let isMinExclusiveZero = getValueRange >> ValueRange.isMinExclusiveZero
 
 
-    /// Apply the operator **op** to **v1** and **v2**
-    /// return an intermediate *result* `Variable`.
+    /// Apply the operator op to v1 and v2
+    /// return an intermediate *result* Variable.
     let calc op (v1, v2) =
         try
             (v1 |> getValueRange) |> op <| (v2 |> getValueRange) |> createRes
@@ -3369,14 +3329,14 @@ module Variable =
 
 
     /// <summary>
-    /// Try and increase the increment of a `ValueRange` of a Variable to an
+    /// Try and increase the increment of a <c>ValueRange</c> of a Variable to an
     /// increment in incrs such that the resulting ValueRange contains
     /// at most maxCount values.
     /// </summary>
     /// <param name="maxCount">The maximum count</param>
     /// <param name="incrs">The increment list</param>
     /// <param name="var">The Variable</param>
-    /// <returns>The resulting (more restrictive) `ValueRange`</returns>
+    /// <returns>The resulting (more restrictive) <c>ValueRange</c></returns>
     /// <remarks>
     /// When there is no increment in the list that can be used to increase
     /// the increment of the ValueRange to the maximum count, the largest possible
@@ -3509,36 +3469,32 @@ module Variable =
         | Some n -> var |> setNthValue n
 
 
-    /// Set the minimum value of a Variable
-    /// <param name="var">The Variable to set the minimum value for</param>
-    /// <returns>The Variable with the new minimum value</returns>
-    let setMinValue var =
-        { var with Values = var.Values |> ValueRange.setMinValue }
+    /// <summary>Set the minimum value of a Variable.</summary>
+    /// <param name="var">The Variable to set the minimum value for.</param>
+    /// <returns>The Variable with the new minimum value.</returns>
+    let setMinValue var = { var with Values = var.Values |> ValueRange.setMinValue }
 
 
-    /// Set the maximum value of a Variable
-    /// <param name="var">The Variable to set the maximum value for</param>
-    /// <returns>The Variable with the new maximum value</returns>
-    let setMaxValue var =
-        { var with Values = var.Values |> ValueRange.setMaxValue }
+    /// <summary>Set the maximum value of a Variable.</summary>
+    /// <param name="var">The Variable to set the maximum value for.</param>
+    /// <returns>The Variable with the new maximum value.</returns>
+    let setMaxValue var = { var with Values = var.Values |> ValueRange.setMaxValue }
 
 
-    /// Set the median value of a Variable
-    /// <param name="var">The Variable to set the median value for</param>
-    /// <returns>The Variable with the new median value</returns>
-    let setMedianValue var =
-        { var with Values = var.Values |> ValueRange.setMedianValue }
+    /// <summary>Set the median value of a Variable.</summary>
+    /// <param name="var">The Variable to set the median value for.</param>
+    /// <returns>The Variable with the new median value.</returns>
+    let setMedianValue var = { var with Values = var.Values |> ValueRange.setMedianValue }
 
 
     /// Get the unit of a Variable
-    let getUnit var =
-        var |> getValueRange |> ValueRange.getUnit
+    let getUnit var = var |> getValueRange |> ValueRange.getUnit
 
 
-    /// Set the unit of a Variable
-    /// <param name="unt">The unit to set</param>
-    /// <param name="var">The Variable to set the unit for</param>
-    /// <returns>The Variable with the new unit</returns>
+    /// <summary>Set the unit of a Variable.</summary>
+    /// <param name="unt">The unit to set.</param>
+    /// <param name="var">The Variable to set the unit for.</param>
+    /// <returns>The Variable with the new unit.</returns>
     let setUnit unt var =
         { var with Values = var |> getValueRange |> ValueRange.setUnit unt }
 
@@ -3567,8 +3523,7 @@ module Variable =
 
         let inline (@-) vr1 vr2 = calc (@-) (vr1, vr2)
 
-        let inline (@<-) vr1 vr2 =
-            vr1 |> setValueRange (vr2 |> getValueRange)
+        let inline (@<-) vr1 vr2 = vr1 |> setValueRange (vr2 |> getValueRange)
 
 
         /// Constant 1
@@ -3592,20 +3547,16 @@ module Variable =
             |> createSucc (Name.createExc "three")
 
         /// Check whether the operator is subtraction
-        let opIsSubtr op =
-            (three |> op <| two) |> eqValues (three ^- two) // = 1
+        let opIsSubtr op = (three |> op <| two) |> eqValues (three ^- two) // = 1
 
         /// Check whether the operator is addition
-        let opIsAdd op =
-            (three |> op <| two) |> eqValues (three ^+ two) // = 5
+        let opIsAdd op = (three |> op <| two) |> eqValues (three ^+ two) // = 5
 
         /// Check whether the operator is multiplication
-        let opIsMult op =
-            (three |> op <| two) |> eqValues (three ^* two) // = 6
+        let opIsMult op = (three |> op <| two) |> eqValues (three ^* two) // = 6
 
         /// Check whether the operator is division
-        let opIsDiv op =
-            (three |> op <| two) |> eqValues (three ^/ two) // = 3/2
+        let opIsDiv op = (three |> op <| two) |> eqValues (three ^/ two) // = 3/2
 
 
         let toString op =
@@ -3617,14 +3568,14 @@ module Variable =
             | _ -> ""
 
 
-    /// Handle the creation of a `Variable` from a `Dto` and
+    /// Handle the creation of a Variable from a Dto and
     /// vice versa.
     module Dto =
 
         module ValueSet = ValueRange.ValueSet
         module Increment = ValueRange.Increment
 
-        /// The `Dto` representation of a `Variable`
+        /// The Dto representation of a Variable
         type Dto() =
             member val Name = "" with get, set
             member val IsNonZeroPositive = false with get, set
@@ -3652,8 +3603,8 @@ module Variable =
             dto
 
 
-        /// Create a `Variable` from a `Dto` and
-        /// raise a `DtoException` if this fails.
+        /// Create a Variable from a Dto and
+        /// raise a DtoException if this fails.
         let fromDto (dto: Dto) =
             let succ = id
 
@@ -3684,11 +3635,11 @@ module Variable =
             create succ n vr
 
 
-        /// Return a `string` representation of a `Dto`
+        /// Return a string representation of a Dto
         let toString exact = fromDto >> toString exact
 
 
-        /// Create a `Dto` from a `Variable`.
+        /// Create a Dto from a Variable.
         let toDto (v: Variable) =
             let vuToDto = ValueUnit.Dto.toDtoDutchShort
 
@@ -3701,8 +3652,7 @@ module Variable =
                 dto.IsNonZeroPositive <- true
                 dto
             | _ ->
-                let incr =
-                    v.Values |> ValueRange.getIncr |> Option.map (Increment.toValueUnit >> vuToDto)
+                let incr = v.Values |> ValueRange.getIncr |> Option.map (Increment.toValueUnit >> vuToDto)
 
                 let minIncl =
                     match v.Values |> ValueRange.getMin with
@@ -3714,14 +3664,11 @@ module Variable =
                     | Some m -> m |> Maximum.isExcl |> not
                     | None -> false
 
-                let min =
-                    v.Values |> ValueRange.getMin |> Option.map (Minimum.toValueUnit >> vuToDto)
+                let min = v.Values |> ValueRange.getMin |> Option.map (Minimum.toValueUnit >> vuToDto)
 
-                let max =
-                    v.Values |> ValueRange.getMax |> Option.map (Maximum.toValueUnit >> vuToDto)
+                let max = v.Values |> ValueRange.getMax |> Option.map (Maximum.toValueUnit >> vuToDto)
 
-                let vals =
-                    v.Values |> ValueRange.getValSet |> Option.map (ValueSet.toValueUnit >> vuToDto)
+                let vals = v.Values |> ValueRange.getValSet |> Option.map (ValueSet.toValueUnit >> vuToDto)
 
                 dto.IncrOpt <- incr
                 dto.MinOpt <- min

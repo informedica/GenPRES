@@ -9,7 +9,7 @@ open SigningMachine
 
 module Fixtures =
 
-    let patient = Shared.Models.PatientDto.empty
+    let patient = Shared.Models.Patient.empty
     let otherData = { patient with Department = Some "ICU" }
     let plan = Shared.Models.OrderPlan.create patient [||]
 
@@ -195,11 +195,7 @@ let tests =
                 transition (submitted "k-1") submitting
                 |> Expect.equal
                     "signed"
-                    (Signing.Idle,
-                     [
-                         SigningEffect.RenewToken(OpenedToken "t2")
-                         SigningEffect.TellSigned signed
-                     ])
+                    (Signing.Idle, [ SigningEffect.RenewToken(OpenedToken "t2"); SigningEffect.TellSigned signed ])
 
                 transition
                     (SigningMsg.SubmitAnswered("k-1", Ok(SigningResponse.Refused(SigningRefusal.PinWrong 2))))
@@ -262,11 +258,7 @@ let tests =
                 transition (submitted "k-1") submitting
                 |> Expect.equal
                     "signed after all"
-                    (Signing.Idle,
-                     [
-                         SigningEffect.RenewToken(OpenedToken "t2")
-                         SigningEffect.TellSigned signed
-                     ])
+                    (Signing.Idle, [ SigningEffect.RenewToken(OpenedToken "t2"); SigningEffect.TellSigned signed ])
             }
 
             test "the plan submitted is the plan challenged, whatever the cart did meanwhile (ext 3b, 3c)" {

@@ -7,20 +7,20 @@ module AdminCommand =
     open System.Security.Cryptography
     open System.Text
     open Shared.Api
+    open Informedica.Utils.Lib.BCL
 
 
     let tokenLifetime = TimeSpan.FromHours 1.0
 
 
-    /// An empty or whitespace secret is no secret. `Env.getItem` answers `Some ""` for a
-    /// setting that is set but empty (the Dockerfile's `ENV GENPRES_PASSWORD=`), and an empty
+    /// An empty or whitespace secret is no secret. Env.getItem answers Some "" for a
+    /// setting that is set but empty (the Dockerfile's ENV GENPRES_PASSWORD=), and an empty
     /// password compared with an empty secret would match, so blanks fail closed here as well
     /// as at the port.
-    let private nonBlank (secret: string option) =
-        secret |> Option.filter (String.IsNullOrWhiteSpace >> not)
+    let private nonBlank (secret: string option) = secret |> Option.filter String.notEmpty
 
 
-    /// SECURITY: `FixedTimeEquals` so equal-length comparisons do not leak through per-byte
+    /// SECURITY: FixedTimeEquals so equal-length comparisons do not leak through per-byte
     /// timing. It short-circuits on a length mismatch; that leak is accepted because production
     /// enforces a 16-character minimum and the password travels only at ValidatePassword.
     let validatePassword (secret: string option) (password: string) =
@@ -30,7 +30,7 @@ module AdminCommand =
             CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes password, Encoding.UTF8.GetBytes expected)
 
 
-    /// `base64(expiresAt:nonce).base64(hmacsha256(secret, expiresAt:nonce))`; empty without a
+    /// base64(expiresAt:nonce).base64(hmacsha256(secret, expiresAt:nonce)); empty without a
     /// secret, so that nothing signed with an empty key can ever verify.
     let generateToken (secret: string option) (now: DateTimeOffset) =
         match nonBlank secret with
@@ -48,7 +48,7 @@ module AdminCommand =
         match nonBlank secret with
         | None -> false
         | Some secret ->
-            if String.IsNullOrWhiteSpace token then
+            if token |> String.isNullOrWhiteSpace then
                 false
             else
                 match token.Split '.' with
@@ -74,7 +74,7 @@ module AdminCommand =
 
 
     /// The admin commands over the admin port: the password buys a token, the token opens the
-    /// log and the reload. Not behind `requireLoaded`: the reload is what makes a failed load
+    /// log and the reload. Not behind requireLoaded: the reload is what makes a failed load
     /// loadable again.
     let processCmd (env: AppEnv) (cmd: AdminCommand) : Async<Result<AdminResponse, string[]>> =
         let admin = env.admin

@@ -3,6 +3,11 @@ namespace ServerApi
 open System
 open Shared.Types
 
+// The store's clinical records are the domain's; unqualified, the names below are the
+// contract model's, which the identity half of the session keeps.
+module GenOrder = Informedica.GenOrder.Lib.Types
+module GenForm = Informedica.GenForm.Lib.Types
+
 
 module PublicKey =
 
@@ -15,8 +20,7 @@ module PublicKey =
         Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
 
 
-    let private sha256 (s: string) =
-        s |> Encoding.UTF8.GetBytes |> SHA256.HashData
+    let private sha256 (s: string) = s |> Encoding.UTF8.GetBytes |> SHA256.HashData
 
 
     /// The required members of a JWK per key type, in the lexicographic order RFC 7638
@@ -74,15 +78,14 @@ module PublicKey =
 
 
     /// A random, unguessable id for a session cookie: 256 bits from the CSPRNG, base64url.
-    let randomId () =
-        RandomNumberGenerator.GetBytes 32 |> base64Url
+    let randomId () = RandomNumberGenerator.GetBytes 32 |> base64Url
 
 
 module LaunchSeal =
 
-    /// The key the Launch is sealed under. 32 bytes from a CSPRNG (`newKey`); shared with the
+    /// The key the Launch is sealed under. 32 bytes from a CSPRNG (newKey); shared with the
     /// LaunchScript in the real integration, made per host start for the stub.
-    type Key = Key of byte[]
+    type Key = | Key of byte[]
 
 
     /// What a Launch says once the seal is verified.
@@ -130,14 +133,13 @@ module LaunchSeal =
             None
 
 
-    let mac (Key key) (data: byte[]) =
-        System.Security.Cryptography.HMACSHA256.HashData(key, data)
+    let mac (Key key) (data: byte[]) = System.Security.Cryptography.HMACSHA256.HashData(key, data)
 
 
     let private json = System.Text.Json.JsonSerializerOptions()
 
 
-    /// Seals the claims: `base64url(json) + "." + base64url(HMAC-SHA256(key, json))`.
+    /// Seals the claims: base64url(json) + "." + base64url(HMAC-SHA256(key, json)).
     let mint (key: Key) (claims: Claims) : Launch =
         let payload =
             {
@@ -151,8 +153,8 @@ module LaunchSeal =
 
 
     /// Verifies the seal (constant-time), then the lifetime. Anything that is not a
-    /// Launch sealed under the key is `LaunchInvalid`; a Launch past its expiry is
-    /// `LaunchExpired`.
+    /// Launch sealed under the key is LaunchInvalid; a Launch past its expiry is
+    /// LaunchExpired.
     let verify (now: DateTime) (key: Key) (Launch text) : Result<Claims, LaunchRefusal> =
         let parts = if isNull text then [||] else text.Split('.')
 
@@ -215,7 +217,7 @@ module PinHash =
         )
 
 
-    /// Derives the hash of a PIN under a fresh salt from `newSalt` (the CSPRNG in the host).
+    /// Derives the hash of a PIN under a fresh salt from newSalt (the CSPRNG in the host).
     let make (newSalt: int -> byte[]) (pin: string) : PinHash =
         let salt = newSalt saltLength
 
@@ -237,7 +239,7 @@ type Credential =
     {
         PinHash: PinHash option
         WrongCount: int
-        // signing is locked until this moment; a delay, not a state
+        /// signing is locked until this moment; a delay, not a state
         LockedUntil: DateTime option
     }
 
@@ -278,8 +280,8 @@ module Credential =
     let lockMax = TimeSpan.FromHours 24.0
 
 
-    /// The delay after `count` wrong entries. The entry that reaches the limit locks for
-    /// `lockBase`; each one after it doubles that, up to `lockMax`.
+    /// The delay after count wrong entries. The entry that reaches the limit locks for
+    /// lockBase; each one after it doubles that, up to lockMax.
     let lockFor (count: int) =
         // 2^11 minutes is already past a day; the bound keeps `pown` in range
         let doublings = min 11 (max 0 (count - wrongPinLimit))
@@ -297,7 +299,7 @@ module Credential =
     /// is verified here and nowhere else. A right PIN while unlocked zeroes the count and
     /// clears the lock; a right PIN
     /// while locked is refused and counts nothing; a wrong PIN adds one and, at the limit or
-    /// beyond it, locks for `lockFor` from now, so a wrong entry while locked pushes the
+    /// beyond it, locks for lockFor from now, so a wrong entry while locked pushes the
     /// delay out and doubles it.
     let verify (now: DateTime) (pin: string) (credential: Credential) : bool * Credential =
         let locked = isLocked now credential
@@ -332,8 +334,7 @@ module Credential =
 
 
     /// The wrong entries left before the limit.
-    let attemptsLeft (credential: Credential) =
-        max 0 (wrongPinLimit - credential.WrongCount)
+    let attemptsLeft (credential: Credential) = max 0 (wrongPinLimit - credential.WrongCount)
 
 
 module Pin =
@@ -348,7 +349,7 @@ module Pin =
 
 module MailHint =
 
-    /// `n***@stub.example`: enough for the User to know which mailbox, not enough for a
+    /// n***@stub.example: enough for the User to know which mailbox, not enough for a
     /// shoulder to read the address.
     let ofAddress (address: string) =
         match address.IndexOf '@' with
@@ -382,11 +383,11 @@ module Mails =
 /// time, the open as one act that closes the User's other Sessions, the launch suspended at
 /// the PIN question and the enrolment that lifts it, the credential with its wrong-PIN lock,
 /// the signing challenge and the commit of a version, and what a Session is told when the
-/// record moved on. Pure over a `State` record: the clock, the ids, the codes and the ports
-/// are parameters. `StubDatabase.makeSessionPort` runs it over an in-memory store.
+/// record moved on. Pure over a State record: the clock, the ids, the codes and the ports
+/// are parameters. StubDatabase.makeSessionPort runs it over an in-memory store.
 module Session =
 
-    /// The refusal words of `#/session?refused=<word>`; the client's `parseRefusal` reads them.
+    /// The refusal words of #/session?refused=<word>; the client's parseRefusal reads them.
     let refusalWord refusal =
         match refusal with
         | LaunchRefusal.LaunchExpired -> "expired"
@@ -400,17 +401,17 @@ module Session =
 
     let openedUrl = "/#/session"
 
-    let refusedUrl refusal =
-        $"/#/session?refused={refusalWord refusal}"
+    let refusedUrl refusal = $"/#/session?refused={refusalWord refusal}"
 
 
-    /// A Session as the store holds it: what the client learns, the login it belongs to (a User
-    /// has at most one open Session), the head of the record it opened with (`None` from
-    /// nothing), which a Submission is checked against, and when it was last seen (nothing
-    /// acts on it yet; the idle and absolute lifetimes of Rule 10 are not built).
+    /// A Session as the store holds it: what it is open on, the login it belongs to (a User
+    /// has at most one open Session), the id of the version it opened with (None from
+    /// nothing, or from a head that cannot be read), which a Submission is checked against,
+    /// and when it was last seen (nothing acts on it yet; the idle and absolute lifetimes of
+    /// Rule 10 are not built).
     type SessionRecord =
         {
-            Session: SessionOpened
+            Opened: OpenedSession
             Login: string option
             OpenedWith: string option
             Seen: DateTime
@@ -444,28 +445,36 @@ module Session =
 
 
     /// A data notice as the store holds it: one per Session, the platform's reading it was
-    /// told over (`None`: unreadable), for two minutes.
+    /// told over (None: unreadable), for two minutes.
     type Notice =
         {
             Nonce: string
-            Data: PatientDto option
+            Data: GenForm.Patient option
             Expiry: DateTime
         }
 
 
-    /// A signing challenge as the store holds it: one per Session, over exactly the patient
-    /// data and the orders shown, whether that data was the platform's reading when it was
-    /// issued, for two minutes.
+    /// A signing challenge as the store holds it: one per Session, the digest of exactly the
+    /// plan shown over the store's canonical form, whether the platform's reading stood when it
+    /// was issued, for two minutes. The plan itself is never held: the submission carries it
+    /// and is compared by digest.
     type Challenge =
         {
             Nonce: string
-            Patient: PatientDto
-            // the contexts as challenged, their orders inside: what the version stores
-            OrderContexts: OrderContext[]
-            // the platform's reading at the challenge, none when it could not be read
-            Reading: PatientDto option
+            Digest: string
+            /// the platform's reading at the challenge, none when it could not be read
+            Reading: GenForm.Patient option
             Expiry: DateTime
         }
+
+
+    /// What the adapter's write came to: landed; refused by the store because another server
+    /// signed first, with the version that won; or failed.
+    [<RequireQualifiedAccess>]
+    type StoreOutcome =
+        | Written
+        | Conflict of StoredVersion
+        | Failed of reason: string
 
 
     type LaunchRecord =
@@ -479,25 +488,71 @@ module Session =
         }
 
 
+    /// How a store records the end of a Session; a supersession is no row, since a newer
+    /// Session of the same login tells it.
+    [<RequireQualifiedAccess>]
+    type StoredEnding =
+        | Closed
+        | Ended of SessionEnding
+
+
+    /// A write the machine asks for, as a value: one case per fact the store records. A member
+    /// returns the writes of its request next to the new state and its answer.
+    type Persist =
+        /// the order plan version of a commit; the Launch and what its callback came to
+        | WriteVersion of GenOrder.OrderPlanVersion
+        | RecordLaunch of LaunchRecord
+        | RecordLaunchOutcome of nonce: string * LaunchResult * at: DateTime
+        /// the Session opened, what it opened with (at the open, at a version opened and at a
+        /// commit), and a request from it
+        | OpenSession of sessionId: string * SessionRecord
+        | RecordOpenedWith of sessionId: string * SessionRecord * at: DateTime
+        | RecordSeen of sessionId: string * at: DateTime
+        /// the end of a Session that is an act, and the acknowledgement of an ending
+        | EndSession of sessionId: string * StoredEnding * at: DateTime
+        | AcknowledgeEnding of sessionId: string * at: DateTime
+        /// the credential as it stands after the event that changed it: the PIN set, a wrong
+        /// entry counted, the lock reached, a right entry clearing the count
+        | WriteCredential of userId: string * event: string * Credential * at: DateTime
+        /// the confirmation code mailed when a launch suspends, and what becomes of it
+        | WriteCode of PendingCode * at: DateTime
+        /// the code these name is the one the request read, named by its mac: another server
+        /// may have mailed a newer one meanwhile, and a try of the older must not void it
+        | CountCodeTry of userId: string * codeMac: byte[] * at: DateTime
+        | SpendCode of userId: string * codeMac: byte[] * at: DateTime
+        /// the launch suspended at the PIN question, the attempt given up, and every attempt of
+        /// a person dropped at once when their PIN is set or their code is void
+        | WriteEnrolment of Enrolment * at: DateTime
+        | DropEnrolmentWrite of attempt: string * at: DateTime
+        | DropEnrolmentsOf of userId: string * at: DateTime
+        /// what a Session holds in flight: the notice it was told, the challenge it answers,
+        /// the challenge a commit or an opened version used up, named by the nonce the request
+        /// read, and what a Submission was answered so that the same one is answered once
+        | WriteNotice of sessionId: string * Notice * at: DateTime
+        | WriteChallenge of sessionId: string * Challenge * at: DateTime
+        | SpendChallenge of sessionId: string * nonce: string * at: DateTime
+        | RememberAnswer of sessionId: string * idemKey: string * SigningOutcome * at: DateTime
+
+
     type State =
         {
             Launches: Map<string, LaunchRecord>
             Sessions: Map<string, SessionRecord>
             Endings: Map<string, SessionEnding * DateTime>
             Credentials: Map<string, Credential>
-            // the live confirmation code per person
+            /// the live confirmation code per person
             Codes: Map<string, PendingCode>
-            // the launches suspended at the PIN question, by attempt
+            /// the launches suspended at the PIN question, by attempt
             Enrolments: Map<string, Enrolment>
-            // the signed versions of each patient's order plan, newest first
-            Records: Map<string, SignedOrderPlan list>
-            // the live data notice per Session
+            /// every version of each patient's order plan, newest first, readable or not
+            Records: Map<string, StoredVersion list>
+            /// the live data notice per Session
             Notices: Map<string, Notice>
-            // the live challenge per Session
+            /// the live challenge per Session
             Challenges: Map<string, Challenge>
-            // what a Submission was answered, by Session and by the client's key, so that a
-            // retry gets the same answer
-            Answered: Map<string * string, SigningResponse * DateTime>
+            /// what a Submission was answered, by Session and by the client's key, so that a
+            /// retry gets the same answer
+            Answered: Map<string * string, SigningOutcome * DateTime>
         }
 
 
@@ -516,8 +571,7 @@ module Session =
         }
 
 
-    let initialState (credentials: Map<string, Credential>) =
-        { emptyState with Credentials = credentials }
+    let initialState (credentials: Map<string, Credential>) = { emptyState with Credentials = credentials }
 
 
     /// How long a confirmation code lives: a mail round trip, not a Session's idle gap. Bounds
@@ -536,7 +590,8 @@ module Session =
         state.Credentials |> Map.tryFind userId |> Option.defaultValue Credential.empty
 
 
-    /// The most recent signed version of a patient's record, if any: what a Session starts from.
+    /// The newest version of a patient's record, readable or not: what a Session starts from
+    /// and what a sign is checked against.
     let headOf (patientId: string) (state: State) =
         state.Records |> Map.tryFind patientId |> Option.bind List.tryHead
 
@@ -568,16 +623,16 @@ module Session =
         (authorizeUrl: string -> string)
         (state: State)
         (launch, key)
-        : State * LaunchResult
+        : State * LaunchResult * Persist list
         =
         let state = dropExpired now state
 
         match verify launch with
-        | Error refusal -> state, LaunchResult.Refused refusal
+        | Error refusal -> state, LaunchResult.Refused refusal, []
         | Ok claims ->
             match state.Launches |> Map.tryFind claims.Nonce with
-            | Some record when record.PublicKey = key -> state, answerOf authorizeUrl record
-            | Some _ -> state, LaunchResult.Refused LaunchRefusal.LaunchSpent
+            | Some record when record.PublicKey = key -> state, answerOf authorizeUrl record, []
+            | Some _ -> state, LaunchResult.Refused LaunchRefusal.LaunchSpent, []
             | None ->
                 let record =
                     {
@@ -589,31 +644,44 @@ module Session =
                         Outcome = None
                     }
 
-                { state with Launches = state.Launches |> Map.add claims.Nonce record }, answerOf authorizeUrl record
+                { state with Launches = state.Launches |> Map.add claims.Nonce record },
+                answerOf authorizeUrl record,
+                [ RecordLaunch record ]
 
 
-    /// The patient a Session opens on: the PatientDataPlatform's reading, the source of truth;
-    /// without one, the patient data of the head of the record, the last seen; from nothing,
-    /// an empty patient, so that a data outage does not block prescribing.
+    /// The patient data a Session opens on: the PatientDataPlatform's reading, the source of
+    /// truth, when there is one (the adapter answers none for a reading that is no patient);
+    /// without one, the patient data the head of the record was signed on, the last seen, when
+    /// the head can be read; from nothing, none, so that the User enters it and a data outage
+    /// does not block prescribing.
     let sessionPatient
-        (patientData: string -> PatientDto option)
+        (patientData: string -> GenForm.Patient option)
         (patientId: string)
-        (head: SignedOrderPlan option)
-        : PatientDto
+        (head: StoredVersion option)
+        : GenForm.Patient option
         =
         patientData patientId
-        |> Option.orElse (head |> Option.map _.Patient)
-        |> Option.defaultValue Shared.Models.PatientDto.empty
+        |> Option.orElse (
+            head
+            |> Option.bind (fun h ->
+                match h with
+                | StoredVersion.Readable v -> Some v.Plan.Patient
+                | StoredVersion.Unreadable _ -> None
+            )
+        )
 
 
     /// The open, one act, from whatever carried the launch this far: a LaunchRecord at the
     /// callback, an Enrolment once the PIN is set. The Session is written from the head of the
-    /// record, on the platform's reading, else the head's patient data; the login's other
-    /// Sessions are closed and marked, so that a User has at most one open Session.
+    /// record, held whatever its case, on the platform's reading, else the head's patient
+    /// data; the login's other Sessions are closed and marked, so that a User has at most one
+    /// open Session. A head this release cannot read is nothing to open with: the Session
+    /// opens from nothing, so the next request tells that the record has a newer version, and
+    /// a sign is refused against it.
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
-        (patientData: string -> PatientDto option)
+        (patientData: string -> GenForm.Patient option)
         (patientId: string)
         (key: PublicKey)
         (user: UserContext)
@@ -622,21 +690,25 @@ module Session =
         let id = newId ()
         let head = headOf patientId state
 
-        let session =
+        let opened: OpenedSession =
             {
                 User = Some user
-                PatientContext =
-                    Some
-                        {
-                            PatientId = patientId
-                            Patient = sessionPatient patientData patientId head
-                        }
+                PatientId = Some patientId
+                Patient = sessionPatient patientData patientId head
                 OpenedToken = Some(OpenedToken $"opened-{id}")
                 KeyThumbprint = Some(PublicKey.thumbprint key)
                 Head = head
             }
 
         let login = Some user.UserId
+
+        let session =
+            {
+                Opened = opened
+                Login = login
+                OpenedWith = head |> Option.bind StoredVersion.readableId
+                Seen = now
+            }
 
         let superseded =
             state.Sessions
@@ -648,34 +720,33 @@ module Session =
             Sessions =
                 superseded
                 |> List.fold (fun m sid -> Map.remove sid m) state.Sessions
-                |> Map.add
-                    id
-                    {
-                        Session = session
-                        Login = login
-                        OpenedWith = head |> Option.map _.Head.Id
-                        Seen = now
-                    }
+                |> Map.add id session
             Endings =
                 superseded
                 |> List.fold (fun m sid -> Map.add sid (SessionEnding.SupersededByLaunch, now) m) state.Endings
         },
-        (id, session)
+        (id, opened),
+        // the superseded Sessions need no write: the newer Session of their login tells it
+        [ OpenSession(id, session); RecordOpenedWith(id, session, now) ]
 
 
-    let private recordOutcome (record: LaunchRecord) outcome (state: State) =
-        { state with Launches = state.Launches |> Map.add record.Nonce { record with Outcome = Some outcome } }
+    let private recordOutcome now (record: LaunchRecord) outcome (state: State) =
+        { state with Launches = state.Launches |> Map.add record.Nonce { record with Outcome = Some outcome } },
+        RecordLaunchOutcome(record.Nonce, outcome, now)
 
 
     let private openSession now newId patientData (record: LaunchRecord) (standing: UserStanding) (state: State) =
-        let state, (id, session) =
+        let state, (id, session), writes =
             openWith now newId patientData record.PatientId record.PublicKey standing.User state
 
-        recordOutcome record (LaunchResult.Opened(id, session)) state, CallbackResult.Opened(id, openedUrl)
+        let state, outcome = recordOutcome now record (LaunchResult.Opened(id, session)) state
+
+        state, CallbackResult.Opened(id, openedUrl), writes @ [ outcome ]
 
 
-    let private refuse (record: LaunchRecord) refusal (state: State) =
-        recordOutcome record (LaunchResult.Refused refusal) state, CallbackResult.Refused(refusal, refusedUrl refusal)
+    let private refuse now (record: LaunchRecord) refusal (state: State) =
+        let state, outcome = recordOutcome now record (LaunchResult.Refused refusal) state
+        state, CallbackResult.Refused(refusal, refusedUrl refusal), [ outcome ]
 
 
     /// The launch suspends at the PIN question. One live code per credential: a code that
@@ -695,14 +766,14 @@ module Session =
         =
         let userId = standing.User.UserId
 
-        let state =
+        let state, codeWrites =
             match state.Codes |> Map.tryFind userId with
-            | Some _ -> state
+            // a code already stands for this person: no second mail, no second row
+            | Some _ -> state, []
             | None ->
                 let code = newCode ()
 
-                let subject, body =
-                    Mails.confirmationCode identity.DisplayName code (int codeLifetime.TotalMinutes)
+                let subject, body = Mails.confirmationCode identity.DisplayName code (int codeLifetime.TotalMinutes)
 
                 send
                     {
@@ -711,19 +782,16 @@ module Session =
                         Body = body
                     }
 
-                { state with
-                    Codes =
-                        state.Codes
-                        |> Map.add
-                            userId
-                            {
-                                UserId = userId
-                                MailAddress = standing.MailAddress
-                                CodeMac = codeMac code
-                                Expiry = now + codeLifetime
-                                Tries = 0
-                            }
-                }
+                let pending =
+                    {
+                        UserId = userId
+                        MailAddress = standing.MailAddress
+                        CodeMac = codeMac code
+                        Expiry = now + codeLifetime
+                        Tries = 0
+                    }
+
+                { state with Codes = state.Codes |> Map.add userId pending }, [ WriteCode(pending, now) ]
 
         let attempt = newId ()
 
@@ -739,28 +807,37 @@ module Session =
 
         let until = state.Codes[userId].Expiry
 
-        { state with Enrolments = state.Enrolments |> Map.add attempt enrolment }
-        |> recordOutcome record (LaunchResult.Enrolling attempt),
-        CallbackResult.Enrolling(attempt, openedUrl, until)
+        let state, outcome =
+            { state with Enrolments = state.Enrolments |> Map.add attempt enrolment }
+            |> recordOutcome now record (LaunchResult.Enrolling attempt)
+
+        state,
+        CallbackResult.Enrolling(attempt, openedUrl, until),
+        codeWrites @ [ WriteEnrolment(enrolment, now); outcome ]
 
 
-    /// The callback from the IdentityProvider and the checks that follow it: the state against
-    /// the cookie, the code redeemed for the identity, the registry asked for the Role and the
-    /// active Patient, the credential read. A Prescriber whose credential has no PIN is not
-    /// refused: the launch suspends until the PIN is set. A callback reload while the attempt
-    /// stands is answered with it again; once it is gone, a relaunch is asked for.
-    let callback
+    /// What the first half of a callback came to: an answer with its writes, or the identity
+    /// and the standing a launch goes on to the open with.
+    [<RequireQualifiedAccess>]
+    type Redeemed =
+        | Answered of State * CallbackResult * Persist list
+        | Identified of LaunchRecord * BrowserIdentity * UserStanding
+
+
+    /// <summary>
+    /// The first half of the callback: the state against the cookie, a reloaded callback
+    /// answered from the launch's outcome, else the code redeemed once for the identity and
+    /// the registry asked once for the Role and the active Patient. Needs the launch record
+    /// and the Session its outcome names, nothing keyed by the login: a store loads those
+    /// first, and the login's rows after, for <c>openAfterRedeem</c>.
+    /// </summary>
+    let redeem
         (now: DateTime)
-        (newId: unit -> string)
-        (newCode: unit -> string)
-        (codeMac: string -> byte[])
-        (redeem: string -> BrowserIdentity option)
+        (redeemCode: string -> BrowserIdentity option)
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: string -> PatientDto option)
-        (send: Mail -> unit)
         (state: State)
         (cb: Callback)
-        : State * CallbackResult
+        : Redeemed
         =
         let state = dropExpired now state
 
@@ -770,6 +847,8 @@ module Session =
             |> Seq.map snd
             |> Seq.tryFind (fun r -> r.State = cb.State)
 
+        let answer result = Redeemed.Answered(state, result, [])
+
         let invalid =
             CallbackResult.Refused(LaunchRefusal.LaunchInvalid, refusedUrl LaunchRefusal.LaunchInvalid)
 
@@ -777,37 +856,88 @@ module Session =
         | Some cookie, Some record when cookie = cb.State && cb.State <> "" ->
             match record.Outcome with
             | Some(LaunchResult.Opened(id, _)) when state.Sessions |> Map.containsKey id ->
-                state, CallbackResult.Opened(id, openedUrl)
-            | Some(LaunchResult.Opened _) -> state, CallbackResult.Superseded openedUrl
-            | Some(LaunchResult.Refused refusal) -> state, CallbackResult.Refused(refusal, refusedUrl refusal)
+                answer (CallbackResult.Opened(id, openedUrl))
+            | Some(LaunchResult.Opened _) -> answer (CallbackResult.Superseded openedUrl)
+            | Some(LaunchResult.Refused refusal) -> answer (CallbackResult.Refused(refusal, refusedUrl refusal))
             | Some(LaunchResult.Enrolling attempt) ->
                 match state.Enrolments |> Map.tryFind attempt with
-                | Some e -> state, CallbackResult.Enrolling(attempt, openedUrl, state.Codes[e.UserId].Expiry)
+                | Some e -> answer (CallbackResult.Enrolling(attempt, openedUrl, state.Codes[e.UserId].Expiry))
                 | None ->
-                    state,
-                    CallbackResult.Refused(LaunchRefusal.EnrolmentRequired, refusedUrl LaunchRefusal.EnrolmentRequired)
+                    answer (
+                        CallbackResult.Refused(
+                            LaunchRefusal.EnrolmentRequired,
+                            refusedUrl LaunchRefusal.EnrolmentRequired
+                        )
+                    )
             | Some(LaunchResult.RedirectTo _)
             | None ->
                 let identity =
                     match cb.Error, cb.Code with
-                    | None, Some code -> redeem code
+                    | None, Some code -> redeemCode code
                     | _ -> None
 
                 match identity with
-                | None -> refuse record LaunchRefusal.NoBrowserIdentity state
+                | None -> Redeemed.Answered(refuse now record LaunchRefusal.NoBrowserIdentity state)
                 | Some identity ->
                     match standing identity with
-                    | None -> refuse record LaunchRefusal.NoRole state
-                    | Some standing when standing.ActivePatientId <> Some record.PatientId ->
-                        refuse record LaunchRefusal.WrongActivePatient state
-                    | Some standing when
-                        standing.User.Role = UserRole.Prescriber
-                        && not (credentialOf standing.User.UserId state |> Credential.pinSet)
-                        ->
-                        suspend now newId newCode codeMac send record identity standing state
-                    | Some standing -> openSession now newId patientData record standing state
-        | _, None -> state, invalid
-        | _ -> state, invalid
+                    | None -> Redeemed.Answered(refuse now record LaunchRefusal.NoRole state)
+                    | Some standing -> Redeemed.Identified(record, identity, standing)
+        | _, None -> answer invalid
+        | _ -> answer invalid
+
+
+    /// <summary>
+    /// The second half of the callback, over the login's Sessions, the credential and the
+    /// patient's record: the active Patient checked, the launch suspended at the PIN question
+    /// when a Prescriber's credential has no PIN, else the open.
+    /// </summary>
+    let openAfterRedeem
+        (now: DateTime)
+        (newId: unit -> string)
+        (newCode: unit -> string)
+        (codeMac: string -> byte[])
+        (patientData: string -> GenForm.Patient option)
+        (send: Mail -> unit)
+        (record: LaunchRecord, identity: BrowserIdentity, standing: UserStanding)
+        (state: State)
+        : State * CallbackResult * Persist list
+        =
+        let state = dropExpired now state
+
+        if standing.ActivePatientId <> Some record.PatientId then
+            refuse now record LaunchRefusal.WrongActivePatient state
+        elif
+            standing.User.Role = UserRole.Prescriber
+            && not (credentialOf standing.User.UserId state |> Credential.pinSet)
+        then
+            suspend now newId newCode codeMac send record identity standing state
+        else
+            openSession now newId patientData record standing state
+
+
+    /// The callback from the IdentityProvider and the checks that follow it, the two halves
+    /// over one state: the state against the cookie, the code redeemed for the identity, the
+    /// registry asked for the Role and the active Patient, the credential read. A Prescriber
+    /// whose credential has no PIN is not refused: the launch suspends until the PIN is set. A
+    /// callback reload while the attempt stands is answered with it again; once it is gone, a
+    /// relaunch is asked for.
+    let callback
+        (now: DateTime)
+        (newId: unit -> string)
+        (newCode: unit -> string)
+        (codeMac: string -> byte[])
+        (redeemCode: string -> BrowserIdentity option)
+        (standing: BrowserIdentity -> UserStanding option)
+        (patientData: string -> GenForm.Patient option)
+        (send: Mail -> unit)
+        (state: State)
+        (cb: Callback)
+        : State * CallbackResult * Persist list
+        =
+        match redeem now redeemCode standing state cb with
+        | Redeemed.Answered(state, result, writes) -> state, result, writes
+        | Redeemed.Identified(record, identity, standing) ->
+            openAfterRedeem now newId newCode codeMac patientData send (record, identity, standing) state
 
 
     /// What a browser holding an attempt is told at GetSession: whom the launch is for and where
@@ -828,26 +958,37 @@ module Session =
 
     /// The code and every attempt bound to it, gone (the PIN was set, the code is void, or
     /// the browser gave up).
-    let private dropCode (userId: string) (state: State) =
+    let private dropCode (now: DateTime) (userId: string) (state: State) =
+        // the code as this request read it; there is none to spend when it has already gone
+        let spent =
+            state.Codes
+            |> Map.tryFind userId
+            |> Option.map (fun code -> [ SpendCode(userId, code.CodeMac, now) ])
+            |> Option.defaultValue []
+
         { state with
             Codes = state.Codes |> Map.remove userId
             Enrolments = state.Enrolments |> Map.filter (fun _ e -> e.UserId <> userId)
-        }
+        },
+        spent @ [ DropEnrolmentsOf(userId, now) ]
 
 
     /// The browser gave up on its attempt (CloseSession while enrolling). The code stands for
     /// any other attempt bound to it; when this was the last one it goes too, so that the next
     /// launch mails a fresh code.
-    let dropEnrolment (attempt: string) (state: State) : State =
+    let dropEnrolment (now: DateTime) (attempt: string) (state: State) : State * Persist list =
         match state.Enrolments |> Map.tryFind attempt with
-        | None -> state
+        | None -> state, []
         | Some e ->
             let state = { state with Enrolments = state.Enrolments |> Map.remove attempt }
+            let dropped = DropEnrolmentWrite(attempt, now)
 
             if state.Enrolments |> Map.exists (fun _ o -> o.UserId = e.UserId) then
-                state
+                // another browser is still enrolling on this code: it stands for that one
+                state, [ dropped ]
             else
-                dropCode e.UserId state
+                let state, writes = dropCode now e.UserId state
+                state, dropped :: writes
 
 
     /// The PIN comes back with the code. In order: the attempt (and its code) must stand; the
@@ -863,23 +1004,23 @@ module Session =
         (newSalt: int -> byte[])
         (codeMac: string -> byte[])
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: string -> PatientDto option)
+        (patientData: string -> GenForm.Patient option)
         (send: Mail -> unit)
         (attempt: string)
         (code: string)
         (pin: string)
         (state: State)
-        : State * SupplyPinResult
+        : State * SupplyPinResult * Persist list
         =
         let state = dropExpired now state
 
         match state.Enrolments |> Map.tryFind attempt with
-        | None -> state, SupplyPinResult.Refused PinRefusal.AttemptExpired
+        | None -> state, SupplyPinResult.Refused PinRefusal.AttemptExpired, []
         | Some e ->
             let pending = state.Codes[e.UserId]
 
             if not (Pin.isValid pin) then
-                state, SupplyPinResult.Refused PinRefusal.PinFormat
+                state, SupplyPinResult.Refused PinRefusal.PinFormat, []
             elif
                 not (
                     System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(codeMac code, pending.CodeMac)
@@ -888,10 +1029,16 @@ module Session =
                 let tries = pending.Tries + 1
 
                 if tries >= maxTries then
-                    dropCode e.UserId state, SupplyPinResult.Refused PinRefusal.CodeVoid
+                    // the third wrong code voids it for every attempt bound to it
+                    let state, writes = dropCode now e.UserId state
+
+                    state,
+                    SupplyPinResult.Refused PinRefusal.CodeVoid,
+                    CountCodeTry(e.UserId, pending.CodeMac, now) :: writes
                 else
                     { state with Codes = state.Codes |> Map.add e.UserId { pending with Tries = tries } },
-                    SupplyPinResult.Refused(PinRefusal.WrongCode(maxTries - tries))
+                    SupplyPinResult.Refused(PinRefusal.WrongCode(maxTries - tries)),
+                    [ CountCodeTry(e.UserId, pending.CodeMac, now) ]
             else
                 let identity =
                     {
@@ -905,8 +1052,7 @@ module Session =
                 // settles the PIN and the launch continues on what it had.
                 let fresh = standing identity
 
-                let address =
-                    fresh |> Option.map _.MailAddress |> Option.defaultValue pending.MailAddress
+                let address = fresh |> Option.map _.MailAddress |> Option.defaultValue pending.MailAddress
 
                 let user =
                     fresh
@@ -927,50 +1073,79 @@ module Session =
                         Body = body
                     }
 
-                let state =
-                    { state with Credentials = state.Credentials |> Map.add e.UserId (Credential.withPin newSalt pin) }
-                    |> dropCode e.UserId
+                let credential = Credential.withPin newSalt pin
+
+                let state, dropped =
+                    { state with Credentials = state.Credentials |> Map.add e.UserId credential }
+                    |> dropCode now e.UserId
+
+                let settled = WriteCredential(e.UserId, "pin-set", credential, now) :: dropped
 
                 match fresh with
                 | Some s when s.ActivePatientId <> Some e.PatientId ->
                     // the PIN is set and told; no Session opens for a Patient that is no longer
-                    // the active one: a relaunch is asked for
-                    state, SupplyPinResult.Refused PinRefusal.WrongActivePatient
+                    // the active one: a relaunch is asked for. The PIN stands all the same, so
+                    // its writes go whatever the launch comes to
+                    state, SupplyPinResult.Refused PinRefusal.WrongActivePatient, settled
                 | _ ->
-                    let state, (id, session) =
-                        openWith now newId patientData e.PatientId e.PublicKey user state
+                    let state, (id, session), writes = openWith now newId patientData e.PatientId e.PublicKey user state
 
-                    state, SupplyPinResult.Opened(id, session)
+                    state, SupplyPinResult.Opened(id, session), settled @ writes
 
 
     /// A request from the Session refreshes its idle clock. Applied by every member that takes
-    /// the session cookie's id, `close` excepted: a close ends the Session, it does not keep
+    /// the session cookie's id, close excepted: a close ends the Session, it does not keep
     /// it alive. Nothing to refresh when there is no such Session.
-    let touch (now: DateTime) (sid: string) (state: State) : State =
-        { state with Sessions = state.Sessions |> Map.change sid (Option.map (fun r -> { r with Seen = now })) }
+    let touch (now: DateTime) (sid: string) (state: State) : State * Persist list =
+        match state.Sessions |> Map.tryFind sid with
+        | Some r ->
+            { state with Sessions = state.Sessions |> Map.add sid { r with Seen = now } }, [ RecordSeen(sid, now) ]
+        | None -> state, []
 
 
-    let find (now: DateTime) (id: string) (state: State) : State * SessionLookup =
+    let find (now: DateTime) (id: string) (state: State) : State * SessionLookup * Persist list =
         match state.Sessions |> Map.tryFind id with
-        | Some record -> touch now id state, SessionLookup.Found record.Session
+        | Some record ->
+            let state, seen = touch now id state
+            state, SessionLookup.Found record.Opened, seen
         | None ->
             match state.Endings |> Map.tryFind id with
-            | Some(ending, _) -> state, SessionLookup.Ended ending
-            | None -> state, SessionLookup.NotFound
+            | Some(ending, _) -> state, SessionLookup.Ended ending, []
+            | None -> state, SessionLookup.NotFound, []
 
 
-    let close (id: string) (state: State) : State =
+    /// The User closes the Session, or acknowledges its ending: an open Session ends as closed
+    /// and is acknowledged at once, an ended one is acknowledged; neither is told again.
+    let close (now: DateTime) (id: string) (state: State) : State * Persist list =
+        let writes =
+            if state.Sessions |> Map.containsKey id then
+                [ EndSession(id, StoredEnding.Closed, now); AcknowledgeEnding(id, now) ]
+            elif state.Endings |> Map.containsKey id then
+                [ AcknowledgeEnding(id, now) ]
+            else
+                []
+
         { state with
             Sessions = state.Sessions |> Map.remove id
             Endings = state.Endings |> Map.remove id
-        }
+        },
+        writes
 
 
     /// The head of the record, when it is not the version the Session opened with: a
     /// Submission is refused as long as such a newer version exists.
     let blockedBy (record: SessionRecord) (patientId: string) (state: State) =
         match headOf patientId state with
-        | Some head when Some head.Head.Id <> record.OpenedWith -> Some head.Head
+        | Some head when Some(StoredVersion.id head) <> record.OpenedWith -> Some(StoredVersion.head head)
+        | _ -> None
+
+
+    /// The head is a row this release cannot read: a sign is refused against it whatever base
+    /// the client names, since a sign is only ever accepted against the head. Named by its
+    /// identity, as a version that blocks.
+    let unreadableHead (patientId: string) (state: State) =
+        match headOf patientId state with
+        | Some(StoredVersion.Unreadable _ as head) -> Some(StoredVersion.head head)
         | _ -> None
 
 
@@ -980,115 +1155,144 @@ module Session =
     /// whose and when. The notice informs and gates nothing; the refusal at a Submission stays
     /// the only guard. An anonymous Session, one without a Patient, no head, or a token that
     /// is not the Session's: nothing to say.
-    let seen (now: DateTime) (sid: string) (opened: OpenedToken option) (state: State) : State * RecordNotice option =
+    let seen
+        (now: DateTime)
+        (sid: string)
+        (opened: OpenedToken option)
+        (state: State)
+        : State * RecordNotice option * Persist list
+        =
         match state.Sessions |> Map.tryFind sid with
-        | None -> state, state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended)
+        | None -> state, state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended), []
         | Some record ->
-            let state = touch now sid state
+            let state, writes = touch now sid state
 
-            match record.Session.User, record.Session.PatientContext with
-            | Some _, Some patient when opened.IsSome && opened = record.Session.OpenedToken ->
-                state, blockedBy record patient.PatientId state |> Option.map RecordNotice.NewerVersion
-            | _ -> state, None
+            match record.Opened.User, record.Opened.PatientId with
+            | Some _, Some patientId when opened.IsSome && opened = record.Opened.OpenedToken ->
+                state, blockedBy record patientId state |> Option.map RecordNotice.NewerVersion, writes
+            | _ -> state, None, writes
 
 
-    /// Version `id` becomes what the Session opened with. No Session, an anonymous one or one
+    /// Version id becomes what the Session opened with. No Session, an anonymous one or one
     /// without a Patient: nothing to open. An id the record does not hold for the Session's
-    /// Patient (a stale button, a restart): nothing opens, the Session as it is; the next
-    /// request tells what the head is. The version already open: the token stands. Another
-    /// version: the OpenedToken is re-minted over it and the standing challenge and notice of
-    /// this Session are dropped (a challenge over the old baseline must not be answerable).
-    /// Any version may be opened; one that is not the head leaves Submission blocked.
+    /// Patient (a stale button, a restart), and a version the release cannot read: nothing
+    /// opens, the Session as it is; the next request tells what the head is. The version
+    /// already open: the token stands. Another version: the OpenedToken is re-minted over it
+    /// and the standing challenge and notice of this Session are dropped (a challenge over the
+    /// old baseline must not be answerable). Any readable version may be opened; one that is
+    /// not the head leaves Submission blocked.
     let openVersion
         (now: DateTime)
         (newId: unit -> string)
         (sid: string)
         (id: string)
         (state: State)
-        : State * SessionOpened option
+        : State * OpenedSession option * Persist list
         =
         match state.Sessions |> Map.tryFind sid with
-        | None -> state, None
+        | None -> state, None, []
         | Some record ->
-            let state = touch now sid state
+            let state, seen = touch now sid state
 
-            match record.Session.User, record.Session.PatientContext with
+            match record.Opened.User, record.Opened.PatientId with
             | None, _
-            | _, None -> state, None
-            | Some _, Some patient ->
+            | _, None -> state, None, seen
+            | Some _, Some patientId ->
                 let version =
                     state.Records
-                    |> Map.tryFind patient.PatientId
-                    |> Option.bind (List.tryFind (fun v -> v.Head.Id = id))
+                    |> Map.tryFind patientId
+                    |> Option.bind (
+                        List.tryPick (fun v ->
+                            match v with
+                            | StoredVersion.Readable v when v.Id = id -> Some v
+                            | _ -> None
+                        )
+                    )
 
                 match version with
-                | None -> state, Some record.Session
+                | None -> state, Some record.Opened, seen
                 | Some version when record.OpenedWith = Some id ->
-                    let session = { record.Session with Head = Some version }
+                    let opened = { record.Opened with Head = Some(StoredVersion.Readable version) }
+                    let session = { state.Sessions[sid] with Opened = opened }
 
-                    { state with Sessions = state.Sessions |> Map.add sid { record with Session = session } },
-                    Some session
+                    { state with Sessions = state.Sessions |> Map.add sid session },
+                    Some opened,
+                    seen @ [ RecordOpenedWith(sid, session, now) ]
                 | Some version ->
-                    let session =
-                        { record.Session with
+                    let opened =
+                        { record.Opened with
                             OpenedToken = Some(OpenedToken $"opened-{newId ()}")
-                            Head = Some version
+                            Head = Some(StoredVersion.Readable version)
                         }
 
+                    let session =
+                        { state.Sessions[sid] with
+                            Opened = opened
+                            OpenedWith = Some id
+                        }
+
+                    let spent =
+                        state.Challenges
+                        |> Map.tryFind sid
+                        |> Option.map (fun c -> [ SpendChallenge(sid, c.Nonce, now) ])
+                        |> Option.defaultValue []
+
                     { state with
-                        Sessions =
-                            state.Sessions
-                            |> Map.add
-                                sid
-                                { record with
-                                    Session = session
-                                    OpenedWith = Some id
-                                }
+                        Sessions = state.Sessions |> Map.add sid session
                         Challenges = state.Challenges |> Map.remove sid
                         Notices = state.Notices |> Map.remove sid
                     },
-                    Some session
+                    Some opened,
+                    seen @ spent @ [ RecordOpenedWith(sid, session, now) ]
 
 
     /// An order appears once in a plan.
-    let duplicateOrders (scenarios: OrderScenario[]) =
-        scenarios |> Array.countBy _.Order.Id |> Array.exists (fun (_, n) -> n > 1)
+    let duplicateOrders (plan: GenOrder.OrderPlan) =
+        plan
+        |> Informedica.GenOrder.Lib.OrderPlan.orders
+        |> Array.countBy _.Order.Id
+        |> Array.exists (fun (_, n) -> n > 1)
 
 
     /// The challenge request, checked in order: the Session with a User and a Patient; the
     /// Role Prescriber; the OpenedToken this Session holds; the patient data re-read: when it
     /// is not what the Session opened with and no notice over this reading was accepted, no
-    /// challenge yet but a `DataNotice`, replacing any earlier notice and dropping any earlier
-    /// challenge (it was over the data before the change); the record not moved on. Then a
-    /// challenge over exactly this plan, replacing the Session's earlier one and spending the
-    /// notice. The plan's own patient data is what the User saw, entered or read, and is
-    /// recorded as such; the Patient is the Session's, never the request's. The PIN is not
-    /// involved: a refusal here costs no attempt.
+    /// challenge yet but a data notice, replacing any earlier notice and dropping any earlier
+    /// challenge (it was over the data before the change); the head readable and not moved
+    /// on. Then a challenge over the digest of exactly this plan, replacing the Session's
+    /// earlier one and spending the notice. The plan is the domain's, parsed at the boundary;
+    /// its own patient data is what the User saw, entered or read, and is recorded as such;
+    /// the Patient is the Session's, never the request's. The PIN is not involved: a refusal
+    /// here costs no attempt.
     let challenge
         (now: DateTime)
         (newId: unit -> string)
-        (patientData: string -> PatientDto option)
+        (digest: GenOrder.OrderPlan -> string)
+        (patientData: string -> GenForm.Patient option)
         (sid: string)
-        (plan: OrderPlan, opened: OpenedToken, notice: string option)
+        (plan: GenOrder.OrderPlan, opened: OpenedToken, notice: string option)
         (state: State)
-        : State * SigningResponse
+        : State * SigningOutcome * Persist list
         =
-        let state = dropExpired now state |> touch now sid
-        let refuse refusal = state, SigningResponse.Refused refusal
+        let state, seen = dropExpired now state |> touch now sid
+
+        let refuse refusal = state, SigningOutcome.Refused refusal, seen
 
         match state.Sessions |> Map.tryFind sid with
         | None -> refuse SigningRefusal.NoSession
         | Some record ->
-            match record.Session.User, record.Session.PatientContext with
+            match record.Opened.User, record.Opened.PatientId with
             | None, _ -> refuse SigningRefusal.NotPrescriber
             | Some _, None -> refuse SigningRefusal.NoPatient
-            | Some user, Some patient ->
+            | Some user, Some patientId ->
                 if user.Role <> UserRole.Prescriber then
                     refuse SigningRefusal.NotPrescriber
-                elif record.Session.OpenedToken <> Some opened then
+                elif record.Opened.OpenedToken <> Some opened then
                     refuse SigningRefusal.StaleToken
                 else
-                    let current = patientData patient.PatientId
+                    // read again, as at the open; the adapter answers none for a reading that
+                    // is no patient
+                    let current = patientData patientId
 
                     let accepted =
                         notice
@@ -1098,94 +1302,102 @@ module Session =
                             |> Option.filter (fun n -> n.Nonce = token && n.Data = current)
                         )
 
-                    if current <> Some patient.Patient && accepted.IsNone then
+                    // no reading, or another than the Session opened on: told before the challenge
+                    if (current.IsNone || current <> record.Opened.Patient) && accepted.IsNone then
                         let nonce = newId ()
 
+                        let notice =
+                            {
+                                Nonce = nonce
+                                Data = current
+                                Expiry = now + challengeLifetime
+                            }
+
+                        // a challenge over the data before the change must not be signed
+                        let spent =
+                            state.Challenges
+                            |> Map.tryFind sid
+                            |> Option.map (fun c -> [ SpendChallenge(sid, c.Nonce, now) ])
+                            |> Option.defaultValue []
+
                         { state with
-                            Notices =
-                                state.Notices
-                                |> Map.add
-                                    sid
-                                    {
-                                        Nonce = nonce
-                                        Data = current
-                                        Expiry = now + challengeLifetime
-                                    }
-                            // a challenge over the data before the change must not be signed
+                            Notices = state.Notices |> Map.add sid notice
                             Challenges = state.Challenges |> Map.remove sid
                         },
-                        SigningResponse.DataNotice
-                            {
-                                Data = current
-                                Token = nonce
-                            }
+                        SigningOutcome.DataNotice(nonce, current),
+                        seen @ spent @ [ WriteNotice(sid, notice, now) ]
                     // no challenge over a plan that names an order twice
-                    elif duplicateOrders (Shared.Models.OrderPlan.orders plan) then
+                    elif duplicateOrders plan then
                         refuse SigningRefusal.ChallengeMismatch
                     else
-                        match blockedBy record patient.PatientId state with
-                        | Some head -> refuse (SigningRefusal.Blocked head)
-                        | None ->
+                        match unreadableHead patientId state, blockedBy record patientId state with
+                        | Some head, _
+                        | None, Some head -> refuse (SigningRefusal.Blocked head)
+                        | None, None ->
                             let nonce = newId ()
+
+                            let challenge =
+                                {
+                                    Nonce = nonce
+                                    Digest = digest plan
+                                    Reading = current
+                                    Expiry = now + challengeLifetime
+                                }
 
                             { state with
                                 Notices = state.Notices |> Map.remove sid
-                                Challenges =
-                                    state.Challenges
-                                    |> Map.add
-                                        sid
-                                        {
-                                            Nonce = nonce
-                                            Patient = plan.Patient
-                                            OrderContexts = plan.OrderContexts
-                                            Reading = current
-                                            Expiry = now + challengeLifetime
-                                        }
+                                Challenges = state.Challenges |> Map.add sid challenge
                             },
-                            SigningResponse.ChallengeIssued nonce
+                            SigningOutcome.ChallengeIssued nonce,
+                            seen @ [ WriteChallenge(sid, challenge, now) ]
 
 
     /// The commit of a signature, one act, checked in order: the Session with a User and a
     /// Patient; the answer already given to this Session's key; the Role re-taken from the
     /// registry (fails closed when it cannot answer; Rule 38's bounded grace is not built);
-    /// the OpenedToken this Session holds; the
-    /// record not moved on; the challenge this Session was issued, over exactly this plan; and
-    /// last the PIN, so that a Submission that was never going to land costs no attempt. Then
-    /// the version is appended, the challenge spent, the OpenedToken re-minted over the new
-    /// head, the Session's patient set to the reading at the challenge, else the data signed,
-    /// and the answer remembered under the key, refusals too. Three wrong PINs end the Session
-    /// (`WrongPinLimit`), lock signing and mail the User; a wrong PIN while locked pushes the
-    /// lock out; a right PIN while locked is refused and counts nothing.
+    /// the OpenedToken this Session holds; the head readable and not moved on; the challenge
+    /// this Session was issued, over exactly this plan by digest; and last the PIN, so that a
+    /// Submission that was never going to land costs no attempt. A pure function: on an
+    /// accepted sign the returned state already holds the new head, with the challenge spent,
+    /// the OpenedToken re-minted over it and the Session's patient set to the reading at the
+    /// challenge, else the data signed, and the third value is the write for the adapter to
+    /// run; on a refusal it is none. The answer is remembered under the key, refusals too.
+    /// Three wrong PINs end the Session (WrongPinLimit), lock signing and mail the User; a
+    /// wrong PIN while locked pushes the lock out; a right PIN while locked is refused and
+    /// counts nothing.
     let commit
         (now: DateTime)
         (newId: unit -> string)
+        (digest: GenOrder.OrderPlan -> string)
         (standing: BrowserIdentity -> UserStanding option)
         (send: Mail -> unit)
         (sid: string)
-        (submission: Submission)
+        (signature: Signature)
         (state: State)
-        : State * SigningResponse
+        : State * SigningOutcome * Persist list
         =
-        let state = dropExpired now state |> touch now sid
-        let refuse refusal = state, SigningResponse.Refused refusal
+        let state, seen = dropExpired now state |> touch now sid
+
+        let refuse refusal = state, SigningOutcome.Refused refusal, seen
 
         match state.Sessions |> Map.tryFind sid with
         | None -> refuse SigningRefusal.NoSession
         | Some record ->
-            match record.Session.User, record.Session.PatientContext with
+            match record.Opened.User, record.Opened.PatientId with
             | None, _ -> refuse SigningRefusal.NotPrescriber
             | Some _, None -> refuse SigningRefusal.NoPatient
-            | Some user, Some patient ->
-                match state.Answered |> Map.tryFind (sid, submission.IdemKey) with
-                | Some(answer, _) -> state, answer
+            | Some user, Some patientId ->
+                match state.Answered |> Map.tryFind (sid, signature.IdemKey) with
+                | Some(answer, _) -> state, answer, seen
                 | None ->
-                    // the answer is remembered from here on, under this Session and the key
-                    let remember (state: State) answer =
-                        { state with Answered = state.Answered |> Map.add (sid, submission.IdemKey) (answer, now) },
-                        answer
+                    // the answer is remembered from here on, under this Session and the key, so
+                    // that the same Submission sent again is answered once and the same way
+                    let remember (state: State) answer writes =
+                        { state with Answered = state.Answered |> Map.add (sid, signature.IdemKey) (answer, now) },
+                        answer,
+                        seen @ writes @ [ RememberAnswer(sid, signature.IdemKey, answer, now) ]
 
-                    let refuse refusal =
-                        remember state (SigningResponse.Refused refusal)
+                    let refuse refusal = remember state (SigningOutcome.Refused refusal) []
 
                     let identity =
                         {
@@ -1195,50 +1407,61 @@ module Session =
 
                     match standing identity with
                     | Some fresh when fresh.User.Role = UserRole.Prescriber ->
-                        if record.Session.OpenedToken <> Some submission.Opened then
+                        if record.Opened.OpenedToken <> Some signature.Opened then
                             refuse SigningRefusal.StaleToken
                         else
-                            match blockedBy record patient.PatientId state with
-                            | Some head -> refuse (SigningRefusal.Blocked head)
-                            | None ->
+                            match unreadableHead patientId state, blockedBy record patientId state with
+                            | Some head, _
+                            | None, Some head -> refuse (SigningRefusal.Blocked head)
+                            | None, None ->
                                 match state.Challenges |> Map.tryFind sid with
                                 | None -> refuse SigningRefusal.ChallengeExpired
                                 | Some challenge when
-                                    challenge.Nonce <> submission.Challenge
-                                    || challenge.Patient <> submission.Plan.Patient
-                                    || challenge.OrderContexts <> submission.Plan.OrderContexts
-                                    || duplicateOrders (Shared.Models.OrderPlan.orders submission.Plan)
+                                    challenge.Nonce <> signature.Challenge
+                                    || challenge.Digest <> digest signature.Plan
+                                    || duplicateOrders signature.Plan
                                     ->
                                     refuse SigningRefusal.ChallengeMismatch
                                 | Some challenge ->
                                     let credential = credentialOf user.UserId state
                                     let wasLocked = Credential.isLocked now credential
-                                    let right, credential = Credential.verify now submission.Pin credential
+                                    let right, credential = Credential.verify now signature.Pin credential
 
                                     let state =
                                         { state with Credentials = state.Credentials |> Map.add user.UserId credential }
 
+                                    // the credential moved whatever the PIN was: a right entry
+                                    // clears the count, a wrong one raises it, the third locks
+                                    let credentialWrite =
+                                        WriteCredential(
+                                            user.UserId,
+                                            (if right then "right"
+                                             elif credential.LockedUntil.IsSome then "locked"
+                                             else "wrong"),
+                                            credential,
+                                            now
+                                        )
+
                                     if right then
                                         let id = newId ()
 
-                                        let plan =
+                                        let version: GenOrder.OrderPlanVersion =
                                             {
-                                                Head =
-                                                    {
-                                                        Id = id
-                                                        No =
-                                                            1
-                                                            + (state.Records
-                                                               |> Map.tryFind patient.PatientId
-                                                               |> Option.map List.length
-                                                               |> Option.defaultValue 0)
-                                                        By = user
-                                                        SignedAt = now
-                                                    }
-                                                PatientId = patient.PatientId
+                                                Id = id
+                                                No =
+                                                    1
+                                                    + (headOf patientId state
+                                                       |> Option.map StoredVersion.no
+                                                       |> Option.defaultValue 0)
+                                                PatientId = patientId
                                                 Base = record.OpenedWith
-                                                OrderContexts = challenge.OrderContexts
-                                                Patient = challenge.Patient
+                                                SignedBy =
+                                                    {
+                                                        UserId = user.UserId
+                                                        DisplayName = user.DisplayName
+                                                    }
+                                                SignedAt = now
+                                                Plan = signature.Plan
                                                 Verified = challenge.Reading.IsSome
                                             }
 
@@ -1249,17 +1472,14 @@ module Session =
                                         // a relaunch would
                                         let opened =
                                             { record with
-                                                Session =
-                                                    { record.Session with
+                                                Opened =
+                                                    { record.Opened with
                                                         OpenedToken = Some token
-                                                        Head = Some plan
-                                                        PatientContext =
-                                                            Some
-                                                                { patient with
-                                                                    Patient =
-                                                                        challenge.Reading
-                                                                        |> Option.defaultValue plan.Patient
-                                                                }
+                                                        Head = Some(StoredVersion.Readable version)
+                                                        Patient =
+                                                            challenge.Reading
+                                                            |> Option.defaultValue version.Plan.Patient
+                                                            |> Some
                                                     }
                                                 OpenedWith = Some id
                                             }
@@ -1269,19 +1489,30 @@ module Session =
                                                 Records =
                                                     state.Records
                                                     |> Map.change
-                                                        patient.PatientId
+                                                        patientId
                                                         (fun versions ->
-                                                            Some(plan :: (versions |> Option.defaultValue []))
+                                                            Some(
+                                                                StoredVersion.Readable version
+                                                                :: (versions |> Option.defaultValue [])
+                                                            )
                                                         )
                                                 Challenges = state.Challenges |> Map.remove sid
                                                 Sessions = state.Sessions |> Map.add sid opened
                                             }
-                                            (SigningResponse.Submitted(plan, token))
+                                            (SigningOutcome.Submitted(version, token))
+                                            [
+                                                credentialWrite
+                                                WriteVersion version
+                                                RecordOpenedWith(sid, opened, now)
+                                                // the challenge this signature answered, used up
+                                                SpendChallenge(sid, challenge.Nonce, now)
+                                            ]
                                     elif wasLocked then
                                         // this Session did nothing wrong; the lock is the credential's
                                         remember
                                             state
-                                            (SigningResponse.Refused(SigningRefusal.Locked credential.LockedUntil.Value))
+                                            (SigningOutcome.Refused(SigningRefusal.Locked credential.LockedUntil.Value))
+                                            [ credentialWrite ]
                                     elif credential |> Credential.attemptsLeft = 0 then
                                         // the wrong-PIN limit is reached now; the Session ends
                                         let subject, body = Mails.pinLimit user.DisplayName
@@ -1305,13 +1536,18 @@ module Session =
                                                     state.Endings |> Map.add sid (SessionEnding.WrongPinLimit, now)
                                                 Challenges = state.Challenges |> Map.remove sid
                                             }
-                                            (SigningResponse.Refused SigningRefusal.PinLimit)
+                                            (SigningOutcome.Refused SigningRefusal.PinLimit)
+                                            [
+                                                credentialWrite
+                                                EndSession(sid, StoredEnding.Ended SessionEnding.WrongPinLimit, now)
+                                            ]
                                     else
                                         remember
                                             state
-                                            (SigningResponse.Refused(
+                                            (SigningOutcome.Refused(
                                                 SigningRefusal.PinWrong(credential |> Credential.attemptsLeft)
                                             ))
+                                            [ credentialWrite ]
                     | _ -> refuse SigningRefusal.NotPrescriber
 
 
@@ -1320,5 +1556,4 @@ module Session =
 
 
     /// The mac of a code under the host key: what the store keeps instead of the digits.
-    let codeMac (key: LaunchSeal.Key) (code: string) =
-        LaunchSeal.mac key (Text.Encoding.UTF8.GetBytes code)
+    let codeMac (key: LaunchSeal.Key) (code: string) = LaunchSeal.mac key (Text.Encoding.UTF8.GetBytes code)

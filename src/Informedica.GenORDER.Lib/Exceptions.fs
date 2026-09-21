@@ -8,7 +8,7 @@ module Exceptions =
     exception OrderException of Exceptions.Message
 
 
-    /// Raise an `EquationException` with `Message` `m`.
+    /// Raise an EquationException with Message m.
     let raiseExc log m o =
         match log with
         | Some log ->

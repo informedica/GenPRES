@@ -25,8 +25,7 @@ module Settings =
         let logAnalyzer = (AppEnv.asEnv<AppEnv.ILogAnalyzer> props.appEnv)
         let auth = (AppEnv.asEnv<AppEnv.IAuthentication> props.appEnv)
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
@@ -68,8 +67,7 @@ module Settings =
 
         let handleRefreshLogs = fun _ -> logAnalyzer.ListLogFiles()
 
-        let handleFileClick (fileName: string) =
-            fun _ -> logAnalyzer.AnalyzeLogFile fileName
+        let handleFileClick (fileName: string) = fun _ -> logAnalyzer.AnalyzeLogFile fileName
 
         let handleReportClose = fun _ -> setReportDialogOpen false
 
@@ -78,8 +76,7 @@ module Settings =
             | InProgress -> true
             | _ -> false
 
-        let analysisBackdrop =
-            ViewHelpers.backdropProgress isAnalyzing "Analyzing log file..."
+        let analysisBackdrop = ViewHelpers.backdropProgress isAnalyzing "Analyzing log file..."
 
         let centeringSx =
             {|

@@ -19,7 +19,7 @@ module Patient =
         module Patient = Patient
 
 
-        type State = PatientDto option
+        type State = Patient option
 
 
         type Msg =
@@ -46,65 +46,55 @@ module Patient =
             let state =
                 match msg with
                 | Clear -> None
-                | UpdateYear s -> state |> PatientDto.setYear s
-                | UpdateMonth s -> state |> PatientDto.setMonth s
-                | UpdateWeek s -> state |> PatientDto.setWeek s
-                | UpdateDay s -> state |> PatientDto.setDay s
-                | UpdateWeight s -> state |> PatientDto.setWeight s
-                | UpdateHeight s -> state |> PatientDto.setHeight s
-                | UpdateGAWeek s -> state |> PatientDto.setGAWeek s
-                | UpdateGADay s -> state |> PatientDto.setGADay s
-                | UpdateRenal s -> state |> PatientDto.setRenal s
-                | UpdateGender s ->
-                    state
-                    |> Option.defaultValue PatientDto.empty
-                    |> (fun p ->
-                        { p with
-                            PatientDto.Weight.Measured = None
-                            PatientDto.Height.Measured = None
-
-                            PatientDto.Weight.Estimated = None
-                            PatientDto.Height.Estimated = None
-
-                            Gender =
-                                match s with
-                                | "male" -> Male
-                                | "female" -> Female
-                                | _ -> UnknownGender
-                        }
-                    )
-                    |> Some
-                | ToggleCVL -> state |> PatientDto.toggleCVL
-                | TogglePVL -> state |> PatientDto.togglePVL
-                | ToggleET -> state |> PatientDto.toggleET
+                | UpdateYear s -> state |> Patient.setYear s
+                | UpdateMonth s -> state |> Patient.setMonth s
+                | UpdateWeek s -> state |> Patient.setWeek s
+                | UpdateDay s -> state |> Patient.setDay s
+                | UpdateWeight s -> state |> Patient.setWeight s
+                | UpdateHeight s -> state |> Patient.setHeight s
+                | UpdateGAWeek s -> state |> Patient.setGAWeek s
+                | UpdateGADay s -> state |> Patient.setGADay s
+                | UpdateRenal s -> state |> Patient.setRenal s
+                | UpdateGender s -> state |> Patient.setGender s
+                | ToggleCVL -> state |> Patient.toggleCVL
+                | TogglePVL -> state |> Patient.togglePVL
+                | ToggleET -> state |> Patient.toggleET
 
             state |> dispatch
             state, Cmd.none
 
 
-        let canCalculate (pat: PatientDto option) : bool =
-            match pat with
-            | None -> false
-            | Some p -> p.Weight.Measured.IsSome && p.Height.Measured.IsSome
+        /// Whether the draft is a patient: an age, or a measured weight and height; the estimate
+        /// no longer stands in for a measurement, so the minimum decides.
+        let canCalculate (pat: Patient option) : bool =
+            pat |> Option.bind (Patient.validate >> Result.toOption) |> Option.isSome
 
 
+        /// The summary: the draft's data, and under it, while the draft is no patient yet, what is
+        /// missing: an age, or a weight and a height. Nothing entered asks for the data.
         let show lang terms pat =
+            let term fallback t =
+                terms
+                |> Deferred.map (fun terms -> Localization.getTerm terms lang t |> Option.defaultValue fallback)
+                |> Deferred.defaultValue fallback
+
             let toString =
                 match terms with
                 | Resolved terms -> Patient.toString terms lang true
                 | _ -> fun _ -> ""
 
+            let missing =
+                term
+                    "Voer een leeftijd in, of een gewicht en een lengte"
+                    Terms.``Patient enter age or weight and height``
+
             match pat with
-            | Some p -> p |> toString |> Markdown.markdown.children
-            | None ->
-                terms
-                |> Deferred.map (fun terms ->
-                    Terms.``Patient enter patient data``
-                    |> Localization.getTerm terms lang
-                    |> Option.defaultValue "Voer patient gegevens in"
-                )
-                |> Deferred.defaultValue "Voer patient gegevens in"
-                |> Markdown.markdown.children
+            | Some p when p |> Patient.validate |> Result.isOk -> [ p |> toString ]
+            | Some p -> [ p |> toString; missing ]
+            | None -> [ term "Voer patient gegevens in" Terms.``Patient enter patient data`` ]
+            |> List.filter (fun s -> s <> "")
+            |> String.concat "\n\n"
+            |> Markdown.markdown.children
             |> List.singleton
             |> Markdown.Markdown.markdown
 
@@ -115,11 +105,10 @@ module Patient =
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let envPatient = AppEnv.asEnv<AppEnv.IPatient> props.appEnv
-        let patient = envPatient.Patient
+        let patient = envPatient.Draft
         let updatePatient = envPatient.UpdatePatient
 
-        let localizationTerms =
-            (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
         // the patient is the subject of every workbench and plan request: while one is under
         // way the panel is greyed, so that the patient cannot change under it

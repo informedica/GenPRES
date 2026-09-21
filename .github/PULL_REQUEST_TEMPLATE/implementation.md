@@ -22,14 +22,14 @@ Guideline: in this section you're aiming to minimize the effort required, betwee
 ## Author checklist
 
 > [!NOTE]
-> An issue and agreed implementation plan are necessary unless either fewer than 25 lines have been changed or only documentation has been changed.
+> An issue and agreed implementation plan are necessary unless either fewer than 25 source lines have been changed or only documentation has been changed. Source lines are the changed lines of the shipped code under `src/`; tests, prototype scripts, documentation and lock files are not counted (see [CONTRIBUTING.md](../../CONTRIBUTING.md#steps)).
 
 I confirm that these changes:
 
 - [ ] Follow the process described in [CONTRIBUTING.md](../../CONTRIBUTING.md#pull-request-process).
 - [ ] Make the changes proposed in the linked issue (if applicable): <issue number, or 'n/a'>
 - [ ] Follow the approach documented in the linked implementation plan (if applicable): <link, or 'n/a'>
-- [ ] Are no more than 200 lines of changed code, ideally 25-100.
+- [ ] Are no more than 200 changed source lines, ideally 25-100.
 - [ ] Are not more complex than necessary.
 - [ ] Cannot easily be split in a way that would make reviewing them significantly easier.
 - [ ] Follow the guidelines specified in [DEVELOPMENT.md](../../DEVELOPMENT.md).
