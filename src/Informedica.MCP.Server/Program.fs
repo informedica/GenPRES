@@ -42,7 +42,7 @@ let main _ =
     let logger, disposeLogger =
         McpLogging.getLogger (fun name -> Environment.GetEnvironmentVariable name |> Option.ofObj)
 
-    let provider = Api.getCachedProviderWithDataUrlId Informedica.GenOrder.Lib.OrderLogging.noOp dataUrlId
+    let provider = Api.getCachedProviderWithDataUrlId logger dataUrlId
 
     try
         McpServer.run logger provider
