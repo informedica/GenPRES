@@ -40,8 +40,9 @@ module Tests =
     let jsonLine (logEvent: LogEvent) =
         use writer = new StringWriter()
 
-        (McpLogging.EventFormat.JsonLines McpLogging.EventFormat.formatMessage :> ITextFormatter)
-            .Format(logEvent, writer)
+        let renderer = McpLogging.EventFormat.Renderer McpLogging.EventFormat.formatMessage
+
+        (McpLogging.EventFormat.JsonLines renderer :> ITextFormatter).Format(logEvent, writer)
 
         writer.ToString()
 
