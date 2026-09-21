@@ -8,6 +8,14 @@ open Informedica.MCP.Lib
 
 [<EntryPoint>]
 let main _ =
+    // Surfaces Serilog's own internal failures (a sink erroring on disk-full,
+    // a permission error, ...) to stderr. Without this, such a failure is
+    // swallowed by design and the audit trail stops with no signal at all.
+    // Must run before McpLogging.getLogger constructs a Serilog logger, and
+    // stderr is safe here regardless of the stdout redirect below, since
+    // stdout is the only channel that must stay clean of stray bytes.
+    Serilog.Debugging.SelfLog.Enable(fun msg -> eprintfn $"[Serilog] {msg}")
+
     // stdout is the JSON-RPC transport channel: McpServer.createHostBuilder's
     // WithStdioServerTransport opens it via Console.OpenStandardOutput(), a raw stream
     // independent of this TextWriter redirect (verified against the shipped

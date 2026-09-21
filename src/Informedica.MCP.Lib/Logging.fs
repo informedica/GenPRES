@@ -89,7 +89,10 @@ module McpLogging =
             LoggerConfiguration()
                 .MinimumLevel.Is(minLevel)
                 .WriteTo.Console(standardErrorFromLevel = Nullable LogEventLevel.Verbose)
-                .WriteTo.Async(fun a -> a.File(path) |> ignore)
+                // blockWhenFull: true — see the matching comment in
+                // Informedica.GenPRES.Server/Logging.fs; the default silently drops events
+                // once the queue is full instead of backing up the caller.
+                .WriteTo.Async((fun a -> a.File(path) |> ignore), blockWhenFull = true)
                 .CreateLogger()
 
         logger, path

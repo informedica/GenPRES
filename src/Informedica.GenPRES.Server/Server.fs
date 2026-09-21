@@ -826,6 +826,12 @@ module Host =
 
 [<EntryPoint>]
 let main _ =
+    // Surfaces Serilog's own internal failures (a sink erroring on disk-full,
+    // a permission error, ...) to stderr. Without this, such a failure is
+    // swallowed by design and the audit trail stops with no signal at all.
+    // Must run before any Logging.getLogger call constructs a Serilog logger.
+    Serilog.Debugging.SelfLog.Enable(fun msg -> eprintfn $"[Serilog] {msg}")
+
     // Load .env so GENPRES_* variables are available even when the server
     // binary is launched directly (e.g. via Rider/VS Code) without first
     // sourcing .env in the shell. loadDotEnv only sets variables that are

@@ -164,7 +164,12 @@ module SerilogLogging =
             LoggerConfiguration()
                 .MinimumLevel.Is(minLevel)
                 .WriteTo.Console()
-                .WriteTo.Async(fun a -> a.File(path) |> ignore)
+                // blockWhenFull: true, because the default (false) silently drops events once
+                // the 10_000-deep queue is full instead of backing up the caller — unacceptable
+                // for a stream DEVELOPMENT.md documents as the medico-legal audit trail. This
+                // is a real behavior change from the AgentLogging/MailboxProcessor design it
+                // replaced, which queued without a bound rather than dropping.
+                .WriteTo.Async((fun a -> a.File(path) |> ignore), blockWhenFull = true)
                 .CreateLogger()
 
         logger, path
