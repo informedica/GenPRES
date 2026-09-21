@@ -45,11 +45,23 @@ sink constructors and the `AgentLogging` agent move to `Informedica.Agents.Lib`;
   stdio host, one logger, Console pinned to stderr (stdout is the JSON-RPC transport) plus a file
   sink.
 - `Server/Logging.fs`'s `SerilogBridge.toLogger` turns a Serilog `ILogger` into the domain
-  `Logger` record: `Log = fun ev -> serilogLogger.Write(toSerilogLevel ev.Level, "{EventType}
-  {@Event}", ev.Message.GetType().Name, ev.Message)`, `Enabled = fun level ->
-  serilogLogger.IsEnabled(toSerilogLevel level)`. Every existing `IMessage` case becomes a Serilog
-  structured property for free, no change to any `IMessage` type. `Informedica.MCP.Lib/Logging.fs`
-  carries its own 11-line copy of the same bridge rather than sharing a project with the server.
+  `Logger` record: `Log = fun ev -> serilogLogger.Write(toSerilogLevel ev.Level,
+  "{GenPresEvent}", ev)`, `Enabled = fun level -> serilogLogger.IsEnabled(toSerilogLevel level)`.
+  The whole `Event` crosses as one scalar property (`Destructure.AsScalar<Event>()`), so the
+  thread that logs stores a reference and enqueues; no `IMessage` type changes. Each sink sits
+  behind its own `Async` wrapper and renders on its own thread through an `ITextFormatter`: the
+  file as one compact JSON object per line (`@t`, `@l`, `EventType`, `Text`, where `Text` is the
+  rendering of the existing `formatOrderMessage` / `formatSolverMessage` / `FormLogging`
+  formatters plus one for the server's own messages), the console as readable text. One
+  `Renderer` per logger renders an event once for both sinks. The file queue holds 100 000 events
+  and then blocks; the console queue may drop. `SerilogLogging.buildLoggerAt path level` is the
+  sink configuration, used by `buildLogger`, the tests and the measurement script.
+  `{@Event}` was tried first and dropped: Serilog captured the F# union by reflection on the
+  thread that logs, 0.2 ms per event and 439 MB per Debug pass of three scenarios.
+  `Informedica.MCP.Lib/Logging.fs` carries its own copy of the same bridge, with `McpMessage` as
+  its fourth formatter entry, rather than sharing a project with the server.
+- `LogAnalyzer.Parse.textLines` unfolds the `Text` of a JSON line for the admin log analysis and
+  passes a flat line through, so files written before the JSON format keep reading as they did.
 - `Informedica.Logging.Lib.AgentLogging` (the `MailboxProcessor`, ring buffer, flush timer, file
   writer agent) is relocated to `Informedica.Agents.Lib`, not deleted: it fixes the
   Core → Infrastructure dependency-rule direction it was in, and keeps a working, tested subsystem
@@ -64,7 +76,7 @@ sink constructors and the `AgentLogging` agent move to `Informedica.Agents.Lib`;
 
 Log4j's CVE-2021-44228 came from JNDI lookups triggered by *message content* being interpreted as
 a lookup expression at runtime, a feature of `log4j-core`'s pattern layout, not a property of
-logging libraries generally. Serilog's message templates (`"{EventType} {@Event}"` above) are
+logging libraries generally. Serilog's message templates (`"{GenPresEvent}"` above) are
 ordinary strings parsed once per call: an attacker-controlled string that reaches a template
 *argument* is captured as a property value and never re-parsed as a template, so it cannot inject
 a new placeholder or trigger a second round of expansion. The residual risk is at the sink choice:
@@ -115,11 +127,16 @@ itself.
 
 ## Remaining work
 
-Check whether a Serilog JSON-Lines file sink (`Serilog.Formatting.Compact`'s `CompactJsonFormatter`) 
-for the GenSOLVER research trace is workable for their existing analysis tooling, or whether the flat-text 
-`SolverLogging` formatter needs to stay as a separate, parallel sink. No change to `GenSOLVER.Lib`'s 
-public signatures either way, this only changes what consumes `Events.Event` downstream. Not started;
-`Serilog.Formatting.Compact` is not yet in `paket.dependencies`.
+The log files are JSON lines with the rendered text as a field. Two things are left for after
+this pull request:
+
+- The fields of a message (equation, variable, iteration of a solver step) as JSON fields of
+  their own, for the GenSOLVER research trace, serialized on the sink's thread like the text.
+  `Serilog.Formatting.Compact` and `Destructurama.FSharp` are not the way: on a scalar the first
+  writes one `%A` string, and the second moves the capture back onto the thread that logs.
+- The speed of the order and solver formatters: about 4.5 ms per event, 54 s for the 12 068
+  events of one Debug pass of three scenarios. It is what the drain of a Debug log costs, on the
+  agent logger before and on Serilog now; `Scripts/LoggingPerf.fsx` in the server measures it.
 
 ## Verification
 
