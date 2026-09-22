@@ -72,26 +72,35 @@ tell unsigned work from the plan as it was signed.
   order-context machine holds);
 - a signature under way (`Signing` not `Idle`: a challenge requested, a data notice shown, the
   PIN asked, a Submission in flight);
-- an order in the plan that the version last opened or signed does not hold, told by the
-  context ids. Orders added or removed count; a change inside a signed order does not. An
-  anonymous plan is never signed, so any order in it counts.
+- a plan changed since the version last opened or signed. An anonymous plan is never signed,
+  so any order put in it is a change.
 
-**The baseline**, `LastSigned: SignedOrderPlan option` on the app state, is the version last
-opened (`OrderPlanMsg.Version`, from a resume, a launch or "Open the newest version") or last
-signed (`SigningEffect.TellSigned`), and is `None` whenever no Session is open, reset beside
-`Signing` and `MovedOn`. The Session's own `Head` is not used: it is the version the Session
-opened on and is not refreshed by a signature.
+**What "changed" means** is told by the commands that went out, not by comparing plans. A
+plan command that changes what the plan holds — a navigation within an order (a dose or
+frequency stepped in a signed order, which keeps the order's context id), an order added, a
+nutrition workbench opened in the plan, contexts removed — marks the plan changed; a version
+opened (`OrderPlanMsg.Version`, from a resume, a launch or "Open the newest version") or signed
+(`SigningEffect.TellSigned`) marks it as signed; a recalculation of the totals and the open
+command itself do neither. The state is a two-case `PlanWork` (`AsSigned | Changed`) on the app
+state. The Session's own `Head` is not used: it is the version the Session opened on and is not
+refreshed by a signature.
 
-The ids, not the contexts, are compared because a context that comes back from the server
-after the version was opened is re-evaluated, and a structural comparison would ask the user
-about work they did not do.
+Commands, not content, because a context that comes back from the server after a version was
+opened is re-evaluated, and a comparison of plans would either ask about work the user did not
+do (compare everything) or miss the work they did (compare ids). The command is the one thing
+that says a user changed the plan.
+
+**Where it lives**: `UnsignedWorkPolicy.fs` in the client, beside `SigningPolicy` and
+`SessionGatePolicy`: pure F#, no React, linked into `Informedica.GenPRES.Shared.Tests` the way
+the other client policies are, so every command and every branch of the predicate has a test.
+`App.fs` keeps `PlanWork` as the plan messages pass and asks the policy from the listener.
 
 What the guard leaves alone:
 
 - The identity hop (`location.assign "/authorize"`) fires `beforeunload` too; at that point
   plan and workbench are empty, so no dialog.
-- A Session ended by a newer launch while the plan holds orders: the baseline resets, so
-  leaving asks. The work is unsigned; the question is right.
+- A Session that ends, or is closed, while the plan holds a change: the plan's work is not
+  reset with the Session, so leaving still asks. What was not signed is still not signed.
 - No page-in-url routing. Back still leaves the app when the user confirms; the next visit is a
   resume. Approach 1 stays available if a page history is wanted later, and this guard would
   keep working beside it, since a page-only history move does not unload the document.
@@ -99,25 +108,37 @@ What the guard leaves alone:
 ## Confidence
 
 High that the guard is correct and honours the two rules: it stores nothing, restores nothing,
-and only asks. Medium on the definition of unsigned work being the one users expect; the
-coarse plan diff is the part most likely to be revised.
+and only asks. High that a change is never missed, since every change to the plan goes through
+one dispatch site and the policy names every command. Medium on the definition of unsigned
+work being the one users expect: a nutrition workbench opened in the plan and left empty counts
+as a change, and a patient edit that re-evaluates the plan does not.
 
 ## Steps
 
-One PR, client only (`src/Informedica.GenPRES.Client/App.fs`), about 65 changed source lines.
-Fable UI code is the one place the script-first policy does not apply.
+One PR, client only (`src/Informedica.GenPRES.Client/`), about 100 changed source lines plus
+the tests. Fable UI code is the one place the script-first policy does not apply.
 
-1. `LastSigned` on the state, `None` in `initialState`; set on `OrderPlanMsg.Version` and on
-   `SigningEffect.TellSigned`; reset with `Signing` and `MovedOn` when the Session is not
-   `Open`.
-2. `hasUnsignedWork : State -> bool` in the Elmish module, as defined above, public and pure.
-3. In `View`, one `beforeunload` listener registered with `React.useEffectOnce`, reading the
-   latest state through a ref, calling `preventDefault` and setting `returnValue` only when
-   `hasUnsignedWork` holds; removed on unmount.
-4. A line in the user guide (en, nl) under prescribing: leaving the page with unsigned work
+1. `UnsignedWorkPolicy.fs`: `PlanWork` (`AsSigned | Changed`), `PlanWork.changedBy` over every
+   `OrderPlanCommand`, `PlanWork.afterCommand`, and
+   `hasUnsignedWork : OrderContext option -> Signing -> PlanWork -> bool` as defined above.
+   Compiled after `SigningPolicy.fs`; linked into the Shared tests.
+2. `UnsignedWorkPolicyTests.fs` in `tests/Informedica.GenPRES.Shared.Tests`: a test per
+   command for `changedBy`, the three `afterCommand` cases, and the five branches of the
+   predicate (nothing; a workbench without a generic; a medication on the workbench; a
+   signature under way; a plan changed).
+3. `PlanWork` on the app state, `AsSigned` in `initialState`; `afterCommand` on
+   `OrderPlanMsg.Command`, `AsSigned` on `OrderPlanMsg.Version` and on
+   `SigningEffect.TellSigned`; not touched when the Session changes.
+4. In `View`, one `beforeunload` listener registered with `React.useEffectOnce`, reading the
+   latest state through a ref, calling `preventDefault` and setting `returnValue` only when the
+   policy says there is work; removed on unmount.
+5. A line in the user guide (en, nl) under prescribing: leaving the page with unsigned work
    asks first.
 
 ## Verification
+
+`dotnet test tests/Informedica.GenPRES.Shared.Tests/` runs the policy tests: which commands
+change the plan, what a command does to the plan's work, and every branch of the predicate.
 
 Fable compiles the client (`dotnet fable` from the client folder); the generated `App.jsx`
 registers the listener once and returns its removal.
@@ -126,7 +147,10 @@ By hand, with `dotnet run` and the stub launch as `prescriber`:
 
 - prescribe something; back, reload, or close the tab: the browser asks. Cancel: nothing
   changed.
-- sign; back: no question. Add another order: the question is back.
+- sign; back: no question. Add another order: the question is back. Sign, then step the dose
+  of the signed order in the plan: the question is back. Sign, then remove an order: the same.
+- with a newer version signed in another browser, press "Open the newest version"; back: no
+  question.
 - no PIN yet: press Ondertekenen so the PIN dialog is open; reload: the browser asks.
 - open the app anonymously (no launch), prescribe: the question; reload and confirm: the
   workbench is empty, as before.
