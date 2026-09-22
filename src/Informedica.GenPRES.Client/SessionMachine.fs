@@ -67,16 +67,19 @@ type SessionRequest =
     | SupplyingPin
 
 
-/// The phase, the one request under way, and the Launch this page presents with its key, kept
-/// while presenting it again is meaningful: during a presentation, after the server was
-/// unreachable, after a refusal worth retrying. Built through the constructors below only,
-/// which admit the twelve combinations that occur.
+/// The phase, the one request under way, the Launch this page presents with its key, kept
+/// while presenting it again is meaningful (during a presentation, after the server was
+/// unreachable, after a refusal worth retrying), and the notice that the record moved on: the
+/// newest version told while the open Session is on an older one, the pages' own beside the
+/// phase, none unless the Session is open with nothing under way. Built through the
+/// constructors below only, which admit the combinations that occur.
 type SessionState =
     private
         {
             Phase: SessionPhase
             InFlight: SessionRequest option
             Presentation: (Launch * PublicKey) option
+            MovedOn: OrderPlanHead option
         }
 
 
@@ -127,6 +130,11 @@ type SessionMsg =
     // failure; `from` is the OpenedToken the request started from, so that an answer lands
     // only on the Session that asked (the guard of Outcome and of the signing answers)
     | Reopened of from: OpenedToken option * Result<SessionOpened option, string>
+    // what a computing reply told beside its answer: the record moved on, or the server ended
+    // the Session; `from` is the OpenedToken the request started from, the same guard
+    | Told of from: OpenedToken option * RecordNotice
+    // a signature was refused because the record moved on: the newest version, to offer
+    | Blocked of OrderPlanHead
 
 
 [<RequireQualifiedAccess>]
@@ -147,8 +155,34 @@ type SessionEffect =
     | LoadCart of SignedOrderPlan
     // processSession OpenVersion; `from` comes back in Reopened
     | CallOpenVersion of id: string * from: OpenedToken option
-    // the version is open; told once, and the moved-on notice is cleared
+    // the version is open; told once
     | TellVersionOpened of OrderPlanHead
+    // the record moved on to this version; told once per version, the bar offers it
+    | TellMovedOn of OrderPlanHead
+
+
+/// The notice that the record moved on, as the Session keeps it: the newest head it was told,
+/// so that it is told once per version, and the bar can offer that version. Spent when the
+/// version is opened; gone with the Session.
+module MovedOn =
+
+    /// A notice arrived: the head to keep, and whether it is news. Versions are ordered by
+    /// `No`, their place in the record, not by arrival: replies to concurrent requests can land out of order, so
+    /// a notice of a version no newer than the one kept is not news and keeps nothing, and only
+    /// a newer version replaces the kept one.
+    let receive (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option * bool =
+        match current with
+        | Some kept when kept.No >= head.No -> current, false
+        | _ -> Some head, true
+
+
+    /// A version was opened: the notice is spent when the version opened is at
+    /// least as new as the one kept; a newer notice, told while the request was in flight,
+    /// stays, so the offer to open it stays too.
+    let opened (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option =
+        match current with
+        | Some kept when kept.No > head.No -> current
+        | _ -> None
 
 
 module SessionState =
@@ -175,6 +209,7 @@ module SessionState =
             Phase = SessionPhase.Anonymous
             InFlight = None
             Presentation = None
+            MovedOn = None
         }
 
 
@@ -184,6 +219,7 @@ module SessionState =
             Phase = SessionPhase.Anonymous
             InFlight = Some(SessionRequest.Presenting attempt)
             Presentation = Some(launch, key)
+            MovedOn = None
         }
 
 
@@ -193,24 +229,27 @@ module SessionState =
             Phase = SessionPhase.Anonymous
             InFlight = Some SessionRequest.Resuming
             Presentation = None
+            MovedOn = None
         }
 
 
-    /// The Session open, nothing under way.
-    let opened (session: SessionOpened) =
+    /// The Session open, nothing under way, with the notice that the record moved on if any.
+    let opened (session: SessionOpened) (movedOn: OrderPlanHead option) =
         {
             Phase = SessionPhase.Open session
             InFlight = None
             Presentation = None
+            MovedOn = movedOn
         }
 
 
-    /// CloseSession under way over the open Session.
+    /// CloseSession under way over the open Session; the notice goes with the Session it was for.
     let closing (session: SessionOpened) =
         {
             Phase = SessionPhase.Open session
             InFlight = Some SessionRequest.Closing
             Presentation = None
+            MovedOn = None
         }
 
 
@@ -220,6 +259,7 @@ module SessionState =
             Phase = SessionPhase.Refused refusal
             InFlight = None
             Presentation = None
+            MovedOn = None
         }
 
 
@@ -229,6 +269,7 @@ module SessionState =
             Phase = SessionPhase.Refused refusal
             InFlight = None
             Presentation = Some(launch, key)
+            MovedOn = None
         }
 
 
@@ -238,6 +279,7 @@ module SessionState =
             Phase = SessionPhase.Unreachable
             InFlight = None
             Presentation = Some(launch, key)
+            MovedOn = None
         }
 
 
@@ -247,6 +289,7 @@ module SessionState =
             Phase = SessionPhase.Ended ending
             InFlight = None
             Presentation = None
+            MovedOn = None
         }
 
 
@@ -256,6 +299,7 @@ module SessionState =
             Phase = SessionPhase.Enrolling(pending, refusal)
             InFlight = None
             Presentation = None
+            MovedOn = None
         }
 
 
@@ -265,6 +309,7 @@ module SessionState =
             Phase = SessionPhase.Enrolling(pending, None)
             InFlight = Some SessionRequest.SupplyingPin
             Presentation = None
+            MovedOn = None
         }
 
 
@@ -274,6 +319,7 @@ module SessionState =
             Phase = SessionPhase.EnrolmentFailed refusal
             InFlight = None
             Presentation = None
+            MovedOn = None
         }
 
 
@@ -286,6 +332,10 @@ module SessionState =
 
     /// The token of the Session held, none unless open and not closing.
     let token (state: SessionState) = state |> session |> Option.bind _.OpenedToken
+
+
+    /// The newest version told while the open Session is on an older one; none otherwise.
+    let movedOn (state: SessionState) = state.MovedOn
 
 
     /// The Session as the pages show it: the request wins when it can render on its own, the
@@ -312,7 +362,7 @@ module SessionState =
     /// it opened with go into the cart. The patient reaches the plan machine a message later
     /// than the version does, so the machine keeps the version until it has.
     let onOpened (session: SessionOpened) =
-        opened session,
+        opened session None,
         [
             SessionEffect.SetPatient(session.PatientContext |> Option.bind _.Patient)
             match session.KeyThumbprint with
@@ -430,7 +480,7 @@ module SessionState =
 
         // a close that never reached the server has closed nothing: the Session stays open,
         // with its patient, and the UI says so; the same guard as Closed
-        | SessionMsg.CloseFailed _, SessionPhase.Open session, Some SessionRequest.Closing -> opened session, []
+        | SessionMsg.CloseFailed _, SessionPhase.Open session, Some SessionRequest.Closing -> opened session None, []
         | SessionMsg.CloseFailed _, _, _ -> state, []
 
         // the server ended the Session at a signature; the gate says why and the close
@@ -440,7 +490,7 @@ module SessionState =
 
         // the token the next signature has to present
         | SessionMsg.TokenRenewed token, SessionPhase.Open session, None ->
-            opened { session with OpenedToken = Some token }, []
+            opened { session with OpenedToken = Some token } state.MovedOn, []
         | SessionMsg.TokenRenewed _, _, _ -> state, []
 
         // only an open Session has a version to take up; the request remembers the token it
@@ -456,36 +506,31 @@ module SessionState =
         // that still holds the token the request started from; a Session closed, relaunched or
         // reopened meanwhile drops it
         | SessionMsg.Reopened(from, Ok(Some session)), SessionPhase.Open current, None when current.OpenedToken = from ->
-            opened session,
-            [
-                match session.PatientContext, session.Head with
-                | Some _, Some head ->
-                    SessionEffect.LoadCart head
-                    SessionEffect.TellVersionOpened head.Head
-                | _ -> ()
-            ]
+            match session.PatientContext, session.Head with
+            // the version is open: told once, and the notice is spent by it; a newer notice
+            // told meanwhile stays, with its offer
+            | Some _, Some head ->
+                opened session (MovedOn.opened state.MovedOn head.Head),
+                [ SessionEffect.LoadCart head; SessionEffect.TellVersionOpened head.Head ]
+            | _ -> opened session state.MovedOn, []
         | SessionMsg.Reopened _, _, _ -> state, []
 
+        // what a reply told with its answer: the stale-request guard is the one Reopened has,
+        // the notice counts only when the request started from the token the open Session
+        // holds now, with nothing under way; a reply of a Session since closed, replaced or
+        // re-minted says nothing about this one, and the next request repeats what still holds
+        | SessionMsg.Told(from, notice), SessionPhase.Open current, None when current.OpenedToken = from ->
+            match notice with
+            // told once per version: kept, and said when it is news
+            | RecordNotice.NewerVersion head ->
+                let kept, news = MovedOn.receive state.MovedOn head
+                opened current kept, (if news then [ SessionEffect.TellMovedOn head ] else [])
+            // the server ended the Session; the gate says why and the close acknowledges it
+            | RecordNotice.Ended ending -> ended ending, [ SessionEffect.CallCloseSession ]
+        | SessionMsg.Told _, _, _ -> state, []
 
-/// The notice that the record moved on, as the client keeps it next to its open Session: the
-/// newest head it was told, so that it is told once per version, and the bar can offer that
-/// version. Cleared when the version is opened or the Session ends.
-module MovedOn =
-
-    /// A notice arrived: the head to keep, and whether it is news. Versions are ordered by
-    /// `No`, their place in the record, not by arrival: replies to concurrent requests can land out of order, so
-    /// a notice of a version no newer than the one kept is not news and keeps nothing, and only
-    /// a newer version replaces the kept one.
-    let receive (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option * bool =
-        match current with
-        | Some kept when kept.No >= head.No -> current, false
-        | _ -> Some head, true
-
-
-    /// A version was opened: the notice is spent when the version opened is at
-    /// least as new as the one kept; a newer notice, told while the request was in flight,
-    /// stays, so the offer to open it stays too.
-    let opened (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option =
-        match current with
-        | Some kept when kept.No > head.No -> current
-        | _ -> None
+        // a signature refused because the record moved on: the head is kept for the bar, and
+        // not told again, since the refusal already said it
+        | SessionMsg.Blocked head, SessionPhase.Open current, None ->
+            opened current (MovedOn.receive state.MovedOn head |> fst), []
+        | SessionMsg.Blocked _, _, _ -> state, []

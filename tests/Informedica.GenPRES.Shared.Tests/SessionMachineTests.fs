@@ -84,7 +84,7 @@ module SessionMachineTests =
                         [
                             for name, state in
                                 [
-                                    "Open", SessionState.opened full
+                                    "Open", SessionState.opened full None
                                     "Refused", SessionState.refused LaunchRefusal.NoRole
                                     // the same Launch kept after a refusal, or the server unreachable,
                                     // is presented afresh: only a presentation under way is kept
@@ -113,7 +113,7 @@ module SessionMachineTests =
                         transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) launching
                         |> Expect.equal
                             "open"
-                            (SessionState.opened full,
+                            (SessionState.opened full None,
                              [ SessionEffect.SetPatient(Some patient); SessionEffect.KeepKey "thumb" ])
                     }
 
@@ -139,7 +139,7 @@ module SessionMachineTests =
                         transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened over))) launching
                         |> Expect.equal
                             "open"
-                            (SessionState.opened over,
+                            (SessionState.opened over None,
                              [
                                  SessionEffect.SetPatient(Some patient)
                                  SessionEffect.KeepKey "thumb"
@@ -164,7 +164,7 @@ module SessionMachineTests =
                         let bare = sessionWith None None
 
                         transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened bare))) launching
-                        |> Expect.equal "open" (SessionState.opened bare, [ SessionEffect.SetPatient None ])
+                        |> Expect.equal "open" (SessionState.opened bare None, [ SessionEffect.SetPatient None ])
                     }
 
                     test "RedirectTo goes to the url and stays Launching" {
@@ -287,7 +287,7 @@ module SessionMachineTests =
                                     for name, state in
                                         [
                                             "Anonymous", SessionState.anonymous
-                                            "Open", SessionState.opened full
+                                            "Open", SessionState.opened full None
                                             "Resuming", SessionState.resuming
                                             "Refused", SessionState.refused LaunchRefusal.NoRole
                                             // the Launch is kept, but nothing is under way to answer
@@ -331,7 +331,7 @@ module SessionMachineTests =
                                     "Anonymous", SessionState.anonymous
                                     "Launching", launching
                                     "Resuming", SessionState.resuming
-                                    "Open", SessionState.opened full
+                                    "Open", SessionState.opened full None
                                     "Refused without retry", SessionState.refused LaunchRefusal.NoRole
                                 ] do
                                 test name { transition SessionMsg.Retry state |> Expect.equal "unchanged" (state, []) }
@@ -349,7 +349,7 @@ module SessionMachineTests =
                     }
 
                     test "Resume from any other state is a no-op" {
-                        for state in [ launching; SessionState.resuming; SessionState.opened full ] do
+                        for state in [ launching; SessionState.resuming; SessionState.opened full None ] do
                             transition SessionMsg.Resume state |> Expect.equal "unchanged" (state, [])
                     }
 
@@ -406,13 +406,13 @@ module SessionMachineTests =
                             transition SessionMsg.OpenAnonymous state
                             |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatient None ])
 
-                        for state in [ SessionState.anonymous; launching; SessionState.opened full ] do
+                        for state in [ SessionState.anonymous; launching; SessionState.opened full None ] do
                             transition SessionMsg.OpenAnonymous state
                             |> Expect.equal "unchanged" (state, [])
                     }
 
                     test "a refusal at the callback keeps nothing, whatever was under way" {
-                        for state in [ SessionState.anonymous; launching; SessionState.opened full ] do
+                        for state in [ SessionState.anonymous; launching; SessionState.opened full None ] do
                             transition (SessionMsg.RefusedAtCallback LaunchRefusal.LaunchSpent) state
                             |> Expect.equal "refused, no retry" (SessionState.refused LaunchRefusal.LaunchSpent, [])
                     }
@@ -423,7 +423,7 @@ module SessionMachineTests =
                     }
 
                     test "Resumed outside Resuming is dropped" {
-                        for state in [ SessionState.anonymous; launching; SessionState.opened full ] do
+                        for state in [ SessionState.anonymous; launching; SessionState.opened full None ] do
                             transition (SessionMsg.Resumed(Ok(ResumeResult.Found full))) state
                             |> Expect.equal "unchanged" (state, [])
                     }
@@ -491,7 +491,7 @@ module SessionMachineTests =
                 "close, the endings, the token"
                 [
                     test "Close from Open asks the server and is Closing until Closed" {
-                        transition SessionMsg.Close (SessionState.opened full)
+                        transition SessionMsg.Close (SessionState.opened full None)
                         |> Expect.equal "closing" (SessionState.closing full, [ SessionEffect.CallCloseSession ])
                     }
 
@@ -513,13 +513,13 @@ module SessionMachineTests =
 
                     test "CloseFailed from Closing returns to Open with the same session and no effects" {
                         transition (SessionMsg.CloseFailed "down") (SessionState.closing full)
-                        |> Expect.equal "still open" (SessionState.opened full, [])
+                        |> Expect.equal "still open" (SessionState.opened full None, [])
                     }
 
                     test "CloseFailed outside Closing is dropped" {
                         for state in
                             [
-                                SessionState.opened full
+                                SessionState.opened full None
                                 SessionState.anonymous
                                 launching
                                 SessionState.resuming
@@ -531,7 +531,7 @@ module SessionMachineTests =
                     test "Closed outside Closing is dropped" {
                         for state in
                             [
-                                SessionState.opened full
+                                SessionState.opened full None
                                 SessionState.anonymous
                                 launching
                                 SessionState.resuming
@@ -544,7 +544,7 @@ module SessionMachineTests =
 
                         let state, effects =
                             run
-                                (SessionState.opened full)
+                                (SessionState.opened full None)
                                 [
                                     SessionMsg.Close
                                     // a new launch supersedes the close in flight
@@ -554,7 +554,8 @@ module SessionMachineTests =
                                     SessionMsg.Closed
                                 ]
 
-                        state |> Expect.equal "the newer session stays open" (SessionState.opened newer)
+                        state
+                        |> Expect.equal "the newer session stays open" (SessionState.opened newer None)
 
                         effects
                         |> Expect.equal
@@ -568,7 +569,9 @@ module SessionMachineTests =
                     }
 
                     test "EndedByServer from Open is Ended and acknowledges it with a close; elsewhere dropped" {
-                        transition (SessionMsg.EndedByServer SessionEnding.WrongPinLimit) (SessionState.opened full)
+                        transition
+                            (SessionMsg.EndedByServer SessionEnding.WrongPinLimit)
+                            (SessionState.opened full None)
                         |> Expect.equal
                             "ended"
                             (SessionState.ended SessionEnding.WrongPinLimit, [ SessionEffect.CallCloseSession ])
@@ -585,10 +588,10 @@ module SessionMachineTests =
                     }
 
                     test "TokenRenewed from Open replaces the token; elsewhere dropped" {
-                        transition (SessionMsg.TokenRenewed(OpenedToken "t2")) (SessionState.opened full)
+                        transition (SessionMsg.TokenRenewed(OpenedToken "t2")) (SessionState.opened full None)
                         |> Expect.equal
                             "renewed"
-                            (SessionState.opened { full with OpenedToken = Some(OpenedToken "t2") }, [])
+                            (SessionState.opened { full with OpenedToken = Some(OpenedToken "t2") } None, [])
 
                         for state in [ SessionState.anonymous; SessionState.closing full; launching ] do
                             transition (SessionMsg.TokenRenewed(OpenedToken "t2")) state
@@ -649,10 +652,11 @@ module SessionMachineTests =
                 "OpenVersion"
                 [
                     test "OpenVersion from Open calls the server with the token it starts from; elsewhere dropped" {
-                        transition (SessionMsg.OpenVersion "plan-2") (SessionState.opened full)
+                        transition (SessionMsg.OpenVersion "plan-2") (SessionState.opened full None)
                         |> Expect.equal
                             "call"
-                            (SessionState.opened full, [ SessionEffect.CallOpenVersion("plan-2", full.OpenedToken) ])
+                            (SessionState.opened full None,
+                             [ SessionEffect.CallOpenVersion("plan-2", full.OpenedToken) ])
 
                         for state in [ SessionState.anonymous; SessionState.closing full ] do
                             transition (SessionMsg.OpenVersion "plan-2") state
@@ -660,10 +664,12 @@ module SessionMachineTests =
                     }
 
                     test "Reopened with the Session replaces it, loads the version into the cart and tells it" {
-                        transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) (SessionState.opened full)
+                        transition
+                            (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)))
+                            (SessionState.opened full None)
                         |> Expect.equal
                             "reopened"
-                            (SessionState.opened reopened,
+                            (SessionState.opened reopened None,
                              [ SessionEffect.LoadCart head; SessionEffect.TellVersionOpened head.Head ])
                     }
 
@@ -707,11 +713,13 @@ module SessionMachineTests =
                     }
 
                     test "Reopened with nothing to open, or a transport failure, leaves the Session as it was" {
-                        transition (SessionMsg.Reopened(full.OpenedToken, Ok None)) (SessionState.opened full)
-                        |> Expect.equal "nothing to open" (SessionState.opened full, [])
+                        transition (SessionMsg.Reopened(full.OpenedToken, Ok None)) (SessionState.opened full None)
+                        |> Expect.equal "nothing to open" (SessionState.opened full None, [])
 
-                        transition (SessionMsg.Reopened(full.OpenedToken, Error "offline")) (SessionState.opened full)
-                        |> Expect.equal "failed" (SessionState.opened full, [])
+                        transition
+                            (SessionMsg.Reopened(full.OpenedToken, Error "offline"))
+                            (SessionState.opened full None)
+                        |> Expect.equal "failed" (SessionState.opened full None, [])
                     }
 
                     test "Reopened lands only on the open Session that still holds the token it started from" {
@@ -728,18 +736,18 @@ module SessionMachineTests =
 
                         transition
                             (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)))
-                            (SessionState.opened newer)
-                        |> Expect.equal "stale: dropped" (SessionState.opened newer, [])
+                            (SessionState.opened newer None)
+                        |> Expect.equal "stale: dropped" (SessionState.opened newer None, [])
 
                         // two quick selections: the first answer lands, the second started from the same
                         // token and is dropped, so the User sees the version the first one opened
                         let afterFirst, _ =
                             transition
                                 (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)))
-                                (SessionState.opened full)
+                                (SessionState.opened full None)
 
                         transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some full))) afterFirst
-                        |> Expect.equal "second dropped" (SessionState.opened reopened, [])
+                        |> Expect.equal "second dropped" (SessionState.opened reopened None, [])
                     }
                 ]
 
@@ -785,7 +793,7 @@ module SessionMachineTests =
                 }
 
                 test "the open Session, and the close under way over it" {
-                    SessionState.opened full
+                    SessionState.opened full None
                     |> SessionState.view
                     |> Expect.equal "open" (SessionView.Open full)
 
@@ -793,7 +801,7 @@ module SessionMachineTests =
                     |> SessionState.view
                     |> Expect.equal "closing" (SessionView.Closing full)
 
-                    SessionState.opened full
+                    SessionState.opened full None
                     |> SessionState.token
                     |> Expect.equal "the token of the open Session" full.OpenedToken
 
@@ -840,5 +848,149 @@ module SessionMachineTests =
                     SessionState.enrolmentFailed PinRefusal.CodeVoid
                     |> SessionState.view
                     |> Expect.equal "enrolment failed" (SessionView.EnrolmentFailed PinRefusal.CodeVoid)
+                }
+            ]
+
+
+    [<Tests>]
+    let movedOnTests =
+        let headNo (no: int) : OrderPlanHead =
+            {
+                Id = $"plan-{no}"
+                No = no
+                By = full.User.Value
+                SignedAt = System.DateTime(2026, 9, 11, 12, 0, 0, System.DateTimeKind.Utc)
+            }
+
+        let two = headNo 2
+        let three = headNo 3
+        let told head =
+            SessionMsg.Told(full.OpenedToken, RecordNotice.NewerVersion head)
+        let transition = SessionState.transition
+
+        testList
+            "the moved-on notice in the Session lane"
+            [
+                test "a reply's notice is kept and told once per version, on the open Session it started from" {
+                    let opened = SessionState.opened full None
+
+                    transition (told two) opened
+                    |> Expect.equal
+                        "news: kept and told"
+                        (SessionState.opened full (Some two), [ SessionEffect.TellMovedOn two ])
+
+                    transition (told two) (SessionState.opened full (Some two))
+                    |> Expect.equal "the same version again: kept, not told" (SessionState.opened full (Some two), [])
+
+                    transition (told three) (SessionState.opened full (Some two))
+                    |> Expect.equal
+                        "a newer one: kept and told"
+                        (SessionState.opened full (Some three), [ SessionEffect.TellMovedOn three ])
+
+                    // replies land out of order: an older version told last is not news and is not kept
+                    transition (told two) (SessionState.opened full (Some three))
+                    |> Expect.equal "an older one: nothing" (SessionState.opened full (Some three), [])
+
+                    SessionState.opened full (Some two)
+                    |> SessionState.movedOn
+                    |> Expect.equal "the bar reads it" (Some two)
+                }
+
+                test "a notice from another token, or with nothing open or a close under way, is dropped" {
+                    let stale = SessionMsg.Told(Some(OpenedToken "t-old"), RecordNotice.NewerVersion two)
+
+                    transition stale (SessionState.opened full None)
+                    |> Expect.equal "stale: dropped" (SessionState.opened full None, [])
+
+                    for state in [ SessionState.anonymous; SessionState.closing full; SessionState.resuming ] do
+                        transition (told two) state |> Expect.equal "dropped" (state, [])
+
+                    // an anonymous reply carries no token; an anonymous Session is told nothing
+                    transition (SessionMsg.Told(None, RecordNotice.NewerVersion two)) SessionState.anonymous
+                    |> Expect.equal "anonymous: dropped" (SessionState.anonymous, [])
+                }
+
+                test "a reply's ending ends the Session and acknowledges it with a close, on the token it started from" {
+                    transition
+                        (SessionMsg.Told(full.OpenedToken, RecordNotice.Ended SessionEnding.WrongPinLimit))
+                        (SessionState.opened full (Some two))
+                    |> Expect.equal
+                        "ended"
+                        (SessionState.ended SessionEnding.WrongPinLimit, [ SessionEffect.CallCloseSession ])
+
+                    transition
+                        (SessionMsg.Told(Some(OpenedToken "t-old"), RecordNotice.Ended SessionEnding.WrongPinLimit))
+                        (SessionState.opened full None)
+                    |> Expect.equal "stale: dropped" (SessionState.opened full None, [])
+                }
+
+                test "a signature refused because the record moved on keeps the head without telling it" {
+                    transition (SessionMsg.Blocked two) (SessionState.opened full None)
+                    |> Expect.equal "kept, not told" (SessionState.opened full (Some two), [])
+
+                    transition (SessionMsg.Blocked two) (SessionState.opened full (Some three))
+                    |> Expect.equal "an older one: nothing" (SessionState.opened full (Some three), [])
+
+                    transition (SessionMsg.Blocked two) SessionState.anonymous
+                    |> Expect.equal "nothing open: dropped" (SessionState.anonymous, [])
+                }
+
+                test
+                    "the version opened spends the notice; a newer one told meanwhile stays; the token renewed keeps it" {
+                    let signedTwo: SignedOrderPlan =
+                        {
+                            Head = two
+                            PatientId = "p"
+                            Base = Some "plan-1"
+                            OrderContexts = [||]
+                            Patient = patient
+                            Verified = true
+                        }
+
+                    let reopened =
+                        { full with
+                            OpenedToken = Some(OpenedToken "t-2")
+                            Head = Some signedTwo
+                        }
+
+                    transition
+                        (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)))
+                        (SessionState.opened full (Some two))
+                    |> Expect.equal
+                        "spent"
+                        (SessionState.opened reopened None,
+                         [ SessionEffect.LoadCart signedTwo; SessionEffect.TellVersionOpened two ])
+
+                    transition
+                        (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened)))
+                        (SessionState.opened full (Some three))
+                    |> fst
+                    |> Expect.equal "the newer notice stays" (SessionState.opened reopened (Some three))
+
+                    transition (SessionMsg.Reopened(full.OpenedToken, Ok None)) (SessionState.opened full (Some two))
+                    |> Expect.equal "nothing to open: kept" (SessionState.opened full (Some two), [])
+
+                    transition (SessionMsg.TokenRenewed(OpenedToken "t2")) (SessionState.opened full (Some two))
+                    |> Expect.equal
+                        "renewed, kept"
+                        (SessionState.opened { full with OpenedToken = Some(OpenedToken "t2") } (Some two), [])
+                }
+
+                test "the notice goes with the Session: a close, a launch, an ending" {
+                    transition SessionMsg.Close (SessionState.opened full (Some two))
+                    |> Expect.equal "closing drops it" (SessionState.closing full, [ SessionEffect.CallCloseSession ])
+
+                    transition (SessionMsg.CloseFailed "down") (SessionState.closing full)
+                    |> Expect.equal "reopened without it" (SessionState.opened full None, [])
+
+                    transition (SessionMsg.Present(launchB, keyB)) (SessionState.opened full (Some two))
+                    |> fst
+                    |> Expect.equal "a launch drops it" (SessionState.launching launchB keyB 1)
+
+                    transition
+                        (SessionMsg.EndedByServer SessionEnding.WrongPinLimit)
+                        (SessionState.opened full (Some two))
+                    |> fst
+                    |> Expect.equal "an ending drops it" (SessionState.ended SessionEnding.WrongPinLimit)
                 }
             ]
