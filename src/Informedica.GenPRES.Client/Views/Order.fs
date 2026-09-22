@@ -165,6 +165,49 @@ module Order =
                     OrderLoader.create state.SelectedComponent state.SelectedItem ord |> nav
                     state, Cmd.none
 
+            // a change to the order shown, sent to the lane; nothing to change without one
+            let over (f: Order -> Order) =
+                match shown with
+                | Some ord -> state, Cmd.ofMsg (UpdateOrderScenario(f ord))
+                | None -> state, Cmd.none
+
+            // a change to the component picked, by name
+            let overComponent (f: Shared.Types.Component -> Shared.Types.Component) =
+                over (fun ord ->
+                    { ord with
+                        Order.Orderable.Components =
+                            ord.Orderable.Components
+                            |> Array.map (fun cmp ->
+                                match state.SelectedComponent with
+                                | Some c when cmp.Name = c -> f cmp
+                                | _ -> cmp
+                            )
+                    }
+                )
+
+            // a change to the item picked, in the first component
+            let overItem (f: Shared.Types.Item -> Shared.Types.Item) =
+                over (fun ord ->
+                    { ord with
+                        Order.Orderable.Components =
+                            ord.Orderable.Components
+                            |> Array.mapi (fun i cmp ->
+                                if i > 0 then
+                                    cmp
+                                else
+                                    { cmp with
+                                        Items =
+                                            cmp.Items
+                                            |> Array.map (fun itm ->
+                                                match state.SelectedItem with
+                                                | Some subst when subst = itm.Name -> f itm
+                                                | _ -> itm
+                                            )
+                                    }
+                            )
+                    }
+                )
+
             match msg with
 
             | UpdateOrderScenario ord ->
@@ -198,23 +241,7 @@ module Order =
                     Cmd.none
 
             | ChangeComponentOrderableQuantity s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.map (fun cmp ->
-                                    match state.SelectedComponent with
-                                    | Some c when cmp.Name = c ->
-                                        { cmp with OrderableQuantity = cmp.OrderableQuantity |> setOvar s }
-                                    | _ -> cmp
-                                )
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
+                overComponent (fun cmp -> { cmp with OrderableQuantity = cmp.OrderableQuantity |> setOvar s })
 
             | ChangeItem itm ->
                 match itm with
@@ -222,348 +249,58 @@ module Order =
                 | Some _ -> { state with SelectedItem = itm }, Cmd.none
 
             | ChangeFrequency s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with Order.Schedule.Frequency = ord.Schedule.Frequency |> setOvar s }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
-            | ChangeTime s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with Order.Schedule.Time = ord.Schedule.Time |> setOvar s }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+                over (fun ord -> { ord with Order.Schedule.Frequency = ord.Schedule.Frequency |> setOvar s })
+            | ChangeTime s -> over (fun ord -> { ord with Order.Schedule.Time = ord.Schedule.Time |> setOvar s })
             | ChangeSubstanceDoseQuantity s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.mapi (fun i cmp ->
-                                    if i > 0 then
-                                        cmp
-                                    else
-                                        { cmp with
-                                            Items =
-                                                cmp.Items
-                                                |> Array.map (fun itm ->
-                                                    match state.SelectedItem with
-                                                    | Some subst when subst = itm.Name ->
-                                                        { itm with
-                                                            Item.Dose.Quantity = itm.Dose.Quantity |> setOvar s
-                                                        }
-                                                    | _ -> itm
-                                                )
-                                        }
-                                )
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+                overItem (fun itm -> { itm with Item.Dose.Quantity = itm.Dose.Quantity |> setOvar s })
             | ChangeSubstanceDoseQuantityAdjust s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.mapi (fun i cmp ->
-                                    if i > 0 then
-                                        cmp
-                                    else
-                                        { cmp with
-                                            Items =
-                                                cmp.Items
-                                                |> Array.map (fun itm ->
-                                                    match state.SelectedItem with
-                                                    | Some subst when subst = itm.Name ->
-                                                        { itm with
-                                                            Item.Dose.QuantityAdjust =
-                                                                itm.Dose.QuantityAdjust |> setOvar s
-                                                        }
-                                                    | _ -> itm
-                                                )
-                                        }
-                                )
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+                overItem (fun itm -> { itm with Item.Dose.QuantityAdjust = itm.Dose.QuantityAdjust |> setOvar s })
             | ChangeSubstancePerTime s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.mapi (fun i cmp ->
-                                    if i > 0 then
-                                        cmp
-                                    else
-                                        { cmp with
-                                            Items =
-                                                cmp.Items
-                                                |> Array.map (fun itm ->
-                                                    match state.SelectedItem with
-                                                    | Some subst when subst = itm.Name ->
-                                                        { itm with Item.Dose.PerTime = itm.Dose.PerTime |> setOvar s }
-                                                    | _ -> itm
-                                                )
-                                        }
-                                )
-
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+                overItem (fun itm -> { itm with Item.Dose.PerTime = itm.Dose.PerTime |> setOvar s })
             | ChangeSubstancePerTimeAdjust s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.mapi (fun i cmp ->
-                                    if i > 0 then
-                                        cmp
-                                    else
-                                        { cmp with
-                                            Items =
-                                                cmp.Items
-                                                |> Array.map (fun itm ->
-                                                    match state.SelectedItem with
-                                                    | Some subst when subst = itm.Name ->
-                                                        { itm with
-                                                            Item.Dose.PerTimeAdjust =
-                                                                itm.Dose.PerTimeAdjust |> setOvar s
-                                                        }
-                                                    | _ -> itm
-                                                )
-                                        }
-                                )
-
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
-            | ChangeSubstanceRate s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.mapi (fun i cmp ->
-                                    if i > 0 then
-                                        cmp
-                                    else
-                                        { cmp with
-                                            Items =
-                                                cmp.Items
-                                                |> Array.map (fun itm ->
-                                                    match state.SelectedItem with
-                                                    | Some subst when subst = itm.Name ->
-                                                        { itm with Item.Dose.Rate = itm.Dose.Rate |> setOvar s }
-                                                    | _ -> itm
-                                                )
-                                        }
-                                )
-
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+                overItem (fun itm -> { itm with Item.Dose.PerTimeAdjust = itm.Dose.PerTimeAdjust |> setOvar s })
+            | ChangeSubstanceRate s -> overItem (fun itm -> { itm with Item.Dose.Rate = itm.Dose.Rate |> setOvar s })
             | ChangeSubstanceRateAdjust s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.mapi (fun i cmp ->
-                                    if i > 0 then
-                                        cmp
-                                    else
-                                        { cmp with
-                                            Items =
-                                                cmp.Items
-                                                |> Array.map (fun itm ->
-                                                    match state.SelectedItem with
-                                                    | Some subst when subst = itm.Name ->
-                                                        { itm with
-                                                            Item.Dose.RateAdjust = itm.Dose.RateAdjust |> setOvar s
-                                                        }
-                                                    | _ -> itm
-                                                )
-                                        }
-                                )
+                overItem (fun itm -> { itm with Item.Dose.RateAdjust = itm.Dose.RateAdjust |> setOvar s })
 
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+            // the item picked and the item named, in the first component and the one named
             | ChangeSubstanceComponentConcentration(cname, iname, s) ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.mapi (fun i cmp ->
-                                    if i > 0 && cmp.Name <> cname then
-                                        cmp
-                                    else
-                                        { cmp with
-                                            Items =
-                                                cmp.Items
-                                                |> Array.map (fun itm ->
-                                                    match state.SelectedItem with
-                                                    | Some subst when subst = itm.Name ->
-                                                        { itm with
-                                                            ComponentConcentration =
-                                                                itm.ComponentConcentration |> setOvar s
-                                                        }
-                                                    | _ ->
-                                                        if itm.Name <> iname then
-                                                            itm
-                                                        else
-                                                            { itm with
-                                                                ComponentConcentration =
-                                                                    itm.ComponentConcentration |> setOvar s
-                                                            }
+                let set (itm: Shared.Types.Item) =
+                    { itm with ComponentConcentration = itm.ComponentConcentration |> setOvar s }
 
-                                                )
-                                        }
-                                )
-
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
+                over (fun ord ->
+                    { ord with
+                        Order.Orderable.Components =
+                            ord.Orderable.Components
+                            |> Array.mapi (fun i cmp ->
+                                if i > 0 && cmp.Name <> cname then
+                                    cmp
+                                else
+                                    { cmp with
+                                        Items =
+                                            cmp.Items
+                                            |> Array.map (fun itm ->
+                                                match state.SelectedItem with
+                                                | Some subst when subst = itm.Name -> set itm
+                                                | _ -> if itm.Name <> iname then itm else set itm
+                                            )
+                                    }
+                            )
+                    }
+                )
 
             | ChangeSubstanceOrderableConcentration s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.mapi (fun i cmp ->
-                                    if i > 0 then
-                                        cmp
-                                    else
-                                        { cmp with
-                                            Items =
-                                                cmp.Items
-                                                |> Array.map (fun itm ->
-                                                    match state.SelectedItem with
-                                                    | Some subst when subst = itm.Name ->
-                                                        { itm with
-                                                            OrderableConcentration =
-                                                                itm.OrderableConcentration |> setOvar s
-                                                        }
-                                                    | _ -> itm
-                                                )
-                                        }
-                                )
-
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+                overItem (fun itm -> { itm with OrderableConcentration = itm.OrderableConcentration |> setOvar s })
             | ChangeSubstanceOrderableQuantity s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Components =
-                                ord.Orderable.Components
-                                |> Array.mapi (fun i cmp ->
-                                    if i > 0 then
-                                        cmp
-                                    else
-                                        { cmp with
-                                            Items =
-                                                cmp.Items
-                                                |> Array.map (fun itm ->
-                                                    match state.SelectedItem with
-                                                    | Some subst when subst = itm.Name ->
-                                                        { itm with
-                                                            OrderableQuantity = itm.OrderableQuantity |> setOvar s
-                                                        }
-                                                    | _ -> itm
-                                                )
-                                        }
-                                )
-
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+                overItem (fun itm -> { itm with OrderableQuantity = itm.OrderableQuantity |> setOvar s })
             | ChangeOrderableDoseQuantity s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Dose.Quantity = ord.Orderable.Dose.Quantity |> setOvar s
-
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+                over (fun ord -> { ord with Order.Orderable.Dose.Quantity = ord.Orderable.Dose.Quantity |> setOvar s })
             | ChangeOrderableDoseRate s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.Dose.Rate = ord.Orderable.Dose.Rate |> setOvar s
-
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
-
+                over (fun ord -> { ord with Order.Orderable.Dose.Rate = ord.Orderable.Dose.Rate |> setOvar s })
             | ChangeOrderableQuantity s ->
-                match shown with
-                | Some ord ->
-                    let msg =
-                        { ord with
-                            Order.Orderable.OrderableQuantity = ord.Orderable.OrderableQuantity |> setOvar s
-
-                        }
-                        |> UpdateOrderScenario
-
-                    state, Cmd.ofMsg msg
-                | _ -> state, Cmd.none
+                over (fun ord ->
+                    { ord with Order.Orderable.OrderableQuantity = ord.Orderable.OrderableQuantity |> setOvar s }
+                )
 
             // == Frequency ==
             | SetMinFrequencyProperty -> handleNav stepper.setFreqMin
