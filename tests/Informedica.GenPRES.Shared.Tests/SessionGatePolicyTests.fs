@@ -182,7 +182,7 @@ module SessionGatePolicyTests =
                     gate.Actions |> Expect.isEmpty "no actions"
 
                     gate.Body
-                    |> Expect.stringContains "attempt" $"attempt 2 of {Session.maxAttempts}"
+                    |> Expect.stringContains "attempt" $"attempt 2 of {SessionState.maxAttempts}"
                 }
 
                 test "Resuming is busy and offers nothing" {
@@ -296,10 +296,12 @@ module SessionGatePolicyTests =
                         | _ -> ""
 
                     (gateOf (SessionView.Launching 2)).Body
-                    |> Expect.equal "english" $"Presenting the launch, attempt 2 of {Session.maxAttempts}."
+                    |> Expect.equal "english" $"Presenting the launch, attempt 2 of {SessionState.maxAttempts}."
 
                     match gateFor template (SessionView.Launching 2) with
-                    | Some gate -> gate.Body |> Expect.equal "translated" $"poging 2 van {Session.maxAttempts}"
+                    | Some gate ->
+                        gate.Body
+                        |> Expect.equal "translated" $"poging 2 van {SessionState.maxAttempts}"
                     | None -> failtest "expected a gate"
 
                     match gateFor template (SessionView.Unreachable) with

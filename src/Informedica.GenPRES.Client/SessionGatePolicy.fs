@@ -204,7 +204,7 @@ let gateFor (tr: Terms -> string) (session: SessionView) : Gate option =
                 Title = tr Terms.``Session Gate Opening``
                 Body =
                     tr Terms.``Session Gate Opening Text``
-                    |> fill [ $"%i{attempt}"; $"%i{Session.maxAttempts}" ]
+                    |> fill [ $"%i{attempt}"; $"%i{SessionState.maxAttempts}" ]
                 Busy = true
                 Actions = []
                 Form = None
@@ -227,7 +227,7 @@ let gateFor (tr: Terms -> string) (session: SessionView) : Gate option =
                     sentences
                         [
                             tr Terms.``Session Gate Unreachable Text``
-                            |> fill [ $"%i{Session.maxAttempts}" ]
+                            |> fill [ $"%i{SessionState.maxAttempts}" ]
                             tr Terms.``Session Gate Try Again Or Relaunch``
                         ]
                 Busy = false
