@@ -10,6 +10,8 @@ module GenPres =
     open Elmish
     open Shared
     open Shared.Types
+    open OrderPlanMachine
+    open OrderContextMachine
 
 
     module private Elmish =
@@ -126,8 +128,8 @@ module GenPres =
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
-        let orderContext = (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
-        let orderPlan = (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan
+        let orderContext = (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContextView
+        let orderPlan = (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlanView
         let auth = AppEnv.asEnv<AppEnv.IAuthentication> props.appEnv
 
         let updatePageRef = React.useRef props.updatePage
@@ -298,16 +300,18 @@ module GenPres =
             match props.page with
             | Global.Pages.Prescribe ->
                 match orderContext with
-                | Resolved pr
-                | Provisional pr -> Views.Totals.View {| intake = pr.Intake |} |> Some
-                | _ -> None
+                | OrderContextView.Settled pr
+                | OrderContextView.Changing pr -> Views.Totals.View {| intake = pr.Intake |} |> Some
+                | OrderContextView.NoPatient
+                | OrderContextView.Evaluating -> None
             // the one plan: the nutrition page shows the plan's totals, nutrition included
             | Global.Pages.Nutrition
             | Global.Pages.OrderPlan ->
                 match orderPlan with
-                | Resolved tp
-                | Provisional tp -> Views.Totals.View {| intake = tp.Totals |} |> Some
-                | _ -> None
+                | OrderPlanView.Settled(tp, _)
+                | OrderPlanView.Changing(tp, _) -> Views.Totals.View {| intake = tp.Totals |} |> Some
+                | OrderPlanView.NoPatient
+                | OrderPlanView.Opening -> None
             | _ -> None
 
         let disclaimerView =

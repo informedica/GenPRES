@@ -11,6 +11,8 @@ module Patient =
     open Shared
     open Shared.Types
     open Shared.Models
+    open OrderPlanMachine
+    open OrderContextMachine
 
 
     module private Elmish =
@@ -113,9 +115,15 @@ module Patient =
         // the patient is the subject of every workbench and plan request: while one is under
         // way the panel is greyed, so that the patient cannot change under it
         let busy =
-            (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
-            |> Deferred.inProgress
-            || (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan |> Deferred.inProgress
+            match
+                (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContextView,
+                (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlanView
+            with
+            | OrderContextView.Evaluating, _
+            | OrderContextView.Changing _, _
+            | _, OrderPlanView.Opening
+            | _, OrderPlanView.Changing _ -> true
+            | _ -> false
 
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization

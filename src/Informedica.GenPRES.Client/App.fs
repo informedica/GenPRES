@@ -1731,12 +1731,14 @@ type private ConcreteAppEnv
 
     interface AppEnv.IOrderContext with
         member _.OrderContext = state.OrderContext |> OrderContextState.toDeferred
+        member _.OrderContextView = state.OrderContext |> OrderContextState.view
 
         member _.OrderContextMsg(cmd, ctx) =
             OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
 
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = state.OrderPlan |> OrderPlanState.toDeferred
+        member _.OrderPlanView = state.OrderPlan |> OrderPlanState.view
 
         member _.OrderPlanCommand cmd =
             OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch

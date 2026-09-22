@@ -11,6 +11,7 @@ module Parenteralia =
     open Shared.Types
     open Shared
     open Shared.Models
+    open OrderContextMachine
 
 
     module private Elmish =
@@ -127,8 +128,11 @@ module Parenteralia =
         // the filter is the workbench's: a change here is evaluated there, so the selects are
         // greyed while a workbench request is under way
         let busy =
-            (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
-            |> Deferred.inProgress
+            match (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContextView with
+            | OrderContextView.Evaluating
+            | OrderContextView.Changing _ -> true
+            | OrderContextView.NoPatient
+            | OrderContextView.Settled _ -> false
 
         let select = ViewHelpers.filterSelect busy
         let autoComplete = ViewHelpers.autoComplete busy
