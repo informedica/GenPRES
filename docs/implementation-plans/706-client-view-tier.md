@@ -313,7 +313,9 @@ client edited directly. Every step left the Shared tests, the Fable compile with
   on, and supersede would have lost a click as the drop did. Decided on review: the latest
   dialog command waits as the one pending, under its own request id, and goes out when the
   answer lands, a step over the context answered and a value typed over the context it was
-  typed into; a failure, a patient change, an open, an evaluation and a reset drop it.
+  typed into; a failure, a patient change, an open, an evaluation and the workbench cleared
+  after an order was prescribed (`OrderContextMsg.Reset`) drop it. The dialog's own reset,
+  `ResetOrderScenario`, is a dialog command and waits like a step.
 - **One property while a step is in flight, on a solved order.** The lane keeps one command
   pending, so the dialog lets only the field whose change went out change again while its
   answer is awaited, and only on an order solved through; every other field and the reset
