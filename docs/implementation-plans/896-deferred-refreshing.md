@@ -142,4 +142,20 @@ and keeps blanking, so the list above is the list to check, not the compiler.
 
 ## As built
 
-To be filled in as the steps land.
+Built as proposed, one PR at a time, the client edited directly. Both left the Shared tests,
+the Fable compile with the touched `.jsx` inspected, Fantomas and the dependency-rule check
+green. The docs step rode with plan [897](897-component-local-state.md)'s, by the author's
+choice.
+
+| Step | PR | Landed |
+|---|---|---|
+| plan | #938 | this document; review: "greyed" made precise as disabled, the selects keep their value and options but take no change until the answer |
+| 1, the case, the fetches and the pages | #939 | `Deferred.Refreshing`, `map`, `bind`, `defaultValue`, `toOption` over it, `Deferred.refresh`; the four `Started` arms and the interaction check through `refresh`, the guards covering `Refreshing`; `progressOrEmpty`, the formulary, parenteralia, interactions and settings pages and the two arms in `Pages/GenPres.fs` rendering from both cases; `DeferredTests.fs`, four tests; review: the empty log list stays, with the progress, while the files are listed again, where a refreshing empty list fell into the table arm and showed an empty table |
+| 2, docs | plan 897's docs PR | this section; plan 706's left-open bullet on #896 closed |
+
+### Deviations from the text above
+
+- **The empty state on refresh.** The settings page's empty arm matches `Resolved` and
+  `Refreshing` with an empty array, so "No log files found" stays while the list is fetched
+  again; the plan's "the log table from both, with the progress above it" said nothing of the
+  empty list (review of #939).
