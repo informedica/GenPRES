@@ -51,10 +51,10 @@ currently contain a given row is not verified here — that is exactly the confi
 | Pillar | Software issues | Configuration tasks | Existing issues covering software |
 |---|---|---|---|
 | 1. Create TPN / continuous orders | 8 | 11 | 5 (#504 #495 #499 #505 #478) |
-| 2. Record | 10 | 0 | 4 (#516 #518 #580 #481) |
+| 2. Record | 10 | 0 | 3 (#516 #518 #580) |
 | 3. Notify pharmacy | 7 | 0 | 1 (#510, unmilestoned) |
 | Solver | 2 | 0 | 0 |
-| **Total** | **27** | **11** | **10** |
+| **Total** | **27** | **11** | **9** |
 
 Plus **7 blocking decisions** and **5 hospital-side arrangements**, none of which become
 issues.
@@ -176,7 +176,7 @@ database engine, which ADR-0007 §4 defers. See [section 5](#5-blocking-decision
 
 | # | Item | Status against the code | Remaining work | Blocked by |
 |---|---|---|---|---|
-| 2.2.1 | Persistence layer: save / getLatest / latestVersionMetadata | **Partial.** In memory the API of [feature-patient-persistence.md](feature-patient-persistence.md) §5 exists: append-only `Records` (`Session.fs:492`), `OrderPlanHead` as the metadata (`Shared/Types.fs:614`), save refused without a patient | #516: the durable record, steps 2 to 4b of its plan. The code half of the closed #409 and the destination of [#481](https://github.com/informedica/GenPRES/issues/481) | #516 |
+| 2.2.1 | Persistence layer: save / getLatest / latestVersionMetadata | **Partial.** In memory the API of [feature-patient-persistence.md](feature-patient-persistence.md) §5 exists: append-only `Records` (`Session.fs:492`), `OrderPlanHead` as the metadata (`Shared/Types.fs:614`), save refused without a patient | #516: the durable record, steps 2 to 4b of its plan. The code half of the closed #409; the closed #481 (the prototype of #480 moved to source) ends here | #516 |
 | 2.2.2 | Two stores: clinical and private | **Missing.** One `State` record holds records, sessions, credentials and codes together | #516, per ADR-0007 §1: the clinical store at steps 2 and 3 of its plan, the private store at steps 6 to 8 | #516 |
 | 2.2.3 | Restore patient state and treatment plan on reopen | **Partial.** The client loads the cart from `SessionOpened.Head` and the patient from the platform, else from the signed data (#640); lost at a server restart | #516: the record survives a restart at step 4b of its plan, the Session at step 6 | #516 |
 | 2.2.4 | Per-order signed state and prescriber attribution | **Partial.** Each version names its prescriber (`OrderPlanHead.By`, `:618`) | Issue: signed state per order (9.8b, 10.3, 10.4) and the prescriber registry. Pillar 3 can already name the prescriber of a version | 2.1.4 |
@@ -194,8 +194,10 @@ Ten new issues: 2.1.3, 2.1.4, 2.1.5, 2.1.6, 2.1.7, 2.1.10, 2.2.4, 2.2.5, 2.2.6, 
 - [#408](https://github.com/informedica/GenPRES/issues/408) is closed. The sealed launch is
   what is built, so the URL-parameter model of
   [feature-ehr-url-parameters.md](feature-ehr-url-parameters.md) is superseded.
-- [#481](https://github.com/informedica/GenPRES/issues/481) and
-  [#516](https://github.com/informedica/GenPRES/issues/516) move to M2. #516 is the one
+- [#481](https://github.com/informedica/GenPRES/issues/481) is closed: the persistence
+  prototype of #480 was moved to source by #409, #605, #615, #622, #635 and #640, and what
+  remains of it is #516.
+- [#516](https://github.com/informedica/GenPRES/issues/516) moves to M2. #516 is the one
   blocker under 2.1.5, 2.1.11, 2.2.1 and 2.2.2 and has a written plan
   ([516-sessionrecord-store.md](../implementation-plans/516-sessionrecord-store.md)).
 - [#518](https://github.com/informedica/GenPRES/issues/518) moves from M4 to M2 (2.1.12).
@@ -335,7 +337,7 @@ them against the new column names.
 
 **Unmilestoned issues with a home**
 
-Move #481 and #516 to M2 · #510 to M3 · #505 and #478 to M4 · #506, #508, #509 and #439 to post-MVP · #378, #411, #413, #416, #419, #420, #446 and #522 to a parking milestone, so they stop reading as untriaged.
+Move #516 to M2 · #510 to M3 · #505 and #478 to M4 · #506, #508, #509 and #439 to post-MVP · #378, #411, #413, #416, #419, #420, #446 and #522 to a parking milestone, so they stop reading as untriaged.
 
 **M5 is drifting into a general bug bucket**
 
@@ -392,7 +394,7 @@ needed, not as cards.
 **M2 hospital integration, due 09-20.** Narrow the description to "record TPN and continuous
 orders: store, adapters, exposure". Built: launch, session, PIN enrolment, signing and
 versions, against in-memory stubs and disabled in production. Software: ten new issues
-(2.1.3–2.1.7, 2.1.10, 2.2.4–2.2.7) plus #516, #518, #580 and #481. Blocked by D2 (the
+(2.1.3–2.1.7, 2.1.10, 2.2.4–2.2.7) plus #516, #518 and #580. Blocked by D2 (the
 production engine) and requires A1–A5; #516 and the client-side issues can start today,
 the adapters when the hospital delivers A2–A4.
 
