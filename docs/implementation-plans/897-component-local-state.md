@@ -313,4 +313,26 @@ client edited directly.
 |---|---|---|
 | plan | #942 | this document |
 | 1, the order dialog | #943 | `State.Order` gone, the arms on `shown`, `displayOrder` is `shownOrder`; 105 source lines |
-| plan amended | this PR | steps 3 to 5 added at the reviewer's request: the nutrition slot, the hooks keyed on the order, the changes folded; the plan page's `modalOpen` folded into step 2; plan 896's As built folded into step 6; the formulary hooks out of scope |
+| plan amended | #944 | steps 3 to 5 added at the reviewer's request: the nutrition slot, the hooks keyed on the order, the changes folded; the plan page's `modalOpen` folded into step 2; plan 896's As built folded into step 6; the formulary hooks out of scope; review: why the slot's loading guard can go, said precisely |
+| 2, the workbench's selection | #945 | `OrderContextState.Selected`, `OrderContextMsg.Select`, `holds`, `select`, the selection following the workbench in `run`, `dialog`; `IOrderContext.Dialog` and `Select`; the prescribe page's flag gone, Edit selects then narrows; the plan page's `modalOpen` on the projection; 5 tests; 101 source lines |
+| 3, the nutrition slot | #946 | `State.Order` and the spinner flag `isLoading` gone, `update` on `shown`, `displayOrder` the context's order; 92 source lines |
+| 4, the hooks keyed on the order | not built | see the deviations |
+| 5, the changes folded | #947 | `over`, `overComponent`, `overItem`, the fifteen arms one line each; 427 source lines, 345 deleted, over the size rule by the reviewer's choice |
+| 6, docs | this PR | this section; plan 706's left-open bullets on #897 and #896 closed; plan 896's As built |
+
+### Deviations from the text above
+
+- **Step 4 was not built.** Its premise was wrong: Feliz.UseElmish 5.0, the version the client
+  uses, compares dependencies structurally (`IsOutdated` is `arg <> arg' || dependencies <>
+  dependencies'`), so a page re-render that reads an equal view does not re-init the hook. The
+  hook re-seeds only when the context changes, on each answer, and the picks round-trip through
+  the `OrderLoader`, so they survive that. Keying on the order's id would have needed the
+  update-through-a-ref pattern `Views/Patient.fs` and the slot's `planRef` already use, since
+  `useElmish` captures `init` and `update` at construction and refreshes them only when a
+  dependency changes: more machinery for the same behaviour. Decided with the author on the
+  finding; the dependencies stay as they are.
+- **The slot's flag was the spinner, not the greying.** "The hooks keyed on the order"'s
+  neighbour, `isLoading` in the slot, was the spinner argument of the selects, true only for
+  the render between a change sent and the plan showing `Changing`, never during the
+  recalculation; the greying came from `isRecalculating` all along. The selects now pass no
+  spinner and grey as before.

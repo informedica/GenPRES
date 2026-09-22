@@ -280,9 +280,12 @@ Each is its own issue, filed in step 9:
   than an `InFlight` case, and the moved-on notice, the work a signature is asked over and the
   plan's work folded into the lanes, so that `App.State` holds the four lanes and nothing else
   of them.
-- `Deferred.Refreshing of 't` for the plain fetches: #896.
-- The component-local rule: the stepped order in `Views/Order.fs` hook state; the prescribe
-  page's own dialog flag beside the plan page's selection-derived one: #897.
+- `Deferred.Refreshing of 't` for the plain fetches: done by plan
+  [896](896-deferred-refreshing.md) (#896), a fourth case that keeps the previous value while
+  a fetch runs again, the four refetched pages rendering from it and acting on `Resolved`.
+- The component-local rule: done by plan [897](897-component-local-state.md) (#897); the
+  order dialog and the nutrition slot read the order shown instead of a hook copy, the
+  prescribe page's dialog opens on a selection the workbench lane carries, as the plan's.
 - `App.State` grouped one field per tier: #898.
 - Decision c of 691, steps 10 and 11 above: #899, built as #901 and the PR after it (see As built).
 - Plan 691's other left-open items, unchanged.
