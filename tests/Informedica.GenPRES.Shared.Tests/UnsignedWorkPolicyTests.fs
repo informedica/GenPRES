@@ -82,24 +82,21 @@ module UnsignedWorkPolicyTests =
                     "PlanWork.askedOver"
                     [
                         test "a Sign with no signature under way is asked over the plan's work" {
-                            PlanWork.askedOver Signing.Idle (PlanWork.Changed 1) PlanWork.AsSigned
+                            PlanWork.askedOver SigningView.Idle (PlanWork.Changed 1) PlanWork.AsSigned
                             |> Expect.equal "should be the plan's work" (PlanWork.Changed 1)
                         }
 
                         test "a Sign while one is under way is ignored and keeps the work asked over" {
-                            PlanWork.askedOver
-                                (Signing.Requesting(plan, None, "r-1"))
-                                (PlanWork.Changed 2)
-                                (PlanWork.Changed 1)
+                            PlanWork.askedOver SigningView.Requesting (PlanWork.Changed 2) (PlanWork.Changed 1)
                             |> Expect.equal "should keep the work asked over" (PlanWork.Changed 1)
                         }
 
                         test "a second Sign after an edit does not sign the edit" {
                             // Sign over the first change, an order removed, Sign again while the
                             // challenge is fetched, the first signature told
-                            let atSign = PlanWork.askedOver Signing.Idle (PlanWork.Changed 1) PlanWork.AsSigned
+                            let atSign = PlanWork.askedOver SigningView.Idle (PlanWork.Changed 1) PlanWork.AsSigned
                             let work = PlanWork.Changed 1 |> PlanWork.afterCommand remove
-                            let atSign = PlanWork.askedOver (Signing.Requesting(plan, None, "r-1")) work atSign
+                            let atSign = PlanWork.askedOver SigningView.Requesting work atSign
 
                             work
                             |> PlanWork.afterSigned atSign
@@ -134,27 +131,30 @@ module UnsignedWorkPolicyTests =
                     "hasUnsignedWork"
                     [
                         test "nothing on the workbench, no signature, the plan as signed: no work" {
-                            hasUnsignedWork None Signing.Idle PlanWork.AsSigned
+                            hasUnsignedWork None SigningView.Idle PlanWork.AsSigned
                             |> Expect.isFalse "should be no work"
                         }
 
                         test "a workbench without a generic is no work" {
-                            hasUnsignedWork (Some context) Signing.Idle PlanWork.AsSigned
+                            hasUnsignedWork (Some context) SigningView.Idle PlanWork.AsSigned
                             |> Expect.isFalse "should be no work"
                         }
 
                         test "a medication on the workbench is work" {
-                            hasUnsignedWork (Some prescribing) Signing.Idle PlanWork.AsSigned
+                            hasUnsignedWork (Some prescribing) SigningView.Idle PlanWork.AsSigned
                             |> Expect.isTrue "should be work"
                         }
 
                         test "a signature under way is work" {
-                            hasUnsignedWork None (Signing.Challenged("c-1", plan, None)) PlanWork.AsSigned
+                            hasUnsignedWork None (SigningView.Challenged(plan, None)) PlanWork.AsSigned
                             |> Expect.isTrue "should be work"
+
+                            hasUnsignedWork None SigningView.Requesting PlanWork.AsSigned
+                            |> Expect.isTrue "the challenge asked is work too"
                         }
 
                         test "a plan changed since the version last signed is work" {
-                            hasUnsignedWork None Signing.Idle (PlanWork.Changed 1)
+                            hasUnsignedWork None SigningView.Idle (PlanWork.Changed 1)
                             |> Expect.isTrue "should be work"
                         }
                     ]

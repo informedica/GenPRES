@@ -30,6 +30,20 @@ type Signing =
     | Unsent of challenge: string * OrderPlan * key: string
 
 
+/// The signing as the dialog shows it: the states the dialog can be in, each with what is valid
+/// in it and nothing of the request. Closed; closed while the challenge is asked; the data as it
+/// stands, to accept or to cancel; the PIN asked over the plan, with the last refusal if any; the
+/// Submission under way, the plan listed and the field disabled. A lost answer shows as the PIN
+/// asked again without a refusal: the kept key is the machine's, not the dialog's.
+[<RequireQualifiedAccess>]
+type SigningView =
+    | Idle
+    | Requesting
+    | Noticed of OrderPlan * DataNotice
+    | Challenged of OrderPlan * SigningRefusal option
+    | Submitting of OrderPlan
+
+
 [<RequireQualifiedAccess>]
 type SigningMsg =
     // the plan as shown, and a request id the caller minted
@@ -65,6 +79,18 @@ type SigningEffect =
 
 
 module Signing =
+
+    /// The signing as the dialog shows it: the transport payloads dropped, a lost answer shown
+    /// as the PIN asked again.
+    let view (state: Signing) : SigningView =
+        match state with
+        | Signing.Idle -> SigningView.Idle
+        | Signing.Requesting _ -> SigningView.Requesting
+        | Signing.Noticed(plan, notice) -> SigningView.Noticed(plan, notice)
+        | Signing.Challenged(_, plan, refusal) -> SigningView.Challenged(plan, refusal)
+        | Signing.Submitting(_, plan, _) -> SigningView.Submitting plan
+        | Signing.Unsent(_, plan, _) -> SigningView.Challenged(plan, None)
+
 
     let transition (msg: SigningMsg) (state: Signing) : Signing * SigningEffect list =
         match msg, state with

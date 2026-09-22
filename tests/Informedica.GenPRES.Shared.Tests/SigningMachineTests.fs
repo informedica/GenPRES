@@ -271,3 +271,45 @@ let tests =
                 |> Expect.equal "the challenged plan" [ SigningEffect.CallSubmit(plan, "c-1", "1234", "k-1") ]
             }
         ]
+
+
+[<Tests>]
+let viewTests =
+    let notice =
+        {
+            Data = None
+            Token = "d-1"
+        }
+
+    testList
+        "Signing.view"
+        [
+            test "idle and requesting show nothing of the request" {
+                Signing.Idle |> Signing.view |> Expect.equal "idle" SigningView.Idle
+                requesting |> Signing.view |> Expect.equal "requesting" SigningView.Requesting
+            }
+
+            test "noticed and challenged show the plan with the notice or the refusal" {
+                Signing.Noticed(plan, notice)
+                |> Signing.view
+                |> Expect.equal "noticed" (SigningView.Noticed(plan, notice))
+
+                challenged
+                |> Signing.view
+                |> Expect.equal "challenged" (SigningView.Challenged(plan, None))
+
+                Signing.Challenged("c-1", plan, Some(SigningRefusal.PinWrong 2))
+                |> Signing.view
+                |> Expect.equal "refused" (SigningView.Challenged(plan, Some(SigningRefusal.PinWrong 2)))
+            }
+
+            test "submitting shows the plan without the key; a lost answer shows as challenged again" {
+                submitting
+                |> Signing.view
+                |> Expect.equal "submitting" (SigningView.Submitting plan)
+
+                unsent
+                |> Signing.view
+                |> Expect.equal "unsent" (SigningView.Challenged(plan, None))
+            }
+        ]
