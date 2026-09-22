@@ -313,3 +313,46 @@ let viewTests =
                 |> Expect.equal "unsent" (SigningView.Challenged(plan, None))
             }
         ]
+
+
+[<Tests>]
+let stateViewTests =
+    let notice =
+        {
+            Data = None
+            Token = "d-1"
+        }
+
+    // the lane record beside the DU: each constructor shows what the corresponding state of
+    // the DU shows, so that the machine can move onto the record with the dialog unchanged
+    let agrees (name: string) (state: SigningState) (old: Signing) =
+        state |> SigningState.view |> Expect.equal name (old |> Signing.view)
+
+    testList
+        "SigningState.view"
+        [
+            test "idle and the challenge asked show nothing of the request" {
+                agrees "idle" SigningState.idle Signing.Idle
+                agrees "requesting" (SigningState.requesting plan None "r-1") requesting
+                agrees "requesting after a notice" (SigningState.requesting plan (Some "d-1") "d-1") requesting
+            }
+
+            test "noticed and challenged show the plan with the notice or the refusal" {
+                agrees "noticed" (SigningState.noticed plan notice) (Signing.Noticed(plan, notice))
+                agrees "challenged" (SigningState.challenged "c-1" plan None) challenged
+
+                agrees
+                    "refused"
+                    (SigningState.challenged "c-1" plan (Some(SigningRefusal.PinWrong 2)))
+                    (Signing.Challenged("c-1", plan, Some(SigningRefusal.PinWrong 2)))
+            }
+
+            test "submitting shows the plan without the key; a lost answer shows as challenged again" {
+                agrees "submitting" (SigningState.submitting "c-1" plan "k-1") submitting
+                agrees "unsent" (SigningState.unsent "c-1" plan "k-1") unsent
+
+                SigningState.unsent "c-1" plan "k-1"
+                |> SigningState.view
+                |> Expect.equal "the key is the machine's" (SigningView.Challenged(plan, None))
+            }
+        ]
