@@ -15,6 +15,7 @@
 module SigningMachine
 
 open Shared.Types
+open PlanWorkPolicy
 
 
 /// The signing as the clinical model has it: no request here.
@@ -38,16 +39,19 @@ type SigningRequest =
     | Submission of key: string
 
 
-/// The phase, the one request under way (none while idle, noticed or challenged), and the key
-/// of a Submission whose answer was lost, so that the next Confirm goes out under it and the
-/// server answers what it already did. Built through the constructors below only, which admit
-/// the six combinations that occur.
+/// The phase, the one request under way (none while idle, noticed or challenged), the key of a
+/// Submission whose answer was lost, so that the next Confirm goes out under it and the server
+/// answers what it already did, and the plan's work the signature was asked over, from the
+/// Sign to the signature told, so that a change made meanwhile is told apart from what was
+/// signed; none while idle. Built through the constructors below only, which admit the six
+/// combinations that occur.
 type SigningState =
     private
         {
             Phase: SigningPhase
             InFlight: SigningRequest option
             Unsent: string option
+            AskedOver: PlanWork option
         }
 
 
@@ -67,8 +71,8 @@ type SigningView =
 
 [<RequireQualifiedAccess>]
 type SigningMsg =
-    // the plan as shown, and a request id the caller minted
-    | Sign of OrderPlan * request: string
+    // the plan as shown, the plan's work it stands at, and a request id the caller minted
+    | Sign of OrderPlan * work: PlanWork * request: string
     // the answer to the challenge request with this id; Error = transport failure
     | ChallengeAnswered of request: string * Result<SigningResponse, string>
     // the data notice accepted: sign over the data as it stands
@@ -93,8 +97,9 @@ type SigningEffect =
     // the patient data as the notice showed it, so the cart is over it too
     | SetPatient of Patient
 
-    // told once
-    | TellSigned of SignedOrderPlan
+    // told once; the signature carries back the work it was asked over, so that the plan's
+    // work can tell what it signed from a change made meanwhile
+    | TellSigned of SignedOrderPlan * askedOver: PlanWork
     | TellRefused of SigningRefusal
     | TellError of reason: string
 
@@ -106,52 +111,58 @@ module SigningState =
             Phase = SigningPhase.Idle
             InFlight = None
             Unsent = None
+            AskedOver = None
         }
 
 
     /// The challenge asked over the plan, under the request id; the dialog closed meanwhile.
-    let requesting (plan: OrderPlan) (notice: string option) (request: string) =
+    let requesting (plan: OrderPlan) (notice: string option) (request: string) (work: PlanWork) =
         {
             Phase = SigningPhase.Idle
             InFlight = Some(SigningRequest.Challenge(plan, notice, request))
             Unsent = None
+            AskedOver = Some work
         }
 
 
     /// The data notice to accept or to cancel, nothing under way.
-    let noticed (plan: OrderPlan) (notice: DataNotice) =
+    let noticed (plan: OrderPlan) (notice: DataNotice) (work: PlanWork) =
         {
             Phase = SigningPhase.Noticed(plan, notice)
             InFlight = None
             Unsent = None
+            AskedOver = Some work
         }
 
 
     /// The PIN asked over the plan under the challenge, with the last refusal, nothing under way.
-    let challenged (challenge: string) (plan: OrderPlan) (refusal: SigningRefusal option) =
+    let challenged (challenge: string) (plan: OrderPlan) (refusal: SigningRefusal option) (work: PlanWork) =
         {
             Phase = SigningPhase.Challenged(challenge, plan, refusal)
             InFlight = None
             Unsent = None
+            AskedOver = Some work
         }
 
 
     /// The Submission under way under its key, over the plan challenged.
-    let submitting (challenge: string) (plan: OrderPlan) (key: string) =
+    let submitting (challenge: string) (plan: OrderPlan) (key: string) (work: PlanWork) =
         {
             Phase = SigningPhase.Challenged(challenge, plan, None)
             InFlight = Some(SigningRequest.Submission key)
             Unsent = None
+            AskedOver = Some work
         }
 
 
     /// The answer to the Submission was lost: the PIN is asked again over the plan challenged,
     /// and the key is kept for the retry.
-    let unsent (challenge: string) (plan: OrderPlan) (key: string) =
+    let unsent (challenge: string) (plan: OrderPlan) (key: string) (work: PlanWork) =
         {
             Phase = SigningPhase.Challenged(challenge, plan, None)
             InFlight = None
             Unsent = Some key
+            AskedOver = Some work
         }
 
 
@@ -166,12 +177,17 @@ module SigningState =
         | SigningPhase.Challenged(_, plan, refusal), _ -> SigningView.Challenged(plan, refusal)
 
 
+    /// The work the signature under way was asked over, carried into the next state; every arm
+    /// that carries it matches a phase or a request only a constructor with the work builds.
+    let private carried (state: SigningState) = state.AskedOver |> Option.defaultValue PlanWork.AsSigned
+
+
     /// Every arm names the phase and the request under way, and every new state is built through
     /// a constructor, so that no field outlives the state it belongs to.
     let transition (msg: SigningMsg) (state: SigningState) : SigningState * SigningEffect list =
         match msg, state.Phase, state.InFlight with
-        | SigningMsg.Sign(plan, request), SigningPhase.Idle, None ->
-            requesting plan None request, [ SigningEffect.CallChallenge(plan, None, request) ]
+        | SigningMsg.Sign(plan, work, request), SigningPhase.Idle, None ->
+            requesting plan None request work, [ SigningEffect.CallChallenge(plan, None, request) ]
         // one thing at a time
         | SigningMsg.Sign _, _, _ -> state, []
 
@@ -182,10 +198,10 @@ module SigningState =
             state, []
         | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.ChallengeIssued challenge)),
           SigningPhase.Idle,
-          Some(SigningRequest.Challenge(plan, _, _)) -> challenged challenge plan None, []
+          Some(SigningRequest.Challenge(plan, _, _)) -> challenged challenge plan None (carried state), []
         | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.DataNotice notice)),
           SigningPhase.Idle,
-          Some(SigningRequest.Challenge(plan, _, _)) -> noticed plan notice, []
+          Some(SigningRequest.Challenge(plan, _, _)) -> noticed plan notice (carried state), []
         | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.Refused SigningRefusal.PinLimit)),
           SigningPhase.Idle,
           Some(SigningRequest.Challenge _) -> idle, [ SigningEffect.EndSession SessionEnding.WrongPinLimit ]
@@ -208,13 +224,13 @@ module SigningState =
             | Some data ->
                 let shown = { plan with Patient = data }
 
-                requesting shown (Some notice.Token) notice.Token,
+                requesting shown (Some notice.Token) notice.Token (carried state),
                 [
                     SigningEffect.SetPatient data
                     SigningEffect.CallChallenge(shown, Some notice.Token, notice.Token)
                 ]
             | None ->
-                requesting plan (Some notice.Token) notice.Token,
+                requesting plan (Some notice.Token) notice.Token (carried state),
                 [ SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token) ]
         | SigningMsg.Accept, _, _ -> state, []
 
@@ -223,7 +239,7 @@ module SigningState =
         // what it already did, whether the signature landed or not
         | SigningMsg.Confirm(pin, key), SigningPhase.Challenged(challenge, plan, _), None ->
             let key = state.Unsent |> Option.defaultValue key
-            submitting challenge plan key, [ SigningEffect.CallSubmit(plan, challenge, pin, key) ]
+            submitting challenge plan key (carried state), [ SigningEffect.CallSubmit(plan, challenge, pin, key) ]
         | SigningMsg.Confirm _, _, _ -> state, []
 
         // a request in flight cannot be cancelled; everything else is dropped, and the dialog with
@@ -236,14 +252,19 @@ module SigningState =
             state, []
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Submitted(signed, token))),
           SigningPhase.Challenged _,
-          Some(SigningRequest.Submission _) -> idle, [ SigningEffect.RenewToken token; SigningEffect.TellSigned signed ]
+          Some(SigningRequest.Submission _) ->
+            idle,
+            [
+                SigningEffect.RenewToken token
+                SigningEffect.TellSigned(signed, carried state)
+            ]
         // the dialog stays open with what went wrong (tries left, or locked)
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused(SigningRefusal.PinWrong _ as refusal))),
           SigningPhase.Challenged(challenge, plan, _),
           Some(SigningRequest.Submission _)
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused(SigningRefusal.Locked _ as refusal))),
           SigningPhase.Challenged(challenge, plan, _),
-          Some(SigningRequest.Submission _) -> challenged challenge plan (Some refusal), []
+          Some(SigningRequest.Submission _) -> challenged challenge plan (Some refusal) (carried state), []
         | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused SigningRefusal.PinLimit)),
           SigningPhase.Challenged _,
           Some(SigningRequest.Submission _) -> idle, [ SigningEffect.EndSession SessionEnding.WrongPinLimit ]
@@ -261,5 +282,6 @@ module SigningState =
         // without a refusal and the next Confirm retries under the same key
         | SigningMsg.SubmitAnswered(_, Error reason),
           SigningPhase.Challenged(challenge, plan, _),
-          Some(SigningRequest.Submission key) -> unsent challenge plan key, [ SigningEffect.TellError reason ]
+          Some(SigningRequest.Submission key) ->
+            unsent challenge plan key (carried state), [ SigningEffect.TellError reason ]
         | SigningMsg.SubmitAnswered _, _, _ -> state, []
