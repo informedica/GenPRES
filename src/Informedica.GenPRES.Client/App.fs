@@ -84,6 +84,12 @@ module private Elmish =
             Hospitals: Deferred<string[]>
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
+            Formulary: Deferred<Formulary>
+            Parenteralia: Deferred<Parenteralia>
+            Interactions: Deferred<DrugInteraction[]>
+            InteractionDrugNames: Deferred<string[]>
+            // the drug names are asked again on a failure, three times
+            DrugNameRetries: int
             ServerStatus: Deferred<bool>
         }
 
@@ -97,11 +103,6 @@ module private Elmish =
             OrderContext: OrderContextState
             // the one plan, as the order-plan machine holds it; the pages read a projection
             OrderPlan: OrderPlanState
-            Interactions: Deferred<DrugInteraction[]>
-            InteractionDrugNames: Deferred<string[]>
-            DrugNameRetries: int
-            Formulary: Deferred<Formulary>
-            Parenteralia: Deferred<Parenteralia>
             IsAuthenticated: bool
             AuthToken: string
             LogFiles: Deferred<LogFileInfo[]>
@@ -336,10 +337,11 @@ module private Elmish =
         state, Cmd.batch [ cmd; told ]
 
 
-    let applyFormulary (state: State) (form: Formulary) = { state with Formulary = Resolved form }, Cmd.none
+    let applyFormulary (state: State) (form: Formulary) = { state with Fetches.Formulary = Resolved form }, Cmd.none
 
 
-    let applyParenteralia (state: State) (par: Parenteralia) = { state with Parenteralia = Resolved par }, Cmd.none
+    let applyParenteralia (state: State) (par: Parenteralia) =
+        { state with Fetches.Parenteralia = Resolved par }, Cmd.none
 
 
     /// The interactions notice on the snackbar, and its withdrawal: only the notice itself is
@@ -369,9 +371,9 @@ module private Elmish =
                 else
                     withdrawInteractionsNotice state
 
-            { newState with Interactions = Resolved interactions }, Cmd.none
+            { newState with Fetches.Interactions = Resolved interactions }, Cmd.none
         | Api.InteractionResponse.DrugNamesLoaded names ->
-            { state with InteractionDrugNames = Resolved names }, Cmd.none
+            { state with Fetches.InteractionDrugNames = Resolved names }, Cmd.none
 
 
     let loadFormulary opened = createApiMsg serverApi.processFormulary opened LoadFormulary
@@ -585,11 +587,6 @@ module private Elmish =
             OrderContext = OrderContextState.noPatient
             // the patient reaches the plan through UpdatePatient
             OrderPlan = OrderPlanState.noPatient
-            Formulary = HasNotStartedYet
-            Parenteralia = HasNotStartedYet
-            Interactions = HasNotStartedYet
-            InteractionDrugNames = HasNotStartedYet
-            DrugNameRetries = 0
             IsAuthenticated = false
             AuthToken = ""
             LogFiles = HasNotStartedYet
@@ -607,6 +604,11 @@ module private Elmish =
                     Localization = HasNotStartedYet
                     Hospitals = HasNotStartedYet
                     Settings = HasNotStartedYet
+                    Formulary = HasNotStartedYet
+                    Parenteralia = HasNotStartedYet
+                    Interactions = HasNotStartedYet
+                    InteractionDrugNames = HasNotStartedYet
+                    DrugNameRetries = 0
                     ServerStatus = HasNotStartedYet
                 }
             Ui =
@@ -973,8 +975,8 @@ module private Elmish =
         { state with
             Patient = pat
             Ui.PatientDraft = dto
-            Formulary = { Formulary.empty with Patient = pat } |> Resolved
-            Parenteralia = Parenteralia.empty |> Resolved
+            Fetches.Formulary = { Formulary.empty with Patient = pat } |> Resolved
+            Fetches.Parenteralia = Parenteralia.empty |> Resolved
             Ui.EmergencyListFilter = [||]
             Ui.ContinuousMedsFilter = [||]
         },
@@ -1051,7 +1053,7 @@ module private Elmish =
 
         | CheckServer(Finished(Ok _)) ->
             let cmd =
-                match state.InteractionDrugNames with
+                match state.Fetches.InteractionDrugNames with
                 | HasNotStartedYet -> Cmd.ofMsg (LoadInteractionDrugNames Started)
                 | _ -> Cmd.none
 
@@ -1197,7 +1199,7 @@ module private Elmish =
 
         | UpdatePage page ->
             let retryDrugNames =
-                match state.InteractionDrugNames with
+                match state.Fetches.InteractionDrugNames with
                 | Resolved _
                 | InProgress -> Cmd.none
                 | _ -> Cmd.ofMsg (LoadInteractionDrugNames Started)
@@ -1507,12 +1509,15 @@ module private Elmish =
                         match effect with
                         | OrderContextEffect.SyncFormulary filter ->
                             { state with
-                                Formulary = state.Formulary |> Deferred.map (FilterSync.syncFilterToFormulary filter)
+                                Fetches.Formulary =
+                                    state.Fetches.Formulary
+                                    |> Deferred.map (FilterSync.syncFilterToFormulary filter)
                             }
                         | OrderContextEffect.SyncParenteralia filter ->
                             { state with
-                                Parenteralia =
-                                    state.Parenteralia |> Deferred.map (FilterSync.syncFilterToParenteralia filter)
+                                Fetches.Parenteralia =
+                                    state.Fetches.Parenteralia
+                                    |> Deferred.map (FilterSync.syncFilterToParenteralia filter)
                             }
                         | OrderContextEffect.GoToLifeSupport -> { state with Ui.Page = LifeSupport }
                         | OrderContextEffect.TellError errs ->
@@ -1568,18 +1573,18 @@ module private Elmish =
         // asked again over the formulary shown, which stays shown until the answer; a second
         // request while one runs is dropped
         | LoadFormulary Started ->
-            match state.Formulary with
+            match state.Fetches.Formulary with
             | InProgress
             | Refreshing _ -> state, Cmd.none
             | _ ->
                 let form =
-                    match state.Formulary with
+                    match state.Fetches.Formulary with
                     | Resolved form -> { form with Patient = state.Patient }
                     | _ -> Formulary.empty
 
                 let cmd = form |> loadFormulary (tokenOf state.Session)
 
-                { state with Formulary = state.Formulary |> Deferred.refresh }, cmd
+                { state with Fetches.Formulary = state.Fetches.Formulary |> Deferred.refresh }, cmd
 
         // without a patient the formulary is what a reload refreshes, so it settles the reload
         | LoadFormulary(Finished(Ok msg)) ->
@@ -1588,17 +1593,18 @@ module private Elmish =
 
         | LoadFormulary(Finished(Error err)) ->
             let state = if state.Patient.IsNone then settleReload state else state
-            ({ state with Formulary = HasNotStartedYet }, Cmd.none) |> processError err
+            ({ state with Fetches.Formulary = HasNotStartedYet }, Cmd.none)
+            |> processError err
 
         | UpdateFormulary form ->
             let state =
                 { state with
-                    Formulary = Resolved form
+                    Fetches.Formulary = Resolved form
                     OrderContext =
                         state.OrderContext
                         |> OrderContextState.map (FilterSync.syncFormularyToFilter form)
-                    Parenteralia =
-                        state.Parenteralia
+                    Fetches.Parenteralia =
+                        state.Fetches.Parenteralia
                         |> Deferred.map (fun par ->
                             { par with
                                 Generic = form.Generic
@@ -1621,28 +1627,29 @@ module private Elmish =
                 ]
 
         | LoadParenteralia Started ->
-            match state.Parenteralia with
+            match state.Fetches.Parenteralia with
             | InProgress
             | Refreshing _ -> state, Cmd.none
             | _ ->
                 let cmd =
-                    let par = state.Parenteralia |> Deferred.defaultValue Parenteralia.empty
+                    let par = state.Fetches.Parenteralia |> Deferred.defaultValue Parenteralia.empty
 
                     loadParenteralia (tokenOf state.Session) par
 
-                { state with Parenteralia = state.Parenteralia |> Deferred.refresh }, cmd
+                { state with Fetches.Parenteralia = state.Fetches.Parenteralia |> Deferred.refresh }, cmd
 
         | LoadParenteralia(Finished(Ok msg)) -> processApiMsg state msg applyParenteralia
 
         | LoadParenteralia(Finished(Error err)) ->
-            ({ state with Parenteralia = HasNotStartedYet }, Cmd.none) |> processError err
+            ({ state with Fetches.Parenteralia = HasNotStartedYet }, Cmd.none)
+            |> processError err
 
         | UpdateParenteralia par ->
             let state =
                 { state with
-                    Parenteralia = Resolved par
-                    Formulary =
-                        state.Formulary
+                    Fetches.Parenteralia = Resolved par
+                    Fetches.Formulary =
+                        state.Fetches.Formulary
                         |> Deferred.map (fun form ->
                             { form with
                                 Indication = None
@@ -1671,44 +1678,45 @@ module private Elmish =
 
         | CheckInteractions drugs ->
             if drugs.Length < 2 then
-                { withdrawInteractionsNotice state with Interactions = HasNotStartedYet }, Cmd.none
+                { withdrawInteractionsNotice state with Fetches.Interactions = HasNotStartedYet }, Cmd.none
             else
                 // the rows shown stay until the answer
-                { state with Interactions = state.Interactions |> Deferred.refresh },
+                { state with Fetches.Interactions = state.Fetches.Interactions |> Deferred.refresh },
                 Api.InteractionCommand.CheckInteractions drugs
                 |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionsResult
 
         | LoadInteractionsResult(Finished(Ok msg)) -> processApiMsg state msg applyInteraction
         | LoadInteractionsResult(Finished(Error err)) ->
-            ({ state with Interactions = HasNotStartedYet }, Cmd.none) |> processError err
+            ({ state with Fetches.Interactions = HasNotStartedYet }, Cmd.none)
+            |> processError err
         | LoadInteractionsResult _ -> state, Cmd.none
 
         | LoadInteractionDrugNames Started ->
-            match state.InteractionDrugNames with
+            match state.Fetches.InteractionDrugNames with
             | InProgress
             | Refreshing _ -> state, Cmd.none
             | _ ->
-                { state with InteractionDrugNames = state.InteractionDrugNames |> Deferred.refresh },
+                { state with Fetches.InteractionDrugNames = state.Fetches.InteractionDrugNames |> Deferred.refresh },
                 Api.InteractionCommand.GetDrugNames
                 |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionDrugNames
 
         | LoadInteractionDrugNames(Finished(Ok msg)) ->
             let state, cmd = processApiMsg state msg applyInteraction
-            { state with DrugNameRetries = 0 }, cmd
+            { state with Fetches.DrugNameRetries = 0 }, cmd
         | LoadInteractionDrugNames(Finished(Error _)) ->
-            let retries = state.DrugNameRetries + 1
+            let retries = state.Fetches.DrugNameRetries + 1
 
             if retries >= 3 then
                 { state with
-                    InteractionDrugNames = HasNotStartedYet
-                    DrugNameRetries = retries
+                    Fetches.InteractionDrugNames = HasNotStartedYet
+                    Fetches.DrugNameRetries = retries
                     Ui.Snackbar = Snackbar.shown "Interactie medicatie namen konden niet worden geladen" "warning"
                 },
                 Cmd.none
             else
                 { state with
-                    InteractionDrugNames = HasNotStartedYet
-                    DrugNameRetries = retries
+                    Fetches.InteractionDrugNames = HasNotStartedYet
+                    Fetches.DrugNameRetries = retries
                 },
                 async {
                     do! Async.Sleep 3000
@@ -1765,16 +1773,16 @@ type private ConcreteAppEnv
         member _.UpdatePatient p = UpdatePatient p |> dispatch
 
     interface AppEnv.IFormulary with
-        member _.Formulary = state.Formulary
+        member _.Formulary = state.Fetches.Formulary
         member _.UpdateFormulary f = UpdateFormulary f |> dispatch
 
     interface AppEnv.IParenteralia with
-        member _.Parenteralia = state.Parenteralia
+        member _.Parenteralia = state.Fetches.Parenteralia
         member _.UpdateParenteralia p = UpdateParenteralia p |> dispatch
 
     interface AppEnv.IInteractions with
-        member _.Interactions = state.Interactions
-        member _.InteractionDrugNames = state.InteractionDrugNames
+        member _.Interactions = state.Fetches.Interactions
+        member _.InteractionDrugNames = state.Fetches.InteractionDrugNames
         member _.CheckInteractions drugs = CheckInteractions drugs |> dispatch
 
     interface AppEnv.IResources with
