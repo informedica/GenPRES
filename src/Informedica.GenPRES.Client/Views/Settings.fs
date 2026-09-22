@@ -85,6 +85,12 @@ module Settings =
                 p = 4
             |}
 
+        // the files listed again: what is shown stays, the progress above it
+        let refreshing =
+            match logAnalyzer.LogFiles with
+            | Refreshing _ -> ViewHelpers.circularProgress
+            | _ -> null
+
         // Log file table content
         let logFileTable =
             match logAnalyzer.LogFiles with
@@ -95,19 +101,17 @@ module Settings =
                         <CircularProgress />
                     </Box>
                     """
-            | Resolved files when files.Length = 0 ->
+            | Resolved files
+            | Refreshing files when files.Length = 0 ->
                 JSX.jsx
                     $"""
+                    <>
+                    {refreshing}
                     <Typography variant="body2" sx={ {| p = 2 |} }>No log files found.</Typography>
+                    </>
                     """
-            // the table shown stays while the files are listed again, the progress above it
             | Resolved files
             | Refreshing files ->
-                let progress =
-                    match logAnalyzer.LogFiles with
-                    | Refreshing _ -> ViewHelpers.circularProgress
-                    | _ -> null
-
                 let rows =
                     files
                     |> Array.map (fun f ->
@@ -131,7 +135,7 @@ module Settings =
                 JSX.jsx
                     $"""
                     <>
-                    {progress}
+                    {refreshing}
                     <TableContainer component={{Paper}} sx={ {| maxHeight = 500 |} }>
                         <Table stickyHeader={true} size="small">
                             <TableHead>
