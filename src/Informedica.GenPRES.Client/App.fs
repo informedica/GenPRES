@@ -72,9 +72,6 @@ module private Elmish =
             // whether a plan command changed the plan since the order plan version last opened
             // or signed; the leave-page guard asks over it
             PlanWork: PlanWorkPolicy.PlanWork
-            // the plan's work when the signature under way was asked for: a change made since
-            // is not in that signature
-            WorkAtSign: PlanWorkPolicy.PlanWork
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -589,7 +586,6 @@ module private Elmish =
             Session = SessionState.anonymous
             Signing = SigningState.idle
             PlanWork = PlanWorkPolicy.PlanWork.AsSigned
-            WorkAtSign = PlanWorkPolicy.PlanWork.AsSigned
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -1332,21 +1328,6 @@ module private Elmish =
         | SigningMsg msg ->
             let signing, effects = SigningState.transition msg state.Signing
 
-            // the signature is asked over the plan as it is now: a change made while it is under
-            // way is not in it, and is told apart by the work kept here. A Sign while one is
-            // under way is ignored by the machine, and keeps the work the first was asked over
-            let state =
-                match msg with
-                | SigningMsg.Sign _ ->
-                    { state with
-                        WorkAtSign =
-                            UnsignedWorkPolicy.PlanWork.askedOver
-                                (state.Signing |> SigningState.view)
-                                state.PlanWork
-                                state.WorkAtSign
-                    }
-                | _ -> state
-
             let tr term =
                 Global.getLocalizedTerm state.Localization state.Context.Localization (SigningPolicy.english term) term
 
@@ -1362,11 +1343,9 @@ module private Elmish =
                 |> List.fold
                     (fun state effect ->
                         match effect with
-                        | SigningEffect.TellSigned signed ->
+                        | SigningEffect.TellSigned(signed, askedOver) ->
                             // the plan is the version just signed, unless it changed meanwhile
-                            { state with
-                                PlanWork = state.PlanWork |> PlanWorkPolicy.PlanWork.afterSigned state.WorkAtSign
-                            }
+                            { state with PlanWork = state.PlanWork |> PlanWorkPolicy.PlanWork.afterSigned askedOver }
                             |> tell (SigningPolicy.signedSentence tr signed) "success"
                         | SigningEffect.TellRefused refusal ->
                             state |> tell (SigningPolicy.refusalSentence tr refusal) "warning"
@@ -1790,7 +1769,8 @@ type private ConcreteAppEnv
 
         // one request id per Sign, so the answer lands on this request and no other
         member _.Sign plan =
-            SigningMsg(SigningMsg.Sign(plan, Guid.NewGuid().ToString())) |> dispatch
+            SigningMsg(SigningMsg.Sign(plan, state.PlanWork, Guid.NewGuid().ToString()))
+            |> dispatch
 
         member _.Accept() = SigningMsg SigningMsg.Accept |> dispatch
 
