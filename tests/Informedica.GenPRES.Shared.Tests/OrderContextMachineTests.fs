@@ -328,6 +328,70 @@ let projectionTests =
 
 
 [<Tests>]
+let viewTests =
+    testList
+        "OrderContextState.view"
+        [
+            test "no patient; the context held: settled" {
+                noPatient
+                |> OrderContextState.view
+                |> Expect.equal "no patient" OrderContextView.NoPatient
+
+                shown
+                |> OrderContextState.view
+                |> Expect.equal "the context held" (OrderContextView.Settled paracetamol)
+            }
+
+            test "the first evaluation: nothing to show; a change under way: the context sent" {
+                opening patient "r-1"
+                |> OrderContextState.view
+                |> Expect.equal "evaluating" OrderContextView.Evaluating
+
+                let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
+
+                inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1"
+                |> OrderContextState.view
+                |> Expect.equal "the context sent" (OrderContextView.Changing stepped)
+            }
+
+            test "the order dialog's context: the selected context, settled or changing as the plan is" {
+                let inPlan = { paracetamol with Id = "c-1" }
+                let plan = Shared.Models.OrderPlan.create patient [| inPlan |]
+
+                OrderPlanMachine.OrderPlanState.held patient plan (Some "c-1")
+                |> OrderPlanMachine.OrderPlanState.view
+                |> OrderContextView.dialog
+                |> Expect.equal "settled with the plan" (Some(OrderContextView.Settled inPlan))
+
+                OrderPlanMachine.OrderPlanState.changing
+                    patient
+                    plan
+                    (Some "c-1")
+                    (OrderPlanCommand.Recalculate plan)
+                    "r-1"
+                |> OrderPlanMachine.OrderPlanState.view
+                |> OrderContextView.dialog
+                |> Expect.equal "changing with the plan" (Some(OrderContextView.Changing inPlan))
+
+                OrderPlanMachine.OrderPlanState.held patient plan None
+                |> OrderPlanMachine.OrderPlanState.view
+                |> OrderContextView.dialog
+                |> Expect.equal "no selection, no dialog" None
+
+                OrderPlanMachine.OrderPlanState.held patient plan (Some "c-9")
+                |> OrderPlanMachine.OrderPlanState.view
+                |> OrderContextView.dialog
+                |> Expect.equal "a selection the plan does not hold" None
+
+                OrderPlanMachine.OrderPlanState.noPatient
+                |> OrderPlanMachine.OrderPlanState.view
+                |> OrderContextView.dialog
+                |> Expect.equal "no plan" None
+            }
+        ]
+
+
+[<Tests>]
 let stagesTests =
     testList
         "the two stages"

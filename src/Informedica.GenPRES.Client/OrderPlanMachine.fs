@@ -195,6 +195,35 @@ type OrderPlanEffect =
     | TellError of string[]
 
 
+/// The plan as the pages show it: the states a page can be in, each with what is valid in it
+/// and nothing of the request. Nothing without a patient; an open under way with nothing to
+/// show; the plan the server answered, nothing under way, with the context the dialog shows by
+/// id; a change under way, the plan shown meanwhile with that selection. A selection without a
+/// plan cannot be written. A page renders from `Settled` and `Changing` alike, so that the
+/// screen stays populated while a request runs; it steps the dialog's order from `Changing` too,
+/// over the plan shown, and builds every other command from `Settled` only.
+[<RequireQualifiedAccess>]
+type OrderPlanView =
+    | NoPatient
+    | Opening
+    | Settled of OrderPlan * selected: string option
+    /// The plan the command carries for a recalculation, so that the rows chosen show at once;
+    /// the plan held for every other change.
+    | Changing of OrderPlan * selected: string option
+
+
+module OrderPlanView =
+
+    /// Whether the plan holds the context, by id: for the prescribe button, which is not offered
+    /// for an order already in the plan.
+    let holds (id: string) (view: OrderPlanView) =
+        match view with
+        | OrderPlanView.Settled(tp, _)
+        | OrderPlanView.Changing(tp, _) -> tp.OrderContexts |> Array.exists (fun c -> c.Id = id)
+        | OrderPlanView.NoPatient
+        | OrderPlanView.Opening -> false
+
+
 module OrderPlanState =
 
     let noPatient =
@@ -284,6 +313,16 @@ module OrderPlanState =
         | OrderPlanCart.Unopened _, _ -> InProgress
         | OrderPlanCart.Opened(_, tp), Some(sent, _) -> Provisional(meanwhile tp sent)
         | OrderPlanCart.Opened(_, tp), None -> Resolved tp
+
+
+    /// The plan as the pages show it: the plan shown meanwhile while a change is under way, the
+    /// dialog's selection in both cases that carry a plan.
+    let view (state: OrderPlanState) : OrderPlanView =
+        match state.Cart, state.InFlight with
+        | OrderPlanCart.NoPatient _, _ -> OrderPlanView.NoPatient
+        | OrderPlanCart.Unopened _, _ -> OrderPlanView.Opening
+        | OrderPlanCart.Opened(_, tp), Some(sent, _) -> OrderPlanView.Changing(meanwhile tp sent, state.Selected)
+        | OrderPlanCart.Opened(_, tp), None -> OrderPlanView.Settled(tp, state.Selected)
 
 
     /// The request stage's check: the command sent when the answer names the request under way,
