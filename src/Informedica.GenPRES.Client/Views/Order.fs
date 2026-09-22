@@ -9,6 +9,7 @@ module Order =
     open Shared.Types
     open Shared.Models.Order
     open Shared
+    open OrderContextMachine
     open Elmish
     open FSharp.Core
 
@@ -69,11 +70,11 @@ module Order =
             | SetMedianComponentQuantityProperty
 
 
-        let init (ctx: Deferred<OrderContext>) =
+        let init (ctx: OrderContextView) =
             let ord, cmp, itm =
                 match ctx with
-                | Resolved ctx
-                | Provisional ctx ->
+                | OrderContextView.Settled ctx
+                | OrderContextView.Changing ctx ->
                     match ctx.Scenarios with
                     | [| sc |] ->
 
@@ -146,11 +147,16 @@ module Order =
                     setComponentQtyMax: OrderLoader -> unit
 
                 |})
+            (shown: Order option)
             (msg: Msg)
             (state: State)
             : State * Cmd<Msg>
             =
             let setOvar = OrderVariable.setOvar
+
+            // while an answer is awaited the order held is none; a change made meanwhile is
+            // over the order shown, and waits in the lane for the answer
+            let state = { state with Order = state.Order |> Option.orElse shown }
 
             let handleNav nav =
                 match state.Order with
@@ -647,7 +653,7 @@ module Order =
     let View
         (props:
             {|
-                orderContext: Deferred<OrderContext>
+                orderContext: OrderContextView
                 updateOrderScenario: OrderContext -> unit
                 stepOrderScenario:
                     {|
@@ -687,19 +693,27 @@ module Order =
 
         let getTerm = Global.getLocalizedTerm props.localizationTerms lang
 
-        let useAdjust =
+        // the context shown: settled, or the one sent while a change is under way
+        let shownContext =
             match props.orderContext with
-            | Resolved pr
-            | Provisional pr ->
-                pr.Scenarios
-                |> Array.tryExactlyOne
-                |> Option.map _.UseAdjust
-                |> Option.defaultValue false
-            | _ -> false
+            | OrderContextView.Settled ctx
+            | OrderContextView.Changing ctx -> Some ctx
+            | OrderContextView.NoPatient
+            | OrderContextView.Evaluating -> None
+
+        let shownOrder =
+            shownContext
+            |> Option.bind (fun ctx -> ctx.Scenarios |> Array.tryExactlyOne |> Option.map _.Order)
+
+        let useAdjust =
+            shownContext
+            |> Option.bind (fun pr -> pr.Scenarios |> Array.tryExactlyOne |> Option.map _.UseAdjust)
+            |> Option.defaultValue false
 
         let updateOrderScenario (ol: OrderLoader) =
             match props.orderContext with
-            | Resolved ctx ->
+            | OrderContextView.Settled ctx
+            | OrderContextView.Changing ctx ->
                 { ctx with
                     Scenarios =
                         ctx.Scenarios
@@ -719,7 +733,8 @@ module Order =
 
         let resetOrderScenario (ol: OrderLoader) =
             match props.orderContext with
-            | Resolved ctx ->
+            | OrderContextView.Settled ctx
+            | OrderContextView.Changing ctx ->
                 { ctx with
                     Scenarios =
                         ctx.Scenarios
@@ -741,7 +756,8 @@ module Order =
             let create nav =
                 fun (ol: OrderLoader) ->
                     match props.orderContext with
-                    | Resolved ctx ->
+                    | OrderContextView.Settled ctx
+                    | OrderContextView.Changing ctx ->
                         { ctx with
                             Scenarios =
                                 ctx.Scenarios
@@ -762,7 +778,8 @@ module Order =
             let createWithCmp nav =
                 fun (ol: OrderLoader) ->
                     match props.orderContext with
-                    | Resolved ctx ->
+                    | OrderContextView.Settled ctx
+                    | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
                         | Some cmp ->
@@ -788,7 +805,8 @@ module Order =
             let createWithN nav =
                 fun (n, uc) (ol: OrderLoader) ->
                     match props.orderContext with
-                    | Resolved ctx ->
+                    | OrderContextView.Settled ctx
+                    | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
                         | Some _ ->
@@ -814,7 +832,8 @@ module Order =
             let createWithCmpN nav =
                 fun (n, uc) (ol: OrderLoader) ->
                     match props.orderContext with
-                    | Resolved ctx ->
+                    | OrderContextView.Settled ctx
+                    | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
                         | Some cmp ->
@@ -867,27 +886,41 @@ module Order =
         let state, dispatch =
             React.useElmish (
                 init props.orderContext,
-                update updateOrderScenario resetOrderScenario stepper,
+                update updateOrderScenario resetOrderScenario stepper shownOrder,
                 [| box props.orderContext |]
             )
 
-        let loadingField, setLoadingField = React.useState<string option> None
+        // the field whose change went out, and whether it shows that it is loading
+        let changing, setChanging = React.useState<(string * bool) option> None
 
-        // Clear loadingField when parent finishes recalculating
+        // Clear the field changing when parent finishes recalculating
         React.useEffect (
             (fun () ->
                 match props.orderContext with
-                | Resolved _ -> setLoadingField None
+                | OrderContextView.Settled _ -> setChanging None
                 | _ -> ()
             ),
             [| box props.orderContext |]
         )
 
-        let isOrderLoading = Deferred.inProgress props.orderContext
+        let isOrderLoading =
+            match props.orderContext with
+            | OrderContextView.Evaluating
+            | OrderContextView.Changing _ -> true
+            | OrderContextView.NoPatient
+            | OrderContextView.Settled _ -> false
 
-        let isFieldLoading field = isOrderLoading && loadingField = Some field
+        let isFieldLoading field = isOrderLoading && changing = Some(field, true)
 
-        // Monotonic counter bumped on every new server response (a fresh Resolved
+        // while a change is under way only the field changing may change again, and only
+        // on an order solved through: the lane keeps one change pending, so a second field
+        // would replace the first
+        let solved = shownOrder |> Option.map isSolved |> Option.defaultValue false
+
+        let rests field =
+            isOrderLoading && (not solved || (changing |> Option.map fst) <> Some field)
+
+        // Monotonic counter bumped on every new server response (a fresh Settled
         // orderContext). Passed into stepped selects so they reset their optimistic
         // step value even when the server returns the SAME value as before (e.g. a no-op
         // step when already at the maximum) — in that case the displayed value never changes, so the
@@ -899,7 +932,7 @@ module Order =
             prevCtxRef.current <- props.orderContext
 
             match props.orderContext with
-            | Resolved _ -> revisionRef.current <- revisionRef.current + 1
+            | OrderContextView.Settled _ -> revisionRef.current <- revisionRef.current + 1
             | _ -> ()
 
         let revision = revisionRef.current
@@ -919,26 +952,20 @@ module Order =
             | IncreaseComponentQuantityProperty _ -> true
             | _ -> false
 
-        // Shadow dispatch to auto-track which field triggered loading
+        // Shadow dispatch to auto-track which field is changing, and whether it shows it
         let dispatch =
             let originalDispatch = dispatch
 
             fun msg ->
-                if not (isOptimisticStep msg) then
-                    msgToField msg |> Option.iter (fun f -> setLoadingField (Some f))
+                msgToField msg
+                |> Option.iter (fun f -> setChanging (Some(f, not (isOptimisticStep msg))))
 
                 originalDispatch msg
 
         // Use local state order when available, otherwise fall back to the
-        // order carried by the parent Deferred (Provisional case) so that
+        // order shown, the one sent while a change is under way, so that
         // the UI stays populated while the server is processing.
-        let displayOrder =
-            state.Order
-            |> Option.orElseWith (fun () ->
-                props.orderContext
-                |> Deferred.toOption
-                |> Option.bind (fun ctx -> ctx.Scenarios |> Array.tryExactlyOne |> Option.map _.Order)
-            )
+        let displayOrder = state.Order |> Option.orElse shownOrder
 
         let itms =
             match displayOrder with
@@ -1119,7 +1146,12 @@ module Order =
 
         let getWarning = ViewHelpers.getWarning
 
-        let select = ViewHelpers.orderSelect false isOrderLoading
+        // the component and the item selects are the dialog's own, never a request
+        let select = ViewHelpers.orderSelect false false
+
+        // a field's select: rests while another field is changing, shows it while its own is
+        let selectFor field =
+            ViewHelpers.orderSelect false (rests field) (isFieldLoading field)
 
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
 
@@ -1216,8 +1248,8 @@ module Order =
                     let warning = itms[i].Dose.Quantity.Level |> getWarning
 
                     vals
-                    |> select
-                        (isFieldLoading "substDoseQty")
+                    |> selectFor
+                        "substDoseQty"
                         label
                         None
                         (ChangeSubstanceDoseQuantity >> dispatch)
@@ -1249,8 +1281,8 @@ module Order =
                     let warning = itms[i].Dose.QuantityAdjust.Level |> getWarning
 
                     vals
-                    |> select
-                        (isFieldLoading "substDoseQtyAdj")
+                    |> selectFor
+                        "substDoseQtyAdj"
                         label
                         None
                         (ChangeSubstanceDoseQuantityAdjust >> dispatch)
@@ -1290,8 +1322,7 @@ module Order =
                         else
                             itms[i].Dose.PerTime.Level |> getWarning
 
-                    vals
-                    |> select (isFieldLoading "substPerTime") label None dispatch None true warning None
+                    vals |> selectFor "substPerTime" label None dispatch None true warning None
                 | _ -> null
 
             let substRateSelect =
@@ -1320,8 +1351,8 @@ module Order =
                     ovar
                     |> ViewHelpers.ovarVals (fixPrecision 3)
                     |> Array.distinctBy snd
-                    |> select
-                        (isFieldLoading "substRate")
+                    |> selectFor
+                        "substRate"
                         (Terms.``Order Adjusted dose`` |> getTerm "dosering")
                         None
                         dispatch
@@ -1381,8 +1412,8 @@ module Order =
                     let warning = cmp |> Option.bind (_.OrderableQuantity.Level >> getWarning)
 
                     vals
-                    |> select
-                        (isFieldLoading "compOrdQty")
+                    |> selectFor
+                        "compOrdQty"
                         "bereiding hoeveelheid"
                         None
                         (ChangeComponentOrderableQuantity >> dispatch)
@@ -1413,8 +1444,8 @@ module Order =
                         then
                             itm.ComponentConcentration
                             |> ViewHelpers.ovarVals (fixPrecision 3)
-                            |> select
-                                (isFieldLoading "substCompConc")
+                            |> selectFor
+                                "substCompConc"
                                 "product sterkte"
                                 None
                                 (change >> dispatch)
@@ -1443,8 +1474,8 @@ module Order =
                                 then
                                     itm.ComponentConcentration
                                     |> ViewHelpers.ovarVals string
-                                    |> select
-                                        (isFieldLoading "substCompConc")
+                                    |> selectFor
+                                        "substCompConc"
                                         "product sterkte"
                                         None
                                         (change >> dispatch)
@@ -1470,8 +1501,8 @@ module Order =
 
                     itms[i].OrderableQuantity
                     |> ViewHelpers.ovarVals (fixPrecision 3)
-                    |> select
-                        (isFieldLoading "substOrdQty")
+                    |> selectFor
+                        "substOrdQty"
                         $"{itms[i].Name} hoeveelheid"
                         None
                         (ChangeSubstanceOrderableQuantity >> dispatch)
@@ -1492,8 +1523,8 @@ module Order =
 
                     itms[i].OrderableConcentration
                     |> ViewHelpers.ovarVals (fixPrecision 3)
-                    |> select
-                        (isFieldLoading "substOrdConc")
+                    |> selectFor
+                        "substOrdConc"
                         $"{itms[i].Name} concentratie"
                         None
                         (ChangeSubstanceOrderableConcentration >> dispatch)
@@ -1510,8 +1541,8 @@ module Order =
 
                     ord.Orderable.OrderableQuantity
                     |> ViewHelpers.ovarVals string
-                    |> select
-                        (isFieldLoading "ordQty")
+                    |> selectFor
+                        "ordQty"
                         "totale hoeveelheid"
                         None
                         (ChangeOrderableQuantity >> dispatch)
@@ -1546,8 +1577,8 @@ module Order =
 
                     let warning = ord.Schedule.Frequency.Level |> getWarning
 
-                    select
-                        (isFieldLoading "frequency")
+                    selectFor
+                        "frequency"
                         (Terms.``Order Frequency`` |> getTerm "frequentie")
                         None
                         (ChangeFrequency >> dispatch)
@@ -1576,8 +1607,8 @@ module Order =
 
                     ord.Orderable.Dose.Quantity
                     |> ViewHelpers.ovarValsWithRange string 3
-                    |> select
-                        (isFieldLoading "ordDoseQty")
+                    |> selectFor
+                        "ordDoseQty"
                         "toedien hoeveelheid"
                         None
                         (ChangeOrderableDoseQuantity >> dispatch)
@@ -1609,8 +1640,8 @@ module Order =
 
                     ord.Orderable.Dose.Rate
                     |> ViewHelpers.ovarValsWithRange string 3
-                    |> select
-                        (isFieldLoading "ordDoseRate")
+                    |> selectFor
+                        "ordDoseRate"
                         (Terms.``Order Drip rate`` |> getTerm "inloop snelheid")
                         None
                         (ChangeOrderableDoseRate >> dispatch)
@@ -1628,8 +1659,8 @@ module Order =
                     ord.Schedule.Time
                     |> ViewHelpers.ovarVals (fixPrecision 2)
                     |> Array.distinctBy snd
-                    |> select
-                        (isFieldLoading "time")
+                    |> selectFor
+                        "time"
                         (Terms.``Order Administration time`` |> getTerm "inloop tijd")
                         None
                         (ChangeTime >> dispatch)
@@ -1679,7 +1710,7 @@ module Order =
                 {loadingIndicator}
             </CardContent>
             <CardActions >
-                    <Button onClick={onClickOk} disabled={isOrderLoading}>
+                    <Button onClick={onClickOk}>
                         {Terms.``Ok `` |> getTerm "Ok"}
                     </Button>
                     <Button onClick={onClickReset} disabled={isOrderLoading} startIcon={Mui.Icons.RefreshIcon}>

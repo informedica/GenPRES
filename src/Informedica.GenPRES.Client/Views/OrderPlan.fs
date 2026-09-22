@@ -9,6 +9,7 @@ module OrderPlan =
     open Shared
     open Shared.Types
     open Shared.Models
+    open OrderContextMachine
 
 
     [<JSX.Component>]
@@ -23,11 +24,6 @@ module OrderPlan =
         let contextOf (tp: OrderPlan) (orderId: string) =
             tp.OrderContexts
             |> Array.tryFind (fun c -> OrderContext.contribution c |> Option.exists (fun sc -> sc.Order.Id = orderId))
-
-        // the selected context in the plan, the one the dialog shows
-        let selectedContext (tp: OrderPlan) =
-            envOrderPlan.Selected
-            |> Option.bind (fun id -> tp.OrderContexts |> Array.tryFind (fun c -> c.Id = id))
 
         // an order-context command into the selected context
         let orderContextMsg (cmd, ctx) =
@@ -339,18 +335,10 @@ module OrderPlan =
                         orderContextMsg (Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty cmp, ctx)
             |}
 
-        // the selected context as the plan holds it, with everything the workbench knew
+        // the selected context as the plan shows it, settled or changing as the plan is
         let orderContext =
-            match orderPlan with
-            | Resolved tp ->
-                selectedContext tp
-                |> Option.map Resolved
-                |> Option.defaultValue HasNotStartedYet
-            | Provisional tp ->
-                selectedContext tp
-                |> Option.map Provisional
-                |> Option.defaultValue HasNotStartedYet
-            | _ -> HasNotStartedYet
+            OrderContextView.dialog envOrderPlan.OrderPlanView
+            |> Option.defaultValue OrderContextView.NoPatient
 
         let deleteBtn =
             match orderPlan with
