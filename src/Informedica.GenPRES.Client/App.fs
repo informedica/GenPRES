@@ -109,19 +109,27 @@ module private Elmish =
         }
 
 
-    type State =
+    /// The four lanes, each a machine's state the pages read a projection of, and the patient
+    /// they are for.
+    type LanesState =
         {
             // the patient the workbench and the plan are for: the draft, once it meets the minimum
             Patient: Patient option
-            // the prescribing workbench, as the order-context machine holds it; the pages read a
-            // projection
+            // the prescribing workbench, as the order-context machine holds it
             OrderContext: OrderContextState
-            // the one plan, as the order-plan machine holds it; the pages read a projection
+            // the one plan, as the order-plan machine holds it
             OrderPlan: OrderPlanState
             // the launch Session; Anonymous is the state every URL patient runs in
             Session: SessionState
             // the signing phase of the open Session; Idle whenever no Session is open
             Signing: SigningState
+        }
+
+
+    type State =
+        {
+            // the lanes
+            Lanes: LanesState
             // the plain fetches
             Fetches: FetchesState
             // the admin login and what it fetches
@@ -318,11 +326,11 @@ module private Elmish =
         | Api.AdminResponse.LogFileAnalyzed report -> { state with Admin.LogAnalysisReport = Resolved report }, Cmd.none
         | Api.AdminResponse.ResourcesReloaded ->
             let refresh =
-                match state.Patient with
+                match state.Lanes.Patient with
                 // the workbench evaluated again, as it is, whatever was in flight
                 | Some _ ->
                     let ctx =
-                        state.OrderContext
+                        state.Lanes.OrderContext
                         |> OrderContextState.context
                         |> Option.defaultValue OrderContext.empty
 
@@ -588,15 +596,18 @@ module private Elmish =
 
     let initialState pat page lang discl =
         {
-            // the patient follows through UpdatePatient, once the draft is a patient
-            Patient = None
-            // a medication in the url is seeded by UrlChanged, which the router fires on mount
-            // too, once the patient is set
-            OrderContext = OrderContextState.noPatient
-            // the patient reaches the plan through UpdatePatient
-            OrderPlan = OrderPlanState.noPatient
-            Session = SessionState.anonymous
-            Signing = SigningState.idle
+            Lanes =
+                {
+                    // the patient follows through UpdatePatient, once the draft is a patient
+                    Patient = None
+                    // a medication in the url is seeded by UrlChanged, which the router fires on
+                    // mount too, once the patient is set
+                    OrderContext = OrderContextState.noPatient
+                    // the patient reaches the plan through UpdatePatient
+                    OrderPlan = OrderPlanState.noPatient
+                    Session = SessionState.anonymous
+                    Signing = SigningState.idle
+                }
             Fetches =
                 {
                     NormalValues = HasNotStartedYet
@@ -662,9 +673,9 @@ module private Elmish =
     /// the signing phase and the plan's work.
     let hasUnsignedWork (state: State) =
         UnsignedWorkPolicy.hasUnsignedWork
-            (state.OrderContext |> OrderContextState.context)
-            (state.Signing |> SigningState.view)
-            (state.OrderPlan |> OrderPlanState.work)
+            (state.Lanes.OrderContext |> OrderContextState.context)
+            (state.Lanes.Signing |> SigningState.view)
+            (state.Lanes.OrderPlan |> OrderPlanState.work)
 
 
     /// Make the key pair, then present the Launch with its public key.
@@ -984,7 +995,7 @@ module private Elmish =
             )
 
         { state with
-            Patient = pat
+            Lanes.Patient = pat
             Ui.PatientDraft = dto
             Fetches.Formulary = { Formulary.empty with Patient = pat } |> Resolved
             Fetches.Parenteralia = Parenteralia.empty |> Resolved
@@ -1051,7 +1062,7 @@ module private Elmish =
 
             // the medication chosen is evaluated for the patient held; without one it is dropped
             // and said, since the patient is part of the filter
-            match state.Patient with
+            match state.Lanes.Patient with
             | Some _ ->
                 { state with Ui.Page = Prescribe },
                 Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
@@ -1219,7 +1230,7 @@ module private Elmish =
             // i.e. the order context should be "fresh"
             if
                 page = ContinuousMeds
-                && state.OrderContext
+                && state.Lanes.OrderContext
                    |> OrderContextState.context
                    |> Option.map (fun ctx -> ctx.Filter.Generic |> Option.isSome)
                    |> Option.defaultValue true
@@ -1258,7 +1269,7 @@ module private Elmish =
             // router fires UrlChanged on mount too, while a Resume may still be in flight,
             // so only Open and Closing block the url patient
             let anonymous =
-                match SessionState.view state.Session with
+                match SessionState.view state.Lanes.Session with
                 | SessionView.Open _
                 | SessionView.Closing _ -> false
                 | _ -> true
@@ -1283,9 +1294,9 @@ module private Elmish =
             let state, seed =
                 match med with
                 | None -> state, Cmd.none
-                | Some m when state.Patient.IsSome ->
+                | Some m when state.Lanes.Patient.IsSome ->
                     state,
-                    state.OrderContext
+                    state.Lanes.OrderContext
                     |> OrderContextState.context
                     |> Option.defaultValue OrderContext.empty
                     |> OrderContext.setMedication m.indication m.medication m.route m.form m.dosetype
@@ -1311,13 +1322,13 @@ module private Elmish =
                 ]
 
         | SessionMsg msg ->
-            let session, effects = SessionState.transition msg state.Session
+            let session, effects = SessionState.transition msg state.Lanes.Session
 
             // a failed close is reported only when it was this session's close: a CloseFailed
             // that arrives after a newer launch superseded the Closing session is dropped by
             // the machine and must not put an error over the newer session
             let state =
-                match msg, SessionState.view state.Session with
+                match msg, SessionState.view state.Lanes.Session with
                 | SessionMsg.CloseFailed reason, SessionView.Closing _ ->
                     Logging.error "could not close the session on the server" reason
 
@@ -1338,7 +1349,7 @@ module private Elmish =
             // plan's work stays: unsigned is unsigned
             let signing =
                 match SessionState.view session with
-                | SessionView.Open _ -> state.Signing
+                | SessionView.Open _ -> state.Lanes.Signing
                 | _ -> SigningState.idle
 
             let tr term =
@@ -1365,13 +1376,13 @@ module private Elmish =
                     state
 
             { state with
-                Session = session
-                Signing = signing
+                Lanes.Session = session
+                Lanes.Signing = signing
             },
             effects |> List.map interpretSessionEffect |> Cmd.batch
 
         | SigningMsg msg ->
-            let signing, effects = SigningState.transition msg state.Signing
+            let signing, effects = SigningState.transition msg state.Lanes.Signing
 
             let tr term =
                 Global.getLocalizedTerm
@@ -1399,7 +1410,8 @@ module private Elmish =
                     )
                     state
 
-            { state with Signing = signing }, effects |> List.map (interpretSigningEffect state.Session) |> Cmd.batch
+            { state with Lanes.Signing = signing },
+            effects |> List.map (interpretSigningEffect state.Lanes.Session) |> Cmd.batch
 
         | LoadLocalization Started ->
             { state with Fetches.Localization = InProgress },
@@ -1510,7 +1522,7 @@ module private Elmish =
                 | OrderContextMsg.Answered _ -> settleReload state
                 | _ -> state
 
-            let workbench, effects = OrderContextState.transition msg state.OrderContext
+            let workbench, effects = OrderContextState.transition msg state.Lanes.OrderContext
 
             // the filter syncs, the page and the snackbar are the interpreter's
             let state =
@@ -1544,8 +1556,10 @@ module private Elmish =
                     )
                     state
 
-            { state with OrderContext = workbench },
-            effects |> List.map (interpretOrderContextEffect state.Session) |> Cmd.batch
+            { state with Lanes.OrderContext = workbench },
+            effects
+            |> List.map (interpretOrderContextEffect state.Lanes.Session)
+            |> Cmd.batch
 
         // what the Session is told rides on the reply; the context goes to the machine under
         // the request it answers
@@ -1556,7 +1570,7 @@ module private Elmish =
                 (fun state ctx -> state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Answered(request, Ok ctx))))
 
         | OrderPlanMsg msg ->
-            let plan, effects = OrderPlanState.transition msg state.OrderPlan
+            let plan, effects = OrderPlanState.transition msg state.Lanes.OrderPlan
 
             // the page and the snackbar are the interpreter's: an order prescribed opens the
             // plan page, a refusal is said
@@ -1571,7 +1585,8 @@ module private Elmish =
                     )
                     state
 
-            { state with OrderPlan = plan }, effects |> List.map (interpretOrderPlanEffect state.Session) |> Cmd.batch
+            { state with Lanes.OrderPlan = plan },
+            effects |> List.map (interpretOrderPlanEffect state.Lanes.Session) |> Cmd.batch
 
         // what the Session is told rides on the reply; the plan goes to the machine under the
         // request it answers
@@ -1590,20 +1605,28 @@ module private Elmish =
             | _ ->
                 let form =
                     match state.Fetches.Formulary with
-                    | Resolved form -> { form with Patient = state.Patient }
+                    | Resolved form -> { form with Patient = state.Lanes.Patient }
                     | _ -> Formulary.empty
 
-                let cmd = form |> loadFormulary (tokenOf state.Session)
+                let cmd = form |> loadFormulary (tokenOf state.Lanes.Session)
 
                 { state with Fetches.Formulary = state.Fetches.Formulary |> Deferred.refresh }, cmd
 
         // without a patient the formulary is what a reload refreshes, so it settles the reload
         | LoadFormulary(Finished(Ok msg)) ->
-            let state = if state.Patient.IsNone then settleReload state else state
+            let state =
+                if state.Lanes.Patient.IsNone then
+                    settleReload state
+                else
+                    state
             processApiMsg state msg applyFormulary
 
         | LoadFormulary(Finished(Error err)) ->
-            let state = if state.Patient.IsNone then settleReload state else state
+            let state =
+                if state.Lanes.Patient.IsNone then
+                    settleReload state
+                else
+                    state
             ({ state with Fetches.Formulary = HasNotStartedYet }, Cmd.none)
             |> processError err
 
@@ -1611,8 +1634,8 @@ module private Elmish =
             let state =
                 { state with
                     Fetches.Formulary = Resolved form
-                    OrderContext =
-                        state.OrderContext
+                    Lanes.OrderContext =
+                        state.Lanes.OrderContext
                         |> OrderContextState.map (FilterSync.syncFormularyToFilter form)
                     Fetches.Parenteralia =
                         state.Fetches.Parenteralia
@@ -1630,7 +1653,7 @@ module private Elmish =
                 [
                     Cmd.ofMsg (LoadFormulary Started)
                     // the workbench evaluated again over the filter just synced
-                    (state.OrderContext
+                    (state.Lanes.OrderContext
                      |> OrderContextState.context
                      |> Option.map (fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ()))))
                      |> Option.defaultValue Cmd.none)
@@ -1645,7 +1668,7 @@ module private Elmish =
                 let cmd =
                     let par = state.Fetches.Parenteralia |> Deferred.defaultValue Parenteralia.empty
 
-                    loadParenteralia (tokenOf state.Session) par
+                    loadParenteralia (tokenOf state.Lanes.Session) par
 
                 { state with Fetches.Parenteralia = state.Fetches.Parenteralia |> Deferred.refresh }, cmd
 
@@ -1670,8 +1693,8 @@ module private Elmish =
                                 DoseType = None
                             }
                         )
-                    OrderContext =
-                        state.OrderContext
+                    Lanes.OrderContext =
+                        state.Lanes.OrderContext
                         |> OrderContextState.map (FilterSync.syncParenteraliaToFilter par)
                 }
 
@@ -1680,7 +1703,7 @@ module private Elmish =
                 [
                     Cmd.ofMsg (LoadFormulary Started)
                     // the workbench evaluated again over the filter just synced
-                    (state.OrderContext
+                    (state.Lanes.OrderContext
                      |> OrderContextState.context
                      |> Option.map (fun ctx -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ()))))
                      |> Option.defaultValue Cmd.none)
@@ -1694,7 +1717,7 @@ module private Elmish =
                 // the rows shown stay until the answer
                 { state with Fetches.Interactions = state.Fetches.Interactions |> Deferred.refresh },
                 Api.InteractionCommand.CheckInteractions drugs
-                |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionsResult
+                |> createApiMsg serverApi.processInteraction (tokenOf state.Lanes.Session) LoadInteractionsResult
 
         | LoadInteractionsResult(Finished(Ok msg)) -> processApiMsg state msg applyInteraction
         | LoadInteractionsResult(Finished(Error err)) ->
@@ -1709,7 +1732,7 @@ module private Elmish =
             | _ ->
                 { state with Fetches.InteractionDrugNames = state.Fetches.InteractionDrugNames |> Deferred.refresh },
                 Api.InteractionCommand.GetDrugNames
-                |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionDrugNames
+                |> createApiMsg serverApi.processInteraction (tokenOf state.Lanes.Session) LoadInteractionDrugNames
 
         | LoadInteractionDrugNames(Finished(Ok msg)) ->
             let state, cmd = processApiMsg state msg applyInteraction
@@ -1759,17 +1782,17 @@ type private ConcreteAppEnv
         member _.LocalizationTerms = state.Fetches.Localization
 
     interface AppEnv.IOrderContext with
-        member _.OrderContext = state.OrderContext |> OrderContextState.view
+        member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.view
 
         member _.OrderContextMsg(cmd, ctx) =
             OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
 
-        member _.Dialog = state.OrderContext |> OrderContextState.dialog
+        member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialog
 
         member _.Select id = OrderContextMsg(OrderContextMsg.Select id) |> dispatch
 
     interface AppEnv.IOrderPlan with
-        member _.OrderPlan = state.OrderPlan |> OrderPlanState.view
+        member _.OrderPlan = state.Lanes.OrderPlan |> OrderPlanState.view
 
         member _.OrderPlanCommand cmd =
             OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch
@@ -1801,7 +1824,7 @@ type private ConcreteAppEnv
         member _.ReloadResources() = ReloadResources |> dispatch
 
     interface AppEnv.ISession with
-        member _.Session = state.Session |> SessionState.view
+        member _.Session = state.Lanes.Session |> SessionState.view
         member _.Close() = SessionMsg SessionMsg.Close |> dispatch
         member _.Retry() = SessionMsg SessionMsg.Retry |> dispatch
 
@@ -1809,16 +1832,16 @@ type private ConcreteAppEnv
 
         member _.SupplyPin code pin = SessionMsg(SessionMsg.SupplyPin(code, pin)) |> dispatch
 
-        member _.MovedOn = state.Session |> SessionState.movedOn
+        member _.MovedOn = state.Lanes.Session |> SessionState.movedOn
 
         member _.OpenVersion id = SessionMsg(SessionMsg.OpenVersion id) |> dispatch
 
     interface AppEnv.ISigning with
-        member _.Signing = state.Signing |> SigningState.view
+        member _.Signing = state.Lanes.Signing |> SigningState.view
 
         // one request id per Sign, so the answer lands on this request and no other
         member _.Sign plan =
-            SigningMsg(SigningMsg.Sign(plan, OrderPlanState.work state.OrderPlan, Guid.NewGuid().ToString()))
+            SigningMsg(SigningMsg.Sign(plan, OrderPlanState.work state.Lanes.OrderPlan, Guid.NewGuid().ToString()))
             |> dispatch
 
         member _.Accept() = SigningMsg SigningMsg.Accept |> dispatch
@@ -1989,7 +2012,7 @@ let View () =
             showDisclaimer =
                 state.Ui.ShowDisclaimer
                 && (
-                    match SessionState.view state.Session with
+                    match SessionState.view state.Lanes.Session with
                     | SessionView.Anonymous -> true
                     | _ -> false
                 )
