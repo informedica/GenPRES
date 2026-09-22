@@ -119,7 +119,8 @@ Versions are derived by EasyBuild.ShipIt from the commit history; see [DEVELOPME
 > and a remediation roadmap is maintained in
 > [`docs/security/2026-04-10-security-review.md`](docs/security/2026-04-10-security-review.md).
 > The list below is the high-level summary; refer to the security review
-> for the authoritative state.
+> for the authoritative state. The threats themselves, by STRIDE category,
+> are kept in [`docs/security/threat-model.md`](docs/security/threat-model.md).
 
 ### Current Security Controls
 
