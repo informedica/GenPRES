@@ -38,11 +38,9 @@ module Nutrition =
     module private Elmish =
 
 
-        type State =
-            {
-                Order: Order option
-                SelectedComponent: string option
-            }
+        /// What the slot holds of its own: the component picked, never the order, which is
+        /// the one the slot's context has.
+        type State = { SelectedComponent: string option }
 
         type Msg =
             | ChangeComponent of string option
@@ -74,26 +72,22 @@ module Nutrition =
             | SetMedianComponentQuantityProperty of cmp: string
 
 
+        /// The component picked, seeded from the one scenario of the slot's context: its first
+        /// component.
         let init (ctx: OrderContext) =
-            let ord, cmp =
+            let cmp =
                 match ctx.Scenarios with
                 | [| sc |] ->
-                    let ord = sc.Order
-
-                    match ord.Orderable.Components with
-                    | [||] -> Some ord, None
-                    | cmps -> Some ord, Some cmps[0].Name
+                    match sc.Order.Orderable.Components with
+                    | [||] -> None
+                    | cmps -> Some cmps[0].Name
                 | _ ->
                     if ctx.Scenarios |> Array.length > 1 then
                         Logging.error "received multiple scenarios" ctx.Scenarios.Length
 
-                    None, None
+                    None
 
-            {
-                SelectedComponent = cmp
-                Order = ord
-            },
-            Cmd.none
+            { SelectedComponent = cmp }, Cmd.none
 
 
         let update
@@ -119,39 +113,42 @@ module Nutrition =
                     setComponentQtyInc: int * bool -> OrderLoader -> unit
                     setComponentQtyMax: OrderLoader -> unit
                 |})
+            (shown: Order option)
             (msg: Msg)
             (state: State)
             : State * Cmd<Msg>
             =
             let setOvar = OrderVariable.setOvar
 
+            // every change and every step is over the order shown, the slot's context's; the
+            // plan lane holds it, the slot holds none
             let handleNav nav =
-                match state.Order with
+                match shown with
                 | None -> state, Cmd.none
                 | Some ord ->
                     OrderLoader.create state.SelectedComponent None ord |> nav
-                    { state with Order = None }, Cmd.none
+                    state, Cmd.none
 
             let handleNavWithCmp cmpName nav =
-                match state.Order with
+                match shown with
                 | None -> state, Cmd.none
                 | Some ord ->
                     OrderLoader.create (Some cmpName) None ord |> nav
-                    { state with Order = None }, Cmd.none
+                    state, Cmd.none
 
             match msg with
 
             | UpdateOrderScenario ord ->
                 OrderLoader.create state.SelectedComponent None ord |> updateOrderScenario
 
-                { state with Order = None }, Cmd.none
+                state, Cmd.none
 
             | ResetOrderScenario ->
-                match state.Order with
+                match shown with
                 | Some ord -> OrderLoader.create state.SelectedComponent None ord |> resetOrderScenario
                 | None -> ()
 
-                { state with Order = None }, Cmd.none
+                state, Cmd.none
 
             | ChangeComponent cmp ->
                 match cmp with
@@ -159,7 +156,7 @@ module Nutrition =
                 | Some _ -> { state with SelectedComponent = cmp }, Cmd.none
 
             | ChangeComponentOrderableQuantity(cmpName, s) ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -174,11 +171,11 @@ module Nutrition =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeComponentDoseQuantityAdjust(cmpName, s) ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -195,47 +192,47 @@ module Nutrition =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeOrderableDoseRate s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with Order.Orderable.Dose.Rate = ord.Orderable.Dose.Rate |> setOvar s }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeOrderableQuantity s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with Order.Orderable.OrderableQuantity = ord.Orderable.OrderableQuantity |> setOvar s }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeFrequency s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with Order.Schedule.Frequency = ord.Schedule.Frequency |> setOvar s }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeOrderableDoseQuantity s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with Order.Orderable.Dose.Quantity = ord.Orderable.Dose.Quantity |> setOvar s }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             // Rate navigation
@@ -856,22 +853,19 @@ module Nutrition =
                     createWithCmp (navCmpQty Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty)
             |}
 
+        // the order shown: the one scenario's of the slot's context
+        let shownOrder = ctx.Scenarios |> Array.tryExactlyOne |> Option.map _.Order
+
         let state, dispatch =
-            React.useElmish (init ctx, update updateOrderScenario resetOrderScenario stepper, [| box ctx |])
+            React.useElmish (init ctx, update updateOrderScenario resetOrderScenario stepper shownOrder, [| box ctx |])
 
         let isOrderLoading = props.isRecalculating
-        let isLoading = state.Order.IsNone && not props.isRecalculating
         let select = ViewHelpers.orderSelect true isOrderLoading
         let filterSelect = ViewHelpers.filterSelect isOrderLoading isOrderLoading
         let autoComplete = ViewHelpers.autoComplete isOrderLoading isOrderLoading
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
 
-        // Use local state order when available, otherwise fall back to the
-        // order carried by the parent context so that the UI stays populated
-        // while the server is processing.
-        let displayOrder =
-            state.Order
-            |> Option.orElseWith (fun () -> ctx.Scenarios |> Array.tryExactlyOne |> Option.map _.Order)
+        let displayOrder = shownOrder
 
         let componentRows =
             match displayOrder with
@@ -917,7 +911,7 @@ module Nutrition =
 
                     let qtyControl =
                         select
-                            isLoading
+                            false
                             qtyLabel
                             None
                             (fun s -> ChangeComponentOrderableQuantity(cmp.Name, s) |> dispatch)
@@ -934,7 +928,7 @@ module Nutrition =
 
                     let doseDisplay =
                         select
-                            isLoading
+                            false
                             doseLabel
                             None
                             (fun s -> ChangeComponentDoseQuantityAdjust(cmp.Name, s) |> dispatch)
@@ -989,7 +983,7 @@ module Nutrition =
                         SetMaxDoseQuantityProperty
 
                 select
-                    isLoading
+                    false
                     label
                     None
                     (ChangeOrderableDoseQuantity >> dispatch)
@@ -1014,7 +1008,7 @@ module Nutrition =
                 let label = ord.Schedule.Frequency |> ViewHelpers.ovarLabel "frequentie"
                 let freqVals = ord.Schedule.Frequency |> ViewHelpers.ovarVals string
 
-                select isLoading label None (ChangeFrequency >> dispatch) None false warning selectMinWidth freqVals
+                select false label None (ChangeFrequency >> dispatch) None false warning selectMinWidth freqVals
             | _ -> null
 
         let genericFilter =
@@ -1110,7 +1104,7 @@ module Nutrition =
                 let rateDisplay =
                     ord.Orderable.Dose.Rate
                     |> ViewHelpers.ovarValsWithRange string 3
-                    |> select isLoading label None (ChangeOrderableDoseRate >> dispatch) nav false warning (Some 400)
+                    |> select false label None (ChangeOrderableDoseRate >> dispatch) nav false warning (Some 400)
 
                 let timeDisplay =
                     ord.Schedule.Time
