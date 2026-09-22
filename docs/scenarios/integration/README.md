@@ -37,6 +37,9 @@ design; the gap is named under the page's *Not built*.
 Three extensions have diagrams of their own, where the order of messages is the point: two
 launches racing (UC-1), the signing modal (UC-3) and both Users signing at once (UC-4).
 
+The next use cases to be written are the nutrition order and the pharmacy notification; the
+fit-gap analysis (`docs/roadmap/fit-gap-ap2019-vs-genpres.md`) names the rows each has to cover.
+
 ## The model, from other angles
 
 - [Actors and edges](actors-and-edges.md) — who may talk to whom, and which of those edges is
