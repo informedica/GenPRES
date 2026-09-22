@@ -14,6 +14,7 @@ module Nutrition =
     open Elmish
     open Utils
     open FSharp.Core
+    open OrderPlanMachine
 
 
     /// Whether a context is a nutrition order of one of the categories.
@@ -73,24 +74,20 @@ module Nutrition =
             | SetMedianComponentQuantityProperty of cmp: string
 
 
-        let init (ctx: Deferred<OrderContext>) =
+        let init (ctx: OrderContext) =
             let ord, cmp =
-                match ctx with
-                | Resolved ctx
-                | Provisional ctx ->
-                    match ctx.Scenarios with
-                    | [| sc |] ->
-                        let ord = sc.Order
+                match ctx.Scenarios with
+                | [| sc |] ->
+                    let ord = sc.Order
 
-                        match ord.Orderable.Components with
-                        | [||] -> Some ord, None
-                        | cmps -> Some ord, Some cmps[0].Name
-                    | _ ->
-                        if ctx.Scenarios |> Array.length > 1 then
-                            Logging.error "received multiple scenarios" ctx.Scenarios.Length
+                    match ord.Orderable.Components with
+                    | [||] -> Some ord, None
+                    | cmps -> Some ord, Some cmps[0].Name
+                | _ ->
+                    if ctx.Scenarios |> Array.length > 1 then
+                        Logging.error "received multiple scenarios" ctx.Scenarios.Length
 
-                        None, None
-                | _ -> None, None
+                    None, None
 
             {
                 SelectedComponent = cmp
@@ -860,7 +857,7 @@ module Nutrition =
             |}
 
         let state, dispatch =
-            React.useElmish (init (Resolved ctx), update updateOrderScenario resetOrderScenario stepper, [| box ctx |])
+            React.useElmish (init ctx, update updateOrderScenario resetOrderScenario stepper, [| box ctx |])
 
         let isOrderLoading = props.isRecalculating
         let isLoading = state.Order.IsNone && not props.isRecalculating
@@ -1380,7 +1377,7 @@ module Nutrition =
         // the one plan: the nutrition workbenches live in the order plan, which is there
         // with the patient
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
-        let orderPlan = envOrderPlan.OrderPlan
+        let orderPlan = envOrderPlan.OrderPlanView
         let planCommand = envOrderPlan.OrderPlanCommand
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
@@ -1393,16 +1390,23 @@ module Nutrition =
 
         let progress =
             match orderPlan with
-            | HasNotStartedYet when patient.IsNone ->
+            | OrderPlanView.NoPatient when patient.IsNone ->
                 let msg = Terms.``Patient enter patient data`` |> getTerm "Voer patient gegevens in ..."
 
                 JSX.jsx $"<>{msg}</>"
-            | _ -> ViewHelpers.progressOrEmpty orderPlan
+            | OrderPlanView.NoPatient
+            | OrderPlanView.Opening -> ViewHelpers.circularProgress
+            | OrderPlanView.Settled _
+            | OrderPlanView.Changing _ -> null
 
+        // the slots and the buttons rest while a change is under way: the plan takes one change
+        // at a time
         let isRecalculating =
             match orderPlan with
-            | Provisional _ -> true
-            | _ -> false
+            | OrderPlanView.Changing _ -> true
+            | OrderPlanView.NoPatient
+            | OrderPlanView.Opening
+            | OrderPlanView.Settled _ -> false
 
         let confirmDeleteTarget, setConfirmDeleteTarget = React.useState<string option> None
         let enteralExpanded, setEnteralExpanded = React.useState true
@@ -1438,8 +1442,8 @@ module Nutrition =
 
         let content =
             match orderPlan with
-            | Resolved plan
-            | Provisional plan ->
+            | OrderPlanView.Settled(plan, _)
+            | OrderPlanView.Changing(plan, _) ->
                 let enteralContexts = plan.OrderContexts |> Array.filter (isOneOf enteral)
                 let parenteralContexts = plan.OrderContexts |> Array.filter (isOneOf parenteral)
 
@@ -1568,7 +1572,8 @@ module Nutrition =
                     </Stack>
                 </Stack>
                 """
-            | _ -> null
+            | OrderPlanView.NoPatient
+            | OrderPlanView.Opening -> null
 
         let confirmDeleteDialog =
             let isOpen = confirmDeleteTarget.IsSome
@@ -1579,9 +1584,12 @@ module Nutrition =
             let handleConfirm =
                 fun _ ->
                     match confirmDeleteTarget, orderPlan with
-                    | Some ncId, Resolved plan ->
+                    | Some ncId, OrderPlanView.Settled(plan, _) ->
                         Api.OrderPlanCommand.RemoveOrderContexts(plan, [| ncId |]) |> planCommand
-                    | _ -> ()
+                    | None, _
+                    | Some _, OrderPlanView.NoPatient
+                    | Some _, OrderPlanView.Opening
+                    | Some _, OrderPlanView.Changing _ -> ()
 
                     setConfirmDeleteTarget None
 
@@ -1613,13 +1621,15 @@ module Nutrition =
 
         let printDialog =
             match printOpen, orderPlan with
-            | true, (Resolved plan | Provisional plan) ->
+            | true, (OrderPlanView.Settled(plan, _) | OrderPlanView.Changing(plan, _)) ->
                 ParenteralPrintView
                     {|
                         plan = plan
                         onClose = fun () -> setPrintOpen false
                     |}
-            | _ -> null
+            | false, _
+            | true, OrderPlanView.NoPatient
+            | true, OrderPlanView.Opening -> null
 
         JSX.jsx
             $"""
