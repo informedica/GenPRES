@@ -520,9 +520,7 @@ module SessionState =
 
     /// Every arm names the phase and the request under way, and every new state is built through
     /// a constructor, so that a Launch kept to present again never outlives the state it belongs
-    /// to. The messages of the second half (the PIN, the close, the endings, the token, the
-    /// version) still answer the state unchanged: the DU's transition runs them until the next
-    /// step moves them here.
+    /// to.
     let transition (msg: SessionMsg) (state: SessionState) : SessionState * SessionEffect list =
         match msg, state.Phase, state.InFlight with
         // a presentation under way is never replaced by a second one for the same Launch; the
@@ -586,14 +584,75 @@ module SessionState =
         | SessionMsg.OpenAnonymous, SessionPhase.Ended _, None -> anonymous, [ SessionEffect.SetPatient None ]
         | SessionMsg.OpenAnonymous, _, _ -> state, []
 
-        | SessionMsg.SupplyPin _, _, _
-        | SessionMsg.PinAnswered _, _, _
-        | SessionMsg.Close, _, _
-        | SessionMsg.Closed, _, _
-        | SessionMsg.CloseFailed _, _, _
-        | SessionMsg.EndedByServer _, _, _
-        | SessionMsg.TokenRenewed _, _, _
-        | SessionMsg.OpenVersion _, _, _
+        // the form is sent once at a time, and the refusal it answers is spent; the answer lands
+        // only on the request in flight
+        | SessionMsg.SupplyPin(code, pin), SessionPhase.Enrolling(pending, _), None ->
+            supplyingPin pending, [ SessionEffect.CallSupplyPin(code, pin) ]
+        | SessionMsg.SupplyPin _, _, _ -> state, []
+        | SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)),
+          SessionPhase.Enrolling _,
+          Some SessionRequest.SupplyingPin -> onOpened session
+        // the form stays open with what went wrong (a wrong code with a try left; a PIN out of format)
+        | SessionMsg.PinAnswered(Ok(PinOutcome.Refused(PinRefusal.WrongCode _ as refusal))),
+          SessionPhase.Enrolling(pending, _),
+          Some SessionRequest.SupplyingPin
+        | SessionMsg.PinAnswered(Ok(PinOutcome.Refused(PinRefusal.PinFormat as refusal))),
+          SessionPhase.Enrolling(pending, _),
+          Some SessionRequest.SupplyingPin -> enrolling pending (Some refusal), []
+        // terminal: the code is void or expired, or the active Patient moved; relaunch
+        | SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)),
+          SessionPhase.Enrolling _,
+          Some SessionRequest.SupplyingPin -> enrolmentFailed refusal, []
+        // the request never got there: the attempt stands, the form comes back as it was
+        | SessionMsg.PinAnswered(Error _), SessionPhase.Enrolling(pending, _), Some SessionRequest.SupplyingPin ->
+            enrolling pending None, []
+        | SessionMsg.PinAnswered _, _, _ -> state, []
+
+        | SessionMsg.Close, SessionPhase.Open session, None -> closing session, [ SessionEffect.CallCloseSession ]
+        | SessionMsg.Close, _, _ -> state, []
+
+        // a launched patient and everything derived from it leave with the session. Closed
+        // lands only on the close under way: a close that completes after a newer presentation
+        // has superseded it must not touch the newer session (the same guard as Outcome)
+        | SessionMsg.Closed, _, Some SessionRequest.Closing -> anonymous, [ SessionEffect.SetPatient None ]
+        | SessionMsg.Closed, _, _ -> state, []
+
+        // a close that never reached the server has closed nothing: the Session stays open,
+        // with its patient, and the UI says so; the same guard as Closed
+        | SessionMsg.CloseFailed _, SessionPhase.Open session, Some SessionRequest.Closing -> opened session, []
+        | SessionMsg.CloseFailed _, _, _ -> state, []
+
+        // the server ended the Session at a signature; the gate says why and the close
+        // acknowledges it, as a Resumed ending does; a close under way is left to complete
+        | SessionMsg.EndedByServer ending, SessionPhase.Open _, None -> ended ending, [ SessionEffect.CallCloseSession ]
+        | SessionMsg.EndedByServer _, _, _ -> state, []
+
+        // the token the next signature has to present
+        | SessionMsg.TokenRenewed token, SessionPhase.Open session, None ->
+            opened { session with OpenedToken = Some token }, []
+        | SessionMsg.TokenRenewed _, _, _ -> state, []
+
+        // only an open Session has a version to take up; the request remembers the token it
+        // started from
+        | SessionMsg.OpenVersion id, SessionPhase.Open session, None ->
+            state, [ SessionEffect.CallOpenVersion(id, session.OpenedToken) ]
+        | SessionMsg.OpenVersion _, _, _ -> state, []
+
+        // the Session as the server now holds it: the token over the version opened, and its
+        // orders into the cart; the patient is unchanged, so no SetPatient. Nothing to open, or
+        // the request never got there: the Session stays as it was, and the next request tells
+        // what the head is. The stale-request guard: an answer lands only on the open Session
+        // that still holds the token the request started from; a Session closed, relaunched or
+        // reopened meanwhile drops it
+        | SessionMsg.Reopened(from, Ok(Some session)), SessionPhase.Open current, None when current.OpenedToken = from ->
+            opened session,
+            [
+                match session.PatientContext, session.Head with
+                | Some _, Some head ->
+                    SessionEffect.LoadCart head
+                    SessionEffect.TellVersionOpened head.Head
+                | _ -> ()
+            ]
         | SessionMsg.Reopened _, _, _ -> state, []
 
 

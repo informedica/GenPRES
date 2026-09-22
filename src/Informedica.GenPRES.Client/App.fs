@@ -66,7 +66,7 @@ module private Elmish =
             // counts logins and logouts, so that a login answer of an earlier attempt is dropped
             LoginAttempt: int
             // the launch Session; Anonymous is the state every URL patient runs in
-            Session: Session
+            Session: SessionState
             // the signing phase of the open Session; Idle whenever no Session is open
             Signing: SigningState
             // the newest version told while the Session is on an older
@@ -198,10 +198,7 @@ module private Elmish =
 
     /// The OpenedToken the Session holds, sent with every computing request; none
     /// without an open Session.
-    let tokenOf (session: Session) =
-        match session with
-        | Session.Open opened -> opened.OpenedToken
-        | _ -> None
+    let tokenOf = SessionState.token
 
 
     /// A request id, minted at dispatch, so that an answer can name the request it answers.
@@ -300,10 +297,7 @@ module private Elmish =
     /// open Session holds now; a reply of a Session since closed, replaced or re-minted says
     /// nothing about this one (the next request repeats what still holds; the notice is stateless).
     let processApiMsg (state: State) (answer: Answer<'r>) (apply: State -> 'r -> State * Cmd<Msg>) =
-        let current =
-            match state.Session with
-            | Session.Open opened -> Some opened.OpenedToken
-            | _ -> None
+        let current = SessionState.session state.Session |> Option.map _.OpenedToken
 
         let told =
             match answer.Reply.Notice with
@@ -603,7 +597,7 @@ module private Elmish =
             LogAnalysisReport = HasNotStartedYet
             Reloading = HasNotStartedYet
             LoginAttempt = 0
-            Session = Session.Anonymous
+            Session = SessionState.anonymous
             Signing = SigningState.idle
             MovedOn = None
             PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned
@@ -796,7 +790,7 @@ module private Elmish =
     /// can drop one that belongs to an earlier Session. Without an open Session nothing is sent:
     /// the answer is a refusal. What is told (signed, refused, an error) is put on the snackbar
     /// by `update`, not here.
-    let interpretSigningEffect (session: Session) (effect: SigningEffect) : Cmd<Msg> =
+    let interpretSigningEffect (session: SessionState) (effect: SigningEffect) : Cmd<Msg> =
         let token = tokenOf session
 
         match effect with
@@ -857,7 +851,7 @@ module private Elmish =
     /// for, so the machine can drop an answer to an earlier request; the notice rides on the
     /// reply and is told by `update`; a transport failure is an Error answer, never an
     /// exception. The page and the snackbar are `update`'s, not here.
-    let interpretOrderPlanEffect (session: Session) (effect: OrderPlanEffect) : Cmd<Msg> =
+    let interpretOrderPlanEffect (session: SessionState) (effect: OrderPlanEffect) : Cmd<Msg> =
         match effect with
         | OrderPlanEffect.CallPlan(cmd, request) ->
             let opened = tokenOf session
@@ -895,7 +889,7 @@ module private Elmish =
     /// sent for; the notice rides on the reply and is told by `update`; a transport failure is
     /// an Error answer. The filter syncs and the page are state changes, made by `update`; only
     /// the loads they need are commands.
-    let interpretOrderContextEffect (session: Session) (effect: OrderContextEffect) : Cmd<Msg> =
+    let interpretOrderContextEffect (session: SessionState) (effect: OrderContextEffect) : Cmd<Msg> =
         match effect with
         | OrderContextEffect.CallContext(cmd, ctx, request) ->
             let opened = tokenOf session
@@ -1250,7 +1244,7 @@ module private Elmish =
             // router fires UrlChanged on mount too, while a Resume may still be in flight,
             // so only Open and Closing block the url patient
             let anonymous =
-                match Session.view state.Session with
+                match SessionState.view state.Session with
                 | SessionView.Open _
                 | SessionView.Closing _ -> false
                 | _ -> true
@@ -1303,13 +1297,13 @@ module private Elmish =
                 ]
 
         | SessionMsg msg ->
-            let session, effects = Session.transition msg state.Session
+            let session, effects = SessionState.transition msg state.Session
 
             // a failed close is reported only when it was this session's close: a CloseFailed
             // that arrives after a newer launch superseded the Closing session is dropped by
             // the machine and must not put an error over the newer session
             let state =
-                match msg, Session.view state.Session with
+                match msg, SessionState.view state.Session with
                 | SessionMsg.CloseFailed reason, SessionView.Closing _ ->
                     Logging.error "could not close the session on the server" reason
 
@@ -1332,7 +1326,7 @@ module private Elmish =
             // a signature belongs to an open Session: whatever ends the Session drops it;
             // so does the moved-on notice. The plan's work stays: unsigned is unsigned
             let signing, movedOn =
-                match Session.view session with
+                match SessionState.view session with
                 | SessionView.Open _ -> state.Signing, state.MovedOn
                 | _ -> SigningState.idle, None
 
@@ -1817,7 +1811,7 @@ type private ConcreteAppEnv
         member _.ReloadResources() = ReloadResources |> dispatch
 
     interface AppEnv.ISession with
-        member _.Session = state.Session |> Session.view
+        member _.Session = state.Session |> SessionState.view
         member _.Close() = SessionMsg SessionMsg.Close |> dispatch
         member _.Retry() = SessionMsg SessionMsg.Retry |> dispatch
 
@@ -2003,7 +1997,7 @@ let View () =
             showDisclaimer =
                 state.ShowDisclaimer
                 && (
-                    match Session.view state.Session with
+                    match SessionState.view state.Session with
                     | SessionView.Anonymous -> true
                     | _ -> false
                 )
