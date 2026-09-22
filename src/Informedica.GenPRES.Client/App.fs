@@ -2,8 +2,10 @@ module App
 
 open System
 open Fable.Core
+open Fable.Core.JsInterop
 open Browser
 open Fable.React
+open Feliz
 open Elmish
 open Feliz.Router
 open Fable.Remoting.Client
@@ -70,6 +72,9 @@ module private Elmish =
             // the newest version told while the Session is on an older
             // one; None whenever no Session is open
             MovedOn: OrderPlanHead option
+            // the order plan version last opened or signed in the open Session, the baseline
+            // unsigned work is told from; None whenever no Session is open
+            LastSigned: SignedOrderPlan option
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -598,6 +603,7 @@ module private Elmish =
             Session = Session.Anonymous
             Signing = Signing.Idle
             MovedOn = None
+            LastSigned = None
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -616,6 +622,34 @@ module private Elmish =
             State.Context.Localization = language.Current
             LanguageChosen = language.Chosen
         }
+
+
+    /// Whether leaving the page would lose work: a medication on the prescribing workbench, a
+    /// signature under way, or orders in the plan that the version last opened or signed does
+    /// not hold. Orders added or removed count; a change inside a signed order does not yet. An
+    /// anonymous plan is never signed, so any order in it is work.
+    let hasUnsignedWork (state: State) =
+        let workbench =
+            state.OrderContext
+            |> OrderContextState.context
+            |> Option.exists (fun ctx -> ctx.Filter.Generic.IsSome)
+
+        let signing =
+            match state.Signing with
+            | Signing.Idle -> false
+            | _ -> true
+
+        let plan =
+            match state.OrderPlan |> OrderPlanState.plan with
+            | None -> false
+            | Some tp ->
+                let ids (contexts: OrderContext[]) = contexts |> Array.map _.Id |> Array.sort
+
+                let signed = state.LastSigned |> Option.map _.OrderContexts |> Option.defaultValue [||]
+
+                ids tp.OrderContexts <> ids signed
+
+        workbench || signing || plan
 
 
     /// Make the key pair, then present the Launch with its public key.
@@ -1311,11 +1345,11 @@ module private Elmish =
                 | _ -> state
 
             // a signature belongs to an open Session: whatever ends the Session drops it;
-            // so does the moved-on notice
-            let signing, movedOn =
+            // so do the moved-on notice and the version last signed
+            let signing, movedOn, lastSigned =
                 match session with
-                | Session.Open _ -> state.Signing, state.MovedOn
-                | _ -> Signing.Idle, None
+                | Session.Open _ -> state.Signing, state.MovedOn, state.LastSigned
+                | _ -> Signing.Idle, None, None
 
             // the version is open; said once, and the notice is spent
             let state, movedOn =
@@ -1346,6 +1380,7 @@ module private Elmish =
                 Session = session
                 Signing = signing
                 MovedOn = movedOn
+                LastSigned = lastSigned
             },
             effects |> List.map interpretSessionEffect |> Cmd.batch
 
@@ -1368,7 +1403,8 @@ module private Elmish =
                     (fun state effect ->
                         match effect with
                         | SigningEffect.TellSigned signed ->
-                            state |> tell (SigningPolicy.signedSentence tr signed) "success"
+                            { state with LastSigned = Some signed }
+                            |> tell (SigningPolicy.signedSentence tr signed) "success"
                         // a refusal because the record moved on is the notice too; the
                         // sentence is told here, the bar offers the version
                         | SigningEffect.TellRefused(SigningRefusal.Blocked head as refusal) ->
@@ -1535,6 +1571,12 @@ module private Elmish =
 
         | OrderPlanMsg msg ->
             let plan, effects = OrderPlanState.transition msg state.OrderPlan
+
+            // a version opened is the baseline unsigned work is told from
+            let state =
+                match msg with
+                | OrderPlanMsg.Version(signed, _) -> { state with LastSigned = Some signed }
+                | _ -> state
 
             // the page and the snackbar are the interpreter's: an order prescribed opens the
             // plan page, a refusal is said
@@ -1874,6 +1916,23 @@ let private mobile: obj = jsNative
 let View () =
     let state, dispatch = React.useElmish (init, update, [||])
     let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+
+    // the browser asks before it leaves the page (back, a closed tab, a reload) while there is
+    // unsigned work; the listener is added once and reads the latest state through a ref
+    let stateRef = React.useRef state
+    stateRef.current <- state
+
+    React.useEffectOnce (fun () ->
+        let guard (ev: Browser.Types.Event) =
+            if hasUnsignedWork stateRef.current then
+                ev.preventDefault ()
+                // the browser shows its own dialog; older browsers need a returnValue for it
+                ev?returnValue <- ""
+
+        window.addEventListener ("beforeunload", guard)
+
+        fun () -> window.removeEventListener ("beforeunload", guard)
+    )
 
     let handleClose =
         fun (_: obj) (reason: string) ->
