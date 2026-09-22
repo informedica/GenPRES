@@ -8,6 +8,8 @@ module Prescribe =
     open Shared
     open Shared.Types
     open Shared.Models
+    open OrderPlanMachine
+    open OrderContextMachine
 
 
     type private LoadingSource =
@@ -23,10 +25,10 @@ module Prescribe =
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let envOrderContext = AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv
-        let orderContext = envOrderContext.OrderContext
+        let orderContext = envOrderContext.OrderContextView
         let orderContextMsg = envOrderContext.OrderContextMsg
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
-        let orderPlan = envOrderPlan.OrderPlan
+        let orderPlan = envOrderPlan.OrderPlanView
         let planCommand = envOrderPlan.OrderPlanCommand
         let draft = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
 
@@ -43,7 +45,7 @@ module Prescribe =
         React.useEffect (
             (fun () ->
                 match orderContext with
-                | Resolved _ -> setLoadingSource None
+                | OrderContextView.Settled _ -> setLoadingSource None
                 | _ -> ()
             ),
             [| box orderContext |]
@@ -54,42 +56,42 @@ module Prescribe =
 
         let indicationChange s =
             match orderContext with
-            | Resolved pr ->
+            | OrderContextView.Settled pr ->
                 setLoadingSource (Some IndicationLoading)
                 pr |> OrderContext.indicationChange s |> updateOrderContext
             | _ -> ()
 
         let medicationChange s =
             match orderContext with
-            | Resolved pr ->
+            | OrderContextView.Settled pr ->
                 setLoadingSource (Some MedicationLoading)
                 pr |> OrderContext.medicationChange s |> updateOrderContext
             | _ -> ()
 
         let routeChange s =
             match orderContext with
-            | Resolved pr ->
+            | OrderContextView.Settled pr ->
                 setLoadingSource (Some RouteLoading)
                 pr |> OrderContext.routeChange s |> updateOrderContext
             | _ -> ()
 
         let formChange s =
             match orderContext with
-            | Resolved ctx ->
+            | OrderContextView.Settled ctx ->
                 setLoadingSource (Some FormLoading)
                 ctx |> OrderContext.formChange s |> updateOrderContext
             | _ -> ()
 
         let diluentChange s =
             match orderContext with
-            | Resolved pr ->
+            | OrderContextView.Settled pr ->
                 setLoadingSource (Some DiluentLoading)
                 pr |> OrderContext.diluentChange s |> updateOrderContext
             | _ -> ()
 
         let componentsChange cs =
             match orderContext with
-            | Resolved prctx ->
+            | OrderContextView.Settled prctx ->
                 setLoadingSource (Some ComponentsLoading)
                 prctx |> OrderContext.componentsChange cs |> updateOrderContext
             | _ -> ()
@@ -98,14 +100,14 @@ module Prescribe =
             let dt = s |> Option.map DoseType.doseTypeFromString
 
             match orderContext with
-            | Resolved pr ->
+            | OrderContextView.Settled pr ->
                 setLoadingSource (Some DoseTypeLoading)
                 pr |> OrderContext.doseTypeChange dt |> updateOrderContext
             | _ -> ()
 
         let clear () =
             match orderContext with
-            | Resolved _ ->
+            | OrderContextView.Settled _ ->
                 setLoadingSource None
                 OrderContext.empty |> updateOrderContext
             | _ -> ()
@@ -115,9 +117,10 @@ module Prescribe =
 
         let isAnythingLoading =
             match orderContext with
-            | InProgress
-            | Provisional _ -> true
-            | _ -> false
+            | OrderContextView.Evaluating
+            | OrderContextView.Changing _ -> true
+            | OrderContextView.NoPatient
+            | OrderContextView.Settled _ -> false
 
         let isSourceLoading source = isAnythingLoading && loadingSource = Some source
 
@@ -181,7 +184,7 @@ module Prescribe =
 
         let progress =
             match orderContext with
-            | HasNotStartedYet ->
+            | OrderContextView.NoPatient ->
                 let enterPatientData = Terms.``Patient enter patient data`` |> getTerm "Voer eerst patient gegevens in"
 
                 JSX.jsx $"<>{enterPatientData}</>"
@@ -213,7 +216,7 @@ module Prescribe =
                 // page switches to the plan when the server answers
                 let prescribe () =
                     match orderPlan with
-                    | Resolved tp ->
+                    | OrderPlanView.Settled(tp, _) ->
                         let workbench =
                             { pr with
                                 OrderContext.Filter.Form = Some sc.Form
@@ -224,17 +227,15 @@ module Prescribe =
                     | _ -> ()
 
                 // the plan holds this order already: the server would refuse it
-                let inPlan =
-                    match orderPlan with
-                    | Resolved tp
-                    | Provisional tp -> OrderPlan.orders tp |> Array.exists (fun s -> s.Order.Id = sc.Order.Id)
-                    | _ -> false
+                let inPlan = orderPlan |> OrderPlanView.holds sc.Order.Id
 
                 // one change to the plan at a time: while it is busy a click would be dropped
                 let planBusy =
                     match orderPlan with
-                    | Resolved _ -> false
-                    | _ -> true
+                    | OrderPlanView.Settled _ -> false
+                    | OrderPlanView.NoPatient
+                    | OrderPlanView.Opening
+                    | OrderPlanView.Changing _ -> true
 
                 let prescribeDisabled = isAnythingLoading || planBusy || inPlan
 
@@ -410,9 +411,10 @@ module Prescribe =
                         {Terms.``Prescribe Scenarios`` |> getTerm "Medicatie scenario's"}
                     </Typography>
                     {match orderContext with
-                     | Resolved pr
-                     | Provisional pr -> pr.Filter.Indication, pr.Filter.Indications
-                     | _ -> None, [||]
+                     | OrderContextView.Settled pr
+                     | OrderContextView.Changing pr -> pr.Filter.Indication, pr.Filter.Indications
+                     | OrderContextView.NoPatient
+                     | OrderContextView.Evaluating -> None, [||]
                      |> fun (sel, items) ->
                          let isLoading = isSourceLoading IndicationLoading
                          let lbl = Terms.``Prescribe Indications`` |> getTerm "Indicaties"
@@ -423,9 +425,10 @@ module Prescribe =
                              items |> autoComplete isLoading lbl sel indicationChange}
                     <Stack direction={stackDirection} spacing={if isMobile then 1 else 3} >
                         {match orderContext with
-                         | Resolved pr
-                         | Provisional pr -> pr.Filter.Generic, pr.Filter.Generics
-                         | _ -> None, [||]
+                         | OrderContextView.Settled pr
+                         | OrderContextView.Changing pr -> pr.Filter.Generic, pr.Filter.Generics
+                         | OrderContextView.NoPatient
+                         | OrderContextView.Evaluating -> None, [||]
                          |> fun (sel, items) ->
                              let isLoading = isSourceLoading MedicationLoading
                              let lbl = Terms.``Prescribe Medications`` |> getTerm "Medicatie"
@@ -437,9 +440,10 @@ module Prescribe =
 
                 }
                         {match orderContext with
-                         | Resolved pr
-                         | Provisional pr -> pr.Filter.Route, pr.Filter.Routes
-                         | _ -> None, [||]
+                         | OrderContextView.Settled pr
+                         | OrderContextView.Changing pr -> pr.Filter.Route, pr.Filter.Routes
+                         | OrderContextView.NoPatient
+                         | OrderContextView.Evaluating -> None, [||]
                          |> fun (sel, items) ->
                              let isLoading = isSourceLoading RouteLoading
                              let lbl = Terms.``Prescribe Routes`` |> getTerm "Routes"
@@ -451,8 +455,8 @@ module Prescribe =
 
                 }
                         {match orderContext with
-                         | Resolved ctx
-                         | Provisional ctx when
+                         | OrderContextView.Settled ctx
+                         | OrderContextView.Changing ctx when
                              ctx.Filter.Forms |> Array.length >= 1
                              && (not isMobile || ctx.Scenarios |> Array.length <> 1)
                              ->
@@ -469,8 +473,8 @@ module Prescribe =
                              else
                                  items |> Array.map (fun s -> s, s) |> select isLoading lbl sel formChange}
                         {match orderContext with
-                         | Resolved pr
-                         | Provisional pr when
+                         | OrderContextView.Settled pr
+                         | OrderContextView.Changing pr when
                              pr.Filter.Indication.IsSome
                              && pr.Filter.Generic.IsSome
                              && pr.Filter.Route.IsSome
@@ -487,8 +491,8 @@ module Prescribe =
 
                          | _ -> null}
                         {match orderContext with
-                         | Resolved pr
-                         | Provisional pr when
+                         | OrderContextView.Settled pr
+                         | OrderContextView.Changing pr when
                              pr.Filter.Indication.IsSome
                              && pr.Filter.Generic.IsSome
                              && pr.Filter.Route.IsSome
@@ -512,8 +516,8 @@ module Prescribe =
 
                          | _ -> null}
                         {match orderContext with
-                         | Resolved pr
-                         | Provisional pr when
+                         | OrderContextView.Settled pr
+                         | OrderContextView.Changing pr when
                              pr.Filter.Indication.IsSome
                              && pr.Filter.Generic.IsSome
                              && pr.Filter.Route.IsSome
@@ -537,13 +541,14 @@ module Prescribe =
                     </Box>
                     <Stack direction="column" spacing={1} >
                         {match orderContext with
-                         | Resolved pr
-                         | Provisional pr ->
+                         | OrderContextView.Settled pr
+                         | OrderContextView.Changing pr ->
                              pr.Scenarios
                              |> Array.map (displayScenario pr pr.Filter.Generic)
                              |> unbox<seq<ReactElement>>
                              |> React.Fragment
-                         | _ -> Seq.empty<ReactElement> |> React.Fragment}
+                         | OrderContextView.NoPatient
+                         | OrderContextView.Evaluating -> Seq.empty<ReactElement> |> React.Fragment}
                     </Stack>
                 </Stack>
             </React.Fragment>
@@ -566,7 +571,7 @@ module Prescribe =
                 <Box sx={modalStyle}>
                     {Order.View
                          {|
-                             orderContext = envOrderContext.OrderContextView
+                             orderContext = orderContext
                              updateOrderScenario = fun ctx -> orderContextMsg (Api.OrderContextCommand.UpdateOrderScenario, ctx)
                              stepOrderScenario =
                                  {|

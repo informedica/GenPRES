@@ -261,12 +261,13 @@ type OrderPlanView =
 
 module OrderPlanView =
 
-    /// Whether the plan holds the context, by id: for the prescribe button, which is not offered
-    /// for an order already in the plan.
-    let holds (id: string) (view: OrderPlanView) =
+    /// Whether the plan holds the order, by the order's id, as one of its contexts' contribution:
+    /// for the prescribe button, which is not offered for an order already in the plan. A
+    /// context's own id is minted by the plan and is not the order's.
+    let holds (orderId: string) (view: OrderPlanView) =
         match view with
         | OrderPlanView.Settled(tp, _)
-        | OrderPlanView.Changing(tp, _) -> tp.OrderContexts |> Array.exists (fun c -> c.Id = id)
+        | OrderPlanView.Changing(tp, _) -> OrderPlan.orders tp |> Array.exists (fun sc -> sc.Order.Id = orderId)
         | OrderPlanView.NoPatient
         | OrderPlanView.Opening -> false
 
