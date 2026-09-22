@@ -24,6 +24,8 @@
     <Compile Include="SessionMachineTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SessionGatePolicy.fs" />
     <Compile Include="SessionGatePolicyTests.fs" />
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\PlanWorkPolicy.fs" />
+    <Compile Include="PlanWorkPolicyTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SigningMachine.fs" />
     <Compile Include="SigningMachineTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SigningPolicy.fs" />
