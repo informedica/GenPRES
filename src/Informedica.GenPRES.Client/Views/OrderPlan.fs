@@ -9,13 +9,14 @@ module OrderPlan =
     open Shared
     open Shared.Types
     open Shared.Models
+    open OrderPlanMachine
     open OrderContextMachine
 
 
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
-        let orderPlan = envOrderPlan.OrderPlan
+        let orderPlan = envOrderPlan.OrderPlanView
         let planCommand = envOrderPlan.OrderPlanCommand
         let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
         let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv
@@ -25,11 +26,16 @@ module OrderPlan =
             tp.OrderContexts
             |> Array.tryFind (fun c -> OrderContext.contribution c |> Option.exists (fun sc -> sc.Order.Id = orderId))
 
-        // an order-context command into the selected context
+        // an order-context command into the selected context: a step, settled or changing as
+        // the plan is; while changing it waits in the lane for the answer
         let orderContextMsg (cmd, ctx) =
-            match orderPlan, envOrderPlan.Selected with
-            | (Resolved tp | Provisional tp), Some id -> planCommand (Api.OrderPlanCommand.Navigate(tp, id, cmd, ctx))
-            | _ -> ()
+            match orderPlan with
+            | OrderPlanView.Settled(tp, Some id)
+            | OrderPlanView.Changing(tp, Some id) -> planCommand (Api.OrderPlanCommand.Navigate(tp, id, cmd, ctx))
+            | OrderPlanView.Settled(_, None)
+            | OrderPlanView.Changing(_, None)
+            | OrderPlanView.NoPatient
+            | OrderPlanView.Opening -> ()
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
@@ -37,7 +43,12 @@ module OrderPlan =
         let lang = context.Localization
 
         // the dialog is open while a context is selected: the selection is the state
-        let modalOpen = envOrderPlan.Selected.IsSome
+        let modalOpen =
+            match orderPlan with
+            | OrderPlanView.Settled(_, selected)
+            | OrderPlanView.Changing(_, selected) -> selected.IsSome
+            | OrderPlanView.NoPatient
+            | OrderPlanView.Opening -> false
 
         let handleModalClose = fun () -> envOrderPlan.Select None
 
@@ -112,8 +123,8 @@ module OrderPlan =
             let parseVals = Order.Variable.renderValues 3
 
             match orderPlan with
-            | Resolved tp
-            | Provisional tp ->
+            | OrderPlanView.Settled(tp, _)
+            | OrderPlanView.Changing(tp, _) ->
                 OrderPlan.orders tp
                 |> Array.map _.Order
                 |> Array.mapi (fun i o ->
@@ -208,7 +219,8 @@ module OrderPlan =
                         actions = None
                     |}
                 )
-            | _ -> [||]
+            | OrderPlanView.NoPatient
+            | OrderPlanView.Opening -> [||]
 
         let rowCreate (cells: string[]) =
             {|
@@ -227,28 +239,31 @@ module OrderPlan =
         // a row clicked: its order's context becomes the selection
         let selectOrder id =
             match orderPlan with
-            | Resolved tp
-            | Provisional tp ->
+            | OrderPlanView.Settled(tp, _)
+            | OrderPlanView.Changing(tp, _) ->
                 match contextOf tp id with
                 | None -> Logging.error "Order not found" id
                 | Some c -> envOrderPlan.Select(Some c.Id)
-            | _ -> ()
+            | OrderPlanView.NoPatient
+            | OrderPlanView.Opening -> ()
 
         // the rows checked, by order id, become the filter, by context id; only over a plan at
         // rest, as the filter is sent
         let filterOrders ids =
             match orderPlan with
-            | Resolved tp ->
+            | OrderPlanView.Settled(tp, _) ->
                 ids
                 |> Array.choose (fun id -> contextOf tp id |> Option.map _.Id)
                 |> envOrderPlan.Filter
-            | _ -> ()
+            | OrderPlanView.NoPatient
+            | OrderPlanView.Opening
+            | OrderPlanView.Changing _ -> ()
 
         // the orders of the contexts the filter keeps, for the table's checked rows
         let selectedRows =
             match orderPlan with
-            | Resolved tp
-            | Provisional tp when tp.Filtered |> Array.isEmpty |> not ->
+            | OrderPlanView.Settled(tp, _)
+            | OrderPlanView.Changing(tp, _) when tp.Filtered |> Array.isEmpty |> not ->
                 OrderPlan.filtered tp
                 |> Array.choose OrderContext.contribution
                 |> Array.map _.Order.Id
@@ -258,15 +273,20 @@ module OrderPlan =
         // so a click never sends a command that would be discarded
         let isRecalculating =
             match orderPlan with
-            | Provisional _ -> true
-            | _ -> false
+            | OrderPlanView.Changing _ -> true
+            | OrderPlanView.NoPatient
+            | OrderPlanView.Opening
+            | OrderPlanView.Settled _ -> false
 
         // the contexts the filter keeps go, each with its order
         let onDelete =
             fun () ->
                 match orderPlan with
-                | Resolved tp -> planCommand (Api.OrderPlanCommand.RemoveOrderContexts(tp, tp.Filtered))
-                | _ -> ()
+                | OrderPlanView.Settled(tp, _) ->
+                    planCommand (Api.OrderPlanCommand.RemoveOrderContexts(tp, tp.Filtered))
+                | OrderPlanView.NoPatient
+                | OrderPlanView.Opening
+                | OrderPlanView.Changing _ -> ()
 
         let updateOrderScenario (ctx: OrderContext) =
             orderContextMsg (Api.OrderContextCommand.UpdateOrderScenario, ctx)
@@ -337,13 +357,13 @@ module OrderPlan =
 
         // the selected context as the plan shows it, settled or changing as the plan is
         let orderContext =
-            OrderContextView.dialog envOrderPlan.OrderPlanView
+            OrderContextView.dialog orderPlan
             |> Option.defaultValue OrderContextView.NoPatient
 
         let deleteBtn =
             match orderPlan with
-            | Resolved tp
-            | Provisional tp when tp.Filtered |> Array.length > 0 ->
+            | OrderPlanView.Settled(tp, _)
+            | OrderPlanView.Changing(tp, _) when tp.Filtered |> Array.length > 0 ->
                 JSX.jsx
                     $"""
                 import Button from '@mui/material/Button';
@@ -360,12 +380,14 @@ module OrderPlan =
         let onSign =
             fun _ ->
                 match orderPlan with
-                | Resolved tp -> signing.Sign tp
-                | _ -> ()
+                | OrderPlanView.Settled(tp, _) -> signing.Sign tp
+                | OrderPlanView.NoPatient
+                | OrderPlanView.Opening
+                | OrderPlanView.Changing _ -> ()
 
         let signBtn =
             match orderPlan with
-            | Resolved tp when SigningPolicy.canSign session.Session tp ->
+            | OrderPlanView.Settled(tp, _) when SigningPolicy.canSign session.Session tp ->
                 JSX.jsx
                     $"""
                 import Button from '@mui/material/Button';
