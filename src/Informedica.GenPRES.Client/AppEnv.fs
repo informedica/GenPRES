@@ -72,10 +72,10 @@ type IResources =
     abstract ReloadResources: unit -> unit
 
 
-/// The launch Session: its phase, and the actions the UI offers on it
+/// The launch Session as the pages show it, and the actions the UI offers on it
 [<Interface>]
 type ISession =
-    abstract Session: SessionMachine.Session
+    abstract Session: SessionMachine.SessionView
     // explicit close, from an open Session
     abstract Close: unit -> unit
     // from Unreachable, or a refusal worth retrying

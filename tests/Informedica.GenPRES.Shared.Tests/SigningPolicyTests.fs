@@ -211,26 +211,26 @@ let tests =
 
                 let empty = Shared.Models.OrderPlan.create patient [||]
 
-                canSign (Session.Open(openedAs UserRole.Prescriber true)) withOrders
+                canSign (SessionView.Open(openedAs UserRole.Prescriber true)) withOrders
                 |> Expect.isTrue "prescriber"
 
-                canSign (Session.Open(openedAs UserRole.Prescriber true)) empty
+                canSign (SessionView.Open(openedAs UserRole.Prescriber true)) empty
                 |> Expect.isFalse "nothing to sign"
 
-                canSign (Session.Open(openedAs UserRole.Reader true)) withOrders
+                canSign (SessionView.Open(openedAs UserRole.Reader true)) withOrders
                 |> Expect.isFalse "reader"
 
-                canSign (Session.Open(openedAs UserRole.Prescriber false)) withOrders
+                canSign (SessionView.Open(openedAs UserRole.Prescriber false)) withOrders
                 |> Expect.isFalse "no patient"
 
-                canSign (Session.Open { openedAs UserRole.Prescriber true with User = None }) withOrders
+                canSign (SessionView.Open { openedAs UserRole.Prescriber true with User = None }) withOrders
                 |> Expect.isFalse "anonymous"
 
                 for session in
                     [
-                        Session.Anonymous
-                        Session.Resuming
-                        Session.Closing(openedAs UserRole.Prescriber true)
+                        SessionView.Anonymous
+                        SessionView.Resuming
+                        SessionView.Closing(openedAs UserRole.Prescriber true)
                     ] do
                     canSign session withOrders |> Expect.isFalse $"{session}"
             }
