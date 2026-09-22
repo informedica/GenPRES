@@ -119,7 +119,6 @@ module Patient =
                 (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext,
                 (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan
             with
-            | OrderContextView.Evaluating, _
             | OrderContextView.Changing _, _
             | _, OrderPlanView.Opening
             | _, OrderPlanView.Changing _ -> true

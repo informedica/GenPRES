@@ -320,10 +320,10 @@ let viewTests =
                 |> Expect.equal "the context held" (OrderContextView.Settled paracetamol)
             }
 
-            test "the first evaluation: nothing to show; a change under way: the context sent" {
+            test "the first evaluation: the empty context, changing; a change under way: the context sent" {
                 opening patient "r-1"
                 |> OrderContextState.view
-                |> Expect.equal "evaluating" OrderContextView.Evaluating
+                |> Expect.equal "the empty context shown while it is evaluated" (OrderContextView.Changing empty)
 
                 let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
 
@@ -488,6 +488,6 @@ let stagesTests =
 
                 opening patient "r-1"
                 |> OrderContextState.context
-                |> Expect.equal "none yet" None
+                |> Expect.equal "the empty context while the first evaluation runs" (Some empty)
             }
         ]
