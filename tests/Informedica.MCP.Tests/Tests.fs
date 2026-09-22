@@ -120,6 +120,7 @@ module Tests =
 
     module GenOrderToolsTests =
 
+        open Informedica.GenForm.Lib.Resources
         open Informedica.MCP.Lib.GenOrderTools
 
         let private emptyInput =
@@ -134,6 +135,12 @@ module Tests =
                 Route = None
                 Form = None
             }
+
+        /// A provider that must never be called. Used to prove that createOrderContext and
+        /// getOrderScenarios refuse before reaching the resource layer when weight or height
+        /// is missing — not just that requireWeightAndHeight alone reports an error, which
+        /// would still pass if either function stopped calling the shared guard.
+        let private unusedProvider: IResourceProvider = Unchecked.defaultof<_>
 
         let tests =
             testList
@@ -162,6 +169,18 @@ module Tests =
                         { emptyInput with HeightCm = Some 86.0 }
                         |> requireWeightAndHeight
                         |> Expect.isError "should be Error"
+                    }
+
+                    test "createOrderContext refuses before touching the provider when height is missing" {
+                        { emptyInput with WeightKg = Some 12.0 }
+                        |> createOrderContext unusedProvider
+                        |> Expect.isError "should refuse without evaluating"
+                    }
+
+                    test "getOrderScenarios refuses before touching the provider when weight is missing" {
+                        { emptyInput with HeightCm = Some 86.0 }
+                        |> getOrderScenarios unusedProvider
+                        |> Expect.isError "should refuse without evaluating"
                     }
                 ]
 
