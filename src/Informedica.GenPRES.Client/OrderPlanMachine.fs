@@ -18,6 +18,7 @@ module OrderPlanMachine
 open Shared.Types
 open Shared.Models
 open Shared.Api
+open PlanWorkPolicy
 
 
 /// The plan as the clinical model has it: no request ids here.
@@ -189,8 +190,8 @@ module OrderPlanCart =
 
 /// The plan, the one request under way (the command sent and the id the answer must name; none
 /// while idle), the dialog's step waiting on it (the command and its own id; none but while a
-/// request is under way) and the context the dialog shows, by id: the client's own, next to
-/// whatever is in flight. Built through the constructors below only, which admit the
+/// request is under way), the context the dialog shows, by id, and the plan's work since the
+/// version last opened or signed: the client's own, next to whatever is in flight. Built through the constructors below only, which admit the
 /// combinations that can occur: no patient with nothing under way, a version awaiting its
 /// patient, a plan held, a change under way (an open over the empty plan among them), with or
 /// without a step pending.
@@ -201,6 +202,10 @@ type OrderPlanState =
             InFlight: (OrderPlanCommand * string) option
             Pending: (OrderPlanCommand * string) option
             Selected: string option
+            // what the plan holds beside the version last opened or signed: stepped by the
+            // commands as they go out, as signed again by a version opened or a signature over
+            // the same work; the leave-page guard asks over it
+            Work: PlanWork
         }
 
 
@@ -220,6 +225,9 @@ type OrderPlanMsg =
     | Select of string option
     // the contexts the rows keep, by id; the totals follow
     | Filter of string[] * request: string
+    // a signature told, with the work it was asked over: the plan is the version just signed,
+    // unless it changed meanwhile
+    | Signed of askedOver: PlanWork
 
 
 /// What the machine asks the App to do.
@@ -271,6 +279,7 @@ module OrderPlanState =
             InFlight = None
             Pending = None
             Selected = None
+            Work = PlanWork.AsSigned
         }
 
 
@@ -282,6 +291,7 @@ module OrderPlanState =
             InFlight = None
             Pending = None
             Selected = None
+            Work = PlanWork.AsSigned
         }
 
 
@@ -293,6 +303,7 @@ module OrderPlanState =
             InFlight = Some(OrderPlanCommand.Open(pat, contexts), request)
             Pending = None
             Selected = None
+            Work = PlanWork.AsSigned
         }
 
 
@@ -303,6 +314,7 @@ module OrderPlanState =
             InFlight = None
             Pending = None
             Selected = selected
+            Work = PlanWork.AsSigned
         }
 
 
@@ -313,6 +325,7 @@ module OrderPlanState =
             InFlight = Some(sent, request)
             Pending = None
             Selected = selected
+            Work = PlanWork.AsSigned
         }
 
 
@@ -320,6 +333,14 @@ module OrderPlanState =
     /// id; only on a change under way.
     let pending (cmd: OrderPlanCommand) (request: string) (state: OrderPlanState) =
         { state with Pending = Some(cmd, request) }
+
+
+    /// The plan's work since the version last opened or signed, on a plan held or changing.
+    let withWork (work: PlanWork) (state: OrderPlanState) = { state with Work = work }
+
+
+    /// What the plan holds beside the version last opened or signed.
+    let work (state: OrderPlanState) = state.Work
 
 
     /// The plan the state holds, none without a patient; the empty plan while an open runs.
@@ -484,7 +505,27 @@ module OrderPlanState =
                     }
             | _ -> run request (OrderPlanCartMsg.PatientChanged(Some pat)) state
 
-        | OrderPlanMsg.PatientChanged(None, request) -> run request (OrderPlanCartMsg.PatientChanged None) state
-        | OrderPlanMsg.Version(head, request) -> run request (OrderPlanCartMsg.Version head) state
-        | OrderPlanMsg.Command(cmd, request) -> run request (OrderPlanCartMsg.Command cmd) state
+        // a version opened is the plan as signed, and so is no plan at all: without a patient the
+        // plan is dropped, nothing left to sign. A command that changes the plan is work until
+        // the next version is opened or signed, when it goes out or waits as the one pending; a
+        // command dropped while a request is under way changed nothing
+        | OrderPlanMsg.PatientChanged(None, request) ->
+            run request (OrderPlanCartMsg.PatientChanged None) { state with Work = PlanWork.AsSigned }
+        | OrderPlanMsg.Version(head, request) ->
+            run request (OrderPlanCartMsg.Version head) { state with Work = PlanWork.AsSigned }
+        | OrderPlanMsg.Command(cmd, request) ->
+            let goes = state.InFlight.IsNone || OrderPlanCart.waits cmd
+
+            run
+                request
+                (OrderPlanCartMsg.Command cmd)
+                { state with
+                    Work =
+                        (if goes then
+                             state.Work |> PlanWork.afterCommand cmd
+                         else
+                             state.Work)
+                }
         | OrderPlanMsg.Filter(ids, request) -> run request (OrderPlanCartMsg.Filter ids) state
+        // the plan is the version just signed, unless it changed while the signature was under way
+        | OrderPlanMsg.Signed askedOver -> { state with Work = state.Work |> PlanWork.afterSigned askedOver }, []
