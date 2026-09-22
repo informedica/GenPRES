@@ -327,6 +327,5 @@ GenPRES gebruikt intern `BigRational`-rekenkunde voor exacte, eenheidveilige ber
 
 ---
 
-*Versie: 1.0 — maart 2026*  
 *Taal: Nederlands*  
 *[🇬🇧 English version](../en/user-guide.md)*
