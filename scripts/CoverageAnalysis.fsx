@@ -136,7 +136,7 @@ let printReport () =
 
     printfn ""
     printfn "%s" sep
-    printfn "  GenPRES -- W3 Test Coverage Analysis"
+    printfn "  GenPRES -- Test Coverage Analysis"
     printfn "  Generated: %s UTC" (DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"))
     printfn "%s" sep
     printfn ""
@@ -206,7 +206,7 @@ let printReport () =
 
     printfn ""
     printfn "%s" sep
-    printfn "  W3 Priority: Libraries with source code and < 20%% test coverage"
+    printfn "  Priority: Libraries with source code and < 20%% test coverage"
     printfn "%s" sep
 
     libraries
