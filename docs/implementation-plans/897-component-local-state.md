@@ -334,5 +334,7 @@ client edited directly.
 - **The slot's flag was the spinner, not the greying.** "The hooks keyed on the order"'s
   neighbour, `isLoading` in the slot, was the spinner argument of the selects, true only for
   the render between a change sent and the plan showing `Changing`, never during the
-  recalculation; the greying came from `isRecalculating` all along. The selects now pass no
-  spinner and grey as before.
+  recalculation; the greying came from `isRecalculating` all along. The five order-value
+  selects, which took that flag, now pass no spinner and grey on `isRecalculating` through
+  `select` as before; the slot's filter selects (the generic, the indication, the dose type)
+  took `isRecalculating` for both the spinner and the greying already and are untouched.
