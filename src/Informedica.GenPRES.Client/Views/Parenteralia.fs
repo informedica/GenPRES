@@ -41,9 +41,11 @@ module Parenteralia =
 
 
         let init (par: Deferred<Parenteralia>) =
+            // the selects keep their state through a fetch that runs again over what is shown
             let state =
                 match par with
-                | Resolved form ->
+                | Resolved form
+                | Refreshing form ->
                     {
                         Generic = form.Generic //|> Option.orElse gen
                         Form = form.Form //|> Option.orElse ind
@@ -161,6 +163,7 @@ module Parenteralia =
                 <Stack direction={stackDirection} spacing={3} >
                     {match parenteralia with
                      | Resolved par -> false, par.Generic, par.Generics
+                     | Refreshing par -> true, par.Generic, par.Generics
                      | _ -> true, None, [||]
                      |> fun (isLoading, sel, items) ->
                          if isMobile then
@@ -182,6 +185,7 @@ module Parenteralia =
                 }
                     {match parenteralia with
                      | Resolved par -> false, par.Form, par.Forms
+                     | Refreshing par -> true, par.Form, par.Forms
                      | _ -> true, None, [||]
                      |> fun (isLoading, sel, items) ->
                          if items |> Array.isEmpty then
@@ -199,6 +203,7 @@ module Parenteralia =
                                  (FormChange >> dispatch)}
                     {match parenteralia with
                      | Resolved par -> false, par.Route, par.Routes
+                     | Refreshing par -> true, par.Route, par.Routes
                      | _ -> true, None, [||]
                      |> fun (isLoading, sel, items) ->
                          if isMobile then
@@ -220,7 +225,8 @@ module Parenteralia =
                 </Stack>
                 <Box sx={ {| color = Mui.Colors.Indigo.``900`` |} } >
                     {match parenteralia with
-                     | Resolved par ->
+                     | Resolved par
+                     | Refreshing par ->
                          par.Markdown
                          |> Markdown.markdown.children
                          |> List.singleton

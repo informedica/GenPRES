@@ -1102,7 +1102,8 @@ module private Elmish =
         | ListLogFiles ->
             let token = state.AuthToken
 
-            { state with LogFiles = InProgress },
+            // the table shown stays until the answer
+            { state with LogFiles = state.LogFiles |> Deferred.refresh },
             Api.AdminCommand.ListLogFiles token
             |> createAdminMsg (fun result -> LoadLogFilesResult(token, result))
 
@@ -1527,9 +1528,12 @@ module private Elmish =
                 answer
                 (fun state plan -> state, Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Answered(request, Ok plan))))
 
+        // asked again over the formulary shown, which stays shown until the answer; a second
+        // request while one runs is dropped
         | LoadFormulary Started ->
             match state.Formulary with
-            | InProgress -> state, Cmd.none
+            | InProgress
+            | Refreshing _ -> state, Cmd.none
             | _ ->
                 let form =
                     match state.Formulary with
@@ -1538,7 +1542,7 @@ module private Elmish =
 
                 let cmd = form |> loadFormulary (tokenOf state.Session)
 
-                { state with Formulary = InProgress }, cmd
+                { state with Formulary = state.Formulary |> Deferred.refresh }, cmd
 
         // without a patient the formulary is what a reload refreshes, so it settles the reload
         | LoadFormulary(Finished(Ok msg)) ->
@@ -1581,14 +1585,15 @@ module private Elmish =
 
         | LoadParenteralia Started ->
             match state.Parenteralia with
-            | InProgress -> state, Cmd.none
+            | InProgress
+            | Refreshing _ -> state, Cmd.none
             | _ ->
                 let cmd =
                     let par = state.Parenteralia |> Deferred.defaultValue Parenteralia.empty
 
                     loadParenteralia (tokenOf state.Session) par
 
-                { state with Parenteralia = InProgress }, cmd
+                { state with Parenteralia = state.Parenteralia |> Deferred.refresh }, cmd
 
         | LoadParenteralia(Finished(Ok msg)) -> processApiMsg state msg applyParenteralia
 
@@ -1631,7 +1636,8 @@ module private Elmish =
             if drugs.Length < 2 then
                 { withdrawInteractionsNotice state with Interactions = HasNotStartedYet }, Cmd.none
             else
-                { state with Interactions = InProgress },
+                // the rows shown stay until the answer
+                { state with Interactions = state.Interactions |> Deferred.refresh },
                 Api.InteractionCommand.CheckInteractions drugs
                 |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionsResult
 
@@ -1642,9 +1648,10 @@ module private Elmish =
 
         | LoadInteractionDrugNames Started ->
             match state.InteractionDrugNames with
-            | InProgress -> state, Cmd.none
+            | InProgress
+            | Refreshing _ -> state, Cmd.none
             | _ ->
-                { state with InteractionDrugNames = InProgress },
+                { state with InteractionDrugNames = state.InteractionDrugNames |> Deferred.refresh },
                 Api.InteractionCommand.GetDrugNames
                 |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionDrugNames
 

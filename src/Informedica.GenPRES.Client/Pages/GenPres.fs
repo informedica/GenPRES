@@ -218,14 +218,16 @@ module GenPres =
 
         let hasInteractions =
             match interactions with
-            | Resolved arr -> arr.Length > 0
+            | Resolved arr
+            | Refreshing arr -> arr.Length > 0
             | _ -> false
 
         let formulary = (AppEnv.asEnv<AppEnv.IFormulary> props.appEnv).Formulary
 
         let formularyBg =
             match formulary with
-            | Resolved form when form.DoseCheck |> Array.isEmpty |> not ->
+            | Resolved form
+            | Refreshing form when form.DoseCheck |> Array.isEmpty |> not ->
                 let hasAlert =
                     form.DoseCheck
                     |> Array.exists (

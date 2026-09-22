@@ -100,7 +100,14 @@ module Settings =
                     $"""
                     <Typography variant="body2" sx={ {| p = 2 |} }>No log files found.</Typography>
                     """
-            | Resolved files ->
+            // the table shown stays while the files are listed again, the progress above it
+            | Resolved files
+            | Refreshing files ->
+                let progress =
+                    match logAnalyzer.LogFiles with
+                    | Refreshing _ -> ViewHelpers.circularProgress
+                    | _ -> null
+
                 let rows =
                     files
                     |> Array.map (fun f ->
@@ -123,6 +130,8 @@ module Settings =
 
                 JSX.jsx
                     $"""
+                    <>
+                    {progress}
                     <TableContainer component={{Paper}} sx={ {| maxHeight = 500 |} }>
                         <Table stickyHeader={true} size="small">
                             <TableHead>
@@ -137,6 +146,7 @@ module Settings =
                             </TableBody>
                         </Table>
                     </TableContainer>
+                    </>
                     """
             | _ -> JSX.jsx $"""<></>"""
 
