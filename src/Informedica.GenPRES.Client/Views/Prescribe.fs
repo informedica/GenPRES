@@ -566,7 +566,7 @@ module Prescribe =
                 <Box sx={modalStyle}>
                     {Order.View
                          {|
-                             orderContext = orderContext
+                             orderContext = envOrderContext.OrderContextView
                              updateOrderScenario = fun ctx -> orderContextMsg (Api.OrderContextCommand.UpdateOrderScenario, ctx)
                              stepOrderScenario =
                                  {|

@@ -9,6 +9,7 @@ module Order =
     open Shared.Types
     open Shared.Models.Order
     open Shared
+    open OrderContextMachine
     open Elmish
     open FSharp.Core
 
@@ -69,11 +70,11 @@ module Order =
             | SetMedianComponentQuantityProperty
 
 
-        let init (ctx: Deferred<OrderContext>) =
+        let init (ctx: OrderContextView) =
             let ord, cmp, itm =
                 match ctx with
-                | Resolved ctx
-                | Provisional ctx ->
+                | OrderContextView.Settled ctx
+                | OrderContextView.Changing ctx ->
                     match ctx.Scenarios with
                     | [| sc |] ->
 
@@ -146,11 +147,16 @@ module Order =
                     setComponentQtyMax: OrderLoader -> unit
 
                 |})
+            (shown: Order option)
             (msg: Msg)
             (state: State)
             : State * Cmd<Msg>
             =
             let setOvar = OrderVariable.setOvar
+
+            // while an answer is awaited the order held is none; a change made meanwhile is
+            // over the order shown, and waits in the lane for the answer
+            let state = { state with Order = state.Order |> Option.orElse shown }
 
             let handleNav nav =
                 match state.Order with
@@ -647,7 +653,7 @@ module Order =
     let View
         (props:
             {|
-                orderContext: Deferred<OrderContext>
+                orderContext: OrderContextView
                 updateOrderScenario: OrderContext -> unit
                 stepOrderScenario:
                     {|
@@ -687,19 +693,27 @@ module Order =
 
         let getTerm = Global.getLocalizedTerm props.localizationTerms lang
 
-        let useAdjust =
+        // the context shown: settled, or the one sent while a change is under way
+        let shownContext =
             match props.orderContext with
-            | Resolved pr
-            | Provisional pr ->
-                pr.Scenarios
-                |> Array.tryExactlyOne
-                |> Option.map _.UseAdjust
-                |> Option.defaultValue false
-            | _ -> false
+            | OrderContextView.Settled ctx
+            | OrderContextView.Changing ctx -> Some ctx
+            | OrderContextView.NoPatient
+            | OrderContextView.Evaluating -> None
+
+        let shownOrder =
+            shownContext
+            |> Option.bind (fun ctx -> ctx.Scenarios |> Array.tryExactlyOne |> Option.map _.Order)
+
+        let useAdjust =
+            shownContext
+            |> Option.bind (fun pr -> pr.Scenarios |> Array.tryExactlyOne |> Option.map _.UseAdjust)
+            |> Option.defaultValue false
 
         let updateOrderScenario (ol: OrderLoader) =
             match props.orderContext with
-            | Resolved ctx ->
+            | OrderContextView.Settled ctx
+            | OrderContextView.Changing ctx ->
                 { ctx with
                     Scenarios =
                         ctx.Scenarios
@@ -719,7 +733,8 @@ module Order =
 
         let resetOrderScenario (ol: OrderLoader) =
             match props.orderContext with
-            | Resolved ctx ->
+            | OrderContextView.Settled ctx
+            | OrderContextView.Changing ctx ->
                 { ctx with
                     Scenarios =
                         ctx.Scenarios
@@ -741,7 +756,8 @@ module Order =
             let create nav =
                 fun (ol: OrderLoader) ->
                     match props.orderContext with
-                    | Resolved ctx ->
+                    | OrderContextView.Settled ctx
+                    | OrderContextView.Changing ctx ->
                         { ctx with
                             Scenarios =
                                 ctx.Scenarios
@@ -762,7 +778,8 @@ module Order =
             let createWithCmp nav =
                 fun (ol: OrderLoader) ->
                     match props.orderContext with
-                    | Resolved ctx ->
+                    | OrderContextView.Settled ctx
+                    | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
                         | Some cmp ->
@@ -788,7 +805,8 @@ module Order =
             let createWithN nav =
                 fun (n, uc) (ol: OrderLoader) ->
                     match props.orderContext with
-                    | Resolved ctx ->
+                    | OrderContextView.Settled ctx
+                    | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
                         | Some _ ->
@@ -814,7 +832,8 @@ module Order =
             let createWithCmpN nav =
                 fun (n, uc) (ol: OrderLoader) ->
                     match props.orderContext with
-                    | Resolved ctx ->
+                    | OrderContextView.Settled ctx
+                    | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
                         | Some cmp ->
@@ -867,7 +886,7 @@ module Order =
         let state, dispatch =
             React.useElmish (
                 init props.orderContext,
-                update updateOrderScenario resetOrderScenario stepper,
+                update updateOrderScenario resetOrderScenario stepper shownOrder,
                 [| box props.orderContext |]
             )
 
@@ -877,17 +896,22 @@ module Order =
         React.useEffect (
             (fun () ->
                 match props.orderContext with
-                | Resolved _ -> setLoadingField None
+                | OrderContextView.Settled _ -> setLoadingField None
                 | _ -> ()
             ),
             [| box props.orderContext |]
         )
 
-        let isOrderLoading = Deferred.inProgress props.orderContext
+        let isOrderLoading =
+            match props.orderContext with
+            | OrderContextView.Evaluating
+            | OrderContextView.Changing _ -> true
+            | OrderContextView.NoPatient
+            | OrderContextView.Settled _ -> false
 
         let isFieldLoading field = isOrderLoading && loadingField = Some field
 
-        // Monotonic counter bumped on every new server response (a fresh Resolved
+        // Monotonic counter bumped on every new server response (a fresh Settled
         // orderContext). Passed into stepped selects so they reset their optimistic
         // step value even when the server returns the SAME value as before (e.g. a no-op
         // step when already at the maximum) — in that case the displayed value never changes, so the
@@ -899,7 +923,7 @@ module Order =
             prevCtxRef.current <- props.orderContext
 
             match props.orderContext with
-            | Resolved _ -> revisionRef.current <- revisionRef.current + 1
+            | OrderContextView.Settled _ -> revisionRef.current <- revisionRef.current + 1
             | _ -> ()
 
         let revision = revisionRef.current
@@ -930,15 +954,9 @@ module Order =
                 originalDispatch msg
 
         // Use local state order when available, otherwise fall back to the
-        // order carried by the parent Deferred (Provisional case) so that
+        // order shown, the one sent while a change is under way, so that
         // the UI stays populated while the server is processing.
-        let displayOrder =
-            state.Order
-            |> Option.orElseWith (fun () ->
-                props.orderContext
-                |> Deferred.toOption
-                |> Option.bind (fun ctx -> ctx.Scenarios |> Array.tryExactlyOne |> Option.map _.Order)
-            )
+        let displayOrder = state.Order |> Option.orElse shownOrder
 
         let itms =
             match displayOrder with
@@ -1119,7 +1137,9 @@ module Order =
 
         let getWarning = ViewHelpers.getWarning
 
-        let select = ViewHelpers.orderSelect false isOrderLoading
+        // the selects stay enabled while a change is under way: a step sent then waits in the
+        // lane for the answer, and only the field stepped shows it is loading
+        let select = ViewHelpers.orderSelect false false
 
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
 
@@ -1679,10 +1699,10 @@ module Order =
                 {loadingIndicator}
             </CardContent>
             <CardActions >
-                    <Button onClick={onClickOk} disabled={isOrderLoading}>
+                    <Button onClick={onClickOk}>
                         {Terms.``Ok `` |> getTerm "Ok"}
                     </Button>
-                    <Button onClick={onClickReset} disabled={isOrderLoading} startIcon={Mui.Icons.RefreshIcon}>
+                    <Button onClick={onClickReset} startIcon={Mui.Icons.RefreshIcon}>
                         Reset
                     </Button>
             </CardActions>

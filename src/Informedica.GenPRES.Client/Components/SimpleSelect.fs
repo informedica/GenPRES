@@ -173,9 +173,9 @@ module SimpleSelect =
                 alignItems = "center"
             |}
 
-        // the step buttons rest while the value is loading: a step sent then would be dropped,
-        // since one change is in flight at a time
-        let stepsRest = props.disabled || props.isLoading
+        // the step buttons rest only when the select is disabled: a step sent while the value
+        // is loading waits for the answer and steps from it
+        let stepsRest = props.disabled
 
         let navigation =
             props.stepper
