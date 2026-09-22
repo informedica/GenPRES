@@ -61,7 +61,52 @@ type OrderPlanCartIntent =
     | Tell of string[]
 
 
+/// The order dialog's commands, the same in either lane: a step, a value typed, a reset. One
+/// arriving while a request is under way is not dropped but waits as the one pending, the latest
+/// replacing an earlier one, and goes out when the answer lands. The two commands that are the
+/// page's, the filter evaluated and a scenario selected, are dropped while busy.
+module Dialog =
+
+    let waits (cmd: OrderContextCommand) =
+        match cmd with
+        | OrderContextCommand.UpdateOrderContext
+        | OrderContextCommand.SelectOrderScenario -> false
+        | _ -> true
+
+
+    /// Whether the command carries the dialog's order in its context, a value typed or a reset,
+    /// so that a pending one goes out over the context it was sent with; a step carries nothing
+    /// and goes out over the context answered, so that it steps from there.
+    let carries (cmd: OrderContextCommand) =
+        match cmd with
+        | OrderContextCommand.UpdateOrderScenario
+        | OrderContextCommand.ResetOrderScenario -> true
+        | _ -> false
+
+
 module OrderPlanCart =
+
+    /// A step into an order of the plan, from the dialog: the one plan command that waits while
+    /// a request is under way instead of being dropped.
+    let waits (cmd: OrderPlanCommand) =
+        match cmd with
+        | OrderPlanCommand.Navigate(_, _, ctxCmd, _) -> Dialog.waits ctxCmd
+        | _ -> false
+
+
+    /// The pending step over the plan answered: into the same context as it now is, or over the
+    /// context it was sent with when it carries the dialog's order; none when the context is
+    /// gone from the plan.
+    let replay (tp: OrderPlan) (cmd: OrderPlanCommand) =
+        match cmd with
+        | OrderPlanCommand.Navigate(_, id, ctxCmd, ctx) ->
+            tp.OrderContexts
+            |> Array.tryFind (fun c -> c.Id = id)
+            |> Option.map (fun now ->
+                OrderPlanCommand.Navigate(tp, id, ctxCmd, (if Dialog.carries ctxCmd then ctx else now))
+            )
+        | _ -> None
+
 
     /// The drugs of the plan, checked for interactions: always, so that a plan down to one drug
     /// or none clears the warnings of the drugs it had.
@@ -151,15 +196,17 @@ module OrderPlanCart =
 
 
 /// The plan, the one request under way (the command sent and the id the answer must name; none
-/// while idle) and the context the dialog shows, by id: the client's own, next to whatever is in
-/// flight. Built through the constructors below only, which admit the five combinations that can
-/// occur: no patient with nothing under way, a version awaiting its patient, an open under way,
-/// a plan held, a change under way.
+/// while idle), the dialog's step waiting on it (the command and its own id; none but while a
+/// request is under way) and the context the dialog shows, by id: the client's own, next to
+/// whatever is in flight. Built through the constructors below only, which admit the
+/// combinations that can occur: no patient with nothing under way, a version awaiting its
+/// patient, an open under way, a plan held, a change under way, with or without a step pending.
 type OrderPlanState =
     private
         {
             Cart: OrderPlanCart
             InFlight: (OrderPlanCommand * string) option
+            Pending: (OrderPlanCommand * string) option
             Selected: string option
         }
 
@@ -230,6 +277,7 @@ module OrderPlanState =
         {
             Cart = OrderPlanCart.NoPatient [||]
             InFlight = None
+            Pending = None
             Selected = None
         }
 
@@ -240,6 +288,7 @@ module OrderPlanState =
         {
             Cart = OrderPlanCart.NoPatient contexts
             InFlight = None
+            Pending = None
             Selected = None
         }
 
@@ -249,6 +298,7 @@ module OrderPlanState =
         {
             Cart = OrderPlanCart.Unopened(pat, contexts)
             InFlight = Some(OrderPlanCommand.Open(pat, contexts), request)
+            Pending = None
             Selected = None
         }
 
@@ -258,6 +308,7 @@ module OrderPlanState =
         {
             Cart = OrderPlanCart.Opened(pat, tp)
             InFlight = None
+            Pending = None
             Selected = selected
         }
 
@@ -267,8 +318,15 @@ module OrderPlanState =
         {
             Cart = OrderPlanCart.Opened(pat, tp)
             InFlight = Some(sent, request)
+            Pending = None
             Selected = selected
         }
+
+
+    /// A change under way with the dialog's step waiting on its answer, under its own request
+    /// id; only on a change under way.
+    let pending (cmd: OrderPlanCommand) (request: string) (state: OrderPlanState) =
+        { state with Pending = Some(cmd, request) }
 
 
     /// The plan the state holds, none before the first answer.
@@ -334,10 +392,15 @@ module OrderPlanState =
 
 
     /// The request stage: the intents applied in order, each a request under the id given or an
-    /// effect; a call while a request is under way is dropped.
+    /// effect; a call while a request is under way is dropped, but a step into an order waits as
+    /// the one pending; an open or a recalculation supersedes both.
     let private apply (request: string) (intents: OrderPlanCartIntent list) (state: OrderPlanState) =
         let call (cmd: OrderPlanCommand) (state: OrderPlanState) =
-            { state with InFlight = Some(cmd, request) }, [ OrderPlanEffect.CallPlan(cmd, request) ]
+            { state with
+                InFlight = Some(cmd, request)
+                Pending = None
+            },
+            [ OrderPlanEffect.CallPlan(cmd, request) ]
 
         intents
         |> List.fold
@@ -346,7 +409,12 @@ module OrderPlanState =
                     match intent with
                     | OrderPlanCartIntent.Open(pat, ctxs) -> call (OrderPlanCommand.Open(pat, ctxs)) state
                     | OrderPlanCartIntent.Recalculate tp -> call (OrderPlanCommand.Recalculate tp) state
-                    | OrderPlanCartIntent.Call _ when state.InFlight.IsSome -> state, []
+                    | OrderPlanCartIntent.Call cmd when state.InFlight.IsSome ->
+                        (if OrderPlanCart.waits cmd then
+                             { state with Pending = Some(cmd, request) }
+                         else
+                             state),
+                        []
                     | OrderPlanCartIntent.Call cmd -> call cmd state
                     | OrderPlanCartIntent.CheckInteractions drugs -> state, [ OrderPlanEffect.CheckInteractions drugs ]
                     | OrderPlanCartIntent.GoToPlanPage -> state, [ OrderPlanEffect.GoToPlanPage ]
@@ -374,10 +442,10 @@ module OrderPlanState =
             | OrderPlanCartMsg.Landed(_, Ok tp), _ -> selectionIn tp state.Selected
             | _ -> state.Selected
 
-        let inFlight =
+        let inFlight, pending =
             match plan with
-            | OrderPlanCart.NoPatient _ -> None
-            | _ -> state.InFlight
+            | OrderPlanCart.NoPatient _ -> None, None
+            | _ -> state.InFlight, state.Pending
 
         apply
             request
@@ -385,6 +453,7 @@ module OrderPlanState =
             { state with
                 Cart = plan
                 InFlight = inFlight
+                Pending = pending
                 Selected = selected
             }
 
@@ -395,7 +464,25 @@ module OrderPlanState =
         | OrderPlanMsg.Answered(request, result) ->
             match landing request state.InFlight with
             | None -> state, []
-            | Some sent -> run request (OrderPlanCartMsg.Landed(sent, result)) { state with InFlight = None }
+            | Some sent ->
+                let landed, effects =
+                    run
+                        request
+                        (OrderPlanCartMsg.Landed(sent, result))
+                        { state with
+                            InFlight = None
+                            Pending = None
+                        }
+
+                // the step that waited goes out over the plan answered; a failure drops it
+                match result, state.Pending, landed.Cart with
+                | Ok _, Some(cmd, next), OrderPlanCart.Opened(_, tp) ->
+                    match OrderPlanCart.replay tp cmd with
+                    | Some cmd ->
+                        let state, more = run next (OrderPlanCartMsg.Command cmd) landed
+                        state, effects @ more
+                    | None -> landed, effects
+                | _ -> landed, effects
 
         // the selection is the client's own, kept next to whatever is in flight; nothing to
         // select before the plan is there

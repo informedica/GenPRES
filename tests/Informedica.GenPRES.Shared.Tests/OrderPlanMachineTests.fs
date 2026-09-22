@@ -475,6 +475,92 @@ let viewTests =
 
 
 [<Tests>]
+let pendingTests =
+    let remove = OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])
+    let busy = recalculating two (Some "c-1") "r-1" remove
+    let c1 = two.OrderContexts[0]
+
+    let navigate ctxCmd ctx = OrderPlanCommand.Navigate(two, "c-1", ctxCmd, ctx)
+
+    let step = navigate OrderContextCommand.IncreaseScheduleFrequencyProperty c1
+    let waiting = busy |> OrderPlanState.pending step "r-2"
+
+    // the plan answered, its context changed by the server
+    let now = context "c-1" "paracetamol-now"
+    let answer = plan [| now |]
+
+    testList
+        "a step into the plan while a change is under way"
+        [
+            test "waits as the one pending; any other change is dropped" {
+                transition (OrderPlanMsg.Command(step, "r-2")) busy
+                |> Expect.equal "pending under its own id, nothing sent" (waiting, [])
+
+                transition (OrderPlanMsg.Command(remove, "r-2")) busy
+                |> Expect.equal "dropped" (busy, [])
+            }
+
+            test "goes out over the plan answered: a step into the context as it now is, a value typed as sent" {
+                let sent =
+                    OrderPlanCommand.Navigate(answer, "c-1", OrderContextCommand.IncreaseScheduleFrequencyProperty, now)
+
+                transition (OrderPlanMsg.Answered("r-1", Ok answer)) waiting
+                |> Expect.equal
+                    "the step, into the context answered"
+                    (recalculating answer (Some "c-1") "r-2" sent,
+                     [
+                         OrderPlanEffect.CheckInteractions [ "paracetamol-now" ]
+                         OrderPlanEffect.CallPlan(sent, "r-2")
+                     ])
+
+                let typed = navigate OrderContextCommand.UpdateOrderScenario c1
+                let sent = OrderPlanCommand.Navigate(answer, "c-1", OrderContextCommand.UpdateOrderScenario, c1)
+
+                busy
+                |> OrderPlanState.pending typed "r-2"
+                |> transition (OrderPlanMsg.Answered("r-1", Ok answer))
+                |> Expect.equal
+                    "the value typed, into the context it was typed into"
+                    (recalculating answer (Some "c-1") "r-2" sent,
+                     [
+                         OrderPlanEffect.CheckInteractions [ "paracetamol-now" ]
+                         OrderPlanEffect.CallPlan(sent, "r-2")
+                     ])
+            }
+
+            test "gone with its context, with a failure and with a patient change" {
+                let intoGone =
+                    OrderPlanCommand.Navigate(
+                        two,
+                        "c-2",
+                        OrderContextCommand.IncreaseScheduleFrequencyProperty,
+                        two.OrderContexts[1]
+                    )
+
+                busy
+                |> OrderPlanState.pending intoGone "r-2"
+                |> transition (OrderPlanMsg.Answered("r-1", Ok one))
+                |> Expect.equal
+                    "its context gone with the change"
+                    (held one (Some "c-1"), [ OrderPlanEffect.CheckInteractions [ "paracetamol" ] ])
+
+                transition (OrderPlanMsg.Answered("r-1", Error [| "refused" |])) waiting
+                |> Expect.equal
+                    "the failure told, nothing sent"
+                    (held two (Some "c-1"), [ OrderPlanEffect.TellError [| "refused" |] ])
+
+                let forOther = { two with Patient = otherDraft }
+
+                transition (OrderPlanMsg.PatientChanged(Some other, "r-3")) waiting
+                |> Expect.equal
+                    "recalculated over the new patient, the pending gone"
+                    (recalculatingFor other forOther None "r-3" (OrderPlanCommand.Recalculate forOther),
+                     [ OrderPlanEffect.CallPlan(OrderPlanCommand.Recalculate forOther, "r-3") ])
+            }
+        ]
+
+
+[<Tests>]
 let stagesTests =
     testList
         "the two stages"
