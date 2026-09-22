@@ -1,5 +1,5 @@
 ---
-last_commit_released: 6df64ab687f61cbb2d8284729a80ef8dbfde3e79
+last_commit_released: d52a0f9e83349458039aded148ba87d491d63a84
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,20 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.29 - 2026-09-22
+
+### 🚀 Features
+
+* *(client)* The first evaluation shown over the empty workbench ([13a9e0f4](https://github.com/informedica/GenPRES/commit/13a9e0f42dd8f241e3bc6eb096b7fb55ad570e43))
+* *(client)* A cart open shown over the empty plan ([a4fd8d03](https://github.com/informedica/GenPRES/commit/a4fd8d033a5aa0f0223e629959329fee8e946d78))
+
+### 🐞 Bug Fixes
+
+* *(client)* A step during a request waits and goes out on the answer ([6d052d65](https://github.com/informedica/GenPRES/commit/6d052d6528529bdce579bb70e7d3a69ce34a3d3b))
+* *(client)* The plan holds an order by the order's id, not the context's ([1702a0e8](https://github.com/informedica/GenPRES/commit/1702a0e8d9297cb5b19cf9253c5cd2b465919567))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/6df64ab687f61cbb2d8284729a80ef8dbfde3e79..d52a0f9e83349458039aded148ba87d491d63a84)</small></strong>
 
 ## 0.1.2-alpha.28 - 2026-09-21
 
