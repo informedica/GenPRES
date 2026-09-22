@@ -23,6 +23,35 @@ open OrderContextMachine
 module private Elmish =
 
 
+    /// The snackbar: a message with a severity, shown or not.
+    type Snackbar =
+        {
+            Message: string
+            Open: bool
+            Severity: string
+        }
+
+
+    module Snackbar =
+
+        /// The message shown, with its severity.
+        let shown (message: string) (severity: string) =
+            {
+                Message = message
+                Open = true
+                Severity = severity
+            }
+
+
+        /// Nothing shown: the empty message, the severity back to error.
+        let closed =
+            {
+                Message = ""
+                Open = false
+                Severity = "error"
+            }
+
+
     type State =
         {
             Page: Global.Pages
@@ -49,9 +78,7 @@ module private Elmish =
             Context: Context
             ShowDisclaimer: bool
             IsDemo: bool
-            SnackbarMsg: string
-            SnackbarOpen: bool
-            SnackbarSeverity: string
+            Snackbar: Snackbar
             ServerStatus: Deferred<bool>
             ServerError: string option
             EmergencyListFilter: string[]
@@ -257,9 +284,7 @@ module private Elmish =
                 { state with
                     IsAuthenticated = false
                     AuthToken = ""
-                    SnackbarMsg = "Invalid password"
-                    SnackbarOpen = true
-                    SnackbarSeverity = "error"
+                    Snackbar = Snackbar.shown "Invalid password" "error"
                 },
                 Cmd.none
         | Api.AdminResponse.LogFilesListed files -> { state with LogFiles = Resolved files }, Cmd.none
@@ -306,12 +331,12 @@ module private Elmish =
 
     let withdrawInteractionsNotice (state: State) =
         if
-            state.SnackbarMsg.StartsWith "Er zijn "
-            && state.SnackbarMsg.EndsWith " interactie(s) gevonden"
+            state.Snackbar.Message.StartsWith "Er zijn "
+            && state.Snackbar.Message.EndsWith " interactie(s) gevonden"
         then
             { state with
-                SnackbarMsg = ""
-                SnackbarOpen = false
+                State.Snackbar.Message = ""
+                State.Snackbar.Open = false
             }
         else
             state
@@ -322,11 +347,7 @@ module private Elmish =
         | Api.InteractionResponse.InteractionsChecked interactions ->
             let newState =
                 if interactions.Length > 0 then
-                    { state with
-                        SnackbarMsg = interactionsNotice interactions.Length
-                        SnackbarOpen = true
-                        SnackbarSeverity = "warning"
-                    }
+                    { state with Snackbar = Snackbar.shown (interactionsNotice interactions.Length) "warning" }
                 else
                     withdrawInteractionsNotice state
 
@@ -567,9 +588,7 @@ module private Elmish =
                     Hospital = "UMCU"
                 }
             IsDemo = false
-            SnackbarMsg = ""
-            SnackbarOpen = false
-            SnackbarSeverity = "error"
+            Snackbar = Snackbar.closed
             ServerStatus = HasNotStartedYet
             ServerError = None
             EmergencyListFilter = [||]
@@ -947,16 +966,14 @@ module private Elmish =
     /// A medication chosen without a patient, from the url or a list, is dropped and said: the
     /// patient is part of the filter, so nothing waits for one.
     let noPatientForMedication (state: State) =
-        { state with
-            SnackbarMsg =
-                Global.getLocalizedTerm
-                    state.Localization
-                    state.Context.Localization
-                    "Voer patient gegevens in"
-                    Terms.``Patient enter patient data``
-            SnackbarOpen = true
-            SnackbarSeverity = "warning"
-        }
+        let message =
+            Global.getLocalizedTerm
+                state.Localization
+                state.Context.Localization
+                "Voer patient gegevens in"
+                Terms.``Patient enter patient data``
+
+        { state with Snackbar = Snackbar.shown message "warning" }
 
 
     let update (msg: Msg) (state: State) =
@@ -970,9 +987,7 @@ module private Elmish =
             Logging.error "error" err
 
             { state with
-                SnackbarMsg = "Er ging iets mis, herladen"
-                SnackbarOpen = true
-                SnackbarSeverity = "error"
+                Snackbar = Snackbar.shown "Er ging iets mis, herladen" "error"
                 ServerError = Some $"Server fout: {errMsg}"
             },
             cmd
@@ -1005,13 +1020,7 @@ module private Elmish =
             | None -> noPatientForMedication state, Cmd.none
 
         match msg with
-        | CloseSnackbar ->
-            { state with
-                SnackbarMsg = ""
-                SnackbarOpen = false
-                SnackbarSeverity = "error"
-            },
-            Cmd.none
+        | CloseSnackbar -> { state with Snackbar = Snackbar.closed }, Cmd.none
 
         | CheckServer Started -> { state with ServerStatus = InProgress }, checkServer
 
@@ -1271,18 +1280,14 @@ module private Elmish =
                     Logging.error "could not close the session on the server" reason
 
                     { state with
-                        SnackbarMsg = "De sessie kon niet worden gesloten. Probeer het opnieuw."
-                        SnackbarOpen = true
-                        SnackbarSeverity = "error"
+                        Snackbar = Snackbar.shown "De sessie kon niet worden gesloten. Probeer het opnieuw." "error"
                     }
                 // the same for a PIN that never reached the server: the form comes back as it was
                 | SessionMsg.PinAnswered(Error reason), SessionView.SupplyingPin _ ->
                     Logging.error "could not send the PIN to the server" reason
 
                     { state with
-                        SnackbarMsg = "De pincode kon niet worden verstuurd. Probeer het opnieuw."
-                        SnackbarOpen = true
-                        SnackbarSeverity = "error"
+                        Snackbar = Snackbar.shown "De pincode kon niet worden verstuurd. Probeer het opnieuw." "error"
                     }
                 | _ -> state
 
@@ -1296,12 +1301,7 @@ module private Elmish =
             let tr term =
                 Global.getLocalizedTerm state.Localization state.Context.Localization (SigningPolicy.english term) term
 
-            let tell message severity (state: State) =
-                { state with
-                    SnackbarMsg = message
-                    SnackbarOpen = true
-                    SnackbarSeverity = severity
-                }
+            let tell message severity (state: State) = { state with Snackbar = Snackbar.shown message severity }
 
             // the version is open, or the record moved on: each said once, the machine decides
             let state =
@@ -1329,12 +1329,7 @@ module private Elmish =
             let tr term =
                 Global.getLocalizedTerm state.Localization state.Context.Localization (SigningPolicy.english term) term
 
-            let tell message severity (state: State) =
-                { state with
-                    SnackbarMsg = message
-                    SnackbarOpen = true
-                    SnackbarSeverity = severity
-                }
+            let tell message severity (state: State) = { state with Snackbar = Snackbar.shown message severity }
 
             let state =
                 effects
@@ -1483,9 +1478,10 @@ module private Elmish =
                             Logging.warning "order context error" errs
 
                             { state with
-                                SnackbarMsg = errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis"
-                                SnackbarOpen = true
-                                SnackbarSeverity = "warning"
+                                Snackbar =
+                                    Snackbar.shown
+                                        (errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis")
+                                        "warning"
                             }
                         | OrderContextEffect.CallContext _ -> state
                     )
@@ -1665,9 +1661,7 @@ module private Elmish =
                 { state with
                     InteractionDrugNames = HasNotStartedYet
                     DrugNameRetries = retries
-                    SnackbarMsg = "Interactie medicatie namen konden niet worden geladen"
-                    SnackbarOpen = true
-                    SnackbarSeverity = "warning"
+                    Snackbar = Snackbar.shown "Interactie medicatie namen konden niet worden geladen" "warning"
                 },
                 Cmd.none
             else
@@ -1878,7 +1872,7 @@ let View () =
                 CloseSnackbar |> dispatch
 
     let autoHide =
-        match state.SnackbarSeverity with
+        match state.Snackbar.Severity with
         | "success"
         | "info" -> 3000 |> box
         | _ -> null
@@ -1973,12 +1967,12 @@ let View () =
             </Box>
             <div>
                 <Snackbar
-                    open={state.SnackbarOpen}
+                    open={state.Snackbar.Open}
                     autoHideDuration={autoHide}
                     onClose={handleClose}
                 >
-                    <Alert severity={state.SnackbarSeverity} onClose={fun _ -> CloseSnackbar |> dispatch} sx={ {| width = "100%" |} }>
-                        {state.SnackbarMsg}
+                    <Alert severity={state.Snackbar.Severity} onClose={fun _ -> CloseSnackbar |> dispatch} sx={ {| width = "100%" |} }>
+                        {state.Snackbar.Message}
                     </Alert>
                 </Snackbar>
             </div>
