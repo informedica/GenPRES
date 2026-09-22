@@ -67,6 +67,9 @@ module private Elmish =
             ServerError: string option
             EmergencyListFilter: string[]
             ContinuousMedsFilter: string[]
+            Snackbar: Snackbar
+            // the patient data as the panel edits it and the lists read it, the estimate applied
+            PatientDraft: Patient option
         }
 
 
@@ -74,8 +77,6 @@ module private Elmish =
         {
             // the patient the workbench and the plan are for: the draft, once it meets the minimum
             Patient: Patient option
-            // the patient data as the panel edits it and the lists read it, the estimate applied
-            PatientDraft: Patient option
             NormalValues: Deferred<NormalValues>
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
@@ -92,7 +93,6 @@ module private Elmish =
             Parenteralia: Deferred<Parenteralia>
             Localization: Deferred<string[][]>
             Hospitals: Deferred<string[]>
-            Snackbar: Snackbar
             ServerStatus: Deferred<bool>
             IsAuthenticated: bool
             AuthToken: string
@@ -294,7 +294,7 @@ module private Elmish =
                 { state with
                     IsAuthenticated = false
                     AuthToken = ""
-                    Snackbar = Snackbar.shown "Invalid password" "error"
+                    Ui.Snackbar = Snackbar.shown "Invalid password" "error"
                 },
                 Cmd.none
         | Api.AdminResponse.LogFilesListed files -> { state with LogFiles = Resolved files }, Cmd.none
@@ -341,12 +341,12 @@ module private Elmish =
 
     let withdrawInteractionsNotice (state: State) =
         if
-            state.Snackbar.Message.StartsWith "Er zijn "
-            && state.Snackbar.Message.EndsWith " interactie(s) gevonden"
+            state.Ui.Snackbar.Message.StartsWith "Er zijn "
+            && state.Ui.Snackbar.Message.EndsWith " interactie(s) gevonden"
         then
             { state with
-                State.Snackbar.Message = ""
-                State.Snackbar.Open = false
+                Ui.Snackbar.Message = ""
+                Ui.Snackbar.Open = false
             }
         else
             state
@@ -357,7 +357,7 @@ module private Elmish =
         | Api.InteractionResponse.InteractionsChecked interactions ->
             let newState =
                 if interactions.Length > 0 then
-                    { state with Snackbar = Snackbar.shown (interactionsNotice interactions.Length) "warning" }
+                    { state with Ui.Snackbar = Snackbar.shown (interactionsNotice interactions.Length) "warning" }
                 else
                     withdrawInteractionsNotice state
 
@@ -572,7 +572,6 @@ module private Elmish =
         {
             // the patient follows through UpdatePatient, once the draft is a patient
             Patient = None
-            PatientDraft = pat
             NormalValues = HasNotStartedYet
             BolusMedication = HasNotStartedYet
             ContinuousMedication = HasNotStartedYet
@@ -589,7 +588,6 @@ module private Elmish =
             DrugNameRetries = 0
             Localization = HasNotStartedYet
             Hospitals = HasNotStartedYet
-            Snackbar = Snackbar.closed
             ServerStatus = HasNotStartedYet
             IsAuthenticated = false
             AuthToken = ""
@@ -615,6 +613,8 @@ module private Elmish =
                     ServerError = None
                     EmergencyListFilter = [||]
                     ContinuousMedsFilter = [||]
+                    Snackbar = Snackbar.closed
+                    PatientDraft = pat
                 }
         }
 
@@ -961,7 +961,7 @@ module private Elmish =
 
         { state with
             Patient = pat
-            PatientDraft = dto
+            Ui.PatientDraft = dto
             Formulary = { Formulary.empty with Patient = pat } |> Resolved
             Parenteralia = Parenteralia.empty |> Resolved
             Ui.EmergencyListFilter = [||]
@@ -986,7 +986,7 @@ module private Elmish =
                 "Voer patient gegevens in"
                 Terms.``Patient enter patient data``
 
-        { state with Snackbar = Snackbar.shown message "warning" }
+        { state with Ui.Snackbar = Snackbar.shown message "warning" }
 
 
     let update (msg: Msg) (state: State) =
@@ -1000,7 +1000,7 @@ module private Elmish =
             Logging.error "error" err
 
             { state with
-                Snackbar = Snackbar.shown "Er ging iets mis, herladen" "error"
+                Ui.Snackbar = Snackbar.shown "Er ging iets mis, herladen" "error"
                 Ui.ServerError = Some $"Server fout: {errMsg}"
             },
             cmd
@@ -1034,7 +1034,7 @@ module private Elmish =
             | None -> noPatientForMedication state, Cmd.none
 
         match msg with
-        | CloseSnackbar -> { state with Snackbar = Snackbar.closed }, Cmd.none
+        | CloseSnackbar -> { state with Ui.Snackbar = Snackbar.closed }, Cmd.none
 
         | CheckServer Started -> { state with ServerStatus = InProgress }, checkServer
 
@@ -1239,7 +1239,7 @@ module private Elmish =
                 | SessionView.Closing _ -> false
                 | _ -> true
 
-            let pat = if anonymous then pat else state.PatientDraft
+            let pat = if anonymous then pat else state.Ui.PatientDraft
 
             // only an `la` parameter changes the language; a navigation keeps the current one
             let language = languageOf state |> LanguagePolicy.Language.onUrl lang
@@ -1273,7 +1273,7 @@ module private Elmish =
             { state with
                 Ui.ShowDisclaimer = discl
                 Ui.Page = page |> Option.defaultValue LifeSupport
-                PatientDraft = pat
+                Ui.PatientDraft = pat
                 // the path from the state; it also keeps the field apart from the Global.Context type
                 Ui.Context.Localization = language.Current
                 Ui.LanguageChosen = language.Chosen
@@ -1298,14 +1298,15 @@ module private Elmish =
                     Logging.error "could not close the session on the server" reason
 
                     { state with
-                        Snackbar = Snackbar.shown "De sessie kon niet worden gesloten. Probeer het opnieuw." "error"
+                        Ui.Snackbar = Snackbar.shown "De sessie kon niet worden gesloten. Probeer het opnieuw." "error"
                     }
                 // the same for a PIN that never reached the server: the form comes back as it was
                 | SessionMsg.PinAnswered(Error reason), SessionView.SupplyingPin _ ->
                     Logging.error "could not send the PIN to the server" reason
 
                     { state with
-                        Snackbar = Snackbar.shown "De pincode kon niet worden verstuurd. Probeer het opnieuw." "error"
+                        Ui.Snackbar =
+                            Snackbar.shown "De pincode kon niet worden verstuurd. Probeer het opnieuw." "error"
                     }
                 | _ -> state
 
@@ -1323,7 +1324,7 @@ module private Elmish =
                     (SigningPolicy.english term)
                     term
 
-            let tell message severity (state: State) = { state with Snackbar = Snackbar.shown message severity }
+            let tell message severity (state: State) = { state with Ui.Snackbar = Snackbar.shown message severity }
 
             // the version is open, or the record moved on: each said once, the machine decides
             let state =
@@ -1355,7 +1356,7 @@ module private Elmish =
                     (SigningPolicy.english term)
                     term
 
-            let tell message severity (state: State) = { state with Snackbar = Snackbar.shown message severity }
+            let tell message severity (state: State) = { state with Ui.Snackbar = Snackbar.shown message severity }
 
             let state =
                 effects
@@ -1391,7 +1392,7 @@ module private Elmish =
             { state with NormalValues = InProgress }, Cmd.fromAsync (GoogleDocs.loadNormalValues LoadNormalValues)
 
         | LoadNormalValues(Finished(Ok normalValues)) ->
-            { state with NormalValues = normalValues |> Resolved }, Cmd.ofMsg (UpdatePatient state.PatientDraft)
+            { state with NormalValues = normalValues |> Resolved }, Cmd.ofMsg (UpdatePatient state.Ui.PatientDraft)
 
         | LoadNormalValues(Finished(Error s)) ->
             Logging.error "cannot load normal values" s
@@ -1504,7 +1505,7 @@ module private Elmish =
                             Logging.warning "order context error" errs
 
                             { state with
-                                Snackbar =
+                                Ui.Snackbar =
                                     Snackbar.shown
                                         (errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis")
                                         "warning"
@@ -1687,7 +1688,7 @@ module private Elmish =
                 { state with
                     InteractionDrugNames = HasNotStartedYet
                     DrugNameRetries = retries
-                    Snackbar = Snackbar.shown "Interactie medicatie namen konden niet worden geladen" "warning"
+                    Ui.Snackbar = Snackbar.shown "Interactie medicatie namen konden niet worden geladen" "warning"
                 },
                 Cmd.none
             else
@@ -1746,7 +1747,7 @@ type private ConcreteAppEnv
             OrderPlanMsg(OrderPlanMsg.Filter(ids, newRequest ())) |> dispatch
 
     interface AppEnv.IPatient with
-        member _.Draft = state.PatientDraft
+        member _.Draft = state.Ui.PatientDraft
         member _.UpdatePatient p = UpdatePatient p |> dispatch
 
     interface AppEnv.IFormulary with
@@ -1898,12 +1899,12 @@ let View () =
                 CloseSnackbar |> dispatch
 
     let autoHide =
-        match state.Snackbar.Severity with
+        match state.Ui.Snackbar.Severity with
         | "success"
         | "info" -> 3000 |> box
         | _ -> null
 
-    let bm = calculateInterventions EmergencyTreatment.calculate state.BolusMedication state.PatientDraft
+    let bm = calculateInterventions EmergencyTreatment.calculate state.BolusMedication state.Ui.PatientDraft
 
     let cm =
         let calc =
@@ -1912,7 +1913,7 @@ let View () =
                 | Some w' -> ContinuousMedication.calculate w' meds
                 | None -> []
 
-        calculateInterventions calc state.ContinuousMedication state.PatientDraft
+        calculateInterventions calc state.ContinuousMedication state.Ui.PatientDraft
 
     let appEnv = ConcreteAppEnv(state, dispatch, bm, cm) :> obj
 
@@ -1993,12 +1994,12 @@ let View () =
             </Box>
             <div>
                 <Snackbar
-                    open={state.Snackbar.Open}
+                    open={state.Ui.Snackbar.Open}
                     autoHideDuration={autoHide}
                     onClose={handleClose}
                 >
-                    <Alert severity={state.Snackbar.Severity} onClose={fun _ -> CloseSnackbar |> dispatch} sx={ {| width = "100%" |} }>
-                        {state.Snackbar.Message}
+                    <Alert severity={state.Ui.Snackbar.Severity} onClose={fun _ -> CloseSnackbar |> dispatch} sx={ {| width = "100%" |} }>
+                        {state.Ui.Snackbar.Message}
                     </Alert>
                 </Snackbar>
             </div>
