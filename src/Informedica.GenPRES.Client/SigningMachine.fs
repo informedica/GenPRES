@@ -1,7 +1,10 @@
 /// The signing phase of an open Session, from the challenge to the Submission: a pure state machine next to
 /// the Session's, with effects for the App to interpret. The machine holds no OpenedToken: the
 /// effects name what it knows (the plan, the challenge, the PIN, the request and the key), and
-/// the interpreter completes each call from the open Session.
+/// the interpreter completes each call from the open Session. The state is a lane: the signing
+/// as the clinical model has it, which knows no request; the one request under way; and the key
+/// of a Submission whose answer was lost. The dialog reads a view of it, with nothing of the
+/// request.
 ///
 /// Four invariants: what is submitted is the plan the challenge was issued over, held in the
 /// state, never the live cart; one request is in flight at a time; a Submission whose answer
@@ -126,86 +129,6 @@ module Signing =
         | Signing.Unsent(_, plan, _) -> SigningView.Challenged(plan, None)
 
 
-    let transition (msg: SigningMsg) (state: Signing) : Signing * SigningEffect list =
-        match msg, state with
-        | SigningMsg.Sign(plan, request), Signing.Idle ->
-            Signing.Requesting(plan, None, request), [ SigningEffect.CallChallenge(plan, None, request) ]
-        // one thing at a time
-        | SigningMsg.Sign _, _ -> state, []
-
-        // an answer lands only on the request it answers
-        | SigningMsg.ChallengeAnswered(answered, _), Signing.Requesting(_, _, request) when answered <> request ->
-            state, []
-        | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.ChallengeIssued challenge)), Signing.Requesting(plan, _, _) ->
-            Signing.Challenged(challenge, plan, None), []
-        | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.DataNotice notice)), Signing.Requesting(plan, _, _) ->
-            Signing.Noticed(plan, notice), []
-        | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.Refused SigningRefusal.PinLimit)), Signing.Requesting _ ->
-            Signing.Idle, [ SigningEffect.EndSession SessionEnding.WrongPinLimit ]
-        | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.Refused refusal)), Signing.Requesting _ ->
-            Signing.Idle, [ SigningEffect.TellRefused refusal ]
-        // never an answer to a challenge request
-        | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.Submitted _)), Signing.Requesting _ -> Signing.Idle, []
-        | SigningMsg.ChallengeAnswered(_, Error reason), Signing.Requesting _ ->
-            Signing.Idle, [ SigningEffect.TellError reason ]
-        | SigningMsg.ChallengeAnswered _, _ -> state, []
-
-        // the User signs over the data as it stands; with a reading, the cart follows it.
-        // The notice token is the request id: one notice, one acceptance
-        | SigningMsg.Accept, Signing.Noticed(plan, notice) ->
-            match notice.Data with
-            | Some data ->
-                let shown = { plan with Patient = data }
-
-                Signing.Requesting(shown, Some notice.Token, notice.Token),
-                [
-                    SigningEffect.SetPatient data
-                    SigningEffect.CallChallenge(shown, Some notice.Token, notice.Token)
-                ]
-            | None ->
-                Signing.Requesting(plan, Some notice.Token, notice.Token),
-                [ SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token) ]
-        | SigningMsg.Accept, _ -> state, []
-
-        // the plan submitted is the plan challenged, never the live cart, under the caller's key
-        | SigningMsg.Confirm(pin, key), Signing.Challenged(challenge, plan, _) ->
-            Signing.Submitting(challenge, plan, key), [ SigningEffect.CallSubmit(plan, challenge, pin, key) ]
-        // a retry after a lost answer goes out under the key it had: the server
-        // answers what it already did, whether the signature landed or not
-        | SigningMsg.Confirm(pin, _), Signing.Unsent(challenge, plan, key) ->
-            Signing.Submitting(challenge, plan, key), [ SigningEffect.CallSubmit(plan, challenge, pin, key) ]
-        | SigningMsg.Confirm _, _ -> state, []
-
-        // the challenge is dropped, and the dialog with it; a request in flight cannot be cancelled
-        | SigningMsg.Cancel, Signing.Requesting _
-        | SigningMsg.Cancel, Signing.Noticed _
-        | SigningMsg.Cancel, Signing.Challenged _
-        | SigningMsg.Cancel, Signing.Unsent _ -> Signing.Idle, []
-        | SigningMsg.Cancel, _ -> state, []
-
-        // an answer lands only on the Submission it answers
-        | SigningMsg.SubmitAnswered(answered, _), Signing.Submitting(_, _, key) when answered <> key -> state, []
-        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Submitted(signed, token))), Signing.Submitting _ ->
-            Signing.Idle, [ SigningEffect.RenewToken token; SigningEffect.TellSigned signed ]
-        // the dialog stays open with what went wrong (tries left, or locked)
-        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused(SigningRefusal.PinWrong _ as refusal))),
-          Signing.Submitting(challenge, plan, _)
-        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused(SigningRefusal.Locked _ as refusal))),
-          Signing.Submitting(challenge, plan, _) -> Signing.Challenged(challenge, plan, Some refusal), []
-        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused SigningRefusal.PinLimit)), Signing.Submitting _ ->
-            Signing.Idle, [ SigningEffect.EndSession SessionEnding.WrongPinLimit ]
-        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused refusal)), Signing.Submitting _ ->
-            Signing.Idle, [ SigningEffect.TellRefused refusal ]
-        // never an answer to a Submission
-        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.ChallengeIssued _)), Signing.Submitting _
-        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.DataNotice _)), Signing.Submitting _ -> Signing.Idle, []
-        // the answer was lost: whether the signature landed is unknown, so the dialog comes
-        // back and the next Confirm retries under the same key
-        | SigningMsg.SubmitAnswered(_, Error reason), Signing.Submitting(challenge, plan, key) ->
-            Signing.Unsent(challenge, plan, key), [ SigningEffect.TellError reason ]
-        | SigningMsg.SubmitAnswered _, _ -> state, []
-
-
 module SigningState =
 
     let idle =
@@ -271,3 +194,102 @@ module SigningState =
         | SigningPhase.Noticed(plan, notice), _ -> SigningView.Noticed(plan, notice)
         | SigningPhase.Challenged(_, plan, _), Some(SigningRequest.Submission _) -> SigningView.Submitting plan
         | SigningPhase.Challenged(_, plan, refusal), _ -> SigningView.Challenged(plan, refusal)
+
+
+    /// Every arm names the phase and the request under way, and every new state is built through
+    /// a constructor, so that no field outlives the state it belongs to.
+    let transition (msg: SigningMsg) (state: SigningState) : SigningState * SigningEffect list =
+        match msg, state.Phase, state.InFlight with
+        | SigningMsg.Sign(plan, request), SigningPhase.Idle, None ->
+            requesting plan None request, [ SigningEffect.CallChallenge(plan, None, request) ]
+        // one thing at a time
+        | SigningMsg.Sign _, _, _ -> state, []
+
+        // an answer lands only on the request it answers
+        | SigningMsg.ChallengeAnswered(answered, _), _, Some(SigningRequest.Challenge(_, _, request)) when
+            answered <> request
+            ->
+            state, []
+        | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.ChallengeIssued challenge)),
+          SigningPhase.Idle,
+          Some(SigningRequest.Challenge(plan, _, _)) -> challenged challenge plan None, []
+        | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.DataNotice notice)),
+          SigningPhase.Idle,
+          Some(SigningRequest.Challenge(plan, _, _)) -> noticed plan notice, []
+        | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.Refused SigningRefusal.PinLimit)),
+          SigningPhase.Idle,
+          Some(SigningRequest.Challenge _) -> idle, [ SigningEffect.EndSession SessionEnding.WrongPinLimit ]
+        | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.Refused refusal)),
+          SigningPhase.Idle,
+          Some(SigningRequest.Challenge _) -> idle, [ SigningEffect.TellRefused refusal ]
+        // never an answer to a challenge request
+        | SigningMsg.ChallengeAnswered(_, Ok(SigningResponse.Submitted _)),
+          SigningPhase.Idle,
+          Some(SigningRequest.Challenge _) -> idle, []
+        | SigningMsg.ChallengeAnswered(_, Error reason), SigningPhase.Idle, Some(SigningRequest.Challenge _) ->
+            idle, [ SigningEffect.TellError reason ]
+        | SigningMsg.ChallengeAnswered _, _, _ -> state, []
+
+        // the User signs over the data as it stands; with a reading, the cart follows it. The
+        // notice token is the request id: one notice, one acceptance. The dialog closes while the
+        // challenge is asked again
+        | SigningMsg.Accept, SigningPhase.Noticed(plan, notice), None ->
+            match notice.Data with
+            | Some data ->
+                let shown = { plan with Patient = data }
+
+                requesting shown (Some notice.Token) notice.Token,
+                [
+                    SigningEffect.SetPatient data
+                    SigningEffect.CallChallenge(shown, Some notice.Token, notice.Token)
+                ]
+            | None ->
+                requesting plan (Some notice.Token) notice.Token,
+                [ SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token) ]
+        | SigningMsg.Accept, _, _ -> state, []
+
+        // the plan submitted is the plan challenged, never the live cart, under the caller's key;
+        // a retry after a lost answer goes out under the key it had, so that the server answers
+        // what it already did, whether the signature landed or not
+        | SigningMsg.Confirm(pin, key), SigningPhase.Challenged(challenge, plan, _), None ->
+            let key = state.Unsent |> Option.defaultValue key
+            submitting challenge plan key, [ SigningEffect.CallSubmit(plan, challenge, pin, key) ]
+        | SigningMsg.Confirm _, _, _ -> state, []
+
+        // a request in flight cannot be cancelled; everything else is dropped, and the dialog with
+        // it, a challenge asked included: its answer then finds no request and lands nowhere
+        | SigningMsg.Cancel, _, Some(SigningRequest.Submission _) -> state, []
+        | SigningMsg.Cancel, _, _ -> idle, []
+
+        // an answer lands only on the Submission it answers
+        | SigningMsg.SubmitAnswered(answered, _), _, Some(SigningRequest.Submission key) when answered <> key ->
+            state, []
+        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Submitted(signed, token))),
+          SigningPhase.Challenged _,
+          Some(SigningRequest.Submission _) -> idle, [ SigningEffect.RenewToken token; SigningEffect.TellSigned signed ]
+        // the dialog stays open with what went wrong (tries left, or locked)
+        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused(SigningRefusal.PinWrong _ as refusal))),
+          SigningPhase.Challenged(challenge, plan, _),
+          Some(SigningRequest.Submission _)
+        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused(SigningRefusal.Locked _ as refusal))),
+          SigningPhase.Challenged(challenge, plan, _),
+          Some(SigningRequest.Submission _) -> challenged challenge plan (Some refusal), []
+        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused SigningRefusal.PinLimit)),
+          SigningPhase.Challenged _,
+          Some(SigningRequest.Submission _) -> idle, [ SigningEffect.EndSession SessionEnding.WrongPinLimit ]
+        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Refused refusal)),
+          SigningPhase.Challenged _,
+          Some(SigningRequest.Submission _) -> idle, [ SigningEffect.TellRefused refusal ]
+        // never an answer to a Submission
+        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.ChallengeIssued _)),
+          SigningPhase.Challenged _,
+          Some(SigningRequest.Submission _)
+        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.DataNotice _)),
+          SigningPhase.Challenged _,
+          Some(SigningRequest.Submission _) -> idle, []
+        // the answer was lost: whether the signature landed is unknown, so the dialog comes back
+        // without a refusal and the next Confirm retries under the same key
+        | SigningMsg.SubmitAnswered(_, Error reason),
+          SigningPhase.Challenged(challenge, plan, _),
+          Some(SigningRequest.Submission key) -> unsent challenge plan key, [ SigningEffect.TellError reason ]
+        | SigningMsg.SubmitAnswered _, _, _ -> state, []
