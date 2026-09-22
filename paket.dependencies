@@ -30,7 +30,7 @@ nuget IcedTasks 0.11.9
 nuget Unquote
 
 nuget ModelContextProtocol 1.2.0
-nuget Microsoft.Extensions.Hosting
+nuget Microsoft.Extensions.Hosting 10.0.7
 
 // The session store's test and development database (ADR-0007 section 4, plan 516).
 // Production never opens it.
