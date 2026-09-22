@@ -1377,7 +1377,7 @@ module Nutrition =
         // the one plan: the nutrition workbenches live in the order plan, which is there
         // with the patient
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
-        let orderPlan = envOrderPlan.OrderPlanView
+        let orderPlan = envOrderPlan.OrderPlan
         let planCommand = envOrderPlan.OrderPlanCommand
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms

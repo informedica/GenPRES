@@ -387,39 +387,6 @@ let tests =
 
 
 [<Tests>]
-let projectionTests =
-    testList
-        "OrderPlanState.toDeferred"
-        [
-            test "no patient: not started; an open under way: in progress; the plan held: resolved" {
-                noPatient
-                |> OrderPlanState.toDeferred
-                |> Expect.equal "not started" HasNotStartedYet
-
-                loading patient [||] "r-1"
-                |> OrderPlanState.toDeferred
-                |> Expect.equal "in progress, nothing to show" InProgress
-
-                shown
-                |> OrderPlanState.toDeferred
-                |> Expect.equal "the plan held" (Resolved one)
-            }
-
-            test "a change under way: the plan the page changed for a recalculation, the plan held otherwise" {
-                let filtered = { one with Filtered = [| "c-1" |] }
-
-                recalculating one None "r-1" (OrderPlanCommand.Recalculate filtered)
-                |> OrderPlanState.toDeferred
-                |> Expect.equal "the rows chosen show at once" (Provisional filtered)
-
-                recalculating one None "r-1" (OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |]))
-                |> OrderPlanState.toDeferred
-                |> Expect.equal "the plan held" (Provisional one)
-            }
-        ]
-
-
-[<Tests>]
 let viewTests =
     testList
         "OrderPlanState.view"

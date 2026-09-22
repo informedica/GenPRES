@@ -25,10 +25,10 @@ module Prescribe =
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let envOrderContext = AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv
-        let orderContext = envOrderContext.OrderContextView
+        let orderContext = envOrderContext.OrderContext
         let orderContextMsg = envOrderContext.OrderContextMsg
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
-        let orderPlan = envOrderPlan.OrderPlanView
+        let orderPlan = envOrderPlan.OrderPlan
         let planCommand = envOrderPlan.OrderPlanCommand
         let draft = (AppEnv.asEnv<AppEnv.IPatient> props.appEnv).Draft
 

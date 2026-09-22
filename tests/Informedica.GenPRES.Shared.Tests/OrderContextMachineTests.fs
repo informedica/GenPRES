@@ -306,35 +306,6 @@ let tests =
 
 
 [<Tests>]
-let projectionTests =
-    testList
-        "OrderContextState.toDeferred"
-        [
-            test "no patient: not started; the context held: resolved; nothing is resolved unevaluated" {
-                noPatient
-                |> OrderContextState.toDeferred
-                |> Expect.equal "not started" HasNotStartedYet
-
-                shown
-                |> OrderContextState.toDeferred
-                |> Expect.equal "the context held" (Resolved paracetamol)
-            }
-
-            test "the first evaluation: in progress, nothing to show; a change under way: the context sent" {
-                opening patient "r-1"
-                |> OrderContextState.toDeferred
-                |> Expect.equal "in progress" InProgress
-
-                let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
-
-                inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty stepped paracetamol "r-1"
-                |> OrderContextState.toDeferred
-                |> Expect.equal "the context sent" (Provisional stepped)
-            }
-        ]
-
-
-[<Tests>]
 let viewTests =
     testList
         "OrderContextState.view"
