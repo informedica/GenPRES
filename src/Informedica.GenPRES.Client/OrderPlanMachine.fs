@@ -412,7 +412,11 @@ module OrderPlanState =
                          else
                              state),
                         []
-                    | OrderPlanCartIntent.Call cmd -> call cmd state
+                    // the one place a command goes out: a change that goes out is work until the
+                    // next version is opened or signed; the step that waited counts here when it
+                    // goes out on the answer, and never if it is dropped meanwhile
+                    | OrderPlanCartIntent.Call cmd ->
+                        call cmd { state with Work = state.Work |> PlanWork.afterCommand cmd }
                     | OrderPlanCartIntent.CheckInteractions drugs -> state, [ OrderPlanEffect.CheckInteractions drugs ]
                     | OrderPlanCartIntent.GoToPlanPage -> state, [ OrderPlanEffect.GoToPlanPage ]
                     | OrderPlanCartIntent.ResetWorkbench -> state, [ OrderPlanEffect.ResetWorkbench ]
@@ -506,26 +510,13 @@ module OrderPlanState =
             | _ -> run request (OrderPlanCartMsg.PatientChanged(Some pat)) state
 
         // a version opened is the plan as signed, and so is no plan at all: without a patient the
-        // plan is dropped, nothing left to sign. A command that changes the plan is work until
-        // the next version is opened or signed, when it goes out or waits as the one pending; a
-        // command dropped while a request is under way changed nothing
+        // plan is dropped, nothing left to sign. A command counts as work where it goes out, in
+        // the request stage
         | OrderPlanMsg.PatientChanged(None, request) ->
             run request (OrderPlanCartMsg.PatientChanged None) { state with Work = PlanWork.AsSigned }
         | OrderPlanMsg.Version(head, request) ->
             run request (OrderPlanCartMsg.Version head) { state with Work = PlanWork.AsSigned }
-        | OrderPlanMsg.Command(cmd, request) ->
-            let goes = state.InFlight.IsNone || OrderPlanCart.waits cmd
-
-            run
-                request
-                (OrderPlanCartMsg.Command cmd)
-                { state with
-                    Work =
-                        (if goes then
-                             state.Work |> PlanWork.afterCommand cmd
-                         else
-                             state.Work)
-                }
+        | OrderPlanMsg.Command(cmd, request) -> run request (OrderPlanCartMsg.Command cmd) state
         | OrderPlanMsg.Filter(ids, request) -> run request (OrderPlanCartMsg.Filter ids) state
         // the plan is the version just signed, unless it changed while the signature was under way
         | OrderPlanMsg.Signed askedOver -> { state with Work = state.Work |> PlanWork.afterSigned askedOver }, []

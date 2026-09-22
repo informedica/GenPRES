@@ -465,9 +465,7 @@ let pendingTests =
         [
             test "waits as the one pending; any other change is dropped" {
                 transition (OrderPlanMsg.Command(step, "r-2")) busy
-                |> Expect.equal
-                    "pending under its own id, nothing sent, one change of work"
-                    (waiting |> OrderPlanState.withWork (PlanWork.Changed 1), [])
+                |> Expect.equal "pending under its own id, nothing sent, no work yet" (waiting, [])
 
                 transition (OrderPlanMsg.Command(remove, "r-2")) busy
                 |> Expect.equal "dropped" (busy, [])
@@ -480,7 +478,8 @@ let pendingTests =
                 transition (OrderPlanMsg.Answered("r-1", Ok answer)) waiting
                 |> Expect.equal
                     "the step, into the context answered"
-                    (recalculating answer (Some "c-1") "r-2" sent,
+                    (recalculating answer (Some "c-1") "r-2" sent
+                     |> OrderPlanState.withWork (PlanWork.Changed 1),
                      [
                          OrderPlanEffect.CheckInteractions [ "paracetamol-now" ]
                          OrderPlanEffect.CallPlan(sent, "r-2")
@@ -494,7 +493,8 @@ let pendingTests =
                 |> transition (OrderPlanMsg.Answered("r-1", Ok answer))
                 |> Expect.equal
                     "the value typed, into the context it was typed into"
-                    (recalculating answer (Some "c-1") "r-2" sent,
+                    (recalculating answer (Some "c-1") "r-2" sent
+                     |> OrderPlanState.withWork (PlanWork.Changed 1),
                      [
                          OrderPlanEffect.CheckInteractions [ "paracetamol-now" ]
                          OrderPlanEffect.CallPlan(sent, "r-2")
@@ -616,7 +616,7 @@ let workTests =
                 |> Expect.equal "still one change" (PlanWork.Changed 1)
             }
 
-            test "a command counts when it goes out or waits as the one pending, not when it is dropped" {
+            test "a command counts when it goes out: not while it waits, never when it is dropped" {
                 let busy = recalculating one None "r-1" (OrderPlanCommand.Recalculate one)
 
                 transition (OrderPlanMsg.Command(remove, "r-2")) busy
@@ -631,9 +631,27 @@ let workTests =
                         one.OrderContexts[0]
                     )
 
-                transition (OrderPlanMsg.Command(step, "r-2")) busy
+                let waiting, _ = transition (OrderPlanMsg.Command(step, "r-2")) busy
+                waiting
+                |> OrderPlanState.work
+                |> Expect.equal "the dialog's step waits: not yet" PlanWork.AsSigned
+
+                // the answer lands: the step goes out, and counts once
+                transition (OrderPlanMsg.Answered("r-1", Ok one)) waiting
                 |> workOf
-                |> Expect.equal "the dialog's step waits, and counts" (PlanWork.Changed 1)
+                |> Expect.equal "gone out on the answer" (PlanWork.Changed 1)
+
+                // the request fails: the step is dropped, and counts nothing
+                transition (OrderPlanMsg.Answered("r-1", Error [| "down" |])) waiting
+                |> workOf
+                |> Expect.equal "dropped with the failure" PlanWork.AsSigned
+
+                // a later step replaces it: only the one that goes out counts
+                let later, _ = transition (OrderPlanMsg.Command(step, "r-3")) waiting
+
+                transition (OrderPlanMsg.Answered("r-1", Ok one)) later
+                |> workOf
+                |> Expect.equal "the one that goes out" (PlanWork.Changed 1)
             }
 
             test "a version opened and a patient cleared are as signed" {
