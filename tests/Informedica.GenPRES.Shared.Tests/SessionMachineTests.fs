@@ -770,3 +770,80 @@ module SessionMachineTests =
                     |> Expect.equal "enrolment failed" (SessionView.EnrolmentFailed PinRefusal.CodeVoid)
                 }
             ]
+
+
+    [<Tests>]
+    let stateViewTests =
+        let pending: EnrolmentPending =
+            {
+                DisplayName = "Stub Prescriber (no PIN)"
+                MailHint = "n***@stub.example"
+            }
+
+        // the lane record beside the DU: each constructor shows what the corresponding state of
+        // the DU shows, so that the machine can move onto the record with the pages unchanged
+        let agrees (name: string) (state: SessionState) (old: Session) =
+            state |> SessionState.view |> Expect.equal name (old |> Session.view)
+
+        testList
+            "SessionState.view agrees with Session.view"
+            [
+                test "no Session, the presentation and the resume" {
+                    agrees "anonymous" SessionState.anonymous Session.Anonymous
+                    agrees "launching" (SessionState.launching launchA keyA 2) (Session.Launching(launchA, keyA, 2))
+                    agrees "resuming" SessionState.resuming Session.Resuming
+                }
+
+                test "the open Session, and the close under way over it" {
+                    agrees "open" (SessionState.opened full) (Session.Open full)
+                    agrees "closing" (SessionState.closing full) (Session.Closing full)
+
+                    SessionState.opened full
+                    |> SessionState.token
+                    |> Expect.equal "the token of the open Session" full.OpenedToken
+
+                    SessionState.closing full
+                    |> SessionState.token
+                    |> Expect.equal "none while closing" None
+
+                    SessionState.launching launchA keyA 1
+                    |> SessionState.token
+                    |> Expect.equal "none while launching" None
+                }
+
+                test "the refusals, the server unreachable, the ending" {
+                    agrees
+                        "retryable"
+                        (SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA)
+                        (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launchA, keyA)))
+
+                    agrees
+                        "refused"
+                        (SessionState.refused LaunchRefusal.NoRole)
+                        (Session.Refused(LaunchRefusal.NoRole, None))
+
+                    agrees
+                        "unreachable"
+                        (SessionState.unreachable launchA keyA)
+                        (Session.Unreachable(launchA, keyA, Session.maxAttempts))
+
+                    agrees
+                        "ended"
+                        (SessionState.ended SessionEnding.WrongPinLimit)
+                        (Session.Ended SessionEnding.WrongPinLimit)
+                }
+
+                test "the enrolment: the form, the PIN under way, the enrolment failed" {
+                    agrees
+                        "enrolling"
+                        (SessionState.enrolling pending (Some(PinRefusal.WrongCode 2)))
+                        (Session.Enrolling(pending, Some(PinRefusal.WrongCode 2)))
+
+                    agrees "supplying the PIN" (SessionState.supplyingPin pending) (Session.SupplyingPin pending)
+
+                    agrees
+                        "enrolment failed"
+                        (SessionState.enrolmentFailed PinRefusal.CodeVoid)
+                        (Session.EnrolmentFailed PinRefusal.CodeVoid)
+                }
+            ]
