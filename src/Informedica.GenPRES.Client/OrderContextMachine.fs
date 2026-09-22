@@ -197,6 +197,37 @@ type OrderContextEffect =
     | TellError of string[]
 
 
+/// The workbench as the page shows it: the states a page can be in, each with what is valid in
+/// it and nothing of the request. Nothing without a patient; the first evaluation under way
+/// with nothing to show; the context the server answered, nothing under way; a change under
+/// way, the context sent shown meanwhile. A page renders from `Settled` and `Changing` alike,
+/// so that the screen stays populated while a request runs; it steps from `Changing` too, over
+/// the context shown, and builds every other command from `Settled` only.
+[<RequireQualifiedAccess>]
+type OrderContextView =
+    | NoPatient
+    | Evaluating
+    | Settled of OrderContext
+    | Changing of OrderContext
+
+
+module OrderContextView =
+
+    /// The context the order dialog shows, from the plan as the plan page shows it: the
+    /// selected context, settled or changing as the plan is; none without a selection, or
+    /// with one the plan no longer holds.
+    let dialog (plan: OrderPlanMachine.OrderPlanView) : OrderContextView option =
+        let pick (tp: OrderPlan) (id: string) = tp.OrderContexts |> Array.tryFind (fun c -> c.Id = id)
+
+        match plan with
+        | OrderPlanMachine.OrderPlanView.Settled(tp, Some id) -> pick tp id |> Option.map OrderContextView.Settled
+        | OrderPlanMachine.OrderPlanView.Changing(tp, Some id) -> pick tp id |> Option.map OrderContextView.Changing
+        | OrderPlanMachine.OrderPlanView.Settled(_, None)
+        | OrderPlanMachine.OrderPlanView.Changing(_, None)
+        | OrderPlanMachine.OrderPlanView.NoPatient
+        | OrderPlanMachine.OrderPlanView.Opening -> None
+
+
 module OrderContextState =
 
     let noPatient =
@@ -278,6 +309,15 @@ module OrderContextState =
         | OrderContextWorkbench.Unevaluated _, _ -> InProgress
         | OrderContextWorkbench.Evaluated _, Some((_, sent), _) -> Provisional sent
         | OrderContextWorkbench.Evaluated(_, ctx), None -> Resolved ctx
+
+
+    /// The workbench as the page shows it: the context sent shown while a request is under way.
+    let view (state: OrderContextState) : OrderContextView =
+        match state.Workbench, state.InFlight with
+        | OrderContextWorkbench.NoPatient, _ -> OrderContextView.NoPatient
+        | OrderContextWorkbench.Unevaluated _, _ -> OrderContextView.Evaluating
+        | OrderContextWorkbench.Evaluated _, Some((_, sent), _) -> OrderContextView.Changing sent
+        | OrderContextWorkbench.Evaluated(_, ctx), None -> OrderContextView.Settled ctx
 
 
     /// The request stage's check: the payload sent when the answer names the request under way,

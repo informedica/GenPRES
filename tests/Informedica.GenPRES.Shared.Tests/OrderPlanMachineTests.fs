@@ -420,6 +420,61 @@ let projectionTests =
 
 
 [<Tests>]
+let viewTests =
+    testList
+        "OrderPlanState.view"
+        [
+            test "no patient; an open under way; the plan held with its selection" {
+                noPatient
+                |> OrderPlanState.view
+                |> Expect.equal "no patient" OrderPlanView.NoPatient
+
+                loading patient [||] "r-1"
+                |> OrderPlanState.view
+                |> Expect.equal "opening, nothing to show" OrderPlanView.Opening
+
+                held one (Some "c-1")
+                |> OrderPlanState.view
+                |> Expect.equal "the plan held, the selection with it" (OrderPlanView.Settled(one, Some "c-1"))
+            }
+
+            test "a change under way: the plan the page changed for a recalculation, the plan held otherwise" {
+                let filtered = { one with Filtered = [| "c-1" |] }
+
+                recalculating one (Some "c-1") "r-1" (OrderPlanCommand.Recalculate filtered)
+                |> OrderPlanState.view
+                |> Expect.equal "the rows chosen show at once" (OrderPlanView.Changing(filtered, Some "c-1"))
+
+                recalculating one None "r-1" (OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |]))
+                |> OrderPlanState.view
+                |> Expect.equal "the plan held" (OrderPlanView.Changing(one, None))
+            }
+
+            test "holds: a context in the plan, settled or changing; nothing without a plan" {
+                held two None
+                |> OrderPlanState.view
+                |> OrderPlanView.holds "c-2"
+                |> Expect.isTrue "in the plan"
+
+                recalculating two None "r-1" (OrderPlanCommand.RemoveOrderContexts(two, [| "c-1" |]))
+                |> OrderPlanState.view
+                |> OrderPlanView.holds "c-1"
+                |> Expect.isTrue "still shown while the change is under way"
+
+                held two None
+                |> OrderPlanState.view
+                |> OrderPlanView.holds "c-9"
+                |> Expect.isFalse "not in the plan"
+
+                noPatient
+                |> OrderPlanState.view
+                |> OrderPlanView.holds "c-1"
+                |> Expect.isFalse "no plan"
+            }
+        ]
+
+
+[<Tests>]
 let stagesTests =
     testList
         "the two stages"
