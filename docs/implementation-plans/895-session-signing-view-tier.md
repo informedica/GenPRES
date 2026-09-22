@@ -433,7 +433,12 @@ the markdown linter.
    in `PlanWorkTests.fs`; `Sign` carries the work; `SigningState.AskedOver`; `TellSigned`
    carries it back; `askedOver` gone; `App.fs` loses `WorkAtSign`. Tests: the three
    `askedOver` tests as machine tests (idle, under way, a second sign after an edit);
-   `TellSigned` carries the work. About 80 lines.
+   `TellSigned` carries the work; and the work survives every rebuild between the sign and
+   the signature, since each goes through a constructor that must carry it: a wrong PIN
+   (submitting, challenged again with the refusal, submitting again) and a lost answer
+   (submitting, unsent, submitting under the kept key, signed), both ending in a
+   `TellSigned` that carries the work the first `Sign` was asked over, not the work of an
+   edit made meanwhile. About 80 lines.
 9. **The plan's work in the plan lane** (`refactor(client)`, go/no-go). `OrderPlanState.Work`
    and `work`, `OrderPlanMsg.Signed`; `App.fs` loses `PlanWork`; the leave guard reads the
    lane. Tests: the work after a changing command, a recalculation, a version, a patient
