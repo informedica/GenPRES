@@ -633,7 +633,7 @@ module private Elmish =
     let hasUnsignedWork (state: State) =
         UnsignedWorkPolicy.hasUnsignedWork
             (state.OrderContext |> OrderContextState.context)
-            state.Signing
+            (state.Signing |> Signing.view)
             state.PlanWork
 
 
@@ -1378,7 +1378,11 @@ module private Elmish =
                 match msg with
                 | SigningMsg.Sign _ ->
                     { state with
-                        WorkAtSign = UnsignedWorkPolicy.PlanWork.askedOver state.Signing state.PlanWork state.WorkAtSign
+                        WorkAtSign =
+                            UnsignedWorkPolicy.PlanWork.askedOver
+                                (state.Signing |> Signing.view)
+                                state.PlanWork
+                                state.WorkAtSign
                     }
                 | _ -> state
 
@@ -1826,7 +1830,7 @@ type private ConcreteAppEnv
         member _.OpenVersion id = SessionMsg(SessionMsg.OpenVersion id) |> dispatch
 
     interface AppEnv.ISigning with
-        member _.Signing = state.Signing
+        member _.Signing = state.Signing |> Signing.view
 
         // one request id per Sign, so the answer lands on this request and no other
         member _.Sign plan =

@@ -237,11 +237,11 @@ let tests =
 
             test "the dialog is up while noticed, challenged or submitting" {
                 let plan = Shared.Models.OrderPlan.create patient [||]
-                dialogOpen Signing.Idle |> Expect.isFalse "idle"
-                dialogOpen (Signing.Requesting(plan, None, "r")) |> Expect.isFalse "requesting"
+                dialogOpen SigningView.Idle |> Expect.isFalse "idle"
+                dialogOpen SigningView.Requesting |> Expect.isFalse "requesting"
 
                 dialogOpen (
-                    Signing.Noticed(
+                    SigningView.Noticed(
                         plan,
                         {
                             Data = None
@@ -251,8 +251,11 @@ let tests =
                 )
                 |> Expect.isTrue "noticed"
 
-                dialogOpen (Signing.Challenged("c", plan, None)) |> Expect.isTrue "challenged"
-                dialogOpen (Signing.Submitting("c", plan, "k")) |> Expect.isTrue "submitting"
-                dialogOpen (Signing.Unsent("c", plan, "k")) |> Expect.isTrue "unsent"
+                dialogOpen (SigningView.Challenged(plan, None)) |> Expect.isTrue "challenged"
+
+                dialogOpen (SigningView.Challenged(plan, Some(SigningRefusal.PinWrong 2)))
+                |> Expect.isTrue "refused"
+
+                dialogOpen (SigningView.Submitting plan) |> Expect.isTrue "submitting"
             }
         ]

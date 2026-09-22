@@ -90,10 +90,11 @@ type ISession =
     abstract OpenVersion: string -> unit
 
 
-/// The signing phase of the open Session: its state, and the actions the dialog offers on it
+/// The signing phase of the open Session as the dialog shows it, and the actions the dialog
+/// offers on it
 [<Interface>]
 type ISigning =
-    abstract Signing: SigningMachine.Signing
+    abstract Signing: SigningMachine.SigningView
     // ask a challenge over the plan as shown
     abstract Sign: OrderPlan -> unit
     // the data notice accepted

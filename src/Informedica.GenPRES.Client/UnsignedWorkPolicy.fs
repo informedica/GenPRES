@@ -46,9 +46,9 @@ module PlanWork =
 
     /// The work a Sign is asked over: the plan's work when no signature is under way; the work
     /// kept otherwise, since a Sign while one is under way is ignored and signs nothing.
-    let askedOver (signing: Signing) (work: PlanWork) (kept: PlanWork) =
+    let askedOver (signing: SigningView) (work: PlanWork) (kept: PlanWork) =
         match signing with
-        | Signing.Idle -> work
+        | SigningView.Idle -> work
         | _ -> kept
 
 
@@ -61,12 +61,12 @@ module PlanWork =
 /// Whether leaving the page would lose work: a medication on the prescribing workbench, a
 /// signature under way, or a plan changed since the version last opened or signed. An
 /// anonymous plan is never signed, so any order put in it is a change.
-let hasUnsignedWork (workbench: OrderContext option) (signing: Signing) (plan: PlanWork) =
+let hasUnsignedWork (workbench: OrderContext option) (signing: SigningView) (plan: PlanWork) =
     let onWorkbench = workbench |> Option.exists (fun ctx -> ctx.Filter.Generic.IsSome)
 
     let signing =
         match signing with
-        | Signing.Idle -> false
+        | SigningView.Idle -> false
         | _ -> true
 
     onWorkbench || signing || plan <> PlanWork.AsSigned
