@@ -110,6 +110,15 @@ a clinical path and the validation effort is not yet scoped.
    `Console.fs`, `StopWatch.fs` move to an IO project (or into the adapter project). `Path.fs`
    stays (string helpers only).
 
+   **Scoped 2026-09-16, not started: this step is not independently doable.** It was considered
+   as a standalone next increment after the #378 Phase 1 Core-ring `viaLogger` tiers landed, and
+   ruled out: `GenFORM.Lib` (Core ring) references `Web.fs`/`StopWatch.fs` directly today (the
+   `evict`-tagged allowances in `scripts/CheckDependencyRule.fsx`, items 1–4 above). Moving those
+   files out of `Informedica.Utils.Lib` without also moving GenFORM's own IO call sites at the
+   same time would just relocate the Core → Infrastructure violation onto the new project instead
+   of removing it. This step has to land together with items 1–4, not before them the whole
+   Phase is one unit of work, not five independent slices.
+
 ### Phase 3 — invert `GenFORM → ZForm → ZIndex` (A, the riskiest A)
 
 1. Define a GenFORM-owned G-Standaard dose-rule contract carrying only what

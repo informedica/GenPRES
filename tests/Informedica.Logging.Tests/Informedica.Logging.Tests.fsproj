@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Informedica.Logging.Lib\Informedica.Logging.Lib.fsproj" />
+    <ProjectReference Include="..\..\src\Informedica.Agents.Lib\Informedica.Agents.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

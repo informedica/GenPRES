@@ -62,8 +62,8 @@ graph BT
     GenSOLVER_Lib --> GenUNITS_Lib
     GenSOLVER_Lib --> Logging_Lib
     GenUNITS_Lib --> Utils_Lib
-    Logging_Lib -.-> Agents_Lib
     Agents_Lib --> Utils_Lib
+    Agents_Lib --> Logging_Lib
     FTK_Lib --> ZForm_Lib
     NKF_Lib --> ZForm_Lib
     ZForm_Lib --> ZIndex_Lib
@@ -71,6 +71,7 @@ graph BT
     GenPRES_Server --> GenPRES_Shared
     GenPRES_Server --> GenORDER_Lib
     GenPRES_Server --> GenINTERACT_Lib
+    GenPRES_Server --> Agents_Lib
     MCP_Lib --> GenORDER_Lib
     MCP_Server --> MCP_Lib
     GenPRES_Client --> GenPRES_Shared
@@ -89,6 +90,6 @@ graph BT
     class NLP_Lib Tooling
 ```
 
-19 projects, 22 project references. An arrow points at the dependency. A dashed arrow is an
+19 projects, 23 project references. An arrow points at the dependency. A dashed arrow is an
 outward reference the dependency rule still tolerates; the reasons are in `scripts/DependencyRule.fsx`.
 <!-- project-graph:end -->

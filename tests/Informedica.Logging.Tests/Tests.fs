@@ -10,6 +10,7 @@ module Tests =
         open System.Threading.Tasks
 
         open Informedica.Logging.Lib
+        open Informedica.Agents.Lib
         open Expecto
         //open Expecto.Flip
 
@@ -146,7 +147,7 @@ module Tests =
 
                         try
                             Console.SetOut(new StringWriter()) // Capture console output
-                            let logger = Logging.createConsole testFormatter
+                            let logger = ConsoleFileLogger.createConsole testFormatter
                             let msg = createTestMessage "console test"
 
                             Logging.logInfo logger msg
@@ -159,7 +160,7 @@ module Tests =
                     testAsync "createFile logger should write to file" {
                         return
                             withTempFile (fun tempFile ->
-                                let logger = Logging.createFile tempFile testFormatter
+                                let logger = ConsoleFileLogger.createFile tempFile testFormatter
                                 let msg = createTestMessage "file test"
 
                                 Logging.logInfo logger msg

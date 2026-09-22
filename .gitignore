@@ -173,11 +173,6 @@
 !/data/cache/interactions/*.JSON
 !/data/zindex/
 !/data/zindex/BST*.test
-!/data/formulary/
-!/data/formulary/*.csv
-!/data/mapping/
-!/data/output/
-!/data/output/*.csv
 
 # Informedica.Utils.Lib
 !/src/Informedica.Utils.Lib/
@@ -246,6 +241,7 @@
 !/src/Informedica.MCP.Lib/Notebooks/
 # Informedica.MCP.Server
 !/src/Informedica.MCP.Server/
+!/src/Informedica.MCP.Server/Scripts/
 # Informedica.FHIR.Lib
 !/src/Informedica.FHIR.Lib/
 !/src/Informedica.FHIR.Lib/Scripts/

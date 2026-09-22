@@ -107,10 +107,7 @@ let bannedTokens =
 /// "Permanent" entries are accepted exceptions recorded in ADR-0001.
 let allowances =
     let utilsSplit = "IO module in Utils.Lib; leaves the core with the Utils split (Phase 2)"
-    let loggingSplit = "Logger port and agent runtime share one file; split pending (Phase 1)"
-    let viaLogger = "console write below the injected Logger; route through Logger (Phase 1)"
     let evict = "Google-Sheets/NKF loader in GenFORM; moves to the adapter project (Phase 2)"
-    let factory = "logger factory in a core library; moves to the composition root (Phase 1)"
     let clock = "ambient clock in the core; becomes a `now` parameter (Phase 4)"
     let chunking = "Permanent: Environment.ProcessorCount only sizes parallel chunks, never a result"
 
@@ -126,35 +123,18 @@ let allowances =
         allowFile "src/Informedica.Utils.Lib/Web.fs" utilsSplit
         allowToken "src/Informedica.Utils.Lib/Path.fs" "System.IO" "Permanent: System.IO.Path string helpers only, no filesystem access"
         allowToken "src/Informedica.Utils.Lib/Memoization.fs" "Stopwatch" "Permanent: timing in an example function, no IO"
-        allowToken "src/Informedica.Utils.Lib/Json.fs" "printfn" viaLogger
-        allowToken "src/Informedica.Utils.Lib/BCL/Int32.fs" "printfn" viaLogger
-        allowToken "src/Informedica.Utils.Lib/BCL/BigInteger.fs" "printfn" viaLogger
-        allowToken "src/Informedica.Utils.Lib/BCL/DateTime.fs" "DateTime.Now" clock
         // Logging.Lib
-        allowFile "src/Informedica.Logging.Lib/Logging.fs" loggingSplit
-        // GenUNITS.Lib
-        allowToken "src/Informedica.GenUNITS.Lib/UnitsParse.fs" "printfn" viaLogger
-        allowToken "src/Informedica.GenUNITS.Lib/ValueUnit.fs" "printfn" viaLogger
+        allowToken "src/Informedica.Logging.Lib/Logging.fs" "DateTime.Now" clock
+        allowToken "src/Informedica.Utils.Lib/BCL/DateTime.fs" "DateTime.Now" clock
         // GenCORE.Lib
         allowToken "src/Informedica.GenCORE.Lib/Patient.fs" "DateTime.Now" clock
         // GenSOLVER.Lib
         allowToken "src/Informedica.GenSOLVER.Lib/Utils.fs" "Environment.ProcessorCount" chunking
-        allowToken "src/Informedica.GenSOLVER.Lib/Variable.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenSOLVER.Lib/Variable.fs" "writeErrorMessage" viaLogger
-        allowToken "src/Informedica.GenSOLVER.Lib/Variable.fs" "writeDebugMessage" viaLogger
-        allowToken "src/Informedica.GenSOLVER.Lib/Variable.fs" "printfn" viaLogger
-        allowToken "src/Informedica.GenSOLVER.Lib/Equation.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenSOLVER.Lib/Equation.fs" "writeErrorMessage" viaLogger
-        allowToken "src/Informedica.GenSOLVER.Lib/Solver.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenSOLVER.Lib/Solver.fs" "writeErrorMessage" viaLogger
-        allowToken "src/Informedica.GenSOLVER.Lib/SolverLogging.fs" "AgentLogging" factory
         // GenFORM.Lib
         allowToken "src/Informedica.GenFORM.Lib/Utils.fs" "Environment.ProcessorCount" chunking
         allowToken "src/Informedica.GenFORM.Lib/Utils.fs" "Web." evict
         allowToken "src/Informedica.GenFORM.Lib/Utils.fs" "StopWatch." evict
         allowToken "src/Informedica.GenFORM.Lib/Mapping.fs" "Web." evict
-        allowToken "src/Informedica.GenFORM.Lib/Product.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenFORM.Lib/Product.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenFORM.Lib/Product.fs" "Web." evict
         allowToken "src/Informedica.GenFORM.Lib/Product.fs" "Async.RunSynchronously" evict
         allowToken "src/Informedica.GenFORM.Lib/Product.fs" "StopWatch." evict
@@ -162,12 +142,7 @@ let allowances =
         allowToken "src/Informedica.GenFORM.Lib/DoseRuleLoader.fs" "Async.RunSynchronously" evict
         allowFile "src/Informedica.GenFORM.Lib/SourceLoader.fs" evict
         allowToken "src/Informedica.GenFORM.Lib/SolutionRule.fs" "Web." evict
-        allowToken "src/Informedica.GenFORM.Lib/RenalRule.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenFORM.Lib/RenalRule.fs" "writeWarningMessage" viaLogger
         allowToken "src/Informedica.GenFORM.Lib/RenalRule.fs" "Web." evict
-        allowToken "src/Informedica.GenFORM.Lib/FormLogging.fs" "AgentLogging" "unreferenced top-level agent logger; delete (Phase 0)"
-        allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenFORM.Lib/Resources.fs" "DateTime.UtcNow" "CachedResourceProvider TTL clock; provider moves to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Export.fs" "File." "cwd-relative export file write; moves to the adapter project (Phase 2)"
         allowToken "src/Informedica.GenFORM.Lib/Export.fs" "Directory." "cwd-relative export file write; moves to the adapter project (Phase 2)"
@@ -175,32 +150,8 @@ let allowances =
         allowToken "src/Informedica.GenFORM.Lib/Api.fs" "Async.RunSynchronously" "parallel rule filtering blocks on Async; keep pure or move to the edge (Phase 2)"
         // GenORDER.Lib
         allowToken "src/Informedica.GenORDER.Lib/Utils.fs" "Env." "dead getDataFromGenPres reads env; delete (Phase 0)"
-        allowToken "src/Informedica.GenORDER.Lib/Utils.fs" "printfn" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/Exceptions.fs" "printfn" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/OrderVariable.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/OrderVariable.fs" "writeErrorMessage" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/EquationMapping.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/EquationMapping.fs" "writeErrorMessage" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/EquationMapping.fs" "Memoization.memoize" "Permanent: memoizes a hard-coded, pure equation list"
-        allowToken "src/Informedica.GenORDER.Lib/Order.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/Order.fs" "writeErrorMessage" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/Order.fs" "writeDebugMessage" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/OrderProcessor.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/OrderProcessor.fs" "writeWarningMessage" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/Medication.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/Medication.fs" "writeWarningMessage" viaLogger
         allowToken "src/Informedica.GenORDER.Lib/Medication.fs" "Guid.NewGuid" "ambient entropy in a constructor; becomes a `newId` parameter (Phase 4)"
-        allowToken "src/Informedica.GenORDER.Lib/Nutrition.fs" "printfn" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/OrderLogging.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/OrderLogging.fs" "writeErrorMessage" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/OrderLogging.fs" "writeInfoMessage" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/OrderLogging.fs" "AgentLogging" factory
-        allowToken "src/Informedica.GenORDER.Lib/Api.fs" "ConsoleWriter" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/Api.fs" "writeErrorMessage" viaLogger
-        allowToken "src/Informedica.GenORDER.Lib/Api.fs" "writeWarningMessage" viaLogger
-        // GenINTERACT.Lib
-        allowToken "src/Informedica.GenINTERACT.Lib/Data.fs" "System.IO" "cwd-relative cache read; loader moves to the adapter project (Phase 2)"
-        allowToken "src/Informedica.GenINTERACT.Lib/Data.fs" "File." "cwd-relative cache read; loader moves to the adapter project (Phase 2)"
     ]
 
 

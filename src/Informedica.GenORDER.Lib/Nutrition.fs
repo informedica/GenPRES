@@ -23,15 +23,18 @@ module Nutrition =
         ]
 
 
-    let applyPropChange propChanges ord =
+    let applyPropChange logger propChanges ord =
         let ord = ord |> Order.OrderPropertyChange.proc propChanges
 
         ord
-        |> Order.solveMinMax "Apply Prop Change" true Logging.noOp
+        |> Order.solveMinMax "Apply Prop Change" true logger
         |> function
             | Ok ord -> ord
             | _ ->
-                printfn $"=== ERROR applying {propChanges} ==="
+                $"=== ERROR applying {propChanges} ==="
+                |> Events.OrderScenario
+                |> Informedica.GenOrder.Lib.Logging.logWarning logger
+
                 ord
 
 
@@ -50,6 +53,6 @@ module Nutrition =
                             ComponentOrderableQuantity(cmp, OrderVariable.Quantity.setPercValue perc)
                         )
 
-                    ord |> applyPropChange changes
+                    ord |> applyPropChange logger changes
                 | Error(ord, _) -> ord
         )

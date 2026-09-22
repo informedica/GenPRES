@@ -42,6 +42,14 @@ nuget SQLitePCLRaw.bundle_e_sqlite3 ~> 2.1.12
 nuget SQLitePCLRaw.core ~> 2.1.12
 nuget SQLitePCLRaw.lib.e_sqlite3 ~> 2.1.12
 
+// Serilog: the sink technology behind the Logger/Event/Level/IMessage port (#416). Referenced
+// only by the composition roots (Informedica.GenPRES.Server, Informedica.MCP.Server,
+// Informedica.MCP.Lib) — no core or adapter library references Serilog.
+nuget Serilog 4.4.0
+nuget Serilog.Sinks.Console 6.1.1
+nuget Serilog.Sinks.File 7.0.0
+nuget Serilog.Sinks.Async 2.1.0
+
 // Fable / Elmish / Feliz packages, referenced only by Informedica.GenPRES.Client.
 group Client
   source https://api.nuget.org/v3/index.json

@@ -112,7 +112,6 @@ module Variable =
 
         open Informedica.GenSolver.Lib.Variable.ValueRange
         open Informedica.Utils.Lib
-        open ConsoleWriter.NewLineNoTime
 
 
         let inline private setOpt aOption set vr =
@@ -120,8 +119,7 @@ module Variable =
                 match aOption with
                 | Some m -> vr |> set m
                 | None -> vr
-            with e ->
-                writeErrorMessage $"couldn't set {aOption} to {vr}"
+            with _ ->
                 vr // TODO: ugly fix need to refactor
 
 
@@ -176,7 +174,6 @@ module OrderVariable =
     open Informedica.Utils.Lib.BCL
 
     open Informedica.Utils.Lib
-    open ConsoleWriter.NewLineNoTime
     open Informedica.GenCore.Lib.Ranges
     open Informedica.GenSolver.Lib
     open Informedica.GenUnits.Lib
@@ -1244,7 +1241,6 @@ module OrderVariable =
 
                 create n min incr max vals cs cal
             with e ->
-                writeErrorMessage $"cannot create OrderVariable fromDto: {dto |> JsonConvert.SerializeObject}"
                 e |> raise
 
 

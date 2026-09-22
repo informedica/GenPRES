@@ -94,6 +94,9 @@ module SolverLogging =
              |> String.concat "\n"
              |> sprintf "%s\In equations:\%s" s}
         """
+
+        | Exceptions.UnexpectedException ex -> $"Unexpected exception: {ex}"
+
         | _ -> "not a recognized msg"
 
 
@@ -160,29 +163,6 @@ module SolverLogging =
             | ExceptionMessage ex -> ex |> printException
             | SolverEventMessage evt -> evt |> printSolverEvent
         | _ -> $"Unknown message type: {msg.GetType().Name}"
-
-
-    /// Create a solver-specific logger using the general logging framework
-    let createLogger (baseLogger: Logger option) =
-        let formatter = MessageFormatter.create [ typeof<SolverMessage>, formatSolverMessage ]
-
-        match baseLogger with
-        | Some logger -> logger
-        | None -> Logging.createConsole formatter
-
-
-    /// Create a file-based solver logger
-    let createFileLogger (path: string) =
-        let formatter = MessageFormatter.create [ typeof<SolverMessage>, formatSolverMessage ]
-
-        Logging.createFile path formatter
-
-
-    /// Create an agent-based solver logger
-    let createAgentLogger () =
-        let formatter = MessageFormatter.create [ typeof<SolverMessage>, formatSolverMessage ]
-
-        AgentLogging.createWithFormatter formatter
 
 
     /// Convenience functions for logging solver events
