@@ -28,6 +28,8 @@
     <Compile Include="SigningMachineTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SigningPolicy.fs" />
     <Compile Include="SigningPolicyTests.fs" />
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\UnsignedWorkPolicy.fs" />
+    <Compile Include="UnsignedWorkPolicyTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\OrderPlanMachine.fs" />
     <Compile Include="OrderPlanMachineTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\OrderContextMachine.fs" />

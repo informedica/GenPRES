@@ -72,9 +72,9 @@ module private Elmish =
             // the newest version told while the Session is on an older
             // one; None whenever no Session is open
             MovedOn: OrderPlanHead option
-            // the order plan version last opened or signed in the open Session, the baseline
-            // unsigned work is told from; None whenever no Session is open
-            LastSigned: SignedOrderPlan option
+            // whether a plan command changed the plan since the order plan version last opened
+            // or signed; the leave-page guard asks over it
+            PlanWork: UnsignedWorkPolicy.PlanWork
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -603,7 +603,7 @@ module private Elmish =
             Session = Session.Anonymous
             Signing = Signing.Idle
             MovedOn = None
-            LastSigned = None
+            PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -624,32 +624,13 @@ module private Elmish =
         }
 
 
-    /// Whether leaving the page would lose work: a medication on the prescribing workbench, a
-    /// signature under way, or orders in the plan that the version last opened or signed does
-    /// not hold. Orders added or removed count; a change inside a signed order does not yet. An
-    /// anonymous plan is never signed, so any order in it is work.
+    /// Whether leaving the page would lose work, as the policy tells it from the workbench,
+    /// the signing phase and the plan's work.
     let hasUnsignedWork (state: State) =
-        let workbench =
-            state.OrderContext
-            |> OrderContextState.context
-            |> Option.exists (fun ctx -> ctx.Filter.Generic.IsSome)
-
-        let signing =
-            match state.Signing with
-            | Signing.Idle -> false
-            | _ -> true
-
-        let plan =
-            match state.OrderPlan |> OrderPlanState.plan with
-            | None -> false
-            | Some tp ->
-                let ids (contexts: OrderContext[]) = contexts |> Array.map _.Id |> Array.sort
-
-                let signed = state.LastSigned |> Option.map _.OrderContexts |> Option.defaultValue [||]
-
-                ids tp.OrderContexts <> ids signed
-
-        workbench || signing || plan
+        UnsignedWorkPolicy.hasUnsignedWork
+            (state.OrderContext |> OrderContextState.context)
+            state.Signing
+            state.PlanWork
 
 
     /// Make the key pair, then present the Launch with its public key.
@@ -1345,11 +1326,11 @@ module private Elmish =
                 | _ -> state
 
             // a signature belongs to an open Session: whatever ends the Session drops it;
-            // so do the moved-on notice and the version last signed
-            let signing, movedOn, lastSigned =
+            // so does the moved-on notice. The plan's work stays: unsigned is unsigned
+            let signing, movedOn =
                 match session with
-                | Session.Open _ -> state.Signing, state.MovedOn, state.LastSigned
-                | _ -> Signing.Idle, None, None
+                | Session.Open _ -> state.Signing, state.MovedOn
+                | _ -> Signing.Idle, None
 
             // the version is open; said once, and the notice is spent
             let state, movedOn =
@@ -1380,7 +1361,6 @@ module private Elmish =
                 Session = session
                 Signing = signing
                 MovedOn = movedOn
-                LastSigned = lastSigned
             },
             effects |> List.map interpretSessionEffect |> Cmd.batch
 
@@ -1403,7 +1383,8 @@ module private Elmish =
                     (fun state effect ->
                         match effect with
                         | SigningEffect.TellSigned signed ->
-                            { state with LastSigned = Some signed }
+                            // the plan is the version just signed
+                            { state with PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned }
                             |> tell (SigningPolicy.signedSentence tr signed) "success"
                         // a refusal because the record moved on is the notice too; the
                         // sentence is told here, the bar offers the version
@@ -1572,10 +1553,13 @@ module private Elmish =
         | OrderPlanMsg msg ->
             let plan, effects = OrderPlanState.transition msg state.OrderPlan
 
-            // a version opened is the baseline unsigned work is told from
+            // a version opened is the plan as signed; a command that changes the plan is work
+            // until the next version is opened or signed
             let state =
                 match msg with
-                | OrderPlanMsg.Version(signed, _) -> { state with LastSigned = Some signed }
+                | OrderPlanMsg.Version _ -> { state with PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned }
+                | OrderPlanMsg.Command(cmd, _) ->
+                    { state with PlanWork = state.PlanWork |> UnsignedWorkPolicy.PlanWork.afterCommand cmd }
                 | _ -> state
 
             // the page and the snackbar are the interpreter's: an order prescribed opens the
