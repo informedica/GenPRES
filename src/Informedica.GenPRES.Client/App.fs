@@ -52,9 +52,26 @@ module private Elmish =
             }
 
 
-    type State =
+    /// The app-level UI: the page, the disclaimer, the language and the hospital, the demo
+    /// flag, the server error and the list filters.
+    type UiState =
         {
             Page: Global.Pages
+            ShowDisclaimer: bool
+            // the language the views read, and the hospital
+            Context: Context
+            // the url or the User chose the language (LanguagePolicy); the server default no
+            // longer applies. The language itself lives in Context, where the views read it
+            LanguageChosen: bool
+            IsDemo: bool
+            ServerError: string option
+            EmergencyListFilter: string[]
+            ContinuousMedsFilter: string[]
+        }
+
+
+    type State =
+        {
             // the patient the workbench and the plan are for: the draft, once it meets the minimum
             Patient: Patient option
             // the patient data as the panel edits it and the lists read it, the estimate applied
@@ -75,14 +92,8 @@ module private Elmish =
             Parenteralia: Deferred<Parenteralia>
             Localization: Deferred<string[][]>
             Hospitals: Deferred<string[]>
-            Context: Context
-            ShowDisclaimer: bool
-            IsDemo: bool
             Snackbar: Snackbar
             ServerStatus: Deferred<bool>
-            ServerError: string option
-            EmergencyListFilter: string[]
-            ContinuousMedsFilter: string[]
             IsAuthenticated: bool
             AuthToken: string
             LogFiles: Deferred<LogFileInfo[]>
@@ -98,9 +109,8 @@ module private Elmish =
             Signing: SigningState
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
-            // the url or the User chose the language (LanguagePolicy); the server default no
-            // longer applies. The language itself lives in Context, where the views read it
-            LanguageChosen: bool
+            // the app-level UI
+            Ui: UiState
         }
 
 
@@ -560,8 +570,6 @@ module private Elmish =
 
     let initialState pat page lang discl =
         {
-            ShowDisclaimer = discl
-            Page = page |> Option.defaultValue LifeSupport
             // the patient follows through UpdatePatient, once the draft is a patient
             Patient = None
             PatientDraft = pat
@@ -581,18 +589,8 @@ module private Elmish =
             DrugNameRetries = 0
             Localization = HasNotStartedYet
             Hospitals = HasNotStartedYet
-            Context =
-                {
-                    // the server default replaces this once LoadSettings resolves, unless the url chose
-                    Localization = (LanguagePolicy.Language.initial lang).Current
-                    Hospital = "UMCU"
-                }
-            IsDemo = false
             Snackbar = Snackbar.closed
             ServerStatus = HasNotStartedYet
-            ServerError = None
-            EmergencyListFilter = [||]
-            ContinuousMedsFilter = [||]
             IsAuthenticated = false
             AuthToken = ""
             LogFiles = HasNotStartedYet
@@ -602,22 +600,37 @@ module private Elmish =
             Session = SessionState.anonymous
             Signing = SigningState.idle
             Settings = HasNotStartedYet
-            LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
+            Ui =
+                {
+                    Page = page |> Option.defaultValue LifeSupport
+                    ShowDisclaimer = discl
+                    Context =
+                        {
+                            // the server default replaces this once LoadSettings resolves, unless the url chose
+                            Localization = (LanguagePolicy.Language.initial lang).Current
+                            Hospital = "UMCU"
+                        }
+                    LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
+                    IsDemo = false
+                    ServerError = None
+                    EmergencyListFilter = [||]
+                    ContinuousMedsFilter = [||]
+                }
         }
 
 
     /// The language as LanguagePolicy sees it, and the state after the policy answered.
     let languageOf (state: State) : LanguagePolicy.Language =
         {
-            Current = state.Context.Localization
-            Chosen = state.LanguageChosen
+            Current = state.Ui.Context.Localization
+            Chosen = state.Ui.LanguageChosen
         }
 
 
     let withLanguage (language: LanguagePolicy.Language) (state: State) =
         { state with
-            State.Context.Localization = language.Current
-            LanguageChosen = language.Chosen
+            Ui.Context.Localization = language.Current
+            Ui.LanguageChosen = language.Chosen
         }
 
 
@@ -951,8 +964,8 @@ module private Elmish =
             PatientDraft = dto
             Formulary = { Formulary.empty with Patient = pat } |> Resolved
             Parenteralia = Parenteralia.empty |> Resolved
-            EmergencyListFilter = [||]
-            ContinuousMedsFilter = [||]
+            Ui.EmergencyListFilter = [||]
+            Ui.ContinuousMedsFilter = [||]
         },
         Cmd.batch
             [
@@ -969,7 +982,7 @@ module private Elmish =
         let message =
             Global.getLocalizedTerm
                 state.Localization
-                state.Context.Localization
+                state.Ui.Context.Localization
                 "Voer patient gegevens in"
                 Terms.``Patient enter patient data``
 
@@ -988,7 +1001,7 @@ module private Elmish =
 
             { state with
                 Snackbar = Snackbar.shown "Er ging iets mis, herladen" "error"
-                ServerError = Some $"Server fout: {errMsg}"
+                Ui.ServerError = Some $"Server fout: {errMsg}"
             },
             cmd
 
@@ -1016,7 +1029,8 @@ module private Elmish =
             // and said, since the patient is part of the filter
             match state.Patient with
             | Some _ ->
-                { state with Page = Prescribe }, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
+                { state with Ui.Page = Prescribe },
+                Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
             | None -> noPatientForMedication state, Cmd.none
 
         match msg with
@@ -1032,7 +1046,7 @@ module private Elmish =
 
             { state with
                 ServerStatus = Resolved true
-                ServerError = None
+                Ui.ServerError = None
             },
             cmd
 
@@ -1041,7 +1055,7 @@ module private Elmish =
 
             { state with
                 ServerStatus = Resolved false
-                ServerError = Some "De server is niet bereikbaar. Controleer of de server is gestart."
+                Ui.ServerError = Some "De server is niet bereikbaar. Controleer of de server is gestart."
             },
             async {
                 do! Async.Sleep 5000
@@ -1049,7 +1063,7 @@ module private Elmish =
             }
             |> Cmd.fromAsync
 
-        | DismissServerError -> { state with ServerError = None }, Cmd.none
+        | DismissServerError -> { state with Ui.ServerError = None }, Cmd.none
 
         | LoadSettings Started -> { state with Settings = InProgress }, loadSettings
 
@@ -1058,7 +1072,7 @@ module private Elmish =
             // the settings were in flight wins (LanguagePolicy.onServerDefault)
             { state with
                 Settings = Resolved settings
-                IsDemo = settings.IsDemo
+                Ui.IsDemo = settings.IsDemo
             }
             |> withLanguage (languageOf state |> LanguagePolicy.Language.onServerDefault settings.Language),
             Cmd.none
@@ -1098,7 +1112,11 @@ module private Elmish =
                 LogFiles = HasNotStartedYet
                 LogAnalysisReport = HasNotStartedYet
                 Reloading = HasNotStartedYet
-                Page = if state.Page = Settings then LifeSupport else state.Page
+                Ui.Page =
+                    if state.Ui.Page = Settings then
+                        LifeSupport
+                    else
+                        state.Ui.Page
             },
             Cmd.none
 
@@ -1152,17 +1170,17 @@ module private Elmish =
 
         | LoadReloadResult(_, Started) -> state, Cmd.none
 
-        | AcceptDisclaimer -> { state with ShowDisclaimer = false }, Cmd.none
+        | AcceptDisclaimer -> { state with Ui.ShowDisclaimer = false }, Cmd.none
 
         | UpdateLanguage lang ->
-            { state with ShowDisclaimer = true }
+            { state with Ui.ShowDisclaimer = true }
             |> withLanguage (languageOf state |> LanguagePolicy.Language.choose lang),
             Cmd.none
 
         | UpdateHospital hosp ->
             { state with
-                ShowDisclaimer = true
-                State.Context.Hospital = hosp
+                Ui.ShowDisclaimer = true
+                Ui.Context.Hospital = hosp
             },
             Cmd.none
 
@@ -1182,7 +1200,7 @@ module private Elmish =
                    |> Option.map (fun ctx -> ctx.Filter.Generic |> Option.isSome)
                    |> Option.defaultValue true
             then
-                { state with Page = page },
+                { state with Ui.Page = page },
                 Cmd.batch
                     [
                         Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
@@ -1191,7 +1209,7 @@ module private Elmish =
             else if page = Settings && not state.IsAuthenticated then
                 state, Cmd.none
             else if page = Settings then
-                { state with Page = page }, retryDrugNames
+                { state with Ui.Page = page }, retryDrugNames
             else
                 let loadCmds =
                     match page with
@@ -1199,7 +1217,7 @@ module private Elmish =
                     | Parenteralia -> [ Cmd.ofMsg (LoadParenteralia Started) ]
                     | _ -> []
 
-                { state with Page = page }, Cmd.batch (retryDrugNames :: loadCmds)
+                { state with Ui.Page = page }, Cmd.batch (retryDrugNames :: loadCmds)
 
         | UpdatePatient dto -> updatePatient dto state
 
@@ -1253,12 +1271,12 @@ module private Elmish =
                     noPatientForMedication state, Cmd.none
 
             { state with
-                ShowDisclaimer = discl
-                Page = page |> Option.defaultValue LifeSupport
+                Ui.ShowDisclaimer = discl
+                Ui.Page = page |> Option.defaultValue LifeSupport
                 PatientDraft = pat
-                // State. prefix needed: disambiguates State.Context field from Global.Context type
-                State.Context.Localization = language.Current
-                LanguageChosen = language.Chosen
+                // the path from the state; it also keeps the field apart from the Global.Context type
+                Ui.Context.Localization = language.Current
+                Ui.LanguageChosen = language.Chosen
             },
             Cmd.batch
                 [
@@ -1299,7 +1317,11 @@ module private Elmish =
                 | _ -> SigningState.idle
 
             let tr term =
-                Global.getLocalizedTerm state.Localization state.Context.Localization (SigningPolicy.english term) term
+                Global.getLocalizedTerm
+                    state.Localization
+                    state.Ui.Context.Localization
+                    (SigningPolicy.english term)
+                    term
 
             let tell message severity (state: State) = { state with Snackbar = Snackbar.shown message severity }
 
@@ -1327,7 +1349,11 @@ module private Elmish =
             let signing, effects = SigningState.transition msg state.Signing
 
             let tr term =
-                Global.getLocalizedTerm state.Localization state.Context.Localization (SigningPolicy.english term) term
+                Global.getLocalizedTerm
+                    state.Localization
+                    state.Ui.Context.Localization
+                    (SigningPolicy.english term)
+                    term
 
             let tell message severity (state: State) = { state with Snackbar = Snackbar.shown message severity }
 
@@ -1417,9 +1443,9 @@ module private Elmish =
                 )
             | _ -> state, Cmd.none
 
-        | UpdateEmergencyListFilter filter -> { state with EmergencyListFilter = filter }, Cmd.none
+        | UpdateEmergencyListFilter filter -> { state with Ui.EmergencyListFilter = filter }, Cmd.none
 
-        | UpdateContinuousMedsFilter filter -> { state with ContinuousMedsFilter = filter }, Cmd.none
+        | UpdateContinuousMedsFilter filter -> { state with Ui.ContinuousMedsFilter = filter }, Cmd.none
 
         | OnSelectEmergencyListItem item ->
             match state.BolusMedication with
@@ -1473,7 +1499,7 @@ module private Elmish =
                                 Parenteralia =
                                     state.Parenteralia |> Deferred.map (FilterSync.syncFilterToParenteralia filter)
                             }
-                        | OrderContextEffect.GoToLifeSupport -> { state with Page = LifeSupport }
+                        | OrderContextEffect.GoToLifeSupport -> { state with Ui.Page = LifeSupport }
                         | OrderContextEffect.TellError errs ->
                             Logging.warning "order context error" errs
 
@@ -1508,7 +1534,7 @@ module private Elmish =
                 |> List.fold
                     (fun (state: State) effect ->
                         match effect with
-                        | OrderPlanEffect.GoToPlanPage -> { state with Page = OrderPlan }
+                        | OrderPlanEffect.GoToPlanPage -> { state with Ui.Page = OrderPlan }
                         | OrderPlanEffect.TellError errs -> (state, Cmd.none) |> processError errs |> fst
                         | _ -> state
                     )
@@ -1783,7 +1809,7 @@ type private ConcreteAppEnv
     interface AppEnv.IBolusMedication with
         member _.BolusMedication = bm
         member _.OnSelectBolusMedicationItem s = OnSelectEmergencyListItem s |> dispatch
-        member _.BolusMedicationFilter = state.EmergencyListFilter
+        member _.BolusMedicationFilter = state.Ui.EmergencyListFilter
         member _.OnBolusMedicationFilterChange f = UpdateEmergencyListFilter f |> dispatch
 
     interface AppEnv.IContinuousMedication with
@@ -1791,7 +1817,7 @@ type private ConcreteAppEnv
 
         member _.OnSelectContinuousMedicationItem s = OnSelectContinuousMedicationItem s |> dispatch
 
-        member _.ContinuousMedicationFilter = state.ContinuousMedsFilter
+        member _.ContinuousMedicationFilter = state.Ui.ContinuousMedsFilter
 
         member _.OnContinuousMedicationFilterChange f = UpdateContinuousMedsFilter f |> dispatch
 
@@ -1907,7 +1933,7 @@ let View () =
     let theme = if isMobile then mobile else theme
 
     let serverErrorBanner =
-        match state.ServerError with
+        match state.Ui.ServerError with
         | Some errMsg ->
             let onClose = fun _ -> dispatch DismissServerError
 
@@ -1926,16 +1952,16 @@ let View () =
             // the disclaimer is for anonymous use only: a launched, resuming or
             // refused session never sees it; an anonymous open after a refusal does
             showDisclaimer =
-                state.ShowDisclaimer
+                state.Ui.ShowDisclaimer
                 && (
                     match SessionState.view state.Session with
                     | SessionView.Anonymous -> true
                     | _ -> false
                 )
-            isDemo = state.IsDemo
+            isDemo = state.Ui.IsDemo
             acceptDisclaimer = fun _ -> AcceptDisclaimer |> dispatch
             updatePage = UpdatePage >> dispatch
-            page = state.Page
+            page = state.Ui.Page
             languages = Localization.languages
             hospitals = state.Hospitals
             switchLang = UpdateLanguage >> dispatch
@@ -1963,7 +1989,7 @@ let View () =
                 {Components.Router.View {| onUrlChanged = UrlChanged >> dispatch |}}
                 {Pages.GenPres.View genPresProps
                  |> toReact
-                 |> Components.Context.Context state.Context}
+                 |> Components.Context.Context state.Ui.Context}
             </Box>
             <div>
                 <Snackbar
