@@ -30,6 +30,40 @@ type Signing =
     | Unsent of challenge: string * OrderPlan * key: string
 
 
+/// The signing as the clinical model has it: no request here.
+[<RequireQualifiedAccess>]
+type SigningPhase =
+    | Idle
+    // the data as it stands, to accept or to cancel
+    | Noticed of OrderPlan * DataNotice
+    // the dialog asks the PIN over this plan, under the challenge the server issued; the last
+    // refusal, if any
+    | Challenged of challenge: string * OrderPlan * SigningRefusal option
+
+
+/// The one request under way.
+[<RequireQualifiedAccess>]
+type SigningRequest =
+    // the challenge asked over the plan under a request id; the notice token when the User
+    // accepted a data notice
+    | Challenge of OrderPlan * notice: string option * request: string
+    // the Submission, under its key
+    | Submission of key: string
+
+
+/// The phase, the one request under way (none while idle, noticed or challenged), and the key
+/// of a Submission whose answer was lost, so that the next Confirm goes out under it and the
+/// server answers what it already did. Built through the constructors below only, which admit
+/// the six combinations that occur.
+type SigningState =
+    private
+        {
+            Phase: SigningPhase
+            InFlight: SigningRequest option
+            Unsent: string option
+        }
+
+
 /// The signing as the dialog shows it: the states the dialog can be in, each with what is valid
 /// in it and nothing of the request. Closed; closed while the challenge is asked; the data as it
 /// stands, to accept or to cancel; the PIN asked over the plan, with the last refusal if any; the
@@ -170,3 +204,70 @@ module Signing =
         | SigningMsg.SubmitAnswered(_, Error reason), Signing.Submitting(challenge, plan, key) ->
             Signing.Unsent(challenge, plan, key), [ SigningEffect.TellError reason ]
         | SigningMsg.SubmitAnswered _, _ -> state, []
+
+
+module SigningState =
+
+    let idle =
+        {
+            Phase = SigningPhase.Idle
+            InFlight = None
+            Unsent = None
+        }
+
+
+    /// The challenge asked over the plan, under the request id; the dialog closed meanwhile.
+    let requesting (plan: OrderPlan) (notice: string option) (request: string) =
+        {
+            Phase = SigningPhase.Idle
+            InFlight = Some(SigningRequest.Challenge(plan, notice, request))
+            Unsent = None
+        }
+
+
+    /// The data notice to accept or to cancel, nothing under way.
+    let noticed (plan: OrderPlan) (notice: DataNotice) =
+        {
+            Phase = SigningPhase.Noticed(plan, notice)
+            InFlight = None
+            Unsent = None
+        }
+
+
+    /// The PIN asked over the plan under the challenge, with the last refusal, nothing under way.
+    let challenged (challenge: string) (plan: OrderPlan) (refusal: SigningRefusal option) =
+        {
+            Phase = SigningPhase.Challenged(challenge, plan, refusal)
+            InFlight = None
+            Unsent = None
+        }
+
+
+    /// The Submission under way under its key, over the plan challenged.
+    let submitting (challenge: string) (plan: OrderPlan) (key: string) =
+        {
+            Phase = SigningPhase.Challenged(challenge, plan, None)
+            InFlight = Some(SigningRequest.Submission key)
+            Unsent = None
+        }
+
+
+    /// The answer to the Submission was lost: the PIN is asked again over the plan challenged,
+    /// and the key is kept for the retry.
+    let unsent (challenge: string) (plan: OrderPlan) (key: string) =
+        {
+            Phase = SigningPhase.Challenged(challenge, plan, None)
+            InFlight = None
+            Unsent = Some key
+        }
+
+
+    /// The signing as the dialog shows it: the phase wins whenever it holds the payload, the
+    /// request only while the challenge is asked or the Submission is under way.
+    let view (state: SigningState) : SigningView =
+        match state.Phase, state.InFlight with
+        | SigningPhase.Idle, Some(SigningRequest.Challenge _) -> SigningView.Requesting
+        | SigningPhase.Idle, _ -> SigningView.Idle
+        | SigningPhase.Noticed(plan, notice), _ -> SigningView.Noticed(plan, notice)
+        | SigningPhase.Challenged(_, plan, _), Some(SigningRequest.Submission _) -> SigningView.Submitting plan
+        | SigningPhase.Challenged(_, plan, refusal), _ -> SigningView.Challenged(plan, refusal)
