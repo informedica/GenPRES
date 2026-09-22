@@ -18,6 +18,8 @@ type ILocalization =
 [<Interface>]
 type IOrderContext =
     abstract OrderContext: Deferred<OrderContext>
+    // the workbench as the page shows it; beside the Deferred until every page reads it
+    abstract OrderContextView: OrderContextMachine.OrderContextView
     abstract OrderContextMsg: Api.OrderContextCommand * OrderContext -> unit
 
 
@@ -25,6 +27,9 @@ type IOrderContext =
 [<Interface>]
 type IOrderPlan =
     abstract OrderPlan: Deferred<OrderPlan>
+    // the plan as the pages show it, the dialog's selection inside; beside the Deferred until
+    // every page reads it
+    abstract OrderPlanView: OrderPlanMachine.OrderPlanView
     abstract OrderPlanCommand: Api.OrderPlanCommand -> unit
     // the context whose order the dialog shows, by id; the client's own, no round trip
     abstract Selected: string option
