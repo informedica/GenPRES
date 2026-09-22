@@ -1,9 +1,8 @@
-/// W3 Test Coverage Analysis Script
+/// Test Coverage Analysis Script
 /// Scans source and test directories to identify coverage gaps
 /// across all GenPRES libraries.
 ///
 /// Run with: dotnet fsi scripts/CoverageAnalysis.fsx
-/// Supports the W3 Requirements & Traceability workshop.
 
 open System
 open System.IO

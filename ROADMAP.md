@@ -8,7 +8,7 @@ GenPRES aims to be the leading open-source medication decision support system fo
 
 🚧 **Active Development** - Moving toward production-ready release
 
-**Current Phase**: Foundation Building & Documentation
+**Current Phase**: MVPAP2019 — the minimal replacement of the AfsprakenProgramma 2019 (below)
 - Core libraries implemented (GenSOLVER, GenUNITS, GenORDER, GenFORM, NLP, MCP)
 - SAFE Stack architecture in place (upgraded to Fable 5 / React 19 / Vite 8 in Q1 2026)
 - Architecture decisions recorded in `docs/adr/` (pruned under issue #411, numbering is not contiguous); MDR compliance documentation maintained in the separate, proprietary MDR documentation repository
@@ -28,98 +28,31 @@ First production-ready (non-pre-release) version with MDR compliance and clinica
 **Status**: In Development
 
 **Major Milestones**:
-- 12 structured workshops (W1–W12, below)
+- MVPAP2019 (below)
 - Complete MDR documentation package
 - Clinical validation studies
 - Regulatory compliance verification
 - Production deployment infrastructure
 
-### Development Phases
+### MVPAP2019
 
-#### Phase 1: Foundation & Governance (Q1 2026)
-**Workshop W1-W3**
+The first deliverable. MVPAP2019 is the minimal replacement of the AfsprakenProgramma 2019 (AP2019), the PICU/NICU workflow application at UMC Utrecht / WKZ, on three pillars: **create** TPN and continuous medication orders, **record** them, and **notify the pharmacy** with the calculated preparation instructions. Everything else AP2019 does is post-MVP.
 
-- ✅ W1: Project Structure & Governance (Complete)
-  - ✅ Community health files (CODE_OF_CONDUCT, CONTRIBUTING, GOVERNANCE, SECURITY, SUPPORT)
-  - ✅ Governance model (GOVERNANCE.md, MAINTAINERS.md)
-  - ✅ Quality gates (Fantomas formatting, Expecto test suite, CI on push)
-  - ✅ CI/CD foundation (GitHub Actions: build, test, Docker image workflow)
+- [MVPAP2019: What Has to Be Built, and What Has to Be Configured](docs/roadmap/mvpap2019-gap-overview.md) sorts every remaining item into software (a GitHub issue in a milestone), configuration of the rule sheets, an arrangement on the hospital side, or out of the MVP.
+- [Fit-Gap Analysis: AP2019 vs GenPRES](docs/roadmap/fit-gap-ap2019-vs-genpres.md) is the full comparison the MVP was cut from.
+- The [MainEHR integration model](docs/scenarios/integration/) holds the use cases the record pillar is built to; the nutrition order and the pharmacy notification are the next to be written.
 
-- ⏳ W2: Core Architecture Review
-  - Domain model validation
-  - Constraint solver optimization
-  - Unit of measure framework
-  - Performance benchmarking
+The work is tracked in the GitHub milestones, due dates as of 2026-09-22:
 
-- ⏳ W3: Requirements & Traceability
-  - Requirements review and validation
-  - Traceability matrix completion
-  - Test coverage analysis
-  - Gap identification
+| Milestone | Due | Holds |
+|---|---|---|
+| M1 Improve the overall build system and CI pipeline | 2026-09-06 | closed |
+| M2 GenPRES integration in the hospital environment | 2026-09-20 | launch, Session, PIN enrolment, signing and order plan versions; the store and the adapters to the hospital |
+| M3 Pharmacy notification | 2026-10-04 | the preparation instruction and its electronic hand-off |
+| M4 UI and UX update | 2026-10-18 | the Nutrition view, the totals, the remaining MVP-critical UI |
+| M5 Bug fixing and final updates before go live | 2026-11-29 | solver and remaining defects |
 
-#### Phase 2: Clinical Validation (Q2 2026)
-**Workshop W4-W6**
-
-- ⏳ W4: Clinical Scenarios & Testing
-  - Expand scenario coverage
-  - Clinical accuracy validation
-  - Literature review
-  - Expert consultation
-
-- ⏳ W5: Risk Management
-  - Complete hazard analysis
-  - Risk control implementation
-  - Residual risk assessment
-  - Safety testing
-
-- ⏳ W6: Usability Engineering
-  - Usability testing
-  - User interface refinement
-  - Critical task analysis
-  - User documentation
-
-#### Phase 3: Integration & Interfaces (Q3 2026)
-**Workshop W7-W9**
-
-- ⏳ W7: FHIR/HL7 Integration
-  - ADR-0004: FHIR R4 integration architecture designed, then superseded — the prototype was never compiled and was deleted; integration restarts from the MainEHR integration model in `docs/scenarios/integration/`
-  - Interface implementation
-  - EHR integration testing
-  - Interoperability validation
-  - Integration documentation
-
-- ⏳ W8: Data Management
-  - Resource management
-  - Data versioning
-  - Update procedures
-  - Data validation
-
-- ⏳ W9: Security & Privacy
-  - Security hardening
-  - GDPR compliance
-  - Audit logging
-  - Penetration testing
-
-#### Phase 4: Production Readiness (Q4 2026)
-**Workshop W10-W12**
-
-- ⏳ W10: Performance & Scalability
-  - Load testing
-  - Performance optimization
-  - Scaling infrastructure
-  - Monitoring setup
-
-- ⏳ W11: Deployment & Operations
-  - Deployment automation
-  - Operations procedures
-  - Backup/recovery
-  - Support processes
-
-- ⏳ W12: Documentation & Training
-  - User documentation
-  - Training materials
-  - Administrator guides
-  - Release preparation
+MDR and regulatory work runs beside the milestones and is tracked separately.
 
 ## Feature Roadmap
 
@@ -290,8 +223,8 @@ Want to contribute to GenPRES development?
 
 ---
 
-**Document Version**: 1.3
-**Last Updated**: 2026-08-28
+**Document Version**: 1.4
+**Last Updated**: 2026-09-22
 **Next Review**: 2026-11-28
 
 For the most up-to-date information, see the [project GitHub repository](https://github.com/informedica/GenPRES).
