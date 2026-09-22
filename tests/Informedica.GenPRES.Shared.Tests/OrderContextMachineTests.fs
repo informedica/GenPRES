@@ -510,3 +510,102 @@ let stagesTests =
                 |> Expect.equal "the empty context while the first evaluation runs" (Some empty)
             }
         ]
+
+
+[<Tests>]
+let selectionTests =
+    // a context whose one scenario has an order the dialog can select
+    let withOrder =
+        { paracetamol with Scenarios = [| OrderPlanMachineTests.Fixtures.scenario "o-1" "paracetamol" |] }
+
+    let select = OrderContextState.select
+    let dialog = OrderContextState.dialog
+    let selected = held withOrder |> select (Some "o-1")
+
+    let busy = inFlight OrderContextCommand.IncreaseScheduleFrequencyProperty withOrder withOrder "r-1"
+
+    let busySelected = busy |> select (Some "o-1")
+
+    testList
+        "OrderContextState.select"
+        [
+            test "selected over a context held that holds the order; none over one that does not" {
+                selected
+                |> dialog
+                |> Expect.equal "the dialog shows the context held" (Some(OrderContextView.Settled withOrder))
+
+                selected
+                |> OrderContextState.view
+                |> Expect.equal "the view is unchanged" (OrderContextView.Settled withOrder)
+
+                held paracetamol
+                |> select (Some "o-1")
+                |> Expect.equal "an order the context does not hold" (held paracetamol)
+            }
+
+            test "nothing to select without a patient, nor during the first evaluation" {
+                noPatient |> select (Some "o-1") |> Expect.equal "no patient" noPatient
+
+                opening patient "r-1"
+                |> select (Some "o-1")
+                |> Expect.equal "the empty context under evaluation" (opening patient "r-1")
+            }
+
+            test "kept beside a request under way; none closes the dialog, whatever is in flight" {
+                busySelected
+                |> dialog
+                |> Expect.equal "the dialog shows the context sent" (Some(OrderContextView.Changing withOrder))
+
+                transition (OrderContextMsg.Select None) busySelected
+                |> Expect.equal "closed, the request kept" (busy, [])
+
+                transition (OrderContextMsg.Select(Some "o-1")) (held withOrder)
+                |> Expect.equal "selected through the machine" (selected, [])
+            }
+
+            test "dropped by a patient change, a seed and a reset" {
+                transition (OrderContextMsg.PatientChanged(Some other, "r-1")) selected
+                |> fst
+                |> dialog
+                |> Expect.equal "a patient change" None
+
+                transition (OrderContextMsg.PatientChanged(Some other, "r-2")) busySelected
+                |> fst
+                |> dialog
+                |> Expect.equal "a patient change during a request" None
+
+                transition (OrderContextMsg.Seed(paracetamol, "r-1")) selected
+                |> fst
+                |> dialog
+                |> Expect.equal "a seed" None
+
+                transition (OrderContextMsg.Reset "r-1") selected
+                |> fst
+                |> dialog
+                |> Expect.equal "a reset" None
+            }
+
+            test "an answer keeps it while the context answered holds the order, and drops it otherwise" {
+                transition (OrderContextMsg.Answered("r-1", Ok withOrder)) busySelected
+                |> fst
+                |> dialog
+                |> Expect.equal "the order answered" (Some(OrderContextView.Settled withOrder))
+
+                transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) busySelected
+                |> fst
+                |> dialog
+                |> Expect.equal "the order gone from the answer" None
+
+                transition (OrderContextMsg.Answered("r-1", Error [| "not loaded" |])) busySelected
+                |> fst
+                |> dialog
+                |> Expect.equal
+                    "a failed change keeps the context held, and the order"
+                    (Some(OrderContextView.Settled withOrder))
+
+                transition (OrderContextMsg.Answered("r-1", Error [| "geen doseerregels" |])) busySelected
+                |> fst
+                |> dialog
+                |> Expect.equal "a start over holds none" None
+            }
+        ]

@@ -146,17 +146,21 @@ module OrderContextWorkbench =
 
 
 /// The workbench, the one request under way (the command and the context sent, what the page
-/// shows meanwhile, and the id the answer must name; none while idle) and the dialog's command
+/// shows meanwhile, and the id the answer must name; none while idle), the dialog's command
 /// waiting on it (with the context it was sent with and its own id; none but while a request is
-/// under way). Built through the constructors below only, which admit the combinations that can
-/// occur: no patient with nothing under way, a context held, a change under way (the first
-/// evaluation over the empty context among them), with or without a command pending.
+/// under way) and the dialog's selection. Built through the constructors below only, which admit
+/// the combinations that can occur: no patient with nothing under way, a context held, a change
+/// under way (the first evaluation over the empty context among them), with or without a command
+/// pending, with or without a scenario selected.
 type OrderContextState =
     private
         {
             Workbench: OrderContextWorkbench
             InFlight: ((OrderContextCommand * OrderContext) * string) option
             Pending: (OrderContextCommand * OrderContext * string) option
+            // the scenario the order dialog shows, by its order's id: only one the context
+            // shown holds; none while the dialog is closed
+            Selected: string option
         }
 
 
@@ -174,6 +178,8 @@ type OrderContextMsg =
     | Answered of request: string * Result<OrderContext, string[]>
     // the workbench cleared and evaluated empty: after an order was prescribed
     | Reset of request: string
+    // the dialog's selection, a scenario by its order's id; the client's own
+    | Select of string option
 
 
 /// What the machine asks the App to do.
@@ -224,6 +230,7 @@ module OrderContextState =
             Workbench = OrderContextWorkbench.NoPatient
             InFlight = None
             Pending = None
+            Selected = None
         }
 
 
@@ -236,6 +243,7 @@ module OrderContextState =
             Workbench = OrderContextWorkbench.Evaluated(pat, emptyFor pat)
             InFlight = Some((OrderContextCommand.UpdateOrderContext, emptyFor pat), request)
             Pending = None
+            Selected = None
         }
 
 
@@ -245,6 +253,7 @@ module OrderContextState =
             Workbench = OrderContextWorkbench.Evaluated(pat, ctx)
             InFlight = None
             Pending = None
+            Selected = None
         }
 
 
@@ -255,6 +264,7 @@ module OrderContextState =
             Workbench = OrderContextWorkbench.Evaluated(pat, held)
             InFlight = Some((cmd, { sent with Patient = pat }), request)
             Pending = None
+            Selected = None
         }
 
 
@@ -298,6 +308,7 @@ module OrderContextState =
             Workbench = workbench
             InFlight = inFlight
             Pending = pending
+            Selected = state.Selected
         }
 
 
@@ -307,6 +318,24 @@ module OrderContextState =
         | OrderContextWorkbench.NoPatient, _ -> OrderContextView.NoPatient
         | OrderContextWorkbench.Evaluated _, Some((_, sent), _) -> OrderContextView.Changing sent
         | OrderContextWorkbench.Evaluated(_, ctx), None -> OrderContextView.Settled ctx
+
+
+    /// Whether the context has a scenario with the order named.
+    let holds (orderId: string) (ctx: OrderContext) = ctx.Scenarios |> Array.exists (fun sc -> sc.Order.Id = orderId)
+
+
+    /// The dialog's selection: a scenario by its order's id, kept only when the context shown
+    /// holds it, so that nothing is selected before the first evaluation answered; none closes
+    /// the dialog. Nothing to select without a patient.
+    let select (id: string option) (state: OrderContextState) =
+        match context state with
+        | None -> state
+        | Some ctx -> { state with Selected = id |> Option.filter (fun id -> ctx |> holds id) }
+
+
+    /// The workbench as the order dialog shows it: the context shown while a scenario is
+    /// selected, settled or changing as the workbench is; none while the dialog is closed.
+    let dialog (state: OrderContextState) : OrderContextView option = state.Selected |> Option.map (fun _ -> view state)
 
 
     /// The request stage's check: the payload sent when the answer names the request under way,
@@ -374,9 +403,22 @@ module OrderContextState =
 
 
     /// The domain stage first, then the request stage: the workbench steps, and its intents
-    /// become the request under way and the effects. A patient cleared clears the request.
+    /// become the request under way and the effects. The dialog follows: closed by a patient
+    /// change, a seed and a reset, narrowed to what the workbench holds after an answer (a
+    /// failed change keeps the context held, and the order with it; a start over holds none),
+    /// kept otherwise; a patient cleared clears the request.
     let private run (request: string) (msg: OrderContextWorkbenchMsg) (state: OrderContextState) =
         let workbench, intents = OrderContextWorkbench.step msg state.Workbench
+
+        let selected =
+            match msg, workbench with
+            | _, OrderContextWorkbench.NoPatient -> None
+            | OrderContextWorkbenchMsg.PatientChanged _, _
+            | OrderContextWorkbenchMsg.Seed _, _
+            | OrderContextWorkbenchMsg.Reset, _ -> None
+            | OrderContextWorkbenchMsg.Landed _, OrderContextWorkbench.Evaluated(_, ctx) ->
+                state.Selected |> Option.filter (fun id -> ctx |> holds id)
+            | OrderContextWorkbenchMsg.Command _, _ -> state.Selected
 
         let inFlight, pending =
             match workbench with
@@ -390,6 +432,7 @@ module OrderContextState =
                 Workbench = workbench
                 InFlight = inFlight
                 Pending = pending
+                Selected = selected
             }
 
 
@@ -422,8 +465,11 @@ module OrderContextState =
                     state, effects @ more
                 | _ -> landed, effects
 
+        // the selection is the client's own, kept next to whatever is in flight
+        | OrderContextMsg.Select id, _, _ -> select id state, []
+
         // the patient changed while a change is under way: the context sent is evaluated for the
-        // new patient, and the one held stays what a failed change goes back to
+        // new patient, the one held stays what a failed change goes back to, the dialog closes
         | OrderContextMsg.PatientChanged(Some pat, request), OrderContextWorkbench.Evaluated _, Some((_, sent), _) ->
             let workbench, _ =
                 OrderContextWorkbench.step (OrderContextWorkbenchMsg.PatientChanged(Some pat)) state.Workbench
@@ -431,7 +477,10 @@ module OrderContextState =
             apply
                 request
                 [ OrderContextWorkbenchIntent.Evaluate { sent with Patient = pat } ]
-                { state with Workbench = workbench }
+                { state with
+                    Workbench = workbench
+                    Selected = None
+                }
 
         | OrderContextMsg.PatientChanged(pat, request), _, _ ->
             run request (OrderContextWorkbenchMsg.PatientChanged pat) state

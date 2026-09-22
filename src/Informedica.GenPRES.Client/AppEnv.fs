@@ -20,6 +20,10 @@ type IOrderContext =
     // the workbench as the pages show it
     abstract OrderContext: OrderContextMachine.OrderContextView
     abstract OrderContextMsg: Api.OrderContextCommand * OrderContext -> unit
+    // the workbench as the order dialog shows it; none while no scenario is selected
+    abstract Dialog: OrderContextMachine.OrderContextView option
+    // the scenario whose order the dialog shows, by its order's id; the client's own, no round trip
+    abstract Select: string option -> unit
 
 
 /// The one plan, nutrition included, and the commands on it

@@ -112,8 +112,9 @@ module Prescribe =
                 OrderContext.empty |> updateOrderContext
             | _ -> ()
 
-        let modalOpen, setModalOpen = React.useState false
-        let handleModalClose = fun () -> setModalOpen false
+        // the dialog is open while a scenario is selected: the selection is the state
+        let dialog = envOrderContext.Dialog
+        let handleModalClose = fun () -> envOrderContext.Select None
 
         let isAnythingLoading =
             match orderContext with
@@ -237,8 +238,9 @@ module Prescribe =
 
                 let prescribeDisabled = isAnythingLoading || planBusy || inPlan
 
+                // the scenario selected, and the workbench narrowed to it and calculated
                 let handleEditClick () =
-                    setModalOpen true
+                    envOrderContext.Select(Some sc.Order.Id)
                     onClick sc
 
                 let cellSx =
@@ -561,11 +563,11 @@ module Prescribe =
                 {cards}
                 {progress}
             </Box>
-            <Modal open={modalOpen} onClose={handleModalClose} >
+            <Modal open={dialog.IsSome} onClose={handleModalClose} >
                 <Box sx={modalStyle}>
                     {Order.View
                          {|
-                             orderContext = orderContext
+                             orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
                              updateOrderScenario = fun ctx -> orderContextMsg (Api.OrderContextCommand.UpdateOrderScenario, ctx)
                              stepOrderScenario =
                                  {|
