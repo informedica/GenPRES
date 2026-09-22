@@ -158,4 +158,27 @@ By hand, with `dotnet run` and the stub launch as `prescriber`:
 
 ## As built
 
-*To be filled in once the PR is merged.*
+| Step | PR | Notes |
+|---|---|---|
+| 1–5 | [#905](https://github.com/informedica/GenPRES/pull/905) | `UnsignedWorkPolicy.fs`, its tests (14), `PlanWork` on the app state, the listener in `View`, the user-guide line. Browser checks run by the maintainer: the dialog appears on back, reload and tab close with a medication on the workbench, after a dose stepped in a signed order and after an order removed; not after a signature nor after "Open the newest version". |
+
+### Deviations from the text above
+
+Two refinements from the review on #905, neither changing the approach:
+
+- `PlanWork.Changed` carries a count of the changes, and the app keeps the work as it was when a
+  signature was asked for. A signature is over the plan as it was at Sign; the plan's own
+  buttons stay live while the challenge is fetched, so an order removed in that moment is not in
+  the signature. The work becomes as signed only when it is still what the signature was asked
+  over; a change made meanwhile stays.
+- No patient, no plan: the plan is dropped when the patient goes (a Session closed, a patient
+  cleared), so the work is as signed then too, with nothing left to ask about.
+
+Left as is, deliberately: a change is counted when its command goes out, not when it lands, so
+a change the server refused leaves the guard asking once more than needed until the next open
+or signature. Counting at landing would leave a change in flight unguarded, and leaving the page
+is what cancels it.
+
+The first cut of #905 compared context ids against the version last signed; the review on the
+plan found that a navigation within a signed order keeps its id, and the second commit replaced
+the comparison with the command-told `PlanWork` this plan describes.

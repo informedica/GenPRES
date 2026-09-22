@@ -2,8 +2,10 @@ module App
 
 open System
 open Fable.Core
+open Fable.Core.JsInterop
 open Browser
 open Fable.React
+open Feliz
 open Elmish
 open Feliz.Router
 open Fable.Remoting.Client
@@ -70,6 +72,12 @@ module private Elmish =
             // the newest version told while the Session is on an older
             // one; None whenever no Session is open
             MovedOn: OrderPlanHead option
+            // whether a plan command changed the plan since the order plan version last opened
+            // or signed; the leave-page guard asks over it
+            PlanWork: UnsignedWorkPolicy.PlanWork
+            // the plan's work when the signature under way was asked for: a change made since
+            // is not in that signature
+            WorkAtSign: UnsignedWorkPolicy.PlanWork
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -598,6 +606,8 @@ module private Elmish =
             Session = Session.Anonymous
             Signing = Signing.Idle
             MovedOn = None
+            PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned
+            WorkAtSign = UnsignedWorkPolicy.PlanWork.AsSigned
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -616,6 +626,15 @@ module private Elmish =
             State.Context.Localization = language.Current
             LanguageChosen = language.Chosen
         }
+
+
+    /// Whether leaving the page would lose work, as the policy tells it from the workbench,
+    /// the signing phase and the plan's work.
+    let hasUnsignedWork (state: State) =
+        UnsignedWorkPolicy.hasUnsignedWork
+            (state.OrderContext |> OrderContextState.context)
+            state.Signing
+            state.PlanWork
 
 
     /// Make the key pair, then present the Launch with its public key.
@@ -1311,7 +1330,7 @@ module private Elmish =
                 | _ -> state
 
             // a signature belongs to an open Session: whatever ends the Session drops it;
-            // so does the moved-on notice
+            // so does the moved-on notice. The plan's work stays: unsigned is unsigned
             let signing, movedOn =
                 match session with
                 | Session.Open _ -> state.Signing, state.MovedOn
@@ -1352,6 +1371,17 @@ module private Elmish =
         | SigningMsg msg ->
             let signing, effects = Signing.transition msg state.Signing
 
+            // the signature is asked over the plan as it is now: a change made while it is under
+            // way is not in it, and is told apart by the work kept here. A Sign while one is
+            // under way is ignored by the machine, and keeps the work the first was asked over
+            let state =
+                match msg with
+                | SigningMsg.Sign _ ->
+                    { state with
+                        WorkAtSign = UnsignedWorkPolicy.PlanWork.askedOver state.Signing state.PlanWork state.WorkAtSign
+                    }
+                | _ -> state
+
             let tr term =
                 Global.getLocalizedTerm state.Localization state.Context.Localization (SigningPolicy.english term) term
 
@@ -1368,7 +1398,11 @@ module private Elmish =
                     (fun state effect ->
                         match effect with
                         | SigningEffect.TellSigned signed ->
-                            state |> tell (SigningPolicy.signedSentence tr signed) "success"
+                            // the plan is the version just signed, unless it changed meanwhile
+                            { state with
+                                PlanWork = state.PlanWork |> UnsignedWorkPolicy.PlanWork.afterSigned state.WorkAtSign
+                            }
+                            |> tell (SigningPolicy.signedSentence tr signed) "success"
                         // a refusal because the record moved on is the notice too; the
                         // sentence is told here, the bar offers the version
                         | SigningEffect.TellRefused(SigningRefusal.Blocked head as refusal) ->
@@ -1535,6 +1569,17 @@ module private Elmish =
 
         | OrderPlanMsg msg ->
             let plan, effects = OrderPlanState.transition msg state.OrderPlan
+
+            // a version opened is the plan as signed, and so is no plan at all: without a patient
+            // the plan is dropped, nothing left to sign. A command that changes the plan is work
+            // until the next version is opened or signed
+            let state =
+                match msg with
+                | OrderPlanMsg.Version _
+                | OrderPlanMsg.PatientChanged(None, _) -> { state with PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned }
+                | OrderPlanMsg.Command(cmd, _) ->
+                    { state with PlanWork = state.PlanWork |> UnsignedWorkPolicy.PlanWork.afterCommand cmd }
+                | _ -> state
 
             // the page and the snackbar are the interpreter's: an order prescribed opens the
             // plan page, a refusal is said
@@ -1874,6 +1919,23 @@ let private mobile: obj = jsNative
 let View () =
     let state, dispatch = React.useElmish (init, update, [||])
     let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+
+    // the browser asks before it leaves the page (back, a closed tab, a reload) while there is
+    // unsigned work; the listener is added once and reads the latest state through a ref
+    let stateRef = React.useRef state
+    stateRef.current <- state
+
+    React.useEffectOnce (fun () ->
+        let guard (ev: Browser.Types.Event) =
+            if hasUnsignedWork stateRef.current then
+                ev.preventDefault ()
+                // the browser shows its own dialog; older browsers need a returnValue for it
+                ev?returnValue <- ""
+
+        window.addEventListener ("beforeunload", guard)
+
+        fun () -> window.removeEventListener ("beforeunload", guard)
+    )
 
     let handleClose =
         fun (_: obj) (reason: string) ->
