@@ -68,7 +68,7 @@ module private Elmish =
             // the launch Session; Anonymous is the state every URL patient runs in
             Session: Session
             // the signing phase of the open Session; Idle whenever no Session is open
-            Signing: Signing
+            Signing: SigningState
             // the newest version told while the Session is on an older
             // one; None whenever no Session is open
             MovedOn: OrderPlanHead option
@@ -604,7 +604,7 @@ module private Elmish =
             Reloading = HasNotStartedYet
             LoginAttempt = 0
             Session = Session.Anonymous
-            Signing = Signing.Idle
+            Signing = SigningState.idle
             MovedOn = None
             PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned
             WorkAtSign = UnsignedWorkPolicy.PlanWork.AsSigned
@@ -633,7 +633,7 @@ module private Elmish =
     let hasUnsignedWork (state: State) =
         UnsignedWorkPolicy.hasUnsignedWork
             (state.OrderContext |> OrderContextState.context)
-            (state.Signing |> Signing.view)
+            (state.Signing |> SigningState.view)
             state.PlanWork
 
 
@@ -1334,7 +1334,7 @@ module private Elmish =
             let signing, movedOn =
                 match session with
                 | Session.Open _ -> state.Signing, state.MovedOn
-                | _ -> Signing.Idle, None
+                | _ -> SigningState.idle, None
 
             // the version is open; said once, and the notice is spent
             let state, movedOn =
@@ -1369,7 +1369,7 @@ module private Elmish =
             effects |> List.map interpretSessionEffect |> Cmd.batch
 
         | SigningMsg msg ->
-            let signing, effects = Signing.transition msg state.Signing
+            let signing, effects = SigningState.transition msg state.Signing
 
             // the signature is asked over the plan as it is now: a change made while it is under
             // way is not in it, and is told apart by the work kept here. A Sign while one is
@@ -1380,7 +1380,7 @@ module private Elmish =
                     { state with
                         WorkAtSign =
                             UnsignedWorkPolicy.PlanWork.askedOver
-                                (state.Signing |> Signing.view)
+                                (state.Signing |> SigningState.view)
                                 state.PlanWork
                                 state.WorkAtSign
                     }
@@ -1830,7 +1830,7 @@ type private ConcreteAppEnv
         member _.OpenVersion id = SessionMsg(SessionMsg.OpenVersion id) |> dispatch
 
     interface AppEnv.ISigning with
-        member _.Signing = state.Signing |> Signing.view
+        member _.Signing = state.Signing |> SigningState.view
 
         // one request id per Sign, so the answer lands on this request and no other
         member _.Sign plan =
