@@ -118,5 +118,53 @@ module Tests =
             ]
 
 
+    module GenOrderToolsTests =
+
+        open Informedica.MCP.Lib.GenOrderTools
+
+        let private emptyInput =
+            {
+                AgeMonths = Some 24.0
+                WeightKg = None
+                HeightCm = None
+                Sex = None
+                Department = None
+                Generic = Some "paracetamol"
+                Indication = None
+                Route = None
+                Form = None
+            }
+
+        let tests =
+            testList
+                "requireWeightAndHeight"
+                [
+                    test "both weight and height present is Ok" {
+                        { emptyInput with
+                            WeightKg = Some 12.0
+                            HeightCm = Some 86.0
+                        }
+                        |> requireWeightAndHeight
+                        |> Expect.isOk "should be Ok"
+                    }
+
+                    test "neither weight nor height is Error" {
+                        emptyInput |> requireWeightAndHeight |> Expect.isError "should be Error"
+                    }
+
+                    test "weight without height is Error" {
+                        { emptyInput with WeightKg = Some 12.0 }
+                        |> requireWeightAndHeight
+                        |> Expect.isError "should be Error"
+                    }
+
+                    test "height without weight is Error" {
+                        { emptyInput with HeightCm = Some 86.0 }
+                        |> requireWeightAndHeight
+                        |> Expect.isError "should be Error"
+                    }
+                ]
+
+
     [<Tests>]
-    let tests = testList "MCP" [ testHelloWorld; loggingTests ]
+    let tests = testList "MCP" [ testHelloWorld; loggingTests; GenOrderToolsTests.tests ]
