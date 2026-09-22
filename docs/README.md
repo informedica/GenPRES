@@ -10,7 +10,7 @@ Technical documentation for GenPRES. The rules for what belongs here, and in wha
 | [`scenarios/`](scenarios/) | Use cases; the [EHR integration](scenarios/integration/README.md) set is an executable model with diagrams |
 | [`data-extraction/`](data-extraction/) | Dose-rule extraction pipeline: [glossary](data-extraction/CONTEXT.md), prompt and flowchart specifications |
 | [`implementation-plans/`](implementation-plans/) | Per-issue implementation plans (see [`template.md`](implementation-plans/template.md)) |
-| [`security/`](security/) | Security reviews and the [baseline in force](security/security-baseline.md) |
+| [`security/`](security/) | Security reviews, the [baseline in force](security/security-baseline.md) and the [STRIDE threat model](security/threat-model.md) |
 | [`code-reviews/`](code-reviews/) | Conformance analyses against external standards and references |
 | [`roadmap/`](roadmap/) | Backlog, feature requests, fit-gap analyses |
 | [`literature/`](literature/) | Research background |
