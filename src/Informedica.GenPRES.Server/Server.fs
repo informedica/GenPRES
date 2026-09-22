@@ -547,19 +547,13 @@ module Http =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             match Logging.loggingLevel with
             | None -> next ctx
-            | Some level ->
+            | Some _ ->
                 let clientIP = getClientIP ctx
                 let path = ctx.Request.Path.ToString()
                 let method = ctx.Request.Method
-                let logger = Logging.getLogger level Logging.RequestLogger
+                let logger = Logging.getLogger Logging.RequestLogger
 
-                async {
-                    do! logger |> Logging.setComponentName (Some "Client_Request")
-
-                    Logging.ServerLogging.logRequest logger method path clientIP
-                    return ()
-                }
-                |> Async.Start
+                Logging.ServerLogging.logRequest logger method path clientIP
 
                 // Continue with the next handler
                 next ctx
@@ -589,16 +583,11 @@ module Http =
                     eprintfn $"{msg}"
 
                     match Logging.loggingLevel with
-                    | Some level ->
-                        let logger = Logging.getLogger level Logging.RequestLogger
+                    | Some _ ->
+                        let logger = Logging.getLogger Logging.RequestLogger
 
-                        async {
-                            do! logger |> Logging.setComponentName (Some "safeWebApi")
-
-                            Logging.ServerLogging.Error msg
-                            |> Informedica.Logging.Lib.Logging.logError logger.Logger
-                        }
-                        |> Async.Start
+                        Logging.ServerLogging.Error msg
+                        |> Informedica.Logging.Lib.Logging.logError logger
                     | None -> ()
 
                     if not ctx.Response.HasStarted then
@@ -610,31 +599,14 @@ module Http =
             }
 
 
-    /// Stops every logger agent when the host shuts down.
+    /// Stops every logger this process forced into existence when the host shuts down.
     type LoggerShutdown() =
         interface IHostedService with
             member _.StartAsync _ = Task.CompletedTask
 
             member _.StopAsync _ =
-                lock
-                    Logging.loggerLock
-                    (fun () ->
-                        [|
-                            for kv in Logging.loggers do
-                                let logger = kv.Value
-
-                                writeInfoMessage $"Trying to Stop {kv.Key}"
-
-                                try
-                                    logger.StopAsync()
-                                with ex ->
-                                    writeDebugMessage $"Logger shutdown failed: {ex.Message}"
-                                    async { return () }
-                        |]
-                        |> Async.Parallel
-                        |> Async.StartAsTask
-                        :> Task
-                    )
+                Logging.disposeAll ()
+                Task.CompletedTask
 
 
 /// The composition root: wires settings, the resource provider and the
@@ -644,18 +616,7 @@ module Host =
     /// The cached GenFORM resource provider for a Sheet ID, with the
     /// resources logger attached when GENPRES_LOG is set.
     let resourceProvider (urlId: string) =
-        let logger =
-            Logging.loggingLevel
-            |> Option.map (fun level ->
-                Logging.getLogger level Logging.ResourcesLogger
-                |> (fun logger ->
-                    logger |> Logging.setComponentName (Some "Provider") |> Async.RunSynchronously
-                    logger
-                )
-            )
-            |> Option.map _.Logger
-            |> Option.defaultValue Informedica.GenOrder.Lib.Logging.noOp
-
+        let logger = Logging.getLogger Logging.ResourcesLogger
         urlId |> Informedica.GenForm.Lib.Api.getCachedProviderWithDataUrlId logger
 
 
@@ -865,6 +826,12 @@ module Host =
 
 [<EntryPoint>]
 let main _ =
+    // Surfaces Serilog's own internal failures (a sink erroring on disk-full,
+    // a permission error, ...) to stderr. Without this, such a failure is
+    // swallowed by design and the audit trail stops with no signal at all.
+    // Must run before any Logging.getLogger call constructs a Serilog logger.
+    Serilog.Debugging.SelfLog.Enable(fun msg -> eprintfn $"[Serilog] {msg}")
+
     // Load .env so GENPRES_* variables are available even when the server
     // binary is launched directly (e.g. via Rider/VS Code) without first
     // sourcing .env in the shell. loadDotEnv only sets variables that are

@@ -54,16 +54,3 @@ module BigInteger =
                 q2.Value <- qTemp
                 yield (p.Value, q.Value)
         }
-
-
-    module Tests =
-
-
-        /// Test the farey function by generating and printing Farey sequences.
-        let testFareySequence () =
-            let order = 10I
-            printfn $"Ascending Farey Sequence of Order %A{order}:"
-            farey order true |> Seq.iter (fun (p, q) -> printfn "%A/%A" p q)
-
-            printfn $"\nDescending Farey Sequence of Order %A{order}:"
-            farey order false |> Seq.iter (fun (p, q) -> printfn "%A/%A" p q)

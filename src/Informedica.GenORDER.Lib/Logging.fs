@@ -19,6 +19,10 @@ module Logging =
     let logWarning logger evt = logMessage Level.Warning logger evt
 
 
+    /// Log a debug solver event
+    let logDebug logger evt = logMessage Level.Debug logger evt
+
+
     /// Log a solver exception as an error
     let logError (logger: Logger) (msg: Exceptions.Message) = msg |> OrderException |> Logging.logError logger
 
@@ -42,3 +46,8 @@ module Logging =
     /// Log an order event built lazily: the thunk runs only if the logger would
     /// consume a warning message.
     let logWarningLazy (logger: Logger) (mk: unit -> Events.Event) = logMessageLazy Level.Warning logger mk
+
+
+    /// Log an order event built lazily: the thunk runs only if the logger would
+    /// consume a debug message.
+    let logDebugLazy (logger: Logger) (mk: unit -> Events.Event) = logMessageLazy Level.Debug logger mk

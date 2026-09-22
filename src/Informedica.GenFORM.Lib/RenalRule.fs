@@ -5,7 +5,7 @@ module RenalRule =
 
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
-    open ConsoleWriter.NewLineNoTime
+    open Informedica.Logging.Lib
 
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib.Ranges
@@ -21,12 +21,12 @@ module RenalRule =
         [<Literal>]
         let ABS = "abs"
 
-        let fromString s =
+        let fromString logger s =
             match s with
             | _ when s |> String.equalsCapInsens ABS -> Absolute
             | _ when s |> String.equalsCapInsens REL -> Relative
             | _ ->
-                writeWarningMessage $"{s} is not a valid dosereduction"
+                Warning $"{s} is not a valid dosereduction" |> Logging.logWarning logger
                 NoReduction
 
 
@@ -169,7 +169,7 @@ module RenalRule =
             |> Some
 
 
-    let map (data: RenalRuleData[]) : Result<_, Message list> =
+    let map logger (data: RenalRuleData[]) : Result<_, Message list> =
         data
         |> Array.filter (fun r -> r.Generic <> "" && r.Source <> "")
         |> Array.choose (fun r ->
@@ -265,7 +265,7 @@ module RenalRule =
 
                     Limit.create
                         (r.Substance |> LimitTarget.SubstanceLimitTarget)
-                        (r.DoseRed |> DoseReduction.fromString)
+                        (r.DoseRed |> DoseReduction.fromString logger)
                         ((r.MinQty, r.MaxQty) |> fromTupleInclIncl du)
                         (r.NormQtyAdj |> ValueUnit.withArrayAndOptUnit duAdj)
                         ((r.MinQtyAdj, r.MaxQtyAdj) |> fromTupleInclIncl duAdj)
@@ -283,7 +283,7 @@ module RenalRule =
         |> Ok
 
 
-    let get dataUrlId : Result<_, Message list> = getData dataUrlId |> Result.bind map
+    let get logger dataUrlId : Result<_, Message list> = getData dataUrlId |> Result.bind (map logger)
 
 
     let filter mapping (filter: DoseFilter) (renalRules: RenalRule[]) =

@@ -95,7 +95,6 @@ module WrappedString =
             try
                 $"[{ns |> String.concat concatWith}]" |> Name.createExc
             with e ->
-                printfn $"cannot create name with {ns}"
                 raise e
 
         /// Get the string from a Name
@@ -126,5 +125,4 @@ module WrappedString =
             try
                 $"{n |> toString}{addWith}%s{s}" |> Name.createExc
             with e ->
-                printfn $"cannot add name with {s} and {n}"
                 raise e

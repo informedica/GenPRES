@@ -6,7 +6,6 @@ module Medication =
     open System
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
-    open ConsoleWriter.NewLineNoTime
     open Informedica.GenForm.Lib
     // Re-open the GenOrder types so the local domain types (notably
     // ProductComponent) take precedence over the GenForm types brought in by
@@ -1022,8 +1021,9 @@ module Medication =
     /// If noSubst is true, the substances will not be added to the ProductComponent.
     /// The freqUnit is used to set the TimeUnit for the Frequencies.
     /// </summary>
+    /// <param name="logger">The logger</param>
     /// <param name="limits">The ComponentLimits for the ProductComponent</param>
-    let createComponents (limits: ComponentLimit[]) =
+    let createComponents logger (limits: ComponentLimit[]) =
 
         let filterByUnitGroup (context: string) (vus: ValueUnit[]) =
             if vus.Length <= 1 then
@@ -1039,13 +1039,16 @@ module Medication =
                     let winners = grouped |> Array.filter (fun (_, xs) -> xs.Length = maxLen)
 
                     if winners.Length > 1 then
-                        writeWarningMessage
-                            $"{context}: tie between {winners.Length} unit groups of equal size, picking first"
+                        $"{context}: tie between {winners.Length} unit groups of equal size, picking first"
+                        |> Events.OrderScenario
+                        |> Informedica.GenOrder.Lib.Logging.logWarning logger
 
                     let _, kept = winners[0]
                     let filtered = vus.Length - kept.Length
 
-                    writeWarningMessage $"{context}: filtered {filtered} value(s) with incompatible unit group"
+                    $"{context}: filtered {filtered} value(s) with incompatible unit group"
+                    |> Events.OrderScenario
+                    |> Informedica.GenOrder.Lib.Logging.logWarning logger
 
                     kept
 
@@ -1162,7 +1165,7 @@ module Medication =
 
 
     /// Add an optional solution rule to a medication order
-    let addSolution (pat: Patient) sr med =
+    let addSolution logger (pat: Patient) sr med =
         match sr with
         | None -> med
         | Some sr ->
@@ -1205,10 +1208,13 @@ module Medication =
                                     SubstanceLimits = [||]
                                 }
                             |]
-                            |> createComponents
+                            |> createComponents logger
                             |> List.append ps
                         | None ->
-                            writeWarningMessage "No diluents available"
+                            "No diluents available"
+                            |> Events.OrderScenario
+                            |> Informedica.GenOrder.Lib.Logging.logWarning logger
+
                             ps
                     |> List.map (fun pc ->
                         { pc with
@@ -1241,11 +1247,11 @@ module Medication =
 
 
     /// Create a Medication Order from patient information and dose rules
-    let create (pat: Patient) au dose (dr: DoseRule) (sr: SolutionRule option) =
+    let create logger (pat: Patient) au dose (dr: DoseRule) (sr: SolutionRule option) =
         { template with
             Id = Guid.NewGuid().ToString()
             Name = dr.Generic |> Generic.toString
-            Components = dr.ComponentLimits |> createComponents
+            Components = dr.ComponentLimits |> createComponents logger
             Quantities = None
             Frequencies = dr.Frequencies
             Time = dr.AdministrationTime
@@ -1274,7 +1280,7 @@ module Medication =
                     pat |> Patient.calcBSA
         //AdjustUnit = Some au
         }
-        |> addSolution pat sr
+        |> addSolution logger pat sr
 
 
     /// <summary>
@@ -1287,7 +1293,7 @@ module Medication =
 
         let dose = pr.DoseRule.FormLimit
 
-        let create = create pr.Patient au dose pr.DoseRule
+        let create = create logger pr.Patient au dose pr.DoseRule
 
         let meds =
             if pr.SolutionRules |> Array.isEmpty then

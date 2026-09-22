@@ -193,7 +193,11 @@ module ResourceAccumulator =
     /// keep the same `CachedResourceProvider` interface while gaining full
     /// message visibility in `GetResourceInfo().Messages`.
     let createCachedProvider (config: ResourceConfig) (ttlMinutes: int option) =
-        CachedResourceProvider((fun () -> loadAllResourcesWithConfig config), ttlMinutes)
+        CachedResourceProvider(
+            Informedica.Logging.Lib.Logging.noOp,
+            (fun () -> loadAllResourcesWithConfig config),
+            ttlMinutes
+        )
 
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -30,3 +30,15 @@ module Logger =
 
     /// Ignore logger for backward compatibility
     let noOp = Logging.noOp
+
+
+    /// Log a solver event built lazily at the given level: the thunk (and any
+    /// expensive work inside it) runs only if the logger would actually consume
+    /// a message at that level.
+    let logMessageLazy level (logger: Logger) (mk: unit -> Events.Event) =
+        Logging.logLazy level logger (fun () -> mk () |> SolverEventMessage :> IMessage)
+
+
+    /// Log a debug solver event built lazily: the thunk runs only if the logger
+    /// would consume a debug message.
+    let logDebugLazy (logger: Logger) (mk: unit -> Events.Event) = logMessageLazy Level.Debug logger mk

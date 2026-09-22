@@ -6,7 +6,7 @@ module Product =
 
     open Informedica.Utils.Lib.BCL
     open Informedica.Utils.Lib
-    open ConsoleWriter.NewLineNoTime
+    open Informedica.Logging.Lib
     open Informedica.GenUnits.Lib
 
     open Utils
@@ -197,7 +197,7 @@ module Product =
             |> Array.fold (fun (acc: Reconstitution[]) pred -> acc |> Array.filter pred) rs
 
 
-    let createSubstance name conc unit formUnit unitMapping =
+    let createSubstance logger name conc unit formUnit unitMapping =
         match conc with
         | Some br when br > 0N ->
             let conc =
@@ -205,7 +205,7 @@ module Product =
                 |> Mapping.mapUnit unitMapping
                 |> function
                     | None ->
-                        writeErrorMessage $"cannot map unit: {unit}"
+                        ErrorMsg($"cannot map unit: {unit}", None) |> Logging.logError logger
                         None
                     | Some u ->
                         let isMolar = u |> ValueUnit.Group.eqsGroup Units.Molar.milliMole
@@ -225,7 +225,7 @@ module Product =
     module Enteral =
 
 
-        let createProduct name formUnit unitMapping substs =
+        let createProduct logger name formUnit unitMapping substs =
             {
                 GPK = name
                 ATC = ""
@@ -251,7 +251,7 @@ module Product =
                             | [ n; u ] -> n |> String.trim, u |> String.trim
                             | _ -> raise (System.FormatException $"cannot parse substance {s}")
 
-                        createSubstance n q u formUnit unitMapping
+                        createSubstance logger n q u formUnit unitMapping
                     )
                     |> List.filter (fun s ->
                         s.Name |> String.notEmpty
@@ -262,7 +262,7 @@ module Product =
             }
 
 
-        let get unitMapping (prods: FormularyProduct[]) =
+        let get logger unitMapping (prods: FormularyProduct[]) =
             prods
             |> Array.filter _.ProductType.IsEnteralProduct
             |> Array.choose (fun fp ->
@@ -270,13 +270,17 @@ module Product =
 
                 match formUnit with
                 | None -> None
-                | Some fu -> fp |> getAdditionalSubstances |> createProduct fp.Generic fu unitMapping |> Some
+                | Some fu ->
+                    fp
+                    |> getAdditionalSubstances
+                    |> createProduct logger fp.Generic fu unitMapping
+                    |> Some
             )
 
 
     module Parenteral =
 
-        let createProduct name unitMapping substs =
+        let createProduct logger name unitMapping substs =
             {
                 GPK = name
                 ATC = ""
@@ -302,7 +306,7 @@ module Product =
                             | [ n; u ] -> n |> String.trim, u |> String.trim
                             | _ -> raise (System.FormatException $"cannot parse substance {s}")
 
-                        createSubstance n q u Units.Volume.milliLiter unitMapping
+                        createSubstance logger n q u Units.Volume.milliLiter unitMapping
                     )
                     |> List.filter (fun s ->
                         s.Name |> String.notEmpty
@@ -316,10 +320,10 @@ module Product =
                 TradeProducts = []
             }
 
-        let get unitMapping (prods: FormularyProduct[]) =
+        let get logger unitMapping (prods: FormularyProduct[]) =
             prods
             |> Array.filter _.ProductType.IsParenteralProduct
-            |> Array.map (fun fp -> fp |> getAdditionalSubstances |> createProduct fp.Generic unitMapping)
+            |> Array.map (fun fp -> fp |> getAdditionalSubstances |> createProduct logger fp.Generic unitMapping)
 
 
     let create gen frm rte substs =
@@ -359,6 +363,7 @@ module Product =
 
 
     let map
+        logger
         unitMapping
         routeMapping
         formRoutes
@@ -460,7 +465,7 @@ module Product =
                                 | [ n; u ] -> n |> String.trim, u |> String.trim
                                 | _ -> raise (System.FormatException $"cannot parse substance {s}")
 
-                            createSubstance n q u formUnit unitMapping
+                            createSubstance logger n q u formUnit unitMapping
                         )
                         |> List.filter (fun s ->
                             s.Name |> String.notEmpty
@@ -496,6 +501,7 @@ module Product =
     /// read is hoisted into the impure shell (see <c>get</c>).
     /// </summary>
     let fromGenPresProducts
+        logger
         unitMapping
         routeMapping
         validForms
@@ -564,7 +570,7 @@ module Product =
                 |> fun xs -> if xs |> Array.isEmpty then [| 1N |] else xs
 
             gp
-            |> map unitMapping routeMapping formRoutes reconstitution name synonyms formQuantities fp
+            |> map logger unitMapping routeMapping formRoutes reconstitution name synonyms formQuantities fp
             |> fun prod -> { prod with Label = displayLabel }
 
         // Build the products in parallel: buildProduct is pure but heavy
@@ -596,6 +602,7 @@ module Product =
     /// pure <c>fromGenPresProducts</c>. Kept for existing callers/tests.
     /// </summary>
     let get
+        logger
         unitMapping
         routeMapping
         validForms
@@ -608,6 +615,7 @@ module Product =
         fun () ->
             GenPresProduct.get []
             |> fromGenPresProducts
+                logger
                 unitMapping
                 routeMapping
                 validForms

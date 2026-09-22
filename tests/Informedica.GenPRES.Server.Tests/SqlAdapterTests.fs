@@ -126,7 +126,11 @@ let challenged (port: SessionPort) sid (opened: OpenedSession) key =
 
 /// A resource provider that never loads: the session port does not use it.
 let unloadedProvider () =
-    Informedica.GenForm.Lib.Resources.CachedResourceProvider((fun () -> Error []), None)
+    Informedica.GenForm.Lib.Resources.CachedResourceProvider(
+        Informedica.Logging.Lib.Logging.noOp,
+        (fun () -> Error []),
+        None
+    )
     :> Informedica.GenForm.Lib.Resources.IResourceProvider
 
 

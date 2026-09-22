@@ -1,5 +1,5 @@
 ---
-last_commit_released: 24ce3c67b7983f74341ce0a4f296025cee0f6f80
+last_commit_released: 6df64ab687f61cbb2d8284729a80ef8dbfde3e79
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,36 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.28 - 2026-09-21
+
+### 🚀 Features
+
+* *(logging)* Back Server and MCP logging with Serilog, relocate AgentLogging (#416) ([959db48d](https://github.com/informedica/GenPRES/commit/959db48d56403541aaf3f18d5ddd25a58601ae1d))
+
+    Log output moves from the AgentLogging ring-buffer/flush-timer machinery to Serilog, giving structured log events
+    and a stderr-only sink for the MCP host so tool-call logs never corrupt the JSON-RPC stdio stream.
+
+### 🐞 Bug Fixes
+
+* Ensure logger is threaded in ([ea7958cb](https://github.com/informedica/GenPRES/commit/ea7958cbcf91138f0d5d991bb08ae3ba177566ae))
+* *(docker)* Keep the proprietary cache out of the image ([9785a8cd](https://github.com/informedica/GenPRES/commit/9785a8cddf2cf608bc16f1562a8c537409564206))
+* *(docker)* Keep build output out of the build context ([de524992](https://github.com/informedica/GenPRES/commit/de52499257295b3d41b8ba0d630f8a7ba127ca1d))
+* *(geninteract)* Fail an interaction query with no data behind it ([cf6d40e3](https://github.com/informedica/GenPRES/commit/cf6d40e3a798b193efb3ddd6821bc84dc6189166))
+* *(logging)* Stop the Serilog async sink from silently dropping events ([76059ce1](https://github.com/informedica/GenPRES/commit/76059ce1bef4f3cc13dec898ef7a3caecee9c3d9))
+* *(mcp)* Keep MCP stdout clean of non-protocol bytes (#416) ([1752c3b5](https://github.com/informedica/GenPRES/commit/1752c3b570c334ea3c2136eb8518ea59661019f9))
+* *(mcp)* Write log events as JSON lines ([c704d61c](https://github.com/informedica/GenPRES/commit/c704d61cc96eac255fc6fb00aa3feadbb42976e6))
+* *(server)* Stop the Web SDK publishing stray files ([88cbbe32](https://github.com/informedica/GenPRES/commit/88cbbe322d37775777f2fa0ffff39f397bc9683d))
+* *(server)* Write log events as JSON lines ([25fa1e83](https://github.com/informedica/GenPRES/commit/25fa1e83081034b0f31202b7e82dabf321e6819b))
+* *(server)* Read JSON log lines in the log analysis ([869f23ae](https://github.com/informedica/GenPRES/commit/869f23aee2046577a368ae45e5fc2ac89fd89565))
+
+### ⚡ Performance Improvements
+
+* *(logging)* Make solver and order debug logging lazy (#416) ([2258fc5b](https://github.com/informedica/GenPRES/commit/2258fc5b15a5b940e079b92c9dc862415750c216))
+* *(mcp)* Render a log event once for both sinks ([9f209a58](https://github.com/informedica/GenPRES/commit/9f209a588944547c11d018197718f7ee3f07e51b))
+* *(server)* Render a log event once for both sinks ([fa851dc5](https://github.com/informedica/GenPRES/commit/fa851dc59b95b5f59ee55060f1f852ae66822f63))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/24ce3c67b7983f74341ce0a4f296025cee0f6f80..6df64ab687f61cbb2d8284729a80ef8dbfde3e79)</small></strong>
 
 ## 0.1.2-alpha.27 - 2026-09-20
 

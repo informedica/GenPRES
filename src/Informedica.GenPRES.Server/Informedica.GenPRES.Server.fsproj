@@ -5,6 +5,11 @@
     <NoWarn>$(NoWarn);NU1510</NoWarn>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
+    <!-- The Web SDK otherwise publishes every **/*.json and **/*.config found in the
+         project folder. This project has no appsettings and no wwwroot, so that glob
+         only ever picked up files that happened to sit in the tree and shipped them
+         inside the image. Anything this project needs at run time is declared here. -->
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Logging.fs" />
@@ -41,6 +46,7 @@
     <ProjectReference Include="..\Informedica.GenPRES.Shared\Informedica.GenPRES.Shared.fsproj" />
     <ProjectReference Include="..\Informedica.GenORDER.Lib\Informedica.GenORDER.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.GenINTERACT.Lib\Informedica.GenINTERACT.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.Agents.Lib\Informedica.Agents.Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

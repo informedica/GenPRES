@@ -19,15 +19,28 @@ open Informedica.GenCore.Lib.Ranges
 open Informedica.GenForm.Lib
 open Informedica.GenUnits.Lib
 open Informedica.GenOrder.Lib
+open Informedica.GenOrder.Lib.Types.Logging
+open Informedica.GenSolver.Lib.Types.Logging
+
+open Informedica.Logging.Lib
+open Informedica.Agents.Lib
 
 open Expecto
 open Expecto.Flip
 
 
-let consoleLogger = OrderLogging.createConsoleLogger ()
+let devScriptFormatter =
+    MessageFormatter.create
+        [
+            typeof<OrderMessage>, OrderLogging.formatOrderMessage
+            typeof<SolverMessage>, SolverLogging.formatSolverMessage
+            typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
+        ]
+
+let consoleLogger = ConsoleFileLogger.createConsole devScriptFormatter
 
 
-let fileLogger = OrderLogging.createFileLogger "log.txt"
+let fileLogger = ConsoleFileLogger.createFile "log.txt" devScriptFormatter
 
 
 module HelperFunctions =

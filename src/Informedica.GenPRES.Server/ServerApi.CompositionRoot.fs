@@ -3,7 +3,6 @@ namespace ServerApi
 
 module CompositionRoot =
 
-    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
     open Shared.Api
 
 
@@ -63,20 +62,22 @@ module CompositionRoot =
                     (InteractionCommand.processCmd env)
 
             processLaunch =
-                Compute.logged "launch" LaunchCommand.toString (LaunchCommand.processCmd env cookie stateCookie)
+                Compute.logged env "launch" LaunchCommand.toString (LaunchCommand.processCmd env cookie stateCookie)
 
             processSession =
-                Compute.logged "session" SessionCommand.toString (SessionCommand.processCmd env cookie enrolment)
+                Compute.logged env "session" SessionCommand.toString (SessionCommand.processCmd env cookie enrolment)
 
-            processSigning = Compute.logged "signing" SigningCommand.toString (SigningCommand.processCmd env cookie)
+            processSigning = Compute.logged env "signing" SigningCommand.toString (SigningCommand.processCmd env cookie)
 
             // never Session-bound: no cookie read, no notice, and not behind requireLoaded
-            processAdmin = Compute.logged "admin" AdminCommand.toString (AdminCommand.processCmd env)
+            processAdmin = Compute.logged env "admin" AdminCommand.toString (AdminCommand.processCmd env)
 
             getSettings =
                 fun () ->
                     async {
-                        writeInfoMessage "Processing settings"
+                        Logging.ServerLogging.Info "Processing settings"
+                        |> Informedica.Logging.Lib.Logging.logInfo env.logger
+
                         return settings
                     }
 
