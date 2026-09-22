@@ -94,6 +94,21 @@ module private Elmish =
         }
 
 
+    /// The admin login, under the token it bought, and what it fetches.
+    type AdminState =
+        {
+            IsAuthenticated: bool
+            AuthToken: string
+            // counts logins and logouts, so that a login answer of an earlier attempt is dropped
+            LoginAttempt: int
+            LogFiles: Deferred<LogFileInfo[]>
+            LogAnalysisReport: Deferred<string>
+            // the resource reload from the settings page: InProgress from the request until the
+            // pages have refreshed over the reloaded resources
+            Reloading: Deferred<unit>
+        }
+
+
     type State =
         {
             // the patient the workbench and the plan are for: the draft, once it meets the minimum
@@ -103,21 +118,14 @@ module private Elmish =
             OrderContext: OrderContextState
             // the one plan, as the order-plan machine holds it; the pages read a projection
             OrderPlan: OrderPlanState
-            IsAuthenticated: bool
-            AuthToken: string
-            LogFiles: Deferred<LogFileInfo[]>
-            LogAnalysisReport: Deferred<string>
-            // the resource reload from the settings page: InProgress from the request until the
-            // pages have refreshed over the reloaded resources
-            Reloading: Deferred<unit>
-            // counts logins and logouts, so that a login answer of an earlier attempt is dropped
-            LoginAttempt: int
             // the launch Session; Anonymous is the state every URL patient runs in
             Session: SessionState
             // the signing phase of the open Session; Idle whenever no Session is open
             Signing: SigningState
             // the plain fetches
             Fetches: FetchesState
+            // the admin login and what it fetches
+            Admin: AdminState
             // the app-level UI
             Ui: UiState
         }
@@ -282,8 +290,8 @@ module private Elmish =
     /// A reload settles when the refresh it started has answered: the order context over a
     /// patient, else the formulary.
     let settleReload (state: State) =
-        match state.Reloading with
-        | InProgress -> { state with Reloading = Resolved() }
+        match state.Admin.Reloading with
+        | InProgress -> { state with Admin.Reloading = Resolved() }
         | _ -> state
 
 
@@ -295,19 +303,19 @@ module private Elmish =
         | Api.AdminResponse.PasswordValidated(isValid, token) ->
             if isValid then
                 { state with
-                    IsAuthenticated = true
-                    AuthToken = token
+                    Admin.IsAuthenticated = true
+                    Admin.AuthToken = token
                 },
                 Cmd.none
             else
                 { state with
-                    IsAuthenticated = false
-                    AuthToken = ""
+                    Admin.IsAuthenticated = false
+                    Admin.AuthToken = ""
                     Ui.Snackbar = Snackbar.shown "Invalid password" "error"
                 },
                 Cmd.none
-        | Api.AdminResponse.LogFilesListed files -> { state with LogFiles = Resolved files }, Cmd.none
-        | Api.AdminResponse.LogFileAnalyzed report -> { state with LogAnalysisReport = Resolved report }, Cmd.none
+        | Api.AdminResponse.LogFilesListed files -> { state with Admin.LogFiles = Resolved files }, Cmd.none
+        | Api.AdminResponse.LogFileAnalyzed report -> { state with Admin.LogAnalysisReport = Resolved report }, Cmd.none
         | Api.AdminResponse.ResourcesReloaded ->
             let refresh =
                 match state.Patient with
@@ -587,12 +595,6 @@ module private Elmish =
             OrderContext = OrderContextState.noPatient
             // the patient reaches the plan through UpdatePatient
             OrderPlan = OrderPlanState.noPatient
-            IsAuthenticated = false
-            AuthToken = ""
-            LogFiles = HasNotStartedYet
-            LogAnalysisReport = HasNotStartedYet
-            Reloading = HasNotStartedYet
-            LoginAttempt = 0
             Session = SessionState.anonymous
             Signing = SigningState.idle
             Fetches =
@@ -610,6 +612,15 @@ module private Elmish =
                     InteractionDrugNames = HasNotStartedYet
                     DrugNameRetries = 0
                     ServerStatus = HasNotStartedYet
+                }
+            Admin =
+                {
+                    IsAuthenticated = false
+                    AuthToken = ""
+                    LoginAttempt = 0
+                    LogFiles = HasNotStartedYet
+                    LogAnalysisReport = HasNotStartedYet
+                    Reloading = HasNotStartedYet
                 }
             Ui =
                 {
@@ -1096,21 +1107,21 @@ module private Elmish =
             { state with Fetches.Settings = HasNotStartedYet }, Cmd.none
 
         | Login password ->
-            let attempt = state.LoginAttempt + 1
+            let attempt = state.Admin.LoginAttempt + 1
 
-            { state with LoginAttempt = attempt },
+            { state with Admin.LoginAttempt = attempt },
             Api.AdminCommand.ValidatePassword password
             |> createAdminMsg (fun result -> LoadLoginResult(attempt, result))
 
         // an answer of an earlier attempt: a login since logged out, or asked again
-        | LoadLoginResult(attempt, Finished _) when attempt <> state.LoginAttempt -> state, Cmd.none
+        | LoadLoginResult(attempt, Finished _) when attempt <> state.Admin.LoginAttempt -> state, Cmd.none
 
         | LoadLoginResult(_, Finished(Ok resp)) -> applyAdmin state resp
 
         | LoadLoginResult(_, Finished(Error err)) ->
             ({ state with
-                IsAuthenticated = false
-                AuthToken = ""
+                Admin.IsAuthenticated = false
+                Admin.AuthToken = ""
              },
              Cmd.none)
             |> processError err
@@ -1119,12 +1130,12 @@ module private Elmish =
 
         | Logout ->
             { state with
-                IsAuthenticated = false
-                AuthToken = ""
-                LoginAttempt = state.LoginAttempt + 1
-                LogFiles = HasNotStartedYet
-                LogAnalysisReport = HasNotStartedYet
-                Reloading = HasNotStartedYet
+                Admin.IsAuthenticated = false
+                Admin.AuthToken = ""
+                Admin.LoginAttempt = state.Admin.LoginAttempt + 1
+                Admin.LogFiles = HasNotStartedYet
+                Admin.LogAnalysisReport = HasNotStartedYet
+                Admin.Reloading = HasNotStartedYet
                 Ui.Page =
                     if state.Ui.Page = Settings then
                         LifeSupport
@@ -1137,49 +1148,49 @@ module private Elmish =
         // so a late refusal cannot end the new login and a late answer cannot revive the old
         | LoadLogFilesResult(token, Finished _)
         | LoadLogAnalysisResult(token, Finished _)
-        | LoadReloadResult(token, Finished _) when token <> state.AuthToken -> state, Cmd.none
+        | LoadReloadResult(token, Finished _) when token <> state.Admin.AuthToken -> state, Cmd.none
 
         | ListLogFiles ->
-            let token = state.AuthToken
+            let token = state.Admin.AuthToken
 
             // the table shown stays until the answer
-            { state with LogFiles = state.LogFiles |> Deferred.refresh },
+            { state with Admin.LogFiles = state.Admin.LogFiles |> Deferred.refresh },
             Api.AdminCommand.ListLogFiles token
             |> createAdminMsg (fun result -> LoadLogFilesResult(token, result))
 
         | LoadLogFilesResult(_, Finished(Ok resp)) -> applyAdmin state resp
 
         | LoadLogFilesResult(_, Finished(Error err)) ->
-            ({ state with LogFiles = HasNotStartedYet }, Cmd.none) |> tokenError err
+            ({ state with Admin.LogFiles = HasNotStartedYet }, Cmd.none) |> tokenError err
 
         | LoadLogFilesResult(_, Started) -> state, Cmd.none
 
         | AnalyzeLogFile fileName ->
-            let token = state.AuthToken
+            let token = state.Admin.AuthToken
 
-            { state with LogAnalysisReport = InProgress },
+            { state with Admin.LogAnalysisReport = InProgress },
             Api.AdminCommand.AnalyzeLogFile(token, fileName)
             |> createAdminMsg (fun result -> LoadLogAnalysisResult(token, result))
 
         | LoadLogAnalysisResult(_, Finished(Ok resp)) -> applyAdmin state resp
 
         | LoadLogAnalysisResult(_, Finished(Error err)) ->
-            ({ state with LogAnalysisReport = HasNotStartedYet }, Cmd.none)
+            ({ state with Admin.LogAnalysisReport = HasNotStartedYet }, Cmd.none)
             |> tokenError err
 
         | LoadLogAnalysisResult(_, Started) -> state, Cmd.none
 
         | ReloadResources ->
-            let token = state.AuthToken
+            let token = state.Admin.AuthToken
 
-            { state with Reloading = InProgress },
+            { state with Admin.Reloading = InProgress },
             Api.AdminCommand.ReloadResources token
             |> createAdminMsg (fun result -> LoadReloadResult(token, result))
 
         | LoadReloadResult(_, Finished(Ok resp)) -> applyAdmin state resp
 
         | LoadReloadResult(_, Finished(Error err)) ->
-            ({ state with Reloading = HasNotStartedYet }, Cmd.none) |> tokenError err
+            ({ state with Admin.Reloading = HasNotStartedYet }, Cmd.none) |> tokenError err
 
         | LoadReloadResult(_, Started) -> state, Cmd.none
 
@@ -1219,7 +1230,7 @@ module private Elmish =
                         Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
                         retryDrugNames
                     ]
-            else if page = Settings && not state.IsAuthenticated then
+            else if page = Settings && not state.Admin.IsAuthenticated then
                 state, Cmd.none
             else if page = Settings then
                 { state with Ui.Page = page }, retryDrugNames
@@ -1786,7 +1797,7 @@ type private ConcreteAppEnv
         member _.CheckInteractions drugs = CheckInteractions drugs |> dispatch
 
     interface AppEnv.IResources with
-        member _.Reload = state.Reloading
+        member _.Reload = state.Admin.Reloading
         member _.ReloadResources() = ReloadResources |> dispatch
 
     interface AppEnv.ISession with
@@ -1819,13 +1830,13 @@ type private ConcreteAppEnv
         member _.Cancel() = SigningMsg SigningMsg.Cancel |> dispatch
 
     interface AppEnv.IAuthentication with
-        member _.IsAuthenticated = state.IsAuthenticated
+        member _.IsAuthenticated = state.Admin.IsAuthenticated
         member _.Login password = Login password |> dispatch
         member _.Logout() = Logout |> dispatch
 
     interface AppEnv.ILogAnalyzer with
-        member _.LogFiles = state.LogFiles
-        member _.LogAnalysisReport = state.LogAnalysisReport
+        member _.LogFiles = state.Admin.LogFiles
+        member _.LogAnalysisReport = state.Admin.LogAnalysisReport
         member _.ListLogFiles() = ListLogFiles |> dispatch
         member _.AnalyzeLogFile fileName = AnalyzeLogFile fileName |> dispatch
 
