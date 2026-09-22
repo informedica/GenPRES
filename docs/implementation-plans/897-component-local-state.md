@@ -173,10 +173,16 @@ none, at every moment, and the context comes from the plan view the page hands t
 with them, and `displayOrder` is that order.
 
 One flag falls with it: `isLoading`, whether the hook's order is none while the plan is not
-yet recalculating, which greyed the slot's selects for the one render between a change sent
-and the plan lane showing `Changing`. With the hook's order gone there is no such render to
-mark: the lane transitions in the same dispatch, so the selects grey on `isRecalculating`
-alone, as the step buttons do already.
+yet recalculating, which greyed the slot's selects for a render between a change sent and
+the plan lane showing `Changing`. With the hook's order gone the selects grey on
+`isRecalculating` alone, as the step buttons do already, and that is enough, on two counts.
+The slot's state and the App's are both React states under `React.useElmish`, and a change
+updates them in one event handler, the slot's dispatch calling the plan command before it
+returns, so React batches the two into one render and no render shows the old plan beside
+the new local state. And should one slip in, the lane is already `Changing` when any click
+in it is handled, since `App.update` runs at the dispatch and not at the render: an edit made
+then reaches a lane with a request under way and waits as the one pending, as an edit made
+a frame later does. The guard protected a frame that the lane's own policy covers.
 
 ### The hooks keyed on the order
 
