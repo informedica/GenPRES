@@ -14,8 +14,10 @@ type ILocalization =
     abstract LocalizationTerms: Deferred<string[][]>
 
 
-/// Order context data and commands
-[<Interface>]
+/// Order context data and commands.
+/// Mangled: the app state implements this and IOrderPlan on one object, and both have a Select;
+/// without mangling Fable emits the two as one property.
+[<Interface; Fable.Core.Mangle>]
 type IOrderContext =
     // the workbench as the pages show it
     abstract OrderContext: OrderContextMachine.OrderContextView
@@ -26,8 +28,9 @@ type IOrderContext =
     abstract Select: string option -> unit
 
 
-/// The one plan, nutrition included, and the commands on it
-[<Interface>]
+/// The one plan, nutrition included, and the commands on it.
+/// Mangled, as IOrderContext is: the two share a Select on one object.
+[<Interface; Fable.Core.Mangle>]
 type IOrderPlan =
     // the plan as the pages show it, the dialog's selection inside
     abstract OrderPlan: OrderPlanMachine.OrderPlanView
