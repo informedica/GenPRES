@@ -23,31 +23,31 @@ A code review of `Solver.fs` that identifies hotspots and potential performance 
 
 ---
 
-## Annotated code review (with line ranges and contextual info)
+## Annotated code review
 
-The line numbers below are approximate and reflect the layout in the provided file.
+One section per member of `Solver.fs`, in the order the file declares them.
 
-### Header & imports (approx lines 1–18)
+### Header & imports
 
 - Observations: Clear module declaration and imports. Nothing critical.
 - Note: `module EQD = Equation.Dto` and `module Name = Variable.Name` are present but not heavily used inside `Solver.fs`. Fine.
 
-### sortByName (approx lines 20–30)
+### sortByName
 
 - Code:
   - Sorts equations by the name of the first variable: `Equation.toVars |> List.head |> Variable.getName`.
 - Issue:
   - Risk of runtime exception if an equation can have zero variables (List.head on empty). Document precondition or guard (e.g., Option.head or match).
 
-### printEqs (approx lines 32–52)
+### printEqs
 
 - Utility logging; fine.
 
-### contains (approx lines 55–62)
+### contains
 
 - Simple: `let contains eq eqs = eqs |> List.exists ((=) eq)`. Fine.
 
-### replace (approx lines 64–92)
+### replace
 
 - Behavior: partitions eqs into those that contain any variable in `vars`, then applies replacements over `rpl`.
 - Performance concern:
@@ -55,30 +55,30 @@ The line numbers below are approximate and reflect the layout in the provided fi
   - Memoizing `Equation.replace` or precomputing var->equation indices (or using maps) could help here.
 - Correctness: returns `(replaced, rest)` which is used by caller; good.
 
-### sortQue (approx lines 95–104)
+### sortQue
 
 - Sorts queue by `Equation.count onlyMinMax`.
 - Note: Sorting every iteration of main loop may be expensive if `Equation.count` is not trivial.
 
-### check (approx lines 106–116)
+### check
 
 - Logic is a bit non-intuitive:
   - If all equations are either not solvable OR already solved, then verify them with `Equation.check`.
   - Else return true.
 - Suggestion: add a code comment describing the desired semantics and why `true` is returned early.
 
-### solve (core — approx lines 120–260)
+### solve (core)
 
 This is the main hotspot and focus for memoization.
 
 Key areas:
 
-1. `solveE` wrapper (approx lines 122–141)
+1. `solveE` wrapper
    - Wraps `Equation.solve` with try/with and converts exceptions.
    - Catch-all branch prints and `failwith` for unexpected exceptions — this kills the process; wrapping into `Exceptions.SolverErrored` consistently is preferable.
    - **Primary memoization target**: this is the single place the module calls `Equation.solve`. Wrap here with a memoization layer.
 
-2. `loop` recursion (approx lines 143–236)
+2. `loop` recursion
    - Recomputes `que @ acc` frequently to calculate limit max; constructing `que @ acc` every loop allocates lists. Precompute lengths or pass sizes around to avoid repeated concatenation.
    - Sorts queue each iteration: `let que = que |> sortQue onlyMinIncrMax` — if `sortQue` is expensive, consider caching sorted order or using a priority structure.
    - Many list concatenations and rebuilds: `acc @ que`, `tail |> replace vars |> ... |> List.append rpl`. Using more efficient structures (ResizeArray or Deque) may help but requires weighing against F# idioms and immutability.
@@ -87,7 +87,7 @@ Key areas:
 3. Error handling
    - A mix of Exceptions APIs and `failwith`. Consider normalizing.
 
-### Helper functions `solveVariable` and `solveAll` (approx lines 258–end)
+### Helper functions `solveVariable` and `solveAll`
 
 - They wrap `solve` and check eq counts before & after. The equality check (number of equations unchanged) is enforced via `failwith` — fine for now but consider more structured error propagation.
 
