@@ -67,8 +67,8 @@ chase the bottlenecks the change exposed.
 
 A/B method: build + run the same harness in this worktree (RationalX) and on
 `master` (original BigRational); BenchmarkDotNet means. Harnesses live in
-`benchmark/{RationalXBench,ValueUnitBench,ScenarioBench}` (gitignored by the
-opt-in policy; build/run with `dotnet run -c Release`).
+`benchmark/{RationalXBench,ValueUnitBench,ScenarioBench}` (build/run with
+`dotnet run -c Release`).
 
 ### 3.1 Raw arithmetic micro-benchmark (`RationalXBench`)
 `(a*b)/c` over a real base-unit fraction pool:
