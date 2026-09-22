@@ -158,7 +158,8 @@ Versions are derived by EasyBuild.ShipIt from the commit history; see [DEVELOPME
 
 6. **Dependency Management**
    - Dependencies pinned via `paket.lock` and `package-lock.json`; updates are reviewed manually
-   - No automated advisory monitoring, SBOM generation or secret scanning yet (see Planned Security Enhancements and [security review E8](docs/security/2026-04-10-security-review.md#e8--no-automated-secret-scanning))
+   - **Dependabot security updates** are enabled for the client's npm dependencies and open a pull request per advisory; they do not cover the .NET side, since Dependabot cannot read Paket's lock file
+   - No SBOM generation or secret scanning (see the checklist below and [security review E8](docs/security/2026-04-10-security-review.md#e8--no-automated-secret-scanning))
 
 7. **Build & Deployment**
    - **Proprietary `GENPRES_URL_ID` is never baked into the published Docker image** — the `Dockerfile` declares `ENV GENPRES_URL_ID=` / `ENV GENPRES_PASSWORD=` with empty defaults so the variables remain discoverable in container management UIs (Plesk, Portainer, Kubernetes manifests). Operators inject the real values at runtime via `docker run -e`, Docker secret, or Kubernetes secret
@@ -166,13 +167,16 @@ Versions are derived by EasyBuild.ShipIt from the commit history; see [DEVELOPME
    - Pre-commit hooks (Husky + Fantomas + markdown-lint) prevent unformatted code from being committed
    - Documented production password policy in `.env.example` and `DEVELOPMENT.md` (Password policy section)
 
-### Planned Security Enhancements
+### Security Practices: in place and missing
 
-- [ ] Automated security scanning in CI/CD (dependency advisories, secret scanning, SBOM)
-- [ ] Penetration testing
-- [ ] Security-focused code reviews
-- [ ] Threat modeling workshops
-- [ ] Security certification for medical device software
+- [x] **Dependency advisories** — Dependabot security updates on the client's npm packages. The .NET packages are not covered: Dependabot does not read `paket.lock`, so a Paket advisory is found only by a manual check
+- [x] **Security-focused code reviews** — the [security review of 2026-04-10](docs/security/2026-04-10-security-review.md) and the [baseline in force](docs/security/security-baseline.md) it produced
+- [x] **Threat model** — [STRIDE threat model](docs/security/threat-model.md), a living document revised in a pull request whenever a threat or a mitigation comes to mind
+- [ ] **Secret scanning** — no `gitleaks` or equivalent in the pre-commit hook or in CI ([E8](docs/security/2026-04-10-security-review.md#e8--no-automated-secret-scanning))
+- [ ] **SBOM generation** — nothing produces a bill of materials for a published image
+- [ ] **Advisory checks for the .NET dependencies** — the gap Dependabot leaves
+- [ ] **Penetration testing** — the review of 2026-04-10 was static with light dynamic verification only; nothing has probed a running deployment
+- [ ] **Security certification for medical device software** — tracked with the rest of the MDR work, outside this repository
 
 ## Security Incident Response
 
