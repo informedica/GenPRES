@@ -156,6 +156,68 @@ the dialog, where today the flag kept it open over whatever the workbench became
 covers the page, so the first two cannot happen from the page while it is open; the third is
 the prescribe button on a card, pressed with the dialog closed. Nothing visible in practice.
 
+The plan page reads the same projection, in the same change: `modalOpen` is whether
+`OrderContextView.dialog orderPlan` is some, computed once, and the dialog gets that value or
+`NoPatient`, where today the page reads `selected.IsSome` off the plan view and computes the
+projection a second time for the dialog. Same result, one reading.
+
+### The nutrition slot reads the slot's order
+
+`Views/Nutrition.fs`'s slot (`NutritionSlot`) has what the order dialog had: an Elmish
+`State.Order` seeded by `init` from the one scenario of the slot's context, set to none after
+every change and every step, and read by every arm; `displayOrder` falls back to the context's
+order when it is none. The same reading holds: the hook's order is the context's order or
+none, at every moment, and the context comes from the plan view the page hands the slot. So
+`State.Order` goes, the hook keeps `SelectedComponent`, `update` gains `shown: Order option`
+(the context's one scenario's order) and its arms read it, `handleNav` and `handleNavWithCmp`
+with them, and `displayOrder` is that order.
+
+One flag falls with it: `isLoading`, whether the hook's order is none while the plan is not
+yet recalculating, which greyed the slot's selects for the one render between a change sent
+and the plan lane showing `Changing`. With the hook's order gone there is no such render to
+mark: the lane transitions in the same dispatch, so the selects grey on `isRecalculating`
+alone, as the step buttons do already.
+
+### The hooks keyed on the order
+
+The order dialog's `useElmish` depends on the view value, `[| box props.orderContext |]`, and
+the slot's on its context, `[| box ctx |]`. Both are values a page reads afresh on every
+render, a new reference each time, so a re-render of the page for a reason of its own
+re-seeds the component and the item picked, where the rule means "when the dialog shows
+another order". The dependency becomes the order's id, `shownOrder |> Option.map _.Id`, for
+the dialog, and the context's id for the slot, which has one per context: the picks survive
+every answer over the same order, and re-seed when another order is shown. The revision
+counter stays keyed on the reference: it has to bump on every answer, including one that
+leaves the order equal, and only the reference says an answer came.
+
+### The dialog's changes folded
+
+`Views/Order.fs`'s `update` builds fifteen changed orders in fifteen arms of one of three
+shapes: a field of the order, a field of the component picked, a field of the item picked in
+the first component. Three helpers over the order shown say the shape once:
+
+```fsharp
+// a change to the order shown, sent to the lane; nothing to change without one
+let over (f: Order -> Order) =
+    match shown with
+    | Some ord -> state, Cmd.ofMsg (UpdateOrderScenario(f ord))
+    | None -> state, Cmd.none
+
+// the component picked
+let overComponent (f: Component -> Component) = ...
+
+// the item picked, in the first component
+let overItem (f: Item -> Item) = ...
+```
+
+and each arm is one line, `| ChangeFrequency s -> over (fun ord -> { ord with
+Order.Schedule.Frequency = ord.Schedule.Frequency |> setOvar s })`. The one arm that names a
+component and an item beside the picks, `ChangeSubstanceComponentConcentration`, keeps its
+own mapping under `over`. The route stays `Cmd.ofMsg (UpdateOrderScenario _)`, so
+`msgToField` and the field marked as changing are untouched. About 400 lines deleted and 100
+added: over the size rule as one PR, and cut in two it would be one function half rewritten
+under review; the reviewer chose one PR, and this plan says so where the PR is listed.
+
 ## Confidence
 
 High on the dialog: the argument above is a reading of one `init` and one `update`, and the
@@ -173,32 +235,49 @@ proof the tests cannot give, since the dialog is a component.
 2. **The workbench carries the dialog's selection** (`refactor(client)`, one PR).
    `OrderContextMachine.fs`: `Selected`, `OrderContextMsg.Select`, `select`, the selection in
    `run` and in the patient-change branch, `dialog`; `AppEnv.fs` and `App.fs` the two members;
-   `Views/Prescribe.fs` on them. About 70 changed source lines. Tests in
-   `OrderContextMachineTests.fs`, a list "the selection": selected over a context held that
-   holds the order, none over one that does not, none without a patient and during the first
-   evaluation, kept beside a request under way, closed by none; dropped by a patient change, a
-   seed and a reset; kept by an answer whose context holds the order and by a failed change,
-   dropped by an answer that starts the workbench over; `dialog` none while closed and the view
-   while selected, settled and changing.
-3. **Docs** (`docs`): this plan's As built; plan 706's left-open bullet on #897 closed; the
-   rule's "known violation" line in plan 706's state model left as history.
+   `Views/Prescribe.fs` on them; `Views/OrderPlan.fs`'s `modalOpen` on the projection. About
+   80 changed source lines. Tests in `OrderContextMachineTests.fs`, a list "the selection":
+   selected over a context held that holds the order, none over one that does not, none
+   without a patient and during the first evaluation, kept beside a request under way, closed
+   by none; dropped by a patient change, a seed and a reset; kept by an answer whose context
+   holds the order and by a failed change, dropped by an answer that starts the workbench
+   over; `dialog` none while closed and the view while selected, settled and changing.
+3. **The nutrition slot reads the slot's order** (`refactor(client)`, one PR).
+   `Views/Nutrition.fs`: `State.Order` and `isLoading` gone, `init` without the order,
+   `update` on `shown`, `displayOrder` the context's order. About 80 changed source lines. No
+   machine change; the manual check below.
+4. **The hooks keyed on the order** (`refactor(client)`, one PR). `Views/Order.fs`'s
+   `useElmish` on the order's id, `Views/Nutrition.fs`'s on the context's id. Under 25
+   changed source lines.
+5. **The dialog's changes folded** (`refactor(client)`, one PR, over the size rule by the
+   reviewer's choice). `Views/Order.fs`: `over`, `overComponent`, `overItem`, the fifteen arms
+   on them. About 500 changed source lines, 400 of them deleted. Its own manual check: every
+   field of the dialog changed once, on the prescribe page and in the plan, lands on the
+   value typed.
+6. **Docs** (`docs`): this plan's As built; plan 706's left-open bullet on #897 closed; the
+   rule's "known violation" line in plan 706's state model left as history. And, folded in
+   by the author's choice, plan [896](896-deferred-refreshing.md)'s As built (its plan PR
+   #938, its fix PR #939 with the empty log list kept on refresh from review) and plan 706's
+   left-open bullet on #896 closed.
 
 Every code PR: `dotnet run Build`, `dotnet run ServerTests`, the Fable compile with the touched
 `.jsx` inspected, Fantomas, the dependency-rule check. The docs PR: `dotnet run MarkdownLint`.
 
 ## Acceptance
 
-- `Views/Order.fs` has no `Order` in its hook state; `Views/Prescribe.fs` has no
-  `React.useState` for the dialog.
+- `Views/Order.fs` and `Views/Nutrition.fs` have no `Order` in their hook state;
+  `Views/Prescribe.fs` has no `React.useState` for the dialog.
 - `grep -n "useState\|useElmish" src/Informedica.GenPRES.Client/Views/*.fs` names no hook that
-  holds an order, a context or a plan.
+  holds an order, a context or a plan, and no `useElmish` keyed on a view value.
 - Both pages open the order dialog on a selection a lane carries, closed by a `Select None`.
 - By hand in the demo (`GENPRES_PROD=0`, `dotnet run`), plan 706's stepping check on both
   pages: two quick increases on a dose end two steps on; a value typed during a step ends on
   the value typed; the reset rests during a step; Ok closes the dialog during a step. And the
   prescribe page: Edit opens the dialog on the card's scenario; Ok closes it; Edit again
   reopens it on the same order; Voorschrijven with the dialog closed switches to the plan,
-  and back on the prescribe page the dialog is closed over the empty workbench.
+  and back on the prescribe page the dialog is closed over the empty workbench. And the
+  nutrition page: a value typed in a slot lands, two quick increases end two steps on, the
+  slot's component pick survives an answer.
 
 ## Questions for review
 
@@ -211,15 +290,21 @@ Every code PR: `dotnet run Build`, `dotnet run ServerTests`, the Fable compile w
 
 ## Left open
 
-- `Views/Order.fs`'s `update` builds fifteen changed orders in fifteen arms of the same
-  shape; one helper over the order shown would fold them, at a larger diff than the rule asks
-  for here.
-- `useElmish` in the order dialog depends on the view value by reference, so a page re-render
-  that reads the view again re-seeds the component and the item; a stable key (the order's
-  id) would be the dependency the rule means.
-- The plan page's `modalOpen` reads `selected.IsSome` from the plan view; it could read
-  `OrderContextView.dialog` for symmetry with the prescribe page.
+- `Views/Formulary.fs` and `Views/Parenteralia.fs` keep the selects' values in Elmish state
+  seeded from the fetched record and re-seeded on every answer: a hook that mirrors the
+  filter the record carries, the "never a function of the view" half of the rule. Out of
+  scope here by the author's choice: another page family, and the values are a form's own
+  between a change and its answer.
+- The revision counter in the dialog and the slot is keyed on the reference of the view value;
+  see "The hooks keyed on the order" for why it stays.
 
 ## As built
 
-To be filled in as the steps land.
+Built in the order proposed, one PR at a time, each merged before the next started, the
+client edited directly.
+
+| Step | PR | Landed |
+|---|---|---|
+| plan | #942 | this document |
+| 1, the order dialog | #943 | `State.Order` gone, the arms on `shown`, `displayOrder` is `shownOrder`; 105 source lines |
+| plan amended | this PR | steps 3 to 5 added at the reviewer's request: the nutrition slot, the hooks keyed on the order, the changes folded; the plan page's `modalOpen` folded into step 2; plan 896's As built folded into step 6; the formulary hooks out of scope |
