@@ -728,7 +728,9 @@ module private Elmish =
             }
             |> Cmd.fromAsync
         // told in update, where the sentence and the notice live
-        | SessionEffect.TellVersionOpened _ -> Cmd.none
+        // told in update
+        | SessionEffect.TellVersionOpened _
+        | SessionEffect.TellMovedOn _ -> Cmd.none
         | SessionEffect.CallOpenVersion(id, from) ->
             async {
                 try
