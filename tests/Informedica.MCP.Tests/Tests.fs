@@ -118,5 +118,72 @@ module Tests =
             ]
 
 
+    module GenOrderToolsTests =
+
+        open Informedica.GenForm.Lib.Resources
+        open Informedica.MCP.Lib.GenOrderTools
+
+        let private emptyInput =
+            {
+                AgeMonths = Some 24.0
+                WeightKg = None
+                HeightCm = None
+                Sex = None
+                Department = None
+                Generic = Some "paracetamol"
+                Indication = None
+                Route = None
+                Form = None
+            }
+
+        /// A provider that must never be called. Used to prove that createOrderContext and
+        /// getOrderScenarios refuse before reaching the resource layer when weight or height
+        /// is missing — not just that requireWeightAndHeight alone reports an error, which
+        /// would still pass if either function stopped calling the shared guard.
+        let private unusedProvider: IResourceProvider = Unchecked.defaultof<_>
+
+        let tests =
+            testList
+                "requireWeightAndHeight"
+                [
+                    test "both weight and height present is Ok" {
+                        { emptyInput with
+                            WeightKg = Some 12.0
+                            HeightCm = Some 86.0
+                        }
+                        |> requireWeightAndHeight
+                        |> Expect.isOk "should be Ok"
+                    }
+
+                    test "neither weight nor height is Error" {
+                        emptyInput |> requireWeightAndHeight |> Expect.isError "should be Error"
+                    }
+
+                    test "weight without height is Error" {
+                        { emptyInput with WeightKg = Some 12.0 }
+                        |> requireWeightAndHeight
+                        |> Expect.isError "should be Error"
+                    }
+
+                    test "height without weight is Error" {
+                        { emptyInput with HeightCm = Some 86.0 }
+                        |> requireWeightAndHeight
+                        |> Expect.isError "should be Error"
+                    }
+
+                    test "createOrderContext refuses before touching the provider when height is missing" {
+                        { emptyInput with WeightKg = Some 12.0 }
+                        |> createOrderContext unusedProvider
+                        |> Expect.isError "should refuse without evaluating"
+                    }
+
+                    test "getOrderScenarios refuses before touching the provider when weight is missing" {
+                        { emptyInput with HeightCm = Some 86.0 }
+                        |> getOrderScenarios unusedProvider
+                        |> Expect.isError "should refuse without evaluating"
+                    }
+                ]
+
+
     [<Tests>]
-    let tests = testList "MCP" [ testHelloWorld; loggingTests ]
+    let tests = testList "MCP" [ testHelloWorld; loggingTests; GenOrderToolsTests.tests ]

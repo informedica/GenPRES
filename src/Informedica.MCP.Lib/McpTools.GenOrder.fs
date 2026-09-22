@@ -210,16 +210,39 @@ module GenOrderTools =
         )
 
 
-    let createOrderContext
+    /// Whether the order context can be narrowed to the caller's selection. Dose rules are
+    /// filtered on both weight and height (OrderContext.getRules, Informedica.GenORDER.Lib);
+    /// without either, that function silently rebuilds an unfiltered context and returns zero
+    /// scenarios rather than an error. The server's own patient gate
+    /// (ServerApi.Mappers.Patient.patient) accepts an age alone because the client estimates
+    /// weight/height from it; an MCP caller has no such estimate, so both are required here.
+    let requireWeightAndHeight (input: CreateOrderContextInput) =
+        let seeFilterOptions =
+            "Call get_order_context_filter_options first (it only needs age/weight) to discover \
+             available generics, then retry with both WeightKg and HeightCm."
+
+        match input.WeightKg, input.HeightCm with
+        | Some _, Some _ -> Ok()
+        | None, None -> Error $"Both WeightKg and HeightCm are required. {seeFilterOptions}"
+        | None, Some _ -> Error $"WeightKg is required in addition to HeightCm. {seeFilterOptions}"
+        | Some _, None -> Error $"HeightCm is required in addition to WeightKg. {seeFilterOptions}"
+
+
+    /// The order context for the input's patient and filter selection, evaluated against the
+    /// given provider. Requires both WeightKg and HeightCm (see requireWeightAndHeight); shared
+    /// by createOrderContext and getOrderScenarios so the guard and the patient/filter/evaluate
+    /// pipeline exist in exactly one place.
+    let evaluateOrderContext
         (provider: IResourceProvider)
         (input: CreateOrderContextInput)
-        : Result<OrderContextSummaryOutput, string>
+        : Result<OrderContext, string>
         =
-        let patient = buildPatient input
-        let ctx = OrderContext.create OrderLogging.noOp provider patient
+        input
+        |> requireWeightAndHeight
+        |> Result.map (fun () ->
+            let patient = buildPatient input
 
-        let ctx =
-            ctx
+            OrderContext.create OrderLogging.noOp provider patient
             |> (fun c ->
                 match input.Generic with
                 | Some g -> c |> OrderContext.setFilterGeneric g
@@ -240,15 +263,23 @@ module GenOrderTools =
                 | Some f -> c |> OrderContext.setFilterForm f
                 | None -> c
             )
-
-        match
+        )
+        |> Result.bind (fun ctx ->
             OrderContext.UpdateOrderContext ctx
             |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider
-        with
-        | Error e -> Error $"Failed to evaluate order context: {e}"
-        | Ok cmd ->
-            let result = cmd |> OrderContext.Command.get
+            |> Result.mapError (fun e -> $"Failed to evaluate order context: {e}")
+        )
+        |> Result.map OrderContext.Command.get
 
+
+    let createOrderContext
+        (provider: IResourceProvider)
+        (input: CreateOrderContextInput)
+        : Result<OrderContextSummaryOutput, string>
+        =
+        input
+        |> evaluateOrderContext provider
+        |> Result.map (fun result ->
             let filterOpts =
                 getFilterOptions
                     provider
@@ -261,17 +292,17 @@ module GenOrderTools =
                         WeightKg = input.WeightKg
                     }
 
-            Ok
-                {
-                    PatientAgeMonths = input.AgeMonths
-                    PatientWeightKg = input.WeightKg
-                    SelectedGeneric = result.Filter.Generic
-                    SelectedRoute = result.Filter.Route
-                    SelectedForm = result.Filter.Form
-                    ScenarioCount = result.Scenarios |> Array.length
-                    SelectedScenario = result.Scenarios |> Array.tryExactlyOne |> Option.map _.Name
-                    FilterOptions = filterOpts
-                }
+            {
+                PatientAgeMonths = input.AgeMonths
+                PatientWeightKg = input.WeightKg
+                SelectedGeneric = result.Filter.Generic
+                SelectedRoute = result.Filter.Route
+                SelectedForm = result.Filter.Form
+                ScenarioCount = result.Scenarios |> Array.length
+                SelectedScenario = result.Scenarios |> Array.tryExactlyOne |> Option.map _.Name
+                FilterOptions = filterOpts
+            }
+        )
 
 
     let getOrderScenarios
@@ -279,40 +310,9 @@ module GenOrderTools =
         (input: CreateOrderContextInput)
         : Result<OrderScenarioOutput[], string>
         =
-        let patient = buildPatient input
-        let ctx = OrderContext.create OrderLogging.noOp provider patient
-
-        let ctx =
-            ctx
-            |> (fun c ->
-                match input.Generic with
-                | Some g -> c |> OrderContext.setFilterGeneric g
-                | None -> c
-            )
-            |> (fun c ->
-                match input.Route with
-                | Some r -> c |> OrderContext.setFilterRoute r
-                | None -> c
-            )
-            |> (fun c ->
-                match input.Indication with
-                | Some i -> c |> OrderContext.setFilterIndication i
-                | None -> c
-            )
-            |> (fun c ->
-                match input.Form with
-                | Some f -> c |> OrderContext.setFilterForm f
-                | None -> c
-            )
-
-        match
-            OrderContext.UpdateOrderContext ctx
-            |> OrderContext.evaluate System.DateTime.UtcNow OrderLogging.noOp provider
-        with
-        | Error e -> Error $"Failed to evaluate order context: {e}"
-        | Ok cmd ->
-            let result = cmd |> OrderContext.Command.get
-
+        input
+        |> evaluateOrderContext provider
+        |> Result.map (fun result ->
             result.Scenarios
             |> Array.mapi (fun i sc ->
                 let sc = sc |> OrderScenario.setOrderTableFormat
@@ -342,4 +342,4 @@ module GenOrderTools =
                     Summary = summary
                 }
             )
-            |> Ok
+        )
