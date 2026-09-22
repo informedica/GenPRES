@@ -69,9 +69,6 @@ module private Elmish =
             Session: SessionState
             // the signing phase of the open Session; Idle whenever no Session is open
             Signing: SigningState
-            // whether a plan command changed the plan since the order plan version last opened
-            // or signed; the leave-page guard asks over it
-            PlanWork: PlanWorkPolicy.PlanWork
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -585,7 +582,6 @@ module private Elmish =
             LoginAttempt = 0
             Session = SessionState.anonymous
             Signing = SigningState.idle
-            PlanWork = PlanWorkPolicy.PlanWork.AsSigned
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -612,7 +608,7 @@ module private Elmish =
         UnsignedWorkPolicy.hasUnsignedWork
             (state.OrderContext |> OrderContextState.context)
             (state.Signing |> SigningState.view)
-            state.PlanWork
+            (state.OrderPlan |> OrderPlanState.work)
 
 
     /// Make the key pair, then present the Launch with its public key.
@@ -831,7 +827,8 @@ module private Elmish =
         // a refusal because the record moved on is the notice too: the Session keeps the head
         // for the bar; the sentence is told in update
         | SigningEffect.TellRefused(SigningRefusal.Blocked head) -> Cmd.ofMsg (SessionMsg(SessionMsg.Blocked head))
-        | SigningEffect.TellSigned _
+        // the plan's work follows the signature: as signed, unless it changed meanwhile
+        | SigningEffect.TellSigned(_, askedOver) -> Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Signed askedOver))
         | SigningEffect.TellRefused _
         | SigningEffect.TellError _ -> Cmd.none
 
@@ -1343,10 +1340,8 @@ module private Elmish =
                 |> List.fold
                     (fun state effect ->
                         match effect with
-                        | SigningEffect.TellSigned(signed, askedOver) ->
-                            // the plan is the version just signed, unless it changed meanwhile
-                            { state with PlanWork = state.PlanWork |> PlanWorkPolicy.PlanWork.afterSigned askedOver }
-                            |> tell (SigningPolicy.signedSentence tr signed) "success"
+                        | SigningEffect.TellSigned(signed, _) ->
+                            state |> tell (SigningPolicy.signedSentence tr signed) "success"
                         | SigningEffect.TellRefused refusal ->
                             state |> tell (SigningPolicy.refusalSentence tr refusal) "warning"
                         | SigningEffect.TellError reason ->
@@ -1508,17 +1503,6 @@ module private Elmish =
 
         | OrderPlanMsg msg ->
             let plan, effects = OrderPlanState.transition msg state.OrderPlan
-
-            // a version opened is the plan as signed, and so is no plan at all: without a patient
-            // the plan is dropped, nothing left to sign. A command that changes the plan is work
-            // until the next version is opened or signed
-            let state =
-                match msg with
-                | OrderPlanMsg.Version _
-                | OrderPlanMsg.PatientChanged(None, _) -> { state with PlanWork = PlanWorkPolicy.PlanWork.AsSigned }
-                | OrderPlanMsg.Command(cmd, _) ->
-                    { state with PlanWork = state.PlanWork |> PlanWorkPolicy.PlanWork.afterCommand cmd }
-                | _ -> state
 
             // the page and the snackbar are the interpreter's: an order prescribed opens the
             // plan page, a refusal is said
@@ -1769,7 +1753,7 @@ type private ConcreteAppEnv
 
         // one request id per Sign, so the answer lands on this request and no other
         member _.Sign plan =
-            SigningMsg(SigningMsg.Sign(plan, state.PlanWork, Guid.NewGuid().ToString()))
+            SigningMsg(SigningMsg.Sign(plan, OrderPlanState.work state.OrderPlan, Guid.NewGuid().ToString()))
             |> dispatch
 
         member _.Accept() = SigningMsg SigningMsg.Accept |> dispatch
