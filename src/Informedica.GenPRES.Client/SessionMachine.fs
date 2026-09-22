@@ -496,6 +496,107 @@ module SessionState =
         | SessionPhase.EnrolmentFailed refusal, _, _ -> SessionView.EnrolmentFailed refusal
 
 
+    /// The state and effects of a Session that just opened: the patient goes through
+    /// UpdatePatient, the key of this Session is the one to keep, and the orders of the version
+    /// it opened with go into the cart. The patient reaches the plan machine a message later
+    /// than the version does, so the machine keeps the version until it has.
+    let onOpened (session: SessionOpened) =
+        opened session,
+        [
+            SessionEffect.SetPatient(session.PatientContext |> Option.bind _.Patient)
+            match session.KeyThumbprint with
+            | Some thumbprint -> SessionEffect.KeepKey thumbprint
+            | None -> ()
+            match session.PatientContext, session.Head with
+            | Some _, Some head -> SessionEffect.LoadCart head
+            | _ -> ()
+        ]
+
+
+    /// A fresh presentation of the Launch, attempt 1.
+    let present (launch: Launch) (key: PublicKey) =
+        launching launch key 1, [ SessionEffect.CallPresentLaunch(launch, key) ]
+
+
+    /// Every arm names the phase and the request under way, and every new state is built through
+    /// a constructor, so that a Launch kept to present again never outlives the state it belongs
+    /// to. The messages of the second half (the PIN, the close, the endings, the token, the
+    /// version) still answer the state unchanged: the DU's transition runs them until the next
+    /// step moves them here.
+    let transition (msg: SessionMsg) (state: SessionState) : SessionState * SessionEffect list =
+        match msg, state.Phase, state.InFlight with
+        // a presentation under way is never replaced by a second one for the same Launch; the
+        // Launch kept after a refusal or the server unreachable is presented afresh
+        | SessionMsg.Present(launch, _), _, Some(SessionRequest.Presenting _) when
+            state.Presentation |> Option.exists (fun (current, _) -> current = launch)
+            ->
+            state, []
+        // in every other state a Present starts a fresh presentation; a different Launch
+        // supersedes the one under way, whose outcome is then dropped by the guard below
+        | SessionMsg.Present(launch, key), _, _ -> present launch key
+
+        // the stale-request guard: an outcome lands only on the presentation that sent it
+        | SessionMsg.Outcome(launch, key, result), _, Some(SessionRequest.Presenting attempt) when
+            state.Presentation = Some(launch, key)
+            ->
+            match result with
+            | Ok(LaunchOutcome.Opened session) -> onOpened session
+            | Ok(LaunchOutcome.RedirectTo url) -> state, [ SessionEffect.GoTo url ]
+            | Ok(LaunchOutcome.Refused refusal) ->
+                (if Session.retryable refusal then
+                     retryable refusal launch key
+                 else
+                     refused refusal),
+                []
+            | Error _ when attempt < maxAttempts ->
+                launching launch key (attempt + 1), [ SessionEffect.CallPresentLaunch(launch, key) ]
+            | Error _ -> unreachable launch key, []
+        | SessionMsg.Outcome _, _, _ -> state, []
+
+        // a retry always carries the same Launch and the same key, so the server answers it
+        // as it answered the first presentation
+        | SessionMsg.Retry, SessionPhase.Unreachable, None
+        | SessionMsg.Retry, SessionPhase.Refused _, None ->
+            match state.Presentation with
+            | Some(launch, key) -> present launch key
+            | None -> state, []
+        | SessionMsg.Retry, _, _ -> state, []
+
+        | SessionMsg.Resume, SessionPhase.Anonymous, None -> resuming, [ SessionEffect.CallGetSession ]
+        | SessionMsg.Resume, _, _ -> state, []
+
+        | SessionMsg.Resumed(Ok(ResumeResult.Found session)), SessionPhase.Anonymous, Some SessionRequest.Resuming ->
+            onOpened session
+        // told once: the cookie is gone, the gate says why, the User chooses; the close
+        // acknowledges the ending: the server deletes the cookie and drops the mark
+        | SessionMsg.Resumed(Ok(ResumeResult.Ended ending)), SessionPhase.Anonymous, Some SessionRequest.Resuming ->
+            ended ending, [ SessionEffect.CallCloseSession ]
+        // the launch waits on a PIN: the gate shows the form
+        | SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)), SessionPhase.Anonymous, Some SessionRequest.Resuming ->
+            enrolling pending None, []
+        | SessionMsg.Resumed _, SessionPhase.Anonymous, Some SessionRequest.Resuming -> anonymous, []
+        | SessionMsg.Resumed _, _, _ -> state, []
+
+        // the Launch was consumed server-side; nothing is left to retry with
+        | SessionMsg.RefusedAtCallback refusal, _, _ -> refused refusal, []
+
+        // an anonymous open carries nothing over from the launch
+        | SessionMsg.OpenAnonymous, SessionPhase.Refused _, None
+        | SessionMsg.OpenAnonymous, SessionPhase.Unreachable, None
+        | SessionMsg.OpenAnonymous, SessionPhase.Ended _, None -> anonymous, [ SessionEffect.SetPatient None ]
+        | SessionMsg.OpenAnonymous, _, _ -> state, []
+
+        | SessionMsg.SupplyPin _, _, _
+        | SessionMsg.PinAnswered _, _, _
+        | SessionMsg.Close, _, _
+        | SessionMsg.Closed, _, _
+        | SessionMsg.CloseFailed _, _, _
+        | SessionMsg.EndedByServer _, _, _
+        | SessionMsg.TokenRenewed _, _, _
+        | SessionMsg.OpenVersion _, _, _
+        | SessionMsg.Reopened _, _, _ -> state, []
+
+
 /// The notice that the record moved on, as the client keeps it next to its open Session: the
 /// newest head it was told, so that it is told once per version, and the bar can offer that
 /// version. Cleared when the version is opened or the Session ends.

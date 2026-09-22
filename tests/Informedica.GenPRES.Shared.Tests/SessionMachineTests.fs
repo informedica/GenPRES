@@ -847,3 +847,396 @@ module SessionMachineTests =
                         (Session.EnrolmentFailed PinRefusal.CodeVoid)
                 }
             ]
+
+
+    /// The record's transition, the first half: the same tests as the DU's, on the constructors.
+    module StateTransition =
+
+        let launching = SessionState.launching launchA keyA 1
+
+        let transition = SessionState.transition
+
+        let run state msgs =
+            msgs
+            |> List.fold
+                (fun (s, effects) msg ->
+                    let s', e = transition msg s
+                    s', effects @ e
+                )
+                (state, [])
+
+
+        let presentTests =
+            testList
+                "Present"
+                [
+                    test "from Anonymous starts attempt 1 and calls the server" {
+                        transition (SessionMsg.Present(launchA, keyA)) SessionState.anonymous
+                        |> Expect.equal "launching" (launching, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
+                    }
+
+                    test "the same Launch while it is in flight is a no-op, even with another key" {
+                        transition (SessionMsg.Present(launchA, keyB)) (SessionState.launching launchA keyA 2)
+                        |> Expect.equal "unchanged" (SessionState.launching launchA keyA 2, [])
+                    }
+
+                    test "another Launch supersedes the one in flight" {
+                        transition (SessionMsg.Present(launchB, keyA)) launching
+                        |> Expect.equal
+                            "launching B"
+                            (SessionState.launching launchB keyA 1, [ SessionEffect.CallPresentLaunch(launchB, keyA) ])
+                    }
+
+                    testList
+                        "starts a fresh presentation from every other state"
+                        [
+                            for name, state in
+                                [
+                                    "Open", SessionState.opened full
+                                    "Refused", SessionState.refused LaunchRefusal.NoRole
+                                    // the same Launch kept after a refusal, or the server unreachable,
+                                    // is presented afresh: only a presentation under way is kept
+                                    "Retryable, the same Launch",
+                                    SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA
+                                    "Unreachable", SessionState.unreachable launchB keyB
+                                    "Unreachable, the same Launch", SessionState.unreachable launchA keyA
+                                    "Resuming", SessionState.resuming
+                                    "Closing", SessionState.closing full
+                                ] do
+                                test name {
+                                    transition (SessionMsg.Present(launchA, keyA)) state
+                                    |> Expect.equal
+                                        "launching"
+                                        (launching, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
+                                }
+                        ]
+                ]
+
+
+        let outcomeTests =
+            testList
+                "Outcome"
+                [
+                    test "Opened sets the patient through UpdatePatient and keeps the session's key" {
+                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))) launching
+                        |> Expect.equal
+                            "open"
+                            (SessionState.opened full,
+                             [ SessionEffect.SetPatient(Some patient); SessionEffect.KeepKey "thumb" ])
+                    }
+
+                    test "Opened over a record loads its head into the cart, after the patient" {
+                        let head: SignedOrderPlan =
+                            {
+                                Head =
+                                    {
+                                        Id = "plan-1"
+                                        No = 1
+                                        By = full.User.Value
+                                        SignedAt = System.DateTime(2026, 9, 11, 12, 0, 0, System.DateTimeKind.Utc)
+                                    }
+                                PatientId = "p"
+                                Base = None
+                                OrderContexts = [||]
+                                Patient = patient
+                                Verified = true
+                            }
+
+                        let over = { full with Head = Some head }
+
+                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened over))) launching
+                        |> Expect.equal
+                            "open"
+                            (SessionState.opened over,
+                             [
+                                 SessionEffect.SetPatient(Some patient)
+                                 SessionEffect.KeepKey "thumb"
+                                 SessionEffect.LoadCart head
+                             ])
+
+                        // a resume opens the same way
+                        transition (SessionMsg.Resumed(Ok(ResumeResult.Found over))) SessionState.resuming
+                        |> snd
+                        |> List.contains (SessionEffect.LoadCart head)
+                        |> Expect.isTrue "loaded at resume"
+
+                        // no patient, no cart to load, whatever the head says
+                        let bare = { sessionWith None None with Head = Some head }
+
+                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened bare))) launching
+                        |> snd
+                        |> Expect.equal "nothing to load" [ SessionEffect.SetPatient None ]
+                    }
+
+                    test "Opened without a patient sets None; without a thumbprint prunes nothing" {
+                        let bare = sessionWith None None
+
+                        transition (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened bare))) launching
+                        |> Expect.equal "open" (SessionState.opened bare, [ SessionEffect.SetPatient None ])
+                    }
+
+                    test "RedirectTo goes to the url and stays Launching" {
+                        transition
+                            (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.RedirectTo "/authorize?x")))
+                            launching
+                        |> Expect.equal "redirect" (launching, [ SessionEffect.GoTo "/authorize?x" ])
+                    }
+
+                    test "Refused NoBrowserIdentity keeps the Launch and key for a retry" {
+                        transition
+                            (SessionMsg.Outcome(
+                                launchA,
+                                keyA,
+                                Ok(LaunchOutcome.Refused LaunchRefusal.NoBrowserIdentity)
+                            ))
+                            launching
+                        |> Expect.equal
+                            "refused with retry"
+                            (SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA, [])
+                    }
+
+                    testList
+                        "every other refusal keeps nothing"
+                        [
+                            for refusal in
+                                [
+                                    LaunchRefusal.LaunchExpired
+                                    LaunchRefusal.LaunchSpent
+                                    LaunchRefusal.LaunchInvalid
+                                    LaunchRefusal.NoRole
+                                    LaunchRefusal.WrongActivePatient
+                                    LaunchRefusal.EnrolmentRequired
+                                ] do
+                                test $"{refusal}" {
+                                    transition
+                                        (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Refused refusal)))
+                                        launching
+                                    |> Expect.equal "refused, no retry" (SessionState.refused refusal, [])
+                                }
+                        ]
+
+                    test "a transport error retries with the same Launch and key, attempts 1 -> 2 -> 3" {
+                        let err = SessionMsg.Outcome(launchA, keyA, Error "down")
+
+                        transition err (SessionState.launching launchA keyA 1)
+                        |> Expect.equal
+                            "attempt 2"
+                            (SessionState.launching launchA keyA 2, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
+
+                        transition err (SessionState.launching launchA keyA 2)
+                        |> Expect.equal
+                            "attempt 3"
+                            (SessionState.launching launchA keyA 3, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
+                    }
+
+                    test "a transport error on the third attempt is Unreachable" {
+                        transition
+                            (SessionMsg.Outcome(launchA, keyA, Error "down"))
+                            (SessionState.launching launchA keyA 3)
+                        |> Expect.equal "unreachable" (SessionState.unreachable launchA keyA, [])
+                    }
+
+                    test "three errors in a row from Anonymous end Unreachable after three calls" {
+                        let err = SessionMsg.Outcome(launchA, keyA, Error "down")
+
+                        let state, effects =
+                            run SessionState.anonymous [ SessionMsg.Present(launchA, keyA); err; err; err ]
+
+                        state |> Expect.equal "unreachable" (SessionState.unreachable launchA keyA)
+
+                        effects
+                        |> List.filter (
+                            function
+                            | SessionEffect.CallPresentLaunch _ -> true
+                            | _ -> false
+                        )
+                        |> List.length
+                        |> Expect.equal "three presentations" 3
+                    }
+
+                    testList
+                        "the stale-request guard"
+                        [
+                            test "an outcome for another Launch is dropped" {
+                                transition (SessionMsg.Outcome(launchB, keyA, Ok(LaunchOutcome.Opened full))) launching
+                                |> Expect.equal "unchanged" (launching, [])
+                            }
+
+                            test "an outcome for another key is dropped" {
+                                transition (SessionMsg.Outcome(launchA, keyB, Ok(LaunchOutcome.Opened full))) launching
+                                |> Expect.equal "unchanged" (launching, [])
+                            }
+
+                            test "an outcome after the presentation was superseded is dropped" {
+                                let state, effects =
+                                    run
+                                        SessionState.anonymous
+                                        [
+                                            SessionMsg.Present(launchA, keyA)
+                                            SessionMsg.Present(launchB, keyA)
+                                            SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full))
+                                        ]
+
+                                state
+                                |> Expect.equal "still launching B" (SessionState.launching launchB keyA 1)
+
+                                effects
+                                |> List.exists (
+                                    function
+                                    | SessionEffect.SetPatient _ -> true
+                                    | _ -> false
+                                )
+                                |> Expect.isFalse "no patient set from the stale outcome"
+                            }
+
+                            testList
+                                "an outcome in a state that is not Launching is dropped"
+                                [
+                                    for name, state in
+                                        [
+                                            "Anonymous", SessionState.anonymous
+                                            "Open", SessionState.opened full
+                                            "Resuming", SessionState.resuming
+                                            "Refused", SessionState.refused LaunchRefusal.NoRole
+                                            // the Launch is kept, but nothing is under way to answer
+                                            "Retryable",
+                                            SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA
+                                            "Unreachable", SessionState.unreachable launchA keyA
+                                            "Closing", SessionState.closing full
+                                        ] do
+                                        test name {
+                                            transition
+                                                (SessionMsg.Outcome(launchA, keyA, Ok(LaunchOutcome.Opened full)))
+                                                state
+                                            |> Expect.equal "unchanged" (state, [])
+                                        }
+                                ]
+                        ]
+                ]
+
+
+        let retryTests =
+            testList
+                "Retry"
+                [
+                    test "from Unreachable presents the same Launch and key again, attempt 1" {
+                        transition SessionMsg.Retry (SessionState.unreachable launchA keyA)
+                        |> Expect.equal "launching" (launching, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
+                    }
+
+                    test "from Refused with a retry presents the same Launch and key again" {
+                        transition
+                            SessionMsg.Retry
+                            (SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA)
+                        |> Expect.equal "launching" (launching, [ SessionEffect.CallPresentLaunch(launchA, keyA) ])
+                    }
+
+                    testList
+                        "anywhere else is a no-op"
+                        [
+                            for name, state in
+                                [
+                                    "Anonymous", SessionState.anonymous
+                                    "Launching", launching
+                                    "Resuming", SessionState.resuming
+                                    "Open", SessionState.opened full
+                                    "Refused without retry", SessionState.refused LaunchRefusal.NoRole
+                                ] do
+                                test name { transition SessionMsg.Retry state |> Expect.equal "unchanged" (state, []) }
+                        ]
+                ]
+
+
+        let resumeTests =
+            testList
+                "Resume and Resumed"
+                [
+                    test "Resume from Anonymous asks for the session" {
+                        transition SessionMsg.Resume SessionState.anonymous
+                        |> Expect.equal "resuming" (SessionState.resuming, [ SessionEffect.CallGetSession ])
+                    }
+
+                    test "Resume from any other state is a no-op" {
+                        for state in [ launching; SessionState.resuming; SessionState.opened full ] do
+                            transition SessionMsg.Resume state |> Expect.equal "unchanged" (state, [])
+                    }
+
+                    test "Resumed with a session opens it like a launch" {
+                        transition (SessionMsg.Resumed(Ok(ResumeResult.Found full))) SessionState.resuming
+                        |> Expect.equal "open" (SessionState.onOpened full)
+                    }
+
+                    test "Resumed without a session is Anonymous and keeps the url patient (no SetPatient)" {
+                        transition (SessionMsg.Resumed(Ok ResumeResult.NotFound)) SessionState.resuming
+                        |> Expect.equal "anonymous" (SessionState.anonymous, [])
+                    }
+
+                    test "Resumed with an ending is Ended and acknowledges it with a close" {
+                        transition
+                            (SessionMsg.Resumed(Ok(ResumeResult.Ended SessionEnding.SupersededByLaunch)))
+                            SessionState.resuming
+                        |> Expect.equal
+                            "ended, acknowledged"
+                            (SessionState.ended SessionEnding.SupersededByLaunch, [ SessionEffect.CallCloseSession ])
+                    }
+
+                    test "Resumed with a pending enrolment is Enrolling, and a new launch presents" {
+                        let pending: EnrolmentPending =
+                            {
+                                DisplayName = "Stub Prescriber (no PIN)"
+                                MailHint = "n***@stub.example"
+                            }
+
+                        transition (SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending))) SessionState.resuming
+                        |> Expect.equal "enrolling" (SessionState.enrolling pending None, [])
+
+                        transition (SessionMsg.Present(launchB, keyB)) (SessionState.enrolling pending None)
+                        |> Expect.equal "presents" (SessionState.present launchB keyB)
+                    }
+
+                    test "from Ended the anonymous open carries nothing over, and a new launch presents" {
+                        let ended = SessionState.ended SessionEnding.SupersededByLaunch
+
+                        transition SessionMsg.OpenAnonymous ended
+                        |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatient None ])
+
+                        transition (SessionMsg.Present(launchB, keyB)) ended
+                        |> Expect.equal "presents" (SessionState.present launchB keyB)
+                    }
+
+                    test "the anonymous open from a refusal, retryable or not, and from the server unreachable" {
+                        for state in
+                            [
+                                SessionState.refused LaunchRefusal.NoRole
+                                SessionState.retryable LaunchRefusal.NoBrowserIdentity launchA keyA
+                                SessionState.unreachable launchA keyA
+                            ] do
+                            transition SessionMsg.OpenAnonymous state
+                            |> Expect.equal "anonymous" (SessionState.anonymous, [ SessionEffect.SetPatient None ])
+
+                        for state in [ SessionState.anonymous; launching; SessionState.opened full ] do
+                            transition SessionMsg.OpenAnonymous state
+                            |> Expect.equal "unchanged" (state, [])
+                    }
+
+                    test "a refusal at the callback keeps nothing, whatever was under way" {
+                        for state in [ SessionState.anonymous; launching; SessionState.opened full ] do
+                            transition (SessionMsg.RefusedAtCallback LaunchRefusal.LaunchSpent) state
+                            |> Expect.equal "refused, no retry" (SessionState.refused LaunchRefusal.LaunchSpent, [])
+                    }
+
+                    test "Resumed with a transport error is Anonymous" {
+                        transition (SessionMsg.Resumed(Error "down")) SessionState.resuming
+                        |> Expect.equal "anonymous" (SessionState.anonymous, [])
+                    }
+
+                    test "Resumed outside Resuming is dropped" {
+                        for state in [ SessionState.anonymous; launching; SessionState.opened full ] do
+                            transition (SessionMsg.Resumed(Ok(ResumeResult.Found full))) state
+                            |> Expect.equal "unchanged" (state, [])
+                    }
+                ]
+
+
+        [<Tests>]
+        let tests = testList "SessionState.transition" [ presentTests; outcomeTests; retryTests; resumeTests ]
