@@ -44,6 +44,14 @@ module PlanWork =
     let afterCommand (cmd: OrderPlanCommand) (work: PlanWork) = if changedBy cmd then afterChange work else work
 
 
+    /// The work a Sign is asked over: the plan's work when no signature is under way; the work
+    /// kept otherwise, since a Sign while one is under way is ignored and signs nothing.
+    let askedOver (signing: Signing) (work: PlanWork) (kept: PlanWork) =
+        match signing with
+        | Signing.Idle -> work
+        | _ -> kept
+
+
     /// The plan's work once a signature is told: as signed when the plan is still the one the
     /// signature was asked over; a change made while the signature was under way was not
     /// signed, and stays.

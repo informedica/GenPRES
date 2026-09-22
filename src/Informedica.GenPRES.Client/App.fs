@@ -1372,10 +1372,14 @@ module private Elmish =
             let signing, effects = Signing.transition msg state.Signing
 
             // the signature is asked over the plan as it is now: a change made while it is under
-            // way is not in it, and is told apart by the work kept here
+            // way is not in it, and is told apart by the work kept here. A Sign while one is
+            // under way is ignored by the machine, and keeps the work the first was asked over
             let state =
                 match msg with
-                | SigningMsg.Sign _ -> { state with WorkAtSign = state.PlanWork }
+                | SigningMsg.Sign _ ->
+                    { state with
+                        WorkAtSign = UnsignedWorkPolicy.PlanWork.askedOver state.Signing state.PlanWork state.WorkAtSign
+                    }
                 | _ -> state
 
             let tr term =

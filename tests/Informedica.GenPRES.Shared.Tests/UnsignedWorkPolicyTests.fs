@@ -79,6 +79,35 @@ module UnsignedWorkPolicyTests =
                     ]
 
                 testList
+                    "PlanWork.askedOver"
+                    [
+                        test "a Sign with no signature under way is asked over the plan's work" {
+                            PlanWork.askedOver Signing.Idle (PlanWork.Changed 1) PlanWork.AsSigned
+                            |> Expect.equal "should be the plan's work" (PlanWork.Changed 1)
+                        }
+
+                        test "a Sign while one is under way is ignored and keeps the work asked over" {
+                            PlanWork.askedOver
+                                (Signing.Requesting(plan, None, "r-1"))
+                                (PlanWork.Changed 2)
+                                (PlanWork.Changed 1)
+                            |> Expect.equal "should keep the work asked over" (PlanWork.Changed 1)
+                        }
+
+                        test "a second Sign after an edit does not sign the edit" {
+                            // Sign over the first change, an order removed, Sign again while the
+                            // challenge is fetched, the first signature told
+                            let atSign = PlanWork.askedOver Signing.Idle (PlanWork.Changed 1) PlanWork.AsSigned
+                            let work = PlanWork.Changed 1 |> PlanWork.afterCommand remove
+                            let atSign = PlanWork.askedOver (Signing.Requesting(plan, None, "r-1")) work atSign
+
+                            work
+                            |> PlanWork.afterSigned atSign
+                            |> Expect.equal "the removal should stay unsigned" (PlanWork.Changed 2)
+                        }
+                    ]
+
+                testList
                     "PlanWork.afterSigned"
                     [
                         test "the plan the signature was asked over is as signed" {
