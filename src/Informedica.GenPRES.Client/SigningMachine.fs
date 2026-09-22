@@ -17,22 +17,6 @@ module SigningMachine
 open Shared.Types
 
 
-[<RequireQualifiedAccess>]
-type Signing =
-    | Idle
-    // the challenge asked under a request id; the notice token when the User accepted a data notice
-    | Requesting of OrderPlan * notice: string option * request: string
-    // the data as it stands, to accept or to cancel
-    | Noticed of OrderPlan * DataNotice
-    // the dialog asks the PIN over this plan; the last refusal, if any
-    | Challenged of challenge: string * OrderPlan * SigningRefusal option
-    // the Submission in flight, under its key
-    | Submitting of challenge: string * OrderPlan * key: string
-    // the answer was lost (a transport error): the dialog asks again, the key is kept so
-    // that the retry gets the answer the first sending got
-    | Unsent of challenge: string * OrderPlan * key: string
-
-
 /// The signing as the clinical model has it: no request here.
 [<RequireQualifiedAccess>]
 type SigningPhase =
@@ -113,20 +97,6 @@ type SigningEffect =
     | TellSigned of SignedOrderPlan
     | TellRefused of SigningRefusal
     | TellError of reason: string
-
-
-module Signing =
-
-    /// The signing as the dialog shows it: the transport payloads dropped, a lost answer shown
-    /// as the PIN asked again.
-    let view (state: Signing) : SigningView =
-        match state with
-        | Signing.Idle -> SigningView.Idle
-        | Signing.Requesting _ -> SigningView.Requesting
-        | Signing.Noticed(plan, notice) -> SigningView.Noticed(plan, notice)
-        | Signing.Challenged(_, plan, refusal) -> SigningView.Challenged(plan, refusal)
-        | Signing.Submitting(_, plan, _) -> SigningView.Submitting plan
-        | Signing.Unsent(_, plan, _) -> SigningView.Challenged(plan, None)
 
 
 module SigningState =
