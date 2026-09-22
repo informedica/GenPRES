@@ -275,10 +275,11 @@ touched `.jsx` inspected, and passes Fantomas and the dependency-rule check.
 
 Each is its own issue, filed in step 9:
 
-- `SessionMachine` and `SigningMachine` on the same pattern: a domain DU without the launch,
-  key and attempt payloads, `InFlight` for `Launching`, `Resuming`, `Closing`, `SupplyingPin`,
-  `Requesting`, `Submitting` and `Unsent`, and a view DU that is today's DU minus those
-  payloads; `SessionGatePolicy` then reads the view: #895.
+- `SessionMachine` and `SigningMachine` on the same pattern: done by plan
+  [895](895-session-signing-view-tier.md) (#895), with the lost answer as a kept key rather
+  than an `InFlight` case, and the moved-on notice, the work a signature is asked over and the
+  plan's work folded into the lanes, so that `App.State` holds the four lanes and nothing else
+  of them.
 - `Deferred.Refreshing of 't` for the plain fetches: #896.
 - The component-local rule: the stepped order in `Views/Order.fs` hook state; the prescribe
   page's own dialog flag beside the plan page's selection-derived one: #897.

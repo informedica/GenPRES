@@ -476,7 +476,8 @@ the markdown linter.
    Answered: its own field; nothing is in flight, and the view shows `Challenged`.
 3. The three folds under this issue or under #898. Answered: here; they are what makes the
    lanes states, and #898 gets a comment.
-4. Step 9, the plan's work into the plan lane: go or no-go.
+4. Step 9, the plan's work into the plan lane: go or no-go. Answered: go; `App.State` ends
+   with the four lanes and nothing else of them.
 
 ## Left open
 
@@ -495,4 +496,51 @@ the markdown linter.
 
 ## As built
 
-To be filled in as the steps land.
+Built in the order proposed, one PR at a time, each merged before the next started, the client
+edited directly. Every step left the Shared tests, the Fable compile, Fantomas and the
+dependency-rule check green. Four steps were split in two for the size rule, which counts
+added and deleted lines alike: the deletion of a DU, or a file moving, is its own PR.
+
+| Step | PR | Landed |
+|---|---|---|
+| plan | #919 | this document; review: the two retry paths of step 8 as machine tests |
+| 1, `SigningView` | #920 | `SigningView` and `Signing.view` from the DU; `ISigning.Signing` the view; `dialogOpen`, `UnsignedWorkPolicy`, `SignDialog.fs` and `App.fs` on it; `Unsent` shown as `Challenged(plan, None)` |
+| 2a, the signing lane's types | #921 | `SigningPhase`, `SigningRequest`, `SigningState` with its six constructors and `view`, beside the DU; each constructor's view pinned against the DU's |
+| 2b, the signing machine on the record | #922 | `SigningState.transition` over the triple, `App.fs` holding a `SigningState`; `Signing.transition` gone, the DU kept as the oracle |
+| 2c, the Signing DU gone | #923 | the DU, `Signing.view` and the oracle tests deleted |
+| 3, `SessionView` | #925 | `SessionView` and `Session.view` from the DU; the gate, `canSign`, the title bar, the gate view and the `App.fs` read sites on it; the gate's refusal arm one helper over `Refused` and `Retryable` |
+| 4, the Session lane's types | #926 | `SessionPhase`, `SessionRequest`, `SessionState` with its twelve constructors, `session`, `token`, `maxAttempts` and `view`, beside the DU; pinned against `Session.view` |
+| 5, the Session machine, first half | #927 | `SessionState.transition` for the presentation, its outcome, the retry, the resume, the refusal at the callback and the anonymous open; the DU's tests duplicated onto the constructors |
+| 6a, the second half, the App with it | #928 | the PIN, the close, the endings, the token and the version on the record; `App.fs` on `SessionState.token` and `SessionState.session` |
+| 6b, the Session DU gone | #929 | the DU, `module Session` and the DU's tests deleted; `maxAttempts` on `SessionState`, `worthRetrying` private, the file's header rewritten |
+| 7a, the notice in the Session lane | #930 | `SessionState.MovedOn`, `SessionMsg.Told` and `Blocked`, `SessionEffect.TellMovedOn`; `Reopened` spends the notice; the `MovedOn` module above `SessionState` |
+| 7b, the App on the lane's notice | #931 | `App.State` loses `MovedOn` and `RecordMovedOn`; `Told` from `processApiMsg`, `Blocked` from the signing interpreter, the snackbars from the session effects |
+| 8a, the plan's work in its own file | #933 | `PlanWorkPolicy.fs` before `SigningMachine.fs`, the DU and the pure steps moved with their tests |
+| 8b, the work in the signing lane | #934 | `Sign` carries the work, `SigningState.AskedOver` holds it through a wrong PIN and a lost answer, `TellSigned` carries it back; `askedOver` and `WorkAtSign` gone |
+| 9, the plan's work in the plan lane | #935 | `OrderPlanState.Work`, `OrderPlanMsg.Signed`, `work` and `withWork`; `App.State.PlanWork` gone; review: the work counts where the command goes out |
+| 10, docs | this PR | this section; plans 691 and 706 closed on this one, plan 903 on the lane; the comments on #898 and #903 |
+
+### Deviations from the text above
+
+- **Steps 2, 6, 7 and 8 were each two or three PRs.** The step-2 estimate counted added
+  lines; the review of the plan counts added and deleted alike, and the record rewrite of a
+  machine deletes about as much as it adds. Each split follows the shape of plan 706's step
+  1: the new beside the old, pinned against it; then the old deleted.
+- **The gate's refusal arm is one helper, not two arms.** Step 3 said the two view cases
+  would each have an arm, correct only because a missing browser identity is the one refusal
+  worth retrying. `refused tr refusal (retry: Action option)` keeps today's order of the two
+  rules, a missing role offering the anonymous open whatever the retry, so the gate does not
+  rest on that fact.
+- **A command counts as work where it goes out, not where the App counted it.** Step 9 said
+  the stepping is `App.update`'s verbatim, which counted a command at the message, dropped or
+  not. In the lane that would change the state on a message the machine drops, against the
+  invariant its own tests pin; and a step that waited and was then dropped by a failure, a
+  later step or a patient change would keep a count for nothing (the review of #935). So the
+  count is at the request stage's send: a fresh command as it goes out, the step that waited
+  once, on the answer, and a dropped one never. The leave-page guard asks over what went out.
+- **The second-half arms of the Session moved with the App wiring, not with the deletion.**
+  Step 6 had `transition` completed and the DU deleted in one PR; 6a completed it and wired
+  `App.fs`, 6b deleted, so that the deletion was deletions only.
+- **`Unreachable` lost its count, as planned, and `SessionView.Retryable` is the second
+  case, as decided**; `Told` is guarded on the triple, with nothing under way, so that a
+  notice during a close is dropped as it was.

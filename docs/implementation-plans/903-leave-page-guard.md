@@ -182,3 +182,11 @@ is what cancels it.
 The first cut of #905 compared context ids against the version last signed; the review on the
 plan found that a navigation within a signed order keeps its id, and the second commit replaced
 the comparison with the command-told `PlanWork` this plan describes.
+
+Since plan [895](895-session-signing-view-tier.md) the work is the plan lane's: `PlanWork` and
+its steps live in `PlanWorkPolicy.fs`, `OrderPlanState` keeps the work and steps it where a
+command goes out, the signing lane carries the work a signature was asked over and gives it back
+with the signature, and `App.fs` only asks `hasUnsignedWork` over what the lanes hold. One
+refinement with it: a command dropped while a request is under way, or a step that waited and
+was dropped by a failure, a later step or a patient change, is not counted, since nothing went
+out; the guard asks once less than the text above says.
