@@ -205,12 +205,14 @@ type GenOrderMcpTools() =
         |> McpHelpers.toJson
 
     [<McpServerTool(Name = "create_order_context")>]
-    [<Description("Create an order context for a patient and return a summary of available scenarios and filter options. This is the main entry point for AI-assisted prescription support.")>]
+    [<Description("Create an order context for a patient and return a summary of available scenarios and filter options. This is the main entry point for AI-assisted prescription support. weightKg and heightCm are both required together: dose rules can only be matched when both are known, so this tool returns an error rather than scenarios if either is missing. Call get_order_context_filter_options first if weight/height are not yet known.")>]
     static member CreateOrderContext
         (
             [<Description("Patient age in months")>] ageMonths: Nullable<float>,
-            [<Description("Patient body weight in kg")>] weightKg: Nullable<float>,
-            [<Description("Patient height in cm (used to calculate BSA)")>] heightCm: Nullable<float>,
+            [<Description("Patient body weight in kg. Required together with heightCm — without both, the tool returns an error.")>] weightKg:
+                Nullable<float>,
+            [<Description("Patient height in cm. Required together with weightKg — without both, the tool returns an error.")>] heightCm:
+                Nullable<float>,
             [<Description("Patient sex: 'male' or 'female'")>] sex: string,
             [<Description("Hospital department (e.g. 'ICK', 'NEO'). Defaults to 'ICK' if omitted.")>] department: string,
             [<Description("Generic drug name to pre-filter on")>] generic: string,
@@ -237,12 +239,14 @@ type GenOrderMcpTools() =
         | Error msg -> McpHelpers.toJson {| Error = msg |}
 
     [<McpServerTool(Name = "get_order_scenarios")>]
-    [<Description("Return a summary of all available order scenarios for a patient with optional pre-filters. Each scenario represents one valid way to prescribe the medication.")>]
+    [<Description("Return a summary of all available order scenarios for a patient with optional pre-filters. Each scenario represents one valid way to prescribe the medication. weightKg and heightCm are both required together: dose rules can only be matched when both are known, so this tool returns an error rather than scenarios if either is missing. Call get_order_context_filter_options first if weight/height are not yet known.")>]
     static member GetOrderScenarios
         (
             [<Description("Patient age in months")>] ageMonths: Nullable<float>,
-            [<Description("Patient body weight in kg")>] weightKg: Nullable<float>,
-            [<Description("Patient height in cm (used to calculate BSA)")>] heightCm: Nullable<float>,
+            [<Description("Patient body weight in kg. Required together with heightCm — without both, the tool returns an error.")>] weightKg:
+                Nullable<float>,
+            [<Description("Patient height in cm. Required together with weightKg — without both, the tool returns an error.")>] heightCm:
+                Nullable<float>,
             [<Description("Patient sex: 'male' or 'female'")>] sex: string,
             [<Description("Hospital department (e.g. 'ICK', 'NEO'). Defaults to 'ICK' if omitted.")>] department: string,
             [<Description("Generic drug name")>] generic: string,
