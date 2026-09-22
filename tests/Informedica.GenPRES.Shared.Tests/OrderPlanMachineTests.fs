@@ -450,25 +450,25 @@ let viewTests =
                 |> Expect.equal "the plan held" (OrderPlanView.Changing(one, None))
             }
 
-            test "holds: a context in the plan, settled or changing; nothing without a plan" {
+            test "holds: an order in the plan, by its id, settled or changing; nothing without a plan" {
                 held two None
                 |> OrderPlanState.view
-                |> OrderPlanView.holds "c-2"
+                |> OrderPlanView.holds "o-c-2"
                 |> Expect.isTrue "in the plan"
 
                 recalculating two None "r-1" (OrderPlanCommand.RemoveOrderContexts(two, [| "c-1" |]))
                 |> OrderPlanState.view
-                |> OrderPlanView.holds "c-1"
+                |> OrderPlanView.holds "o-c-1"
                 |> Expect.isTrue "still shown while the change is under way"
 
                 held two None
                 |> OrderPlanState.view
-                |> OrderPlanView.holds "c-9"
-                |> Expect.isFalse "not in the plan"
+                |> OrderPlanView.holds "c-1"
+                |> Expect.isFalse "a context id is not an order id"
 
                 noPatient
                 |> OrderPlanState.view
-                |> OrderPlanView.holds "c-1"
+                |> OrderPlanView.holds "o-c-1"
                 |> Expect.isFalse "no plan"
             }
         ]
