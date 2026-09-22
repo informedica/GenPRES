@@ -171,7 +171,7 @@ Distinct result sets identical throughout.
    above informative; `logOrder` migrated to the thunk API. (8 `Logger` literal
    sites updated for the new field — 2 in `Logging.Lib`, AgentLogger, SolverLogging,
    OrderLogging, plus test/benchmark loggers.) Scenario solve holds at ~116 ms.
-3. **[DONE] Unboxed `distinct`** applied to the `cmp` sites `ValueUnit.fs:845/847`
+3. **[DONE] Unboxed `distinct`** applied to the `cmp` sites `ValueUnit.fs`
    (`toBaseValue |> BigRational.distinct |> Array.sort`). Sites `1320`/`1398` are
    `string[]` (not `BigRational[]`) so they are left on `Array.distinct`.
 4. **Treat the solver's allocation profile as the next perf project** if
