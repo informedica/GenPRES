@@ -908,8 +908,7 @@ module DoseRuleToDataTests =
     /// Forward (fromData) then reverse (DoseRule.toData) the given raw rows.
     /// This is the structural half of the round-trip: it exercises that toData
     /// recovers the categorical identity and the form/brand/gpks narrowing.
-    /// (The full quantitative round-trip runs against live data in
-    /// Scratch/Informedica.GenForm.Lib.fsx.)
+    /// (The full quantitative round-trip is DoseRuleRoundtripTests, below.)
     let private roundTrip (data: DoseRuleData[]) = data |> DP.buildRules |> Array.collect DoseRule.toData
 
 
@@ -1313,8 +1312,7 @@ module DoseRuleToDataTests =
 /// Fixtures (doserules/routemappings/products .json) are generated once by
 /// Scripts/DownloadFixtures.fsx from the DEMO data and committed; the .fsproj
 /// copies them next to the test dll. forward = DoseRuleLoader.fromData (fr = [||],
-/// since FormLimit is not part of the reverse); reverse = DoseRule.toData; the
-/// comparison machinery mirrors Scratch/Informedica.GenForm.Lib.fsx (Analyse).
+/// since FormLimit is not part of the reverse); reverse = DoseRule.toData.
 module DoseRuleRoundtripTests =
 
 
@@ -1353,7 +1351,7 @@ module DoseRuleRoundtripTests =
     let private forward (d: DoseRuleData[]) = DoseRuleLoader.fromData rm.Value [||] prods.Value d |> fst
 
 
-    // ---- comparison machinery (mirrors the scratch Analyse module) ----
+    // ---- comparison machinery ----
     let private unitStr (u: Unit) = u |> Units.toStringEngShortWithoutGroup
 
     let private brStr (br: BigRational option) = br |> Option.map _.ToString() |> Option.defaultValue ""
