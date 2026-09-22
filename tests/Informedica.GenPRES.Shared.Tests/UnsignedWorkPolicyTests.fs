@@ -18,15 +18,19 @@ module UnsignedWorkPolicyTests =
 
     let prescribing = { context with OrderContext.Filter.Generic = Some "paracetamol" }
 
+    let add = OrderPlanCommand.AddOrderContext(plan, context)
+    let remove = OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |])
+    let recalculate = OrderPlanCommand.Recalculate plan
+
 
     let commands =
         [
-            "Recalculate", OrderPlanCommand.Recalculate plan, false
+            "Recalculate", recalculate, false
             "Open", OrderPlanCommand.Open(patient, [||]), false
             "Navigate", OrderPlanCommand.Navigate(plan, "c-1", OrderContextCommand.UpdateOrderContext, context), true
-            "AddOrderContext", OrderPlanCommand.AddOrderContext(plan, context), true
+            "AddOrderContext", add, true
             "NewOrderContext", OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN), true
-            "RemoveOrderContexts", OrderPlanCommand.RemoveOrderContexts(plan, [| "c-1" |]), true
+            "RemoveOrderContexts", remove, true
         ]
 
 
@@ -48,22 +52,52 @@ module UnsignedWorkPolicyTests =
                 testList
                     "PlanWork.afterCommand"
                     [
-                        test "a change turns the plan as signed into changed" {
+                        test "a change turns the plan as signed into its first change" {
                             PlanWork.AsSigned
-                            |> PlanWork.afterCommand (OrderPlanCommand.AddOrderContext(plan, context))
-                            |> Expect.equal "should be changed" PlanWork.Changed
+                            |> PlanWork.afterCommand add
+                            |> Expect.equal "should be the first change" (PlanWork.Changed 1)
+                        }
+
+                        test "a second change counts" {
+                            PlanWork.AsSigned
+                            |> PlanWork.afterCommand add
+                            |> PlanWork.afterCommand remove
+                            |> Expect.equal "should be the second change" (PlanWork.Changed 2)
                         }
 
                         test "a recalculation keeps the plan as signed" {
                             PlanWork.AsSigned
-                            |> PlanWork.afterCommand (OrderPlanCommand.Recalculate plan)
+                            |> PlanWork.afterCommand recalculate
                             |> Expect.equal "should stay as signed" PlanWork.AsSigned
                         }
 
                         test "a recalculation keeps the plan changed" {
-                            PlanWork.Changed
-                            |> PlanWork.afterCommand (OrderPlanCommand.Recalculate plan)
-                            |> Expect.equal "should stay changed" PlanWork.Changed
+                            PlanWork.Changed 1
+                            |> PlanWork.afterCommand recalculate
+                            |> Expect.equal "should stay changed" (PlanWork.Changed 1)
+                        }
+                    ]
+
+                testList
+                    "PlanWork.afterSigned"
+                    [
+                        test "the plan the signature was asked over is as signed" {
+                            PlanWork.Changed 1
+                            |> PlanWork.afterSigned (PlanWork.Changed 1)
+                            |> Expect.equal "should be as signed" PlanWork.AsSigned
+                        }
+
+                        test "a change made while the signature was under way stays" {
+                            PlanWork.Changed 1
+                            |> PlanWork.afterCommand remove
+                            |> PlanWork.afterSigned (PlanWork.Changed 1)
+                            |> Expect.equal "should stay changed" (PlanWork.Changed 2)
+                        }
+
+                        test "a plan as signed, signed again, is as signed" {
+                            PlanWork.AsSigned
+                            |> PlanWork.afterSigned PlanWork.AsSigned
+                            |> Expect.equal "should be as signed" PlanWork.AsSigned
                         }
                     ]
 
@@ -91,7 +125,7 @@ module UnsignedWorkPolicyTests =
                         }
 
                         test "a plan changed since the version last signed is work" {
-                            hasUnsignedWork None Signing.Idle PlanWork.Changed
+                            hasUnsignedWork None Signing.Idle (PlanWork.Changed 1)
                             |> Expect.isTrue "should be work"
                         }
                     ]

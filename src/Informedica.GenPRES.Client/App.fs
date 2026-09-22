@@ -75,6 +75,9 @@ module private Elmish =
             // whether a plan command changed the plan since the order plan version last opened
             // or signed; the leave-page guard asks over it
             PlanWork: UnsignedWorkPolicy.PlanWork
+            // the plan's work when the signature under way was asked for: a change made since
+            // is not in that signature
+            WorkAtSign: UnsignedWorkPolicy.PlanWork
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -604,6 +607,7 @@ module private Elmish =
             Signing = Signing.Idle
             MovedOn = None
             PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned
+            WorkAtSign = UnsignedWorkPolicy.PlanWork.AsSigned
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -1367,6 +1371,13 @@ module private Elmish =
         | SigningMsg msg ->
             let signing, effects = Signing.transition msg state.Signing
 
+            // the signature is asked over the plan as it is now: a change made while it is under
+            // way is not in it, and is told apart by the work kept here
+            let state =
+                match msg with
+                | SigningMsg.Sign _ -> { state with WorkAtSign = state.PlanWork }
+                | _ -> state
+
             let tr term =
                 Global.getLocalizedTerm state.Localization state.Context.Localization (SigningPolicy.english term) term
 
@@ -1383,8 +1394,10 @@ module private Elmish =
                     (fun state effect ->
                         match effect with
                         | SigningEffect.TellSigned signed ->
-                            // the plan is the version just signed
-                            { state with PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned }
+                            // the plan is the version just signed, unless it changed meanwhile
+                            { state with
+                                PlanWork = state.PlanWork |> UnsignedWorkPolicy.PlanWork.afterSigned state.WorkAtSign
+                            }
                             |> tell (SigningPolicy.signedSentence tr signed) "success"
                         // a refusal because the record moved on is the notice too; the
                         // sentence is told here, the bar offers the version
@@ -1553,11 +1566,13 @@ module private Elmish =
         | OrderPlanMsg msg ->
             let plan, effects = OrderPlanState.transition msg state.OrderPlan
 
-            // a version opened is the plan as signed; a command that changes the plan is work
+            // a version opened is the plan as signed, and so is no plan at all: without a patient
+            // the plan is dropped, nothing left to sign. A command that changes the plan is work
             // until the next version is opened or signed
             let state =
                 match msg with
-                | OrderPlanMsg.Version _ -> { state with PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned }
+                | OrderPlanMsg.Version _
+                | OrderPlanMsg.PatientChanged(None, _) -> { state with PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned }
                 | OrderPlanMsg.Command(cmd, _) ->
                     { state with PlanWork = state.PlanWork |> UnsignedWorkPolicy.PlanWork.afterCommand cmd }
                 | _ -> state
