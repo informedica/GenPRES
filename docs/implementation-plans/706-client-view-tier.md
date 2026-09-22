@@ -286,7 +286,9 @@ Each is its own issue, filed in step 9:
 - The component-local rule: done by plan [897](897-component-local-state.md) (#897); the
   order dialog and the nutrition slot read the order shown instead of a hook copy, the
   prescribe page's dialog opens on a selection the workbench lane carries, as the plan's.
-- `App.State` grouped one field per tier: #898.
+- `App.State` grouped one field per tier: done by plan [898](898-app-state-tiers.md) (#898);
+  four records, the lanes, the plain fetches, the admin login and the app-level UI, the snackbar
+  one value among them.
 - Decision c of 691, steps 10 and 11 above: #899, built as #901 and the PR after it (see As built).
 - Plan 691's other left-open items, unchanged.
 

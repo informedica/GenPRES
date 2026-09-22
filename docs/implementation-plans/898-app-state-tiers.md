@@ -230,4 +230,34 @@ check. The docs PR: `dotnet run MarkdownLint`.
 
 ## As built
 
-To be filled in as the steps land.
+Built in the order proposed, one PR at a time, each merged before the next started, the
+client edited directly. Every step left the Fable compile with `App.jsx` inspected, Fantomas
+and the dependency-rule check green; the Shared tests do not link `App.fs`, so the type
+checker finding every site was the proof, the nested updates in the JSX the second reading.
+
+| Step | PR | Landed |
+|---|---|---|
+| plan | #949 | this document; review: the acceptance grep made a zero-match check, what `Snackbar.closed` sets said precisely |
+| 1, the snackbar | #950 | `Snackbar` with `shown` and `closed`; the twelve sites and the two `tell`s one line each; the withdrawal keeps the severity as it did; 126 source lines |
+| 2, `Ui` | #951, #952 | `UiState`, eight fields then `Snackbar` and `PatientDraft`; 150 and 63 source lines |
+| 3, `Fetches` | #953, #954 | `FetchesState`, the eight fetches asked once then the five refetched with the retry counter; 101 and 108 source lines |
+| 4, `Admin` | #955 | `AdminState`; 109 source lines |
+| 5, `Lanes` | #956 | `LanesState`; `App.State` is `Lanes`, `Fetches`, `Admin`, `Ui`; 137 source lines |
+| 6, `update` per group | not built | no-go, question 1 answered: the grouping makes the tier of every read and write visible, and each function would take the whole state |
+| 7, docs | this PR | this section; plan 706's left-open bullet on #898 closed |
+
+### Deviations from the text above
+
+- **The record types are `LanesState`, `FetchesState`, `AdminState`, `UiState`**, the fields
+  `Lanes`, `Fetches`, `Admin`, `Ui`. The plan named type and field alike. With a type `Ui` in
+  scope, `{ state with Ui.Page = … }` resolves `Ui.Page` as the type-qualified field of `Ui`
+  and fails to compile ("fields from inconsistent types"): the nested path needs its first
+  name to be a field, not a type, or the full `State.Ui.Page` at every site. The same clash
+  is why the file wrote `State.Context.Localization` before; that site is
+  `Ui.Context.Localization` now.
+- **Steps 2 and 3 took two PRs each.** All ten UI fields came to 214 changed source lines
+  and all thirteen fetch fields to 205, over the rule; each group landed in two halves, the
+  record growing with the second, which compiles at every point.
+- **The snackbar's withdrawal keeps its severity.** `withdrawInteractionsNotice` clears the
+  message and closes through a nested update and leaves the severity, as it did; only
+  `CloseSnackbar` and `initialState` set `closed`. Value for value, as the step was.
