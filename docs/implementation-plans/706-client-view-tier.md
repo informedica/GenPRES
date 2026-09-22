@@ -18,7 +18,7 @@ lane: the context sent for the workbench; for the plan the plan the command carr
 recalculation and the plan held otherwise (`OrderPlanState.meanwhile`). The type's own comment
 says so: "which value a lane shows is the lane's decision, made in its projection". A case
 whose meaning each producer sets is not the type's case. Only the two lanes ever produce it;
-the other twelve `Deferred` fields of `App.State` never do.
+none of the fifteen `Deferred` fields of `App.State` does.
 
 `Deferred` is a 2×2 product, value shown × request open, that the views undo at every site:
 about 27 arms match `Resolved x | Provisional x` identically, about 24 match `Resolved x`
@@ -27,7 +27,7 @@ alone (the guard before a dispatch), and greying reads `Deferred.inProgress`.
 Found on the way:
 
 - `SessionMachine.Session` and `SigningMachine.Signing` reach the pages raw
-  (`ISession.Session`, `ISigning.Signing`, 16 match sites), with attempt counts, request ids
+  (`ISession.Session`, `ISigning.Signing`, matched in the pages), with attempt counts, request ids
   and idempotency keys in their cases. The larger instance of the same problem; 691 left it
   open.
 - A plain fetch blanks on refetch: `LoadFormulary Started` sets `Formulary = InProgress`
@@ -37,8 +37,13 @@ Found on the way:
   files the tests cannot link.
 - Both machines drop a command that arrives while a request is under way, silently
   (`OrderContextMachine.fs`, `OrderPlanMachine.fs`, the `Call _ when state.InFlight.IsSome`
-  arm of `apply`). The 24 `Resolved x -> dispatch` arms are what keeps a click from
-  vanishing; nothing names that rule.
+  arm of `apply`): plan 691's "one at a time". For stepping that is the wrong rule. A second
+  step while the first is under way is the user's latest word, and it must win: the request
+  under way is superseded, as a patient change (`Open`, `Recalculate`) already supersedes it.
+  Three arms build a command from `Provisional` today, and are right to: the order dialog's
+  step into the plan (`Views/OrderPlan.fs`, `Navigate` over the plan shown), the dialog's
+  context re-wrapped for `Views/Order.fs`, and the nutrition slots. Nothing names which
+  commands supersede and which wait.
 
 ### The client state model
 
@@ -55,7 +60,10 @@ Every piece of client state is in exactly one tier:
 Rules:
 
 1. View state never stores what it can derive.
-2. Render on `Settled | Changing`; build a command in a `Settled` arm only.
+2. Render on `Settled | Changing`. A stepping command (the order dialog's, in either lane)
+   is built in a `Changing` arm too, over the value shown, since that is what the next step
+   applies to; every other command is built in a `Settled` arm only. Which commands supersede
+   the request under way and which wait is the machine's policy, never a page's.
 3. Component-local state is never a function of view state (the order dialog is open iff a
    context is selected, no second flag), and never holds domain (`Views/Order.fs` keeps the
    stepped order in hook state: the known violation, its own issue).
@@ -110,7 +118,7 @@ module OrderContextState =
         | OrderContextWorkbench.NoPatient, _ -> OrderContextView.NoPatient
         | OrderContextWorkbench.Unevaluated _, _ -> OrderContextView.Evaluating
         | OrderContextWorkbench.Evaluated _, Some((_, sent), _) -> OrderContextView.Changing sent
-        | OrderContextWorkbench.Evaluated ctx, None -> OrderContextView.Settled ctx
+        | OrderContextWorkbench.Evaluated(_, ctx), None -> OrderContextView.Settled ctx
 ```
 
 ```fsharp
@@ -136,10 +144,10 @@ module OrderPlanView =
 module OrderPlanState =
     let view (state: OrderPlanState) : OrderPlanView =
         match state.Cart, state.InFlight with
-        | OrderPlanCart.NoPatient, _ -> OrderPlanView.NoPatient
+        | OrderPlanCart.NoPatient _, _ -> OrderPlanView.NoPatient
         | OrderPlanCart.Unopened _, _ -> OrderPlanView.Opening
-        | OrderPlanCart.Opened tp, Some(sent, _) -> OrderPlanView.Changing(meanwhile tp sent, state.Selected)
-        | OrderPlanCart.Opened tp, None -> OrderPlanView.Settled(tp, state.Selected)
+        | OrderPlanCart.Opened(_, tp), Some(sent, _) -> OrderPlanView.Changing(meanwhile tp sent, state.Selected)
+        | OrderPlanCart.Opened(_, tp), None -> OrderPlanView.Settled(tp, state.Selected)
 ```
 
 Both `view` tables are today's `toDeferred` tables case for case, so the existing projection
@@ -150,20 +158,25 @@ its comment naming it as the view tier's field beside the domain and the transpo
 `Deferred` loses `Provisional`, `inProgress` and `toDeferred`, and its comment says what it
 is: the pages' reading of one value the server is asked for.
 
-The migration keeps today's shapes: a `Resolved` command arm becomes a `Settled` command
-arm, a `Resolved | Provisional` render arm becomes `Settled | Changing`, a `Deferred.inProgress`
-or `isRecalculating` greying test becomes a match on `Evaluating | Changing _` or
-`Opening | Changing _`. `Views/OrderPlan.fs` hands the order dialog `OrderPlanView.dialog`
+The migration keeps today's shapes but one: a `Resolved` command arm becomes a `Settled`
+command arm, a `Resolved | Provisional` render arm becomes `Settled | Changing`, a
+`Deferred.inProgress` or `isRecalculating` greying test becomes a match on
+`Evaluating | Changing _` or `Opening | Changing _`. The one is the stepping: the order
+dialog's commands are built in `Settled | Changing` in both lanes, and the dialog's fields
+are not greyed while a step is under way, only marked; the indicator stays. That needs the
+machines to supersede first (the step below), so the pages never rely on a click being
+dropped. `Views/OrderPlan.fs` hands the order dialog `OrderPlanView.dialog`
 instead of re-wrapping the plan's case onto a child `Deferred`; `Views/Nutrition.fs`, which
 already passes a context and a busy flag by hand, passes the `OrderContextView`.
 
 ### Plan 646
 
-Plan [646](646-patient-minimum.md), merged as PR #704 with its step 1b as PR #708, resolves
-decision b of 691 by deleting `OrderContextWorkbench.Seeded` (its step 4): a filter before a patient is illegal, not
-unconfirmed. So the workbench view has no seed case. Its steps 1c and 4 edit the same machine
-files and tests as this plan, and its fixture patient replaces the empty one in the machine
-tests. The code steps below start after 646 step 4 has merged.
+Plan [646](646-patient-minimum.md), merged as PR #704, resolved decision b of 691 by deleting
+`OrderContextWorkbench.Seeded` (its step 4, PR #713): a filter before a patient is illegal,
+not unconfirmed. So the workbench view has no seed case. The machines hold the patient beside
+the context and the plan (`Evaluated of Patient * OrderContext`, `Opened of Patient *
+OrderPlan`), on the one `Patient` record after 646's private wrapper was undone, and 646's
+fixture patient is in the machine tests. The code steps below build on that.
 
 ### Decision c of 691
 
@@ -176,11 +189,12 @@ ContinuousMeds guard in `App.fs` (`context` answers the empty context during the
 ## Confidence
 
 High for the machines: the `view` functions are the `toDeferred` tables as 646 leaves them,
-and the projection tests pin them. Medium for the pages: they are not under test, and the
-guard rule (a command in a `Settled` arm only) is checked by review and the Fable compile
-alone. High that the pattern generalises: the Session and Signing view DUs are today's DUs
-minus the transport payloads, checked case by case; the plain-fetch follow-up fixes a
-visible wart.
+the projection tests pin them, and supersede is the request-id guard the machines already
+have for a patient change, under test. Medium for the pages: they are not under test, and
+the command rule (stepping in `Settled | Changing`, everything else in `Settled`) is checked
+by review and the Fable compile alone. High that the pattern generalises: the Session and
+Signing view DUs are today's DUs minus the transport payloads, checked case by case; the
+plain-fetch follow-up fixes a visible wart.
 
 ## Steps
 
@@ -188,55 +202,74 @@ Each step is one PR of at most 200 changed lines. Client `.fs` files are edited 
 every step builds, runs `dotnet run ServerTests`, compiles the client with Fable with the
 touched `.jsx` inspected, and passes Fantomas and the dependency-rule check.
 
-0. **Wait for 646 step 4** (`OrderContextWorkbench.Seeded` deleted, the domain `Patient` in
-   the machines, 646's fixture patient in the machine tests).
+0. **646 step 4** landed as PR #713 (`OrderContextWorkbench.Seeded` deleted, 646's fixture
+   patient in the machine tests); nothing to wait for.
 1. **The view DUs** (`refactor(client)`). `OrderContextView` and `OrderPlanView` with
    `holds` and `dialog`, and `view` in both machines beside `toDeferred`. Tests: one per lane
    mirroring the `toDeferred` test case for case; `holds`; `dialog` for a settled and a
    changing plan, with and without a selection. About 80 lines plus 70 of tests.
-2. **`AppEnv` and the small views** (`refactor(client)`). Interim members
+2. **A step supersedes** (`fix(client)`). In both machines the request stage sends a stepping
+   `Call` while a request is under way instead of dropping it: a fresh request id, so that the
+   older answer lands nowhere (`landing` already refuses it) and its failure rolls nothing
+   back; every other `Call` stays dropped while busy, as 691 decided. Which commands step is
+   one predicate per lane beside the intents. Tests: a step during a step sends the newer and
+   drops the older answer; a delete during a step is still dropped. About 40 lines plus 40 of
+   tests.
+3. **`AppEnv` and the small views** (`refactor(client)`). Interim members
    `IOrderContext.OrderContextView` and `IOrderPlan.OrderPlanView` wired in `App.fs`;
    `Views/Patient.fs`, `Views/Formulary.fs`, `Views/Parenteralia.fs` and the totals in
    `Pages/GenPres.fs` read them. About 40 lines.
-3. **`Views/Order.fs`** (`refactor(client)`). The prop `orderContext: OrderContextView`;
+4. **`Views/Order.fs`** (`refactor(client)`). The prop `orderContext: OrderContextView`;
    both parents build it, `Prescribe.fs` from the lane and `OrderPlan.fs` through `dialog`;
-   the hooks that keyed on `Resolved` key on `Settled`. About 60 lines.
-4. **`Views/Prescribe.fs`** (`refactor(client)`). The selects, the scenario list, the
+   the stepping commands in `Settled | Changing`; the hooks that keyed on `Resolved` key on
+   `Settled`; `isFieldLoading` marks the field stepped without disabling it. About 60 lines.
+5. **`Views/Prescribe.fs`** (`refactor(client)`). The selects, the scenario list, the
    prescribe button and the hint on the cases; `inPlan` through `holds`. About 70 lines.
-5. **`Views/OrderPlan.fs`** (`refactor(client)`). The rows, the checkboxes, the sign, delete
-   and filter commands in `Settled` arms, the selection from the case. About 50 lines.
-6. **`Views/Nutrition.fs`** (`refactor(client)`). The slots on `OrderContextView`, the delete
+6. **`Views/OrderPlan.fs`** (`refactor(client)`). The rows, the checkboxes, the sign, delete
+   and filter commands in `Settled` arms, `Navigate` in `Settled | Changing`, the selection
+   from the case. About 50 lines.
+7. **`Views/Nutrition.fs`** (`refactor(client)`). The slots on `OrderContextView`, the delete
    and print dialogs on the cases. About 45 lines.
-7. **The old projection deleted** (`refactor(client)`). `Provisional`, `toDeferred`, the
+8. **The old projection deleted** (`refactor(client)`). `Provisional`, `toDeferred`, the
    `Provisional` arm of `ViewHelpers.progressOrEmpty`, the `Deferred` members and `Selected`
    of the two interfaces, and `Deferred.inProgress`: its five callers (`Views/Patient.fs`
    twice, `Views/Formulary.fs`, `Views/Parenteralia.fs`, `Views/Order.fs`) all read a lane
-   and became a match on the view cases in steps 2 and 3; no plain fetch calls it; the interim members renamed; the `Deferred`
-   comment rewritten. Acceptance: no `Provisional` in the repository. About 90 lines,
-   deletion-heavy.
-8. **Docs** (`docs`). The `Deferred` table of `docs/domain/dose-quantity-stepping-flow.md`
-   becomes the view-DU table; plan 691's left-open items on the projection and plan 667's
-   "optional: `toDeferred` goes" closed; this plan's As built; the follow-up issues filed
-   (below).
-9. **Decision c, workbench** (`fix(client)`, go/no-go). `Unevaluated` deleted; the first
-   evaluation runs over the empty context for the patient held; `Evaluating` goes; the
-   ContinuousMeds guard reviewed. About 90 lines, five tests changed.
-10. **Decision c, plan** (`fix(client)`, go/no-go). `Unopened` deleted; a cart open runs
+   and became a match on the view cases in steps 3 and 4; no plain fetch calls it; the
+   interim members renamed; the `Deferred` comment rewritten. Acceptance: no `Provisional` in
+   the repository. About 90 lines, deletion-heavy.
+9. **Docs** (`docs`). The `Deferred` table of `docs/domain/dose-quantity-stepping-flow.md`
+   becomes the view-DU table, and its stepping story says the newer step wins; plan 691's
+   "one at a time" for `Call` narrowed to the commands that wait, and its left-open items on
+   the projection and plan 667's "optional: `toDeferred` goes" closed; this plan's As built;
+   the follow-up issues filed (below).
+10. **Decision c, workbench** (`feat(client)`, go/no-go). `Unevaluated` deleted; the first
+    evaluation runs over the empty context for the patient held; `Evaluating` goes; the
+    ContinuousMeds guard reviewed. About 90 lines, five tests changed.
+11. **Decision c, plan** (`feat(client)`, go/no-go). `Unopened` deleted; a cart open runs
     over the empty plan for the patient held; a patient change during an open reads the
     contexts from the `Open` payload in flight, as today; `Opening` goes. About 100 lines,
     five tests changed.
 
+## Acceptance
+
+- No `Provisional`, `toDeferred` or `Deferred.inProgress` in the repository; `Deferred` has
+  three cases.
+- The projection tests pass unchanged against `view`, and the supersede tests of step 2 pass.
+- By hand, in the demo: two quick steps on a dose in the order dialog, on the prescribe page
+  and in the plan, end on the second step's value; a delete pressed during a step is refused
+  by the greyed button, not lost.
+
 ## Questions for review
 
 1. The case names: `Settled` and `Changing`, or `Held` and `Sent`, or others.
-2. Decision c (steps 9 and 10) here, or its own issue?
+2. Decision c (steps 10 and 11) here, or its own issue?
 3. The plain-fetch case (`Deferred.Refreshing of 't`, the previous value kept while a
    refetch runs) as a last step here, one mechanical PR over about fourteen fields, or its own
    issue?
 
 ## Left open
 
-Each becomes its own issue, filed in step 8:
+Each becomes its own issue, filed in step 9:
 
 - `SessionMachine` and `SigningMachine` on the same pattern: a domain DU without the launch,
   key and attempt payloads, `InFlight` for `Launching`, `Resuming`, `Closing`, `SupplyingPin`,
