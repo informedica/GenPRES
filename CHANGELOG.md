@@ -1,5 +1,5 @@
 ---
-last_commit_released: d52a0f9e83349458039aded148ba87d491d63a84
+last_commit_released: 50baef028ad1bb29ad6c0be209ce9e005395db2a
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,17 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.30 - 2026-09-22
+
+### 🐞 Bug Fixes
+
+* *(client)* Ask before leaving with unsigned work ([6ae44155](https://github.com/informedica/GenPRES/commit/6ae44155b838f3a976e49780db5d6c82f63b2d53))
+* *(client)* Plan work told by its commands, guard policy under test ([68fffbba](https://github.com/informedica/GenPRES/commit/68fffbba5e555d574c7cd56c4ea0c20fc0582e1b))
+* *(client)* A change while the signature is fetched stays unsigned ([3c211293](https://github.com/informedica/GenPRES/commit/3c2112932f1657f6719f162ebaacbc831301a8d6))
+* *(client)* A Sign while one is under way keeps the work asked over ([e4a96626](https://github.com/informedica/GenPRES/commit/e4a96626f64c6df085445347de8c51ad03ea47ab))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/d52a0f9e83349458039aded148ba87d491d63a84..50baef028ad1bb29ad6c0be209ce9e005395db2a)</small></strong>
 
 ## 0.1.2-alpha.29 - 2026-09-22
 
