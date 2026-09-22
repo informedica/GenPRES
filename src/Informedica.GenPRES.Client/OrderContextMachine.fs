@@ -214,8 +214,7 @@ module OrderContextView =
         | OrderPlanMachine.OrderPlanView.Changing(tp, Some id) -> pick tp id |> Option.map OrderContextView.Changing
         | OrderPlanMachine.OrderPlanView.Settled(_, None)
         | OrderPlanMachine.OrderPlanView.Changing(_, None)
-        | OrderPlanMachine.OrderPlanView.NoPatient
-        | OrderPlanMachine.OrderPlanView.Opening -> None
+        | OrderPlanMachine.OrderPlanView.NoPatient -> None
 
 
 module OrderContextState =

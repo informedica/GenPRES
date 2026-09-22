@@ -25,7 +25,6 @@ module Interactions =
                 |> Array.distinct
                 |> Array.toList
             | OrderPlanView.NoPatient
-            | OrderPlanView.Opening
             | OrderPlanView.Changing _ -> []
 
 
