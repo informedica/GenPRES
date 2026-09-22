@@ -1250,9 +1250,9 @@ module private Elmish =
             // router fires UrlChanged on mount too, while a Resume may still be in flight,
             // so only Open and Closing block the url patient
             let anonymous =
-                match state.Session with
-                | Session.Open _
-                | Session.Closing _ -> false
+                match Session.view state.Session with
+                | SessionView.Open _
+                | SessionView.Closing _ -> false
                 | _ -> true
 
             let pat = if anonymous then pat else state.PatientDraft
@@ -1309,8 +1309,8 @@ module private Elmish =
             // that arrives after a newer launch superseded the Closing session is dropped by
             // the machine and must not put an error over the newer session
             let state =
-                match msg, state.Session with
-                | SessionMsg.CloseFailed reason, Session.Closing _ ->
+                match msg, Session.view state.Session with
+                | SessionMsg.CloseFailed reason, SessionView.Closing _ ->
                     Logging.error "could not close the session on the server" reason
 
                     { state with
@@ -1319,7 +1319,7 @@ module private Elmish =
                         SnackbarSeverity = "error"
                     }
                 // the same for a PIN that never reached the server: the form comes back as it was
-                | SessionMsg.PinAnswered(Error reason), Session.SupplyingPin _ ->
+                | SessionMsg.PinAnswered(Error reason), SessionView.SupplyingPin _ ->
                     Logging.error "could not send the PIN to the server" reason
 
                     { state with
@@ -1332,8 +1332,8 @@ module private Elmish =
             // a signature belongs to an open Session: whatever ends the Session drops it;
             // so does the moved-on notice. The plan's work stays: unsigned is unsigned
             let signing, movedOn =
-                match session with
-                | Session.Open _ -> state.Signing, state.MovedOn
+                match Session.view session with
+                | SessionView.Open _ -> state.Signing, state.MovedOn
                 | _ -> SigningState.idle, None
 
             // the version is open; said once, and the notice is spent
@@ -1817,7 +1817,7 @@ type private ConcreteAppEnv
         member _.ReloadResources() = ReloadResources |> dispatch
 
     interface AppEnv.ISession with
-        member _.Session = state.Session
+        member _.Session = state.Session |> Session.view
         member _.Close() = SessionMsg SessionMsg.Close |> dispatch
         member _.Retry() = SessionMsg SessionMsg.Retry |> dispatch
 
@@ -2003,8 +2003,8 @@ let View () =
             showDisclaimer =
                 state.ShowDisclaimer
                 && (
-                    match state.Session with
-                    | Session.Anonymous -> true
+                    match Session.view state.Session with
+                    | SessionView.Anonymous -> true
                     | _ -> false
                 )
             isDemo = state.IsDemo

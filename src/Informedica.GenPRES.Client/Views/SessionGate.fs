@@ -55,8 +55,8 @@ module SessionGate =
 
         let enrolling =
             match session.Session with
-            | SessionMachine.Session.Enrolling _
-            | SessionMachine.Session.SupplyingPin _ -> true
+            | SessionMachine.SessionView.Enrolling _
+            | SessionMachine.SessionView.SupplyingPin _ -> true
             | _ -> false
 
         // the fields belong to one enrolment: they are cleared when the launch leaves it, so

@@ -151,25 +151,54 @@ let refusalSentence (tr: Terms -> string) (refusal: PinRefusal) =
 
 
 /// Whether the gate is over the app: false while the app is usable (anonymous, open, closing).
-let isGated (session: Session) =
+let isGated (session: SessionView) =
     match session with
-    | Session.Anonymous
-    | Session.Open _
-    | Session.Closing _ -> false
-    | Session.Launching _
-    | Session.Resuming
-    | Session.Unreachable _
-    | Session.Refused _
-    | Session.Ended _
-    | Session.Enrolling _
-    | Session.SupplyingPin _
-    | Session.EnrolmentFailed _ -> true
+    | SessionView.Anonymous
+    | SessionView.Open _
+    | SessionView.Closing _ -> false
+    | SessionView.Launching _
+    | SessionView.Resuming
+    | SessionView.Unreachable
+    | SessionView.Refused _
+    | SessionView.Retryable _
+    | SessionView.Ended _
+    | SessionView.Enrolling _
+    | SessionView.SupplyingPin _
+    | SessionView.EnrolmentFailed _ -> true
+
+
+/// The gate of a refusal: what happened, what the User can do, and the action offered when
+/// the same Launch can be presented again. A missing role offers the anonymous open whatever
+/// the retry, so that the order of the two rules never has to be known to the caller; only a
+/// missing browser identity is ever retried.
+let refused (tr: Terms -> string) (refusal: LaunchRefusal) (retry: Action option) =
+    {
+        Title = tr Terms.``Session Gate Refused``
+        Body =
+            sentences
+                [
+                    yield! refusalBody tr refusal
+                    match refusal, retry with
+                    | LaunchRefusal.NoBrowserIdentity, Some _ -> tr Terms.``Session Retry``
+                    | LaunchRefusal.NoBrowserIdentity, None -> tr Terms.``Session Relaunch``
+                    | _ -> ()
+                ]
+        Busy = false
+        Actions =
+            [
+                match refusal, retry with
+                | LaunchRefusal.NoRole, _ -> Action.ContinueWithoutLaunch
+                | _, Some action -> action
+                | _ -> ()
+            ]
+        Form = None
+    }
 
 
 /// The gate for a session phase, or None when the app is usable (anonymous, open, closing).
-let gateFor (tr: Terms -> string) (session: Session) : Gate option =
+let gateFor (tr: Terms -> string) (session: SessionView) : Gate option =
     match session with
-    | Session.Launching(_, _, attempt) ->
+    | SessionView.Launching attempt ->
         Some
             {
                 Title = tr Terms.``Session Gate Opening``
@@ -180,7 +209,7 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
                 Actions = []
                 Form = None
             }
-    | Session.Resuming ->
+    | SessionView.Resuming ->
         Some
             {
                 Title = tr Terms.``Session Gate Resuming``
@@ -189,44 +218,25 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
                 Actions = []
                 Form = None
             }
-    | Session.Unreachable(_, _, attempts) ->
+    // the server is given up on after the last attempt, so the count named is the maximum
+    | SessionView.Unreachable ->
         Some
             {
                 Title = tr Terms.``Session Gate Unreachable``
                 Body =
                     sentences
                         [
-                            tr Terms.``Session Gate Unreachable Text`` |> fill [ $"%i{attempts}" ]
+                            tr Terms.``Session Gate Unreachable Text``
+                            |> fill [ $"%i{Session.maxAttempts}" ]
                             tr Terms.``Session Gate Try Again Or Relaunch``
                         ]
                 Busy = false
                 Actions = [ Action.Retry ]
                 Form = None
             }
-    | Session.Refused(refusal, retry) ->
-        Some
-            {
-                Title = tr Terms.``Session Gate Refused``
-                Body =
-                    sentences
-                        [
-                            yield! refusalBody tr refusal
-                            match refusal, retry with
-                            | LaunchRefusal.NoBrowserIdentity, Some _ -> tr Terms.``Session Retry``
-                            | LaunchRefusal.NoBrowserIdentity, None -> tr Terms.``Session Relaunch``
-                            | _ -> ()
-                        ]
-                Busy = false
-                Actions =
-                    [
-                        match refusal, retry with
-                        | LaunchRefusal.NoRole, _ -> Action.ContinueWithoutLaunch
-                        | _, Some _ -> Action.Retry
-                        | _ -> ()
-                    ]
-                Form = None
-            }
-    | Session.Ended ending ->
+    | SessionView.Refused refusal -> Some(refused tr refusal None)
+    | SessionView.Retryable refusal -> Some(refused tr refusal (Some Action.Retry))
+    | SessionView.Ended ending ->
         Some
             {
                 Title = tr Terms.``Session Gate Ended``
@@ -244,7 +254,7 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
                 Form = None
             }
     // the launch waits on a PIN; the form asks for the mailed code and the PIN twice
-    | Session.Enrolling(pending, refusal) ->
+    | SessionView.Enrolling(pending, refusal) ->
         Some
             {
                 Title = tr Terms.``Session Gate Enrolment``
@@ -263,7 +273,7 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
                             Error = refusal |> Option.map (refusalSentence tr)
                         }
             }
-    | Session.SupplyingPin pending ->
+    | SessionView.SupplyingPin pending ->
         Some
             {
                 Title = tr Terms.``Session Gate Enrolment``
@@ -275,7 +285,7 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
                 Form = None
             }
     // the enrolment ended without a Session: the code void or expired, or the Patient moved
-    | Session.EnrolmentFailed refusal ->
+    | SessionView.EnrolmentFailed refusal ->
         Some
             {
                 Title = tr Terms.``Session Gate Refused``
@@ -284,6 +294,6 @@ let gateFor (tr: Terms -> string) (session: Session) : Gate option =
                 Actions = []
                 Form = None
             }
-    | Session.Anonymous
-    | Session.Open _
-    | Session.Closing _ -> None
+    | SessionView.Anonymous
+    | SessionView.Open _
+    | SessionView.Closing _ -> None

@@ -44,6 +44,26 @@ type Session =
     | EnrolmentFailed of PinRefusal
 
 
+/// The Session as the pages show it: the states a page can be in, each with what is valid in it
+/// and nothing of the request: today's phases without the Launch, the key and the counts. A
+/// refusal is Retryable when the same Launch can be presented again; the count of a server
+/// unreachable is always the maximum, so the view carries none.
+[<RequireQualifiedAccess>]
+type SessionView =
+    | Anonymous
+    | Launching of attempt: int
+    | Resuming
+    | Open of SessionOpened
+    | Closing of SessionOpened
+    | Refused of LaunchRefusal
+    | Retryable of LaunchRefusal
+    | Unreachable
+    | Ended of SessionEnding
+    | Enrolling of EnrolmentPending * refusal: PinRefusal option
+    | SupplyingPin of EnrolmentPending
+    | EnrolmentFailed of PinRefusal
+
+
 /// What GetSession answered at a resume.
 [<RequireQualifiedAccess>]
 type ResumeResult =
@@ -132,6 +152,24 @@ module Session =
         | LaunchRefusal.NoRole
         | LaunchRefusal.WrongActivePatient
         | LaunchRefusal.EnrolmentRequired -> false
+
+
+    /// The Session as the pages show it: the transport payloads dropped, a refusal with a
+    /// Launch kept to present again shown as Retryable.
+    let view (state: Session) : SessionView =
+        match state with
+        | Session.Anonymous -> SessionView.Anonymous
+        | Session.Launching(_, _, attempt) -> SessionView.Launching attempt
+        | Session.Resuming -> SessionView.Resuming
+        | Session.Open session -> SessionView.Open session
+        | Session.Closing session -> SessionView.Closing session
+        | Session.Refused(refusal, Some _) -> SessionView.Retryable refusal
+        | Session.Refused(refusal, None) -> SessionView.Refused refusal
+        | Session.Unreachable _ -> SessionView.Unreachable
+        | Session.Ended ending -> SessionView.Ended ending
+        | Session.Enrolling(pending, refusal) -> SessionView.Enrolling(pending, refusal)
+        | Session.SupplyingPin pending -> SessionView.SupplyingPin pending
+        | Session.EnrolmentFailed refusal -> SessionView.EnrolmentFailed refusal
 
 
     /// The state and effects of a Session that just opened: the patient goes through

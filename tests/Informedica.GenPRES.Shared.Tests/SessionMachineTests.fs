@@ -702,3 +702,71 @@ module SessionMachineTests =
                 endingTests
                 openVersionTests
             ]
+
+
+    [<Tests>]
+    let viewTests =
+        let pending: EnrolmentPending =
+            {
+                DisplayName = "Stub Prescriber (no PIN)"
+                MailHint = "n***@stub.example"
+            }
+
+        testList
+            "Session.view"
+            [
+                test "no Session: anonymous; the presentation and the resume show the request, the attempt only" {
+                    Session.Anonymous
+                    |> Session.view
+                    |> Expect.equal "anonymous" SessionView.Anonymous
+
+                    Session.Launching(launchA, keyA, 2)
+                    |> Session.view
+                    |> Expect.equal "launching" (SessionView.Launching 2)
+
+                    Session.Resuming |> Session.view |> Expect.equal "resuming" SessionView.Resuming
+                }
+
+                test "the open Session, and the close under way over it" {
+                    Session.Open full |> Session.view |> Expect.equal "open" (SessionView.Open full)
+                    Session.Closing full
+                    |> Session.view
+                    |> Expect.equal "closing" (SessionView.Closing full)
+                }
+
+                test "a refusal is retryable when the Launch is kept; the server unreachable carries no count" {
+                    Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launchA, keyA))
+                    |> Session.view
+                    |> Expect.equal "retryable" (SessionView.Retryable LaunchRefusal.NoBrowserIdentity)
+
+                    Session.Refused(LaunchRefusal.NoBrowserIdentity, None)
+                    |> Session.view
+                    |> Expect.equal "refused" (SessionView.Refused LaunchRefusal.NoBrowserIdentity)
+
+                    Session.Refused(LaunchRefusal.NoRole, None)
+                    |> Session.view
+                    |> Expect.equal "no role" (SessionView.Refused LaunchRefusal.NoRole)
+
+                    Session.Unreachable(launchA, keyA, Session.maxAttempts)
+                    |> Session.view
+                    |> Expect.equal "unreachable" SessionView.Unreachable
+                }
+
+                test "the endings and the enrolment keep what the gate shows" {
+                    Session.Ended SessionEnding.WrongPinLimit
+                    |> Session.view
+                    |> Expect.equal "ended" (SessionView.Ended SessionEnding.WrongPinLimit)
+
+                    Session.Enrolling(pending, Some(PinRefusal.WrongCode 2))
+                    |> Session.view
+                    |> Expect.equal "enrolling" (SessionView.Enrolling(pending, Some(PinRefusal.WrongCode 2)))
+
+                    Session.SupplyingPin pending
+                    |> Session.view
+                    |> Expect.equal "supplying the PIN" (SessionView.SupplyingPin pending)
+
+                    Session.EnrolmentFailed PinRefusal.CodeVoid
+                    |> Session.view
+                    |> Expect.equal "enrolment failed" (SessionView.EnrolmentFailed PinRefusal.CodeVoid)
+                }
+            ]

@@ -99,9 +99,9 @@ let pinError (tr: Terms -> string) (pin: string) =
 
 /// Whether the plan can be signed: an open Session as Prescriber for a patient, and at least
 /// one order. Without a patient nothing can be submitted; a Reader never signs.
-let canSign (session: Session) (plan: OrderPlan) =
+let canSign (session: SessionView) (plan: OrderPlan) =
     match session with
-    | Session.Open opened ->
+    | SessionView.Open opened ->
         (opened.User |> Option.map _.Role) = Some UserRole.Prescriber
         && opened.PatientContext.IsSome
         && (Shared.Models.OrderPlan.orders plan).Length > 0
