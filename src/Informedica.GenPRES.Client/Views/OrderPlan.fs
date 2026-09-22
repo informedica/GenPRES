@@ -41,13 +41,10 @@ module OrderPlan =
         let context: Global.Context = React.useContext Global.context
         let lang = context.Localization
 
-        // the dialog is open while a context is selected: the selection is the state
-        let modalOpen =
-            match orderPlan with
-            | OrderPlanView.Settled(_, selected)
-            | OrderPlanView.Changing(_, selected) -> selected.IsSome
-            | OrderPlanView.NoPatient -> false
-
+        // the dialog is open while a context is selected: the selection is the state, and the
+        // selected context as the plan shows it, settled or changing as the plan is, is what
+        // the dialog shows
+        let dialog = OrderContextView.dialog orderPlan
         let handleModalClose = fun () -> envOrderPlan.Select None
 
 
@@ -348,10 +345,7 @@ module OrderPlan =
                         orderContextMsg (Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty cmp, ctx)
             |}
 
-        // the selected context as the plan shows it, settled or changing as the plan is
-        let orderContext =
-            OrderContextView.dialog orderPlan
-            |> Option.defaultValue OrderContextView.NoPatient
+        let orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
 
         let deleteBtn =
             match orderPlan with
@@ -466,7 +460,7 @@ module OrderPlan =
             {movedOnBar}{signBtn}
             {deleteBtn}
             {responsiveTable}
-            <Modal open={modalOpen} onClose={handleModalClose} >
+            <Modal open={dialog.IsSome} onClose={handleModalClose} >
                 <Box sx={modalStyle}>
                     {orderView}
                 </Box>

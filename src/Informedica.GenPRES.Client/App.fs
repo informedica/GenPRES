@@ -1710,6 +1710,10 @@ type private ConcreteAppEnv
         member _.OrderContextMsg(cmd, ctx) =
             OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
 
+        member _.Dialog = state.OrderContext |> OrderContextState.dialog
+
+        member _.Select id = OrderContextMsg(OrderContextMsg.Select id) |> dispatch
+
     interface AppEnv.IOrderPlan with
         member _.OrderPlan = state.OrderPlan |> OrderPlanState.view
 
