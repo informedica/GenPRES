@@ -218,5 +218,3 @@ For non-security questions about GenPRES, please use:
 ## Updates to This Policy
 
 This security policy may be updated periodically. Check the commit history for changes.
-
-**Last updated**: 2026-04-10

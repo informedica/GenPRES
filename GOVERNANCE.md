@@ -341,9 +341,3 @@ This governance model is inspired by:
 - Rust language governance
 - Open source medical software projects
 - ISO 13485 quality management principles
-
----
-
-**Document Version**: 1.1
-**Last Updated**: 2026-02-28
-**Next Review**: 2026-08-28 (or sooner if significant changes occur)

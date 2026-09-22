@@ -292,6 +292,4 @@ We welcome feedback on how to improve our support process:
 
 ---
 
-**Last updated**: 2025-12-09
-
 Thank you for being part of the GenPRES community! 🚀

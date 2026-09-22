@@ -325,6 +325,5 @@ GenPRES internally uses `BigRational` arithmetic for exact unit-safe calculation
 
 ---
 
-*Version: 1.0 — March 2026*
 *Language: English*
 *[🇳🇱 Nederlandse versie](../nl/gebruikershandleiding.md)*

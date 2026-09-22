@@ -129,8 +129,4 @@ Want to contribute to GenPRES development?
 
 ---
 
-**Document Version**: 1.4
-**Last Updated**: 2026-09-22
-**Next Review**: 2026-11-28
-
 For the most up-to-date information, see the [project GitHub repository](https://github.com/informedica/GenPRES).
