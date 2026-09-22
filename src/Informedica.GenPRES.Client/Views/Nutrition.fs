@@ -1394,8 +1394,7 @@ module Nutrition =
                 let msg = Terms.``Patient enter patient data`` |> getTerm "Voer patient gegevens in ..."
 
                 JSX.jsx $"<>{msg}</>"
-            | OrderPlanView.NoPatient
-            | OrderPlanView.Opening -> ViewHelpers.circularProgress
+            | OrderPlanView.NoPatient -> ViewHelpers.circularProgress
             | OrderPlanView.Settled _
             | OrderPlanView.Changing _ -> null
 
@@ -1405,7 +1404,6 @@ module Nutrition =
             match orderPlan with
             | OrderPlanView.Changing _ -> true
             | OrderPlanView.NoPatient
-            | OrderPlanView.Opening
             | OrderPlanView.Settled _ -> false
 
         let confirmDeleteTarget, setConfirmDeleteTarget = React.useState<string option> None
@@ -1572,8 +1570,7 @@ module Nutrition =
                     </Stack>
                 </Stack>
                 """
-            | OrderPlanView.NoPatient
-            | OrderPlanView.Opening -> null
+            | OrderPlanView.NoPatient -> null
 
         let confirmDeleteDialog =
             let isOpen = confirmDeleteTarget.IsSome
@@ -1588,7 +1585,6 @@ module Nutrition =
                         Api.OrderPlanCommand.RemoveOrderContexts(plan, [| ncId |]) |> planCommand
                     | None, _
                     | Some _, OrderPlanView.NoPatient
-                    | Some _, OrderPlanView.Opening
                     | Some _, OrderPlanView.Changing _ -> ()
 
                     setConfirmDeleteTarget None
@@ -1628,8 +1624,7 @@ module Nutrition =
                         onClose = fun () -> setPrintOpen false
                     |}
             | false, _
-            | true, OrderPlanView.NoPatient
-            | true, OrderPlanView.Opening -> null
+            | true, OrderPlanView.NoPatient -> null
 
         JSX.jsx
             $"""

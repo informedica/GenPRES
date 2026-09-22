@@ -398,7 +398,7 @@ let viewTests =
 
                 loading patient [||] "r-1"
                 |> OrderPlanState.view
-                |> Expect.equal "opening, nothing to show" OrderPlanView.Opening
+                |> Expect.equal "the empty plan shown while the open runs" (OrderPlanView.Changing(plan [||], None))
 
                 held one (Some "c-1")
                 |> OrderPlanState.view

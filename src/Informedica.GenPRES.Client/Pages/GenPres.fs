@@ -309,8 +309,7 @@ module GenPres =
                 match orderPlan with
                 | OrderPlanView.Settled(tp, _)
                 | OrderPlanView.Changing(tp, _) -> Views.Totals.View {| intake = tp.Totals |} |> Some
-                | OrderPlanView.NoPatient
-                | OrderPlanView.Opening -> None
+                | OrderPlanView.NoPatient -> None
             | _ -> None
 
         let disclaimerView =

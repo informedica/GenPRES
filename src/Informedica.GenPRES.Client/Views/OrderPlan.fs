@@ -34,8 +34,7 @@ module OrderPlan =
             | OrderPlanView.Changing(tp, Some id) -> planCommand (Api.OrderPlanCommand.Navigate(tp, id, cmd, ctx))
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
-            | OrderPlanView.NoPatient
-            | OrderPlanView.Opening -> ()
+            | OrderPlanView.NoPatient -> ()
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
@@ -47,8 +46,7 @@ module OrderPlan =
             match orderPlan with
             | OrderPlanView.Settled(_, selected)
             | OrderPlanView.Changing(_, selected) -> selected.IsSome
-            | OrderPlanView.NoPatient
-            | OrderPlanView.Opening -> false
+            | OrderPlanView.NoPatient -> false
 
         let handleModalClose = fun () -> envOrderPlan.Select None
 
@@ -219,8 +217,7 @@ module OrderPlan =
                         actions = None
                     |}
                 )
-            | OrderPlanView.NoPatient
-            | OrderPlanView.Opening -> [||]
+            | OrderPlanView.NoPatient -> [||]
 
         let rowCreate (cells: string[]) =
             {|
@@ -244,8 +241,7 @@ module OrderPlan =
                 match contextOf tp id with
                 | None -> Logging.error "Order not found" id
                 | Some c -> envOrderPlan.Select(Some c.Id)
-            | OrderPlanView.NoPatient
-            | OrderPlanView.Opening -> ()
+            | OrderPlanView.NoPatient -> ()
 
         // the rows checked, by order id, become the filter, by context id; only over a plan at
         // rest, as the filter is sent
@@ -256,7 +252,6 @@ module OrderPlan =
                 |> Array.choose (fun id -> contextOf tp id |> Option.map _.Id)
                 |> envOrderPlan.Filter
             | OrderPlanView.NoPatient
-            | OrderPlanView.Opening
             | OrderPlanView.Changing _ -> ()
 
         // the orders of the contexts the filter keeps, for the table's checked rows
@@ -275,7 +270,6 @@ module OrderPlan =
             match orderPlan with
             | OrderPlanView.Changing _ -> true
             | OrderPlanView.NoPatient
-            | OrderPlanView.Opening
             | OrderPlanView.Settled _ -> false
 
         // the contexts the filter keeps go, each with its order
@@ -285,7 +279,6 @@ module OrderPlan =
                 | OrderPlanView.Settled(tp, _) ->
                     planCommand (Api.OrderPlanCommand.RemoveOrderContexts(tp, tp.Filtered))
                 | OrderPlanView.NoPatient
-                | OrderPlanView.Opening
                 | OrderPlanView.Changing _ -> ()
 
         let updateOrderScenario (ctx: OrderContext) =
@@ -382,7 +375,6 @@ module OrderPlan =
                 match orderPlan with
                 | OrderPlanView.Settled(tp, _) -> signing.Sign tp
                 | OrderPlanView.NoPatient
-                | OrderPlanView.Opening
                 | OrderPlanView.Changing _ -> ()
 
         let signBtn =

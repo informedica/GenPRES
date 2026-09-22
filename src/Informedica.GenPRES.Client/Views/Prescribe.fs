@@ -233,7 +233,6 @@ module Prescribe =
                     match orderPlan with
                     | OrderPlanView.Settled _ -> false
                     | OrderPlanView.NoPatient
-                    | OrderPlanView.Opening
                     | OrderPlanView.Changing _ -> true
 
                 let prescribeDisabled = isAnythingLoading || planBusy || inPlan
