@@ -358,7 +358,7 @@ Fable compile and Fantomas green. Wire changes are additive first and deleted la
 
 If step 10 or 12 exceeds 200 lines, the deletion of the dead handlers becomes a following
 `refactor` PR. Optional after 13: the views read `Plan` and `Context` directly and
-`toDeferred` goes.
+`toDeferred` goes; done by plan [706](706-client-view-tier.md).
 
 ## Acceptance
 

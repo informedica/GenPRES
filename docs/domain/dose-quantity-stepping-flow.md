@@ -52,11 +52,12 @@ flowchart TD
 
 The client does **not** block while the server re-solves. It shows a
 *preliminary* stepped value immediately using local delta state, keeps the
-context it sent visible (`Deferred.Provisional`), and reconciles when the
+context it sent visible (`OrderContextView.Changing`), and reconciles when the
 server answer arrives. Rapid clicks accumulate into the delta and the click
-count until the debounced button fires one command; while that command is in
-flight the step buttons rest, since the machine drops a command sent while one
-is in flight.
+count until the debounced button fires one command; a further step on the same
+field while that command is in flight waits in the lane as the one pending and
+goes out over the answer, so two quick steps end two steps on; every other
+field rests until the answer, since the lane keeps one command pending.
 
 ```mermaid
 flowchart TD
@@ -65,8 +66,8 @@ flowchart TD
     PRELIM["Render PRELIMINARY label<br/>stepFn(smallDelta, largeDelta)<br/>key stays = server value<br/>SimpleSelect.fs"]
     DISPATCH["debounce fires: dispatch OrderContextMsg.Command<br/>(Increase/DecreaseOrderableDoseQuantityProperty(n, useCalc), ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
 
-    REC["OrderContextWorkbench.Evaluated held stays; InFlight = ((cmd, sent), request)<br/>projected as Deferred.Provisional sent<br/>OrderContextState.toDeferred, OrderContextMachine.fs"]
-    KEEP["No spinner on the field: isOptimisticStep = true<br/>Order.fs<br/>step buttons rest while loading: stepsRest<br/>SimpleSelect.fs<br/>a command while busy is dropped by the machine"]
+    REC["OrderContextWorkbench.Evaluated held stays; InFlight = ((cmd, sent), request)<br/>shown as OrderContextView.Changing sent<br/>OrderContextState.view, OrderContextMachine.fs"]
+    KEEP["No spinner on the field: isOptimisticStep = true<br/>the field stepped stays enabled, the others rest: selectFor, rests<br/>Order.fs<br/>a further step waits as the one pending: Pending<br/>OrderContextMachine.fs"]
 
     SERVER(["Server re-solve round-trip<br/>(see main flow above)"])
 
@@ -93,24 +94,29 @@ request under way (`InFlight`: the command and the context sent, and the id
 the answer must name). `transition` runs them in order. An answer passes the
 request first (`landing`) and reaches the workbench only when it names the
 request under way, so a stale answer is dropped by its id. A command passes
-the workbench first (`OrderContextWorkbench.step`) and reaches the request as an intent,
-dropped while a request is under way. A failed command, whether the server
-refused it or the call did not complete, goes back to the context held, the
-last one the server confirmed, never the one sent.
+the workbench first (`OrderContextWorkbench.step`) and reaches the request as an intent.
+While a request is under way the dialog's commands (a step, a value typed, a
+reset) wait as the one pending, the latest replacing an earlier one, and go out
+when the answer lands, a step over the context answered and a value typed over
+the context it was typed into; every other command is dropped. A failed
+command, whether the server refused it or the call did not complete, goes back
+to the context held, the last one the server confirmed, never the one sent, and
+drops the command pending.
 
-### Deferred state cases (`Deferred.fs`)
+### View cases (`OrderContextView`, `OrderContextMachine.fs`)
 
-The pages read the workbench as a `Deferred<OrderContext>` projected from
-`OrderContextState` (`OrderContextState.toDeferred` in `OrderContextMachine.fs`):
+The pages read the workbench as an `OrderContextView` projected from
+`OrderContextState` (`OrderContextState.view`); the cases are the states a page
+can be in, and carry nothing of the request:
 
 | Case | Machine state | Meaning | UI effect |
 | ---- | ------------- | ------- | --------- |
-| `HasNotStartedYet` | `OrderContextWorkbench.NoPatient` | no patient, no workbench | empty |
-| `InProgress` | `OrderContextWorkbench.Unevaluated`, the first evaluation under way | in flight, **no** prior value | loading placeholder / spinner |
-| `Provisional of 't` | `OrderContextWorkbench.Evaluated held`, `InFlight ((cmd, sent), request)` | in flight, **the context sent kept**, not yet confirmed | preliminary value stays visible |
-| `Resolved of 't` | `OrderContextWorkbench.Evaluated ctx` with nothing under way | answer received | confirmed value |
+| `NoPatient` | `OrderContextWorkbench.NoPatient` | no patient, no workbench | empty |
+| `Evaluating` | `OrderContextWorkbench.Unevaluated`, the first evaluation under way | in flight, **no** prior value | loading placeholder / spinner |
+| `Changing of OrderContext` | `OrderContextWorkbench.Evaluated held`, `InFlight ((cmd, sent), request)` | in flight, **the context sent kept**, not yet confirmed | preliminary value stays visible; the field stepped may step again |
+| `Settled of OrderContext` | `OrderContextWorkbench.Evaluated ctx` with nothing under way | answer received | confirmed value |
 
-Stepping uses **`Provisional`** (not `InProgress`), which is why the previous
+Stepping shows **`Changing`** (not `Evaluating`), which is why the previous
 dose quantity remains on screen as a preliminary result instead of blanking out.
 The orange nodes are the preliminary (awaiting-server) phase; green is the
 confirmed solver result.
@@ -121,10 +127,12 @@ confirmed solver result.
   solver. The client only dispatches
   `Increase/DecreaseOrderableDoseQuantityProperty(ntimes, useCalc)` and renders
   the result.
-- **One command in flight**: the pure `OrderContextState.transition` sends a
-  command only while nothing is under way; while a request is in flight a
-  further command is dropped, and the step buttons rest until the answer
-  arrives.
+- **One request in flight, one command pending**: the pure
+  `OrderContextState.transition` sends a command while nothing is under way;
+  while a request is in flight a further step waits as the one pending and
+  goes out over the answer, so two quick steps end two steps on. Only the
+  field stepped may step again meanwhile, and only on an order solved
+  through; the other fields rest until the answer.
 - **`useCalc`** flag decides whether stepping uses calculated constraints vs
   defined ones (`OrderVariable.step`).
 - **The step math** (`OrderVariable.fs`): increase = `min + N*incr`,

@@ -261,22 +261,73 @@ touched `.jsx` inspected, and passes Fantomas and the dependency-rule check.
 
 ## Questions for review
 
-1. The case names: `Settled` and `Changing`, or `Held` and `Sent`, or others.
-2. Decision c (steps 10 and 11) here, or its own issue?
+1. The case names: `Settled` and `Changing`, or `Held` and `Sent`, or others. Answered:
+   `Settled` and `Changing`; `Held` and `Sent` describe the transport again, which is what
+   the tier leaves.
+2. Decision c (steps 10 and 11) here, or its own issue? Answered: its own issue, #899; a
+   domain change with a go/no-go, and the refactor is complete without it.
 3. The plain-fetch case (`Deferred.Refreshing of 't`, the previous value kept while a
    refetch runs) as a last step here, one mechanical PR over about fourteen fields, or its own
-   issue?
+   issue? Answered: its own issue, #896; it fixes what a user sees and deserves its own
+   changelog line.
 
 ## Left open
 
-Each becomes its own issue, filed in step 9:
+Each is its own issue, filed in step 9:
 
 - `SessionMachine` and `SigningMachine` on the same pattern: a domain DU without the launch,
   key and attempt payloads, `InFlight` for `Launching`, `Resuming`, `Closing`, `SupplyingPin`,
   `Requesting`, `Submitting` and `Unsent`, and a view DU that is today's DU minus those
-  payloads; `SessionGatePolicy` then reads the view.
-- `Deferred.Refreshing of 't` for the plain fetches, unless taken up here (question 3).
+  payloads; `SessionGatePolicy` then reads the view: #895.
+- `Deferred.Refreshing of 't` for the plain fetches: #896.
 - The component-local rule: the stepped order in `Views/Order.fs` hook state; the prescribe
-  page's own dialog flag beside the plan page's selection-derived one.
-- `App.State` grouped one field per tier.
+  page's own dialog flag beside the plan page's selection-derived one: #897.
+- `App.State` grouped one field per tier: #898.
+- Decision c of 691, steps 10 and 11 above: #899.
 - Plan 691's other left-open items, unchanged.
+
+## As built
+
+Built in the order proposed, one PR at a time, each under review before the next started, the
+client edited directly. Every step left the Shared tests, the Fable compile with the touched
+`.jsx` inspected, Fantomas and the dependency-rule check green.
+
+| Step | PR | Landed |
+|---|---|---|
+| plan | #707 | this document; review: rule 2 and step 2 rewritten from first-wins to a step that waits, step 0 landed, the sketches on the machines' shapes, an Acceptance section |
+| 1, the view DUs | #886 | `OrderContextView`, `OrderPlanView` with `holds`, `OrderContextView.dialog`, `view` in both machines beside `toDeferred`; 6 tests mirroring the projection tests (an earlier #709 was closed unmerged, cut before 646 step 4) |
+| 2, a step waits | #887 | `Pending` in both records with a `pending` constructor, `Dialog.waits` and `carries`, `OrderPlanCart.waits` and `replay`; a dialog command during a request waits as the one pending and goes out on the answer, a step over the context answered; 6 tests, 1 rewritten |
+| 3, `AppEnv` and the small views | #889 | the interim members `OrderContextView` and `OrderPlanView`; the patient panel, the formulary and the parenteralia filters, the totals on the cases |
+| 4, the order dialog | #890 | the prop `orderContext: OrderContextView`, the steps built from `Settled` and `Changing`, `update` over the order shown; `SimpleSelect`'s steps rest on `disabled` alone; review: only the field in flight may change again, and only on a solved order (`selectFor`, `rests`) |
+| 5, the prescribe page | #891 | the filter commands from `Settled`, the selects and the scenarios from `Settled` and `Changing`, `inPlan` through `holds`; review: `holds` by the order's id |
+| 6, the plan page | #892 | the rows and the selection from the case, sign, delete and filter from `Settled`, `Navigate` from `Settled` and `Changing`, `modalOpen` from the case |
+| 7, the nutrition page | #893 | the slots and the buttons from `Settled` and `Changing`, the delete confirmation from `Settled`; the slot's `init` on the context itself |
+| 8, the old projection | #894 | `Provisional`, `Deferred.inProgress`, both `toDeferred`, `OrderPlanState.selected`, the `Deferred` members and `Selected` of the interfaces gone; the view members under the final names; the interactions page on the plan view; 4 `toDeferred` tests gone |
+| 9, docs | this PR | the stepping-flow document on the view cases and the step that waits; plans 691 and 667 closed on the projection; this section; #895 to #899 filed |
+| 10 and 11, decision c | | not built here: #899 |
+
+### Deviations from the text above
+
+- **A step waits; it does not supersede.** Step 2 said a stepping call supersedes the request
+  in flight. The server does the stepping, so two `Increase` over the same base end one step
+  on, and supersede would have lost a click as the drop did. Decided on review: the latest
+  dialog command waits as the one pending, under its own request id, and goes out when the
+  answer lands, a step over the context answered and a value typed over the context it was
+  typed into; a failure, a patient change, an open, an evaluation and a reset drop it.
+- **One property while a step is in flight, on a solved order.** The lane keeps one command
+  pending, so the dialog lets only the field whose change went out change again while its
+  answer is awaited, and only on an order solved through; every other field and the reset
+  rest until the answer (review of #890). The component and item selects never send a request
+  and stay enabled.
+- **`dialog` is `OrderContextView.dialog`**, in `OrderContextMachine.fs`, since
+  `OrderPlanMachine.fs` compiles first and the function answers an `OrderContextView`.
+- **`holds` takes the order's id.** A context's own id is minted by the plan; the prescribe
+  page compares the scenario's order id, as the rule it replaced did (review of #891).
+- **The nutrition slot keeps its context and a flag.** Step 7 said the slots on
+  `OrderContextView`. A slot always has a context, so a view prop would carry two cases that
+  never occur and still need an arm before the hooks; the slot keeps
+  `nutritionContext: OrderContext` and `isRecalculating`, which the page derives from the plan
+  view, and its `init` takes the context itself.
+- **The interactions page was a reader too**, not named in the plan; it reads the plan's drugs
+  from `OrderPlanView.Settled`, as it read them from `Resolved`.
+- **Steps 10 and 11 went to their own issue** (#899), as question 2 was answered.

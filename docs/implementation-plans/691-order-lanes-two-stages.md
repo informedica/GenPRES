@@ -132,7 +132,8 @@ type WorkbenchMsg =
 type WorkbenchIntent =
     // supersedes whatever is under way: UpdateOrderContext and the two filter syncs
     | Evaluate of OrderContext
-    // one at a time: dropped while a request is under way
+    // one at a time: dropped while a request is under way (plan 706 lets the dialog's wait
+    // as the one pending)
     | Call of OrderContextCommand * OrderContext
     | Sync of Filter
     | GoToLifeSupport
@@ -157,7 +158,8 @@ any other message:
     stage 1, communication: the intents applied
         Evaluate / Open / Recalculate -> InFlight replaced, whatever was under way
         Call                          -> InFlight set when idle, dropped when busy
-                                         (the domain did not change on dispatch)
+                                         (the domain did not change on dispatch;
+                                         plan 706: the dialog's wait as the one pending)
         the rest                      -> today's effects, one to one
 ```
 
@@ -366,12 +368,14 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 
 ## Left open
 
-- Decision c, the first load shown provisional, as a follow-up proposal. Decision b went to
+- Decision c, the first load shown provisional: its own issue, #899. Decision b went to
   plan [646](646-patient-minimum.md): no seed before a patient.
 - `SessionMachine` (`Launching` with its attempt count, `Resuming`, `Closing`) and
   `SigningMachine` (`Requesting`, `Submitting`, `Unsent`) split the same way;
-  `SessionGatePolicy`'s busy flag then reads the in-flight field.
-- The pages reading the two records directly, and `toDeferred` gone (plan 667 lists it).
+  `SessionGatePolicy`'s busy flag then reads the in-flight field: #895.
+- The pages reading the two records directly, and `toDeferred` gone: done by plan
+  [706](706-client-view-tier.md), which also narrowed "one at a time" to the commands that
+  wait; the dialog's wait as the one pending and go out on the answer (#887).
 - `Deferred.bind` drops the busy flag in the interventions calculation; a failed plan change skips the
   interactions check, so a warning can outlive the plan that caused it; the two lanes format
   the snackbar differently; a reload is settled by any workbench answer, stale ones included;
