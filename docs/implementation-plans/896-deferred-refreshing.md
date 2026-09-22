@@ -88,10 +88,14 @@ The pages, on the rule of plan 706: render from both cases, act from `Resolved` 
 
 - `Views/Formulary.fs`: `init` seeds from `Refreshing form` too, so the selects keep their
   state through a refetch instead of re-initialising to empty; the five selects take
-  `Refreshing form` as greyed with their value and options kept; the text and the dose check
-  render from both; the `update` arms that send a filter stay on `Resolved`.
+  `Refreshing form` as disabled with their value and options kept and shown, where today they
+  are disabled and empty, so a change while the answer is on its way cannot be made from the
+  control, the same as today; the `update` arms that send a filter stay on `Resolved`, the
+  second guard for the same rule; the text and the dose check render from both.
   `ViewHelpers.progressOrEmpty` shows the progress on `Refreshing` as on `InProgress`, over the
-  content shown. `Pages/GenPres.fs` tints the background from both.
+  content shown. `Pages/GenPres.fs` tints the background from both. What a refetch changes is
+  what the page shows meanwhile, never what it accepts: a change is possible on `Resolved` only,
+  and the answer never lands over a change of the user's, since none can be made.
 - `Views/Parenteralia.fs`: the same shape, three selects.
 - `Views/Interactions.fs`: the rows and the "checked" flag from both; the loading flag on
   `Refreshing` too, so the progress shows over the rows; the effect's guard against a second
@@ -122,9 +126,10 @@ and keeps blanking, so the list above is the list to check, not the compiler.
 
 - `dotnet run ServerTests` (the Deferred tests), the Fable compile with the touched `.jsx`
   inspected, Fantomas, the dependency-rule check.
-- By hand in the demo: on the formulary page, change the indication twice quickly: the selects
-  keep their values and options with the progress showing, the text stays until the new one
-  arrives, the tint stays; the same on the parenteralia page; on the plan page, add an order:
+- By hand in the demo: on the formulary page, change the indication: while the answer is on
+  its way the selects stay filled, greyed, with the progress showing, the text stays until the
+  new one arrives, the tint stays; then change the route: the same; the same on the
+  parenteralia page; on the plan page, add an order:
   the interactions page keeps its rows and the side menu its badge while the check runs; on the
   settings page, press the refresh icon: the log table stays with the progress above it.
 
