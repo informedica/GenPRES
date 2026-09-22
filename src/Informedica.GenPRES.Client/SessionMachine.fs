@@ -64,6 +64,49 @@ type SessionView =
     | EnrolmentFailed of PinRefusal
 
 
+/// The Session as the client knows it, no request here: none; open; refused, the server
+/// unreachable, or ended; enrolling, with the last refusal of the form if any; or the enrolment
+/// failed.
+[<RequireQualifiedAccess>]
+type SessionPhase =
+    | Anonymous
+    | Open of SessionOpened
+    | Refused of LaunchRefusal
+    | Unreachable
+    // the server ended the Session and said so once; the User continues anonymously or
+    // relaunches
+    | Ended of SessionEnding
+    // the launch waits on a PIN; the browser holds the attempt in a cookie, the gate shows the
+    // form, and the last refusal of the form if any
+    | Enrolling of EnrolmentPending * refusal: PinRefusal option
+    // the enrolment ended without a PIN (the code void or expired) or, the PIN set, with
+    // another Patient active in MainEHR; a relaunch is the only way on
+    | EnrolmentFailed of PinRefusal
+
+
+/// The one request under way: the presentation, and which attempt it is; GetSession after a
+/// reload or the IdentityProvider's return; CloseSession; SupplyPin.
+[<RequireQualifiedAccess>]
+type SessionRequest =
+    | Presenting of attempt: int
+    | Resuming
+    | Closing
+    | SupplyingPin
+
+
+/// The phase, the one request under way, and the Launch this page presents with its key, kept
+/// while presenting it again is meaningful: during a presentation, after the server was
+/// unreachable, after a refusal worth retrying. Built through the constructors below only,
+/// which admit the twelve combinations that occur.
+type SessionState =
+    private
+        {
+            Phase: SessionPhase
+            InFlight: SessionRequest option
+            Presentation: (Launch * PublicKey) option
+        }
+
+
 /// What GetSession answered at a resume.
 [<RequireQualifiedAccess>]
 type ResumeResult =
@@ -308,6 +351,149 @@ module Session =
                 | _ -> ()
             ]
         | SessionMsg.Reopened _, _ -> state, []
+
+
+module SessionState =
+
+    /// Presentations are attempted this many times before the UI offers Retry.
+    let maxAttempts = Session.maxAttempts
+
+
+    let anonymous =
+        {
+            Phase = SessionPhase.Anonymous
+            InFlight = None
+            Presentation = None
+        }
+
+
+    /// The presentation under way, the attempt it is; there is no Session meanwhile.
+    let launching (launch: Launch) (key: PublicKey) (attempt: int) =
+        {
+            Phase = SessionPhase.Anonymous
+            InFlight = Some(SessionRequest.Presenting attempt)
+            Presentation = Some(launch, key)
+        }
+
+
+    /// GetSession under way, after a reload or the IdentityProvider's return.
+    let resuming =
+        {
+            Phase = SessionPhase.Anonymous
+            InFlight = Some SessionRequest.Resuming
+            Presentation = None
+        }
+
+
+    /// The Session open, nothing under way.
+    let opened (session: SessionOpened) =
+        {
+            Phase = SessionPhase.Open session
+            InFlight = None
+            Presentation = None
+        }
+
+
+    /// CloseSession under way over the open Session.
+    let closing (session: SessionOpened) =
+        {
+            Phase = SessionPhase.Open session
+            InFlight = Some SessionRequest.Closing
+            Presentation = None
+        }
+
+
+    /// Refused, with nothing to present again.
+    let refused (refusal: LaunchRefusal) =
+        {
+            Phase = SessionPhase.Refused refusal
+            InFlight = None
+            Presentation = None
+        }
+
+
+    /// Refused, with the same Launch and key kept to present again.
+    let retryable (refusal: LaunchRefusal) (launch: Launch) (key: PublicKey) =
+        {
+            Phase = SessionPhase.Refused refusal
+            InFlight = None
+            Presentation = Some(launch, key)
+        }
+
+
+    /// The server did not answer the last attempt; the Launch and key are kept to present again.
+    let unreachable (launch: Launch) (key: PublicKey) =
+        {
+            Phase = SessionPhase.Unreachable
+            InFlight = None
+            Presentation = Some(launch, key)
+        }
+
+
+    /// The server ended the Session and said so.
+    let ended (ending: SessionEnding) =
+        {
+            Phase = SessionPhase.Ended ending
+            InFlight = None
+            Presentation = None
+        }
+
+
+    /// The launch waits on a PIN: the form is shown, with the last refusal if any.
+    let enrolling (pending: EnrolmentPending) (refusal: PinRefusal option) =
+        {
+            Phase = SessionPhase.Enrolling(pending, refusal)
+            InFlight = None
+            Presentation = None
+        }
+
+
+    /// SupplyPin under way; the form is sent once at a time, and the refusal it answers is spent.
+    let supplyingPin (pending: EnrolmentPending) =
+        {
+            Phase = SessionPhase.Enrolling(pending, None)
+            InFlight = Some SessionRequest.SupplyingPin
+            Presentation = None
+        }
+
+
+    /// The enrolment ended without a Session.
+    let enrolmentFailed (refusal: PinRefusal) =
+        {
+            Phase = SessionPhase.EnrolmentFailed refusal
+            InFlight = None
+            Presentation = None
+        }
+
+
+    /// The Session held, none unless open and not closing: what a request is completed from.
+    let session (state: SessionState) =
+        match state.Phase, state.InFlight with
+        | SessionPhase.Open session, None -> Some session
+        | _ -> None
+
+
+    /// The token of the Session held, none unless open and not closing.
+    let token (state: SessionState) = state |> session |> Option.bind _.OpenedToken
+
+
+    /// The Session as the pages show it: the request wins when it can render on its own, the
+    /// phase when the request needs the phase's payload; a stray request on any other phase
+    /// shows as that phase, and the presentation is read under a refusal only.
+    let view (state: SessionState) : SessionView =
+        match state.Phase, state.InFlight, state.Presentation with
+        | _, Some(SessionRequest.Presenting attempt), _ -> SessionView.Launching attempt
+        | _, Some SessionRequest.Resuming, _ -> SessionView.Resuming
+        | SessionPhase.Open opened, Some SessionRequest.Closing, _ -> SessionView.Closing opened
+        | SessionPhase.Enrolling(pending, _), Some SessionRequest.SupplyingPin, _ -> SessionView.SupplyingPin pending
+        | SessionPhase.Anonymous, _, _ -> SessionView.Anonymous
+        | SessionPhase.Open opened, _, _ -> SessionView.Open opened
+        | SessionPhase.Refused refusal, _, Some _ -> SessionView.Retryable refusal
+        | SessionPhase.Refused refusal, _, None -> SessionView.Refused refusal
+        | SessionPhase.Unreachable, _, _ -> SessionView.Unreachable
+        | SessionPhase.Ended ending, _, _ -> SessionView.Ended ending
+        | SessionPhase.Enrolling(pending, refusal), _, _ -> SessionView.Enrolling(pending, refusal)
+        | SessionPhase.EnrolmentFailed refusal, _, _ -> SessionView.EnrolmentFailed refusal
 
 
 /// The notice that the record moved on, as the client keeps it next to its open Session: the
