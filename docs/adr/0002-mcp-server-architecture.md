@@ -75,10 +75,9 @@ Two new external dependencies, both listed in `src/Informedica.MCP.Lib/paket.ref
 
 The decision is to pin exact versions in `paket.dependencies` rather than floating specifiers, so
 builds stay reproducible, and to re-run a GitHub Advisory Database
-check before each deliberate bump. `ModelContextProtocol` is pinned (`1.2.0`);
-`Microsoft.Extensions.Hosting` is currently declared without a version constraint and so does not
-yet follow this decision — `paket.lock` is what holds it steady today. No changes were required to
-`GenFORM.Lib` or `GenORDER.Lib`.
+check before each deliberate bump. Both follow it: `ModelContextProtocol` at `1.2.0` and
+`Microsoft.Extensions.Hosting` at `10.0.7`, the version `paket.lock` had already resolved, so the
+pin changed no dependency. No changes were required to `GenFORM.Lib` or `GenORDER.Lib`.
 
 ## Notes
 
