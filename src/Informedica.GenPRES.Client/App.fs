@@ -71,10 +71,10 @@ module private Elmish =
             Signing: SigningState
             // whether a plan command changed the plan since the order plan version last opened
             // or signed; the leave-page guard asks over it
-            PlanWork: UnsignedWorkPolicy.PlanWork
+            PlanWork: PlanWorkPolicy.PlanWork
             // the plan's work when the signature under way was asked for: a change made since
             // is not in that signature
-            WorkAtSign: UnsignedWorkPolicy.PlanWork
+            WorkAtSign: PlanWorkPolicy.PlanWork
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -588,8 +588,8 @@ module private Elmish =
             LoginAttempt = 0
             Session = SessionState.anonymous
             Signing = SigningState.idle
-            PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned
-            WorkAtSign = UnsignedWorkPolicy.PlanWork.AsSigned
+            PlanWork = PlanWorkPolicy.PlanWork.AsSigned
+            WorkAtSign = PlanWorkPolicy.PlanWork.AsSigned
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -1365,7 +1365,7 @@ module private Elmish =
                         | SigningEffect.TellSigned signed ->
                             // the plan is the version just signed, unless it changed meanwhile
                             { state with
-                                PlanWork = state.PlanWork |> UnsignedWorkPolicy.PlanWork.afterSigned state.WorkAtSign
+                                PlanWork = state.PlanWork |> PlanWorkPolicy.PlanWork.afterSigned state.WorkAtSign
                             }
                             |> tell (SigningPolicy.signedSentence tr signed) "success"
                         | SigningEffect.TellRefused refusal ->
@@ -1536,9 +1536,9 @@ module private Elmish =
             let state =
                 match msg with
                 | OrderPlanMsg.Version _
-                | OrderPlanMsg.PatientChanged(None, _) -> { state with PlanWork = UnsignedWorkPolicy.PlanWork.AsSigned }
+                | OrderPlanMsg.PatientChanged(None, _) -> { state with PlanWork = PlanWorkPolicy.PlanWork.AsSigned }
                 | OrderPlanMsg.Command(cmd, _) ->
-                    { state with PlanWork = state.PlanWork |> UnsignedWorkPolicy.PlanWork.afterCommand cmd }
+                    { state with PlanWork = state.PlanWork |> PlanWorkPolicy.PlanWork.afterCommand cmd }
                 | _ -> state
 
             // the page and the snackbar are the interpreter's: an order prescribed opens the
