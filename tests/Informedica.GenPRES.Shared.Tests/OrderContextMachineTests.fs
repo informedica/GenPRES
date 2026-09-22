@@ -150,6 +150,25 @@ let tests =
                         |> Expect.equal "the empty workbench opened, nothing waited" (opening patient "r-2")
                     }
 
+                    test
+                        "a filter during the first evaluation supersedes it; a failed one goes back to the empty workbench" {
+                        let seeded, effects =
+                            transition (OrderContextMsg.Seed(paracetamol, "r-2")) (opening patient "r-1")
+
+                        seeded
+                        |> Expect.equal
+                            "the seed evaluated over the empty workbench held"
+                            (evaluating paracetamol empty "r-2")
+
+                        effects |> Expect.equal "the call and the syncs" (evaluated paracetamol "r-2")
+
+                        transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) seeded
+                        |> Expect.equal "the first evaluation's answer is stale" (seeded, [])
+
+                        transition (OrderContextMsg.Answered("r-2", Error [| "refused" |])) seeded
+                        |> Expect.equal "back to the empty workbench" (held empty, restored empty [| "refused" |])
+                    }
+
                     test "a filter with a patient held is evaluated at once, for that patient" {
                         let fromUrl = { paracetamol with Patient = otherDraft }
                         let state, effects = transition (OrderContextMsg.Seed(fromUrl, "r-1")) shown
