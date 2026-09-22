@@ -218,14 +218,16 @@ module GenPres =
 
         let hasInteractions =
             match interactions with
-            | Resolved arr -> arr.Length > 0
+            | Resolved arr
+            | Refreshing arr -> arr.Length > 0
             | _ -> false
 
         let formulary = (AppEnv.asEnv<AppEnv.IFormulary> props.appEnv).Formulary
 
         let formularyBg =
             match formulary with
-            | Resolved form when form.DoseCheck |> Array.isEmpty |> not ->
+            | Resolved form
+            | Refreshing form when form.DoseCheck |> Array.isEmpty |> not ->
                 let hasAlert =
                     form.DoseCheck
                     |> Array.exists (
@@ -302,16 +304,14 @@ module GenPres =
                 match orderContext with
                 | OrderContextView.Settled pr
                 | OrderContextView.Changing pr -> Views.Totals.View {| intake = pr.Intake |} |> Some
-                | OrderContextView.NoPatient
-                | OrderContextView.Evaluating -> None
+                | OrderContextView.NoPatient -> None
             // the one plan: the nutrition page shows the plan's totals, nutrition included
             | Global.Pages.Nutrition
             | Global.Pages.OrderPlan ->
                 match orderPlan with
                 | OrderPlanView.Settled(tp, _)
                 | OrderPlanView.Changing(tp, _) -> Views.Totals.View {| intake = tp.Totals |} |> Some
-                | OrderPlanView.NoPatient
-                | OrderPlanView.Opening -> None
+                | OrderPlanView.NoPatient -> None
             | _ -> None
 
         let disclaimerView =

@@ -5,6 +5,7 @@ open Expecto
 open Expecto.Flip
 open Shared.Types
 open Shared.Api
+open PlanWorkPolicy
 open OrderPlanMachine
 
 
@@ -250,7 +251,10 @@ let tests =
                         let rebased = OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |])
 
                         busy
-                        |> Expect.equal "in flight over the plan held" (recalculating one None "r-1" rebased)
+                        |> Expect.equal
+                            "in flight over the plan held, one change of work"
+                            (recalculating one None "r-1" rebased
+                             |> OrderPlanState.withWork (PlanWork.Changed 1))
 
                         effects
                         |> Expect.equal "the rebased command" [ OrderPlanEffect.CallPlan(rebased, "r-1") ]
@@ -398,7 +402,7 @@ let viewTests =
 
                 loading patient [||] "r-1"
                 |> OrderPlanState.view
-                |> Expect.equal "opening, nothing to show" OrderPlanView.Opening
+                |> Expect.equal "the empty plan shown while the open runs" (OrderPlanView.Changing(plan [||], None))
 
                 held one (Some "c-1")
                 |> OrderPlanState.view
@@ -461,7 +465,7 @@ let pendingTests =
         [
             test "waits as the one pending; any other change is dropped" {
                 transition (OrderPlanMsg.Command(step, "r-2")) busy
-                |> Expect.equal "pending under its own id, nothing sent" (waiting, [])
+                |> Expect.equal "pending under its own id, nothing sent, no work yet" (waiting, [])
 
                 transition (OrderPlanMsg.Command(remove, "r-2")) busy
                 |> Expect.equal "dropped" (busy, [])
@@ -474,7 +478,8 @@ let pendingTests =
                 transition (OrderPlanMsg.Answered("r-1", Ok answer)) waiting
                 |> Expect.equal
                     "the step, into the context answered"
-                    (recalculating answer (Some "c-1") "r-2" sent,
+                    (recalculating answer (Some "c-1") "r-2" sent
+                     |> OrderPlanState.withWork (PlanWork.Changed 1),
                      [
                          OrderPlanEffect.CheckInteractions [ "paracetamol-now" ]
                          OrderPlanEffect.CallPlan(sent, "r-2")
@@ -488,7 +493,8 @@ let pendingTests =
                 |> transition (OrderPlanMsg.Answered("r-1", Ok answer))
                 |> Expect.equal
                     "the value typed, into the context it was typed into"
-                    (recalculating answer (Some "c-1") "r-2" sent,
+                    (recalculating answer (Some "c-1") "r-2" sent
+                     |> OrderPlanState.withWork (PlanWork.Changed 1),
                      [
                          OrderPlanEffect.CheckInteractions [ "paracetamol-now" ]
                          OrderPlanEffect.CallPlan(sent, "r-2")
@@ -559,5 +565,119 @@ let stagesTests =
 
                 transition (OrderPlanMsg.Select(Some "c-1")) (loading patient [||] "r-1")
                 |> Expect.equal "nothing to select yet" (loading patient [||] "r-1", [])
+            }
+        ]
+
+
+[<Tests>]
+let workTests =
+    let remove = OrderPlanCommand.RemoveOrderContexts(one, [| "c-1" |])
+    let recalculate = OrderPlanCommand.Recalculate one
+
+    let version: SignedOrderPlan =
+        {
+            Head =
+                {
+                    Id = "plan-1"
+                    No = 1
+                    By =
+                        {
+                            UserId = "u"
+                            DisplayName = "U"
+                            Role = UserRole.Prescriber
+                        }
+                    SignedAt = DateTime(2026, 9, 11, 12, 0, 0, DateTimeKind.Utc)
+                }
+            PatientId = "p"
+            Base = None
+            OrderContexts = one.OrderContexts
+            Patient = draft
+            Verified = true
+        }
+
+    let workOf (state: OrderPlanState, _: OrderPlanEffect list) = state |> OrderPlanState.work
+
+    testList
+        "the plan's work"
+        [
+            test "a plan held is as signed; a command that changes it is work, a recalculation is not" {
+                held one None
+                |> OrderPlanState.work
+                |> Expect.equal "as signed" PlanWork.AsSigned
+
+                transition (OrderPlanMsg.Command(remove, "r-1")) (held one None)
+                |> workOf
+                |> Expect.equal "one change" (PlanWork.Changed 1)
+
+                transition
+                    (OrderPlanMsg.Command(recalculate, "r-1"))
+                    (held one None |> OrderPlanState.withWork (PlanWork.Changed 1))
+                |> workOf
+                |> Expect.equal "still one change" (PlanWork.Changed 1)
+            }
+
+            test "a command counts when it goes out: not while it waits, never when it is dropped" {
+                let busy = recalculating one None "r-1" (OrderPlanCommand.Recalculate one)
+
+                transition (OrderPlanMsg.Command(remove, "r-2")) busy
+                |> workOf
+                |> Expect.equal "dropped while a request is under way: nothing changed" PlanWork.AsSigned
+
+                let step =
+                    OrderPlanCommand.Navigate(
+                        one,
+                        "c-1",
+                        OrderContextCommand.IncreaseScheduleFrequencyProperty,
+                        one.OrderContexts[0]
+                    )
+
+                let waiting, _ = transition (OrderPlanMsg.Command(step, "r-2")) busy
+                waiting
+                |> OrderPlanState.work
+                |> Expect.equal "the dialog's step waits: not yet" PlanWork.AsSigned
+
+                // the answer lands: the step goes out, and counts once
+                transition (OrderPlanMsg.Answered("r-1", Ok one)) waiting
+                |> workOf
+                |> Expect.equal "gone out on the answer" (PlanWork.Changed 1)
+
+                // the request fails: the step is dropped, and counts nothing
+                transition (OrderPlanMsg.Answered("r-1", Error [| "down" |])) waiting
+                |> workOf
+                |> Expect.equal "dropped with the failure" PlanWork.AsSigned
+
+                // a later step replaces it: only the one that goes out counts
+                let later, _ = transition (OrderPlanMsg.Command(step, "r-3")) waiting
+
+                transition (OrderPlanMsg.Answered("r-1", Ok one)) later
+                |> workOf
+                |> Expect.equal "the one that goes out" (PlanWork.Changed 1)
+            }
+
+            test "a version opened and a patient cleared are as signed" {
+                transition
+                    (OrderPlanMsg.Version(version, "r-1"))
+                    (held one None |> OrderPlanState.withWork (PlanWork.Changed 2))
+                |> workOf
+                |> Expect.equal "a version opened" PlanWork.AsSigned
+
+                transition
+                    (OrderPlanMsg.PatientChanged(None, "r-1"))
+                    (held one None |> OrderPlanState.withWork (PlanWork.Changed 2))
+                |> workOf
+                |> Expect.equal "no patient, nothing to sign" PlanWork.AsSigned
+            }
+
+            test "a signature over the same work is as signed; over older work the change made meanwhile stays" {
+                transition
+                    (OrderPlanMsg.Signed(PlanWork.Changed 2))
+                    (held one None |> OrderPlanState.withWork (PlanWork.Changed 2))
+                |> Expect.equal "as signed, nothing else" (held one None, [])
+
+                transition
+                    (OrderPlanMsg.Signed(PlanWork.Changed 1))
+                    (held one None |> OrderPlanState.withWork (PlanWork.Changed 2))
+                |> workOf
+                |> Expect.equal "the change made meanwhile stays" (PlanWork.Changed 2)
             }
         ]

@@ -99,22 +99,21 @@ let pinError (tr: Terms -> string) (pin: string) =
 
 /// Whether the plan can be signed: an open Session as Prescriber for a patient, and at least
 /// one order. Without a patient nothing can be submitted; a Reader never signs.
-let canSign (session: Session) (plan: OrderPlan) =
+let canSign (session: SessionView) (plan: OrderPlan) =
     match session with
-    | Session.Open opened ->
+    | SessionView.Open opened ->
         (opened.User |> Option.map _.Role) = Some UserRole.Prescriber
         && opened.PatientContext.IsSome
         && (Shared.Models.OrderPlan.orders plan).Length > 0
     | _ -> false
 
 
-/// Whether the dialog is up: the notice, the PIN question, the Submission in flight, or the
-/// retry after a lost answer.
-let dialogOpen (signing: Signing) =
+/// Whether the dialog is up: the notice, the PIN question (the retry after a lost answer
+/// among them), or the Submission in flight.
+let dialogOpen (signing: SigningView) =
     match signing with
-    | Signing.Noticed _
-    | Signing.Challenged _
-    | Signing.Submitting _
-    | Signing.Unsent _ -> true
-    | Signing.Idle
-    | Signing.Requesting _ -> false
+    | SigningView.Noticed _
+    | SigningView.Challenged _
+    | SigningView.Submitting _ -> true
+    | SigningView.Idle
+    | SigningView.Requesting -> false

@@ -72,10 +72,10 @@ type IResources =
     abstract ReloadResources: unit -> unit
 
 
-/// The launch Session: its phase, and the actions the UI offers on it
+/// The launch Session as the pages show it, and the actions the UI offers on it
 [<Interface>]
 type ISession =
-    abstract Session: SessionMachine.Session
+    abstract Session: SessionMachine.SessionView
     // explicit close, from an open Session
     abstract Close: unit -> unit
     // from Unreachable, or a refusal worth retrying
@@ -90,10 +90,11 @@ type ISession =
     abstract OpenVersion: string -> unit
 
 
-/// The signing phase of the open Session: its state, and the actions the dialog offers on it
+/// The signing phase of the open Session as the dialog shows it, and the actions the dialog
+/// offers on it
 [<Interface>]
 type ISigning =
-    abstract Signing: SigningMachine.Signing
+    abstract Signing: SigningMachine.SigningView
     // ask a challenge over the plan as shown
     abstract Sign: OrderPlan -> unit
     // the data notice accepted

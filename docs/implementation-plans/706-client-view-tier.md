@@ -275,15 +275,16 @@ touched `.jsx` inspected, and passes Fantomas and the dependency-rule check.
 
 Each is its own issue, filed in step 9:
 
-- `SessionMachine` and `SigningMachine` on the same pattern: a domain DU without the launch,
-  key and attempt payloads, `InFlight` for `Launching`, `Resuming`, `Closing`, `SupplyingPin`,
-  `Requesting`, `Submitting` and `Unsent`, and a view DU that is today's DU minus those
-  payloads; `SessionGatePolicy` then reads the view: #895.
+- `SessionMachine` and `SigningMachine` on the same pattern: done by plan
+  [895](895-session-signing-view-tier.md) (#895), with the lost answer as a kept key rather
+  than an `InFlight` case, and the moved-on notice, the work a signature is asked over and the
+  plan's work folded into the lanes, so that `App.State` holds the four lanes and nothing else
+  of them.
 - `Deferred.Refreshing of 't` for the plain fetches: #896.
 - The component-local rule: the stepped order in `Views/Order.fs` hook state; the prescribe
   page's own dialog flag beside the plan page's selection-derived one: #897.
 - `App.State` grouped one field per tier: #898.
-- Decision c of 691, steps 10 and 11 above: #899.
+- Decision c of 691, steps 10 and 11 above: #899, built as #901 and the PR after it (see As built).
 - Plan 691's other left-open items, unchanged.
 
 ## As built
@@ -304,7 +305,7 @@ client edited directly. Every step left the Shared tests, the Fable compile with
 | 7, the nutrition page | #893 | the slots and the buttons from `Settled` and `Changing`, the delete confirmation from `Settled`; the slot's `init` on the context itself |
 | 8, the old projection | #894 | `Provisional`, `Deferred.inProgress`, both `toDeferred`, `OrderPlanState.selected`, the `Deferred` members and `Selected` of the interfaces gone; the view members under the final names; the interactions page on the plan view; 4 `toDeferred` tests gone |
 | 9, docs | this PR | the stepping-flow document on the view cases and the step that waits; plans 691 and 667 closed on the projection; this section; #895 to #899 filed |
-| 10 and 11, decision c | | not built here: #899 |
+| 10 and 11, decision c | #901, this PR | decided after the plan: the greyed empty form on the first load. `Unevaluated` and `Unopened` gone, the first evaluation and an open over the empty value held and shown, `Evaluating` and `Opening` gone; a patient change during an open opens the same contexts again from the request; the ContinuousMeds guard falls through instead of resetting an empty workbench; the interactions page counts drugs from a settled plan only, as before |
 
 ### Deviations from the text above
 
@@ -332,4 +333,4 @@ client edited directly. Every step left the Shared tests, the Fable compile with
   view, and its `init` takes the context itself.
 - **The interactions page was a reader too**, not named in the plan; it reads the plan's drugs
   from `OrderPlanView.Settled`, as it read them from `Resolved`.
-- **Steps 10 and 11 went to their own issue** (#899), as question 2 was answered.
+- **Steps 10 and 11 went to their own issue** (#899), as question 2 was answered, and were built from it once the greyed first load was chosen over the spinner.

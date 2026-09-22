@@ -182,6 +182,11 @@ Toont de berekende doseringsrange op basis van de patiëntparameters en het gese
 > geldende regels en de G-Standaard doseringscontrole (blauw = attentie, oranje = waarschuwing,
 > rood = alarm), zowel in de orderweergave als in het Formularium; zie [Probleemoplossing](#9-probleemoplossing).
 
+Wie de pagina verlaat met niet-ondertekend werk — een medicatie in voorbereiding, een
+ondertekening die loopt, of een order in het plan die nog niet is ondertekend — krijgt eerst een
+vraag van de browser, of dat nu via terug, vernieuwen of het sluiten van het tabblad is. Wat
+achterblijft wordt niet bewaard: het volgende bezoek opent op de laatst ondertekende versie.
+
 ---
 
 ## 5. Noodlijst en infuuspompen
@@ -322,6 +327,5 @@ GenPRES gebruikt intern `BigRational`-rekenkunde voor exacte, eenheidveilige ber
 
 ---
 
-*Versie: 1.0 — maart 2026*  
 *Taal: Nederlands*  
 *[🇬🇧 English version](../en/user-guide.md)*

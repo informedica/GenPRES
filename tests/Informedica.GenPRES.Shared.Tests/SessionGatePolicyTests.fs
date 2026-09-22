@@ -12,9 +12,6 @@ module SessionGatePolicyTests =
     open SessionGatePolicy
 
 
-    let launch = Launch "l"
-    let key = PublicKey "k"
-
     let opened =
         {
             User = None
@@ -68,9 +65,9 @@ module SessionGatePolicyTests =
                     [
                         for name, session in
                             [
-                                "Anonymous", Session.Anonymous
-                                "Open", Session.Open opened
-                                "Closing", Session.Closing opened
+                                "Anonymous", SessionView.Anonymous
+                                "Open", SessionView.Open opened
+                                "Closing", SessionView.Closing opened
                             ] do
                             test name {
                                 gateFor english session |> Expect.isNone "no gate"
@@ -83,16 +80,16 @@ module SessionGatePolicyTests =
                     [
                         for name, session in
                             [
-                                "Launching", Session.Launching(launch, key, 1)
-                                "Resuming", Session.Resuming
-                                "Unreachable", Session.Unreachable(launch, key, 3)
-                                "Refused", Session.Refused(LaunchRefusal.NoRole, None)
-                                "Ended", Session.Ended SessionEnding.SupersededByLaunch
-                                "Ended at the PIN limit", Session.Ended SessionEnding.WrongPinLimit
-                                "Ended unreadable", Session.Ended SessionEnding.Unreadable
-                                "Enrolling", Session.Enrolling(pending, None)
-                                "SupplyingPin", Session.SupplyingPin pending
-                                "EnrolmentFailed", Session.EnrolmentFailed PinRefusal.CodeVoid
+                                "Launching", SessionView.Launching 1
+                                "Resuming", SessionView.Resuming
+                                "Unreachable", SessionView.Unreachable
+                                "Refused", SessionView.Refused LaunchRefusal.NoRole
+                                "Ended", SessionView.Ended SessionEnding.SupersededByLaunch
+                                "Ended at the PIN limit", SessionView.Ended SessionEnding.WrongPinLimit
+                                "Ended unreadable", SessionView.Ended SessionEnding.Unreadable
+                                "Enrolling", SessionView.Enrolling(pending, None)
+                                "SupplyingPin", SessionView.SupplyingPin pending
+                                "EnrolmentFailed", SessionView.EnrolmentFailed PinRefusal.CodeVoid
                             ] do
                             test name {
                                 gateFor english session |> Expect.isSome "gate"
@@ -101,7 +98,7 @@ module SessionGatePolicyTests =
                     ]
 
                 test "Enrolling greets, says where the code went, and shows the form (UC-2)" {
-                    let gate = gateOf (Session.Enrolling(pending, None))
+                    let gate = gateOf (SessionView.Enrolling(pending, None))
                     gate.Busy |> Expect.isFalse "not busy"
                     gate.Actions |> Expect.isEmpty "no actions besides the form"
                     gate.Body |> Expect.stringContains "name" "Stub Prescriber (no PIN)"
@@ -113,24 +110,24 @@ module SessionGatePolicyTests =
                         form.Submit |> Expect.equal "button" "Set PIN"
                     | None -> failtest "expected the form"
 
-                    let named = namedGateOf (Session.Enrolling(pending, Some(PinRefusal.WrongCode 2)))
+                    let named = namedGateOf (SessionView.Enrolling(pending, Some(PinRefusal.WrongCode 2)))
                     named.Title |> Expect.equal "title term" "<Session Gate Enrolment>"
 
                     named.Form
                     |> Option.bind _.Error
                     |> Expect.equal "the server's answer, as a term" (Some "<Session Enrolment Wrong Code>")
 
-                    (gateOf (Session.Enrolling(pending, Some(PinRefusal.WrongCode 2)))).Form
+                    (gateOf (SessionView.Enrolling(pending, Some(PinRefusal.WrongCode 2)))).Form
                     |> Option.bind _.Error
                     |> Expect.equal "filled" (Some "The code is not right. 2 tries left.")
                 }
 
                 test "SupplyingPin is busy without the form; EnrolmentFailed says why and asks for a relaunch" {
-                    let busy = gateOf (Session.SupplyingPin pending)
+                    let busy = gateOf (SessionView.SupplyingPin pending)
                     busy.Busy |> Expect.isTrue "busy"
                     busy.Form |> Expect.isNone "no form while in flight"
 
-                    let failed = gateOf (Session.EnrolmentFailed PinRefusal.CodeVoid)
+                    let failed = gateOf (SessionView.EnrolmentFailed PinRefusal.CodeVoid)
                     failed.Form |> Expect.isNone "no form"
                     failed.Actions |> Expect.isEmpty "relaunch only"
                     failed.Body |> Expect.stringContains "why" "three wrong tries"
@@ -138,7 +135,7 @@ module SessionGatePolicyTests =
                     failed.Body
                     |> Expect.stringContains "relaunch" "Open GenPRES again from MainEHR."
 
-                    (gateOf (Session.EnrolmentFailed PinRefusal.WrongActivePatient)).Body
+                    (gateOf (SessionView.EnrolmentFailed PinRefusal.WrongActivePatient)).Body
                     |> Expect.stringContains "patient" "not the patient of this launch"
                 }
 
@@ -160,42 +157,42 @@ module SessionGatePolicyTests =
                 }
 
                 test "Ended says why, asks for a relaunch, and offers the anonymous open (Rule 11)" {
-                    let gate = gateOf (Session.Ended SessionEnding.SupersededByLaunch)
+                    let gate = gateOf (SessionView.Ended SessionEnding.SupersededByLaunch)
                     gate.Busy |> Expect.isFalse "not busy"
                     gate.Actions |> Expect.equal "continue" [ Action.ContinueWithoutLaunch ]
                     gate.Body |> Expect.stringContains "reason" "newer session"
                     gate.Body |> Expect.stringContains "relaunch" "Open GenPRES again from MainEHR."
 
-                    let named = namedGateOf (Session.Ended SessionEnding.SupersededByLaunch)
+                    let named = namedGateOf (SessionView.Ended SessionEnding.SupersededByLaunch)
                     named.Title |> Expect.equal "title term" "<Session Gate Ended>"
 
                     named.Body
                     |> Expect.equal "body terms" "<Session Ending Superseded> <Session Relaunch>"
 
-                    (namedGateOf (Session.Ended SessionEnding.WrongPinLimit)).Body
+                    (namedGateOf (SessionView.Ended SessionEnding.WrongPinLimit)).Body
                     |> Expect.equal "the PIN limit (Rule 28)" "<Session Ending Pin Limit> <Session Relaunch>"
 
-                    (namedGateOf (Session.Ended SessionEnding.Unreadable)).Body
+                    (namedGateOf (SessionView.Ended SessionEnding.Unreadable)).Body
                     |> Expect.equal "the store could not be read" "<Session Ending Unreadable> <Session Relaunch>"
                 }
 
                 test "Launching is busy, names the attempt, offers nothing" {
-                    let gate = gateOf (Session.Launching(launch, key, 2))
+                    let gate = gateOf (SessionView.Launching 2)
                     gate.Busy |> Expect.isTrue "busy"
                     gate.Actions |> Expect.isEmpty "no actions"
 
                     gate.Body
-                    |> Expect.stringContains "attempt" $"attempt 2 of {Session.maxAttempts}"
+                    |> Expect.stringContains "attempt" $"attempt 2 of {SessionState.maxAttempts}"
                 }
 
                 test "Resuming is busy and offers nothing" {
-                    let gate = gateOf Session.Resuming
+                    let gate = gateOf SessionView.Resuming
                     gate.Busy |> Expect.isTrue "busy"
                     gate.Actions |> Expect.isEmpty "no actions"
                 }
 
                 test "Unreachable offers a retry and names the attempts" {
-                    let gate = gateOf (Session.Unreachable(launch, key, 3))
+                    let gate = gateOf (SessionView.Unreachable)
                     gate.Busy |> Expect.isFalse "not busy"
                     gate.Actions |> Expect.equal "retry" [ Action.Retry ]
                     gate.Body |> Expect.stringContains "attempts" "3 attempts"
@@ -207,7 +204,7 @@ module SessionGatePolicyTests =
                     [
                         for refusal in relaunchRefusals do
                             test $"{refusal}" {
-                                let gate = gateOf (Session.Refused(refusal, None))
+                                let gate = gateOf (SessionView.Refused refusal)
                                 gate.Busy |> Expect.isFalse "not busy"
                                 gate.Actions |> Expect.isEmpty "no actions"
                                 // sentence-initial or after "and": the tail is the same
@@ -216,21 +213,27 @@ module SessionGatePolicyTests =
                     ]
 
                 test "NoRole offers the anonymous open, whatever the retry" {
-                    for retry in [ None; Some(launch, key) ] do
-                        let gate = gateOf (Session.Refused(LaunchRefusal.NoRole, retry))
+                    // only a missing browser identity is ever retried, so a retryable NoRole
+                    // never occurs; the gate keeps the rule regardless
+                    for session in
+                        [
+                            SessionView.Refused LaunchRefusal.NoRole
+                            SessionView.Retryable LaunchRefusal.NoRole
+                        ] do
+                        let gate = gateOf session
                         gate.Actions |> Expect.equal "continue" [ Action.ContinueWithoutLaunch ]
                         gate.Body |> Expect.stringContains "no patient" "no patient is carried over"
                 }
 
                 test "NoBrowserIdentity with a retry offers it" {
-                    let gate = gateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launch, key)))
+                    let gate = gateOf (SessionView.Retryable LaunchRefusal.NoBrowserIdentity)
 
                     gate.Actions |> Expect.equal "retry" [ Action.Retry ]
                     gate.Body |> Expect.stringContains "try again" "Try again"
                 }
 
                 test "NoBrowserIdentity without a retry asks for a relaunch" {
-                    let gate = gateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, None))
+                    let gate = gateOf (SessionView.Refused LaunchRefusal.NoBrowserIdentity)
                     gate.Actions |> Expect.isEmpty "no actions"
                     gate.Body |> Expect.stringContains "relaunch" "Open GenPRES again from MainEHR."
                 }
@@ -239,19 +242,19 @@ module SessionGatePolicyTests =
                     "every text is a term, translated by the caller"
                     [
                         test "Launching" {
-                            let gate = namedGateOf (Session.Launching(launch, key, 2))
+                            let gate = namedGateOf (SessionView.Launching 2)
                             gate.Title |> Expect.equal "title" "<Session Gate Opening>"
                             gate.Body |> Expect.equal "body" "<Session Gate Opening Text>"
                         }
 
                         test "Resuming" {
-                            let gate = namedGateOf Session.Resuming
+                            let gate = namedGateOf SessionView.Resuming
                             gate.Title |> Expect.equal "title" "<Session Gate Resuming>"
                             gate.Body |> Expect.equal "body" "<Session Gate Resuming Text>"
                         }
 
                         test "Unreachable" {
-                            let gate = namedGateOf (Session.Unreachable(launch, key, 3))
+                            let gate = namedGateOf (SessionView.Unreachable)
                             gate.Title |> Expect.equal "title" "<Session Gate Unreachable>"
 
                             gate.Body
@@ -272,13 +275,13 @@ module SessionGatePolicyTests =
                                 "<Session Refusal No Browser Identity> <Session Relaunch>"
                             ] do
                             test $"Refused {refusal} without a retry" {
-                                let gate = namedGateOf (Session.Refused(refusal, None))
+                                let gate = namedGateOf (SessionView.Refused refusal)
                                 gate.Title |> Expect.equal "title" "<Session Gate Refused>"
                                 gate.Body |> Expect.equal "body" body
                             }
 
                         test "Refused NoBrowserIdentity with a retry" {
-                            let gate = namedGateOf (Session.Refused(LaunchRefusal.NoBrowserIdentity, Some(launch, key)))
+                            let gate = namedGateOf (SessionView.Retryable LaunchRefusal.NoBrowserIdentity)
 
                             gate.Body
                             |> Expect.equal "body" "<Session Refusal No Browser Identity> <Session Retry>"
@@ -292,14 +295,16 @@ module SessionGatePolicyTests =
                         | Terms.``Session Gate Unreachable Text`` -> "{0} pogingen"
                         | _ -> ""
 
-                    (gateOf (Session.Launching(launch, key, 2))).Body
-                    |> Expect.equal "english" $"Presenting the launch, attempt 2 of {Session.maxAttempts}."
+                    (gateOf (SessionView.Launching 2)).Body
+                    |> Expect.equal "english" $"Presenting the launch, attempt 2 of {SessionState.maxAttempts}."
 
-                    match gateFor template (Session.Launching(launch, key, 2)) with
-                    | Some gate -> gate.Body |> Expect.equal "translated" $"poging 2 van {Session.maxAttempts}"
+                    match gateFor template (SessionView.Launching 2) with
+                    | Some gate ->
+                        gate.Body
+                        |> Expect.equal "translated" $"poging 2 van {SessionState.maxAttempts}"
                     | None -> failtest "expected a gate"
 
-                    match gateFor template (Session.Unreachable(launch, key, 3)) with
+                    match gateFor template (SessionView.Unreachable) with
                     | Some gate -> gate.Body |> Expect.equal "translated" "3 pogingen"
                     | None -> failtest "expected a gate"
                 }
@@ -342,9 +347,9 @@ module SessionGatePolicyTests =
                 test "product names keep their case in every body" {
                     let bodies =
                         [
-                            yield (gateOf (Session.Unreachable(launch, key, 3))).Body
+                            yield (gateOf (SessionView.Unreachable)).Body
                             for refusal in relaunchRefusals @ [ LaunchRefusal.NoRole; LaunchRefusal.NoBrowserIdentity ] do
-                                yield (gateOf (Session.Refused(refusal, None))).Body
+                                yield (gateOf (SessionView.Refused refusal)).Body
                         ]
 
                     for body in bodies do

@@ -2,8 +2,10 @@ module App
 
 open System
 open Fable.Core
+open Fable.Core.JsInterop
 open Browser
 open Fable.React
+open Feliz
 open Elmish
 open Feliz.Router
 open Fable.Remoting.Client
@@ -64,12 +66,9 @@ module private Elmish =
             // counts logins and logouts, so that a login answer of an earlier attempt is dropped
             LoginAttempt: int
             // the launch Session; Anonymous is the state every URL patient runs in
-            Session: Session
+            Session: SessionState
             // the signing phase of the open Session; Idle whenever no Session is open
-            Signing: Signing
-            // the newest version told while the Session is on an older
-            // one; None whenever no Session is open
-            MovedOn: OrderPlanHead option
+            Signing: SigningState
             // what the server was configured with: the default language, the demo flag
             Settings: Deferred<Api.ServerSettings>
             // the url or the User chose the language (LanguagePolicy); the server default no
@@ -86,8 +85,6 @@ module private Elmish =
 
         | UpdatePage of Global.Pages
         | UpdatePatient of Patient option
-        // a reply said the record moved on
-        | RecordMovedOn of OrderPlanHead
 
         | LoadNormalValues of AsyncOperationStatus<Result<NormalValues, string>>
 
@@ -190,10 +187,7 @@ module private Elmish =
 
     /// The OpenedToken the Session holds, sent with every computing request; none
     /// without an open Session.
-    let tokenOf (session: Session) =
-        match session with
-        | Session.Open opened -> opened.OpenedToken
-        | _ -> None
+    let tokenOf = SessionState.token
 
 
     /// A request id, minted at dispatch, so that an answer can name the request it answers.
@@ -287,21 +281,12 @@ module private Elmish =
 
 
     /// The result, and what the Session is told with it: the record moved on or the Session
-    /// ended, each as its own message so the machines decide. The
-    /// stale-request guard: the notice counts only when the request started from the token the
-    /// open Session holds now; a reply of a Session since closed, replaced or re-minted says
-    /// nothing about this one (the next request repeats what still holds; the notice is stateless).
+    /// ended, as one message to the session machine, which decides whether the notice counts
+    /// (only when the request started from the token the open Session holds now).
     let processApiMsg (state: State) (answer: Answer<'r>) (apply: State -> 'r -> State * Cmd<Msg>) =
-        let current =
-            match state.Session with
-            | Session.Open opened -> Some opened.OpenedToken
-            | _ -> None
-
         let told =
             match answer.Reply.Notice with
-            | Some _ when current <> Some answer.From -> Cmd.none
-            | Some(RecordNotice.NewerVersion head) -> Cmd.ofMsg (RecordMovedOn head)
-            | Some(RecordNotice.Ended ending) -> Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
+            | Some notice -> Cmd.ofMsg (SessionMsg(SessionMsg.Told(answer.From, notice)))
             | None -> Cmd.none
 
         let state, cmd = apply state answer.Reply.Response
@@ -595,9 +580,8 @@ module private Elmish =
             LogAnalysisReport = HasNotStartedYet
             Reloading = HasNotStartedYet
             LoginAttempt = 0
-            Session = Session.Anonymous
-            Signing = Signing.Idle
-            MovedOn = None
+            Session = SessionState.anonymous
+            Signing = SigningState.idle
             Settings = HasNotStartedYet
             LanguageChosen = (LanguagePolicy.Language.initial lang).Chosen
         }
@@ -616,6 +600,15 @@ module private Elmish =
             State.Context.Localization = language.Current
             LanguageChosen = language.Chosen
         }
+
+
+    /// Whether leaving the page would lose work, as the policy tells it from the workbench,
+    /// the signing phase and the plan's work.
+    let hasUnsignedWork (state: State) =
+        UnsignedWorkPolicy.hasUnsignedWork
+            (state.OrderContext |> OrderContextState.context)
+            (state.Signing |> SigningState.view)
+            (state.OrderPlan |> OrderPlanState.work)
 
 
     /// Make the key pair, then present the Launch with its public key.
@@ -715,7 +708,9 @@ module private Elmish =
             }
             |> Cmd.fromAsync
         // told in update, where the sentence and the notice live
-        | SessionEffect.TellVersionOpened _ -> Cmd.none
+        // told in update
+        | SessionEffect.TellVersionOpened _
+        | SessionEffect.TellMovedOn _ -> Cmd.none
         | SessionEffect.CallOpenVersion(id, from) ->
             async {
                 try
@@ -777,7 +772,7 @@ module private Elmish =
     /// can drop one that belongs to an earlier Session. Without an open Session nothing is sent:
     /// the answer is a refusal. What is told (signed, refused, an error) is put on the snackbar
     /// by `update`, not here.
-    let interpretSigningEffect (session: Session) (effect: SigningEffect) : Cmd<Msg> =
+    let interpretSigningEffect (session: SessionState) (effect: SigningEffect) : Cmd<Msg> =
         let token = tokenOf session
 
         match effect with
@@ -829,7 +824,11 @@ module private Elmish =
         | SigningEffect.RenewToken token -> Cmd.ofMsg (SessionMsg(SessionMsg.TokenRenewed token))
         | SigningEffect.EndSession ending -> Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
         | SigningEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient(Some patient))
-        | SigningEffect.TellSigned _
+        // a refusal because the record moved on is the notice too: the Session keeps the head
+        // for the bar; the sentence is told in update
+        | SigningEffect.TellRefused(SigningRefusal.Blocked head) -> Cmd.ofMsg (SessionMsg(SessionMsg.Blocked head))
+        // the plan's work follows the signature: as signed, unless it changed meanwhile
+        | SigningEffect.TellSigned(_, askedOver) -> Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Signed askedOver))
         | SigningEffect.TellRefused _
         | SigningEffect.TellError _ -> Cmd.none
 
@@ -838,7 +837,7 @@ module private Elmish =
     /// for, so the machine can drop an answer to an earlier request; the notice rides on the
     /// reply and is told by `update`; a transport failure is an Error answer, never an
     /// exception. The page and the snackbar are `update`'s, not here.
-    let interpretOrderPlanEffect (session: Session) (effect: OrderPlanEffect) : Cmd<Msg> =
+    let interpretOrderPlanEffect (session: SessionState) (effect: OrderPlanEffect) : Cmd<Msg> =
         match effect with
         | OrderPlanEffect.CallPlan(cmd, request) ->
             let opened = tokenOf session
@@ -876,7 +875,7 @@ module private Elmish =
     /// sent for; the notice rides on the reply and is told by `update`; a transport failure is
     /// an Error answer. The filter syncs and the page are state changes, made by `update`; only
     /// the loads they need are commands.
-    let interpretOrderContextEffect (session: Session) (effect: OrderContextEffect) : Cmd<Msg> =
+    let interpretOrderContextEffect (session: SessionState) (effect: OrderContextEffect) : Cmd<Msg> =
         match effect with
         | OrderContextEffect.CallContext(cmd, ctx, request) ->
             let opened = tokenOf session
@@ -1103,7 +1102,8 @@ module private Elmish =
         | ListLogFiles ->
             let token = state.AuthToken
 
-            { state with LogFiles = InProgress },
+            // the table shown stays until the answer
+            { state with LogFiles = state.LogFiles |> Deferred.refresh },
             Api.AdminCommand.ListLogFiles token
             |> createAdminMsg (fun result -> LoadLogFilesResult(token, result))
 
@@ -1192,30 +1192,6 @@ module private Elmish =
 
                 { state with Page = page }, Cmd.batch (retryDrugNames :: loadCmds)
 
-        // FilterOrderPlan sends the cart through the server so totals and filters are computed
-        // as for any cart; the patient is the one every other part of the state uses
-        // told once per version (it gates nothing); the bar on the order plan offers it
-        | RecordMovedOn head ->
-            let movedOn, news = MovedOn.receive state.MovedOn head
-            let state = { state with MovedOn = movedOn }
-
-            if news then
-                let tr term =
-                    Global.getLocalizedTerm
-                        state.Localization
-                        state.Context.Localization
-                        (SigningPolicy.english term)
-                        term
-
-                { state with
-                    SnackbarMsg = SigningPolicy.movedOnSentence tr head
-                    SnackbarOpen = true
-                    SnackbarSeverity = "warning"
-                },
-                Cmd.none
-            else
-                state, Cmd.none
-
         | UpdatePatient dto -> updatePatient dto state
 
         | UrlChanged sl ->
@@ -1231,9 +1207,9 @@ module private Elmish =
             // router fires UrlChanged on mount too, while a Resume may still be in flight,
             // so only Open and Closing block the url patient
             let anonymous =
-                match state.Session with
-                | Session.Open _
-                | Session.Closing _ -> false
+                match SessionState.view state.Session with
+                | SessionView.Open _
+                | SessionView.Closing _ -> false
                 | _ -> true
 
             let pat = if anonymous then pat else state.PatientDraft
@@ -1284,14 +1260,14 @@ module private Elmish =
                 ]
 
         | SessionMsg msg ->
-            let session, effects = Session.transition msg state.Session
+            let session, effects = SessionState.transition msg state.Session
 
             // a failed close is reported only when it was this session's close: a CloseFailed
             // that arrives after a newer launch superseded the Closing session is dropped by
             // the machine and must not put an error over the newer session
             let state =
-                match msg, state.Session with
-                | SessionMsg.CloseFailed reason, Session.Closing _ ->
+                match msg, SessionState.view state.Session with
+                | SessionMsg.CloseFailed reason, SessionView.Closing _ ->
                     Logging.error "could not close the session on the server" reason
 
                     { state with
@@ -1300,7 +1276,7 @@ module private Elmish =
                         SnackbarSeverity = "error"
                     }
                 // the same for a PIN that never reached the server: the form comes back as it was
-                | SessionMsg.PinAnswered(Error reason), Session.SupplyingPin _ ->
+                | SessionMsg.PinAnswered(Error reason), SessionView.SupplyingPin _ ->
                     Logging.error "could not send the PIN to the server" reason
 
                     { state with
@@ -1310,47 +1286,45 @@ module private Elmish =
                     }
                 | _ -> state
 
-            // a signature belongs to an open Session: whatever ends the Session drops it;
-            // so does the moved-on notice
-            let signing, movedOn =
-                match session with
-                | Session.Open _ -> state.Signing, state.MovedOn
-                | _ -> Signing.Idle, None
+            // a signature belongs to an open Session: whatever ends the Session drops it. The
+            // plan's work stays: unsigned is unsigned
+            let signing =
+                match SessionState.view session with
+                | SessionView.Open _ -> state.Signing
+                | _ -> SigningState.idle
 
-            // the version is open; said once, and the notice is spent
-            let state, movedOn =
+            let tr term =
+                Global.getLocalizedTerm state.Localization state.Context.Localization (SigningPolicy.english term) term
+
+            let tell message severity (state: State) =
+                { state with
+                    SnackbarMsg = message
+                    SnackbarOpen = true
+                    SnackbarSeverity = severity
+                }
+
+            // the version is open, or the record moved on: each said once, the machine decides
+            let state =
                 effects
                 |> List.fold
-                    (fun (state, movedOn) effect ->
+                    (fun state effect ->
                         match effect with
                         | SessionEffect.TellVersionOpened head ->
-                            let tr term =
-                                Global.getLocalizedTerm
-                                    state.Localization
-                                    state.Context.Localization
-                                    (SigningPolicy.english term)
-                                    term
-
-                            { state with
-                                SnackbarMsg = SigningPolicy.versionOpenedSentence tr head
-                                SnackbarOpen = true
-                                SnackbarSeverity = "success"
-                            },
-                            // a newer notice told meanwhile stays, with its offer
-                            MovedOn.opened movedOn head
-                        | _ -> state, movedOn
+                            state |> tell (SigningPolicy.versionOpenedSentence tr head) "success"
+                        | SessionEffect.TellMovedOn head ->
+                            state |> tell (SigningPolicy.movedOnSentence tr head) "warning"
+                        | _ -> state
                     )
-                    (state, movedOn)
+                    state
 
             { state with
                 Session = session
                 Signing = signing
-                MovedOn = movedOn
             },
             effects |> List.map interpretSessionEffect |> Cmd.batch
 
         | SigningMsg msg ->
-            let signing, effects = Signing.transition msg state.Signing
+            let signing, effects = SigningState.transition msg state.Signing
 
             let tr term =
                 Global.getLocalizedTerm state.Localization state.Context.Localization (SigningPolicy.english term) term
@@ -1367,13 +1341,8 @@ module private Elmish =
                 |> List.fold
                     (fun state effect ->
                         match effect with
-                        | SigningEffect.TellSigned signed ->
+                        | SigningEffect.TellSigned(signed, _) ->
                             state |> tell (SigningPolicy.signedSentence tr signed) "success"
-                        // a refusal because the record moved on is the notice too; the
-                        // sentence is told here, the bar offers the version
-                        | SigningEffect.TellRefused(SigningRefusal.Blocked head as refusal) ->
-                            { state with MovedOn = MovedOn.receive state.MovedOn head |> fst }
-                            |> tell (SigningPolicy.refusalSentence tr refusal) "warning"
                         | SigningEffect.TellRefused refusal ->
                             state |> tell (SigningPolicy.refusalSentence tr refusal) "warning"
                         | SigningEffect.TellError reason ->
@@ -1559,9 +1528,12 @@ module private Elmish =
                 answer
                 (fun state plan -> state, Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Answered(request, Ok plan))))
 
+        // asked again over the formulary shown, which stays shown until the answer; a second
+        // request while one runs is dropped
         | LoadFormulary Started ->
             match state.Formulary with
-            | InProgress -> state, Cmd.none
+            | InProgress
+            | Refreshing _ -> state, Cmd.none
             | _ ->
                 let form =
                     match state.Formulary with
@@ -1570,7 +1542,7 @@ module private Elmish =
 
                 let cmd = form |> loadFormulary (tokenOf state.Session)
 
-                { state with Formulary = InProgress }, cmd
+                { state with Formulary = state.Formulary |> Deferred.refresh }, cmd
 
         // without a patient the formulary is what a reload refreshes, so it settles the reload
         | LoadFormulary(Finished(Ok msg)) ->
@@ -1613,14 +1585,15 @@ module private Elmish =
 
         | LoadParenteralia Started ->
             match state.Parenteralia with
-            | InProgress -> state, Cmd.none
+            | InProgress
+            | Refreshing _ -> state, Cmd.none
             | _ ->
                 let cmd =
                     let par = state.Parenteralia |> Deferred.defaultValue Parenteralia.empty
 
                     loadParenteralia (tokenOf state.Session) par
 
-                { state with Parenteralia = InProgress }, cmd
+                { state with Parenteralia = state.Parenteralia |> Deferred.refresh }, cmd
 
         | LoadParenteralia(Finished(Ok msg)) -> processApiMsg state msg applyParenteralia
 
@@ -1663,7 +1636,8 @@ module private Elmish =
             if drugs.Length < 2 then
                 { withdrawInteractionsNotice state with Interactions = HasNotStartedYet }, Cmd.none
             else
-                { state with Interactions = InProgress },
+                // the rows shown stay until the answer
+                { state with Interactions = state.Interactions |> Deferred.refresh },
                 Api.InteractionCommand.CheckInteractions drugs
                 |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionsResult
 
@@ -1674,9 +1648,10 @@ module private Elmish =
 
         | LoadInteractionDrugNames Started ->
             match state.InteractionDrugNames with
-            | InProgress -> state, Cmd.none
+            | InProgress
+            | Refreshing _ -> state, Cmd.none
             | _ ->
-                { state with InteractionDrugNames = InProgress },
+                { state with InteractionDrugNames = state.InteractionDrugNames |> Deferred.refresh },
                 Api.InteractionCommand.GetDrugNames
                 |> createApiMsg serverApi.processInteraction (tokenOf state.Session) LoadInteractionDrugNames
 
@@ -1768,7 +1743,7 @@ type private ConcreteAppEnv
         member _.ReloadResources() = ReloadResources |> dispatch
 
     interface AppEnv.ISession with
-        member _.Session = state.Session
+        member _.Session = state.Session |> SessionState.view
         member _.Close() = SessionMsg SessionMsg.Close |> dispatch
         member _.Retry() = SessionMsg SessionMsg.Retry |> dispatch
 
@@ -1776,16 +1751,17 @@ type private ConcreteAppEnv
 
         member _.SupplyPin code pin = SessionMsg(SessionMsg.SupplyPin(code, pin)) |> dispatch
 
-        member _.MovedOn = state.MovedOn
+        member _.MovedOn = state.Session |> SessionState.movedOn
 
         member _.OpenVersion id = SessionMsg(SessionMsg.OpenVersion id) |> dispatch
 
     interface AppEnv.ISigning with
-        member _.Signing = state.Signing
+        member _.Signing = state.Signing |> SigningState.view
 
         // one request id per Sign, so the answer lands on this request and no other
         member _.Sign plan =
-            SigningMsg(SigningMsg.Sign(plan, Guid.NewGuid().ToString())) |> dispatch
+            SigningMsg(SigningMsg.Sign(plan, OrderPlanState.work state.OrderPlan, Guid.NewGuid().ToString()))
+            |> dispatch
 
         member _.Accept() = SigningMsg SigningMsg.Accept |> dispatch
 
@@ -1875,6 +1851,23 @@ let View () =
     let state, dispatch = React.useElmish (init, update, [||])
     let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
 
+    // the browser asks before it leaves the page (back, a closed tab, a reload) while there is
+    // unsigned work; the listener is added once and reads the latest state through a ref
+    let stateRef = React.useRef state
+    stateRef.current <- state
+
+    React.useEffectOnce (fun () ->
+        let guard (ev: Browser.Types.Event) =
+            if hasUnsignedWork stateRef.current then
+                ev.preventDefault ()
+                // the browser shows its own dialog; older browsers need a returnValue for it
+                ev?returnValue <- ""
+
+        window.addEventListener ("beforeunload", guard)
+
+        fun () -> window.removeEventListener ("beforeunload", guard)
+    )
+
     let handleClose =
         fun (_: obj) (reason: string) ->
             if reason <> "clickaway" then
@@ -1937,8 +1930,8 @@ let View () =
             showDisclaimer =
                 state.ShowDisclaimer
                 && (
-                    match state.Session with
-                    | Session.Anonymous -> true
+                    match SessionState.view state.Session with
+                    | SessionView.Anonymous -> true
                     | _ -> false
                 )
             isDemo = state.IsDemo

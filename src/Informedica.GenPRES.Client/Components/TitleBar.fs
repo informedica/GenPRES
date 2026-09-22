@@ -245,17 +245,18 @@ module TitleBar =
                 )
 
             match session.Session with
-            | Session.Open opened -> userOf opened false
-            | Session.Closing opened -> userOf opened true
-            | Session.Anonymous
-            | Session.Launching _
-            | Session.Resuming
-            | Session.Refused _
-            | Session.Unreachable _
-            | Session.Ended _
-            | Session.Enrolling _
-            | Session.SupplyingPin _
-            | Session.EnrolmentFailed _ -> None
+            | SessionView.Open opened -> userOf opened false
+            | SessionView.Closing opened -> userOf opened true
+            | SessionView.Anonymous
+            | SessionView.Launching _
+            | SessionView.Resuming
+            | SessionView.Refused _
+            | SessionView.Retryable _
+            | SessionView.Unreachable
+            | SessionView.Ended _
+            | SessionView.Enrolling _
+            | SessionView.SupplyingPin _
+            | SessionView.EnrolmentFailed _ -> None
             |> Option.defaultValue null
 
         JSX.jsx

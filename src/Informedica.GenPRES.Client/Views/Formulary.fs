@@ -46,9 +46,11 @@ module Formulary =
 
 
         let init (form: Deferred<Formulary>) =
+            // the selects keep their state through a fetch that runs again over the formulary shown
             let state =
                 match form with
-                | Resolved form ->
+                | Resolved form
+                | Refreshing form ->
                     {
                         Generic = form.Generic //|> Option.orElse gen
                         Indication = form.Indication //|> Option.orElse ind
@@ -189,7 +191,6 @@ module Formulary =
         // greyed while a workbench request is under way
         let busy =
             match (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext with
-            | OrderContextView.Evaluating
             | OrderContextView.Changing _ -> true
             | OrderContextView.NoPatient
             | OrderContextView.Settled _ -> false
@@ -327,6 +328,7 @@ module Formulary =
                     </Typography>
                     {match formulary with
                      | Resolved form -> false, form.Indication, form.Indications
+                     | Refreshing form -> true, form.Indication, form.Indications
                      | _ -> true, None, [||]
                      |> fun (isLoading, sel, items) ->
                          let lbl = Terms.``Formulary Indications`` |> getTerm "Indicaties"
@@ -342,6 +344,7 @@ module Formulary =
                     <Stack direction={stackDirection} spacing={3} >
                         {match formulary with
                          | Resolved form -> false, form.Generic, form.Generics
+                         | Refreshing form -> true, form.Generic, form.Generics
                          | _ -> true, None, [||]
                          |> fun (isLoading, sel, items) ->
                              let lbl = Terms.``Formulary Medications`` |> getTerm "Medicatie"
@@ -354,6 +357,7 @@ module Formulary =
                                  items |> autoComplete isLoading lbl sel (GenericChange >> dispatch)}
                         {match formulary with
                          | Resolved form -> false, form.Route, form.Routes
+                         | Refreshing form -> true, form.Route, form.Routes
                          | _ -> true, None, [||]
                          |> fun (isLoading, sel, items) ->
                              let lbl = Terms.``Formulary Routes`` |> getTerm "Routes"
@@ -366,6 +370,7 @@ module Formulary =
                                  items |> autoComplete isLoading lbl sel (RouteChange >> dispatch)}
                         {match formulary with
                          | Resolved form -> false, form.Form, form.Forms
+                         | Refreshing form -> true, form.Form, form.Forms
                          | _ -> true, None, [||]
                          |> fun (isLoading, sel, items) ->
                              let lbl = Terms.``Pharmaceutical Form`` |> getTerm "Farmacologische Vorm"
@@ -377,8 +382,14 @@ module Formulary =
                              else
                                  items |> autoComplete isLoading lbl sel (FormChange >> dispatch)}
                         {match formulary with
-                         | Resolved form ->
-                             (false, form.DoseType, form.DoseTypes)
+                         | Resolved form
+                         | Refreshing form ->
+                             let isLoading =
+                                 match formulary with
+                                 | Refreshing _ -> true
+                                 | _ -> false
+
+                             (isLoading, form.DoseType, form.DoseTypes)
                              |> fun (isLoading, sel, items) ->
                                  let lbl = Terms.``Dose Types`` |> getTerm "Doseer types"
                                  let sel = sel |> Option.map DoseType.doseTypeToString
@@ -401,7 +412,8 @@ module Formulary =
 
                 <Box sx={markdownBoxSx} >
                     {match formulary with
-                     | Resolved form ->
+                     | Resolved form
+                     | Refreshing form ->
                          form.Markdown
                          |> Markdown.markdown.children
                          |> List.singleton
@@ -412,7 +424,8 @@ module Formulary =
                 </Box>
 
                 {match formulary with
-                 | Resolved form -> renderDoseCheck form
+                 | Resolved form
+                 | Refreshing form -> renderDoseCheck form
                  | _ -> null |> toReact}
 
             </CardContent>

@@ -187,8 +187,8 @@ built from a medication; that turned out to be wrong, and the two are independen
 never called `toOrderDto`: it is handed an Order Dto that `Api.intake` and `OrderPlan.recalculate`
 make from an `Order` with `Order.Dto.toDto`, and parses it straight back. #830 removes that round
 trip and touches neither `toOrderDto` nor the medication. What keeps the shim alive is its own
-callers, all of them outside the shipped code: the tests, the `Scripts/` and `Scratch/`
-prototypes, and the scenario benchmark. It goes when those take an `Order`, which is a change to
+callers, all of them outside the shipped code: the tests, the `Scripts/` prototypes, and
+the scenario benchmark. It goes when those take an `Order`, which is a change to
 the test projects alone and is not filed yet.
 
 Two things the work turned up, each filed rather than fixed here:

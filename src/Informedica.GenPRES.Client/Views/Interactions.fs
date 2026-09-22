@@ -25,7 +25,6 @@ module Interactions =
                 |> Array.distinct
                 |> Array.toList
             | OrderPlanView.NoPatient
-            | OrderPlanView.Opening
             | OrderPlanView.Changing _ -> []
 
 
@@ -132,14 +131,15 @@ module Interactions =
         let planDrugs = getPlanDrugs orderPlan
 
         // Re-check interactions when plan drugs change (e.g., order added or removed).
-        // Skip if already InProgress to avoid duplicate API calls (processApiMsg also
+        // Skip while a check runs to avoid duplicate API calls (processApiMsg also
         // dispatches CheckInteractions on OrderPlan API responses).
         let planDrugsKey = planDrugs |> String.concat "|"
 
         React.useEffect (
             (fun () ->
                 match interactions with
-                | InProgress -> ()
+                | InProgress
+                | Refreshing _ -> ()
                 | _ ->
                     let combined = getCombinedDrugs planDrugs state.ManualDrugs
 
@@ -151,29 +151,35 @@ module Interactions =
             [| box planDrugsKey |]
         )
 
+        // the rows shown stay while the drugs are checked again; the progress shows over them
         let interactionRows =
             match interactions with
-            | Resolved interactions -> interactions
+            | Resolved interactions
+            | Refreshing interactions -> interactions
             | _ -> [||]
 
         let isLoading =
             match interactions with
-            | InProgress -> true
+            | InProgress
+            | Refreshing _ -> true
             | _ -> false
 
         let hasChecked =
             match interactions with
-            | Resolved _ -> true
+            | Resolved _
+            | Refreshing _ -> true
             | _ -> false
 
         let drugNameValues =
             match interactionDrugNames with
-            | Resolved names -> names
+            | Resolved names
+            | Refreshing names -> names
             | _ -> [||]
 
         let isDrugNamesLoading =
             match interactionDrugNames with
-            | InProgress -> true
+            | InProgress
+            | Refreshing _ -> true
             | _ -> false
 
         let planChips =

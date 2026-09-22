@@ -18,15 +18,14 @@
     cache at test time. Re-run this only when the subset or the upstream data
     must change; then refresh the frozen counts asserted in the test.
 
-    Bootstrap mirrors Scratch/Informedica.GenForm.Lib.fsx (source #loaded; fresh
-    FSI). Run:
+    Bootstrap: the GenFORM Scripts/load.fsx (source #loaded; fresh FSI). Run:
       cd tests/Informedica.GenFORM.Tests/Scripts && dotnet fsi DownloadFixtures.fsx
 *)
 
-// Reuse the GenFORM Scratch bootstrap. #I points FSI's include path at the Scratch
+// Reuse the GenFORM Scripts bootstrap. #I points FSI's include path at the Scripts
 // dir (relative to this script) so load.fsx's own relative #r/#load resolve.
 #I __SOURCE_DIRECTORY__
-#I "../../../src/Informedica.GenFORM.Lib/Scratch"
+#I "../../../src/Informedica.GenFORM.Lib/Scripts"
 #load "load.fsx"
 
 open System

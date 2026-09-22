@@ -211,37 +211,37 @@ let tests =
 
                 let empty = Shared.Models.OrderPlan.create patient [||]
 
-                canSign (Session.Open(openedAs UserRole.Prescriber true)) withOrders
+                canSign (SessionView.Open(openedAs UserRole.Prescriber true)) withOrders
                 |> Expect.isTrue "prescriber"
 
-                canSign (Session.Open(openedAs UserRole.Prescriber true)) empty
+                canSign (SessionView.Open(openedAs UserRole.Prescriber true)) empty
                 |> Expect.isFalse "nothing to sign"
 
-                canSign (Session.Open(openedAs UserRole.Reader true)) withOrders
+                canSign (SessionView.Open(openedAs UserRole.Reader true)) withOrders
                 |> Expect.isFalse "reader"
 
-                canSign (Session.Open(openedAs UserRole.Prescriber false)) withOrders
+                canSign (SessionView.Open(openedAs UserRole.Prescriber false)) withOrders
                 |> Expect.isFalse "no patient"
 
-                canSign (Session.Open { openedAs UserRole.Prescriber true with User = None }) withOrders
+                canSign (SessionView.Open { openedAs UserRole.Prescriber true with User = None }) withOrders
                 |> Expect.isFalse "anonymous"
 
                 for session in
                     [
-                        Session.Anonymous
-                        Session.Resuming
-                        Session.Closing(openedAs UserRole.Prescriber true)
+                        SessionView.Anonymous
+                        SessionView.Resuming
+                        SessionView.Closing(openedAs UserRole.Prescriber true)
                     ] do
                     canSign session withOrders |> Expect.isFalse $"{session}"
             }
 
             test "the dialog is up while noticed, challenged or submitting" {
                 let plan = Shared.Models.OrderPlan.create patient [||]
-                dialogOpen Signing.Idle |> Expect.isFalse "idle"
-                dialogOpen (Signing.Requesting(plan, None, "r")) |> Expect.isFalse "requesting"
+                dialogOpen SigningView.Idle |> Expect.isFalse "idle"
+                dialogOpen SigningView.Requesting |> Expect.isFalse "requesting"
 
                 dialogOpen (
-                    Signing.Noticed(
+                    SigningView.Noticed(
                         plan,
                         {
                             Data = None
@@ -251,8 +251,11 @@ let tests =
                 )
                 |> Expect.isTrue "noticed"
 
-                dialogOpen (Signing.Challenged("c", plan, None)) |> Expect.isTrue "challenged"
-                dialogOpen (Signing.Submitting("c", plan, "k")) |> Expect.isTrue "submitting"
-                dialogOpen (Signing.Unsent("c", plan, "k")) |> Expect.isTrue "unsent"
+                dialogOpen (SigningView.Challenged(plan, None)) |> Expect.isTrue "challenged"
+
+                dialogOpen (SigningView.Challenged(plan, Some(SigningRefusal.PinWrong 2)))
+                |> Expect.isTrue "refused"
+
+                dialogOpen (SigningView.Submitting plan) |> Expect.isTrue "submitting"
             }
         ]

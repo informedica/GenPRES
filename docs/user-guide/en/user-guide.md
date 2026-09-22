@@ -180,6 +180,11 @@ Shows the calculated dose range based on the patient parameters and the selected
 > rules and the G-Standaard dose check (blue = caution, orange = warning, red = alert), in the
 > order view as well as in the Formulary; see [Troubleshooting](#9-troubleshooting).
 
+Leaving the page with unsigned work — a medication being prescribed, a signature under way, or
+an order in the plan that is not yet signed — makes the browser ask first, whether you press
+back, reload or close the tab. What you leave behind is not kept: the next visit opens on the
+version last signed.
+
 ---
 
 ## 5. Emergency List and Infusion Pumps
@@ -320,6 +325,5 @@ GenPRES internally uses `BigRational` arithmetic for exact unit-safe calculation
 
 ---
 
-*Version: 1.0 — March 2026*
 *Language: English*
 *[🇳🇱 Nederlandse versie](../nl/gebruikershandleiding.md)*

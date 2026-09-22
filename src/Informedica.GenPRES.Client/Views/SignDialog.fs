@@ -54,7 +54,7 @@ module SignDialog =
 
         let busy =
             match phase with
-            | Signing.Submitting _ -> true
+            | SigningView.Submitting _ -> true
             | _ -> false
 
         // an answer arrived (the request in flight is over): show it, until the next edit
@@ -81,7 +81,7 @@ module SignDialog =
 
         let refusal =
             match phase with
-            | Signing.Challenged(_, _, refusal) -> refusal
+            | SigningView.Challenged(_, refusal) -> refusal
             | _ -> None
 
         let error =
@@ -95,16 +95,16 @@ module SignDialog =
 
         let notice =
             match phase with
-            | Signing.Noticed(_, notice) -> Some notice
+            | SigningView.Noticed(_, notice) -> Some notice
             | _ -> None
 
         let orders =
             match phase with
-            | Signing.Noticed(plan, _)
-            | Signing.Challenged(_, plan, _)
-            | Signing.Submitting(_, plan, _)
-            | Signing.Unsent(_, plan, _) -> OrderPlan.orders plan
-            | _ -> [||]
+            | SigningView.Noticed(plan, _)
+            | SigningView.Challenged(plan, _)
+            | SigningView.Submitting plan -> OrderPlan.orders plan
+            | SigningView.Idle
+            | SigningView.Requesting -> [||]
 
         let body =
             match notice with

@@ -444,11 +444,14 @@ module ViewHelpers =
         """
 
 
+    /// The progress while a value is fetched, or fetched again over what is shown; nothing once
+    /// it is answered.
     let progressOrEmpty (deferred: Deferred<'a>) =
         match deferred with
         | Resolved _ -> null
         | HasNotStartedYet
-        | InProgress -> circularProgress
+        | InProgress
+        | Refreshing _ -> circularProgress
 
 
     let backdropProgress isOpen (message: string) =

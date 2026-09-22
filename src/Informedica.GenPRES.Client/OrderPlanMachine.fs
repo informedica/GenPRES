@@ -1,5 +1,6 @@
-/// The order plan as the client holds it, from no patient to a plan shown, changed and reopened: a
-/// pure state machine next to the Session's and the signing's, with effects for the App to
+/// The order plan as the client holds it, from no patient to the empty plan opened for one,
+/// shown, changed and reopened: a pure state machine next to the Session's and the signing's,
+/// with effects for the App to
 /// interpret. The machine is two stages: the plan as the clinical model has it, which knows no
 /// request, and the one request under way, which knows no plan beyond the command it carries;
 /// the dialog's selection, the client's own, sits beside them. `transition` runs the stages in
@@ -17,6 +18,7 @@ module OrderPlanMachine
 open Shared.Types
 open Shared.Models
 open Shared.Api
+open PlanWorkPolicy
 
 
 /// The plan as the clinical model has it: no request ids here.
@@ -26,10 +28,8 @@ type OrderPlanCart =
     // patient to open them for, since the Session tells its version before the patient it
     // opened with has reached the plan; empty when there is no such version
     | NoPatient of awaiting: OrderContext[]
-    // a patient held, no plan answered yet: the contexts being opened, so that a patient change
-    // meanwhile opens the same ones again and a signed version being opened is not lost
-    | Unopened of Patient * opening: OrderContext[]
-    // the plan as answered, the original a failed change goes back to
+    // the plan as answered, the original a failed change goes back to; the empty plan while an
+    // open is under way, the contexts being opened travelling in the request
     | Opened of Patient * OrderPlan
 
 
@@ -150,14 +150,12 @@ module OrderPlanCart =
         // no patient, no plan
         | OrderPlanCartMsg.PatientChanged None, _ -> OrderPlanCart.NoPatient [||], []
 
-        // the first plan for a patient: the version kept for it, or the empty one, opened
+        // the first plan for a patient: the empty plan held and shown while the version kept for
+        // the patient, or the empty one, is opened
         | OrderPlanCartMsg.PatientChanged(Some pat), OrderPlanCart.NoPatient awaiting ->
-            OrderPlanCart.Unopened(pat, awaiting), [ OrderPlanCartIntent.Open(pat, awaiting) ]
-        // the patient changed while an open is under way: the same contexts opened again for
-        // the new patient
-        | OrderPlanCartMsg.PatientChanged(Some pat), OrderPlanCart.Unopened(_, opening) ->
-            OrderPlanCart.Unopened(pat, opening), [ OrderPlanCartIntent.Open(pat, opening) ]
-        // the plan follows the patient: its totals recomputed
+            OrderPlanCart.Opened(pat, OrderPlan.create pat [||]), [ OrderPlanCartIntent.Open(pat, awaiting) ]
+        // the plan follows the patient: its totals recomputed (while an open is under way the
+        // composer opens the same contexts again for the new patient instead)
         | OrderPlanCartMsg.PatientChanged(Some pat), OrderPlanCart.Opened(_, tp) ->
             let tp = { tp with Patient = pat }
             OrderPlanCart.Opened(pat, tp), [ OrderPlanCartIntent.Recalculate tp ]
@@ -165,10 +163,8 @@ module OrderPlanCart =
         // the signed version replaces whatever plan there was; before the patient it was
         // opened with has arrived, its contexts are kept and opened when the patient does
         | OrderPlanCartMsg.Version head, OrderPlanCart.NoPatient _ -> OrderPlanCart.NoPatient head.OrderContexts, []
-        | OrderPlanCartMsg.Version head, OrderPlanCart.Unopened(pat, _) ->
-            OrderPlanCart.Unopened(pat, head.OrderContexts), [ OrderPlanCartIntent.Open(pat, head.OrderContexts) ]
         | OrderPlanCartMsg.Version head, OrderPlanCart.Opened(pat, _) ->
-            OrderPlanCart.Unopened(pat, head.OrderContexts), [ OrderPlanCartIntent.Open(pat, head.OrderContexts) ]
+            OrderPlanCart.Opened(pat, OrderPlan.create pat [||]), [ OrderPlanCartIntent.Open(pat, head.OrderContexts) ]
 
         // a change from a page, over the plan held
         | OrderPlanCartMsg.Command cmd, OrderPlanCart.Opened(_, tp) -> plan, [ OrderPlanCartIntent.Call(rebase tp cmd) ]
@@ -177,12 +173,9 @@ module OrderPlanCart =
         // nothing was asked without a patient, so nothing lands there
         | OrderPlanCartMsg.Landed _, OrderPlanCart.NoPatient _ -> plan, []
         // an answer lands for the patient held
-        | OrderPlanCartMsg.Landed(sent, Ok tp), OrderPlanCart.Unopened(pat, _)
         | OrderPlanCartMsg.Landed(sent, Ok tp), OrderPlanCart.Opened(pat, _) -> answered pat sent tp
-        // a failed open lands on the empty plan for the patient
-        | OrderPlanCartMsg.Landed(_, Error errs), OrderPlanCart.Unopened(pat, _) ->
-            OrderPlanCart.Opened(pat, OrderPlan.create pat [||]), [ OrderPlanCartIntent.Tell errs ]
-        // a failed change leaves the plan as the request found it
+        // a failed change leaves the plan as the request found it; for a failed open that is
+        // the empty plan for the patient
         | OrderPlanCartMsg.Landed(_, Error errs), OrderPlanCart.Opened _ -> plan, [ OrderPlanCartIntent.Tell errs ]
 
         // the rows chosen: the totals recomputed over them; the plan held stays what a failed
@@ -197,10 +190,11 @@ module OrderPlanCart =
 
 /// The plan, the one request under way (the command sent and the id the answer must name; none
 /// while idle), the dialog's step waiting on it (the command and its own id; none but while a
-/// request is under way) and the context the dialog shows, by id: the client's own, next to
-/// whatever is in flight. Built through the constructors below only, which admit the
+/// request is under way), the context the dialog shows, by id, and the plan's work since the
+/// version last opened or signed: the client's own, next to whatever is in flight. Built through the constructors below only, which admit the
 /// combinations that can occur: no patient with nothing under way, a version awaiting its
-/// patient, an open under way, a plan held, a change under way, with or without a step pending.
+/// patient, a plan held, a change under way (an open over the empty plan among them), with or
+/// without a step pending.
 type OrderPlanState =
     private
         {
@@ -208,6 +202,10 @@ type OrderPlanState =
             InFlight: (OrderPlanCommand * string) option
             Pending: (OrderPlanCommand * string) option
             Selected: string option
+            // what the plan holds beside the version last opened or signed: stepped by the
+            // commands as they go out, as signed again by a version opened or a signature over
+            // the same work; the leave-page guard asks over it
+            Work: PlanWork
         }
 
 
@@ -227,6 +225,9 @@ type OrderPlanMsg =
     | Select of string option
     // the contexts the rows keep, by id; the totals follow
     | Filter of string[] * request: string
+    // a signature told, with the work it was asked over: the plan is the version just signed,
+    // unless it changed meanwhile
+    | Signed of askedOver: PlanWork
 
 
 /// What the machine asks the App to do.
@@ -243,16 +244,15 @@ type OrderPlanEffect =
 
 
 /// The plan as the pages show it: the states a page can be in, each with what is valid in it
-/// and nothing of the request. Nothing without a patient; an open under way with nothing to
-/// show; the plan the server answered, nothing under way, with the context the dialog shows by
-/// id; a change under way, the plan shown meanwhile with that selection. A selection without a
+/// and nothing of the request. Nothing without a patient; the plan the server answered, nothing
+/// under way, with the context the dialog shows by id; a change under way, the plan shown
+/// meanwhile with that selection, the empty plan while an open runs. A selection without a
 /// plan cannot be written. A page renders from `Settled` and `Changing` alike, so that the
 /// screen stays populated while a request runs; it steps the dialog's order from `Changing` too,
 /// over the plan shown, and builds every other command from `Settled` only.
 [<RequireQualifiedAccess>]
 type OrderPlanView =
     | NoPatient
-    | Opening
     | Settled of OrderPlan * selected: string option
     /// The plan the command carries for a recalculation, so that the rows chosen show at once;
     /// the plan held for every other change.
@@ -268,8 +268,7 @@ module OrderPlanView =
         match view with
         | OrderPlanView.Settled(tp, _)
         | OrderPlanView.Changing(tp, _) -> OrderPlan.orders tp |> Array.exists (fun sc -> sc.Order.Id = orderId)
-        | OrderPlanView.NoPatient
-        | OrderPlanView.Opening -> false
+        | OrderPlanView.NoPatient -> false
 
 
 module OrderPlanState =
@@ -280,6 +279,7 @@ module OrderPlanState =
             InFlight = None
             Pending = None
             Selected = None
+            Work = PlanWork.AsSigned
         }
 
 
@@ -291,16 +291,19 @@ module OrderPlanState =
             InFlight = None
             Pending = None
             Selected = None
+            Work = PlanWork.AsSigned
         }
 
 
-    /// An open under way: the contexts being opened, nothing held yet, the dialog closed.
+    /// An open under way over the empty plan held and shown: the contexts being opened travel in
+    /// the request, the dialog closed.
     let opening (pat: Patient) (contexts: OrderContext[]) (request: string) =
         {
-            Cart = OrderPlanCart.Unopened(pat, contexts)
+            Cart = OrderPlanCart.Opened(pat, OrderPlan.create pat [||])
             InFlight = Some(OrderPlanCommand.Open(pat, contexts), request)
             Pending = None
             Selected = None
+            Work = PlanWork.AsSigned
         }
 
 
@@ -311,6 +314,7 @@ module OrderPlanState =
             InFlight = None
             Pending = None
             Selected = selected
+            Work = PlanWork.AsSigned
         }
 
 
@@ -321,6 +325,7 @@ module OrderPlanState =
             InFlight = Some(sent, request)
             Pending = None
             Selected = selected
+            Work = PlanWork.AsSigned
         }
 
 
@@ -330,11 +335,18 @@ module OrderPlanState =
         { state with Pending = Some(cmd, request) }
 
 
-    /// The plan the state holds, none before the first answer.
+    /// The plan's work since the version last opened or signed, on a plan held or changing.
+    let withWork (work: PlanWork) (state: OrderPlanState) = { state with Work = work }
+
+
+    /// What the plan holds beside the version last opened or signed.
+    let work (state: OrderPlanState) = state.Work
+
+
+    /// The plan the state holds, none without a patient; the empty plan while an open runs.
     let plan (state: OrderPlanState) =
         match state.Cart with
-        | OrderPlanCart.NoPatient _
-        | OrderPlanCart.Unopened _ -> None
+        | OrderPlanCart.NoPatient _ -> None
         | OrderPlanCart.Opened(_, tp) -> Some tp
 
 
@@ -342,7 +354,6 @@ module OrderPlanState =
     let patient (state: OrderPlanState) =
         match state.Cart with
         | OrderPlanCart.NoPatient _ -> None
-        | OrderPlanCart.Unopened(pat, _) -> Some pat
         | OrderPlanCart.Opened(pat, _) -> Some pat
 
 
@@ -365,7 +376,6 @@ module OrderPlanState =
     let view (state: OrderPlanState) : OrderPlanView =
         match state.Cart, state.InFlight with
         | OrderPlanCart.NoPatient _, _ -> OrderPlanView.NoPatient
-        | OrderPlanCart.Unopened _, _ -> OrderPlanView.Opening
         | OrderPlanCart.Opened(_, tp), Some(sent, _) -> OrderPlanView.Changing(meanwhile tp sent, state.Selected)
         | OrderPlanCart.Opened(_, tp), None -> OrderPlanView.Settled(tp, state.Selected)
 
@@ -402,7 +412,11 @@ module OrderPlanState =
                          else
                              state),
                         []
-                    | OrderPlanCartIntent.Call cmd -> call cmd state
+                    // the one place a command goes out: a change that goes out is work until the
+                    // next version is opened or signed; the step that waited counts here when it
+                    // goes out on the answer, and never if it is dropped meanwhile
+                    | OrderPlanCartIntent.Call cmd ->
+                        call cmd { state with Work = state.Work |> PlanWork.afterCommand cmd }
                     | OrderPlanCartIntent.CheckInteractions drugs -> state, [ OrderPlanEffect.CheckInteractions drugs ]
                     | OrderPlanCartIntent.GoToPlanPage -> state, [ OrderPlanEffect.GoToPlanPage ]
                     | OrderPlanCartIntent.ResetWorkbench -> state, [ OrderPlanEffect.ResetWorkbench ]
@@ -472,13 +486,37 @@ module OrderPlanState =
                 | _ -> landed, effects
 
         // the selection is the client's own, kept next to whatever is in flight; nothing to
-        // select before the plan is there
+        // select before the plan is there, the empty one being opened included
         | OrderPlanMsg.Select id ->
-            match state.Cart with
-            | OrderPlanCart.Opened _ -> { state with Selected = id }, []
-            | _ -> state, []
+            match state.Cart, state.InFlight with
+            | OrderPlanCart.Opened _, Some(OrderPlanCommand.Open _, _) -> state, []
+            | OrderPlanCart.Opened _, _ -> { state with Selected = id }, []
+            | OrderPlanCart.NoPatient _, _ -> state, []
 
-        | OrderPlanMsg.PatientChanged(pat, request) -> run request (OrderPlanCartMsg.PatientChanged pat) state
-        | OrderPlanMsg.Version(head, request) -> run request (OrderPlanCartMsg.Version head) state
+        // the patient changed while an open is under way: the same contexts opened again for
+        // the new patient, over the empty plan held
+        | OrderPlanMsg.PatientChanged(Some pat, request) ->
+            match state.Cart, state.InFlight with
+            | OrderPlanCart.Opened _, Some(OrderPlanCommand.Open(_, contexts), _) ->
+                let plan, _ = OrderPlanCart.step (OrderPlanCartMsg.PatientChanged(Some pat)) state.Cart
+
+                apply
+                    request
+                    [ OrderPlanCartIntent.Open(pat, contexts) ]
+                    { state with
+                        Cart = plan
+                        Selected = None
+                    }
+            | _ -> run request (OrderPlanCartMsg.PatientChanged(Some pat)) state
+
+        // a version opened is the plan as signed, and so is no plan at all: without a patient the
+        // plan is dropped, nothing left to sign. A command counts as work where it goes out, in
+        // the request stage
+        | OrderPlanMsg.PatientChanged(None, request) ->
+            run request (OrderPlanCartMsg.PatientChanged None) { state with Work = PlanWork.AsSigned }
+        | OrderPlanMsg.Version(head, request) ->
+            run request (OrderPlanCartMsg.Version head) { state with Work = PlanWork.AsSigned }
         | OrderPlanMsg.Command(cmd, request) -> run request (OrderPlanCartMsg.Command cmd) state
         | OrderPlanMsg.Filter(ids, request) -> run request (OrderPlanCartMsg.Filter ids) state
+        // the plan is the version just signed, unless it changed while the signature was under way
+        | OrderPlanMsg.Signed askedOver -> { state with Work = state.Work |> PlanWork.afterSigned askedOver }, []

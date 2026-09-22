@@ -698,8 +698,7 @@ module Order =
             match props.orderContext with
             | OrderContextView.Settled ctx
             | OrderContextView.Changing ctx -> Some ctx
-            | OrderContextView.NoPatient
-            | OrderContextView.Evaluating -> None
+            | OrderContextView.NoPatient -> None
 
         let shownOrder =
             shownContext
@@ -905,7 +904,6 @@ module Order =
 
         let isOrderLoading =
             match props.orderContext with
-            | OrderContextView.Evaluating
             | OrderContextView.Changing _ -> true
             | OrderContextView.NoPatient
             | OrderContextView.Settled _ -> false

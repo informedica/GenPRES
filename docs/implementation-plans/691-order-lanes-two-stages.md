@@ -370,9 +370,10 @@ Against `GENPRES_PROD=0 dotnet run`, launched as `prescriber`:
 
 - Decision c, the first load shown provisional: its own issue, #899. Decision b went to
   plan [646](646-patient-minimum.md): no seed before a patient.
-- `SessionMachine` (`Launching` with its attempt count, `Resuming`, `Closing`) and
-  `SigningMachine` (`Requesting`, `Submitting`, `Unsent`) split the same way;
-  `SessionGatePolicy`'s busy flag then reads the in-flight field: #895.
+- `SessionMachine` and `SigningMachine` split the same way: done by plan
+  [895](895-session-signing-view-tier.md) (#895), a lane record with the request under way as
+  its own field and a view the gate and the dialog read, without the two-stage `step` of this
+  plan, since their transitions are request-driven.
 - The pages reading the two records directly, and `toDeferred` gone: done by plan
   [706](706-client-view-tier.md), which also narrowed "one at a time" to the commands that
   wait; the dialog's wait as the one pending and go out on the answer (#887).

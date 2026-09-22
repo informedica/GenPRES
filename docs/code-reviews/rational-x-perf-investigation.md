@@ -67,8 +67,8 @@ chase the bottlenecks the change exposed.
 
 A/B method: build + run the same harness in this worktree (RationalX) and on
 `master` (original BigRational); BenchmarkDotNet means. Harnesses live in
-`benchmark/{RationalXBench,ValueUnitBench,ScenarioBench}` (gitignored by the
-opt-in policy; build/run with `dotnet run -c Release`).
+`benchmark/{RationalXBench,ValueUnitBench,ScenarioBench}` (build/run with
+`dotnet run -c Release`).
 
 ### 3.1 Raw arithmetic micro-benchmark (`RationalXBench`)
 `(a*b)/c` over a real base-unit fraction pool:
@@ -171,7 +171,7 @@ Distinct result sets identical throughout.
    above informative; `logOrder` migrated to the thunk API. (8 `Logger` literal
    sites updated for the new field — 2 in `Logging.Lib`, AgentLogger, SolverLogging,
    OrderLogging, plus test/benchmark loggers.) Scenario solve holds at ~116 ms.
-3. **[DONE] Unboxed `distinct`** applied to the `cmp` sites `ValueUnit.fs:845/847`
+3. **[DONE] Unboxed `distinct`** applied to the `cmp` sites `ValueUnit.fs`
    (`toBaseValue |> BigRational.distinct |> Array.sort`). Sites `1320`/`1398` are
    `string[]` (not `BigRational[]`) so they are left on `Array.distinct`.
 4. **Treat the solver's allocation profile as the next perf project** if

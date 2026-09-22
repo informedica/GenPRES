@@ -8,46 +8,46 @@ Reviewer: senior developer (AI)
 
 ---
 
-## What I did
+## Scope
 
-I performed a thorough code review of `Solver.fs`, identified hotspots and potential performance bottlenecks, and designed a detailed specification for a memoization mechanism that canonicalizes variable names (by replacing substrings with deterministic short symbols), includes variable values in keys, and safely re-maps names after retrieving cached results. I drafted an F# implementation sketch and an integration plan focused on placing the cache at the `Equation.solve` call site. Below I provide detailed findings, line-referenced observations, the memoization specification, an implementation sketch, testing plan, and recommended roadmap.
+A code review of `Solver.fs` that identifies hotspots and potential performance bottlenecks, and a specification for a memoization mechanism that canonicalizes variable names (by replacing substrings with deterministic short symbols), includes variable values in keys, and safely re-maps names after retrieving cached results. It includes an F# implementation sketch and an integration plan that places the cache at the `Equation.solve` call site, followed by the line-referenced findings, the memoization specification, a testing plan and a recommended roadmap.
 
 ---
 
 ## High-level summary / conclusion
 
-- Yes — you can improve performance by memoizing results of individual equation solves, provided you canonicalize variable names and include the relevant variable value attributes in the cache key.
-- The canonicalization must be deterministic and collision-free within a single key generation and you must deep-copy or use immutable DTOs for cached results.
+- Performance improves by memoizing results of individual equation solves, provided variable names are canonicalized and the relevant variable value attributes are part of the cache key.
+- The canonicalization must be deterministic and collision-free within a single key generation, and cached results must be deep-copied or held as immutable DTOs.
 - Best integration point: wrap calls to `Equation.solve` in `solveE` with a memoization layer.
 - Start with a per-solve-call (per `solve` invocation) cache to bound memory and limit semantic leakage across unrelated runs.
 
 ---
 
-## Annotated code review (with line ranges and contextual info)
+## Annotated code review
 
-The line numbers below are approximate and reflect the layout in the provided file.
+One section per member of `Solver.fs`, in the order the file declares them.
 
-### Header & imports (approx lines 1–18)
+### Header & imports
 
 - Observations: Clear module declaration and imports. Nothing critical.
 - Note: `module EQD = Equation.Dto` and `module Name = Variable.Name` are present but not heavily used inside `Solver.fs`. Fine.
 
-### sortByName (approx lines 20–30)
+### sortByName
 
 - Code:
   - Sorts equations by the name of the first variable: `Equation.toVars |> List.head |> Variable.getName`.
 - Issue:
   - Risk of runtime exception if an equation can have zero variables (List.head on empty). Document precondition or guard (e.g., Option.head or match).
 
-### printEqs (approx lines 32–52)
+### printEqs
 
 - Utility logging; fine.
 
-### contains (approx lines 55–62)
+### contains
 
 - Simple: `let contains eq eqs = eqs |> List.exists ((=) eq)`. Fine.
 
-### replace (approx lines 64–92)
+### replace
 
 - Behavior: partitions eqs into those that contain any variable in `vars`, then applies replacements over `rpl`.
 - Performance concern:
@@ -55,30 +55,30 @@ The line numbers below are approximate and reflect the layout in the provided fi
   - Memoizing `Equation.replace` or precomputing var->equation indices (or using maps) could help here.
 - Correctness: returns `(replaced, rest)` which is used by caller; good.
 
-### sortQue (approx lines 95–104)
+### sortQue
 
 - Sorts queue by `Equation.count onlyMinMax`.
 - Note: Sorting every iteration of main loop may be expensive if `Equation.count` is not trivial.
 
-### check (approx lines 106–116)
+### check
 
 - Logic is a bit non-intuitive:
   - If all equations are either not solvable OR already solved, then verify them with `Equation.check`.
   - Else return true.
 - Suggestion: add a code comment describing the desired semantics and why `true` is returned early.
 
-### solve (core — approx lines 120–260)
+### solve (core)
 
 This is the main hotspot and focus for memoization.
 
 Key areas:
 
-1. `solveE` wrapper (approx lines 122–141)
+1. `solveE` wrapper
    - Wraps `Equation.solve` with try/with and converts exceptions.
-   - Catch-all branch prints and `failwith` for unexpected exceptions — this kills process; you might prefer wrapping into `Exceptions.SolverErrored` consistently.
+   - Catch-all branch prints and `failwith` for unexpected exceptions — this kills the process; wrapping into `Exceptions.SolverErrored` consistently is preferable.
    - **Primary memoization target**: this is the single place the module calls `Equation.solve`. Wrap here with a memoization layer.
 
-2. `loop` recursion (approx lines 143–236)
+2. `loop` recursion
    - Recomputes `que @ acc` frequently to calculate limit max; constructing `que @ acc` every loop allocates lists. Precompute lengths or pass sizes around to avoid repeated concatenation.
    - Sorts queue each iteration: `let que = que |> sortQue onlyMinIncrMax` — if `sortQue` is expensive, consider caching sorted order or using a priority structure.
    - Many list concatenations and rebuilds: `acc @ que`, `tail |> replace vars |> ... |> List.append rpl`. Using more efficient structures (ResizeArray or Deque) may help but requires weighing against F# idioms and immutability.
@@ -87,7 +87,7 @@ Key areas:
 3. Error handling
    - A mix of Exceptions APIs and `failwith`. Consider normalizing.
 
-### Helper functions `solveVariable` and `solveAll` (approx lines 258–end)
+### Helper functions `solveVariable` and `solveAll`
 
 - They wrap `solve` and check eq counts before & after. The equality check (number of equations unchanged) is enforced via `failwith` — fine for now but consider more structured error propagation.
 
@@ -193,7 +193,7 @@ API & integration points
 
 ## Implementation sketch (F#) — draft module and integration notes
 
-Below is a concise sketch to adapt into the repository. Replace `obj` placeholders with your actual `Equation`, `Variable`, `Value`, and `EquationSolveResult` types.
+Below is a concise sketch to adapt into the repository. Replace `obj` placeholders with the actual `Equation`, `Variable`, `Value`, and `EquationSolveResult` types.
 
 ```fsharp
 module Informedica.GenSolver.Lib.Memo
@@ -348,7 +348,7 @@ If eq2 canonicalizes to the same structural serialization, the hash key matches 
 - Non-determinism: if `Equation.solve` depends on external mutable state, memoization can be incorrect unless that state is included in the key.
 - Mutable objects: avoid storing mutable objects directly in cache; prefer immutable DTOs or serialized snapshots and deep clone on retrieval.
 - Tokenization ambiguity: ensure tokenization rules are consistent and robust (document and reuse).
-- Collision: SHA256 collisions are virtually impossible, but for absolute safety you can store canonicalRep in cache and verify equality.
+- Collision: SHA256 collisions are virtually impossible, but for absolute safety the canonicalRep can be stored in the cache and compared on a hit.
 - Overhead: canonicalization & hashing add overhead; only profitable when `Equation.solve` cost >> canonicalization cost.
 
 ---
@@ -363,17 +363,6 @@ If eq2 canonicalizes to the same structural serialization, the hash key matches 
 
 ---
 
-## What's next (offer)
-
-I can:
-
-- Produce a concrete PR that implements the `Memo` module using the real `Equation` and `Variable` types from your repo and integrates it into `Solver.fs`.
-- Or provide focused patches: (a) canonical serializer for `Equation`, (b) `Memo` module, (c) `solveE` integration and tests/benchmarks.
-
-Tell me which you prefer and I will implement it using the repository types and produce the patch/PR.
-
----
-
 ## Appendix — Quick checklist for the implementation
 
 - [ ] Audit `Equation.solve` for side effects.
@@ -382,7 +371,3 @@ Tell me which you prefer and I will implement it using the repository types and 
 - [ ] Implement `Memo` with ConcurrentDictionary, per-solve-call or global with eviction.
 - [ ] Integrate into `solveE`.
 - [ ] Add tests & benchmarks.
-
----
-
-If you'd like, I will now fetch the repository's `Equation` and `Variable` type definitions and produce a concrete implementation and PR. Which scope do you want: a minimal working memoization prototype (per-solve call cache) or a robust global cache with eviction and metrics?

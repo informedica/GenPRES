@@ -1,5 +1,5 @@
 /// The prescribing workbench as the client holds it: an order context not yet in the plan, from
-/// no patient to a context shown, changed and cleared, as a pure state machine next to the
+/// no patient to the empty context opened for one, shown, changed and cleared, as a pure state machine next to the
 /// order plan's, with effects for the App to interpret. The machine is two stages: the workbench
 /// as the clinical model has it, which knows no request, and the one request under way, which
 /// knows no context beyond the one it carries. `transition` runs them in order: an answer passes
@@ -26,10 +26,8 @@ open Shared.Api
 [<RequireQualifiedAccess>]
 type OrderContextWorkbench =
     | NoPatient
-    // a patient held, nothing evaluated yet
-    | Unevaluated of Patient
     // the patient held and the context last evaluated for it, the original a failed change goes
-    // back to
+    // back to; the empty context while the first evaluation is under way
     | Evaluated of Patient * OrderContext
 
 
@@ -106,10 +104,9 @@ module OrderContextWorkbench =
         // no patient, no workbench
         | OrderContextWorkbenchMsg.PatientChanged None, _ -> OrderContextWorkbench.NoPatient, []
 
-        // the first patient: the empty workbench opened
-        | OrderContextWorkbenchMsg.PatientChanged(Some pat), OrderContextWorkbench.NoPatient
-        | OrderContextWorkbenchMsg.PatientChanged(Some pat), OrderContextWorkbench.Unevaluated _ ->
-            OrderContextWorkbench.Unevaluated pat, [ OrderContextWorkbenchIntent.Open pat ]
+        // the first patient: the empty workbench held and opened, shown while the evaluation runs
+        | OrderContextWorkbenchMsg.PatientChanged(Some pat), OrderContextWorkbench.NoPatient ->
+            OrderContextWorkbench.Evaluated(pat, emptyFor pat), [ OrderContextWorkbenchIntent.Open pat ]
         // the patient changed: the workbench keeps its filter and is evaluated again for the new
         // patient
         | OrderContextWorkbenchMsg.PatientChanged(Some pat), OrderContextWorkbench.Evaluated(_, ctx) ->
@@ -119,41 +116,30 @@ module OrderContextWorkbench =
         // a filter without a patient is dropped: the patient is part of it, so nothing waits
         // for one; with a patient it is evaluated at once
         | OrderContextWorkbenchMsg.Seed _, OrderContextWorkbench.NoPatient -> workbench, []
-        // nothing evaluated yet: the seed is what a failed evaluation goes back to
-        | OrderContextWorkbenchMsg.Seed ctx, OrderContextWorkbench.Unevaluated pat ->
-            let ctx = { ctx with Patient = pat }
-            OrderContextWorkbench.Evaluated(pat, ctx), [ OrderContextWorkbenchIntent.Evaluate ctx ]
         | OrderContextWorkbenchMsg.Seed ctx, OrderContextWorkbench.Evaluated(pat, _) ->
             workbench, [ OrderContextWorkbenchIntent.Evaluate { ctx with Patient = pat } ]
 
         // a command over the workbench held, always for the patient held
         | OrderContextWorkbenchMsg.Command(cmd, ctx), OrderContextWorkbench.Evaluated(pat, _) ->
             workbench, [ OrderContextWorkbenchIntent.Call(cmd, { ctx with Patient = pat }) ]
-        // nothing to command without a patient or before the first evaluation
-        | OrderContextWorkbenchMsg.Command _, OrderContextWorkbench.NoPatient
-        | OrderContextWorkbenchMsg.Command _, OrderContextWorkbench.Unevaluated _ -> workbench, []
+        // nothing to command without a patient
+        | OrderContextWorkbenchMsg.Command _, OrderContextWorkbench.NoPatient -> workbench, []
 
         // nothing was asked without a patient, so nothing lands there
         | OrderContextWorkbenchMsg.Landed _, OrderContextWorkbench.NoPatient -> workbench, []
         // an answer lands for the patient held
-        | OrderContextWorkbenchMsg.Landed(_, Ok ctx), OrderContextWorkbench.Unevaluated pat
         | OrderContextWorkbenchMsg.Landed(_, Ok ctx), OrderContextWorkbench.Evaluated(pat, _) ->
             OrderContextWorkbench.Evaluated(pat, ctx), []
-        | OrderContextWorkbenchMsg.Landed(_, Error errs), OrderContextWorkbench.Unevaluated pat when noDoseRules errs ->
-            startOver pat errs
         | OrderContextWorkbenchMsg.Landed(_, Error errs), OrderContextWorkbench.Evaluated(pat, _) when noDoseRules errs ->
             startOver pat errs
-        // a failed first evaluation lands on the empty workbench; a failed change leaves the
-        // workbench as the request found it, never the context sent, whose order and texts the
-        // server did not confirm
-        | OrderContextWorkbenchMsg.Landed(_, Error errs), OrderContextWorkbench.Unevaluated pat ->
-            restore pat (emptyFor pat) errs
+        // a failed change leaves the workbench as the request found it, never the context sent,
+        // whose order and texts the server did not confirm; for a failed first evaluation that
+        // is the empty workbench
         | OrderContextWorkbenchMsg.Landed(_, Error errs), OrderContextWorkbench.Evaluated(pat, held) ->
             restore pat held errs
 
         // the workbench cleared for the patient held and evaluated empty; nothing to clear
         // without a patient
-        | OrderContextWorkbenchMsg.Reset, OrderContextWorkbench.Unevaluated pat
         | OrderContextWorkbenchMsg.Reset, OrderContextWorkbench.Evaluated(pat, _) ->
             OrderContextWorkbench.Evaluated(pat, emptyFor pat), [ OrderContextWorkbenchIntent.Evaluate(emptyFor pat) ]
         | OrderContextWorkbenchMsg.Reset, _ -> workbench, []
@@ -163,8 +149,8 @@ module OrderContextWorkbench =
 /// shows meanwhile, and the id the answer must name; none while idle) and the dialog's command
 /// waiting on it (with the context it was sent with and its own id; none but while a request is
 /// under way). Built through the constructors below only, which admit the combinations that can
-/// occur: no patient with nothing under way, a first evaluation under way, a context held, a
-/// change under way, with or without a command pending.
+/// occur: no patient with nothing under way, a context held, a change under way (the first
+/// evaluation over the empty context among them), with or without a command pending.
 type OrderContextState =
     private
         {
@@ -203,15 +189,14 @@ type OrderContextEffect =
 
 
 /// The workbench as the page shows it: the states a page can be in, each with what is valid in
-/// it and nothing of the request. Nothing without a patient; the first evaluation under way
-/// with nothing to show; the context the server answered, nothing under way; a change under
-/// way, the context sent shown meanwhile. A page renders from `Settled` and `Changing` alike,
+/// it and nothing of the request. Nothing without a patient; the context the server answered,
+/// nothing under way; a change under way, the context sent shown meanwhile, the empty context
+/// while the first evaluation runs. A page renders from `Settled` and `Changing` alike,
 /// so that the screen stays populated while a request runs; it steps from `Changing` too, over
 /// the context shown, and builds every other command from `Settled` only.
 [<RequireQualifiedAccess>]
 type OrderContextView =
     | NoPatient
-    | Evaluating
     | Settled of OrderContext
     | Changing of OrderContext
 
@@ -229,8 +214,7 @@ module OrderContextView =
         | OrderPlanMachine.OrderPlanView.Changing(tp, Some id) -> pick tp id |> Option.map OrderContextView.Changing
         | OrderPlanMachine.OrderPlanView.Settled(_, None)
         | OrderPlanMachine.OrderPlanView.Changing(_, None)
-        | OrderPlanMachine.OrderPlanView.NoPatient
-        | OrderPlanMachine.OrderPlanView.Opening -> None
+        | OrderPlanMachine.OrderPlanView.NoPatient -> None
 
 
 module OrderContextState =
@@ -246,10 +230,10 @@ module OrderContextState =
     let emptyFor = OrderContextWorkbench.emptyFor
 
 
-    /// The first evaluation for the patient under way: nothing held yet.
+    /// The first evaluation for the patient under way, over the empty context, held and shown.
     let opening (pat: Patient) (request: string) =
         {
-            Workbench = OrderContextWorkbench.Unevaluated pat
+            Workbench = OrderContextWorkbench.Evaluated(pat, emptyFor pat)
             InFlight = Some((OrderContextCommand.UpdateOrderContext, emptyFor pat), request)
             Pending = None
         }
@@ -284,16 +268,14 @@ module OrderContextState =
     let patient (state: OrderContextState) =
         match state.Workbench with
         | OrderContextWorkbench.NoPatient -> None
-        | OrderContextWorkbench.Unevaluated pat
         | OrderContextWorkbench.Evaluated(pat, _) -> Some pat
 
 
     /// The context the workbench shows: the one sent while a request is under way, the one held
-    /// otherwise; none before the first evaluation.
+    /// otherwise; none without a patient.
     let context (state: OrderContextState) =
         match state.Workbench, state.InFlight with
-        | OrderContextWorkbench.NoPatient, _
-        | OrderContextWorkbench.Unevaluated _, _ -> None
+        | OrderContextWorkbench.NoPatient, _ -> None
         | OrderContextWorkbench.Evaluated _, Some((_, sent), _) -> Some sent
         | OrderContextWorkbench.Evaluated(_, ctx), None -> Some ctx
 
@@ -303,8 +285,7 @@ module OrderContextState =
     let map (f: OrderContext -> OrderContext) (state: OrderContextState) =
         let workbench =
             match state.Workbench with
-            | OrderContextWorkbench.NoPatient
-            | OrderContextWorkbench.Unevaluated _ -> state.Workbench
+            | OrderContextWorkbench.NoPatient -> state.Workbench
             | OrderContextWorkbench.Evaluated(pat, ctx) -> OrderContextWorkbench.Evaluated(pat, f ctx)
 
         let inFlight =
@@ -324,7 +305,6 @@ module OrderContextState =
     let view (state: OrderContextState) : OrderContextView =
         match state.Workbench, state.InFlight with
         | OrderContextWorkbench.NoPatient, _ -> OrderContextView.NoPatient
-        | OrderContextWorkbench.Unevaluated _, _ -> OrderContextView.Evaluating
         | OrderContextWorkbench.Evaluated _, Some((_, sent), _) -> OrderContextView.Changing sent
         | OrderContextWorkbench.Evaluated(_, ctx), None -> OrderContextView.Settled ctx
 

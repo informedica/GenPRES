@@ -19,15 +19,20 @@
     <Compile Include="Tests.fs" />
     <!-- the client's Deferred is pure F#; linked in so the machines' projections to it can be tested -->
     <Compile Include="..\..\src\Informedica.GenPRES.Client\Deferred.fs" />
+    <Compile Include="DeferredTests.fs" />
     <!-- the client session state machine is pure F#; linked in so it runs under Expecto -->
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SessionMachine.fs" />
     <Compile Include="SessionMachineTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SessionGatePolicy.fs" />
     <Compile Include="SessionGatePolicyTests.fs" />
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\PlanWorkPolicy.fs" />
+    <Compile Include="PlanWorkPolicyTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SigningMachine.fs" />
     <Compile Include="SigningMachineTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\SigningPolicy.fs" />
     <Compile Include="SigningPolicyTests.fs" />
+    <Compile Include="..\..\src\Informedica.GenPRES.Client\UnsignedWorkPolicy.fs" />
+    <Compile Include="UnsignedWorkPolicyTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\OrderPlanMachine.fs" />
     <Compile Include="OrderPlanMachineTests.fs" />
     <Compile Include="..\..\src\Informedica.GenPRES.Client\OrderContextMachine.fs" />

@@ -41,15 +41,15 @@ are deviations *within* that framing, not objections to it.
 
 ## 3. Verified code facts
 
-- `DoseLimit.getNormDose` (`DoseLimit.fs:104`) returns `Some vu` only when
+- `DoseLimit.getNormDose` (`DoseLimit.fs`) returns `Some vu` only when
   `min = max`; else `None`.
-- ZForm `DoseRange` (`ZForm/Types.fs:51`): `Norm`/`NormWeight`/`NormBSA`
+- ZForm `DoseRange` (`ZForm/Types.fs`): `Norm`/`NormWeight`/`NormBSA`
   (advisory) and `Abs`/`AbsWeight`/`AbsBSA` (absolute ceiling).
 - `GStand.createDoseRules cfg age wght bsa gpk gen frm rte`; Check.fs passes
   `config a w None None gen frm` → **bsa & gpk None, gender never passed**.
 - ZForm `RateDosage` is populated from G-Standaard, only when `cfg.IsRate`, a
-  single frequency, and time unit = hour (`GStand.fs:480`).
-- GenFORM `DoseLimit` (`GenFORM/Types.fs:276`) has no GPRISC/risk/narrow-TI field.
+  single frequency, and time unit = hour (`GStand.fs`).
+- GenFORM `DoseLimit` (`GenFORM/Types.fs`) has no GPRISC/risk/narrow-TI field.
 
 ## 4. What the module gets right
 
@@ -132,7 +132,7 @@ Advanced functionality gap; no correctness impact.
 
 ### BUG-A — `quantityAdjustAbs` mixes `SingleDosage` and `StartDosage`
 
-`createMapping` (`Check.fs:403-414`): the kg branch reads
+`createMapping` (`Check.fs`): the kg branch reads
 `x.SingleDosage.AbsWeight` but the m² branch reads `x.StartDosage.AbsBSA`
 (StartDosage, not SingleDosage). Inconsistent with `quantityAdjustNorm`
 (both `SingleDosage`). A per-m² absolute single-dose limit is taken from the
@@ -140,7 +140,7 @@ wrong dosage. Latent data bug, found while reviewing — not a guideline issue.
 
 ### BUG-B — `maximizeDosages` computes `Abs` from `Norm`
 
-`maximizeDosages` (`Check.fs:181`): `Abs = maximize [ dr.Norm; acc.Norm ]` —
+`maximizeDosages` (`Check.fs`): `Abs = maximize [ dr.Norm; acc.Norm ]` —
 the merged **absolute** non-adjusted range is built from **Norm** values. When
 more than one G-Standaard dosage matches and is merged, the absolute-max ceiling
 collapses to the norm-max value. Verified in FSI: two dosages with `Abs.Max` 5
@@ -171,21 +171,21 @@ provider (7866 dose rules; aciclovir IV baseline = 6 rules, 9 didNotPass,
 
 ### Source-file migration targets (`Check.fs`)
 
-- `createMapping` (lines 391-440): apply `pickAdjust` to
+- `createMapping`: apply `pickAdjust` to
   `quantityAdjustNorm`/`quantityAdjustAbs`/`perTimeAdjustNorm`/`perTimeAdjustAbs`
   (MEDIUM-1); fixes BUG-A in passing.
-- `maximizeDosages` (line 181): `Abs = maximize [ dr.Abs; acc.Abs ]` (BUG-B).
-- `checkDoseRule` `toMinMax` (lines 455-465): replace with `marginedTestRange`
+- `maximizeDosages`: `Abs = maximize [ dr.Abs; acc.Abs ]` (BUG-B).
+- `checkDoseRule` `toMinMax`: replace with `marginedTestRange`
   (HIGH-1); requires a risk flag — see prerequisite below.
-- `checkDoseRule` result rows (lines 536-773): adopt `Severity` instead of
+- `checkDoseRule` result rows: adopt `Severity` instead of
   `bool option` (MEDIUM-2); keep `didPass`/`didNotPass` as projections.
-- `checkDoseRule` `rateChecks` (lines 651-686): gate with `RateCheckMode`
+- `checkDoseRule` `rateChecks`: gate with `RateCheckMode`
   (HIGH-2).
-- `rateFieldsFor` (lines 490-509): apply `pickAdjust` (MEDIUM-1 consistency).
-- `filterPatient` (lines 238-250): `monthsMinMaxToDays` on the ZForm age before
+- `rateFieldsFor`: apply `pickAdjust` (MEDIUM-1 consistency).
+- `filterPatient`: `monthsMinMaxToDays` on the ZForm age before
   `MinMax.intersect` (MEDIUM-3) — first confirm the ZForm `PatientDosage.Patient.Age`
   unit.
-- `freqRow` (lines 560-575): `canonTimeUnit` before `isSubset` (LOW-3) and
+- `freqRow`: `canonTimeUnit` before `isSubset` (LOW-3) and
   `freqMsg` for granular text (LOW-4).
 
 ### Prerequisite for HIGH-1 (data, maintainer decision)
@@ -193,7 +193,7 @@ provider (7866 dose rules; aciclovir IV baseline = 6 rules, 9 didNotPass,
 `marginedTestRange` needs a per-substance narrow-therapeutic-index flag
 (`isRisk`). The risk flag is **not** a GenFORM property — it is a property of the
 G-Standaard substance and **already exists upstream**: `ZIndex DoseRule.HighRisk`
-(`ZIndex/Types.fs:264`), set from `vas.GPRISC = "*"` (`ZIndex/DoseRule.fs:422`,
+(`ZIndex/Types.fs`), set from `vas.GPRISC = "*"` (`ZIndex/DoseRule.fs`,
 sourced from `bst640.GPRISC`). So a new GenFORM column is **not** required, and
 no change to the sheet contract (the `Data` record types in
 `GenFORM.Lib/Types.fs`) is needed.
@@ -202,22 +202,21 @@ The obstacle is that `Check.fs` reaches G-Standaard via
 `GStand.createDoseRules`, whose final ZForm `Dosage` **drops** the flag: ZForm has
 no `HighRisk` field and `Dosage.Rules` is only a string tag
 (`GStandRule`/`PedFormRule`). The flag is available *inside* GStand (it holds the
-source `ZIndexTypes.DoseRule` records — `GStand.fs:281/352/450`) but is discarded
+source `ZIndexTypes.DoseRule` records — `GStand.fs`) but is discarded
 before reaching Check.
 
 **Recommended fix (Option 1) — thread `HighRisk` through ZForm:**
 
-1. `ZForm.Lib`: add `HighRisk: bool` to `Dosage` (`Types.fs:87`); set it in
+1. `ZForm.Lib`: add `HighRisk: bool` to `Dosage` (`Types.fs`); set it in
    `GStand.createDoseRules` from the `ZIndexTypes.DoseRule` records it already
    holds (`HighRisk = drs |> Array.exists _.HighRisk` — ANY high-risk rule ⇒
    treat as risk).
-2. `Check.fs`: `matchWithZIndex` surfaces `dosage.HighRisk`; replace `toMinMax`
-   (lines 455-465) with `marginedTestRange isRisk` reading that flag.
+2. `Check.fs`: `matchWithZIndex` surfaces `dosage.HighRisk`; replace `toMinMax` with `marginedTestRange isRisk` reading that flag.
 
 No GenFORM schema change, no second data lookup, no resource-doc change.
 
 Alternative (Option 2): look the flag up directly in `Check.fs` via
-`RuleFinder` (already aliased, `Check.fs:18`) keyed on the matched GPK — avoids
+`RuleFinder` (already aliased, `Check.fs`) keyed on the matched GPK — avoids
 touching ZForm but adds a second lookup path.
 
 **Validated end-to-end (FSI, 2026-06-08)** via the `gstandHighRisk` /
