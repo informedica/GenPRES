@@ -170,7 +170,7 @@ let tests =
             testList
                 "a command"
                 [
-                    test "an update takes the formulary and the parenteralia along; a step calls alone; one at a time" {
+                    test "an update takes the formulary and the parenteralia along; a step calls alone, or waits" {
                         let changed =
                             { paracetamol with
                                 OrderContext.Filter.Generic = Some "ibuprofen"
@@ -196,7 +196,14 @@ let tests =
                                 "r-2"
                             ))
                             busy
-                        |> Expect.equal "dropped while busy" (busy, [])
+                        |> Expect.equal
+                            "waits while busy, for the patient held"
+                            (busy
+                             |> OrderContextState.pending
+                                 OrderContextCommand.IncreaseScheduleFrequencyProperty
+                                 forPatient
+                                 "r-2",
+                             [])
 
                         transition
                             (OrderContextMsg.Command(
@@ -387,6 +394,70 @@ let viewTests =
                 |> OrderPlanMachine.OrderPlanState.view
                 |> OrderContextView.dialog
                 |> Expect.equal "no plan" None
+            }
+        ]
+
+
+[<Tests>]
+let pendingTests =
+    let step = OrderContextCommand.IncreaseScheduleFrequencyProperty
+    let busy = inFlight step paracetamol paracetamol "r-1"
+    let waiting = busy |> OrderContextState.pending step paracetamol "r-2"
+
+    testList
+        "a dialog command while a request is under way"
+        [
+            test "waits as the one pending, the latest replacing an earlier one; the page's commands are dropped" {
+                transition (OrderContextMsg.Command(step, paracetamol, "r-2")) busy
+                |> Expect.equal "pending under its own id, nothing sent" (waiting, [])
+
+                let other = OrderContextCommand.DecreaseScheduleFrequencyProperty
+
+                transition (OrderContextMsg.Command(other, paracetamol, "r-3")) waiting
+                |> Expect.equal "the latest replaces it" (busy |> OrderContextState.pending other paracetamol "r-3", [])
+
+                transition
+                    (OrderContextMsg.Command(OrderContextCommand.SelectOrderScenario, paracetamol, "r-3"))
+                    waiting
+                |> Expect.equal "a selection is dropped, the pending kept" (waiting, [])
+            }
+
+            test "a step goes out over the context answered; a value typed over the context it was sent with" {
+                let answer = { paracetamol with OrderContext.Filter.Generics = [| "paracetamol"; "ibuprofen" |] }
+
+                transition (OrderContextMsg.Answered("r-1", Ok answer)) waiting
+                |> Expect.equal
+                    "the step, from the answer"
+                    (inFlight step answer answer "r-2", [ OrderContextEffect.CallContext(step, answer, "r-2") ])
+
+                let typed = { paracetamol with OrderContext.Filter.Route = Some "typed" }
+                let update = OrderContextCommand.UpdateOrderScenario
+
+                busy
+                |> OrderContextState.pending update typed "r-2"
+                |> transition (OrderContextMsg.Answered("r-1", Ok answer))
+                |> Expect.equal
+                    "the value typed, over what it was typed into"
+                    (inFlight update typed answer "r-2", [ OrderContextEffect.CallContext(update, typed, "r-2") ])
+            }
+
+            test "a failure, a patient change and a reset drop it" {
+                transition (OrderContextMsg.Answered("r-1", Error [| "refused" |])) waiting
+                |> Expect.equal
+                    "the failure told, nothing sent"
+                    (held paracetamol, restored paracetamol [| "refused" |])
+
+                let forOther = { paracetamol with Patient = otherDraft }
+
+                transition (OrderContextMsg.PatientChanged(Some other, "r-3")) waiting
+                |> Expect.equal
+                    "evaluated for the new patient, the pending gone"
+                    (evaluatingFor other forOther forOther "r-3", evaluated forOther "r-3")
+
+                transition (OrderContextMsg.Reset "r-3") waiting
+                |> Expect.equal
+                    "the workbench cleared, the pending gone"
+                    (evaluating empty empty "r-3", evaluated empty "r-3")
             }
         ]
 

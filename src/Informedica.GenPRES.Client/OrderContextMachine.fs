@@ -8,8 +8,10 @@
 /// interpreter completes each call from the open Session, keeps the formulary and parenteralia
 /// filters in step, and puts words on the snackbar.
 ///
-/// Four invariants: one request is in flight at a time, a command sent while one is under way
-/// is dropped (the page greys its controls meanwhile); an answer names the request it answers
+/// Four invariants: one request is in flight at a time, and a command sent while one is under way
+/// is dropped (the page greys its controls meanwhile) unless it is the dialog's, which waits as
+/// the one pending, the latest replacing an earlier one, and goes out when the answer lands; an
+/// answer names the request it answers
 /// and lands only on that request; the workbench is always evaluated for the patient held, a
 /// patient change re-evaluating it; and a filter needs a patient, since the patient is part of
 /// it: one that arrives without (from the url) is dropped, and the App says so.
@@ -157,15 +159,18 @@ module OrderContextWorkbench =
         | OrderContextWorkbenchMsg.Reset, _ -> workbench, []
 
 
-/// The workbench and the one request under way: the command and the context sent (what the page
-/// shows meanwhile) and the id the answer must name; none while idle. Built through the
-/// constructors below only, which admit the combinations that can occur: no patient with
-/// nothing under way, a first evaluation under way, a context held, a change under way.
+/// The workbench, the one request under way (the command and the context sent, what the page
+/// shows meanwhile, and the id the answer must name; none while idle) and the dialog's command
+/// waiting on it (with the context it was sent with and its own id; none but while a request is
+/// under way). Built through the constructors below only, which admit the combinations that can
+/// occur: no patient with nothing under way, a first evaluation under way, a context held, a
+/// change under way, with or without a command pending.
 type OrderContextState =
     private
         {
             Workbench: OrderContextWorkbench
             InFlight: ((OrderContextCommand * OrderContext) * string) option
+            Pending: (OrderContextCommand * OrderContext * string) option
         }
 
 
@@ -234,6 +239,7 @@ module OrderContextState =
         {
             Workbench = OrderContextWorkbench.NoPatient
             InFlight = None
+            Pending = None
         }
 
 
@@ -245,6 +251,7 @@ module OrderContextState =
         {
             Workbench = OrderContextWorkbench.Unevaluated pat
             InFlight = Some((OrderContextCommand.UpdateOrderContext, emptyFor pat), request)
+            Pending = None
         }
 
 
@@ -253,6 +260,7 @@ module OrderContextState =
         {
             Workbench = OrderContextWorkbench.Evaluated(pat, ctx)
             InFlight = None
+            Pending = None
         }
 
 
@@ -262,7 +270,14 @@ module OrderContextState =
         {
             Workbench = OrderContextWorkbench.Evaluated(pat, held)
             InFlight = Some((cmd, { sent with Patient = pat }), request)
+            Pending = None
         }
+
+
+    /// A change under way with the dialog's command waiting on its answer, with the context it
+    /// was sent with, under its own request id; only on a change under way.
+    let pending (cmd: OrderContextCommand) (ctx: OrderContext) (request: string) (state: OrderContextState) =
+        { state with Pending = Some(cmd, ctx, request) }
 
 
     /// The patient the workbench is evaluated for, none without one.
@@ -296,9 +311,12 @@ module OrderContextState =
             state.InFlight
             |> Option.map (fun ((cmd, sent), request) -> (cmd, f sent), request)
 
+        let pending = state.Pending |> Option.map (fun (cmd, ctx, request) -> cmd, f ctx, request)
+
         {
             Workbench = workbench
             InFlight = inFlight
+            Pending = pending
         }
 
 
@@ -329,10 +347,14 @@ module OrderContextState =
 
 
     /// The request stage: the intents applied in order, each a request under the id given or an
-    /// effect; a call while a request is under way is dropped.
+    /// effect; a call while a request is under way is dropped, but the dialog's waits as the one
+    /// pending; an evaluation supersedes both.
     let private apply (request: string) (intents: OrderContextWorkbenchIntent list) (state: OrderContextState) =
         let evaluate (ctx: OrderContext) (state: OrderContextState) =
-            { state with InFlight = Some((OrderContextCommand.UpdateOrderContext, ctx), request) },
+            { state with
+                InFlight = Some((OrderContextCommand.UpdateOrderContext, ctx), request)
+                Pending = None
+            },
             [
                 OrderContextEffect.CallContext(OrderContextCommand.UpdateOrderContext, ctx, request)
                 OrderContextEffect.SyncFormulary ctx.Filter
@@ -347,12 +369,20 @@ module OrderContextState =
                     | OrderContextWorkbenchIntent.Open pat ->
                         let ctx = OrderContextWorkbench.emptyFor pat
 
-                        { state with InFlight = Some((OrderContextCommand.UpdateOrderContext, ctx), request) },
+                        { state with
+                            InFlight = Some((OrderContextCommand.UpdateOrderContext, ctx), request)
+                            Pending = None
+                        },
                         [
                             OrderContextEffect.CallContext(OrderContextCommand.UpdateOrderContext, ctx, request)
                         ]
                     | OrderContextWorkbenchIntent.Evaluate ctx -> evaluate ctx state
-                    | OrderContextWorkbenchIntent.Call _ when state.InFlight.IsSome -> state, []
+                    | OrderContextWorkbenchIntent.Call(cmd, ctx) when state.InFlight.IsSome ->
+                        (if OrderPlanMachine.Dialog.waits cmd then
+                             { state with Pending = Some(cmd, ctx, request) }
+                         else
+                             state),
+                        []
                     | OrderContextWorkbenchIntent.Call(OrderContextCommand.UpdateOrderContext, ctx) ->
                         evaluate ctx state
                     | OrderContextWorkbenchIntent.Call(cmd, ctx) ->
@@ -377,10 +407,10 @@ module OrderContextState =
     let private run (request: string) (msg: OrderContextWorkbenchMsg) (state: OrderContextState) =
         let workbench, intents = OrderContextWorkbench.step msg state.Workbench
 
-        let inFlight =
+        let inFlight, pending =
             match workbench with
-            | OrderContextWorkbench.NoPatient -> None
-            | _ -> state.InFlight
+            | OrderContextWorkbench.NoPatient -> None, None
+            | _ -> state.InFlight, state.Pending
 
         apply
             request
@@ -388,6 +418,7 @@ module OrderContextState =
             { state with
                 Workbench = workbench
                 InFlight = inFlight
+                Pending = pending
             }
 
 
@@ -397,7 +428,28 @@ module OrderContextState =
         | OrderContextMsg.Answered(request, result), _, _ ->
             match landing request state.InFlight with
             | None -> state, []
-            | Some sent -> run request (OrderContextWorkbenchMsg.Landed(sent, result)) { state with InFlight = None }
+            | Some sent ->
+                let landed, effects =
+                    run
+                        request
+                        (OrderContextWorkbenchMsg.Landed(sent, result))
+                        { state with
+                            InFlight = None
+                            Pending = None
+                        }
+
+                // the command that waited goes out: a step over the context answered, a value
+                // typed over the context it was sent with; a failure drops it
+                match result, state.Pending, landed.Workbench with
+                | Ok _, Some(cmd, ctx, next), OrderContextWorkbench.Evaluated(_, answered) ->
+                    let over =
+                        if OrderPlanMachine.Dialog.carries cmd then
+                            ctx
+                        else
+                            answered
+                    let state, more = run next (OrderContextWorkbenchMsg.Command(cmd, over)) landed
+                    state, effects @ more
+                | _ -> landed, effects
 
         // the patient changed while a change is under way: the context sent is evaluated for the
         // new patient, and the one held stays what a failed change goes back to
