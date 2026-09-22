@@ -137,8 +137,8 @@ read `state.Page`, and writes `{ state with Ui.Page = page }` where it wrote `{ 
 record with two functions, `Snackbar.shown message severity` and `Snackbar.closed`, and the
 twelve sites and the two local `tell`s write `Ui.Snackbar = Snackbar.shown … "error"`;
 `withdrawInteractionsNotice` reads `state.Ui.Snackbar.Message` and writes `Snackbar.closed`.
-`CloseSnackbar` writes `Snackbar.closed`, which keeps the severity at `"error"` as the arm
-does today.
+`Snackbar.closed` is the value the `CloseSnackbar` arm sets today, field for field: the
+empty message, not open, the severity `"error"`.
 
 Where each group is decided by what the field is, not by who reads it: `Patient` is the one
 the workbench and the plan are evaluated for, derived from the draft once it meets the
@@ -194,8 +194,8 @@ check. The docs PR: `dotnet run MarkdownLint`.
   `string` or option field of its own.
 - Every `{ state with` in `App.fs` writes a `Group.Field`; every `state.` read goes through
   a group.
-- `grep -c "Snackbar" App.fs` finds the record's uses and no `SnackbarMsg`, `SnackbarOpen`,
-  `SnackbarSeverity`.
+- `grep -n "SnackbarMsg\|SnackbarOpen\|SnackbarSeverity" src/Informedica.GenPRES.Client/App.fs`
+  finds nothing: the three retired fields are gone from the state, the writes and the view.
 - By hand in the demo (`GENPRES_PROD=0`, `dotnet run`): the interactions notice shows on a
   plan with two interacting drugs and withdraws when one is removed; the snackbar closes on
   its cross; a wrong password says so and a right one opens the settings page, a logout closes
@@ -225,8 +225,8 @@ check. The docs PR: `dotnet run MarkdownLint`.
   derive.
 - The messages grouped per tier, approach 3.
 - The snackbar as `Snackbar option`, none while closed, instead of an `Open` flag; a boolean
-  in state, which the coding instructions ask to avoid, kept here because `CloseSnackbar`
-  keeps the message's severity and a value-for-value move was the point.
+  in state, which the coding instructions ask to avoid, kept here because a value-for-value
+  move of the three fields was the point of the step; the option is the next step, on its own.
 
 ## As built
 
