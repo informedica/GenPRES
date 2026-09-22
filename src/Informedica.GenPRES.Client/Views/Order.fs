@@ -890,13 +890,14 @@ module Order =
                 [| box props.orderContext |]
             )
 
-        let loadingField, setLoadingField = React.useState<string option> None
+        // the field whose change went out, and whether it shows that it is loading
+        let changing, setChanging = React.useState<(string * bool) option> None
 
-        // Clear loadingField when parent finishes recalculating
+        // Clear the field changing when parent finishes recalculating
         React.useEffect (
             (fun () ->
                 match props.orderContext with
-                | OrderContextView.Settled _ -> setLoadingField None
+                | OrderContextView.Settled _ -> setChanging None
                 | _ -> ()
             ),
             [| box props.orderContext |]
@@ -909,7 +910,15 @@ module Order =
             | OrderContextView.NoPatient
             | OrderContextView.Settled _ -> false
 
-        let isFieldLoading field = isOrderLoading && loadingField = Some field
+        let isFieldLoading field = isOrderLoading && changing = Some(field, true)
+
+        // while a change is under way only the field changing may change again, and only
+        // on an order solved through: the lane keeps one change pending, so a second field
+        // would replace the first
+        let solved = shownOrder |> Option.map isSolved |> Option.defaultValue false
+
+        let rests field =
+            isOrderLoading && (not solved || (changing |> Option.map fst) <> Some field)
 
         // Monotonic counter bumped on every new server response (a fresh Settled
         // orderContext). Passed into stepped selects so they reset their optimistic
@@ -943,13 +952,13 @@ module Order =
             | IncreaseComponentQuantityProperty _ -> true
             | _ -> false
 
-        // Shadow dispatch to auto-track which field triggered loading
+        // Shadow dispatch to auto-track which field is changing, and whether it shows it
         let dispatch =
             let originalDispatch = dispatch
 
             fun msg ->
-                if not (isOptimisticStep msg) then
-                    msgToField msg |> Option.iter (fun f -> setLoadingField (Some f))
+                msgToField msg
+                |> Option.iter (fun f -> setChanging (Some(f, not (isOptimisticStep msg))))
 
                 originalDispatch msg
 
@@ -1137,9 +1146,12 @@ module Order =
 
         let getWarning = ViewHelpers.getWarning
 
-        // the selects stay enabled while a change is under way: a step sent then waits in the
-        // lane for the answer, and only the field stepped shows it is loading
+        // the component and the item selects are the dialog's own, never a request
         let select = ViewHelpers.orderSelect false false
+
+        // a field's select: rests while another field is changing, shows it while its own is
+        let selectFor field =
+            ViewHelpers.orderSelect false (rests field) (isFieldLoading field)
 
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
 
@@ -1236,8 +1248,8 @@ module Order =
                     let warning = itms[i].Dose.Quantity.Level |> getWarning
 
                     vals
-                    |> select
-                        (isFieldLoading "substDoseQty")
+                    |> selectFor
+                        "substDoseQty"
                         label
                         None
                         (ChangeSubstanceDoseQuantity >> dispatch)
@@ -1269,8 +1281,8 @@ module Order =
                     let warning = itms[i].Dose.QuantityAdjust.Level |> getWarning
 
                     vals
-                    |> select
-                        (isFieldLoading "substDoseQtyAdj")
+                    |> selectFor
+                        "substDoseQtyAdj"
                         label
                         None
                         (ChangeSubstanceDoseQuantityAdjust >> dispatch)
@@ -1310,8 +1322,7 @@ module Order =
                         else
                             itms[i].Dose.PerTime.Level |> getWarning
 
-                    vals
-                    |> select (isFieldLoading "substPerTime") label None dispatch None true warning None
+                    vals |> selectFor "substPerTime" label None dispatch None true warning None
                 | _ -> null
 
             let substRateSelect =
@@ -1340,8 +1351,8 @@ module Order =
                     ovar
                     |> ViewHelpers.ovarVals (fixPrecision 3)
                     |> Array.distinctBy snd
-                    |> select
-                        (isFieldLoading "substRate")
+                    |> selectFor
+                        "substRate"
                         (Terms.``Order Adjusted dose`` |> getTerm "dosering")
                         None
                         dispatch
@@ -1401,8 +1412,8 @@ module Order =
                     let warning = cmp |> Option.bind (_.OrderableQuantity.Level >> getWarning)
 
                     vals
-                    |> select
-                        (isFieldLoading "compOrdQty")
+                    |> selectFor
+                        "compOrdQty"
                         "bereiding hoeveelheid"
                         None
                         (ChangeComponentOrderableQuantity >> dispatch)
@@ -1433,8 +1444,8 @@ module Order =
                         then
                             itm.ComponentConcentration
                             |> ViewHelpers.ovarVals (fixPrecision 3)
-                            |> select
-                                (isFieldLoading "substCompConc")
+                            |> selectFor
+                                "substCompConc"
                                 "product sterkte"
                                 None
                                 (change >> dispatch)
@@ -1463,8 +1474,8 @@ module Order =
                                 then
                                     itm.ComponentConcentration
                                     |> ViewHelpers.ovarVals string
-                                    |> select
-                                        (isFieldLoading "substCompConc")
+                                    |> selectFor
+                                        "substCompConc"
                                         "product sterkte"
                                         None
                                         (change >> dispatch)
@@ -1490,8 +1501,8 @@ module Order =
 
                     itms[i].OrderableQuantity
                     |> ViewHelpers.ovarVals (fixPrecision 3)
-                    |> select
-                        (isFieldLoading "substOrdQty")
+                    |> selectFor
+                        "substOrdQty"
                         $"{itms[i].Name} hoeveelheid"
                         None
                         (ChangeSubstanceOrderableQuantity >> dispatch)
@@ -1512,8 +1523,8 @@ module Order =
 
                     itms[i].OrderableConcentration
                     |> ViewHelpers.ovarVals (fixPrecision 3)
-                    |> select
-                        (isFieldLoading "substOrdConc")
+                    |> selectFor
+                        "substOrdConc"
                         $"{itms[i].Name} concentratie"
                         None
                         (ChangeSubstanceOrderableConcentration >> dispatch)
@@ -1530,8 +1541,8 @@ module Order =
 
                     ord.Orderable.OrderableQuantity
                     |> ViewHelpers.ovarVals string
-                    |> select
-                        (isFieldLoading "ordQty")
+                    |> selectFor
+                        "ordQty"
                         "totale hoeveelheid"
                         None
                         (ChangeOrderableQuantity >> dispatch)
@@ -1566,8 +1577,8 @@ module Order =
 
                     let warning = ord.Schedule.Frequency.Level |> getWarning
 
-                    select
-                        (isFieldLoading "frequency")
+                    selectFor
+                        "frequency"
                         (Terms.``Order Frequency`` |> getTerm "frequentie")
                         None
                         (ChangeFrequency >> dispatch)
@@ -1596,8 +1607,8 @@ module Order =
 
                     ord.Orderable.Dose.Quantity
                     |> ViewHelpers.ovarValsWithRange string 3
-                    |> select
-                        (isFieldLoading "ordDoseQty")
+                    |> selectFor
+                        "ordDoseQty"
                         "toedien hoeveelheid"
                         None
                         (ChangeOrderableDoseQuantity >> dispatch)
@@ -1629,8 +1640,8 @@ module Order =
 
                     ord.Orderable.Dose.Rate
                     |> ViewHelpers.ovarValsWithRange string 3
-                    |> select
-                        (isFieldLoading "ordDoseRate")
+                    |> selectFor
+                        "ordDoseRate"
                         (Terms.``Order Drip rate`` |> getTerm "inloop snelheid")
                         None
                         (ChangeOrderableDoseRate >> dispatch)
@@ -1648,8 +1659,8 @@ module Order =
                     ord.Schedule.Time
                     |> ViewHelpers.ovarVals (fixPrecision 2)
                     |> Array.distinctBy snd
-                    |> select
-                        (isFieldLoading "time")
+                    |> selectFor
+                        "time"
                         (Terms.``Order Administration time`` |> getTerm "inloop tijd")
                         None
                         (ChangeTime >> dispatch)
@@ -1702,7 +1713,7 @@ module Order =
                     <Button onClick={onClickOk}>
                         {Terms.``Ok `` |> getTerm "Ok"}
                     </Button>
-                    <Button onClick={onClickReset} startIcon={Mui.Icons.RefreshIcon}>
+                    <Button onClick={onClickReset} disabled={isOrderLoading} startIcon={Mui.Icons.RefreshIcon}>
                         Reset
                     </Button>
             </CardActions>
