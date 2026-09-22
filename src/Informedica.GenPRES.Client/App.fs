@@ -73,14 +73,25 @@ module private Elmish =
         }
 
 
-    type State =
+    /// What the server is asked for, once or again: the reading of each plain fetch.
+    type FetchesState =
         {
-            // the patient the workbench and the plan are for: the draft, once it meets the minimum
-            Patient: Patient option
             NormalValues: Deferred<NormalValues>
             BolusMedication: Deferred<BolusMedication list>
             ContinuousMedication: Deferred<ContinuousMedication list>
             Products: Deferred<Product list>
+            Localization: Deferred<string[][]>
+            Hospitals: Deferred<string[]>
+            // what the server was configured with: the default language, the demo flag
+            Settings: Deferred<Api.ServerSettings>
+            ServerStatus: Deferred<bool>
+        }
+
+
+    type State =
+        {
+            // the patient the workbench and the plan are for: the draft, once it meets the minimum
+            Patient: Patient option
             // the prescribing workbench, as the order-context machine holds it; the pages read a
             // projection
             OrderContext: OrderContextState
@@ -91,9 +102,6 @@ module private Elmish =
             DrugNameRetries: int
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
-            Localization: Deferred<string[][]>
-            Hospitals: Deferred<string[]>
-            ServerStatus: Deferred<bool>
             IsAuthenticated: bool
             AuthToken: string
             LogFiles: Deferred<LogFileInfo[]>
@@ -107,8 +115,8 @@ module private Elmish =
             Session: SessionState
             // the signing phase of the open Session; Idle whenever no Session is open
             Signing: SigningState
-            // what the server was configured with: the default language, the demo flag
-            Settings: Deferred<Api.ServerSettings>
+            // the plain fetches
+            Fetches: FetchesState
             // the app-level UI
             Ui: UiState
         }
@@ -572,10 +580,6 @@ module private Elmish =
         {
             // the patient follows through UpdatePatient, once the draft is a patient
             Patient = None
-            NormalValues = HasNotStartedYet
-            BolusMedication = HasNotStartedYet
-            ContinuousMedication = HasNotStartedYet
-            Products = HasNotStartedYet
             // a medication in the url is seeded by UrlChanged, which the router fires on mount
             // too, once the patient is set
             OrderContext = OrderContextState.noPatient
@@ -586,9 +590,6 @@ module private Elmish =
             Interactions = HasNotStartedYet
             InteractionDrugNames = HasNotStartedYet
             DrugNameRetries = 0
-            Localization = HasNotStartedYet
-            Hospitals = HasNotStartedYet
-            ServerStatus = HasNotStartedYet
             IsAuthenticated = false
             AuthToken = ""
             LogFiles = HasNotStartedYet
@@ -597,7 +598,17 @@ module private Elmish =
             LoginAttempt = 0
             Session = SessionState.anonymous
             Signing = SigningState.idle
-            Settings = HasNotStartedYet
+            Fetches =
+                {
+                    NormalValues = HasNotStartedYet
+                    BolusMedication = HasNotStartedYet
+                    ContinuousMedication = HasNotStartedYet
+                    Products = HasNotStartedYet
+                    Localization = HasNotStartedYet
+                    Hospitals = HasNotStartedYet
+                    Settings = HasNotStartedYet
+                    ServerStatus = HasNotStartedYet
+                }
             Ui =
                 {
                     Page = page |> Option.defaultValue LifeSupport
@@ -947,7 +958,7 @@ module private Elmish =
     /// The draft is a patient with an age, or a measured weight and height; below that there is
     /// no patient: no workbench, no plan.
     let updatePatient (dto: Patient option) (state: State) : State * Cmd<Msg> =
-        let dto = dto |> applyNormalValues state.NormalValues
+        let dto = dto |> applyNormalValues state.Fetches.NormalValues
 
         let pat =
             dto
@@ -981,7 +992,7 @@ module private Elmish =
     let noPatientForMedication (state: State) =
         let message =
             Global.getLocalizedTerm
-                state.Localization
+                state.Fetches.Localization
                 state.Ui.Context.Localization
                 "Voer patient gegevens in"
                 Terms.``Patient enter patient data``
@@ -1036,7 +1047,7 @@ module private Elmish =
         match msg with
         | CloseSnackbar -> { state with Ui.Snackbar = Snackbar.closed }, Cmd.none
 
-        | CheckServer Started -> { state with ServerStatus = InProgress }, checkServer
+        | CheckServer Started -> { state with Fetches.ServerStatus = InProgress }, checkServer
 
         | CheckServer(Finished(Ok _)) ->
             let cmd =
@@ -1045,7 +1056,7 @@ module private Elmish =
                 | _ -> Cmd.none
 
             { state with
-                ServerStatus = Resolved true
+                Fetches.ServerStatus = Resolved true
                 Ui.ServerError = None
             },
             cmd
@@ -1054,7 +1065,7 @@ module private Elmish =
             Logging.error "server niet bereikbaar" err
 
             { state with
-                ServerStatus = Resolved false
+                Fetches.ServerStatus = Resolved false
                 Ui.ServerError = Some "De server is niet bereikbaar. Controleer of de server is gestart."
             },
             async {
@@ -1065,13 +1076,13 @@ module private Elmish =
 
         | DismissServerError -> { state with Ui.ServerError = None }, Cmd.none
 
-        | LoadSettings Started -> { state with Settings = InProgress }, loadSettings
+        | LoadSettings Started -> { state with Fetches.Settings = InProgress }, loadSettings
 
         | LoadSettings(Finished(Ok settings)) ->
             // the server default counts until the url or the User chooses; a choice made while
             // the settings were in flight wins (LanguagePolicy.onServerDefault)
             { state with
-                Settings = Resolved settings
+                Fetches.Settings = Resolved settings
                 Ui.IsDemo = settings.IsDemo
             }
             |> withLanguage (languageOf state |> LanguagePolicy.Language.onServerDefault settings.Language),
@@ -1080,7 +1091,7 @@ module private Elmish =
         | LoadSettings(Finished(Error err)) ->
             // no settings: the client keeps its own defaults, which is what it did before
             Logging.error "cannot load the server settings" err
-            { state with Settings = HasNotStartedYet }, Cmd.none
+            { state with Fetches.Settings = HasNotStartedYet }, Cmd.none
 
         | Login password ->
             let attempt = state.LoginAttempt + 1
@@ -1319,7 +1330,7 @@ module private Elmish =
 
             let tr term =
                 Global.getLocalizedTerm
-                    state.Localization
+                    state.Fetches.Localization
                     state.Ui.Context.Localization
                     (SigningPolicy.english term)
                     term
@@ -1351,7 +1362,7 @@ module private Elmish =
 
             let tr term =
                 Global.getLocalizedTerm
-                    state.Localization
+                    state.Fetches.Localization
                     state.Ui.Context.Localization
                     (SigningPolicy.english term)
                     term
@@ -1378,21 +1389,24 @@ module private Elmish =
             { state with Signing = signing }, effects |> List.map (interpretSigningEffect state.Session) |> Cmd.batch
 
         | LoadLocalization Started ->
-            { state with Localization = InProgress }, Cmd.fromAsync (GoogleDocs.loadLocalization LoadLocalization)
+            { state with Fetches.Localization = InProgress },
+            Cmd.fromAsync (GoogleDocs.loadLocalization LoadLocalization)
 
         | LoadLocalization(Finished(Ok terms)) ->
 
-            { state with Localization = terms |> Resolved }, Cmd.none
+            { state with Fetches.Localization = terms |> Resolved }, Cmd.none
 
         | LoadLocalization(Finished(Error s)) ->
             Logging.error "cannot load localization" s
             state, Cmd.none
 
         | LoadNormalValues Started ->
-            { state with NormalValues = InProgress }, Cmd.fromAsync (GoogleDocs.loadNormalValues LoadNormalValues)
+            { state with Fetches.NormalValues = InProgress },
+            Cmd.fromAsync (GoogleDocs.loadNormalValues LoadNormalValues)
 
         | LoadNormalValues(Finished(Ok normalValues)) ->
-            { state with NormalValues = normalValues |> Resolved }, Cmd.ofMsg (UpdatePatient state.Ui.PatientDraft)
+            { state with Fetches.NormalValues = normalValues |> Resolved },
+            Cmd.ofMsg (UpdatePatient state.Ui.PatientDraft)
 
         | LoadNormalValues(Finished(Error s)) ->
             Logging.error "cannot load normal values" s
@@ -1400,13 +1414,13 @@ module private Elmish =
 
 
         | LoadBolusMedication Started ->
-            { state with BolusMedication = InProgress },
+            { state with Fetches.BolusMedication = InProgress },
             Cmd.fromAsync (GoogleDocs.loadBolusMedication LoadBolusMedication)
 
         | LoadBolusMedication(Finished(Ok meds)) ->
             { state with
-                BolusMedication = meds |> Resolved
-                Hospitals =
+                Fetches.BolusMedication = meds |> Resolved
+                Fetches.Hospitals =
                     meds
                     |> List.map _.Hospital
                     |> List.distinct
@@ -1421,19 +1435,19 @@ module private Elmish =
             state, Cmd.none
 
         | LoadContinuousMedication Started ->
-            { state with ContinuousMedication = InProgress },
+            { state with Fetches.ContinuousMedication = InProgress },
             Cmd.fromAsync (GoogleDocs.loadContinuousMedication LoadContinuousMedication)
 
         | LoadContinuousMedication(Finished(Ok meds)) ->
 
-            { state with ContinuousMedication = meds |> Resolved }, Cmd.none
+            { state with Fetches.ContinuousMedication = meds |> Resolved }, Cmd.none
 
         | LoadContinuousMedication(Finished(Error s)) ->
             Logging.error "cannot load continuous medication" s
             state, Cmd.none
 
         | OnSelectContinuousMedicationItem item ->
-            match state.ContinuousMedication with
+            match state.Fetches.ContinuousMedication with
             | Resolved meds ->
                 meds
                 |> List.tryFind (fun m -> item.EndsWith($".{m.Medication}"))
@@ -1449,7 +1463,7 @@ module private Elmish =
         | UpdateContinuousMedsFilter filter -> { state with Ui.ContinuousMedsFilter = filter }, Cmd.none
 
         | OnSelectEmergencyListItem item ->
-            match state.BolusMedication with
+            match state.Fetches.BolusMedication with
             | Resolved meds ->
                 meds
                 |> List.tryFind (fun m -> item.EndsWith($".{m.Hospital}.{m.Category}.{m.Generic}"))
@@ -1466,11 +1480,11 @@ module private Elmish =
             | _ -> state, Cmd.none
 
         | LoadProducts Started ->
-            { state with Products = InProgress }, Cmd.fromAsync (GoogleDocs.loadProducts LoadProducts)
+            { state with Fetches.Products = InProgress }, Cmd.fromAsync (GoogleDocs.loadProducts LoadProducts)
 
         | LoadProducts(Finished(Ok prods)) ->
 
-            { state with Products = prods |> Resolved }, Cmd.none
+            { state with Fetches.Products = prods |> Resolved }, Cmd.none
 
         | LoadProducts(Finished(Error s)) ->
             Logging.error "cannot load products" s
@@ -1723,7 +1737,7 @@ type private ConcreteAppEnv
     =
 
     interface AppEnv.ILocalization with
-        member _.LocalizationTerms = state.Localization
+        member _.LocalizationTerms = state.Fetches.Localization
 
     interface AppEnv.IOrderContext with
         member _.OrderContext = state.OrderContext |> OrderContextState.view
@@ -1904,7 +1918,8 @@ let View () =
         | "info" -> 3000 |> box
         | _ -> null
 
-    let bm = calculateInterventions EmergencyTreatment.calculate state.BolusMedication state.Ui.PatientDraft
+    let bm =
+        calculateInterventions EmergencyTreatment.calculate state.Fetches.BolusMedication state.Ui.PatientDraft
 
     let cm =
         let calc =
@@ -1913,7 +1928,7 @@ let View () =
                 | Some w' -> ContinuousMedication.calculate w' meds
                 | None -> []
 
-        calculateInterventions calc state.ContinuousMedication state.Ui.PatientDraft
+        calculateInterventions calc state.Fetches.ContinuousMedication state.Ui.PatientDraft
 
     let appEnv = ConcreteAppEnv(state, dispatch, bm, cm) :> obj
 
@@ -1964,7 +1979,7 @@ let View () =
             updatePage = UpdatePage >> dispatch
             page = state.Ui.Page
             languages = Localization.languages
-            hospitals = state.Hospitals
+            hospitals = state.Fetches.Hospitals
             switchLang = UpdateLanguage >> dispatch
             switchHosp = UpdateHospital >> dispatch
         |}
