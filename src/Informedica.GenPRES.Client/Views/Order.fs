@@ -17,9 +17,10 @@ module Order =
     module private Elmish =
 
 
+        /// What the dialog holds of its own: the component and the item picked, never the
+        /// order, which is the one the context shown has.
         type State =
             {
-                Order: Order option
                 SelectedComponent: string option
                 SelectedItem: string option
             }
@@ -70,8 +71,10 @@ module Order =
             | SetMedianComponentQuantityProperty
 
 
+        /// The component and the item picked, seeded from the one scenario of the context
+        /// shown: the scenario's own, or the first component and its first substance.
         let init (ctx: OrderContextView) =
-            let ord, cmp, itm =
+            let cmp, itm =
                 match ctx with
                 | OrderContextView.Settled ctx
                 | OrderContextView.Changing ctx ->
@@ -83,7 +86,7 @@ module Order =
                         let itm = sc.Item
 
                         match ord.Orderable.Components with
-                        | [||] -> Some ord, None, None
+                        | [||] -> None, None
                         | _ ->
                             ord.Orderable.Components
                             |> Array.tryFind (fun c -> cmp.IsNone || c.Name = cmp.Value)
@@ -92,7 +95,7 @@ module Order =
                                 let substs = c.Items |> Array.filter (_.IsAdditional >> not)
 
                                 if substs |> Array.isEmpty then
-                                    Some ord, Some c.Name, None
+                                    Some c.Name, None
                                 else
                                     let s =
                                         substs
@@ -101,18 +104,17 @@ module Order =
                                         |> Option.defaultValue (substs[0].Name)
                                         |> Some
 
-                                    Some ord, Some c.Name, s
+                                    Some c.Name, s
                             )
-                            |> Option.defaultValue (Some ord, None, None)
+                            |> Option.defaultValue (None, None)
 
-                    | _ -> None, None, None
+                    | _ -> None, None
 
-                | _ -> None, None, None
+                | _ -> None, None
 
             {
                 SelectedComponent = cmp
                 SelectedItem = itm
-                Order = ord
             },
             Cmd.none
 
@@ -154,18 +156,14 @@ module Order =
             =
             let setOvar = OrderVariable.setOvar
 
-            // while an answer is awaited the order held is none; a change made meanwhile is
-            // over the order shown, and waits in the lane for the answer
-            let state = { state with Order = state.Order |> Option.orElse shown }
-
+            // every change and every step is over the order shown, the one the context sent
+            // has while a change is under way; the lane holds it, the dialog holds none
             let handleNav nav =
-                match state.Order with
+                match shown with
                 | None -> state, Cmd.none
                 | Some ord ->
-                    // dispatch to parent
                     OrderLoader.create state.SelectedComponent state.SelectedItem ord |> nav
-                    // return awaiting updated order
-                    { state with Order = None }, Cmd.none
+                    state, Cmd.none
 
             match msg with
 
@@ -174,16 +172,16 @@ module Order =
                 OrderLoader.create state.SelectedComponent state.SelectedItem ord
                 |> updateOrderScenario
 
-                { state with Order = None }, Cmd.none
+                state, Cmd.none
 
             | ResetOrderScenario ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     OrderLoader.create state.SelectedComponent state.SelectedItem ord
                     |> resetOrderScenario
                 | None -> ()
 
-                { state with Order = None }, Cmd.none
+                state, Cmd.none
 
             | ChangeComponent cmp ->
                 match cmp with
@@ -200,7 +198,7 @@ module Order =
                     Cmd.none
 
             | ChangeComponentOrderableQuantity s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -215,7 +213,7 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeItem itm ->
@@ -224,27 +222,27 @@ module Order =
                 | Some _ -> { state with SelectedItem = itm }, Cmd.none
 
             | ChangeFrequency s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with Order.Schedule.Frequency = ord.Schedule.Frequency |> setOvar s }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeTime s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with Order.Schedule.Time = ord.Schedule.Time |> setOvar s }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeSubstanceDoseQuantity s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -270,11 +268,11 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeSubstanceDoseQuantityAdjust s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -301,11 +299,11 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeSubstancePerTime s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -330,11 +328,11 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeSubstancePerTimeAdjust s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -362,11 +360,11 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeSubstanceRate s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -391,11 +389,11 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeSubstanceRateAdjust s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -422,11 +420,11 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeSubstanceComponentConcentration(cname, iname, s) ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -462,11 +460,11 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeSubstanceOrderableConcentration s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -494,11 +492,11 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeSubstanceOrderableQuantity s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -525,11 +523,11 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeOrderableDoseQuantity s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -538,11 +536,11 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeOrderableDoseRate s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -551,11 +549,11 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             | ChangeOrderableQuantity s ->
-                match state.Order with
+                match shown with
                 | Some ord ->
                     let msg =
                         { ord with
@@ -564,7 +562,7 @@ module Order =
                         }
                         |> UpdateOrderScenario
 
-                    { state with Order = None }, Cmd.ofMsg msg
+                    state, Cmd.ofMsg msg
                 | _ -> state, Cmd.none
 
             // == Frequency ==
@@ -960,10 +958,9 @@ module Order =
 
                 originalDispatch msg
 
-        // Use local state order when available, otherwise fall back to the
-        // order shown, the one sent while a change is under way, so that
-        // the UI stays populated while the server is processing.
-        let displayOrder = state.Order |> Option.orElse shownOrder
+        // the order shown, the one sent while a change is under way, so that the dialog stays
+        // populated while the server is processing
+        let displayOrder = shownOrder
 
         let itms =
             match displayOrder with
