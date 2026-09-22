@@ -117,7 +117,6 @@ module Prescribe =
 
         let isAnythingLoading =
             match orderContext with
-            | OrderContextView.Evaluating
             | OrderContextView.Changing _ -> true
             | OrderContextView.NoPatient
             | OrderContextView.Settled _ -> false
@@ -413,8 +412,7 @@ module Prescribe =
                     {match orderContext with
                      | OrderContextView.Settled pr
                      | OrderContextView.Changing pr -> pr.Filter.Indication, pr.Filter.Indications
-                     | OrderContextView.NoPatient
-                     | OrderContextView.Evaluating -> None, [||]
+                     | OrderContextView.NoPatient -> None, [||]
                      |> fun (sel, items) ->
                          let isLoading = isSourceLoading IndicationLoading
                          let lbl = Terms.``Prescribe Indications`` |> getTerm "Indicaties"
@@ -427,8 +425,7 @@ module Prescribe =
                         {match orderContext with
                          | OrderContextView.Settled pr
                          | OrderContextView.Changing pr -> pr.Filter.Generic, pr.Filter.Generics
-                         | OrderContextView.NoPatient
-                         | OrderContextView.Evaluating -> None, [||]
+                         | OrderContextView.NoPatient -> None, [||]
                          |> fun (sel, items) ->
                              let isLoading = isSourceLoading MedicationLoading
                              let lbl = Terms.``Prescribe Medications`` |> getTerm "Medicatie"
@@ -442,8 +439,7 @@ module Prescribe =
                         {match orderContext with
                          | OrderContextView.Settled pr
                          | OrderContextView.Changing pr -> pr.Filter.Route, pr.Filter.Routes
-                         | OrderContextView.NoPatient
-                         | OrderContextView.Evaluating -> None, [||]
+                         | OrderContextView.NoPatient -> None, [||]
                          |> fun (sel, items) ->
                              let isLoading = isSourceLoading RouteLoading
                              let lbl = Terms.``Prescribe Routes`` |> getTerm "Routes"
@@ -547,8 +543,7 @@ module Prescribe =
                              |> Array.map (displayScenario pr pr.Filter.Generic)
                              |> unbox<seq<ReactElement>>
                              |> React.Fragment
-                         | OrderContextView.NoPatient
-                         | OrderContextView.Evaluating -> Seq.empty<ReactElement> |> React.Fragment}
+                         | OrderContextView.NoPatient -> Seq.empty<ReactElement> |> React.Fragment}
                     </Stack>
                 </Stack>
             </React.Fragment>

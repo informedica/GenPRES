@@ -189,7 +189,6 @@ module Formulary =
         // greyed while a workbench request is under way
         let busy =
             match (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext with
-            | OrderContextView.Evaluating
             | OrderContextView.Changing _ -> true
             | OrderContextView.NoPatient
             | OrderContextView.Settled _ -> false

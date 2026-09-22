@@ -150,6 +150,25 @@ let tests =
                         |> Expect.equal "the empty workbench opened, nothing waited" (opening patient "r-2")
                     }
 
+                    test
+                        "a filter during the first evaluation supersedes it; a failed one goes back to the empty workbench" {
+                        let seeded, effects =
+                            transition (OrderContextMsg.Seed(paracetamol, "r-2")) (opening patient "r-1")
+
+                        seeded
+                        |> Expect.equal
+                            "the seed evaluated over the empty workbench held"
+                            (evaluating paracetamol empty "r-2")
+
+                        effects |> Expect.equal "the call and the syncs" (evaluated paracetamol "r-2")
+
+                        transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) seeded
+                        |> Expect.equal "the first evaluation's answer is stale" (seeded, [])
+
+                        transition (OrderContextMsg.Answered("r-2", Error [| "refused" |])) seeded
+                        |> Expect.equal "back to the empty workbench" (held empty, restored empty [| "refused" |])
+                    }
+
                     test "a filter with a patient held is evaluated at once, for that patient" {
                         let fromUrl = { paracetamol with Patient = otherDraft }
                         let state, effects = transition (OrderContextMsg.Seed(fromUrl, "r-1")) shown
@@ -320,10 +339,10 @@ let viewTests =
                 |> Expect.equal "the context held" (OrderContextView.Settled paracetamol)
             }
 
-            test "the first evaluation: nothing to show; a change under way: the context sent" {
+            test "the first evaluation: the empty context, changing; a change under way: the context sent" {
                 opening patient "r-1"
                 |> OrderContextState.view
-                |> Expect.equal "evaluating" OrderContextView.Evaluating
+                |> Expect.equal "the empty context shown while it is evaluated" (OrderContextView.Changing empty)
 
                 let stepped = { paracetamol with OrderContext.Filter.Route = Some "stepped" }
 
@@ -488,6 +507,6 @@ let stagesTests =
 
                 opening patient "r-1"
                 |> OrderContextState.context
-                |> Expect.equal "none yet" None
+                |> Expect.equal "the empty context while the first evaluation runs" (Some empty)
             }
         ]
