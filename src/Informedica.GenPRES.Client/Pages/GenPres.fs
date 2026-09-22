@@ -128,8 +128,8 @@ module GenPres =
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
-        let orderContext = (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContextView
-        let orderPlan = (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlanView
+        let orderContext = (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext
+        let orderPlan = (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan
         let auth = AppEnv.asEnv<AppEnv.IAuthentication> props.appEnv
 
         let updatePageRef = React.useRef props.updatePage

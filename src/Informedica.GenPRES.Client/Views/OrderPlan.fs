@@ -16,7 +16,7 @@ module OrderPlan =
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
-        let orderPlan = envOrderPlan.OrderPlanView
+        let orderPlan = envOrderPlan.OrderPlan
         let planCommand = envOrderPlan.OrderPlanCommand
         let session = AppEnv.asEnv<AppEnv.ISession> props.appEnv
         let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv

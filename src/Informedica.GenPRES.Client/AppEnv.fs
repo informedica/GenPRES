@@ -17,22 +17,18 @@ type ILocalization =
 /// Order context data and commands
 [<Interface>]
 type IOrderContext =
-    abstract OrderContext: Deferred<OrderContext>
-    // the workbench as the page shows it; beside the Deferred until every page reads it
-    abstract OrderContextView: OrderContextMachine.OrderContextView
+    // the workbench as the pages show it
+    abstract OrderContext: OrderContextMachine.OrderContextView
     abstract OrderContextMsg: Api.OrderContextCommand * OrderContext -> unit
 
 
 /// The one plan, nutrition included, and the commands on it
 [<Interface>]
 type IOrderPlan =
-    abstract OrderPlan: Deferred<OrderPlan>
-    // the plan as the pages show it, the dialog's selection inside; beside the Deferred until
-    // every page reads it
-    abstract OrderPlanView: OrderPlanMachine.OrderPlanView
+    // the plan as the pages show it, the dialog's selection inside
+    abstract OrderPlan: OrderPlanMachine.OrderPlanView
     abstract OrderPlanCommand: Api.OrderPlanCommand -> unit
     // the context whose order the dialog shows, by id; the client's own, no round trip
-    abstract Selected: string option
     abstract Select: string option -> unit
     // the contexts the rows keep, by id; the totals follow
     abstract Filter: string[] -> unit

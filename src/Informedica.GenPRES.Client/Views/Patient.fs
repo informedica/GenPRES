@@ -116,8 +116,8 @@ module Patient =
         // way the panel is greyed, so that the patient cannot change under it
         let busy =
             match
-                (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContextView,
-                (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlanView
+                (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext,
+                (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan
             with
             | OrderContextView.Evaluating, _
             | OrderContextView.Changing _, _

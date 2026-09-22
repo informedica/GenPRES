@@ -338,10 +338,6 @@ module OrderPlanState =
         | OrderPlanCart.Opened(_, tp) -> Some tp
 
 
-    /// The context the dialog shows, by id; none while it is closed or there is no plan.
-    let selected (state: OrderPlanState) = state.Selected
-
-
     /// The patient the plan is for, none without one.
     let patient (state: OrderPlanState) =
         match state.Cart with
@@ -362,16 +358,6 @@ module OrderPlanState =
         match sent with
         | OrderPlanCommand.Recalculate shown -> shown
         | _ -> tp
-
-
-    /// The plan as the pages read it: while a change is under way, the plan as the page changed
-    /// it.
-    let toDeferred (state: OrderPlanState) : Deferred<OrderPlan> =
-        match state.Cart, state.InFlight with
-        | OrderPlanCart.NoPatient _, _ -> HasNotStartedYet
-        | OrderPlanCart.Unopened _, _ -> InProgress
-        | OrderPlanCart.Opened(_, tp), Some(sent, _) -> Provisional(meanwhile tp sent)
-        | OrderPlanCart.Opened(_, tp), None -> Resolved tp
 
 
     /// The plan as the pages show it: the plan shown meanwhile while a change is under way, the

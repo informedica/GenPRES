@@ -446,9 +446,9 @@ module ViewHelpers =
 
     let progressOrEmpty (deferred: Deferred<'a>) =
         match deferred with
-        | Resolved _
-        | Provisional _ -> null
-        | _ -> circularProgress
+        | Resolved _ -> null
+        | HasNotStartedYet
+        | InProgress -> circularProgress
 
 
     let backdropProgress isOpen (message: string) =

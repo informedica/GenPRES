@@ -320,15 +320,6 @@ module OrderContextState =
         }
 
 
-    /// The workbench as the pages read it: the context sent shows while a request is under way.
-    let toDeferred (state: OrderContextState) : Deferred<OrderContext> =
-        match state.Workbench, state.InFlight with
-        | OrderContextWorkbench.NoPatient, _ -> HasNotStartedYet
-        | OrderContextWorkbench.Unevaluated _, _ -> InProgress
-        | OrderContextWorkbench.Evaluated _, Some((_, sent), _) -> Provisional sent
-        | OrderContextWorkbench.Evaluated(_, ctx), None -> Resolved ctx
-
-
     /// The workbench as the page shows it: the context sent shown while a request is under way.
     let view (state: OrderContextState) : OrderContextView =
         match state.Workbench, state.InFlight with

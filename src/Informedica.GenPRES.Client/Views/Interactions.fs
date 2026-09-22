@@ -10,19 +10,23 @@ module Interactions =
     open Elmish
     open Shared
     open Shared.Types
+    open OrderPlanMachine
 
 
     module private Elmish =
 
 
-        let getPlanDrugs (orderPlan: Deferred<OrderPlan>) =
+        // the drugs of the plan as settled; none while it changes, as before
+        let getPlanDrugs (orderPlan: OrderPlanView) =
             match orderPlan with
-            | Resolved tp ->
+            | OrderPlanView.Settled(tp, _) ->
                 Shared.Models.OrderPlan.orders tp
                 |> Array.map _.Name
                 |> Array.distinct
                 |> Array.toList
-            | _ -> []
+            | OrderPlanView.NoPatient
+            | OrderPlanView.Opening
+            | OrderPlanView.Changing _ -> []
 
 
         let getCombinedDrugs planDrugs manualDrugs = (planDrugs @ manualDrugs) |> List.distinct
@@ -51,7 +55,7 @@ module Interactions =
 
 
         let update
-            (orderPlan: Deferred<OrderPlan>)
+            (orderPlan: OrderPlanView)
             (checkInteractions: string list -> unit)
             (msg: Msg)
             (state: State)

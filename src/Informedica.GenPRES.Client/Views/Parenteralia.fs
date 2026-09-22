@@ -128,7 +128,7 @@ module Parenteralia =
         // the filter is the workbench's: a change here is evaluated there, so the selects are
         // greyed while a workbench request is under way
         let busy =
-            match (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContextView with
+            match (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext with
             | OrderContextView.Evaluating
             | OrderContextView.Changing _ -> true
             | OrderContextView.NoPatient
