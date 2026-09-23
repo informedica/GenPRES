@@ -424,13 +424,45 @@ Target.create "TestHeadless" (fun _ -> run dotnet [ "test"; sln; "--no-build"; "
 Target.create "Format" (fun _ -> run dotnet [ "fantomas"; "." ] ".")
 
 
+// The Markdown files the repository holds, asked of git rather than globbed off disk.
+// A `**/*.md` glob also reports on whatever untracked folders a contributor keeps in
+// their working copy, so the count depended on who ran it and buried the tracked files
+// it was meant to be about. An entry staged as deleted is dropped, since it has an index
+// entry but no file to read.
+let trackedMarkdown () =
+    CreateProcess.fromRawCommand "git" [ "ls-files"; "*.md" ]
+    |> CreateProcess.withWorkingDirectory "."
+    |> CreateProcess.redirectOutput
+    |> Proc.run
+    |> fun result -> result.Result.Output.Split('\n')
+    |> Array.map (fun line -> line.Trim())
+    |> Array.filter (fun line -> line <> "" && File.exists line)
+    |> List.ofArray
+
+
 Target.create
     "MarkdownLint"
     (fun _ ->
         try
-            run npx [ "--yes"; "markdownlint-cli2"; "**/*.md" ] "."
+            match trackedMarkdown () with
+            | [] -> Trace.traceImportant "MarkdownLint: git reported no tracked Markdown files."
+            | files ->
+                // markdownlint-cli2 exits non-zero as soon as it reports anything, and this
+                // target is advisory: the pre-commit hook never blocks a commit on a Markdown
+                // finding. So the exit code becomes a notice. Built here rather than run through
+                // `run`, whose failure message repeats the argument list back -- which is now
+                // every tracked Markdown file.
+                let result =
+                    CreateProcess.fromRawCommand (findOnPath "npx") ([ "--yes"; "markdownlint-cli2" ] @ files)
+                    |> CreateProcess.withWorkingDirectory "."
+                    |> Proc.run
+
+                if result.ExitCode <> 0 then
+                    Trace.traceImportant "⚠️  MarkdownLint reported issues; see the summary above."
         with ex ->
-            Trace.traceImportant $"⚠️  MarkdownLint: {ex.Message}"
+            // npx or git missing, say. The target reports on documentation and must not be the
+            // reason a build fails.
+            Trace.traceImportant $"⚠️  MarkdownLint could not run: {ex.Message}"
     )
 
 
