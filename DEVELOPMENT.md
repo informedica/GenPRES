@@ -338,6 +338,7 @@ packages for the Fable/Vite dev server).
 | `dotnet run Clean` | `Clean` | Remove `deploy/` and `dist/` artifacts, delete Fable-generated `.jsx` files |
 | `dotnet run Bundle` | `Bundle` | Production build: publish server, compile client, copy data |
 | `dotnet run ServerTests` | `ServerTests` | Run all F# unit tests (Expecto) with quiet logging |
+| `dotnet run DebugTests` | `DebugTests` | Run every test project one at a time through Expecto's own runner, with per-test output and no parallelism. For chasing a flaky test or an interaction between two tests; stops at the first failing assembly. The project list is read from `GenPRES.sln`, so a new test project is included the day it is added. Without the G-Standaard files under `data/zindex`, set `CI=true` so `ZIndex.Tests` skips rather than fails |
 | `dotnet run CheckVersions` | `CheckVersions` | Verify every built DLL's version matches the root `Directory.Build.props` |
 | `dotnet run TestHeadless` | `TestHeadless` | Build and run tests without launching a browser |
 | `dotnet run WatchTests` | `WatchTests` | Run tests in watch mode (re-runs on file changes) |
@@ -520,9 +521,8 @@ Common conventions for both categories:
 
 #### Tracked scripts (in the repo)
 
-These three scripts ship with the repository and are listed explicitly in `.gitignore` with `!` allow-entries.
+These two scripts ship with the repository and are listed explicitly in `.gitignore` with `!` allow-entries.
 
-- **`debugTests.sh`** — sources `.env`, then iterates through eight test projects (`Utils`, `Agents`, `Logging`, `GenUnits`, `GenCore`, `GenSolver`, `GenForm`, `GenOrder`, plus the `Server` test project) and runs each with `dotnet run --project <proj> -- --debug --summary --sequenced`. Exits non-zero on the first failure. Similar to `dotnet run ServerTests` but with per-project isolation, debug output, and forced sequential execution — useful when chasing flaky tests or test interactions. The project list is hardcoded; if you add a new test project, update both this script and the `ServerTests` FAKE target.
 - **`benchmark/run.sh`** — runs `sudo dotnet run -c Release "$@"`. Must be invoked from the `benchmark/` directory; it does not `cd` for you. The `sudo` is required because some BenchmarkDotNet diagnostics need elevated privileges. Extra arguments are forwarded to `dotnet run`. The `benchmark/` projects are part of the root paket root, with their packages in a separate `group Benchmark` in `paket.dependencies` so that BenchmarkDotNet's transitive tree never influences the `Main` resolution (see [#513](https://github.com/informedica/GenPRES/issues/513) and [Paket groups](#paket-groups) above); `dotnet run BenchmarkBuild` compiles all four benchmark projects without running them.
 - **`.husky/scripts/format-staged.sh`** — invoked by the Husky pre-commit hook. Receives staged F# files as positional arguments, warns about partially-staged files (Fantomas formats the *full working-tree* version of each file, not just the staged hunks), runs `dotnet fantomas` on them, and re-stages the formatted output. You normally never call this directly; it runs automatically on `git commit`. See also [CONTRIBUTING.md](CONTRIBUTING.md#code-formatting-pre-commit-hook).
 

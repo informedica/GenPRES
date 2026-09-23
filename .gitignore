@@ -373,4 +373,3 @@
 !/benchmark/ValueUnitBench/BenchmarkDotNet.Artifacts/results/*.md
 
 #Add debug test runner
-!/debugTests.sh
