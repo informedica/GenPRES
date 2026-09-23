@@ -421,7 +421,7 @@ design. It is registered as a local dotnet tool (`.config/dotnet-tools.json`) an
 YAML front matter at the top of the root `CHANGELOG.md`.
 
 ShipIt runs in CI on every push to `master` (see [Release Automation](#release-automation-github-actions)
-below) and owns the version number: the `updaters:` block in the `CHANGELOG.md` front matter points at 
+below) and owns the version number: the `updaters:` block in the `CHANGELOG.md` front matter points at
 `/Project/PropertyGroup/Version` in the root `Directory.Build.props`, so the release PR bumps that
 element as well as adding the changelog section. Two further `regex` updaters rewrite the version
 where it is spelled out for Docker: the default image tag in the root `compose.yaml`
@@ -447,8 +447,8 @@ dotnet shipit --dry-run --allow-branch master --skip-merge-commit --skip-invalid
 ```
 
 `--allow-branch` defaults to `main`; GenPRES's default branch is `master`, so it must be passed
-explicitly (`release.yml` passes it too). `--skip-merge-commit` is required for every invocation. 
-All three merge methods are enabled on the repo, so `Merge pull request ...` commits will keep 
+explicitly (`release.yml` passes it too). `--skip-merge-commit` is required for every invocation.
+All three merge methods are enabled on the repo, so `Merge pull request ...` commits will keep
 appearing in history, and ShipIt throws on the first one it hits instead of skipping it.
 `--skip-invalid-commit` is required too: a commit that does not follow Conventional Commits (most
 often a GitHub-UI "commit suggestion" — e.g. accepting a bot review comment — which bypasses the
@@ -751,11 +751,11 @@ local activity (see `benchmark/run.sh`).
 
 ### API Documentation (GitHub Actions)
 
-`.github/workflows/docs.yml` runs `dotnet run ApiDocs` on every push to `master` and publishes the fsdocs 
+`.github/workflows/docs.yml` runs `dotnet run ApiDocs` on every push to `master` and publishes the fsdocs
 output to GitHub Pages at `https://informedica.github.io/GenPRES/`
-([#460](https://github.com/informedica/GenPRES/issues/460)). Like `release.yml` it is a separate workflow 
-rather than a job in `build.yml`: a docs-build failure must not block the test/format matrix, and a red 
-test run must not stop the reference from refreshing. It does not run on pull requests — there is nowhere 
+([#460](https://github.com/informedica/GenPRES/issues/460)). Like `release.yml` it is a separate workflow
+rather than a job in `build.yml`: a docs-build failure must not block the test/format matrix, and a red
+test run must not stop the reference from refreshing. It does not run on pull requests — there is nowhere
 to publish a PR build and the Release solution build is not worth spending per branch push.
 
 **One-time repo setup (admin)**: Settings → Pages → Build and deployment → Source = "GitHub
@@ -764,17 +764,17 @@ Actions". Until that is set, the `deploy` job fails with "Pages site not found".
 ### Release Automation (GitHub Actions)
 
 `.github/workflows/release.yml` runs [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt)
-on every push to `master`, opening or updating a draft release PR with the next derived version and changelog 
-section. It is deliberately a separate workflow from `build.yml`, not a job within it: a ShipIt failure must 
-never block the test/format matrix that already gated the PR which produced the push. See 
+on every push to `master`, opening or updating a draft release PR with the next derived version and changelog
+section. It is deliberately a separate workflow from `build.yml`, not a job within it: a ShipIt failure must
+never block the test/format matrix that already gated the PR which produced the push. See
 [ADR-0005](docs/adr/0005-build-system-versioning-and-release.md) for the full design and the
 [implementation plan](docs/implementation-plans/234-improve-build-system.md) for status.
 
-This replaces the "Repo Assist" bot's former Task 8 ("Release Preparation", `.github/workflows/repo-assist.md`), 
+This replaces the "Repo Assist" bot's former Task 8 ("Release Preparation", `.github/workflows/repo-assist.md`),
 retired in the same change to avoid two bots proposing competing release PRs on the same merge.
 
-**One-time repo setting required**: ShipIt opens PRs using the workflow's own `GITHUB_TOKEN`, which requires 
-**Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"** to be enabled. 
+**One-time repo setting required**: ShipIt opens PRs using the workflow's own `GITHUB_TOKEN`, which requires
+**Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"** to be enabled.
 Without it, `release.yml` runs but fails to open the PR.
 
 #### Tagging and publishing the Release
