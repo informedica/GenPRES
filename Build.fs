@@ -1,3 +1,5 @@
+open System.Text.RegularExpressions
+
 open Fake.Core
 open Fake.IO
 
@@ -367,6 +369,49 @@ Target.create
             if totalTests.Value = 0 then
                 invalidOp
                     "No tests were discovered or run. The solution was likely not built/restored before `dotnet test`."
+    )
+
+
+// Every test project in the solution, in the order the solution lists them. Read from
+// GenPRES.sln rather than kept as a list here, because a list here would rot: the
+// debugTests.sh this replaced carried nine projects and had silently fallen six behind.
+// `scripts/DependencyRule.fsx` reads the solution the same way, for the same reason.
+let testProjects () =
+    File.readAsString sln
+    |> fun text -> Regex.Matches(text, "\"([^\"]+\\.fsproj)\"")
+    |> Seq.map (fun m -> m.Groups[1].Value.Replace('\\', '/'))
+    |> Seq.filter (fun path -> path.StartsWith "tests/")
+    |> Seq.distinct
+    |> List.ofSeq
+
+
+// Runs each test assembly on its own, with Expecto's own runner rather than `dotnet test`:
+// --debug names the test that is running, --summary lists the outcome per test, and
+// --sequenced stops the assembly running its tests in parallel. That combination is what
+// makes a flaky test or an interaction between two tests findable, which `ServerTests`
+// (quiet, parallel, one `dotnet test` over the solution) is not meant for. Slow by design.
+//
+// Other Expecto options worth swapping in while chasing something:
+//   --summary-location    the source location of each test in the summary
+//   --filter <substring>  only the tests whose name starts with it
+//   --list-tests          name them without running them
+//
+// `run` throws on a non-zero exit, so the first failing assembly ends the target and the
+// ones after it do not run -- the same behaviour debugTests.sh had. On a checkout without
+// the G-Standaard files under data/zindex that first failure is ZIndex.Tests, which reads
+// them; set CI=true to make those tests skip instead, as they do on the CI runners.
+Target.create
+    "DebugTests"
+    (fun _ ->
+        let projects = testProjects ()
+
+        Trace.logfn "Running %i test projects in debug mode ..." projects.Length
+
+        projects
+        |> List.iter (fun proj ->
+            Trace.logfn "\n--- %s" proj
+            run dotnet [ "run"; "--project"; proj; "--"; "--debug"; "--summary"; "--sequenced" ] "."
+        )
     )
 
 Target.create "CheckVersions" (fun _ -> run dotnet [ "fsi"; "scripts/CheckSolutionVersions.fsx" ] ".")
