@@ -86,7 +86,7 @@ GenPRES welcomes contributions that use AI coding tools, but requires transparen
 
 ### LLM Source Code Access Policy
 
-LLMs must not be given direct write access to `.fs` source files, except for client-side UI code in `src/Informedica.GenPRES.Client/`. Contributors using AI tools (GitHub Copilot, Claude, Cursor, Warp AI, etc.) must route all non-UI code through `.fsx` scripts first, following the [script-based development workflow](AGENTS.md#script-based-development-workflow). For the full policy, see [AGENTS.md](AGENTS.md#aillm-usage-policy).
+LLMs must not be given direct write access to `.fs` source files, except for client-side UI code in `src/Informedica.GenPRES.Client/`. The exception does not reach `src/Informedica.GenPRES.Client.Core/`: its files are plain F# that runs in FSI, so they go through `.fsx` scripts like any other library. Contributors using AI tools (GitHub Copilot, Claude, Cursor, Warp AI, etc.) must route all non-UI code through `.fsx` scripts first, following the [script-based development workflow](AGENTS.md#script-based-development-workflow). For the full policy, see [AGENTS.md](AGENTS.md#aillm-usage-policy).
 
 ### Vibe Coding Disclosure
 

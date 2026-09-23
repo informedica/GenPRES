@@ -1046,6 +1046,7 @@ GenPRES/
     │   ├── Views/             # View components
     │   ├── output/            # Compiled JavaScript output
     │   └── public/            # Static assets
+    ├── Informedica.GenPRES.Client.Core/  # The client's pure state machines and policies
     ├── Informedica.GenPRES.Server/       # Backend application
     │   ├── Properties/        # Server properties
     │   ├── Scripts/           # Server scripts
@@ -1126,7 +1127,7 @@ For complete architectural documentation, see:
 This project is built on the [SAFE Stack](https://safe-stack.github.io/):
 
 - **Informedica.GenPRES.Server**: F# with [Saturn](https://saturnframework.org/)
-- **Informedica.GenPRES.Client**: F# with [Fable](https://fable.io/docs/) and [Elmish](https://elmish.github.io/elmish/)
+- **Informedica.GenPRES.Client**: F# with [Fable](https://fable.io/docs/) and [Elmish](https://elmish.github.io/elmish/); its state machines and policies sit in **Informedica.GenPRES.Client.Core**, which carries no React and so runs under Expecto as well as under Fable
 - **Testing**: Expecto with FsCheck for property-based testing
 - **Build**: .NET 10.0
 
@@ -1154,6 +1155,7 @@ Key libraries in dependency order:
 - **Informedica.MCP.Server**: Standalone stdio MCP host
 - **Informedica.GenPRES.Shared**: Shared types and API protocol
 - **Informedica.GenPRES.Server**: Server API and orchestration
+- **Informedica.GenPRES.Client.Core**: The client's state machines and policies, pure F# over the contract
 - **Informedica.GenPRES.Client**: Web-based clinical UI
 
 ## Code Contribution Guidelines

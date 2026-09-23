@@ -315,7 +315,7 @@ preserves behaviour, so that every existing test stays green through it. Every s
    and assert today's rule, so the fix flips a real assertion. `fix(client)`: the `Filter` arm
    of `OrderPlanMachine.fs` keeps the plan held as what a failed change goes back to; the plan
    with the new filter travels in the command only. About 40 lines.
-5. **`Deferred` in its own file** (`refactor(client)`): `src/Informedica.GenPRES.Client/Deferred.fs`
+5. **`Deferred` in its own file** (`refactor(client)`): `src/Informedica.GenPRES.Client.Core/Deferred.fs`
    as the first compile item, `[<AutoOpen>]`, out of `Extensions.fs`; `resolved` and `exists`
    deleted; the type unchanged so the pages compile untouched; linked into
    `tests/Informedica.GenPRES.Shared.Tests` before the machines so the projections can be

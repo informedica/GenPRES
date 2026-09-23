@@ -12,6 +12,8 @@ Instructions for AI coding agents working on the GenPRES repository. Make edits 
 > - **Targeted refactoring of a single function** when explicitly requested by the user
 > - **Client-side UI code** in `src/Informedica.GenPRES.Client/` — this is the only exception, because Fable/Elmish UI code cannot be run in FSI scripts
 >
+> The exception stops at that project. `src/Informedica.GenPRES.Client.Core/` holds the client's pure state machines and policies: plain F# over the shared contract, with no React, no Browser type and no Fable package, so it runs under Expecto and in FSI like any other library. Nothing there needs the exception, and so nothing there gets it.
+>
 > **NOT allowed in other `.fs` source files:**
 >
 > - Adding new functions or modules
@@ -451,7 +453,7 @@ FSI's `#load` directive resolves relative paths from its *include path*, **not**
 
 This policy applies to **all contributors**, not just AI agents.
 
-> **LLMs must not be given direct write access to `.fs` source files**, except for client-side UI code in `src/Informedica.GenPRES.Client/`.
+> **LLMs must not be given direct write access to `.fs` source files**, except for client-side UI code in `src/Informedica.GenPRES.Client/`. Not `src/Informedica.GenPRES.Client.Core/`, whose files run in FSI and are therefore reachable by the script-based workflow like any other library.
 
 Contributors using AI coding tools (GitHub Copilot, Claude, Cursor, Warp AI, etc.) must route all non-UI code through `.fsx` scripts first, following the script-based development workflow described above. The human contributor is responsible for reviewing, verifying, and manually migrating script code into source files.
 
