@@ -147,7 +147,7 @@ confirmed solver result.
 | Hop | File | Symbol |
 | --- | ---- | ------ |
 | UI stepper | `src/Informedica.GenPRES.Client/Views/Prescribe.fs` | `Increase/DecreaseOrderableDoseQuantityProperty` |
-| Client machine | `src/Informedica.GenPRES.Client/OrderContextMachine.fs` | `OrderContextMsg.Command`, `OrderContextWorkbench.step`, `OrderContextState.transition` |
+| Client machine | `src/Informedica.GenPRES.Client.Core/OrderContextMachine.fs` | `OrderContextMsg.Command`, `OrderContextWorkbench.step`, `OrderContextState.transition` |
 | Server call | `src/Informedica.GenPRES.Client/App.fs` | `interpretOrderContextEffect`, `OrderContextAnswered` |
 | Shared DTO | `src/Informedica.GenPRES.Shared/Api.fs` | `OrderContextCommand` |
 | Server cmd | `src/Informedica.GenPRES.Server/ServerApi.OrderContextCommand.fs` | `processCmd` |

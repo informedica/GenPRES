@@ -15,7 +15,7 @@ absence of data was taken as what it should be.
 The patient is part of the filter. Age, weight, BSA, gestational age, gender and department all
 select dose rules (`PatientCategory.filter` in `src/Informedica.GenFORM.Lib/Patient.fs`). A
 filter chosen before the patient exists, the *seed* of the prescribing workbench
-(`OrderContextWorkbench.Seeded` in `src/Informedica.GenPRES.Client/OrderContextMachine.fs`,
+(`OrderContextWorkbench.Seeded` in `src/Informedica.GenPRES.Client.Core/OrderContextMachine.fs`,
 from a medication in the url or the menu), is therefore a state the domain has no meaning for:
 the patient entered afterwards may exclude the generic. Plan
 [691](691-order-lanes-two-stages.md) left that state as decision b; this plan resolves it by

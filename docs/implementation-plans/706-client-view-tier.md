@@ -9,7 +9,7 @@ two, the domain DUs `OrderContextWorkbench` and `OrderPlanCart` and the field `I
 left the third unnamed. It is spread over `toDeferred` in both machines,
 `OrderPlanState.Selected`, and loose fields of `App.State`.
 
-`Deferred<'t>` (`src/Informedica.GenPRES.Client/Deferred.fs`) is not the communication state.
+`Deferred<'t>` (`src/Informedica.GenPRES.Client.Core/Deferred.fs`) is not the communication state.
 It is never stored; it is derived by `toDeferred` and read only by the pages through `AppEnv`.
 It already is the view tier, undeclared, and its comment still tells a transport story.
 
