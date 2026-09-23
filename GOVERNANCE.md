@@ -2,7 +2,9 @@
 
 ## Overview
 
-This document describes the governance model for GenPRES, a medical decision support system for medication safety in pediatric and adult care. As medical device software, GenPRES requires robust governance to ensure patient safety, regulatory compliance, and sustainable development.
+This document describes the governance model for GenPRES, a medical decision support system for medication safety in pediatric and adult care.
+
+At this moment, GenPRES is not MDR certified and should not be used for clinical use. We are working on MDR certification.
 
 ## Project Vision
 
@@ -11,7 +13,7 @@ GenPRES aims to provide safe, accurate, and reliable medication dosing calculati
 ## Governance Principles
 
 1. **Patient Safety First**: All decisions prioritize patient safety and clinical accuracy
-2. **Regulatory Compliance**: Adherence to MDR, ISO 14971, IEC 62304, and applicable standards
+2. **Working towards MDR certification**: Development is aimed at meeting the EU Medical Device Regulation (MDR) and the applicable ISO / NEN standards, which will be added when the regulatory strategy is settled
 3. **Transparency**: Open decision-making processes and clear documentation
 4. **Evidence-Based**: Clinical decisions grounded in scientific literature and guidelines
 5. **Community Inclusion**: Welcoming contributions while maintaining quality standards
@@ -21,94 +23,54 @@ GenPRES aims to provide safe, accurate, and reliable medication dosing calculati
 
 ### Project Lead
 
-**Current**: [INSERT PROJECT LEAD NAME AND CONTACT]
-
-**Responsibilities:**
-
-- Overall project direction and strategic decisions
+- Overall project direction and priorities
 - Final authority on releases and major changes
-- Regulatory compliance oversight
+- Oversight of the MDR certification process
 - Conflict resolution
 - Community health and growth
-- Medical device quality management
 
-**Authority:**
+### Technical Lead
 
-- Merge rights on main/master branch
-- Release authority
-- Design decision authority for safety-critical features
-- Contributor access management
+- Architecture and technical design decisions
+- Code quality, code review and testing standards
+- Build, release and deployment tooling
+- Technical direction of the libraries, server and client
 
-### Core Maintainers
+### UI/UX Designer
 
-**Current Core Maintainers:**
+- Design of the user interface and user workflows
+- Usability research and testing with clinical users
+- Accessibility of the user interface
 
-- [INSERT MAINTAINER NAMES AND AREAS]
+### Implementation Lead
 
-**Responsibilities:**
+- Planning and coordination of the introduction of GenPRES in healthcare organizations
+- Onboarding and training of users
 
-- Code review and approval
-- Issue triage and management
-- Technical design decisions within area of expertise
-- Documentation maintenance
-- Community support and mentoring
-- Test coverage and quality assurance
+### Clinical Advisors
 
-**Requirements:**
-
-- Deep understanding of F#, functional programming, and SAFE Stack
-- Knowledge of medical device software requirements
-- Consistent contributions over 6+ months
-- Understanding of clinical safety requirements
-- Commitment to code quality and testing
-
-**Authority:**
-
-- Approve pull requests in their area
-- Create and manage issues
-- Guide technical discussions
-- Mentor contributors
-
-### Medical/Clinical Advisors
-
-**Current Advisors:**
-
-- [INSERT CLINICAL ADVISOR NAMES]
-
-**Responsibilities:**
-
-- Review clinical accuracy of calculations and algorithms
-- Validate medication dosing logic
-- Review safety-related changes
 - Provide clinical context for requirements
 - Review risk assessments
 
-**Authority:**
+### Maintainers
 
-- Required approval for clinical/safety-critical changes
-- Veto power on changes that compromise patient safety
-- Input on user requirements and clinical scenarios
+- Develop features and fix bugs
+- Review and approve pull requests
+- Triage issues
+- Write tests and maintain documentation
 
 ### Contributors
 
-**Anyone who contributes to GenPRES through:**
+- Submit pull requests, bug reports and feature ideas
+- Comment on issues and pull requests
+- Take part in GitHub Discussions
+- Are credited in the release notes
 
-- Code contributions (pull requests)
-- Documentation improvements
-- Bug reports and issue triage
-- Testing and validation
-- Community support
-
-**Rights:**
-
-- Submit pull requests
-- Comment on issues and PRs
-- Participate in discussions
-- Recognition in the release notes
-
-Current maintainers are listed in [MAINTAINERS.md](MAINTAINERS.md).
+Who holds each role is recorded in the proprietary MDR documentation.
 
 ## Decision-Making Process
+
+All changes related to clinical safety will be described in the proprietary MDR repository.
 
 ### Routine Decisions
 
@@ -119,54 +81,13 @@ Current maintainers are listed in [MAINTAINERS.md](MAINTAINERS.md).
 1. Contributor submits PR
 2. Automated checks pass (tests, formatting, linting)
 3. Code review by at least one maintainer
-4. Clinical review if safety-related
-5. Maintainer approval and merge
-
-**Timeline**: Typically 3-7 days
+4. Maintainer approval and merge
 
 ### Significant Changes
 
 **Examples**: New major features, API changes, architectural changes, dependency updates
 
-**Process:**
-
-1. RFC (Request for Comments) discussion in GitHub Discussions or issue
-2. Design review with core maintainers
-3. Clinical review if applicable
-4. Consensus among maintainers (not unanimous, but no strong objections)
-5. Implementation via PR with standard review process
-
-**Timeline**: Typically 1-4 weeks
-
-### Safety-Critical Changes
-
-**Examples**: Dosing algorithms, unit conversions, constraint solving, risk control measures
-
-**Process:**
-
-1. RFC with clinical justification and literature references
-2. Technical design review
-3. **Mandatory clinical advisor review**
-4. Risk assessment update
-5. Enhanced testing requirements
-6. Multiple maintainer approvals
-7. Validation testing before merge
-
-**Timeline**: Typically 2-8 weeks (may require additional validation)
-
-### Major Strategic Decisions
-
-**Examples**: Regulatory strategy, major technology changes, licensing changes
-
-**Process:**
-
-1. Proposal document by project lead or maintainer
-2. Discussion period (minimum 2 weeks)
-3. Input from all stakeholders
-4. Final decision by project lead
-5. Documentation in Architecture Decision Record (ADR)
-
-**Timeline**: Varies based on complexity
+Significant changes follow the [pull request process in CONTRIBUTING.md](CONTRIBUTING.md#pull-request-process): an issue, an agreed implementation plan in `docs/implementation-plans/`, then small implementation PRs.
 
 ## Consensus Building
 
@@ -178,44 +99,12 @@ We use **lazy consensus** for most decisions:
 - Attempt to address concerns and find compromise
 - Project lead makes final decision if consensus cannot be reached
 
-For safety-critical changes, **explicit approval** is required from:
-
-- At least one core maintainer
-- At least one clinical advisor
-- Project lead (for high-risk changes)
-
 ## Conflict Resolution
 
 1. **Direct Communication**: Contributors are encouraged to resolve conflicts directly
 2. **Maintainer Mediation**: If unresolved, maintainers help facilitate discussion
 3. **Project Lead Decision**: Final authority rests with project lead
 4. **Code of Conduct**: All conflicts handled per [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-
-## Becoming a Maintainer
-
-### Criteria
-
-- Sustained contributions over 6+ months
-- Deep technical knowledge of relevant areas
-- Demonstrated understanding of medical device requirements
-- High-quality code reviews
-- Positive community engagement
-- Commitment to project values and patient safety
-
-### Process
-
-1. Nomination by existing maintainer or self-nomination
-2. Discussion among core team
-3. Consensus approval
-4. Onboarding and access provisioning
-
-### Maintainer Emeritus
-
-Maintainers who step back retain emeritus status:
-
-- Recognition of past contributions
-- Advisory capacity if desired
-- Can return to active maintainer status
 
 ## Pull Request Review Process
 
@@ -224,21 +113,6 @@ Maintainers who step back retain emeritus status:
 - **Required**: 1 maintainer approval
 - **Optional**: Additional reviews welcome
 - **Automated**: Tests, linting, formatting checks must pass
-- **Clinical review**: Required if safety-related
-
-### Clinical/Safety PRs
-
-- **Required**: 1 maintainer + 1 clinical advisor approval
-- **Risk assessment**: Update if risk profile changes
-- **Testing**: Enhanced test requirements
-- **Documentation**: Update MDR documentation if needed
-
-### Breaking Changes
-
-- **RFC required**: Discussion before implementation
-- **Deprecation policy**: Follow semantic versioning
-- **Migration guide**: Document upgrade path
-- **Major version bump**: Required for breaking changes
 
 ## Release Authority
 
@@ -247,62 +121,29 @@ Maintainers who step back retain emeritus status:
 **Release Process** (automated by EasyBuild.ShipIt, see [DEVELOPMENT.md](DEVELOPMENT.md#changelog--release-automation-easybuildshipit)):
 
 1. All tests passing on `master`
-2. MDR documentation updated (in the separate, proprietary MDR repository)
-3. ShipIt derives the version from conventional commits and opens a release PR with the `CHANGELOG.md` section and the `Directory.Build.props` bump
-4. Risk management review
-5. Release manager reviews and merges the release PR
-6. `tag-release.yml` tags the merge commit, publishes the GitHub Release and the Docker image
+2. ShipIt derives the version from conventional commits and opens a release PR with the `CHANGELOG.md` section and the `Directory.Build.props` bump
+3. Release manager reviews and merges the release PR
+4. `tag-release.yml` tags the merge commit, publishes the GitHub Release and the Docker image
 
 **Release Schedule:** there is no calendar cadence. ShipIt keeps a release PR current on every push to `master`; the release manager merges it when a release is warranted (see [ROADMAP.md](ROADMAP.md#release-cadence)).
 
 ## Medical Device Governance
 
-### Quality Management System (QMS)
+GenPRES is not MDR certified yet. We are working on MDR certification.
 
-GenPRES operates under a Quality Management System per ISO 13485:
+How a certified version is frozen and maintained is proposed in [ADR-0006](docs/adr/0006-accredited-scope-and-maintenance-lines.md).
 
-**Quality Objectives:**
-
-- Software reliability and correctness
-- Clinical accuracy and safety
-- Regulatory compliance
-- Continuous improvement
-
-**QMS Documentation:**
+**Documentation:**
 
 - Design History File (DHF), risk management, requirements and validation records are maintained in the separate, proprietary MDR documentation repository.
 - Architecture Decision Records for this code base: `docs/adr/`
-
-### Change Control
-
-All changes follow change control process:
-
-1. Change request documentation
-2. Impact assessment (risk, validation, documentation)
-3. Approval by appropriate authorities
-4. Implementation and verification
-5. Documentation update
-6. Change log entry
-
-**See**: `git log` and the ADRs in `docs/adr/`; the regulatory change log is maintained in the separate, proprietary MDR documentation repository.
-
-### Post-Market Surveillance
-
-Active monitoring includes:
-
-- User feedback collection
-- Adverse event monitoring
-- Performance monitoring
-- Regulatory vigilance reporting
-
-**See**: post-market surveillance records are maintained in the separate, proprietary MDR documentation repository.
 
 ## Communication Channels
 
 ### Decision Making
 
 - **GitHub Issues**: Feature requests, bugs, small decisions
-- **GitHub Discussions**: RFCs, design discussions, questions
+- **GitHub Discussions**: Design discussions, questions
 - **Pull Requests**: Code review and implementation discussion
 
 ### Community
@@ -313,14 +154,14 @@ Active monitoring includes:
 
 ### Internal
 
-- [INSERT TEAM COMMUNICATION CHANNELS IF APPLICABLE]
+- Signal, for the project team
 
 ## Amendments to Governance
 
 This governance document can be amended by:
 
 1. Proposal via GitHub Discussion or issue
-2. Discussion period (minimum 2 weeks)
+2. Discussion period
 3. Consensus among maintainers
 4. Final approval by project lead
 5. Update document and announce changes
@@ -340,4 +181,3 @@ This governance model is inspired by:
 - Apache Software Foundation governance
 - Rust language governance
 - Open source medical software projects
-- ISO 13485 quality management principles

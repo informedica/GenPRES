@@ -87,9 +87,8 @@ For questions related to:
 Please:
 
 1. Review existing clinical documentation in `docs/scenarios/` and `docs/domain/`
-2. Search for related issues with `safety` or `clinical` labels
-3. Create a discussion in the Q&A category with `[Clinical]` prefix
-4. Be prepared to provide clinical context and references
+2. Create a discussion in the Q&A category with `[Clinical]` prefix
+3. Be prepared to provide clinical context and references
 
 **For urgent safety concerns**, see [SECURITY.md](SECURITY.md) for responsible disclosure process.
 
@@ -112,20 +111,7 @@ If you've solved a problem or learned something useful:
 - Community-driven responses
 - Best-effort support from maintainers and community
 
-**Response time**: Variable, typically 1-7 days depending on complexity and community activity
-
-### Professional Support
-
-For organizations requiring:
-
-- SLA-based support
-- Priority bug fixes
-- Custom feature development
-- Regulatory consulting
-- Integration assistance
-- Training and onboarding
-
-**Contact**: [INSERT PROFESSIONAL SUPPORT CONTACT]
+**Response time**: Best effort; there is no guaranteed response time.
 
 ## What to Include in Support Requests
 
@@ -199,25 +185,7 @@ For organizations requiring:
 
 ## Response Expectations
 
-### Community Discussions
-
-- **Simple questions**: Often answered within 1-3 days
-- **Complex questions**: May take 1-2 weeks
-- **No guarantee** of response time
-- Community members and maintainers respond when available
-
-### Bug Reports
-
-- **Critical safety bugs**: Within 24-48 hours
-- **Major bugs**: Within 1 week
-- **Minor bugs**: As time permits
-- Priority based on severity and impact
-
-### Feature Requests
-
-- **Initial response**: Within 1-2 weeks
-- **Implementation**: Based on roadmap and priorities
-- May be marked as "help wanted" for community contribution
+GenPRES is maintained by a small team. We do our best to respond as soon as possible; there are no guaranteed response times. Critical safety issues are handled first, and feature requests are prioritized according to the roadmap.
 
 ## Code of Conduct
 
@@ -238,7 +206,7 @@ Primary language for support is **English**. This ensures:
 
 ## Medical Advice Disclaimer
 
-**Canonical disclaimer:** This repository contains the source code and documentation for GenPRES. It does not include professional support services, and it is not intended for direct clinical use without appropriate validation and regulatory approval.
+**Canonical disclaimer:** This repository contains the source code and documentation for GenPRES. It does not include professional support services. At this moment, GenPRES is not MDR certified and should not be used for clinical use. We are working on MDR certification.
 
 ⚠️ **IMPORTANT**: GenPRES is a decision support tool, not a replacement for clinical judgment.
 
