@@ -1,4 +1,4 @@
-namespace Informedica.GenPRES.Shared.Tests
+namespace Informedica.GenPRES.Client.Core.Tests
 
 
 /// The plan's work beside the version last opened or signed, linked in from the client project.

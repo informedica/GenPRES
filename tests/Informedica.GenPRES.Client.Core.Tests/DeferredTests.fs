@@ -1,4 +1,4 @@
-namespace Informedica.GenPRES.Shared.Tests
+namespace Informedica.GenPRES.Client.Core.Tests
 
 
 /// The reading of a plain fetch, linked in from the client project.

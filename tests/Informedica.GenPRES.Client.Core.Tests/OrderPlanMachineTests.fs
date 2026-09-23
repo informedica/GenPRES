@@ -1,4 +1,4 @@
-module Informedica.GenPRES.Shared.Tests.OrderPlanMachineTests
+module Informedica.GenPRES.Client.Core.Tests.OrderPlanMachineTests
 
 open System
 open Expecto

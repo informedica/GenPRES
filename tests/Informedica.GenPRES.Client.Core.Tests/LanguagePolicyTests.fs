@@ -1,4 +1,4 @@
-namespace Informedica.GenPRES.Shared.Tests
+namespace Informedica.GenPRES.Client.Core.Tests
 
 
 /// The language precedence, linked in from the client project: url `la` and the User's choice

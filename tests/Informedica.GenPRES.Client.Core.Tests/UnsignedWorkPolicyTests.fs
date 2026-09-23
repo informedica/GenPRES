@@ -1,4 +1,4 @@
-namespace Informedica.GenPRES.Shared.Tests
+namespace Informedica.GenPRES.Client.Core.Tests
 
 
 /// The leave-page guard's policy, linked in from the client project.

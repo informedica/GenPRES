@@ -1,4 +1,4 @@
-module Informedica.GenPRES.Shared.Tests.OrderContextMachineTests
+module Informedica.GenPRES.Client.Core.Tests.OrderContextMachineTests
 
 open Expecto
 open Expecto.Flip
