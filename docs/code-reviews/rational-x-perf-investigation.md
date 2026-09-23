@@ -19,6 +19,7 @@ chase the bottlenecks the change exposed.
 ## 2. What was changed (in order)
 
 ### 2.1 `RationalX` type + global drop-in alias
+
 - **New** `src/Informedica.Utils.Lib/BCL/RationalX.fs`: a `[<Struct; CustomEquality; CustomComparison>]`
   two-tier rational. Small tier = reduced `int64` numerator/denominator (the
   common, allocation-free path) with cross-reduction + branchless overflow
@@ -38,11 +39,13 @@ chase the bottlenecks the change exposed.
   stay consistent for `Array.distinct`, `Set`, and `Map` keys.
 
 ### 2.2 Struct shrink — 32 B → 24 B
+
 - Replaced the struct **DU** (which spends 8 B on a tag) with a hand-rolled
   struct `(int64 P, int64 Q, BigCell Big)` where `Big = null` is the small/big
   discriminator. Removes the tag word; small case stays inline and alloc-free.
 
 ### 2.3 Unboxed dedup in `ValueUnit.calc`
+
 - Added `BigRational.distinct` (order-preserving, `HashSet<BigRational>()` with
   the default `EqualityComparer`, which uses the unboxed `IEquatable` path) next
   to `calcCartesian`, and switched `ValueUnit.calc` (`ValueUnit.fs`) to use it.
@@ -50,6 +53,7 @@ chase the bottlenecks the change exposed.
   avoids it.
 
 ### 2.4 Eager-logging guards
+
 - Added `Logging.isActive logger` (true unless the no-op logger) and guarded
   every eager *build-then-log* site in the solve path so the expensive console
   table / constraint dump is built **only when a logger will consume it**:
@@ -57,6 +61,7 @@ chase the bottlenecks the change exposed.
   `applyConstraintsStep`, `logUnmatched`.
 
 ### 2.5 Dead-code removal in the solver
+
 - `GenSOLVER/Equation.fs`: removed a provably-dead per-iteration `List.sortBy`
   (its output was re-sorted by the next iteration before `calcVars` ran, and the
   loop's final list is consumed by index). Behavior-preserving; perf-neutral.
@@ -71,6 +76,7 @@ A/B method: build + run the same harness in this worktree (RationalX) and on
 `dotnet run -c Release`).
 
 ### 3.1 Raw arithmetic micro-benchmark (`RationalXBench`)
+
 `(a*b)/c` over a real base-unit fraction pool:
 
 | | MathNet BigRational | RationalX |
@@ -142,12 +148,14 @@ Distinct result sets identical throughout.
 ## 6. Files changed
 
 **New**
+
 - `src/Informedica.Utils.Lib/BCL/RationalX.fs` — the type, `NumericLiteralN`, alias.
 - `src/Informedica.Utils.Lib/Scripts/RationalXCheck.fsx` — FSI correctness gate.
 - `benchmark/RationalXBench/`, `benchmark/ValueUnitBench/`, `benchmark/ScenarioBench/` —
   A/B harnesses (ScenarioBench also has `profile` and `trace` modes).
 
 **Modified (36 tracked `.fs`)**
+
 - `Utils.Lib`: `BCL/BigRational.fs` (ModuleSuffix, removed MathNet open, added `distinct`),
   `Json.fs`, `Set.fs` (removed MathNet open).
 - `GenUNITS.Lib`, `GenCORE.Lib`, `GenFORM.Lib`, `ZForm.Lib`, `NKF.Lib`,

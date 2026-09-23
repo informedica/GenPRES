@@ -16,6 +16,7 @@ GenCore.Lib serves as the foundational layer for medical and pharmaceutical calc
 ## Key Components
 
 ### ValueUnit.fs
+
 Provides type-safe representation of values with their associated units of measure. Essential for medical calculations where unit errors can be dangerous.
 
 ```fsharp
@@ -24,6 +25,7 @@ let dose = ValueUnit.create 5.0 Units.Weight.milliGram
 ```
 
 ### MinMax.fs
+
 Implements constraint ranges for medical parameters, supporting minimum/maximum bounds with inclusive/exclusive boundaries.
 
 ```fsharp
@@ -32,6 +34,7 @@ let ageRange = MinMax.create (Some 18) (Some 65) true true
 ```
 
 ### Patient.fs
+
 Defines patient data structures including demographics, measurements, and clinical parameters.
 
 ```fsharp
@@ -45,12 +48,15 @@ type Patient = {
 ```
 
 ### Calculations.fs
+
 Contains mathematical operations and algorithms specific to medical and pharmaceutical calculations.
 
 ### Measures.fs
+
 Defines units of measure and measurement-related functionality for the medical domain.
 
 ### Validus.fs
+
 Provides functional validation patterns for input validation and business rule enforcement.
 
 ## Dependencies
@@ -93,14 +99,17 @@ src/Informedica.GenCore.Lib/
 ## Development
 
 ### Building
+
 ```bash
 dotnet build
 ```
 
 ### Testing
+
 Tests are typically located in separate test projects that reference this library.
 
 ### Scripts
+
 The `Scripts/` folder contains F# scripts for interactive development and testing:
 
 - `load.fsx`: Loads the library for interactive development

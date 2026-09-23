@@ -43,11 +43,13 @@ That said, I found a few areas that could be improved in the Informedica.GenUNIT
 ### Unclear intentions
 
 - The purpose of some of the core functions like `toUnit` and `toBase`. For example, in the following code snippet we get back `ValueUnit`s that represent different quantities to the input in a way that isn't obviously useful. To be clear, I can see that calculating that 5 ml is 1/200 l would be helpful, but converting 5 ml to 1/200 ml doesn't seem useful.
+
   ```fsharp
   let ml5 = 5m |> withUnit Units.Volume.milliLiter
   ml5 |> toBase // => ValueUnit ([|1/200N|], Volume (MilliLiter 1N))
   ml5 |> toUnit // => ValueUnit ([|5000N|], Volume (MilliLiter 1N))
-- It's hard to quickly understand the intended behaviour of all of the `valueToBase`, `toBaseValue`, `valueToUnit`, `toUnitValue`, etc. functions 
+- It's hard to quickly understand the intended behaviour of all of the `valueToBase`, `toBaseValue`, `valueToUnit`, `toUnitValue`, etc. functions
+
   ```
 
 ### Overcomplicated implementation?
@@ -64,7 +66,7 @@ That said, I found a few areas that could be improved in the Informedica.GenUNIT
 - Functions like `let getDutchName = getName >> getDutch` are not that useful because they provide almost no meaningful reduction in complexity at the callsite. I think that it would be better to simply use the composed function at the callsite instead.
 - Likewise for examples like `let toStringDutchLong = toString Dutch Long`
 - There were a few places where it looked like the choice of types could be suboptimal for performance. If there are any performance issues with the application, further investigation might be valuable.
-- Consider matching tuples to avoid nesting, if preferred. For example, 
+- Consider matching tuples to avoid nesting, if preferred. For example,
 
   ```diff
   -                match u |> tryFind with

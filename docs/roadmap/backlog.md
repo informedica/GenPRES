@@ -82,6 +82,7 @@ semi-automated extraction into an auditable workflow — required for MDR.
 **Dependencies.** None (entry point). Feeds 2 and 3.
 
 **Affected areas.**
+
 - `src/Informedica.GenPRES.Client/` (new extraction/validation pages — UI is the one
   allowed `.fs` edit zone)
 - `src/Informedica.NLP.Lib/`, `Informedica.GenFORM.Lib/` (expose extraction + validation
@@ -89,6 +90,7 @@ semi-automated extraction into an auditable workflow — required for MDR.
 - `src/Informedica.GenPRES.Shared/Api.fs` (new commands/responses)
 
 **Acceptance criteria.**
+
 - Paste/upload free text and see extracted DoseRules side-by-side with source.
 - All validation `Messages` surfaced (no silent drops); each flagged item is
   accept/reject/edit-able.
@@ -110,11 +112,13 @@ solution-based medications.
 **Dependencies.** Shares the UI from 1; can proceed per-rule-type in parallel.
 
 **Affected areas.**
+
 - `src/Informedica.NLP.Lib/`, `Informedica.GenFORM.Lib/` (per-rule extractors +
   validators: `SolutionRule.fs`, `RenalRule.fs`, reconstitution in `Product.fs`)
 - `src/Informedica.GenFORM.Lib/Types.fs` `Data` records + the column-contract test (column/semantics updates)
 
 **Acceptance criteria.**
+
 - Each rule type has an extractor + validator with surfaced `Messages`.
 - Each round-trips through its `getFromGetData`/`toData` (cf. DoseRule roundtrip work).
 - Formulary entries extractable and validatable.
@@ -135,11 +139,13 @@ live Google Sheet that changes underneath running orders.
 **Dependencies.** Needs 1 + 2 (validated rule set across all types). Feeds 4 and 5.
 
 **Affected areas.**
+
 - New publication/bundling module (prototype in a `Scripts/` dir first)
 - `src/Informedica.GenFORM.Lib/Api.fs` (`ResourceConfig` is the dependency surface)
 - Serialization of the full resource graph
 
 **Acceptance criteria.**
+
 - One command produces a self-contained publication (all rule types + product/mapping
   deps).
 - Publication carries a stable version id + content hash; identical inputs → identical
@@ -163,11 +169,13 @@ mutating in-flight orders.
 Gated by 8 (who loaded/changed which publication must be audited).
 
 **Affected areas.**
+
 - `src/Informedica.GenPRES.Server/` (load publication into resource layer at runtime)
 - Order model: stamp publication version id onto each order
 - `Informedica.GenFORM.Lib/Api.fs` `ResourceConfig` (load from publication, not sheets)
 
 **Acceptance criteria.**
+
 - Server can boot/switch to a named publication version.
 - Every created order records its publication id.
 - Re-opening an order re-loads its publication's rules (not the current live set).
@@ -187,10 +195,12 @@ any order that references them. Backing store for item 4.
 see [Open Questions](#open-questions).
 
 **Affected areas.**
+
 - New storage adapter (server-side); interface kept thin per coding standards
 - `src/Informedica.GenPRES.Server/`
 
 **Acceptance criteria.**
+
 - Save/list/get publications by version id.
 - Immutability enforced (published version never mutated).
 - History + active/deprecated status queryable.
@@ -212,10 +222,12 @@ and development ([ADR-0007](../adr/0007-session-persistence.md), plan 516); the 
 engine is **open**.
 
 **Affected areas.**
+
 - New order persistence adapter (server-side)
 - Order model state machine (DU per `core-domain.md` Order Management Cycle)
 
 **Acceptance criteria.**
+
 - Create/read/query orders by patient + status; a state transition appends a row, never
   updates one.
 - Each persisted order references its publication id.
@@ -240,10 +252,12 @@ EHR of record to be clinically useful in situ.
 inbound/outbound exchange). Highest-risk item — defer until data + auth foundation solid.
 
 **Affected areas.**
+
 - A new integration library under `src/`; `Informedica.GenPRES.Shared` for the wire types
 - Inbound: patient demographics → Order Context; outbound: order → FHIR/EHR format
 
 **Acceptance criteria.**
+
 - Pull patient context from at least one EHR → populate Order Context.
 - Push a validated order to at least one EHR as a FHIR MedicationRequest (unit-safe
   quantities).
@@ -266,11 +280,13 @@ admin password — insufficient for multi-user clinical use.
 in parallel with P1/P2.
 
 **Affected areas.**
+
 - `src/Informedica.GenPRES.Server/` (auth middleware, session, role checks)
 - `src/Informedica.GenPRES.Client/` (login, role-aware UI)
 - `Informedica.Logging.Lib/` (structured audit log; message templates, redact PII)
 
 **Acceptance criteria.**
+
 - Per-user authentication (not a shared password).
 - Role-based authorization on every command (physician/nurse/pharmacist + admin).
 - Structured, tamper-evident audit log of clinically significant actions (who/what/when/
