@@ -69,8 +69,8 @@ exchange, the contract model of
 MCP host; Client; and Tooling, the extraction pipeline, which sits outside the runtime rings. For
 the Contract ring the rule is stricter than "inward": Contract references only Contract, and only
 Presentation and Client may reference it. Core and Infrastructure never see the contract types,
-so the domain cannot come to depend on the wire shape, and the client sees nothing but the
-contract.
+so the domain cannot come to depend on the wire shape, and outside the contract the client sees
+only itself: a Client project may reference the contract and another Client project, nothing more.
 
 #### 2. ZIndex, ZForm, NKF and FTK are adapters
 

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <!--
+    The pure client files: the lane machines and the policies beside them. Plain F# over
+    Informedica.GenPRES.Shared, with no React, no Browser type and no Fable package, so the same
+    source compiles under Fable for the client and under .NET for the tests. The project boundary
+    is what keeps it that way: add a Browser call here and this project stops compiling.
+  -->
+  <ItemGroup>
+    <Compile Include="Deferred.fs" />
+    <Compile Include="LanguagePolicy.fs" />
+    <Compile Include="SessionMachine.fs" />
+    <Compile Include="SessionGatePolicy.fs" />
+    <Compile Include="PlanWorkPolicy.fs" />
+    <Compile Include="SigningMachine.fs" />
+    <Compile Include="SigningPolicy.fs" />
+    <Compile Include="UnsignedWorkPolicy.fs" />
+    <Compile Include="OrderPlanMachine.fs" />
+    <Compile Include="OrderContextMachine.fs" />
+    <Compile Include="FilterSync.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Informedica.GenPRES.Shared\Informedica.GenPRES.Shared.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>
