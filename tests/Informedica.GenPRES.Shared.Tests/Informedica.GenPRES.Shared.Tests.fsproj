@@ -14,17 +14,7 @@
     <Compile Include="AgeTests.fs" />
     <Compile Include="LocalizationTests.fs" />
     <Compile Include="ModelsTests.fs" />
-    <Compile Include="LanguagePolicyTests.fs" />
     <Compile Include="Tests.fs" />
-    <Compile Include="DeferredTests.fs" />
-    <Compile Include="SessionMachineTests.fs" />
-    <Compile Include="SessionGatePolicyTests.fs" />
-    <Compile Include="PlanWorkPolicyTests.fs" />
-    <Compile Include="SigningMachineTests.fs" />
-    <Compile Include="SigningPolicyTests.fs" />
-    <Compile Include="UnsignedWorkPolicyTests.fs" />
-    <Compile Include="OrderPlanMachineTests.fs" />
-    <Compile Include="OrderContextMachineTests.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\load.fsx" />
     <None Include="scripts\CalcYearsOracle.fsx" />
@@ -33,7 +23,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Informedica.GenPRES.Client.Core\Informedica.GenPRES.Client.Core.fsproj" />
     <ProjectReference Include="..\..\src\Informedica.GenPRES.Shared\Informedica.GenPRES.Shared.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

@@ -1,4 +1,4 @@
-namespace Informedica.GenPRES.Shared.Tests
+namespace Informedica.GenPRES.Client.Core.Tests
 
 
 /// The session gate's policy, linked in from the client project.

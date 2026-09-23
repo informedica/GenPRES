@@ -1,4 +1,4 @@
-module Informedica.GenPRES.Shared.Tests.SigningPolicyTests
+module Informedica.GenPRES.Client.Core.Tests.SigningPolicyTests
 
 open System
 open Expecto

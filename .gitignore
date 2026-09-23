@@ -339,6 +339,8 @@
 # Add Informedica.GenPRES.Shared
 !/tests/Informedica.GenPRES.Shared.Tests
 !/tests/Informedica.GenPRES.Shared.Tests/Scripts/
+# Informedica.GenPRES.Client.Core.Tests
+!/tests/Informedica.GenPRES.Client.Core.Tests/
 # Add Informedica.GenPRES.Server
 !/tests/Informedica.GenPRES.Server.Tests
 !/tests/Informedica.GenPRES.Server.Tests/Scripts/
