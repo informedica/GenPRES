@@ -15,14 +15,14 @@ explicitly requires an ADR before implementation.
 
 For versioning/changelog (items 1–2), three options were on the table:
 
-- **MinVer / Nerdbank.GitVersioning** — tag-driven version at build time only. 
-  Low risk, but leaves changelog and release-PR creation unautomated 
+- **MinVer / Nerdbank.GitVersioning** — tag-driven version at build time only.
+  Low risk, but leaves changelog and release-PR creation unautomated
   (Repo Assist's Task 8 would keep doing that manually).
-- **EasyBuild.ShipIt** — reads `CHANGELOG.md` front-matter and conventional-commit 
+- **EasyBuild.ShipIt** — reads `CHANGELOG.md` front-matter and conventional-commit
   history, computes the next semver, generates the changelog section, and opens a
   release PR. Its commit parser throws on `Merge pull request ...` commits unless
   `--skip-merge-commit` is passed.
-- **Status quo** — keep the manual `Directory.Build.props` edit and Repo Assist's 
+- **Status quo** — keep the manual `Directory.Build.props` edit and Repo Assist's
   manual changelog PRs. Rejected: this is exactly what #234 was filed to fix.
 
 For Docker-on-release (item 3) and API docs (item 4): include now vs. defer
@@ -34,7 +34,7 @@ as follow-up issues once the versioning foundation lands.
   version derivation, changelog generation, *and* release-PR creation in one
   tool, which directly replaces Repo Assist's existing manual Task 8 instead
   of leaving two overlapping mechanisms. A maintainer initially proposed
-  squash-only as the adoption blocker's fix; concerns were raised about losing 
+  squash-only as the adoption blocker's fix; concerns were raised about losing
   commit-level history, and the position moved to disabling merge commits only.
   In the end no repo setting changed: `--skip-merge-commit` removes the
   blocker on its own, so all three merge methods stay enabled.
@@ -65,18 +65,18 @@ except step 2, which was dropped as unnecessary.
 
 ## Steps
 
-1. **Verify EasyBuild.ShipIt's real API** by reading its README/source directly 
-   (not the bot summary). Confirm the `CHANGELOG.md` front-matter schema, the CLI invocation, 
-   and critically, whether it writes `Directory.Build.props` directly or expects a 
-   separate consumer (e.g. MinVer-style git-tag read) to pick up the version it computes. 
+1. **Verify EasyBuild.ShipIt's real API** by reading its README/source directly
+   (not the bot summary). Confirm the `CHANGELOG.md` front-matter schema, the CLI invocation,
+   and critically, whether it writes `Directory.Build.props` directly or expects a
+   separate consumer (e.g. MinVer-style git-tag read) to pick up the version it computes.
    This determines whether `scripts/CheckSolutionVersions.fsx` needs changes.
 2. ~~**Disable "Allow merge commits" in GitHub repo settings, leaving both
    squash and rebase merging enabled**~~ — **dropped, not done.** Every local
    and CI invocation passes `--skip-merge-commit`, which makes ShipIt tolerate
    `Merge pull request ...` commits, so no repo setting change was needed to
    adopt it. All three merge methods stay enabled. See ADR-0005 design choice 2.
-3. **Adopt ShipIt tooling**: add it to `.config/dotnet-tools.json`, add the confirmed 
-   front-matter to `CHANGELOG.md`, add a local dry-run entry point 
+3. **Adopt ShipIt tooling**: add it to `.config/dotnet-tools.json`, add the confirmed
+   front-matter to `CHANGELOG.md`, add a local dry-run entry point
    (FAKE target or direct `dotnet shipit` invocation): not wired into CI yet.
 4. **Wire the version source**: update `Directory.Build.props` and
    `scripts/CheckSolutionVersions.fsx` per step 1's findings; verify `dotnet run CheckVersions` still passes.

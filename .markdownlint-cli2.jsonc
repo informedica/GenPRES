@@ -7,19 +7,23 @@
     // folder at the repo root; "**/node_modules/**" is required to also match the nested one under 
     // src/Informedica.GenPRES.Client/node_modules (see issue #433).
     //
-    // The other two are tracked Markdown that nobody writes by hand, so a lint finding in them
-    // names no one and can be fixed only by regenerating or recapturing the file:
+    // The rest is tracked Markdown that is not the project's prose, so a finding in it names
+    // no one: it is generated, captured, or written to somebody else's format.
     //   - BenchmarkDotNet writes its result tables as Markdown. The pre-commit hook already
     //     skips them (.husky/task-runner.json); this makes the build target agree.
     //   - formularium.md and solutions.md beside the NKF and GenFORM scripts are captured
     //     formulary output, Dutch clinical data rather than prose.
+    //   - a dot folder (.github, .claude, .husky, ...) holds configuration, templates and
+    //     working notes for tools, not documentation of the project, and none of it is
+    //     written to the house style the rest of docs/ follows.
     // These apply to a file named on the command line as well as to a glob, so `dotnet run
     // MarkdownLint`, the hook and a bare markdownlint-cli2 all see the same set.
     "ignores": [
         "**/node_modules/**",
         "**/BenchmarkDotNet.Artifacts/**",
         "**/Scripts/formularium.md",
-        "**/Scripts/solutions.md"
+        "**/Scripts/solutions.md",
+        "**/.*/**"
     ],
 
     // Markdownlint rule overrides go inside "config".

@@ -9,6 +9,7 @@ GenPRES aims to be the leading open-source medication decision support system fo
 🚧 **Active Development** - Moving toward production-ready release
 
 **Current Phase**: MVPAP2019 — the minimal replacement of the AfsprakenProgramma 2019 (below)
+
 - Core libraries implemented (GenSOLVER, GenUNITS, GenORDER, GenFORM, NLP, MCP)
 - SAFE Stack architecture in place (upgraded to Fable 5 / React 19 / Vite 8 in Q1 2026)
 - Architecture decisions recorded in `docs/adr/` (pruned under issue #411, numbering is not contiguous); MDR compliance documentation maintained in the separate, proprietary MDR documentation repository
@@ -28,6 +29,7 @@ First production-ready (non-pre-release) version with MDR compliance and clinica
 **Status**: In Development
 
 **Major Milestones**:
+
 - MVPAP2019 (below)
 - Complete MDR documentation package
 - Clinical validation studies
@@ -66,6 +68,7 @@ We welcome community input on our roadmap:
 ### Priority Considerations
 
 Features are prioritized based on:
+
 - **Patient Safety Impact**: Direct impact on medication safety
 - **Clinical Need**: Frequency and urgency of clinical scenarios
 - **Evidence Base**: Available literature and guidelines
@@ -95,18 +98,21 @@ Our roadmap is guided by:
 ## Dependencies & Risks
 
 ### Key Dependencies
+
 - .NET ecosystem and SAFE Stack stability
 - Clinical advisory board availability
 - Regulatory landscape changes
 - Resource and funding availability
 
 ### Known Risks
+
 - Regulatory approval timelines
 - Clinical validation complexity
 - Resource constraints
 - Technical debt management
 
 ### Mitigation Strategies
+
 - Incremental delivery approach
 - Early regulatory engagement
 - Strong testing and validation

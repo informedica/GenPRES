@@ -1,6 +1,6 @@
 # Feature Request: Extend URL parameters to accept patient data from an external EHR
 
-## Is your feature request related to a problem? Please describe.
+## Is your feature request related to a problem? Please describe
 
 GenPRES can be launched with a patient context pre-filled via URL query
 parameters (e.g. `#patient?by=2020&bm=3&bd=1&wt=12000&cv=y`). This is the

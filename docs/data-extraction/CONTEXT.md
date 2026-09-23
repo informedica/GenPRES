@@ -18,9 +18,9 @@ hierarchical structure (the [[Structuring hierarchy]]), flatten it to one
 `DoseRuleData` row per root-to-leaf path, and validate the result against the
 `DoseRule` domain model ([[Pass 5 (validation)]] is that validation step).
 "Phase" *only* ever means an extraction phase.
-_Avoid_: **dose phase / DosePhase** — meaningless; there is no "phase of a
+*Avoid*: **dose phase / DosePhase** — meaningless; there is no "phase of a
 dose". The only first-class things are extraction phases (the process) and
-validated Dose Rules (the output). _Avoid_: treating "Phase 3" and "Pass 3"
+validated Dose Rules (the output). *Avoid*: treating "Phase 3" and "Pass 3"
 as different things — the module is just the implementation of the pass.
 
 **Structuring hierarchy** (L0..L7):
@@ -32,7 +32,7 @@ one full root-to-leaf path; the hierarchy is flattened, never serialized as a
 tree. The L5 level is simply where a row acquires its `DoseType` / `DoseText`
 (and its `ScheduleText` is sliced to match) — it is **not** an entity called
 "DosePhase".
-_Avoid_: naming a level as if it were a domain object (especially "DosePhase").
+*Avoid*: naming a level as if it were a domain object (especially "DosePhase").
 
 **Ux checkpoint** (U1..U4):
 The manual human edit gate after an extraction [[Phase]]. The user freely
@@ -40,7 +40,7 @@ adds / deletes / modifies / **reorders** rows in the TSV; the next phase reads
 the edited file. There is no in-app UI and no automated inter-phase diff — the
 TSV file *is* the validation gate. Row reordering at a Ux is the lever that
 sets [[SortNo]].
-_Avoid_: "review step" (it is an authoritative edit, not a read-only review).
+*Avoid*: "review step" (it is an authoritative edit, not a read-only review).
 
 **IsAdult**:
 An extraction-produced, positive-only boolean facet attached to a rule's
@@ -55,7 +55,7 @@ enforce "adults only" (`Patient.getAge` returns an empty range for the case;
 see the `TODO` in `src/Informedica.GenFORM.Lib/Patient.fs`), so until it does
 no `IsAdult = "x"` row may reach GenFORM ingest (its `MinAge`/`MaxAge` are
 blanked, so it would otherwise match every age).
-_Avoid_: AgeCategory, age band, adult flag (it is not a tri-state, does not generalize).
+*Avoid*: AgeCategory, age band, adult flag (it is not a tri-state, does not generalize).
 
 **SortNo**:
 The display rank of a rule within its **GrpId**. Its source of truth is the
@@ -64,8 +64,8 @@ lever. Pass 4 only mechanizes this: it ranks the distinct `Id`s inside one
 GrpId by the first-appearance index of the user-arranged rows. It is **never**
 system- or DoseType-derived. Rows sharing an `Id` (multi-substance fan-outs)
 share a SortNo.
-_Avoid_: "DoseType ordering"/"priority ordering" (SortNo is never
-DoseType-derived). _Avoid_: "system-assigned sort order" (the system ranks,
+*Avoid*: "DoseType ordering"/"priority ordering" (SortNo is never
+DoseType-derived). *Avoid*: "system-assigned sort order" (the system ranks,
 the user orders).
 
 **Downstream typed-emit step**:
@@ -83,8 +83,8 @@ through the production GenFORM `DoseRule` parser to confirm it ingests as real
 *because* the facet is dropped and renders age-unbounded. A clean Pass 5
 result is therefore **not** safety clearance for such rows — they remain a
 port-time concern.
-_Avoid_: treating "Pass 5 parses" as "ready to ingest" (see Example dialogue).
-_Avoid_: the unqualified bare module name "Phase 5" (reserve that for code).
+*Avoid*: treating "Pass 5 parses" as "ready to ingest" (see Example dialogue).
+*Avoid*: the unqualified bare module name "Phase 5" (reserve that for code).
 
 ## Relationships
 

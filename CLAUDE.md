@@ -62,6 +62,7 @@ The MCP server provides a persistent FSI session with real-time output, which is
 ```
 
 **Important:**
+
 - `System.IO.Directory.SetCurrentDirectory()` does **not** affect `#load` path resolution — you must use `#I`
 - The MCP `load_f_sharp_script` tool sends script statements to FSI individually, so `#load` directives inside scripts also resolve from FSI's include path. Set `#I` before calling `load_f_sharp_script`
 - Scripts should include `#I __SOURCE_DIRECTORY__` at the top so they work both when run via `dotnet fsi` and when loaded after manually setting `#I` via MCP
@@ -94,6 +95,7 @@ For the full workflow, module shadowing pattern, and testing in scripts, see the
 
 Before any auto-compact or when context usage approaches 70%, write a
 decisions log to `.claude/docs/session-decisions.md` containing:
+
 - Any architectural or design decisions made this session
 - Approaches explicitly rejected and why
 - Critical constraints discovered or confirmed
