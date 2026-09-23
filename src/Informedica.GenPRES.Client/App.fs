@@ -1009,15 +1009,16 @@ module private Elmish =
         | OrderPlanEffect.TellError errs -> (state, Cmd.none) |> processError errs
 
 
-    /// One command per order-context effect. A workbench call answers under the request it was
-    /// sent for; the notice rides on the reply and is told by `update`; a transport failure is
-    /// an Error answer. The filter syncs and the page are state changes, made by `update`; only
-    /// the loads they need are commands.
-    let interpretOrderContextEffect (session: SessionState) (effect: OrderContextEffect) : Cmd<Msg> =
+    /// What one order-context effect changes, and the command it sends. A workbench call
+    /// answers under the request it was sent for; the notice rides on the reply and is told by
+    /// `update`; a transport failure is an Error answer. A filter sync both syncs what is
+    /// already fetched and asks for it again.
+    let applyOrderContextEffect (effect: OrderContextEffect) (state: State) : State * Cmd<Msg> =
         match effect with
         | OrderContextEffect.CallContext(cmd, ctx, request) ->
-            let opened = tokenOf session
+            let opened = tokenOf state.Lanes.Session
 
+            state,
             async {
                 try
                     match!
@@ -1041,10 +1042,27 @@ module private Elmish =
                     return OrderContextMsg(OrderContextMsg.Answered(request, Error [| ex.Message |]))
             }
             |> Cmd.fromAsync
-        | OrderContextEffect.SyncFormulary _ -> Cmd.ofMsg (LoadFormulary Started)
-        | OrderContextEffect.SyncParenteralia _ -> Cmd.ofMsg (LoadParenteralia Started)
-        | OrderContextEffect.GoToLifeSupport
-        | OrderContextEffect.TellError _ -> Cmd.none
+        | OrderContextEffect.SyncFormulary filter ->
+            { state with
+                Fetches.Formulary =
+                    state.Fetches.Formulary
+                    |> Deferred.map (FilterSync.syncFilterToFormulary filter)
+            },
+            Cmd.ofMsg (LoadFormulary Started)
+        | OrderContextEffect.SyncParenteralia filter ->
+            { state with
+                Fetches.Parenteralia =
+                    state.Fetches.Parenteralia
+                    |> Deferred.map (FilterSync.syncFilterToParenteralia filter)
+            },
+            Cmd.ofMsg (LoadParenteralia Started)
+        | OrderContextEffect.GoToLifeSupport -> { state with Ui.Page = LifeSupport }, Cmd.none
+        | OrderContextEffect.TellError errs ->
+            Logging.warning "order context error" errs
+
+            state
+            |> tell (errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis") "warning",
+            Cmd.none
 
 
     /// The patient data received, from the panel, the url or the Session: the estimate applied,
@@ -1530,42 +1548,8 @@ module private Elmish =
 
             let workbench, effects = OrderContextState.transition msg state.Lanes.OrderContext
 
-            // the filter syncs, the page and the snackbar are the interpreter's
-            let state =
-                effects
-                |> List.fold
-                    (fun (state: State) effect ->
-                        match effect with
-                        | OrderContextEffect.SyncFormulary filter ->
-                            { state with
-                                Fetches.Formulary =
-                                    state.Fetches.Formulary
-                                    |> Deferred.map (FilterSync.syncFilterToFormulary filter)
-                            }
-                        | OrderContextEffect.SyncParenteralia filter ->
-                            { state with
-                                Fetches.Parenteralia =
-                                    state.Fetches.Parenteralia
-                                    |> Deferred.map (FilterSync.syncFilterToParenteralia filter)
-                            }
-                        | OrderContextEffect.GoToLifeSupport -> { state with Ui.Page = LifeSupport }
-                        | OrderContextEffect.TellError errs ->
-                            Logging.warning "order context error" errs
-
-                            { state with
-                                Ui.Snackbar =
-                                    Snackbar.shown
-                                        (errs |> Array.tryHead |> Option.defaultValue "Er ging iets mis")
-                                        "warning"
-                            }
-                        | OrderContextEffect.CallContext _ -> state
-                    )
-                    state
-
-            { state with Lanes.OrderContext = workbench },
-            effects
-            |> List.map (interpretOrderContextEffect state.Lanes.Session)
-            |> Cmd.batch
+            { state with Lanes.OrderContext = workbench }
+            |> runEffects applyOrderContextEffect effects
 
         // what the Session is told rides on the reply; the context goes to the machine under
         // the request it answers
