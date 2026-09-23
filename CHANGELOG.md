@@ -1,5 +1,5 @@
 ---
-last_commit_released: 50baef028ad1bb29ad6c0be209ce9e005395db2a
+last_commit_released: 58647c49c943f26178e02ce67c252538ede209a7
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,22 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.31 - 2026-09-22
+
+### 🐞 Bug Fixes
+
+* *(client)* Keep what a page shows while a fetch runs again ([b4eb881d](https://github.com/informedica/GenPRES/commit/b4eb881d6bccd8883e8ac3e8b9e4b07ff7a2541d))
+
+    The formulary, parenteralia, interactions and settings pages no longer
+    blank while their data is fetched again: what they showed stays, greyed,
+    with the progress over it, until the answer arrives.
+* *(client)* The empty log list stays while the files are listed again ([00e900cb](https://github.com/informedica/GenPRES/commit/00e900cbeef3e5fc88abb84253013c2e16aec67f))
+* *(client)* Mangle IOrderContext and IOrderPlan ([34615de5](https://github.com/informedica/GenPRES/commit/34615de58f99c63ee7d95a2c2bb2b9151317fdf6))
+* *(mcp)* Require weight and height together for order context tools ([f174d94f](https://github.com/informedica/GenPRES/commit/f174d94fe3e223bf3bbf21913c0ea954489dd55e))
+* *(mcp)* Address Greptile review ([40c73b97](https://github.com/informedica/GenPRES/commit/40c73b9797e8fbeb887f3524d8dd94a7b84c307b))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/50baef028ad1bb29ad6c0be209ce9e005395db2a..58647c49c943f26178e02ce67c252538ede209a7)</small></strong>
 
 ## 0.1.2-alpha.30 - 2026-09-22
 
