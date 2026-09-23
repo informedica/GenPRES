@@ -104,16 +104,19 @@ let dotnet args dir = createProcess "dotnet" args dir
 
 let docker args dir = createProcess "docker" args dir
 
-let createProcessFromPath processName args dir =
-    let path =
-        match ProcessUtils.tryFindFileOnPath processName with
-        | Some path -> path
-        | None ->
-            "npm was not found in path. Please install it and make sure it's available from your path. "
-            + "See https://safe-stack.github.io/docs/quickstart/#install-pre-requisites for more info"
-            |> invalidOp
+/// Locates a tool on the PATH. Separate from createProcessFromPath so that a caller which
+/// wants to read the exit code itself, rather than have a non-zero one throw, can still
+/// resolve the tool the same way.
+let findOnPath processName =
+    match ProcessUtils.tryFindFileOnPath processName with
+    | Some path -> path
+    | None ->
+        $"%s{processName} was not found in path. Please install it and make sure it's available from your path. "
+        + "See https://safe-stack.github.io/docs/quickstart/#install-pre-requisites for more info"
+        |> invalidOp
 
-    createProcess path args dir
+
+let createProcessFromPath processName args dir = createProcess (findOnPath processName) args dir
 
 
 let npm args dir = createProcessFromPath "npm" args dir
