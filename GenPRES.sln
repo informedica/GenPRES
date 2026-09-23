@@ -7,9 +7,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.Utils.Lib", "src\Informedica.Utils.Lib\Informedica.Utils.Lib.fsproj", "{3572CA0F-160E-4418-AB9B-5D865AB4D141}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.Agents.Lib", "src\Informedica.Agents.Lib\Informedica.Agents.Lib.fsproj", "{C588D33F-CD67-4905-9AFF-27736BA5C7E2}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.Logging.Lib", "src\Informedica.Logging.Lib\Informedica.Logging.Lib.fsproj", "{32A09B0A-FB0B-4202-81E3-F1B98816CAD3}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.Agents.Lib", "src\Informedica.Agents.Lib\Informedica.Agents.Lib.fsproj", "{C588D33F-CD67-4905-9AFF-27736BA5C7E2}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.GenUNITS.Lib", "src\Informedica.GenUNITS.Lib\Informedica.GenUNITS.Lib.fsproj", "{68208829-ED58-46E6-BB11-9CBF0DAE9362}"
 EndProject
@@ -41,17 +41,17 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.GenPRES.Shared"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.GenPRES.Server", "src\Informedica.GenPRES.Server\Informedica.GenPRES.Server.fsproj", "{97A47A70-3560-47B2-A75E-5AD9E10FA5A0}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.GenPRES.Client", "src\Informedica.GenPRES.Client\Informedica.GenPRES.Client.fsproj", "{F7ECD51B-7E56-4EFD-B765-A5DB4516B4E0}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.GenPRES.Client.Core", "src\Informedica.GenPRES.Client.Core\Informedica.GenPRES.Client.Core.fsproj", "{EADE142E-C432-4157-8042-02283050102C}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.GenPRES.Client", "src\Informedica.GenPRES.Client\Informedica.GenPRES.Client.fsproj", "{F7ECD51B-7E56-4EFD-B765-A5DB4516B4E0}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.Utils.Tests", "tests\Informedica.Utils.Tests\Informedica.Utils.Tests.fsproj", "{F3BB771E-7089-446F-B9AC-FAB23A37A8E4}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.Agents.Tests", "tests\Informedica.Agents.Tests\Informedica.Agents.Tests.fsproj", "{3473C50F-3233-4995-BF32-C7016C73CF89}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.Logging.Tests", "tests\Informedica.Logging.Tests\Informedica.Logging.Tests.fsproj", "{C63D4AF4-7BB0-40D8-AEE1-3BC95C17B94F}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.Agents.Tests", "tests\Informedica.Agents.Tests\Informedica.Agents.Tests.fsproj", "{3473C50F-3233-4995-BF32-C7016C73CF89}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Informedica.GenUNITS.Tests", "tests\Informedica.GenUNITS.Tests\Informedica.GenUNITS.Tests.fsproj", "{663A19C7-99B5-43EC-A014-972E7F84C919}"
 EndProject
