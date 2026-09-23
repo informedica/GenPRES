@@ -56,7 +56,7 @@ This document describes reproducible testing procedures for developers and QA te
 
 1. Open the following URL directly in the browser:
 
-   ```
+   ```url
    http://localhost:5173/#patient?by=2015&bm=6&bd=1&wt=20000&ht=115&pg=pr
    ```
 
@@ -78,7 +78,7 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 
 1. Open:
 
-   ```
+   ```url
    http://localhost:5173/#patient?by=2010&bm=1&bd=1&wt=30000&ht=130&pg=pr
    ```
 
@@ -102,7 +102,7 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 
 1. Open:
 
-   ```
+   ```url
    http://localhost:5173/#patient?by=2015&bm=1&bd=1&wt=20000&ht=115&pg=cm
    ```
 
@@ -122,7 +122,7 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 
 1. Open:
 
-   ```
+   ```url
    http://localhost:5173/#patient?by=2018&bm=1&bd=1&wt=12000&ht=85&pg=el
    ```
 
@@ -142,7 +142,7 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 
 1. Open:
 
-   ```
+   ```url
    http://localhost:5173/#patient?ad=5&wt=3200&gw=39&gd=2&pg=pr
    ```
 
@@ -163,14 +163,14 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 
 1. Open:
 
-   ```
+   ```url
    http://localhost:5173/#patient?by=2010&bm=1&bd=1&wt=30000&ht=130&pg=pr&la=en
    ```
 
 2. **Expected**: UI labels and instructions are displayed in English.
 3. Compare with:
 
-   ```
+   ```url
    http://localhost:5173/#patient?by=2010&bm=1&bd=1&wt=30000&ht=130&pg=pr&la=du
    ```
 

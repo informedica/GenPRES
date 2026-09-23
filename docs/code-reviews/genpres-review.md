@@ -48,9 +48,9 @@ That said, I found a few areas that could be improved in the Informedica.GenUNIT
   let ml5 = 5m |> withUnit Units.Volume.milliLiter
   ml5 |> toBase // => ValueUnit ([|1/200N|], Volume (MilliLiter 1N))
   ml5 |> toUnit // => ValueUnit ([|5000N|], Volume (MilliLiter 1N))
-- It's hard to quickly understand the intended behaviour of all of the `valueToBase`, `toBaseValue`, `valueToUnit`, `toUnitValue`, etc. functions
-
   ```
+
+- It's hard to quickly understand the intended behaviour of all of the `valueToBase`, `toBaseValue`, `valueToUnit`, `toUnitValue`, etc. functions
 
 ### Overcomplicated implementation?
 

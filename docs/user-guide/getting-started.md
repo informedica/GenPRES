@@ -65,7 +65,7 @@ GenPRES supports **hash-based URL routing** for integration with Electronic Heal
 
 **URL format:**
 
-```
+```url
 http://localhost:5173/#patient?<param1>=<value1>&<param2>=<value2>
 ```
 
@@ -115,19 +115,19 @@ http://localhost:5173/#patient?<param1>=<value1>&<param2>=<value2>
 
 **Child patient, prescribing view:**
 
-```
+```url
 http://localhost:5173/#patient?by=2015&bm=3&bd=10&wt=20000&ht=115&pg=pr
 ```
 
 **Neonate by age in days, emergency list:**
 
-```
+```url
 http://localhost:5173/#patient?ad=7&wt=3200&gw=39&gd=2&pg=el
 ```
 
 **Adult patient, continuous medications, English UI:**
 
-```
+```url
 http://localhost:5173/#patient?by=1990&bm=1&bd=1&wt=70000&ht=175&pg=cm&la=en&dc=n
 ```
 

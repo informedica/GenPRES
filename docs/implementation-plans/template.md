@@ -1,4 +1,4 @@
-# Implementation plan for issue <issue number>
+# Implementation plan for issue NNN
 
 ## Problem description
 

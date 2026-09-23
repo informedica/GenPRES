@@ -60,7 +60,7 @@ that provides all clinical calculation formulas used by both server and client.
 
 ### Module structure
 
-```
+```text
 Calculations
 ├── Conversions          — gram ↔ kg, int cm → float cm
 ├── BSA                  — Mosteller, Du Bois, Haycock, Gehan & George, Fujimoto

@@ -370,7 +370,7 @@ Every pass calls NuExtract Online via the shared HTTP plumbing in `module NuExtr
 Pass 5 (validation) is **not** a column-filling pass and has no `Ux` checkpoint — it is a validation/preview that the Pass-4 artifact ingests cleanly as real `DoseRule` records, ahead of the TBD downstream typed-emit step (§8).
 
 > **A clean Pass 5 is NOT safety clearance for `IsAdult` rows.** The production parser now reads the `IsAdult` column and `PatientCategory.Age` carries it as the `IsAdult` case, but matching does not yet enforce "adults only" (`Patient.getAge` returns an empty range for that case — see the `TODO` in `src/Informedica.GenFORM.Lib/Patient.fs`). An `IsAdult = "x"` row therefore parses cleanly and renders as an **age-unbounded rule that matches every patient** (its `MinAge`/`MaxAge` were blanked by the clearing guard). A clean Pass 5 render carries **no** assurance for such rows — they remain gated by the §8 blocking precondition until matching consumes the facet. See the CONTEXT.md example dialogue.
-
+>
 > **Rows dropped at ingest are reported, not silent.** `DoseRuleLoader.fromData` partitions rows on `DoseRuleData.validateData`; every invalid row yields a `Warning` in the returned `Message list`, which reaches `LoadedResources.Messages`. Rules that end up without any dose values are removed by `DoseRule.removeEmptyLimits`. Whether those messages are *shown* to an operator is a separate concern (the admin resource-reload path returns them; the formulary UI does not list them) — the completeness guarantee of `core-domain.md` depends on someone reading them, which is why Pass 5's `diagnose` prints them per stage.
 
 ### 6.6 Verbatim invariant
