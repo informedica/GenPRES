@@ -131,7 +131,7 @@ For organizations requiring:
 
 ### For General Questions
 
-```
+```markdown
 ## What I'm trying to do
 [Clear description of your goal]
 
@@ -150,7 +150,7 @@ For organizations requiring:
 
 ### For Bug Reports
 
-```
+```markdown
 ## Description
 [What's wrong]
 

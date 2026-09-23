@@ -33,7 +33,7 @@ At the start of each session, read these documents for full project context.
 
 **At the start of each session**, automatically check the FSI MCP server status:
 
-```
+```text
 mcp__fsi-mcp__get_fsi_status
 ```
 

@@ -83,7 +83,7 @@ let doseRange = MinMax.create (Some 5.0) (Some 20.0) true false
 
 ## Project Structure
 
-```
+```text
 src/Informedica.GenCore.Lib/
 ├── Calculations.fs        # Medical calculations
 ├── Measures.fs           # Units of measure definitions

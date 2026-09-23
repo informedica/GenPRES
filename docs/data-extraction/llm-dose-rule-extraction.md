@@ -84,7 +84,7 @@ preparation tool only, operating offline under human supervision.
 
 ### Pipeline architecture
 
-```
+```text
                        ┌─────────────────────┐
                        │  NKF / FTK          │
                        │  free-text schedule │
