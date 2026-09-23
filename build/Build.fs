@@ -21,8 +21,6 @@ let deployPath = Path.getFullName "deploy"
 let envPath = Path.getFullName ".env"
 let envExamplePath = Path.getFullName ".env.example"
 
-let clientTestsPath = Path.getFullName "tests/Client"
-
 Target.create
     "Clean"
     (fun _ ->
@@ -417,28 +415,10 @@ Target.create
 Target.create "CheckVersions" (fun _ -> run dotnet [ "fsi"; "scripts/CheckSolutionVersions.fsx" ] ".")
 
 
-Target.create
-    "TestHeadless"
-    (fun _ ->
-        run dotnet [ "test"; sln; "--no-build"; "--no-restore" ] "."
-
-        run dotnet [ "fable"; "-o"; "output"; "-s"; "-e"; ".jsx"; "--run"; "npx"; "vite" ] clientPath
-
-    //    run dotnet [ "fable"; "-o"; "output"; "-e"; ".jsx" ] clientTestsPath
-    //    run npx [ "mocha"; "output" ] clientTestsPath
-    )
-
-
-Target.create
-    "WatchTests"
-    (fun _ ->
-        [
-            //        "server", dotnet [ "watch"; "run"; "--no-restore" ] serverTestsPath
-            "client",
-            dotnet [ "fable"; "watch"; "-o"; "output"; "-s"; "-e"; ".jsx"; "--run"; "npx"; "vite" ] clientTestsPath
-        ]
-        |> runParallel
-    )
+// The whole suite through `dotnet test`, with its own output rather than the per-assembly
+// summary ServerTests prints. It used to start the Vite dev server after the tests, which
+// never returns, so the target ran the tests and then hung; nothing could call it.
+Target.create "TestHeadless" (fun _ -> run dotnet [ "test"; sln; "--no-build"; "--no-restore" ] ".")
 
 
 Target.create "Format" (fun _ -> run dotnet [ "fantomas"; "." ] ".")
@@ -578,10 +558,6 @@ let dependencies =
         "RestoreClient" ==> "Run"
 
         "Build" ==> "TestHeadless"
-        "RestoreClient" ==> "TestHeadless"
-
-        "Build" ==> "WatchTests"
-        "RestoreClient" ==> "WatchTests"
 
         "Build" ==> "ServerTests"
         "Build" ==> "CheckVersions"

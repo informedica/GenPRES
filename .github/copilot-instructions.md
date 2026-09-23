@@ -59,8 +59,7 @@ dotnet test
 ### Testing
 
 - `dotnet run ServerTests` - Run all F# unit tests using Expecto
-- `dotnet run TestHeadless` - Run tests in headless mode
-- `dotnet run WatchTests` - Run tests in watch mode
+- `dotnet run TestHeadless` - Run all tests through plain `dotnet test`
 - `dotnet test GenPRES.sln` - Alternative way to run all tests
 
 Individual library tests:
