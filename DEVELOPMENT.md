@@ -343,8 +343,7 @@ packages for the Fable/Vite dev server).
 | `dotnet run ServerTests` | `ServerTests` | Run all F# unit tests (Expecto) with quiet logging |
 | `dotnet run DebugTests` | `DebugTests` | Run every test project one at a time through Expecto's own runner, with per-test output and no parallelism. For chasing a flaky test or an interaction between two tests; stops at the first failing assembly. The project list is read from `GenPRES.sln`, so a new test project is included the day it is added. Without the G-Standaard files under `data/zindex`, set `CI=true` so `ZIndex.Tests` skips rather than fails |
 | `dotnet run CheckVersions` | `CheckVersions` | Verify every built DLL's version matches the root `Directory.Build.props` |
-| `dotnet run TestHeadless` | `TestHeadless` | Build and run tests without launching a browser |
-| `dotnet run WatchTests` | `WatchTests` | Run tests in watch mode (re-runs on file changes) |
+| `dotnet run TestHeadless` | `TestHeadless` | Run the whole suite through plain `dotnet test`, with its output rather than the per-assembly summary `ServerTests` prints |
 | `dotnet run Format` | `Format` | Format all F# source files using Fantomas |
 | `dotnet run ApiDocs` | `ApiDocs` | Build the fsdocs API reference for the `Informedica.*.Lib` libraries in Release into `./output/`. CI (`docs.yml`) publishes it to GitHub Pages on push to `master`. Set `FSDOCS_ROOT` to the site base URL (CI passes `https://informedica.github.io/GenPRES/`) |
 | `dotnet run ApiDocsWatch` | `ApiDocsWatch` | Local live-preview server for the API reference; rebuilds on changes to `docs/reference/` or the libraries' XML doc comments |
@@ -366,10 +365,6 @@ Build ──► Run
 RestoreClient ──► Run
 
 Build ──► TestHeadless
-RestoreClient ──► TestHeadless
-
-Build ──► WatchTests
-RestoreClient ──► WatchTests
 
 Build ──► ServerTests
 Build ──► CheckVersions
