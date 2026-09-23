@@ -1079,7 +1079,6 @@ GenPRES/
 - `CODE_OF_CONDUCT.md` - Code of conduct
 - `DEVELOPMENT.md` - Development guide (this file)
 - `GOVERNANCE.md` - Project governance
-- `MAINTAINERS.md` - Maintainer information
 - `ROADMAP.md` - Project roadmap
 - `SECURITY.md` - Security policy
 - `SUPPORT.md` - Support information

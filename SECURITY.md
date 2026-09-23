@@ -23,7 +23,7 @@ Versions are derived by EasyBuild.ShipIt from the commit history; see [DEVELOPME
 
 1. **Report privately** via one of these methods:
    - GitHub Security Advisories (preferred): Use the "Report a vulnerability" button in the Security tab
-   - Email: [INSERT SECURITY CONTACT EMAIL]
+   - Email: [info@genpres.nl](mailto:info@genpres.nl)
    - Subject line: `[SECURITY] Brief description of issue`
 
 2. **Include in your report:**
@@ -35,9 +35,7 @@ Versions are derived by EasyBuild.ShipIt from the commit history; see [DEVELOPME
    - Whether you plan to publicly disclose (and timeline)
 
 3. **Expected response timeline:**
-   - **Initial response**: Within 48 hours
-   - **Assessment**: Within 1 week
-   - **Fix plan**: Within 2 weeks
+   - GenPRES is maintained by a small team. We respond as soon as possible and keep you informed while we assess and fix the issue.
    - **Security patch release**: Based on severity
 
 4. **Coordinated disclosure:**
@@ -48,31 +46,29 @@ Versions are derived by EasyBuild.ShipIt from the commit history; see [DEVELOPME
 
 ## Security Vulnerability Severity
 
+We handle reports in order of severity: the more severe the issue, the higher its priority. We do our best to address every report as soon as possible, but cannot guarantee fixed response times.
+
 ### Critical (CVE Score 9.0-10.0)
 
 - Remote code execution
 - Privilege escalation
 - Patient data exposure
-- **Response time:** Immediate (24-48 hours)
 
 ### High (CVE Score 7.0-8.9)
 
 - Authentication bypass
 - Authorization bypass
 - Sensitive data leakage
-- **Response time:** 3-5 days
 
 ### Medium (CVE Score 4.0-6.9)
 
 - Information disclosure
 - Denial of service
-- **Response time:** 1-2 weeks
 
 ### Low (CVE Score 0.1-3.9)
 
 - Minor information disclosure
 - Configuration issues
-- **Response time:** As part of regular release cycle
 
 ## Security Best Practices for Contributors
 
@@ -185,21 +181,13 @@ In the event of a confirmed security incident:
 1. **Containment**: Immediate actions to limit impact
 2. **Assessment**: Full scope and impact analysis
 3. **Remediation**: Fix development and testing
-4. **Notification**: Inform affected parties and authorities as required
-5. **Documentation**: Complete incident report for MDR compliance
+4. **Notification**: Inform affected parties
+5. **Documentation**: Record the incident and how it was resolved
 6. **Post-mortem**: Lessons learned and process improvements
 
 ## Regulatory Compliance
 
-GenPRES follows security requirements from:
-
-- **EU MDR 2017/745** (Medical Device Regulation)
-- **ISO 14971** (Risk Management)
-- **IEC 62304** (Medical Device Software Life Cycle)
-- **GDPR** (General Data Protection Regulation)
-- **ISO 27001** (Information Security Management)
-
-All security vulnerabilities are assessed for regulatory reporting requirements.
+GenPRES is not MDR certified yet. Development is aimed at meeting the EU Medical Device Regulation (MDR 2017/745) and the GDPR; the applicable ISO / NEN standards will be added when the regulatory strategy is settled.
 
 ## Recognition
 
