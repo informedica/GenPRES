@@ -740,12 +740,42 @@ module private Elmish =
         | _ -> pat
 
 
-    /// One command per session effect. A transport failure
+    /// A sentence on the snackbar, in the severity it is said with.
+    let tell message severity (state: State) = { state with Ui.Snackbar = Snackbar.shown message severity }
+
+
+    /// A term of the signing vocabulary in the language the user reads, falling back to the
+    /// English the policy gives.
+    let signingTerm (state: State) term =
+        Global.getLocalizedTerm
+            state.Fetches.Localization
+            state.Ui.Context.Localization
+            (SigningPolicy.english term)
+            term
+
+
+    /// Every effect a machine returned applied in turn: what each one changes, and the command
+    /// it sends, in the order the machine put them in.
+    let runEffects apply effects (state: State) =
+        let state, cmds =
+            effects
+            |> List.fold
+                (fun (state, cmds) effect ->
+                    let state, cmd = state |> apply effect
+                    state, cmd :: cmds
+                )
+                (state, [])
+
+        state, cmds |> List.rev |> Cmd.batch
+
+
+    /// What one session effect changes, and the command it sends. A transport failure
     /// is a message, never an exception: an Error outcome for a presentation, CloseFailed for
     /// a close that did not reach the server.
-    let interpretSessionEffect (effect: SessionEffect) : Cmd<Msg> =
+    let applySessionEffect (effect: SessionEffect) (state: State) : State * Cmd<Msg> =
         match effect with
         | SessionEffect.CallPresentLaunch(launch, key) ->
+            state,
             async {
                 try
                     let! outcome = serverApi.processLaunch (Api.LaunchCommand.PresentLaunch(launch, key))
@@ -755,6 +785,7 @@ module private Elmish =
             }
             |> Cmd.fromAsync
         | SessionEffect.CallGetSession ->
+            state,
             async {
                 try
                     match! serverApi.processSession Api.SessionCommand.GetSession with
@@ -774,11 +805,15 @@ module private Elmish =
                     return SessionMsg(SessionMsg.Resumed(Error ex.Message))
             }
             |> Cmd.fromAsync
-        // told in update, where the sentence and the notice live
-        // told in update
-        | SessionEffect.TellVersionOpened _
-        | SessionEffect.TellMovedOn _ -> Cmd.none
+        // the version is open, or the record moved on: each said once, the machine decides
+        | SessionEffect.TellVersionOpened head ->
+            state
+            |> tell (SigningPolicy.versionOpenedSentence (signingTerm state) head) "success",
+            Cmd.none
+        | SessionEffect.TellMovedOn head ->
+            state |> tell (SigningPolicy.movedOnSentence (signingTerm state) head) "warning", Cmd.none
         | SessionEffect.CallOpenVersion(id, from) ->
+            state,
             async {
                 try
                     match! serverApi.processSession (Api.SessionCommand.OpenVersion id) with
@@ -790,6 +825,7 @@ module private Elmish =
             }
             |> Cmd.fromAsync
         | SessionEffect.CallCloseSession ->
+            state,
             async {
                 // the server deletes the cookie whatever its close returns (finally), so an
                 // answer of any kind means Closed; only a request that never got there fails
@@ -799,6 +835,7 @@ module private Elmish =
             }
             |> Cmd.fromAsync
         | SessionEffect.CallSupplyPin(code, pin) ->
+            state,
             async {
                 try
                     match! serverApi.processSession (Api.SessionCommand.SupplyPin(code, pin)) with
@@ -816,13 +853,14 @@ module private Elmish =
                     return SessionMsg(SessionMsg.PinAnswered(Error ex.Message))
             }
             |> Cmd.fromAsync
-        | SessionEffect.GoTo url -> Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
-        | SessionEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient patient)
+        | SessionEffect.GoTo url -> state, Cmd.ofEffect (fun _ -> Browser.Dom.window.location.assign url)
+        | SessionEffect.SetPatient patient -> state, Cmd.ofMsg (UpdatePatient patient)
         // the cart is the version the Session opened with, opened by the plan machine over the
         // patient as UpdatePatient leaves it (normal values applied); the machine keeps the
         // version while that patient is still on its way
-        | SessionEffect.LoadCart head -> Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Version(head, newRequest ())))
+        | SessionEffect.LoadCart head -> state, Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Version(head, newRequest ())))
         | SessionEffect.KeepKey thumbprint ->
+            state,
             Cmd.ofEffect (fun _ ->
                 async {
                     match! Keys.keep thumbprint |> Async.Catch with
@@ -1352,34 +1390,11 @@ module private Elmish =
                 | SessionView.Open _ -> state.Lanes.Signing
                 | _ -> SigningState.idle
 
-            let tr term =
-                Global.getLocalizedTerm
-                    state.Fetches.Localization
-                    state.Ui.Context.Localization
-                    (SigningPolicy.english term)
-                    term
-
-            let tell message severity (state: State) = { state with Ui.Snackbar = Snackbar.shown message severity }
-
-            // the version is open, or the record moved on: each said once, the machine decides
-            let state =
-                effects
-                |> List.fold
-                    (fun state effect ->
-                        match effect with
-                        | SessionEffect.TellVersionOpened head ->
-                            state |> tell (SigningPolicy.versionOpenedSentence tr head) "success"
-                        | SessionEffect.TellMovedOn head ->
-                            state |> tell (SigningPolicy.movedOnSentence tr head) "warning"
-                        | _ -> state
-                    )
-                    state
-
             { state with
                 Lanes.Session = session
                 Lanes.Signing = signing
-            },
-            effects |> List.map interpretSessionEffect |> Cmd.batch
+            }
+            |> runEffects applySessionEffect effects
 
         | SigningMsg msg ->
             let signing, effects = SigningState.transition msg state.Lanes.Signing
