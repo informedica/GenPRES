@@ -162,6 +162,8 @@
 !/docs/security/
 
 # Add source files
+# the FAKE build script's sources; Build.fsproj stays in the root so bare `dotnet run` finds it
+!/build/
 !/scripts/
 !/src/
 

@@ -8,8 +8,8 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Helpers.fs" />
-    <Compile Include="Build.fs" />
+    <Compile Include="build\Helpers.fs" />
+    <Compile Include="build\Build.fs" />
     <None Include="paket.dependencies" />
     <None Include="paket.references" />
   </ItemGroup>

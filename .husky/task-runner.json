@@ -9,13 +9,12 @@
                 ".husky/scripts/format-staged.sh",
                 "${staged}"
             ],
-            "//include": "Every tracked .fs file, which is what CI's `dotnet fantomas --check .` covers: an allowlist rather than **/*.fs so generated and vendored sources can never reach Fantomas. Build.fs and Helpers.fs sit at the repository root and so match no src/tests prefix. Scripts are absent because .fantomasignore excludes *.fsx, so passing them only produced a skip message.",
+            "//include": "Every tracked .fs file, which is what CI's `dotnet fantomas --check .` covers: an allowlist rather than **/*.fs so generated and vendored sources can never reach Fantomas. The FAKE build script's sources live under build/, which matches no src/tests prefix. Scripts are absent because .fantomasignore excludes *.fsx, so passing them only produced a skip message.",
             "include": [
                 "src/**/*.fs",
                 "tests/**/*.fs",
                 "benchmark/**/*.fs",
-                "Build.fs",
-                "Helpers.fs"
+                "build/**/*.fs"
             ],
             "exclude": [
                 "**/obj/**",

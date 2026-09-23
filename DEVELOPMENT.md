@@ -289,10 +289,12 @@ itself and no proxy is involved.
 
 ### How `dotnet run` Interacts with FAKE
 
-GenPRES uses [FAKE](https://fake.build/) (F# Make) as its build automation tool. The build configuration lives in two files at the repository root:
+GenPRES uses [FAKE](https://fake.build/) (F# Make) as its build automation tool. The build configuration lives in two files under `build/`:
 
-- **`Build.fs`** – defines all FAKE build targets (tasks) and their dependency chains
-- **`Helpers.fs`** – helper functions for running processes (dotnet, npm, docker) in the build
+- **`build/Build.fs`** – defines all FAKE build targets (tasks) and their dependency chains
+- **`build/Helpers.fs`** – helper functions for running processes (dotnet, npm, docker) in the build
+
+The project file stays in the repository root and compiles them from there, for the reason given below.
 
 When you type `dotnet run` from the repository root, .NET executes `Build.fsproj`, which is an F# console application that initializes the FAKE execution context. FAKE then reads the target name from the command-line arguments (defaulting to `Run` when none is given) and executes the corresponding target and all of its declared dependencies.
 
@@ -302,8 +304,9 @@ so moving it into a subfolder would turn every invocation into `dotnet run --pro
 The same root placement is why plain `dotnet build` / `dotnet test` fail with MSB1011 — both the
 solution and this project file are candidates — and must be given `GenPRES.sln` explicitly.
 
-`Build.fsproj` is listed in `GenPRES.sln` so that editors that load projects from the solution
-(Ionide, Rider) give `Build.fs` and `Helpers.fs` IntelliSense. It is deliberately **not** part of
+`Build.fsproj` is listed in `GenPRES.sln`, under a `build` solution folder beside `src` and
+`tests`, so that editors that load projects from the solution (Ionide, Rider) group it with them
+and give `build/Build.fs` and `build/Helpers.fs` IntelliSense. It is deliberately **not** part of
 the solution build: its solution entry has `ActiveCfg` lines only, no `Build.0` lines, so
 `dotnet build GenPRES.sln` — which the `Build` target runs from inside the running build
 executable — never tries to overwrite `Build.dll` while it is executing. `dotnet run` builds
@@ -1032,6 +1035,7 @@ GenPRES/
 │   ├── scenarios/             # Use cases (executable integration model)
 │   ├── security/              # Security reviews and baseline
 │   └── user-guide/            # End-user guide (en/nl) and manual test workflows
+├── build/                     # FAKE build script sources (Build.fsproj stays in the root)
 ├── scripts/                   # Utility scripts
 └── src/                       # Source code
     ├── Informedica.Agents.Lib/           # Agent-based concurrency library
@@ -1066,7 +1070,7 @@ GenPRES/
 
 ### Key Configuration Files
 
-- `Build.fs` / `Build.fsproj` - Build automation
+- `build/Build.fs`, `build/Helpers.fs` / `Build.fsproj` - Build automation
 - `GenPRES.sln` - Solution file
 - `Dockerfile` - Docker containerization
 - `paket.dependencies` - Package management
