@@ -740,6 +740,24 @@ module private Elmish =
         | _ -> pat
 
 
+    /// An error from the server said and kept: the first three messages, each cut to a
+    /// readable length, under the sentence that asks for a reload. The command passes through.
+    let processError err (state: State, cmd) =
+        let errMsg =
+            err
+            |> Array.truncate 3
+            |> Array.map (fun (s: string) -> if s.Length > 200 then s[..199] + "..." else s)
+            |> String.concat "; "
+
+        Logging.error "error" err
+
+        { state with
+            Ui.Snackbar = Snackbar.shown "Er ging iets mis, herladen" "error"
+            Ui.ServerError = Some $"Server fout: {errMsg}"
+        },
+        cmd
+
+
     /// A sentence on the snackbar, in the severity it is said with.
     let tell message severity (state: State) = { state with Ui.Snackbar = Snackbar.shown message severity }
 
@@ -951,15 +969,16 @@ module private Elmish =
             state |> tell (signingTerm state Terms.``Signing Send Failed``) "error", Cmd.none
 
 
-    /// One command per order-plan effect. A plan call answers under the request it was sent
-    /// for, so the machine can drop an answer to an earlier request; the notice rides on the
-    /// reply and is told by `update`; a transport failure is an Error answer, never an
-    /// exception. The page and the snackbar are `update`'s, not here.
-    let interpretOrderPlanEffect (session: SessionState) (effect: OrderPlanEffect) : Cmd<Msg> =
+    /// What one order-plan effect changes, and the command it sends. A plan call answers under
+    /// the request it was sent for, so the machine can drop an answer to an earlier request;
+    /// the notice rides on the reply and is told by `update`; a transport failure is an Error
+    /// answer, never an exception.
+    let applyOrderPlanEffect (effect: OrderPlanEffect) (state: State) : State * Cmd<Msg> =
         match effect with
         | OrderPlanEffect.CallPlan(cmd, request) ->
-            let opened = tokenOf session
+            let opened = tokenOf state.Lanes.Session
 
+            state,
             async {
                 try
                     match!
@@ -983,10 +1002,11 @@ module private Elmish =
                     return OrderPlanMsg(OrderPlanMsg.Answered(request, Error [| ex.Message |]))
             }
             |> Cmd.fromAsync
-        | OrderPlanEffect.CheckInteractions drugs -> Cmd.ofMsg (CheckInteractions drugs)
-        | OrderPlanEffect.ResetWorkbench -> Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
-        | OrderPlanEffect.GoToPlanPage
-        | OrderPlanEffect.TellError _ -> Cmd.none
+        | OrderPlanEffect.CheckInteractions drugs -> state, Cmd.ofMsg (CheckInteractions drugs)
+        | OrderPlanEffect.ResetWorkbench -> state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
+        // an order prescribed opens the plan page
+        | OrderPlanEffect.GoToPlanPage -> { state with Ui.Page = OrderPlan }, Cmd.none
+        | OrderPlanEffect.TellError errs -> (state, Cmd.none) |> processError errs
 
 
     /// One command per order-context effect. A workbench call answers under the request it was
@@ -1076,21 +1096,6 @@ module private Elmish =
 
 
     let update (msg: Msg) (state: State) =
-        let processError err (state, cmd) =
-            let errMsg =
-                err
-                |> Array.truncate 3
-                |> Array.map (fun (s: string) -> if s.Length > 200 then s[..199] + "..." else s)
-                |> String.concat "; "
-
-            Logging.error "error" err
-
-            { state with
-                Ui.Snackbar = Snackbar.shown "Er ging iets mis, herladen" "error"
-                Ui.ServerError = Some $"Server fout: {errMsg}"
-            },
-            cmd
-
         // a token the server no longer takes (expired, or a restart): the login is over
         let tokenError err (state, cmd) =
             let state, cmd = processError err (state, cmd)
@@ -1573,21 +1578,7 @@ module private Elmish =
         | OrderPlanMsg msg ->
             let plan, effects = OrderPlanState.transition msg state.Lanes.OrderPlan
 
-            // the page and the snackbar are the interpreter's: an order prescribed opens the
-            // plan page, a refusal is said
-            let state =
-                effects
-                |> List.fold
-                    (fun (state: State) effect ->
-                        match effect with
-                        | OrderPlanEffect.GoToPlanPage -> { state with Ui.Page = OrderPlan }
-                        | OrderPlanEffect.TellError errs -> (state, Cmd.none) |> processError errs |> fst
-                        | _ -> state
-                    )
-                    state
-
-            { state with Lanes.OrderPlan = plan },
-            effects |> List.map (interpretOrderPlanEffect state.Lanes.Session) |> Cmd.batch
+            { state with Lanes.OrderPlan = plan } |> runEffects applyOrderPlanEffect effects
 
         // what the Session is told rides on the reply; the plan goes to the machine under the
         // request it answers
