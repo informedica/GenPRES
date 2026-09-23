@@ -871,17 +871,17 @@ module private Elmish =
             )
 
 
-    /// One command per signing effect. The machine names the plan, the challenge, the PIN,
-    /// the request id and the key; the OpenedToken comes from the open Session here, and
-    /// every answer carries the request id or the key it answers, so the machine
-    /// can drop one that belongs to an earlier Session. Without an open Session nothing is sent:
-    /// the answer is a refusal. What is told (signed, refused, an error) is put on the snackbar
-    /// by `update`, not here.
-    let interpretSigningEffect (session: SessionState) (effect: SigningEffect) : Cmd<Msg> =
-        let token = tokenOf session
+    /// What one signing effect changes, and the command it sends. The machine names the plan,
+    /// the challenge, the PIN, the request id and the key; the OpenedToken comes from the open
+    /// Session here, and every answer carries the request id or the key it answers, so the
+    /// machine can drop one that belongs to an earlier Session. Without an open Session nothing
+    /// is sent: the answer is a refusal.
+    let applySigningEffect (effect: SigningEffect) (state: State) : State * Cmd<Msg> =
+        let token = tokenOf state.Lanes.Session
 
         match effect with
         | SigningEffect.CallChallenge(plan, notice, request) ->
+            state,
             match token with
             | None ->
                 Cmd.ofMsg (
@@ -901,6 +901,7 @@ module private Elmish =
                 }
                 |> Cmd.fromAsync
         | SigningEffect.CallSubmit(plan, challenge, pin, key) ->
+            state,
             match token with
             | None ->
                 Cmd.ofMsg (
@@ -926,16 +927,28 @@ module private Elmish =
                         return SigningMsg(SigningMsg.SubmitAnswered(key, Error ex.Message))
                 }
                 |> Cmd.fromAsync
-        | SigningEffect.RenewToken token -> Cmd.ofMsg (SessionMsg(SessionMsg.TokenRenewed token))
-        | SigningEffect.EndSession ending -> Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
-        | SigningEffect.SetPatient patient -> Cmd.ofMsg (UpdatePatient(Some patient))
-        // a refusal because the record moved on is the notice too: the Session keeps the head
-        // for the bar; the sentence is told in update
-        | SigningEffect.TellRefused(SigningRefusal.Blocked head) -> Cmd.ofMsg (SessionMsg(SessionMsg.Blocked head))
+        | SigningEffect.RenewToken token -> state, Cmd.ofMsg (SessionMsg(SessionMsg.TokenRenewed token))
+        | SigningEffect.EndSession ending -> state, Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
+        | SigningEffect.SetPatient patient -> state, Cmd.ofMsg (UpdatePatient(Some patient))
         // the plan's work follows the signature: as signed, unless it changed meanwhile
-        | SigningEffect.TellSigned(_, askedOver) -> Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Signed askedOver))
-        | SigningEffect.TellRefused _
-        | SigningEffect.TellError _ -> Cmd.none
+        | SigningEffect.TellSigned(signed, askedOver) ->
+            state
+            |> tell (SigningPolicy.signedSentence (signingTerm state) signed) "success",
+            Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Signed askedOver))
+        // a refusal because the record moved on is the notice too: the Session keeps the head
+        // for the bar
+        | SigningEffect.TellRefused(SigningRefusal.Blocked head) ->
+            state
+            |> tell (SigningPolicy.refusalSentence (signingTerm state) (SigningRefusal.Blocked head)) "warning",
+            Cmd.ofMsg (SessionMsg(SessionMsg.Blocked head))
+        | SigningEffect.TellRefused refusal ->
+            state
+            |> tell (SigningPolicy.refusalSentence (signingTerm state) refusal) "warning",
+            Cmd.none
+        | SigningEffect.TellError reason ->
+            Logging.error "could not send the signature to the server" reason
+
+            state |> tell (signingTerm state Terms.``Signing Send Failed``) "error", Cmd.none
 
 
     /// One command per order-plan effect. A plan call answers under the request it was sent
@@ -1399,34 +1412,7 @@ module private Elmish =
         | SigningMsg msg ->
             let signing, effects = SigningState.transition msg state.Lanes.Signing
 
-            let tr term =
-                Global.getLocalizedTerm
-                    state.Fetches.Localization
-                    state.Ui.Context.Localization
-                    (SigningPolicy.english term)
-                    term
-
-            let tell message severity (state: State) = { state with Ui.Snackbar = Snackbar.shown message severity }
-
-            let state =
-                effects
-                |> List.fold
-                    (fun state effect ->
-                        match effect with
-                        | SigningEffect.TellSigned(signed, _) ->
-                            state |> tell (SigningPolicy.signedSentence tr signed) "success"
-                        | SigningEffect.TellRefused refusal ->
-                            state |> tell (SigningPolicy.refusalSentence tr refusal) "warning"
-                        | SigningEffect.TellError reason ->
-                            Logging.error "could not send the signature to the server" reason
-
-                            state |> tell (tr Terms.``Signing Send Failed``) "error"
-                        | _ -> state
-                    )
-                    state
-
-            { state with Lanes.Signing = signing },
-            effects |> List.map (interpretSigningEffect state.Lanes.Session) |> Cmd.batch
+            { state with Lanes.Signing = signing } |> runEffects applySigningEffect effects
 
         | LoadLocalization Started ->
             { state with Fetches.Localization = InProgress },
