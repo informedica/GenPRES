@@ -49,6 +49,7 @@ graph BT
     end
     subgraph Client
         GenPRES_Client["GenPRES.Client"]
+        GenPRES_Client_Core["GenPRES.Client.Core"]
     end
     subgraph Tooling
         NLP_Lib["NLP.Lib"]
@@ -74,7 +75,9 @@ graph BT
     GenPRES_Server --> Agents_Lib
     MCP_Lib --> GenORDER_Lib
     MCP_Server --> MCP_Lib
+    GenPRES_Client --> GenPRES_Client_Core
     GenPRES_Client --> GenPRES_Shared
+    GenPRES_Client_Core --> GenPRES_Shared
     NLP_Lib --> Utils_Lib
     classDef Core fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
     class GenCORE_Lib,GenFORM_Lib,GenINTERACT_Lib,GenORDER_Lib,GenSOLVER_Lib,GenUNITS_Lib,Logging_Lib,Utils_Lib Core
@@ -85,11 +88,11 @@ graph BT
     classDef Presentation fill:#ffedd5,stroke:#c2410c,color:#7c2d12
     class GenPRES_Server,MCP_Lib,MCP_Server Presentation
     classDef Client fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
-    class GenPRES_Client Client
+    class GenPRES_Client,GenPRES_Client_Core Client
     classDef Tooling fill:#f3f4f6,stroke:#4b5563,color:#1f2937
     class NLP_Lib Tooling
 ```
 
-19 projects, 23 project references. An arrow points at the dependency. A dashed arrow is an
+20 projects, 25 project references. An arrow points at the dependency. A dashed arrow is an
 outward reference the dependency rule still tolerates; the reasons are in `scripts/DependencyRule.fsx`.
 <!-- project-graph:end -->

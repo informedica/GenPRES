@@ -5,20 +5,9 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="index.html" />
-    <Compile Include="Deferred.fs" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Global.fs" />
-    <Compile Include="LanguagePolicy.fs" />
-    <Compile Include="SessionMachine.fs" />
-    <Compile Include="SessionGatePolicy.fs" />
-    <Compile Include="PlanWorkPolicy.fs" />
-    <Compile Include="SigningMachine.fs" />
-    <Compile Include="SigningPolicy.fs" />
-    <Compile Include="UnsignedWorkPolicy.fs" />
-    <Compile Include="OrderPlanMachine.fs" />
-    <Compile Include="OrderContextMachine.fs" />
-    <Compile Include="FilterSync.fs" />
     <Compile Include="Keys.fs" />
     <Compile Include="AppEnv.fs" />
     <Compile Include="MUI.fs" />
@@ -60,6 +49,7 @@
     <Compile Include="App.fs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Informedica.GenPRES.Client.Core\Informedica.GenPRES.Client.Core.fsproj" />
     <ProjectReference Include="..\Informedica.GenPRES.Shared\Informedica.GenPRES.Shared.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

@@ -32,15 +32,15 @@ type Ring =
 
 
 /// Which rings a project in a given ring may reference. Core references only core;
-/// the DMZ (Infrastructure, Presentation) may reach inward; the Client sees only the
-/// contract.
+/// the DMZ (Infrastructure, Presentation) may reach inward; outside the contract the
+/// Client sees only itself.
 let mayReference (from: Ring) (target: Ring) =
     match from, target with
     | Ring.Core, Ring.Core -> true
     | Ring.Contract, Ring.Contract -> true
     | Ring.Infrastructure, (Ring.Core | Ring.Infrastructure) -> true
     | Ring.Presentation, (Ring.Core | Ring.Contract | Ring.Infrastructure | Ring.Presentation) -> true
-    | Ring.Client, Ring.Contract -> true
+    | Ring.Client, (Ring.Contract | Ring.Client) -> true
     | Ring.Tooling, (Ring.Core | Ring.Infrastructure | Ring.Tooling) -> true
     | _ -> false
 
@@ -67,6 +67,7 @@ let rings =
             "Informedica.MCP.Lib", Ring.Presentation
             "Informedica.MCP.Server", Ring.Presentation
             "Informedica.GenPRES.Client", Ring.Client
+            "Informedica.GenPRES.Client.Core", Ring.Client
             "Informedica.NLP.Lib", Ring.Tooling
         ]
 

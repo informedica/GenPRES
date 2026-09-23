@@ -272,6 +272,9 @@
 !/src/Informedica.GenPRES.Client/Components/
 !/src/Informedica.GenPRES.Client/Views/
 !/src/Informedica.GenPRES.Client/Pages/
+# Informedica.GenPRES.Client.Core
+!/src/Informedica.GenPRES.Client.Core/
+!/src/Informedica.GenPRES.Client.Core/Scripts/
 
 # tests
 !/tests/
