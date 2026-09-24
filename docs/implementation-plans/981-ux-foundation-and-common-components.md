@@ -454,9 +454,13 @@ call sites migrate with their group.
    nothing of the value. `SimpleSelect` renders it beside the select instead of inside it, keeps
    the optimistic display of a stepped value (the deltas belong with the value they predict,
    and move to the field in part two), and puts the clear cross in the adornment whenever the
-   caller asks for one: #398's cross now appears on a field with a stepper, and clears. The
-   select's own arrow, hidden while the stepper sat in the adornment, shows again on those
-   fields. Most of the diff is the button block moved to its own file.
+   caller asks for one. The stepped fields of the order and nutrition dialogs still ask for
+   none, so nothing shows there yet: which fields get a cross is G1's one rule, and #398 is
+   done when that rule lands, not here. The select's own arrow, hidden while the stepper sat
+   in the adornment, shows again on those fields. The step buttons are as tall as the input's
+   line, so a row of them on the input's baseline centres on its text, and the row wraps under
+   the select where a cell is too narrow for both. Most of the diff is the button block moved
+   to its own file.
 4. **C1 part two: the field.** Value, range, severity, small and large step, bounds, lead marking.
    Rendered from a list, so it takes the order of its entries from its caller rather than knowing
    one. The first caller passes the case per dose type `Views/Order.fs` hard-codes today, moved

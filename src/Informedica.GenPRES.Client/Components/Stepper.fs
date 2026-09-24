@@ -35,7 +35,7 @@ module Stepper =
         JSX.jsx
             $"""
         import IconButton from "@mui/material/IconButton";
-        <IconButton disabled={disabled} onClick={click}>{icon}</IconButton>
+        <IconButton size="small" sx={Mui.Styles.stepButtonSx} disabled={disabled} onClick={click}>{icon}</IconButton>
         """
 
 

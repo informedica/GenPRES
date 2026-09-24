@@ -100,6 +100,8 @@ module ClickCountingButton =
         import Badge from "@mui/material/Badge";
 
         <IconButton
+            size="small"
+            sx={Mui.Styles.stepButtonSx}
             disabled={props.disabled}
             onClick={handleClick}
             onMouseDown={handleHoldStart}

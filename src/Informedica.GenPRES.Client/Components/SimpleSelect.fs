@@ -229,10 +229,12 @@ module SimpleSelect =
                 maxWidth = "100%"
             |}
 
-        // the select and its stepper side by side, the stepper on the value's baseline
+        // the select and its stepper side by side, the stepper on the value's baseline; the
+        // stepper wraps under the select where the cell is too narrow for both
         let rowSx =
             {|
                 display = "flex"
+                flexWrap = "wrap"
                 alignItems = "flex-end"
                 gap = 0.5
             |}
