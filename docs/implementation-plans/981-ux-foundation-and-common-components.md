@@ -386,11 +386,13 @@ is prototyped in a script and migrated by the maintainer.
 4. **F1a — one severity type.** In `GenPRES.Shared`, so it is reachable from `Shared.Tests`:
    `Level`, `TextBlock`'s four cases and the colour tables of `SimpleSelect` and `MUI.fs` collapse
    to one type with conversions from what the wire carries. Script first, with a test per
-   conversion. The script is `Shared/Scripts/Severity.fsx`: a `Severity` of four cases declared
-   lowest to highest, so the highest of a set is their maximum, and a module with the
-   conversions from and to `Level` and `TextBlock`, the highest over blocks and over rows of
-   blocks (what `TextBlock.maxTb` does with integers), and `isRaised`. `Level` and `TextBlock`
-   stay on the wire; the colours stay out of `Shared`, which knows no palette, and are F1b's.
+   conversion. Landed as `Severity` in `Shared/Types.fs`, four cases declared lowest to
+   highest so the highest of a set is their maximum, and the `Severity` module in
+   `Shared/Models.fs`: the conversions from and to `Level` and `TextBlock`, the highest over
+   blocks and over rows of blocks, and `isRaised`; `TextBlock.maxTb` is now that, where it
+   ordered the cases with integers. Tests in `Shared.Tests/SeverityTests.fs`. `Level` and
+   `TextBlock` stay on the wire; the colours stay out of `Shared`, which knows no palette, and
+   are F1b's.
 5. **F1b — one renderer**, replacing the two byte-identical double-underline implementations
    (`SimpleSelect.fs:313` and `MUI.fs:1067,1084,1101`) and the hard-coded hexes in
    `Pages/GenPres.fs:227` and `Views/Formulary.fs:238`.
