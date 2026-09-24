@@ -50,28 +50,28 @@ module QuantityField =
 
 
     // The select and its stepper side by side on one line, the stepper on the value's baseline.
-    // The caller's minimum width is the field's, select and stepper together, as it was when
-    // the stepper sat inside the select; the select fills what the stepper leaves of it.
+    // The field spans the width it is given, as the select did when the stepper sat inside it:
+    // the select fills what the stepper leaves, and the caller's minimum is the field's.
     let private rowSx (minWidth: int) =
         {|
-            display = "inline-flex"
+            display = "flex"
             flexWrap = "nowrap"
             alignItems = "flex-end"
             gap = 0.5
+            width = "100%"
             minWidth = minWidth
-            maxWidth = "100%"
         |}
 
 
     // the field the user is pointed at first carries the accent on its left
     let private leadSx (minWidth: int) =
         {|
-            display = "inline-flex"
+            display = "flex"
             flexWrap = "nowrap"
             alignItems = "flex-end"
             gap = 0.5
+            width = "100%"
             minWidth = minWidth
-            maxWidth = "100%"
             borderLeft = $"3px solid"
             borderColor = Mui.Styles.accentColor
             paddingLeft = 1
