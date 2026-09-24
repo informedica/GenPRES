@@ -835,6 +835,11 @@ module Styles =
         {| ``& .MuiSelect-icon`` = {| visibility = if isClear then "visible" else "hidden" |} |}
 
 
+    /// A step button beside an input: as tall as the input's line, so that a row of them on the
+    /// input's baseline centres on its text.
+    let stepButtonSx = {| padding = "2px" |}
+
+
     /// The colour of a severity; none for normal, which gets no mark.
     let severityColor (severity: Severity) =
         match severity with

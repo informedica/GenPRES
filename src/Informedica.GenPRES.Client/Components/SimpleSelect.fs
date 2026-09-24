@@ -166,131 +166,31 @@ module SimpleSelect =
                 </IconButton>
                 """
 
-        let navigationSx =
-            {|
-                display = "flex"
-                flexDirection = "column"
-                alignItems = "center"
-            |}
-
         // the step buttons rest only when the select is disabled: a step sent while the value
         // is loading waits for the answer and steps from it
-        let stepsRest = props.disabled
+        let stepper =
+            match props.stepper with
+            | None -> null
+            | Some nav ->
+                Stepper.View
+                    {|
+                        first = nav.first
+                        decrease = nav.decrease
+                        median = nav.median
+                        increase = nav.increase
+                        last = nav.last
+                        useDebounce = nav.useDebounce
+                        disabled = props.disabled
+                        onSmallStep = fun sign -> bumpSmall sign ()
+                        onLargeStep = fun sign -> bumpLarge sign ()
+                    |}
 
-        let navigation =
-            props.stepper
-            |> Option.map (fun nav ->
-                let getNav prop =
-                    match prop with
-                    | Some onClick -> stepsRest, onClick
-                    | None -> true, fun () -> ()
-
-                let getNavN prop =
-                    match prop with
-                    | Some onClick -> stepsRest, onClick
-                    | None -> true, fun (_: int) -> ()
-
-                let firstDisabled, firstClick = nav.first |> getNavN
-                let decreaseDisabled, decreaseClick = nav.decrease |> getNavN
-                let medianDisabled, medianClick = nav.median |> getNav
-                let increaseDisabled, increaseClick = nav.increase |> getNavN
-                let lastDisabled, lastClick = nav.last |> getNavN
-
-                let firstButton =
-                    if nav.useDebounce then
-                        ClickCountingButton.View
-                            {|
-                                disabled = firstDisabled
-                                onClick = firstClick
-                                onStep = bumpLarge -1
-                                icon = Mui.Icons.FirstPageIcon
-                            |}
-                    else
-                        JSX.jsx
-                            $"""
-                        import IconButton from "@mui/material/IconButton";
-                        <IconButton disabled={firstDisabled} onClick={fun _ -> firstClick 1} >{Mui.Icons.FirstPageIcon}</IconButton>
-                        """
-
-                let decreaseButton =
-                    if nav.useDebounce then
-                        ClickCountingButton.View
-                            {|
-                                disabled = decreaseDisabled
-                                onClick = decreaseClick
-                                onStep = bumpSmall -1
-                                icon = Mui.Icons.SkipPreviousIcon
-                            |}
-                    else
-                        JSX.jsx
-                            $"""
-                        import IconButton from "@mui/material/IconButton";
-                        <IconButton disabled={decreaseDisabled} onClick={fun _ -> decreaseClick 1} >{Mui.Icons.SkipPreviousIcon}</IconButton>
-                        """
-
-                let medianButton =
-                    JSX.jsx
-                        $"""
-                    import IconButton from "@mui/material/IconButton";
-                    <IconButton disabled={medianDisabled} onClick={fun _ -> medianClick ()} >{Mui.Icons.PauseIcon}</IconButton>
-                    """
-
-                let increaseButton =
-                    if nav.useDebounce then
-                        ClickCountingButton.View
-                            {|
-                                disabled = increaseDisabled
-                                onClick = increaseClick
-                                onStep = bumpSmall 1
-                                icon = Mui.Icons.SkipNextIcon
-                            |}
-                    else
-                        JSX.jsx
-                            $"""
-                        import IconButton from "@mui/material/IconButton";
-                        <IconButton disabled={increaseDisabled} onClick={fun _ -> increaseClick 1} >{Mui.Icons.SkipNextIcon}</IconButton>
-                        """
-
-                let lastButton =
-                    if nav.useDebounce then
-                        ClickCountingButton.View
-                            {|
-                                disabled = lastDisabled
-                                onClick = lastClick
-                                onStep = bumpLarge 1
-                                icon = Mui.Icons.LastPageIcon
-                            |}
-                    else
-                        JSX.jsx
-                            $"""
-                        import IconButton from "@mui/material/IconButton";
-                        <IconButton disabled={lastDisabled} onClick={fun _ -> lastClick 1} >{Mui.Icons.LastPageIcon}</IconButton>
-                        """
-
-                JSX.jsx
-                    $"""
-                import IconButton from "@mui/material/IconButton";
-                import ButtonGroup from '@mui/material/ButtonGroup';
-                import Box from '@mui/material/Box';
-                <Box
-                sx={navigationSx}
-                >
-                <ButtonGroup variant="text" aria-label="navigation button group">
-                    {firstButton}
-                    {decreaseButton}
-                    {medianButton}
-                    {increaseButton}
-                    {lastButton}
-                </ButtonGroup>
-                </Box>
-                """
-            )
-
+        // the cross clears the value whether or not the value has a stepper beside it
         let endAdornment =
-            if navigation.IsNone && not isClear && props.hasClear then
+            if not isClear && props.hasClear then
                 Some clearButton
             else
-                navigation
+                None
 
         let hasNavigation =
             props.stepper
@@ -329,13 +229,25 @@ module SimpleSelect =
                 maxWidth = "100%"
             |}
 
+        // the select and its stepper side by side, the stepper on the value's baseline; the
+        // stepper wraps under the select where the cell is too narrow for both
+        let rowSx =
+            {|
+                display = "flex"
+                flexWrap = "wrap"
+                alignItems = "flex-end"
+                gap = 0.5
+            |}
+
         JSX.jsx
             $"""
         import InputLabel from '@mui/material/InputLabel';
         import MenuItem from '@mui/material/MenuItem';
         import FormControl from '@mui/material/FormControl';
         import Select from '@mui/material/Select';
+        import Box from '@mui/material/Box';
 
+        <Box sx={rowSx}>
         <FormControl variant="standard" sx={formControlSx}>
             <InputLabel id={props.label + "-label"}>{props.label}</InputLabel>
             <Select
@@ -353,4 +265,6 @@ module SimpleSelect =
                 {items}
             </Select>
         </FormControl>
+        {stepper}
+        </Box>
         """
