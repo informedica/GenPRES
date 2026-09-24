@@ -1862,15 +1862,16 @@ responsiveFontSizes(createTheme({
     typography: { fontSize: 12 },
     palette: {
         mode: 'light',
-        // the four severities the client shows: Valid, Caution, Warning, Alert
-        success: { main: '#2e7d32' },
-        info: { main: '#0288d1' },
-        warning: { main: '#ed6c02' },
-        error: { main: '#d32f2f' },
+        // the four severities the client shows: Valid, Caution, Warning, Alert. MUI's own
+        // light-mode shades, all three, so nothing derived replaces a built-in one
+        success: { main: '#2e7d32', light: '#4caf50', dark: '#1b5e20' },
+        info: { main: '#0288d1', light: '#03a9f4', dark: '#01579b' },
+        warning: { main: '#ed6c02', light: '#ff9800', dark: '#e65100' },
+        error: { main: '#d32f2f', light: '#ef5350', dark: '#c62828' },
         // the tint behind a caution, a warning or an alert, as an alert box has it
         severityBg: { caution: '#e5f6fd', warning: '#fff4e5', alert: '#fdeded' },
         // the accent the tables and headers use
-        primary: { main: '#1976d2' },
+        primary: { main: '#1976d2', light: '#42a5f5', dark: '#1565c0' },
     },
     spacing: 6,
     components: {
@@ -1897,15 +1898,16 @@ responsiveFontSizes(createTheme({
     typography: { fontSize: 11 },
     palette: {
         mode: 'light',
-        // the four severities the client shows: Valid, Caution, Warning, Alert
-        success: { main: '#2e7d32' },
-        info: { main: '#0288d1' },
-        warning: { main: '#ed6c02' },
-        error: { main: '#d32f2f' },
+        // the four severities the client shows: Valid, Caution, Warning, Alert. MUI's own
+        // light-mode shades, all three, so nothing derived replaces a built-in one
+        success: { main: '#2e7d32', light: '#4caf50', dark: '#1b5e20' },
+        info: { main: '#0288d1', light: '#03a9f4', dark: '#01579b' },
+        warning: { main: '#ed6c02', light: '#ff9800', dark: '#e65100' },
+        error: { main: '#d32f2f', light: '#ef5350', dark: '#c62828' },
         // the tint behind a caution, a warning or an alert, as an alert box has it
         severityBg: { caution: '#e5f6fd', warning: '#fff4e5', alert: '#fdeded' },
         // the accent the tables and headers use
-        primary: { main: '#1976d2' },
+        primary: { main: '#1976d2', light: '#42a5f5', dark: '#1565c0' },
     },
     spacing: 6,
     components: {
