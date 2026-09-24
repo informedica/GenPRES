@@ -394,8 +394,15 @@ is prototyped in a script and migrated by the maintainer.
    `TextBlock` stay on the wire; the colours stay out of `Shared`, which knows no palette, and
    are F1b's.
 5. **F1b — one renderer**, replacing the two byte-identical double-underline implementations
-   (`SimpleSelect.fs:313` and `MUI.fs:1067,1084,1101`) and the hard-coded hexes in
-   `Pages/GenPres.fs:227` and `Views/Formulary.fs:238`.
+   (`SimpleSelect.fs` and `MUI.fs`'s `fromTextBlock`) and the hard-coded hexes in
+   `Pages/GenPres.fs`. The renderer is `Mui.Styles.markSx`: a severity over an sx, adding the
+   double underline in the severity's palette colour or nothing, beside `severityColor` and
+   `severityBg`. Two pull requests: `MUI.fs` alone, where `Styles` has to move above
+   `TypoGraphy` for `fromTextBlock` to reach it, then `SimpleSelect`, `ViewHelpers.getWarning`
+   and the menu tints in `GenPres.fs`. The `Views/Formulary.fs` hexes this plan listed are not
+   there: that file colours its markdown text with `Colors.Indigo`, which is not a severity and
+   stays. The formulary text shifts from `Colors.Green.700`, `Blue.600`, `Orange.700`,
+   `Red.700` to the palette's `success`, `info`, `warning`, `error`: the shift F2 announced.
 6. **F3 — the label convention.** A shared component takes its label as a prop or as a
    `(term, default)` pair and never reaches for `Terms` itself; `Views/ViewHelpers.fs`'s
    hard-coded Dutch (`"onbekend"`, `"Paraaf arts:"`, the nine print-header labels) becomes props.

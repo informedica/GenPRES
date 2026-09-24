@@ -805,6 +805,89 @@ module Colors =
         static member A400 = "#ff1744"
         static member A700 = "#d50000"
 
+/// The tokens a shared component spells its colours in. Each is a path into the theme's
+/// palette, resolved by sx, so a colour is stated once, in the theme, and a component names
+/// what it means rather than what it is. The hexes still in Mui.Colors are the ones the
+/// palette does not cover yet.
+module Styles =
+
+    open Fable.Core.JsInterop
+    open Shared.Types
+    open Shared.Models
+
+    /// The four severities the client shows, as the palette names them.
+    let validColor = "success.main"
+    let cautionColor = "info.main"
+    let warningColor = "warning.main"
+    let alertColor = "error.main"
+
+    /// The tint behind a caution, a warning or an alert, as an alert box has it.
+    let cautionBg = "severityBg.caution"
+    let warningBg = "severityBg.warning"
+    let alertBg = "severityBg.alert"
+
+    /// Text that carries the value, and text that explains it.
+    let textColor = "text.primary"
+    let mutedTextColor = "text.secondary"
+    let disabledTextColor = "text.disabled"
+
+    /// The accent of a selected row and a marked border.
+    let accentColor = "primary.main"
+
+    /// Backgrounds: the page, a card, a hovered row, a subdued section such as a print header.
+    let pageBg = "background.default"
+    let paperBg = "background.paper"
+    let hoverBg = "action.hover"
+    let subtleBg = "grey.100"
+
+    /// A divider and a table border.
+    let dividerColor = "divider"
+
+    /// The header band over a table or a section; a tint the palette has no name for yet.
+    let headerBgColor = Colors.Blue.``50``
+
+
+    let selectIconVisibilitySx isClear =
+        {| ``& .MuiSelect-icon`` = {| visibility = if isClear then "visible" else "hidden" |} |}
+
+
+    /// The colour of a severity; none for normal, which gets no mark.
+    let severityColor (severity: Severity) =
+        match severity with
+        | Severity.Normal -> None
+        | Severity.Caution -> Some cautionColor
+        | Severity.Warning -> Some warningColor
+        | Severity.Alert -> Some alertColor
+
+
+    /// The tint behind a severity; none for normal.
+    let severityBg (severity: Severity) =
+        match severity with
+        | Severity.Normal -> None
+        | Severity.Caution -> Some cautionBg
+        | Severity.Warning -> Some warningBg
+        | Severity.Alert -> Some alertBg
+
+
+    /// One sx over two: the second's properties over the first's.
+    let mergeSx (sx: obj) (over: obj) : obj = emitJsExpr (sx, over) "Object.assign({}, $0, $1)"
+
+
+    /// The mark a raised severity puts under a value, a double underline in its colour, added to
+    /// an sx; a normal severity adds nothing.
+    let markSx (severity: Severity) (sx: obj) =
+        match severity |> severityColor with
+        | None -> sx
+        | Some color ->
+            {|
+                textDecoration = "underline double"
+                textDecorationColor = color
+                textUnderlineOffset = "3px"
+            |}
+            |> box
+            |> mergeSx sx
+
+
 module TypoGraphy =
 
     open Shared.Types
@@ -813,63 +896,35 @@ module TypoGraphy =
 
     let fromTextBlock (textBlock: TextBlock) =
         let print tb =
-            let items, color, hasWarning =
-                match tb with
-                | Valid items -> items, Colors.Green.``700``, false
-                | Caution items -> items, Colors.Blue.``600``, true
-                | Warning items -> items, Colors.Orange.``700``, true
-                | Alert items -> items, Colors.Red.``700``, true
+            let severity = tb |> Shared.Models.Severity.ofTextBlock
+            let items = tb |> Shared.Models.Severity.items
+
+            // bold text takes the severity's colour, valid text the palette's success colour
+            let color = severity |> Styles.severityColor |> Option.defaultValue Styles.validColor
 
             let normalSx =
-                if hasWarning then
-                    {|
-                        display = "inline"
-                        color = Colors.Grey.``700``
-                        textDecoration = "underline double"
-                        textDecorationColor = color
-                        textUnderlineOffset = "3px"
-                    |}
-                    |> box
-                else
-                    {|
-                        display = "inline"
-                        color = Colors.Grey.``700``
-                    |}
-                    |> box
+                {|
+                    display = "inline"
+                    color = Colors.Grey.``700``
+                |}
+                |> box
+                |> Styles.markSx severity
 
             let boldSx =
-                if hasWarning then
-                    {|
-                        display = "inline"
-                        color = color
-                        textDecoration = "underline double"
-                        textDecorationColor = color
-                        textUnderlineOffset = "3px"
-                    |}
-                    |> box
-                else
-                    {|
-                        display = "inline"
-                        color = color
-                    |}
-                    |> box
+                {|
+                    display = "inline"
+                    color = color
+                |}
+                |> box
+                |> Styles.markSx severity
 
             let italicSx =
-                if hasWarning then
-                    {|
-                        display = "inline"
-                        color = Colors.Grey.``600``
-                        textDecoration = "underline double"
-                        textDecorationColor = color
-                        textUnderlineOffset = "3px"
-                    |}
-                    |> box
-                else
-                    {|
-                        display = "inline"
-                        color = Colors.Grey.``600``
-                    |}
-                    |> box
+                {|
+                    display = "inline"
+                    color = Colors.Grey.``600``
+                |}
+                |> box
+                |> Styles.markSx severity
 
             items
             |> Array.map (fun item ->
@@ -928,45 +983,3 @@ type Hooks =
     static member inline useMediaQuery(query: string) : bool = HookImports.useMediaQuery query
 
     static member inline useMediaQuery(getQuery: Theme -> string) : bool = HookImports.useMediaQuery_theme getQuery
-
-
-/// The tokens a shared component spells its colours in. Each is a path into the theme's
-/// palette, resolved by sx, so a colour is stated once, in the theme, and a component names
-/// what it means rather than what it is. The hexes still in Mui.Colors are the ones the
-/// palette does not cover yet.
-module Styles =
-
-    /// The four severities the client shows, as the palette names them.
-    let validColor = "success.main"
-    let cautionColor = "info.main"
-    let warningColor = "warning.main"
-    let alertColor = "error.main"
-
-    /// The tint behind a caution, a warning or an alert, as an alert box has it.
-    let cautionBg = "severityBg.caution"
-    let warningBg = "severityBg.warning"
-    let alertBg = "severityBg.alert"
-
-    /// Text that carries the value, and text that explains it.
-    let textColor = "text.primary"
-    let mutedTextColor = "text.secondary"
-    let disabledTextColor = "text.disabled"
-
-    /// The accent of a selected row and a marked border.
-    let accentColor = "primary.main"
-
-    /// Backgrounds: the page, a card, a hovered row, a subdued section such as a print header.
-    let pageBg = "background.default"
-    let paperBg = "background.paper"
-    let hoverBg = "action.hover"
-    let subtleBg = "grey.100"
-
-    /// A divider and a table border.
-    let dividerColor = "divider"
-
-    /// The header band over a table or a section; a tint the palette has no name for yet.
-    let headerBgColor = Colors.Blue.``50``
-
-
-    let selectIconVisibilitySx isClear =
-        {| ``& .MuiSelect-icon`` = {| visibility = if isClear then "visible" else "hidden" |} |}
