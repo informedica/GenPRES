@@ -441,7 +441,8 @@ call sites migrate with their group.
    while `Nutrition.fs:1595` confirms. This is a safety fix, not only a refactor. Three pull
    requests, for size: `ConfirmDialog` first, with the order plan's delete now asking and the
    nutrition dialog on the component; then `DialogShell` with the order plan's and the page's
-   modals on it; then the prescribing page's modal, whose order view moves out of the JSX into
+   modals on it, which gives the disclaimer and the session gate the rounded corners and the
+   inner scroll the order dialog had and they did not; then the prescribing page's modal, whose order view moves out of the JSX into
    a binding and is re-indented, which alone is near the limit, and `ViewHelpers.modalStyle`
    goes with it. The confirming button of a `ConfirmDialog` is the primary action, contained
    and right, also when it deletes: the title and the text say what happens, the placement
