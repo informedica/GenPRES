@@ -20,7 +20,8 @@ module SeverityMark =
         |}
 
 
-    let private icon (severity: Types.Severity) =
+    /// The icon of a severity, in whatever colour its parent draws; nothing for normal.
+    let icon (severity: Types.Severity) =
         match severity with
         | Types.Severity.Normal -> null
         | Types.Severity.Caution ->

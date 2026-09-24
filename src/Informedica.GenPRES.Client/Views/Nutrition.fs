@@ -280,12 +280,13 @@ module Nutrition =
 
     let private autoMarginSx = {| marginLeft = "auto" |}
 
+    // the summary wraps onto more lines rather than clip a value at the header's edge
     let private flexOverflowSx =
         {|
             display = "flex"
+            flexWrap = "wrap"
             alignItems = "center"
             width = "100%"
-            overflow = "hidden"
         |}
 
     let private printSectionHeaderSx =
@@ -338,18 +339,79 @@ module Nutrition =
         |}
 
 
-    let private renderAdminSummary (key: string) (name: string) (blocks: TextBlock[]) =
+    // the administration of a scenario as pills: one per value the server printed, the
+    // frequency, the dose, the rate, the time, each coloured by its own severity; a row per
+    // item, the rows told apart by a plus between them
+    let private renderAdminSummary (key: string) (name: string) (rows: TextBlock[][]) =
         let typoSx =
             {|
                 display = "inline"
                 color = "text.secondary"
+                marginRight = 1
             |}
 
         let boxSx =
             {|
-                display = "inline"
+                display = "inline-flex"
+                alignItems = "center"
+                flexWrap = "wrap"
                 marginLeft = 1
             |}
+
+        let textOf (block: TextBlock) =
+            block
+            |> Severity.items
+            |> Array.map (
+                function
+                | Normal s
+                | Bold s
+                | Italic s -> s
+            )
+            |> String.concat ""
+            |> String.trim
+
+        // a block with a number in it is a value and becomes a chip; one without, an item's
+        // name or a word between values such as "in" or "=", stays text between the chips
+        let isValue (text: string) = text |> Seq.exists System.Char.IsDigit
+
+        let text (key: string) (s: string) =
+            JSX.jsx
+                $"""
+            import Typography from '@mui/material/Typography';
+            <Typography key={key} variant="body2" sx={typoSx}>{s}</Typography>
+            """
+
+        // each block keeps its own severity through the filtering: the text and the block
+        // travel together
+        let ofRow (r: int) (row: TextBlock[]) =
+            row
+            |> Array.map (fun block -> textOf block, block)
+            |> Array.filter (fst >> String.notEmpty)
+            |> Array.mapi (fun i (t, block) ->
+                if t |> isValue then
+                    Components.ValueChip.View
+                        {|
+                            value = t
+                            severity = block |> Severity.ofTextBlock
+                            label = None
+                        |}
+                else
+                    text $"{r}-{i}" t
+            )
+
+        let chips =
+            rows
+            |> Array.map (fun row -> row |> Array.map textOf |> Array.exists String.notEmpty, row)
+            |> Array.filter fst
+            |> Array.mapi (fun r (_, row) ->
+                if r = 0 then
+                    ofRow r row
+                else
+                    Array.append [| text $"sep-{r}" "+" |] (ofRow r row)
+            )
+            |> Array.concat
+            |> unbox<seq<ReactElement>>
+            |> React.Fragment
 
         JSX.jsx
             $"""
@@ -360,10 +422,7 @@ module Nutrition =
             <Typography variant="body2" sx={typoSx}>
                 {name}:
             </Typography>
-            {blocks
-             |> Array.map Mui.TypoGraphy.fromTextBlock
-             |> unbox<seq<ReactElement>>
-             |> React.Fragment}
+            {chips}
         </Box>
         """
 
@@ -1288,8 +1347,7 @@ module Nutrition =
                 let adminSummary =
                     match ctx.Scenarios with
                     | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
-                        let blocks = sc.Administration |> TextBlock.flatten |> Array.collect id
-                        renderAdminSummary (string props.nutritionContext.Id) sc.Order.Orderable.Name blocks
+                        renderAdminSummary (string props.nutritionContext.Id) sc.Order.Orderable.Name sc.Administration
                     | _ -> null
 
                 JSX.jsx
@@ -1512,8 +1570,8 @@ module Nutrition =
                             |> Array.choose (fun nc ->
                                 match nc.Scenarios with
                                 | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
-                                    let blocks = sc.Administration |> TextBlock.flatten |> Array.collect id
-                                    renderAdminSummary (string nc.Id) sc.Order.Orderable.Name blocks |> Some
+                                    renderAdminSummary (string nc.Id) sc.Order.Orderable.Name sc.Administration
+                                    |> Some
                                 | _ -> None
                             )
 

@@ -529,7 +529,12 @@ call sites migrate with their group.
    The six captioned dividers of the order dialog and the nutrition page are on it, and the
    nutrition section's heading with its remove button, whose stack the component now holds.
    The preparation and administration captions read their terms where a term exists; the
-   dosing caption has none and stays the Dutch it was, at the call site.
+   dosing caption has none and stays the Dutch it was, at the call site. C5 landed as
+   `Components/ValueChip.fs`: the value as text in an outlined small chip, coloured by its
+   severity, a name before it when it needs one. First caller: the nutrition page's
+   accordion summaries, which show a scenario's administration as one chip per value the
+   server printed, the frequency, the dose, the rate, the time, each coloured by its own
+   severity, where they flattened the values into one underlined run of text.
 9. **C9 `Disclosure`** — a section that collapses to a summary carrying its result, and closes
    when the user says so rather than on a timer (#489's five-second effect does not survive).
 10. **C3 `SearchField`** — nothing like it exists in the client today.
