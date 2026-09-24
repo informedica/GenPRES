@@ -394,6 +394,15 @@ module ResponsiveTable =
                             ]
                 ]
 
+        // the search and the column filter side by side, wrapping on a narrow screen
+        let controlsSx =
+            {|
+                display = "flex"
+                flexWrap = "wrap"
+                alignItems = "flex-end"
+                gap = 2
+            |}
+
         let needle = query.Trim().ToLowerInvariant()
 
         let matchesQuery
@@ -407,9 +416,10 @@ module ResponsiveTable =
                     actions: ReactElement option
                 |})
             =
+            // the cells the user sees: the id is a hidden column, by the same name the grid hides it
             needle |> String.length = 0
             || r.cells
-               |> Array.exists (fun cell -> cell.value.ToLowerInvariant().Contains needle)
+               |> Array.exists (fun cell -> cell.field <> "id" && cell.value.ToLowerInvariant().Contains needle)
 
         let rows =
             props.rows
@@ -460,10 +470,21 @@ module ResponsiveTable =
                         |}
                      >
 
+            // the cards get the same controls as the grid: the search and the column filter
+            let controls =
+                JSX.jsx
+                    $"""
+                import Box from '@mui/material/Box';
+                <Box sx={controlsSx}>
+                    {search}
+                    {filter}
+                </Box>
+                """
+
             {|
                 columns = typedColumns
                 rows = rows
-                filter = Some filter
+                filter = Some controls
                 onRowClick = props.onRowClick
             |}
             |> CardTable
