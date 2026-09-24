@@ -58,20 +58,21 @@ module SeverityMark =
                     paddingBottom = "4px"
                 |}
 
-            let mark =
+            // the mark can be reached with the keyboard as well as the pointer, and names its
+            // reason for a reader, so the tooltip opens on focus as it does on hover
+            match props.reason with
+            | None ->
                 JSX.jsx
                     $"""
                 import Box from '@mui/material/Box';
-                <Box sx={markSx}>{icon props.severity}</Box>
+                <Box sx={markSx} role="img">{icon props.severity}</Box>
                 """
-
-            match props.reason with
-            | None -> mark
             | Some reason ->
                 JSX.jsx
                     $"""
+                import Box from '@mui/material/Box';
                 import Tooltip from '@mui/material/Tooltip';
                 <Tooltip title={reason} arrow>
-                    {mark}
+                    <Box sx={markSx} role="img" aria-label={reason} tabIndex={0}>{icon props.severity}</Box>
                 </Tooltip>
                 """

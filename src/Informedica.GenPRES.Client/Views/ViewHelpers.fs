@@ -43,15 +43,19 @@ module ViewHelpers =
         |}
 
 
-    /// The reason in words: the bound crossed, as "max 15 mg" or "min 2 mg", in the value's
-    /// unit; nothing for a mark the bounds do not explain.
+    /// The reason in words: the bound crossed, in the value's unit and at the bound's own
+    /// precision, so it is the bound the value crossed and not a rounding of it. A bound that
+    /// is itself allowed reads "max 15 mg" or "min 2 mg"; one that is not reads "< 15 mg" or
+    /// "> 2 mg". Nothing for a mark the bounds do not explain.
     let reasonText (reason: SeverityReason.Reason) =
         let show (b: SeverityReason.Bound) =
-            $"{b.Value |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 3} {b.Unit}"
+            $"{b.Value |> Decimal.toStringNumberNLWithoutTrailingZeros} {b.Unit}"
 
         match reason with
-        | SeverityReason.Reason.AboveMax b -> Some $"max {show b}"
-        | SeverityReason.Reason.BelowMin b -> Some $"min {show b}"
+        | SeverityReason.Reason.AboveMax b when b.Inclusive -> Some $"max {show b}"
+        | SeverityReason.Reason.AboveMax b -> Some $"< {show b}"
+        | SeverityReason.Reason.BelowMin b when b.Inclusive -> Some $"min {show b}"
+        | SeverityReason.Reason.BelowMin b -> Some $"> {show b}"
         | SeverityReason.Reason.Outside -> None
 
 
