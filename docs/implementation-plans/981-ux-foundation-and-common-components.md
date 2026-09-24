@@ -205,6 +205,12 @@ carry two intents. Separating the stepper from the input gives both a home, and 
 double/halve. The order of the fields is not the component's to know: `Views/Order.fs` today
 hard-codes it per dose type, and the list the server sends replaces that.
 
+That replacement is #978, in G3, and it is **not** a prerequisite of this component. C1 renders one
+field and knows nothing about the order of a list; what changes in G0 is only *where* the order
+lives — from inside the component to its caller. The first caller therefore keeps the case per dose
+type `Views/Order.fs` holds today, moved to the call site as a literal list. When #978 lands, that
+literal is replaced by the list the server sends and C1 is not touched.
+
 ### C2 — `PickField` and `MultiPickField`
 
 Serves **#498, #403, #501, #487**.
@@ -385,7 +391,10 @@ call sites migrate with their group.
    `SimpleSelect`'s `endAdornment`, which is what makes #398's clear cross possible at all.
 4. **C1 part two: the field.** Value, range, severity, small and large step, bounds, lead marking.
    Rendered from a list, so it takes the order of its entries from its caller rather than knowing
-   one (#397, #978).
+   one. The first caller passes the case per dose type `Views/Order.fs` hard-codes today, moved
+   from the component to the call site as a literal; #978 in G3 later replaces that literal with
+   the list the server sends, without touching C1. Neither this step nor #397 waits on the server
+   work, and the server work needs no client change when it arrives.
 5. **C2 `PickField` / `MultiPickField`** — one `disabled / one-option / clear` rule, checkbox rows
    for the multi variant (#487, #498).
 6. **C4 `SeverityMark`** — colour, icon and the reason on hover, composed from the
