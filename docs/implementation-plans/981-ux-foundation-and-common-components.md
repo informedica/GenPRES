@@ -484,8 +484,15 @@ call sites migrate with their group.
    for the multi variant (#487, #498). Two pull requests: the rule first, as `PickPolicy`,
    script-first for `Client.Core` since a rule that can run under Expecto does, and landed as
    `Client.Core/PickPolicy.fs` with `Client.Core.Tests/PickPolicyTests.fs`; then the
-   two components, rendering what the rule answers, with the prescribing page's filter selects
-   as the first caller. The rule: no option is disabled and empty; one option is shown chosen
+   two components, rendering what the rule answers. Landed as `Components/PickField.fs` and
+   `Components/MultiPickField.fs`. `PickField` renders the rule's answer through `SimpleSelect`
+   and applies the one option a field shows chosen to the page as well, once, when the field
+   arrives at it, so the next field of a cascade can follow; `ViewHelpers.filterSelect` builds
+   it, which puts every filter select of the prescribing, formulary, parenteralia and
+   nutrition pages on the rule at once. `MultiPickField` draws every option as a row with a
+   checkbox, the chosen ones ticked, and the closed field shows their labels; it replaces
+   `MultipleSelect` at its two callers, the table's column filter (#487) and the prescribing
+   page's component select, and `MultipleSelect` goes. The rule: no option is disabled and empty; one option is shown chosen
    and disabled, since there is nothing to pick and clearing it would choose it again; more
    options are enabled when the caller says so, show what was chosen if the options still hold
    it, and offer the cross only when the caller allows, the field is enabled and something is
