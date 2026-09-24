@@ -484,7 +484,7 @@ module ResponsiveTable =
             {|
                 columns = typedColumns
                 rows = rows
-                filter = Some controls
+                filter = Some(controls |> toReact)
                 onRowClick = props.onRowClick
             |}
             |> CardTable
