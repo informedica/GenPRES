@@ -226,6 +226,17 @@ lives — from inside the component to its caller. The first caller therefore ke
 type `Views/Order.fs` holds today, moved to the call site as a literal list. When #978 lands, that
 literal is replaced by the list the server sends and C1 is not touched.
 
+Part two lands in two pull requests. The first is the field itself, `Components/QuantityField.fs`:
+the value picked from what the rules allow through `SimpleSelect`, the stepper beside it, the
+prediction of a stepped value moved here from the select (which is a plain select again), and
+the lead marking as an accent on the field's left; `ViewHelpers.orderSelect` builds the field, so
+every order and nutrition field is on it without a caller changing, and passes no lead yet. The
+second turns the dialog's fixed sequence of fields into the literal list per dose type and gives
+the list its lead. The `bounds` and `largeStep` of the prop shape above are still the stepper's
+`first` and `last`, which mean the one or the other by whether the value is navigable: taking
+them apart is #405's design decision in G3, and the field keeps the shape its callers have until
+that lands.
+
 ### C2 — `PickField` and `MultiPickField`
 
 Serves **#498, #403, #501, #487**.
