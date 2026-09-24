@@ -438,7 +438,14 @@ call sites migrate with their group.
    their groups.
 2. **C8 `ConfirmDialog` / `DialogShell`** — replaces the three dialog idioms and the duplicated
    `modalStyle`, and closes the gap where `OrderPlan.fs:359` deletes prescriptions without asking
-   while `Nutrition.fs:1595` confirms. This is a safety fix, not only a refactor.
+   while `Nutrition.fs:1595` confirms. This is a safety fix, not only a refactor. Three pull
+   requests, for size: `ConfirmDialog` first, with the order plan's delete now asking and the
+   nutrition dialog on the component; then `DialogShell` with the order plan's and the page's
+   modals on it; then the prescribing page's modal, whose order view moves out of the JSX into
+   a binding and is re-indented, which alone is near the limit, and `ViewHelpers.modalStyle`
+   goes with it. The confirming button of a `ConfirmDialog` is the primary action, contained
+   and right, also when it deletes: the title and the text say what happens, the placement
+   says what completes the question.
 3. **C1 `QuantityField`, part one: split the stepper from the input.** The stepper leaves
    `SimpleSelect`'s `endAdornment`, which is what makes #398's clear cross possible at all.
 4. **C1 part two: the field.** Value, range, severity, small and large step, bounds, lead marking.

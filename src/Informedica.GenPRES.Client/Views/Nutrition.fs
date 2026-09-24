@@ -1573,12 +1573,12 @@ module Nutrition =
 
         let confirmDeleteDialog =
             let isOpen = confirmDeleteTarget.IsSome
-            let handleCancel = fun _ -> setConfirmDeleteTarget None
+            let handleCancel = fun () -> setConfirmDeleteTarget None
 
             // the plan takes one change at a time: a confirmation while one is under way removes
             // nothing and closes the dialog
             let handleConfirm =
-                fun _ ->
+                fun () ->
                     match confirmDeleteTarget, orderPlan with
                     | Some ncId, OrderPlanView.Settled(plan, _) ->
                         Api.OrderPlanCommand.RemoveOrderContexts(plan, [| ncId |]) |> planCommand
@@ -1588,31 +1588,21 @@ module Nutrition =
 
                     setConfirmDeleteTarget None
 
-            JSX.jsx
-                $"""
-            import Dialog from '@mui/material/Dialog';
-            import DialogTitle from '@mui/material/DialogTitle';
-            import DialogContent from '@mui/material/DialogContent';
-            import DialogContentText from '@mui/material/DialogContentText';
-            import DialogActions from '@mui/material/DialogActions';
-            import Button from '@mui/material/Button';
-
-            <Dialog open={isOpen} onClose={handleCancel}>
-                <DialogTitle>{Terms.``Nutrition Remove Enteral Title``
-                              |> getTerm "Enterale voeding verwijderen"}</DialogTitle>
-                <DialogContent>
-                    <DialogContentText>
-                        {Terms.``Nutrition Remove Enteral Text``
-                         |> getTerm
-                             "Als u de enterale voeding verwijdert, worden ook alle bijbehorende supplementen verwijderd. Wilt u doorgaan?"}
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCancel}>{Terms.Cancel |> getTerm "Annuleren"}</Button>
-                    <Button onClick={handleConfirm} color="error">{Terms.Delete |> getTerm "Verwijderen"}</Button>
-                </DialogActions>
-            </Dialog>
-            """
+            Components.ConfirmDialog.View
+                {|
+                    isOpen = isOpen
+                    title =
+                        Terms.``Nutrition Remove Enteral Title``
+                        |> getTerm "Enterale voeding verwijderen"
+                    text =
+                        Terms.``Nutrition Remove Enteral Text``
+                        |> getTerm
+                            "Als u de enterale voeding verwijdert, worden ook alle bijbehorende supplementen verwijderd. Wilt u doorgaan?"
+                    confirmLabel = Terms.Delete |> getTerm "Verwijderen"
+                    cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                    onConfirm = handleConfirm
+                    onCancel = handleCancel
+                |}
 
         let printDialog =
             match printOpen, orderPlan with
