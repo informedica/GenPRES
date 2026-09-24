@@ -700,9 +700,6 @@ type Theme =
         |}
 
 
-[<Import("useTheme", from = "@mui/material/styles")>]
-let useTheme () : Theme = jsNative
-
 [<Erase>]
 module Colors =
     type Amber =
@@ -982,73 +979,6 @@ module TypoGraphy =
     open Shared.Types
 
     open Feliz
-
-    let create v text =
-        JSX.jsx
-            $"""
-        import Typography from "@mui/material/Typography";
-
-        <Typography
-            variant={v}
-            sx={ {| display = "inline" |} }
-            >
-            {text}
-        </Typography>
-        """
-
-    let createStrong v text =
-        JSX.jsx
-            $"""
-        import Typography from "@mui/material/Typography";
-
-        <Typography
-            variant={v}
-            sx={ {| display = "inline" |} }
-            >
-            <strong>{text}</strong>
-        </Typography>
-        """
-
-    let createWithColors bc fc v text =
-        let colorSx =
-            {|
-                backgroundColor = bc
-                color = fc
-                display = "inline"
-            |}
-
-        JSX.jsx
-            $"""
-        import Typography from "@mui/material/Typography";
-
-        <Typography
-            variant={v}
-            sx={colorSx}
-            >
-            {text}
-        </Typography>
-        """
-
-    let createStrongWithColors bc fc v text =
-        let colorSx =
-            {|
-                backgroundColor = bc
-                color = fc
-                display = "inline"
-            |}
-
-        JSX.jsx
-            $"""
-        import Typography from "@mui/material/Typography";
-
-        <Typography
-            variant={v}
-            sx={colorSx}
-            >
-            <strong>{text}</strong>
-        </Typography>
-        """
-
 
     let fromTextBlock (textBlock: TextBlock) =
         let print tb =
