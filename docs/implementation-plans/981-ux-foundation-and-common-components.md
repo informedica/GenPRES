@@ -559,7 +559,12 @@ call sites migrate with their group.
     one filter on the list, which is #502's two filters and the doubt behind #487 whether the
     list is filtered at all. The toolbar's own words stay the grid's, and the per-row `actions`
     hook is untouched.
-12. **C12 `PrintTable`** — the two structurally identical print tables.
+12. **C12 `PrintTable`** — the two structurally identical print tables. The component and its
+    two callers are more than one pull request can carry, so it lands in three: the component,
+    then each list on it. Landed as `Components/PrintTable.fs`: the patient it is for at the
+    top, the rows in a table of named columns, a line to sign at the bottom, and the emphasis
+    the screen drew a value in left off the paper. A column says which value of a row it shows,
+    the name above it and how wide it is, so the two lists differ in their columns alone.
 
 ### Verification, per step
 
