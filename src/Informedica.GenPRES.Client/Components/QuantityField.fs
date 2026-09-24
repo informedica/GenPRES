@@ -44,6 +44,8 @@ module QuantityField =
             disabled: bool
             isLoading: bool
             severity: Types.Severity
+            // why the value is marked, as the caller words it; shown on hover
+            reason: string option
             minWidth: int option
             isLead: bool
         |}
@@ -192,7 +194,15 @@ module QuantityField =
                         onLargeStep = bumpLarge
                     |}
 
+        let mark =
+            SeverityMark.View
+                {|
+                    severity = props.severity
+                    reason = props.reason
+                |}
+
         let minWidth = props.minWidth |> Option.defaultValue 150
+
         let sx =
             if props.isLead then
                 box (leadSx minWidth)
@@ -205,6 +215,7 @@ module QuantityField =
 
         <Box sx={sx}>
             {select}
+            {mark}
             {stepper}
         </Box>
         """

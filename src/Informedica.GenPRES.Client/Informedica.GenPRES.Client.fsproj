@@ -18,6 +18,7 @@
     <Compile Include="./Components/Autocomplete.fs" />
     <Compile Include="./Components/ClickCountingButton.fs" />
     <Compile Include="./Components/Stepper.fs" />
+    <Compile Include="./Components/SeverityMark.fs" />
     <Compile Include="./Components/ActionBar.fs" />
     <Compile Include="./Components/DialogShell.fs" />
     <Compile Include="./Components/ConfirmDialog.fs" />

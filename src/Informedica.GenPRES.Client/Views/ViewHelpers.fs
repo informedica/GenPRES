@@ -26,11 +26,61 @@ module ViewHelpers =
             |}
 
 
-    /// The severity an order variable's level carries, for the mark a select puts under it.
-    let severityOf (level: Level) = level |> Models.Severity.ofLevel
+    /// What a field shows of a value outside the rules: its severity, and the reason as the
+    /// field words it on hover.
+    type Mark =
+        {|
+            severity: Severity
+            reason: string option
+        |}
 
 
-    let orderSelect alwaysShow disabled isLoading lbl selected updateSelected stepper hasClear severity minWidth xs =
+    /// No mark: a value within the rules.
+    let noMark: Mark =
+        {|
+            severity = Severity.Normal
+            reason = None
+        |}
+
+
+    /// The reason in words: the bound crossed, in the value's unit and at the bound's own
+    /// precision, so it is the bound the value crossed and not a rounding of it. A bound that
+    /// is itself allowed reads "max 15 mg" or "min 2 mg"; one that is not reads "< 15 mg" or
+    /// "> 2 mg". Nothing for a mark the bounds do not explain.
+    let reasonText (reason: SeverityReason.Reason) =
+        let show (b: SeverityReason.Bound) =
+            $"{b.Value |> Decimal.toStringNumberNLWithoutTrailingZeros} {b.Unit}"
+
+        match reason with
+        | SeverityReason.Reason.AboveMax b when b.Inclusive -> Some $"max {show b}"
+        | SeverityReason.Reason.AboveMax b -> Some $"< {show b}"
+        | SeverityReason.Reason.BelowMin b when b.Inclusive -> Some $"min {show b}"
+        | SeverityReason.Reason.BelowMin b -> Some $"> {show b}"
+        | SeverityReason.Reason.Outside -> None
+
+
+    /// The mark an order variable carries: its level as a severity, and the bound its values
+    /// cross as the reason.
+    let markOf (ovar: OrderVariable) : Mark =
+        {|
+            severity = ovar.Level |> Models.Severity.ofLevel
+            reason = ovar |> SeverityReason.ofOrderVariable |> Option.bind reasonText
+        |}
+
+
+    let orderSelect
+        alwaysShow
+        disabled
+        isLoading
+        lbl
+        selected
+        updateSelected
+        stepper
+        hasClear
+        (mark: Mark)
+        minWidth
+        xs
+        =
 
         if not alwaysShow && xs |> Array.isEmpty && stepper |> Option.isNone then
             null
@@ -51,7 +101,8 @@ module ViewHelpers =
                     isLoading = isLoading
                     disabled = disabled || isEmpty
                     hasClear = hasClear
-                    severity = severity
+                    severity = mark.severity
+                    reason = mark.reason
                     steps = stepper
                     minWidth = minWidth
                     isLead = false
@@ -379,10 +430,10 @@ module ViewHelpers =
 
 
     let ovarDisplay select (name: string) (format: decimal -> string) minWidth (ovar: OrderVariable) =
-        let severity = ovar.Level |> severityOf
+        let mark = ovar |> markOf
         let label = ovar |> ovarLabel name
         let vals = ovar |> ovarVals format
-        select false label None ignore None false severity minWidth vals
+        select false label None ignore None false mark minWidth vals
 
 
     let autoComplete disabled isLoading lbl selected dispatch xs =
