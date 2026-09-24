@@ -2304,11 +2304,7 @@ module Models =
 
 
         /// The highest of some severities; nothing raised when there are none.
-        let highest (severities: Severity seq) =
-            if severities |> Seq.isEmpty then
-                Severity.Normal
-            else
-                severities |> Seq.max
+        let highest (severities: Severity seq) = severities |> Seq.fold max Severity.Normal
 
 
         /// The highest severity among some text blocks.
