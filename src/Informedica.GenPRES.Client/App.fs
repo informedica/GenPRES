@@ -1995,15 +1995,14 @@ let View () =
     let serverErrorBanner =
         match state.Ui.ServerError with
         | Some errMsg ->
-            let onClose = fun _ -> dispatch DismissServerError
-
-            JSX.jsx
-                $"""
-                <Alert severity="error" sx={ {| width = "100%" |} } onClose={onClose}>
-                    <AlertTitle>Server probleem</AlertTitle>
-                    {errMsg}
-                </Alert>
-                """
+            Components.Notice.View
+                {|
+                    kind = Components.Notice.Kind.Error
+                    title = Some "Server probleem"
+                    message = errMsg
+                    action = None
+                    onClose = Some(fun () -> dispatch DismissServerError)
+                |}
         | None -> null
 
     let genPresProps =
@@ -2039,7 +2038,6 @@ let View () =
     import IconButton from '@mui/material/IconButton';
     import CloseIcon from '@mui/icons-material/Close';
     import Alert from '@mui/material/Alert';
-    import AlertTitle from '@mui/material/AlertTitle';
 
     <React.StrictMode>
         <ThemeProvider theme={theme}>

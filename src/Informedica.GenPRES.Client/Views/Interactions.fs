@@ -258,10 +258,14 @@ module Interactions =
                 </TableContainer>
                 """
             elif hasChecked && not isLoading then
-                JSX.jsx
-                    $"""
-                <Alert severity="success">{noneFoundLabel}</Alert>
-                """
+                Components.Notice.View
+                    {|
+                        kind = Components.Notice.Kind.Empty
+                        title = None
+                        message = noneFoundLabel
+                        action = None
+                        onClose = None
+                    |}
             else
                 null
 
@@ -315,7 +319,6 @@ module Interactions =
         import TableHead from '@mui/material/TableHead';
         import TableRow from '@mui/material/TableRow';
         import CircularProgress from '@mui/material/CircularProgress';
-        import Alert from '@mui/material/Alert';
         import Divider from '@mui/material/Divider';
 
         <Box>

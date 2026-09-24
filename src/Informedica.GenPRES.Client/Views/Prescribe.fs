@@ -169,25 +169,30 @@ module Prescribe =
                         |> Some
             | _ -> None
 
-        let noticeSx = {| margin = 1 |}
-
         let notice =
             match missingDimension with
             | None -> null
             | Some text ->
-                JSX.jsx
-                    $"""
-                    import Alert from '@mui/material/Alert';
-
-                    <Alert severity="info" sx={noticeSx}>{text}</Alert>
-                    """
+                Components.Notice.View
+                    {|
+                        kind = Components.Notice.Kind.Info
+                        title = None
+                        message = text
+                        action = None
+                        onClose = None
+                    |}
 
         let progress =
             match orderContext with
             | OrderContextView.NoPatient ->
-                let enterPatientData = Terms.``Patient enter patient data`` |> getTerm "Voer eerst patient gegevens in"
-
-                JSX.jsx $"<>{enterPatientData}</>"
+                Components.Notice.View
+                    {|
+                        kind = Components.Notice.Kind.Empty
+                        title = None
+                        message = Terms.``Patient enter patient data`` |> getTerm "Voer eerst patient gegevens in"
+                        action = None
+                        onClose = None
+                    |}
             | _ -> null
 
 
