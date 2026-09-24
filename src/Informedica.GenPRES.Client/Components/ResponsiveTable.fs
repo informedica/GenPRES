@@ -504,6 +504,9 @@ module ResponsiveTable =
                             hideToolbar = true
                         |}
 
+                    // no filter button and no filter in the column menus: the filter above the
+                    // grid is the one filter on the list, so that a row is never hidden by a
+                    // filter the user cannot see
                     JSX.jsx
                         $"""
                     import {{ GridToolbarContainer, GridToolbarColumnsButton, GridToolbarDensitySelector, GridToolbarExport }} from '@mui/x-data-grid';
@@ -560,6 +563,7 @@ module ResponsiveTable =
                         checkboxSelection={props.checkboxSelection}
                         isRowSelectable={isRowSelectable}
                         disableRowSelectionOnClick
+                        disableColumnFilter
                         rowSelectionModel = {selectedRows}
                         onRowSelectionModelChange = {onSelectionChange}
                         getRowClassName={getRowClassName}
