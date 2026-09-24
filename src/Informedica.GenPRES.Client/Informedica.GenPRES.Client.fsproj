@@ -18,6 +18,7 @@
     <Compile Include="./Components/Autocomplete.fs" />
     <Compile Include="./Components/ClickCountingButton.fs" />
     <Compile Include="./Components/ActionBar.fs" />
+    <Compile Include="./Components/DialogShell.fs" />
     <Compile Include="./Components/ConfirmDialog.fs" />
     <Compile Include="./Components/SimpleSelect.fs" />
     <Compile Include="./Components/MultipleSelect.fs" />

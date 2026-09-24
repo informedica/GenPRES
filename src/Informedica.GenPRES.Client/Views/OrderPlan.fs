@@ -228,8 +228,6 @@ module OrderPlan =
             |}
             |> box
 
-        let modalStyle = ViewHelpers.modalStyle
-
         // a row clicked: its order's context becomes the selection
         let selectOrder id =
             match orderPlan with
@@ -472,20 +470,24 @@ module OrderPlan =
                     localizationTerms = localizationTerms
                 |}
 
+        let orderDialog =
+            Components.DialogShell.View
+                {|
+                    isOpen = dialog.IsSome
+                    onClose = handleModalClose
+                    maxWidth = 500
+                    children = orderView
+                |}
+
         JSX.jsx
             $"""
         import Box from '@mui/material/Box';
-        import Modal from '@mui/material/Modal';
 
         <Box sx={ {| height = "100%" |} }>
             {movedOnBar}{signBtn}
             {deleteBtn}
             {responsiveTable}
-            <Modal open={dialog.IsSome} onClose={handleModalClose} >
-                <Box sx={modalStyle}>
-                    {orderView}
-                </Box>
-            </Modal>
+            {orderDialog}
             {confirmDeleteDialog}
             {signDialog}
         </Box>

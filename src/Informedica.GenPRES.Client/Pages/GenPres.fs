@@ -153,18 +153,6 @@ module GenPres =
                 deps
             )
 
-        let modalStyle =
-            {|
-                position = "absolute"
-                top = "50%"
-                left = "50%"
-                transform = "translate(-50%, -50%)"
-                width = "90vw"
-                maxWidth = 400
-                bgcolor = "background.paper"
-                boxShadow = 24
-            |}
-
         let sxPageBox =
             {|
                 marginTop = 3
@@ -378,6 +366,25 @@ module GenPres =
 
         let onCloseModal = fun () -> ()
 
+        // neither closes on a click outside: the disclaimer is accepted, the gate answered
+        let disclaimerDialog =
+            Components.DialogShell.View
+                {|
+                    isOpen = props.showDisclaimer
+                    onClose = onCloseModal
+                    maxWidth = 400
+                    children = disclaimerView
+                |}
+
+        let sessionGateDialog =
+            Components.DialogShell.View
+                {|
+                    isOpen = sessionGateOpen
+                    onClose = onCloseModal
+                    maxWidth = 400
+                    children = sessionGateView
+                |}
+
         JSX.jsx
             $"""
         import {{ ThemeProvider }} from '@mui/material/styles';
@@ -387,7 +394,6 @@ module GenPres =
         import Box from '@mui/material/Box';
         import Container from '@mui/material/Container';
         import Typography from '@mui/material/Typography';
-        import Modal from '@mui/material/Modal';
 
         <Box sx={sxRoot}>
             <Box sx={sxTitleBarBox}>
@@ -405,15 +411,7 @@ module GenPres =
                 </Container>
             </Box>
             {totalsView}
-            <Modal open={props.showDisclaimer} onClose={onCloseModal} >
-                <Box sx={modalStyle}>
-                    {disclaimerView}
-                </Box>
-            </Modal>
-            <Modal open={sessionGateOpen} onClose={onCloseModal} >
-                <Box sx={modalStyle}>
-                    {sessionGateView}
-                </Box>
-            </Modal>
+            {disclaimerDialog}
+            {sessionGateDialog}
         </Box>
         """
