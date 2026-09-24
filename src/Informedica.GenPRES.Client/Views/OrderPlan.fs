@@ -438,6 +438,8 @@ module OrderPlan =
                     onPrint = None
                     selectedFilter = None
                     onFilterChange = None
+                    // no column filter on the plan, so no label to show
+                    filterLabel = ""
                 |}
 
         let orderView =

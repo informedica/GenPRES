@@ -269,6 +269,8 @@ module ResponsiveTable =
                 // Mixing them (one Some, one None) will cause filter changes to be silently discarded.
                 selectedFilter: string[] option
                 onFilterChange: (string[] -> unit) option
+                // the label of the column filter above the grid
+                filterLabel: string
             |})
         =
         let localState, setLocalState = React.useState [||]
@@ -319,7 +321,7 @@ module ResponsiveTable =
 
                     MultipleSelect.View
                         {|
-                            label = "Filter"
+                            label = props.filterLabel
                             selected = state
                             updateSelected = setState
                             values = data |> Array.map (fun s -> s, s)
