@@ -60,10 +60,13 @@ What remains of the five is four things.
    sets the variable back to unnarrowed and the solver picks again. That is #398.
 3. **The reset.** `Views/Prescribe.fs` draws a full-width text button that dispatches an empty
    order context. That is #394.
-4. **The autocomplete.** `ViewHelpers.autoComplete` disables on an empty list but not on a list
-   of one, so the one-option rule holds for the pick fields and not for the fields that use the
-   autocomplete: the indication and the generic on a narrow screen, and the formulary and
-   parenteralia pages. That is the remainder of #498.
+4. **The autocomplete where it is a pick.** `ViewHelpers.autoComplete` disables on an empty
+   list but not on a list of one, so the one-option rule holds for the pick fields and not for
+   the fields that type instead of scroll: the indication and the generic on a narrow screen,
+   and the formulary and parenteralia pages. That is the remainder of #498. The interactions
+   page calls the autocomplete component directly and is a different control: it never shows a
+   choice, it adds the drug that was typed to a list and empties itself. The pick rule must not
+   reach it, or a search that matched one drug would show that drug chosen and refuse to add it.
 
 ## Approaches considered
 
@@ -100,8 +103,10 @@ lists `ConfirmDialog` among what this group spends; on this reading it does not 
   it goes.
 - The prescribing page's reset becomes a bounded secondary action on an `ActionBar`, named
   *Reset*.
-- The autocomplete answers the same pick rule as the pick fields, so a single option is shown
-  chosen and cannot be opened.
+- A field that types instead of scrolls answers the same pick rule as one that scrolls. The rule
+  and the effect that tells the page its single option stay in the one component that holds
+  them, which gains the shape it is drawn in; the plain autocomplete component stays as it is
+  for the interactions page, whose control adds rather than picks.
 
 ## Confidence
 
@@ -132,9 +137,17 @@ One pull request each, in this order.
 4. **One rule for the cross on a dose field.** `ViewHelpers.orderSelect` decides it from the
    field's own state; the argument and the flags at the call sites in `Views/Order.fs` and
    `Views/Nutrition.fs` go.
-5. **The autocomplete on the pick rule.** `Components/Autocomplete.fs` takes its answer from
-   `PickPolicy`, as `PickField` does, and `ViewHelpers.autoComplete` stops deciding it. Its four
-   callers keep their call.
+5. **The pick rule where the field types instead of scrolls.** `Components/PickField.fs` takes
+   the shape it is drawn in, a list to scroll or a box to type in, so that one component holds
+   the rule, the single option and the effect that tells the page that option is chosen. A
+   single option that is only shown and never told would leave the filter empty and the fields
+   below it shut, which is the failure this step exists to avoid, so the check is that the next
+   field opens. `ViewHelpers.autoComplete` builds that component in its typing shape and stops
+   deciding anything itself; its four callers keep their call.
+
+   `Components/Autocomplete.fs` stays what it is, and the interactions page keeps calling it
+   directly: that control adds a drug to a list and holds no choice, so the pick rule would
+   disable it exactly when it matched one drug.
 
 ## Verification, per step
 
