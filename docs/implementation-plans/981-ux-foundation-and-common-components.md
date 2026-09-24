@@ -499,7 +499,13 @@ call sites migrate with their group.
    chosen. Loading is not the rule's: it only replaces the cross with the spinner.
 6. **C4 `SeverityMark`** — colour, icon and the reason on hover, composed from the
    `DefinedConstraints` and `CalculatedConstraints` the client already receives, so no new server
-   field (#402, and explicitly no popup).
+   field (#402, and explicitly no popup). Two pull requests: the reading first, as
+   `SeverityReason`, script-first for `Client.Core` (the script is
+   `Client.Core/Scripts/SeverityReason.fsx`, migrated by the maintainer with its tests): from a
+   marked order variable, the bound its values cross, the maximum by the values' top or the
+   minimum by their bottom, in the values' unit, honouring whether the bound itself is allowed;
+   `Outside` when the server marked it and the bounds do not say why. Then the mark itself,
+   with the icon and the reason on hover, and the order fields on it.
 7. **C6 `Notice`** — severity, message, optional action, and the empty state as its own case;
    replaces the seven hand-built alerts, including the empty state rendered as
    `severity="success"`.
