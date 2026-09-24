@@ -55,8 +55,8 @@ than it started.
 **G0** is the eleventh group and the first: the foundation and the common components the other
 ten spend. It carries no reported issue of its own — it exists because ten of them overlap — and
 each group below names what it spends. The catalogue, with the evidence, the prop shapes and the
-call sites each component replaces, is in the companion document on the common components; the
-component list itself is on #981.
+call sites each component replaces, is in
+[G0's plan](981-ux-foundation-and-common-components.md); the component list itself is on #981.
 
 In short: four foundation items — **F1** one severity type and one renderer, **F2** a theme
 palette, **F3** a label convention for shared components, **F4** delete the 328 dead lines and
@@ -395,7 +395,8 @@ spends from G0 and what it has to settle, with its members reparented as sub-iss
 member keeps its number, author, labels and milestone.
 
 What is left is one implementation plan per umbrella issue, on the plan template as the recent
-plans extend it, named `<umbrella>-<title>.md` beside this file.
+plans extend it, named `<umbrella>-<title>.md` beside this file. G0's is written:
+[981-ux-foundation-and-common-components.md](981-ux-foundation-and-common-components.md).
 
 Order of writing: G0 first, since ten groups spend it, then G5, G1, G4, G6, G7, G2, G10, G3, G8,
 G9 — cause-known first, design-gated last. G10's plan opens with the (a)/(b) decision of #518, so
