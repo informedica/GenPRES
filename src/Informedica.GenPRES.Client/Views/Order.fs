@@ -1434,6 +1434,35 @@ module Order =
                         None
                 | _ -> null
 
+            // The fields the dialog shows, in the order it shows them: the case per dose type the
+            // client hard-codes today, as one literal at the call site. Each field decides for
+            // itself whether it applies to the order and renders nothing otherwise; none is the
+            // lead the user is pointed at first, since which field that is, and in what order
+            // they come, is the server's to send with the order and replaces this literal.
+            let fields =
+                [|
+                    componentSelect
+                    itemSelect
+                    dosingDivider
+                    substDoseQtySelect
+                    substDoseQtyAdjSelect
+                    substPerTimeSelect
+                    substRateSelect
+                    preparationDivider
+                    compOrdQtySelect
+                    substCompConcSelect
+                    substOrdQtySelect
+                    substOrdConcSelect
+                    ordQtySelect
+                    administrationDivider
+                    frequencySelect
+                    ordDoseQtySelect
+                    ordDoseRateSelect
+                    timeSelect
+                |]
+                |> unbox<seq<ReactElement>>
+                |> React.Fragment
+
             let titleSlotProps = {| title = {| variant = "h6" |} |}
 
             JSX.jsx
@@ -1452,24 +1481,7 @@ module Order =
             ></CardHeader>
             <CardContent sx={contentSx}>
                 <Stack direction={"column"} spacing={if isMobile then 1.5 else 3} >
-                    {componentSelect}
-                    {itemSelect}
-                    {dosingDivider}
-                    {substDoseQtySelect}
-                    {substDoseQtyAdjSelect}
-                    {substPerTimeSelect}
-                    {substRateSelect}
-                    {preparationDivider}
-                    {compOrdQtySelect}
-                    {substCompConcSelect}
-                    {substOrdQtySelect}
-                    {substOrdConcSelect}
-                    {ordQtySelect}
-                    {administrationDivider}
-                    {frequencySelect}
-                    {ordDoseQtySelect}
-                    {ordDoseRateSelect}
-                    {timeSelect}
+                    {fields}
                 </Stack>
                 {loadingIndicator}
             </CardContent>
