@@ -25,20 +25,16 @@ module ViewHelpers =
                 disabled = disabled || isEmpty
                 hasClear = true
                 stepper = None
-                warning = None
+                severity = Severity.Normal
                 minWidth = None
             |}
 
 
-    let getWarning warning =
-        match warning with
-        | IsNormal -> None
-        | IsCaution -> Some Mui.Colors.Blue.``600``
-        | IsWarning -> Some Mui.Colors.Orange.``700``
-        | IsAlert -> Some Mui.Colors.Red.``700``
+    /// The severity an order variable's level carries, for the mark a select puts under it.
+    let severityOf (level: Level) = level |> Models.Severity.ofLevel
 
 
-    let orderSelect alwaysShow disabled isLoading lbl selected updateSelected stepper hasClear warning minWidth xs =
+    let orderSelect alwaysShow disabled isLoading lbl selected updateSelected stepper hasClear severity minWidth xs =
 
         if not alwaysShow && xs |> Array.isEmpty && stepper |> Option.isNone then
             null
@@ -58,7 +54,7 @@ module ViewHelpers =
                     isLoading = isLoading
                     disabled = disabled || isEmpty
                     hasClear = hasClear
-                    warning = warning
+                    severity = severity
                     stepper = stepper
                     minWidth = minWidth
                 |}
@@ -385,10 +381,10 @@ module ViewHelpers =
 
 
     let ovarDisplay select (name: string) (format: decimal -> string) minWidth (ovar: OrderVariable) =
-        let warning = ovar.Level |> getWarning
+        let severity = ovar.Level |> severityOf
         let label = ovar |> ovarLabel name
         let vals = ovar |> ovarVals format
-        select false label None ignore None false warning minWidth vals
+        select false label None ignore None false severity minWidth vals
 
 
     let autoComplete disabled isLoading lbl selected dispatch xs =

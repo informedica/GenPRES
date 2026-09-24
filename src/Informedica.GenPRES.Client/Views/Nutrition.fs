@@ -663,7 +663,7 @@ module Nutrition =
 
         let fixPrecision = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision
 
-        let getWarning = ViewHelpers.getWarning
+        let severityOf = ViewHelpers.severityOf
 
         let genericChange s =
             ctx
@@ -905,7 +905,7 @@ module Nutrition =
                                 (SetMaxComponentQuantityProperty cmpName)
                                 (cmp.OrderableQuantity |> ViewHelpers.ovarStep string)
 
-                    let qtyWarning = cmp.OrderableQuantity.Level |> getWarning
+                    let qtyWarning = cmp.OrderableQuantity.Level |> severityOf
 
                     let qtyLabel = cmp.OrderableQuantity |> ViewHelpers.ovarLabel cmp.Name
 
@@ -923,7 +923,7 @@ module Nutrition =
 
                     // Dose display (dosering) - always show with label
                     let doseLabel = cmp.Dose.QuantityAdjust |> ViewHelpers.ovarLabel cmp.Name
-                    let doseWarning = cmp.Dose.QuantityAdjust.Level |> getWarning
+                    let doseWarning = cmp.Dose.QuantityAdjust.Level |> severityOf
                     let doseVals = cmp.Dose.QuantityAdjust |> ViewHelpers.ovarVals (fixPrecision 3)
 
                     let doseDisplay =
@@ -965,7 +965,7 @@ module Nutrition =
         let doseQtyControl =
             match displayOrder with
             | Some ord ->
-                let warning = ord.Orderable.Dose.Quantity.Level |> getWarning
+                let severity = ord.Orderable.Dose.Quantity.Level |> severityOf
 
                 let label = ord.Orderable.Dose.Quantity |> ViewHelpers.ovarLabel "toedien hoeveelheid"
 
@@ -989,7 +989,7 @@ module Nutrition =
                     (ChangeOrderableDoseQuantity >> dispatch)
                     doseQtyNav
                     false
-                    warning
+                    severity
                     selectMinWidth
                     vals
             | None -> null
@@ -1004,11 +1004,11 @@ module Nutrition =
         let frequencyControl =
             match displayOrder with
             | Some ord when ord.Schedule.IsDiscontinuous || ord.Schedule.IsTimed ->
-                let warning = ord.Schedule.Frequency.Level |> getWarning
+                let severity = ord.Schedule.Frequency.Level |> severityOf
                 let label = ord.Schedule.Frequency |> ViewHelpers.ovarLabel "frequentie"
                 let freqVals = ord.Schedule.Frequency |> ViewHelpers.ovarVals string
 
-                select false label None (ChangeFrequency >> dispatch) None false warning selectMinWidth freqVals
+                select false label None (ChangeFrequency >> dispatch) None false severity selectMinWidth freqVals
             | _ -> null
 
         let genericFilter =
@@ -1098,13 +1098,13 @@ module Nutrition =
                         SetMaxDoseRateProperty
                         (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
 
-                let warning = ord.Orderable.Dose.Rate.Level |> getWarning
+                let severity = ord.Orderable.Dose.Rate.Level |> severityOf
                 let label = ord.Orderable.Dose.Rate |> ViewHelpers.ovarLabel "infuussnelheid"
 
                 let rateDisplay =
                     ord.Orderable.Dose.Rate
                     |> ViewHelpers.ovarValsWithRange string 3
-                    |> select false label None (ChangeOrderableDoseRate >> dispatch) nav false warning (Some 400)
+                    |> select false label None (ChangeOrderableDoseRate >> dispatch) nav false severity (Some 400)
 
                 let timeDisplay =
                     ord.Schedule.Time

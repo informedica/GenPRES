@@ -33,7 +33,7 @@ module SimpleSelect =
                 isLoading: bool
                 disabled: bool
                 hasClear: bool
-                warning: string option
+                severity: Types.Severity
                 minWidth: int option
             |})
         =
@@ -306,16 +306,12 @@ module SimpleSelect =
         let hasInteraction = hasNavigation || props.values.Length > 1
 
         let sx =
-            match props.warning, hasInteraction with
-            | Some color, _ ->
-                {|
-                    ``& .MuiSelect-icon`` = {| visibility = if endAdornment.IsNone then "visible" else "hidden" |}
-                    textDecoration = "underline double"
-                    textDecorationColor = color
-                    textUnderlineOffset = "3px"
-                |}
+            match props.severity |> Models.Severity.isRaised, hasInteraction with
+            | true, _ ->
+                {| ``& .MuiSelect-icon`` = {| visibility = if endAdornment.IsNone then "visible" else "hidden" |} |}
                 |> box
-            | None, false ->
+                |> Mui.Styles.markSx props.severity
+            | false, false ->
                 {|
                     ``& .MuiSelect-icon`` = {| visibility = if endAdornment.IsNone then "visible" else "hidden" |}
                     backgroundColor = "action.hover"
@@ -323,7 +319,7 @@ module SimpleSelect =
                     padding = "2px 8px"
                 |}
                 |> box
-            | None, true ->
+            | false, true ->
                 {| ``& .MuiSelect-icon`` = {| visibility = if endAdornment.IsNone then "visible" else "hidden" |} |}
                 |> box
 
