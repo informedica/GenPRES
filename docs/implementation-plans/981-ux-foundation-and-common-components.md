@@ -481,7 +481,15 @@ call sites migrate with their group.
    the list the server sends, without touching C1. Neither this step nor #397 waits on the server
    work, and the server work needs no client change when it arrives.
 5. **C2 `PickField` / `MultiPickField`** — one `disabled / one-option / clear` rule, checkbox rows
-   for the multi variant (#487, #498).
+   for the multi variant (#487, #498). Two pull requests: the rule first, as `PickPolicy`,
+   script-first for `Client.Core` since a rule that can run under Expecto does (the script is
+   `Client.Core/Scripts/PickPolicy.fsx`, migrated by the maintainer with its tests); then the
+   two components, rendering what the rule answers, with the prescribing page's filter selects
+   as the first caller. The rule: no option is disabled and empty; one option is shown chosen
+   and disabled, since there is nothing to pick and clearing it would choose it again; more
+   options are enabled when the caller says so, show what was chosen if the options still hold
+   it, and offer the cross only when the caller allows, the field is enabled and something is
+   chosen. Loading is not the rule's: it only replaces the cross with the spinner.
 6. **C4 `SeverityMark`** — colour, icon and the reason on hover, composed from the
    `DefinedConstraints` and `CalculatedConstraints` the client already receives, so no new server
    field (#402, and explicitly no popup).
