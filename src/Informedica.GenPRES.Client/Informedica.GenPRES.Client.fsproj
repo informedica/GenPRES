@@ -16,6 +16,7 @@
     <Compile Include="./Components/Context.fs" />
     <Compile Include="./Components/Localization.fs" />
     <Compile Include="./Components/Autocomplete.fs" />
+    <Compile Include="./Components/SearchField.fs" />
     <Compile Include="./Components/ClickCountingButton.fs" />
     <Compile Include="./Components/Stepper.fs" />
     <Compile Include="./Components/SeverityMark.fs" />

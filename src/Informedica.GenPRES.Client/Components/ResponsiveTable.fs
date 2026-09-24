@@ -271,6 +271,8 @@ module ResponsiveTable =
                 onFilterChange: (string[] -> unit) option
                 // the label of the column filter above the grid
                 filterLabel: string
+                // the label of the text search above the grid; empty for no search
+                searchLabel: string
             |})
         =
         let localState, setLocalState = React.useState [||]
@@ -281,6 +283,21 @@ module ResponsiveTable =
             | _ -> localState, setLocalState
 
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"
+
+        // the text typed into the search, matched against every cell of a row
+        let query, setQuery = React.useState ""
+
+        let search =
+            if props.searchLabel |> String.length = 0 || props.rows |> Array.isEmpty then
+                null
+            else
+                SearchField.View
+                    {|
+                        label = props.searchLabel
+                        value = query
+                        onChange = setQuery
+                        disabled = false
+                    |}
 
         let columnFilter =
             if props.hideFilter then
@@ -377,6 +394,33 @@ module ResponsiveTable =
                             ]
                 ]
 
+        // the search and the column filter side by side, wrapping on a narrow screen
+        let controlsSx =
+            {|
+                display = "flex"
+                flexWrap = "wrap"
+                alignItems = "flex-end"
+                gap = 2
+            |}
+
+        let needle = query.Trim().ToLowerInvariant()
+
+        let matchesQuery
+            (r:
+                {|
+                    cells:
+                        {|
+                            field: string
+                            value: string
+                        |}[]
+                    actions: ReactElement option
+                |})
+            =
+            // the cells the user sees: the id is a hidden column, by the same name the grid hides it
+            needle |> String.length = 0
+            || r.cells
+               |> Array.exists (fun cell -> cell.field <> "id" && cell.value.ToLowerInvariant().Contains needle)
+
         let rows =
             props.rows
             |> Array.filter (fun r ->
@@ -389,6 +433,7 @@ module ResponsiveTable =
                         && (state |> Array.isEmpty || state |> Array.exists ((=) cell.value))
                     )
             )
+            |> Array.filter matchesQuery
 
         let filteredRows = rows
 
@@ -425,10 +470,21 @@ module ResponsiveTable =
                         |}
                      >
 
+            // the cards get the same controls as the grid: the search and the column filter
+            let controls =
+                JSX.jsx
+                    $"""
+                import Box from '@mui/material/Box';
+                <Box sx={controlsSx}>
+                    {search}
+                    {filter}
+                </Box>
+                """
+
             {|
                 columns = typedColumns
                 rows = rows
-                filter = Some filter
+                filter = Some(controls |> toReact)
                 onRowClick = props.onRowClick
             |}
             |> CardTable
@@ -504,6 +560,10 @@ module ResponsiveTable =
                 {|
                     marginBottom = 3
                     flexShrink = 0
+                    display = "flex"
+                    flexWrap = "wrap"
+                    alignItems = "flex-end"
+                    gap = 2
                 |}
 
             let gridWrapperStyle =
@@ -519,6 +579,7 @@ module ResponsiveTable =
 
             <Box sx={containerSx}>
                 <Box sx={filterBoxSx}>
+                    {search}
                     {filter}
                 </Box>
                 <div style={gridWrapperStyle}>

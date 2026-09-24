@@ -543,7 +543,13 @@ call sites migrate with their group.
    callers, the patient panel and the nutrition page's two accordions, are on it, and the
    patient panel's five-second idle effect and the overlay test that postponed it are gone:
    the panel opens and closes when the user says so, which is #489.
-10. **C3 `SearchField`** — nothing like it exists in the client today.
+10. **C3 `SearchField`** — nothing like it exists in the client today. Landed as
+    `Components/SearchField.fs`: a text field with a search icon and a cross that empties it,
+    telling the caller the text and nothing more. First caller: `ResponsiveTable`, which takes
+    a `searchLabel` and, when given one, shows the field above the grid beside the column
+    filter and keeps the rows in which any cell contains the text, case aside; the emergency
+    and infusion-pump lists ask for it (#503), the order plan does not. The search has no term
+    in the sheet yet, so the lists pass the Dutch, at the call site.
 11. **C11 `ListToolbar`** — one search, one filter, print, and whatever of the MUI toolbar
     survives; keeps `ResponsiveTable`'s per-row `actions` hook that #399 needs.
 12. **C12 `PrintTable`** — the two structurally identical print tables.

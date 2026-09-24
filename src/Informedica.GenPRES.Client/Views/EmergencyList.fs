@@ -336,6 +336,7 @@ module EmergencyList =
                 selectedFilter = Some filterState
                 onFilterChange = Some onFilterChange
                 filterLabel = "Filter"
+                searchLabel = "Zoek"
             |}
 
         let printDialogProps =
