@@ -12,6 +12,7 @@
     <Compile Include="Deferred.fs" />
     <Compile Include="LanguagePolicy.fs" />
     <Compile Include="PickPolicy.fs" />
+    <Compile Include="SeverityReason.fs" />
     <Compile Include="SessionMachine.fs" />
     <Compile Include="SessionGatePolicy.fs" />
     <Compile Include="PlanWorkPolicy.fs" />
