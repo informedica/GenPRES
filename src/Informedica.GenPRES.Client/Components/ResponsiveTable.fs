@@ -424,8 +424,9 @@ module ResponsiveTable =
 
         let filteredRows = rows
 
-        // the row of the user's controls above the list, the same on the cards and on the grid
-        let toolbar =
+        // the row of the user's controls above the list, the same on the cards and on the grid;
+        // not named toolbar, which the grid's own toolbar below is
+        let controls =
             ListToolbar.View
                 {|
                     search = search
@@ -468,7 +469,7 @@ module ResponsiveTable =
             {|
                 columns = typedColumns
                 rows = rows
-                filter = Some(toolbar |> toReact)
+                filter = Some(controls |> toReact)
                 onRowClick = props.onRowClick
             |}
             |> CardTable
@@ -551,7 +552,7 @@ module ResponsiveTable =
             import {{ DataGrid }} from '@mui/x-data-grid';
 
             <Box sx={containerSx}>
-                {toolbar}
+                {controls}
                 <div style={gridWrapperStyle}>
                     <DataGrid
                         sx={stripedSx}
