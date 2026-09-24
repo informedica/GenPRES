@@ -566,7 +566,12 @@ call sites migrate with their group.
     the screen drew a value in left off the paper. A column says which value of a row it shows,
     the name above it and how wide it is, so the two lists differ in their columns alone. The
     emergency list is the first on it: its five columns and their widths, and its rows as the
-    list handed them, where it built every row and cell of the sheet itself.
+    list handed them, where it built every row and cell of the sheet itself. The infusion-pump
+    list follows with its six, which is the last of them.
+
+With it the foundation and the twelve components are all in the client, and the ten groups
+have the parts they share. What remains of each issue named above is its own group's work, not
+this plan's.
 
 ### Verification, per step
 
