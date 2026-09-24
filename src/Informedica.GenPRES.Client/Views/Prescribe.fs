@@ -127,14 +127,14 @@ module Prescribe =
         let select = ViewHelpers.filterSelect isAnythingLoading
 
         let multiSelect isLoading lbl selected dispatch xs =
-            Components.MultipleSelect.View
+            Components.MultiPickField.View
                 {|
-                    updateSelected = dispatch
                     label = lbl
+                    options = xs
                     selected = selected
-                    values = xs
+                    onChange = dispatch
                     isLoading = isLoading
-                    disabled = isAnythingLoading
+                    enabled = not isAnythingLoading
                 |}
 
         let autoComplete = ViewHelpers.autoComplete isAnythingLoading

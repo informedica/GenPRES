@@ -22,8 +22,9 @@
     <Compile Include="./Components/DialogShell.fs" />
     <Compile Include="./Components/ConfirmDialog.fs" />
     <Compile Include="./Components/SimpleSelect.fs" />
+    <Compile Include="./Components/PickField.fs" />
+    <Compile Include="./Components/MultiPickField.fs" />
     <Compile Include="./Components/QuantityField.fs" />
-    <Compile Include="./Components/MultipleSelect.fs" />
     <Compile Include="./Components/SelectableList.fs" />
     <Compile Include="./Components/TitleBar.fs" />
     <Compile Include="./Components/SideMenu.fs" />

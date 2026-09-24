@@ -319,14 +319,14 @@ module ResponsiveTable =
                         |> Array.distinct
                         |> Array.sortBy _.ToLower()
 
-                    MultipleSelect.View
+                    MultiPickField.View
                         {|
                             label = props.filterLabel
+                            options = data |> Array.map (fun s -> s, s)
                             selected = state
-                            updateSelected = setState
-                            values = data |> Array.map (fun s -> s, s)
+                            onChange = setState
                             isLoading = false
-                            disabled = false
+                            enabled = true
                         |}
             |> toReact
 

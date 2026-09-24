@@ -12,21 +12,17 @@ module ViewHelpers =
     open Shared.Models.Order
 
 
+    /// A filter select: what it offers is the pick rule's answer.
     let filterSelect disabled isLoading lbl selected dispatch xs =
-        let isEmpty = xs |> Array.isEmpty
-
-        Components.SimpleSelect.View
+        Components.PickField.View
             {|
-                updateSelected = if isEmpty then ignore else dispatch
                 label = lbl
-                selected = if isEmpty then None else selected
-                values = xs
+                options = xs
+                selected = selected
+                onChange = dispatch
+                clearable = true
                 isLoading = isLoading
-                disabled = disabled || isEmpty
-                hasClear = true
-                canStep = false
-                severity = Severity.Normal
-                minWidth = None
+                enabled = not disabled
             |}
 
 
