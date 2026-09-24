@@ -873,19 +873,33 @@ module Styles =
     let mergeSx (sx: obj) (over: obj) : obj = emitJsExpr (sx, over) "Object.assign({}, $0, $1)"
 
 
+    /// The colour of a severity resolved on the theme, for a CSS property sx does not resolve a
+    /// palette path in, such as a text decoration's colour; none for normal.
+    let severityPaletteColor (theme: Theme) (severity: Severity) =
+        match severity with
+        | Severity.Normal -> None
+        | Severity.Caution -> Some theme.palette.info.main
+        | Severity.Warning -> Some theme.palette.warning.main
+        | Severity.Alert -> Some theme.palette.error.main
+
+
     /// The mark a raised severity puts under a value, a double underline in its colour, added to
-    /// an sx; a normal severity adds nothing.
+    /// an sx; a normal severity adds nothing. The colour is a theme callback, since sx resolves
+    /// a palette path in color and backgroundColor but not in textDecorationColor.
     let markSx (severity: Severity) (sx: obj) =
-        match severity |> severityColor with
-        | None -> sx
-        | Some color ->
+        if severity |> Severity.isRaised then
+            let underlineColor (theme: Theme) =
+                severity |> severityPaletteColor theme |> Option.defaultValue "currentColor"
+
             {|
                 textDecoration = "underline double"
-                textDecorationColor = color
+                textDecorationColor = underlineColor
                 textUnderlineOffset = "3px"
             |}
             |> box
             |> mergeSx sx
+        else
+            sx
 
 
 module TypoGraphy =
