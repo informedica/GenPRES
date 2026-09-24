@@ -46,6 +46,10 @@ module ValueChip =
     let View (props: Props) =
         let color = colorOf props.severity
 
+        // a raised severity is told by its icon as well as by its colour, for whoever cannot
+        // tell the colours apart
+        let icon = SeverityMark.icon props.severity
+
         let label =
             match props.label with
             | None -> null
@@ -63,6 +67,6 @@ module ValueChip =
 
         <Box sx={rowSx}>
             {label}
-            <Chip label={props.value} color={color} variant="outlined" size="small" />
+            <Chip label={props.value} color={color} variant="outlined" size="small" icon={icon} />
         </Box>
         """

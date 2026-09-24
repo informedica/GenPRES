@@ -280,12 +280,13 @@ module Nutrition =
 
     let private autoMarginSx = {| marginLeft = "auto" |}
 
+    // the summary wraps onto more lines rather than clip a value at the header's edge
     let private flexOverflowSx =
         {|
             display = "flex"
+            flexWrap = "wrap"
             alignItems = "center"
             width = "100%"
-            overflow = "hidden"
         |}
 
     let private printSectionHeaderSx =
@@ -368,16 +369,29 @@ module Nutrition =
             |> String.concat ""
             |> String.trim
 
+        // a block with a number in it is a value and becomes a chip; one without, an item's
+        // name or a word between values such as "in" or "=", stays text between the chips
+        let isValue (text: string) = text |> Seq.exists System.Char.IsDigit
+
         let chips =
             blocks
-            |> Array.filter (textOf >> String.notEmpty)
-            |> Array.map (fun block ->
-                Components.ValueChip.View
-                    {|
-                        value = textOf block
-                        severity = block |> Severity.ofTextBlock
-                        label = None
-                    |}
+            |> Array.map textOf
+            |> Array.filter String.notEmpty
+            |> Array.mapi (fun i text -> i, text)
+            |> Array.map (fun (i, text) ->
+                if text |> isValue then
+                    Components.ValueChip.View
+                        {|
+                            value = text
+                            severity = blocks[i] |> Severity.ofTextBlock
+                            label = None
+                        |}
+                else
+                    JSX.jsx
+                        $"""
+                    import Typography from '@mui/material/Typography';
+                    <Typography key={i} variant="body2" sx={typoSx}>{text}</Typography>
+                    """
             )
             |> unbox<seq<ReactElement>>
             |> React.Fragment
