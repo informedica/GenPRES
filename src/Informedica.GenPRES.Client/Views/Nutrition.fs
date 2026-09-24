@@ -340,8 +340,9 @@ module Nutrition =
 
 
     // the administration of a scenario as pills: one per value the server printed, the
-    // frequency, the dose, the rate, the time, each coloured by its own severity
-    let private renderAdminSummary (key: string) (name: string) (blocks: TextBlock[]) =
+    // frequency, the dose, the rate, the time, each coloured by its own severity; a row per
+    // item, the rows told apart by a plus between them
+    let private renderAdminSummary (key: string) (name: string) (rows: TextBlock[][]) =
         let typoSx =
             {|
                 display = "inline"
@@ -373,26 +374,42 @@ module Nutrition =
         // name or a word between values such as "in" or "=", stays text between the chips
         let isValue (text: string) = text |> Seq.exists System.Char.IsDigit
 
-        let chips =
-            blocks
-            |> Array.map textOf
-            |> Array.filter String.notEmpty
-            |> Array.mapi (fun i text -> i, text)
-            |> Array.map (fun (i, text) ->
-                if text |> isValue then
+        let text (key: string) (s: string) =
+            JSX.jsx
+                $"""
+            import Typography from '@mui/material/Typography';
+            <Typography key={key} variant="body2" sx={typoSx}>{s}</Typography>
+            """
+
+        // each block keeps its own severity through the filtering: the text and the block
+        // travel together
+        let ofRow (r: int) (row: TextBlock[]) =
+            row
+            |> Array.map (fun block -> textOf block, block)
+            |> Array.filter (fst >> String.notEmpty)
+            |> Array.mapi (fun i (t, block) ->
+                if t |> isValue then
                     Components.ValueChip.View
                         {|
-                            value = text
-                            severity = blocks[i] |> Severity.ofTextBlock
+                            value = t
+                            severity = block |> Severity.ofTextBlock
                             label = None
                         |}
                 else
-                    JSX.jsx
-                        $"""
-                    import Typography from '@mui/material/Typography';
-                    <Typography key={i} variant="body2" sx={typoSx}>{text}</Typography>
-                    """
+                    text $"{r}-{i}" t
             )
+
+        let chips =
+            rows
+            |> Array.map (fun row -> row |> Array.map textOf |> Array.exists String.notEmpty, row)
+            |> Array.filter fst
+            |> Array.mapi (fun r (_, row) ->
+                if r = 0 then
+                    ofRow r row
+                else
+                    Array.append [| text $"sep-{r}" "+" |] (ofRow r row)
+            )
+            |> Array.concat
             |> unbox<seq<ReactElement>>
             |> React.Fragment
 
@@ -1330,8 +1347,7 @@ module Nutrition =
                 let adminSummary =
                     match ctx.Scenarios with
                     | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
-                        let blocks = sc.Administration |> Array.collect id
-                        renderAdminSummary (string props.nutritionContext.Id) sc.Order.Orderable.Name blocks
+                        renderAdminSummary (string props.nutritionContext.Id) sc.Order.Orderable.Name sc.Administration
                     | _ -> null
 
                 JSX.jsx
@@ -1554,8 +1570,8 @@ module Nutrition =
                             |> Array.choose (fun nc ->
                                 match nc.Scenarios with
                                 | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
-                                    let blocks = sc.Administration |> Array.collect id
-                                    renderAdminSummary (string nc.Id) sc.Order.Orderable.Name blocks |> Some
+                                    renderAdminSummary (string nc.Id) sc.Order.Orderable.Name sc.Administration
+                                    |> Some
                                 | _ -> None
                             )
 
