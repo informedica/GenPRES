@@ -1860,6 +1860,18 @@ let private themeDef =
     """
 responsiveFontSizes(createTheme({
     typography: { fontSize: 12 },
+    palette: {
+        mode: 'light',
+        // the four severities the client shows: Valid, Caution, Warning, Alert
+        success: { main: '#2e7d32' },
+        info: { main: '#0288d1' },
+        warning: { main: '#ed6c02' },
+        error: { main: '#d32f2f' },
+        // the tint behind a caution, a warning or an alert, as an alert box has it
+        severityBg: { caution: '#e5f6fd', warning: '#fff4e5', alert: '#fdeded' },
+        // the accent the tables and headers use
+        primary: { main: '#1976d2' },
+    },
     spacing: 6,
     components: {
         MuiTable: { defaultProps: { size: 'medium' } },
@@ -1883,6 +1895,18 @@ let private mobileDef =
     """
 responsiveFontSizes(createTheme({
     typography: { fontSize: 11 },
+    palette: {
+        mode: 'light',
+        // the four severities the client shows: Valid, Caution, Warning, Alert
+        success: { main: '#2e7d32' },
+        info: { main: '#0288d1' },
+        warning: { main: '#ed6c02' },
+        error: { main: '#d32f2f' },
+        // the tint behind a caution, a warning or an alert, as an alert box has it
+        severityBg: { caution: '#e5f6fd', warning: '#fff4e5', alert: '#fdeded' },
+        // the accent the tables and headers use
+        primary: { main: '#1976d2' },
+    },
     spacing: 6,
     components: {
         MuiTable: { defaultProps: { size: 'small' } },

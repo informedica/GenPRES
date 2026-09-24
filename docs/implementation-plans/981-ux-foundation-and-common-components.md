@@ -142,6 +142,16 @@ the tokens the components need; `Mui.Colors` reduced to what the palette does no
 this exists, a call-to-action convention and a severity colour cannot be *stated* anywhere —
 only repeated.
 
+The palette states MUI's own defaults for the four severities and the primary accent, so
+nothing changes on screen until a step migrates to it. The client shows severity two ways today:
+the alert boxes on the MUI defaults, and the double underlines and the formulary text on
+`Colors.Green.700`, `Blue.600`, `Orange.700`, `Red.700`. F1b brings the second onto the first,
+and that is where the underline colours shift, slightly. The tints behind a caution, a warning
+and an alert are a custom `severityBg` entry, the three hexes `Pages/GenPres.fs` has, since
+MUI's palette has no name for an alert box's background. The tokens in `Mui.Styles` are palette
+paths (`"warning.main"`, `"text.secondary"`, `"grey.100"`), resolved by `sx`; `headerBgColor`
+stays a hex, since the palette has no name for that tint yet.
+
 ### F3 — a label convention for shared components
 
 `Terms` is a flat DU of ~174 cases, of which 99 are referenced — 43% is dead. Resolution is a
@@ -370,7 +380,9 @@ is prototyped in a script and migrated by the maintainer.
    this plan listed, a truncated `Theme.palette.background`, is not on `master`.
 3. **F2 — the theme palette.** `palette` on both `createTheme` calls, `Mui.Styles` grown to the
    tokens the components need, `Mui.Colors` reduced to what the palette does not cover. Nothing
-   migrates to it yet; it is what the later steps spell colours in.
+   migrates to it yet; it is what the later steps spell colours in. Two pull requests: the
+   palette and the tokens, then the eleven hue tables nothing uses (169 lines, which with the
+   first would pass the size limit).
 4. **F1a — one severity type.** In `GenPRES.Shared`, so it is reachable from `Shared.Tests`:
    `Level`, `TextBlock`'s four cases and the colour tables of `SimpleSelect` and `MUI.fs` collapse
    to one type with conversions from what the wire carries. Script first, with a test per
