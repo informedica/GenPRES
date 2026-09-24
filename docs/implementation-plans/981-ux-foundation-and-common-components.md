@@ -428,7 +428,14 @@ the six foundation steps above. Each step lands the component plus its first cal
 call sites migrate with their group.
 
 1. **C7 `ActionBar` / `ActionButton`** — carries the ADR-0009 convention, and is the step that
-   makes #394 a one-line change for the five duplicated delete blocks.
+   makes #394 a one-line change for the five duplicated delete blocks. Landed as
+   `Components/ActionBar.fs`: an action is a label, a `Kind` (`Primary`, `Secondary`,
+   `Destructive`), a handler, a disabled flag and an icon; `ActionButton` draws one by its kind,
+   contained, outlined, or text in the error colour, never full-width; `View` places them,
+   destructive and secondary on the left, primary on the right, whatever order they are given
+   in. First caller: the order dialog's `Reset` and `Ok`, the frame #404 drew the convention
+   from. The five delete blocks, the nutrition add buttons and the print button migrate with
+   their groups.
 2. **C8 `ConfirmDialog` / `DialogShell`** — replaces the three dialog idioms and the duplicated
    `modalStyle`, and closes the gap where `OrderPlan.fs:359` deletes prescriptions without asking
    while `Nutrition.fs:1595` confirms. This is a safety fix, not only a refactor.

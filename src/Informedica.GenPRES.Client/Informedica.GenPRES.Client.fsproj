@@ -17,6 +17,7 @@
     <Compile Include="./Components/Localization.fs" />
     <Compile Include="./Components/Autocomplete.fs" />
     <Compile Include="./Components/ClickCountingButton.fs" />
+    <Compile Include="./Components/ActionBar.fs" />
     <Compile Include="./Components/SimpleSelect.fs" />
     <Compile Include="./Components/MultipleSelect.fs" />
     <Compile Include="./Components/SelectableList.fs" />
