@@ -231,8 +231,10 @@ the value picked from what the rules allow through `SimpleSelect`, the stepper b
 prediction of a stepped value moved here from the select (which is a plain select again), and
 the lead marking as an accent on the field's left; `ViewHelpers.orderSelect` builds the field, so
 every order and nutrition field is on it without a caller changing, and passes no lead yet. The
-second turns the dialog's fixed sequence of fields into the literal list per dose type and gives
-the list its lead. The `bounds` and `largeStep` of the prop shape above are still the stepper's
+second turns the dialog's fixed sequence of fields into the literal list per dose type: one array
+at the call site, in the order shown, each field still deciding for itself whether it applies to
+the order. It names no lead: which field the user starts from is a clinical decision the server
+sends with the order (#978), not one to make at the call site meanwhile. The `bounds` and `largeStep` of the prop shape above are still the stepper's
 `first` and `last`, which mean the one or the other by whether the value is navigable: taking
 them apart is #405's design decision in G3, and the field keeps the shape its callers have until
 that lands.
