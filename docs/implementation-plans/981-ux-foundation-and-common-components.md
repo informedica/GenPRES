@@ -524,6 +524,12 @@ call sites migrate with their group.
    and the app's server error with its title and its dismissal. The snackbar's alert stays:
    it is a toast, not a notice on a page.
 8. **C5 `ValueChip`** and **C10 `SectionHeading`** — both small, both spent by three groups.
+   Two pull requests, one each. C10 landed as `Components/SectionHeading.fs`: the section's
+   name on a line across, in small type, with an action beside it when the section has one.
+   The six captioned dividers of the order dialog and the nutrition page are on it, and the
+   nutrition section's heading with its remove button, whose stack the component now holds.
+   The preparation and administration captions read their terms where a term exists; the
+   dosing caption has none and stays the Dutch it was, at the call site.
 9. **C9 `Disclosure`** — a section that collapses to a summary carrying its result, and closes
    when the user says so rather than on a timer (#489's five-second effect does not survive).
 10. **C3 `SearchField`** — nothing like it exists in the client today.

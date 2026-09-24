@@ -926,21 +926,25 @@ module Order =
                     paddingY = 1
                 |}
 
+        // the three sections of the dialog, each headed when it has a field to show
+        let heading label =
+            Components.SectionHeading.View
+                {|
+                    label = label
+                    action = None
+                |}
+
         let preparationDivider =
             if showPrepDivider then
-                JSX.jsx $"""<Divider><Typography variant="caption">bereiding</Typography></Divider>"""
+                Terms.``Prescribe Preparation`` |> getTerm "bereiding" |> heading
             else
                 null
 
-        let dosingDivider =
-            if showDosingDivider then
-                JSX.jsx $"""<Divider><Typography variant="caption">dosering</Typography></Divider>"""
-            else
-                null
+        let dosingDivider = if showDosingDivider then heading "dosering" else null
 
         let administrationDivider =
             if showAdminDivider then
-                JSX.jsx $"""<Divider><Typography variant="caption">toediening</Typography></Divider>"""
+                Terms.``Prescribe Administration`` |> getTerm "toediening" |> heading
             else
                 null
 

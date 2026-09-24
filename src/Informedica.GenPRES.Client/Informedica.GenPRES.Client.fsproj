@@ -21,6 +21,7 @@
     <Compile Include="./Components/SeverityMark.fs" />
     <Compile Include="./Components/ActionBar.fs" />
     <Compile Include="./Components/Notice.fs" />
+    <Compile Include="./Components/SectionHeading.fs" />
     <Compile Include="./Components/DialogShell.fs" />
     <Compile Include="./Components/ConfirmDialog.fs" />
     <Compile Include="./Components/SimpleSelect.fs" />
