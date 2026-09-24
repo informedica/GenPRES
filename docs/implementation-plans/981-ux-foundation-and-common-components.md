@@ -564,7 +564,9 @@ call sites migrate with their group.
     then each list on it. Landed as `Components/PrintTable.fs`: the patient it is for at the
     top, the rows in a table of named columns, a line to sign at the bottom, and the emphasis
     the screen drew a value in left off the paper. A column says which value of a row it shows,
-    the name above it and how wide it is, so the two lists differ in their columns alone.
+    the name above it and how wide it is, so the two lists differ in their columns alone. The
+    emergency list is the first on it: its five columns and their widths, and its rows as the
+    list handed them, where it built every row and cell of the sheet itself.
 
 ### Verification, per step
 

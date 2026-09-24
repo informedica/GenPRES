@@ -214,48 +214,6 @@ module EmergencyList =
 
         let printData, setPrintData = React.useState [||]
 
-        let makePrintTableRows data =
-            data
-            |> Array.map
-                (fun
-                    (r:
-                        {|
-                            cells:
-                                {|
-                                    field: string
-                                    value: string
-                                |}[]
-                            actions: ReactElement option
-                        |}) ->
-                    let row = r.cells |> Array.map (fun c -> c.field, c.value) |> Map.ofArray
-
-                    let get f =
-                        row |> Map.tryFind f |> Option.defaultValue "" |> _.Replace("*", "")
-
-                    let id = get "id"
-                    let catagory = get "catagory"
-                    let intervention = get "intervention"
-                    let calculated = get "calculated"
-                    let preparation = get "preparation"
-                    let advice = get "advice"
-
-                    JSX.jsx
-                        $"""
-                import TableRow from '@mui/material/TableRow';
-                import TableCell from '@mui/material/TableCell';
-
-                <TableRow key={id}>
-                    <TableCell>{catagory}</TableCell>
-                    <TableCell>{intervention}</TableCell>
-                    <TableCell>{calculated}</TableCell>
-                    <TableCell>{preparation}</TableCell>
-                    <TableCell>{advice}</TableCell>
-                </TableRow>
-                """
-                )
-            |> unbox<seq<ReactElement>>
-            |> React.Fragment
-
         let patientHeader =
             ViewHelpers.PrintView.PatientHeader
                 {|
@@ -264,52 +222,44 @@ module EmergencyList =
                 |}
 
         let patientSignature = ViewHelpers.PrintView.PatientSignature {| label = printLabels.signature |}
-        let printTableRows = makePrintTableRows printData
+
+        let printColumns =
+            [|
+                {|
+                    field = "catagory"
+                    label = "Categorie"
+                    width = "15%"
+                |}
+                {|
+                    field = "intervention"
+                    label = "Interventie"
+                    width = "20%"
+                |}
+                {|
+                    field = "calculated"
+                    label = "Berekend"
+                    width = "25%"
+                |}
+                {|
+                    field = "preparation"
+                    label = "Bereiding"
+                    width = "25%"
+                |}
+                {|
+                    field = "advice"
+                    label = "Advies"
+                    width = "15%"
+                |}
+            |]
 
         let printContent =
-            let printTableSx =
+            Components.PrintTable.View
                 {|
-                    tableLayout = "fixed"
-                    width = "100%"
+                    columns = printColumns
+                    rows = printData
+                    header = patientHeader
+                    signature = patientSignature
                 |}
-
-            let hdrCell w =
-                {|
-                    fontWeight = "bold"
-                    width = w
-                |}
-
-            let hdr15 = hdrCell "15%"
-            let hdr20 = hdrCell "20%"
-            let hdr25 = hdrCell "25%"
-
-            JSX.jsx
-                $"""
-            import Table from '@mui/material/Table';
-            import TableBody from '@mui/material/TableBody';
-            import TableHead from '@mui/material/TableHead';
-            import TableRow from '@mui/material/TableRow';
-            import TableCell from '@mui/material/TableCell';
-
-            <React.Fragment>
-                {patientHeader}
-                <Table size="small" sx={printTableSx}>
-                    <TableHead>
-                        <TableRow>
-                            <TableCell sx={hdr15}>Categorie</TableCell>
-                            <TableCell sx={hdr20}>Interventie</TableCell>
-                            <TableCell sx={hdr25}>Berekend</TableCell>
-                            <TableCell sx={hdr25}>Bereiding</TableCell>
-                            <TableCell sx={hdr15}>Advies</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {printTableRows}
-                    </TableBody>
-                </Table>
-                {patientSignature}
-            </React.Fragment>
-            """
             |> toReact
 
         let boxSx = {| height = "100%" |}
