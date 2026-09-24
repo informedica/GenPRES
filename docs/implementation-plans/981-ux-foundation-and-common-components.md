@@ -309,7 +309,8 @@ asks.
 
 Serves **#489, #504, #496, #976**. A section that collapses to a summary **carrying its result** — the
 TPN frames show a finished step as `Vocht: Er is 20 ml/kg/dag ruimte over voor TPV` — and that
-closes when the user says so, not on a timer. `Components/Accordion.fs` is the base; the 5-second
+closes when the user says so, not on a timer. `Components/Accordion.fs`, since renamed
+`Disclosure.fs`, is the base; the 5-second
 idle effect in `Views/Patient.fs:145` is **#489** and does not survive. For an identified
 patient (#976) the panel's summary is the computed age and the measured values, and collapsed is
 its resting state, since the age cannot be changed there.
@@ -335,7 +336,7 @@ identical print tables with the same `hdr15`/`hdr20`/`hdr25` idiom.
 
 `Components/ResponsiveTable.fs` already takes a per-row `actions: ReactElement option` that every
 caller passes as `None` — **#399**'s adjust button needs that hook and a column, not a new
-component. `Components/ClickCountingButton.fs`, `Components/Accordion.fs` and
+component. `Components/ClickCountingButton.fs`, `Components/Accordion.fs` (now `Disclosure.fs`) and
 `ViewHelpers.PrintView.PrintDialog` stay and are absorbed into C1, C9 and C8.
 
 ## What the designs decide

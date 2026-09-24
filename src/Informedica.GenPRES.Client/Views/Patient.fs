@@ -142,12 +142,18 @@ module Patient =
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
-        let handleChange =
+        // the summary click opens or folds the panel; while the patient cannot be calculated
+        // the panel stays open, since there is nothing to fold it over
+        let toggle =
             fun _ ->
                 if patient |> canCalculate |> not then
                     true |> setExpanded
                 else
                     isExpanded |> not |> setExpanded
+
+        // an edit of a field keeps the panel open, whatever it was: editing never takes the
+        // controls away from under the hand
+        let keepOpen = fun () -> true |> setExpanded
 
         let createSelect label sel changeValue vs =
             Components.SimpleSelect.View
@@ -189,7 +195,7 @@ module Patient =
 
         let checkBox (name: string) item ev =
             let handleAccessChange _ =
-                handleChange ()
+                keepOpen ()
                 ev |> dispatch
 
             JSX.jsx
@@ -228,7 +234,7 @@ module Patient =
 
             let changeGender =
                 fun ev ->
-                    handleChange ()
+                    keepOpen ()
 
                     ev?target?value |> string |> UpdateGender |> dispatch
 
@@ -268,7 +274,7 @@ module Patient =
                     (Terms.``Patient Age years`` |> getTerm "jaren")
                     (pat |> Option.bind Patient.getAgeYears)
                     (fun s ->
-                        handleChange ()
+                        keepOpen ()
                         s |> UpdateYear |> dispatch
                     )
 
@@ -278,7 +284,7 @@ module Patient =
                     (Terms.``Patient Age months`` |> getTerm "maanden")
                     (pat |> Option.bind Patient.getAgeMonths |> zeroToNone)
                     (fun s ->
-                        handleChange ()
+                        keepOpen ()
                         s |> UpdateMonth |> dispatch
                     )
 
@@ -288,7 +294,7 @@ module Patient =
                     (Terms.``Patient Age weeks`` |> getTerm "weken")
                     (pat |> Option.bind Patient.getAgeWeeks |> zeroToNone)
                     (fun s ->
-                        handleChange ()
+                        keepOpen ()
                         s |> UpdateWeek |> dispatch
                     )
 
@@ -298,7 +304,7 @@ module Patient =
                     (Terms.``Patient Age days`` |> getTerm "dagen")
                     (pat |> Option.bind Patient.getAgeDays |> zeroToNone)
                     (fun s ->
-                        handleChange ()
+                        keepOpen ()
                         s |> UpdateDay |> dispatch
                     )
 
@@ -308,7 +314,7 @@ module Patient =
                     (Terms.``Patient Weight`` |> getTerm "gewicht" |> (fun s -> $"{s} (kg)"))
                     (pat |> Option.bind (Patient.getWeight >> weightToNone))
                     (fun s ->
-                        handleChange ()
+                        keepOpen ()
                         s |> UpdateWeight |> dispatch
                     )
 
@@ -318,7 +324,7 @@ module Patient =
                     (Terms.``Patient Length`` |> getTerm "lengte" |> (fun s -> $"{s} (cm)"))
                     (pat |> Option.bind (Patient.getHeight >> heightToNone))
                     (fun s ->
-                        handleChange ()
+                        keepOpen ()
                         s |> UpdateHeight |> dispatch
                     )
 
@@ -334,7 +340,7 @@ module Patient =
                         (Terms.``Patient Age weeks`` |> getTerm "weken" |> (fun s -> $"GA {s}"))
                         (pat |> Option.bind Patient.getGAWeeks |> zeroToNone)
                         (fun s ->
-                            handleChange ()
+                            keepOpen ()
                             s |> UpdateGAWeek |> dispatch
                         )
 
@@ -344,7 +350,7 @@ module Patient =
                         (Terms.``Patient Age days`` |> getTerm "dagen" |> (fun s -> $"GA {s}"))
                         (pat |> Option.bind Patient.getGADays |> zeroToNone)
                         (fun s ->
-                            handleChange ()
+                            keepOpen ()
                             s |> UpdateGADay |> dispatch
                         )
             |]
@@ -401,7 +407,7 @@ module Patient =
                     (Terms.``Patient Renal Function`` |> getTerm "Nierfunctie")
                     (pat |> Option.bind Patient.getRenalFunction)
                     (fun s ->
-                        handleChange ()
+                        keepOpen ()
                         s |> UpdateRenal |> dispatch
                     )
 
@@ -446,7 +452,7 @@ module Patient =
         Components.Disclosure.View
             {|
                 isOpen = isExpanded
-                onToggle = handleChange
+                onToggle = toggle
                 summary = pat |> show lang localizationTerms |> toJsx
                 children = children
                 isMobile = isMobile
