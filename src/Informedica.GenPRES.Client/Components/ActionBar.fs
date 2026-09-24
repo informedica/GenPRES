@@ -73,9 +73,12 @@ module ActionBar =
         """
 
 
+    // the full width, so the bar has room to put the primary action on the right wherever it
+    // sits: a lone child of a flex container such as CardActions does not stretch by itself
     let private barSx =
         {|
             display = "flex"
+            width = "100%"
             justifyContent = "space-between"
             alignItems = "center"
             gap = 1
