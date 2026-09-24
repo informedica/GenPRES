@@ -551,7 +551,14 @@ call sites migrate with their group.
     and infusion-pump lists ask for it (#503), the order plan does not. The search has no term
     in the sheet yet, so the lists pass the Dutch, at the call site.
 11. **C11 `ListToolbar`** — one search, one filter, print, and whatever of the MUI toolbar
-    survives; keeps `ResponsiveTable`'s per-row `actions` hook that #399 needs.
+    survives; keeps `ResponsiveTable`'s per-row `actions` hook that #399 needs. Landed as
+    `Components/ListToolbar.fs`: the row of the user's own controls above a list, the search
+    and the column filter, drawn the same above the cards and above the grid, and nothing when
+    the list has neither. The grid's own toolbar survives whole but for one button: columns,
+    density, export and print stay, its filter button goes, so the filter above the grid is the
+    one filter on the list, which is #502's two filters and the doubt behind #487 whether the
+    list is filtered at all. The toolbar's own words stay the grid's, and the per-row `actions`
+    hook is untouched.
 12. **C12 `PrintTable`** — the two structurally identical print tables.
 
 ### Verification, per step

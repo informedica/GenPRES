@@ -213,13 +213,10 @@ module ResponsiveTable =
             JSX.jsx
                 $"""
             import Grid from '@mui/material/Grid';
-            import Box from '@mui/material/Box';
             import Stack from '@mui/material/Stack';
 
             <Stack id="responsive-card-table" >
-                <Box sx={ {| marginBottom = 1.5 |} }>
-                    {props.filter |> Option.defaultValue null}
-                </Box>
+                {props.filter |> Option.defaultValue null}
                 <Grid container rowSpacing={1} columnSpacing={columnSpacing} >
                     {React.Fragment(cards |> unbox<seq<ReactElement>>)}
                 </Grid>
@@ -289,7 +286,7 @@ module ResponsiveTable =
 
         let search =
             if props.searchLabel |> String.length = 0 || props.rows |> Array.isEmpty then
-                null
+                None
             else
                 SearchField.View
                     {|
@@ -298,6 +295,7 @@ module ResponsiveTable =
                         onChange = setQuery
                         disabled = false
                     |}
+                |> Some
 
         let columnFilter =
             if props.hideFilter then
@@ -325,27 +323,25 @@ module ResponsiveTable =
 
         let filter =
             columnFilter
-            |> function
-                | None -> null
-                | Some column ->
-                    let data =
-                        props.rows
-                        |> Array.map _.cells
-                        |> Array.map (Array.filter (fun cell -> cell.field = column.field))
-                        |> Array.collect (Array.map _.value)
-                        |> Array.distinct
-                        |> Array.sortBy _.ToLower()
+            |> Option.map (fun column ->
+                let data =
+                    props.rows
+                    |> Array.map _.cells
+                    |> Array.map (Array.filter (fun cell -> cell.field = column.field))
+                    |> Array.collect (Array.map _.value)
+                    |> Array.distinct
+                    |> Array.sortBy _.ToLower()
 
-                    MultiPickField.View
-                        {|
-                            label = props.filterLabel
-                            options = data |> Array.map (fun s -> s, s)
-                            selected = state
-                            onChange = setState
-                            isLoading = false
-                            enabled = true
-                        |}
-            |> toReact
+                MultiPickField.View
+                    {|
+                        label = props.filterLabel
+                        options = data |> Array.map (fun s -> s, s)
+                        selected = state
+                        onChange = setState
+                        isLoading = false
+                        enabled = true
+                    |}
+            )
 
         let onRowClick = fun pars -> pars?id |> string |> props.onRowClick
         let isRowSelectable = fun _ -> not props.selectDisabled
@@ -394,15 +390,6 @@ module ResponsiveTable =
                             ]
                 ]
 
-        // the search and the column filter side by side, wrapping on a narrow screen
-        let controlsSx =
-            {|
-                display = "flex"
-                flexWrap = "wrap"
-                alignItems = "flex-end"
-                gap = 2
-            |}
-
         let needle = query.Trim().ToLowerInvariant()
 
         let matchesQuery
@@ -437,6 +424,15 @@ module ResponsiveTable =
 
         let filteredRows = rows
 
+        // the row of the user's controls above the list, the same on the cards and on the grid;
+        // not named toolbar, which the grid's own toolbar below is
+        let controls =
+            ListToolbar.View
+                {|
+                    search = search
+                    filter = filter
+                |}
+
         let onSelectionChange =
             fun selectionModel ->
                 let selType: string = selectionModel?``type``
@@ -469,17 +465,6 @@ module ResponsiveTable =
                             sortable: bool
                         |}
                      >
-
-            // the cards get the same controls as the grid: the search and the column filter
-            let controls =
-                JSX.jsx
-                    $"""
-                import Box from '@mui/material/Box';
-                <Box sx={controlsSx}>
-                    {search}
-                    {filter}
-                </Box>
-                """
 
             {|
                 columns = typedColumns
@@ -519,13 +504,15 @@ module ResponsiveTable =
                             hideToolbar = true
                         |}
 
+                    // no filter button and no filter in the column menus: the filter above the
+                    // grid is the one filter on the list, so that a row is never hidden by a
+                    // filter the user cannot see
                     JSX.jsx
                         $"""
-                    import {{ GridToolbarContainer, GridToolbarColumnsButton, GridToolbarFilterButton, GridToolbarDensitySelector, GridToolbarExport }} from '@mui/x-data-grid';
+                    import {{ GridToolbarContainer, GridToolbarColumnsButton, GridToolbarDensitySelector, GridToolbarExport }} from '@mui/x-data-grid';
 
                     <GridToolbarContainer sx={toolbarSx}>
                         <GridToolbarColumnsButton />
-                        <GridToolbarFilterButton />
                         <GridToolbarDensitySelector />
                         <GridToolbarExport printOptions={printOptionsSx} />
                         {printButton}
@@ -556,16 +543,6 @@ module ResponsiveTable =
                     flexDirection = "column"
                 |}
 
-            let filterBoxSx =
-                {|
-                    marginBottom = 3
-                    flexShrink = 0
-                    display = "flex"
-                    flexWrap = "wrap"
-                    alignItems = "flex-end"
-                    gap = 2
-                |}
-
             let gridWrapperStyle =
                 {|
                     flex = 1
@@ -578,10 +555,7 @@ module ResponsiveTable =
             import {{ DataGrid }} from '@mui/x-data-grid';
 
             <Box sx={containerSx}>
-                <Box sx={filterBoxSx}>
-                    {search}
-                    {filter}
-                </Box>
+                {controls}
                 <div style={gridWrapperStyle}>
                     <DataGrid
                         sx={stripedSx}
@@ -589,6 +563,7 @@ module ResponsiveTable =
                         checkboxSelection={props.checkboxSelection}
                         isRowSelectable={isRowSelectable}
                         disableRowSelectionOnClick
+                        disableColumnFilter
                         rowSelectionModel = {selectedRows}
                         onRowSelectionModelChange = {onSelectionChange}
                         getRowClassName={getRowClassName}
