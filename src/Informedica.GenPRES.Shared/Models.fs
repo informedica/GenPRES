@@ -2254,33 +2254,79 @@ module Models =
                 { ctx with OrderContext.Filter.DoseType = dt }
 
 
+    /// Conversions between the one severity and the two shapes the wire carries it in.
+    [<RequireQualifiedAccess>]
+    module Severity =
+
+        /// The severity an order variable carries.
+        let ofLevel (level: Level) =
+            match level with
+            | IsNormal -> Severity.Normal
+            | IsCaution -> Severity.Caution
+            | IsWarning -> Severity.Warning
+            | IsAlert -> Severity.Alert
+
+
+        /// The level an order variable carries for a severity.
+        let toLevel (severity: Severity) =
+            match severity with
+            | Severity.Normal -> IsNormal
+            | Severity.Caution -> IsCaution
+            | Severity.Warning -> IsWarning
+            | Severity.Alert -> IsAlert
+
+
+        /// The severity a text block carries.
+        let ofTextBlock (block: TextBlock) =
+            match block with
+            | Valid _ -> Severity.Normal
+            | Caution _ -> Severity.Caution
+            | Warning _ -> Severity.Warning
+            | Alert _ -> Severity.Alert
+
+
+        /// The text a text block carries, whatever its severity.
+        let items (block: TextBlock) =
+            match block with
+            | Valid items
+            | Caution items
+            | Warning items
+            | Alert items -> items
+
+
+        /// The text block of a severity over some text.
+        let withItems (severity: Severity) (items: TextItem[]) =
+            match severity with
+            | Severity.Normal -> Valid items
+            | Severity.Caution -> Caution items
+            | Severity.Warning -> Warning items
+            | Severity.Alert -> Alert items
+
+
+        /// The highest of some severities; nothing raised when there are none.
+        let highest (severities: Severity seq) =
+            if severities |> Seq.isEmpty then
+                Severity.Normal
+            else
+                severities |> Seq.max
+
+
+        /// The highest severity among some text blocks.
+        let ofTextBlocks (blocks: TextBlock[]) = blocks |> Seq.map ofTextBlock |> highest
+
+
+        /// The highest severity among rows of text blocks; an empty row counts as nothing raised.
+        let ofTextBlockRows (rows: TextBlock[][]) = rows |> Seq.collect (Seq.map ofTextBlock) |> highest
+
+
+        /// Whether a severity is anything above normal: what gets a mark.
+        let isRaised (severity: Severity) = severity <> Severity.Normal
+
+
     module TextBlock =
 
-        let maxTb (xs: TextBlock[][]) =
-            if xs |> Array.isEmpty then
-                Valid
-            else
-                xs
-                |> Array.collect (fun tbs ->
-                    if tbs |> Array.isEmpty then
-                        [| 0 |]
-                    else
-                        tbs
-                        |> Array.map (fun tb ->
-                            match tb with
-                            | Valid _ -> 0
-                            | Caution _ -> 1
-                            | Warning _ -> 2
-                            | Alert _ -> 3
-                        )
-                )
-                |> Array.max
-                |> function
-                    | 0 -> Valid
-                    | 1 -> Caution
-                    | 2 -> Warning
-                    | 3 -> Alert
-                    | i -> raise (System.FormatException $"not a valid textblock: {i}")
+        /// The text block constructor of the highest severity among rows of text blocks.
+        let maxTb (xs: TextBlock[][]) = xs |> Severity.ofTextBlockRows |> Severity.withItems
 
 
         /// Flatten TextBlock[][] to a single-row TextBlock[][] for compact display.
@@ -2289,12 +2335,7 @@ module Models =
             if blocks |> Array.isEmpty then
                 blocks
             else
-                let getItems tb =
-                    match tb with
-                    | Valid itms
-                    | Caution itms
-                    | Warning itms
-                    | Alert itms -> itms |> Array.append [| " " |> Normal |]
+                let getItems tb = tb |> Severity.items |> Array.append [| " " |> Normal |]
 
                 let add xs =
                     let plus = [| [| " + " |> Normal |] |]
