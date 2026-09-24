@@ -1143,21 +1143,28 @@ module Nutrition =
 
         let onClickReset = fun () -> ResetOrderScenario |> dispatch
 
-        let administrationDivider =
-            JSX.jsx $"""<Divider><Typography variant="caption">toediening</Typography></Divider>"""
+        let heading label =
+            Components.SectionHeading.View
+                {|
+                    label = label
+                    action = None
+                |}
+
+        let administrationDivider = Terms.``Prescribe Administration`` |> getTerm "toediening" |> heading
+
+        let preparationHeading = Terms.``Prescribe Preparation`` |> getTerm "bereiding" |> heading
+        let dosingHeading = heading "dosering"
 
         let headerRow =
             JSX.jsx
                 $"""
             import Grid from '@mui/material/Grid';
-            import Typography from '@mui/material/Typography';
-            import Divider from '@mui/material/Divider';
             <Grid container spacing={{2}}>
                 <Grid size={halfSize}>
-                    <Divider><Typography variant="caption">bereiding</Typography></Divider>
+                    {preparationHeading}
                 </Grid>
                 <Grid size={halfSize}>
-                    <Divider><Typography variant="caption">dosering</Typography></Divider>
+                    {dosingHeading}
                 </Grid>
             </Grid>
             """
@@ -1323,21 +1330,21 @@ module Nutrition =
                     summaryId = None
                 |}
         else
+            // the section's name on its line, with the button that removes the section beside it
+            let heading =
+                Components.SectionHeading.View
+                    {|
+                        label = label
+                        action = Some removeButton
+                    |}
+
             JSX.jsx
                 $"""
             import React from "react";
-            import Stack from '@mui/material/Stack';
-            import Divider from '@mui/material/Divider';
-            import Typography from '@mui/material/Typography';
             import Box from '@mui/material/Box';
 
             <Box>
-                <Divider>
-                    <Stack direction="row" spacing={{1}} sx={alignCenterSx}>
-                        <Typography variant="caption">{label}</Typography>
-                        {removeButton}
-                    </Stack>
-                </Divider>
+                {heading}
                 {filterControls}
                 {orderDetails}
             </Box>
