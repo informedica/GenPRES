@@ -164,10 +164,15 @@ reaches for `Terms` itself.
   `SimpleSelect` and would be mistaken for prior art.
 - `Mui.TypoGraphy.create`, `createStrong`, `createWithColors`, `createStrongWithColors`, and
   `Mui.useTheme` — dead.
-- `Components/BasicTable.fs` accepts a `header` prop it never renders.
-- **Defect**: `MUI.fs:1078` renders `Italic` as `<strong>`, so italic text is bolded and never
+- **Defect**: `MUI.fs` renders `Italic` as `<strong>`, so italic text is bolded and never
   italicised.
-- **Defect**: `MUI.fs:512` `Theme.palette` ends in an empty `background: {| |}` — truncated.
+- **Defect**: `Components/BasicTable.fs` accepts a `header` it never renders, and imports
+  `TableHead` for it. Its one caller passes an empty header, so the prop is a promise nothing
+  keeps.
+
+The truncated `background: {| |}` on `Theme.palette` this document reported is **not** on
+`master`: the record carries `paper` and `` `default` ``. It was corrected before this plan was
+written, and the reading it came from was stale. Nothing to do.
 
 ## The components
 
@@ -358,9 +363,11 @@ is prototyped in a script and migrated by the maintainer.
    `BottomDrawer.fs` and their `.fsproj` compile lines; the dead `Mui.TypoGraphy` helpers and
    `Mui.useTheme`. Three of the four are near-duplicates of `SimpleSelect` and would otherwise be
    mistaken for prior art by the steps below.
-2. **F4b — fix the two defects the dead code hid**: `MUI.fs:1078` renders `Italic` as `<strong>`;
-   `MUI.fs:512` `Theme.palette` ends in a truncated `background: {| |}`. Plus
-   `Components/BasicTable.fs`'s `header` prop, accepted and never rendered.
+2. **F4b — fix the defects the dead code hid**: `MUI.fs` renders `Italic` as `<strong>`, so no
+   text in the client is ever italic; and `Components/BasicTable.fs` accepts a `header` it never
+   renders. The prop goes rather than gaining an implementation — its one caller passes an empty
+   header, so a header arrives with the first caller that wants one, rendered. The third defect
+   this plan listed, a truncated `Theme.palette.background`, is not on `master`.
 3. **F2 — the theme palette.** `palette` on both `createTheme` calls, `Mui.Styles` grown to the
    tokens the components need, `Mui.Colors` reduced to what the palette does not cover. Nothing
    migrates to it yet; it is what the later steps spell colours in.

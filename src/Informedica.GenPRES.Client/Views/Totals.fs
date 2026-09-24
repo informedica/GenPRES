@@ -121,13 +121,7 @@ module Totals =
         let content =
             columns
             |> Array.mapi (fun i col ->
-                $"table{i + 1}",
-                Components.BasicTable.View
-                    {|
-                        header = [||]
-                        rows = mapRow props.intake col
-                    |}
-                |> toReact
+                $"table{i + 1}", Components.BasicTable.View {| rows = mapRow props.intake col |} |> toReact
             )
 
         let isMobile = Mui.Hooks.useMediaQuery "(max-width:1200px)"

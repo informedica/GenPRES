@@ -1133,7 +1133,7 @@ module TypoGraphy =
                     <Typography
                     sx={italicSx}
                     >
-                    <strong>{s}</strong>
+                    <em>{s}</em>
                     </Typography>
                     """
             )

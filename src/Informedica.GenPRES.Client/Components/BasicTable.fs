@@ -8,13 +8,7 @@ module BasicTable =
 
 
     [<JSX.Component>]
-    let View
-        (props:
-            {|
-                header: obj[]
-                rows: obj[][]
-            |})
-        =
+    let View (props: {| rows: obj[][] |}) =
         let createRow i cells =
             let key = $"{cells |> Array.head}-{i}"
 
@@ -46,7 +40,6 @@ module BasicTable =
         import Table from '@mui/material/Table';
         import TableBody from '@mui/material/TableBody';
         import TableContainer from '@mui/material/TableContainer';
-        import TableHead from '@mui/material/TableHead';
 
         <Paper>
             <TableContainer >
