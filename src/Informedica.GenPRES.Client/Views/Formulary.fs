@@ -260,30 +260,46 @@ module Formulary =
             elif form.DoseCheck |> isAllValid then
                 let text = form.DoseCheck |> Array.map textOf |> String.concat " "
 
+                let notice =
+                    Components.Notice.View
+                        {|
+                            kind = Components.Notice.Kind.Success
+                            title = None
+                            message = text
+                            action = None
+                            onClose = None
+                        |}
+
                 JSX.jsx
                     $"""
-                    import Alert from '@mui/material/Alert';
-
                     <Box>
                         <Typography sx={doseCheckHeadingSx}>
                             Doseer controle volgens de G-Standaard
                         </Typography>
-                        <Alert severity="success" sx={doseCheckAlertSx}>{text}</Alert>
+                        <Box sx={doseCheckAlertSx}>{notice}</Box>
                     </Box>
                     """
                 |> toReact
             elif form.DoseCheck |> isAllCaution then
                 let text = form.DoseCheck |> Array.map textOf |> String.concat " "
 
+                let notice =
+                    Components.Notice.View
+                        {|
+                            kind = Components.Notice.Kind.Info
+                            title = None
+                            message = text
+                            action = None
+                            onClose = None
+                        |}
+
                 JSX.jsx
                     $"""
-                    import Alert from '@mui/material/Alert';
-
                     <Box>
                         <Typography sx={doseCheckHeadingSx}>
                             Doseer controle volgens de G-Standaard
                         </Typography>
-                        <Alert severity="info" sx={doseCheckAlertSx}>{text}</Alert>
+                        <Box sx={doseCheckAlertSx}>{notice}</Box>
                     </Box>
                     """
                 |> toReact

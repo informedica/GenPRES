@@ -409,26 +409,25 @@ module OrderPlan =
         let movedOnBar =
             match session.MovedOn with
             | Some head ->
-                let onOpenNewest = fun _ -> session.OpenVersion head.Id
-
-                let openNewest =
-                    JSX.jsx
-                        $"""
-                    import Button from '@mui/material/Button';
-
-                    <Button color="inherit" size="small" onClick={onOpenNewest}>
-                        {tr Terms.``Session Open Newest``}
-                    </Button>
-                    """
+                let bar =
+                    Components.Notice.View
+                        {|
+                            kind = Components.Notice.Kind.Warning
+                            title = None
+                            message = SigningPolicy.movedOnSentence tr head
+                            action =
+                                Some
+                                    {|
+                                        label = tr Terms.``Session Open Newest``
+                                        onClick = fun () -> session.OpenVersion head.Id
+                                    |}
+                            onClose = None
+                        |}
 
                 JSX.jsx
                     $"""
-                import Alert from '@mui/material/Alert';
-
                 <Box sx={ {| marginTop = 2 |} }>
-                    <Alert severity="warning" action={openNewest}>
-                        {SigningPolicy.movedOnSentence tr head}
-                    </Alert>
+                    {bar}
                 </Box>
                 """
             | None -> null

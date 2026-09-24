@@ -514,7 +514,15 @@ call sites migrate with their group.
    where it took a severity, so every order and nutrition field carries the reason.
 7. **C6 `Notice`** — severity, message, optional action, and the empty state as its own case;
    replaces the seven hand-built alerts, including the empty state rendered as
-   `severity="success"`.
+   `severity="success"`. Landed as `Components/Notice.fs`: a `Kind` of `Success`, `Info`,
+   `Warning`, `Error` and `Empty`, the last outlined and without an icon, since nothing found
+   is neither a success nor a failure; a title when the message needs one, an action when
+   there is one to take, dismissal when it may be dismissed. All seven alerts are on it: the
+   interactions page's nothing found and the prescribing page's ask for patient data, both
+   `Empty` now; the prescribing page's missing-dimension notice; the order plan's record-
+   moved-on bar with its open-newest action; the formulary's two one-line dose-check outcomes;
+   and the app's server error with its title and its dismissal. The snackbar's alert stays:
+   it is a toast, not a notice on a page.
 8. **C5 `ValueChip`** and **C10 `SectionHeading`** — both small, both spent by three groups.
 9. **C9 `Disclosure`** — a section that collapses to a summary carrying its result, and closes
    when the user says so rather than on a timer (#489's five-second effect does not survive).
