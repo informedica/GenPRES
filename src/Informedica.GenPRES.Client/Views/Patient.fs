@@ -191,7 +191,6 @@ module Patient =
                     selected = sel |> Option.map string
                     values = vs
                     updateSelected = changeValue
-                    stepper = None
                     isLoading = false
                     disabled = busy
                     hasClear = true

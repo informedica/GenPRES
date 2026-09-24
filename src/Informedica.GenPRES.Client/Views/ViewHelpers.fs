@@ -24,7 +24,6 @@ module ViewHelpers =
                 isLoading = isLoading
                 disabled = disabled || isEmpty
                 hasClear = true
-                stepper = None
                 severity = Severity.Normal
                 minWidth = None
             |}
@@ -41,9 +40,10 @@ module ViewHelpers =
         else
             let isEmpty = xs |> Array.isEmpty && stepper |> Option.isNone
 
-            Components.SimpleSelect.View
+            // no field is the lead yet: which one the user starts from is the server's to say
+            Components.QuantityField.View
                 {|
-                    updateSelected = if isEmpty then ignore else updateSelected
+                    onChange = if isEmpty then ignore else updateSelected
                     label = lbl
                     selected =
                         if xs |> Array.length = 1 then
@@ -55,8 +55,9 @@ module ViewHelpers =
                     disabled = disabled || isEmpty
                     hasClear = hasClear
                     severity = severity
-                    stepper = stepper
+                    steps = stepper
                     minWidth = minWidth
+                    isLead = false
                 |}
 
 
