@@ -169,18 +169,26 @@ module Prescribe =
                         |> Some
             | _ -> None
 
+        let noticeSx = {| margin = 1 |}
+
         let notice =
             match missingDimension with
             | None -> null
             | Some text ->
-                Components.Notice.View
-                    {|
-                        kind = Components.Notice.Kind.Info
-                        title = None
-                        message = text
-                        action = None
-                        onClose = None
-                    |}
+                let notice =
+                    Components.Notice.View
+                        {|
+                            kind = Components.Notice.Kind.Info
+                            title = None
+                            message = text
+                            action = None
+                            onClose = None
+                        |}
+
+                JSX.jsx
+                    $"""
+                <Box sx={noticeSx}>{notice}</Box>
+                """
 
         let progress =
             match orderContext with
