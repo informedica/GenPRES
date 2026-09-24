@@ -49,24 +49,29 @@ module QuantityField =
         |}
 
 
-    // the select and its stepper side by side, the stepper on the value's baseline; the
-    // stepper wraps under the select where the cell is too narrow for both
-    let private rowSx =
+    // The select and its stepper side by side on one line, the stepper on the value's baseline.
+    // The caller's minimum width is the field's, select and stepper together, as it was when
+    // the stepper sat inside the select; the select fills what the stepper leaves of it.
+    let private rowSx (minWidth: int) =
         {|
-            display = "flex"
-            flexWrap = "wrap"
+            display = "inline-flex"
+            flexWrap = "nowrap"
             alignItems = "flex-end"
             gap = 0.5
+            minWidth = minWidth
+            maxWidth = "100%"
         |}
 
 
     // the field the user is pointed at first carries the accent on its left
-    let private leadSx =
+    let private leadSx (minWidth: int) =
         {|
-            display = "flex"
-            flexWrap = "wrap"
+            display = "inline-flex"
+            flexWrap = "nowrap"
             alignItems = "flex-end"
             gap = 0.5
+            minWidth = minWidth
+            maxWidth = "100%"
             borderLeft = $"3px solid"
             borderColor = Mui.Styles.accentColor
             paddingLeft = 1
@@ -164,7 +169,8 @@ module QuantityField =
                     hasClear = props.hasClear
                     canStep = canStep
                     severity = props.severity
-                    minWidth = props.minWidth
+                    // the minimum is the field's; the select grows into what the stepper leaves
+                    minWidth = None
                 |}
 
         // the step buttons rest only when the field is disabled: a step sent while the value
@@ -186,7 +192,12 @@ module QuantityField =
                         onLargeStep = bumpLarge
                     |}
 
-        let sx = if props.isLead then box leadSx else box rowSx
+        let minWidth = props.minWidth |> Option.defaultValue 150
+        let sx =
+            if props.isLead then
+                box (leadSx minWidth)
+            else
+                box (rowSx minWidth)
 
         JSX.jsx
             $"""

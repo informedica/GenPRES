@@ -113,10 +113,12 @@ module SimpleSelect =
                 {| ``& .MuiSelect-icon`` = {| visibility = if endAdornment.IsNone then "visible" else "hidden" |} |}
                 |> box
 
+        // in a row beside a stepper the select takes the width the stepper leaves
         let formControlSx =
             {|
                 minWidth = props.minWidth |> Option.defaultValue 150
                 maxWidth = "100%"
+                flexGrow = 1
             |}
 
         JSX.jsx
