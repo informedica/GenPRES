@@ -891,7 +891,28 @@ module Order =
 
         let onClickOk = fun () -> props.closeOrder ()
 
-        let onClickReset = fun () -> ResetOrderScenario |> dispatch
+        // Ok completes the dialog and Reset discards the changes: the bar places them
+        let actionBar =
+            Components.ActionBar.View
+                {|
+                    actions =
+                        [|
+                            {|
+                                label = "Reset"
+                                kind = Components.ActionBar.Kind.Secondary
+                                onClick = fun () -> ResetOrderScenario |> dispatch
+                                disabled = isOrderLoading
+                                icon = Some Mui.Icons.RefreshIcon
+                            |}
+                            {|
+                                label = Terms.``Ok `` |> getTerm "Ok"
+                                kind = Components.ActionBar.Kind.Primary
+                                onClick = onClickOk
+                                disabled = false
+                                icon = None
+                            |}
+                        |]
+                |}
 
         let headerSx =
             if isMobile then
@@ -1453,12 +1474,7 @@ module Order =
                 {loadingIndicator}
             </CardContent>
             <CardActions >
-                    <Button onClick={onClickOk}>
-                        {Terms.``Ok `` |> getTerm "Ok"}
-                    </Button>
-                    <Button onClick={onClickReset} disabled={isOrderLoading} startIcon={Mui.Icons.RefreshIcon}>
-                        Reset
-                    </Button>
+                {actionBar}
             </CardActions>
             </div>
             """
