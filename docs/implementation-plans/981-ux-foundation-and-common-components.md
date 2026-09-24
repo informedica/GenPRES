@@ -505,7 +505,13 @@ call sites migrate with their group.
    marked order variable, the bound its values cross, the maximum by the values' top or the
    minimum by their bottom, in the values' unit, honouring whether the bound itself is allowed;
    `Outside` when the server marked it and the bounds do not say why. Then the mark itself,
-   with the icon and the reason on hover, and the order fields on it.
+   with the icon and the reason on hover, and the order fields on it: landed as
+   `Components/SeverityMark.fs`, an icon per severity in the severity's colour with the reason
+   in a tooltip on hover and nothing else, no popup; `QuantityField` shows it between the
+   value and the stepper beside the underline it already had. `ViewHelpers.markOf` reads a
+   `Mark`, severity and reason, from an order variable, the reason worded as "max 15 mg" or
+   "min 2 mg" in the value's unit and left unsaid for `Outside`; `orderSelect` takes the mark
+   where it took a severity, so every order and nutrition field carries the reason.
 7. **C6 `Notice`** — severity, message, optional action, and the empty state as its own case;
    replaces the seven hand-built alerts, including the empty state rendered as
    `severity="success"`.

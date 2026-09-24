@@ -668,7 +668,7 @@ module Nutrition =
 
         let fixPrecision = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision
 
-        let severityOf = ViewHelpers.severityOf
+        let markOf = ViewHelpers.markOf
 
         let genericChange s =
             ctx
@@ -910,7 +910,7 @@ module Nutrition =
                                 (SetMaxComponentQuantityProperty cmpName)
                                 (cmp.OrderableQuantity |> ViewHelpers.ovarStep string)
 
-                    let qtyWarning = cmp.OrderableQuantity.Level |> severityOf
+                    let qtyWarning = cmp.OrderableQuantity |> markOf
 
                     let qtyLabel = cmp.OrderableQuantity |> ViewHelpers.ovarLabel cmp.Name
 
@@ -928,7 +928,7 @@ module Nutrition =
 
                     // Dose display (dosering) - always show with label
                     let doseLabel = cmp.Dose.QuantityAdjust |> ViewHelpers.ovarLabel cmp.Name
-                    let doseWarning = cmp.Dose.QuantityAdjust.Level |> severityOf
+                    let doseWarning = cmp.Dose.QuantityAdjust |> markOf
                     let doseVals = cmp.Dose.QuantityAdjust |> ViewHelpers.ovarVals (fixPrecision 3)
 
                     let doseDisplay =
@@ -970,7 +970,7 @@ module Nutrition =
         let doseQtyControl =
             match displayOrder with
             | Some ord ->
-                let severity = ord.Orderable.Dose.Quantity.Level |> severityOf
+                let severity = ord.Orderable.Dose.Quantity |> markOf
 
                 let label = ord.Orderable.Dose.Quantity |> ViewHelpers.ovarLabel "toedien hoeveelheid"
 
@@ -1009,7 +1009,7 @@ module Nutrition =
         let frequencyControl =
             match displayOrder with
             | Some ord when ord.Schedule.IsDiscontinuous || ord.Schedule.IsTimed ->
-                let severity = ord.Schedule.Frequency.Level |> severityOf
+                let severity = ord.Schedule.Frequency |> markOf
                 let label = ord.Schedule.Frequency |> ViewHelpers.ovarLabel "frequentie"
                 let freqVals = ord.Schedule.Frequency |> ViewHelpers.ovarVals string
 
@@ -1103,7 +1103,7 @@ module Nutrition =
                         SetMaxDoseRateProperty
                         (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
 
-                let severity = ord.Orderable.Dose.Rate.Level |> severityOf
+                let severity = ord.Orderable.Dose.Rate |> markOf
                 let label = ord.Orderable.Dose.Rate |> ViewHelpers.ovarLabel "infuussnelheid"
 
                 let rateDisplay =

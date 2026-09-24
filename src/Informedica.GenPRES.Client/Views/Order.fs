@@ -876,7 +876,7 @@ module Order =
 
                 hasFrequency || hasDoseQty || hasDoseRate || hasTime
 
-        let severityOf = ViewHelpers.severityOf
+        let markOf = ViewHelpers.markOf
 
         // the component and the item selects are the dialog's own, never a request
         let select = ViewHelpers.orderSelect false false
@@ -969,7 +969,7 @@ module Order =
                             (ChangeComponent >> dispatch)
                             None
                             false
-                            Severity.Normal
+                            ViewHelpers.noMark
                             None
                 | _ -> null
 
@@ -989,7 +989,7 @@ module Order =
                             (ChangeItem >> dispatch)
                             None
                             false
-                            Severity.Normal
+                            ViewHelpers.noMark
                             None
                 | _ -> null
 
@@ -1006,7 +1006,7 @@ module Order =
                         )
                         |> Option.defaultValue ("", [||])
 
-                    let severity = itms[i].Dose.Quantity.Level |> severityOf
+                    let severity = itms[i].Dose.Quantity |> markOf
 
                     vals
                     |> selectFor
@@ -1039,7 +1039,7 @@ module Order =
                         )
                         |> Option.defaultValue ("", [||])
 
-                    let severity = itms[i].Dose.QuantityAdjust.Level |> severityOf
+                    let severity = itms[i].Dose.QuantityAdjust |> markOf
 
                     vals
                     |> selectFor
@@ -1079,9 +1079,9 @@ module Order =
 
                     let severity =
                         if useAdjust then
-                            itms[i].Dose.PerTimeAdjust.Level |> severityOf
+                            itms[i].Dose.PerTimeAdjust |> markOf
                         else
-                            itms[i].Dose.PerTime.Level |> severityOf
+                            itms[i].Dose.PerTime |> markOf
 
                     vals |> selectFor "substPerTime" label None dispatch None true severity None
                 | _ -> null
@@ -1099,9 +1099,9 @@ module Order =
 
                     let severity =
                         if useAdjust then
-                            itms[i].Dose.RateAdjust.Level |> severityOf
+                            itms[i].Dose.RateAdjust |> markOf
                         else
-                            itms[i].Dose.Rate.Level |> severityOf
+                            itms[i].Dose.Rate |> markOf
 
                     let ovar =
                         if useAdjust then
@@ -1172,8 +1172,8 @@ module Order =
 
                     let severity =
                         cmp
-                        |> Option.map (_.OrderableQuantity.Level >> severityOf)
-                        |> Option.defaultValue Severity.Normal
+                        |> Option.map (_.OrderableQuantity >> markOf)
+                        |> Option.defaultValue ViewHelpers.noMark
 
                     vals
                     |> selectFor
@@ -1215,7 +1215,7 @@ module Order =
                                 (change >> dispatch)
                                 None
                                 false
-                                Severity.Normal
+                                ViewHelpers.noMark
                                 None
                         else
                             null
@@ -1245,7 +1245,7 @@ module Order =
                                         (change >> dispatch)
                                         None
                                         false
-                                        Severity.Normal
+                                        ViewHelpers.noMark
                                         None
                                 else
                                     null
@@ -1261,7 +1261,7 @@ module Order =
                     && itms |> Array.length > 0
                     && ord.Orderable.Components |> Array.length > 1
                     ->
-                    let severity = itms[i].OrderableQuantity.Level |> severityOf
+                    let severity = itms[i].OrderableQuantity |> markOf
 
                     itms[i].OrderableQuantity
                     |> ViewHelpers.ovarVals (fixPrecision 3)
@@ -1283,7 +1283,7 @@ module Order =
                     && itms |> Array.length > 0
                     && ord.Orderable.Components |> Array.length > 1
                     ->
-                    let severity = itms[i].OrderableConcentration.Level |> severityOf
+                    let severity = itms[i].OrderableConcentration |> markOf
 
                     itms[i].OrderableConcentration
                     |> ViewHelpers.ovarVals (fixPrecision 3)
@@ -1301,7 +1301,7 @@ module Order =
             let ordQtySelect =
                 match displayOrder with
                 | Some ord when ord.Orderable.Components |> Array.length > 1 ->
-                    let severity = ord.Orderable.OrderableQuantity.Level |> severityOf
+                    let severity = ord.Orderable.OrderableQuantity |> markOf
 
                     ord.Orderable.OrderableQuantity
                     |> ViewHelpers.ovarVals string
@@ -1339,7 +1339,7 @@ module Order =
                                 SetMaxFrequencyProperty
                                 None
 
-                    let severity = ord.Schedule.Frequency.Level |> severityOf
+                    let severity = ord.Schedule.Frequency |> markOf
 
                     selectFor
                         "frequency"
@@ -1367,7 +1367,7 @@ module Order =
                             IncreaseDoseQuantityProperty
                             SetMaxDoseQuantityProperty
 
-                    let severity = ord.Orderable.Dose.Quantity.Level |> severityOf
+                    let severity = ord.Orderable.Dose.Quantity |> markOf
 
                     ord.Orderable.Dose.Quantity
                     |> ViewHelpers.ovarValsWithRange string 3
@@ -1400,7 +1400,7 @@ module Order =
                             SetMaxDoseRateProperty
                             (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
 
-                    let severity = ord.Orderable.Dose.Rate.Level |> severityOf
+                    let severity = ord.Orderable.Dose.Rate |> markOf
 
                     ord.Orderable.Dose.Rate
                     |> ViewHelpers.ovarValsWithRange string 3
@@ -1418,7 +1418,7 @@ module Order =
             let timeSelect =
                 match displayOrder with
                 | Some ord ->
-                    let severity = ord.Schedule.Time.Level |> severityOf
+                    let severity = ord.Schedule.Time |> markOf
 
                     ord.Schedule.Time
                     |> ViewHelpers.ovarVals (fixPrecision 2)
