@@ -1099,13 +1099,43 @@ type Hooks =
     static member inline useMediaQuery(getQuery: Theme -> string) : bool = HookImports.useMediaQuery_theme getQuery
 
 
+/// The tokens a shared component spells its colours in. Each is a path into the theme's
+/// palette, resolved by sx, so a colour is stated once, in the theme, and a component names
+/// what it means rather than what it is. The hexes still in Mui.Colors are the ones the
+/// palette does not cover yet.
 module Styles =
 
+    /// The four severities the client shows, as the palette names them.
+    let validColor = "success.main"
+    let cautionColor = "info.main"
+    let warningColor = "warning.main"
+    let alertColor = "error.main"
+
+    /// The tint behind a caution, a warning or an alert, as an alert box has it.
+    let cautionBg = "severityBg.caution"
+    let warningBg = "severityBg.warning"
+    let alertBg = "severityBg.alert"
+
+    /// Text that carries the value, and text that explains it.
+    let textColor = "text.primary"
+    let mutedTextColor = "text.secondary"
+    let disabledTextColor = "text.disabled"
+
+    /// The accent of a selected row and a marked border.
+    let accentColor = "primary.main"
+
+    /// Backgrounds: the page, a card, a hovered row, a subdued section such as a print header.
+    let pageBg = "background.default"
+    let paperBg = "background.paper"
+    let hoverBg = "action.hover"
+    let subtleBg = "grey.100"
+
+    /// A divider and a table border.
+    let dividerColor = "divider"
+
+    /// The header band over a table or a section; a tint the palette has no name for yet.
     let headerBgColor = Colors.Blue.``50``
 
 
     let selectIconVisibilitySx isClear =
         {| ``& .MuiSelect-icon`` = {| visibility = if isClear then "visible" else "hidden" |} |}
-
-
-    let clearButtonVisibilitySx isClear = {| visibility = if isClear then "hidden" else "visible" |}
