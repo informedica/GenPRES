@@ -403,6 +403,11 @@ is prototyped in a script and migrated by the maintainer.
    there: that file colours its markdown text with `Colors.Indigo`, which is not a severity and
    stays. The formulary text shifts from `Colors.Green.700`, `Blue.600`, `Orange.700`,
    `Red.700` to the palette's `success`, `info`, `warning`, `error`: the shift F2 announced.
+   The second pull request puts the order fields on the same mark: `SimpleSelect` takes a
+   `severity` where it took a colour string, `ViewHelpers.severityOf` replaces `getWarning`
+   and its colour table, and the menu tints come from `Styles.severityBg` over the dose check's
+   highest severity. `Colors.Green`, `Orange` and `Red` are unused after it; Green goes with
+   it, Orange and Red with the next change that touches `MUI.fs`, for size.
 6. **F3 — the label convention.** A shared component takes its label as a prop or as a
    `(term, default)` pair and never reaches for `Terms` itself; `Views/ViewHelpers.fs`'s
    hard-coded Dutch (`"onbekend"`, `"Paraaf arts:"`, the nine print-header labels) becomes props.

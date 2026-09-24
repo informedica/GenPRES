@@ -730,22 +730,6 @@ module Colors =
         static member ``800`` = "#37474f"
         static member ``900`` = "#263238"
 
-    type Green =
-        static member ``50`` = "#e8f5e9"
-        static member ``100`` = "#c8e6c9"
-        static member ``200`` = "#a5d6a7"
-        static member ``300`` = "#81c784"
-        static member ``400`` = "#66bb6a"
-        static member ``500`` = "#4caf50"
-        static member ``600`` = "#43a047"
-        static member ``700`` = "#388e3c"
-        static member ``800`` = "#2e7d32"
-        static member ``900`` = "#1b5e20"
-        static member A100 = "#b9f6ca"
-        static member A200 = "#69f0ae"
-        static member A400 = "#00e676"
-        static member A700 = "#00c853"
-
     type Grey =
         static member ``50`` = "#fafafa"
         static member ``100`` = "#f5f5f5"

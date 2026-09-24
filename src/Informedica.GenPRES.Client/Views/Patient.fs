@@ -195,7 +195,7 @@ module Patient =
                     isLoading = false
                     disabled = busy
                     hasClear = true
-                    warning = None
+                    severity = Severity.Normal
                     minWidth = None
                 |}
 

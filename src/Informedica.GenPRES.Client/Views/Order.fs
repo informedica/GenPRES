@@ -876,7 +876,7 @@ module Order =
 
                 hasFrequency || hasDoseQty || hasDoseRate || hasTime
 
-        let getWarning = ViewHelpers.getWarning
+        let severityOf = ViewHelpers.severityOf
 
         // the component and the item selects are the dialog's own, never a request
         let select = ViewHelpers.orderSelect false false
@@ -948,7 +948,7 @@ module Order =
                             (ChangeComponent >> dispatch)
                             None
                             false
-                            None
+                            Severity.Normal
                             None
                 | _ -> null
 
@@ -961,7 +961,15 @@ module Order =
                         itms
                         |> Array.map _.Name
                         |> Array.map (fun s -> s, s)
-                        |> select false "stoffen" state.SelectedItem (ChangeItem >> dispatch) None false None None
+                        |> select
+                            false
+                            "stoffen"
+                            state.SelectedItem
+                            (ChangeItem >> dispatch)
+                            None
+                            false
+                            Severity.Normal
+                            None
                 | _ -> null
 
             let substDoseQtySelect =
@@ -977,7 +985,7 @@ module Order =
                         )
                         |> Option.defaultValue ("", [||])
 
-                    let warning = itms[i].Dose.Quantity.Level |> getWarning
+                    let severity = itms[i].Dose.Quantity.Level |> severityOf
 
                     vals
                     |> selectFor
@@ -987,7 +995,7 @@ module Order =
                         (ChangeSubstanceDoseQuantity >> dispatch)
                         None
                         false
-                        warning
+                        severity
                         None
                 | _ -> null
 
@@ -1010,7 +1018,7 @@ module Order =
                         )
                         |> Option.defaultValue ("", [||])
 
-                    let warning = itms[i].Dose.QuantityAdjust.Level |> getWarning
+                    let severity = itms[i].Dose.QuantityAdjust.Level |> severityOf
 
                     vals
                     |> selectFor
@@ -1020,7 +1028,7 @@ module Order =
                         (ChangeSubstanceDoseQuantityAdjust >> dispatch)
                         None
                         true
-                        warning
+                        severity
                         None
                 | _ -> null
 
@@ -1048,13 +1056,13 @@ module Order =
                         )
                         |> Option.defaultValue ("", [||])
 
-                    let warning =
+                    let severity =
                         if useAdjust then
-                            itms[i].Dose.PerTimeAdjust.Level |> getWarning
+                            itms[i].Dose.PerTimeAdjust.Level |> severityOf
                         else
-                            itms[i].Dose.PerTime.Level |> getWarning
+                            itms[i].Dose.PerTime.Level |> severityOf
 
-                    vals |> selectFor "substPerTime" label None dispatch None true warning None
+                    vals |> selectFor "substPerTime" label None dispatch None true severity None
                 | _ -> null
 
             let substRateSelect =
@@ -1068,11 +1076,11 @@ module Order =
                         else
                             ChangeSubstanceRate >> dispatch
 
-                    let warning =
+                    let severity =
                         if useAdjust then
-                            itms[i].Dose.RateAdjust.Level |> getWarning
+                            itms[i].Dose.RateAdjust.Level |> severityOf
                         else
-                            itms[i].Dose.Rate.Level |> getWarning
+                            itms[i].Dose.Rate.Level |> severityOf
 
                     let ovar =
                         if useAdjust then
@@ -1090,7 +1098,7 @@ module Order =
                         dispatch
                         stepper
                         true
-                        warning
+                        severity
                         None
                 | _ -> null
 
@@ -1141,7 +1149,10 @@ module Order =
                                 SetMaxComponentQuantityProperty
                                 (cmp |> Option.bind (_.OrderableQuantity >> ViewHelpers.ovarStep string))
 
-                    let warning = cmp |> Option.bind (_.OrderableQuantity.Level >> getWarning)
+                    let severity =
+                        cmp
+                        |> Option.map (_.OrderableQuantity.Level >> severityOf)
+                        |> Option.defaultValue Severity.Normal
 
                     vals
                     |> selectFor
@@ -1151,7 +1162,7 @@ module Order =
                         (ChangeComponentOrderableQuantity >> dispatch)
                         stepper
                         false
-                        warning
+                        severity
                         None
                 | _ -> null
 
@@ -1183,7 +1194,7 @@ module Order =
                                 (change >> dispatch)
                                 None
                                 false
-                                None
+                                Severity.Normal
                                 None
                         else
                             null
@@ -1213,7 +1224,7 @@ module Order =
                                         (change >> dispatch)
                                         None
                                         false
-                                        None
+                                        Severity.Normal
                                         None
                                 else
                                     null
@@ -1229,7 +1240,7 @@ module Order =
                     && itms |> Array.length > 0
                     && ord.Orderable.Components |> Array.length > 1
                     ->
-                    let warning = itms[i].OrderableQuantity.Level |> getWarning
+                    let severity = itms[i].OrderableQuantity.Level |> severityOf
 
                     itms[i].OrderableQuantity
                     |> ViewHelpers.ovarVals (fixPrecision 3)
@@ -1240,7 +1251,7 @@ module Order =
                         (ChangeSubstanceOrderableQuantity >> dispatch)
                         None
                         false
-                        warning
+                        severity
                         None
                 | _ -> null
 
@@ -1251,7 +1262,7 @@ module Order =
                     && itms |> Array.length > 0
                     && ord.Orderable.Components |> Array.length > 1
                     ->
-                    let warning = itms[i].OrderableConcentration.Level |> getWarning
+                    let severity = itms[i].OrderableConcentration.Level |> severityOf
 
                     itms[i].OrderableConcentration
                     |> ViewHelpers.ovarVals (fixPrecision 3)
@@ -1262,14 +1273,14 @@ module Order =
                         (ChangeSubstanceOrderableConcentration >> dispatch)
                         None
                         false
-                        warning
+                        severity
                         None
                 | _ -> null
 
             let ordQtySelect =
                 match displayOrder with
                 | Some ord when ord.Orderable.Components |> Array.length > 1 ->
-                    let warning = ord.Orderable.OrderableQuantity.Level |> getWarning
+                    let severity = ord.Orderable.OrderableQuantity.Level |> severityOf
 
                     ord.Orderable.OrderableQuantity
                     |> ViewHelpers.ovarVals string
@@ -1280,7 +1291,7 @@ module Order =
                         (ChangeOrderableQuantity >> dispatch)
                         None
                         false
-                        warning
+                        severity
                         None
                 | _ -> null
 
@@ -1307,7 +1318,7 @@ module Order =
                                 SetMaxFrequencyProperty
                                 None
 
-                    let warning = ord.Schedule.Frequency.Level |> getWarning
+                    let severity = ord.Schedule.Frequency.Level |> severityOf
 
                     selectFor
                         "frequency"
@@ -1316,7 +1327,7 @@ module Order =
                         (ChangeFrequency >> dispatch)
                         stepper
                         false
-                        warning
+                        severity
                         None
                         xs
                 | _ -> null
@@ -1335,7 +1346,7 @@ module Order =
                             IncreaseDoseQuantityProperty
                             SetMaxDoseQuantityProperty
 
-                    let warning = ord.Orderable.Dose.Quantity.Level |> getWarning
+                    let severity = ord.Orderable.Dose.Quantity.Level |> severityOf
 
                     ord.Orderable.Dose.Quantity
                     |> ViewHelpers.ovarValsWithRange string 3
@@ -1346,7 +1357,7 @@ module Order =
                         (ChangeOrderableDoseQuantity >> dispatch)
                         stepper
                         false
-                        warning
+                        severity
                         None
                 | _ -> null
 
@@ -1368,7 +1379,7 @@ module Order =
                             SetMaxDoseRateProperty
                             (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
 
-                    let warning = ord.Orderable.Dose.Rate.Level |> getWarning
+                    let severity = ord.Orderable.Dose.Rate.Level |> severityOf
 
                     ord.Orderable.Dose.Rate
                     |> ViewHelpers.ovarValsWithRange string 3
@@ -1379,14 +1390,14 @@ module Order =
                         (ChangeOrderableDoseRate >> dispatch)
                         stepper
                         false
-                        warning
+                        severity
                         None
                 | _ -> null
 
             let timeSelect =
                 match displayOrder with
                 | Some ord ->
-                    let warning = ord.Schedule.Time.Level |> getWarning
+                    let severity = ord.Schedule.Time.Level |> severityOf
 
                     ord.Schedule.Time
                     |> ViewHelpers.ovarVals (fixPrecision 2)
@@ -1398,7 +1409,7 @@ module Order =
                         (ChangeTime >> dispatch)
                         None
                         true
-                        warning
+                        severity
                         None
                 | _ -> null
 

@@ -224,38 +224,11 @@ module GenPres =
 
         let formulary = (AppEnv.asEnv<AppEnv.IFormulary> props.appEnv).Formulary
 
+        // the menu's formulary entry is tinted by the highest severity of the dose check
         let formularyBg =
             match formulary with
             | Resolved form
-            | Refreshing form when form.DoseCheck |> Array.isEmpty |> not ->
-                let hasAlert =
-                    form.DoseCheck
-                    |> Array.exists (
-                        function
-                        | Alert _ -> true
-                        | _ -> false
-                    )
-
-                let hasWarning =
-                    form.DoseCheck
-                    |> Array.exists (
-                        function
-                        | Warning _ -> true
-                        | _ -> false
-                    )
-
-                let hasCaution =
-                    form.DoseCheck
-                    |> Array.exists (
-                        function
-                        | Caution _ -> true
-                        | _ -> false
-                    )
-
-                if hasAlert then Some "#fdeded"
-                elif hasWarning then Some "#fff4e5"
-                elif hasCaution then Some "#e5f6fd"
-                else None
+            | Refreshing form -> form.DoseCheck |> Models.Severity.ofTextBlocks |> Mui.Styles.severityBg
             | _ -> None
 
         let interactionsIndex = pages |> List.tryFindIndex ((=) Global.Pages.Interactions)
@@ -266,7 +239,7 @@ module GenPres =
             state.SideMenuItems
             |> Array.mapi (fun idx (icon, text, sel, _, _) ->
                 if Some idx = interactionsIndex && hasInteractions then
-                    icon, text, sel, Some "#fff4e5", false
+                    icon, text, sel, Some Mui.Styles.warningBg, false
                 elif Some idx = formularyIndex && formularyBg |> Option.isSome then
                     icon, text, sel, formularyBg, false
                 elif Some idx = settingsIndex && not auth.IsAuthenticated then
