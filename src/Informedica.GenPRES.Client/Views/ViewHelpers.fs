@@ -24,6 +24,7 @@ module ViewHelpers =
                 isLoading = isLoading
                 disabled = disabled || isEmpty
                 hasClear = true
+                canStep = false
                 severity = Severity.Normal
                 minWidth = None
             |}

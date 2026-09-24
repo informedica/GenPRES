@@ -141,6 +141,17 @@ module QuantityField =
                 [| (origKey, label) |], Some origKey
             | _ -> props.values, props.selected
 
+        let canStep =
+            props.steps
+            |> Option.map (fun s ->
+                s.first.IsSome
+                || s.decrease.IsSome
+                || s.median.IsSome
+                || s.increase.IsSome
+                || s.last.IsSome
+            )
+            |> Option.defaultValue false
+
         let select =
             SimpleSelect.View
                 {|
@@ -151,6 +162,7 @@ module QuantityField =
                     isLoading = props.isLoading
                     disabled = props.disabled
                     hasClear = props.hasClear
+                    canStep = canStep
                     severity = props.severity
                     minWidth = props.minWidth
                 |}

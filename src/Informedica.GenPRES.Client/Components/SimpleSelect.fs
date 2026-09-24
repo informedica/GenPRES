@@ -22,6 +22,9 @@ module SimpleSelect =
                 isLoading: bool
                 disabled: bool
                 hasClear: bool
+                // whether the value can be stepped beside the select: a single value that can
+                // be stepped is not a fixed one, and is not drawn as one
+                canStep: bool
                 severity: Types.Severity
                 minWidth: int option
             |})
@@ -90,7 +93,7 @@ module SimpleSelect =
             else
                 None
 
-        let hasInteraction = props.values.Length > 1
+        let hasInteraction = props.canStep || props.values.Length > 1
 
         let sx =
             match props.severity |> Models.Severity.isRaised, hasInteraction with

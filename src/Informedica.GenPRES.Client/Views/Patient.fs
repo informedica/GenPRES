@@ -194,6 +194,7 @@ module Patient =
                     isLoading = false
                     disabled = busy
                     hasClear = true
+                    canStep = false
                     severity = Severity.Normal
                     minWidth = None
                 |}
