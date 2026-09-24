@@ -269,14 +269,33 @@ module OrderPlan =
             | OrderPlanView.NoPatient
             | OrderPlanView.Settled _ -> false
 
+        // removing is asked first: the button opens the question, confirming does it
+        let confirmDeleteOpen, setConfirmDeleteOpen = React.useState false
+
+        let onDelete = fun () -> setConfirmDeleteOpen true
+
         // the contexts the filter keeps go, each with its order
-        let onDelete =
+        let onDeleteConfirmed =
             fun () ->
                 match orderPlan with
                 | OrderPlanView.Settled(tp, _) ->
                     planCommand (Api.OrderPlanCommand.RemoveOrderContexts(tp, tp.Filtered))
                 | OrderPlanView.NoPatient
                 | OrderPlanView.Changing _ -> ()
+
+                setConfirmDeleteOpen false
+
+        let confirmDeleteDialog =
+            Components.ConfirmDialog.View
+                {|
+                    isOpen = confirmDeleteOpen
+                    title = "Verwijder Geselecteerde Voorschriften"
+                    text = "De geselecteerde voorschriften worden uit het order plan verwijderd. Wilt u doorgaan?"
+                    confirmLabel = Terms.Delete |> getTerm "Verwijderen"
+                    cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                    onConfirm = onDeleteConfirmed
+                    onCancel = fun () -> setConfirmDeleteOpen false
+                |}
 
         let updateOrderScenario (ctx: OrderContext) =
             orderContextMsg (Api.OrderContextCommand.UpdateOrderScenario, ctx)
@@ -467,6 +486,7 @@ module OrderPlan =
                     {orderView}
                 </Box>
             </Modal>
+            {confirmDeleteDialog}
             {signDialog}
         </Box>
         """
