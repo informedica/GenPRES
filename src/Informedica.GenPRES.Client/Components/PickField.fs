@@ -41,8 +41,10 @@ module PickField =
 
         // The one option a field shows chosen is chosen for the page too, once, when the field
         // arrives at it: the choice the user could only have made is made for them, and the
-        // next field can follow. The dependencies are the option and the choice as strings, so
-        // the effect runs when either changes and not on every render.
+        // next field can follow. The dependencies are the option and the choice as strings and
+        // whether the field is enabled, so the effect runs when any of them changes, also when
+        // a field that was disabled with its one option already there becomes enabled, and not
+        // on every render.
         let only =
             match props.options with
             | [| (key, _) |] -> Some key
@@ -56,7 +58,7 @@ module PickField =
                 | Some key when props.selected <> Some key && props.enabled -> props.onChange (Some key)
                 | _ -> ()
             ),
-            [| box (only |> Option.defaultValue ""); box chosen |]
+            [| box (only |> Option.defaultValue ""); box chosen; box props.enabled |]
         )
 
         SimpleSelect.View
