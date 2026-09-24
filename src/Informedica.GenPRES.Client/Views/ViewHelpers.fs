@@ -532,18 +532,27 @@ module ViewHelpers =
             |}
 
 
-        let patientWeight (patient: Patient option) =
+        /// The patient's weight for the print, or the caller's word for not known.
+        let patientWeight (unknown: string) (patient: Patient option) =
             patient
             |> Option.bind Models.Patient.getWeightInKg
             |> Option.map (fun w ->
                 let s = decimal w |> Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision 1
                 s + " kg"
             )
-            |> Option.defaultValue "onbekend"
+            |> Option.defaultValue unknown
 
 
         [<JSX.Component>]
-        let PatientHeader (props: {| weightKg: string |}) =
+        let PatientHeader
+            (props:
+                {|
+                    weightKg: string
+                    labels: Global.PrintLabels
+                |})
+            =
+            let labels = props.labels
+
             let currentDate =
                 let dt = DateTime.Now
                 let pad (n: int) = if n < 10 then $"0{n}" else $"{n}"
@@ -566,31 +575,31 @@ module ViewHelpers =
             <Table size="small" sx={patientTableSx}>
                 <TableBody>
                     <TableRow>
-                        <TableCell sx={headerCellSx}>D.D.</TableCell>
+                        <TableCell sx={headerCellSx}>{labels.date}</TableCell>
                         <TableCell sx={valueCellSx}>{currentDate}</TableCell>
-                        <TableCell sx={headerCellSx}>Patientnummer</TableCell>
+                        <TableCell sx={headerCellSx}>{labels.patientNumber}</TableCell>
                         <TableCell sx={valueCellSx}></TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell sx={headerCellSx}>Afdeling</TableCell>
+                        <TableCell sx={headerCellSx}>{labels.department}</TableCell>
                         <TableCell sx={valueCellSx}></TableCell>
-                        <TableCell sx={headerCellSx}>Naam</TableCell>
-                        <TableCell sx={valueCellSx}></TableCell>
-                    </TableRow>
-                    <TableRow>
-                        <TableCell sx={headerCellSx}>Bed</TableCell>
-                        <TableCell sx={valueCellSx}></TableCell>
-                        <TableCell sx={headerCellSx}>Geboorte datum</TableCell>
+                        <TableCell sx={headerCellSx}>{labels.name}</TableCell>
                         <TableCell sx={valueCellSx}></TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell sx={headerCellSx}>Arts</TableCell>
+                        <TableCell sx={headerCellSx}>{labels.bed}</TableCell>
                         <TableCell sx={valueCellSx}></TableCell>
-                        <TableCell sx={headerCellSx}>Gewicht</TableCell>
+                        <TableCell sx={headerCellSx}>{labels.birthDate}</TableCell>
+                        <TableCell sx={valueCellSx}></TableCell>
+                    </TableRow>
+                    <TableRow>
+                        <TableCell sx={headerCellSx}>{labels.physician}</TableCell>
+                        <TableCell sx={valueCellSx}></TableCell>
+                        <TableCell sx={headerCellSx}>{labels.weight}</TableCell>
                         <TableCell sx={valueCellSx}>{props.weightKg}</TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell sx={headerCellSx}>Zoemer</TableCell>
+                        <TableCell sx={headerCellSx}>{labels.pager}</TableCell>
                         <TableCell sx={valueCellSx}></TableCell>
                         <TableCell sx={headerCellSx}></TableCell>
                         <TableCell sx={valueCellSx}></TableCell>
@@ -601,7 +610,7 @@ module ViewHelpers =
 
 
         [<JSX.Component>]
-        let PatientSignature () =
+        let PatientSignature (props: {| label: string |}) =
             let signatureSx =
                 {|
                     marginTop = 4
@@ -615,7 +624,7 @@ module ViewHelpers =
             import Typography from '@mui/material/Typography';
 
             <Box sx={signatureSx}>
-                <Typography variant="body2">Paraaf arts:</Typography>
+                <Typography variant="body2">{props.label}</Typography>
             </Box>
             """
 

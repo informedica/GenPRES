@@ -412,6 +412,14 @@ is prototyped in a script and migrated by the maintainer.
    `(term, default)` pair and never reaches for `Terms` itself; `Views/ViewHelpers.fs`'s
    hard-coded Dutch (`"onbekend"`, `"Paraaf arts:"`, the nine print-header labels) becomes props.
    The `Terms` dead weight and the fetch-from-the-browser question are not in scope here.
+   Landed as `Global.printLabels`, the one place the print labels are resolved, handed to
+   `PrintView.PatientHeader`, `PatientSignature` and `patientWeight` as props by the three
+   views that print; and `ResponsiveTable` takes its column filter's label as `filterLabel`.
+   None of the print labels has a term in the sheet yet, so `printLabels` holds the Dutch the
+   print always had and is where a term lands when one exists; that is the `Terms` work this
+   step leaves out. `TitleBar` keeps its own `Login` and `Password` and reaches for `Terms` for
+   the session words: it is page chrome with the environment in hand, not a shared component.
+   The MUI grid toolbar's own words (`Select columns`, `Density`) are C11's.
 
 ### The components
 

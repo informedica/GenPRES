@@ -27,7 +27,8 @@ module ContinuousMeds =
         let hosp = context.Hospital
 
         let printOpen, setPrintOpen = React.useState false
-        let weightKg = ViewHelpers.PrintView.patientWeight patient
+        let printLabels = Global.printLabels ()
+        let weightKg = ViewHelpers.PrintView.patientWeight printLabels.unknown patient
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
@@ -214,8 +215,14 @@ module ContinuousMeds =
             |> unbox<seq<ReactElement>>
             |> React.Fragment
 
-        let patientHeader = ViewHelpers.PrintView.PatientHeader {| weightKg = weightKg |}
-        let patientSignature = ViewHelpers.PrintView.PatientSignature()
+        let patientHeader =
+            ViewHelpers.PrintView.PatientHeader
+                {|
+                    weightKg = weightKg
+                    labels = printLabels
+                |}
+
+        let patientSignature = ViewHelpers.PrintView.PatientSignature {| label = printLabels.signature |}
         let printTableRows = makePrintTableRows printData
 
         let printContent =
@@ -287,6 +294,7 @@ module ContinuousMeds =
                     )
                 selectedFilter = Some filterState
                 onFilterChange = Some onFilterChange
+                filterLabel = "Filter"
             |}
 
         let printDialogProps =

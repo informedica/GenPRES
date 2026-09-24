@@ -58,3 +58,39 @@ module Speech =
 
     [<Emit("window.speechSynthesis.speak(new SpeechSynthesisUtterance($0));")>]
     let speak s = ()
+
+
+/// The labels of the print header and the signature line, and the word for a value not known.
+type PrintLabels =
+    {|
+        date: string
+        patientNumber: string
+        department: string
+        name: string
+        bed: string
+        birthDate: string
+        physician: string
+        weight: string
+        pager: string
+        signature: string
+        unknown: string
+    |}
+
+
+/// The print labels, resolved once here and handed to the print components as props. None of
+/// them has a term in the localization sheet yet, so they are the Dutch the print always had;
+/// when a term arrives, this is the one place that changes.
+let printLabels () : PrintLabels =
+    {|
+        date = "D.D."
+        patientNumber = "Patientnummer"
+        department = "Afdeling"
+        name = "Naam"
+        bed = "Bed"
+        birthDate = "Geboorte datum"
+        physician = "Arts"
+        weight = "Gewicht"
+        pager = "Zoemer"
+        signature = "Paraaf arts:"
+        unknown = "onbekend"
+    |}

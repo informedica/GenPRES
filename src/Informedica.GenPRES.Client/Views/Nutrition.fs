@@ -376,7 +376,8 @@ module Nutrition =
                 onClose: unit -> unit
             |})
         =
-        let weightKg = ViewHelpers.PrintView.patientWeight (props.plan.Patient |> Some)
+        let printLabels = Global.printLabels ()
+        let weightKg = ViewHelpers.PrintView.patientWeight printLabels.unknown (props.plan.Patient |> Some)
 
         let parenteralContexts = props.plan.OrderContexts |> Array.filter (isOneOf parenteral)
 
@@ -591,10 +592,14 @@ module Nutrition =
                 <Typography variant="subtitle1" sx={printSectionHeaderMb2Sx}>
                     INFUUS AFSPRAKEN CENTRAAL VENEUZE CATHETERS
                 </Typography>
-                {ViewHelpers.PrintView.PatientHeader {| weightKg = weightKg |}}
+                {ViewHelpers.PrintView.PatientHeader
+                     {|
+                         weightKg = weightKg
+                         labels = printLabels
+                     |}}
                 {contextSections |> unbox<seq<ReactElement>> |> React.Fragment}
                 {totalsSection}
-                {ViewHelpers.PrintView.PatientSignature()}
+                {ViewHelpers.PrintView.PatientSignature {| label = printLabels.signature |}}
             </React.Fragment>
             """
             |> toReact
