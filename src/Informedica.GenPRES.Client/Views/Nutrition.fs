@@ -338,18 +338,49 @@ module Nutrition =
         |}
 
 
+    // the administration of a scenario as pills: one per value the server printed, the
+    // frequency, the dose, the rate, the time, each coloured by its own severity
     let private renderAdminSummary (key: string) (name: string) (blocks: TextBlock[]) =
         let typoSx =
             {|
                 display = "inline"
                 color = "text.secondary"
+                marginRight = 1
             |}
 
         let boxSx =
             {|
-                display = "inline"
+                display = "inline-flex"
+                alignItems = "center"
+                flexWrap = "wrap"
                 marginLeft = 1
             |}
+
+        let textOf (block: TextBlock) =
+            block
+            |> Severity.items
+            |> Array.map (
+                function
+                | Normal s
+                | Bold s
+                | Italic s -> s
+            )
+            |> String.concat ""
+            |> String.trim
+
+        let chips =
+            blocks
+            |> Array.filter (textOf >> String.notEmpty)
+            |> Array.map (fun block ->
+                Components.ValueChip.View
+                    {|
+                        value = textOf block
+                        severity = block |> Severity.ofTextBlock
+                        label = None
+                    |}
+            )
+            |> unbox<seq<ReactElement>>
+            |> React.Fragment
 
         JSX.jsx
             $"""
@@ -360,10 +391,7 @@ module Nutrition =
             <Typography variant="body2" sx={typoSx}>
                 {name}:
             </Typography>
-            {blocks
-             |> Array.map Mui.TypoGraphy.fromTextBlock
-             |> unbox<seq<ReactElement>>
-             |> React.Fragment}
+            {chips}
         </Box>
         """
 
@@ -1288,7 +1316,7 @@ module Nutrition =
                 let adminSummary =
                     match ctx.Scenarios with
                     | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
-                        let blocks = sc.Administration |> TextBlock.flatten |> Array.collect id
+                        let blocks = sc.Administration |> Array.collect id
                         renderAdminSummary (string props.nutritionContext.Id) sc.Order.Orderable.Name blocks
                     | _ -> null
 
@@ -1512,7 +1540,7 @@ module Nutrition =
                             |> Array.choose (fun nc ->
                                 match nc.Scenarios with
                                 | [| sc |] when sc.Administration |> Array.isEmpty |> not ->
-                                    let blocks = sc.Administration |> TextBlock.flatten |> Array.collect id
+                                    let blocks = sc.Administration |> Array.collect id
                                     renderAdminSummary (string nc.Id) sc.Order.Orderable.Name blocks |> Some
                                 | _ -> None
                             )
