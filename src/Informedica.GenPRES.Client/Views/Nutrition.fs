@@ -1376,10 +1376,10 @@ module Nutrition =
                 </React.Fragment>
                 """
 
-            Components.Accordion.View
+            Components.Disclosure.View
                 {|
-                    expanded = expanded
-                    onChange = fun () -> setExpanded (not expanded)
+                    isOpen = expanded
+                    onToggle = fun () -> setExpanded (not expanded)
                     summary = summary
                     children = children
                     isMobile = isMobile
@@ -1597,10 +1597,10 @@ module Nutrition =
                         </Stack>
                         """
 
-                    Components.Accordion.View
+                    Components.Disclosure.View
                         {|
-                            expanded = enteralExpanded
-                            onChange = fun () -> setEnteralExpanded (not enteralExpanded)
+                            isOpen = enteralExpanded
+                            onToggle = fun () -> setEnteralExpanded (not enteralExpanded)
                             summary = summary
                             children = children
                             isMobile = isMobile

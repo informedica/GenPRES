@@ -537,6 +537,11 @@ call sites migrate with their group.
    severity, where they flattened the values into one underlined run of text.
 9. **C9 `Disclosure`** — a section that collapses to a summary carrying its result, and closes
    when the user says so rather than on a timer (#489's five-second effect does not survive).
+   Landed as `Components/Disclosure.fs`, `Accordion.fs` renamed and reshaped: open or folded,
+   what toggling does, the summary shown either way, the content shown when open. Its three
+   callers, the patient panel and the nutrition page's two accordions, are on it, and the
+   patient panel's five-second idle effect and the overlay test that postponed it are gone:
+   the panel opens and closes when the user says so, which is #489.
 10. **C3 `SearchField`** — nothing like it exists in the client today.
 11. **C11 `ListToolbar`** — one search, one filter, print, and whatever of the MUI toolbar
     survives; keeps `ResponsiveTable`'s per-row `actions` hook that #399 needs.
