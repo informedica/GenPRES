@@ -163,6 +163,12 @@ One pull request each, in this order.
 
    Nothing is deferred: leaving one of the three would put the same word on the same act in two
    languages at once.
+
+   Landed: one term beside the delete term, and the three controls on it. The prescribing page
+   and the nutrition page each draw their reset as a lone secondary action on an action bar, so
+   it is as wide as its word and stands to the left; the dose dialog keeps the bar it had. The
+   sheet the terms are read from is not in the repository, so the row is added there by hand and
+   the English word stands until it is.
 4. **One rule for the cross on a dose field.** `ViewHelpers.orderSelect` decides it from the
    field's own state; the argument and the flags at the call sites in `Views/Order.fs` and
    `Views/Nutrition.fs` go.

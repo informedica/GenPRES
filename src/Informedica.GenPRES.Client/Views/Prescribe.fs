@@ -124,6 +124,24 @@ module Prescribe =
 
         let isSourceLoading source = isAnythingLoading && loadingSource = Some source
 
+        // the filter is put back as it was: bounded and to the left, since it discards what the
+        // user built and must not be the button the hand lands on
+        let resetBar =
+            Components.ActionBar.View
+                {|
+                    actions =
+                        [|
+                            {|
+                                label = Reset |> getTerm "Reset"
+                                kind = Components.ActionBar.Kind.Secondary
+                                onClick = clear
+                                disabled = isAnythingLoading
+                                icon = Some Mui.Icons.RefreshIcon
+                            |}
+                        |]
+                |}
+
+
         let select = ViewHelpers.filterSelect isAnythingLoading
 
         let multiSelect isLoading lbl selected dispatch xs =
@@ -545,9 +563,7 @@ module Prescribe =
                     </Stack>
                     {loadingIndicator}
                     <Box sx={ {| marginTop = 2 |} }>
-                        <Button variant="text" onClick={clear} disabled={isAnythingLoading} fullWidth startIcon={Mui.Icons.Delete} >
-                            {Delete |> getTerm "Verwijder"}
-                        </Button>
+                        {resetBar}
                     </Box>
                     <Stack direction="column" spacing={1} >
                         {match orderContext with
