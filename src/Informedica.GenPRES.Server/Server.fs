@@ -243,6 +243,10 @@ module Config =
         {
             Language = language settings |> Result.defaultValue defaultLanguage
             IsDemo = not settings.IsProd
+            // the names come from the loaded rules, answered per request; the default is the
+            // one literal until the resources say otherwise
+            Departments = [||]
+            DefaultDepartment = Informedica.GenForm.Lib.Resources.Departments.defaultDepartment
         }
 
 

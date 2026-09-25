@@ -78,7 +78,15 @@ module CompositionRoot =
                         Logging.ServerLogging.Info "Processing settings"
                         |> Informedica.Logging.Lib.Logging.logInfo env.logger
 
-                        return settings
+                        // the departments as loaded now, so a reload reaches the next asker
+                        return
+                            match env.departments () with
+                            | Some d ->
+                                { settings with
+                                    Departments = d.Names
+                                    DefaultDepartment = d.Default
+                                }
+                            | None -> settings
                     }
 
             testApi = fun () -> async { return "Hello world!" }

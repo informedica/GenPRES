@@ -133,6 +133,11 @@ type Terms =
     // the panel's reset: the question asked before the patient's data is discarded
     | ``Patient Reset Dialog Title``
     | ``Patient Reset Dialog Text``
+    // the department in force, and where it came from
+    | ``Patient Department``
+    | ``Patient Department Default``
+    | ``Patient Department Chosen``
+    | ``Patient Department Launched``
     // Shared UI terms
     | Print
     | ``Not Configured``

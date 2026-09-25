@@ -111,6 +111,8 @@ module Patient =
         let updatePatient = envPatient.UpdatePatient
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
+        let settings = (AppEnv.asEnv<AppEnv.ISettings> props.appEnv).Settings
+        let session = (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session
 
         // the patient is the subject of every workbench and plan request: while one is under
         // way the panel is greyed, so that the patient cannot change under it
@@ -181,6 +183,44 @@ module Patient =
                     onConfirm = onResetConfirmed
                     onCancel = fun () -> setConfirmResetOpen false
                 |}
+
+        // the department in force and where it came from: the patient's own, given by the
+        // launch when a session is open and chosen in the url otherwise, or else the server's
+        // default, said so, since a filter the user can see is not a hidden one
+        let departmentNotice =
+            let launched =
+                match session with
+                | SessionMachine.SessionView.Open _
+                | SessionMachine.SessionView.Closing _ -> true
+                | _ -> false
+
+            let inForce =
+                match pat |> Option.bind _.Department, settings with
+                | Some d, _ -> Some(d, false)
+                | None, Resolved s -> Some(s.DefaultDepartment, true)
+                | None, _ -> None
+
+            match inForce with
+            | None -> null
+            | Some(department, isDefault) ->
+                Components.Notice.View
+                    {|
+                        kind = Components.Notice.Kind.Info
+                        title =
+                            let label = Terms.``Patient Department`` |> getTerm "Afdeling"
+                            Some(label + ": " + department)
+                        message =
+                            if isDefault then
+                                Terms.``Patient Department Default``
+                                |> getTerm "De standaardafdeling: er is geen afdeling gekozen"
+                            elif launched then
+                                Terms.``Patient Department Launched``
+                                |> getTerm "Meegegeven door het systeem dat GenPRES opende"
+                            else
+                                Terms.``Patient Department Chosen`` |> getTerm "Gekozen in de url"
+                        action = None
+                        onClose = None
+                    |}
 
         // bounded and to the left, so the button is not as wide as the panel it sits in and is
         // not where you click by default
@@ -484,6 +524,7 @@ module Patient =
                 <Grid container spacing={2} sx={ {| marginTop = 2 |} } >
                     {React.Fragment(items2 |> unbox<seq<ReactElement>>)}
                 </Grid>
+                {departmentNotice}
                 {resetBar}
                 {confirmResetDialog}
             </React.Fragment>

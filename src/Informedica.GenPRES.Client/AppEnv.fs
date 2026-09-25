@@ -14,6 +14,12 @@ type ILocalization =
     abstract LocalizationTerms: Deferred<string[][]>
 
 
+/// What the server told about itself at start-up.
+[<Interface>]
+type ISettings =
+    abstract Settings: Deferred<Api.ServerSettings>
+
+
 /// Order context data and commands.
 /// Mangled: the app state implements this and IOrderPlan on one object, and both have a Select;
 /// without mangling Fable emits the two as one property.

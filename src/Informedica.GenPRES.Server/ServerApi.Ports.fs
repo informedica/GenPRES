@@ -370,5 +370,8 @@ type AppEnv =
         // whether the server runs on the demo data; read once at start-up, told on every
         // context the client gets
         demo: bool
+        // the departments the loaded rules name and the default; none until the resources
+        // are loaded, since the settings are asked for before that
+        departments: unit -> Informedica.GenForm.Lib.Types.Departments option
         logger: Informedica.Logging.Lib.Logger
     }

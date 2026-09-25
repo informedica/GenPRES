@@ -1757,6 +1757,9 @@ type private ConcreteAppEnv
     interface AppEnv.ILocalization with
         member _.LocalizationTerms = state.Fetches.Localization
 
+    interface AppEnv.ISettings with
+        member _.Settings = state.Fetches.Settings
+
     interface AppEnv.IOrderContext with
         member _.OrderContext = state.Lanes.OrderContext |> OrderContextState.view
 
