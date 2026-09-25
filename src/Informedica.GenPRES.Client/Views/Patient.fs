@@ -204,13 +204,24 @@ module Patient =
         // the department chosen, or the server's default preselected while none is: the pick
         // that filters the solution rules is on the panel, so it is never a hidden one
         let departmentField =
+            let own = pat |> Option.bind _.Department
+
             let names =
                 match settings with
                 | Resolved s -> s.Departments
                 | _ -> [||]
 
+            // the department in force is always among the options, so that the field can show
+            // it when the url or the launch named one the rules do not, and so that a field
+            // left with one option never picks that one over the one the patient has
+            let options =
+                match own with
+                | Some d when names |> Array.contains d |> not -> Array.append names [| d |]
+                | _ -> names
+                |> Array.map (fun n -> n, n)
+
             let selected =
-                match pat |> Option.bind _.Department, settings with
+                match own, settings with
                 | Some d, _ -> Some d
                 | None, Resolved s -> Some s.DefaultDepartment
                 | None, _ -> None
@@ -223,10 +234,12 @@ module Patient =
             Components.PickField.View
                 {|
                     label = Terms.``Patient Department`` |> getTerm "Afdeling"
-                    options = names |> Array.map (fun n -> n, n)
+                    options = options
                     selected = selected
                     onChange = changeDepartment
-                    clearable = true
+                    // the cross returns to the default, so it is offered only while there is a
+                    // choice to take back; clearing a default already shown would change nothing
+                    clearable = own.IsSome
                     isLoading = settings |> Deferred.toOption |> Option.isNone
                     enabled = not busy && not launched
                     shape = Components.PickField.Shape.Scroll
