@@ -2169,68 +2169,98 @@ module Models =
 
         let setScenarios srs ctx : OrderContext = { ctx with Scenarios = srs }
 
+        /// Everything below the indication: the four choices that follow it, the options they
+        /// were picked from, and the scenarios, which stand on the whole filter.
+        let belowIndication (ctx: OrderContext) : OrderContext =
+            { ctx with
+                Filter =
+                    { ctx.Filter with
+                        Generics = [||]
+                        Generic = None
+                        Routes = [||]
+                        Route = None
+                        Forms = [||]
+                        Form = None
+                        DoseTypes = [||]
+                        DoseType = None
+                    }
+                Scenarios = [||]
+            }
+
+
+        /// Everything below the generic.
+        let belowGeneric (ctx: OrderContext) : OrderContext =
+            { ctx with
+                Filter =
+                    { ctx.Filter with
+                        Routes = [||]
+                        Route = None
+                        Forms = [||]
+                        Form = None
+                        DoseTypes = [||]
+                        DoseType = None
+                    }
+                Scenarios = [||]
+            }
+
+
+        /// Everything below the route.
+        let belowRoute (ctx: OrderContext) : OrderContext =
+            { ctx with
+                Filter =
+                    { ctx.Filter with
+                        Forms = [||]
+                        Form = None
+                        DoseTypes = [||]
+                        DoseType = None
+                    }
+                Scenarios = [||]
+            }
+
+
+        /// Everything below the form.
+        let belowForm (ctx: OrderContext) : OrderContext =
+            { ctx with
+                Filter =
+                    { ctx.Filter with
+                        DoseTypes = [||]
+                        DoseType = None
+                    }
+                Scenarios = [||]
+            }
+
+
+        /// Below the dose type there is nothing left to choose; the scenarios stand on it.
+        let belowDoseType (ctx: OrderContext) : OrderContext = { ctx with Scenarios = [||] }
+
+
+        /// A change to one of the five fields the page shows in a row: nothing at all when the
+        /// field already holds what it is given, otherwise everything below it cleared and the
+        /// field written. Clearing what is below is what lets the user pick another value
+        /// without emptying the field first: a route kept from the previous medication would
+        /// leave a filter no rule matches.
+        let change current below write s (ctx: OrderContext) : OrderContext =
+            if current ctx = s then ctx else ctx |> below |> write s
+
+
         let indicationChange s (ctx: OrderContext) : OrderContext =
-            if s |> Option.isNone then
-                { ctx with
-                    Filter =
-                        { ctx.Filter with
-                            Indications = [||]
-                            Indication = None
-                            DoseTypes = [||]
-                            DoseType = None
-                        }
-                    Scenarios = [||]
-                }
-            else
-                { ctx with OrderContext.Filter.Indication = s }
+            ctx
+            |> change _.Filter.Indication belowIndication (fun s c -> { c with OrderContext.Filter.Indication = s }) s
 
 
         let medicationChange s (ctx: OrderContext) : OrderContext =
-            if s |> Option.isNone then
-                { ctx with
-                    Filter =
-                        { ctx.Filter with
-                            Generics = [||]
-                            Generic = None
-                            DoseTypes = [||]
-                            DoseType = None
-                        }
-                    Scenarios = [||]
-                }
-            else
-                { ctx with OrderContext.Filter.Generic = s }
+            ctx
+            |> change _.Filter.Generic belowGeneric (fun s c -> { c with OrderContext.Filter.Generic = s }) s
 
 
         let routeChange s (ctx: OrderContext) : OrderContext =
-            if s |> Option.isNone then
-                { ctx with
-                    Filter =
-                        { ctx.Filter with
-                            Routes = [||]
-                            Route = None
-                            DoseTypes = [||]
-                            DoseType = None
-                        }
-                    Scenarios = [||]
-                }
-            else
-                { ctx with OrderContext.Filter.Route = s }
+            ctx
+            |> change _.Filter.Route belowRoute (fun s c -> { c with OrderContext.Filter.Route = s }) s
 
 
         let formChange s (ctx: OrderContext) : OrderContext =
-            if s |> Option.isNone then
-                { ctx with
-                    Filter =
-                        { ctx.Filter with
-                            Forms = [||]
-                            Form = None
-                            DoseTypes = [||]
-                            DoseType = None
-                        }
-                    Scenarios = [||]
-                }
-            else
-                { ctx with OrderContext.Filter.Form = s }
+            ctx
+            |> change _.Filter.Form belowForm (fun s c -> { c with OrderContext.Filter.Form = s }) s
 
 
         let diluentChange s (ctx: OrderContext) : OrderContext = { ctx with OrderContext.Filter.Diluent = s }
@@ -2241,17 +2271,8 @@ module Models =
 
 
         let doseTypeChange (dt: DoseType option) (ctx: OrderContext) : OrderContext =
-            if dt |> Option.isNone then
-                { ctx with
-                    Filter =
-                        { ctx.Filter with
-                            DoseTypes = [||]
-                            DoseType = None
-                        }
-                    Scenarios = [||]
-                }
-            else
-                { ctx with OrderContext.Filter.DoseType = dt }
+            ctx
+            |> change _.Filter.DoseType belowDoseType (fun s c -> { c with OrderContext.Filter.DoseType = s }) dt
 
 
     /// Conversions between the one severity and the two shapes the wire carries it in.

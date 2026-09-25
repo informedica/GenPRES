@@ -131,6 +131,10 @@ One pull request each, in this order.
 2. **The cascade migrated.** The rule moves into the `OrderContext` module of
    `Shared/Models.fs` and its tests into `tests/Informedica.GenPRES.Shared.Tests/ModelsTests.fs`;
    the script goes. The two views are untouched: they already call these functions.
+   Landed: each field has the reach of its change beside it, one function per field saying what
+   stands below it, and the five changes are that reach applied, the field written, and nothing
+   done at all when the field already holds what it is given. The clearing branch that used to
+   be the only one that reset is gone, since clearing is now the same act with no value.
 3. **The reset on the prescribing page.** The full-width text button becomes a bounded secondary
    action on an `ActionBar`, named *Reset*. No term exists for the word yet, so it lands as the
    Dutch at the call site and a term row follows, as the foundation's labels did.

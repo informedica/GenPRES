@@ -282,3 +282,116 @@ let estimateTests =
                 |> Expect.equal "the gender alone" (Some { Patient.empty with Gender = Male })
             }
         ]
+
+
+/// The five fields the prescribing page shows in a row, filled in as a user who has built a
+/// filter out would have them.
+let full: OrderContext =
+    { OrderContext.empty with
+        Filter =
+            { OrderContext.empty.Filter with
+                Indications = [| "koorts"; "pijn" |]
+                Indication = Some "koorts"
+                Generics = [| "paracetamol"; "ibuprofen" |]
+                Generic = Some "paracetamol"
+                Routes = [| "oraal"; "rectaal" |]
+                Route = Some "oraal"
+                Forms = [| "tablet"; "drank" |]
+                Form = Some "tablet"
+                DoseTypes = [| DoseType.Discontinuous "" |]
+                DoseType = Some(DoseType.Discontinuous "")
+            }
+    }
+
+
+/// The five choices, to compare in one go.
+let chosen (ctx: OrderContext) =
+    ctx.Filter.Indication, ctx.Filter.Generic, ctx.Filter.Route, ctx.Filter.Form, ctx.Filter.DoseType
+
+
+[<Tests>]
+let cascadeTests =
+    testList
+        "the cascade of the prescribing fields"
+        [
+            test "picking another indication keeps it and clears the four below" {
+                full
+                |> OrderContext.indicationChange (Some "pijn")
+                |> chosen
+                |> Expect.equal "only the indication" (Some "pijn", None, None, None, None)
+            }
+
+            test "picking another indication empties the options below it" {
+                let f = (full |> OrderContext.indicationChange (Some "pijn")).Filter
+
+                (f.Indications, f.Generics, f.Routes, f.Forms, f.DoseTypes)
+                |> Expect.equal "its own options stand, the rest go" ([| "koorts"; "pijn" |], [||], [||], [||], [||])
+            }
+
+            test "picking another medication keeps the indication and clears the three below" {
+                full
+                |> OrderContext.medicationChange (Some "ibuprofen")
+                |> chosen
+                |> Expect.equal "indication and generic" (Some "koorts", Some "ibuprofen", None, None, None)
+            }
+
+            test "picking another route keeps the two above and clears the two below" {
+                full
+                |> OrderContext.routeChange (Some "rectaal")
+                |> chosen
+                |> Expect.equal "up to the route" (Some "koorts", Some "paracetamol", Some "rectaal", None, None)
+            }
+
+            test "picking another form keeps the three above and clears the dose type" {
+                full
+                |> OrderContext.formChange (Some "drank")
+                |> chosen
+                |> Expect.equal "up to the form" (Some "koorts", Some "paracetamol", Some "oraal", Some "drank", None)
+            }
+
+            test "picking another dose type keeps every choice above it" {
+                let dt = DoseType.Timed "" |> Some
+
+                full
+                |> OrderContext.doseTypeChange dt
+                |> chosen
+                |> Expect.equal "all five" (Some "koorts", Some "paracetamol", Some "oraal", Some "tablet", dt)
+            }
+
+            test "every change clears the scenarios" {
+                // a scenario is never read here, only counted, so an uninhabited one will do
+                let withScenario = { full with Scenarios = Array.zeroCreate<OrderScenario> 1 }
+
+                [
+                    withScenario |> OrderContext.indicationChange (Some "pijn")
+                    withScenario |> OrderContext.medicationChange (Some "ibuprofen")
+                    withScenario |> OrderContext.routeChange (Some "rectaal")
+                    withScenario |> OrderContext.formChange (Some "drank")
+                    withScenario |> OrderContext.doseTypeChange (DoseType.Timed "" |> Some)
+                ]
+                |> List.forall (fun c -> c.Scenarios |> Array.isEmpty)
+                |> Expect.isTrue "none left, whichever field changed"
+            }
+
+            test "clearing a field clears it and everything below" {
+                full
+                |> OrderContext.medicationChange None
+                |> chosen
+                |> Expect.equal "the indication alone" (Some "koorts", None, None, None, None)
+            }
+
+            test "picking the value a field already holds changes nothing" {
+                full
+                |> OrderContext.medicationChange (Some "paracetamol")
+                |> Expect.equal "the context it was" full
+            }
+
+            test "a nutrition context cascades as a drug context does" {
+                let nutrition = { full with Category = OrderCategory.Nutrition NutritionCategory.EnteralFeeding }
+
+                nutrition
+                |> OrderContext.medicationChange (Some "ibuprofen")
+                |> chosen
+                |> Expect.equal "indication and generic" (Some "koorts", Some "ibuprofen", None, None, None)
+            }
+        ]
