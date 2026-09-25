@@ -360,7 +360,16 @@ module Adapters =
                     (fun launch -> LaunchSeal.verify DateTime.UtcNow launchKey launch)
                     directory.idp
                     directory.registry
-                    StubPatientData.port
+                    // the platform's reading estimated at the boundary, from the tables as loaded
+                    (StubPatientData.port
+                     |> Patient.estimating (fun () ->
+                         match notLoaded provider with
+                         | None ->
+                             provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueRows
+                             |> Shared.Models.NormalValues.ofRows
+                             |> Some
+                         | Some _ -> None
+                     ))
                     mail
                     // the credential store, seeded per stub login
                     (Session.initialState (

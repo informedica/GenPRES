@@ -137,51 +137,78 @@ module Tests =
             }
 
         /// A provider that must never be called. Used to prove that createOrderContext and
-        /// getOrderScenarios refuse before reaching the resource layer when weight or height
-        /// is missing — not just that requireWeightAndHeight alone reports an error, which
-        /// would still pass if either function stopped calling the shared guard.
+        /// getOrderScenarios refuse before reaching the resource layer when the input is no
+        /// patient — not just that requireAgeOrMeasures alone reports an error, which would
+        /// still pass if either function stopped calling the shared guard.
         let private unusedProvider: IResourceProvider = Unchecked.defaultof<_>
 
         let tests =
             testList
-                "requireWeightAndHeight"
+                "requireAgeOrMeasures"
                 [
-                    test "both weight and height present is Ok" {
+                    test "an age alone is Ok" { emptyInput |> requireAgeOrMeasures |> Expect.isOk "should be Ok" }
+
+                    test "both measures without an age are Ok" {
                         { emptyInput with
+                            AgeMonths = None
                             WeightKg = Some 12.0
                             HeightCm = Some 86.0
                         }
-                        |> requireWeightAndHeight
+                        |> requireAgeOrMeasures
                         |> Expect.isOk "should be Ok"
                     }
 
-                    test "neither weight nor height is Error" {
-                        emptyInput |> requireWeightAndHeight |> Expect.isError "should be Error"
-                    }
-
-                    test "weight without height is Error" {
-                        { emptyInput with WeightKg = Some 12.0 }
-                        |> requireWeightAndHeight
+                    test "one measure without an age is Error" {
+                        { emptyInput with
+                            AgeMonths = None
+                            WeightKg = Some 12.0
+                        }
+                        |> requireAgeOrMeasures
                         |> Expect.isError "should be Error"
                     }
 
-                    test "height without weight is Error" {
-                        { emptyInput with HeightCm = Some 86.0 }
-                        |> requireWeightAndHeight
+                    test "nothing is Error" {
+                        { emptyInput with AgeMonths = None }
+                        |> requireAgeOrMeasures
                         |> Expect.isError "should be Error"
                     }
 
-                    test "createOrderContext refuses before touching the provider when height is missing" {
-                        { emptyInput with WeightKg = Some 12.0 }
+                    test "createOrderContext refuses before touching the provider when the input is no patient" {
+                        { emptyInput with AgeMonths = None }
                         |> createOrderContext unusedProvider
                         |> Expect.isError "should refuse without evaluating"
                     }
 
-                    test "getOrderScenarios refuses before touching the provider when weight is missing" {
-                        { emptyInput with HeightCm = Some 86.0 }
+                    test "getOrderScenarios refuses before touching the provider when the input is no patient" {
+                        { emptyInput with
+                            AgeMonths = None
+                            HeightCm = Some 86.0
+                        }
                         |> getOrderScenarios unusedProvider
                         |> Expect.isError "should refuse without evaluating"
                     }
+                ]
+
+
+    module EstimateFixtures =
+
+        /// Two tables, one row per sex at two years: a boy of two is twelve kilograms and 87
+        /// centimetres, a girl eleven and 86.
+        let rows: Map<string, string[][]> =
+            Map
+                [
+                    "weight",
+                    [|
+                        [| "sex"; "age"; "p3"; "mean"; "p97" |]
+                        [| "M"; "2"; "10"; "12"; "14" |]
+                        [| "F"; "2"; "9"; "11"; "13" |]
+                    |]
+                    "height",
+                    [|
+                        [| "sex"; "age"; "p3"; "mean"; "p97" |]
+                        [| "M"; "2"; "80"; "87"; "94" |]
+                        [| "F"; "2"; "79"; "86"; "93" |]
+                    |]
                 ]
 
 
@@ -201,6 +228,8 @@ module Tests =
                 member _.Get(key: ResourceKey<'T>) : 'T =
                     if key.Name = Keys.departments.Name then
                         box departments :?> 'T
+                    elif key.Name = Keys.normalValueRows.Name then
+                        box EstimateFixtures.rows :?> 'T
                     else
                         raise (NotImplementedException key.Name)
 
@@ -229,6 +258,8 @@ module Tests =
                 member _.Get(key: ResourceKey<'T>) : 'T =
                     if key.Name = Keys.departments.Name then
                         box departments :?> 'T
+                    elif key.Name = Keys.normalValueRows.Name then
+                        box EstimateFixtures.rows :?> 'T
                     else
                         raise (NotImplementedException key.Name)
 
@@ -363,14 +394,114 @@ module Tests =
                         |> Expect.isError "should refuse without evaluating"
                     }
 
-                    test "evaluateOrderContext refuses a missing measure before touching the provider" {
+                    test "evaluateOrderContext refuses no patient before touching the provider" {
                         { measured with
+                            AgeMonths = None
                             HeightCm = None
                             Department = Some "PICU"
                         }
                         |> evaluateOrderContext unusedProvider
                         |> Result.mapError (fun msg -> msg.Contains "HeightCm")
-                        |> Expect.equal "the measure, not the department" (Error true)
+                        |> Expect.equal "the patient, not the department" (Error true)
+                    }
+                ]
+
+
+    module EstimateTests =
+
+        open Informedica.GenForm.Lib.Resources
+        open Informedica.GenOrder.Lib
+        open Informedica.GenOrder.Lib.Patient.Optics
+        open Informedica.MCP.Lib.GenOrderTools
+
+        /// A provider that answers the normal-value rows and the departments and nothing else.
+        let private tablesOnly: IResourceProvider =
+            let departments = Departments.ofNamed []
+
+            { new IResourceProvider with
+                member _.Get(key: ResourceKey<'T>) : 'T =
+                    if key.Name = Keys.departments.Name then
+                        box departments :?> 'T
+                    elif key.Name = Keys.normalValueRows.Name then
+                        box EstimateFixtures.rows :?> 'T
+                    else
+                        raise (NotImplementedException key.Name)
+
+                member _.GetData() = raise (NotImplementedException())
+                member _.GetUnitMappings() = raise (NotImplementedException())
+                member _.GetRouteMappings() = raise (NotImplementedException())
+                member _.GetValidForms() = raise (NotImplementedException())
+                member _.GetFormRoutes() = raise (NotImplementedException())
+                member _.GetFormularyProducts() = raise (NotImplementedException())
+                member _.GetReconstitution() = raise (NotImplementedException())
+                member _.GetParenteralMeds() = raise (NotImplementedException())
+                member _.GetEnteralFeeding() = raise (NotImplementedException())
+                member _.GetProducts() = raise (NotImplementedException())
+                member _.GetDoseRules() = raise (NotImplementedException())
+                member _.GetSolutionRules() = raise (NotImplementedException())
+                member _.GetRenalRules() = raise (NotImplementedException())
+                member _.GetTotals() = raise (NotImplementedException())
+                member _.GetGStandProvider() = raise (NotImplementedException())
+                member _.GetResourceInfo() = raise (NotImplementedException())
+            }
+
+        let private ageAlone: CreateOrderContextInput =
+            {
+                AgeMonths = Some 24.0
+                WeightKg = None
+                HeightCm = None
+                Sex = Some "male"
+                Department = None
+                Generic = None
+                Indication = None
+                Route = None
+                Form = None
+            }
+
+        let tests =
+            testList
+                "the estimate at the MCP host"
+                [
+                    test "an age and a sex alone build a patient with the weight and height the client shows" {
+                        let pat = ageAlone |> buildPatient tablesOnly
+
+                        (pat |> Patient.getWeight, pat |> Patient.getHeight, pat.WeightMeasured, pat.HeightMeasured)
+                        |> Expect.equal
+                            "twelve kilograms, 87 centimetres, estimated"
+                            (Some(Kilogram 12m), Some(Centimeter 87), false, false)
+                    }
+
+                    test "a measure given stays measured, the other estimated" {
+                        let pat = { ageAlone with WeightKg = Some 14.0 } |> buildPatient tablesOnly
+
+                        (pat |> Patient.getWeight, pat.WeightMeasured, pat |> Patient.getHeight, pat.HeightMeasured)
+                        |> Expect.equal
+                            "fourteen measured, 87 estimated"
+                            (Some(Kilogram 14m), true, Some(Centimeter 87), false)
+                    }
+
+                    test "both measures given, nothing is estimated" {
+                        let pat =
+                            { ageAlone with
+                                WeightKg = Some 14.0
+                                HeightCm = Some 90.0
+                            }
+                            |> buildPatient tablesOnly
+
+                        (pat.WeightMeasured, pat.HeightMeasured) |> Expect.equal "measured" (true, true)
+                    }
+
+                    test "no sex: the estimate is the average of the two, as the client's" {
+                        { ageAlone with Sex = None }
+                        |> buildPatient tablesOnly
+                        |> Patient.getWeight
+                        |> Expect.equal "eleven and a half kilograms" (Some(Kilogram 11.5m))
+                    }
+
+                    test "without an age nothing is estimated" {
+                        let pat = { ageAlone with AgeMonths = None } |> buildPatient tablesOnly
+
+                        (pat.Weight, pat.Height) |> Expect.equal "none" (None, None)
                     }
                 ]
 

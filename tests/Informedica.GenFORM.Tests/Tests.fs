@@ -4291,6 +4291,15 @@ module Tests =
                         matched (Some "NICU") |> Expect.equal "NICU and any" [| Some "NICU"; None |]
                     }
 
+                    test "the normal-value rows are a registered resource over the four sheets" {
+                        (defaultRegistry Informedica.Logging.Lib.Logging.noOp "")
+                        |> Map.containsKey Keys.normalValueRows.Name
+                        |> Expect.isTrue "registered"
+
+                        Mapping.normalValueSheets
+                        |> Expect.equal "the four sheets" [| "weight"; "height"; "weight neo"; "height neo" |]
+                    }
+
                     test
                         "the registry derives it from the dose-rule rows, the solution-rule rows and the reconstitutions, once" {
                         let mutable loads = 0

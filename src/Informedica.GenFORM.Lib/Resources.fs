@@ -265,6 +265,7 @@ module Resources =
         let doseRuleData = ResourceKey.create<DoseRuleData[]> "doseRuleData"
         let solutionRuleData = ResourceKey.create<SolutionRuleData[]> "solutionRuleData"
         let departments = ResourceKey.create<Departments> "departments"
+        let normalValueRows = ResourceKey.create<Map<string, string[][]>> "normalValueRows"
         let renalRuleData = ResourceKey.create<RenalRuleData[]> "renalRuleData"
         let totalsData = ResourceKey.create<TotalsData[]> "totalsData"
         let products = ResourceKey.create<ProductComponent[]> "products"
@@ -338,6 +339,14 @@ module Resources =
                         (r.Get Keys.solutionRuleData)
                         (r.Get Keys.reconstitution)
                 )
+
+                // the normal-value rows: a load failure leaves the estimate blank, with a
+                // warning, and must not empty the rules
+                Keys.normalValueRows.Name,
+                ofResultOrDefault
+                    "Normal values not loaded"
+                    Map.empty
+                    (fun () -> Mapping.getNormalValueRows Mapping.normalValuesUrlId)
 
                 // Totals is an optional intake-reference resource: a load failure must
                 // not empty the others, so swallow to [||] and surface a Warning.

@@ -914,3 +914,60 @@ let measureSetterTests =
                     }
                 ]
         ]
+
+
+module RowFixtures =
+
+    /// Two tables, one row per sex at two years: a boy of two is twelve kilograms and 87
+    /// centimetres, a girl eleven and 86.
+    let rows: Map<string, string[][]> =
+        Map
+            [
+                "weight",
+                [|
+                    [| "sex"; "age"; "p3"; "mean"; "p97" |]
+                    [| "M"; "2"; "10"; "12"; "14" |]
+                    [| "F"; "2"; "9"; "11"; "13" |]
+                |]
+                "height",
+                [|
+                    [| "sex"; "age"; "p3"; "mean"; "p97" |]
+                    [| "M"; "2"; "80"; "87"; "94" |]
+                    [| "F"; "2"; "79"; "86"; "93" |]
+                |]
+            ]
+
+
+open RowFixtures
+
+
+[<Tests>]
+let normalValuesOfRowsTests =
+    testList
+        "the tables from the rows"
+        [
+            test "each sheet parses to its table, a sheet absent giving an empty one" {
+                let nv = rows |> NormalValues.ofRows
+
+                (nv.Weights |> List.length, nv.Heights |> List.length, nv.NeoWeights, nv.NeoHeights)
+                |> Expect.equal "two rows each, no neonatal tables" (2, 2, [], [])
+
+                nv.Weights
+                |> List.find (fun r -> r.Sex = "M")
+                |> Expect.equal "the boy's row" (NormalValues.create "M" 2. 10. 12. 14.)
+            }
+
+            test "the tables applied are the estimate the panel shows" {
+                let pat =
+                    { Patient.empty with
+                        Age = Some(Patient.Age.fromDays 730)
+                        Gender = Male
+                    }
+                    |> NormalValues.apply (rows |> NormalValues.ofRows)
+
+                (pat.Weight.Estimated, pat.Height.Estimated, pat.Weight.Measured)
+                |> Expect.equal
+                    "twelve kilograms, 87 centimetres, nothing measured"
+                    (Some 12000<gram>, Some 87<cm>, None)
+            }
+        ]

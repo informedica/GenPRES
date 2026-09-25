@@ -23,21 +23,11 @@ module Patient =
     /// A draft that is no patient: it has no age, and no measured weight and height.
     let noPatient = "Geen patiënt: een leeftijd, of een gemeten gewicht en lengte, is nodig"
 
-    /// A patient without a weight or a height, measured or estimated. Only the client estimates,
-    /// so data from the platform or another host can arrive with an age alone; the rules are
-    /// gated on both, and an answer of no rules would say nothing. Until the server estimates,
-    /// such a patient is refused with the two named.
-    let noWeightAndHeight = "Gewicht en lengte onbekend: voer ze in"
-
-
     /// The patient the data is, or why it is none.
     let patient (dto: Patient) : Result<Patient, string[]> =
         match dto |> Patient.validate with
         | Error PatientError.NoAgeOrMeasuredWeightAndHeight -> Error [| noPatient |]
-        | Ok pat ->
-            match dto |> Patient.getWeight, dto |> Patient.getHeight with
-            | Some _, Some _ -> Ok pat
-            | _ -> Error [| noWeightAndHeight |]
+        | Ok pat -> Ok pat
 
 
     /// Data that may be absent: none is no patient and no refusal.
@@ -192,18 +182,42 @@ module Patient =
 
 
     /// The patient the contract model's data is, or why it is none: the Dto's reasons in the
-    /// server's words, and the server's own gate that the rules need a weight and a height,
-    /// measured or estimated, until the server estimates.
+    /// server's words.
     let parse (model: Shared.Types.Patient) : Result<Lib.Patient, string[]> =
         model
         |> ofModel
         |> LibPatient.Dto.fromDto
         |> Result.mapError (List.map words >> List.toArray)
-        |> Result.bind (fun pat ->
-            match pat.Weight, pat.Height with
-            | Some _, Some _ -> Ok pat
-            | _ -> Error [| noWeightAndHeight |]
-        )
+
+
+    /// The domain patient with the estimates the contract model computes for its age,
+    /// gestational age and sex: the one estimate, on both sides, so the server's answer and
+    /// the panel's display cannot drift. A measured value is untouched, and a patient the
+    /// contract model cannot read back stays as it was.
+    let estimated (nv: NormalValues) (pat: Lib.Patient) : Lib.Patient =
+        pat
+        |> LibPatient.Dto.toDto
+        |> toModel
+        |> NormalValues.apply nv
+        |> ofModel
+        |> LibPatient.Dto.fromDto
+        |> Result.defaultValue pat
+
+
+    /// The platform port with every reading estimated: the inbound boundary, so no reading
+    /// with an age alone reaches the rules without a weight and a height. Unestimated while
+    /// the tables are not loaded.
+    let estimating (nv: unit -> NormalValues option) (port: PatientDataPort) : PatientDataPort =
+        { port with
+            read =
+                fun pid ->
+                    port.read pid
+                    |> Option.map (fun pat ->
+                        match nv () with
+                        | Some nv -> pat |> estimated nv
+                        | None -> pat
+                    )
+        }
 
 
     /// The request run once every piece of data is a patient, else the first refusal.

@@ -110,6 +110,35 @@ module Mapping =
         |> Result.mapErrorSource "getTotals"
 
 
+    /// The emergency-list workbook, where the normal values of weight and height by age and
+    /// sex live. One hospital's workbook written in code, as it is in the client; the two
+    /// literals become one setting together.
+    let normalValuesUrlId = "1IbIdRUJSovg3hf8E5V-ZydMidlF_iG552vK5NotZLuM"
+
+
+    /// The four normal-value sheets: the weight and the height by age in years, and by
+    /// post-conceptional age in weeks for the newborn.
+    let normalValueSheets = [| "weight"; "height"; "weight neo"; "height neo" |]
+
+
+    /// The four sheets fetched as rows, every one or none: a table missing would make the
+    /// estimate silently blank for the ages it covers. The rows stay rows here, since the
+    /// parser and the estimate are the contract model's, shared with the client, and the
+    /// domain does not reference the contract.
+    let getNormalValueRows urlId : Result<Map<string, string[][]>, Message list> =
+        normalValueSheets
+        |> Array.fold
+            (fun acc sheet ->
+                acc
+                |> Result.bind (fun rows ->
+                    Web.GoogleSheets.getCsvDataFromSheetSync urlId sheet
+                    |> Result.map (fun data -> rows |> Map.add sheet data)
+                    |> Result.mapError (fun e -> [ ErrorMsg($"normal values, sheet %s{sheet}: %s{e}", None) ])
+                )
+            )
+            (Ok Map.empty)
+
+
     let mapUnit (mapping: UnitMapping array) s =
         if s |> String.isNullOrWhiteSpace then
             None
