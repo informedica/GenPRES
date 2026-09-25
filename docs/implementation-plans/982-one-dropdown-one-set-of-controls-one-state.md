@@ -191,6 +191,13 @@ One pull request each, in this order.
    directly: that control adds a drug to a list and holds no choice, so the pick rule would
    disable it exactly when it matched one drug.
 
+   Landed: the pick field takes the shape it is drawn in, a list to scroll or a box to type in,
+   and the rule, the single option and the effect that tells the page are the same for both. The
+   fields that type are the indication and the generic on a narrow screen and the four of the
+   formulary and the three of the parenteralia page; each of them now shuts on a single option
+   and tells the page that option, where they stayed open and said nothing. The interactions
+   page is untouched.
+
 ## Verification, per step
 
 - `dotnet run Build`, and `dotnet run ServerTests` for the steps that touch `GenPRES.Shared`.
@@ -210,6 +217,14 @@ One pull request each, in this order.
 - Whether a dose field whose single value the solver determined, rather than the user, should
   offer the cross at all.
 - The word on the reset, which is a terminology decision and not this group's alone.
+
+## What the group came to
+
+All five issues are answered. The one-option rule reaches every field that picks, whether it
+scrolls or types. The cross on a dose field follows one rule instead of a flag per call site,
+and is not offered where there is nothing to clear. A field can be changed by picking in it,
+in the order its own page offers its choices. The reset is one word in six languages on a
+bounded button, in the three places that offer one.
 
 ## Related, not a member
 

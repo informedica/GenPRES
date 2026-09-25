@@ -4,7 +4,9 @@ namespace Components
 /// One choice among some options: what the field offers is the pick rule's answer, not the
 /// page's. A field with nothing to choose is disabled and empty; a field with one option shows
 /// it chosen and is disabled; a field with more is enabled when its caller says so and clears
-/// when its caller allows and something is chosen.
+/// when its caller allows and something is chosen. The rule is the same whether the user
+/// scrolls the options or types to narrow them, so both shapes are drawn from here and the one
+/// option is told to the page once, whichever shape the field has.
 module PickField =
 
 
@@ -13,8 +15,19 @@ module PickField =
     open Shared
 
 
+    /// How the field is drawn. The rule does not change with it: a long list is easier to type
+    /// into than to scroll, and that is all the difference amounts to.
+    [<RequireQualifiedAccess>]
+    type Shape =
+        /// A list the user opens and scrolls.
+        | Scroll
+        /// A box the user types in, narrowing the options as they type.
+        | Type
+
+
     /// The field: its label, the options as key and label, the key chosen, what choosing does,
-    /// whether the choice may be cleared, and whether the caller has the field enabled.
+    /// whether the choice may be cleared, whether the caller has the field enabled, and how it
+    /// is drawn.
     type Props =
         {|
             label: string
@@ -24,6 +37,7 @@ module PickField =
             clearable: bool
             isLoading: bool
             enabled: bool
+            shape: Shape
         |}
 
 
@@ -61,20 +75,34 @@ module PickField =
             [| box (only |> Option.defaultValue ""); box chosen; box props.enabled |]
         )
 
-        SimpleSelect.View
-            {|
-                label = props.label
-                selected = offer.Selected
-                values = props.options
-                updateSelected =
-                    if PickPolicy.acceptsChange pick then
-                        props.onChange
-                    else
-                        ignore
-                isLoading = props.isLoading
-                disabled = offer.Disabled
-                hasClear = offer.CanClear
-                canStep = false
-                severity = Types.Severity.Normal
-                minWidth = None
-            |}
+        let updateSelected =
+            if PickPolicy.acceptsChange pick then
+                props.onChange
+            else
+                ignore
+
+        match props.shape with
+        | Shape.Scroll ->
+            SimpleSelect.View
+                {|
+                    label = props.label
+                    selected = offer.Selected
+                    values = props.options
+                    updateSelected = updateSelected
+                    isLoading = props.isLoading
+                    disabled = offer.Disabled
+                    hasClear = offer.CanClear
+                    canStep = false
+                    severity = Types.Severity.Normal
+                    minWidth = None
+                |}
+        | Shape.Type ->
+            Autocomplete.View
+                {|
+                    label = props.label
+                    selected = offer.Selected
+                    values = props.options |> Array.map fst
+                    updateSelected = updateSelected
+                    isLoading = props.isLoading
+                    disabled = offer.Disabled
+                |}
