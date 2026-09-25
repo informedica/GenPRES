@@ -720,3 +720,197 @@ let neonatalEstimateTests =
                 |> Expect.equal "the age tables" (Some 32000<gram>)
             }
         ]
+
+
+/// The gestational-age, weight and height setters by name, each applied to a value that fits
+/// its field.
+let measureSetters =
+    [
+        "setGAWeek", Patient.setGAWeek (Some "36")
+        "setGADay", Patient.setGADay (Some "2")
+        "setWeight", Patient.setWeight (Some "13000")
+        "setHeight", Patient.setHeight (Some "95")
+    ]
+
+
+/// The full patient with the measures estimated only: what the panel holds after an age and a
+/// gender were typed and the tables answered.
+let estimatedPatient: Patient =
+    { fullPatient with
+        Weight = { fullPatient.Weight with Measured = None }
+        Height = { fullPatient.Height with Measured = None }
+    }
+
+
+[<Tests>]
+let measureSetterTests =
+    testList
+        "Patient gestational-age, weight and height setters keep what was measured"
+        [
+            testList
+                "a gestational-age edit keeps the measured weight and height"
+                [
+                    for name, set in measureSetters |> List.take 2 do
+                        test $"{name}" {
+                            let p = Some fullPatient |> set |> patient
+                            p.Weight.Measured |> Expect.equal "the weight" fullPatient.Weight.Measured
+                            p.Height.Measured |> Expect.equal "the height" fullPatient.Height.Measured
+                        }
+                ]
+
+            testList
+                "a weight or height edit keeps the age and the gestational age"
+                [
+                    for name, set in measureSetters |> List.skip 2 do
+                        test $"{name}" {
+                            let p = Some fullPatient |> set |> patient
+                            p.Age |> Expect.equal "the age" fullPatient.Age
+                            p.GestationalAge
+                            |> Expect.equal "the gestational age" fullPatient.GestationalAge
+                        }
+                ]
+
+            testList
+                "every setter keeps the gender, access, renal function, location and department"
+                [
+                    for name, set in measureSetters do
+                        test $"{name}" {
+                            let p = Some fullPatient |> set |> patient
+                            p.Gender |> Expect.equal "the gender" fullPatient.Gender
+                            p.Access |> Expect.equal "the access" fullPatient.Access
+                            p.RenalFunction |> Expect.equal "the renal function" fullPatient.RenalFunction
+                            p.Location |> Expect.equal "the location" fullPatient.Location
+                            p.Department |> Expect.equal "the department" fullPatient.Department
+                        }
+                ]
+
+            testList
+                "the estimates are blank after every setter"
+                [
+                    for name, set in measureSetters do
+                        test $"{name}" {
+                            let p = Some fullPatient |> set |> patient
+                            p.Weight.Estimated |> Expect.isNone "weight estimate"
+                            p.Weight.EstimatedP3 |> Expect.isNone "weight p3"
+                            p.Weight.EstimatedP97 |> Expect.isNone "weight p97"
+                            p.Height.Estimated |> Expect.isNone "height estimate"
+                            p.Height.EstimatedP3 |> Expect.isNone "height p3"
+                            p.Height.EstimatedP97 |> Expect.isNone "height p97"
+                        }
+                ]
+
+            testList
+                "no setter writes an estimate as measured"
+                [
+                    test "a weight typed for an estimated height leaves the height unmeasured" {
+                        Some estimatedPatient
+                        |> Patient.setWeight (Some "13000")
+                        |> patient
+                        |> _.Height.Measured
+                        |> Expect.isNone "not measured"
+                    }
+
+                    test "a height typed for an estimated weight leaves the weight unmeasured" {
+                        Some estimatedPatient
+                        |> Patient.setHeight (Some "95")
+                        |> patient
+                        |> _.Weight.Measured
+                        |> Expect.isNone "not measured"
+                    }
+                ]
+
+            testList
+                "each setter writes its own field"
+                [
+                    test "setGAWeek" {
+                        Some fullPatient
+                        |> Patient.setGAWeek (Some "36")
+                        |> patient
+                        |> _.GestationalAge
+                        |> Expect.equal "weeks" (Some { fullPatient.GestationalAge.Value with Weeks = 36<week> })
+                    }
+
+                    test "setGADay" {
+                        Some fullPatient
+                        |> Patient.setGADay (Some "2")
+                        |> patient
+                        |> _.GestationalAge
+                        |> Expect.equal "days" (Some { fullPatient.GestationalAge.Value with Days = 2<day> })
+                    }
+
+                    test "setWeight" {
+                        Some fullPatient
+                        |> Patient.setWeight (Some "13000")
+                        |> patient
+                        |> _.Weight.Measured
+                        |> Expect.equal "grams" (Some 13000<gram>)
+                    }
+
+                    test "setHeight" {
+                        Some fullPatient
+                        |> Patient.setHeight (Some "95")
+                        |> patient
+                        |> _.Height.Measured
+                        |> Expect.equal "centimetres" (Some 95<cm>)
+                    }
+                ]
+
+            testList
+                "a draft's gestational age and measures"
+                [
+                    test "a gestational age started from its days alone is a term one" {
+                        None
+                        |> Patient.setGADay (Some "2")
+                        |> patient
+                        |> _.GestationalAge
+                        |> Expect.equal
+                            "37 weeks 2 days"
+                            (Some
+                                {
+                                    Weeks = 37<week>
+                                    Days = 2<day>
+                                })
+                    }
+
+                    test "clearing the gestational weeks reads as term" {
+                        Some fullPatient
+                        |> Patient.setGAWeek None
+                        |> patient
+                        |> _.GestationalAge
+                        |> Expect.equal
+                            "term"
+                            (Some
+                                {
+                                    Weeks = 37<week>
+                                    Days = 5<day>
+                                })
+                    }
+
+                    test "a blank draft with the gestational days cleared is the blank draft" {
+                        None |> Patient.setGADay None |> Expect.equal "blank" (Some Patient.empty)
+                    }
+
+                    test "a blank draft given a weight is a patient of that weight alone" {
+                        None
+                        |> Patient.setWeight (Some "13000")
+                        |> patient
+                        |> Expect.equal
+                            "13000 grams, nothing else"
+                            { Patient.empty with Weight = { Patient.empty.Weight with Measured = Some 13000<gram> } }
+                    }
+
+                    test "a measure cleared is a measure gone, the other kept" {
+                        let p = Some fullPatient |> Patient.setWeight None |> patient
+                        p.Weight.Measured |> Expect.isNone "weight gone"
+                        p.Height.Measured |> Expect.equal "height kept" fullPatient.Height.Measured
+                    }
+
+                    test "a value that is not a number clears the field" {
+                        Some fullPatient
+                        |> Patient.setHeight (Some "tall")
+                        |> patient
+                        |> _.Height.Measured
+                        |> Expect.isNone "not a number"
+                    }
+                ]
+        ]
