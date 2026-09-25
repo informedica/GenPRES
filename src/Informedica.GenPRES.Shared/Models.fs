@@ -654,7 +654,7 @@ module Models =
 
                 nvs
                 |> List.map _.Age
-                |> List.nearestIndex age
+                |> fun ages -> if ages.IsEmpty then -1 else ages |> List.nearestIndex age // no row for the sex
                 |> fun idx ->
                     if idx < 0 || idx >= nvs.Length then
                         None

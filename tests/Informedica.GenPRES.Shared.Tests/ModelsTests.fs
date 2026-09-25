@@ -692,6 +692,23 @@ let neonatalEstimateTests =
                 |> Expect.equal "neonatal weight, age-table height" (Some 3500<gram>, Some 140<cm>)
             }
 
+            test "a neonatal table with no row for the sex answers nothing, and the age table does" {
+                { Patient.empty with
+                    Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
+                    GestationalAge = Some NeonatalEstimateFixtures.term
+                    Gender = Female
+                }
+                |> Patient.applyNormalValues
+                    (Some [ row "F" 10. 25. 30. 40. ])
+                    heights
+                    NeonatalEstimateFixtures.neoWeights
+                    NeonatalEstimateFixtures.neoHeights
+                |> fun dto -> dto.Weight.Estimated, dto.Height.Estimated
+                |> Expect.equal
+                    "male-only neonatal tables: the age table for her, no height row at all"
+                    (Some 30000<gram>, None)
+            }
+
             test "without the neonatal tables a newborn is estimated from the age tables" {
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
