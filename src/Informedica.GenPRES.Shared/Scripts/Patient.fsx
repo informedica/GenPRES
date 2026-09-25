@@ -1,4 +1,4 @@
-// What a patient setter keeps. Today every setter in `Shared/Models.fs` rebuilds the patient
+// What a patient setter keeps. Before this, every setter in `Shared/Models.fs` rebuilt the patient
 // through `Patient.create`, and each one gets a part of that wrong: the age and gestational-age
 // setters pass nothing for the weight and the height, so a measured weight typed before the age
 // is dropped and the estimate shows in its place; `setWeight` and `setHeight` carry the other
@@ -14,7 +14,9 @@
 // gestational age started from its days alone is a term one.
 //
 // Script-first draft (script-only policy) of the eight setters, → `Shared/Models.fs`, the
-// `Patient` module; the tests → `tests/Informedica.GenPRES.Shared.Tests/ModelsTests.fs`.
+// `Patient` module; the tests → `tests/Informedica.GenPRES.Shared.Tests/ModelsTests.fs`. Migrated
+// in two halves, the age setters and then the rest; the tests that showed the two faults on the
+// originals went with the second half, since the originals no longer have them.
 //
 // Run: `dotnet fsi Patient.fsx` from this directory.
 
@@ -225,26 +227,6 @@ let tests =
     testList
         "Patient setters keep what was measured"
         [
-            testList
-                "the faults of the setters as they are"
-                [
-                    test "an age typed after a weight drops the measured weight" {
-                        Some full
-                        |> Original.setYear (Some "5")
-                        |> get
-                        |> _.Weight.Measured
-                        |> Expect.isNone "the original drops it"
-                    }
-
-                    test "a weight typed for an estimated height writes the estimate as measured" {
-                        Some estimated
-                        |> Original.setWeight (Some "13000")
-                        |> get
-                        |> _.Height.Measured
-                        |> Expect.equal "the original promotes the estimate" (Some 90<cm>)
-                    }
-                ]
-
             testList
                 "an age or gestational-age edit keeps the measured weight and height"
                 [

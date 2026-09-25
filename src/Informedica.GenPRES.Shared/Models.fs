@@ -774,106 +774,55 @@ module Models =
             p |> edit (editAgePart (fun v a -> { a with Days = v |> Measures.toDay }) s)
 
 
-        let setWeight s (p: Patient option) =
-            match p with
-            | None -> create None None None None (s |> Option.bind tryParse) None None None UnknownGender [] None None
-            | Some p ->
-                create
-                    (p |> getAgeYears)
-                    (p |> getAgeMonths)
-                    (p |> getAgeWeeks)
-                    (p |> getAgeDays)
-                    (s |> Option.bind tryParse)
-                    (p |> getHeight |> Option.map int)
-                    (p |> getGAWeeks)
-                    (p |> getGADays)
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+        /// One part of the gestational age written from the field, as the age parts are, with
+        /// the term values, 37 weeks and 0 days, for a part that was never given.
+        let editGestAgePart (write: int option -> GestAge -> GestAge) (s: string option) (p: Patient) =
+            match p.GestationalAge, s |> Option.bind tryParse with
+            | None, None -> p
+            | ga, v ->
+                let term: GestAge =
+                    {
+                        Weeks = 37<week>
+                        Days = 0<day>
+                    }
 
-
-        let setHeight s (p: Patient option) =
-            match p with
-            | None -> create None None None None None (s |> Option.bind tryParse) None None UnknownGender [] None None
-            | Some p ->
-                create
-                    (p |> getAgeYears)
-                    (p |> getAgeMonths)
-                    (p |> getAgeWeeks)
-                    (p |> getAgeDays)
-                    (p |> getWeight |> Option.map int)
-                    (s |> Option.bind tryParse)
-                    (p |> getGAWeeks)
-                    (p |> getGADays)
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+                { p with GestationalAge = ga |> Option.defaultValue term |> write v |> Some }
 
 
         let setGAWeek s (p: Patient option) =
-            match p with
-            | None ->
-                create
-                    None
-                    None
-                    None
-                    None
-                    None
-                    None
-                    (s |> Option.bind tryParse |> Option.map Measures.toWeek)
-                    None
-                    UnknownGender
-                    []
-                    None
-                    None
-            | Some p ->
-                create
-                    (p |> getAgeYears)
-                    (p |> getAgeMonths)
-                    (p |> getAgeWeeks)
-                    (p |> getAgeDays)
-                    None
-                    None
-                    (s |> Option.bind tryParse |> Option.map Measures.toWeek)
-                    (p |> getGADays)
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+            p
+            |> edit (
+                editGestAgePart
+                    (fun v ga -> { ga with Weeks = v |> Option.map Measures.toWeek |> Option.defaultValue 37<week> })
+                    s
+            )
 
 
         let setGADay s (p: Patient option) =
-            match p with
-            | None ->
-                create
-                    None
-                    None
-                    None
-                    None
-                    None
-                    None
-                    None
-                    (s |> Option.bind tryParse |> Option.map Measures.toDay)
-                    UnknownGender
-                    []
-                    None
-                    None
-            | Some p ->
-                create
-                    (p |> getAgeYears)
-                    (p |> getAgeMonths)
-                    (p |> getAgeWeeks)
-                    (p |> getAgeDays)
-                    None
-                    None
-                    (p |> getGAWeeks)
-                    (s |> Option.bind tryParse |> Option.map Measures.toDay)
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+            p
+            |> edit (
+                editGestAgePart
+                    (fun v ga -> { ga with Days = v |> Option.map Measures.toDay |> Option.defaultValue 0<day> })
+                    s
+            )
+
+
+        /// The measured weight in grams from the field; the height, measured or not, untouched.
+        let setWeight s (p: Patient option) =
+            p
+            |> edit (fun p ->
+                { p with
+                    Weight = { p.Weight with Measured = s |> Option.bind tryParse |> Option.map Measures.toGram }
+                }
+            )
+
+
+        /// The measured height in centimetres from the field; the weight, measured or not, untouched.
+        let setHeight s (p: Patient option) =
+            p
+            |> edit (fun p ->
+                { p with Height = { p.Height with Measured = s |> Option.bind tryParse |> Option.map Measures.toCm } }
+            )
 
 
     module Intervention =
