@@ -140,9 +140,29 @@ One pull request each, in this order.
    the nutrition page used to patch by hand after every composition change. When no choice is
    left anywhere, no options are kept either, so nothing stays narrowed by a filter that is
    gone.
-3. **The reset on the prescribing page.** The full-width text button becomes a bounded secondary
-   action on an `ActionBar`, named *Reset*. No term exists for the word yet, so it lands as the
-   Dutch at the call site and a term row follows, as the foundation's labels did.
+3. **The reset, on all three of the pages that offer one.** The word is localized rather than
+   written at the call site: the control is spelled out in three places today and translated in
+   none, the prescribing page saying what a delete says and the dose dialog and the nutrition
+   page saying an English word whatever language is being read. One term for the act, with no
+   area before it, as `Delete` and the term for OK are. Two pull requests, since the terms are
+   not client UI: the case and its row drafted in the localization script, then the case, the
+   row and the three controls.
+
+   The three, named, and what becomes of each:
+
+   - `Views/Prescribe.fs`, which resets the filter being built: a full-width text button reading
+     the delete term. It becomes a bounded secondary action on an `ActionBar` reading the reset
+     term. This is #394.
+   - `Views/Order.fs`, the dose dialog, which discards the changes to a scenario: already a
+     bounded secondary action on an `ActionBar`, with the word written in English at the call
+     site. The word becomes the term; nothing else changes.
+   - `Views/Nutrition.fs`, which discards the changes to a nutrition order: an outlined button
+     with the word written in English, stretched by the column it sits in, so it is as wide as
+     the panel and invites the same accident #394 reports. It becomes a bounded secondary action
+     on an `ActionBar` reading the term.
+
+   Nothing is deferred: leaving one of the three would put the same word on the same act in two
+   languages at once.
 4. **One rule for the cross on a dose field.** `ViewHelpers.orderSelect` decides it from the
    field's own state; the argument and the flags at the call sites in `Views/Order.fs` and
    `Views/Nutrition.fs` go.
