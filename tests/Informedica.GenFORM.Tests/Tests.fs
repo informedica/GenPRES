@@ -4170,6 +4170,59 @@ module Tests =
                         |> Expect.equal "ICC, ICK, NEO" [| "ICC"; "ICK"; "NEO" |]
                     }
 
+                    test "the names come from the dose rules, the solution rules and the reconstitutions" {
+                        let doseRow =
+                            let d = DoseRuleProductTests.mkData "paracetamol" "oral" "" "" [||] [||]
+                            { d with Patient = { d.Patient with Dep = "PICU" } }
+
+                        let solutionRow: SolutionRuleData =
+                            {
+                                Generic = "paracetamol"
+                                Form = ""
+                                Route = "iv"
+                                Indication = ""
+                                Location = None
+                                Department = Some "ICC"
+                                CVL = ""
+                                PVL = ""
+                                MinAge = None
+                                MaxAge = None
+                                MinWeight = None
+                                MaxWeight = None
+                                MinGestAge = None
+                                MaxGestAge = None
+                                MinDose = None
+                                MaxDose = None
+                                DoseType = ""
+                                DoseText = ""
+                                Solutions = []
+                                Div = None
+                                Volumes = [||]
+                                MinVol = None
+                                MaxVol = None
+                                MinVolAdj = None
+                                MaxVolAdj = None
+                                MinPerc = None
+                                MaxPerc = None
+                                Component = ""
+                                Substance = ""
+                                Unit = ""
+                                Quantities = [||]
+                                MinQty = None
+                                MaxQty = None
+                                MinQtyAdj = None
+                                MaxQtyAdj = None
+                                MinDrip = None
+                                MaxDrip = None
+                                MinConc = None
+                                MaxConc = None
+                            }
+
+                        Departments.ofRules [| doseRow |] [| solutionRow |] [| reconstitutionOf (Some "NEO") |]
+                        |> _.Names
+                        |> Expect.equal "ICC, ICK, NEO, PICU" [| "ICC"; "ICK"; "NEO"; "PICU" |]
+                    }
+
                     test "the default is among the names whether or not a rule names it" {
                         [] |> Departments.ofNamed |> _.Names |> Expect.equal "ICK alone" [| "ICK" |]
                         [ Some "ICK" ]
@@ -4238,12 +4291,14 @@ module Tests =
                         matched (Some "NICU") |> Expect.equal "NICU and any" [| Some "NICU"; None |]
                     }
 
-                    test "the registry derives it from the solution-rule rows and the reconstitutions, once" {
+                    test
+                        "the registry derives it from the dose-rule rows, the solution-rule rows and the reconstitutions, once" {
                         let mutable loads = 0
 
                         let registry =
                             Map
                                 [
+                                    Keys.doseRuleData.Name, ofResult (fun () -> Ok([||]: DoseRuleData[]))
                                     Keys.solutionRuleData.Name, ofResult (fun () -> Ok([||]: SolutionRuleData[]))
                                     Keys.reconstitution.Name,
                                     ofResult (fun () ->

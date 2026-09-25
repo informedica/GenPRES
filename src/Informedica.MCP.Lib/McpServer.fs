@@ -214,7 +214,8 @@ type GenOrderMcpTools() =
             [<Description("Patient height in cm. Required together with weightKg — without both, the tool returns an error.")>] heightCm:
                 Nullable<float>,
             [<Description("Patient sex: 'male' or 'female'")>] sex: string,
-            [<Description("Hospital department (e.g. 'ICK', 'NEO'). Defaults to 'ICK' if omitted.")>] department: string,
+            [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, the server's default department applies.")>] department:
+                string,
             [<Description("Generic drug name to pre-filter on")>] generic: string,
             [<Description("Clinical indication to pre-filter on")>] indication: string,
             [<Description("Administration route to pre-filter on")>] route: string,
@@ -248,7 +249,8 @@ type GenOrderMcpTools() =
             [<Description("Patient height in cm. Required together with weightKg — without both, the tool returns an error.")>] heightCm:
                 Nullable<float>,
             [<Description("Patient sex: 'male' or 'female'")>] sex: string,
-            [<Description("Hospital department (e.g. 'ICK', 'NEO'). Defaults to 'ICK' if omitted.")>] department: string,
+            [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, the server's default department applies.")>] department:
+                string,
             [<Description("Generic drug name")>] generic: string,
             [<Description("Clinical indication")>] indication: string,
             [<Description("Administration route")>] route: string,

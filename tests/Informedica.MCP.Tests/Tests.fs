@@ -185,5 +185,203 @@ module Tests =
                 ]
 
 
+    module CheckDepartmentTests =
+
+        open Informedica.GenForm.Lib.Resources
+        open Informedica.GenOrder.Lib
+        open Informedica.MCP.Lib.GenOrderTools
+
+        /// The departments the tests prescribe for: two named by rules, the default among them.
+        let private departments = Departments.ofNamed [ Some "NEO"; Some "ICC" ]
+
+        /// A provider that answers the departments and nothing else: a test that reaches any
+        /// rule raises, so a refusal proves that the guard ran before the rules were read.
+        let private departmentsOnly: IResourceProvider =
+            { new IResourceProvider with
+                member _.Get(key: ResourceKey<'T>) : 'T =
+                    if key.Name = Keys.departments.Name then
+                        box departments :?> 'T
+                    else
+                        raise (NotImplementedException key.Name)
+
+                member _.GetData() = raise (NotImplementedException())
+                member _.GetUnitMappings() = raise (NotImplementedException())
+                member _.GetRouteMappings() = raise (NotImplementedException())
+                member _.GetValidForms() = raise (NotImplementedException())
+                member _.GetFormRoutes() = raise (NotImplementedException())
+                member _.GetFormularyProducts() = raise (NotImplementedException())
+                member _.GetReconstitution() = raise (NotImplementedException())
+                member _.GetParenteralMeds() = raise (NotImplementedException())
+                member _.GetEnteralFeeding() = raise (NotImplementedException())
+                member _.GetProducts() = raise (NotImplementedException())
+                member _.GetDoseRules() = raise (NotImplementedException())
+                member _.GetSolutionRules() = raise (NotImplementedException())
+                member _.GetRenalRules() = raise (NotImplementedException())
+                member _.GetTotals() = raise (NotImplementedException())
+                member _.GetGStandProvider() = raise (NotImplementedException())
+                member _.GetResourceInfo() = raise (NotImplementedException())
+            }
+
+        /// A provider that answers the departments and no rule at all, so an evaluation that
+        /// passes the guards is refused by the domain for lack of rules and by nothing else.
+        let private emptyRules: IResourceProvider =
+            { new IResourceProvider with
+                member _.Get(key: ResourceKey<'T>) : 'T =
+                    if key.Name = Keys.departments.Name then
+                        box departments :?> 'T
+                    else
+                        raise (NotImplementedException key.Name)
+
+                member _.GetData() = raise (NotImplementedException())
+                member _.GetUnitMappings() = raise (NotImplementedException())
+                member _.GetRouteMappings() = [||]
+                member _.GetValidForms() = raise (NotImplementedException())
+                member _.GetFormRoutes() = raise (NotImplementedException())
+                member _.GetFormularyProducts() = raise (NotImplementedException())
+                member _.GetReconstitution() = [||]
+                member _.GetParenteralMeds() = raise (NotImplementedException())
+                member _.GetEnteralFeeding() = raise (NotImplementedException())
+                member _.GetProducts() = raise (NotImplementedException())
+                member _.GetDoseRules() = [||]
+                member _.GetSolutionRules() = [||]
+                member _.GetRenalRules() = [||]
+                member _.GetTotals() = raise (NotImplementedException())
+                member _.GetGStandProvider() = raise (NotImplementedException())
+                member _.GetResourceInfo() = raise (NotImplementedException())
+            }
+
+        /// A provider that must never be called.
+        let private unusedProvider: IResourceProvider = Unchecked.defaultof<_>
+
+        let private measured: CreateOrderContextInput =
+            {
+                AgeMonths = Some 24.0
+                WeightKg = Some 12.0
+                HeightCm = Some 86.0
+                Sex = None
+                Department = None
+                Generic = Some "paracetamol"
+                Indication = None
+                Route = None
+                Form = None
+            }
+
+        let tests =
+            testList
+                "checkDepartment"
+                [
+                    test "the names are the ones the rules name and the default, sorted" {
+                        departments.Names |> Expect.equal "the names" [| "ICC"; "ICK"; "NEO" |]
+                    }
+
+                    test "no department is Ok and stays none, so the default applies" {
+                        measured
+                        |> checkDepartment departments
+                        |> Expect.equal "unchanged" (Ok measured)
+                    }
+
+                    test "a department the rules name is Ok as given" {
+                        { measured with Department = Some "NEO" }
+                        |> checkDepartment departments
+                        |> Result.map _.Department
+                        |> Expect.equal "NEO" (Ok(Some "NEO"))
+                    }
+
+                    test "a department in another case is Ok as the rules spell it" {
+                        { measured with Department = Some "neo" }
+                        |> checkDepartment departments
+                        |> Result.map _.Department
+                        |> Expect.equal "NEO" (Ok(Some "NEO"))
+                    }
+
+                    test "a department with spaces around it is Ok trimmed" {
+                        { measured with Department = Some " icc " }
+                        |> checkDepartment departments
+                        |> Result.map _.Department
+                        |> Expect.equal "ICC" (Ok(Some "ICC"))
+                    }
+
+                    test "the default itself is Ok as given" {
+                        { measured with Department = Some "ICK" }
+                        |> checkDepartment departments
+                        |> Result.map _.Department
+                        |> Expect.equal "ICK" (Ok(Some "ICK"))
+                    }
+
+                    test "a department the rules do not name is refused, naming the ones they do" {
+                        match { measured with Department = Some "PICU" } |> checkDepartment departments with
+                        | Ok _ -> failtest "should refuse"
+                        | Error msg ->
+                            msg |> Expect.stringContains "names the input" "'PICU'"
+                            msg |> Expect.stringContains "names the known" "ICC, ICK, NEO"
+                            msg |> Expect.stringContains "names the default" "ICK"
+                    }
+
+                    test "when the rules spell a name in two cases, the spelling given wins" {
+                        let both = Departments.ofNamed [ Some "NEO"; Some "neo" ]
+
+                        { measured with Department = Some "neo" }
+                        |> checkDepartment both
+                        |> Result.map _.Department
+                        |> Expect.equal "neo as given" (Ok(Some "neo"))
+                    }
+
+                    test "when the rules spell a name in two cases, a third case is refused" {
+                        let both = Departments.ofNamed [ Some "NEO"; Some "neo" ]
+
+                        { measured with Department = Some "Neo" }
+                        |> checkDepartment both
+                        |> Expect.isError "ambiguous, so refused"
+                    }
+
+                    test "an empty department is refused, not taken as none" {
+                        { measured with Department = Some "" }
+                        |> checkDepartment departments
+                        |> Expect.isError "should refuse"
+                    }
+
+                    test "the checked department is the one the patient is built with" {
+                        { measured with Department = Some "neo" }
+                        |> checkDepartment departments
+                        |> Result.map (buildPatient departmentsOnly >> Patient.getDepartment)
+                        |> Expect.equal "NEO on the patient" (Ok(Some "NEO"))
+                    }
+
+                    test "evaluateOrderContext with an accepted department reaches the rules" {
+                        // no rule at all is loaded, so the evaluation stops for lack of rules:
+                        // the domain's refusal, not the department's, which proves the guard
+                        // let the department through and the patient was built with it
+                        { measured with Department = Some "neo" }
+                        |> evaluateOrderContext emptyRules
+                        |> Result.mapError (fun msg -> msg.Contains "Unknown department")
+                        |> Expect.equal "refused for lack of rules, not for the department" (Error false)
+                    }
+
+                    test "evaluateOrderContext refuses an unknown department before reading any rule" {
+                        { measured with Department = Some "PICU" }
+                        |> evaluateOrderContext departmentsOnly
+                        |> Expect.isError "should refuse without evaluating"
+                    }
+
+                    test "evaluateOrderContext refuses a missing measure before touching the provider" {
+                        { measured with
+                            HeightCm = None
+                            Department = Some "PICU"
+                        }
+                        |> evaluateOrderContext unusedProvider
+                        |> Result.mapError (fun msg -> msg.Contains "HeightCm")
+                        |> Expect.equal "the measure, not the department" (Error true)
+                    }
+                ]
+
+
     [<Tests>]
-    let tests = testList "MCP" [ testHelloWorld; loggingTests; GenOrderToolsTests.tests ]
+    let tests =
+        testList
+            "MCP"
+            [
+                testHelloWorld
+                loggingTests
+                GenOrderToolsTests.tests
+                CheckDepartmentTests.tests
+            ]

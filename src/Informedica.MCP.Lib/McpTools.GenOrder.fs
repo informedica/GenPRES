@@ -235,9 +235,46 @@ module GenOrderTools =
         | Some _, None -> Error $"HeightCm is required in addition to WeightKg. {seeFilterOptions}"
 
 
+    /// The input with its department one the rules know, spelled as they spell it; none leaves
+    /// the default in force. A department the rules do not know is refused with the names they
+    /// do and the default, since the department selects the rules and a misspelt one would
+    /// silently select none. The spelling given wins when the rules know it; another case is
+    /// taken only when it names exactly one of them, since the rules compare exactly.
+    let checkDepartment
+        (departments: Departments)
+        (input: CreateOrderContextInput)
+        : Result<CreateOrderContextInput, string>
+        =
+        match input.Department with
+        | None -> Ok input
+        | Some d ->
+            let given = d.Trim()
+
+            let known =
+                if departments.Names |> Array.contains given then
+                    Some given
+                else
+                    match
+                        departments.Names
+                        |> Array.filter (fun n -> String.Equals(n, given, StringComparison.OrdinalIgnoreCase))
+                    with
+                    | [| n |] -> Some n
+                    | _ -> None
+
+            match known with
+            | Some n -> Ok { input with Department = Some n }
+            | None ->
+                let names = departments.Names |> String.concat ", "
+
+                Error
+                    $"Unknown department '{d}'. Known departments: {names}. \
+                      Omit the department to prescribe for the default, {departments.Default}."
+
+
     /// The order context for the input's patient and filter selection, evaluated against the
-    /// given provider. Requires both WeightKg and HeightCm (see requireWeightAndHeight); shared
-    /// by createOrderContext and getOrderScenarios so the guard and the patient/filter/evaluate
+    /// given provider. Requires both WeightKg and HeightCm (see requireWeightAndHeight), and
+    /// then a department the rules know, if one is given (see checkDepartment); shared by
+    /// createOrderContext and getOrderScenarios so the guards and the patient/filter/evaluate
     /// pipeline exist in exactly one place.
     let evaluateOrderContext
         (provider: IResourceProvider)
@@ -246,7 +283,8 @@ module GenOrderTools =
         =
         input
         |> requireWeightAndHeight
-        |> Result.map (fun () ->
+        |> Result.bind (fun () -> input |> checkDepartment (provider.Get Keys.departments))
+        |> Result.map (fun input ->
             let patient = buildPatient provider input
 
             OrderContext.create OrderLogging.noOp provider patient

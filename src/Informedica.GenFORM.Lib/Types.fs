@@ -660,8 +660,8 @@ module Types =
     /// the one a patient without a department is prescribed for.
     type Departments =
         {
-            /// Every department a solution rule or a reconstitution names, the default included,
-            /// distinct and sorted.
+            /// Every department a dose rule, a solution rule or a reconstitution names, the
+            /// default included, distinct and sorted.
             Names: string[]
             /// The department a patient without one is prescribed for.
             Default: string
