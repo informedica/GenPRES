@@ -1446,6 +1446,26 @@ module Models =
             | _ -> []
 
 
+        /// The tables from the rows of the four sheets, by sheet name, a sheet that is absent
+        /// giving an empty table, as a sheet the client could not fetch does.
+        let ofRows (rows: Map<string, string[][]>) : NormalValues =
+            let table sheet =
+                rows |> Map.tryFind sheet |> Option.map parse |> Option.defaultValue []
+
+            {
+                Weights = table "weight"
+                Heights = table "height"
+                NeoWeights = table "weight neo"
+                NeoHeights = table "height neo"
+            }
+
+
+        /// The estimate applied from the tables.
+        let apply (nv: NormalValues) (pat: Patient) : Patient =
+            pat
+            |> Patient.applyNormalValues (Some nv.Weights) (Some nv.Heights) (Some nv.NeoWeights) (Some nv.NeoHeights)
+
+
     module Order =
 
 

@@ -101,6 +101,55 @@ module GenOrderTools =
         | _ -> None
 
 
+    /// The measure a caller left out, estimated from the age and the sex it gave through the
+    /// contract model, the one estimate the web client shows; a measure given stays measured.
+    /// Without an age there is nothing to estimate from, and the patient stays as built.
+    let estimated (nv: Shared.Types.NormalValues) (input: CreateOrderContextInput) (pat: Patient.Patient) =
+        match input.AgeMonths, input.WeightKg, input.HeightCm with
+        | _, Some _, Some _
+        | None, _, _ -> pat
+        | Some months, _, _ ->
+            let gender =
+                match input.Sex |> Option.map _.ToLowerInvariant() with
+                | Some "male" -> Shared.Types.Male
+                | Some "female" -> Shared.Types.Female
+                | _ -> Shared.Types.UnknownGender
+
+            let draft =
+                Shared.Models.Patient.create
+                    None
+                    (months |> Math.Round |> int |> Shared.Measures.toMonth |> Some)
+                    None
+                    None
+                    None
+                    None
+                    None
+                    None
+                    gender
+                    []
+                    None
+                    None
+                |> Option.map (Shared.Models.NormalValues.apply nv)
+
+            let weight =
+                draft
+                |> Option.bind _.Weight.Estimated
+                |> Option.map (fun g -> decimal g / 1000m |> Kilogram)
+
+            let height = draft |> Option.bind _.Height.Estimated |> Option.map (int >> Centimeter)
+
+            let pat =
+                match input.WeightKg, weight with
+                | None, Some w -> { (pat |> Patient.setWeight (Some w)) with WeightMeasured = false }
+                | _ -> pat
+
+            match input.HeightCm, height with
+            | None, Some h -> { (pat |> Patient.setHeight (Some h)) with HeightMeasured = false }
+            | _ -> pat
+
+
+    /// The patient built from the input, the department the default when none is given, and
+    /// what the caller left out of the weight and the height estimated from the age.
     let buildPatient (provider: IResourceProvider) (input: CreateOrderContextInput) : Patient.Patient =
         let pat = Patient.patient
 
@@ -131,6 +180,10 @@ module GenOrderTools =
                 provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
             )
         )
+        |> estimated
+            (provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueRows
+             |> Shared.Models.NormalValues.ofRows)
+            input
 
 
     // ── Tool handler functions ──────────────────────────────────────────────
@@ -217,22 +270,17 @@ module GenOrderTools =
         )
 
 
-    /// Whether the order context can be narrowed to the caller's selection. Dose rules are
-    /// filtered on both weight and height (OrderContext.getRules, Informedica.GenORDER.Lib);
-    /// without either, that function silently rebuilds an unfiltered context and returns zero
-    /// scenarios rather than an error. The server's own patient gate
-    /// (ServerApi.Mappers.Patient.patient) accepts an age alone because the client estimates
-    /// weight/height from it; an MCP caller has no such estimate, so both are required here.
-    let requireWeightAndHeight (input: CreateOrderContextInput) =
-        let seeFilterOptions =
-            "Call get_order_context_filter_options first (it only needs age/weight) to discover \
-             available generics, then retry with both WeightKg and HeightCm."
-
-        match input.WeightKg, input.HeightCm with
-        | Some _, Some _ -> Ok()
-        | None, None -> Error $"Both WeightKg and HeightCm are required. {seeFilterOptions}"
-        | None, Some _ -> Error $"WeightKg is required in addition to HeightCm. {seeFilterOptions}"
-        | Some _, None -> Error $"HeightCm is required in addition to WeightKg. {seeFilterOptions}"
+    /// Whether the input is a patient by the domain rule: an age, or a measured weight and
+    /// height. With an age alone the weight and height are estimated, as the web client does;
+    /// without either the rules would silently answer nothing, so the call is refused.
+    let requireAgeOrMeasures (input: CreateOrderContextInput) =
+        match input.AgeMonths, input.WeightKg, input.HeightCm with
+        | Some _, _, _
+        | _, Some _, Some _ -> Ok()
+        | _ ->
+            Error
+                "A patient needs an age, or both WeightKg and HeightCm. With an age alone the \
+                 weight and height are estimated from it."
 
 
     /// The input with its department one the rules know, spelled as they spell it; none leaves
@@ -271,8 +319,18 @@ module GenOrderTools =
                       Omit the department to prescribe for the default, {departments.Default}."
 
 
+    /// The refusal when a measure could not be estimated from the age and sex given: the
+    /// normal-value tables are not loaded, or hold no row for that age and sex. Names the
+    /// measures the caller has to give, the ones still blank.
+    let noEstimate (missing: string list) =
+        let names = missing |> String.concat " and "
+
+        $"The %s{names} could not be estimated from the age and sex given: the normal-value \
+          tables are not loaded, or hold no row for them. Give %s{names}."
+
+
     /// The order context for the input's patient and filter selection, evaluated against the
-    /// given provider. Requires both WeightKg and HeightCm (see requireWeightAndHeight), and
+    /// given provider. Requires an age or both measures (see requireAgeOrMeasures), and
     /// then a department the rules know, if one is given (see checkDepartment); shared by
     /// createOrderContext and getOrderScenarios so the guards and the patient/filter/evaluate
     /// pipeline exist in exactly one place.
@@ -282,32 +340,46 @@ module GenOrderTools =
         : Result<OrderContext, string>
         =
         input
-        |> requireWeightAndHeight
+        |> requireAgeOrMeasures
         |> Result.bind (fun () -> input |> checkDepartment (provider.Get Keys.departments))
-        |> Result.map (fun input ->
+        |> Result.bind (fun input ->
             let patient = buildPatient provider input
 
-            OrderContext.create OrderLogging.noOp provider patient
-            |> (fun c ->
-                match input.Generic with
-                | Some g -> c |> OrderContext.setFilterGeneric g
-                | None -> c
-            )
-            |> (fun c ->
-                match input.Indication with
-                | Some i -> c |> OrderContext.setFilterIndication i
-                | None -> c
-            )
-            |> (fun c ->
-                match input.Route with
-                | Some r -> c |> OrderContext.setFilterRoute r
-                | None -> c
-            )
-            |> (fun c ->
-                match input.Form with
-                | Some f -> c |> OrderContext.setFilterForm f
-                | None -> c
-            )
+            // the estimate can leave a measure blank, the tables not loaded or without a row for
+            // the age and sex; the rules would then answer nothing, so the caller is told which
+            match patient.Weight, patient.Height with
+            | Some _, Some _ ->
+                OrderContext.create OrderLogging.noOp provider patient
+                |> (fun c ->
+                    match input.Generic with
+                    | Some g -> c |> OrderContext.setFilterGeneric g
+                    | None -> c
+                )
+                |> (fun c ->
+                    match input.Indication with
+                    | Some i -> c |> OrderContext.setFilterIndication i
+                    | None -> c
+                )
+                |> (fun c ->
+                    match input.Route with
+                    | Some r -> c |> OrderContext.setFilterRoute r
+                    | None -> c
+                )
+                |> (fun c ->
+                    match input.Form with
+                    | Some f -> c |> OrderContext.setFilterForm f
+                    | None -> c
+                )
+                |> Ok
+            | w, h ->
+                [
+                    if w.IsNone then
+                        "WeightKg"
+                    if h.IsNone then
+                        "HeightCm"
+                ]
+                |> noEstimate
+                |> Error
         )
         |> Result.bind (fun ctx ->
             OrderContext.UpdateOrderContext ctx

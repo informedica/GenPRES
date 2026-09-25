@@ -205,14 +205,12 @@ type GenOrderMcpTools() =
         |> McpHelpers.toJson
 
     [<McpServerTool(Name = "create_order_context")>]
-    [<Description("Create an order context for a patient and return a summary of available scenarios and filter options. This is the main entry point for AI-assisted prescription support. weightKg and heightCm are both required together: dose rules can only be matched when both are known, so this tool returns an error rather than scenarios if either is missing. Call get_order_context_filter_options first if weight/height are not yet known.")>]
+    [<Description("Create an order context for a patient and return a summary of available scenarios and filter options. This is the main entry point for AI-assisted prescription support. A patient needs an age, or both weightKg and heightCm; with an age alone the weight and height are estimated from it, as the web client does. Without either the tool returns an error rather than scenarios.")>]
     static member CreateOrderContext
         (
             [<Description("Patient age in months")>] ageMonths: Nullable<float>,
-            [<Description("Patient body weight in kg. Required together with heightCm — without both, the tool returns an error.")>] weightKg:
-                Nullable<float>,
-            [<Description("Patient height in cm. Required together with weightKg — without both, the tool returns an error.")>] heightCm:
-                Nullable<float>,
+            [<Description("Patient body weight in kg. Estimated from the age when omitted.")>] weightKg: Nullable<float>,
+            [<Description("Patient height in cm. Estimated from the age when omitted.")>] heightCm: Nullable<float>,
             [<Description("Patient sex: 'male' or 'female'")>] sex: string,
             [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, the server's default department applies.")>] department:
                 string,
@@ -240,14 +238,12 @@ type GenOrderMcpTools() =
         | Error msg -> McpHelpers.toJson {| Error = msg |}
 
     [<McpServerTool(Name = "get_order_scenarios")>]
-    [<Description("Return a summary of all available order scenarios for a patient with optional pre-filters. Each scenario represents one valid way to prescribe the medication. weightKg and heightCm are both required together: dose rules can only be matched when both are known, so this tool returns an error rather than scenarios if either is missing. Call get_order_context_filter_options first if weight/height are not yet known.")>]
+    [<Description("Return a summary of all available order scenarios for a patient with optional pre-filters. Each scenario represents one valid way to prescribe the medication. A patient needs an age, or both weightKg and heightCm; with an age alone the weight and height are estimated from it, as the web client does. Without either the tool returns an error rather than scenarios.")>]
     static member GetOrderScenarios
         (
             [<Description("Patient age in months")>] ageMonths: Nullable<float>,
-            [<Description("Patient body weight in kg. Required together with heightCm — without both, the tool returns an error.")>] weightKg:
-                Nullable<float>,
-            [<Description("Patient height in cm. Required together with weightKg — without both, the tool returns an error.")>] heightCm:
-                Nullable<float>,
+            [<Description("Patient body weight in kg. Estimated from the age when omitted.")>] weightKg: Nullable<float>,
+            [<Description("Patient height in cm. Estimated from the age when omitted.")>] heightCm: Nullable<float>,
             [<Description("Patient sex: 'male' or 'female'")>] sex: string,
             [<Description("Hospital department, one of the departments the loaded rules name (e.g. 'ICK', 'NEO'); another is refused, naming the known ones. Omitted, the server's default department applies.")>] department:
                 string,

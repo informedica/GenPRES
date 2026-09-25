@@ -7,6 +7,8 @@ open Expecto.Flip
 open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenForm.Lib
+open Informedica.GenOrder.Lib
+open Informedica.GenOrder.Lib.Patient.Optics
 // after GenForm, so that the contract model's cases win unqualified
 open Shared.Types
 
@@ -159,5 +161,100 @@ let tests =
                 { Shared.Models.Patient.empty with Age = stub.Age }
                 |> ServerApi.Patient.parse
                 |> Expect.equal "no weight and height" (Error [| ServerApi.Patient.noWeightAndHeight |])
+            }
+        ]
+
+
+module EstimateFixtures =
+
+    /// Two tables, one row per sex at two years: a boy of two is twelve kilograms and 87
+    /// centimetres, a girl eleven and 86.
+    let rows: Map<string, string[][]> =
+        Map
+            [
+                "weight",
+                [|
+                    [| "sex"; "age"; "p3"; "mean"; "p97" |]
+                    [| "M"; "2"; "10"; "12"; "14" |]
+                    [| "F"; "2"; "9"; "11"; "13" |]
+                |]
+                "height",
+                [|
+                    [| "sex"; "age"; "p3"; "mean"; "p97" |]
+                    [| "M"; "2"; "80"; "87"; "94" |]
+                    [| "F"; "2"; "79"; "86"; "93" |]
+                |]
+            ]
+
+
+    let tables = rows |> Shared.Models.NormalValues.ofRows
+
+
+open EstimateFixtures
+
+
+let dto (pat: Lib.Patient) = pat |> LibPatient.Dto.toDto
+
+
+[<Tests>]
+let estimateTests =
+    testList
+        "the estimate at the platform boundary"
+        [
+            test "an age alone gets the weight and height the client shows, as estimates" {
+                let pat =
+                    Patient.patient
+                    |> Patient.setAge [ Years 2 ]
+                    |> Patient.setGender Lib.Male
+                    |> ServerApi.Patient.estimated tables
+                    |> dto
+
+                (pat.WeightKg, pat.HeightCm, pat.WeightMeasured, pat.HeightMeasured)
+                |> Expect.equal "twelve kilograms, 87 centimetres, estimated" (Some 12N, Some 87N, false, false)
+            }
+
+            test "a measured weight is untouched, the height estimated beside it" {
+                let pat =
+                    Patient.patient
+                    |> Patient.setAge [ Years 2 ]
+                    |> Patient.setGender Lib.Male
+                    |> Patient.setWeight (Some(Kilogram 20m))
+                    |> ServerApi.Patient.estimated tables
+                    |> dto
+
+                (pat.WeightKg, pat.WeightMeasured, pat.HeightCm, pat.HeightMeasured)
+                |> Expect.equal "twenty kilograms measured, the height estimated" (Some 20N, true, Some 87N, false)
+            }
+
+            test "the department, the gender and the access devices survive the round trip" {
+                let pat =
+                    { Patient.patient with
+                        Department = Some "NEO"
+                        Access = [ Lib.CVL ]
+                    }
+                    |> Patient.setAge [ Years 2 ]
+                    |> Patient.setGender Lib.Female
+                    |> ServerApi.Patient.estimated tables
+
+                (pat.Department, pat.Gender, pat.Access)
+                |> Expect.equal "kept" (Some "NEO", Lib.Female, [ Lib.CVL ])
+            }
+
+            test "a reading that is no patient stays as it was" {
+                Patient.patient
+                |> ServerApi.Patient.estimated tables
+                |> Expect.equal "unchanged" Patient.patient
+            }
+
+            test "the port wrapped: a reading arrives estimated, and unestimated while the tables are not loaded" {
+                let read = Patient.patient |> Patient.setAge [ Years 2 ]
+                let port: ServerApi.PatientDataPort = { read = fun _ -> Some read }
+
+                (port |> ServerApi.Patient.estimating (fun () -> Some tables)).read "any"
+                |> Option.map _.Weight.IsSome
+                |> Expect.equal "estimated" (Some true)
+
+                (port |> ServerApi.Patient.estimating (fun () -> None)).read "any"
+                |> Expect.equal "as read" (Some read)
             }
         ]
