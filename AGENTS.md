@@ -189,6 +189,20 @@ Incidents caused by this exact pattern: [#523](https://github.com/informedica/Ge
 fixtures existed), and the Google-sheet fetch since replaced by injection in
 `tests/Informedica.GenORDER.Tests/Tests.fs`.
 
+## Dependency Rule
+
+Every project in `GenPRES.sln` belongs to one ring, and a project references only its own ring or a ring further in ([ADR-0001](docs/adr/0001-system-architecture.md), ring map in `scripts/DependencyRule.fsx`):
+
+- **Core**: units, patient, solver, operational knowledge rules, orders, interactions. No call that reaches outside the process, no configuration reads; values are passed in.
+- **Contract**: `GenPRES.Shared` alone. It references only itself, and only Presentation and Client may reference it, so the domain never depends on the wire shape.
+- **Infrastructure**: the adapters (ZIndex, ZForm, NKF, FTK, the Google Sheets loaders), the agent runtime and the IO half of the utilities.
+- **Presentation**: the server and the MCP host, the composition roots.
+- **Client**: references the contract and other Client projects, nothing more.
+
+Infrastructure and Presentation together are the only rings that touch the network, the filesystem, the environment, the clock and entropy, read a `GENPRES_*` setting, or declare an entry point. Effects enter the core as explicit parameters: a `Logger` record, a `now` value, a `newId` function, a function-valued resource such as `GStandProvider`. Only the composition roots construct loggers, providers and caches.
+
+`scripts/CheckDependencyRule.fsx` enforces this as a separate CI step. Existing violations are listed in it as allowances; an allowance that no longer matches fails the run, so deleting code can fail it too. Run the script after any change to project references or IO.
+
 ## BigRational & ValueUnit Semantics
 
 - BigRational operations are used broadly for dosing math. Respect existing helpers in `Informedica.GenUnits.Lib`.
