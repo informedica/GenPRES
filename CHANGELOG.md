@@ -1,5 +1,5 @@
 ---
-last_commit_released: 80ed9bdfc1b74f34b4db2c5742319e18dc1508cc
+last_commit_released: 1a9664804acb0be1b69cea9ea7619bf5d1209ccd
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,18 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.33 - 2026-09-25
+
+### 🐞 Bug Fixes
+
+* *(docker)* Copy the build script sources from build/ ([5643f60f](https://github.com/informedica/GenPRES/commit/5643f60f65d1a342ee1a1e8c2d170e9efb703ff9))
+
+    The published Docker image is built again. It had been failing since
+    the build script sources moved into build/, so releases were tagged
+    without an image.
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/80ed9bdfc1b74f34b4db2c5742319e18dc1508cc..1a9664804acb0be1b69cea9ea7619bf5d1209ccd)</small></strong>
 
 ## 0.1.2-alpha.32 - 2026-09-25
 
