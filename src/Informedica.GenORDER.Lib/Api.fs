@@ -633,8 +633,8 @@ module OrderContext =
 
     /// The rules for the context's selection and patient, and the context with its pick lists
     /// narrowed to them. A weight and a height are needed; a department is not, a patient
-    /// without one taking the rules of every department. Without a weight and a height the
-    /// context is made afresh and there are no rules.
+    /// without one taking the rules that name no department and no others. Without a weight
+    /// and a height the context is made afresh and there are no rules.
     let getRules logger provider (ctx: OrderContext) =
 
         match ctx.Patient.Weight, ctx.Patient.Height, ctx.Patient.Department with

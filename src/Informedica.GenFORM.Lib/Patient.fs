@@ -141,6 +141,16 @@ module PatientCategory =
         + (pat.Weight.Min |> toInt 0 |> (fun w -> w / 1000))
 
 
+    /// Whether a patient's department is one a rule applies to. A rule that names no
+    /// department is a rule for everybody; a patient with no department matches no rule that
+    /// names one; a patient with one matches the rules that name it, written the same way.
+    let departmentMatches (rule: string option) (patient: string option) =
+        match rule, patient with
+        | None, _ -> true
+        | Some _, None -> false
+        | Some rule, Some patient -> rule = patient
+
+
     /// <summary>
     /// Filters a PatientCategory using a Filter.
     /// Returns true if the PatientCategory matches the Filter criteria.
@@ -158,8 +168,8 @@ module PatientCategory =
          [|
              // if either filter location or patient category location is None, pass; otherwise must match
              fun (p: PatientCategory) -> filter.Patient.Location |> eqs p.Location
-             // if either filter department or patient category department is None, pass; otherwise must match
-             fun (p: PatientCategory) -> filter.Patient.Department |> eqs p.Department
+             // a rule that names a department is for the patients of that department only
+             fun (p: PatientCategory) -> filter.Patient.Department |> departmentMatches p.Department
              // patient age must be within patient category age range (if specified)
              fun (p: PatientCategory) -> filter.Patient.Age |> MinMax.inRange (p |> getAge)
              // patient weight must be within patient category weight range (if specified)
@@ -217,15 +227,9 @@ module PatientCategory =
 
 
     let filterPatient (pat: Patient) (patCat: PatientCategory) =
-        let eqs a b =
-            match a, b with
-            | None, _
-            | _, None -> true
-            | Some a, Some b -> a = b
-
         ([| patCat |],
          [|
-             fun (p: PatientCategory) -> pat.Department |> eqs p.Department
+             fun (p: PatientCategory) -> pat.Department |> departmentMatches p.Department
              fun (p: PatientCategory) -> pat.Age |> MinMax.inRange (p |> getAge)
              fun (p: PatientCategory) -> pat.Weight |> MinMax.inRange p.Weight
              fun (p: PatientCategory) ->

@@ -180,21 +180,23 @@ module Product =
             Web.getDataFromSheet dataUrlId "Reconstitution" |> parseReconstitution
 
 
-        let filter routeMapping (filter: DoseFilter) (rs: Reconstitution[]) =
+        /// Whether a reconstitution applies to a patient's location and department and a
+        /// route: the route when one is asked for; the location when both sides name one; the
+        /// department by the one rule of PatientCategory.departmentMatches.
+        let matches routeMapping (loc: string option) (dep: string option) (rte: string option) (r: Reconstitution) =
             let eqsOpt a b =
                 match a, b with
                 | Some a, Some b -> a = b
                 | _ -> true
 
-            [|
-                // should match the route if filter.Route is given
-                fun (r: Reconstitution) -> r.Route |> Mapping.eqsRoute routeMapping filter.Route
-                // if both filter and rule have location, they must match; if either is None, pass
-                fun (r: Reconstitution) -> r.Location |> eqsOpt filter.Patient.Location
-                // if both filter and rule have department, they must match; if either is None, pass
-                fun (r: Reconstitution) -> r.Department |> eqsOpt filter.Patient.Department
-            |]
-            |> Array.fold (fun (acc: Reconstitution[]) pred -> acc |> Array.filter pred) rs
+            r.Route |> Mapping.eqsRoute routeMapping rte
+            && r.Location |> eqsOpt loc
+            && PatientCategory.departmentMatches r.Department dep
+
+
+        let filter routeMapping (filter: DoseFilter) (rs: Reconstitution[]) =
+            rs
+            |> Array.filter (matches routeMapping filter.Patient.Location filter.Patient.Department filter.Route)
 
 
     let createSubstance logger name conc unit formUnit unitMapping =
@@ -742,12 +744,9 @@ module Product =
     /// </returns>
     let reconstitute mapping loc dep rte (prod: ProductComponent) =
         let warnings = ResizeArray<string>()
-        let eqsRoute = Mapping.eqsRoute mapping
 
-        let eqsOpt a b =
-            match a, b with
-            | Some a, Some b -> a = b
-            | _ -> true
+        // an empty route asks for no route
+        let rte' = if rte |> String.isNullOrWhiteSpace then None else Some rte
 
         let prods =
             [|
@@ -758,16 +757,7 @@ module Product =
                 else
                     // calculate the reconstituted products
                     prod.Reconstitution
-                    |> Array.filter (fun r ->
-                        // return true if route is not given or matches
-                        (rte |> String.isNullOrWhiteSpace || r.Route |> eqsRoute (Some rte))
-                        &&
-                        // return true if either department is None, or both match
-                        r.Department |> eqsOpt dep
-                        &&
-                        // return true if either location is None, or both match
-                        r.Location |> eqsOpt loc
-                    )
+                    |> Array.filter (Reconstitution.matches mapping loc dep rte')
                     |> fun xs ->
                         if xs |> Array.isEmpty then
                             warnings.Add
