@@ -2840,6 +2840,7 @@ module Tests =
 
         open Expecto
         open Expecto.Flip
+        open Informedica.GenUnits.Lib
         open Informedica.GenForm.Lib
 
 
@@ -2856,6 +2857,9 @@ module Tests =
             }
 
 
+        let patientFor department = { PatientDtoTests.Fixtures.child with Department = department }
+
+
         let categories =
             [
                 "ICK", { PatientCategory.empty with Department = Some "ICK" }
@@ -2864,26 +2868,110 @@ module Tests =
             ]
 
 
-        let matches department =
-            categories
-            |> List.map (fun (_, cat) -> cat |> PatientCategory.filter (filterFor department))
+        let reconstitutionFor department : Reconstitution =
+            {
+                GPK = "1"
+                Route = "iv"
+                Location = None
+                Department = department
+                DiluentVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
+                ExpansionVolume = None
+                Diluents = [| "NaCl 0,9%" |]
+            }
+
+
+        let reconstitutions = categories |> List.map (fun (_, cat) -> reconstitutionFor cat.Department)
+
+
+        /// The four patient-side matchers, each over the three categories for a patient's
+        /// department: ICK, NICU, any.
+        let matchers =
+            [
+                "PatientCategory.filter",
+                fun dep ->
+                    categories
+                    |> List.map (fun (_, cat) -> cat |> PatientCategory.filter (filterFor dep))
+                "PatientCategory.filterPatient",
+                fun dep ->
+                    categories
+                    |> List.map (fun (_, cat) -> cat |> PatientCategory.filterPatient (patientFor dep))
+                "Reconstitution.matches",
+                fun dep -> reconstitutions |> List.map (Product.Reconstitution.matches [||] None dep None)
+                "Reconstitution.filter",
+                fun dep ->
+                    reconstitutions
+                    |> List.map (fun r ->
+                        [| r |]
+                        |> Product.Reconstitution.filter [||] (filterFor dep)
+                        |> Array.isEmpty
+                        |> not
+                    )
+            ]
 
 
         let tests =
             testList
-                "the department in the dose filter"
+                "the department"
                 [
-                    test "a patient without a department matches a rule of any department" {
-                        matches None |> Expect.equal "ICK, NICU and any" [ true; true; true ]
-                    }
+                    testList
+                        "the predicate"
+                        [
+                            test "a rule that names no department is a rule for everybody" {
+                                PatientCategory.departmentMatches None None |> Expect.isTrue "no department"
+                                PatientCategory.departmentMatches None (Some "ICK") |> Expect.isTrue "ICK"
+                            }
 
-                    test "a patient with a department matches its own and the rules for any" {
-                        matches (Some "ICK")
-                        |> Expect.equal "ICK and any, not NICU" [ true; false; true ]
+                            test "a patient with no department matches no rule that names one" {
+                                PatientCategory.departmentMatches (Some "ICK") None |> Expect.isFalse "ICK"
+                            }
 
-                        matches (Some "NICU")
-                        |> Expect.equal "NICU and any, not ICK" [ false; true; true ]
-                    }
+                            test "a patient with a department matches the rules that name it, written the same way" {
+                                PatientCategory.departmentMatches (Some "ICK") (Some "ICK")
+                                |> Expect.isTrue "ICK"
+                                PatientCategory.departmentMatches (Some "ICK") (Some "NEO")
+                                |> Expect.isFalse "NEO"
+                                PatientCategory.departmentMatches (Some "ICK") (Some "ick")
+                                |> Expect.isFalse "ick"
+                            }
+                        ]
+
+                    testList
+                        "the four matchers follow it"
+                        [
+                            for name, matches in matchers do
+                                testList
+                                    name
+                                    [
+                                        test
+                                            "a patient without a department matches the rules for any, and no rule that names one" {
+                                            matches None |> Expect.equal "any alone" [ false; false; true ]
+                                        }
+
+                                        test "a patient with a department matches its own and the rules for any" {
+                                            matches (Some "ICK")
+                                            |> Expect.equal "ICK and any, not NICU" [ true; false; true ]
+
+                                            matches (Some "NICU")
+                                            |> Expect.equal "NICU and any, not ICK" [ false; true; true ]
+                                        }
+                                    ]
+                        ]
+
+                    testList
+                        "what is left as it is"
+                        [
+                            test "a rule that names a location still matches a patient with none" {
+                                { PatientCategory.empty with Location = Some "OK" }
+                                |> PatientCategory.filter (filterFor None)
+                                |> Expect.isTrue "the location comparison is untouched"
+                            }
+
+                            test "a reconstitution still asks for the route when one is given" {
+                                reconstitutionFor None
+                                |> Product.Reconstitution.matches [||] None None (Some "oraal")
+                                |> Expect.isFalse "iv is not oraal"
+                            }
+                        ]
                 ]
 
 

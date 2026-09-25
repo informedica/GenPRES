@@ -139,9 +139,11 @@ let tests =
                 |> rows
                 |> Expect.equal "before: ICK and the rules for every department" [ true; false; true ]
 
+                // a patient with no department matches the rules that name none and no others,
+                // so the mapper's empty department is no longer every department's rules
                 domain stub
                 |> rows
-                |> Expect.equal "after: the rules of every department" [ true; true; true ]
+                |> Expect.equal "after: the rules that name no department, and no others" [ false; false; true ]
 
                 { stub with Department = Some "ICK" }
                 |> domain

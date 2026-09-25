@@ -18,7 +18,9 @@
 // Script-first draft (script-only policy): `departmentMatches` and the two category matchers
 // → `GenFORM.Lib/Patient.fs`, `Reconstitution.matches` and `filter` → `GenFORM.Lib/Product.fs`,
 // where `reconstitute`'s inline predicate becomes a call of `matches`; the tests →
-// `tests/Informedica.GenFORM.Tests/Tests.fs`.
+// `tests/Informedica.GenFORM.Tests/Tests.fs`. Migrated; the tests that showed the matchers
+// passing a departmentless patient into every rule went with the migration, since the originals
+// no longer do, and the "before" columns printed below now equal the "after" ones.
 //
 // Run: `dotnet fsi Department.fsx` from this directory. The last test list reads the live
 // sheets through `GENPRES_URL_ID` from `.env`, and is skipped when that is not set.
@@ -301,15 +303,6 @@ let ruleTests =
         "what no department means"
         [
             testList
-                "the matchers as they are: a patient with no department matches a rule of any department"
-                [
-                    for name, matches in originals do
-                        test $"{name}" {
-                            matches (Some "ICK") None |> Expect.isTrue "the original passes it"
-                        }
-                ]
-
-            testList
                 "the predicate"
                 [
                     for name, rule, pat, expected in cases do
@@ -410,14 +403,6 @@ let sheetTests =
         testList
             "the live sheets"
             [
-                test "today a patient with no department matches every solution rule and every reconstitution" {
-                    countSolution Original.filterPatient None
-                    |> Expect.equal "every solution rule" solutionRows.Length
-
-                    countReconstitution Original.reconstitutionFilter None
-                    |> Expect.equal "every reconstitution" reconstitutions.Length
-                }
-
                 test "after: a patient with no department matches the rules that name none" {
                     countSolution PatientCategory.filterPatient None
                     |> Expect.equal "the solution rules naming none" (namingNone solutionDeps)
