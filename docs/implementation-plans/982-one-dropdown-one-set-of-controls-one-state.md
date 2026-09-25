@@ -131,6 +131,15 @@ One pull request each, in this order.
 2. **The cascade migrated.** The rule moves into the `OrderContext` module of
    `Shared/Models.fs` and its tests into `tests/Informedica.GenPRES.Shared.Tests/ModelsTests.fs`;
    the script goes. The two views are untouched: they already call these functions.
+   Landed: a change to a choice empties the choices below it in the order its page offers them,
+   writes the change, and drops the scenarios; nothing at all happens when the field already
+   holds what it is given. Clearing a field empties that field too, options and all, so a list
+   of one cannot choose itself again the moment the user empties it. The order is the order
+   category's, since the two pages do not offer the same one: a drug is found by indication and
+   then by medication, a nutrition composition is picked first and its indication follows, which
+   the nutrition page used to patch by hand after every composition change. When no choice is
+   left anywhere, no options are kept either, so nothing stays narrowed by a filter that is
+   gone.
 3. **The reset on the prescribing page.** The full-width text button becomes a bounded secondary
    action on an `ActionBar`, named *Reset*. No term exists for the word yet, so it lands as the
    Dutch at the call site and a term row follows, as the foundation's labels did.
@@ -161,9 +170,10 @@ One pull request each, in this order.
 
 ## To settle in review
 
-- Whether a change that clears the fields below should also empty their option lists. Clearing
-  does today, and the server refills them on the reply, so the fields are briefly empty; keeping
-  the stale lists would avoid the flash and show options that no longer apply.
+- Whether a change that clears the fields below should also empty their option lists. Decided
+  for now that it should: a list narrowed by a choice that is gone offers a smaller world than
+  there is and says nothing about it, and a pick from it builds a filter no rule matches. The
+  cost is that those fields stand empty for the length of one request.
 - Whether a dose field whose single value the solver determined, rather than the user, should
   offer the cross at all.
 - The word on the reset, which is a terminology decision and not this group's alone.

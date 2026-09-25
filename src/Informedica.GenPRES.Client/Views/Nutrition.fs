@@ -733,10 +733,6 @@ module Nutrition =
             ctx
             |> OrderContext.medicationChange s
             |> fun updCtx ->
-                // In Nutrition, Generic is upstream of Indication.
-                // Clear Indication selection (but NOT the Indications list — server repopulates it).
-                { updCtx with OrderContext.Filter.Indication = None }
-            |> fun updCtx ->
                 Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
             |> props.planCommand
 

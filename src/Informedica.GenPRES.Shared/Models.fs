@@ -2169,68 +2169,126 @@ module Models =
 
         let setScenarios srs ctx : OrderContext = { ctx with Scenarios = srs }
 
-        let indicationChange s (ctx: OrderContext) : OrderContext =
-            if s |> Option.isNone then
-                { ctx with
-                    Filter =
-                        { ctx.Filter with
-                            Indications = [||]
-                            Indication = None
-                            DoseTypes = [||]
-                            DoseType = None
-                        }
-                    Scenarios = [||]
+        /// A choice a page offers in the filter it builds.
+        type FilterField =
+            | Indication
+            | Generic
+            | Route
+            | Form
+            | DoseType
+
+
+        /// Every choice there is, for emptying the filter outright.
+        let filterFields = [ Indication; Generic; Route; Form; DoseType ]
+
+
+        /// The order a page offers its choices in, which is what decides how far a change to
+        /// one of them reaches. A drug is found by its indication and then by the medication
+        /// that treats it; a nutrition composition is picked first and the indication follows
+        /// from the composition, so the two pages are not the same order and a change means a
+        /// different thing on each. A choice a page does not offer stands below nothing.
+        let chain (ctx: OrderContext) =
+            match ctx.Category with
+            | OrderCategory.Drug -> [ Indication; Generic; Route; Form; DoseType ]
+            | OrderCategory.Nutrition _ -> [ Generic; Indication; DoseType ]
+
+
+        /// One field emptied: the choice it holds and the options it was picked from.
+        let clearField field (f: Filter) =
+            match field with
+            | Indication ->
+                { f with
+                    Indications = [||]
+                    Indication = None
                 }
+            | Generic ->
+                { f with
+                    Generics = [||]
+                    Generic = None
+                }
+            | Route ->
+                { f with
+                    Routes = [||]
+                    Route = None
+                }
+            | Form ->
+                { f with
+                    Forms = [||]
+                    Form = None
+                }
+            | DoseType ->
+                { f with
+                    DoseTypes = [||]
+                    DoseType = None
+                }
+
+
+        /// Whether any choice at all is still held.
+        let anyChosen (f: Filter) =
+            f.Indication.IsSome
+            || f.Generic.IsSome
+            || f.Route.IsSome
+            || f.Form.IsSome
+            || f.DoseType.IsSome
+
+
+        /// A change to one of the choices: the fields below it in the page's order are emptied,
+        /// the field itself is emptied too when it is being cleared, the change is written, and
+        /// the scenarios go, since they stand on the whole filter. Keeping a route from the
+        /// medication before would leave a filter no rule matches, which is why the user had to
+        /// empty a field before picking in it. When nothing is chosen anywhere afterwards, no
+        /// options are kept either: a list narrowed by choices that are gone would offer a
+        /// smaller world than there is, without saying so.
+        let applyChange field clearOwn write (ctx: OrderContext) : OrderContext =
+            let below =
+                match ctx |> chain |> List.skipWhile ((<>) field) with
+                | [] -> []
+                | _ :: rest -> rest
+
+            let filter =
+                below
+                |> List.fold (fun f x -> f |> clearField x) ctx.Filter
+                |> fun f -> if clearOwn then f |> clearField field else f
+                |> write
+
+            let filter =
+                if filter |> anyChosen then
+                    filter
+                else
+                    filterFields |> List.fold (fun f x -> f |> clearField x) filter
+
+            { ctx with
+                Filter = filter
+                Scenarios = [||]
+            }
+
+
+        let indicationChange s (ctx: OrderContext) : OrderContext =
+            if ctx.Filter.Indication = s then
+                ctx
             else
-                { ctx with OrderContext.Filter.Indication = s }
+                ctx |> applyChange Indication s.IsNone (fun f -> { f with Indication = s })
 
 
         let medicationChange s (ctx: OrderContext) : OrderContext =
-            if s |> Option.isNone then
-                { ctx with
-                    Filter =
-                        { ctx.Filter with
-                            Generics = [||]
-                            Generic = None
-                            DoseTypes = [||]
-                            DoseType = None
-                        }
-                    Scenarios = [||]
-                }
+            if ctx.Filter.Generic = s then
+                ctx
             else
-                { ctx with OrderContext.Filter.Generic = s }
+                ctx |> applyChange Generic s.IsNone (fun f -> { f with Generic = s })
 
 
         let routeChange s (ctx: OrderContext) : OrderContext =
-            if s |> Option.isNone then
-                { ctx with
-                    Filter =
-                        { ctx.Filter with
-                            Routes = [||]
-                            Route = None
-                            DoseTypes = [||]
-                            DoseType = None
-                        }
-                    Scenarios = [||]
-                }
+            if ctx.Filter.Route = s then
+                ctx
             else
-                { ctx with OrderContext.Filter.Route = s }
+                ctx |> applyChange Route s.IsNone (fun f -> { f with Route = s })
 
 
         let formChange s (ctx: OrderContext) : OrderContext =
-            if s |> Option.isNone then
-                { ctx with
-                    Filter =
-                        { ctx.Filter with
-                            Forms = [||]
-                            Form = None
-                            DoseTypes = [||]
-                            DoseType = None
-                        }
-                    Scenarios = [||]
-                }
+            if ctx.Filter.Form = s then
+                ctx
             else
-                { ctx with OrderContext.Filter.Form = s }
+                ctx |> applyChange Form s.IsNone (fun f -> { f with Form = s })
 
 
         let diluentChange s (ctx: OrderContext) : OrderContext = { ctx with OrderContext.Filter.Diluent = s }
@@ -2241,17 +2299,10 @@ module Models =
 
 
         let doseTypeChange (dt: DoseType option) (ctx: OrderContext) : OrderContext =
-            if dt |> Option.isNone then
-                { ctx with
-                    Filter =
-                        { ctx.Filter with
-                            DoseTypes = [||]
-                            DoseType = None
-                        }
-                    Scenarios = [||]
-                }
+            if ctx.Filter.DoseType = dt then
+                ctx
             else
-                { ctx with OrderContext.Filter.DoseType = dt }
+                ctx |> applyChange DoseType dt.IsNone (fun f -> { f with DoseType = dt })
 
 
     /// Conversions between the one severity and the two shapes the wire carries it in.
