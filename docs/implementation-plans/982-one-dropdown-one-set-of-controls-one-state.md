@@ -131,15 +131,19 @@ One pull request each, in this order.
 2. **The cascade migrated.** The rule moves into the `OrderContext` module of
    `Shared/Models.fs` and its tests into `tests/Informedica.GenPRES.Shared.Tests/ModelsTests.fs`;
    the script goes. The two views are untouched: they already call these functions.
-   Landed: a change to a choice empties the choices below it in the order its page offers them,
-   writes the change, and drops the scenarios; nothing at all happens when the field already
-   holds what it is given. Clearing a field empties that field too, options and all, so a list
-   of one cannot choose itself again the moment the user empties it. The order is the order
-   category's, since the two pages do not offer the same one: a drug is found by indication and
-   then by medication, a nutrition composition is picked first and its indication follows, which
-   the nutrition page used to patch by hand after every composition change. When no choice is
-   left anywhere, no options are kept either, so nothing stays narrowed by a filter that is
-   gone.
+   Landed: a change to a choice lets go of the choices in the steps below it, writes the
+   change, and drops the scenarios; nothing at all happens when the field already holds what it
+   is given. Clearing a field empties that field too, options and all, so a list of one cannot
+   choose itself again the moment the user empties it. The steps are the order category's, since
+   the two pages do not offer the same ones. On the drug page the indication and the medication
+   are one step, in either order and neither before the other: each narrows what the other
+   offers, so a pick from the list on the screen agrees with the one already made, and taking
+   the medication away because an indication was named is a loss with nothing gained. The route,
+   the form and the dose type are steps of their own below them, since they belong to the
+   medication and the one chosen for the medication before may not exist for this one. On the
+   nutrition page the composition comes first and the indication follows from it, which that
+   page used to patch by hand after every composition change. When no choice is left anywhere,
+   no options are kept either, so nothing stays narrowed by a filter that is gone.
 3. **The reset, on all three of the pages that offer one.** The word is localized rather than
    written at the call site: the control is spelled out in three places today and translated in
    none, the prescribing page saying what a delete says and the dose dialog and the nutrition
