@@ -4,8 +4,8 @@ namespace Components
 /// The buttons a page or a dialog ends in, placed by what they do rather than by hand: the
 /// action that completes the task is the prominent one and goes on the right; an action that
 /// discards or steps back is secondary and goes on the left; an action that destroys is set
-/// apart from both. Every button is bounded, never full-width, so the hand does not land on
-/// it by accident.
+/// apart from both. Every button is bounded, never full-width, so it is not where you click
+/// by default.
 module ActionBar =
 
 

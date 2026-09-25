@@ -103,7 +103,7 @@ contained and right; the one that discards is outlined and left; both are bounde
 full-width. The convention had to be stated as prominence *and* position, because the two were in
 conflict in the existing screens: the dialog frame puts the confirming button on the right, the TPN
 frames put it on the left of the outlined one. Under rule 1 the discarding action must not be the
-one the hand lands on, and under rule 2 the completing action must be; a single convention applied
+one you click by default, and under rule 2 the completing action must be; a single convention applied
 everywhere serves both, and the frames that contradict it follow it.
 
 **When no dose can be shown, the page stays and says why.**

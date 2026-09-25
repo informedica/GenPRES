@@ -6,7 +6,8 @@ control that resets them. Companion to [the grouping index](ux-issue-grouping.md
 is the first to spend.
 
 Held to [ADR-0009: UX Design Rules](../adr/0009-ux-design-rules.md): a choice with one possible
-value is made rather than asked, and an action that discards is not the one the hand lands on.
+value is made rather than asked, and a control that discards work is not placed where you
+click by default.
 
 - [Problem description](#problem-description)
 - [What the foundation already settled](#what-the-foundation-already-settled)
