@@ -898,7 +898,7 @@ module Order =
                     actions =
                         [|
                             {|
-                                label = "Reset"
+                                label = Terms.Reset |> getTerm "Reset"
                                 kind = Components.ActionBar.Kind.Secondary
                                 onClick = fun () -> ResetOrderScenario |> dispatch
                                 disabled = isOrderLoading

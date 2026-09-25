@@ -1239,27 +1239,36 @@ module Nutrition =
                 </>
                 """
 
+        // the changes to the order are discarded: bounded and to the left, so the button is not
+        // as wide as the panel it sits in and is not the one the hand lands on
+        let resetBar =
+            Components.ActionBar.View
+                {|
+                    actions =
+                        [|
+                            {|
+                                label = Terms.Reset |> getTerm "Reset"
+                                kind = Components.ActionBar.Kind.Secondary
+                                onClick = onClickReset
+                                disabled = isOrderLoading
+                                icon = Some Mui.Icons.RefreshIcon
+                            |}
+                        |]
+                |}
+
         let details =
             JSX.jsx
                 $"""
             import Stack from '@mui/material/Stack';
             import Divider from '@mui/material/Divider';
             import Typography from '@mui/material/Typography';
-            import Button from '@mui/material/Button';
             <Stack direction={"column"} spacing={1} >
+                {loadingIndicator}
                 {preparationSection}
                 {if isEnteral then null else administrationDivider}
                 {frequencyDoseRow}
                 {rateControl}
-                {loadingIndicator}
-                <Button
-                    variant="outlined"
-                    size="small"
-                    disabled={isOrderLoading}
-                    onClick={fun _ -> onClickReset ()}
-                >
-                    Reset
-                </Button>
+                {resetBar}
             </Stack>
             """
 

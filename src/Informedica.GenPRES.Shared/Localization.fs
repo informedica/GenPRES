@@ -97,6 +97,8 @@ type Terms =
     | ``Interactions Class``
     | ``Interactions None Found``
     | ``Delete``
+    // one word for putting a page's choices back as they were, wherever that is offered
+    | ``Reset``
     | ``Edit``
     | ``Ok ``
     | ``Sort By``
