@@ -235,9 +235,36 @@ module GenOrderTools =
         | Some _, None -> Error $"HeightCm is required in addition to WeightKg. {seeFilterOptions}"
 
 
+    /// The input with its department one the rules know, spelled as they spell it; none leaves
+    /// the default in force. A department the rules do not know is refused with the names they
+    /// do and the default, since the department selects the solution rules and reconstitutions,
+    /// and a misspelt one would silently select none.
+    let checkDepartment
+        (departments: Departments)
+        (input: CreateOrderContextInput)
+        : Result<CreateOrderContextInput, string>
+        =
+        match input.Department with
+        | None -> Ok input
+        | Some d ->
+            let known =
+                departments.Names
+                |> Array.tryFind (fun n -> String.Equals(n, d.Trim(), StringComparison.OrdinalIgnoreCase))
+
+            match known with
+            | Some n -> Ok { input with Department = Some n }
+            | None ->
+                let names = departments.Names |> String.concat ", "
+
+                Error
+                    $"Unknown department '{d}'. Known departments: {names}. \
+                      Omit the department to prescribe for the default, {departments.Default}."
+
+
     /// The order context for the input's patient and filter selection, evaluated against the
-    /// given provider. Requires both WeightKg and HeightCm (see requireWeightAndHeight); shared
-    /// by createOrderContext and getOrderScenarios so the guard and the patient/filter/evaluate
+    /// given provider. Requires both WeightKg and HeightCm (see requireWeightAndHeight), and
+    /// then a department the rules know, if one is given (see checkDepartment); shared by
+    /// createOrderContext and getOrderScenarios so the guards and the patient/filter/evaluate
     /// pipeline exist in exactly one place.
     let evaluateOrderContext
         (provider: IResourceProvider)
@@ -246,7 +273,8 @@ module GenOrderTools =
         =
         input
         |> requireWeightAndHeight
-        |> Result.map (fun () ->
+        |> Result.bind (fun () -> input |> checkDepartment (provider.Get Keys.departments))
+        |> Result.map (fun input ->
             let patient = buildPatient provider input
 
             OrderContext.create OrderLogging.noOp provider patient
