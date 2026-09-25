@@ -1,5 +1,5 @@
 ---
-last_commit_released: 58647c49c943f26178e02ce67c252538ede209a7
+last_commit_released: 80ed9bdfc1b74f34b4db2c5742319e18dc1508cc
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,72 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.32 - 2026-09-25
+
+### 🚀 Features
+
+* *(api)* One severity type, script first ([eb64442b](https://github.com/informedica/GenPRES/commit/eb64442b6decedc971c1d64ee54bc365e7e705ef))
+* *(api)* One severity type, migrated from the script ([ff132024](https://github.com/informedica/GenPRES/commit/ff132024cacd700d90644928894a350859e843d4))
+* *(client)* State the theme palette and the colour tokens ([eec3111c](https://github.com/informedica/GenPRES/commit/eec3111c67dae11163a0e270398939e4e86b2e9e))
+* *(client)* One severity renderer, and the formulary text on it ([bc6879c6](https://github.com/informedica/GenPRES/commit/bc6879c62e0463350b95f53d9e3c6237cf133325))
+* *(client)* The order fields and the menu tints on the one renderer ([c7ad3e78](https://github.com/informedica/GenPRES/commit/c7ad3e786da699516cbf49bcd5063c161dcadaa4))
+* *(client)* An action bar that places the buttons by what they do ([2ddf4832](https://github.com/informedica/GenPRES/commit/2ddf4832b01e85322a68944b66c94154c6b459bb))
+* *(client)* A confirm dialog, and the order plan asks before removing ([86e7a177](https://github.com/informedica/GenPRES/commit/86e7a1773b23a04eec68d76c2f9a6d760edaf9b9))
+* *(client)* A dialog shell, with the order plan and the page on it ([eb491b19](https://github.com/informedica/GenPRES/commit/eb491b19ed6257b6cf2ffc9175f62d9c9f2cd56e))
+* *(client)* The stepper out of the select, the clear cross back in ([b9df2103](https://github.com/informedica/GenPRES/commit/b9df210368e4aabf60780aedafc1992ec3d13417))
+* *(client)* A quantity field, with every order field on it ([22a1eb39](https://github.com/informedica/GenPRES/commit/22a1eb395813906f7240dedb588125974350ef83))
+* *(client)* One rule for what a pick field offers, script first ([770e1f35](https://github.com/informedica/GenPRES/commit/770e1f35cf263e7e6f7d47b4dac014f4a23039d0))
+* *(client)* The pick rule migrated into Client.Core ([74ea18b2](https://github.com/informedica/GenPRES/commit/74ea18b2095f5ddf1a38fdfcf7b02c153e82d304))
+* *(client)* Pick fields on the one rule, with checkbox rows for many ([12449720](https://github.com/informedica/GenPRES/commit/124497201b5881cc62b9a18bd2f10f67e91c8a7c))
+* *(client)* Why a value is marked, script first ([705f3cf9](https://github.com/informedica/GenPRES/commit/705f3cf906900bcf83f284ff9bfd747f86ca3752))
+* *(client)* The severity reading migrated into Client.Core ([78f39fe9](https://github.com/informedica/GenPRES/commit/78f39fe96ea7b2d336ef6eb311a409ea1b82482a))
+* *(client)* A severity mark with the reason on hover ([d3212a35](https://github.com/informedica/GenPRES/commit/d3212a3593f9d29f3ee6c3a263c91f951f0c9622))
+* *(client)* A notice, with the seven hand-built alerts on it ([9772f3a7](https://github.com/informedica/GenPRES/commit/9772f3a7a27da3fc5dd8ef86b0b6462358854ac2))
+* *(client)* A section heading, with the seven dividers on it ([644c0a74](https://github.com/informedica/GenPRES/commit/644c0a747396ec1265eacae94c28f85f42fac47d))
+* *(client)* A value chip, with the nutrition summaries on it ([86c8ef54](https://github.com/informedica/GenPRES/commit/86c8ef540588054591cceeb7a458acb99d26ab73))
+* *(client)* A disclosure that closes when the user says so ([a9c586f3](https://github.com/informedica/GenPRES/commit/a9c586f3ce84bc89667fb3f2821f62e716cdb1af))
+* *(client)* A search field, with the two lists on it ([8f494175](https://github.com/informedica/GenPRES/commit/8f49417587c0718b6052450193fbd72d01b89614))
+* *(client)* One row of list controls, one filter ([4bc70b57](https://github.com/informedica/GenPRES/commit/4bc70b579243584acba82161036aa2563f75f422))
+* *(client)* A list as it goes on paper ([24eabef2](https://github.com/informedica/GenPRES/commit/24eabef2eac9d55f5c44e995f89985adfd1c46a4))
+* *(client)* One word, and a bounded button, for a reset ([e99d71b4](https://github.com/informedica/GenPRES/commit/e99d71b40498e2ddba1f2968e2047c00d65b8cbd))
+
+### 🐞 Bug Fixes
+
+* *(api)* Let a prescribing field be changed without clearing it first ([3af2c2d6](https://github.com/informedica/GenPRES/commit/3af2c2d61c608d04ce0fafd6a23144a50e13e833))
+* *(api)* Let a field be changed in the order its page offers it ([db8b3ac3](https://github.com/informedica/GenPRES/commit/db8b3ac343f1a7103d99c1af2bbdc825a8cda41f))
+* *(api)* Leave a field the options it was picked from ([8db06a1f](https://github.com/informedica/GenPRES/commit/8db06a1f86807f9f195b6c55df095c1deb5cc470))
+* *(api)* A medication and its indication do not clear each other ([22e302b8](https://github.com/informedica/GenPRES/commit/22e302b8281d7340a751a63c539ff65fb521410b))
+* *(client)* Render italic text as italic, and drop a prop nothing keeps ([0d1882b8](https://github.com/informedica/GenPRES/commit/0d1882b8e407b78a62a29a4cb58457e3516dd8ac))
+* *(client)* State MUI's light and dark shades beside each main ([8fd52b64](https://github.com/informedica/GenPRES/commit/8fd52b6465c1b591fb22721092121967dd1d168d))
+* *(client)* Resolve the underline colour on the theme ([4d1c0775](https://github.com/informedica/GenPRES/commit/4d1c077540b530a8d062a5058b5a5d7ba9a05fa0))
+* *(client)* Give the action bar the full width ([dae7fd32](https://github.com/informedica/GenPRES/commit/dae7fd3201ccfa7a839679beefb8429f3d82ace1))
+* *(client)* Step buttons on the input's baseline, and a row that wraps ([5d7face2](https://github.com/informedica/GenPRES/commit/5d7face297c5a9d6f0299ce09480c8cf84201cd7))
+* *(client)* A single value that can be stepped is not drawn as fixed ([32610479](https://github.com/informedica/GenPRES/commit/32610479edcf17be1ded9d2f784e89c37759d65b))
+* *(client)* The field keeps its width with the stepper on the line ([e8d4a390](https://github.com/informedica/GenPRES/commit/e8d4a390c49ac565f6cba8e63aa27543fe9c3ce7))
+* *(client)* The field spans the width it is given ([c746e0f8](https://github.com/informedica/GenPRES/commit/c746e0f8afa676f374eef421b403f76511664a2c))
+* *(client)* Apply the one option also when the field becomes enabled ([99688c99](https://github.com/informedica/GenPRES/commit/99688c993d2bf53911a9cb3a33a9308bef35162b))
+* *(client)* The reason says the bound as it is, and can be reached ([b79c82d6](https://github.com/informedica/GenPRES/commit/b79c82d6c40ec4606162ed595bdb7e26f75efd10))
+* *(client)* Keep the notice's margin on the prescribing page ([9df892b9](https://github.com/informedica/GenPRES/commit/9df892b93b6e77af5c88e32aec74d598eee7bb04))
+* *(client)* The mark's reason at the body text size ([c48cc4d0](https://github.com/informedica/GenPRES/commit/c48cc4d097a023c67269654f576671dc32980454))
+* *(client)* Chips for values only, an icon on a raised one, and room ([b8a540cf](https://github.com/informedica/GenPRES/commit/b8a540cf76b8008aa717620354906c9e97e52615))
+* *(client)* Each value its own severity, and a plus between items ([608135b6](https://github.com/informedica/GenPRES/commit/608135b6e03eb36cf99a44b58283603a3905359a))
+* *(client)* An edit keeps the patient panel open ([30bdc1f1](https://github.com/informedica/GenPRES/commit/30bdc1f1c00c06951726766a7ae68f2351090559))
+* *(client)* The search on the cards too, over the cells shown ([0006c437](https://github.com/informedica/GenPRES/commit/0006c437ed80eb633548c92bb75a3ebba6944ff3))
+* *(client)* The card controls as a React element ([ddc71814](https://github.com/informedica/GenPRES/commit/ddc71814982a115ca755c8f3704b0bcf7f83ffea))
+* *(client)* The list controls drawn on the grid ([88846dd6](https://github.com/informedica/GenPRES/commit/88846dd6b9d37685df5061a5cc121b9a74956cc8))
+* *(client)* No filter in the grid's column menus either ([dcd76414](https://github.com/informedica/GenPRES/commit/dcd76414b9b120709b5a9df64ac8836ed1f15841))
+* *(client)* The spinner off the reset button ([b0eb0e25](https://github.com/informedica/GenPRES/commit/b0eb0e2549333dfbe6e923e5876f35593bf86bba))
+* *(client)* One rule for the cross on a dose field ([64518d31](https://github.com/informedica/GenPRES/commit/64518d31a568798950c484837630b4c575b6da51))
+* *(client)* No cross where there is nothing to clear ([5ef4e989](https://github.com/informedica/GenPRES/commit/5ef4e9892282de397caf8f368c8b37a2b8826b65))
+* *(client)* The pick rule reaches the fields that are typed into ([ef16ca39](https://github.com/informedica/GenPRES/commit/ef16ca390663aea55137a07e5ef07285d0d9cd1e))
+* *(client)* The cross follows the rule in both shapes ([96653fc6](https://github.com/informedica/GenPRES/commit/96653fc697974bf3c2ec468d08aa3eea86ecda25))
+* *(client)* A filter built out can be taken apart again ([c97b056e](https://github.com/informedica/GenPRES/commit/c97b056e4b87df3f2fdc3d74d9b4f771186765b4))
+* *(client)* A shut field takes the clearing its cross asks for ([246102f4](https://github.com/informedica/GenPRES/commit/246102f449efa55036c208b94e81e55ca24edd81))
+* *(client)* The cross back inside the field it empties ([e9d61807](https://github.com/informedica/GenPRES/commit/e9d61807096d84352f781e7b3fe76f2f674f9479))
+* *(client)* A field offered as usable takes what it offers ([f87602f8](https://github.com/informedica/GenPRES/commit/f87602f8b6fa3a1c05b4249fe52ac87a4054f89b))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/58647c49c943f26178e02ce67c252538ede209a7..80ed9bdfc1b74f34b4db2c5742319e18dc1508cc)</small></strong>
 
 ## 0.1.2-alpha.31 - 2026-09-22
 
