@@ -155,6 +155,17 @@ round.
 - *The tables as a server resource, the existing `Shared` function called at the inbound
   boundary.* **Chosen.** The estimate is one function, on both sides, so the server's answer and
   the panel's display cannot drift.
+
+  The MCP host is the boundary that needs a path. `McpTools.GenOrder.fs`'s `buildPatient`
+  builds a `GenORDER.Lib` patient with that library's setters and hands it straight to
+  `OrderContext.create`; the contract model's patient type is never in its hands, so the
+  function as it stands cannot be applied there. The function is therefore split, not moved:
+  the arithmetic of `applyNormalValues`, which reads only the gender, the age and the
+  gestational age, becomes an `estimate` over those values and the four tables, answering a
+  weight and a height, and `applyNormalValues` becomes the contract model's call of it. The MCP
+  host references `GenPRES.Shared`, which the dependency rule allows (Presentation reaches the
+  Contract), reads the tables from the same resource the web path reads, and calls `estimate`
+  with its patient's values before the setters. One arithmetic, three callers.
 - *A second estimate on the server.* Rejected outright: two estimates of a dosing weight.
 - *Requiring a measured weight and height on the platform and MCP paths.* Rejected in the issue,
   and rightly: the platform reads what the record holds, and an age is a patient by the domain
@@ -189,6 +200,15 @@ round.
   force and marks it as the default when nothing chose it: the url's `dp`, later the launch.
   Under rule 1 a filter the user can see is not a hidden one, and a default the user can see is
   not a guess made behind their back.
+
+  Shown from where, matters. The contract model's patient carries no department until the user
+  or the url gives one; the `ICK` is written by `ServerApi.Mappers.Order.fs` while an order is
+  mapped, and by the MCP host's `buildPatient`, and the panel sees neither. A panel that wrote
+  its own `ICK` would agree with the mapper today and disagree the day the default changes. So
+  the default becomes one server value, `Departments`, a resource holding the names the loaded
+  rules carry and the default among them, put on the contract beside the server settings and
+  fetched with them. The order mapper, the MCP host and the panel read it; nobody writes
+  `"ICK"` but that resource, and a later setting replaces that one literal.
 - *The department as a choosable field.* **Chosen**, as the step that closes #717, and no
   longer deferred. The list it offers is the departments the rules name, read from the solution
   rules and reconstitutions as they are loaded, so a hospital whose sheets name other wards gets
@@ -224,9 +244,11 @@ therefore spends `ConfirmDialog` where G1 decided it did not.
   estimate at the inbound boundary; the refusal of a patient with an age but no weight and
   height goes with it.
 - No department means no department bound: the four patient-side matchers stop letting a
-  patient without one match a rule that names one. The default stays, the panel shows which
-  department is in force and that it is the default, and then the department becomes a field
-  the user picks from the departments the rules name.
+  patient without one match a rule that names one. The default stays, but in one place: a
+  `Departments` value on the server, the names the loaded rules carry and the default, which
+  the order mapper, the MCP host and the panel all read. The panel shows which department is
+  in force and that it is the default, and then the department becomes a field the user picks
+  from the same names.
 - A dose rule that says *adults* matches a patient at or over `GenCORE.Lib`'s eighteen years
   and no other, a patient with no age included.
 - The panel's reset becomes a bounded secondary action, confirmed.
@@ -276,21 +298,26 @@ script first and a migration after, so the domain and server steps are two pull 
    `tests/Informedica.GenFORM.Tests/`. The comment on `GenORDER.Lib/Api.fs`'s `getRules`
    rewritten to say what is now true: a patient without a department takes the rules that name
    none. Nothing visible changes, because every patient still arrives with a department.
-6. **The department shown.** The panel shows the department in force, with a `Notice` that it
-   is the default when neither the url nor the launch chose it. The default itself stays in
-   `ServerApi.Mappers.Order.fs` and in the MCP host's `buildPatient`.
-7. **The department chosen.** The departments the loaded solution rules and reconstitutions
-   name, as a derived resource in the registry and on the contract; the panel's department a
-   `PickField` over them, the default preselected; the MCP host's `Department` input checked
-   against the same list. Closes #717. Two pull requests: the resource as a script and then
-   migrated, the field after.
+6. **The department default, from one source.** A `Departments` resource in the registry,
+   derived from the loaded solution rules and reconstitutions: the names they carry, and the
+   default, the `ICK` literal moved there from the two places that write it today.
+   `ServerApi.Mappers.Order.fs` and the MCP host's `buildPatient` read the default from it, the
+   contract carries it beside the server settings, and the panel shows the department in force
+   with a `Notice` that it is the default when neither the url nor the launch chose one. Three
+   pull requests: the resource as a script, the resource and the two readers migrated, the
+   panel.
+7. **The department chosen.** The panel's department a `PickField` over the resource's names,
+   the default preselected; the MCP host's `Department` input checked against the same names.
+   Closes #717.
 8. **The estimate on the server, as a script.** The normal-value tables as a loader in the
-   resource registry, and `Shared`'s `applyNormalValues` applied to a patient read from the
-   platform or built by the MCP host, proved to give the same weight and height the client shows
-   for the same age and sex.
-9. **The estimate migrated**, and the three gates lifted: `patient` and `parse` in
-   `ServerApi.Mappers.Patient.fs`, and `requireWeightAndHeight` in the MCP host's
-   `McpTools.GenOrder.fs`. Closes #716.
+   resource registry; `Shared`'s `applyNormalValues` split into `estimate`, over a gender, an
+   age, a gestational age and the tables, and its call; `estimate` applied to a patient read
+   from the platform through the contract model, and to the MCP host's values before its
+   `buildPatient` setters, proved to give the same weight and height the client shows for the
+   same age and sex.
+9. **The estimate migrated**, `GenPRES.Shared` referenced from `Informedica.MCP.Lib`, and the
+   three gates lifted: `patient` and `parse` in `ServerApi.Mappers.Patient.fs`, and
+   `requireWeightAndHeight` in the MCP host's `McpTools.GenOrder.fs`. Closes #716.
 10. **Adults, as a script and then migrated.** `getAge` answering the range from
     `GenCORE.Lib`'s eighteen years for `IsAdult` instead of an empty one, the age filter matching
     adults only, a patient with no age not matching one, and the rule printed as *adults* rather
@@ -311,9 +338,17 @@ script first and a migration after, so the domain and server steps are two pull 
   rules and reconstitutions matched before and after are the same set, counted, not eyeballed.
   For a patient with no department the set after is the rules that name none, and the counts
   are the sheet's: 38 solution rules and 65 reconstitutions on the sheets of 2026-09-25.
+- Step 6 also, in the test project: the department the order mapper writes for a patient
+  without one is the resource's default, and the MCP host's is the same; and in the browser,
+  the panel names that department and calls it the default when the url has no `dp`.
 - Step 7 also, in the browser: the same patient prescribed for under `ICK` and under another
   department, and the solution rules offered compared; a department in the url preselected and
   shown as chosen, none in the url shown as the default.
+- Step 9 also, through the MCP host: `create_order_context` with an age and a sex and neither
+  weight nor height answers scenarios, and the weight and height it reports are the ones the
+  web client shows for that age; and `get_order_scenarios` on that context answers the same
+  scenarios as one made with the measures typed. The same request without an age is still
+  refused, with the domain's reason.
 - Step 10 also, against the demo data: the live sheet has no `IsAdult` column at all, so the
   parser reads the facet as false on every row and the rule sets before and after are
   identical. A rule with the facet, made by hand in the script, matches an adult and no child.
