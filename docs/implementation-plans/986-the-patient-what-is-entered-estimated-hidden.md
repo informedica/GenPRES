@@ -374,3 +374,82 @@ script first and a migration after, so the domain and server steps are two pull 
 - **#719** — GenFORM tests for a patient value that is missing.
 - **#598** — client testing, cited by this group and by G1 and G10.
 - **#394** — the same control shape as step 3, on the prescribing page, closed by G1.
+
+## As built
+
+Every step landed as one or more pull requests from a fork branch against `master`, each
+script-first where it touched source outside the client and reviewed before migration, between
+2026-09-25 and 2026-09-26. The plan's shape held; the deviations are listed after the table with
+the reason.
+
+| Step | PR | Landed |
+|------|----|--------|
+| plan | [#1041](https://github.com/informedica/GenPRES/pull/1041) | this document, corrected against the code and the live sheets before the first step |
+| 1 | [#1042](https://github.com/informedica/GenPRES/pull/1042) | `Scripts/Patient.fsx` in `GenPRES.Shared`: what a setter keeps, proved |
+| 2 | [#1044](https://github.com/informedica/GenPRES/pull/1044), [#1045](https://github.com/informedica/GenPRES/pull/1045) | the age setters keep the measured weight and height; the gestational-age and measure setters keep the rest and never write an estimate as measured. Closes #488 |
+| 3 | [#1046](https://github.com/informedica/GenPRES/pull/1046) | the panel's reset on an `ActionBar`, asked first through `ConfirmDialog` |
+| 4 | [#1047](https://github.com/informedica/GenPRES/pull/1047) | `Scripts/Departments.fsx` in `GenFORM.Lib`: what the matchers do today, counted against the loaded rules, and the wanted rule |
+| 5 | [#1048](https://github.com/informedica/GenPRES/pull/1048) | a patient with no department matches no ward rule, in the two patient-side matchers and the two reconstitution filters of `Product.fs`; the `getRules` comment rewritten |
+| 6 | [#1049](https://github.com/informedica/GenPRES/pull/1049), [#1050](https://github.com/informedica/GenPRES/pull/1050), [#1051](https://github.com/informedica/GenPRES/pull/1051) | the `Departments` resource and its one default; the order mapper and the MCP host read it; `ServerSettings` carries the names and the default; the panel says which department is in force and where it came from |
+| 7 | [#1052](https://github.com/informedica/GenPRES/pull/1052), [#1053](https://github.com/informedica/GenPRES/pull/1053), [#1054](https://github.com/informedica/GenPRES/pull/1054) | the department a `PickField` in the panel, the default preselected; the MCP host's department checked against the names, as a script and then migrated. Closes #717 |
+| 8 | [#1055](https://github.com/informedica/GenPRES/pull/1055) | `Scripts/Estimate.fsx` in `GenPRES.Server`: four libraries shadowed, the server's numbers the client's |
+| 9 | [#1056](https://github.com/informedica/GenPRES/pull/1056) | the normal-value tables a resource; a platform reading enters estimated; the MCP host estimates what a caller left out. Closes #716 |
+| 10 | [#1057](https://github.com/informedica/GenPRES/pull/1057), [#1058](https://github.com/informedica/GenPRES/pull/1058) | `Scripts/Adults.fsx` in `GenFORM.Lib`, then an adult rule matching adults only. Closes #439 |
+
+### Deviations from the text above
+
+- **The mapper's gates stayed.** Step 9 said the three gates go. Only the MCP host's did: with an
+  age, or both measures, it is a patient, and what the age leaves blank is estimated. The server's
+  `patient` and `parse` keep refusing a draft without a weight and a height, measured or
+  estimated, because a draft the client did not estimate would otherwise reach the rules and get
+  no answer where it got a refusal before. They are the safety net; the server estimates at its
+  own two boundaries, the platform port and the MCP host.
+- **No `estimate` split.** Step 8 planned `applyNormalValues` split into a function over a gender,
+  an age and the tables. Neither host needed it: a platform reading is round-tripped through the
+  contract model, and the MCP host builds a contract-model draft from the age and the sex it was
+  given. The one estimate stays one function.
+- **A blank estimate is refused, named.** When the tables did not load, or hold no row for the
+  age and sex given, the MCP host refuses the call naming the measures still blank and both
+  causes, rather than handing the rules a patient they answer nothing for.
+- **The sheets are checked at load.** A normal-value sheet without the five columns, or with a
+  value that is not a number, fails the resource with the sheet, the columns or the row named,
+  and the registry's warning and empty fallback apply. Unchecked, the parse would have thrown
+  during a request.
+- **The loader sits in `Mapping.fs`.** In `Resources.fs` the sheet fetch tripped the core ratchet
+  of the dependency check; `Mapping.fs` is where the sheet fetching is already allowed.
+- **The departments resource reads the dose rules too.** The plan derived it from the solution
+  rules and the reconstitutions, the two sheets that name departments today. A dose rule names
+  one as well, so a department only a dose rule names would have been refused at the MCP host.
+- **The MCP department check takes the exact spelling first**, and another case only when it
+  names exactly one of the rules' spellings, since the rules compare exactly.
+- **The panel's department field.** The department in force is always among its options, so a
+  url or launch department the rules do not name is shown, and a field with one loaded name never
+  picks that one over the patient's own. The cross is offered only while a department is chosen;
+  a default already shown has nothing to return from. A launched patient's department is shown
+  but not chosen, as its age is: the platform decided it. The notice's title went, since the
+  field shows the name; "chosen in the url" became "chosen for this patient", since the panel
+  chooses too.
+- **The adult threshold is in days**, eighteen times 365, not eighteen of the year unit. The
+  contract model, the order patient and the sheet's age bounds count a year as 365 days; the
+  year unit counts 365.25, and a patient entered as eighteen arrived four and a half days short
+  of adult. The category's age printer is `ageToString`, since `printAge` was taken.
+- **`Informedica.MCP.Lib` references `GenPRES.Shared`**, as a Presentation project may; the
+  project graph in `ARCHITECTURE.md` is regenerated with it.
+- **Step 2 was two pull requests**, the age setters and then the rest, to keep each under the
+  size limit.
+
+### Answered in review
+
+- An adult-only rule and an age-bounded rule never both match one patient: the tests of step 10
+  prove it over the ages 0, 5, 17, 18 and 30.
+
+### Left open
+
+- **#718** stays a member, waiting for a growth table. **#976**, the two patient modes, gets its
+  own plan.
+- The emergency-list workbook id is a literal twice, in the client's `Utils.fs` and in
+  `Mapping.normalValuesUrlId`; the two become one setting together.
+- The departments the panel offers are the ones the rules name; a hospital naming its wards in
+  configuration is the follow-up the plan deferred.
+- The extraction boundary in the NLP scratch script still empties the age bounds of an adult row;
+  with #439 closed its owner can open it.
