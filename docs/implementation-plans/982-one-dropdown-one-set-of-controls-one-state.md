@@ -131,19 +131,22 @@ One pull request each, in this order.
 2. **The cascade migrated.** The rule moves into the `OrderContext` module of
    `Shared/Models.fs` and its tests into `tests/Informedica.GenPRES.Shared.Tests/ModelsTests.fs`;
    the script goes. The two views are untouched: they already call these functions.
-   Landed: a change to a choice lets go of the choices in the steps below it, writes the
-   change, and drops the scenarios; nothing at all happens when the field already holds what it
-   is given. Clearing a field empties that field too, options and all, so a list of one cannot
-   choose itself again the moment the user empties it. The steps are the order category's, since
-   the two pages do not offer the same ones. On the drug page the indication and the medication
-   are one step, in either order and neither before the other: each narrows what the other
-   offers, so a pick from the list on the screen agrees with the one already made, and taking
-   the medication away because an indication was named is a loss with nothing gained. The route,
-   the form and the dose type are steps of their own below them, since they belong to the
-   medication and the one chosen for the medication before may not exist for this one. On the
+   Landed: a value picked is written, the scenarios go, and every other choice stands. Every
+   list the answer offers is narrowed by every choice already made, so a pick from the list on
+   the screen agrees with all of them and none has to be let go; letting them go took away work
+   the user had done and had asked for. A field emptied is the other case: the filter widens, so
+   the choices in the steps below it go with it, and the field keeps neither its choice nor what
+   it was picked from, since a list of one would otherwise choose itself again the moment the
+   user emptied the field. The steps are the order category's: on the drug page the indication
+   and the medication stand together above the route, the form and the dose type; on the
    nutrition page the composition comes first and the indication follows from it, which that
-   page used to patch by hand after every composition change. When no choice is left anywhere,
-   no options are kept either, so nothing stays narrowed by a filter that is gone.
+   page used to patch by hand. When no choice is left anywhere, no options are kept either.
+
+   And a field narrowed to one option, which cannot be opened, still offers the cross, with the
+   cross beside the field rather than inside it, since an input that is disabled disables what
+   it holds. Without it a filter built out left every field shut with no way back, because the
+   answer narrows every list to the one value chosen.
+
 3. **The reset, on all three of the pages that offer one.** The word is localized rather than
    written at the call site: the control is spelled out in three places today and translated in
    none, the prescribing page saying what a delete says and the dose dialog and the nutrition

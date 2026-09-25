@@ -2251,11 +2251,18 @@ module Models =
             || f.DoseType.IsSome
 
 
-        /// A change to one of the choices: the fields in the steps below it let their choices
-        /// go, the field itself is emptied when it is being cleared, the change is written, and
-        /// the scenarios go, since they stand on the whole filter. Keeping a route from the
-        /// medication before would leave a filter no rule matches, which is why the user had to
-        /// empty a field before picking in it.
+        /// A change to one of the choices: the change is written, the scenarios go, since they
+        /// stand on the whole filter, and nothing at all happens when the field already holds
+        /// what it is given.
+        ///
+        /// A value picked is picked from the list the answer offered, and every list the answer
+        /// offers is narrowed by every choice already made, so a pick agrees with all of them
+        /// and none of them has to be let go. Letting them go took away work the user had done
+        /// and had asked for: naming a medication after a route threw the route away.
+        ///
+        /// A field emptied is another matter: the filter widens, so the choices in the steps
+        /// below it go with it, and the field keeps neither its choice nor what it was picked
+        /// from.
         ///
         /// What the fields below were picked from is left standing until the answer replaces
         /// it. Taking it away as well leaves them empty, and a field with nothing to offer is a
@@ -2266,9 +2273,12 @@ module Models =
         /// saying so.
         let applyChange field clearOwn write (ctx: OrderContext) : OrderContext =
             let below =
-                match ctx |> chain |> List.skipWhile (List.contains field >> not) with
-                | [] -> []
-                | _ :: rest -> rest |> List.concat
+                if not clearOwn then
+                    []
+                else
+                    match ctx |> chain |> List.skipWhile (List.contains field >> not) with
+                    | [] -> []
+                    | _ :: rest -> rest |> List.concat
 
             let filter =
                 below

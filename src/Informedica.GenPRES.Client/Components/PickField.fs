@@ -75,6 +75,14 @@ module PickField =
             [| box (only |> Option.defaultValue ""); box chosen; box props.enabled |]
         )
 
+        // a field narrowed to one option cannot be opened, since there is nothing else to
+        // choose, but it can still be emptied, and emptying it is how the user widens the
+        // filter and reaches the other options again. Without this a filter built out leaves
+        // every field shut, with no way back.
+        let hasClear =
+            offer.CanClear
+            || (offer.Disabled && props.clearable && props.enabled && offer.Selected.IsSome)
+
         let updateSelected =
             if PickPolicy.acceptsChange pick then
                 props.onChange
@@ -91,7 +99,7 @@ module PickField =
                     updateSelected = updateSelected
                     isLoading = props.isLoading
                     disabled = offer.Disabled
-                    hasClear = offer.CanClear
+                    hasClear = hasClear
                     canStep = false
                     severity = Types.Severity.Normal
                     minWidth = None
@@ -105,5 +113,5 @@ module PickField =
                     updateSelected = updateSelected
                     isLoading = props.isLoading
                     disabled = offer.Disabled
-                    canClear = offer.CanClear
+                    canClear = hasClear
                 |}

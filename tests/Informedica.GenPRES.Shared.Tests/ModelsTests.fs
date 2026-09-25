@@ -325,20 +325,29 @@ let cascadeTests =
     testList
         "the cascade of the prescribing fields"
         [
-            test "picking another indication keeps the medication beside it" {
-                // each narrows what the other offers, so an indication picked from the list on
-                // the screen is one this medication has
+            test "picking another indication keeps every other choice" {
+                // every list the answer offers is narrowed by every choice already made, so a
+                // pick from one of them agrees with all of them and none has to be let go
                 full
                 |> OrderContext.indicationChange (Some "pijn")
                 |> chosen
-                |> Expect.equal "the two at the top" (Some "pijn", Some "paracetamol", None, None, None)
+                |> Expect.equal
+                    "only the indication moved"
+                    (Some "pijn", Some "paracetamol", Some "oraal", Some "tablet", full.Filter.DoseType)
             }
 
-            test "picking another indication leaves the options below it standing" {
-                // the answer replaces them; taking them away first would leave the fields below
-                // empty, and a field with nothing to offer cannot be used at all
+            test "picking another medication keeps the route picked before it" {
                 full
-                |> OrderContext.indicationChange (Some "pijn")
+                |> OrderContext.medicationChange (Some "ibuprofen")
+                |> chosen
+                |> Expect.equal
+                    "only the medication moved"
+                    (Some "koorts", Some "ibuprofen", Some "oraal", Some "tablet", full.Filter.DoseType)
+            }
+
+            test "picking leaves every option list standing" {
+                full
+                |> OrderContext.medicationChange (Some "ibuprofen")
                 |> options
                 |> Expect.equal
                     "every list as it was"
@@ -347,36 +356,6 @@ let cascadeTests =
                      [| "oraal"; "rectaal" |],
                      [| "tablet"; "drank" |],
                      [| DoseType.Discontinuous "" |])
-            }
-
-            test "picking another medication keeps the indication and clears the three below" {
-                full
-                |> OrderContext.medicationChange (Some "ibuprofen")
-                |> chosen
-                |> Expect.equal "indication and generic" (Some "koorts", Some "ibuprofen", None, None, None)
-            }
-
-            test "picking another route keeps the two above and clears the two below" {
-                full
-                |> OrderContext.routeChange (Some "rectaal")
-                |> chosen
-                |> Expect.equal "up to the route" (Some "koorts", Some "paracetamol", Some "rectaal", None, None)
-            }
-
-            test "picking another form keeps the three above and clears the dose type" {
-                full
-                |> OrderContext.formChange (Some "drank")
-                |> chosen
-                |> Expect.equal "up to the form" (Some "koorts", Some "paracetamol", Some "oraal", Some "drank", None)
-            }
-
-            test "picking another dose type keeps every choice above it" {
-                let dt = DoseType.Timed "" |> Some
-
-                full
-                |> OrderContext.doseTypeChange dt
-                |> chosen
-                |> Expect.equal "all five" (Some "koorts", Some "paracetamol", Some "oraal", Some "tablet", dt)
             }
 
             test "every change clears the scenarios" {
@@ -394,11 +373,12 @@ let cascadeTests =
                 |> Expect.isTrue "none left, whichever field changed"
             }
 
-            test "clearing a field clears it and everything below" {
+            test "clearing a field lets the choices below it go" {
+                // the filter widens, so what stood on the choice goes with it
                 full
-                |> OrderContext.medicationChange None
+                |> OrderContext.routeChange None
                 |> chosen
-                |> Expect.equal "the indication alone" (Some "koorts", None, None, None, None)
+                |> Expect.equal "the two at the top" (Some "koorts", Some "paracetamol", None, None, None)
             }
 
             test "clearing the medication leaves the indication beside it" {
@@ -422,38 +402,31 @@ let cascadeTests =
                 |> Expect.equal "the context it was" full
             }
 
-            test "a nutrition composition is a step of its own, so it clears the indication" {
-                // there the indication follows from the composition, and the one chosen for the
-                // composition before may not exist for this one
-                nutrition
-                |> OrderContext.medicationChange (Some "ibuprofen")
-                |> _.Filter.Indication
-                |> Expect.equal "let go" None
-            }
-
             test "with no choice left anywhere, no options are kept" {
                 // a list narrowed by choices that are gone would offer a smaller world than
                 // there is, and say nothing about it
                 full
+                |> OrderContext.doseTypeChange None
+                |> OrderContext.formChange None
+                |> OrderContext.routeChange None
                 |> OrderContext.medicationChange None
                 |> OrderContext.indicationChange None
                 |> options
                 |> Expect.equal "every list empty" ([||], [||], [||], [||], [||])
             }
 
-            test "a nutrition indication stands below the composition, so it keeps it" {
+            test "a nutrition indication keeps the composition above it" {
                 nutrition
                 |> OrderContext.indicationChange (Some "pijn")
-                |> chosen
-                |> Expect.equal
-                    "the composition kept, the dose type gone"
-                    (Some "pijn", Some "paracetamol", Some "oraal", Some "tablet", None)
+                |> _.Filter.Generic
+                |> Expect.equal "still chosen" (Some "paracetamol")
             }
 
-            test "a nutrition composition stands above the indication, so it clears it" {
+            test "clearing a nutrition composition lets its indication go" {
+                // there the indication follows from the composition, and stands in a step below
                 nutrition
-                |> OrderContext.medicationChange (Some "ibuprofen")
-                |> chosen
-                |> Expect.equal "the composition alone" (None, Some "ibuprofen", Some "oraal", Some "tablet", None)
+                |> OrderContext.medicationChange None
+                |> _.Filter.Indication
+                |> Expect.equal "let go" None
             }
         ]
