@@ -187,11 +187,23 @@ module Utils =
     module ValueUnit =
 
         open Informedica.GenUnits.Lib
+        open Informedica.GenCore.Lib.Patients
 
 
         /// The full term age for a neonate
         /// which is 37 weeks
         let ageFullTerm = 37N |> ValueUnit.singleWithUnit Units.Time.week
+
+
+        /// The age from which a patient is an adult: the domain's eighteen years, stated once
+        /// in GenCORE.Lib and read here as the lower bound of the age range an adult rule
+        /// applies to.
+        let ageAdult =
+            AgeValue.eighteen
+            |> AgeValue.SetGet.getYearsDef0
+            |> int
+            |> BigRational.fromInt
+            |> ValueUnit.singleWithUnit Units.Time.year
 
 
         let withOptSingleAndOptUnit u v =

@@ -319,10 +319,12 @@ module Types =
         }
 
 
-    /// Either an absolute age is required or the
-    /// patient just is "Adult"
+    /// The age a rule applies to: an absolute range, or adults, which is the domain's adult
+    /// threshold and over, eighteen years, and no patient whose age is unknown.
     type Age =
+        /// The range the sheet names, in days.
         | AbsoluteAge of MinMax
+        /// The rule says adults: the adult threshold and over.
         | IsAdult
 
 
