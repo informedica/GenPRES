@@ -626,8 +626,70 @@ let printPrescribeRows () =
     prescribeRows |> Array.iter (fun r -> r |> String.concat "\t" |> printfn "%s")
 
 
+// --- The word on a reset (plan 982, step 3) --------------------------------------------------
+//
+// The control that puts a page's choices back as they were is written out in three places and
+// localized in none: the prescribing page says "Verwijder", which is what a delete says, and the
+// dose dialog and the nutrition page both say "Reset" in English whatever language the user is
+// reading. One word for the act, like `Delete` and `Ok `, with no area before it, since the same
+// act is offered on several pages. → `Terms`, beside `Delete`; the row → the sheet and
+// `data/localization/*.tsv`.
+
+/// → `Shared/Localization.fs`, `Terms`.
+type ResetTerms = | ``Reset``
+
+
+let resetRows: string[][] =
+    [|
+        [|
+            "Reset"
+            "Reset"
+            "Reset"
+            "Réinitialiser"
+            "Zurücksetzen"
+            "Restablecer"
+            "Reimposta"
+        |]
+    |]
+
+
+let resetTests =
+    testList
+        "the word on a reset"
+        [
+            test "the key is the case's name, and resolves in every language" {
+                [ ``Reset`` ]
+                |> List.map (fun t -> $"{t}")
+                |> Expect.equal "the key" (resetRows |> Array.map (fun r -> r[0]) |> Array.toList)
+
+                for r in resetRows do
+                    for l in languages do
+                        getTerm resetRows l r[0] |> Expect.isSome $"{r[0]} in {l}"
+            }
+
+            test "the word stands alone, so it can be read on a button of its own" {
+                resetRows[0]
+                |> Array.forall (fun s -> s.Contains "{0}" |> not && s.Trim() = s)
+                |> Expect.isTrue "no placeholder and no stray space"
+            }
+        ]
+
+
+let printResetRow () =
+    resetRows |> Array.iter (fun r -> r |> String.concat "\t" |> printfn "%s")
+
+
 runTestsWithCLIArgs
     []
     [||]
-    (testList "Localization.fsx" [ tests; parseTests; renameTests; patientTests; prescribeTests ])
+    (testList
+        "Localization.fsx"
+        [
+            tests
+            parseTests
+            renameTests
+            patientTests
+            prescribeTests
+            resetTests
+        ])
 |> ignore

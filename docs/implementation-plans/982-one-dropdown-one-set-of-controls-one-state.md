@@ -141,8 +141,12 @@ One pull request each, in this order.
    left anywhere, no options are kept either, so nothing stays narrowed by a filter that is
    gone.
 3. **The reset on the prescribing page.** The full-width text button becomes a bounded secondary
-   action on an `ActionBar`, named *Reset*. No term exists for the word yet, so it lands as the
-   Dutch at the call site and a term row follows, as the foundation's labels did.
+   action on an `ActionBar`, named *Reset*. The word is localized rather than written at the
+   call site: the control is spelled out in three places today and translated in none, the
+   prescribing page saying what a delete says and the dose dialog and the nutrition page saying
+   an English word whatever language is being read. One term for the act, with no area before
+   it, as `Delete` and `Ok ` are. Two pull requests, since the terms are not client UI: the case
+   and its row drafted in the localization script, then the case, the sheet row and the button.
 4. **One rule for the cross on a dose field.** `ViewHelpers.orderSelect` decides it from the
    field's own state; the argument and the flags at the call sites in `Views/Order.fs` and
    `Views/Nutrition.fs` go.
