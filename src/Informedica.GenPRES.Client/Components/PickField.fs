@@ -41,16 +41,6 @@ module PickField =
         |}
 
 
-    // a shut field and the cross that empties it, side by side
-    let private besideSx =
-        {|
-            display = "flex"
-            alignItems = "flex-end"
-            flexGrow = 1
-            minWidth = 0
-        |}
-
-
     [<JSX.Component>]
     let View (props: Props) =
         let pick: PickPolicy.Pick =
@@ -93,6 +83,10 @@ module PickField =
             offer.CanClear
             || (offer.Disabled && props.clearable && props.enabled && offer.Selected.IsSome)
 
+        // such a field is not greyed out but held: greying it takes the cross with it, since
+        // what a disabled field holds is disabled too
+        let isHeld = offer.Disabled && hasClear
+
         // a field that cannot be opened still takes a clearing, since the cross is the only way
         // out of it; a value is taken only from a field that can be used
         let updateSelected value =
@@ -110,41 +104,21 @@ module PickField =
                     values = props.options
                     updateSelected = updateSelected
                     isLoading = props.isLoading
-                    disabled = offer.Disabled
+                    disabled = offer.Disabled && not isHeld
+                    readOnly = isHeld
                     hasClear = hasClear
                     canStep = false
                     severity = Types.Severity.Normal
                     minWidth = None
                 |}
         | Shape.Type ->
-            let box =
-                Autocomplete.View
-                    {|
-                        label = props.label
-                        selected = offer.Selected
-                        values = props.options |> Array.map fst
-                        updateSelected = updateSelected
-                        isLoading = props.isLoading
-                        disabled = offer.Disabled
-                        // a box that is shut disables the cross it holds, so in that case the
-                        // cross stands beside it instead
-                        canClear = hasClear && not offer.Disabled
-                    |}
-
-            if not (offer.Disabled && hasClear) then
-                box
-            else
-                let clear = fun _ -> props.onChange None
-
-                JSX.jsx
-                    $"""
-                import Box from '@mui/material/Box';
-                import IconButton from '@mui/material/IconButton';
-
-                <Box sx={besideSx}>
-                    {box}
-                    <IconButton onClick={clear} aria-label="clear">
-                        {Mui.Icons.Clear}
-                    </IconButton>
-                </Box>
-                """
+            Autocomplete.View
+                {|
+                    label = props.label
+                    selected = offer.Selected
+                    values = props.options |> Array.map fst
+                    updateSelected = updateSelected
+                    isLoading = props.isLoading
+                    disabled = offer.Disabled && not isHeld
+                    canClear = hasClear
+                |}

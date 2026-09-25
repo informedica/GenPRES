@@ -143,10 +143,11 @@ One pull request each, in this order.
    nutrition page the composition comes first and the indication follows from it, which that
    page used to patch by hand. When no choice is left anywhere, no options are kept either.
 
-   And a field narrowed to one option, which cannot be opened, still offers the cross, with the
-   cross beside the field rather than inside it, since an input that is disabled disables what
-   it holds. Without it a filter built out left every field shut with no way back, because the
-   answer narrows every list to the one value chosen.
+   And a field narrowed to one option still offers the cross, since the answer narrows every
+   list to the one value chosen, so without it a filter built out left every field shut with no
+   way back. Such a field is held rather than greyed out: it cannot be opened, but it is not
+   disabled, because what a disabled field holds is disabled too and the cross would go with it.
+   The cross stays where it belongs, inside the field.
 
 3. **The reset, on all three of the pages that offer one.** The word is localized rather than
    written at the call site: the control is spelled out in three places today and translated in

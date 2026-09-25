@@ -21,6 +21,9 @@ module SimpleSelect =
                 updateSelected: string option -> unit
                 isLoading: bool
                 disabled: bool
+                // the field cannot be opened, but it is not greyed and what it holds still
+                // answers, so the cross inside it can be pressed
+                readOnly: bool
                 hasClear: bool
                 // whether the value can be stepped beside the select: a single value that can
                 // be stepped is not a fixed one, and is not drawn as one
@@ -86,14 +89,9 @@ module SimpleSelect =
                 </IconButton>
                 """
 
-        // a field that cannot be opened can still be emptied, and emptying it is how the user
-        // widens the filter again. An input that is disabled disables what it holds, so in that
-        // one case the cross stands beside the field rather than inside it.
-        let clearBeside = props.disabled && props.hasClear && not isClear
-
         // the cross clears the value whether or not the value has a stepper beside it
         let endAdornment =
-            if not isClear && props.hasClear && not clearBeside then
+            if not isClear && props.hasClear then
                 Some clearButton
             else
                 None
@@ -126,17 +124,8 @@ module SimpleSelect =
                 flexGrow = 1
             |}
 
-        let besideSx =
-            {|
-                display = "flex"
-                alignItems = "flex-end"
-                flexGrow = 1
-                minWidth = 0
-            |}
-
-        let field =
-            JSX.jsx
-                $"""
+        JSX.jsx
+            $"""
         import InputLabel from '@mui/material/InputLabel';
         import MenuItem from '@mui/material/MenuItem';
         import FormControl from '@mui/material/FormControl';
@@ -152,6 +141,7 @@ module SimpleSelect =
             onChange={handleChange}
             label={props.label}
             disabled={props.disabled}
+            readOnly={props.readOnly}
             endAdornment={endAdornment}
             sx={sx}
             slotProps={selectSlotProps}
@@ -160,16 +150,3 @@ module SimpleSelect =
             </Select>
         </FormControl>
         """
-
-        if not clearBeside then
-            field
-        else
-            JSX.jsx
-                $"""
-            import Box from '@mui/material/Box';
-
-            <Box sx={besideSx}>
-                {field}
-                {clearButton}
-            </Box>
-            """
