@@ -878,8 +878,9 @@ module Order =
 
         let markOf = ViewHelpers.markOf
 
-        // the component and the item selects are the dialog's own, never a request
-        let select = ViewHelpers.orderSelect false false
+        // the component and the item selects are the dialog's own, never a request; the dialog
+        // always has one of each, so neither can be cleared
+        let pick = ViewHelpers.orderFixed false false
 
         // a field's select: rests while another field is changing, shows it while its own is
         let selectFor field =
@@ -966,13 +967,12 @@ module Order =
                         ord.Orderable.Components
                         |> Array.map _.Name
                         |> Array.map (fun s -> s, s)
-                        |> select
+                        |> pick
                             false
                             "componenten"
                             state.SelectedComponent
                             (ChangeComponent >> dispatch)
                             None
-                            false
                             ViewHelpers.noMark
                             None
                 | _ -> null
@@ -986,15 +986,7 @@ module Order =
                         itms
                         |> Array.map _.Name
                         |> Array.map (fun s -> s, s)
-                        |> select
-                            false
-                            "stoffen"
-                            state.SelectedItem
-                            (ChangeItem >> dispatch)
-                            None
-                            false
-                            ViewHelpers.noMark
-                            None
+                        |> pick false "stoffen" state.SelectedItem (ChangeItem >> dispatch) None ViewHelpers.noMark None
                 | _ -> null
 
             let substDoseQtySelect =
@@ -1013,15 +1005,7 @@ module Order =
                     let severity = itms[i].Dose.Quantity |> markOf
 
                     vals
-                    |> selectFor
-                        "substDoseQty"
-                        label
-                        None
-                        (ChangeSubstanceDoseQuantity >> dispatch)
-                        None
-                        false
-                        severity
-                        None
+                    |> selectFor "substDoseQty" label None (ChangeSubstanceDoseQuantity >> dispatch) None severity None
                 | _ -> null
 
             let substDoseQtyAdjSelect =
@@ -1052,7 +1036,6 @@ module Order =
                         None
                         (ChangeSubstanceDoseQuantityAdjust >> dispatch)
                         None
-                        true
                         severity
                         None
                 | _ -> null
@@ -1087,7 +1070,7 @@ module Order =
                         else
                             itms[i].Dose.PerTime |> markOf
 
-                    vals |> selectFor "substPerTime" label None dispatch None true severity None
+                    vals |> selectFor "substPerTime" label None dispatch None severity None
                 | _ -> null
 
             let substRateSelect =
@@ -1122,7 +1105,6 @@ module Order =
                         None
                         dispatch
                         stepper
-                        true
                         severity
                         None
                 | _ -> null
@@ -1186,7 +1168,6 @@ module Order =
                         None
                         (ChangeComponentOrderableQuantity >> dispatch)
                         stepper
-                        false
                         severity
                         None
                 | _ -> null
@@ -1218,7 +1199,6 @@ module Order =
                                 None
                                 (change >> dispatch)
                                 None
-                                false
                                 ViewHelpers.noMark
                                 None
                         else
@@ -1248,7 +1228,6 @@ module Order =
                                         None
                                         (change >> dispatch)
                                         None
-                                        false
                                         ViewHelpers.noMark
                                         None
                                 else
@@ -1275,7 +1254,6 @@ module Order =
                         None
                         (ChangeSubstanceOrderableQuantity >> dispatch)
                         None
-                        false
                         severity
                         None
                 | _ -> null
@@ -1297,7 +1275,6 @@ module Order =
                         None
                         (ChangeSubstanceOrderableConcentration >> dispatch)
                         None
-                        false
                         severity
                         None
                 | _ -> null
@@ -1315,7 +1292,6 @@ module Order =
                         None
                         (ChangeOrderableQuantity >> dispatch)
                         None
-                        false
                         severity
                         None
                 | _ -> null
@@ -1351,7 +1327,6 @@ module Order =
                         None
                         (ChangeFrequency >> dispatch)
                         stepper
-                        false
                         severity
                         None
                         xs
@@ -1381,7 +1356,6 @@ module Order =
                         None
                         (ChangeOrderableDoseQuantity >> dispatch)
                         stepper
-                        false
                         severity
                         None
                 | _ -> null
@@ -1414,7 +1388,6 @@ module Order =
                         None
                         (ChangeOrderableDoseRate >> dispatch)
                         stepper
-                        false
                         severity
                         None
                 | _ -> null
@@ -1433,7 +1406,6 @@ module Order =
                         None
                         (ChangeTime >> dispatch)
                         None
-                        true
                         severity
                         None
                 | _ -> null

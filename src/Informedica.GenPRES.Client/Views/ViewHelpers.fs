@@ -68,35 +68,33 @@ module ViewHelpers =
         |}
 
 
-    let orderSelect
-        alwaysShow
-        disabled
-        isLoading
-        lbl
-        selected
-        updateSelected
-        stepper
-        hasClear
-        (mark: Mark)
-        minWidth
-        xs
-        =
+    let orderField canClear alwaysShow disabled isLoading lbl selected updateSelected stepper (mark: Mark) minWidth xs =
 
         if not alwaysShow && xs |> Array.isEmpty && stepper |> Option.isNone then
             null
         else
             let isEmpty = xs |> Array.isEmpty && stepper |> Option.isNone
 
+            let shown =
+                if xs |> Array.length = 1 then
+                    xs[0] |> fst |> Some
+                else
+                    selected
+
+            // the cross is offered wherever it means something: a field whose value can be
+            // cleared at all, that can be used, and that holds a value. Clearing sets the value
+            // back to unnarrowed and the solver picks again, which is how one narrowing is
+            // undone without discarding the rest; the dialog's reset is the way to discard them
+            // all. Which fields showed one used to be decided field by field at the call site,
+            // so two fields of the same kind differed.
+            let hasClear = canClear && not (disabled || isEmpty) && shown.IsSome
+
             // no field is the lead yet: which one the user starts from is the server's to say
             Components.QuantityField.View
                 {|
                     onChange = if isEmpty then ignore else updateSelected
                     label = lbl
-                    selected =
-                        if xs |> Array.length = 1 then
-                            xs[0] |> fst |> Some
-                        else
-                            selected
+                    selected = shown
                     values = xs
                     isLoading = isLoading
                     disabled = disabled || isEmpty
@@ -107,6 +105,19 @@ module ViewHelpers =
                     minWidth = minWidth
                     isLead = false
                 |}
+
+
+    /// A value the rules narrowed, which the user may narrow further and may put back: it
+    /// offers the cross when it can be used and holds a value.
+    let orderSelect alwaysShow disabled isLoading lbl selected updateSelected stepper (mark: Mark) minWidth xs =
+        orderField true alwaysShow disabled isLoading lbl selected updateSelected stepper mark minWidth xs
+
+
+    /// A field there is nothing to clear in: a choice among the order's own parts, which always
+    /// holds one of them, or a value that is only shown. It never offers the cross, since the
+    /// cross would say the value can be taken away and it cannot.
+    let orderFixed alwaysShow disabled isLoading lbl selected updateSelected stepper (mark: Mark) minWidth xs =
+        orderField false alwaysShow disabled isLoading lbl selected updateSelected stepper mark minWidth xs
 
 
     /// Build the stepper record for a select. `navigable` = can jump to the min, median, or max
@@ -429,11 +440,13 @@ module ViewHelpers =
             |> Some
 
 
-    let ovarDisplay select (name: string) (format: decimal -> string) minWidth (ovar: OrderVariable) =
+    /// A value shown and not changed. `display` is built from `orderFixed`, since a field that
+    /// takes no change has nothing for a cross to clear.
+    let ovarDisplay display (name: string) (format: decimal -> string) minWidth (ovar: OrderVariable) =
         let mark = ovar |> markOf
         let label = ovar |> ovarLabel name
         let vals = ovar |> ovarVals format
-        select false label None ignore None false mark minWidth vals
+        display false label None ignore None mark minWidth vals
 
 
     let autoComplete disabled isLoading lbl selected dispatch xs =

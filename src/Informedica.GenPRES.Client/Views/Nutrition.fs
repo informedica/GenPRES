@@ -921,6 +921,8 @@ module Nutrition =
 
         let isOrderLoading = props.isRecalculating
         let select = ViewHelpers.orderSelect true isOrderLoading
+        // a value only shown has nothing for a cross to clear
+        let display = ViewHelpers.orderFixed true isOrderLoading
         let filterSelect = ViewHelpers.filterSelect isOrderLoading isOrderLoading
         let autoComplete = ViewHelpers.autoComplete isOrderLoading isOrderLoading
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
@@ -976,7 +978,6 @@ module Nutrition =
                             None
                             (fun s -> ChangeComponentOrderableQuantity(cmp.Name, s) |> dispatch)
                             nav
-                            false
                             qtyWarning
                             (Some 400)
                             qtyVals
@@ -993,7 +994,6 @@ module Nutrition =
                             None
                             (fun s -> ChangeComponentDoseQuantityAdjust(cmp.Name, s) |> dispatch)
                             None
-                            false
                             doseWarning
                             (Some 400)
                             doseVals
@@ -1048,7 +1048,6 @@ module Nutrition =
                     None
                     (ChangeOrderableDoseQuantity >> dispatch)
                     doseQtyNav
-                    false
                     severity
                     selectMinWidth
                     vals
@@ -1058,7 +1057,7 @@ module Nutrition =
             match displayOrder with
             | Some ord ->
                 ord.Orderable.Dose.PerTimeAdjust
-                |> ViewHelpers.ovarDisplay select "dosering" (fixPrecision 3) selectMinWidth
+                |> ViewHelpers.ovarDisplay display "dosering" (fixPrecision 3) selectMinWidth
             | None -> null
 
         let frequencyControl =
@@ -1068,7 +1067,7 @@ module Nutrition =
                 let label = ord.Schedule.Frequency |> ViewHelpers.ovarLabel "frequentie"
                 let freqVals = ord.Schedule.Frequency |> ViewHelpers.ovarVals string
 
-                select false label None (ChangeFrequency >> dispatch) None false severity selectMinWidth freqVals
+                select false label None (ChangeFrequency >> dispatch) None severity selectMinWidth freqVals
             | _ -> null
 
         let genericFilter =
@@ -1164,11 +1163,11 @@ module Nutrition =
                 let rateDisplay =
                     ord.Orderable.Dose.Rate
                     |> ViewHelpers.ovarValsWithRange string 3
-                    |> select false label None (ChangeOrderableDoseRate >> dispatch) nav false severity (Some 400)
+                    |> select false label None (ChangeOrderableDoseRate >> dispatch) nav severity (Some 400)
 
                 let timeDisplay =
                     ord.Schedule.Time
-                    |> ViewHelpers.ovarDisplay select "looptijd" (fixPrecision 3) (Some 400)
+                    |> ViewHelpers.ovarDisplay display "looptijd" (fixPrecision 3) (Some 400)
 
                 JSX.jsx
                     $"""
@@ -1193,7 +1192,7 @@ module Nutrition =
             match displayOrder with
             | Some ord ->
                 ord.Orderable.OrderableQuantity
-                |> ViewHelpers.ovarDisplay select "totaal volume" string (Some 400)
+                |> ViewHelpers.ovarDisplay display "totaal volume" string (Some 400)
             | None -> null
 
         let onClickReset = fun () -> ResetOrderScenario |> dispatch
