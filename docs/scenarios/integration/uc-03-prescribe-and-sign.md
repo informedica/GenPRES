@@ -166,7 +166,7 @@ wrong-PIN count with time (Rule 28): the cap of a day stands in for it. The MVP 
 the last two as issues to file
 ([mvpap2019-gap-overview.md](../../roadmap/mvpap2019-gap-overview.md), rows 2.1.7 and 2.1.10).
 
-The walkthrough is in [DEVELOPMENT.md](../../../DEVELOPMENT.md#signing-an-order-plan).
+The walkthrough is in [Testing Workflows](../../user-guide/testing-workflows.md#workflow-10--signing-an-order-plan).
 
 ---
 

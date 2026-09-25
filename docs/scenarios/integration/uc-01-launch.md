@@ -235,7 +235,7 @@ Launches contend for the per-User limit.
 | PatientDataPlatform (5.4) | `StubPatientData` | answers one fixed patient (ten years, 32 kg, 140 cm) for every PatientId, none for `no-data` |
 | GenPRES Database | a SQLite file when `GENPRES_DB_CONNECTION` is set, else one `Session.State` per server start | LaunchRecords by nonce, SessionRecords, endings, credentials, codes, enrolments, the signed record, notices, challenges, remembered answers, and an audit entry per act; every transition a pure function under one lock. On the file all of it outlives a restart and a second server reads it, and nothing is ever deleted: a row past its lifetime loads as absent. The in-memory store forgets all of it |
 
-The walkthrough is in [DEVELOPMENT.md](../../../DEVELOPMENT.md#simulating-the-launch-sequence).
+The walkthrough is in [Testing Workflows](../../user-guide/testing-workflows.md#workflow-8--launch-sequence).
 
 ## Designed, not built
 
