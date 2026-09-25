@@ -319,6 +319,13 @@ module GenOrderTools =
                       Omit the department to prescribe for the default, {departments.Default}."
 
 
+    /// The refusal when the weight and height could not be estimated from the age: the
+    /// normal-value tables did not load, so the caller has to give the measures.
+    let noEstimate =
+        "The weight and height could not be estimated from the age: the normal-value tables \
+         are not loaded. Give WeightKg and HeightCm."
+
+
     /// The order context for the input's patient and filter selection, evaluated against the
     /// given provider. Requires an age or both measures (see requireAgeOrMeasures), and
     /// then a department the rules know, if one is given (see checkDepartment); shared by
@@ -332,30 +339,36 @@ module GenOrderTools =
         input
         |> requireAgeOrMeasures
         |> Result.bind (fun () -> input |> checkDepartment (provider.Get Keys.departments))
-        |> Result.map (fun input ->
+        |> Result.bind (fun input ->
             let patient = buildPatient provider input
 
-            OrderContext.create OrderLogging.noOp provider patient
-            |> (fun c ->
-                match input.Generic with
-                | Some g -> c |> OrderContext.setFilterGeneric g
-                | None -> c
-            )
-            |> (fun c ->
-                match input.Indication with
-                | Some i -> c |> OrderContext.setFilterIndication i
-                | None -> c
-            )
-            |> (fun c ->
-                match input.Route with
-                | Some r -> c |> OrderContext.setFilterRoute r
-                | None -> c
-            )
-            |> (fun c ->
-                match input.Form with
-                | Some f -> c |> OrderContext.setFilterForm f
-                | None -> c
-            )
+            // the estimate can leave a measure blank when the tables are not loaded; the rules
+            // would then answer nothing, so the caller is told instead
+            match patient.Weight, patient.Height with
+            | Some _, Some _ ->
+                OrderContext.create OrderLogging.noOp provider patient
+                |> (fun c ->
+                    match input.Generic with
+                    | Some g -> c |> OrderContext.setFilterGeneric g
+                    | None -> c
+                )
+                |> (fun c ->
+                    match input.Indication with
+                    | Some i -> c |> OrderContext.setFilterIndication i
+                    | None -> c
+                )
+                |> (fun c ->
+                    match input.Route with
+                    | Some r -> c |> OrderContext.setFilterRoute r
+                    | None -> c
+                )
+                |> (fun c ->
+                    match input.Form with
+                    | Some f -> c |> OrderContext.setFilterForm f
+                    | None -> c
+                )
+                |> Ok
+            | _ -> Error noEstimate
         )
         |> Result.bind (fun ctx ->
             OrderContext.UpdateOrderContext ctx

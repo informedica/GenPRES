@@ -5284,11 +5284,10 @@ let ingressTests =
                 Patient.empty |> Patient.patient |> refusedAs Patient.noPatient
             }
 
-            test "an age without an estimate is a patient, the server estimating at its own boundaries" {
+            test "an age without an estimate is refused, the weight and height named" {
                 { Patient.empty with Age = Some ten }
                 |> Patient.patient
-                |> Result.isOk
-                |> Expect.isTrue "an age is a patient"
+                |> refusedAs Patient.noWeightAndHeight
             }
 
             test "an age with the estimate, or a measured weight and height, is a patient" {

@@ -445,6 +445,37 @@ module Tests =
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 
+        /// The tables not loaded: the resource's fallback, empty rows.
+        let private noTables: IResourceProvider =
+            let departments = Departments.ofNamed []
+
+            { new IResourceProvider with
+                member _.Get(key: ResourceKey<'T>) : 'T =
+                    if key.Name = Keys.departments.Name then
+                        box departments :?> 'T
+                    elif key.Name = Keys.normalValueRows.Name then
+                        box (Map.empty: Map<string, string[][]>) :?> 'T
+                    else
+                        raise (NotImplementedException key.Name)
+
+                member _.GetData() = raise (NotImplementedException())
+                member _.GetUnitMappings() = raise (NotImplementedException())
+                member _.GetRouteMappings() = raise (NotImplementedException())
+                member _.GetValidForms() = raise (NotImplementedException())
+                member _.GetFormRoutes() = raise (NotImplementedException())
+                member _.GetFormularyProducts() = raise (NotImplementedException())
+                member _.GetReconstitution() = raise (NotImplementedException())
+                member _.GetParenteralMeds() = raise (NotImplementedException())
+                member _.GetEnteralFeeding() = raise (NotImplementedException())
+                member _.GetProducts() = raise (NotImplementedException())
+                member _.GetDoseRules() = raise (NotImplementedException())
+                member _.GetSolutionRules() = raise (NotImplementedException())
+                member _.GetRenalRules() = raise (NotImplementedException())
+                member _.GetTotals() = raise (NotImplementedException())
+                member _.GetGStandProvider() = raise (NotImplementedException())
+                member _.GetResourceInfo() = raise (NotImplementedException())
+            }
+
         let private ageAlone: CreateOrderContextInput =
             {
                 AgeMonths = Some 24.0
@@ -468,7 +499,7 @@ module Tests =
                         (pat |> Patient.getWeight, pat |> Patient.getHeight, pat.WeightMeasured, pat.HeightMeasured)
                         |> Expect.equal
                             "twelve kilograms, 87 centimetres, estimated"
-                            (Some(Kilogram 12m), Some(Centimeter 87), false, false)
+                            (Some(Gram 12000), Some(Centimeter 87), false, false)
                     }
 
                     test "a measure given stays measured, the other estimated" {
@@ -477,7 +508,7 @@ module Tests =
                         (pat |> Patient.getWeight, pat.WeightMeasured, pat |> Patient.getHeight, pat.HeightMeasured)
                         |> Expect.equal
                             "fourteen measured, 87 estimated"
-                            (Some(Kilogram 14m), true, Some(Centimeter 87), false)
+                            (Some(Gram 14000), true, Some(Centimeter 87), false)
                     }
 
                     test "both measures given, nothing is estimated" {
@@ -495,13 +526,19 @@ module Tests =
                         { ageAlone with Sex = None }
                         |> buildPatient tablesOnly
                         |> Patient.getWeight
-                        |> Expect.equal "eleven and a half kilograms" (Some(Kilogram 11.5m))
+                        |> Expect.equal "eleven and a half kilograms" (Some(Gram 11500))
                     }
 
                     test "without an age nothing is estimated" {
                         let pat = { ageAlone with AgeMonths = None } |> buildPatient tablesOnly
 
                         (pat.Weight, pat.Height) |> Expect.equal "none" (None, None)
+                    }
+
+                    test "an age alone while the tables are not loaded is refused, naming the estimate" {
+                        ageAlone
+                        |> evaluateOrderContext noTables
+                        |> Expect.equal "refused before the rules" (Error noEstimate)
                     }
                 ]
 
@@ -515,4 +552,5 @@ module Tests =
                 loggingTests
                 GenOrderToolsTests.tests
                 CheckDepartmentTests.tests
+                EstimateTests.tests
             ]

@@ -3,6 +3,7 @@ namespace Informedica.GenForm.Lib
 
 module Mapping =
 
+    open System
 
     open Informedica.Utils.Lib
     open Informedica.Utils.Lib.BCL
@@ -121,9 +122,48 @@ module Mapping =
     let normalValueSheets = [| "weight"; "height"; "weight neo"; "height neo" |]
 
 
-    /// The four sheets fetched as rows, every one or none: a table missing would make the
-    /// estimate silently blank for the ages it covers. The rows stay rows here, since the
-    /// parser and the estimate are the contract model's, shared with the client, and the
+    /// The columns a normal-value sheet has: the sex, the age, and the third percentile, the
+    /// mean and the 97th of the measure.
+    let normalValueColumns = [| "sex"; "age"; "p3"; "mean"; "p97" |]
+
+
+    /// The rows of one sheet checked at load, so that a sheet the parser cannot read fails the
+    /// resource here and not a request later: the header names every column, and every row
+    /// holds a number in each numeric column.
+    let checkNormalValueRows sheet (rows: string[][]) : Result<string[][], Message list> =
+        let refuse (what: string) =
+            Error [ ErrorMsg($"normal values, sheet %s{sheet}: %s{what}", None) ]
+
+        match rows |> Array.tryHead with
+        | None -> refuse "no header"
+        | Some header ->
+            let header = header |> Array.map _.Trim()
+
+            match normalValueColumns |> Array.filter (fun c -> header |> Array.contains c |> not) with
+            | [||] ->
+                let numeric =
+                    normalValueColumns[1..]
+                    |> Array.map (fun c -> header |> Array.findIndex ((=) c))
+
+                let isNumber (row: string[]) i = i < row.Length && fst (Double.TryParse row[i])
+
+                match
+                    rows[1..]
+                    |> Array.indexed
+                    |> Array.filter (fun (_, row) -> numeric |> Array.forall (isNumber row) |> not)
+                with
+                | [||] -> Ok rows
+                | bad ->
+                    let first = fst bad[0] + 2
+                    refuse $"%i{bad.Length} rows hold a value that is not a number, the first at row %i{first}"
+            | missing ->
+                let names = missing |> String.concat ", "
+                refuse $"columns missing: %s{names}"
+
+
+    /// The four sheets fetched as rows and checked, every one or none: a table missing would
+    /// make the estimate silently blank for the ages it covers. The rows stay rows here, since
+    /// the parser and the estimate are the contract model's, shared with the client, and the
     /// domain does not reference the contract.
     let getNormalValueRows urlId : Result<Map<string, string[][]>, Message list> =
         normalValueSheets
@@ -132,8 +172,9 @@ module Mapping =
                 acc
                 |> Result.bind (fun rows ->
                     Web.GoogleSheets.getCsvDataFromSheetSync urlId sheet
-                    |> Result.map (fun data -> rows |> Map.add sheet data)
                     |> Result.mapError (fun e -> [ ErrorMsg($"normal values, sheet %s{sheet}: %s{e}", None) ])
+                    |> Result.bind (checkNormalValueRows sheet)
+                    |> Result.map (fun data -> rows |> Map.add sheet data)
                 )
             )
             (Ok Map.empty)

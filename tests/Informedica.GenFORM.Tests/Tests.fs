@@ -4291,6 +4291,45 @@ module Tests =
                         matched (Some "NICU") |> Expect.equal "NICU and any" [| Some "NICU"; None |]
                     }
 
+                    test "a normal-value sheet is checked at load: the header and the numbers" {
+                        let good = [| [| "sex"; "age"; "p3"; "mean"; "p97" |]; [| "M"; "2"; "10"; "12"; "14" |] |]
+
+                        good
+                        |> Mapping.checkNormalValueRows "weight"
+                        |> Expect.equal "as given" (Ok good)
+
+                        [| [| "sex"; "age"; "mean" |]; [| "M"; "2"; "12" |] |]
+                        |> Mapping.checkNormalValueRows "weight"
+                        |> Result.mapError (
+                            List.map (
+                                function
+                                | ErrorMsg(m, _) -> m
+                                | _ -> ""
+                            )
+                        )
+                        |> Expect.equal
+                            "the columns named"
+                            (Error [ "normal values, sheet weight: columns missing: p3, p97" ])
+
+                        [| good[0]; good[1]; [| "F"; "2"; "9"; "-"; "13" |] |]
+                        |> Mapping.checkNormalValueRows "weight"
+                        |> Result.mapError (
+                            List.map (
+                                function
+                                | ErrorMsg(m, _) -> m
+                                | _ -> ""
+                            )
+                        )
+                        |> Expect.equal
+                            "the row named"
+                            (Error
+                                [
+                                    "normal values, sheet weight: 1 rows hold a value that is not a number, the first at row 3"
+                                ])
+
+                        [||] |> Mapping.checkNormalValueRows "weight" |> Expect.isError "no header"
+                    }
+
                     test "the normal-value rows are a registered resource over the four sheets" {
                         (defaultRegistry Informedica.Logging.Lib.Logging.noOp "")
                         |> Map.containsKey Keys.normalValueRows.Name

@@ -153,15 +153,14 @@ let tests =
                 |> Expect.equal "a department given: as before" [ true; false; true ]
             }
 
-            test "the refusal keeps the server's words, and an age alone is a patient" {
+            test "the refusals keep the server's words" {
                 Shared.Models.Patient.empty
                 |> ServerApi.Patient.parse
                 |> Expect.equal "no patient" (Error [| ServerApi.Patient.noPatient |])
 
                 { Shared.Models.Patient.empty with Age = stub.Age }
                 |> ServerApi.Patient.parse
-                |> Result.map (fun p -> p.Age.IsSome, p.Weight, p.Height)
-                |> Expect.equal "a patient, without measures" (Ok(true, None, None))
+                |> Expect.equal "no weight and height" (Error [| ServerApi.Patient.noWeightAndHeight |])
             }
         ]
 

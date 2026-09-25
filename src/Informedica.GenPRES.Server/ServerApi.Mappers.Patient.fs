@@ -23,11 +23,21 @@ module Patient =
     /// A draft that is no patient: it has no age, and no measured weight and height.
     let noPatient = "Geen patiënt: een leeftijd, of een gemeten gewicht en lengte, is nodig"
 
+    /// A patient without a weight or a height, measured or estimated. The server estimates a
+    /// reading from the platform and the MCP host's values, and the client estimates its own
+    /// drafts; one that arrives here with neither is refused with the two named, since the
+    /// rules would answer nothing and say nothing.
+    let noWeightAndHeight = "Gewicht en lengte onbekend: voer ze in"
+
+
     /// The patient the data is, or why it is none.
     let patient (dto: Patient) : Result<Patient, string[]> =
         match dto |> Patient.validate with
         | Error PatientError.NoAgeOrMeasuredWeightAndHeight -> Error [| noPatient |]
-        | Ok pat -> Ok pat
+        | Ok pat ->
+            match dto |> Patient.getWeight, dto |> Patient.getHeight with
+            | Some _, Some _ -> Ok pat
+            | _ -> Error [| noWeightAndHeight |]
 
 
     /// Data that may be absent: none is no patient and no refusal.
@@ -182,12 +192,18 @@ module Patient =
 
 
     /// The patient the contract model's data is, or why it is none: the Dto's reasons in the
-    /// server's words.
+    /// server's words, and the server's own gate that the rules need a weight and a height,
+    /// measured or estimated.
     let parse (model: Shared.Types.Patient) : Result<Lib.Patient, string[]> =
         model
         |> ofModel
         |> LibPatient.Dto.fromDto
         |> Result.mapError (List.map words >> List.toArray)
+        |> Result.bind (fun pat ->
+            match pat.Weight, pat.Height with
+            | Some _, Some _ -> Ok pat
+            | _ -> Error [| noWeightAndHeight |]
+        )
 
 
     /// The domain patient with the estimates the contract model computes for its age,
