@@ -656,6 +656,18 @@ module Types =
         }
 
 
+    /// The departments a patient can be prescribed for: the names the loaded rules carry, and
+    /// the one a patient without a department is prescribed for.
+    type Departments =
+        {
+            /// Every department a solution rule or a reconstitution names, the default included,
+            /// distinct and sorted.
+            Names: string[]
+            /// The department a patient without one is prescribed for.
+            Default: string
+        }
+
+
     /// A Filter to get the DoseRules for a specific Patient.
     type DoseFilter =
         {

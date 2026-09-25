@@ -198,6 +198,51 @@ module Resources =
             | Error msgs -> Ok(box fallback, msgs |> List.map (fun m -> Warning $"%s{note}: %s{messageText m}"))
 
 
+    /// The departments the loaded rules name, and the default a patient without one is
+    /// prescribed for. The default is applied where rules are matched and never written on
+    /// the patient: the patient the server answers with must equal the one it was sent.
+    module Departments =
+
+        /// One hospital's ward written in code, and the only thing that keeps a patient without
+        /// a department from losing every ward's solution rules and reconstitutions. It stays
+        /// until the department is the user's to choose; then it becomes configuration, and
+        /// this is the one place that changes.
+        let defaultDepartment = "ICK"
+
+
+        /// The departments named, blanks ignored, the default among them whether or not a rule
+        /// names it.
+        let ofNamed (named: string option seq) : Departments =
+            {
+                Names =
+                    named
+                    |> Seq.choose id
+                    |> Seq.map _.Trim()
+                    |> Seq.filter (String.IsNullOrWhiteSpace >> not)
+                    |> Seq.append [ defaultDepartment ]
+                    |> Seq.distinct
+                    |> Seq.sort
+                    |> Seq.toArray
+                Default = defaultDepartment
+            }
+
+
+        /// From the loaded rows: the solution-rule rows and the reconstitutions, the two sheets
+        /// that name departments.
+        let ofRules (solutionRows: SolutionRuleData[]) (reconstitutions: Reconstitution[]) =
+            Seq.append (solutionRows |> Seq.map _.Department) (reconstitutions |> Seq.map _.Department)
+            |> ofNamed
+
+
+        /// The department a patient is prescribed for: the one given, or the default.
+        let forPatient (departments: Departments) (department: string option) =
+            department |> Option.orElse (Some departments.Default)
+
+
+        /// Whether a department is one the rules know, for an input to be checked against.
+        let isKnown (departments: Departments) (department: string) = departments.Names |> Array.contains department
+
+
     /// Typed keys — one per resource. Adding a resource adds a key here.
     module Keys =
         let unitMappings = ResourceKey.create<UnitMapping[]> "unitMappings"
@@ -214,6 +259,7 @@ module Resources =
         let enteralFeeding = ResourceKey.create<ProductComponent[]> "enteralFeeding"
         let doseRuleData = ResourceKey.create<DoseRuleData[]> "doseRuleData"
         let solutionRuleData = ResourceKey.create<SolutionRuleData[]> "solutionRuleData"
+        let departments = ResourceKey.create<Departments> "departments"
         let renalRuleData = ResourceKey.create<RenalRuleData[]> "renalRuleData"
         let totalsData = ResourceKey.create<TotalsData[]> "totalsData"
         let products = ResourceKey.create<ProductComponent[]> "products"
@@ -277,6 +323,11 @@ module Resources =
                 Keys.doseRuleData.Name, ofResult (fun () -> DoseRuleLoader.getData dataUrlId)
                 Keys.solutionRuleData.Name, ofResult (fun () -> SolutionRule.getData dataUrlId)
                 Keys.renalRuleData.Name, ofResult (fun () -> RenalRule.getData dataUrlId)
+
+                // the departments the rules name, and the default: derived, so it loads once
+                // and after the two rows it reads
+                Keys.departments.Name,
+                derive (fun r -> Departments.ofRules (r.Get Keys.solutionRuleData) (r.Get Keys.reconstitution))
 
                 // Totals is an optional intake-reference resource: a load failure must
                 // not empty the others, so swallow to [||] and surface a Warning.

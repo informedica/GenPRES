@@ -633,9 +633,10 @@ module OrderContext =
 
     /// The rules for the context's selection and patient, and the context with its pick lists
     /// narrowed to them. A weight and a height are needed; a department is not, a patient
-    /// without one taking the rules that name no department and no others. Without a weight
-    /// and a height the context is made afresh and there are no rules.
-    let getRules logger provider (ctx: OrderContext) =
+    /// without one being matched as a patient of the provider's default department, while the
+    /// patient itself keeps none. Without a weight and a height the context is made afresh and
+    /// there are no rules.
+    let getRules logger (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) (ctx: OrderContext) =
 
         match ctx.Patient.Weight, ctx.Patient.Height, ctx.Patient.Department with
         | Some w, Some h, d ->
@@ -682,7 +683,12 @@ module OrderContext =
                     Patient =
                         {
                             Location = ctx.Patient.Location
-                            Department = d
+                            // the default applies to the matching only, never to the patient
+                            Department =
+                                d
+                                |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
+                                    provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
+                                )
                             Age = ctx.Patient.Age
                             GestAge = ctx.Patient.GestAge
                             PMAge = ctx.Patient.PMAge
