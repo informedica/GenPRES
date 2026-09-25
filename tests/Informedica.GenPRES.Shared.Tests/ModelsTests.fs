@@ -609,3 +609,86 @@ let ageSetterTests =
                     }
                 ]
         ]
+
+
+module NeonatalEstimateFixtures =
+
+    /// The neonatal tables, in weeks of post-conceptional age, reaching to 42 weeks as the
+    /// sheet does.
+    let neoWeights = Some [ row "M" 40. 2800. 3500. 4200.; row "M" 42. 3000. 3700. 4500. ]
+
+    let neoHeights = Some [ row "M" 40. 48. 50. 53.; row "M" 42. 50. 52. 55. ]
+
+    let estimated (dto: Patient) =
+        dto |> Patient.applyNormalValues weights heights neoWeights neoHeights
+
+
+    let term: GestAge =
+        {
+            Weeks = 40<week>
+            Days = 0<day>
+        }
+
+    let premature: GestAge =
+        {
+            Weeks = 30<week>
+            Days = 0<day>
+        }
+
+
+[<Tests>]
+let neonatalEstimateTests =
+    testList
+        "the neonatal tables answer while they reach"
+        [
+            test "a term newborn one week old is estimated from the neonatal tables" {
+                { Patient.empty with
+                    Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
+                    GestationalAge = Some NeonatalEstimateFixtures.term
+                    Gender = Male
+                }
+                |> NeonatalEstimateFixtures.estimated
+                |> fun dto -> dto.Weight.Estimated, dto.Height.Estimated
+                |> Expect.equal "41 weeks post-conceptional: the 40-week row" (Some 3500<gram>, Some 50<cm>)
+            }
+
+            test "an infant of six months with a gestational age is estimated from the age tables" {
+                { Patient.empty with
+                    Age = Some { Patient.Age.ageZero with Months = 6<month> }
+                    GestationalAge = Some NeonatalEstimateFixtures.premature
+                    Gender = Male
+                }
+                |> NeonatalEstimateFixtures.estimated
+                |> fun dto -> dto.Weight.Estimated, dto.Height.Estimated
+                |> Expect.equal
+                    "past 42 weeks: the age tables, not the last neonatal row"
+                    (Some 32000<gram>, Some 140<cm>)
+            }
+
+            test "an age typed after the gestational age keeps it and is estimated by the age" {
+                Some
+                    { Patient.empty with
+                        Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
+                        GestationalAge = Some NeonatalEstimateFixtures.premature
+                        Gender = Male
+                    }
+                |> Patient.setYear (Some "2")
+                |> patient
+                |> NeonatalEstimateFixtures.estimated
+                |> fun dto -> dto.GestationalAge, dto.Weight.Estimated
+                |> Expect.equal
+                    "kept, and the age tables answer"
+                    (Some NeonatalEstimateFixtures.premature, Some 32000<gram>)
+            }
+
+            test "without the neonatal tables a newborn is estimated from the age tables" {
+                { Patient.empty with
+                    Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
+                    GestationalAge = Some NeonatalEstimateFixtures.term
+                    Gender = Male
+                }
+                |> estimated
+                |> _.Weight.Estimated
+                |> Expect.equal "the age tables" (Some 32000<gram>)
+            }
+        ]

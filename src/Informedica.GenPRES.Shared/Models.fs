@@ -685,9 +685,22 @@ module Models =
                 match pat.Age with
                 | None -> None, None
                 | Some age ->
-                    match pat |> getPostConceptionalAgeInDays with
-                    | Some days ->
-                        let pcAgeInWeeks = (days |> float) / 7.
+                    // the neonatal tables answer while they reach. A post-conceptional age past
+                    // their last week, an older infant with a gestational age, is an age for the
+                    // age tables; the nearest row would give every such patient a newborn's weight
+                    let reaches x (nvs: NormalValue list option) =
+                        nvs |> Option.exists (List.exists (fun nv -> nv.Age >= x))
+
+                    let pcAgeInWeeks =
+                        pat
+                        |> getPostConceptionalAgeInDays
+                        |> Option.map (fun days -> (days |> float) / 7.)
+
+                    match pcAgeInWeeks with
+                    | Some pcAgeInWeeks when
+                        normalNeoWeights |> reaches pcAgeInWeeks
+                        && normalNeoHeights |> reaches pcAgeInWeeks
+                        ->
 
                         let weight =
                             normalNeoWeights
@@ -709,7 +722,7 @@ module Models =
                             )
 
                         weight, height
-                    | None ->
+                    | _ ->
                         let ageInYears = age |> Age.calcYears
 
                         let weight =
