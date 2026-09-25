@@ -175,7 +175,10 @@ One pull request each, in this order.
    value, so the eighteen fields of the dose dialog and the nutrition page's controls answer one
    rule instead of a flag each. Clearing puts that one value back to unnarrowed and the solver
    picks again, which is how a single narrowing is undone; the dialog's reset is still the way
-   to discard them all.
+   to discard them all. Two kinds of field, not one: a value that can be put back, and a field
+   there is nothing to clear in, which is the choice of a component or a substance, of which the
+   dialog always holds one, and a value that is only shown. The second kind never offers the
+   cross, since a cross there would say the value can be taken away when it cannot.
 5. **The pick rule where the field types instead of scrolls.** `Components/PickField.fs` takes
    the shape it is drawn in, a list to scroll or a box to type in, so that one component holds
    the rule, the single option and the effect that tells the page that option is chosen. A
