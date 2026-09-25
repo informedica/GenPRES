@@ -33,8 +33,7 @@ ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 ENV HUSKY=0
 COPY Build.fsproj .
-COPY Build.fs .
-COPY Helpers.fs .
+COPY build/ build/
 COPY src/ src/
 # The Bundle target copies the curated runtime data (the cache) from the
 # repo-root data/ folder into deploy/data.

@@ -35,6 +35,12 @@
 # is needed. What must stay out is excluded at the end of this file.
 !/src/
 
+# Add the FAKE build script sources.
+# Build.fsproj stays at the repo root and is carried by !*.fsproj above, but the sources
+# it compiles live in build/, which `*` excludes: !*.fs does not reach them, because
+# Docker's patterns do not cross `/`.
+!/build/
+
 # Add data folders
 # Only the demo cache belongs in the image. The proprietary *.cache files are
 # licence-restricted and are bind-mounted onto /app/data/cache at run time.
