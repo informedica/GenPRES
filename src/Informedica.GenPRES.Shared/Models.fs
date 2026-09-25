@@ -740,132 +740,41 @@ module Models =
             pat |> withEstimates ew eh
 
 
+        /// The rule every setter follows: the draft, or the blank one, with the estimates
+        /// blanked and one change applied. Nothing else on the patient is touched, so a value
+        /// that was measured is never lost to an edit of another field, and an estimate is never
+        /// written back as a measured value; the estimates follow the age and the gender, and the
+        /// next applyNormalValues fills them again.
+        let edit (change: Patient -> Patient) (p: Patient option) : Patient option =
+            p |> Option.defaultValue empty |> withEstimates None None |> change |> Some
+
+
+        /// One part of the age written from the field. A draft with no age gets one when the
+        /// part is given and stays without one when it is not; a part cleared while the age
+        /// exists reads as zero, so the age is never lost by emptying one field of it.
+        let editAgePart (write: int -> Age -> Age) (s: string option) (p: Patient) =
+            match p.Age, s |> Option.bind tryParse with
+            | None, None -> p
+            | age, v ->
+                let age = age |> Option.defaultValue Age.ageZero |> write (v |> Option.defaultValue 0)
+
+                { p with Age = Some age }
+
+
         let setYear s (p: Patient option) =
-            match p with
-            | None ->
-                create
-                    (s |> Option.bind tryParse |> Option.map Measures.toYear)
-                    None
-                    None
-                    None
-                    None
-                    None
-                    None
-                    None
-                    UnknownGender
-                    []
-                    None
-                    None
-            | Some p ->
-                create
-                    (s |> Option.bind tryParse |> Option.map Measures.toYear)
-                    (p |> getAgeMonths)
-                    (p |> getAgeWeeks)
-                    (p |> getAgeDays)
-                    None
-                    None
-                    None
-                    None
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+            p |> edit (editAgePart (fun v a -> { a with Years = v |> Measures.toYear }) s)
 
 
         let setMonth s (p: Patient option) =
-            match p with
-            | None ->
-                create
-                    None
-                    (s |> Option.bind tryParse |> Option.map Measures.toMonth)
-                    None
-                    None
-                    None
-                    None
-                    None
-                    None
-                    UnknownGender
-                    []
-                    None
-                    None
-            | Some p ->
-                create
-                    (p |> getAgeYears)
-                    (s |> Option.bind tryParse |> Option.map Measures.toMonth)
-                    (p |> getAgeWeeks)
-                    (p |> getAgeDays)
-                    None
-                    None
-                    None
-                    None
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+            p |> edit (editAgePart (fun v a -> { a with Months = v |> Measures.toMonth }) s)
 
 
         let setWeek s (p: Patient option) =
-            match p with
-            | None ->
-                create
-                    None
-                    None
-                    (s |> Option.bind tryParse |> Option.map Measures.toWeek)
-                    None
-                    None
-                    None
-                    None
-                    None
-                    UnknownGender
-                    []
-                    None
-                    None
-            | Some p ->
-                create
-                    (p |> getAgeYears)
-                    (p |> getAgeMonths)
-                    (s |> Option.bind tryParse |> Option.map Measures.toWeek)
-                    (p |> getAgeDays)
-                    None
-                    None
-                    (p |> getGAWeeks)
-                    (p |> getGADays)
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+            p |> edit (editAgePart (fun v a -> { a with Weeks = v |> Measures.toWeek }) s)
 
 
         let setDay s (p: Patient option) =
-            match p with
-            | None ->
-                create
-                    None
-                    None
-                    None
-                    (s |> Option.bind tryParse |> Option.map Measures.toDay)
-                    None
-                    None
-                    None
-                    None
-                    UnknownGender
-                    []
-                    None
-                    None
-            | Some p ->
-                create
-                    (p |> getAgeYears)
-                    (p |> getAgeMonths)
-                    (p |> getAgeWeeks)
-                    (s |> Option.bind tryParse |> Option.map Measures.toDay)
-                    None
-                    None
-                    (p |> getGAWeeks)
-                    (p |> getGADays)
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+            p |> edit (editAgePart (fun v a -> { a with Days = v |> Measures.toDay }) s)
 
 
         let setWeight s (p: Patient option) =
