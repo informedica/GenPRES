@@ -654,7 +654,7 @@ module Models =
 
                 nvs
                 |> List.map _.Age
-                |> List.nearestIndex age
+                |> fun ages -> if ages.IsEmpty then -1 else ages |> List.nearestIndex age // no row for the sex
                 |> fun idx ->
                     if idx < 0 || idx >= nvs.Length then
                         None
@@ -685,34 +685,26 @@ module Models =
                 match pat.Age with
                 | None -> None, None
                 | Some age ->
-                    match pat |> getPostConceptionalAgeInDays with
-                    | Some days ->
-                        let pcAgeInWeeks = (days |> float) / 7.
+                    // a neonatal table answers while it reaches: past its last week an older
+                    // infant with a gestational age takes the age table, or the nearest row would
+                    // give a newborn's value. Each table is judged by its own reach
+                    let neonatal (nvs: NormalValue list option) =
+                        pat
+                        |> getPostConceptionalAgeInDays
+                        |> Option.map (fun days -> (days |> float) / 7.)
+                        |> Option.filter (fun weeks -> nvs |> Option.exists (List.exists (fun nv -> nv.Age >= weeks)))
+                        |> Option.bind (fun weeks -> nvs |> nearest weeks)
 
-                        let weight =
-                            normalNeoWeights
-                            |> nearest pcAgeInWeeks
-                            |> Option.map (fun (p3, m, p97) ->
-                                let m =
-                                    wghts |> List.nearestIndex (int m) |> (fun idx -> wghts[idx]) |> Measures.toGram
+                    let ageInYears = age |> Age.calcYears
 
-                                int p3 * 1<gram>, m, int p97 * 1<gram>
-                            )
-
-                        let height =
-                            normalNeoHeights
-                            |> nearest pcAgeInWeeks
-                            |> Option.map (fun (p3, m, p97) ->
-                                let m = hghts |> List.nearestIndex (int m) |> (fun idx -> hghts[idx]) |> Measures.toCm
-
-                                int p3 * 1<cm>, m, int p97 * 1<cm>
-                            )
-
-                        weight, height
-                    | None ->
-                        let ageInYears = age |> Age.calcYears
-
-                        let weight =
+                    let weight =
+                        match normalNeoWeights |> neonatal with
+                        | Some(p3, m, p97) ->
+                            (int p3 * 1<gram>,
+                             wghts[wghts |> List.nearestIndex (int m)] |> Measures.toGram,
+                             int p97 * 1<gram>)
+                            |> Some
+                        | None ->
                             normalWeights
                             |> nearest ageInYears
                             |> Option.map (fun (p3, m, p97) ->
@@ -725,7 +717,12 @@ module Models =
                                 int p3 * 1000<gram>, m, int p97 * 1000<gram>
                             )
 
-                        let height =
+                    let height =
+                        match normalNeoHeights |> neonatal with
+                        | Some(p3, m, p97) ->
+                            (int p3 * 1<cm>, hghts[hghts |> List.nearestIndex (int m)] |> Measures.toCm, int p97 * 1<cm>)
+                            |> Some
+                        | None ->
                             normalHeights
                             |> nearest ageInYears
                             |> Option.map (fun (p3, m, p97) ->
@@ -734,138 +731,47 @@ module Models =
                                 int p3 * 1<cm>, m, int p97 * 1<cm>
                             )
 
-                        weight, height
+                    weight, height
 
             // the estimate stays an estimate: the measured values hold what was entered or read
             pat |> withEstimates ew eh
 
 
+        /// The rule every setter follows: the draft, or the blank one, with the estimates
+        /// blanked and one change applied. Nothing else on the patient is touched, so a value
+        /// that was measured is never lost to an edit of another field, and an estimate is never
+        /// written back as a measured value; the estimates follow the age and the gender, and the
+        /// next applyNormalValues fills them again.
+        let edit (change: Patient -> Patient) (p: Patient option) : Patient option =
+            p |> Option.defaultValue empty |> withEstimates None None |> change |> Some
+
+
+        /// One part of the age written from the field. A draft with no age gets one when the
+        /// part is given and stays without one when it is not; a part cleared while the age
+        /// exists reads as zero, so the age is never lost by emptying one field of it.
+        let editAgePart (write: int -> Age -> Age) (s: string option) (p: Patient) =
+            match p.Age, s |> Option.bind tryParse with
+            | None, None -> p
+            | age, v ->
+                let age = age |> Option.defaultValue Age.ageZero |> write (v |> Option.defaultValue 0)
+
+                { p with Age = Some age }
+
+
         let setYear s (p: Patient option) =
-            match p with
-            | None ->
-                create
-                    (s |> Option.bind tryParse |> Option.map Measures.toYear)
-                    None
-                    None
-                    None
-                    None
-                    None
-                    None
-                    None
-                    UnknownGender
-                    []
-                    None
-                    None
-            | Some p ->
-                create
-                    (s |> Option.bind tryParse |> Option.map Measures.toYear)
-                    (p |> getAgeMonths)
-                    (p |> getAgeWeeks)
-                    (p |> getAgeDays)
-                    None
-                    None
-                    None
-                    None
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+            p |> edit (editAgePart (fun v a -> { a with Years = v |> Measures.toYear }) s)
 
 
         let setMonth s (p: Patient option) =
-            match p with
-            | None ->
-                create
-                    None
-                    (s |> Option.bind tryParse |> Option.map Measures.toMonth)
-                    None
-                    None
-                    None
-                    None
-                    None
-                    None
-                    UnknownGender
-                    []
-                    None
-                    None
-            | Some p ->
-                create
-                    (p |> getAgeYears)
-                    (s |> Option.bind tryParse |> Option.map Measures.toMonth)
-                    (p |> getAgeWeeks)
-                    (p |> getAgeDays)
-                    None
-                    None
-                    None
-                    None
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+            p |> edit (editAgePart (fun v a -> { a with Months = v |> Measures.toMonth }) s)
 
 
         let setWeek s (p: Patient option) =
-            match p with
-            | None ->
-                create
-                    None
-                    None
-                    (s |> Option.bind tryParse |> Option.map Measures.toWeek)
-                    None
-                    None
-                    None
-                    None
-                    None
-                    UnknownGender
-                    []
-                    None
-                    None
-            | Some p ->
-                create
-                    (p |> getAgeYears)
-                    (p |> getAgeMonths)
-                    (s |> Option.bind tryParse |> Option.map Measures.toWeek)
-                    (p |> getAgeDays)
-                    None
-                    None
-                    (p |> getGAWeeks)
-                    (p |> getGADays)
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+            p |> edit (editAgePart (fun v a -> { a with Weeks = v |> Measures.toWeek }) s)
 
 
         let setDay s (p: Patient option) =
-            match p with
-            | None ->
-                create
-                    None
-                    None
-                    None
-                    (s |> Option.bind tryParse |> Option.map Measures.toDay)
-                    None
-                    None
-                    None
-                    None
-                    UnknownGender
-                    []
-                    None
-                    None
-            | Some p ->
-                create
-                    (p |> getAgeYears)
-                    (p |> getAgeMonths)
-                    (p |> getAgeWeeks)
-                    (s |> Option.bind tryParse |> Option.map Measures.toDay)
-                    None
-                    None
-                    (p |> getGAWeeks)
-                    (p |> getGADays)
-                    p.Gender
-                    p.Access
-                    p.RenalFunction
-                    p.Department
+            p |> edit (editAgePart (fun v a -> { a with Days = v |> Measures.toDay }) s)
 
 
         let setWeight s (p: Patient option) =
