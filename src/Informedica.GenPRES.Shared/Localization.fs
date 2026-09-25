@@ -137,6 +137,7 @@ type Terms =
     | ``Patient Department``
     | ``Patient Department Default``
     | ``Patient Department Chosen``
+    | ``Patient Department Launched``
     // Shared UI terms
     | Print
     | ``Not Configured``

@@ -112,6 +112,7 @@ module Patient =
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
         let settings = (AppEnv.asEnv<AppEnv.ISettings> props.appEnv).Settings
+        let session = (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session
 
         // the patient is the subject of every workbench and plan request: while one is under
         // way the panel is greyed, so that the patient cannot change under it
@@ -183,10 +184,16 @@ module Patient =
                     onCancel = fun () -> setConfirmResetOpen false
                 |}
 
-        // the department in force and where it came from: the patient's own, chosen in the url
-        // or by the launch, or else the server's default, said so, since a filter the user can
-        // see is not a hidden one
+        // the department in force and where it came from: the patient's own, given by the
+        // launch when a session is open and chosen in the url otherwise, or else the server's
+        // default, said so, since a filter the user can see is not a hidden one
         let departmentNotice =
+            let launched =
+                match session with
+                | SessionMachine.SessionView.Open _
+                | SessionMachine.SessionView.Closing _ -> true
+                | _ -> false
+
             let inForce =
                 match pat |> Option.bind _.Department, settings with
                 | Some d, _ -> Some(d, false)
@@ -206,6 +213,9 @@ module Patient =
                             if isDefault then
                                 Terms.``Patient Department Default``
                                 |> getTerm "De standaardafdeling: er is geen afdeling gekozen"
+                            elif launched then
+                                Terms.``Patient Department Launched``
+                                |> getTerm "Meegegeven door het systeem dat GenPRES opende"
                             else
                                 Terms.``Patient Department Chosen`` |> getTerm "Gekozen in de url"
                         action = None

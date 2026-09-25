@@ -3660,6 +3660,37 @@ module SessionStubTests =
                     answer |> Expect.equal "same value" settings
                 }
 
+                testAsync "getSettings carries the departments once the resources are loaded, the rest as composed" {
+                    let settings =
+                        {
+                            ServerSettings.Language = Shared.Localization.French
+                            IsDemo = false
+                            Departments = [||]
+                            DefaultDepartment = "ICK"
+                        }
+
+                    let loaded: Informedica.GenForm.Lib.Types.Departments =
+                        {
+                            Names = [| "ICC"; "ICK"; "NEO" |]
+                            Default = "ICK"
+                        }
+
+                    let _, env = envWithStub newStore ()
+                    let env = { env with departments = fun () -> Some loaded }
+                    let cookie, _ = memoryCookie None
+                    let stateCookie, _ = memoryStateCookie None
+                    let api = CompositionRoot.compose settings env cookie stateCookie (noEnrolment ())
+                    let! answer = api.getSettings ()
+
+                    answer
+                    |> Expect.equal
+                        "the names and the default overlaid"
+                        { settings with
+                            Departments = [| "ICC"; "ICK"; "NEO" |]
+                            DefaultDepartment = "ICK"
+                        }
+                }
+
                 testAsync
                     "PresentLaunch: a sealed Launch answers RedirectTo and writes the state cookie, not the session cookie" {
                     let _, env = envWithStub newStore ()
