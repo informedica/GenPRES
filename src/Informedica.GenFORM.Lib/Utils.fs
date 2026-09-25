@@ -187,11 +187,27 @@ module Utils =
     module ValueUnit =
 
         open Informedica.GenUnits.Lib
+        open Informedica.GenCore.Lib.Patients
 
 
         /// The full term age for a neonate
         /// which is 37 weeks
         let ageFullTerm = 37N |> ValueUnit.singleWithUnit Units.Time.week
+
+
+        /// The age from which a patient is an adult: the domain's eighteen years, stated once
+        /// in GenCORE.Lib and read here as the lower bound of the age range an adult rule
+        /// applies to. In days, and 365 to the year, because that is how a patient's age
+        /// reaches the matcher: the contract model and the order patient both write a year as
+        /// 365 days, and the sheet's own age bounds are days. The year unit counts a quarter
+        /// day more, and would leave a patient entered as eighteen four days short of adult.
+        let ageAdult =
+            AgeValue.eighteen
+            |> AgeValue.SetGet.getYearsDef0
+            |> int
+            |> (*) 365
+            |> BigRational.fromInt
+            |> ValueUnit.singleWithUnit Units.Time.day
 
 
         let withOptSingleAndOptUnit u v =

@@ -3019,6 +3019,74 @@ module Tests =
                         |> Expect.isTrue "should return true"
                     }
 
+                    let years n = n |> ValueUnit.singleWithUnit Units.Time.year
+
+                    let adults = { patCat with Age = IsAdult }
+
+                    let aged age = { filter with DoseFilter.Patient.Age = age }
+
+                    test "the adult threshold is the domain's eighteen years, in days as a patient's age is written" {
+                        Utils.ValueUnit.ageAdult
+                        |> ValueUnit.convertTo Units.Time.day
+                        |> ValueUnit.getValue
+                        |> Expect.equal "eighteen times 365" [| 6570N |]
+                    }
+
+                    test
+                        "a patient entered as eighteen, 6570 days by the contract model, is an adult; a day less is not" {
+                        let days n = n |> ValueUnit.singleWithUnit Units.Time.day
+
+                        (adults |> PatientCategory.filter (aged (Some(days 6570N))),
+                         adults |> PatientCategory.filter (aged (Some(days 6569N))))
+                        |> Expect.equal "the threshold day in, the day before out" (true, false)
+                    }
+
+                    test "an adult rule matches a patient of eighteen and over" {
+                        [ 18N; 40N; 90N ]
+                        |> List.map (fun y -> adults |> PatientCategory.filter (aged (Some(years y))))
+                        |> Expect.allEqual "all adults" true
+                    }
+
+                    test "an adult rule matches no child" {
+                        [ 0N; 1N; 10N; 17N ]
+                        |> List.map (fun y -> adults |> PatientCategory.filter (aged (Some(years y))))
+                        |> Expect.allEqual "no child" false
+                    }
+
+                    test "an adult rule does not match a patient with no age" {
+                        adults
+                        |> PatientCategory.filter (aged None)
+                        |> Expect.isFalse "unknown is not an adult"
+                    }
+
+                    test "a rule with no age bound still matches a patient with no age" {
+                        patCat |> PatientCategory.filter (aged None) |> Expect.isTrue "everyone"
+                    }
+
+                    test "an adult rule and a children's rule never both match one patient" {
+                        let children =
+                            { patCat with
+                                Age =
+                                    { MinMax.empty with
+                                        Min = Some(Inclusive(years 1N))
+                                        Max = Some(Exclusive(years 18N))
+                                    }
+                                    |> AbsoluteAge
+                            }
+
+                        [ 0N; 5N; 17N; 18N; 30N ]
+                        |> List.map (fun y ->
+                            let f = aged (Some(years y))
+                            adults |> PatientCategory.filter f && children |> PatientCategory.filter f
+                        )
+                        |> Expect.allEqual "never both" false
+                    }
+
+                    test "an adult rule prints as adults, and one with no age bound as nothing" {
+                        adults |> PatientCategory.toString |> Expect.equal "volwassenen" "volwassenen"
+                        patCat |> PatientCategory.toString |> Expect.equal "nothing" ""
+                    }
+
                     test "an empty filter and a patient category with a max age of 7" {
                         { patCat with
                             Age =

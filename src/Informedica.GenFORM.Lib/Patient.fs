@@ -64,6 +64,7 @@ module PatientCategory =
 
 
     open Informedica.Utils.Lib.BCL
+    open Informedica.GenCore.Lib.Ranges
     open Informedica.GenUnits.Lib
 
     module BSA = Informedica.GenCore.Lib.Calculations.BSA
@@ -98,17 +99,13 @@ module PatientCategory =
             p
 
 
-    // TODO:
-    // the `IsAdult` case returns an empty age range, which the age filter
-    // treats as "no age restriction" — so an adult-only rule currently matches a
-    // patient of ANY age instead of adults only. Until this enforces "adult
-    // patients only", no `IsAdult="x"` row may reach GenFORM ingest; that is
-    // gated at the extraction boundary, which also empties MinAge/MaxAge for such
-    // rows, leaving them with no age bound at all.
+    /// The age range a category applies to: the absolute range it names, or, for a rule that
+    /// says adults, from the adult threshold up. A patient with no age is in neither, since
+    /// the facet asserts something about the patient and nothing is known.
     let getAge (pat: PatientCategory) =
         match pat.Age with
         | AbsoluteAge a -> a
-        | IsAdult -> MinMax.empty
+        | IsAdult -> { MinMax.empty with Min = Some(Inclusive Utils.ValueUnit.ageAdult) }
 
 
     /// <summary>
@@ -355,12 +352,20 @@ module PatientCategory =
         | _ -> ""
 
 
+    /// The age as the category words it: "volwassenen" for a rule that says adults, the range
+    /// otherwise.
+    let ageToString (pat: PatientCategory) =
+        match pat.Age with
+        | IsAdult -> "volwassenen"
+        | AbsoluteAge a -> a |> printAgeMinMax
+
+
     /// Print an PatientCategory as a string.
     let toString (pat: PatientCategory) =
 
         let gender = pat.Gender |> Gender.toString
 
-        let age = pat |> getAge |> printAgeMinMax
+        let age = pat |> ageToString
 
         let neonate =
             let s =
