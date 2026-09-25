@@ -70,9 +70,17 @@ round.
   age parts, a weight, a height, the gestational age, and the rest, and writes the weight and
   height it is given as **measured**, with the estimates blank. `setYear` and `setMonth` pass
   `None` for the weight, the height and both gestational-age parts; `setWeek` and `setDay` pass
-  `None` for the weight and the height and keep the gestational age. So every age edit drops
-  what was measured, and `getWeight`, which falls back to the estimate, shows the estimate in
-  its place. That is #488 exactly, and it is a handful of arguments.
+  `None` for the weight and the height and keep the gestational age; `setGAWeek` and `setGADay`
+  pass `None` for the weight and the height as well. So every age and gestational-age edit
+  drops what was measured, and `getWeight`, which falls back to the estimate, shows the
+  estimate in its place. That is #488 exactly, and it is a handful of arguments.
+
+  `setWeight` and `setHeight` have the opposite fault. Each carries the measure it does not set
+  through `getWeight` or `getHeight`, which answer the estimate when nothing was measured, and
+  `create` writes what it is given as measured. So typing a weight for a patient whose height is
+  estimated turns that estimate into a measured height, with the same silence. The one rule of
+  step 1 covers both faults: a setter carries measured values only, and leaves the estimates for
+  the tables to fill again.
 - **The estimate.** `Patient.applyNormalValues` is already in `GenPRES.Shared`, a pure function
   over four tables of normal values. Only the tables are client-side: `App.fs` fetches them with
   the emergency-list sheet and applies the function itself. So #716 is a resource and a call
@@ -88,9 +96,9 @@ round.
   age in years, months, weeks and days, and no name and no birthdate. So the identified mode
   needs a different thing read, not merely a different thing shown — which is why it is a plan
   of its own and not a step here.
-- **The panel's own reset.** `Views/Patient.fs` ends in a full-width text button labelled
-  *Verwijder* that empties the whole patient. That is the shape #394 complained about on the
-  prescribing page, on a control that discards more.
+- **The panel's own reset.** `Views/Patient.fs` ends in a full-width text button on the
+  localized `Delete` term (*Verwijder*) that empties the whole patient. That is the shape #394
+  complained about on the prescribing page, on a control that discards more.
 - **IsAdult.** `GenFORM.Lib/Types.fs` already has `type Age = AbsoluteAge of MinMax | IsAdult`,
   `DoseRuleData.fs` parses the column and writes it back, and `Export.fs` masks the age bounds
   when it is set. What is missing is one function: `GenFORM.Lib/Patient.fs`'s `getAge` answers
@@ -136,17 +144,24 @@ round.
 
   This meaning is **not** what the matcher does. `GenFORM.Lib/Patient.fs` compares the
   department with `eqs`, which answers true when either side is absent, so a patient with no
-  department matches every rule, one hospital's ward rules included. Today the `ICK` default
-  hides that: it narrows what would otherwise be the widest rule set there is. Removing the
-  default without changing the matcher would therefore not restore a neutral patient — it would
-  hand the user every department's rules at once, which is worse than the wrong department's.
-  The matcher has to change first, and it changes on one side only: a patient with no department
-  stops matching a rule that names one, while a rule that names no department keeps applying to
-  every patient, since a rule without a department is a rule for all of them.
+  department matches every rule, one hospital's ward rules included. The comparison is written
+  twice on the patient side: in `PatientCategory.filter`, which the dose-rule filter applies,
+  and in `PatientCategory.filterPatient`, which the solution rules apply. A third copy,
+  `eqsOpt` in `PatientCategory.isMatch`, compares one rule's category with another's and has no
+  patient in it, so it stays as it is. Today the `ICK` default hides that: it narrows what would
+  otherwise be the widest rule set there is. Removing the default without changing the matcher
+  would therefore not restore a neutral patient — it would hand the user every department's
+  rules at once, which is worse than the wrong department's. The matcher has to change first,
+  and it changes on one side only: a patient with no department stops matching a rule that
+  names one, while a rule that names no department keeps applying to every patient, since a
+  rule without a department is a rule for all of them.
 - *The department as part of the minimum, with a field in the panel.* Not rejected, deferred: it
-  needs a list of departments from somewhere, and a hospital's list is configuration. The panel
-  shows the department in force, and where it came from; making it choosable is a follow-up once
-  the list has a home.
+  needs a list of departments from somewhere, and a hospital's list is configuration. The only
+  list in the code today is the five column names the product parser reads in
+  `GenFORM.Lib/Product.fs` (`UMCU`, `ICC`, `NEO`, `ICK`, `HCK`), one hospital's wards written
+  as sheet columns; offering those in the panel would encode the same hospital the default
+  does. The panel shows the department in force, and where it came from; making it choosable is
+  a follow-up once the list is configuration rather than code.
 - *Keeping the default.* Rejected: it encodes one hospital in code and hides a filter input.
 
 **The panel's reset.** Bounded, on an action bar, named with the same localized term as the
@@ -199,22 +214,25 @@ script first and a migration after, so the domain and server steps are two pull 
    shadows the `Patient` module, states the rule and proves it with Expecto: an age entered
    after a weight keeps the weight; after a height keeps the height; a gestational-age edit
    keeps both; a weight edit keeps the age and the gestational age; each setter keeps the
-   gender, the access devices, the renal function and the department; and the estimates are
-   blank after every setter, so that the panel's next `applyNormalValues` is what fills them.
+   gender, the access devices, the renal function and the department; a setter never writes an
+   estimate as measured, so a weight typed for a patient with an estimated height leaves the
+   height estimated; and the estimates are blank after every setter, so that the panel's next
+   `applyNormalValues` is what fills them.
 2. **The setters migrated**, with the tests in `tests/Informedica.GenPRES.Shared.Tests/`.
    Closes #488.
-3. **The panel's reset, bounded and confirmed.** `Views/Patient.fs`'s full-width *Verwijder*
-   becomes an `ActionBar` with the localized `Reset` term and a `ConfirmDialog` naming what is
-   discarded.
+3. **The panel's reset, bounded and confirmed.** `Views/Patient.fs`'s full-width `Delete`
+   button becomes an `ActionBar` with the localized `Reset` term and a `ConfirmDialog` naming
+   what is discarded.
 4. **What no department means, as a script.** A script over `GenFORM.Lib` that first shows what
    the matcher does today: a patient with no department matches every rule of every department,
    and the `ICK` default is the only thing standing in the way of that. Then it proves the
    wanted rule: a patient with no department matches the rules that name none and no others; a
    patient with one matches those rules and the rules that name none; and a rule without a
    department keeps applying to everybody.
-5. **The matcher migrated.** The department comparison in `GenFORM.Lib/Patient.fs` changed on
-   the patient side only, with the tests in `tests/Informedica.GenFORM.Tests/`. Nothing visible
-   changes yet, because every patient still arrives with a department.
+5. **The matcher migrated.** The department comparison in `GenFORM.Lib/Patient.fs` changed in
+   both patient-side matchers, `PatientCategory.filter` and `PatientCategory.filterPatient`,
+   and left alone in `isMatch`, with the tests in `tests/Informedica.GenFORM.Tests/`. Nothing
+   visible changes yet, because every patient still arrives with a department.
 6. **The default removed**, from `ServerApi.Mappers.Order.fs` and the MCP host's `buildPatient`,
    with the panel showing the department in force and where it came from. Closes #717.
 7. **The estimate on the server, as a script.** The normal-value tables as a loader in the
@@ -254,7 +272,7 @@ script first and a migration after, so the domain and server steps are two pull 
   it is named here rather than chosen in code. Also: whether an adult-only rule and an
   age-bounded rule may both match one patient.
 - Whether the department should become a choosable field, and where a hospital's list of
-  departments would live.
+  departments would live once it leaves `Product.fs`.
 - Whether the panel should remark on a measured weight that is far from the estimate for the
   age, as #488 suggests as a second thought.
 - Whether the estimate should stay client-side for the panel once the server computes one, or
