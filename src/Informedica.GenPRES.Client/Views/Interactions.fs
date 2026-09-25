@@ -290,6 +290,9 @@ module Interactions =
                             | None -> ()
                     isLoading = isDrugNamesLoading
                     disabled = false
+                    // the box empties itself once the drug is added, so there is nothing to
+                    // clear and no cross to offer
+                    canClear = false
                 |}
 
         let deleteLabel = Terms.``Delete`` |> getTerm "Verwijder"

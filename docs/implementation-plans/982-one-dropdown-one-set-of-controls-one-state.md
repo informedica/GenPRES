@@ -192,11 +192,14 @@ One pull request each, in this order.
    disable it exactly when it matched one drug.
 
    Landed: the pick field takes the shape it is drawn in, a list to scroll or a box to type in,
-   and the rule, the single option and the effect that tells the page are the same for both. The
-   fields that type are the indication and the generic on a narrow screen and the four of the
-   formulary and the three of the parenteralia page; each of them now shuts on a single option
+   and the rule, the single option, the cross and the effect that tells the page are the same
+   for both. A field is typed into on a wide window and scrolled on a narrow one, which is the
+   other way round from what one might expect: the narrow window gets the list, since a box to
+   type in wants a keyboard. The fields that type on a wide window are the prescribing page's
+   indication, medication and route, the nutrition page's composition and indication, the
+   formulary's four and the parenteralia page's three. Each of them now shuts on a single option
    and tells the page that option, where they stayed open and said nothing. The interactions
-   page is untouched.
+   page is untouched, and its box offers no cross, since it empties itself.
 
 ## Verification, per step
 

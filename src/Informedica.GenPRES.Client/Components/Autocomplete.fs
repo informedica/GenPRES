@@ -20,6 +20,8 @@ module Autocomplete =
                 updateSelected: string option -> unit
                 isLoading: bool
                 disabled: bool
+                // whether the cross that empties the box is offered
+                canClear: bool
             |})
         =
 
@@ -57,6 +59,7 @@ module Autocomplete =
             blurOnSelect
             loading={props.isLoading}
             disabled={props.disabled}
+            disableClearable={not props.canClear}
             value={props.selected |> Option.defaultValue ""}
             onChange={handleChange}
             options={props.values}

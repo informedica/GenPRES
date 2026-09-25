@@ -105,4 +105,5 @@ module PickField =
                     updateSelected = updateSelected
                     isLoading = props.isLoading
                     disabled = offer.Disabled
+                    canClear = offer.CanClear
                 |}
