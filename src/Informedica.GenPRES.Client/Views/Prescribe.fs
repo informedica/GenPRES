@@ -561,10 +561,10 @@ module Prescribe =
 
                          | _ -> null}
                     </Stack>
-                    {loadingIndicator}
                     <Box sx={ {| marginTop = 2 |} }>
                         {resetBar}
                     </Box>
+                    {loadingIndicator}
                     <Stack direction="column" spacing={1} >
                         {match orderContext with
                          | OrderContextView.Settled pr

@@ -1263,11 +1263,11 @@ module Nutrition =
             import Divider from '@mui/material/Divider';
             import Typography from '@mui/material/Typography';
             <Stack direction={"column"} spacing={1} >
+                {loadingIndicator}
                 {preparationSection}
                 {if isEnteral then null else administrationDivider}
                 {frequencyDoseRow}
                 {rateControl}
-                {loadingIndicator}
                 {resetBar}
             </Stack>
             """
