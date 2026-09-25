@@ -319,11 +319,14 @@ module GenOrderTools =
                       Omit the department to prescribe for the default, {departments.Default}."
 
 
-    /// The refusal when the weight and height could not be estimated from the age: the
-    /// normal-value tables did not load, so the caller has to give the measures.
-    let noEstimate =
-        "The weight and height could not be estimated from the age: the normal-value tables \
-         are not loaded. Give WeightKg and HeightCm."
+    /// The refusal when a measure could not be estimated from the age and sex given: the
+    /// normal-value tables are not loaded, or hold no row for that age and sex. Names the
+    /// measures the caller has to give, the ones still blank.
+    let noEstimate (missing: string list) =
+        let names = missing |> String.concat " and "
+
+        $"The %s{names} could not be estimated from the age and sex given: the normal-value \
+          tables are not loaded, or hold no row for them. Give %s{names}."
 
 
     /// The order context for the input's patient and filter selection, evaluated against the
@@ -342,8 +345,8 @@ module GenOrderTools =
         |> Result.bind (fun input ->
             let patient = buildPatient provider input
 
-            // the estimate can leave a measure blank when the tables are not loaded; the rules
-            // would then answer nothing, so the caller is told instead
+            // the estimate can leave a measure blank, the tables not loaded or without a row for
+            // the age and sex; the rules would then answer nothing, so the caller is told which
             match patient.Weight, patient.Height with
             | Some _, Some _ ->
                 OrderContext.create OrderLogging.noOp provider patient
@@ -368,7 +371,15 @@ module GenOrderTools =
                     | None -> c
                 )
                 |> Ok
-            | _ -> Error noEstimate
+            | w, h ->
+                [
+                    if w.IsNone then
+                        "WeightKg"
+                    if h.IsNone then
+                        "HeightCm"
+                ]
+                |> noEstimate
+                |> Error
         )
         |> Result.bind (fun ctx ->
             OrderContext.UpdateOrderContext ctx

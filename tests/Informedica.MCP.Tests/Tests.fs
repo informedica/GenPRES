@@ -414,8 +414,9 @@ module Tests =
         open Informedica.GenOrder.Lib.Patient.Optics
         open Informedica.MCP.Lib.GenOrderTools
 
-        /// A provider that answers the normal-value rows and the departments and nothing else.
-        let private tablesOnly: IResourceProvider =
+        /// A provider that answers the given normal-value rows and the departments and nothing
+        /// else: an evaluation that reaches a rule raises, so a refusal proves the guard ran first.
+        let private withRows (rows: Map<string, string[][]>) : IResourceProvider =
             let departments = Departments.ofNamed []
 
             { new IResourceProvider with
@@ -423,7 +424,7 @@ module Tests =
                     if key.Name = Keys.departments.Name then
                         box departments :?> 'T
                     elif key.Name = Keys.normalValueRows.Name then
-                        box EstimateFixtures.rows :?> 'T
+                        box rows :?> 'T
                     else
                         raise (NotImplementedException key.Name)
 
@@ -444,37 +445,17 @@ module Tests =
                 member _.GetGStandProvider() = raise (NotImplementedException())
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
+
+        let private tablesOnly = withRows EstimateFixtures.rows
 
         /// The tables not loaded: the resource's fallback, empty rows.
-        let private noTables: IResourceProvider =
-            let departments = Departments.ofNamed []
+        let private noTables = withRows Map.empty
 
-            { new IResourceProvider with
-                member _.Get(key: ResourceKey<'T>) : 'T =
-                    if key.Name = Keys.departments.Name then
-                        box departments :?> 'T
-                    elif key.Name = Keys.normalValueRows.Name then
-                        box (Map.empty: Map<string, string[][]>) :?> 'T
-                    else
-                        raise (NotImplementedException key.Name)
-
-                member _.GetData() = raise (NotImplementedException())
-                member _.GetUnitMappings() = raise (NotImplementedException())
-                member _.GetRouteMappings() = raise (NotImplementedException())
-                member _.GetValidForms() = raise (NotImplementedException())
-                member _.GetFormRoutes() = raise (NotImplementedException())
-                member _.GetFormularyProducts() = raise (NotImplementedException())
-                member _.GetReconstitution() = raise (NotImplementedException())
-                member _.GetParenteralMeds() = raise (NotImplementedException())
-                member _.GetEnteralFeeding() = raise (NotImplementedException())
-                member _.GetProducts() = raise (NotImplementedException())
-                member _.GetDoseRules() = raise (NotImplementedException())
-                member _.GetSolutionRules() = raise (NotImplementedException())
-                member _.GetRenalRules() = raise (NotImplementedException())
-                member _.GetTotals() = raise (NotImplementedException())
-                member _.GetGStandProvider() = raise (NotImplementedException())
-                member _.GetResourceInfo() = raise (NotImplementedException())
-            }
+        /// The tables loaded with the boys' rows alone.
+        let private boysOnly =
+            EstimateFixtures.rows
+            |> Map.map (fun _ rows -> rows |> Array.filter (fun r -> r[0] <> "F"))
+            |> withRows
 
         let private ageAlone: CreateOrderContextInput =
             {
@@ -535,10 +516,23 @@ module Tests =
                         (pat.Weight, pat.Height) |> Expect.equal "none" (None, None)
                     }
 
-                    test "an age alone while the tables are not loaded is refused, naming the estimate" {
+                    test "an age alone while the tables are not loaded is refused, naming both measures" {
                         ageAlone
                         |> evaluateOrderContext noTables
-                        |> Expect.equal "refused before the rules" (Error noEstimate)
+                        |> Expect.equal "refused before the rules" (Error(noEstimate [ "WeightKg"; "HeightCm" ]))
+                    }
+
+                    test "a weight given while the tables are not loaded is refused, naming the height alone" {
+                        { ageAlone with WeightKg = Some 14.0 }
+                        |> evaluateOrderContext noTables
+                        |> Expect.equal "the height" (Error(noEstimate [ "HeightCm" ]))
+                    }
+
+                    test "the tables loaded without a row for the sex are refused the same way" {
+                        { ageAlone with Sex = Some "female" }
+                        |> evaluateOrderContext boysOnly
+                        |> Result.mapError (fun m -> m.Contains "hold no row")
+                        |> Expect.equal "named as a missing row too" (Error true)
                     }
                 ]
 
