@@ -685,47 +685,26 @@ module Models =
                 match pat.Age with
                 | None -> None, None
                 | Some age ->
-                    // the neonatal tables answer while they reach. A post-conceptional age past
-                    // their last week, an older infant with a gestational age, is an age for the
-                    // age tables; the nearest row would give every such patient a newborn's weight
-                    let reaches x (nvs: NormalValue list option) =
-                        nvs |> Option.exists (List.exists (fun nv -> nv.Age >= x))
-
-                    let pcAgeInWeeks =
+                    // a neonatal table answers while it reaches: past its last week an older
+                    // infant with a gestational age takes the age table, or the nearest row would
+                    // give a newborn's value. Each table is judged by its own reach
+                    let neonatal (nvs: NormalValue list option) =
                         pat
                         |> getPostConceptionalAgeInDays
                         |> Option.map (fun days -> (days |> float) / 7.)
+                        |> Option.filter (fun weeks -> nvs |> Option.exists (List.exists (fun nv -> nv.Age >= weeks)))
+                        |> Option.bind (fun weeks -> nvs |> nearest weeks)
 
-                    match pcAgeInWeeks with
-                    | Some pcAgeInWeeks when
-                        normalNeoWeights |> reaches pcAgeInWeeks
-                        && normalNeoHeights |> reaches pcAgeInWeeks
-                        ->
+                    let ageInYears = age |> Age.calcYears
 
-                        let weight =
-                            normalNeoWeights
-                            |> nearest pcAgeInWeeks
-                            |> Option.map (fun (p3, m, p97) ->
-                                let m =
-                                    wghts |> List.nearestIndex (int m) |> (fun idx -> wghts[idx]) |> Measures.toGram
-
-                                int p3 * 1<gram>, m, int p97 * 1<gram>
-                            )
-
-                        let height =
-                            normalNeoHeights
-                            |> nearest pcAgeInWeeks
-                            |> Option.map (fun (p3, m, p97) ->
-                                let m = hghts |> List.nearestIndex (int m) |> (fun idx -> hghts[idx]) |> Measures.toCm
-
-                                int p3 * 1<cm>, m, int p97 * 1<cm>
-                            )
-
-                        weight, height
-                    | _ ->
-                        let ageInYears = age |> Age.calcYears
-
-                        let weight =
+                    let weight =
+                        match normalNeoWeights |> neonatal with
+                        | Some(p3, m, p97) ->
+                            (int p3 * 1<gram>,
+                             wghts[wghts |> List.nearestIndex (int m)] |> Measures.toGram,
+                             int p97 * 1<gram>)
+                            |> Some
+                        | None ->
                             normalWeights
                             |> nearest ageInYears
                             |> Option.map (fun (p3, m, p97) ->
@@ -738,7 +717,12 @@ module Models =
                                 int p3 * 1000<gram>, m, int p97 * 1000<gram>
                             )
 
-                        let height =
+                    let height =
+                        match normalNeoHeights |> neonatal with
+                        | Some(p3, m, p97) ->
+                            (int p3 * 1<cm>, hghts[hghts |> List.nearestIndex (int m)] |> Measures.toCm, int p97 * 1<cm>)
+                            |> Some
+                        | None ->
                             normalHeights
                             |> nearest ageInYears
                             |> Option.map (fun (p3, m, p97) ->
@@ -747,7 +731,7 @@ module Models =
                                 int p3 * 1<cm>, m, int p97 * 1<cm>
                             )
 
-                        weight, height
+                    weight, height
 
             // the estimate stays an estimate: the measured values hold what was entered or read
             pat |> withEstimates ew eh

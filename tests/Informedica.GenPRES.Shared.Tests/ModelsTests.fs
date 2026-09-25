@@ -681,6 +681,17 @@ let neonatalEstimateTests =
                     (Some NeonatalEstimateFixtures.premature, Some 32000<gram>)
             }
 
+            test "each table is judged by its own reach: a neonatal weight is kept when the height table is missing" {
+                { Patient.empty with
+                    Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
+                    GestationalAge = Some NeonatalEstimateFixtures.term
+                    Gender = Male
+                }
+                |> Patient.applyNormalValues weights heights NeonatalEstimateFixtures.neoWeights None
+                |> fun dto -> dto.Weight.Estimated, dto.Height.Estimated
+                |> Expect.equal "neonatal weight, age-table height" (Some 3500<gram>, Some 140<cm>)
+            }
+
             test "without the neonatal tables a newborn is estimated from the age tables" {
                 { Patient.empty with
                     Age = Some { Patient.Age.ageZero with Weeks = 1<week> }
