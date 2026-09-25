@@ -171,7 +171,11 @@ One pull request each, in this order.
    the English word stands until it is.
 4. **One rule for the cross on a dose field.** `ViewHelpers.orderSelect` decides it from the
    field's own state; the argument and the flags at the call sites in `Views/Order.fs` and
-   `Views/Nutrition.fs` go.
+   `Views/Nutrition.fs` go. Landed: a field offers the cross when it can be used and holds a
+   value, so the eighteen fields of the dose dialog and the nutrition page's controls answer one
+   rule instead of a flag each. Clearing puts that one value back to unnarrowed and the solver
+   picks again, which is how a single narrowing is undone; the dialog's reset is still the way
+   to discard them all.
 5. **The pick rule where the field types instead of scrolls.** `Components/PickField.fs` takes
    the shape it is drawn in, a list to scroll or a box to type in, so that one component holds
    the rule, the single option and the effect that tells the page that option is chosen. A

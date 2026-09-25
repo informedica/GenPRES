@@ -976,7 +976,6 @@ module Nutrition =
                             None
                             (fun s -> ChangeComponentOrderableQuantity(cmp.Name, s) |> dispatch)
                             nav
-                            false
                             qtyWarning
                             (Some 400)
                             qtyVals
@@ -993,7 +992,6 @@ module Nutrition =
                             None
                             (fun s -> ChangeComponentDoseQuantityAdjust(cmp.Name, s) |> dispatch)
                             None
-                            false
                             doseWarning
                             (Some 400)
                             doseVals
@@ -1048,7 +1046,6 @@ module Nutrition =
                     None
                     (ChangeOrderableDoseQuantity >> dispatch)
                     doseQtyNav
-                    false
                     severity
                     selectMinWidth
                     vals
@@ -1068,7 +1065,7 @@ module Nutrition =
                 let label = ord.Schedule.Frequency |> ViewHelpers.ovarLabel "frequentie"
                 let freqVals = ord.Schedule.Frequency |> ViewHelpers.ovarVals string
 
-                select false label None (ChangeFrequency >> dispatch) None false severity selectMinWidth freqVals
+                select false label None (ChangeFrequency >> dispatch) None severity selectMinWidth freqVals
             | _ -> null
 
         let genericFilter =
@@ -1164,7 +1161,7 @@ module Nutrition =
                 let rateDisplay =
                     ord.Orderable.Dose.Rate
                     |> ViewHelpers.ovarValsWithRange string 3
-                    |> select false label None (ChangeOrderableDoseRate >> dispatch) nav false severity (Some 400)
+                    |> select false label None (ChangeOrderableDoseRate >> dispatch) nav severity (Some 400)
 
                 let timeDisplay =
                     ord.Schedule.Time

@@ -68,35 +68,32 @@ module ViewHelpers =
         |}
 
 
-    let orderSelect
-        alwaysShow
-        disabled
-        isLoading
-        lbl
-        selected
-        updateSelected
-        stepper
-        hasClear
-        (mark: Mark)
-        minWidth
-        xs
-        =
+    let orderSelect alwaysShow disabled isLoading lbl selected updateSelected stepper (mark: Mark) minWidth xs =
 
         if not alwaysShow && xs |> Array.isEmpty && stepper |> Option.isNone then
             null
         else
             let isEmpty = xs |> Array.isEmpty && stepper |> Option.isNone
 
+            let shown =
+                if xs |> Array.length = 1 then
+                    xs[0] |> fst |> Some
+                else
+                    selected
+
+            // the cross is offered wherever it means something: a field that can be used and
+            // holds a value. Clearing sets that value back to unnarrowed and the solver picks
+            // again, which is how one narrowing is undone without discarding the rest; the
+            // dialog's reset is the way to discard them all. Which fields showed one used to be
+            // decided field by field at the call site, so two fields of the same kind differed.
+            let hasClear = not (disabled || isEmpty) && shown.IsSome
+
             // no field is the lead yet: which one the user starts from is the server's to say
             Components.QuantityField.View
                 {|
                     onChange = if isEmpty then ignore else updateSelected
                     label = lbl
-                    selected =
-                        if xs |> Array.length = 1 then
-                            xs[0] |> fst |> Some
-                        else
-                            selected
+                    selected = shown
                     values = xs
                     isLoading = isLoading
                     disabled = disabled || isEmpty
@@ -433,7 +430,7 @@ module ViewHelpers =
         let mark = ovar |> markOf
         let label = ovar |> ovarLabel name
         let vals = ovar |> ovarVals format
-        select false label None ignore None false mark minWidth vals
+        select false label None ignore None mark minWidth vals
 
 
     let autoComplete disabled isLoading lbl selected dispatch xs =
