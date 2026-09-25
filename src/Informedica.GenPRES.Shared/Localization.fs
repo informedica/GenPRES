@@ -130,6 +130,9 @@ type Terms =
     | ``Patient Access``
     | ``Patient Enteral Tube``
     | ``Patient Renal Function``
+    // the panel's reset: the question asked before the patient's data is discarded
+    | ``Patient Reset Dialog Title``
+    | ``Patient Reset Dialog Text``
     // Shared UI terms
     | Print
     | ``Not Configured``

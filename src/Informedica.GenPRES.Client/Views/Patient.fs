@@ -155,6 +155,50 @@ module Patient =
         // controls away from under the hand
         let keepOpen = fun () -> true |> setExpanded
 
+        // the reset is asked first: the button opens the question, confirming discards the
+        // draft. An age, a weight and a height typed at the bedside are not rebuilt by picking
+        // again, which is why this reset asks where the prescribing page's does not
+        let confirmResetOpen, setConfirmResetOpen = React.useState false
+
+        let onReset = fun () -> setConfirmResetOpen true
+
+        let onResetConfirmed =
+            fun () ->
+                Clear |> dispatch
+                setConfirmResetOpen false
+
+        let confirmResetDialog =
+            Components.ConfirmDialog.View
+                {|
+                    isOpen = confirmResetOpen
+                    title = Terms.``Patient Reset Dialog Title`` |> getTerm "Patiëntgegevens wissen"
+                    text =
+                        Terms.``Patient Reset Dialog Text``
+                        |> getTerm
+                            "De leeftijd, het gewicht, de lengte en de overige gegevens van de patiënt worden gewist. Wilt u doorgaan?"
+                    confirmLabel = Terms.Reset |> getTerm "Reset"
+                    cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                    onConfirm = onResetConfirmed
+                    onCancel = fun () -> setConfirmResetOpen false
+                |}
+
+        // bounded and to the left, so the button is not as wide as the panel it sits in and is
+        // not where you click by default
+        let resetBar =
+            Components.ActionBar.View
+                {|
+                    actions =
+                        [|
+                            {|
+                                label = Terms.Reset |> getTerm "Reset"
+                                kind = Components.ActionBar.Kind.Secondary
+                                onClick = onReset
+                                disabled = busy
+                                icon = Some Mui.Icons.RefreshIcon
+                            |}
+                        |]
+                |}
+
         let createSelect label sel changeValue vs =
             Components.SimpleSelect.View
                 {|
@@ -432,8 +476,6 @@ module Patient =
                 $"""
             import React from 'react';
             import Grid from '@mui/material/Grid';
-            import Box from '@mui/material/Box';
-            import Button from '@mui/material/Button';
 
             <React.Fragment>
                 <Grid container spacing={2}>
@@ -442,11 +484,8 @@ module Patient =
                 <Grid container spacing={2} sx={ {| marginTop = 2 |} } >
                     {React.Fragment(items2 |> unbox<seq<ReactElement>>)}
                 </Grid>
-                <Box sx={ {| marginTop = 2 |} }>
-                    <Button variant="text" onClick={fun _ -> Clear |> dispatch} disabled={busy} fullWidth startIcon={Mui.Icons.Delete} >
-                        {Terms.Delete |> getTerm "Verwijder"}
-                    </Button>
-                </Box>
+                {resetBar}
+                {confirmResetDialog}
             </React.Fragment>
             """
 
