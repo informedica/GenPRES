@@ -1,5 +1,10 @@
 #load "../../../scripts/load-dependencies.fsx"
 #r "nuget: Microsoft.Data.Sqlite, 10.0.12"
+// the server logs through Serilog since the logging bridge; the sinks the composition root wires
+#r "nuget: Serilog, 4.4.0"
+#r "nuget: Serilog.Sinks.Console, 6.1.1"
+#r "nuget: Serilog.Sinks.File, 7.0.0"
+#r "nuget: Serilog.Sinks.Async, 2.1.0"
 
 
 #r "../../Informedica.Utils.Lib/bin/Debug/net10.0/Informedica.Utils.Lib.dll"
