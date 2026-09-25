@@ -101,7 +101,7 @@ module GenOrderTools =
         | _ -> None
 
 
-    let buildPatient (input: CreateOrderContextInput) : Patient.Patient =
+    let buildPatient (provider: IResourceProvider) (input: CreateOrderContextInput) : Patient.Patient =
         let pat = Patient.patient
 
         let pat =
@@ -124,7 +124,13 @@ module GenOrderTools =
             | Some g -> pat |> Patient.setGender g
             | None -> pat
 
-        pat |> Patient.setDepartment (input.Department |> Option.orElse (Some "ICK"))
+        pat
+        |> Patient.setDepartment (
+            input.Department
+            |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
+                provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
+            )
+        )
 
 
     // ── Tool handler functions ──────────────────────────────────────────────
@@ -132,6 +138,7 @@ module GenOrderTools =
     let getFilterOptions (provider: IResourceProvider) (input: FilterOptionsInput) : FilterOptionsOutput =
         let patient =
             buildPatient
+                provider
                 {
                     AgeMonths = input.AgeMonths
                     WeightKg = input.WeightKg
@@ -240,7 +247,7 @@ module GenOrderTools =
         input
         |> requireWeightAndHeight
         |> Result.map (fun () ->
-            let patient = buildPatient input
+            let patient = buildPatient provider input
 
             OrderContext.create OrderLogging.noOp provider patient
             |> (fun c ->

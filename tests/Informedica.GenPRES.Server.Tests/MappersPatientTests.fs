@@ -120,7 +120,7 @@ let tests =
             test "an empty department stays empty; the old mapper made it ICK" {
                 (domain stub).Department |> Expect.equal "new" None
 
-                (ServerApi.Mappers.mapFromSharedPatient stub).Department
+                (ServerApi.Mappers.mapFromSharedPatient (Resources.Departments.ofNamed []) stub).Department
                 |> Expect.equal "old" (Some "ICK")
             }
 
@@ -135,7 +135,7 @@ let tests =
                 let rows pat = categories |> List.map (PatientCategory.filterPatient pat)
 
                 stub
-                |> ServerApi.Mappers.mapFromSharedPatient
+                |> ServerApi.Mappers.mapFromSharedPatient (Resources.Departments.ofNamed [])
                 |> rows
                 |> Expect.equal "before: ICK and the rules for every department" [ true; false; true ]
 

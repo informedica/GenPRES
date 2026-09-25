@@ -670,7 +670,12 @@ let evaluateTests =
 /// raises, so a test sees which branch the lookup takes and nothing else.
 type NoRules() =
     interface Resources.IResourceProvider with
-        member _.Get _ = raise (System.NotImplementedException())
+        // the departments answer, since the rule lookup reads the default from them
+        member _.Get(key: Resources.ResourceKey<'T>) : 'T =
+            if key.Name = Resources.Keys.departments.Name then
+                box (Resources.Departments.ofNamed []) :?> 'T
+            else
+                raise (System.NotImplementedException())
 
         member _.GetData() = raise (System.NotImplementedException())
 

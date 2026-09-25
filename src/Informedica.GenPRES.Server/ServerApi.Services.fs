@@ -13,7 +13,7 @@ module FormularyService =
     open Shared
 
 
-    let mapFormularyToFilter (form: Formulary) =
+    let mapFormularyToFilter departments (form: Formulary) =
         { Informedica.GenForm.Lib.Filter.doseFilter with
             Generic = form.Generic
             Indication = form.Indication
@@ -22,7 +22,7 @@ module FormularyService =
             DoseType = form.DoseType |> Option.map Mappers.mapFromSharedDoseTypeToOrderDoseType
             Patient =
                 form.Patient
-                |> Option.map Mappers.mapFromSharedPatient
+                |> Option.map (Mappers.mapFromSharedPatient departments)
                 |> Option.defaultValue Patient.patient
         }
         |> Informedica.GenForm.Lib.Filter.calcPMAge
@@ -141,8 +141,10 @@ module FormularyService =
             | xs -> xs
 
 
-    let get provider (form: Formulary) =
-        let filter = form |> mapFormularyToFilter
+    let get (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) (form: Formulary) =
+        let filter =
+            form
+            |> mapFormularyToFilter (provider.Get Informedica.GenForm.Lib.Resources.Keys.departments)
 
         $"""
 

@@ -4138,6 +4138,99 @@ module Tests =
     /// The boxed resource registry engine (approach a) + GStand as a
     /// function-valued resource. Engine validated in Scripts/ResourcesRegistryImpl.fsx
     /// (incl. live load parity); these are the in-CI unit checks.
+    module DepartmentsTests =
+
+        open Expecto
+        open Expecto.Flip
+        open Informedica.GenUnits.Lib
+        open Informedica.GenForm.Lib
+        open Informedica.GenForm.Lib.Resources
+
+
+        let reconstitutionOf dep : Reconstitution =
+            {
+                GPK = "1"
+                Route = "iv"
+                Location = None
+                Department = dep
+                DiluentVolume = Units.Volume.milliLiter |> ValueUnit.singleWithValue 10N
+                ExpansionVolume = None
+                Diluents = [| "NaCl 0,9%" |]
+            }
+
+
+        let tests =
+            testList
+                "the departments"
+                [
+                    test "the names are what the rules name, distinct and sorted, blanks ignored" {
+                        [ Some "NEO"; Some "ICC"; None; Some "NEO"; Some " "; Some "ICC" ]
+                        |> Departments.ofNamed
+                        |> _.Names
+                        |> Expect.equal "ICC, ICK, NEO" [| "ICC"; "ICK"; "NEO" |]
+                    }
+
+                    test "the default is among the names whether or not a rule names it" {
+                        [] |> Departments.ofNamed |> _.Names |> Expect.equal "ICK alone" [| "ICK" |]
+                        [ Some "ICK" ]
+                        |> Departments.ofNamed
+                        |> _.Names
+                        |> Expect.equal "ICK once" [| "ICK" |]
+                    }
+
+                    test "the default is the one literal" {
+                        ([] |> Departments.ofNamed).Default
+                        |> Expect.equal "ICK" Departments.defaultDepartment
+                    }
+
+                    test "a patient without a department is prescribed for in the default, one with keeps it" {
+                        let deps = Departments.ofNamed [ Some "NEO" ]
+                        None |> Departments.forPatient deps |> Expect.equal "the default" (Some "ICK")
+                        Some "NEO" |> Departments.forPatient deps |> Expect.equal "kept" (Some "NEO")
+                        Some "OTHER"
+                        |> Departments.forPatient deps
+                        |> Expect.equal "kept, known or not" (Some "OTHER")
+                    }
+
+                    test "a department is known when a rule names it or it is the default" {
+                        let deps = Departments.ofNamed [ Some "NEO" ]
+                        "NEO" |> Departments.isKnown deps |> Expect.isTrue "NEO"
+                        "ICK" |> Departments.isKnown deps |> Expect.isTrue "ICK"
+                        "ICU" |> Departments.isKnown deps |> Expect.isFalse "ICU"
+                    }
+
+                    test "the registry derives it from the solution-rule rows and the reconstitutions, once" {
+                        let mutable loads = 0
+
+                        let registry =
+                            Map
+                                [
+                                    Keys.solutionRuleData.Name, ofResult (fun () -> Ok([||]: SolutionRuleData[]))
+                                    Keys.reconstitution.Name,
+                                    ofResult (fun () ->
+                                        loads <- loads + 1
+
+                                        Ok
+                                            [|
+                                                reconstitutionOf (Some "NEO")
+                                                reconstitutionOf None
+                                                reconstitutionOf (Some "ICC")
+                                            |]
+                                    )
+                                    Keys.departments.Name,
+                                    (defaultRegistry Informedica.Logging.Lib.Logging.noOp "")[Keys.departments.Name]
+                                ]
+
+                        let engine = LoadEngine registry
+                        let deps = engine.Resolve Keys.departments
+                        engine.Resolve Keys.departments |> ignore
+
+                        deps.Names |> Expect.equal "ICC, ICK, NEO" [| "ICC"; "ICK"; "NEO" |]
+                        loads |> Expect.equal "the reconstitutions loaded once" 1
+                    }
+                ]
+
+
     module ResourceRegistryTests =
 
         open Informedica.GenForm.Lib.Resources
@@ -4308,4 +4401,5 @@ module Tests =
                 CheckTests.tests
                 SourceLinkTests.tests
                 ResourceRegistryTests.tests
+                DepartmentsTests.tests
             ]
