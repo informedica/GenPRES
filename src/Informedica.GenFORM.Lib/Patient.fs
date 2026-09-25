@@ -588,7 +588,7 @@ module Patient =
 
     /// The patient the value is, or why it is none: the minimum data is an age, or a
     /// measured weight with a measured height. Below that there is no patient, no
-    /// order context and no evaluation; a missing datum never matches a bounded range.
+    /// order context and no evaluation; a value that is missing never matches a bounded range.
     /// The minimum data, stated once for the patient and for its Dto: an age, or a
     /// measured weight with a measured height.
     let meetsMinimumData (age: 'a option) (weight: 'b option) weightMeasured (height: 'c option) heightMeasured =
