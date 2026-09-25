@@ -20,11 +20,6 @@ At the start of each session, read these documents for full project context.
 - @.github/instructions/fsharp-code-formatting.instructions.md
 - @.github/instructions/commit-message.instructions.md
 
-### Domain documentation
-
-- @docs/domain/core-domain.md
-- @docs/domain/gensolver-from-orders-to-quantitative-solutions.md
-
 ### Architecture and data
 
 @docs/adr/0001-system-architecture.md
