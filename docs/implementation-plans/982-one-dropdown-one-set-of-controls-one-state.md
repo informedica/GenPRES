@@ -213,10 +213,13 @@ One pull request each, in this order.
 
 ## To settle in review
 
-- Whether a change that clears the fields below should also empty their option lists. Decided
-  for now that it should: a list narrowed by a choice that is gone offers a smaller world than
-  there is and says nothing about it, and a pick from it builds a filter no rule matches. The
-  cost is that those fields stand empty for the length of one request.
+- Whether a change that clears the fields below should also empty their option lists. Tried
+  both. It should not: a field with nothing to offer cannot be used, so emptying the lists left
+  every field below the one just touched dead for the length of the request, and the page read
+  as if it had stopped answering. The lists stand until the answer replaces them. Two narrower
+  rules are kept, and they are what the concern was really about: a field that is cleared
+  empties its own list, so a list of one cannot choose itself again; and when no choice is left
+  anywhere, no list is kept, so nothing stays narrowed by a filter that is gone.
 - Whether a dose field whose single value the solver determined, rather than the user, should
   offer the cross at all.
 - The word on the reset, which is a terminology decision and not this group's alone.

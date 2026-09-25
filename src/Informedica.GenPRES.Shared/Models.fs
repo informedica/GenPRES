@@ -2193,6 +2193,16 @@ module Models =
             | OrderCategory.Nutrition _ -> [ Generic; Indication; DoseType ]
 
 
+        /// One field's choice let go, the options it was picked from left standing.
+        let clearChoice field (f: Filter) =
+            match field with
+            | Indication -> { f with Indication = None }
+            | Generic -> { f with Generic = None }
+            | Route -> { f with Route = None }
+            | Form -> { f with Form = None }
+            | DoseType -> { f with DoseType = None }
+
+
         /// One field emptied: the choice it holds and the options it was picked from.
         let clearField field (f: Filter) =
             match field with
@@ -2232,13 +2242,19 @@ module Models =
             || f.DoseType.IsSome
 
 
-        /// A change to one of the choices: the fields below it in the page's order are emptied,
-        /// the field itself is emptied too when it is being cleared, the change is written, and
-        /// the scenarios go, since they stand on the whole filter. Keeping a route from the
-        /// medication before would leave a filter no rule matches, which is why the user had to
-        /// empty a field before picking in it. When nothing is chosen anywhere afterwards, no
-        /// options are kept either: a list narrowed by choices that are gone would offer a
-        /// smaller world than there is, without saying so.
+        /// A change to one of the choices: the fields below it in the page's order let their
+        /// choices go, the field itself is emptied when it is being cleared, the change is
+        /// written, and the scenarios go, since they stand on the whole filter. Keeping a route
+        /// from the medication before would leave a filter no rule matches, which is why the
+        /// user had to empty a field before picking in it.
+        ///
+        /// What the fields below were picked from is left standing until the answer replaces
+        /// it. Taking it away as well leaves them empty, and a field with nothing to offer is a
+        /// field that cannot be used, so the page goes dead for as long as the request runs.
+        ///
+        /// When nothing is chosen anywhere afterwards, no options are kept either: a list
+        /// narrowed by choices that are gone would offer a smaller world than there is, without
+        /// saying so.
         let applyChange field clearOwn write (ctx: OrderContext) : OrderContext =
             let below =
                 match ctx |> chain |> List.skipWhile ((<>) field) with
@@ -2247,7 +2263,7 @@ module Models =
 
             let filter =
                 below
-                |> List.fold (fun f x -> f |> clearField x) ctx.Filter
+                |> List.fold (fun f x -> f |> clearChoice x) ctx.Filter
                 |> fun f -> if clearOwn then f |> clearField field else f
                 |> write
 

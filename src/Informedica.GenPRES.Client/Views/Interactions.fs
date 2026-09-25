@@ -290,9 +290,9 @@ module Interactions =
                             | None -> ()
                     isLoading = isDrugNamesLoading
                     disabled = false
-                    // the box empties itself once the drug is added, so there is nothing to
-                    // clear and no cross to offer
-                    canClear = false
+                    // the box holds no choice, but it does hold what is being typed, and the
+                    // cross is how that is thrown away in one go
+                    canClear = true
                 |}
 
         let deleteLabel = Terms.``Delete`` |> getTerm "Verwijder"

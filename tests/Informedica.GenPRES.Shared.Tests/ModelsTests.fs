@@ -332,11 +332,19 @@ let cascadeTests =
                 |> Expect.equal "only the indication" (Some "pijn", None, None, None, None)
             }
 
-            test "picking another indication empties the options below it" {
+            test "picking another indication leaves the options below it standing" {
+                // the answer replaces them; taking them away first would leave the fields below
+                // empty, and a field with nothing to offer cannot be used at all
                 full
                 |> OrderContext.indicationChange (Some "pijn")
                 |> options
-                |> Expect.equal "its own options stand, the rest go" ([| "koorts"; "pijn" |], [||], [||], [||], [||])
+                |> Expect.equal
+                    "every list as it was"
+                    ([| "koorts"; "pijn" |],
+                     [| "paracetamol"; "ibuprofen" |],
+                     [| "oraal"; "rectaal" |],
+                     [| "tablet"; "drank" |],
+                     [| DoseType.Discontinuous "" |])
             }
 
             test "picking another medication keeps the indication and clears the three below" {
@@ -394,12 +402,9 @@ let cascadeTests =
             test "clearing a field empties the options it was picked from" {
                 // else a list of one would be chosen again at once and the field could not be
                 // emptied at all
-                full
-                |> OrderContext.routeChange None
-                |> options
-                |> Expect.equal
-                    "the two above keep theirs"
-                    ([| "koorts"; "pijn" |], [| "paracetamol"; "ibuprofen" |], [||], [||], [||])
+                let f = (full |> OrderContext.routeChange None).Filter
+
+                (f.Routes, f.Route) |> Expect.equal "its own list and choice gone" ([||], None)
             }
 
             test "picking the value a field already holds changes nothing" {
