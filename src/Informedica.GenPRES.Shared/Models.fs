@@ -2182,15 +2182,34 @@ module Models =
         let filterFields = [ Indication; Generic; Route; Form; DoseType ]
 
 
-        /// The order a page offers its choices in, which is what decides how far a change to
-        /// one of them reaches. A drug is found by its indication and then by the medication
-        /// that treats it; a nutrition composition is picked first and the indication follows
-        /// from the composition, so the two pages are not the same order and a change means a
-        /// different thing on each. A choice a page does not offer stands below nothing.
+        /// The order a page offers its choices in, as steps, and what decides how far a change
+        /// to one of them reaches: a change lets go of the choices in the steps after its own,
+        /// and leaves the ones beside it in its own step alone.
+        ///
+        /// A drug is found by its indication and by the medication that treats it, in either
+        /// order and neither before the other, so the two stand in one step: each narrows what
+        /// the other offers, so a pick from the list on the screen agrees with the one already
+        /// made, and taking the medication away because the indication was named is a loss with
+        /// nothing gained. A route, a form and a dose type are another matter: they belong to
+        /// the medication, and the one chosen for the medication before may not exist for this
+        /// one.
+        ///
+        /// A nutrition composition is picked first and the indication follows from it, so there
+        /// the two are steps of their own. A choice a page does not offer stands below nothing.
         let chain (ctx: OrderContext) =
             match ctx.Category with
-            | OrderCategory.Drug -> [ Indication; Generic; Route; Form; DoseType ]
-            | OrderCategory.Nutrition _ -> [ Generic; Indication; DoseType ]
+            | OrderCategory.Drug -> [ [ Indication; Generic ]; [ Route ]; [ Form ]; [ DoseType ] ]
+            | OrderCategory.Nutrition _ -> [ [ Generic ]; [ Indication ]; [ DoseType ] ]
+
+
+        /// One field's choice let go, the options it was picked from left standing.
+        let clearChoice field (f: Filter) =
+            match field with
+            | Indication -> { f with Indication = None }
+            | Generic -> { f with Generic = None }
+            | Route -> { f with Route = None }
+            | Form -> { f with Form = None }
+            | DoseType -> { f with DoseType = None }
 
 
         /// One field emptied: the choice it holds and the options it was picked from.
@@ -2232,22 +2251,38 @@ module Models =
             || f.DoseType.IsSome
 
 
-        /// A change to one of the choices: the fields below it in the page's order are emptied,
-        /// the field itself is emptied too when it is being cleared, the change is written, and
-        /// the scenarios go, since they stand on the whole filter. Keeping a route from the
-        /// medication before would leave a filter no rule matches, which is why the user had to
-        /// empty a field before picking in it. When nothing is chosen anywhere afterwards, no
-        /// options are kept either: a list narrowed by choices that are gone would offer a
-        /// smaller world than there is, without saying so.
+        /// A change to one of the choices: the change is written, the scenarios go, since they
+        /// stand on the whole filter, and nothing at all happens when the field already holds
+        /// what it is given.
+        ///
+        /// A value picked is picked from the list the answer offered, and every list the answer
+        /// offers is narrowed by every choice already made, so a pick agrees with all of them
+        /// and none of them has to be let go. Letting them go took away work the user had done
+        /// and had asked for: naming a medication after a route threw the route away.
+        ///
+        /// A field emptied is another matter: the filter widens, so the choices in the steps
+        /// below it go with it, and the field keeps neither its choice nor what it was picked
+        /// from.
+        ///
+        /// What the fields below were picked from is left standing until the answer replaces
+        /// it. Taking it away as well leaves them empty, and a field with nothing to offer is a
+        /// field that cannot be used, so the page goes dead for as long as the request runs.
+        ///
+        /// When nothing is chosen anywhere afterwards, no options are kept either: a list
+        /// narrowed by choices that are gone would offer a smaller world than there is, without
+        /// saying so.
         let applyChange field clearOwn write (ctx: OrderContext) : OrderContext =
             let below =
-                match ctx |> chain |> List.skipWhile ((<>) field) with
-                | [] -> []
-                | _ :: rest -> rest
+                if not clearOwn then
+                    []
+                else
+                    match ctx |> chain |> List.skipWhile (List.contains field >> not) with
+                    | [] -> []
+                    | _ :: rest -> rest |> List.concat
 
             let filter =
                 below
-                |> List.fold (fun f x -> f |> clearField x) ctx.Filter
+                |> List.fold (fun f x -> f |> clearChoice x) ctx.Filter
                 |> fun f -> if clearOwn then f |> clearField field else f
                 |> write
 

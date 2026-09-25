@@ -164,6 +164,7 @@ module Patient =
                     updateSelected = changeValue
                     isLoading = false
                     disabled = busy
+                    readOnly = false
                     hasClear = true
                     canStep = false
                     severity = Severity.Normal

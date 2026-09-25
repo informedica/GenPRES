@@ -6,7 +6,8 @@ control that resets them. Companion to [the grouping index](ux-issue-grouping.md
 is the first to spend.
 
 Held to [ADR-0009: UX Design Rules](../adr/0009-ux-design-rules.md): a choice with one possible
-value is made rather than asked, and an action that discards is not the one the hand lands on.
+value is made rather than asked, and a control that discards work is not placed where you
+click by default.
 
 - [Problem description](#problem-description)
 - [What the foundation already settled](#what-the-foundation-already-settled)
@@ -131,15 +132,23 @@ One pull request each, in this order.
 2. **The cascade migrated.** The rule moves into the `OrderContext` module of
    `Shared/Models.fs` and its tests into `tests/Informedica.GenPRES.Shared.Tests/ModelsTests.fs`;
    the script goes. The two views are untouched: they already call these functions.
-   Landed: a change to a choice empties the choices below it in the order its page offers them,
-   writes the change, and drops the scenarios; nothing at all happens when the field already
-   holds what it is given. Clearing a field empties that field too, options and all, so a list
-   of one cannot choose itself again the moment the user empties it. The order is the order
-   category's, since the two pages do not offer the same one: a drug is found by indication and
-   then by medication, a nutrition composition is picked first and its indication follows, which
-   the nutrition page used to patch by hand after every composition change. When no choice is
-   left anywhere, no options are kept either, so nothing stays narrowed by a filter that is
-   gone.
+   Landed: a value picked is written, the scenarios go, and every other choice stands. Every
+   list the answer offers is narrowed by every choice already made, so a pick from the list on
+   the screen agrees with all of them and none has to be let go; letting them go took away work
+   the user had done and had asked for. A field emptied is the other case: the filter widens, so
+   the choices in the steps below it go with it, and the field keeps neither its choice nor what
+   it was picked from, since a list of one would otherwise choose itself again the moment the
+   user emptied the field. The steps are the order category's: on the drug page the indication
+   and the medication stand together above the route, the form and the dose type; on the
+   nutrition page the composition comes first and the indication follows from it, which that
+   page used to patch by hand. When no choice is left anywhere, no options are kept either.
+
+   And a field narrowed to one option still offers the cross, since the answer narrows every
+   list to the one value chosen, so without it a filter built out left every field shut with no
+   way back. Such a field is held rather than greyed out: it cannot be opened, but it is not
+   disabled, because what a disabled field holds is disabled too and the cross would go with it.
+   The cross stays where it belongs, inside the field.
+
 3. **The reset, on all three of the pages that offer one.** The word is localized rather than
    written at the call site: the control is spelled out in three places today and translated in
    none, the prescribing page saying what a delete says and the dose dialog and the nutrition
@@ -191,6 +200,16 @@ One pull request each, in this order.
    directly: that control adds a drug to a list and holds no choice, so the pick rule would
    disable it exactly when it matched one drug.
 
+   Landed: the pick field takes the shape it is drawn in, a list to scroll or a box to type in,
+   and the rule, the single option, the cross and the effect that tells the page are the same
+   for both. A field is typed into on a wide window and scrolled on a narrow one, which is the
+   other way round from what one might expect: the narrow window gets the list, since a box to
+   type in wants a keyboard. The fields that type on a wide window are the prescribing page's
+   indication, medication and route, the nutrition page's composition and indication, the
+   formulary's four and the parenteralia page's three. Each of them now shuts on a single option
+   and tells the page that option, where they stayed open and said nothing. The interactions
+   page is untouched, and its box offers no cross, since it empties itself.
+
 ## Verification, per step
 
 - `dotnet run Build`, and `dotnet run ServerTests` for the steps that touch `GenPRES.Shared`.
@@ -203,13 +222,24 @@ One pull request each, in this order.
 
 ## To settle in review
 
-- Whether a change that clears the fields below should also empty their option lists. Decided
-  for now that it should: a list narrowed by a choice that is gone offers a smaller world than
-  there is and says nothing about it, and a pick from it builds a filter no rule matches. The
-  cost is that those fields stand empty for the length of one request.
+- Whether a change that clears the fields below should also empty their option lists. Tried
+  both. It should not: a field with nothing to offer cannot be used, so emptying the lists left
+  every field below the one just touched dead for the length of the request, and the page read
+  as if it had stopped answering. The lists stand until the answer replaces them. Two narrower
+  rules are kept, and they are what the concern was really about: a field that is cleared
+  empties its own list, so a list of one cannot choose itself again; and when no choice is left
+  anywhere, no list is kept, so nothing stays narrowed by a filter that is gone.
 - Whether a dose field whose single value the solver determined, rather than the user, should
   offer the cross at all.
 - The word on the reset, which is a terminology decision and not this group's alone.
+
+## What the group came to
+
+All five issues are answered. The one-option rule reaches every field that picks, whether it
+scrolls or types. The cross on a dose field follows one rule instead of a flag per call site,
+and is not offered where there is nothing to clear. A field can be changed by picking in it,
+in the order its own page offers its choices. The reset is one word in six languages on a
+bounded button, in the three places that offer one.
 
 ## Related, not a member
 

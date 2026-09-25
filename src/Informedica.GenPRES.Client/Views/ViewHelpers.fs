@@ -23,6 +23,7 @@ module ViewHelpers =
                 clearable = true
                 isLoading = isLoading
                 enabled = not disabled
+                shape = Components.PickField.Shape.Scroll
             |}
 
 
@@ -449,17 +450,19 @@ module ViewHelpers =
         display false label None ignore None mark minWidth vals
 
 
+    /// The same filter select, typed into rather than scrolled, for a list long enough that
+    /// reading it is slower than naming it. The same rule decides what it offers.
     let autoComplete disabled isLoading lbl selected dispatch xs =
-        let isEmpty = xs |> Array.isEmpty
-
-        Components.Autocomplete.View
+        Components.PickField.View
             {|
-                updateSelected = if isEmpty then ignore else dispatch
                 label = lbl
+                options = xs |> Array.map (fun s -> s, s)
                 selected = selected
-                values = xs
+                onChange = dispatch
+                clearable = true
                 isLoading = isLoading
-                disabled = disabled || isEmpty
+                enabled = not disabled
+                shape = Components.PickField.Shape.Type
             |}
 
 

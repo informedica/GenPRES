@@ -168,6 +168,7 @@ module QuantityField =
                     updateSelected = props.onChange
                     isLoading = props.isLoading
                     disabled = props.disabled
+                    readOnly = false
                     hasClear = props.hasClear
                     canStep = canStep
                     severity = props.severity

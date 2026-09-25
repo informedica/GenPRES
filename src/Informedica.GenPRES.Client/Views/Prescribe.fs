@@ -125,7 +125,7 @@ module Prescribe =
         let isSourceLoading source = isAnythingLoading && loadingSource = Some source
 
         // the filter is put back as it was: bounded and to the left, since it discards what the
-        // user built and must not be the button the hand lands on
+        // user built and must not be where you click by default
         let resetBar =
             Components.ActionBar.View
                 {|

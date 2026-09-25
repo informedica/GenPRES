@@ -21,6 +21,9 @@ module SimpleSelect =
                 updateSelected: string option -> unit
                 isLoading: bool
                 disabled: bool
+                // the field cannot be opened, but it is not greyed and what it holds still
+                // answers, so the cross inside it can be pressed
+                readOnly: bool
                 hasClear: bool
                 // whether the value can be stepped beside the select: a single value that can
                 // be stepped is not a fixed one, and is not drawn as one
@@ -138,6 +141,7 @@ module SimpleSelect =
             onChange={handleChange}
             label={props.label}
             disabled={props.disabled}
+            readOnly={props.readOnly}
             endAdornment={endAdornment}
             sx={sx}
             slotProps={selectSlotProps}

@@ -1239,7 +1239,7 @@ module Nutrition =
                 """
 
         // the changes to the order are discarded: bounded and to the left, so the button is not
-        // as wide as the panel it sits in and is not the one the hand lands on
+        // as wide as the panel it sits in and is not where you click by default
         let resetBar =
             Components.ActionBar.View
                 {|
