@@ -158,9 +158,9 @@ module Prescribe =
         let autoComplete = ViewHelpers.autoComplete isAnythingLoading
 
         // a patient without an age loses every dose rule with an age bound, silently, since a
-        // missing datum never matches a bounded range; one with an age but no weight and height,
-        // measured or estimated, has nothing for the rules to gate on and is refused. Said here,
-        // above the selects, while it holds.
+        // value that is missing never matches a bounded range; one with an age but no weight
+        // and height, measured or estimated, has nothing for the rules to gate on and is
+        // refused. Said here, above the selects, while it holds.
         let missingDimension =
             match draft with
             | Some dto when dto |> Patient.validate |> Result.isOk ->

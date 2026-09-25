@@ -382,7 +382,7 @@ plan when it is written.
 | #598 | Client testing: cross-cutting; cited by G1, G5 and G10 |
 | #580 | Scope switch: related to #396 in G8 |
 | #672, #720 | Domain follow-ups of the patient-minimum plan; related to G5 |
-| #719 | GenFORM tests for a missing patient datum; related to G5 |
+| #719 | GenFORM tests for a patient value that is missing; related to G5 |
 | #439, #582 | Domain and data; no UI surface of their own |
 | #825 | Session idle and absolute lifetimes: the other way a session ends; named by #518 as the case where a carry-over would matter most, related to G10 |
 

@@ -32,7 +32,7 @@ What the exploration for this plan found, beyond the issue:
   sets it. Because the mapped patient is never the empty GenFORM patient, the "no patient set,
   skip the patient filter" branch in `GenFORM.Lib/DoseRule.fs` is unreachable from the web
   client. A hidden filter input; not this plan.
-- **A missing datum is restrictive, and silent.** `MinMax.inRange` in `GenFORM.Lib/Utils.fs`
+- **A value that is missing is restrictive, and silent.** `MinMax.inRange` in `GenFORM.Lib/Utils.fs`
   passes a `None` value only against an unbounded range. A patient without an age loses every
   age-bounded rule, and the gestational and post-menstrual age predicates are skipped entirely.
   Safe by construction, invisible to the user. No test pins the weight-bounded case.
@@ -44,8 +44,8 @@ What the exploration for this plan found, beyond the issue:
   of [#488](https://github.com/informedica/GenPRES/issues/488), and it loses the provenance a
   signed version is meant to record.
 - **The docs disagree with the code.** The user guide says weight and height are required
-  before any dose; the estimator makes an age enough. No domain document states a minimum
-  patient datum.
+  before any dose; the estimator makes an age enough. No domain document states what the
+  minimum patient data are.
 
 ## Approaches considered
 

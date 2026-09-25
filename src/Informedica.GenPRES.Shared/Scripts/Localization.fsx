@@ -546,8 +546,8 @@ let printPatientRow () =
 
 // --- The prescribing page says which dimension is missing (plan 646, step 6) ----------------
 //
-// A patient without an age loses every dose rule with an age bound, silently, since a missing
-// datum never matches a bounded range; a patient with an age only and no estimate has no weight
+// A patient without an age loses every dose rule with an age bound, silently, since a value
+// that is missing never matches a bounded range; a patient with an age only and no estimate has no weight
 // and height for the rules to gate on, and the server refuses it. The page says so, one
 // sentence each, → `Terms`, after ``Prescribe Administration``; the rows → the sheet.
 

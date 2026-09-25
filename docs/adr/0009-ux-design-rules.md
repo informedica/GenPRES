@@ -55,7 +55,7 @@ violate rule 2 and 3", which would have the rule constrain itself. It is read as
 ### 2. What each rule means on a screen
 
 **Safe by default.** What the screen already holds when the user arrives is a value the rules
-allow: a dose the constraint solver computed, a route the dose rule covers, a patient datum read
+allow: a dose the constraint solver computed, a route the dose rule covers, a patient value read
 from the platform. Nothing the user has to correct before it is safe. Deviating is a visible,
 deliberate act — a field the user changes, a confirmation the user answers — never a side effect
 of arriving on a page or of moving between fields. A value the rules do not allow is marked with
@@ -128,7 +128,7 @@ patient's age is computed rather than entered.**
 person with a birthdate: their age is a fact the server computes on each request, since a
 neonate's age moves by the day, and the title bar says who they are. Weight, height and
 gestational age stay editable and a measured value is kept, because a bedside measurement is the
-better datum. Without a launched patient the panel is the one that is filled in. Rule 1 makes the
+better value. Without a launched patient the panel is the one that is filled in. Rule 1 makes the
 computed age unwritable — a stale or mistyped age is a dosing error — and rule 2 makes it
 unnecessary to type; rule 3 keeps the measured values in the user's hands.
 
