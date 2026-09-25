@@ -3063,23 +3063,39 @@ module Tests =
                         patCat |> PatientCategory.filter (aged None) |> Expect.isTrue "everyone"
                     }
 
-                    test "an adult rule and a children's rule never both match one patient" {
+                    test "an adult rule and a children's rule ending at the threshold never both match one patient" {
+                        // whether the two overlap is the sheet's to decide: a children's rule
+                        // whose top is the threshold day, exclusive, hands over on that day, and
+                        // one whose top is written in the year unit reaches four days past it
                         let children =
                             { patCat with
                                 Age =
                                     { MinMax.empty with
-                                        Min = Some(Inclusive(years 1N))
-                                        Max = Some(Exclusive(years 18N))
+                                        Min = Some(Inclusive(years 0N))
+                                        Max = Some(Exclusive Utils.ValueUnit.ageAdult)
                                     }
                                     |> AbsoluteAge
                             }
 
-                        [ 0N; 5N; 17N; 18N; 30N ]
-                        |> List.map (fun y ->
-                            let f = aged (Some(years y))
-                            adults |> PatientCategory.filter f && children |> PatientCategory.filter f
-                        )
-                        |> Expect.allEqual "never both" false
+                        let days n = n |> ValueUnit.singleWithUnit Units.Time.day
+
+                        let both age =
+                            let f = aged (Some age)
+                            adults |> PatientCategory.filter f, children |> PatientCategory.filter f
+
+                        [ years 0N; years 5N; years 17N; days 6569N; days 6570N; days 6571N; years 30N ]
+                        |> List.map both
+                        |> Expect.equal
+                            "one of the two, never both, never neither"
+                            [
+                                false, true
+                                false, true
+                                false, true
+                                false, true
+                                true, false
+                                true, false
+                                true, false
+                            ]
                     }
 
                     test "an adult rule prints as adults, and one with no age bound as nothing" {
