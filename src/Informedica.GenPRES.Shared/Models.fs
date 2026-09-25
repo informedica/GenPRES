@@ -2182,15 +2182,24 @@ module Models =
         let filterFields = [ Indication; Generic; Route; Form; DoseType ]
 
 
-        /// The order a page offers its choices in, which is what decides how far a change to
-        /// one of them reaches. A drug is found by its indication and then by the medication
-        /// that treats it; a nutrition composition is picked first and the indication follows
-        /// from the composition, so the two pages are not the same order and a change means a
-        /// different thing on each. A choice a page does not offer stands below nothing.
+        /// The order a page offers its choices in, as steps, and what decides how far a change
+        /// to one of them reaches: a change lets go of the choices in the steps after its own,
+        /// and leaves the ones beside it in its own step alone.
+        ///
+        /// A drug is found by its indication and by the medication that treats it, in either
+        /// order and neither before the other, so the two stand in one step: each narrows what
+        /// the other offers, so a pick from the list on the screen agrees with the one already
+        /// made, and taking the medication away because the indication was named is a loss with
+        /// nothing gained. A route, a form and a dose type are another matter: they belong to
+        /// the medication, and the one chosen for the medication before may not exist for this
+        /// one.
+        ///
+        /// A nutrition composition is picked first and the indication follows from it, so there
+        /// the two are steps of their own. A choice a page does not offer stands below nothing.
         let chain (ctx: OrderContext) =
             match ctx.Category with
-            | OrderCategory.Drug -> [ Indication; Generic; Route; Form; DoseType ]
-            | OrderCategory.Nutrition _ -> [ Generic; Indication; DoseType ]
+            | OrderCategory.Drug -> [ [ Indication; Generic ]; [ Route ]; [ Form ]; [ DoseType ] ]
+            | OrderCategory.Nutrition _ -> [ [ Generic ]; [ Indication ]; [ DoseType ] ]
 
 
         /// One field's choice let go, the options it was picked from left standing.
@@ -2242,11 +2251,11 @@ module Models =
             || f.DoseType.IsSome
 
 
-        /// A change to one of the choices: the fields below it in the page's order let their
-        /// choices go, the field itself is emptied when it is being cleared, the change is
-        /// written, and the scenarios go, since they stand on the whole filter. Keeping a route
-        /// from the medication before would leave a filter no rule matches, which is why the
-        /// user had to empty a field before picking in it.
+        /// A change to one of the choices: the fields in the steps below it let their choices
+        /// go, the field itself is emptied when it is being cleared, the change is written, and
+        /// the scenarios go, since they stand on the whole filter. Keeping a route from the
+        /// medication before would leave a filter no rule matches, which is why the user had to
+        /// empty a field before picking in it.
         ///
         /// What the fields below were picked from is left standing until the answer replaces
         /// it. Taking it away as well leaves them empty, and a field with nothing to offer is a
@@ -2257,9 +2266,9 @@ module Models =
         /// saying so.
         let applyChange field clearOwn write (ctx: OrderContext) : OrderContext =
             let below =
-                match ctx |> chain |> List.skipWhile ((<>) field) with
+                match ctx |> chain |> List.skipWhile (List.contains field >> not) with
                 | [] -> []
-                | _ :: rest -> rest
+                | _ :: rest -> rest |> List.concat
 
             let filter =
                 below

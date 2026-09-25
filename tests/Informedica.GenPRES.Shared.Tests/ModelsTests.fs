@@ -325,11 +325,13 @@ let cascadeTests =
     testList
         "the cascade of the prescribing fields"
         [
-            test "picking another indication keeps it and clears the four below" {
+            test "picking another indication keeps the medication beside it" {
+                // each narrows what the other offers, so an indication picked from the list on
+                // the screen is one this medication has
                 full
                 |> OrderContext.indicationChange (Some "pijn")
                 |> chosen
-                |> Expect.equal "only the indication" (Some "pijn", None, None, None, None)
+                |> Expect.equal "the two at the top" (Some "pijn", Some "paracetamol", None, None, None)
             }
 
             test "picking another indication leaves the options below it standing" {
@@ -399,6 +401,13 @@ let cascadeTests =
                 |> Expect.equal "the indication alone" (Some "koorts", None, None, None, None)
             }
 
+            test "clearing the medication leaves the indication beside it" {
+                full
+                |> OrderContext.medicationChange None
+                |> _.Filter.Indication
+                |> Expect.equal "still chosen" (Some "koorts")
+            }
+
             test "clearing a field empties the options it was picked from" {
                 // else a list of one would be chosen again at once and the field could not be
                 // emptied at all
@@ -411,6 +420,15 @@ let cascadeTests =
                 full
                 |> OrderContext.medicationChange (Some "paracetamol")
                 |> Expect.equal "the context it was" full
+            }
+
+            test "a nutrition composition is a step of its own, so it clears the indication" {
+                // there the indication follows from the composition, and the one chosen for the
+                // composition before may not exist for this one
+                nutrition
+                |> OrderContext.medicationChange (Some "ibuprofen")
+                |> _.Filter.Indication
+                |> Expect.equal "let go" None
             }
 
             test "with no choice left anywhere, no options are kept" {
