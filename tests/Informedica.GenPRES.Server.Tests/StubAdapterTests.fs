@@ -143,6 +143,7 @@ module StubAdapters =
                 }
             admin = adminNone
             requireLoaded = fun () -> None
+            departments = fun () -> None
             // the tests run as the demo server does
             session = sessionNone
             demo = true
@@ -170,6 +171,7 @@ module StubAdapters =
                 }
             admin = adminNone
             requireLoaded = fun () -> Some msgs
+            departments = fun () -> None
             // the tests run as the demo server does
             session = sessionNone
             demo = true
@@ -3646,6 +3648,8 @@ module SessionStubTests =
                         {
                             ServerSettings.Language = Shared.Localization.French
                             IsDemo = false
+                            Departments = [||]
+                            DefaultDepartment = "ICK"
                         }
 
                     let _, env = envWithStub newStore ()
@@ -4542,6 +4546,8 @@ module SessionStubTests =
             {
                 ServerSettings.Language = Shared.Localization.Dutch
                 IsDemo = true
+                Departments = [||]
+                DefaultDepartment = "ICK"
             }
 
         let request opened : Request<Formulary> =
@@ -4902,6 +4908,8 @@ module AdminTests =
                         {
                             ServerSettings.Language = Shared.Localization.Dutch
                             IsDemo = true
+                            Departments = [||]
+                            DefaultDepartment = "ICK"
                         }
 
                     let api = CompositionRoot.compose settings env cookie stateCookie (SessionStubTests.noEnrolment ())

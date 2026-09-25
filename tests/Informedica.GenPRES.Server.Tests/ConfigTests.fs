@@ -357,6 +357,8 @@ let languageTests =
                     {
                         Shared.Api.ServerSettings.Language = Shared.Localization.English
                         IsDemo = true
+                        Departments = [||]
+                        DefaultDepartment = "ICK"
                     }
 
                 Map [ "GENPRES_PROD", "1" ]
@@ -367,6 +369,8 @@ let languageTests =
                     {
                         Shared.Api.ServerSettings.Language = Shared.Localization.Dutch
                         IsDemo = false
+                        Departments = [||]
+                        DefaultDepartment = "ICK"
                     }
             }
 

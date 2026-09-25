@@ -274,6 +274,10 @@ module Api =
             Language: Localization.Locales
             // not GENPRES_PROD: demo data, shown as the title suffix
             IsDemo: bool
+            // the departments the loaded rules name; empty until the resources are loaded
+            Departments: string[]
+            // the department a patient without one is prescribed for, so the panel can say so
+            DefaultDepartment: string
         }
 
 
