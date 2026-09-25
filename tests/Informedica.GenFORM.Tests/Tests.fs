@@ -3025,11 +3025,20 @@ module Tests =
 
                     let aged age = { filter with DoseFilter.Patient.Age = age }
 
-                    test "the adult threshold is the domain's eighteen years" {
+                    test "the adult threshold is the domain's eighteen years, in days as a patient's age is written" {
                         Utils.ValueUnit.ageAdult
-                        |> ValueUnit.convertTo Units.Time.year
+                        |> ValueUnit.convertTo Units.Time.day
                         |> ValueUnit.getValue
-                        |> Expect.equal "eighteen" [| 18N |]
+                        |> Expect.equal "eighteen times 365" [| 6570N |]
+                    }
+
+                    test
+                        "a patient entered as eighteen, 6570 days by the contract model, is an adult; a day less is not" {
+                        let days n = n |> ValueUnit.singleWithUnit Units.Time.day
+
+                        (adults |> PatientCategory.filter (aged (Some(days 6570N))),
+                         adults |> PatientCategory.filter (aged (Some(days 6569N))))
+                        |> Expect.equal "the threshold day in, the day before out" (true, false)
                     }
 
                     test "an adult rule matches a patient of eighteen and over" {
