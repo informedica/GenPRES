@@ -237,8 +237,9 @@ module GenOrderTools =
 
     /// The input with its department one the rules know, spelled as they spell it; none leaves
     /// the default in force. A department the rules do not know is refused with the names they
-    /// do and the default, since the department selects the solution rules and reconstitutions,
-    /// and a misspelt one would silently select none.
+    /// do and the default, since the department selects the rules and a misspelt one would
+    /// silently select none. The spelling given wins when the rules know it; another case is
+    /// taken only when it names exactly one of them, since the rules compare exactly.
     let checkDepartment
         (departments: Departments)
         (input: CreateOrderContextInput)
@@ -247,9 +248,18 @@ module GenOrderTools =
         match input.Department with
         | None -> Ok input
         | Some d ->
+            let given = d.Trim()
+
             let known =
-                departments.Names
-                |> Array.tryFind (fun n -> String.Equals(n, d.Trim(), StringComparison.OrdinalIgnoreCase))
+                if departments.Names |> Array.contains given then
+                    Some given
+                else
+                    match
+                        departments.Names
+                        |> Array.filter (fun n -> String.Equals(n, given, StringComparison.OrdinalIgnoreCase))
+                    with
+                    | [| n |] -> Some n
+                    | _ -> None
 
             match known with
             | Some n -> Ok { input with Department = Some n }

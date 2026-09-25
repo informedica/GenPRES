@@ -227,10 +227,15 @@ module Resources =
             }
 
 
-        /// From the loaded rows: the solution-rule rows and the reconstitutions, the two sheets
-        /// that name departments.
-        let ofRules (solutionRows: SolutionRuleData[]) (reconstitutions: Reconstitution[]) =
-            Seq.append (solutionRows |> Seq.map _.Department) (reconstitutions |> Seq.map _.Department)
+        /// From the loaded rows: the dose-rule rows, the solution-rule rows and the
+        /// reconstitutions, the three sheets that name departments.
+        let ofRules (doseRows: DoseRuleData[]) (solutionRows: SolutionRuleData[]) (reconstitutions: Reconstitution[]) =
+            [
+                doseRows |> Seq.map (fun d -> Some d.Patient.Dep)
+                solutionRows |> Seq.map _.Department
+                reconstitutions |> Seq.map _.Department
+            ]
+            |> Seq.concat
             |> ofNamed
 
 
@@ -325,9 +330,14 @@ module Resources =
                 Keys.renalRuleData.Name, ofResult (fun () -> RenalRule.getData dataUrlId)
 
                 // the departments the rules name, and the default: derived, so it loads once
-                // and after the two rows it reads
+                // and after the three rows it reads
                 Keys.departments.Name,
-                derive (fun r -> Departments.ofRules (r.Get Keys.solutionRuleData) (r.Get Keys.reconstitution))
+                derive (fun r ->
+                    Departments.ofRules
+                        (r.Get Keys.doseRuleData)
+                        (r.Get Keys.solutionRuleData)
+                        (r.Get Keys.reconstitution)
+                )
 
                 // Totals is an optional intake-reference resource: a load failure must
                 // not empty the others, so swallow to [||] and surface a Warning.

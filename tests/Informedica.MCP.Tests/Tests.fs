@@ -222,6 +222,34 @@ module Tests =
                 member _.GetResourceInfo() = raise (NotImplementedException())
             }
 
+        /// A provider that answers the departments and no rule at all, so an evaluation that
+        /// passes the guards is refused by the domain for lack of rules and by nothing else.
+        let private emptyRules: IResourceProvider =
+            { new IResourceProvider with
+                member _.Get(key: ResourceKey<'T>) : 'T =
+                    if key.Name = Keys.departments.Name then
+                        box departments :?> 'T
+                    else
+                        raise (NotImplementedException key.Name)
+
+                member _.GetData() = raise (NotImplementedException())
+                member _.GetUnitMappings() = raise (NotImplementedException())
+                member _.GetRouteMappings() = [||]
+                member _.GetValidForms() = raise (NotImplementedException())
+                member _.GetFormRoutes() = raise (NotImplementedException())
+                member _.GetFormularyProducts() = raise (NotImplementedException())
+                member _.GetReconstitution() = [||]
+                member _.GetParenteralMeds() = raise (NotImplementedException())
+                member _.GetEnteralFeeding() = raise (NotImplementedException())
+                member _.GetProducts() = raise (NotImplementedException())
+                member _.GetDoseRules() = [||]
+                member _.GetSolutionRules() = [||]
+                member _.GetRenalRules() = [||]
+                member _.GetTotals() = raise (NotImplementedException())
+                member _.GetGStandProvider() = raise (NotImplementedException())
+                member _.GetResourceInfo() = raise (NotImplementedException())
+            }
+
         /// A provider that must never be called.
         let private unusedProvider: IResourceProvider = Unchecked.defaultof<_>
 
@@ -289,6 +317,23 @@ module Tests =
                             msg |> Expect.stringContains "names the default" "ICK"
                     }
 
+                    test "when the rules spell a name in two cases, the spelling given wins" {
+                        let both = Departments.ofNamed [ Some "NEO"; Some "neo" ]
+
+                        { measured with Department = Some "neo" }
+                        |> checkDepartment both
+                        |> Result.map _.Department
+                        |> Expect.equal "neo as given" (Ok(Some "neo"))
+                    }
+
+                    test "when the rules spell a name in two cases, a third case is refused" {
+                        let both = Departments.ofNamed [ Some "NEO"; Some "neo" ]
+
+                        { measured with Department = Some "Neo" }
+                        |> checkDepartment both
+                        |> Expect.isError "ambiguous, so refused"
+                    }
+
                     test "an empty department is refused, not taken as none" {
                         { measured with Department = Some "" }
                         |> checkDepartment departments
@@ -300,6 +345,16 @@ module Tests =
                         |> checkDepartment departments
                         |> Result.map (buildPatient departmentsOnly >> Patient.getDepartment)
                         |> Expect.equal "NEO on the patient" (Ok(Some "NEO"))
+                    }
+
+                    test "evaluateOrderContext with an accepted department reaches the rules" {
+                        // no rule at all is loaded, so the evaluation stops for lack of rules:
+                        // the domain's refusal, not the department's, which proves the guard
+                        // let the department through and the patient was built with it
+                        { measured with Department = Some "neo" }
+                        |> evaluateOrderContext emptyRules
+                        |> Result.mapError (fun msg -> msg.Contains "Unknown department")
+                        |> Expect.equal "refused for lack of rules, not for the department" (Error false)
                     }
 
                     test "evaluateOrderContext refuses an unknown department before reading any rule" {
