@@ -4199,6 +4199,45 @@ module Tests =
                         "ICU" |> Departments.isKnown deps |> Expect.isFalse "ICU"
                     }
 
+                    test
+                        "the default applied to the matching: a patient without a department takes the default's solution rules and the rules for any" {
+                        let rule dep : SolutionRule =
+                            {
+                                Generic = "paracetamol"
+                                Form = None
+                                Route = "iv"
+                                Indication = None
+                                DoseType = NoDoseType
+                                PatientCategory = { PatientCategory.empty with Department = dep }
+                                Dose = MinMax.empty
+                                Diluents = [||]
+                                Div = None
+                                Volumes = None
+                                Volume = MinMax.empty
+                                VolumeAdjust = MinMax.empty
+                                DripRate = MinMax.empty
+                                DosePerc = MinMax.empty
+                                SolutionLimits = [||]
+                            }
+
+                        let rules = [| rule (Some "ICK"); rule (Some "NICU"); rule None |]
+                        let deps = Departments.ofNamed [ Some "ICK"; Some "NICU" ]
+
+                        // what getRules does: the default on the filter's patient, never on the patient itself
+                        let matched (department: string option) =
+                            { Filter.solutionFilter "paracetamol" with
+                                Patient =
+                                    { PatientDtoTests.Fixtures.child with
+                                        Department = department |> Departments.forPatient deps
+                                    }
+                            }
+                            |> fun filter -> rules |> SolutionRule.filter [||] filter
+                            |> Array.map _.PatientCategory.Department
+
+                        matched None |> Expect.equal "ICK and any" [| Some "ICK"; None |]
+                        matched (Some "NICU") |> Expect.equal "NICU and any" [| Some "NICU"; None |]
+                    }
+
                     test "the registry derives it from the solution-rule rows and the reconstitutions, once" {
                         let mutable loads = 0
 
