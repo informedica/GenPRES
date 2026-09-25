@@ -483,12 +483,23 @@ Contributors must also disclose when code submitted in a pull request is **vibe 
 - [ ] Update the `Data` record `///` comments and the column-contract test if spreadsheet column names or semantics change.
 - [ ] Use conventional commit message with scope and short description.
 
-## Related Documentation
+## Session Rules
 
-- Coding standards: [F# Coding Instructions](.github/instructions/fsharp-coding.instructions.md)
-- Code formatting: [F# Code Formatting](.github/instructions/fsharp-code-formatting.instructions.md)
-- Commit conventions: [Commit Message Instructions](.github/instructions/commit-message.instructions.md)
-- Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
-- Development setup: [DEVELOPMENT.md](DEVELOPMENT.md)
-- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Domain model: [Core Domain Model](docs/domain/core-domain.md)
+- **At the start of a session**, check whether the FSI MCP server runs (`mcp__fsi-mcp__get_fsi_status`). If it does, use the MCP tools for all F# interactive work instead of `dotnet fsi`; see "Using the FSI MCP Server" above.
+- **Before the context is compacted**, or when it approaches 70% use, write a decisions log to `.claude/docs/session-decisions.md`: the design decisions made, the approaches rejected and why, the constraints found, and the values, types and signatures that matter. Do this without being asked.
+- **At the end of each plan step**, append a short summary of what was decided or changed to `.claude/docs/session-log.md`, so nothing is lost if compaction happens between steps.
+
+## Required Reading
+
+Read at the start of every session (Claude Code loads them through the `@` lines):
+
+- @.github/instructions/fsharp-coding.instructions.md
+- @.github/instructions/fsharp-code-formatting.instructions.md
+- @.github/instructions/commit-message.instructions.md
+
+Read when the task needs them:
+
+- [DEVELOPMENT.md](DEVELOPMENT.md) for the build targets, Docker, release automation, IDE setup and the environment keys
+- [CONTRIBUTING.md](CONTRIBUTING.md) for the pull request process
+- [ARCHITECTURE.md](ARCHITECTURE.md) and [ADR-0001](docs/adr/0001-system-architecture.md) for the architecture and the full dependency rule
+- [Core Domain Model](docs/domain/core-domain.md) and the other documents in `docs/domain/` for the domain model
