@@ -440,8 +440,12 @@ the reason.
 
 ### Answered in review
 
-- An adult-only rule and an age-bounded rule never both match one patient: the tests of step 10
-  prove it over the ages 0, 5, 17, 18 and 30.
+- Whether an adult-only rule and an age-bounded rule may both match one patient is the sheet's
+  to decide, not the matcher's. A children's rule whose top is the threshold day, exclusive,
+  hands over on that day: the tests of step 10 prove that every age from birth to thirty
+  matches one of the two and never both, the days around the threshold included. A rule whose
+  top is written in the year unit reaches four and a half days past the threshold, and a
+  patient entered as eighteen matches both for those days.
 
 ### Left open
 
