@@ -60,7 +60,7 @@ Message labels are the code's names: the members of `IServerApi`
 (`src/Informedica.GenPRES.Shared/Api.fs`), their command and response cases, and the functions
 of the `Session` module (`src/Informedica.GenPRES.Server/ServerApi.Session.fs`). The
 walkthroughs that exercise every page by hand are in
-[DEVELOPMENT.md](../../../DEVELOPMENT.md#simulating-the-launch-sequence).
+[Testing Workflows](../../user-guide/testing-workflows.md#workflow-8--launch-sequence).
 
 Most use cases begin with a launch, which UC-1 draws; rather than redraw it, those diagrams
 open with a note citing UC-1.

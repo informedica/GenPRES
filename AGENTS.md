@@ -28,453 +28,180 @@ Instructions for AI coding agents working on the GenPRES repository. Make edits 
 
 GenPRES is a Clinical Decision Support System (CDSS) for medication prescribing, built entirely in F# using the SAFE Stack (Saturn, Azure, Fable, Elmish). It provides safe and efficient medication order entry, calculation, and validation for medical settings.
 
-## Quick Start — Build, Run & Test
+## Build, Run and Test
 
-### Prerequisites
-
-- **.NET SDK**, **Node.js**, and **npm**
-
-For the canonical list of supported versions, see the **Toolchain Requirements** section in [`DEVELOPMENT.md`](DEVELOPMENT.md#toolchain-requirements). For environment variables, see [`DEVELOPMENT.md`](DEVELOPMENT.md#environment-configuration).
-
-### Build and Run
-
-**IMPORTANT:** This repository contains multiple projects. Always specify the solution file:
+This repository holds more than one project file in the root, so plain `dotnet build` and `dotnet test` fail with MSB1011. Use the FAKE targets, or name the solution:
 
 ```bash
-# CORRECT - build the entire solution
-dotnet run build
-# CORRECT - run the server tests
-dotnet run servertests
-
-# INCORRECT - will fail with "more than one project" error
-dotnet build
-dotnet test
+dotnet run build          # build the whole solution
+dotnet run servertests    # run all Expecto tests
+dotnet run                # start server and client with hot reload, http://localhost:5173
+dotnet run list           # every target
+dotnet test GenPRES.sln   # plain dotnet test, when a target does not fit
+dotnet test tests/Informedica.GenORDER.Tests/   # one test project
 ```
 
-- `dotnet run` - Start full application (server + client with hot reload)
-- `dotnet run list` - Show all available build targets
-- `dotnet run Build` - Build the whole solution (libraries, server, tests, client `.fsproj`); no npm involved
-- `dotnet run ServerBuild` - Build only the server and the libraries it depends on.
-- `dotnet run BenchmarkBuild` - Build the benchmark projects under `benchmark/` (excluded from `GenPRES.sln`; CI runs this in its own `benchmark` job)
-- `dotnet run ClientBuild` - Build the client to browser output (Fable, then a production Vite bundle). Runs `npm ci` first
-- `dotnet run Bundle` - Create production bundle
-- `dotnet run CheckVersions` - Proves that every project shipped in GenPRES.sln reports the same version as the repo-root Directory.Build.props
-- `dotnet run Clean` - Clean build artifacts
-- `dotnet run DockerBuild` - Builds the Docker image, version-labeled from `Directory.Build.props`
-- `dotnet run DockerRun` - Runs a Docker container
-- `dotnet run Format` - Uses Fantomas to format F# code
-- `dotnet run ApiDocs` - Build the fsdocs API reference for the libraries into `./output/` (CI publishes it to GitHub Pages via `docs.yml`)
-- `dotnet run ApiDocsWatch` - Local live-preview server for the API reference
-- `dotnet run MarkdownLint` - Runs the mark down linter
-- `dotnet run RestoreClient` - Runs the client npm restore process
-- Access the application at `http://localhost:5173`
-
-### Testing
-
-- `dotnet run ServerTests` - Run all F# unit tests using Expecto
-- `dotnet run DebugTests` - Run each test project separately, sequentially, with per-test output
-- `dotnet run TestHeadless` - Run all tests through plain `dotnet test`
-- `dotnet test GenPRES.sln` - Alternative way to run all tests
-
-Individual library tests:
-
-```bash
-dotnet test tests/Informedica.GenSOLVER.Tests/
-dotnet test tests/Informedica.GenORDER.Tests/
-dotnet test tests/Informedica.GenUNITS.Tests/
-# ... etc for other test projects
-```
-
-### Code Quality
-
-- `dotnet run Format` - Format F# code using Fantomas
-
-### Docker
-
-The published image defaults to demo mode: `GENPRES_PROD=0` and the public demo sheet ID from `.env.example` baked in as `GENPRES_URL_ID`, so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` (or the Docker Desktop "Run" button) starts a working demo with no secrets. Admin operations are disabled because `GENPRES_PASSWORD` is empty.
-
-Production is an explicit opt-in at container runtime and needs three things: `GENPRES_PROD=1`, the proprietary `GENPRES_URL_ID`, and a bind mount of the host's `data/cache` onto `/app/data/cache` — production reads `*.cache`, and the image ships only the `*.demo` files. `GENPRES_PASSWORD` is optional: without it the server starts with admin operations disabled and prints a warning (issue #590); set one of at least 16 characters to enable the settings page, log analysis and resource reload (a shorter one refuses the start). Neither the proprietary URL ID nor the password is baked into the image; inject both at runtime, ideally via a Docker / Kubernetes secret. The repo-root `compose.yaml` wires all of this from `.env`: `docker compose pull && docker compose up -d`.
-
-- `dotnet run DockerBuild` - Build the image, labeled with the version from the root `Directory.Build.props`. Override the image name with `DOCKER_IMAGE` (default `informedica/genpres`), cross-build a different platform with `DOCKER_PLATFORM`.
-- `dotnet run DockerRun` - Run the built image, reading `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) and failing fast if either is unset.
-- Equivalent manual commands: `docker build -t informedica/genpres .` / demo: `docker run -it -p 8080:8085 informedica/genpres` / production: `docker run -it -p 8080:8085 -e GENPRES_PROD=1 -e GENPRES_URL_ID="your_url_id" -e GENPRES_PASSWORD="your_admin_password" -v "$PWD/data/cache:/app/data/cache" informedica/genpres`
+The full targets table, Docker, release automation and the environment keys are in [DEVELOPMENT.md](DEVELOPMENT.md). Run the tests of a fresh checkout or worktree with `CI=true` when the G-Standaard files under `data/zindex` are absent.
 
 ## Key Code Locations
 
-- F# libraries under `src/`
-- Tests: `tests/` (uses Expecto + FsCheck).
-- Resource loading: `src/Informedica.GenFORM.Lib/Api.fs`
-- Resource parsers: `Mapping.fs`, `Product.fs`, `DoseRuleData.fs`, `SolutionRule.fs`, `RenalRule.fs`
+- F# libraries under `src/`, one test project per library under `tests/` (Expecto + FsCheck)
+- Resource loading: `src/Informedica.GenFORM.Lib/Api.fs`; parsers in `Mapping.fs`, `Product.fs`, `DoseRuleData.fs`, `SolutionRule.fs`, `RenalRule.fs`
 - Unit and BigRational helpers: `src/Informedica.GenUNITS.Lib/ValueUnit.fs`
-- Sheet documentation: the `Data` record types in `src/Informedica.GenFORM.Lib/Types.fs` (one record per sheet, columns documented on the fields), with the column names enforced by the `ColumnContract` tests in `tests/Informedica.GenFORM.Tests/Tests.fs`
+- Sheet documentation: the `Data` records in `src/Informedica.GenFORM.Lib/Types.fs`, one per sheet with the column on each field; the column names are enforced by the `ColumnContract` tests in `tests/Informedica.GenFORM.Tests/Tests.fs`
+- API contract between client and server: `src/Informedica.GenPRES.Shared/Api.fs` (Fable.Remoting)
 
-**Important:** an opt-in strategy is used in the `.gitignore` file — you have to specifically define what should be included instead of the other way around!
-The same applies to the docker ignore file.
+`.gitignore` and `.dockerignore` are opt-in: a new file is excluded until you add a `!` line for it.
 
-## Configuration Architecture
+## Configuration and Resources
 
-- All medication rules and constraints (currently) stored in Google Spreadsheets
-- Downloaded as CSV and parsed dynamically
-- `GENPRES_URL_ID` environment variable controls which spreadsheet to use
-- Local cache files provide offline medication data access
-
-## Communication Pattern
-
-- Client-server communication via Fable.Remoting (type-safe RPC)
-- API contracts defined in `src/Informedica.GenPRES.Shared/Api.fs`
-- Server processes medication calculations and returns validated results
-
-## Resource Loading Pattern
-
-- Sheet specs live in code: each sheet has a record in the `Data` module of `src/Informedica.GenFORM.Lib/Types.fs`, whose XML summary names the sheet and the parser and whose `///` field comments carry the column name (where it differs), unit, separator and boolean spelling.
-- Check that record — and the declared column lists in `DoseRuleToDataTests.ColumnContract` (`tests/Informedica.GenFORM.Tests/Tests.fs`) — for expected sheet and column names.
-- Resources are loaded from Google Sheets via `Web.getDataFromSheet dataUrlId "SheetName"`.
-- Mapping helper functions use `Csv.getStringColumn` / `Csv.getFloatOptionColumn` and call getString/getFloat-style delegates.
-- Resources are declared in the `ResourceRegistry` built by `Resources.defaultRegistry` (`Resources.fs`): a map from a `ResourceKey` name to a `ResourceLoader`. Wrap a `unit -> Result<'T, Message list>` reader with `ofResult`, derive a resource from others with `derive` / `deriveWith` (dependencies are declared by calling `r.Get Keys.x` and resolved lazily, once, by `LoadEngine`). `loadAllResourcesWithRegistry` resolves the whole map; callers reach the result through `IResourceProvider` (`Api.fs`).
-- To add/modify sheet mappings: adjust the mapper in the corresponding module (e.g., `Product.Reconstitution.parseReconstitution`, `DoseRuleData.parseDoseRuleData`), update the `///` field comments on the matching `Data` record, and update the declared column list in the column-contract test.
-- Update the mapper to read columns by name using the `get` delegate (e.g., `let get = getColumn row in get "Generic"`), parse with `BigRational.toBrs` / `getFloat` as appropriate.
-- If adding optional numeric columns, use `getFloatOptionColumn` and `Option.bind BigRational.fromFloat`.
-
-## Result and Error Handling
-
-- IO and parsing functions should return `GenFormResult<'T>` (i.e., Result). Use `FsToolkit.ErrorHandling.ResultCE` computation expression for readability (`result { let! x = ... }`).
-- When editing the registry or its callers, keep every loader returning `Result`; use `Result.bind`, the CE, or `ofResult` for readers.
+- Medication rules and constraints live in Google Spreadsheets, downloaded as CSV and parsed at runtime. `GENPRES_URL_ID` selects the spreadsheet; local cache files give offline access
+- Sheets are read with `Web.getDataFromSheet dataUrlId "SheetName"`; mappers read columns by name through the `get` delegate (`let get = getColumn row in get "Generic"`) and parse with `BigRational.toBrs` / `getFloat`. Optional numeric columns use `getFloatOptionColumn` and `Option.bind BigRational.fromFloat`
+- Resources are declared in the `ResourceRegistry` built by `Resources.defaultRegistry` (`Resources.fs`), a map from `ResourceKey` to `ResourceLoader`. Wrap a `unit -> Result<'T, Message list>` reader with `ofResult`; derive one resource from others with `derive` / `deriveWith` (dependencies are declared with `r.Get Keys.x` and resolved lazily, once). Callers reach the result through `IResourceProvider` (`Api.fs`)
+- To change a sheet mapping: adjust the mapper (`Product.Reconstitution.parseReconstitution`, `DoseRuleData.parseDoseRuleData`, ...), update the `///` field comments on the matching `Data` record, and update the column list in the column-contract test
+- IO and parsing functions return `GenFormResult<'T>` (a `Result`); use the `result` computation expression from FsToolkit.ErrorHandling. Every loader in the registry keeps returning `Result`
 
 ## Never Perform IO in a Top-Level `let` Value
 
-F# packs every top-level `let` **value** binding of a compilation unit into a single static
-initializer (`<StartupCode$X>.$File..cctor()`). So a value whose right-hand side performs IO runs
-that IO the first time *anything* in the file is touched — and .NET caches a failed type
-initializer for the life of the process, so one touch poisons the type permanently. Under Expecto
-this kills test *discovery* for the whole assembly: it produces zero results while `dotnet test`
-still exits non-zero, so the summary reads "0 failed" on a red build.
-
-The distinction is **value vs. function**, and it is easy to miss when the IO hides behind a
-partial application:
+F# packs every top-level `let` **value** of a file into one static initializer, and .NET caches a failed initializer for the life of the process. A value whose right-hand side reaches IO runs that IO the first time anything in the file is touched, and one failure poisons the whole file. Under Expecto this kills test discovery for the assembly: zero results, and the summary reads "0 failed" on a red build. Nesting in a sub-module does not help; the initializer is per file.
 
 ```fsharp
-// BAD — a VALUE. `fetch ()` is applied at binding time, so the IO runs in the file's
-// static constructor, triggered by any unrelated binding in the same file.
+// BAD: a value. The IO runs in the file's static constructor.
 let index = fetch () |> Result.defaultValue []
 
-// GOOD — a FUNCTION. Nothing runs until a caller asks; the caller (a resource
-// registry, a request handler) decides when, how often, and what a failure means.
+// GOOD: a function. Nothing runs until a caller asks.
 let index () = fetch () |> Result.defaultValue []
 ```
 
-The test: no parameters, not `lazy`, and the right-hand side reaches IO — then it runs at type
-initialization. Give it a `()` parameter or wrap it in `lazy`, keep the IO leaf returning a
-`Result`, and let the composition site own the failure policy.
+The test: no parameters, not `lazy`, and the right-hand side reaches IO (network, file, `.env`, `Web.getDataFromSheet`, `Async.RunSynchronously`). Give it a `()` parameter or wrap it in `lazy`, keep the IO leaf returning a `Result`, and let the caller own the failure policy. Two idioms in the codebase do this right:
 
-Nesting inside a sub-module does **not** isolate it — the cctor is per file, not per module.
+- **Memoized accessor**: `let medications : unit -> Drug.Drug list = memoizeN _medications` in `src/Informedica.NKF.Lib/WebSiteParser.fs`, and every BST table module in `src/Informedica.ZIndex.Lib/Zindex.fs`
+- **Explicit `lazy`**: `let root = lazy (resolveRoot ())` with `let rootPath () = root.Value` in `src/Informedica.Utils.Lib/AppPath.fs`
 
-Two idioms already in the codebase do this correctly; follow them:
+It applies to test files too: wrap expensive or fallible fixtures in `lazy`, or guard them with `try/with` as `tests/Informedica.ZIndex.Tests/Tests.fs` does.
 
-- **Memoized accessor** — `src/Informedica.NKF.Lib/WebSiteParser.fs`:
-  `let medications : unit -> Drug.Drug list = memoizeN _medications` (memoized, *not* applied).
-  Every BST table module in `src/Informedica.ZIndex.Lib/Zindex.fs` uses the same shape.
-  `Memoization.memoize` is `ConcurrentDictionary + Lazy`, so `f` runs at most once per key even
-  under concurrent access.
-- **Explicit `lazy`** — `src/Informedica.Utils.Lib/AppPath.fs`:
-  `let root = lazy (resolveRoot ())` with `let rootPath () = root.Value`, deliberately deferred so
-  that an `Env.loadDotEnv ()` setting `GENPRES_ROOT` runs first.
+## Dependency Rule
 
-This applies to network calls, file reads, `.env` loading, `Web.getDataFromSheet`, and anything
-under `Async.RunSynchronously`. It applies to test files too: work done at module level in a test
-module runs at discovery time, so wrap expensive or fallible fixtures in `lazy`, or guard them with
-`try/with` as `tests/Informedica.ZIndex.Tests/Tests.fs` does.
+Every project in `GenPRES.sln` belongs to one ring, and a project references only its own ring or a ring further in ([ADR-0001](docs/adr/0001-system-architecture.md), ring map in `scripts/DependencyRule.fsx`):
 
-Incidents caused by this exact pattern: [#523](https://github.com/informedica/GenPRES/issues/523)
-(HTTP fetch in `GenFORM.Lib/DoseRule.fs`), commit `8617f7a6` (ZIndex tables touched before the test
-fixtures existed), and the Google-sheet fetch since replaced by injection in
-`tests/Informedica.GenORDER.Tests/Tests.fs`.
+- **Core**: units, patient, solver, operational knowledge rules, orders, interactions. No call that reaches outside the process, no configuration reads; values are passed in.
+- **Contract**: `GenPRES.Shared` alone. It references only itself, and only Presentation and Client may reference it, so the domain never depends on the wire shape.
+- **Infrastructure**: the adapters (ZIndex, ZForm, NKF, FTK, the Google Sheets loaders), the agent runtime and the IO half of the utilities.
+- **Presentation**: the server and the MCP host, the composition roots.
+- **Client**: references the contract and other Client projects, nothing more.
+
+Infrastructure and Presentation together are the only rings that touch the network, the filesystem, the environment, the clock and entropy, read a `GENPRES_*` setting, or declare an entry point. Effects enter the core as explicit parameters: a `Logger` record, a `now` value, a `newId` function, a function-valued resource such as `GStandProvider`. Only the composition roots construct loggers, providers and caches.
+
+`scripts/CheckDependencyRule.fsx` enforces this as a separate CI step. Existing violations are listed in it as allowances; an allowance that no longer matches fails the run, so deleting code can fail it too. Run the script after any change to project references or IO.
 
 ## BigRational & ValueUnit Semantics
 
-- BigRational operations are used broadly for dosing math. Respect existing helpers in `Informedica.GenUnits.Lib`.
-- `removeBigRationalMultiples` semantics: it keeps the smallest positive BigRational representatives and removes later values that are integer multiples of a previously kept value. Example: [1/3; 1/2; 1] → keep 1/2 and 1/3 (both non-multiples of each other), but if 1/2 and 1 are present, keep 1/2 and remove 1 (1 is multiple of 1/2).
-- Use `BigRational.isMultiple` when reasoning about integer multiples.
-- Prefer using existing helpers like `ValueUnit.singleWithUnit`, `ValueUnit.withUnit`, etc., when manipulating units.
-- Use **BigRational** for all medication calculations (absolute precision).
-- Use `[<RequireQualifiedAccess>]` on DUs and modules.
+- All medication calculations use BigRational, for absolute precision. Respect the existing helpers in `Informedica.GenUnits.Lib` (`ValueUnit.singleWithUnit`, `ValueUnit.withUnit`, ...)
+- `removeBigRationalMultiples` keeps the smallest positive representatives and removes later values that are integer multiples of a kept one: [1/3; 1/2; 1] keeps 1/2 and 1/3 and drops 1. Use `BigRational.isMultiple` when reasoning about multiples
 
 ## Testing Patterns
 
-All tests use Expecto with Expecto.Flip for fluent assertions:
-
-```fsharp
-open Expecto
-open Expecto.Flip
-
-test "example test" {
-    actual
-    |> Expect.equal "should match expected" expected
-}
-```
-
-### Test Scenarios
-
-Test scenarios are defined in `tests/Informedica.GenORDER.Tests/Scenarios.fs` and include:
-
-- `pcmSupp` - Paracetamol suppository
-- `amfo` - Amphotericin B liposomal IV
-- `morfCont` - Morphine continuous infusion
-- `pcmDrink` - Paracetamol oral liquid
-- `cotrim` - Cotrimoxazole
-- `tpn` / `tpnComplete` - Total parenteral nutrition
-- `fullMedication` - Fully populated medication (all fields set)
-
-## Common Errors and Solutions
-
-### "Specify which project or solution file to use"
-
-```text
-MSBUILD : error MSB1011: Specify which project or solution file to use
-because this folder contains more than one project or solution file.
-```
-
-**Solution:** Always specify `GenPRES.sln`:
-
-```bash
-dotnet build GenPRES.sln
-dotnet test GenPRES.sln
-```
-
-### FSI Script Path Errors
-
-If FSI scripts fail to load dependencies, ensure you're running from the script's directory:
-
-```bash
-cd src/Informedica.GenORDER.Lib/Scripts
-dotnet fsi Tests.fsx
-```
-
-### DLL Not Found
-
-If FSI scripts fail because DLLs are not found, rebuild the solution first:
-
-```bash
-dotnet build GenPRES.sln
-```
+Tests use Expecto with Expecto.Flip, as in the F# coding instructions. Shared test scenarios live in `tests/Informedica.GenORDER.Tests/Scenarios.fs`: `pcmSupp` (paracetamol suppository), `amfo` (amphotericin B liposomal IV), `morfCont` (morphine continuous infusion), `pcmDrink` (paracetamol oral liquid), `cotrim` (cotrimoxazole), `tpn` / `tpnComplete` (parenteral nutrition), `fullMedication` (every field set).
 
 ## Script-Based Development Workflow
 
-**IMPORTANT: All new code MUST be written in `.fsx` script files only — never in `.fs` source files.** The user will review and migrate verified code to the codebase. See the critical policy at the top of this document.
-
-GenPRES uses an FSI script-based workflow for safely implementing new functionality in a mature ("brown-field") codebase. Instead of modifying production source files directly, you copy or shadow existing code into `.fsx` scripts, experiment and test interactively, and only migrate verified code back to the codebase.
-
-### Real-World Example: Cross-Project Feature in a Single Script
-
-Commit `d51252c` added a "pick nearest higher else lower component quantity" feature that ultimately touched 3 libraries and 7 source files (`Array.fs`, `ValueUnit.fs`, `OrderVariable.fs`, `Order.fs`, `OrderProcessor.fs`). But it was **prototyped first in a single script** in `src/Informedica.GenUNITS.Lib/Scripts/` (since removed after migration):
-
-```fsharp
-#load "load.fsx"                          // loads GenUnits source files + compiled Utils DLL
-
-open Informedica.GenUnits.Lib
-
-// 1. Prototype a helper that belongs in Utils.Lib
-module Array =
-    let inline pickNearestHigherElseLower target xs =
-        if Array.isEmpty xs then invalidArg "xs" "Array cannot be empty"
-        let ys = xs |> Array.sort
-        match ys |> Array.tryFind (fun x -> x >= target) with
-        | Some x -> x                   // smallest value >= target
-        | None -> ys[ys.Length - 1]     // no higher value: take highest lower
-
-// 2. Prototype a ValueUnit function that uses the Array helper above
-module ValueUnit =
-    let pickNearestHigherElseLower (target: ValueUnit) (candidates: ValueUnit) =
-        if candidates |> ValueUnit.isEmpty then candidates
-        elif candidates |> ValueUnit.eqsGroup target |> not then candidates
-        else
-            candidates
-            |> ValueUnit.toBase
-            |> ValueUnit.applyToValue (fun brs1 ->
-                target
-                |> ValueUnit.getBaseValue
-                |> Array.tryExactlyOne
-                |> Option.map (fun br ->
-                    [| brs1 |> Array.pickNearestHigherElseLower br |]
-                )
-                |> Option.defaultValue brs1
-            )
-            |> ValueUnit.toUnit
-```
-
-Because `load.fsx` loads the GenUNITS source files via `#load` and references the compiled Utils DLL via `#r`, you can prototype functions from **multiple libraries** in one interactive session. Once the logic is verified in FSI, the code is migrated to the appropriate source files across projects.
+New functionality is prototyped in `.fsx` scripts, verified there, and migrated to source files by the user. A single script can prototype functions of several libraries at once, because `load.fsx` loads the library's own source files with `#load` and the compiled DLLs of the libraries below it with `#r`.
 
 ### Infrastructure
 
-Every library has a `Scripts/` directory containing:
+Every library has a `Scripts/` directory with:
 
-- `load.fsx` — Bootstrap script that loads compiled DLLs from dependent libraries and `#load`s the library's own `.fs` source files. This gives FSI access to the full library context.
-- Development scripts (e.g., `Solver.fsx`, `Medication.fsx`, `Tests.fsx`) — Working scripts for experimentation and testing.
+- `load.fsx`, which references the compiled DLLs of dependent libraries and `#load`s the library's own `.fs` files:
 
-Example `load.fsx` pattern:
+  ```fsharp
+  #r "nuget: MathNet.Numerics.FSharp"
+  #r "../../Informedica.Utils.Lib/bin/Debug/net10.0/Informedica.Utils.Lib.dll"
+  #load "../Types.fs"
+  #load "../Variable.fs"
+  ```
 
-```fsharp
-#r "nuget: MathNet.Numerics.FSharp"
-#r "../../Informedica.Utils.Lib/bin/Debug/net10.0/Informedica.Utils.Lib.dll"
-#load "../Types.fs"
-#load "../Variable.fs"
-#load "../Solver.fs"
-// ... etc
-```
+- development scripts (`Solver.fsx`, `Medication.fsx`, `Tests.fsx`, ...)
+
+Rebuild first (`dotnet run build`) so `load.fsx` finds the DLLs.
 
 ### Workflow
 
-1. **Set the current directory** — Always start with `Environment.CurrentDirectory <- __SOURCE_DIRECTORY__` so relative paths resolve correctly.
-2. **Load project context** — Use `#load "load.fsx"` to load all dependencies.
-3. **Reference NuGet packages inline** — Use `#r "nuget: Expecto, 9.0.4"` for test frameworks or other packages.
-4. **Copy only the code you need** — Don't drag entire modules; start with just the functions you plan to modify.
-5. **Modify and extend** — Refactor, optimize, or add new features in the script.
-6. **Write tests in the same script** — Verify your changes with inline Expecto tests.
-7. **Reuse existing test suites** — Load test files from the `tests/` directory via `#load` and run them against your modified code.
-8. **Migrate when confident** — Once verified, move the improved code back into the source files.
+1. Start the script with `#I __SOURCE_DIRECTORY__` and `Environment.CurrentDirectory <- __SOURCE_DIRECTORY__`, so relative paths resolve
+2. `#load "load.fsx"` for the library context; `#r "nuget: Expecto"` for packages
+3. Copy only the functions you plan to change, not whole modules
+4. Shadow the module to extend it: a module with the original's name that opens the original inside, so existing functions stay reachable through the same name
 
-### Module Shadowing Pattern
+   ```fsharp
+   module Medication =
+       open Informedica.GenOrder.Lib.Medication
 
-Shadow an existing module to extend it with new functions while keeping all original functions accessible:
+       let fromString (s: string) : Result<Medication, string list> = ...
 
-```fsharp
-#load "load.fsx"
+   let text = myMed |> Medication.toString       // original
+   let parsed = text |> Medication.fromString    // new
+   ```
 
-open Informedica.GenOrder.Lib
-
-// Shadow the Medication module to add new functions
-module Medication =
-    // Open the original module - all existing functions become available
-    open Informedica.GenOrder.Lib.Medication
-
-    // Add new function
-    let fromString (s: string) : Result<Medication, string list> =
-        // implementation...
-
-    // Existing functions like toString, template, toOrderDto are now
-    // automatically available as Medication.toString, etc.
-```
-
-**NOTE** The module has the same name as the original (`Medication`), but because it's defined in the script, it shadows the original module. By opening the original module inside the new one, you bring all existing functions into scope, allowing you to call them as if they were part of the new module.
-
-This allows calling both new and existing functions through the same module name:
-
-```fsharp
-let text = myMed |> Medication.toString       // original function
-let parsed = text |> Medication.fromString    // new function
-```
-
-### Testing in Scripts
-
-Write Expecto tests directly in the script file:
-
-```fsharp
-#r "nuget: expecto"
-
-open Expecto
-open Expecto.Flip
-
-let tests =
-    testList "feature tests" [
-        test "roundtrip works" {
-            let original = Scenarios.pcmSupp
-            let text = original |> Medication.toString |> String.concat "\n"
-            match text |> Medication.fromString with
-            | Error errs -> failtest $"Parse failed: {errs}"
-            | Ok parsed ->
-                parsed.Id |> Expect.equal "Id matches" original.Id
-        }
-    ]
-
-runTestsWithCLIArgs [] [||] tests
-```
-
-You can also reuse existing tests from the test projects:
-
-```fsharp
-// Load existing tests directly
-#load "../../../tests/Informedica.GenSOLVER.Tests/Tests.fs"
-
-open Informedica.GenSolver.Tests
-// Run existing test suites against your modified code
-```
+5. Write Expecto tests in the same script and run them with `runTestsWithCLIArgs [] [||] tests`; existing suites can be loaded with `#load "../../../tests/Informedica.GenSOLVER.Tests/Tests.fs"`
+6. Leave migration to the user
 
 ### Using the FSI MCP Server
 
-The [fsi-mcp-server](https://github.com/halcwb/fsi-mcp-server) provides a persistent FSI session accessible via MCP tools. This enables AI-assisted interactive F# development without restarting FSI between queries.
+The [fsi-mcp-server](https://github.com/halcwb/fsi-mcp-server) keeps one FSI session alive across queries. Prefer it over `dotnet fsi` when it runs:
 
-**Available MCP tools:**
+- `mcp__fsi-mcp__get_fsi_status`: is the server running
+- `mcp__fsi-mcp__send_fsharp_code`: execute F# code (end statements with `;;`)
+- `mcp__fsi-mcp__load_f_sharp_script`: load and execute an `.fsx` file
+- `mcp__fsi-mcp__get_recent_fsi_events`: recent output and errors
 
-- `mcp__fsi-mcp__get_fsi_status` — Check if the server is running
-- `mcp__fsi-mcp__send_fsharp_code` — Execute F# code (end statements with `;;`)
-- `mcp__fsi-mcp__load_f_sharp_script` — Load and execute `.fsx` script files
-- `mcp__fsi-mcp__get_recent_fsi_events` — View recent FSI output and errors
-
-**Path resolution strategy:**
-
-FSI's `#load` directive resolves relative paths from its *include path*, **not** from `System.IO.Directory.GetCurrentDirectory()`. When loading scripts via MCP, always start by adding the script's directory to FSI's include path using `#I`:
+FSI resolves `#load` from its **include path**, not from the current directory, and `SetCurrentDirectory` does not change that. Add the script's directory first:
 
 ```fsharp
-// Step 1: Set the include path to the script's directory
 #I "/absolute/path/to/script/directory";;
-
-// Step 2: Now relative #load paths resolve correctly
-#load "../Types.fs";;
-#load "../Utils.fs";;
 #load "load.fsx";;
 ```
 
-**Important:**
+`load_f_sharp_script` sends the statements one by one, so set `#I` before calling it too. The session is persistent: load each dependency once, since a type loaded twice conflicts (`FSI_0005.Types.gram` vs `FSI_0010.Types.gram`) and the server must then be restarted. A DLL loaded with `#r` cannot be unloaded, so after any build that changes a referenced DLL, ask the user to restart the FSI server before continuing; files loaded with `#load` are recompiled and need no restart.
 
-- `System.IO.Directory.SetCurrentDirectory()` does **not** affect `#load` path resolution — you must use `#I`
-- The MCP `load_f_sharp_script` tool sends script statements to FSI individually, so `#load` directives inside scripts also resolve from FSI's include path. Set `#I` before calling `load_f_sharp_script`
-- Scripts should include `#I __SOURCE_DIRECTORY__` at the top so they work both when run via `dotnet fsi` (where `__SOURCE_DIRECTORY__` is the script's directory) and when loaded after manually setting `#I` via MCP
-- The FSI session is persistent — types loaded multiple times create conflicts (e.g., `FSI_0005.Types.gram` vs `FSI_0010.Types.gram`). Load dependencies once per session. If conflicts occur, the FSI server must be restarted
-- **DLL reference changes require a manual restart.** Once a DLL is loaded via `#r`, the .NET runtime cannot unload it. If you rebuild a referenced DLL (e.g., after `dotnet run build`), the FSI session will still use the old version. Reloading source files via `#load` does not have this problem — they are recompiled each time. **Agent action:** After any build that changes referenced DLLs, prompt the user to manually restart the FSI MCP server before continuing with FSI work
-
-### Tips
-
-- **Partial evaluation** — Select part of a script and send it to FSI to validate small functions without reloading everything.
-- **Keep FSI sessions alive** — Build up state interactively rather than restarting FSI each time.
-- **Modularize scripts** — Break scripts into logical regions (helpers, refactored code, tests) with comments for easier navigation.
-- **Rebuild before scripting** — Run `dotnet build GenPRES.sln` first so `load.fsx` can find the compiled DLLs.
+Without the server, run scripts from their own directory: `cd src/Informedica.GenORDER.Lib/Scripts && dotnet fsi Tests.fsx`.
 
 ## Data Dependencies
 
-- Production requires proprietary medication cache files (not in repository)
-- Demo version uses sample medication data included in repository
-- Google Spreadsheets contain live configuration — changes affect running systems
+- Production needs the proprietary medication cache files, which are not in the repository; the demo runs on the sample data that is
+- The Google Spreadsheets are live configuration: an edit changes a running system after the next resource reload
 
 ## Safety and Documentation
 
-- This project targets clinical medication workflows. Any change that affects dosing, rules, parsing, or resource mapping must include: unit tests, a changelog entry, and — if spreadsheet columns or semantics changed — updated `///` field comments on the corresponding `Data` record in `GenFORM.Lib/Types.fs` plus an updated column-contract test.
-- Add notes to CONTRIBUTING.md if the change introduces a new external dependency or changes deployment behavior.
+Any change that affects dosing, rules, parsing or resource mapping must come with unit tests and a changelog entry, and, when sheet columns or their meaning change, with updated `///` field comments on the `Data` record and an updated column-contract test. Note a new external dependency or a change in deployment behaviour in CONTRIBUTING.md.
 
 ## AI/LLM Usage Policy
 
-This policy applies to **all contributors**, not just AI agents.
-
-> **LLMs must not be given direct write access to `.fs` source files**, except for client-side UI code in `src/Informedica.GenPRES.Client/`. Not `src/Informedica.GenPRES.Client.Core/`, whose files run in FSI and are therefore reachable by the script-based workflow like any other library.
-
-Contributors using AI coding tools (GitHub Copilot, Claude, Cursor, Warp AI, etc.) must route all non-UI code through `.fsx` scripts first, following the script-based development workflow described above. The human contributor is responsible for reviewing, verifying, and manually migrating script code into source files.
-
-This restriction exists because GenPRES is a medical device software project. Allowing LLMs to directly modify source files risks introducing unvalidated behavior into clinical medication workflows. Human review of every source file change is a safety requirement.
-
-Contributors must also disclose when code submitted in a pull request is **vibe coded** — see [CONTRIBUTING.md](CONTRIBUTING.md#ai-assisted-contributions) for the definition and disclosure requirements.
+The script-only policy at the top of this file applies to every contributor using an AI coding tool, not only to agents. The human contributor reviews, verifies and migrates script code into source files, and discloses vibe-coded code in the pull request as described in [CONTRIBUTING.md](CONTRIBUTING.md#ai-assisted-contributions).
 
 ## Checklist for Automated Edits
 
-- [ ] Small, focused change: no more than 200 changed source lines (shipped code under `src/`; tests, scripts, docs and lock files not counted), see CONTRIBUTING.md.
-- [ ] Add or update unit tests covering the change.
-- [ ] Ensure `dotnet run servertests` passes locally for affected projects.
-- [ ] Update the `Data` record `///` comments and the column-contract test if spreadsheet column names or semantics change.
-- [ ] Use conventional commit message with scope and short description.
+- [ ] Small, focused change: no more than 200 changed source lines (shipped code under `src/`; tests, scripts, docs and lock files not counted), see CONTRIBUTING.md
+- [ ] Unit tests added or updated
+- [ ] `dotnet run servertests` passes for the affected projects
+- [ ] `Data` record `///` comments and the column-contract test updated when sheet columns or semantics change
+- [ ] Conventional commit message with scope and short description
 
-## Related Documentation
+## Session Rules
 
-- Coding standards: [F# Coding Instructions](.github/instructions/fsharp-coding.instructions.md)
-- Code formatting: [F# Code Formatting](.github/instructions/fsharp-code-formatting.instructions.md)
-- Commit conventions: [Commit Message Instructions](.github/instructions/commit-message.instructions.md)
-- Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
-- Development setup: [DEVELOPMENT.md](DEVELOPMENT.md)
-- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Domain model: [Core Domain Model](docs/domain/core-domain.md)
+- **At the start of a session**, check whether the FSI MCP server runs (`mcp__fsi-mcp__get_fsi_status`). If it does, use the MCP tools for all F# interactive work instead of `dotnet fsi`; see "Using the FSI MCP Server" above.
+- **Before the context is compacted**, or when it approaches 70% use, write a decisions log to `.claude/docs/session-decisions.md`: the design decisions made, the approaches rejected and why, the constraints found, and the values, types and signatures that matter. Do this without being asked.
+- **At the end of each plan step**, append a short summary of what was decided or changed to `.claude/docs/session-log.md`, so nothing is lost if compaction happens between steps.
+
+## Required Reading
+
+Read at the start of every session (Claude Code loads them through the `@` lines):
+
+- @.github/instructions/fsharp-coding.instructions.md
+- @.github/instructions/fsharp-code-formatting.instructions.md
+- @.github/instructions/commit-message.instructions.md
+
+Read when the task needs them:
+
+- [DEVELOPMENT.md](DEVELOPMENT.md) for the build targets, Docker, release automation, IDE setup and the environment keys
+- [CONTRIBUTING.md](CONTRIBUTING.md) for the pull request process
+- [ARCHITECTURE.md](ARCHITECTURE.md) and [ADR-0001](docs/adr/0001-system-architecture.md) for the architecture and the full dependency rule
+- [Core Domain Model](docs/domain/core-domain.md) and the other documents in `docs/domain/` for the domain model

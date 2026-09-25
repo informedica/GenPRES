@@ -180,7 +180,122 @@ GenPRES performs all calculations using exact rational arithmetic (BigRationals)
 
 ---
 
+## Workflow 8 — Launch Sequence
+
+**Goal**: Verify the launch from the hospital EHR, simulated with the server's demo stand-ins.
+
+In production a user reaches GenPRES from the hospital EHR: a launch script opens the browser on a sealed launch token, the browser is signed on at the identity provider, and the server opens a session for the launched patient ([uc-01](../scenarios/integration/uc-01-launch.md)). In demo mode (`GENPRES_PROD=0`, the `.env.example` default) the server hosts stand-ins for every party outside GenPRES, so the whole sequence runs on one machine. A production server answers 404 on the stub routes.
+
+**Steps:**
+
+1. Open <http://localhost:5173/stub/launch>. The page has two fields:
+   - **PatientId**, default `stub-patient` (a ten-year-old of 32 kg). `no-data` stands for a patient the platform has no record for: the session then opens on the last signed data, or asks for patient data.
+   - **Identity at the browser**: who the stub identity provider says is signed on (table below).
+2. Press **Launch**. The server mints a launch token valid for two minutes and redirects to `#/session?launch=<token>`. The client erases the token from the address bar and presents it.
+3. **Expected**: the server redirects through `/authorize` and `/callback`, asks the stub user registry for the role and active patient, reads the patient data, and opens the session. The browser lands on `#/session`; the title bar shows the user and role, and the session menu offers **Close session**.
+
+| Identity | Stands for | Ends in |
+|---|---|---|
+| `prescriber` | a prescriber whose active patient is the launched one | an open session as prescriber |
+| `prescriber-b` | a second prescriber on the same patient, for two-browser tests | an open session as Stub Prescriber B |
+| `reader` | a reader; no PIN needed | an open session as reader |
+| `prescriber-other-patient` | a prescriber with another patient active in the EHR | the gate: wrong patient, relaunch |
+| `no-pin` | a prescriber without a PIN | the enrolment form (Workflow 9) |
+| `unknown` | a login the user registry does not know | the gate: no role, "continue without launch" |
+| `none` | nobody signed on at the browser | the gate: no browser identity, relaunch only |
+
+A refusal arrives as `#/session?refused=<word>` with the words `expired`, `spent`, `invalid`, `no-identity`, `no-role`, `wrong-patient` and `enrolment`.
+
+**Further checks:**
+
+- **Reload after the launch**: the session resumes from the `genpres_session` cookie.
+- **Replay the launch**: open the `#/session?launch=…` URL from the Network tab in another browser profile within two minutes: `spent`. After two minutes: `expired`. A token from an earlier server run: `invalid`, because the sealing key is new at every start.
+- **Two launches of the same user**: the second session is open; the first is told a newer launch ended it on its next request.
+- **Production**: `GENPRES_PROD=1 GENPRES_PASSWORD=<16+ chars> dotnet run`; `/stub/launch` and `/authorize` are 404, `/callback` redirects to `refused=invalid`.
+
+**Pass criteria**: Each identity ends where the table says; a replayed or stale token is refused with the right word.
+
+---
+
+## Workflow 9 — Enrolment: the First Launch of a Prescriber Without a PIN
+
+**Goal**: Verify that a prescriber without a PIN sets one before prescribing ([uc-02](../scenarios/integration/uc-02-enrolment.md)). The demo stands in for the mail service too.
+
+**Steps:**
+
+1. Launch with the identity `no-pin` (Workflow 8).
+2. **Expected**: the browser lands on the gate **Set a PIN to continue** and a six-digit confirmation code is mailed.
+3. Open <http://localhost:5173/stub/mail> in another tab: the stub outbox, newest mail first. Copy the code from "GenPRES: your confirmation code".
+4. Enter the code, a PIN of four to six digits, and the PIN again, then press **Set PIN**.
+5. **Expected**: the session opens and the outbox shows a second mail, "GenPRES: your PIN was set".
+6. Launch `no-pin` again.
+7. **Expected**: the session opens directly. The PIN lives as long as the server runs, or across restarts on SQLite (Workflow 11). The seeded prescribers start with the PIN `1234`.
+
+**Further checks:**
+
+- A wrong code keeps the form and shows the tries left; the third wrong code voids it.
+- The code lives fifteen minutes; after that a fresh launch mails a new one.
+- **Close session** is not offered while enrolling.
+
+**Pass criteria**: The PIN is set once and used at the next launch; wrong codes are counted and limited.
+
+---
+
+## Workflow 10 — Signing an Order Plan
+
+**Goal**: Verify that a prescriber signs the order plan with the PIN and that signing is the only way anything reaches the record ([uc-03](../scenarios/integration/uc-03-prescribe-and-sign.md)). The demo keeps the record in memory unless SQLite is configured (Workflow 11).
+
+**Steps:**
+
+1. Launch with the identity `prescriber` (Workflow 8).
+2. Open **Voorschrijven**, pick a medication, route, form and indication (paracetamol, oral, tablet, mild pain will do), and press **Voorschrijven** on a scenario.
+3. Open **Order Plan** and press **Ondertekenen**.
+4. **Expected**: the dialog lists the orders as they will be signed and asks the PIN.
+5. Enter a wrong PIN. **Expected**: the dialog stays and says two tries are left.
+6. Enter `1234`. **Expected**: the snackbar says order plan version 1 was signed. Sign again: version 2.
+
+**Further checks:**
+
+- **Three wrong PINs**: the session ends at the PIN limit. A new launch within the next minute is refused as locked; every further wrong entry doubles the delay, up to a day.
+- **Launch again**: the cart opens on the order plan version just signed. A hand edit of the patient panel over a platform reading is not kept, and the next sign says the data changed.
+- **Two browsers on one patient** ([uc-04](../scenarios/integration/uc-04-two-users.md)): launch `prescriber-b` in another browser profile, prescribe and sign there. The first browser's next server call shows a snackbar that B signed a newer version, and the **Order Plan** page a bar with **Open the newest version**. Signing without opening it is refused with the same words.
+- **The same identity twice** in another profile: the first browser's next action shows the gate.
+- **The patient without data** (`no-data`): the first **Ondertekenen** is a notice that the data could not be verified; **Doorgaan** signs the version as unverified.
+- **A reader** sees no Sign button.
+- **Restart the server**: on the in-memory store the record is gone; on SQLite it survives.
+
+**Pass criteria**: Only a right PIN signs; the version number increases per signature; a newer version signed elsewhere is reported before it can be overwritten.
+
+---
+
+## Workflow 11 — Sessions, PINs and the Record Across a Restart (SQLite)
+
+**Goal**: Verify that the SQLite session store keeps everything a session stands on across a server restart ([ADR-0007](../adr/0007-session-persistence.md)): launches, sessions and their endings, credentials, confirmation codes, enrolment attempts, signed order plan versions, and what a session holds in flight. Every act that writes is audited in the same transaction. Nothing is ever deleted; a row past its lifetime loads as absent, so the file only grows.
+
+**Steps:**
+
+1. Set `GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db` in `.env` or on the command line. A relative path is rooted at the folder holding `.env` (or `GENPRES_ROOT`); the folder is created and migrations run at start-up.
+2. **Expected**: the start-up banner says `set (SQLite session store)`.
+3. Launch, prescribe and sign (Workflow 10). Stop and start the server and reload the tab.
+4. **Expected**: the session is still there and the next signature is version 2.
+5. Enrol `no-pin` with a PIN of your own (Workflow 9), restart the server, and launch `no-pin` again.
+6. **Expected**: the session opens on the PIN you chose. A lock after three wrong PINs survives too.
+7. Read the audit trail:
+
+   ```bash
+   sqlite3 data/db/genpres.db "select at, action, outcome, session_id, actor from audit_entry order by id"
+   ```
+
+8. To start from nothing, stop the server and delete `data/db/genpres.db`.
+
+The demo credentials are seeded once per login and never overwrite a PIN a user set. Production refuses the key: with `GENPRES_PROD=1` the server refuses to start and names the setting. The file is never tracked.
+
+**Pass criteria**: Sessions, PINs, locks and signed versions survive a restart; the audit table lists every act.
+
+---
+
 ## Additional Resources
 
 - [Getting Started](getting-started.md) — full parameter reference and setup instructions
+- [Cookies and the development proxy](../../DEVELOPMENT.md#cookies-and-the-development-proxy) — what the launch sets in the browser
 - [External User Guides](README.md#external-user-guides) — annotated walkthroughs for clinical workflows

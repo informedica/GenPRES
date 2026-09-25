@@ -136,7 +136,7 @@ versions) behind ports (`ServerApi.Ports.fs`) that demo mode fills with in-memor
 (`ServerApi.StubAdapters.fs`: identity provider, user registry, patient data, mail outbox,
 and one `mutable state` behind a lock, forgotten at restart). The client has the session and
 signing state machines (`SessionMachine.fs`, `SigningMachine.fs`), the gate, the enrolment
-form and the sign dialog. [DEVELOPMENT.md](../../DEVELOPMENT.md#simulating-the-launch-sequence)
+form and the sign dialog. [Testing Workflows](../user-guide/testing-workflows.md#workflow-8--launch-sequence)
 walks through all of it. Production swaps in `Adapters.sessionDisabled`
 (`ServerApi.Adapters.fs:114`, `Server.fs:664`): every launch is refused as invalid until the
 scope switch [#580](https://github.com/informedica/GenPRES/issues/580) decides what

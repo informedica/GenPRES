@@ -5,71 +5,19 @@ applyTo: "**/*.fs,**/*.fsx"
 
 # F# Coding Instructions
 
-## General F# Guidelines
+## Code Style and Formatting
 
-### Code Style and Formatting
+- 4 spaces for indentation, lines under 120 characters
+- 2 blank lines between top-level constructs and between functions in a module; 1 blank line between logical sections in a function
+- PascalCase for types, modules and public members; camelCase for local bindings. Descriptive names for public API, short names inside function bodies
+- Do not use F# reserved keywords as identifiers, including the OCaml-compatibility tokens (`asr`, `land`, `lor`, `lsl`, `lsr`, `lxor`, `mod`, `sig`) and the tokens reserved for future use (`break`, `checked`, `component`, `const`, `constraint`, `continue`, `event`, `external`, `include`, `mixin`, `parallel`, `process`, `protected`, `pure`, `sealed`, `tailcall`, `trait`, `virtual`)
+- One `namespace` or top-level `module` per file, named after the file. Keep `open` statements minimal and close to their use; prefer targeted opens over `open System`
+- Prefer modules and functions over classes; use classes only for interop or framework integration
+- Use `[<RequireQualifiedAccess>]` on DUs and modules
 
-- Use 4 spaces for indentation (no tabs)
-- Keep lines under 120 characters when possible
-- Use 2 newlines to separate top-level constructs (types, modules, functions)
-- Use 2 newlines to separate function definitions within a module
-- Use single blank lines to separate logical sections within a function
-- Use meaningful names for functions, types, and variables:
-  - Make variable names short when used in function bodies or functions not intended for public use
-- Follow F# naming conventions:
-  - PascalCase for types, modules, and public members
-  - camelCase for local bindings and private members
-  - Use descriptive names over abbreviations
-- Avoid using reserved keywords as identifiers, reserved keywords are:
+## Documentation and Comments
 
-The following tokens are reserved in F# because they are keywords in the OCaml language:
-
-- asr
-- land
-- lor
-- lsl
-- lsr
-- lxor
-- mod
-- sig
-
-If you use the `--mlcompatibility` compiler option, the above keywords are available for use as identifiers.
-
-The following tokens are reserved as keywords for future expansion of F#:
-
-- break
-- checked
-- component
-- const
-- constraint
-- continue
-- event
-- external
-- include
-- mixin
-- parallel
-- process
-- protected
-- pure
-- sealed
-- tailcall
-- trait
-- virtual
-
-Additional style guidance:
-
-- Namespace and opens:
-  - Place `namespace` (or a single top-level `module`) at the top of the file.
-  - Keep `open` statements minimal and as close as possible to where they’re needed; prefer local `open` inside modules over file-wide opens.
-  - Avoid `open` on very broad namespaces (e.g., `open System`); prefer targeted opens (e.g., `open System.Text`).
-- One top-level module or namespace per file; the file name should match the top-level module/namespace for discoverability.
-- Prefer modules and functions over classes; use object-oriented constructs only for interop or framework integration.
-- Prefer qualified access:
-  - Use `[<RequireQualifiedAccess>]` on DUs and modules to reduce name collisions and make call sites explicit.
-
-### Documentation and Comments
-
-#### `///` documents the API, `//` explains the implementation
+### `///` documents the API, `//` explains the implementation
 
 - Use `///` on everything a caller can name: modules, types, functions, members,
   **record fields and discriminated union cases**. Only `///` reaches an IntelliSense
@@ -96,7 +44,7 @@ type Patient =
     }
 ```
 
-#### A doc comment is either plain prose or XML — never both
+### A doc comment is either plain prose or XML — never both
 
 The compiler decides per block. If the block starts with a `<`, the whole block is emitted
 as XML verbatim: tags work, and every literal `<` has to be escaped. Otherwise the whole
@@ -143,19 +91,19 @@ GenUNITS, GenORDER and Utils, plus three test projects and one benchmark. In the
 fifteen a malformed block fails silently, which is the stronger reason to keep a block
 plain unless it has earned its tags.
 
-#### No backticks, no `<c>` in a plain block
+### No backticks, no `<c>` in a plain block
 
 `UsesMarkdownComments` is `false` in the root `Directory.Build.props`, so a `///` comment is
 never Markdown: `` `ValueUnit` `` reaches the popup and the reference page as a literal
 backtick. Write the identifier bare in a plain block. `<c>` and `<code>` work only inside a
 block that is already XML.
 
-#### Never `(* … *)`
+### Never `(* … *)`
 
 Not for documentation and not for commented-out code. Delete the code; `git log` is the
 record of what was there.
 
-#### Comments are self-contained
+### Comments are self-contained
 
 A comment says the thing in words. It does not cite a rule, concept, extension, use-case
 step, implementation plan or issue number: the citation goes stale as soon as that
@@ -165,21 +113,16 @@ what the code does. Two exceptions:
 - a comment on code that is **not built yet** keeps the rule it will be built to;
 - a **stop-gap** keeps the issue number that will remove it.
 
-### Type Definitions
+## Type Definitions
 
-- Define types at the module level before functions that use them
-- Use discriminated unions for modeling domain concepts
-- Prefer records over tuples for data with multiple fields
-- Use option types instead of null values
-- Create wrapper types for primitive values to ensure type safety (single-case DUs)
-- Use active patterns for complex pattern matching scenarios
-- Use `[<NoEquality>]` and `[<NoComparison>]` on aggregates that should not be compared structurally
-- Use `[<RequireQualifiedAccess>]` for DUs and modules to avoid unqualified usage
-- Keep domain types immutable; prefer private constructors with smart constructors in modules
-- Use `[<CLIMutable>]` only for DTOs, not for domain types
+- Define types at the top of a module, before the functions that use them
+- Model domain concepts as discriminated unions; prefer records over tuples; use `option` instead of null
+- Wrap primitive values in single-case DUs (`[<Struct>]` for small ones in hot paths)
+- Use `[<NoEquality>]` and `[<NoComparison>]` on aggregates that must not be compared structurally
+- Keep domain types immutable; where validation is needed, use a private constructor with a smart constructor returning `Result` in the module
+- `[<CLIMutable>]` only for DTOs, never for domain types
 
 ```fsharp
-// Good
 [<Struct>]
 type PatientId = private PatientId of string
 
@@ -188,12 +131,6 @@ type MedicationStatus =
     | Active
     | Discontinued
     | Suspended of reason: string
-
-type Patient = {
-    Id: PatientId
-    Name: string
-    DateOfBirth: DateTime option
-}
 ```
 
 ### Scoping and use of `private`
@@ -204,14 +141,9 @@ Never mark a pure function `private`. Pure functions have no side effects, no hi
 
 ### Type and Module Shadowing Pattern
 
-- Create specific modules for each domain type that shadow the type name
-- Define the type first at the top level, then create a module with the same name
-- This enables clean API usage like `Patient.create ...`
-- Place constructor and core operations in the shadowing module
-- Prefer smart constructors returning `Result<_,_>` if validation is required
+Define the type first, then a module with the same name holding its constructor and core operations, so call sites read `Patient.create ...`.
 
 ```fsharp
-// Good - Type-first with shadowing module
 /// Represents a patient in the medical system
 [<NoEquality; NoComparison>]
 type Patient = private {
@@ -233,68 +165,23 @@ module Patient =
     /// Calculates the patient's age
     let calculateAge currentDate (patient: Patient) =
         // implementation
-
-    /// Validates patient data (returns unit on success)
-    let validate (patient: Patient) : Result<unit, PatientError list> =
-        // implementation
-
-// Usage:
-let patientRes =
-  result {
-    let! p = Patient.create "ABC12345" "John Doe" (Some birthDate)
-    return Patient.calculateAge DateTime.UtcNow p
-  }
 ```
 
-#### Benefits of Type Shadowing
+## Function Design
 
-- Discoverability: IntelliSense shows both type and related functions together
-- Consistency: Follows .NET and F# core library patterns (`List`, `Map`, etc.)
-- Type Safety: Explicit return types in module functions ensure correctness
-- Clean APIs: Natural, readable code that expresses intent clearly
-- Encapsulation: Private constructors + smart constructors enforce invariants
+- Small functions with one responsibility; design for composition and piping (`|>`), avoid deep nesting
+- Pattern matching over if-else chains; total functions over partial matches, validate inputs early
+- Model choices as discriminated unions, never as boolean flags
+- Keep pure logic separate from IO; pass dependencies as parameters
 
-### Function Design
+## Error Handling
 
-- Keep functions small and focused on a single responsibility
-- Use partial application and currying effectively
-- Prefer immutable data structures
-- Use pattern matching instead of if-else chains when appropriate
-- Design for function composition and piping (`|>`) and avoid deep indentation
-- Avoid boolean flags; model choices as discriminated unions
-- Prefer total functions; avoid partial pattern matches—validate inputs early
-- Separate pure business logic from I/O operations; pass dependencies as parameters
+- Use `Result<'T,'Error>` for operations that can fail and `Option<'T>` for values that may be absent. Exceptions are for unexpected or unrecoverable errors only
+- Prefer specific error types (DUs) over strings; aggregate validation errors in a DU or non-empty collection
+- Chain with `Result.bind`, the `result` computation expression (FsToolkit.ErrorHandling), or AsyncResult helpers over `Task<Result<'T,'Error>>`
+- Never use `failwith` / `failwithf`: they throw a bare `System.Exception`, which the .NET design guidelines forbid. Use `invalidArg (nameof x)` for argument preconditions, `invalidOp` for invalid state, `raise` with a specific BCL or library exception type (`KeyNotFoundException`, `FormatException`, `TimeoutException`, `SolverException`, ...), `reraise ()` to propagate a caught exception, and Expecto's `failtest` inside tests
 
 ```fsharp
-// Good
-let calculateDosage bodyWeight medication =
-    match medication with
-    | Paracetamol -> bodyWeight * 10.0<mg/kg>
-    | Ibuprofen -> bodyWeight * 5.0<mg/kg>
-    | Custom dose -> dose
-
-// Model choices as DUs instead of boolean flags
-type Query = ById of PatientId | ByName of NonEmptyString
-
-let handleQuery fetchById fetchByName = function
-| ById id -> fetchById id
-| ByName name -> fetchByName name
-```
-
-### Error Handling
-
-- Use `Result<'T,'Error>` for operations that can fail
-  - Use exceptions only for unexpected or unrecoverable errors (system failures, programming errors)
-- Avoid throwing exceptions in business logic
-- Never use `failwith` / `failwithf`: they throw a bare `System.Exception`, which the .NET design guidelines forbid ([#419](https://github.com/informedica/GenPRES/issues/419)). Use `invalidArg (nameof x)` for argument preconditions, `invalidOp` for invalid state, `raise` with a specific BCL or library exception type (`KeyNotFoundException`, `FormatException`, `TimeoutException`, `SolverException`, ...), `reraise ()` to propagate a caught exception, and Expecto's `failtest` inside tests
-- Use `Option<'T>` for values that might not exist
-- Prefer specific error types (DUs) over strings
-- Aggregate validation errors using a DU or non-empty collection
-- Chain error handling using `Result.bind`, computation expressions, or helper modules
-- For async workflows, standardize on `Task<Result<'T,'Error>>` with helper functions (AsyncResult)
-
-```fsharp
-// Good - typed errors
 type DosageError =
     | ExceedsMaximum of max: float<mg>
     | NegativeDose
@@ -303,246 +190,51 @@ let validateDosage dose maxDose =
     if dose < 0.0<mg> then Error NegativeDose
     elif dose <= maxDose then Ok dose
     else Error (ExceedsMaximum maxDose)
-
-// Result computation expression
-type ResultBuilder() =
-    member _.Bind(x,f) = Result.bind f x
-    member _.Return x = Ok x
-    member _.ReturnFrom x = x
-let result = ResultBuilder()
-
-// AsyncResult helpers based on Task<Result<_,_>>
-module AsyncResult =
-    let bind (f: 'a -> Task<Result<'b,'e>>) (t: Task<Result<'a,'e>>) = task {
-        let! r = t
-        match r with
-        | Ok v -> return! f v
-        | Error e -> return Error e
-    }
-    let map f (t: Task<Result<'a,'e>>) = task {
-        let! r = t
-        return Result.map f r
-    }
 ```
 
-### Module Organization
+## Units of Measure
 
-- Group related functionality in modules
-- Use explicit module declarations
-- Keep modules focused and cohesive
-- Keep pure functions public (see "Scoping and use of `private`"); reserve `private` for smart-constructor invariants, mutable state and IO wiring
-- Place types at the top of modules before functions
-- Use nested modules for related functionality
-- Create separate modules for DTOs, validation, and business logic
-- Create consistent API modules that expose main functionality
-- Use `[<RequireQualifiedAccess>]` for DUs and modules to keep call sites explicit
+Define units for all physical quantities, keep calculations unit-safe, and write explicit conversion functions between compatible units. Use BigRational for all medication calculations (see AGENTS.md); `float` with explicit tolerances only for scientific values that need it.
 
-### Assembly and Project Structure
+## Performance
 
-- Prefer SDK-style projects; avoid manual `AssemblyInfo.fs` in new projects
-- Centralize common settings in `Directory.Build.props` and enable SourceLink
-- Use semantic versioning via git tags with MinVer or Nerdbank.GitVersioning
-- Include assembly metadata via SDK properties (Title, Description, Company)
-- Keep shared types and utilities in separate libraries
-- Organize code into domain-specific libraries using `Informedica.{Domain}.Lib` naming
-- Enable deterministic builds and repository metadata for traceability
+- Profile before optimizing; prefer functional code and be pragmatic about hot paths
+- `seq` for large data that need not be materialized; arrays and `[<Struct>]` wrappers in tight numeric work; `voption` in hot paths
+- Memoize expensive pure functions; `async`/`task` for IO; tail recursion or folds over unbounded recursion
 
-Example SourceLink setup (Directory.Build.props):
+## Logging
 
-```xml
-<Project>
-  <PropertyGroup>
-    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-    <Deterministic>true</Deterministic>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.*" PrivateAssets="All" />
-  </ItemGroup>
-</Project>
-```
+The core takes a `Logger` record as a parameter; only the composition roots construct one (see the dependency rule in AGENTS.md). Use message templates rather than interpolation, log at the right level, and never log patient-identifying data.
 
-If you need explicit attributes, you can still include an `AssemblyInfo.fs`:
+## Testing
 
-```fsharp
-[<assembly: AssemblyTitleAttribute("Informedica.GenSolver.Lib")>]
-[<assembly: AssemblyProductAttribute("Informedica.GenSolver.Lib")>]
-[<assembly: AssemblyCompanyAttribute("halcwb")>]
-[<assembly: AssemblyVersionAttribute("0.2.2")>]
-do ()
-```
-
-Tooling and quality gates:
-
-- Enforce formatting with Fantomas (configure via `.editorconfig` or `fantomas-config.json`)
-- Use FSharpLint for code smells and consistency
-- Treat warnings as errors in libraries; use pragmas sparingly
-- Add BenchmarkDotNet projects for hot paths
-
-### Units of Measure
-
-- Define units of measure for all physical quantities
-- Use consistent unit handling patterns across libraries
-- Ensure calculations preserve unit safety
-- Create explicit conversion functions between compatible units
-- Prefer `decimal` for financial values; use `float`/`float32` with explicit tolerances for scientific values
-- Validate ranges via smart constructors
-
-```fsharp
-[<Measure>] type mg
-[<Measure>] type kg
-[<Measure>] type mgkg = mg/kg
-
-module Dose =
-    let calc (bw: float<kg>) (factor: float<mgkg>) : float<mg> = bw * factor
-```
-
-### Testing
-
-- Write unit tests for all public functions
-- Use property-based testing for complex logic
-- Test edge cases and error conditions
-- Keep tests readable and maintainable
-- Create separate test projects for each library
-- Test both success and failure paths
-- Create test utilities for common setup operations
-- Avoid `DateTime.Now` in tests; inject time via an `IClock`/provider
-- Add golden tests for serialization/deserialization stability
-
-Example preferred test setup:
+All tests use Expecto with Expecto.Flip, so the actual value is piped into the assertion:
 
 ```fsharp
 open Expecto
 open Expecto.Flip
 
-let run = 
-    runTestsWithCLIArgs [] [||] 
-
-// preferred test setup using Expecto.Flip
-// enabling pipelining of the actual value to 
-// the expecto test with the message and expected value
 test "Example test" {
-    // GOOD
-    // explicit expected result
     let exp = 1
 
-    // GOOD
     1
-    // pipeline actual to test with
-    // message as interpolated string with exp
     |> Expect.equal $"1 should be equal to {exp}" exp
 }
-|> run
 ```
 
-#### Testing Framework and Structure
-
-- Use Expecto as the primary testing framework
-- Use `runTestsInAssemblyWithCLIArgs [] argv` in Main.fs for test discovery
-- Organize tests in nested modules that mirror the library structure
-- Use `[<Tests>]` attribute to mark test collections
-- Use `testList` to group related tests together
-- Provide an async testing pattern for `Task`/`Async` return values
-
-```fsharp
-// Test project structure
-[<EntryPoint>]
-let main argv =
-    runTestsInAssemblyWithCLIArgs [] argv
-
-module Tests =
-    module DomainTests =
-        let tests = testList "Domain" [
-            // tests here
-        ]
-
-    [<Tests>]
-    let tests = testList "LibraryName Tests" [
-        DomainTests.tests
-    ]
-
-// Async test example
-testTask "async workflow returns Ok" {
-    let! res = workflowUnderTest ()
-    res |> Expect.equal "should succeed" (Ok 42)
-}
-```
-
-#### Test Naming and Documentation
-
-- Use descriptive test names with backticks for complex scenarios
-- Include expected behavior in test names
-- Use both `test` and `testCase` syntax consistently
-- Write tests that clearly express intent and expected outcomes
+- One test project per library; `runTestsInAssemblyWithCLIArgs [] argv` in `Main.fs`; nested `testList`s that mirror the library, marked `[<Tests>]`
+- Test every public function, both success and failure paths, edge cases (zero, negative, empty) and round trips (`serialize >> deserialize = id`)
+- Descriptive names that state the expected behaviour; `testTask` for `Task`/`Async` code
+- Property-based tests with FsCheck through `testPropertyWithConfig`, with custom generators for domain types
+- Data-driven tests as a list of cases in a `testList` `for` loop
+- Inject time and randomness (`IClock`, `IRng`); never `DateTime.Now` in a test
+- Floating-point comparisons with `Accuracy.areClose`; `Expect.throws` for exceptions
 
 ```fsharp
-test "substance nacl to mmol" {
-    // test implementation
-}
-
-test "``calculateDosage should return correct dose for paracetamol``" {
-    // test implementation
-}
-```
-
-#### Property-Based Testing
-
-- Use FsCheck integration through Expecto for property-based tests
-- Configure custom generators for domain-specific types
-- Set appropriate test counts for thorough coverage
-- Use `testPropertyWithConfig` for custom FsCheck configurations
-
-```fsharp
-type Generators =
-    static member NonEmptyString() =
-        Arb.from<string>
-        |> Arb.filter (fun s -> not (System.String.IsNullOrWhiteSpace s))
-
-let config = {
-    FsCheckConfig.defaultConfig with
-        maxTest = 1000
-        endSize = 100
-        arbitrary = [ typeof<Generators> ]
-}
+let config = { FsCheckConfig.defaultConfig with maxTest = 1000; arbitrary = [ typeof<Generators> ] }
 
 testPropertyWithConfig config "round-trip serialization" <| fun input ->
-    input
-    |> serialize
-    |> deserialize
-    = input
-```
-
-#### Assertion Patterns
-
-- Use `Expect.equal` with descriptive failure messages
-- Use `Expect.isTrue` and `Expect.isFalse` for boolean assertions
-- Use `Expect.throws` for exception testing
-- Prefer pipeline syntax with `|>` for readability
-- Use Unquote for complex assertions when needed
-
-```fsharp
-result
-|> Expect.equal "should be equal" expected
-
-someCondition
-|> Expect.isTrue "condition should be true"
-
-(fun () -> dangerousOperation())
-|> Expect.throws "should throw an exception"
-```
-
-#### Data-Driven Testing
-
-- Use lists or arrays of test cases for parameterized testing
-- Create helper functions for common test patterns
-- Use `for` loops in `testList` for generating multiple similar tests
-
-```fsharp
-let testCases = [
-    input1, expected1
-    input2, expected2
-]
+    input |> serialize |> deserialize = input
 
 testList "parameterized tests" [
     for input, expected in testCases do
@@ -553,247 +245,40 @@ testList "parameterized tests" [
 ]
 ```
 
-#### Testing Complex Scenarios
+## Domain Modeling
 
-- Test "there and back again" scenarios for serialization/deserialization
-- Test boundary conditions and edge cases explicitly
-- Create specific tests for error conditions and validation
-- Test both positive and negative cases for business rules
+- Model the domain in types before writing logic; make illegal states unrepresentable
+- Avoid primitive obsession: value objects as single-case DUs, non-empty collections where emptiness is invalid
+- Model workflows as explicit state machines: a DU for the states, functions for the transitions
+- Validate at API boundaries, return structured errors, use async for all IO
+- Keep persistence and wire shapes out of domain types; map at the boundary
 
-```fsharp
-test "there and back again, simple dto" {
-    let original = createTestData()
+## Fable JSX Interpolated Strings
 
-    original
-    |> serialize
-    |> deserialize
-    |> Expect.equal "should roundtrip correctly" original
-}
-```
-
-#### Test Utilities and Helpers
-
-- Create reusable helper functions for common test setup
-- Use consistent patterns for test data creation
-- Create custom generators for complex domain types
-- Share common test utilities across test projects
+- Never create anonymous records inline inside JSX interpolated strings (`$"""..."""`). Extract every `sx` object and other anonymous record to a named `let` binding before the template; share module-level bindings across components (`let private flexEndSx = {| alignItems = "flex-end" |}`). A trivial single-property record used once may stay inline
+- Never inline non-trivial lambdas (event handlers such as `onChange`, `onClick`, `onSubmit`) inside JSX strings; extract them to named `let` bindings. A one-line dispatch lambda (`fun _ -> Close |> dispatch`) may stay inline; multi-line lambdas, lambdas with type annotations, or lambdas reading `e.target`/`e.currentTarget` must be extracted
 
 ```fsharp
-let equals expected message actual =
-    Expect.equal actual expected message
-
-let createTestPatient name age =
-    { Name = name; Age = age; (* other fields *) }
-```
-
-#### Integration and System Testing
-
-- Separate unit tests from integration tests
-- Use TestServer for API testing when applicable
-- Mock external dependencies appropriately
-- Test configuration and environment setup
-- Make time and randomness explicit dependencies (inject IClock/IRng) for deterministic tests
-
-#### Performance and Mathematical Testing
-
-- Use appropriate precision for floating-point comparisons
-- Test mathematical operations with edge cases (zero, negative, infinity)
-- Include performance benchmarks for critical algorithms (BenchmarkDotNet)
-- Test with large datasets when relevant
-
-```fsharp
-test "floating point comparison with tolerance" {
-    let result = complexCalculation()
-    let expected = 1.23456789
-
-    Accuracy.areClose Accuracy.veryHigh result expected
-    |> Expect.isTrue "should be within tolerance"
-}
-```
-
-### Documentation
-
-See [Documentation and Comments](#documentation-and-comments) above for the `///` and `//`
-rules. Beyond those: document a complex algorithm or a business rule where the code cannot
-state it, keep a comment focused on *why* rather than *what*, and consider a script-based
-sample when a runnable example is worth more than prose.
-
-### Performance Considerations
-
-- Use sequences (`seq`) for large datasets that don't need to be fully materialized
-- Consider `async`/`task` for I/O operations
-- Profile before optimizing
-- Prefer functional approaches but be pragmatic about performance
-- Use `seq` for lazy evaluation of large datasets
-- Implement memoization for expensive pure functions
-- Consider async patterns for I/O-bound operations
-- Prefer `ValueOption` (`voption`) in hot paths to reduce allocations
-- Prefer arrays for tight numeric work; prefer structs (`[<Struct>]` single-case DUs) for small wrappers in hot paths
-- Ensure tail recursion or use folds to avoid stack growth
-
-### Logging and Observability
-
-- Implement structured logging throughout the application
-- Use dependency injection for logger instances
-- Log at appropriate levels (Debug, Info, Warning, Error)
-- Include correlation IDs for tracking requests
-- Use message templates (e.g., Serilog style) instead of string interpolation
-- Avoid logging PII; redact sensitive data (especially in medical contexts)
-
-### Configuration Management
-
-- Use environment variables for configuration
-- Provide sensible defaults for optional settings
-- Separate development, test, and production configurations
-- Make configuration immutable once loaded
-- Represent configuration as typed records and validate at startup
-- Treat time and randomness as dependencies (inject IClock/IRng)
-
-## Project-Specific Guidelines
-
-### Domain Modeling
-
-- Model the domain using F# types before implementing logic
-- Use units of measure for quantities (mg, kg, ml, etc.)
-- Make illegal states unrepresentable through type design
-- Leverage F#'s type system to encode business rules
-- Avoid primitive obsession: prefer value objects (single-case DUs) and non-empty collections
-- Model workflows explicitly (e.g., state machines with DUs for states and transitions)
-
-```fsharp
-[<RequireQualifiedAccess>]
-type PrescriptionState =
-    | Draft of DraftData
-    | Signed of SignedData
-    | Dispensed of DispensedData
-
-module Prescription =
-    let sign draft : Result<PrescriptionState, Error> =
-        // validate…
-        Ok (PrescriptionState.Signed signedData)
-```
-
-### API Design
-
-- Use Railway Oriented Programming for complex workflows
-- Validate inputs at API boundaries
-- Return structured errors with helpful messages
-- Use async for all I/O operations
-- Design APIs that support method chaining and fluent interfaces
-- Provide Result/AsyncResult helpers and computation expressions to simplify composition
-
-### Data Access Patterns
-
-- Separate data models from business logic
-- Use mapping functions between different representations (DTO ↔ Domain)
-- Implement caching strategies for expensive data operations
-- Design for both local and remote data sources
-- Keep persistence concerns out of domain types; map at boundaries
-
-### Solver Pattern (for Mathematical Libraries)
-
-- Separate constraint definition from solving logic
-- Use variable and equation abstractions for mathematical modeling
-- Implement logging and debugging capabilities for complex algorithms
-- Design for extensibility with different solving strategies
-- Provide reproducibility via explicit seed/control of randomness
-
-### Code Generation
-
-- Use code generation for repetitive data access code
-- Generate types from external schemas when appropriate
-- Maintain generated code in separate files
-- Document the generation process clearly
-- Keep generated code isolated from handwritten domain code
-
-### Dependencies
-
-- Minimize external dependencies
-- Prefer pure functions over stateful operations
-- Use dependency injection for external services
-- Mock external dependencies in tests
-- Keep boundaries thin and map exceptions to domain errors at the edge
-
-### Fable JSX Interpolated Strings
-
-- Never create anonymous records directly inline inside JSX interpolated strings (`$"""..."""`)
-- Extract all `sx` prop objects and other anonymous records to named `let` bindings before the JSX template
-- Reuse shared style bindings across components by placing them at the module level (e.g., `let private flexEndSx = {| alignItems = "flex-end" |}`)
-- Place one-off style bindings as local `let` bindings just before the JSX expression that uses them
-- Exception: trivial single-property records (e.g., `{| marginBottom = 2 |}`) may remain inline if they appear only once
-- Never inline non-trivial lambdas (event handlers like `onChange`, `onClick`, `onSubmit`) inside JSX interpolated strings — extract them to named `let` bindings before the JSX template
-- Trivial one-line lambdas that just dispatch a message (e.g., `fun _ -> Close \|> dispatch`) may remain inline; multi-line lambdas, lambdas with type annotations, or lambdas accessing `e.target`/`e.currentTarget` must be extracted
-
-```fsharp
-// Bad - inline anonymous record in JSX string
-JSX.jsx
-    $"""
-    <Grid container sx={ {|
-                              alignItems = "flex-end"
-                              gap = 2
-                          |} }>
-        <Typography sx={ {| fontWeight = "bold" |} }>Title</Typography>
-    </Grid>
-    """
-
-// Good - extracted to named bindings
-let gridSx =
-    {|
-        alignItems = "flex-end"
-        gap = 2
-    |}
-
-let boldSx = {| fontWeight = "bold" |}
-
-JSX.jsx
-    $"""
-    <Grid container sx={gridSx}>
-        <Typography sx={boldSx}>Title</Typography>
-    </Grid>
-    """
-
-// Good - shared styles at module level for reuse across components
-let private flexEndSx = {| alignItems = "flex-end" |}
-let private boldCellSx = {| fontWeight = "bold" |}
-```
-
-```fsharp
-// Bad - non-trivial lambda inlined in JSX string
+// Bad - inline anonymous record and handler in the JSX string
 JSX.jsx
     $"""
     <TextField
-        value={password}
+        sx={ {| alignItems = "flex-end"; gap = 2 |} }
         onChange={fun (e: Browser.Types.Event) ->
                       setPassword (e.target?value: string)
                       setLoginError false}
     />
     """
 
-// Good - extracted to a named handler
+// Good - extracted to named bindings
+let fieldSx = {| alignItems = "flex-end"; gap = 2 |}
+
 let handlePasswordChange (e: Browser.Types.Event) =
     setPassword (e.target?value: string)
     setLoginError false
 
 JSX.jsx
     $"""
-    <TextField
-        value={password}
-        onChange={handlePasswordChange}
-    />
-    """
-
-// Acceptable - trivial dispatch lambda may remain inline
-JSX.jsx
-    $"""
-    <Button onClick={fun _ -> Close |> dispatch}>Close</Button>
+    <TextField sx={fieldSx} onChange={handlePasswordChange} />
     """
 ```
-
-## References
-
-- F# for Fun and Profit: Domain Modeling and Railway Oriented Programming — [https://fsharpforfunandprofit.com/](https://fsharpforfunandprofit.com/)
-- Domain Modeling Made Functional (Scott Wlaschin) — [https://pragprog.com/titles/swdddf/domain-modeling-made-functional/](https://pragprog.com/titles/swdddf/domain-modeling-made-functional/)
-- Official F# Style Guide — [https://learn.microsoft.com/dotnet/fsharp/style-guide/](https://learn.microsoft.com/dotnet/fsharp/style-guide/)
-- Fantomas (F# formatter) — [https://github.com/fsprojects/fantomas](https://github.com/fsprojects/fantomas)
-- FSharpLint — [https://github.com/fsprojects/FSharpLint](https://github.com/fsprojects/FSharpLint)
-- BenchmarkDotNet — [https://benchmarkdotnet.org/](https://benchmarkdotnet.org/)

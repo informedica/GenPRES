@@ -9,7 +9,7 @@
 - [Security Review 2026-04-10](2026-04-10-security-review.md), § 2 for the assets, actors and trust boundaries of the system as deployed
 - [Security Baseline](security-baseline.md), the posture in force and its remediation status
 - [EHR integration model](../scenarios/integration/README.md), the launched-and-signed workflow: the design in `GenPRES-MainEHR-Integration-V8.md`, the executable model `Integration.fsx`, and the use cases uc-01 to uc-11
-- [Simulating the launch sequence](../../DEVELOPMENT.md#simulating-the-launch-sequence), what of that workflow runs today against server-side stubs
+- [Testing Workflows 8 to 11](../user-guide/testing-workflows.md#workflow-8--launch-sequence), what of that workflow runs today against server-side stubs
 
 ## Why a threat model
 

@@ -111,7 +111,7 @@ is audited by neither. The wrong-PIN limit at signing is
 which is not built.
 
 The walkthrough is in
-[DEVELOPMENT.md](../../../DEVELOPMENT.md#enrolment-the-first-launch-of-a-prescriber-without-a-pin).
+[Testing Workflows](../../user-guide/testing-workflows.md#workflow-9--enrolment-the-first-launch-of-a-prescriber-without-a-pin).
 
 ---
 

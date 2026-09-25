@@ -4,52 +4,22 @@
 
 ### Toolchain Requirements
 
-Before contributing, ensure you have the following installed (this section is the canonical source for toolchain versions):
+This section is the canonical source for toolchain versions.
 
-- **.NET SDK**: pinned via [`global.json`](global.json) (currently `10.0.302`, `rollForward: latestPatch`) — see [Why the SDK is pinned tightly](#why-the-sdk-is-pinned-tightly) below
+- **.NET SDK**: pinned in [`global.json`](global.json) (currently `10.0.302`, `rollForward: latestPatch`)
 - **Node.js**: 18.x, 22.x, or 23.x (LTS versions recommended)
 - **npm**: 10.x or later
 
-#### Why the SDK is pinned tightly
-
-`global.json` used to read `"version": "10.0.0", "rollForward": "latestFeature"`, which lets the
-SDK resolver jump to a newer *feature band* (the hundreds digit of the patch version, e.g.
-`10.0.3xx` -> `10.0.4xx`) with no corresponding change reviewed in this repo. CI's
-`actions/setup-dotnet` step compounded this: it pinned `dotnet-version: '10.0.x'`, which always
-installs the newest available `10.0.x` SDK on the runner regardless of `global.json`.
-
-This combination caused [issue #447](https://github.com/informedica/GenPRES/issues/447): between
-11 and 12 August 2026, GitHub's hosted runners started shipping `10.0.400` instead of the
-previously-installed `10.0.302`, with no dependency or lock-file change in this repo (`paket.lock`
-pins `Aether 8.3.1` and `FSharp.Core 10.1.203`, and `paket restore` uses the lock file as-is). The
-newer SDK's F# compiler changed code generation around the `^=`/`Optic.set` custom operators that
-`Informedica.GenORDER.Lib`/`Informedica.ZForm.Lib`'s optics code gets via `open Aether.Operators`:
-under `10.0.400`, `Patient`'s and `DoseRule`'s module type initializers throw
-`Dynamic invocation of op_HatEquals is not supported` the first time anything touches those
-modules — not just under test discovery, so a build compiled with the bad SDK band would crash at
-runtime too — even though the exact same source compiled and ran fine under `10.0.302`. 11 tests
-across `GenORDER.Tests`, `GenCORE.Tests`, `ZForm.Tests`, and `GenFORM.Tests` failed identically, on
-every PR, regardless of what the PR actually changed. Root-causing and fixing the `Aether`
-incompatibility itself (rather than just avoiding the bad SDK band) is tracked as follow-up.
-
-The fix applied: `global.json` now pins an exact `version` with `rollForward: "latestPatch"`, so
-the resolver only ever picks up patches within the same feature band (e.g. `10.0.303`), never a
-band jump. Both `.github/workflows/build.yml` and `.github/workflows/commit-lint.yml` now pass
-`global-json-file: global.json` to `actions/setup-dotnet` instead of a separate `dotnet-version:
-'10.0.x'`, so `global.json` is the single source of truth for CI's SDK version and a future
-feature-band bump requires a deliberate, reviewed edit to that file. `Dockerfile`'s build stage is
-pinned to the matching exact SDK image tag (`mcr.microsoft.com/dotnet/sdk:10.0.302`, not the
-floating `10.0` tag) for the same reason — a Docker build is exactly the kind of compile that
-would otherwise silently pick up a newer, broken feature band outside of CI's control.
+The SDK pin is exact on purpose: a newer feature band can change F# code generation. `global.json`
+is the single source of truth. CI passes `global-json-file: global.json` to `actions/setup-dotnet`,
+and the `Dockerfile` build stage uses the matching exact SDK image tag. Bumping the feature band is
+a deliberate, reviewed edit to `global.json`.
 
 ### Setting Up the Development Environment
 
 1. Fork this repository
 2. Clone your fork locally
-3. Configure the demo environment variables as described in the
-  [Environment Configuration](#environment-configuration) section below.
-
-If you prefer, you can use `direnv`, as documented in the [Environment Configuration](#environment-configuration) section below.
+3. Configure the environment as described in [Environment Configuration](#environment-configuration)
 
 ### Start the application
 
@@ -57,298 +27,69 @@ If you prefer, you can use `direnv`, as documented in the [Environment Configura
 dotnet run
 ```
 
-Open your browser to `http://localhost:5173`
+Open your browser at `http://localhost:5173`.
 
-### Simulating the launch sequence
+### The demo launch sequence
 
-In production a User reaches GenPRES from MainEHR: the LaunchScript opens the browser on a
-sealed Launch, the browser is signed on at the IdentityProvider, and the server opens a Session
-for the launched patient (steps 1 to 6 of [uc-01](docs/scenarios/integration/uc-01-launch.md)).
-In demo mode the server hosts stand-ins for every party outside GenPRES, so the whole sequence
-runs on one machine with nothing to install
-([plan 605](docs/implementation-plans/605-launch-with-server-stubs.md)). The stand-ins are
-mounted only when `GENPRES_PROD=0`; a production server answers 404 on their routes and refuses
-every launch as invalid until the scope switch
-([#580](https://github.com/informedica/GenPRES/issues/580)) decides what production exposes.
-
-#### Walkthrough
-
-1. Start the application with `GENPRES_PROD=0` (the `.env.example` default): `dotnet run`.
-2. Open `http://localhost:5173/stub/launch`. This is the stub LaunchScript page, served by the
-   server on port 8085 and reached through the Vite proxy. It has two fields:
-   - **PatientId**, default `stub-patient`, which the stub PatientDataPlatform reads as a
-     ten-year-old of 32 kg. Any text works; `no-data` stands for a patient the platform has no
-     record for (ext 6a): the Session then opens on the data the last version was signed on, or
-     on no patient data, the panel asking for it (#640, #646).
-   - **Identity at the browser**: who the stub IdentityProvider will say is signed on. The
-     table below lists the choices.
-3. Press **Launch**. The server mints a Launch sealed under a key it made at start-up, valid for
-   two minutes, and redirects to `#/session?launch=<token>`. The client erases the token from
-   the address bar and history, generates a key pair, and presents the Launch.
-4. The server answers with a redirect to `/authorize` (the stub IdentityProvider), which sends
-   the browser straight back to `/callback` with a one-time code. The server redeems the code,
-   asks the stub UserRegistry for the role and the active patient, reads the patient data, and
-   opens the Session in one act.
-5. The browser lands on `#/session`. With `prescriber` the title bar shows a person button with
-   **Stub Prescriber** and the role; the session menu offers **Close session**.
-
-What each identity choice ends in:
-
-| Identity | Stands for | Ends in | uc-01 |
-|---|---|---|---|
-| `prescriber` | a Prescriber whose active patient is the launched one | an open Session as Prescriber | main path |
-| `prescriber-b` | a second Prescriber on the same patient, for two browsers (UC-3, Rule 20) | an open Session as Stub Prescriber B | main path |
-| `reader` | a Reader; no PIN needed | an open Session as Reader | ext 5c |
-| `prescriber-other-patient` | a Prescriber with another patient active in MainEHR | the gate: wrong patient, relaunch | ext 5b |
-| `no-pin` | a Prescriber without a PIN | the enrolment form: a confirmation code by mail, then a PIN (UC-2, below) | ext 5d |
-| `unknown` | a login the UserRegistry does not know | the gate: no role, with "continue without launch" | ext 5a |
-| `none` | nobody signed on at the browser | the gate: no browser identity, relaunch only | ext 3c |
-
-A refusal arrives as `#/session?refused=<word>` with the words `expired`, `spent`, `invalid`,
-`no-identity`, `no-role`, `wrong-patient` and `enrolment`; the client erases the parameter and
-shows the gate for it.
-
-#### Enrolment: the first launch of a Prescriber without a PIN
-
-A Prescriber has to set a PIN before prescribing
-([uc-02](docs/scenarios/integration/uc-02-enrolment.md), Rules 24, 25, 37). The demo stands in
-for the MailService too ([plan 615](docs/implementation-plans/615-enrolment-with-server-stubs.md)):
-
-1. Launch with the identity `no-pin`. The hop runs as above, but instead of opening a Session
-   the server mails a six-digit confirmation code and the browser lands on the gate **Set a PIN
-   to continue**, which greets the user and says where the code went (`n***@stub.example`).
-2. Open `http://localhost:5173/stub/mail` in another tab: the stub MailService's outbox, newest
-   mail first. Copy the code from "GenPRES: your confirmation code".
-3. Enter the code, a PIN of four to six digits, and the PIN again, and press **Set PIN**. The
-   Session opens as **Stub Prescriber (no PIN)**, and the outbox shows a second mail, "GenPRES:
-   your PIN was set".
-4. Launch `no-pin` again, in this or another browser: the Session opens directly. The PIN
-   lives as long as the server runs, or across restarts on SQLite (below). The seeded
-   Prescribers (`prescriber`, `prescriber-b`, `prescriber-other-patient`) start with the PIN
-   `1234`.
-
-Things worth trying here:
-
-- **A wrong code**: the form stays, with the tries left. The third wrong code voids it; a fresh
-  launch mails a fresh one.
-- **A second launch while the code stands** (another tab or browser, `no-pin` again): no second
-  mail; either browser can enter the code, and the Session opens in the one that did.
-- **Waiting**: the code lives fifteen minutes; after that the form is gone at the next reload
-  and a fresh launch mails a new code.
-- **Leaving**: **Close session** is not offered while enrolling; a relaunch replaces the
-  attempt, and closing the tab abandons it.
-
-#### Signing an order plan
-
-A Prescriber signs the order plan with the PIN; signing is the only way anything reaches the
-record ([uc-03](docs/scenarios/integration/uc-03-prescribe-and-sign.md), Rules 42, 43). The
-demo keeps the record in memory
-([plan 622](docs/implementation-plans/622-signing-with-server-stubs.md)):
-
-1. Launch with the identity `prescriber`. The patient panel shows the stub platform's reading, a
-   ten-year-old of 32 kg; change it if you like.
-2. Open **Voorschrijven** from the menu, pick a medication, a route, a form and an indication
-   (paracetamol, oral, tablet, mild pain will do), and press **Voorschrijven** on a scenario.
-3. Open **Order Plan**: the order is in the plan, with an **Ondertekenen** button above it.
-   Press it. The dialog lists the orders exactly as they will be signed and asks the PIN.
-4. Enter a wrong PIN: the dialog stays and says two tries are left. Enter `1234`: the dialog
-   closes and the snackbar says version 1 was signed by Stub Prescriber. Sign again: version 2.
-
-Things worth trying here:
-
-- **Three wrong PINs**: the dialog closes and the gate says the Session ended at the PIN limit;
-  the Sign button and the person menu are gone. Launch again: a right PIN inside the next minute
-  is refused as locked until a time, after that it signs. Every wrong entry past the third
-  doubles the delay, up to a day.
-- **Launch again**: the cart opens on the version just signed, before anything is entered
-  (Rule 19); so does a reload. The patient panel shows the platform's reading again: a hand edit
-  over a reading is not kept (Concept 2), and the next sign tells that the data changed (Rule 44).
-- **Two browsers on one patient** ([uc-04](docs/scenarios/integration/uc-04-two-users.md),
-  [plan 635](docs/implementation-plans/635-session-bound-compute.md)): launch `prescriber-b` in
-  another browser profile, prescribe and sign there. The first browser's next action that
-  reaches the server (a change in the patient panel, a scenario) shows a snackbar once: Stub
-  Prescriber B signed a newer version at that time, and the **Order Plan** page a bar with
-  **Open the newest version** (Rule 21). Nothing is blocked by it (Rule 22): pressing
-  **Ondertekenen** instead is refused with the same words (Rule 20) and shows the same bar. The
-  button loads B's orders into the cart, says version N by Stub Prescriber B is now open, and
-  signing works again: version N+1 has B's as its base. A page switch alone sends nothing, so
-  it tells nothing.
-- **The same identity twice**: launch `prescriber` again in another browser profile. The first
-  browser's next action shows the gate: a newer launch ended the Session (Rule 11). In the same
-  profile the second launch replaces the session cookie instead, and the older tab simply
-  continues on the new Session.
-- **The patient without data**: launch with the PatientId `no-data`. The first **Ondertekenen**
-  is a notice instead of the dialog: the data could not be verified. **Doorgaan** asks the
-  challenge again with the notice accepted, and the version is signed as unverified (Rule 44).
-  Launch `no-data` again, or reload: the panel shows the data the version was signed on, since
-  the platform has none (#640); the first sign of the new Session shows the notice again.
-- **A Reader**: `reader` sees no Sign button.
-- **Watch the wire**: `RequestSignChallenge` answers `ChallengeIssued`, `Submit` answers
-  `Submitted` with the version and a fresh OpenedToken; the PIN travels in the Submission and
-  nowhere else, and never appears in the log. A Submission sent twice under the same key is
-  answered the same way once. Every computing member (`processOrderContext`, `processOrderPlan`,
-  `processFormulary`, `processParenteralia`, `processInteraction`) sends `{ Opened; Command }`
-  and gets `{ Response; Notice }`: the notice names the newer version or the ending, and is
-  empty otherwise; `OpenVersion` answers the Session with a fresh OpenedToken when it switches versions
-  (the token stands when the version named is the one already open).
-- **Restart the server**: on the in-memory store the record is gone with everything else; the
-  next signature is version 1 again. On SQLite (below) the record survives.
-
-#### Keeping Sessions, PINs and the record across a restart: SQLite
-
-The session store can keep everything a Session stands on in a SQLite file, the test and
-development database ([ADR-0007](docs/adr/0007-session-persistence.md) § 2 and § 4,
-[plan 516](docs/implementation-plans/516-sessionrecord-store.md)): the launches and what they
-came to, the Sessions with what they opened with and their endings, the credentials, the
-confirmation codes, the enrolment attempts, the signed order plan versions, and what a Session
-holds in flight — the data notice it was told, the signing challenge it answers, and the answer
-a Submission was given, so that a Submission sent twice is answered from the row the first one
-wrote, whichever server takes the repeat. Two servers given the same Submission at once are a
-different thing: neither sees the other's answer until one of them has committed, so one signs
-and the other is refused as stale. Sending it twice is safe; sending it twice at once is a race
-the store decides, not a guarantee it removes.
-
-The acts that write something are audited beside them, in the same transaction as the act
-itself: a launch and what it came to, an open, a Session closed or ended at the PIN limit, an
-order plan version signed and a signature refused, a PIN set, a code mailed or entered wrongly,
-a challenge issued, a notice told and a version opened. An act with nothing to write has nothing
-to audit, and a Session superseded by a newer launch is one: no row says it ended, since the
-newer Session is what tells it, so no entry does either.
-
-Nothing is ever deleted — not a heartbeat, not a spent challenge, not an audit entry. A row past
-its lifetime loads as absent rather than being dropped, so the file only grows; to start from
-nothing, delete it (step 7 below).
-
-The demo credentials are written to the file at start-up, once per login: a login that already
-has one is left alone, so a PIN a User set is never replaced by the seeded `1234`.
-
-1. Set the key, in `.env` or on the command line:
-   `GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db`. A relative path is rooted at the
-   folder holding `.env` (at `GENPRES_ROOT` when that is set); the folder is created, and the
-   migrations are applied at start-up. The banner says `set (SQLite session store)`.
-2. Launch as `prescriber`, prescribe and sign: order plan version 1.
-3. Stop the server and start it again, and reload the tab without launching: the Session is
-   still there. The cookie names it, the server reads it back from the file, and the Order Plan
-   opens on the version you signed; the next signature is version 2.
-4. Launch as `no-pin` and enrol with a PIN of your own, then stop and start the server and
-   launch `no-pin` again: the Session opens directly, on the PIN you chose. Three wrong PINs at
-   a signature survive a restart too, lock and all.
-5. Press **Ondertekenen**, and with the PIN dialog open stop and start the server; then enter
-   the PIN, **within two minutes of pressing the button**. The signature goes through: the
-   challenge it answers was written to the file when it was issued. A challenge lives two
-   minutes whatever happens to the server, so a slower restart leaves it past its lifetime, the
-   store loads it as absent, and the signature is refused and asked again.
-6. Read what was done: `sqlite3 data/db/genpres.db "select at, action, outcome, session_id,
-   actor from audit_entry order by id"`.
-7. To start from nothing, stop the server and delete `data/db/genpres.db`.
-
-Production refuses the key: with `GENPRES_PROD=1` and `GENPRES_DB_CONNECTION` set, the server
-refuses to start and names the setting. The file is never tracked: the opt-in `.gitignore`
-leaves `data/db/` out.
-
-#### Things worth trying
-
-- **Reload after the launch**: the Session resumes from the `genpres_session` cookie.
-- **Replay the Launch**: copy the `#/session?launch=…` URL from the Network tab (it never stays
-  in the address bar) and open it in another browser profile or an incognito window within two
-  minutes: `spent`. After two minutes: `expired`. A token from an earlier server run: `invalid`,
-  the sealing key is new at every start, whatever the store holds.
-- **Reload the callback**: reload `/callback?code=…&state=…` from the Network tab within two
-  minutes: the same answer as the first time (Rule 45), no second Session.
-- **Two launches of the same user**: launch as `prescriber` in tab A, then again in tab B. B is
-  open; A's next request is told that a newer launch ended its Session and offers to continue
-  without a launch (Rules 8 and 11). Once A acknowledged, the notice is gone.
-- **Watch the wire**: in the Network tab, the `PresentLaunch` call answers `RedirectTo`, then
-  two 302s (`/authorize`, `/callback`), then `GetSession`. The Launch appears in none of the
-  responses after the first request.
-- **Production**: `GENPRES_PROD=1 GENPRES_PASSWORD=<16+ chars> dotnet run`; `/stub/launch`
-  and `/authorize` are 404, `/callback` redirects to `refused=invalid`.
-
-The stand-ins keep in memory what no store holds: the IdentityProvider's one-time codes and the
-outbox, and, on the in-memory store, everything else besides. On the in-memory store a restart
-forgets all of it: the browser's session cookie no longer finds a Session, `no-pin` has to enrol
-again, and the record starts from nothing. On SQLite the Session, its ending, the credential a
-User enrolled with, the record and the challenge a signature was part-way through all survive,
-so a signature started across a restart is finished, not asked for again.
+In demo mode (`GENPRES_PROD=0`) the server hosts stand-ins for the hospital EHR, the identity
+provider, the user registry and the mail service, so the launch, enrolment and signing sequences
+run on one machine. The walkthroughs are in
+[Testing Workflows](docs/user-guide/testing-workflows.md#workflow-8--launch-sequence), workflows 8 to 11.
 
 #### Cookies and the development proxy
 
 | Cookie | Set by | Attributes | Purpose |
 |---|---|---|---|
-| `genpres_session` | the callback, on an open | HttpOnly, Strict, `Path=/`, Secure over HTTPS | names the Session (Rule 12) |
-| `genpres_launch_state.<state>` | the answer to `PresentLaunch` | HttpOnly, Lax, `Path=/callback`, `Max-Age` 2 min | proves the callback comes from the browser that started the hop; one per hop so two tabs can launch at once |
-| `genpres_stub_identity` | the stub launch page | HttpOnly, Lax, `Path=/`, `Max-Age` 2 min | carries the identity choice and the PatientId to the stub IdentityProvider; demo only |
-| `genpres_enrolment` | the callback, when the launch suspends into enrolment | HttpOnly, Strict, `Path=/`, `Max-Age` what remains of the code's fifteen minutes | names the enrolment attempt this browser made; the form's `SupplyPin` works on it and nothing else (UC-2) |
+| `genpres_session` | the callback, on an open | HttpOnly, Strict, `Path=/`, Secure over HTTPS | names the session |
+| `genpres_launch_state.<state>` | the answer to `PresentLaunch` | HttpOnly, Lax, `Path=/callback`, `Max-Age` 2 min | proves the callback comes from the browser that started the hop |
+| `genpres_stub_identity` | the stub launch page | HttpOnly, Lax, `Path=/`, `Max-Age` 2 min | carries the identity choice and PatientId to the stub identity provider; demo only |
+| `genpres_enrolment` | the callback, when the launch suspends into enrolment | HttpOnly, Strict, `Path=/`, `Max-Age` what remains of the code's fifteen minutes | names the enrolment attempt this browser made |
 
-`vite.config.js` proxies `/api`, `/stub`, `/authorize` and `/callback` to the server on port
-8085, so in development the browser talks to one origin (`localhost:5173`) and the cookies,
-which are host-only and port-agnostic, reach both. In production the server serves the client
-itself and no proxy is involved.
+`vite.config.js` proxies `/api`, `/stub`, `/authorize` and `/callback` to the server on port 8085,
+so in development the browser talks to one origin and the cookies reach both. In production the
+server serves the client itself.
 
 ## Build System Architecture
 
 ### How `dotnet run` Interacts with FAKE
 
-GenPRES uses [FAKE](https://fake.build/) (F# Make) as its build automation tool. The build configuration lives in two files under `build/`:
+GenPRES uses [FAKE](https://fake.build/) for build automation. The configuration lives under `build/`:
 
-- **`build/Build.fs`** – defines all FAKE build targets (tasks) and their dependency chains
-- **`build/Helpers.fs`** – helper functions for running processes (dotnet, npm, docker) in the build
+- **`build/Build.fs`** defines the targets and their dependencies
+- **`build/Helpers.fs`** wraps process calls (dotnet, npm, docker)
 
-The project file stays in the repository root and compiles them from there, for the reason given below.
+`dotnet run` from the repository root executes `Build.fsproj`, an F# console application that starts
+FAKE. FAKE reads the target name from the arguments (default `Run`) and executes it with its
+dependencies.
 
-When you type `dotnet run` from the repository root, .NET executes `Build.fsproj`, which is an F# console application that initializes the FAKE execution context. FAKE then reads the target name from the command-line arguments (defaulting to `Run` when none is given) and executes the corresponding target and all of its declared dependencies.
-
-`Build.fsproj` has to live in the repository root: bare `dotnet run` resolves its project only
-from the current directory (there is no configuration or environment variable to redirect it),
-so moving it into a subfolder would turn every invocation into `dotnet run --project <dir> <target>`.
-The same root placement is why plain `dotnet build` / `dotnet test` fail with MSB1011 — both the
-solution and this project file are candidates — and must be given `GenPRES.sln` explicitly.
-
-`Build.fsproj` is listed in `GenPRES.sln`, under a `build` solution folder beside `src` and
-`tests`, so that editors that load projects from the solution (Ionide, Rider) group it with them
-and give `build/Build.fs` and `build/Helpers.fs` IntelliSense. It is deliberately **not** part of
-the solution build: its solution entry has `ActiveCfg` lines only, no `Build.0` lines, so
-`dotnet build GenPRES.sln` — which the `Build` target runs from inside the running build
-executable — never tries to overwrite `Build.dll` while it is executing. `dotnet run` builds
-the project itself, and `scripts/CheckSolutionVersions.fsx` skips it as a non-shipped project.
-
-```text
-dotnet run [target]
-     │
-     └─► Build.fsproj (F# console app)
-              │
-              └─► FAKE target engine
-                       │
-                       ├─► resolves target dependency chain
-                       └─► executes each target step
-```
-
-For example, `dotnet run` (no target) runs the `Run` target, which depends on
-two independent prerequisites: `Build` (compiles the server, no npm involved)
-and `Clean → RestoreClient` (clears stale Fable output, then restores npm
-packages for the Fable/Vite dev server).
+`Build.fsproj` must stay in the repository root: bare `dotnet run` only finds a project in the
+current directory. This is also why plain `dotnet build` and `dotnet test` fail with MSB1011 (two
+candidates) and must be given `GenPRES.sln`. The project is listed in `GenPRES.sln` for editor
+support but excluded from the solution build, so `dotnet build GenPRES.sln` never overwrites
+`Build.dll` while it is running.
 
 ### FAKE Build Targets Reference
 
-| Command | Target | Description |
-|---|---|---|
-| `dotnet run` | `Run` | Start server + Fable/Vite dev server with hot reload (default). Creates `.env` from `.env.example` when it is missing |
-| `dotnet run list` | *(special)* | List all available FAKE targets |
-| `dotnet run Build` | `Build` | Compile the entire solution (`GenPRES.sln`) — libraries, server, tests, and the client `.fsproj`. No npm involved |
-| `dotnet run ServerBuild` | `ServerBuild` | Compile only the server and the libraries it depends on. Skips test projects and the client toolchain |
-| `dotnet run BenchmarkBuild` | `BenchmarkBuild` | Compile the four benchmark projects under `benchmark/` in Release. They are excluded from `GenPRES.sln`; CI runs this target in a separate `benchmark` job |
-| `dotnet run ClientBuild` | `ClientBuild` | Compile the client: Fable (F# → `.jsx`) then a production Vite bundle. Runs `npm ci` first via `RestoreClient` |
-| `dotnet run Clean` | `Clean` | Remove `deploy/` and `dist/` artifacts, delete Fable-generated `.jsx` files |
-| `dotnet run Bundle` | `Bundle` | Production build: publish server, compile client, copy data |
-| `dotnet run ServerTests` | `ServerTests` | Run all F# unit tests (Expecto) with quiet logging |
-| `dotnet run DebugTests` | `DebugTests` | Run every test project one at a time through Expecto's own runner, with per-test output and no parallelism. For chasing a flaky test or an interaction between two tests; stops at the first failing assembly. The project list is read from `GenPRES.sln`, so a new test project is included the day it is added. Without the G-Standaard files under `data/zindex`, set `CI=true` so `ZIndex.Tests` skips rather than fails |
-| `dotnet run CheckVersions` | `CheckVersions` | Verify every built DLL's version matches the root `Directory.Build.props` |
-| `dotnet run TestHeadless` | `TestHeadless` | Run the whole suite through plain `dotnet test`, with its output rather than the per-assembly summary `ServerTests` prints |
-| `dotnet run Format` | `Format` | Format all F# source files using Fantomas |
-| `dotnet run ApiDocs` | `ApiDocs` | Build the fsdocs API reference for the `Informedica.*.Lib` libraries in Release into `./output/`. CI (`docs.yml`) publishes it to GitHub Pages on push to `master`. Set `FSDOCS_ROOT` to the site base URL (CI passes `https://informedica.github.io/GenPRES/`) |
-| `dotnet run ApiDocsWatch` | `ApiDocsWatch` | Local live-preview server for the API reference; rebuilds on changes to `docs/reference/` or the libraries' XML doc comments |
-| `dotnet run DockerBuild` | `DockerBuild` | Build the production image (`informedica/genpres` by default, override with `DOCKER_IMAGE`), labeling it with the version from the root `Directory.Build.props` |
-| `dotnet run DockerRun` | `DockerRun` | Run the built image locally, using `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the current environment (source `.env` first) |
+| Command | Description |
+|---|---|
+| `dotnet run` | Start server and Fable/Vite dev server with hot reload (default). Creates `.env` from `.env.example` when missing |
+| `dotnet run list` | List all targets |
+| `dotnet run Build` | Compile the whole solution: libraries, server, tests and the client `.fsproj`. No npm |
+| `dotnet run ServerBuild` | Compile only the server and its libraries |
+| `dotnet run BenchmarkBuild` | Compile the benchmark projects under `benchmark/` in Release. They are outside `GenPRES.sln`; CI runs this in a separate job |
+| `dotnet run ClientBuild` | Compile the client: Fable, then a production Vite bundle. Runs `npm ci` first |
+| `dotnet run Clean` | Remove `deploy/` and `dist/`, delete Fable-generated `.jsx` files |
+| `dotnet run Bundle` | Production build: publish server, compile client, copy data |
+| `dotnet run ServerTests` | Run all Expecto tests with quiet logging |
+| `dotnet run DebugTests` | Run every test project one at a time with per-test output and no parallelism; stops at the first failing assembly. Set `CI=true` without the G-Standaard files under `data/zindex` |
+| `dotnet run TestHeadless` | Run the suite through plain `dotnet test` |
+| `dotnet run CheckVersions` | Verify every built DLL's version matches the root `Directory.Build.props` |
+| `dotnet run Format` | Format all F# source with Fantomas |
+| `dotnet run MarkdownLint` | Lint the Markdown files |
+| `dotnet run ApiDocs` | Build the fsdocs API reference into `./output/`. Set `FSDOCS_ROOT` to the site base URL |
+| `dotnet run ApiDocsWatch` | Live preview of the API reference |
+| `dotnet run DockerBuild` | Build the production image, labeled with the version from `Directory.Build.props` |
+| `dotnet run DockerRun` | Run the built image with `GENPRES_URL_ID`/`GENPRES_PASSWORD` from the environment |
 
 #### Target Dependency Chains
 
@@ -356,120 +97,87 @@ packages for the Fable/Vite dev server).
 Clean ──► RestoreClient ──► Bundle
 Clean ──► RestoreClient ──► ClientBuild
 
-ServerBuild            (no prerequisites — restores itself)
-BenchmarkBuild         (no prerequisites — restores itself)
-ApiDocs                (no prerequisites — restores and builds Release itself)
-ApiDocsWatch           (no prerequisites — restores and builds Release itself)
+ServerBuild, BenchmarkBuild, ApiDocs, ApiDocsWatch   (no prerequisites)
 
 Build ──► Run
 RestoreClient ──► Run
 
 Build ──► TestHeadless
-
 Build ──► ServerTests
 Build ──► CheckVersions
 ```
 
-`ServerBuild` and `ClientBuild` are **additive**: nothing depends on them, and `Build`
-does not use them. `Build` still builds the test projects because `ServerTests` runs
-`dotnet test --no-restore`. It also stays npm-free so CI does not run `npm ci` and a
-Fable compile for every test run. Thus, `Build` remains the full-solution build,
-while the new targets compile either side separately.
+`ServerBuild` and `ClientBuild` are additive: nothing depends on them. `Build` stays the full,
+npm-free solution build so CI does not run `npm ci` and a Fable compile for every test run.
+
+### What Happens During `dotnet run` (the `Run` target)
+
+`Run` first creates `.env` from `.env.example` when there is none (demo sheet ID, `GENPRES_PROD=0`,
+empty password). An existing `.env` is never touched. Only `Run` does this; `Build`, `ServerTests`
+and `Bundle` work without a `.env`.
+
+It then starts two processes in parallel:
+
+1. **Server**: `dotnet run --no-restore` in `src/Informedica.GenPRES.Server/`, listening on port `8085`
+2. **Client**: `dotnet fable watch … --run npx vite` in `src/Informedica.GenPRES.Client/`, served on
+   `http://localhost:5173` with hot module replacement
+
+Output of both is printed with `server:` and `client:` prefixes.
 
 ### Paket groups
 
-Packages are managed by [Paket](https://fsprojects.github.io/Paket/) from the single root
+Packages are managed by [Paket](https://fsprojects.github.io/Paket/) from the root
 `paket.dependencies` / `paket.lock`; each project lists what it uses in its own `paket.references`.
-The dependencies file is split into five groups, each resolved independently so that packages
-needed only by one side of the repo never influence the version resolution of the shipped code:
+The dependencies file has five groups, each resolved independently:
 
 | Group | Used by | Contents |
 |---|---|---|
-| `Main` (the unnamed first section) | `src/` libraries, server, shared contract | everything shipped, including `Unquote` and `IcedTasks`, which the libraries use |
+| `Main` (unnamed first section) | `src/` libraries, server, shared contract | everything shipped |
 | `Client` | `src/Informedica.GenPRES.Client` | Fable, Elmish, Feliz |
 | `Test` | `tests/*` | Expecto, FsCheck, the test SDK and adapter |
 | `Build` | the root `Build.fsproj` | FAKE |
-| `Benchmark` | `benchmark/*` | BenchmarkDotNet (see [#513](https://github.com/informedica/GenPRES/issues/513)) |
+| `Benchmark` | `benchmark/*` | BenchmarkDotNet |
 
-A `paket.references` file names a group with a `group <Name>` line; everything above the first
-such line is `Main`. Each project references exactly one group: the `src/` projects `Main`, the
-client `Client`, the test projects `Test`, the root build project `Build`. The `benchmark/`
-projects are the one exception and list `Main` and `Benchmark`.
+Each project references exactly one group (the `benchmark/` projects list `Main` and `Benchmark`).
+Paket emits one `PackageReference` per group and package without de-duplicating, so a project on two
+groups would get `FSharp.Core` twice and NuGet would warn on every restore. Test projects therefore
+get `Unquote`, `MathNet.Numerics.FSharp` and `IcedTasks` transitively from the library under test.
+`FSharp.Core` is pinned to the same version in every group; bump all four together.
 
-The one-group-per-project rule is not cosmetic. Paket emits one `PackageReference` (and one
-`PackageVersion`) per group and per package and never de-duplicates across groups, so a project
-that listed `Main` and `Test` would get `FSharp.Core` twice and NuGet would warn `NU1504` /
-`NU1506` on every restore. Test projects therefore do **not** list `Unquote`,
-`MathNet.Numerics.FSharp` or `IcedTasks` themselves: those flow to them transitively through their
-`ProjectReference` to the `src/` library under test, exactly as they would in any SDK-style
-project, at the version `Main` pins. `FSharp.Core` they list from the `Test` group.
-
-`FSharp.Core` is pinned to the same version in every group on purpose, so that the copy a test or
-client project gets from its own group agrees with the copy that flows in from `Main` through the
-project reference. Bump the pin in all four places together.
-
-To add a package: put the `nuget` line in the group that matches its consumer, add it to the
-consuming project's `paket.references` under that group, run `dotnet paket install`, and commit
+To add a package: put the `nuget` line in the group of its consumer, add it to the consuming
+project's `paket.references` under that group, run `dotnet paket install`, and commit
 `paket.dependencies`, `paket.lock` and the touched `paket.references` files.
 
 ### Changelog & Release Automation (EasyBuild.ShipIt)
 
-GenPRES uses [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt) to derive
-the next semantic version and changelog entries from conventional-commit history — see
-[ADR-0005](docs/adr/0005-build-system-versioning-and-release.md) for the full
-design. It is registered as a local dotnet tool (`.config/dotnet-tools.json`) and configured via
-YAML front matter at the top of the root `CHANGELOG.md`.
+[EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt) derives the next version and
+changelog section from conventional-commit history ([ADR-0005](docs/adr/0005-build-system-versioning-and-release.md)).
+It is a local dotnet tool, configured in the YAML front matter of `CHANGELOG.md`, and runs in CI on
+every push to `master` (see [Release Automation](#release-automation-github-actions)).
 
-ShipIt runs in CI on every push to `master` (see [Release Automation](#release-automation-github-actions)
-below) and owns the version number: the `updaters:` block in the `CHANGELOG.md` front matter points at
-`/Project/PropertyGroup/Version` in the root `Directory.Build.props`, so the release PR bumps that
-element as well as adding the changelog section. Two further `regex` updaters rewrite the version
-where it is spelled out for Docker: the default image tag in the root `compose.yaml`
-(`informedica/genpres:${GENPRES_IMAGE_TAG:-<version>}`), so a `git pull && docker compose pull &&
-docker compose up -d` after a release runs the version that was just shipped, and the commented
-`GENPRES_IMAGE_TAG` example in `.env.example`, so someone who uncomments it to pin a version pins
-the current one rather than whichever was current when that line was last touched by hand. Do not
-hand-edit `<Version>`, the compose default, or that example.
+ShipIt owns the version number. Its updaters write it to `<Version>` in `Directory.Build.props`, to
+the default image tag in `compose.yaml`, and to the commented `GENPRES_IMAGE_TAG` example in
+`.env.example`. Do not hand-edit any of the three. Never put a `+` in `<Version>`: the Docker tag
+step folds it to `-`, and the updaters do not.
 
-The `regex` updaters write the version verbatim, whereas `tag-release.yml` folds any `+` in the
-version to `-` because `+` is not a legal Docker tag character. The two agree only as long as
-`<Version>` carries no SemVer build metadata. ShipIt never generates build metadata (versions come
-from conventional commits plus the `alpha.N` pre-release counter), so this holds unless someone
-hand-edits `<Version>` with a `+`, which is already disallowed above. If build metadata is ever
-introduced deliberately, replace both `regex` updaters with `command` updaters that apply the same
-fold before writing `compose.yaml` and `.env.example`.
-
-To preview locally what ShipIt would generate:
+Preview locally:
 
 ```bash
 dotnet tool restore
 dotnet shipit --dry-run --allow-branch master --skip-merge-commit --skip-invalid-commit
 ```
 
-`--allow-branch` defaults to `main`; GenPRES's default branch is `master`, so it must be passed
-explicitly (`release.yml` passes it too). `--skip-merge-commit` is required for every invocation.
-All three merge methods are enabled on the repo, so `Merge pull request ...` commits will keep
-appearing in history, and ShipIt throws on the first one it hits instead of skipping it.
-`--skip-invalid-commit` is required too: a commit that does not follow Conventional Commits (most
-often a GitHub-UI "commit suggestion" — e.g. accepting a bot review comment — which bypasses the
-local Husky `commit-msg` hook entirely, since no local `git commit` runs) can still reach `master`
-if the required `commit-lint` PR check is overridden on merge. Without this flag ShipIt throws
-`FailedToParseCommit` and the whole release run fails; with it, that one commit is dropped from the
-changelog and the run continues. `--dry-run` never modifies files or opens a pull request, so it's
-safe to run against a dirty tree.
+All three flags are required: the default branch is `master`, merge commits appear in history and
+ShipIt throws on them, and a commit that does not follow Conventional Commits (a GitHub-UI "commit
+suggestion" bypasses the local hook) would otherwise fail the run. `--dry-run` changes nothing.
 
 #### What reaches the changelog
 
-The behavior below was established by running ShipIt 3.0.1 against a throwaway branch of this
-repo. ShipIt's own documentation covers none of it.
-
-- **`docs`, `build`, and `chore` commits never render.** Only types like `feat` and `fix` produce
-  entries, and no flag or escape hatch changes that. A change that must appear in the release notes
-  has to ride on a rendering commit type.
-- **Commits that change no files are ignored**, whatever their type.
-- **A `=== changelog ===` block adds detail to an entry that already renders.** It is read from the
-  **commit message body**, not the pull request body, and needs both an opening *and* a closing
-  `=== changelog ===` marker. An unterminated block is dropped silently, with no warning:
+- Only types like `feat` and `fix` render. `docs`, `build` and `chore` commits never do, so a change
+  that must appear in the release notes needs a rendering type.
+- Commits that change no files are ignored.
+- A `=== changelog ===` block in the **commit message body** (not the PR body) adds detail under the
+  entry. It needs an opening and a closing marker; an unterminated block is dropped silently.
 
   ```text
   fix(server): correct the infusion rate rounding
@@ -479,75 +187,27 @@ repo. ShipIt's own documentation covers none of it.
   === changelog ===
   ```
 
-  That renders the prose indented beneath the commit's bullet.
-
-Putting the block in a PR body only works when the merge method copies that body into the commit
-message, which squash-merging does by default and merge-commit merging never does. Since all three
-merge methods are enabled here, put it in the commit message.
-
-### What Happens During `dotnet run` (the `Run` target)
-
-The `Run` target first makes sure a `.env` file exists: when there is none, it copies
-`.env.example` (public demo sheet ID, `GENPRES_PROD=0`, empty `GENPRES_PASSWORD`) and prints a
-notice, so a fresh clone or `git worktree` runs the demo without a manual `cp`. The seeded server
-has admin operations disabled, because the password is empty; set `GENPRES_PASSWORD` in `.env` to
-enable them locally. An existing `.env` is never touched. Only
-`Run` does this; `Build`, `ServerTests` and `Bundle` keep working without a `.env`, as they do in CI.
-
-Then it starts two long-running processes **in parallel**:
-
-1. **Server** – `dotnet run --no-restore` in `src/Informedica.GenPRES.Server/`
-   - Saturn/Giraffe HTTP server on port `8085`
-2. **Client** – `dotnet fable watch … --run npx vite` in `src/Informedica.GenPRES.Client/`
-   - Fable compiles F# → JavaScript, Vite serves the client on `http://localhost:5173` with Hot Module Replacement (HMR)
-
-Output from both processes is printed concurrently with color-coded prefixes (`server:`, `client:`).
-
 ### Helper Shell Scripts
 
-The project uses a small number of bash helper scripts to wrap common `dotnet run`, `docker build`, `docker run`, and Fantomas-hook invocations. They fall into **two categories**:
-
-1. **Tracked scripts** — committed to the repo. Available immediately after `git clone`.
-2. **Optional local scripts** — recipes you can paste into your working copy as a personal convenience. They are deliberately **not** committed: the opt-in `.gitignore` strategy (`*` followed by explicit `!path` allow-lines) excludes them so each developer can keep their own variants without polluting the repo.
-
-Common conventions for both categories:
-
-- Every script starts with `#!/usr/bin/env bash` so it stays portable across Linux and macOS.
-- After creating a local script, mark it executable: `chmod +x scriptname.sh`.
-- Run from the **repo root** (e.g. `./debug.sh`), with the single exception of `benchmark/run.sh`, which is invoked from the `benchmark/` directory.
-- Scripts that use environment variables source the repo-root `.env` file via `set -a; source .env; set +a`. See [Environment Configuration](#environment-configuration) for what `.env` contains and how the priority order works.
+Two scripts are tracked; the rest are optional recipes for your own working copy. The opt-in
+`.gitignore` keeps local scripts untracked. Every script starts with `#!/usr/bin/env bash`, runs from
+the repository root (except `benchmark/run.sh`), and needs `chmod +x` once.
 
 #### Tracked scripts (in the repo)
 
-These two scripts ship with the repository and are listed explicitly in `.gitignore` with `!` allow-entries.
+- **`benchmark/run.sh`**: runs `sudo dotnet run -c Release "$@"` from the `benchmark/` directory.
+  `sudo` is needed by some BenchmarkDotNet diagnostics.
+- **`.husky/scripts/format-staged.sh`**: called by the pre-commit hook. Runs Fantomas on the staged
+  F# files and re-stages the output. See [CONTRIBUTING.md](CONTRIBUTING.md#code-formatting-pre-commit-hook).
 
-- **`benchmark/run.sh`** — runs `sudo dotnet run -c Release "$@"`. Must be invoked from the `benchmark/` directory; it does not `cd` for you. The `sudo` is required because some BenchmarkDotNet diagnostics need elevated privileges. Extra arguments are forwarded to `dotnet run`. The `benchmark/` projects are part of the root paket root, with their packages in a separate `group Benchmark` in `paket.dependencies` so that BenchmarkDotNet's transitive tree never influences the `Main` resolution (see [#513](https://github.com/informedica/GenPRES/issues/513) and [Paket groups](#paket-groups) above); `dotnet run BenchmarkBuild` compiles all four benchmark projects without running them.
-- **`.husky/scripts/format-staged.sh`** — invoked by the Husky pre-commit hook. Receives staged F# files as positional arguments, warns about partially-staged files (Fantomas formats the *full working-tree* version of each file, not just the staged hunks), runs `dotnet fantomas` on them, and re-stages the formatted output. You normally never call this directly; it runs automatically on `git commit`. See also [CONTRIBUTING.md](CONTRIBUTING.md#code-formatting-pre-commit-hook).
+#### Optional local scripts (not in the repo)
 
-#### Optional local scripts (not in the repo — paste into your working copy)
-
-Everything in this subsection is a **template**. Nothing here exists after a fresh `git clone` — `git status` will not show these files even after you create them, because the opt-in `.gitignore` excludes them by design. Save each block at the path indicated, run `chmod +x` once, and you're done.
-
-##### Run-mode wrappers (`dotnet run`)
-
-Five wrappers launch the full stack with different `GENPRES_*` presets. They all source `.env` first and then export overrides — the exported values **win** over anything coming from `.env`. For the full priority order, see [Environment Configuration](#environment-configuration).
-
-| File | Mode | `GENPRES_LOG` | `GENPRES_PROD` | `GENPRES_DEBUG` | Purpose |
-|---|---|---|---|---|---|
-| `debug.sh` | Demo, info logging | `i` | `0` | `1` | Default for local development against the demo dataset. |
-| `debugprod.sh` | Production data, debug logging | `d` | `1` | `1` | Clears the log folder first. Requires a real `GENPRES_URL_ID` in `.env`. |
-| `infoprod.sh` | Production data, info logging | `i` | `1` | `1` | Clears the log folder first. Less verbose than `debugprod.sh`. |
-| `logprod.sh` | Production data, info logging, no debug | `i` | `1` | `0` | Same logging level as `infoprod.sh` but with the debug flag off. |
-| `prod.sh` | Production data, no logging | `0` | `1` | `0` | Mirrors a real production launch locally. |
-
-**`debug.sh`** — save at the repo root:
+Run-mode wrappers source `.env` and then export overrides, which win over `.env`:
 
 ```bash
 #!/usr/bin/env bash
-# Load env vars from .env (GENPRES_URL_ID etc.)
 set -a; source .env; set +a
 
-# Override for debug mode
 export GENPRES_LOG=i
 export GENPRES_PROD=0
 export GENPRES_DEBUG=1
@@ -555,648 +215,301 @@ export GENPRES_DEBUG=1
 dotnet run
 ```
 
-**`debugprod.sh`** — save at the repo root:
+Common variants:
+
+| File | `GENPRES_LOG` | `GENPRES_PROD` | `GENPRES_DEBUG` | Purpose |
+|---|---|---|---|---|
+| `debug.sh` | `i` | `0` | `1` | Local development against the demo data |
+| `debugprod.sh` | `d` | `1` | `1` | Production data, debug logging; clear `data/logs` first |
+| `infoprod.sh` | `i` | `1` | `1` | Production data, info logging; clear `data/logs` first |
+| `logprod.sh` | `i` | `1` | `0` | Production data, info logging, debug off |
+| `prod.sh` | `0` | `1` | `0` | Mirrors a real production launch |
+
+Production modes need a real `GENPRES_URL_ID` in `.env`. To clear the logs first:
 
 ```bash
-#!/usr/bin/env bash
-# clear ./data/logs folder
-if [ -d "./data/logs" ]; then
-    echo "Clearing logs folder..."
-    rm -rf ./data/logs/*
-    echo "Logs folder cleared."
-else
-    echo "Logs folder does not exist, creating it..."
-    mkdir -p ./data/logs
-fi
-
-# Load env vars from .env (GENPRES_URL_ID etc.)
-set -a; source .env; set +a
-
-# Override for debug-production mode
-export GENPRES_LOG="d"
-export GENPRES_PROD=1
-export GENPRES_DEBUG=1
-
-dotnet run
+mkdir -p ./data/logs && rm -rf ./data/logs/*
 ```
 
-**`infoprod.sh`** — save at the repo root. Same shape as `debugprod.sh`, but with `GENPRES_LOG="i"`:
-
-```bash
-#!/usr/bin/env bash
-# clear ./data/logs folder
-if [ -d "./data/logs" ]; then
-    echo "Clearing logs folder..."
-    rm -rf ./data/logs/*
-    echo "Logs folder cleared."
-else
-    echo "Logs folder does not exist, creating it..."
-    mkdir -p ./data/logs
-fi
-
-# Load env vars from .env (GENPRES_URL_ID etc.)
-set -a; source .env; set +a
-
-# Override for info-production mode
-export GENPRES_LOG="i"
-export GENPRES_PROD=1
-export GENPRES_DEBUG=1
-
-dotnet run
-```
-
-**`logprod.sh`** — save at the repo root:
-
-```bash
-#!/usr/bin/env bash
-# Load env vars from .env (GENPRES_URL_ID etc.)
-set -a; source .env; set +a
-
-# Override for log-production mode
-export GENPRES_LOG=i
-export GENPRES_PROD=1
-export GENPRES_DEBUG=0
-
-dotnet run
-```
-
-**`prod.sh`** — save at the repo root:
-
-```bash
-#!/usr/bin/env bash
-# Load env vars from .env (GENPRES_URL_ID etc.)
-set -a; source .env; set +a
-
-# Override for production mode
-export GENPRES_LOG=0
-export GENPRES_PROD=1
-export GENPRES_DEBUG=0
-
-dotnet run
-```
+If a local script should become standard, add a `!` allow-line for it to `.gitignore` in the same PR.
 
 ##### Docker wrappers
 
-Building and running the image no longer needs a hand-copied shell script: the `DockerBuild` and `DockerRun` FAKE targets (see [FAKE Build Targets Reference](#fake-build-targets-reference)) cover both, work identically from PowerShell, Git Bash, or any POSIX shell, and are tracked in `Build.fs` rather than living only as documentation. Neither target bakes `GENPRES_URL_ID` into the image — that constraint is enforced by the `Dockerfile` itself and described in [Environment Configuration](#environment-configuration).
+The `DockerBuild` and `DockerRun` targets work from any shell.
 
-**Build** — `dotnet run DockerBuild` reads the app's single curated version number from the root `Directory.Build.props` and passes it to `docker build --build-arg APP_VERSION=...`, so the image's `org.opencontainers.image.version` label always matches what was built. To cross-build for a different platform set `DOCKER_PLATFORM`; to tag/push under your own name instead of the project's `informedica/genpres` default, set `DOCKER_IMAGE` (both `DockerBuild` and `DockerRun` read it).
+**Build**: `dotnet run DockerBuild` reads the version from `Directory.Build.props` and passes it as
+`APP_VERSION`, so the image label matches what was built. `DOCKER_PLATFORM` cross-builds
+(`DOCKER_PLATFORM=linux/amd64 dotnet run DockerBuild`), `DOCKER_IMAGE` overrides the default
+`informedica/genpres` name.
 
-```bash
-# local architecture
-dotnet run DockerBuild
-
-# cross-build amd64
-DOCKER_PLATFORM=linux/amd64 dotnet run DockerBuild
-```
-
-```powershell
-# cross-build amd64 (PowerShell)
-$env:DOCKER_PLATFORM = "linux/amd64"
-dotnet run DockerBuild
-```
-
-**Run** — `dotnet run DockerRun` reads `GENPRES_URL_ID` and `GENPRES_PASSWORD` from the current environment and fails fast with an error if either is missing, rather than starting an unauthenticated container that the in-server `validateProductionPassword` would refuse later. It mounts the host's `data/cache` onto `/app/data/cache` and forwards `GENPRES_PROD`, so `GENPRES_PROD=1` gets the same production data as `compose.yaml`; the image itself ships only the `*.demo` files. Source `.env` first (single source of truth — same as `prod.sh` / `debug.sh`):
+**Run**: `dotnet run DockerRun` reads `GENPRES_URL_ID` and `GENPRES_PASSWORD` from the environment
+and fails fast if either is missing. It mounts the host's `data/cache` onto `/app/data/cache` and
+forwards `GENPRES_PROD`. Source `.env` first:
 
 ```bash
 set -a; source .env; set +a
 dotnet run DockerRun
 ```
 
-```powershell
-Get-Content .env | ForEach-Object {
-    if ($_ -match '^\s*([^#=]+)=(.*)$') {
-        [Environment]::SetEnvironmentVariable($Matches[1].Trim(), $Matches[2].Trim())
-    }
-}
-dotnet run DockerRun
-```
-
-**Run a published image** — the `compose.yaml` at the repo root (tracked; see the `!compose.yaml` allow-line in `.gitignore`) runs an image pulled from Docker Hub with port, secrets and mode read from `.env`, so nothing has to be retyped after a new release. Compose interpolates `${...}` from the `.env` in the project directory by itself; no `source` needed. The image tag defaults to the current release: ShipIt bumps it in `compose.yaml` as part of every release PR (see [Changelog & Release Automation](#changelog--release-automation-easybuildshipit)), so `git pull` brings the new tag along. Set `GENPRES_IMAGE_TAG` in `.env` only to pin a different version. If you added `GENPRES_IMAGE_TAG` to `.env` while it was still required (between [#550](https://github.com/informedica/GenPRES/pull/550) and [#552](https://github.com/informedica/GenPRES/pull/552)), remove it: a leftover value silently overrides the ShipIt-maintained default and keeps `docker compose pull` on the old image.
+**Run a published image**: the tracked `compose.yaml` runs the image from Docker Hub with port,
+secrets and mode read from `.env`. The image tag defaults to the current release; ShipIt bumps it on
+every release PR. Set `GENPRES_IMAGE_TAG` in `.env` only to pin a different version.
 
 ```bash
 cp .env.example .env            # once; for production, set the secrets
 git pull && docker compose pull # after each release
-docker compose up -d            # (re)creates container "genpres" on http://localhost:8080
+docker compose up -d            # http://localhost:8080
 docker compose logs -f genpres
 ```
 
-The image is published by `tag-release.yml` a few minutes *after* the release PR merges, so a `docker compose pull` in that window fails with "manifest unknown"; retry shortly after.
+The image is published a few minutes after the release PR merges; a `docker compose pull` in that
+window fails with "manifest unknown". The image itself defaults to demo mode, so a bare
+`docker run -p 8080:8085 informedica/genpres:<tag>` works with no flags. `GENPRES_PROD=1` needs the
+proprietary `GENPRES_URL_ID` and the `data/cache` bind mount: production reads `*.cache`, the image
+ships only `*.demo`. `compose.yaml` forwards only the `GENPRES_*` keys. For a demo that keeps its
+signed order plans across a recreated container, set `GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db`
+in `.env`; `compose.yaml` mounts `./data/db` for it.
 
-Demo or production is whatever `GENPRES_PROD` says in `.env`. The image itself defaults to demo (`GENPRES_PROD=0`, public demo sheet ID, no password — issue [#541](https://github.com/informedica/GenPRES/issues/541)), so a bare `docker run -p 8080:8085 informedica/genpres:<tag>` or the Docker Desktop "Run" button also works with no flags. `GENPRES_PROD=1` additionally needs the proprietary `GENPRES_URL_ID` and the `data/cache` bind mount that `compose.yaml` already declares: production reads `*.cache`, and the image ships only the `*.demo` files. A 16+ character `GENPRES_PASSWORD` enables the admin operations; without one the server starts with them disabled and warns (issue #590). `compose.yaml` forwards only the `GENPRES_*` keys, not the whole `.env`, so unrelated local secrets stay out of the container. Unlike `dotnet run DockerRun`, this needs no .NET SDK on the host, runs the exact published image rather than a local build, and includes the cache mount.
+**Exit codes**: the image runs `tini` as PID 1. A refused start-up (short production password,
+unknown `GENPRES_LANG`, no `GENPRES_URL_ID`) prints one message and exits `1`, a crash exits `134`,
+and `docker stop` reaches Kestrel for a graceful shutdown. Read them with `docker ps -a`.
 
-For a demo that keeps its signed order plans across a recreated container, set `GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db` in `.env` (never with `GENPRES_PROD=1`, which refuses it). The relative path is rooted at `GENPRES_ROOT=/app`, so the file lands in `/app/data/db`, which `compose.yaml` mounts from `./data/db` on the host. To start from nothing, stop the container (`docker compose down`) and delete `./data/db/genpres.db`.
-
-**Process 1 and exit codes** — the image runs [`tini`](https://github.com/krallin/tini) as PID 1
-and starts `dotnet` under it (issue [#572](https://github.com/informedica/GenPRES/issues/572)).
-With `dotnet` itself as PID 1, the `SIGABRT` the runtime sends itself after an unhandled exception
-was dropped, so a container whose server refused to start stayed "running" with nothing listening.
-Now a refused start-up (a production password shorter than 16 characters, an unknown
-`GENPRES_LANG`, or no `GENPRES_URL_ID`) prints one message
-and exits `1`, a crash exits `134`, and `docker stop` still reaches Kestrel for a graceful shutdown.
-`compose.yaml`'s `restart: unless-stopped` and any orchestrator act on those codes; read them with
-`docker ps -a`. No `--init` or `init: true` is needed. The release workflow proves this on every
-image it publishes by starting it with `GENPRES_PROD=1` and no password and requiring exit code
-`1` within 30 seconds.
-
-**Browser caching after an update** — the server sets `Cache-Control` on every response
-(`securityHeadersMiddleware` in `src/Informedica.GenPRES.Server/Server.fs`, issue
-[#568](https://github.com/informedica/GenPRES/issues/568)): `no-cache` for `index.html` and
-everything else, `public, max-age=31536000, immutable` for a successful response of a content-hashed
-bundle under `/assets/` (a 404 there stays `no-cache`, so a bundle this instance does not have yet is
-retried). A browser therefore revalidates the entry document on every load (a cheap `ETag` 304
-when nothing changed) and picks up a new container without a hard refresh. Two caveats: a browser
-that cached `index.html` *before* this header existed still needs one hard reload
-(Cmd/Ctrl+Shift+R); and on a Plesk host with "Serve static files directly by nginx" including
-`html`, nginx answers `index.html` from disk and Kestrel's header never reaches the browser, so
-either drop `html`/`htm` from that list or add `location = / { add_header Cache-Control "no-cache"; }`
-and the same for `location = /index.html` to the per-site nginx directives. Check with
-`curl -sI https://<host>/ | grep -i cache-control`.
-
-If you find yourself wanting to commit one of these local scripts (e.g. because the team agrees it should be standardized), add a `!`-prefixed allow-line for the file to `.gitignore` in the same PR — otherwise the opt-in strategy will silently keep it untracked.
+**Browser caching after an update**: the server sends `Cache-Control: no-cache` on `index.html` and
+`immutable` on the content-hashed bundles under `/assets/`, so a browser picks up a new container
+without a hard refresh. Behind nginx that serves static `html` files directly (Plesk), the header never reaches the
+browser: drop `html` from that list or add `add_header Cache-Control "no-cache"` for `/` and
+`/index.html`. Check with `curl -sI https://<host>/ | grep -i cache-control`.
 
 ### CI/CD Pipeline (GitHub Actions)
 
-The CI pipeline is defined in `.github/workflows/build.yml` and runs on every push or pull request to `master` across three operating systems:
+`.github/workflows/build.yml` runs on every push or pull request to `master` on Ubuntu, Windows and
+macOS:
 
-| Matrix | OS |
-|---|---|
-| ubuntu-latest | Linux |
-| windows-latest | Windows |
-| macOS-latest | macOS |
+1. Checkout
+2. Install the .NET SDK from `global.json`
+3. `dotnet tool restore`
+4. `dotnet fantomas --check .` (fails on unformatted code)
+5. `dotnet run ServerTests`
 
-**Pipeline steps:**
-
-1. **Checkout** – `actions/checkout@v4`
-2. **Install .NET SDK** – installs .NET 10.0 via `actions/setup-dotnet`
-3. **Tool restore** – `dotnet tool restore` (installs paket, fable, fantomas, husky from `.config/dotnet-tools.json`)
-4. **Format check** – `dotnet fantomas --check .` (fails the build on unformatted code)
-5. **Test execution** – `dotnet run ServerTests` (runs all Expecto tests)
-
-Environment variables set in CI (from `.github/workflows/build.yml`):
-
-```yaml
-env:
-  CI: true          # Disables interactive prompts
-  GENPRES_DEBUG: 1  # Enables debug logging during test runs
-```
-
-The pipeline does **not** set `GENPRES_URL_ID`, so tests run against demo/cached data only. Production data is never accessed in CI.
-
-A fourth job, `benchmark`, runs `dotnet run BenchmarkBuild` on `ubuntu-latest` alongside the matrix.
-The benchmark projects are outside `GenPRES.sln`, so the matrix never compiles them, and they rotted
-unnoticed until [#513](https://github.com/informedica/GenPRES/issues/513). The job is separate from the
-matrix on purpose: it runs in parallel and finishes inside the windows leg's duration, so it adds no
-wall-clock time to a run, only about three runner-minutes. It compiles only; BenchmarkDotNet runs stay a
-local activity (see `benchmark/run.sh`).
+CI sets `CI: true` and `GENPRES_DEBUG: 1`. It does not set `GENPRES_URL_ID`, so tests run against
+demo and cached data only. A separate `benchmark` job runs `dotnet run BenchmarkBuild`, because the
+benchmark projects are outside `GenPRES.sln` and the matrix never compiles them.
 
 ### API Documentation (GitHub Actions)
 
-`.github/workflows/docs.yml` runs `dotnet run ApiDocs` on every push to `master` and publishes the fsdocs
-output to GitHub Pages at `https://informedica.github.io/GenPRES/`
-([#460](https://github.com/informedica/GenPRES/issues/460)). Like `release.yml` it is a separate workflow
-rather than a job in `build.yml`: a docs-build failure must not block the test/format matrix, and a red
-test run must not stop the reference from refreshing. It does not run on pull requests — there is nowhere
-to publish a PR build and the Release solution build is not worth spending per branch push.
+`.github/workflows/docs.yml` runs `dotnet run ApiDocs` on every push to `master` and publishes to
+GitHub Pages at `https://informedica.github.io/GenPRES/`. It is a separate workflow so a docs failure
+never blocks the test matrix. It does not run on pull requests.
 
-**One-time repo setup (admin)**: Settings → Pages → Build and deployment → Source = "GitHub
-Actions". Until that is set, the `deploy` job fails with "Pages site not found".
+One-time repo setup (admin): Settings → Pages → Build and deployment → Source = "GitHub Actions".
 
 ### Release Automation (GitHub Actions)
 
-`.github/workflows/release.yml` runs [EasyBuild.ShipIt](https://github.com/easybuild-org/EasyBuild.ShipIt)
-on every push to `master`, opening or updating a draft release PR with the next derived version and changelog
-section. It is deliberately a separate workflow from `build.yml`, not a job within it: a ShipIt failure must
-never block the test/format matrix that already gated the PR which produced the push. See
-[ADR-0005](docs/adr/0005-build-system-versioning-and-release.md) for the full design and the
-[implementation plan](docs/implementation-plans/234-improve-build-system.md) for status.
-
-This replaces the "Repo Assist" bot's former Task 8 ("Release Preparation", `.github/workflows/repo-assist.md`),
-retired in the same change to avoid two bots proposing competing release PRs on the same merge.
-
-**One-time repo setting required**: ShipIt opens PRs using the workflow's own `GITHUB_TOKEN`, which requires
-**Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"** to be enabled.
-Without it, `release.yml` runs but fails to open the PR.
+`.github/workflows/release.yml` runs ShipIt on every push to `master` and opens or updates a draft
+release PR on the branch `release/master`. It is separate from `build.yml` so a ShipIt failure never
+blocks the test matrix. It needs the repo setting **Settings → Actions → General → "Allow GitHub
+Actions to create and approve pull requests"**.
 
 #### Tagging and publishing the Release
 
-`.github/workflows/tag-release.yml` turns a merged release PR into the immutable artifact ShipIt itself
-cannot produce — ShipIt 3.0.1 has no tag or Release capability in any mode, verified against the installed
-assembly rather than its documentation (see [ADR-0005](docs/adr/0005-build-system-versioning-and-release.md)
-and [issue #470](https://github.com/informedica/GenPRES/issues/470)). The workflow:
+`.github/workflows/tag-release.yml` fires when a PR from `release/master` is merged. It:
 
-1. Checks out the **merge commit** (`pull_request.merge_commit_sha`) — the state `master` was actually in
-   when the version shipped, and a commit that stays reachable after ShipIt reuses `release/master`.
-2. Runs `scripts/ReleaseNotes.fsx`, which reads `<Version>` from the root `Directory.Build.props` (that the
-   merged PR just updated) and extracts that version's `CHANGELOG.md` section.
-3. Creates an annotated tag `v<version>` (e.g. `v0.1.2-alpha.4`) on that commit.
-4. Creates a GitHub Release for the tag, with the extracted section as the body, flagged pre-release when
-   the version is a SemVer pre-release (`0.1.2-alpha.4` is, `0.1.3` is not).
+1. Checks out the merge commit.
+2. Runs `scripts/ReleaseNotes.fsx`, which reads `<Version>` from `Directory.Build.props` and extracts
+   that version's `CHANGELOG.md` section.
+3. Creates an annotated tag `v<version>` on that commit.
+4. Creates a GitHub Release with the section as body, flagged pre-release when the version is one.
 
-Both steps are idempotent: an existing tag or Release is left alone, so re-running is safe. The tag and
-Release carry no attached build output — the Docker image built from the same merge commit is published
-separately by the `publish-docker-image` job; see [Publishing the Docker image](#publishing-the-docker-image).
+Both steps are idempotent, so re-running is safe. The trigger is the merged PR's head ref, which
+holds for every merge method.
 
-The tag record starts at the first release after this workflow landed. `0.1.2-alpha.2`, `.3` and `.4`
-shipped before it existed and are deliberately not backfilled, so they have no tag and no Release page;
-`CHANGELOG.md` and the merge commits it links remain the record for those three.
+The tag and Release are created with the workflow's own `GITHUB_TOKEN`, and events from that token
+start no further workflow runs. Anything downstream must be a job inside `tag-release.yml`, a
+`workflow_dispatch` / `repository_dispatch` call, or use a PAT or GitHub App token.
 
-The parsing lives in a script rather than in the workflow so that CI and a local dry run before merging a
-release PR run the same code. `ReleaseNotes.fsx` resolves the
-version through `scripts/Versioning.fsx`, which is also what `dotnet run CheckVersions` uses, so
-`Directory.Build.props` has exactly one parser (the lesson of [#447](https://github.com/informedica/GenPRES/issues/447)).
-The changelog grammar it relies on — which headings delimit a section, and that a missing, empty or
-duplicated section is an error rather than a silently odd Release — is pinned by
-`scripts/ChangelogTests.fsx` (`dotnet fsi scripts/ChangelogTests.fsx`).
-
-Note that the pre-release flag comes from the version itself, not from `CHANGELOG.md`'s `pre_release:`
-front matter. The front matter says what ShipIt generates *next*, so reading it would give the same shipped
-version a different answer depending on when the question was asked — a dry run against an older version
-after the key is dropped would report it as stable.
-
-To preview what a release will publish before merging the release PR:
+Preview a release body before merging the release PR:
 
 ```bash
-# current version's Release body, to stdout; version/tag/pre-release facts to stderr
-dotnet fsi scripts/ReleaseNotes.fsx
-
-# any shipped version, written to a file
-dotnet fsi scripts/ReleaseNotes.fsx 0.1.2-alpha.2 --out notes.md
+dotnet fsi scripts/ReleaseNotes.fsx                                 # current version, to stdout
+dotnet fsi scripts/ReleaseNotes.fsx 0.1.2-alpha.2 --out notes.md   # any shipped version, to a file
 ```
 
-**Trigger, and why it is not ShipIt's documented one.** The workflow fires on `pull_request: types: [closed]`
-against `master`, gated on `merged == true && head.ref == 'release/master'`. ShipIt's README instead suggests
-gating a downstream job on the push event:
-
-```yaml
-if: startsWith(github.event.head_commit.message, 'chore: release ')
-```
-
-That condition would never have fired here. All three merge methods stay enabled (ADR-0005, design choice 2),
-and every release PR so far (#455, #458, #464) merged as a true merge commit, so the push event's
-`head_commit.message` was `Merge pull request #NNN from informedica/release/master`, never
-`chore: release ...` — 0 for 3. The head ref is merge-method independent, so the trigger keeps working if a
-release PR is ever squash- or rebase-merged. ShipIt's `easybuild-release:pending` label is the equivalent
-fallback signal.
-
-**Consequence for downstream workflows.** The tag and Release are created with the workflow's own
-`GITHUB_TOKEN`, and events generated by that token do not start further workflow runs. This was confirmed on
-this repo rather than taken from the documentation: none of the three ShipIt release PRs, all opened by
-`github-actions[bot]`, ran its checks automatically. #455 and #458 had runs created but parked at
-`action_required` until a maintainer re-ran them; #464 got no `pull_request` runs at all until it was closed
-and reopened by hand. A workflow keyed on `on: release` or `on: push: tags:` therefore will not fire. The
-options for anything downstream are a job inside `tag-release.yml`, a `workflow_dispatch` /
-`repository_dispatch` call (the two events explicitly exempt from the rule), or a PAT / GitHub App token.
+`ReleaseNotes.fsx` resolves the version through `scripts/Versioning.fsx`, the same parser
+`dotnet run CheckVersions` uses. The changelog grammar it relies on is pinned by
+`scripts/ChangelogTests.fsx`.
 
 #### Publishing the Docker image
 
-A `publish-docker-image` job in `tag-release.yml`, gated on `needs: tag-and-release`, closes
-[#234](https://github.com/informedica/GenPRES/issues/234) item 3
-([#459](https://github.com/informedica/GenPRES/issues/459)) — see
-[ADR-0005's Docker image publishing amendment](docs/adr/0005-build-system-versioning-and-release.md)
-for the full design rationale. It only runs once tagging and the Release have both succeeded, and reuses
-that job's `version`/`tag`/`prerelease` outputs. For a given release it:
+A `publish-docker-image` job in `tag-release.yml` runs after tagging succeeded. It builds the
+`Dockerfile` for `linux/amd64` with `APP_VERSION=<version>`, smoke-tests the image with the demo
+sheet ID and a random password (`/` must return 200 within 60 seconds), and pushes
+`docker.io/informedica/genpres:<version>`, plus `:latest` for a stable release.
 
-1. Checks out the same merge commit `tag-and-release` tagged.
-2. Builds the `Dockerfile` with `--build-arg APP_VERSION=<version>` (same as the local `DockerBuild` FAKE
-   target), `linux/amd64` only, tagging every tag the release needs in one `docker build -t ... -t ...` call.
-3. Starts the built image with the public demo `GENPRES_URL_ID` (from `.env.example`) and a random
-   per-run `GENPRES_PASSWORD`, and requires `/` to return 200 within 60 seconds before treating the image as good.
-4. Pushes `docker.io/informedica/genpres:<version>`, and also `:latest` when the version is a stable release
-   (currently we only ship alphas, so `:latest` stays unpublished). Any `+` in `<version>` is folded to `-`
-   first: `Versioning.fsx` allows SemVer build metadata in `<Version>`, but a raw `+` isn't a legal Docker
-   tag character.
+Authentication is Docker Hub OIDC; there is no stored registry credential. One-time setup:
 
-Registry is Docker Hub (`docker.io/informedica/genpres`); the `informedica` org is on the Docker Team plan.
-This started on GHCR as an interim step and moved once the org existed. The registry/namespace is a single
-`IMAGE_NAME` job-level env var in `tag-release.yml`.
+1. **Docker Home → `informedica` → OIDC connections → Create OIDC connection.** Add a ruleset with
+   subject `repo:informedica/GenPRES:environment:docker-publish`. Copy the connection ID.
+2. **GitHub repo → Settings → Environments → New environment** named `docker-publish`. Optionally
+   add required reviewers for a manual gate before every push.
+3. **GitHub repo → Settings → Secrets and variables → Actions → Variables** add
+   `DOCKERHUB_OIDC_CONNECTIONID` = the connection ID (a variable, not a secret).
+4. If the connection's **Failures** tab shows a rejected claim on the first run, copy the exact
+   `sub` it logged into the ruleset.
 
-**Authentication is Docker Hub OIDC — there is no stored registry credential.** `docker/login-action`
-exchanges the job's GitHub OIDC token for a short-lived Docker Hub token, so nothing to rotate and nothing
-to leak. `docker build` and `docker push` still run as plain CLI (matching `Build.fs`); `docker/login-action`
-is the one marketplace action, because the OIDC token exchange cannot be done with `docker login` alone.
-
-One-time setup (Docker Team org admin + repo admin):
-
-1. **Docker Home → `informedica` → OIDC connections → Create OIDC connection.** Add a ruleset with subject
-   `repo:informedica/GenPRES:environment:docker-publish` (scoped to the GitHub environment, not a bare
-   `pull_request` subject). Copy the connection ID.
-2. **GitHub repo → Settings → Environments → New environment** named `docker-publish`. Optionally add
-   required reviewers here for a manual gate before every Docker Hub push.
-3. **GitHub repo → Settings → Secrets and variables → Actions → Variables → New repository variable**
-   `DOCKERHUB_OIDC_CONNECTIONID` = the connection ID from step 1. It is a variable, not a secret: an
-   identifier, useless without the matching ruleset.
-4. If the connection's **Failures** tab in Docker Home shows a rejected claim on the first run, copy the
-   exact `sub` it logged into the ruleset — repos created after 2026-07-15 use immutable identifiers
-   (`repo:informedica@<id>/GenPRES@<id>:...`); GenPRES predates that and uses the plain form.
-
-**Repository visibility is a manual step.** The first push creates `informedica/genpres` as a **private**
-Docker Hub repository. Since GenPRES is public and the image must be pullable without credentials, a Docker
-Hub org admin needs to set the repository to public in its settings after the first successful push — the
-OIDC token cannot change repository visibility itself.
-
-To build and smoke test the same image locally before relying on the workflow, use the existing
-`DockerBuild`/`DockerRun` FAKE targets (see [Docker wrappers](#docker-wrappers) above); they build
-`informedica/genpres` by default (override with `DOCKER_IMAGE`), the same name the workflow publishes,
-though the local build is never pushed.
+The first push creates the Docker Hub repository as private. A Docker Hub org admin must set it to
+public afterwards.
 
 ### IDE Integration
 
 #### Visual Studio Code
 
-The repository ships a `.vscode/settings.json` with Ionide (F# language support) settings. To work effectively:
-
 1. Install the **Ionide for F#** extension (`ionide.ionide-fsharp`)
-2. Open the repository root folder in VS Code
-3. Ionide will use `GenPRES.sln` to discover projects and provide IntelliSense
+2. Open the repository root folder; Ionide uses `GenPRES.sln` to discover projects
 
-**Running from VS Code terminal:**
-
-```bash
-# Start full application (server + client)
-dotnet run
-
-# Run tests
-dotnet run ServerTests
-
-# Build only
-dotnet run Build
-```
-
-You can also add custom VS Code tasks in `.vscode/tasks.json` if you want keyboard-shortcut access to build targets.
+Run `dotnet run`, `dotnet run ServerTests` and `dotnet run Build` from the integrated terminal.
 
 #### JetBrains Rider
 
-1. Open `GenPRES.sln` in Rider (not the folder — open the `.sln` file)
-2. Rider will restore packages and index the solution automatically
-
-**Running the application from Rider:**
-
-The most reliable approach in Rider is to use the integrated terminal:
-
-```bash
-dotnet run
-```
-
-Alternatively, you can create a **Run Configuration** manually:
-
-- **Type**: .NET Project
-- **Project**: `Build` (the root `Build.fsproj`)
-- **Program arguments**: *(leave empty to start with the default `Run` target)*
-
-**Running individual targets:**
-
-Add the target name as a program argument, for example `ServerTests` to run the tests.
+Open `GenPRES.sln` (the `.sln` file, not the folder). Run `dotnet run` from the integrated terminal,
+or create a **.NET Project** run configuration for the root `Build.fsproj` with the target name as
+program argument.
 
 #### Debug Mode in Rider
 
-Because the application starts the server process indirectly through FAKE, attaching the Rider debugger requires a two-step approach:
+**Option 1, attach (recommended)**: start `dotnet run`, then **Run → Attach to Process** and pick
+`Informedica.GenPRES.Server`.
 
-**Option 1 – Attach to running process (recommended):**
-
-1. Start the server normally: `dotnet run` in the terminal
-2. In Rider: **Run → Attach to Process** and select the `Informedica.GenPRES.Server` process
-3. Set breakpoints in the server source files; Rider will break when they are hit
-
-**Option 2 – Run server directly:**
-
-1. In Rider, create a **Run/Debug Configuration** of type **.NET Project**:
-   - **Project**: `Informedica.GenPRES.Server`
-   - **Working directory**: `src/Informedica.GenPRES.Server`
-2. Start the client separately in a terminal: `dotnet fable watch -o output -s -e .jsx --run npx vite` from `src/Informedica.GenPRES.Client/`
-3. Use Rider's **Debug** button to launch the server with the full debugger attached
-
-> **Note**: When running the server directly (Option 2), environment variables from `.env` are loaded automatically by `Env.loadDotEnv()` in the server startup code, so no additional IDE configuration is needed for environment variables.
+**Option 2, run the server directly**: a **.NET Project** run configuration for
+`Informedica.GenPRES.Server` with working directory `src/Informedica.GenPRES.Server`. Start the
+client separately: `dotnet fable watch -o output -s -e .jsx --run npx vite` from
+`src/Informedica.GenPRES.Client/`. The server loads `.env` itself via `Env.loadDotEnv()`.
 
 #### Debug Mode in VS Code
 
-1. Create a `.vscode/launch.json` file (if it does not exist):
+Create `.vscode/launch.json`:
 
-   ```json
-   {
-     "version": "0.2.0",
-     "configurations": [
-       {
-         "name": "Launch GenPRES Server",
-         "type": "coreclr",
-         "request": "launch",
-         "preLaunchTask": "dotnet: build",
-         "program": "${workspaceFolder}/src/Informedica.GenPRES.Server/bin/Debug/net10.0/Informedica.GenPRES.Server.dll",
-         "args": [],
-         "cwd": "${workspaceFolder}/src/Informedica.GenPRES.Server",
-         "stopAtEntry": false,
-         "serverReadyAction": {
-           "action": "openExternally",
-           "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
-         }
-       }
-     ]
-   }
-   ```
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch GenPRES Server",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "dotnet: build",
+      "program": "${workspaceFolder}/src/Informedica.GenPRES.Server/bin/Debug/net10.0/Informedica.GenPRES.Server.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Informedica.GenPRES.Server",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      }
+    }
+  ]
+}
+```
 
-2. Press **F5** to start the server with the debugger attached
-3. Start the client in a separate terminal: `dotnet fable watch -o output -s -e .jsx --run npx vite` from `src/Informedica.GenPRES.Client/`
-
-> **Tip**: The C# Dev Kit or the **.NET Install Tool** extension may be required depending on your VS Code setup.
+Press **F5** to start the server with the debugger attached and start the client in a separate
+terminal as above. The C# Dev Kit or the **.NET Install Tool** extension may be required.
 
 ## Project Folder Structure
 
-### Root Level
-
 ```text
 GenPRES/
-├── .github/                   # GitHub configuration and workflows
-│   ├── ISSUE_TEMPLATE/        # Issue templates
-│   ├── PULL_REQUEST_TEMPLATE/ # PR templates
-│   ├── instructions/          # Development instructions
-│   └── workflows/             # CI/CD workflows
+├── .github/                   # Issue/PR templates, instructions, workflows
 ├── .husky/                    # Git hooks
-├── .idea/                     # JetBrains IDE configuration
-├── .vscode/                   # VS Code configuration
-├── benchmark/                 # Performance benchmarks
+├── benchmark/                 # BenchmarkDotNet projects (outside GenPRES.sln)
+├── build/                     # FAKE build sources (Build.fsproj stays in the root)
 ├── data/                      # Application data
 │   ├── cache/                 # Cached data files
 │   ├── config/                # Configuration files
 │   ├── data/                  # JSON data files
 │   └── zindex/                # Z-Index drug database files
-├── deploy/                    # Deployment scripts and configurations
+├── deploy/                    # Deployment output
 ├── docs/                      # Documentation (see docs/README.md)
 │   ├── adr/                   # Architecture Decision Records
 │   ├── code-reviews/          # Conformance analyses against external standards
-│   ├── data-extraction/       # Dose-rule extraction pipeline documentation
-│   ├── domain/                # Domain model specifications and explainers
+│   ├── data-extraction/       # Dose-rule extraction pipeline
+│   ├── domain/                # Domain model specifications
 │   ├── implementation-plans/  # Per-issue implementation plans
 │   ├── literature/            # Research literature
 │   ├── roadmap/               # Backlog, feature requests, fit-gap analyses
-│   ├── scenarios/             # Use cases (executable integration model)
+│   ├── scenarios/             # Use cases
 │   ├── security/              # Security reviews and baseline
 │   └── user-guide/            # End-user guide (en/nl) and manual test workflows
-├── build/                     # FAKE build script sources (Build.fsproj stays in the root)
 ├── scripts/                   # Utility scripts
-└── src/                       # Source code
-    ├── Informedica.Agents.Lib/           # Agent-based concurrency library
-    ├── Informedica.FTK.Lib/              # Adult formulary parsing library
-    ├── Informedica.GenCORE.Lib/          # Core domain library
-    ├── Informedica.GenFORM.Lib/          # Formulary management library
-    ├── Informedica.GenINTERACT.Lib/      # Drug interaction rules
-    ├── Informedica.GenORDER.Lib/         # Order processing library
-    ├── Informedica.GenPRES.Client/       # Frontend application
-    │   ├── Components/        # UI components
-    │   ├── Pages/             # Page components
-    │   ├── Views/             # View components
-    │   ├── output/            # Compiled JavaScript output
-    │   └── public/            # Static assets
-    ├── Informedica.GenPRES.Client.Core/  # The client's pure state machines and policies
-    ├── Informedica.GenPRES.Server/       # Backend application
-    │   ├── Properties/        # Server properties
-    │   ├── Scripts/           # Server scripts
-    │   └── data/              # Server data directory
-    ├── Informedica.GenPRES.Shared/       # Shared types and API protocol
-    ├── Informedica.GenSOLVER.Lib/        # Constraint solver library
-    ├── Informedica.GenUNITS.Lib/         # Units of measurement library
-    ├── Informedica.Logging.Lib/          # Logging utilities
-    ├── Informedica.MCP.Lib/              # Model Context Protocol for LLM integration
-    ├── Informedica.MCP.Server/           # Standalone stdio MCP host
-    ├── Informedica.NKF.Lib/              # Pediatric formulary parsing library
-    ├── Informedica.NLP.Lib/              # Natural Language Processing for rule extraction
-    ├── Informedica.Utils.Lib/            # Utility functions
-    ├── Informedica.ZForm.Lib/            # Z-Index form library
-    └── Informedica.ZIndex.Lib/           # Z-Index database library
+├── src/                       # Source code
+└── tests/                     # Test projects, one per library
 ```
 
-### Key Configuration Files
+Each `Informedica.*.Lib` under `src/` holds its source files, a `Scripts/` folder with FSI scripts,
+`paket.references` and an `.fsproj`. Key configuration files: `GenPRES.sln`, `Build.fsproj`,
+`Dockerfile`, `compose.yaml`, `paket.dependencies`, `global.json`, `Directory.Build.props`.
 
-- `build/Build.fs`, `build/Helpers.fs` / `Build.fsproj` - Build automation
-- `GenPRES.sln` - Solution file
-- `Dockerfile` - Docker containerization
-- `paket.dependencies` - Package management
-- `global.json` - .NET SDK version
-
-### Documentation Files
-
-- `README.md` - Project overview
-- `CHANGELOG.md` - Version history
-- `CONTRIBUTING.md` - Contribution guidelines
-- `CODE_OF_CONDUCT.md` - Code of conduct
-- `DEVELOPMENT.md` - Development guide (this file)
-- `GOVERNANCE.md` - Project governance
-- `ROADMAP.md` - Project roadmap
-- `SECURITY.md` - Security policy
-- `SUPPORT.md` - Support information
-- `WARP.md` - Warp AI agent documentation
-- `docs/adr/0001-system-architecture.md` - Technical architecture
-- `docs/domain/` - Domain model specifications
-- `docs/user-guide/` - Multilingual user guide ([English](docs/user-guide/en/user-guide.md), [Nederlands](docs/user-guide/nl/gebruikershandleiding.md))
-
-## Directory Descriptions
-
-### Core Directories
-
-- **`.github/`** - GitHub configurations (issue/PR templates, workflows, development instructions)
-- **`benchmark/`** - Performance benchmarking suite
-- **`data/`** - Application data (drug cache, configuration, clinical data, Z-Index database)
-- **`docs/`** - Comprehensive documentation:
-  - `docs/domain/` - Domain model specifications (Core Domain, GenFORM, GenORDER, GenSOLVER)
-  - `docs/adr/` - Architecture Decision Records
-  - `docs/scenarios/` - Clinical scenarios
-- **`src/`** - Source code (client, server, and F# libraries)
-
-### Library Modules
-
-Each `Informedica.*.Lib` directory contains:
-
-- Core F# source files
-- `Scripts/` - Interactive F# scripts for testing
-- `Notebooks/` - Jupyter/Polyglot notebooks (where applicable)
-- `paket.references` - Package dependencies
-- `*.fsproj` - F# project file
+Top-level documents: `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `DEVELOPMENT.md` (this file),
+`GOVERNANCE.md`, `ROADMAP.md`, `SECURITY.md`, `SUPPORT.md`, `AGENTS.md`, `WARP.md`.
 
 ## Project Architecture
 
-For complete architectural documentation, see:
-
-- **[Architecture Overview](docs/adr/0001-system-architecture.md)**: Technical stack, server/client structure, Docker hosting, and build configuration
-- **[Core Domain Model](docs/domain/core-domain.md)**: Transformation pipeline, constraint-based architecture, and domain concepts
-- **[GenFORM](docs/domain/genform-free-text-to-operational-rules.md)**: Free text to Operational Knowledge Rules (OKRs)
-- **[GenORDER](docs/domain/genorder-operational-rules-to-orders.md)**: OKRs to Order Scenarios
-- **[GenSOLVER](docs/domain/gensolver-from-orders-to-quantitative-solutions.md)**: Constraint solving engine
+- [Architecture Overview](docs/adr/0001-system-architecture.md): stack, server/client structure, Docker hosting
+- [Core Domain Model](docs/domain/core-domain.md): transformation pipeline and domain concepts
+- [GenFORM](docs/domain/genform-free-text-to-operational-rules.md): free text to Operational Knowledge Rules
+- [GenORDER](docs/domain/genorder-operational-rules-to-orders.md): rules to order scenarios
+- [GenSOLVER](docs/domain/gensolver-from-orders-to-quantitative-solutions.md): constraint solving
 
 ### Technology Stack
 
-This project is built on the [SAFE Stack](https://safe-stack.github.io/):
+GenPRES is built on the [SAFE Stack](https://safe-stack.github.io/) with .NET 10.0:
 
 - **Informedica.GenPRES.Server**: F# with [Saturn](https://saturnframework.org/)
-- **Informedica.GenPRES.Client**: F# with [Fable](https://fable.io/docs/) and [Elmish](https://elmish.github.io/elmish/); its state machines and policies sit in **Informedica.GenPRES.Client.Core**, which carries no React and so runs under Expecto as well as under Fable
-- **Testing**: Expecto with FsCheck for property-based testing
-- **Build**: .NET 10.0
+- **Informedica.GenPRES.Client**: F# with [Fable](https://fable.io/docs/) and [Elmish](https://elmish.github.io/elmish/). Its state machines live in **Informedica.GenPRES.Client.Core**, plain F# that runs under Expecto as well as Fable
+- **Testing**: Expecto with FsCheck
 
 ### Core Libraries
 
-For complete library specifications including capabilities and dependencies, see [GenFORM Appendix B.3](docs/domain/genform-free-text-to-operational-rules.md#appendix-b3-genform-libraries).
+In dependency order (see [GenFORM Appendix B.3](docs/domain/genform-free-text-to-operational-rules.md#appendix-b3-genform-libraries) for details):
 
-Key libraries in dependency order:
-
-- **Informedica.Utils.Lib**: Shared utilities, common functions  
-- **Informedica.Agents.Lib**: Agent-based execution (MailboxProcessor)  
-- **Informedica.Logging.Lib**: Concurrent logging  
-- **Informedica.NLP.Lib**: Natural Language Processing for structured rule extraction
-- **Informedica.GenUNITS.Lib**: Unit-safe calculations  
-- **Informedica.GenSOLVER.Lib**: Quantitative constraint solving  
-- **Informedica.GenCORE.Lib**: Core domain model  
-- **Informedica.ZIndex.Lib**: Medication and product database  
-- **Informedica.ZForm.Lib**: Z-Index dosing reference data  
+- **Informedica.Utils.Lib**: shared utilities
+- **Informedica.Agents.Lib**: agent-based execution (MailboxProcessor)
+- **Informedica.Logging.Lib**: concurrent logging
+- **Informedica.NLP.Lib**: rule extraction from free text
+- **Informedica.GenUNITS.Lib**: unit-safe calculations
+- **Informedica.GenSOLVER.Lib**: quantitative constraint solving
+- **Informedica.GenCORE.Lib**: core domain model
+- **Informedica.ZIndex.Lib**: medication and product database
+- **Informedica.ZForm.Lib**: Z-Index dosing reference data
 - **Informedica.NKF.Lib**: Kinderformularium dose rule extraction
 - **Informedica.FTK.Lib**: Farmacotherapeutisch Kompas dose rule extraction
-- **Informedica.GenFORM.Lib**: Operational Knowledge Rules (OKRs)  
-- **Informedica.GenORDER.Lib**: Clinical order scenarios and execution  
-- **Informedica.GenINTERACT.Lib**: Drug interaction rules
+- **Informedica.GenFORM.Lib**: Operational Knowledge Rules
+- **Informedica.GenORDER.Lib**: clinical order scenarios
+- **Informedica.GenINTERACT.Lib**: drug interaction rules
 - **Informedica.MCP.Lib**: Model Context Protocol for LLM integration
-- **Informedica.MCP.Server**: Standalone stdio MCP host
-- **Informedica.GenPRES.Shared**: Shared types and API protocol
-- **Informedica.GenPRES.Server**: Server API and orchestration
-- **Informedica.GenPRES.Client.Core**: The client's state machines and policies, pure F# over the contract
-- **Informedica.GenPRES.Client**: Web-based clinical UI
+- **Informedica.MCP.Server**: standalone stdio MCP host
+- **Informedica.GenPRES.Shared**: shared types and API contract
+- **Informedica.GenPRES.Server**: server API and orchestration
+- **Informedica.GenPRES.Client.Core**: the client's state machines and policies
+- **Informedica.GenPRES.Client**: web UI
 
 ## Code Contribution Guidelines
 
-### Repository Structure
-
-**Important: an opt-in strategy is used** in the `.gitignore` file, i.e. you have to specifically define what should be included instead of the other way around!!
-
-This project follows specific organizational patterns:
-
-- **Library Structure**: Use the `Informedica.{Domain}.{Lib/Server/Client}` naming convention
-- **Domain Libraries**: GenSOLVER, GenORDER, GenUNITS, GenCORE
-- **Separate Test Projects**: Each library has its own test project
-- **Opt-in .gitignore**: *You must explicitly define what should be included!!*
-
-### Coding Standards
-
-Follow the [F# Coding Instructions](.github/instructions/fsharp-coding.instructions.md) for code style, formatting, type design, error handling, testing, and documentation guidelines.
-
-Follow the [Commit Message Instructions](.github/instructions/commit-message.instructions.md) for conventional commit format, types, scopes, and examples.
+- Libraries follow the `Informedica.{Domain}.{Lib/Server/Client}` naming convention, each with its own test project
+- Follow the [F# Coding Instructions](.github/instructions/fsharp-coding.instructions.md) and the [Commit Message Instructions](.github/instructions/commit-message.instructions.md)
+- `.gitignore` is opt-in: you must explicitly add new files with a `!` line
 
 ## Domain-Specific Guidelines
 
-### Medical Safety Considerations
-
-When contributing to medical functionality:
-
-- **Patient Safety First**: All changes affecting dosage calculations, medication lookup, or clinical decision support must be thoroughly tested
-- **Precision Matters**: Use appropriate units of measure and maintain calculation accuracy
-- **Validation Required**: Implement comprehensive input validation for medical data
-- **Error Handling**: Provide clear, actionable error messages for medical professionals
-- **MDR Compliance**: Ensure all medical-related changes align with Medical Device Regulation requirements
-
-For mathematical operations, units of measure, performance, and testing guidelines, see [F# Coding Instructions](.github/instructions/fsharp-coding.instructions.md).
+GenPRES targets clinical medication workflows and is developed toward Medical Device Regulation
+compliance. Any change to dosage calculation, medication lookup or clinical decision support must be
+tested thoroughly, keep units and precision exact, validate its input, and give clear error messages.
 
 ## Development Workflow
 
 ### Git Workflow
 
-1. **Fork** the repository
-2. **Clone** your fork locally: `git clone https://github.com/your-username/GenPRES.git`
-3. **Set up upstream remote**: `git remote add upstream https://github.com/informedica/GenPRES.git`
-4. **Before starting work**, sync your fork:
+1. Fork the repository and clone your fork
+2. Add the upstream remote: `git remote add upstream https://github.com/informedica/GenPRES.git`
+3. Sync before starting:
 
    ```bash
    git checkout master
@@ -1205,127 +518,87 @@ For mathematical operations, units of measure, performance, and testing guidelin
    git push origin master
    ```
 
-5. **Create a feature branch**: `git checkout -b feat/your-feature-name`
-6. **Make changes** following our coding guidelines
-7. **Commit** using conventional commit messages `git commit -m "feat(scope): description"`
-8. **Check** that you are still in sync with upstream:
-
-   ```bash
-   git fetch upstream
-   git merge upstream/master
-   ```
-
-9. **Push** to your fork `git push origin feat/your-feature-name`
-10. **Create a pull request** to the main repository
-11. **After PR is merged**, delete your feature branch locally and remotely:
-
-    ```bash
-    git checkout master
-    git pull upstream master
-    git push origin --delete feat/your-feature-name
-    git branch -d feat/your-feature-name
-    ```
-
-12. **Repeat** for new features or fixes
+4. Create a feature branch: `git checkout -b feat/your-feature-name`
+5. Commit with conventional commit messages: `git commit -m "feat(scope): description"`
+6. Merge `upstream/master` again before pushing, then `git push origin feat/your-feature-name`
+7. Open a pull request against `informedica/GenPRES`
+8. After the merge, delete the branch locally and on your fork
 
 ### Opt-in .gitignore Strategy
 
-This project uses an opt-in strategy for `.gitignore`:
-
-- You must explicitly define what should be included
-- When adding new files, ensure they're properly included in Git
-- Proprietary medication cache files are excluded for licensing reasons
+`.gitignore` excludes everything by default; each tracked path is allowed explicitly. When adding
+files, add the allow-line. Proprietary medication cache files are excluded for licensing reasons.
 
 ### Environment Configuration
 
-This project uses a `.env` file at the project root as the single source of truth for environment variables. The `.env` file is excluded from git by the opt-in `.gitignore` strategy, so secrets are never committed.
+A `.env` file at the project root is the single source of truth for environment variables. It is not
+tracked, so secrets are never committed.
 
 #### Quick Setup
 
-1. Nothing, for the demo: the first `dotnet run` copies `.env.example` to `.env` when no `.env` exists (see [What Happens During `dotnet run`](#what-happens-during-dotnet-run-the-run-target)). To create it by hand instead: `cp .env.example .env`
-2. `.env.example` ships with the public demo sheet ID and an empty `GENPRES_PASSWORD`, so the copy works as-is in demo mode with admin operations disabled. Set `GENPRES_PASSWORD` to use the admin pages locally. For production data, edit `.env` and replace `GENPRES_URL_ID` (ask a team member for the production URL ID)
+1. Nothing, for the demo: the first `dotnet run` copies `.env.example` to `.env`. By hand: `cp .env.example .env`
+2. `.env.example` ships with the public demo sheet ID and an empty password, so the demo works as-is
+   with admin operations disabled. Set `GENPRES_PASSWORD` to use the admin pages locally. For
+   production data, replace `GENPRES_URL_ID` (ask a team member)
 
-Put a `git worktree` **next to** the main checkout, not inside it: the root resolver (`AppPath`) and `Env.loadDotEnv` search upward for `.env`, so a worktree nested under the repo would pick up the main checkout's `.env` and `data/` instead of its own.
-
-The `.env` file uses standard `KEY=VALUE` format:
+Put a `git worktree` **next to** the main checkout, not inside it: the root resolver and
+`Env.loadDotEnv` search upward for `.env`, so a nested worktree would pick up the main checkout's
+`.env` and `data/`.
 
 ```bash
-GENPRES_URL_ID=<your-url-id>   # Google Sheets data URL ID (required; .env.example ships the public demo ID)
+GENPRES_URL_ID=<your-url-id>   # Google Sheets data URL ID (required; .env.example ships the demo ID)
 GENPRES_LOG=i                  # Logging level: 0=off, d=debug, i=info, w=warning, e=error
-GENPRES_PROD=0                 # Production mode: 0=demo (safe default), 1=production data
+GENPRES_PROD=0                 # 0=demo (safe default), 1=production data
 GENPRES_DEBUG=1                # Debug mode: 0=off, 1=on
-GENPRES_LANG=nl                # Default UI language: en, nl, fr, de, es, it — see below
-GENPRES_PASSWORD=<password>    # Admin password — see policy below
+GENPRES_LANG=nl                # Default UI language: en, nl, fr, de, es, it
+GENPRES_PASSWORD=<password>    # Admin password, see policy below
 GENPRES_ROOT=<path>            # Directory holding data/; unset resolves from .env, then data/zindex, then cwd
-GENPRES_DB_CONNECTION=<conn>   # SQLite session store; unset = in-memory — see below
+GENPRES_DB_CONNECTION=<conn>   # SQLite session store; unset = in-memory
 GENPRES_TRUSTED_PROXIES=<ips>  # Comma-separated IPs whose X-Forwarded-For is believed; unset = loopback only
 SERVER_PORT=8085               # Kestrel's listen port (no GENPRES_ prefix); the Vite dev proxy targets it
 ```
 
 #### Default language
 
-`GENPRES_LANG` is the UI language a browser starts in. The client asks the server for it at
-start-up (`getSettings`); until then, and when the server cannot be reached, the client falls
-back to Dutch, as it always did. Accepted values are the ISO 639-1 codes `en`, `nl`, `fr`, `de`,
-`es`, `it` in any case (the display names such as `Nederlands` work too). Unset or blank means
-`nl`; any other value makes the server refuse to start with a message naming the setting.
-
-The server default is the lowest rung: an `la=` parameter in the url wins over it, and so does a
-language the user picks in the title bar or the disclaimer. Navigating between pages keeps the
-current language; only a new `la=` changes it.
+`GENPRES_LANG` is the UI language a browser starts in; the client asks the server for it at start-up
+and falls back to Dutch until then. Accepted values are `en`, `nl`, `fr`, `de`, `es`, `it` in any
+case (display names such as `Nederlands` work too). Unset means `nl`; any other value makes the
+server refuse to start. An `la=` URL parameter and a language the user picks both override it.
 
 #### Password policy
 
-`GENPRES_PASSWORD` gates all admin operations (settings page, log analysis,
-resource reload). The server enforces a length policy at startup:
+`GENPRES_PASSWORD` gates all admin operations (settings page, log analysis, resource reload).
 
-- **Development (`GENPRES_PROD=0`)**: any value is accepted, including the
-  trivial `genpres` used by some local setups. Convenient for development;
-  unsafe anywhere else.
-- **Production (`GENPRES_PROD=1`)**: when `GENPRES_PASSWORD` is missing or
-  blank the server **starts with admin operations disabled** and prints a
-  warning saying so (issue #590); the data set is still the production one.
-  When the password is set but shorter than 16 characters the server
-  **refuses to start**: a weak secret would stay live. Generate a strong
-  value with a CSPRNG, e.g. `openssl rand -base64 32`, and inject it via a
-  secret store (Docker secret, Kubernetes secret, vault, ...).
+- **Development (`GENPRES_PROD=0`)**: any value is accepted.
+- **Production (`GENPRES_PROD=1`)**: a missing or blank password starts the server with admin
+  operations disabled and prints a warning. A password shorter than 16 characters refuses the start.
+  Generate one with `openssl rand -base64 32` and inject it via a secret store.
 
-Never reuse a development password in production. Never commit a real
-password to the repository — `.env` is gitignored.
+Never reuse a development password in production. Never commit a real password.
 
 #### Request logging: clientIP retention and the audit trail
 
-The Serilog request sink (`ServerLogging.Message.Request`, [#416](https://github.com/informedica/GenPRES/issues/416))
-logs the caller's `clientIP` on every request, in full, to the `data/logs` file sink whenever
-`GENPRES_LOG` is set. This was a deliberate call, not an oversight: GenPRES is reached only
-through a hospital's launch sequence (see [Simulating the launch sequence](#simulating-the-launch-sequence)),
-so `clientIP` is practically always the hospital's own gateway or proxy address, not a
-patient's or clinician's personal device — the system is not a public-facing API a stranger can
-reach directly. Truncating or hashing the address would trade away exactly the field an
-administrator needs to correlate a reported incident with a specific launching site, for a
-privacy benefit that mostly does not apply here. Revisit this if GenPRES is ever exposed on a
-network where an untrusted client can reach it directly, or where `clientIP` could name an
-individual rather than an institution.
+With `GENPRES_LOG` set, the request log writes the caller's `clientIP` in full to `data/logs`. This
+is deliberate: GenPRES is reached only through a hospital's launch sequence, so the address is the
+hospital's gateway rather than a person's device, and an administrator needs it to correlate an
+incident with a launching site. Revisit this if GenPRES is ever exposed where an untrusted client can
+reach it directly.
 
-The same files are the medico-legal audit trail. When investigating a reported dosing
-discrepancy, start from the relevant `data/logs/genpres_*.log` file for the time window in
-question rather than reproducing the scenario from scratch.
+The same files are the medico-legal audit trail. When investigating a reported dosing discrepancy,
+start from the `data/logs/genpres_*.log` file for that time window.
 
 #### The log files
 
-With `GENPRES_LOG` set, the server writes one file per stream to `data/logs`
-(`genpres_request_*.log`, `genpres_order_*.log`, `genpres_resources_*.log`, and so on), and the
-MCP host writes `genpres_mcp_*.log`. Every file holds **one compact JSON object per line**:
+With `GENPRES_LOG` set, the server writes one file per stream to `data/logs` (`genpres_request_*.log`,
+`genpres_order_*.log`, `genpres_resources_*.log`, …) and the MCP host writes `genpres_mcp_*.log`.
+Every file holds one JSON object per line:
 
 ```json
 {"@t":"2026-09-21T21:09:33.1384620+02:00","@l":"Information","EventType":"Request","Text":"GET /api/x from ::1"}
 ```
 
-`@t` is the time, `@l` the level (`Debug`, `Information`, `Warning`, `Error`), `EventType` the
-kind of message, and `Text` the rendered message: the same text the flat log files held, with its
-line feeds escaped, so one event is always one line. An event whose text is blank is not written.
-The line can be filtered on the time, the level and the kind of message, and searched in its text;
-the fields of a message (a patient, an equation, a variable) are not separate JSON fields yet.
+`@t` is the time, `@l` the level, `EventType` the kind of message and `Text` the rendered message
+with line feeds escaped. Filter with `jq`:
 
 ```bash
 # every warning and error of a run, as text
@@ -1335,56 +608,34 @@ jq -r 'select(."@l" == "Warning" or ."@l" == "Error") | .Text' data/logs/genpres
 jq -r 'select(."@t" >= "2026-09-21T21:09" and ."@t" < "2026-09-21T21:10") | .Text' data/logs/genpres_order_*.log
 ```
 
-The terminal gets the same events as readable text (time, level, text), never JSON. The MCP host
-writes them to stderr, because stdout is the JSON-RPC channel of a stdio session.
-
-The thread that logs does nothing but enqueue: the event crosses to the sink as a reference and is
-rendered there, once for both sinks. The file sink buffers 100 000 events and then **blocks** the
-caller rather than drop an event; the console sink drops rather than blocks. Rendering is the
-expensive part, about 4.5 ms per event for a solver event. At `GENPRES_LOG=i` that is negligible
-(32 of the 12 068 events of three solved scenarios are above Debug level). At `GENPRES_LOG=d` the
-file is complete about a minute after such a solve, and a server that solves continuously at
-Debug level fills the buffer and then runs at the speed of rendering. Debug level is for
-diagnosing one case, not for production load.
-
-The admin log analysis reads these files, and still reads a flat file written before the JSON
-format; it refuses a file over 50 MB. One Debug pass of three scenarios is about 3 MB.
-
-The order log holds patient data (age, weight, the order itself), and JSON lines make it easier
-to query than the flat text was. Handle the files in `data/logs` as patient data.
-
-`src/Informedica.GenPRES.Server/Scripts/LoggingPerf.fsx` measures what logging costs against the
-agent logger it replaced. Median of 10 runs, three scenarios, 12 068 events per Debug pass,
-Release assemblies, logging off 52.1 ms:
-
-| Logger | ns per event, calling thread | drain | file per Debug pass | end to end at `i` | end to end at `d` |
-|---|---|---|---|---|---|
-| agent logger (before) | 92 | 54.8 s | 2.2 MB | 93.8 ms | 76.4 ms |
-| Serilog bridge | 174 | 54.7 s | 3.1 MB | 62.0 ms | 77.6 ms |
-
-Rerun it after a change to the bridge, the sinks or the formatters.
+The terminal gets the same events as readable text. The file sink blocks the caller rather than drop
+an event when its buffer of 100 000 events is full; rendering costs about 4.5 ms per solver event,
+so `GENPRES_LOG=d` is for diagnosing one case, not for production load. The admin log analysis reads
+these files and refuses one over 50 MB. The order log holds patient data; handle `data/logs` as such.
+`src/Informedica.GenPRES.Server/Scripts/LoggingPerf.fsx` measures the cost of logging; rerun it after
+a change to the bridge, the sinks or the formatters.
 
 #### How It Works
 
-Environment variables are resolved in this priority order (highest first):
+Environment variables are resolved in this order, highest first:
 
-1. **Already-set environment variable** (from shell, CI, Docker) — takes precedence
-2. **`.env` file** — loaded by shell scripts or `Env.loadDotEnv()` in F#
-3. **Hardcoded default in source code** — safe fallback (demo data)
+1. An already-set environment variable (shell, CI, Docker)
+2. The `.env` file, loaded by shell scripts or `Env.loadDotEnv()`
+3. The hardcoded default in source (demo data)
 
-This means you can always override `.env` values by setting an environment variable directly.
+So a variable set in the shell always overrides `.env`.
 
 #### Loading in Different Contexts
 
-- **Shell**: Source `.env` manually with `set -a; source .env; set +a` before running commands.
-- **F# scripts (FSI)**: Scripts call `Informedica.Utils.Lib.Env.loadDotEnv()` which searches upward for `.env` from the current directory.
-- **IDEs (Rider, VS Code)**: The `Env.loadDotEnv()` call in scripts ensures variables are available even when the IDE doesn't inherit shell environment.
-- **Docker**: The image defaults to demo mode with the public demo sheet ID, so no variables are needed for a demo run. For production, inject `GENPRES_PROD=1`, `GENPRES_URL_ID` and `GENPRES_PASSWORD` at *container runtime*, not at build time, and mount `data/cache` — the repo-root `compose.yaml` does all of this from `.env` (`docker compose up -d`; see [Docker wrappers](#docker-wrappers)). Manual equivalent: `docker run -e GENPRES_PROD=1 -e GENPRES_URL_ID="$GENPRES_URL_ID" -e GENPRES_PASSWORD="$GENPRES_PASSWORD" -v "$PWD/data/cache:/app/data/cache" -p 8080:8085 informedica/genpres:<tag>`. In real production, use a Docker or Kubernetes secret. **Do not** use `--build-arg`: the value would be persisted as image metadata and visible to anyone who can pull the image.
+- **Shell**: `set -a; source .env; set +a` before running commands
+- **F# scripts and IDEs**: `Informedica.Utils.Lib.Env.loadDotEnv()` searches upward for `.env`
+- **Docker**: the image defaults to demo mode. For production inject `GENPRES_PROD=1`,
+  `GENPRES_URL_ID` and `GENPRES_PASSWORD` at container runtime and mount `data/cache`; `compose.yaml`
+  does this from `.env`. Never use `--build-arg` for secrets: the value would persist in the image
+  metadata
 
 #### Common Environment Variable Issues
 
-**Missing GENPRES_URL_ID**: Will cause "cannot find column" errors when the application tries to load resources from Google Sheets. Make sure your `.env` file exists and contains a valid `GENPRES_URL_ID`.
-
-**Incorrect GENPRES_PROD value**: Setting this to anything other than `0` in development may cause authentication or data access issues.
-
-For background on this approach, see [Issue #44](https://github.com/informedica/GenPRES/issues/44).
+- **Missing GENPRES_URL_ID**: "cannot find column" errors when loading resources. Check that `.env`
+  exists and holds a valid ID.
+- **GENPRES_PROD other than `0` in development**: may cause authentication or data access issues.

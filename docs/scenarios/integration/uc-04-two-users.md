@@ -125,7 +125,7 @@ nothing per order. The audit of both Submissions (Rule 46). A store that decides
 across more than one server ([#516](https://github.com/informedica/GenPRES/issues/516)):
 today the lock is the process's.
 
-The walkthrough is in [DEVELOPMENT.md](../../../DEVELOPMENT.md#signing-an-order-plan).
+The walkthrough is in [Testing Workflows](../../user-guide/testing-workflows.md#workflow-10--signing-an-order-plan).
 
 ---
 
