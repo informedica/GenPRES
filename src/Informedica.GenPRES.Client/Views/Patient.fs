@@ -36,12 +36,21 @@ module Patient =
             | UpdateGADay of string option
             | UpdateGender of string
             | UpdateRenal of string option
+            | UpdateDepartment of string option
             | ToggleCVL
             | TogglePVL
             | ToggleET
 
 
         let init pat : State * Cmd<Msg> = pat, Cmd.none
+
+
+        /// The department chosen for the draft, or none, which leaves the server's default in
+        /// force. Clearing what was never a draft stays no draft.
+        let setDepartment (s: string option) (p: Patient option) : Patient option =
+            match p, s with
+            | None, None -> None
+            | _ -> { (p |> Option.defaultValue Patient.empty) with Department = s } |> Some
 
 
         let update dispatch msg (state: State) : State * Cmd<Msg> =
@@ -58,6 +67,7 @@ module Patient =
                 | UpdateGADay s -> state |> Patient.setGADay s
                 | UpdateRenal s -> state |> Patient.setRenal s
                 | UpdateGender s -> state |> Patient.setGender s
+                | UpdateDepartment s -> state |> setDepartment s
                 | ToggleCVL -> state |> Patient.toggleCVL
                 | TogglePVL -> state |> Patient.togglePVL
                 | ToggleET -> state |> Patient.toggleET
@@ -184,16 +194,47 @@ module Patient =
                     onCancel = fun () -> setConfirmResetOpen false
                 |}
 
-        // the department in force and where it came from: the patient's own, given by the
-        // launch when a session is open and chosen in the url otherwise, or else the server's
-        // default, said so, since a filter the user can see is not a hidden one
-        let departmentNotice =
-            let launched =
-                match session with
-                | SessionMachine.SessionView.Open _
-                | SessionMachine.SessionView.Closing _ -> true
-                | _ -> false
+        // a launched patient's department is the platform's, as its age is: shown, not chosen
+        let launched =
+            match session with
+            | SessionMachine.SessionView.Open _
+            | SessionMachine.SessionView.Closing _ -> true
+            | _ -> false
 
+        // the department chosen, or the server's default preselected while none is: the pick
+        // that filters the solution rules is on the panel, so it is never a hidden one
+        let departmentField =
+            let names =
+                match settings with
+                | Resolved s -> s.Departments
+                | _ -> [||]
+
+            let selected =
+                match pat |> Option.bind _.Department, settings with
+                | Some d, _ -> Some d
+                | None, Resolved s -> Some s.DefaultDepartment
+                | None, _ -> None
+
+            let changeDepartment =
+                fun s ->
+                    keepOpen ()
+                    s |> UpdateDepartment |> dispatch
+
+            Components.PickField.View
+                {|
+                    label = Terms.``Patient Department`` |> getTerm "Afdeling"
+                    options = names |> Array.map (fun n -> n, n)
+                    selected = selected
+                    onChange = changeDepartment
+                    clearable = true
+                    isLoading = settings |> Deferred.toOption |> Option.isNone
+                    enabled = not busy && not launched
+                    shape = Components.PickField.Shape.Scroll
+                |}
+
+        // where the department in force came from: the launch when a session is open, the
+        // panel or the url otherwise, or else the server's default, said so
+        let departmentNotice =
             let inForce =
                 match pat |> Option.bind _.Department, settings with
                 | Some d, _ -> Some(d, false)
@@ -202,13 +243,11 @@ module Patient =
 
             match inForce with
             | None -> null
-            | Some(department, isDefault) ->
+            | Some(_, isDefault) ->
                 Components.Notice.View
                     {|
                         kind = Components.Notice.Kind.Info
-                        title =
-                            let label = Terms.``Patient Department`` |> getTerm "Afdeling"
-                            Some(label + ": " + department)
+                        title = None
                         message =
                             if isDefault then
                                 Terms.``Patient Department Default``
@@ -217,7 +256,7 @@ module Patient =
                                 Terms.``Patient Department Launched``
                                 |> getTerm "Meegegeven door het systeem dat GenPRES opende"
                             else
-                                Terms.``Patient Department Chosen`` |> getTerm "Gekozen in de url"
+                                Terms.``Patient Department Chosen`` |> getTerm "Gekozen voor deze patiënt"
                         action = None
                         onClose = None
                     |}
@@ -497,6 +536,7 @@ module Patient =
                         s |> UpdateRenal |> dispatch
                     )
 
+                departmentField
             |]
             |> Array.map (fun el ->
                 let gridSize =
