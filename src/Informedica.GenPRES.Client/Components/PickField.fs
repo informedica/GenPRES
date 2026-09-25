@@ -87,12 +87,13 @@ module PickField =
         // what a disabled field holds is disabled too
         let isHeld = offer.Disabled && hasClear
 
-        // a field that cannot be opened still takes a clearing, since the cross is the only way
-        // out of it; a value is taken only from a field that can be used
+        // a field that is held still takes a clearing, since the cross is the only way out of
+        // it, and it takes the one value it holds, since a field offered as usable that refuses
+        // what it offers is a field that lies. A field with nothing to choose takes neither.
         let updateSelected value =
             match value with
             | None when hasClear -> props.onChange None
-            | Some _ when PickPolicy.acceptsChange pick -> props.onChange value
+            | Some _ when PickPolicy.acceptsChange pick || isHeld -> props.onChange value
             | _ -> ()
 
         match props.shape with
