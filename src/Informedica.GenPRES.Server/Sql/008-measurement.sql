@@ -10,6 +10,7 @@ create table measurement (
     value      integer null,        -- grams, centimeters or weeks; null: cleared
     days       integer null,        -- the days beside the weeks of a gestational age
     at         integer not null,
-    check (days is null or kind = 'gestage')
+    -- a gestational age has its weeks and its days, or neither; the other kinds have no days
+    check (case kind when 'gestage' then (value is null) = (days is null) else days is null end)
 );
 create index ix_measurement on measurement (session_id, id);

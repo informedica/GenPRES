@@ -797,6 +797,21 @@ let writerTests =
                                         }
                             }
                     | other -> failtest $"expected the Session, got %A{other}"
+
+                    // a gestational age with its weeks and not its days is no row the store takes
+                    use conn = connect cs
+
+                    (fun () ->
+                        use cmd =
+                            SqlSessions.command
+                                conn
+                                null
+                                "insert into measurement (session_id, kind, value, days, at) values ('s-1', 'gestage', 36, null, 0)"
+                                []
+
+                        cmd.ExecuteNonQuery() |> ignore
+                    )
+                    |> Expect.throws "the schema refuses it"
                 )
             }
 

@@ -575,7 +575,8 @@ module SqlSessions =
 
 
     /// What the user measured in a Session, its rows oldest first, the latest per kind
-    /// deciding; a kind this release does not know is a reason.
+    /// deciding; a kind this release does not know, or a gestational age with its weeks and
+    /// not its days, is a reason.
     let loadMeasurements (conn: SqliteConnection) (sid: string) : Result<Measurements, string> =
         rows
             conn
@@ -583,21 +584,23 @@ module SqlSessions =
             [ "$sid", box sid ]
             (fun r ->
                 let value = if r.IsDBNull 1 then None else Some(r.GetInt32 1)
-                let days = if r.IsDBNull 2 then 0 else r.GetInt32 2
+                let days = if r.IsDBNull 2 then None else Some(r.GetInt32 2)
                 let at = at (r.GetInt64 3)
 
-                match r.GetString 0 with
-                | "weight" -> Ok(Measurement.Weight(value |> Option.map Shared.Measures.toGram), at)
-                | "height" -> Ok(Measurement.Height(value |> Option.map Shared.Measures.toCm), at)
-                | "gestage" ->
-                    let gestAge (w: int) : GestAge =
+                match r.GetString 0, value, days with
+                | "weight", _, _ -> Ok(Measurement.Weight(value |> Option.map Shared.Measures.toGram), at)
+                | "height", _, _ -> Ok(Measurement.Height(value |> Option.map Shared.Measures.toCm), at)
+                | "gestage", Some w, Some d ->
+                    let gestAge: GestAge =
                         {
                             Weeks = Shared.Measures.toWeek w
-                            Days = Shared.Measures.toDay days
+                            Days = Shared.Measures.toDay d
                         }
 
-                    Ok(Measurement.GestAge(value |> Option.map gestAge), at)
-                | kind -> Error $"the measurement kind %s{kind} is not known"
+                    Ok(Measurement.GestAge(Some gestAge), at)
+                | "gestage", None, None -> Ok(Measurement.GestAge None, at)
+                | "gestage", _, _ -> Error "a gestational age has its weeks and its days, or neither"
+                | kind, _, _ -> Error $"the measurement kind %s{kind} is not known"
             )
         |> List.fold
             (fun acc row ->
