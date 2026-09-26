@@ -33,6 +33,7 @@ on #976 records this when the plan lands.
 - [Verification, per step](#verification-per-step)
 - [To settle in review](#to-settle-in-review)
 - [Related, not a member](#related-not-a-member)
+- [As built](#as-built)
 
 ## Problem description
 
@@ -487,3 +488,79 @@ Additional checks:
 - **ADR-0004** the superseded FHIR integration; the last word on a live adapter.
 - **ADR-0007** and **ADR-0008** the store and the structure version every stored shape here
   changes under.
+
+## As built
+
+Every step landed as one or more pull requests from a fork branch against `master`, each
+script-first where it touched source outside the client and reviewed before migration, on
+2026-09-26. The plan's shape held; the deviations are listed after the table with the reason.
+
+| Step | PR | Landed |
+|------|----|--------|
+| plan | [#1060](https://github.com/informedica/GenPRES/pull/1060) | this document; ADR-0009 loses its fourth section |
+| 1 | [#1062](https://github.com/informedica/GenPRES/pull/1062) | `Scripts/EhrData.fsx` in `GenPRES.Server`: the identity on the core patient, the birthdate fully specified, `EhrPatientData` and `Patient.ofEhr`, the stub's fixed patient |
+| 2 | [#1063](https://github.com/informedica/GenPRES/pull/1063), [#1064](https://github.com/informedica/GenPRES/pull/1064), [#1065](https://github.com/informedica/GenPRES/pull/1065), [#1066](https://github.com/informedica/GenPRES/pull/1066) | the identity on GenCORE's patient; EHR data and its projection in GenFORM, with a direct reference to GenCORE; the port answers EHR data and the Session opens on its projection at the date of the open, the identity on the contract's context; migration 6 keeps the EHR data a Session opened on. ADR-0007 section 3 amended |
+| 3 | [#1067](https://github.com/informedica/GenPRES/pull/1067) | `Scripts/AgeAtOpen.fsx`: the age at the open proved against the source, and the challenge deciding on the EHR data as read |
+| 4 | [#1068](https://github.com/informedica/GenPRES/pull/1068) | the notice and the challenge carry the EHR data as read; migration 7 adds it to their rows |
+| 5 | [#1069](https://github.com/informedica/GenPRES/pull/1069) | `Scripts/AgeOnRequest.fsx`: `aged` per command family, `Compute.bound` and the signing request at the Session's age |
+| 6 | [#1070](https://github.com/informedica/GenPRES/pull/1070) | the age on each request, on both paths into the server, no clock read |
+| 7 | [#1071](https://github.com/informedica/GenPRES/pull/1071), [#1072](https://github.com/informedica/GenPRES/pull/1072), [#1073](https://github.com/informedica/GenPRES/pull/1073) | `Scripts/Measurement.fsx`; what the Session holds of the user's measurements; the recording on each request and migration 8, the `measurement` table |
+| 8 | [#1074](https://github.com/informedica/GenPRES/pull/1074) | `Scripts/VersionIdentity.fsx`: whom a Session is for, the version's identity, the merge and the age after the sign |
+| 9 | [#1077](https://github.com/informedica/GenPRES/pull/1077), [#1078](https://github.com/informedica/GenPRES/pull/1078), [#1079](https://github.com/informedica/GenPRES/pull/1079) | the version names its patient and the answer to a sign carries the Session's patient; the age computed again after the sign; migration 9, the identity in the versions table's columns |
+| 10 | [#1080](https://github.com/informedica/GenPRES/pull/1080), [#1081](https://github.com/informedica/GenPRES/pull/1081) | `Scripts/SubmittedPatient.fsx` in `GenPRES.Client.Core`; the title bar and the panel. Closes #976 |
+
+### Deviations from the text above
+
+- **`EhrPatientData` sits in GenFORM**, not GenCORE: renal function and access are GenFORM types.
+  GenCORE got the identity and the two fields on its patient.
+- **The contract's identity is `NameAndBirthDate`**, named after what it holds: the patient id
+  sits beside it on the context and on the signed version.
+- **Step 2 was four pull requests**, GenCORE, GenFORM, the server with the contract, and the
+  store, to keep each under the size limit. The third already opened the Session on the
+  projection at the date of the open with the estimate over it, the first half of step 3; the
+  script of step 3 proved that half against the source and prototyped the second.
+- **The test suites run the stub port with its clock stopped** on the stub patient's tenth
+  birthday, so the ten-year patient the fixtures state is the reading at every date they run
+  at. The real port projects at the date it is given.
+- **A second port member for the signing request.** `SessionPort.age` answers the age alone,
+  since the challenge and the commit touch the Session themselves and a second `seen` would
+  touch it twice.
+- **Measurements are held beside the EHR data, not written into it.** Written into the EHR data
+  as read, they would make every challenge report a change, since the challenge compares that
+  read with a fresh one. `OpenedSession.Measured` holds them; they go onto the core patient
+  where the Session's patient is projected, and onto the contract patient where the client
+  resumes. The audit names a measurement by its kind, never its value.
+- **A Session opened from the head is identified by the head** only when the EHR answered none;
+  EHR data without an identity is anonymous whatever the head says.
+- **A retry after a lost answer** to a sign is answered with the plan just signed as the patient,
+  since the Session's patient at the answer is not kept.
+- **The identity columns are held by the loader.** Added later, they cannot carry the table's
+  check, so the loader reads all four present as the identity, all four null as none, and
+  anything else, or a birthdate the calendar does not have, as a reason.
+- **The signing machine's accept is unchanged.** The notice's data is already the merge, built
+  by the server at the date of the open over what the user measured, and the accept already
+  sets the draft to it.
+- **The title bar writes the birthdate from its three integers**, day-month-year, so no time
+  zone can move it by a day.
+
+### Answered in review
+
+- **Core patient or wrapper**: the core patient, with the identity and a fully specified
+  birthdate on it.
+- **Measurement write**: validated, on change, in its own row, as planned.
+- **Next open**: EHR data wins. The open projects the EHR data, else the head's patient, and the
+  measurements belong to the Session that recorded them.
+- **Update after a sign**: through `SetPatient`, the effect a resume gives; no age-only update
+  was built. The plan machine counts the recalculation that follows as no work, so the plan
+  just signed stays marked as signed.
+
+### Left open
+
+- **#1061**: a Session left idle for an hour ends. The held age leans on it and it is still open,
+  so today an idle Session can carry an age across the day.
+- **#1075**: hold the whole patient context from the first order to the sign, of which the held
+  age is one case.
+- **#1076**: one dated measurement for weight and height in GenCORE; `Measurements.onCore`
+  repeats the two branches because the core types do.
+- **Live adapter**: how a real EHR record maps onto the core patient, decided when one exists.
+- **#718** and **#598**, as under Related, not a member; G5 (#986) stays open for #718 and #489.
