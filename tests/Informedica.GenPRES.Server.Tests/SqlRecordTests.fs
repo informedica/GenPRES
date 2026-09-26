@@ -84,6 +84,90 @@ let tests =
     testList
         "SqlDatabase"
         [
+            test "whom a version names is in its columns, both cases; a row from before names none; half is a reason" {
+                withRecord (fun cs ->
+                    let whom =
+                        StubPatientData.data "stub-patient"
+                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+
+                    SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, whom) ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    let identityOf () =
+                        SqlDatabase.loadRecords cs "stub-patient" |> List.map StoredVersion.identity
+
+                    identityOf () |> Expect.equal "the identity, on the readable version" [ whom ]
+
+                    let run (sql: string) =
+                        use conn = new SqliteConnection(cs)
+                        conn.Open()
+                        use cmd = conn.CreateCommand()
+                        cmd.CommandText <- sql
+                        cmd.ExecuteNonQuery() |> ignore
+
+                    // the same row under a structure version this release does not know keeps
+                    // naming its patient
+                    run "update order_plan set json_version = 9"
+
+                    (SqlDatabase.loadRecords cs "stub-patient"
+                     |> List.map reasonOf
+                     |> List.map Option.isSome,
+                     identityOf ())
+                    |> Expect.equal "unreadable, and still the identity" ([ true ], [ whom ])
+
+                    // a row from before the columns: none
+                    run
+                        "update order_plan set json_version = 1, patient_name = null, birth_year = null, birth_month = null, birth_day = null"
+                    identityOf () |> Expect.equal "none" [ None ]
+
+                    // the columns half present, and a date the calendar does not have: a reason
+                    run "update order_plan set patient_name = 'Stub'"
+
+                    SqlDatabase.loadRecords cs "stub-patient"
+                    |> List.map reasonOf
+                    |> Expect.equal "not all present" [ Some "the patient's name and birthdate are not all present" ]
+
+                    run "update order_plan set birth_year = 2016, birth_month = 2, birth_day = 30"
+
+                    SqlDatabase.loadRecords cs "stub-patient"
+                    |> List.map reasonOf
+                    |> Expect.equal "no date" [ Some "the birthdate 2016-2-30 is no date" ]
+
+                    // a year too wide for the calendar, as SQLite lets a column hold: a reason,
+                    // not a failed load of the whole record
+                    run "update order_plan set birth_year = 9999999999, birth_day = 28"
+
+                    SqlDatabase.loadRecords cs "stub-patient"
+                    |> List.map reasonOf
+                    |> Expect.equal "too wide" [ Some "the birthdate 9999999999-2-28 is no date" ]
+
+                    // all four present but the name blank: nobody is named so
+                    run "update order_plan set birth_year = 2016, patient_name = ' '"
+
+                    SqlDatabase.loadRecords cs "stub-patient"
+                    |> List.map reasonOf
+                    |> Expect.equal "empty name" [ Some "the patient's name is empty" ]
+                )
+            }
+
+            test "a row written before the identity columns loads, naming none, once they are added" {
+                withDb (fun cs ->
+                    SqlSchema.embedded typeof<SqlSchema.Migration>.Assembly
+                    |> List.filter (fun m -> m.Number <= 8)
+                    |> SqlSchema.applyAll cs
+                    |> Expect.equal "the file at the version before the columns" [ 1; 2; 3; 4; 5; 6; 7; 8 ]
+
+                    insertRow cs "plan-1" 1 1 (fixtureText ())
+
+                    SqlSchema.apply cs |> Expect.equal "the columns added" [ 9 ]
+
+                    match SqlDatabase.loadRecords cs "stub-patient" with
+                    | [ StoredVersion.Readable(v, whom) ] ->
+                        (v.Id, whom) |> Expect.equal "readable, naming none" ("plan-1", None)
+                    | other -> failtest $"expected one readable row, got %A{other}"
+                )
+            }
+
             test "a persisted order plan version loads back as written" {
                 withRecord (fun cs ->
                     SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, None) ]

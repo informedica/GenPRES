@@ -4,6 +4,9 @@ namespace ServerApi
 // `ServerApi.StubAdapters.fs`. Production never opens it. The SQL schema lives in the
 // `Sql/*.sql` scripts embedded in this assembly.
 
+// the module, not the union case of the same name
+module CoreBirthDate = Informedica.GenCore.Lib.Patients.BirthDate
+
 
 /// <summary>
 /// The SQL schema of the session store, applied as numbered migrations. Each migration is a
@@ -189,15 +192,47 @@ module SqlDatabase =
             SignedAt: int64
             JsonVersion: int
             Plan: string
+            PatientName: string option
+            BirthYear: int64 option
+            BirthMonth: int64 option
+            BirthDay: int64 option
         }
 
 
     /// <summary>
     /// A row as the record holds it: upgraded, parsed with <c>fromDto</c>, and checked against its
     /// identity columns; else unreadable with the reason, its identity from the columns, which
-    /// are authoritative.
+    /// are authoritative. Whom it names comes from its own columns in both cases: all four
+    /// present is the identity, all four null is none (a version signed without one, or a row
+    /// from before the columns), else a reason, as is an empty name or a birthdate the calendar
+    /// does not have, which a column too wide for a year, a month or a day counts as.
     /// </summary>
     let readRow (row: Row) : StoredVersion =
+        let identity: Result<Informedica.GenCore.Lib.Patients.PatientIdentity option, string> =
+            match row.PatientName, row.BirthYear, row.BirthMonth, row.BirthDay with
+            | Some name, _, _, _ when name |> String.isNullOrWhiteSpace -> Error "the patient's name is empty"
+            | Some name, Some y, Some m, Some d ->
+                try
+                    let date = DateTime(Checked.int y, Checked.int m, Checked.int d)
+
+                    Ok(
+                        Some
+                            {
+                                Id = row.PatientId
+                                Name = name
+                                BirthDate =
+                                    CoreBirthDate.create
+                                        (Informedica.GenCore.Lib.Conversions.yearFromInt date.Year)
+                                        (Informedica.GenCore.Lib.Conversions.monthFromInt date.Month)
+                                        (Informedica.GenCore.Lib.Conversions.dayFromInt date.Day)
+                            }
+                    )
+                with
+                | :? ArgumentOutOfRangeException
+                | :? OverflowException -> Error $"the birthdate %i{y}-%i{m}-%i{d} is no date"
+            | None, None, None, None -> Ok None
+            | _ -> Error "the patient's name and birthdate are not all present"
+
         let parsed =
             upgrade row.JsonVersion row.Plan
             |> Result.bind (fun json ->
@@ -229,10 +264,9 @@ module SqlDatabase =
             with :? ArgumentOutOfRangeException ->
                 DateTime.MinValue, Some $"signed_at %i{row.SignedAt} is out of range"
 
-        // the identity columns come with the store's next migration
-        match parsed, reason with
-        | Ok v, _ -> StoredVersion.Readable(v, None)
-        | Error parseReason, timeReason ->
+        match parsed, identity with
+        | Ok v, Ok whom -> StoredVersion.Readable(v, whom)
+        | _ ->
             StoredVersion.Unreadable
                 {
                     Id = row.VersionId
@@ -245,11 +279,19 @@ module SqlDatabase =
                             DisplayName = row.SignedByDisplayName
                         }
                     SignedAt = signedAt
-                    Identity = None
+                    Identity = identity |> Result.toOption |> Option.flatten
                     Reason =
-                        timeReason
-                        |> Option.map (fun r -> $"%s{parseReason}; %s{r}")
-                        |> Option.defaultValue parseReason
+                        [
+                            (match parsed with
+                             | Error r -> Some r
+                             | Ok _ -> None)
+                            (match identity with
+                             | Error r -> Some r
+                             | Ok _ -> None)
+                            reason
+                        ]
+                        |> List.choose id
+                        |> String.concat "; "
                 }
 
 
@@ -262,7 +304,7 @@ module SqlDatabase =
         cmd.CommandText <-
             """
             select version_id, no, patient_id, base, signed_by_user_id, signed_by_display_name,
-                   signed_at, json_version, plan
+                   signed_at, json_version, plan, patient_name, birth_year, birth_month, birth_day
             from order_plan where patient_id = $patient order by no desc
             """
 
@@ -282,13 +324,24 @@ module SqlDatabase =
                         SignedAt = r.GetInt64 6
                         JsonVersion = r.GetInt32 7
                         Plan = r.GetString 8
+                        PatientName = if r.IsDBNull 9 then None else Some(r.GetString 9)
+                        BirthYear = if r.IsDBNull 10 then None else Some(r.GetInt64 10)
+                        BirthMonth = if r.IsDBNull 11 then None else Some(r.GetInt64 11)
+                        BirthDay = if r.IsDBNull 12 then None else Some(r.GetInt64 12)
                     }
         ]
 
 
     /// Inserts an order plan version on a connection, within the transaction it is given, so
     /// that a request writing more than this one row writes them all as one.
-    let insertVersion (conn: SqliteConnection) (tx: SqliteTransaction) (v: Types.OrderPlanVersion) =
+    /// The version with whom it names, in its own columns: the name and the birthdate, all
+    /// four or none.
+    let insertVersion
+        (conn: SqliteConnection)
+        (tx: SqliteTransaction)
+        (v: Types.OrderPlanVersion)
+        (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
+        =
         use cmd = conn.CreateCommand()
         cmd.Transaction <- tx
 
@@ -296,11 +349,14 @@ module SqlDatabase =
             """
             insert into order_plan
                 (version_id, no, patient_id, base, signed_by_user_id, signed_by_display_name,
-                 signed_at, verified, json_version, plan)
-            values ($id, $no, $patient, $base, $user, $name, $at, $verified, $json_version, $plan)
+                 signed_at, verified, json_version, plan, patient_name, birth_year, birth_month, birth_day)
+            values ($id, $no, $patient, $base, $user, $name, $at, $verified, $json_version, $plan,
+                    $patient_name, $birth_year, $birth_month, $birth_day)
             """
 
         let add (name: string) (value: obj) = cmd.Parameters.AddWithValue(name, value) |> ignore
+        let orNull (value: 'a option) =
+            value |> Option.map box |> Option.defaultValue (box DBNull.Value)
 
         add "$id" v.Id
         add "$no" v.No
@@ -312,13 +368,17 @@ module SqlDatabase =
         add "$verified" (if v.Verified then 1 else 0)
         add "$json_version" jsonVersionWritten
         add "$plan" (toJson v)
+        add "$patient_name" (whom |> Option.map _.Name |> orNull)
+        add "$birth_year" (whom |> Option.map (fun w -> int w.BirthDate.Year) |> orNull)
+        add "$birth_month" (whom |> Option.map (fun w -> int w.BirthDate.Month) |> orNull)
+        add "$birth_day" (whom |> Option.map (fun w -> int w.BirthDate.Day) |> orNull)
         cmd.ExecuteNonQuery() |> ignore
 
 
-    let private insert (connectionString: string) (v: Types.OrderPlanVersion) =
+    let private insert (connectionString: string) (v: Types.OrderPlanVersion, whom) =
         use conn = new SqliteConnection(connectionString)
         conn.Open()
-        insertVersion conn null v
+        insertVersion conn null v whom
 
 
     /// True when a failure is another server's sign of the same order plan version number.
@@ -333,9 +393,13 @@ module SqlDatabase =
     /// the head as it stands now; any other failure, other constraints included, is <c>Failed</c>
     /// with the reason, so that the caller keeps its state and the next Submission retries.
     /// </summary>
-    let persistVersion (connectionString: string) (v: Types.OrderPlanVersion) : Session.StoreOutcome =
+    let persistVersion
+        (connectionString: string)
+        (v: Types.OrderPlanVersion, whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
+        : Session.StoreOutcome
+        =
         try
-            insert connectionString v
+            insert connectionString (v, whom)
             Session.StoreOutcome.Written
         with
         | :? SqliteException as e when isSameNumber e ->
@@ -358,7 +422,7 @@ module SqlDatabase =
         writes
         |> List.choose (
             function
-            | Session.WriteVersion(v, _) -> Some v
+            | Session.WriteVersion(v, whom) -> Some(v, whom)
             | _ -> None
         )
         |> List.fold
@@ -851,7 +915,7 @@ module SqlSessions =
     /// compile.
     let run (conn: SqliteConnection) (tx: SqliteTransaction) (write: Session.Persist) =
         match write with
-        | Session.WriteVersion(v, _) -> SqlDatabase.insertVersion conn tx v
+        | Session.WriteVersion(v, whom) -> SqlDatabase.insertVersion conn tx v whom
         | Session.RecordLaunch r ->
             let (PublicKey key) = r.PublicKey
 
