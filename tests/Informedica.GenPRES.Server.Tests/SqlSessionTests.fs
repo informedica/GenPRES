@@ -514,6 +514,7 @@ let sessionOf sid login openedWith head : Session.SessionRecord =
                 PatientId = Some "stub-patient"
                 EhrData = None
                 Patient = Some patient
+                Measured = Measurements.none
                 OpenedToken = Some(OpenedToken $"opened-%s{sid}")
                 KeyThumbprint = Some "thumb"
                 Head = head

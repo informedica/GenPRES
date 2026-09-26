@@ -27,6 +27,7 @@
 #load "../ServerApi.Ports.fs"
 #load "../ServerApi.NutritionRuleSets.fs"
 #load "../ServerApi.Mappers.Patient.fs"
+#load "../ServerApi.Mappers.Measurements.fs"
 #load "../ServerApi.Mappers.OrderContext.fs"
 #load "../ServerApi.Mappers.OrderPlan.fs"
 #load "../ServerApi.Mappers.Session.fs"

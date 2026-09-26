@@ -18,6 +18,7 @@
     <Compile Include="ServerApi.Ports.fs" />
     <Compile Include="ServerApi.NutritionRuleSets.fs" />
     <Compile Include="ServerApi.Mappers.Patient.fs" />
+    <Compile Include="ServerApi.Mappers.Measurements.fs" />
     <Compile Include="ServerApi.Mappers.OrderContext.fs" />
     <Compile Include="ServerApi.Mappers.OrderPlan.fs" />
     <Compile Include="ServerApi.Mappers.Session.fs" />

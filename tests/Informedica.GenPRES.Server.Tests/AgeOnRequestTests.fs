@@ -58,6 +58,7 @@ let record
                 PatientId = Some "p1"
                 EhrData = ehr
                 Patient = patient
+                Measured = Measurements.none
                 OpenedToken = Some(OpenedToken $"opened-{sid}")
                 KeyThumbprint = Some "t"
                 Head = None
