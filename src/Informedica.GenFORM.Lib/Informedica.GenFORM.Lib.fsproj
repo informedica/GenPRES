@@ -38,6 +38,7 @@
     <None Include="Scripts\Tests.fsx" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Informedica.GenCORE.Lib\Informedica.GenCORE.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.Logging.Lib\Informedica.Logging.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.ZForm.Lib\Informedica.ZForm.Lib.fsproj" />
   </ItemGroup>

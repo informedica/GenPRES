@@ -489,6 +489,23 @@ module RenalFunction =
         | _ -> None
 
 
+module EhrPatientData =
+
+    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
+
+
+    let create pat renal access : EhrPatientData =
+        {
+            Patient = pat
+            RenalFunction = renal
+            Access = access
+        }
+
+
+    /// Who the patient is: the core patient's identity, none without a name or a birthdate.
+    let identity (ehr: EhrPatientData) = ehr.Patient |> CorePatient.identity
+
+
 module Patient =
 
     open Informedica.Utils.Lib.BCL
@@ -497,6 +514,14 @@ module Patient =
     module BSA = Informedica.GenCore.Lib.Calculations.BSA
     module Conversions = Informedica.GenCore.Lib.Conversions
     module Limit = Informedica.GenCore.Lib.Ranges.Limit
+    module CorePatient = Informedica.GenCore.Lib.Patients.Patient
+    module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
+    module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
+    module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
+    module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
+    module CoreDepartment = Informedica.GenCore.Lib.Patients.Department
+
+    type CoreGender = Informedica.GenCore.Lib.Patients.Gender
 
     open Utils
 
@@ -538,6 +563,63 @@ module Patient =
         match pat.Weight, pat.Height with
         | Some w, Some h -> Calculations.calcDuBois w h |> Some
         | _ -> None
+
+
+    /// The patient the EHR data is at a date: the age at that date in days, from the birthdate
+    /// or the age value the EHR gave; weight and height from the calculation values, measured
+    /// when there are any; the gestational age in days and the post-menstrual age calculated
+    /// from it; the department's name; renal function and access as given; the BSA left to
+    /// the calculation over weight and height.
+    let ofEhr (now: System.DateTime) (ehr: EhrPatientData) : Patient =
+        let days (d: int<Informedica.GenCore.Lib.Measures.day>) =
+            d |> int |> BigRational.fromInt |> ValueUnit.singleWithUnit Units.Time.day
+
+        let gender =
+            function
+            | CoreGender.Male -> Male
+            | CoreGender.Female -> Female
+            | CoreGender.AnyGender
+            | CoreGender.UnknownGender -> AnyGender
+
+        let core = ehr.Patient
+
+        let weight =
+            core.Weight.Calculation
+            |> Option.map (fun w ->
+                w.Weight
+                |> CoreWeightValue.getWeightInKg
+                |> decimal
+                |> BigRational.fromDecimal
+                |> ValueUnit.singleWithUnit Units.Weight.kiloGram
+            )
+
+        let height =
+            core.Height.Calculation
+            |> Option.map (fun h ->
+                h.Height
+                |> CoreHeightValue.getHeightCm
+                |> decimal
+                |> BigRational.fromDecimal
+                |> ValueUnit.singleWithUnit Units.Height.centiMeter
+            )
+
+        { patient with
+            Department = core.Department |> CoreDepartment.name
+            Diagnoses = core.Diagnoses
+            Gender = core.Gender |> gender
+            Age =
+                core
+                |> CorePatient.SetGet.getAgeValue now
+                |> Option.map (CoreAgeValue.getAgeInDays >> days)
+            Weight = weight
+            Height = height
+            WeightMeasured = weight.IsSome
+            HeightMeasured = height.IsSome
+            GestAge = core.GestationalAge |> Option.map (CoreAgeWeeksDays.toDays >> days)
+            Access = ehr.Access
+            RenalFunction = ehr.RenalFunction
+        }
+        |> calcPMAge
 
 
     /// Get the string representation of a Patient.
