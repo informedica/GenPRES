@@ -58,6 +58,31 @@ module OrderPlanCommand =
             }
 
 
+    /// The plan's patient and that of every context in it at the Session's age.
+    let agedPlan (age: Age option) (plan: OrderPlan) : OrderPlan =
+        { plan with
+            Patient = plan.Patient |> Patient.aged age
+            OrderContexts = plan.OrderContexts |> Array.map (OrderContextMapper.aged age)
+        }
+
+
+    /// Every patient the command carries at the Session's age: the plan's and its contexts',
+    /// and the context's where the command carries one.
+    let aged (age: Age option) (cmd: OrderPlanCommand) : OrderPlanCommand =
+        match cmd with
+        | OrderPlanCommand.Recalculate plan -> OrderPlanCommand.Recalculate(agedPlan age plan)
+        | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
+            OrderPlanCommand.Navigate(agedPlan age plan, contextId, ctxCmd, OrderContextMapper.aged age ctx)
+        | OrderPlanCommand.AddOrderContext(plan, ctx) ->
+            OrderPlanCommand.AddOrderContext(agedPlan age plan, OrderContextMapper.aged age ctx)
+        | OrderPlanCommand.NewOrderContext(plan, category) ->
+            OrderPlanCommand.NewOrderContext(agedPlan age plan, category)
+        | OrderPlanCommand.RemoveOrderContexts(plan, ids) ->
+            OrderPlanCommand.RemoveOrderContexts(agedPlan age plan, ids)
+        | OrderPlanCommand.Open(pat, contexts) ->
+            OrderPlanCommand.Open(Patient.aged age pat, contexts |> Array.map (OrderContextMapper.aged age))
+
+
     /// The plan's patient and that of every context it carries, and the context's where a
     /// command carries one, made at the inbound boundary; the plan and the context parsed into
     /// the domain, the verb mapped, the port asked, the answer mapped out with the environment's

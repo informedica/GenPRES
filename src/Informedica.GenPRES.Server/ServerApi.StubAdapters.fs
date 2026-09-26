@@ -688,6 +688,7 @@ module StubDatabase =
                                     ))
                     }
             seen = fun sid opened -> async { return update (Slice.Session sid) (Session.seen (now ()) sid opened) }
+            age = fun sid -> async { return update (Slice.Session sid) (fun s -> s, Session.age sid s, []) }
             openVersion =
                 fun sid id -> async { return update (Slice.Session sid) (Session.openVersion (now ()) newId sid id) }
         }

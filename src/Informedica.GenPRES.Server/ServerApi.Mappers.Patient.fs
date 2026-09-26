@@ -261,3 +261,11 @@ module Patient =
 
     /// Whether a platform reading is a patient: one that is none counts as no reading.
     let reading (dto: Patient option) = dto |> Option.filter (Patient.validate >> Result.isOk)
+
+
+    /// The draft with the Session's age in place of the one the client sent, everything else
+    /// as sent; as sent when the Session holds none.
+    let aged (age: Age option) (draft: Patient) : Patient =
+        match age with
+        | Some age -> { draft with Age = Some age }
+        | None -> draft

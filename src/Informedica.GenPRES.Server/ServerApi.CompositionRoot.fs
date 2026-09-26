@@ -25,6 +25,7 @@ module CompositionRoot =
                     cookie
                     OrderContextCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
+                    OrderContextCommand.aged
                     (OrderContextCommand.processCmd env)
 
             processFormulary =
@@ -33,6 +34,7 @@ module CompositionRoot =
                     cookie
                     FormularyCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
+                    FormularyCommand.aged
                     (FormularyCommand.processCmd env)
 
             processParenteralia =
@@ -41,6 +43,7 @@ module CompositionRoot =
                     cookie
                     ParenteraliaCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
+                    ParenteraliaCommand.aged
                     (ParenteraliaCommand.processCmd env)
 
             // the one plan, nutrition included
@@ -50,6 +53,7 @@ module CompositionRoot =
                     cookie
                     OrderPlanCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
+                    OrderPlanCommand.aged
                     (OrderPlanCommand.processCmd env)
 
             // the one member whose gate differs per command: the drug names run open
@@ -59,6 +63,7 @@ module CompositionRoot =
                     cookie
                     InteractionCommand.toString
                     InteractionCommand.gate
+                    InteractionCommand.aged
                     (InteractionCommand.processCmd env)
 
             processLaunch =

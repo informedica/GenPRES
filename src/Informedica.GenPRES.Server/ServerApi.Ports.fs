@@ -330,8 +330,12 @@ type SessionPort =
         // the signature, its plan parsed, for the Session the cookie names
         submit: string -> Signature -> Async<SigningOutcome>
         // every computing request: the Session the cookie names is marked seen and told
-        // whether the record moved on or the Session ended
-        seen: string -> OpenedToken option -> Async<RecordNotice option>
+        // whether the record moved on or the Session ended, and the age it holds for an
+        // identified patient
+        seen: string -> OpenedToken option -> Async<RecordNotice option * Age option>
+        // the age the Session the cookie names holds for an identified patient; the Session is
+        // not touched, a signing request does that itself
+        age: string -> Async<Age option>
         // the version named becomes what the Session the cookie names opened with
         openVersion: string -> string -> Async<OpenedSession option>
     }
