@@ -2419,6 +2419,152 @@ module Tests =
                 ]
 
 
+    module EhrPatientDataTests =
+
+        open System
+        open Expecto
+        open Expecto.Flip
+        open Informedica.Utils.Lib.BCL
+        open Informedica.GenUnits.Lib
+        open Informedica.GenCore.Lib
+        open Informedica.GenCore.Lib.Patients
+
+        module FormPatient = Informedica.GenForm.Lib.Patient
+        module FormTypes = Informedica.GenForm.Lib.Types
+
+        /// The fifteenth of March, 2016, the tenth birthday of a patient born on it.
+        let tenthBirthday = DateTime(2026, 3, 15)
+
+        /// The stub's kind of patient: born 2016-03-15, 32 kg and 140 cm measured on the tenth
+        /// birthday, nothing else known.
+        let ehr () : FormTypes.EhrPatientData =
+            let weight = WeightAtDate.create tenthBirthday (WeightValue.weightInKg 32m)
+            let height = HeightAtDate.create tenthBirthday (HeightValue.heightInCm 140m)
+
+            Patient.create
+                "p1"
+                "Stub Testpatiënt"
+                Department.unknown
+                [||]
+                UnknownGender
+                (BirthDate.create 2016<year> 3<month> 15<day> |> PatientAge.birthDate)
+                (Weight.create [ weight ] None [] (Some weight))
+                (Height.create [ height ] None (Some height))
+                None
+                UnknownEnteral
+                UnknownVenous
+            |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
+
+        let days (vu: ValueUnit option) =
+            vu
+            |> Option.map (ValueUnit.convertTo Units.Time.day >> ValueUnit.getValue >> Array.head)
+
+        let tests =
+            testList
+                "EhrPatientData"
+                [
+                    test "the projection at the tenth birthday is ten years, the measures, nothing else" {
+                        let pat = ehr () |> FormPatient.ofEhr tenthBirthday
+
+                        let expected: FormTypes.Patient =
+                            { FormPatient.patient with
+                                Gender = FormTypes.AnyGender
+                                Age = Some(3650N |> ValueUnit.singleWithUnit Units.Time.day)
+                                Weight = Some(32N |> ValueUnit.singleWithUnit Units.Weight.kiloGram)
+                                Height = Some(140N |> ValueUnit.singleWithUnit Units.Height.centiMeter)
+                                WeightMeasured = true
+                                HeightMeasured = true
+                            }
+
+                        pat |> Expect.equal "field for field" expected
+                    }
+
+                    test "the age is the birthdate's at the date, in days" {
+                        let at dt = ehr () |> FormPatient.ofEhr dt |> _.Age |> days
+
+                        (at tenthBirthday, at (tenthBirthday.AddDays 1.0), at (tenthBirthday.AddYears 1))
+                        |> Expect.equal "3650, 3651, 4015 days" (Some 3650N, Some 3651N, Some 4015N)
+                    }
+
+                    test "an age value the EHR gave is projected as its days" {
+                        let ehr = ehr ()
+
+                        { ehr with
+                            Patient =
+                                { ehr.Patient with
+                                    Age =
+                                        AgeValue.create (Some 2<year>) (Some 3<month>) None (Some 4<day>)
+                                        |> PatientAge.ageValue
+                                }
+                        }
+                        |> FormPatient.ofEhr tenthBirthday
+                        |> _.Age
+                        |> days
+                        |> Expect.equal "2 years, 3 months and 4 days" (Some 824N)
+                    }
+
+                    test "a measurement without a calculation value is no measure" {
+                        let ehr = ehr ()
+
+                        let pat =
+                            { ehr with
+                                Patient = { ehr.Patient with Weight = { ehr.Patient.Weight with Calculation = None } }
+                            }
+                            |> FormPatient.ofEhr tenthBirthday
+
+                        (pat.Weight, pat.WeightMeasured, pat.Height.IsSome, pat.HeightMeasured)
+                        |> Expect.equal "no weight, not measured; the height as before" (None, false, true, true)
+                    }
+
+                    test "gestational age in days, PMA calculated, department named, rule data as given" {
+                        let ehr = ehr ()
+
+                        let pat =
+                            { ehr with
+                                Patient =
+                                    { ehr.Patient with
+                                        Department = Department.pediatricICU "ICK"
+                                        Gender = Female
+                                        GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
+                                    }
+                                RenalFunction = Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60))
+                                Access = [ FormTypes.CVL; FormTypes.EnteralTube ]
+                            }
+                            |> FormPatient.ofEhr tenthBirthday
+
+                        (pat.GestAge |> days,
+                         pat.PMAge |> days,
+                         pat.Department,
+                         pat.Gender,
+                         pat.RenalFunction,
+                         pat.Access)
+                        |> Expect.equal
+                            "254 days, 3904 days, ICK, female, the eGFR, the two devices"
+                            (Some 254N,
+                             Some 3904N,
+                             Some "ICK",
+                             FormTypes.Female,
+                             Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60)),
+                             [ FormTypes.CVL; FormTypes.EnteralTube ])
+                    }
+
+                    test "the identity is the core patient's" {
+                        ehr ()
+                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+                        |> Option.map (fun id -> id.Id, id.Name, id.BirthDate |> BirthDate.toDate)
+                        |> Expect.equal "id, name, birthdate" (Some("p1", "Stub Testpatiënt", DateTime(2016, 3, 15)))
+                    }
+
+                    test "the printer writes neither the name nor the birthdate" {
+                        let printed = ehr () |> FormPatient.ofEhr tenthBirthday |> FormPatient.toString
+
+                        [ "Stub"; "Testpatiënt"; "2016"; "15-03"; "03-15" ]
+                        |> List.map (fun s -> printed.Contains s)
+                        |> Expect.allEqual $"nothing of the identity in: %s{printed}" false
+                    }
+                ]
+
+
     module PatientTests =
 
         open Expecto
@@ -4614,6 +4760,7 @@ module Tests =
                 MaxQtyConflictTests.tests
                 PatientCategoryTests.tests
                 PatientTests.tests
+                EhrPatientDataTests.tests
                 PatientDtoTests.tests
                 AccessDeviceTests.tests
                 DepartmentTests.tests

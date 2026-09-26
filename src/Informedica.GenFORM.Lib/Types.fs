@@ -399,6 +399,21 @@ module Types =
         static member Location_ = (fun (p: Patient) -> p.Location), (fun l (p: Patient) -> { p with Location = l })
 
 
+    /// What the EHR returns for a patient id: the core patient, with the identity on it, and
+    /// the data only the rules read. Access lives here alone; the core patient's own access
+    /// fields are not filled from EHR data. The rules read the Patient projected from it at a
+    /// date.
+    type EhrPatientData =
+        {
+            /// The identity, the birthdate, the gender, the dated measurements, the department.
+            Patient: Informedica.GenCore.Lib.Patients.Patient
+            /// The renal function, as the renal rules read it.
+            RenalFunction: RenalFunction option
+            /// The access devices, venous and enteral, as the rules read them.
+            Access: AccessDevice list
+        }
+
+
     /// Why a value is no patient, or why a Dto does not parse to one.
     [<RequireQualifiedAccess>]
     type PatientError =

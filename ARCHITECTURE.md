@@ -55,6 +55,7 @@ graph BT
         NLP_Lib["NLP.Lib"]
     end
     GenCORE_Lib --> GenUNITS_Lib
+    GenFORM_Lib --> GenCORE_Lib
     GenFORM_Lib --> Logging_Lib
     GenFORM_Lib -.-> ZForm_Lib
     GenINTERACT_Lib --> Utils_Lib
@@ -94,6 +95,6 @@ graph BT
     class NLP_Lib Tooling
 ```
 
-20 projects, 26 project references. An arrow points at the dependency. A dashed arrow is an
+20 projects, 27 project references. An arrow points at the dependency. A dashed arrow is an
 outward reference the dependency rule still tolerates; the reasons are in `scripts/DependencyRule.fsx`.
 <!-- project-graph:end -->
