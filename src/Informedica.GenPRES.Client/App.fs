@@ -945,8 +945,8 @@ module private Elmish =
                         return SigningMsg(SigningMsg.SubmitAnswered(key, Error ex.Message))
                 }
                 |> Cmd.fromAsync
-        | SigningEffect.RenewToken(token, patient) ->
-            state, Cmd.ofMsg (SessionMsg(SessionMsg.TokenRenewed(token, patient)))
+        | SigningEffect.RenewToken(token, patient, identity) ->
+            state, Cmd.ofMsg (SessionMsg(SessionMsg.TokenRenewed(token, patient, identity)))
         | SigningEffect.EndSession ending -> state, Cmd.ofMsg (SessionMsg(SessionMsg.EndedByServer ending))
         | SigningEffect.SetPatient patient -> state, Cmd.ofMsg (UpdatePatient(Some patient))
         // the plan's work follows the signature: as signed, unless it changed meanwhile

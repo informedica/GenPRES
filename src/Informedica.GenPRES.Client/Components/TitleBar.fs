@@ -197,13 +197,16 @@ module TitleBar =
 
         // the patient beside the user, set off by a rule: the name on one line, the birthdate
         // and the id under it, shown in full since the user sits at the EHR that launched the
-        // Session
+        // Session; capped and clipped as the user's name is, the full text in the tooltip, so
+        // that a long name or id cannot push the language and login controls out
         let sxPatientBox =
             {|
                 marginLeft = 2
                 paddingLeft = 2
                 borderLeft = "1px solid rgba(255, 255, 255, 0.5)"
                 lineHeight = 1.2
+                maxWidth = 260
+                minWidth = 0
             |}
 
         // the session terms in the User's language, else the policy's English
@@ -231,8 +234,8 @@ module TitleBar =
                         JSX.jsx
                             $"""
                         <Box sx={sxPatientBox}>
-                            <Typography variant="body2" component="div">{who.Name}</Typography>
-                            <Typography variant="caption" component="div">{detail}</Typography>
+                            <Typography variant="body2" component="div" noWrap title={who.Name}>{who.Name}</Typography>
+                            <Typography variant="caption" component="div" noWrap title={detail}>{detail}</Typography>
                         </Box>
                         """
                     )

@@ -105,7 +105,7 @@ module Patient =
 
             let named =
                 identity
-                |> Option.map (fun who -> $"**{who.Name}**, {Global.birthDateText who}")
+                |> Option.map (fun who -> $"**{who.Name |> String.escapeMarkdown}**, {Global.birthDateText who}")
                 |> Option.toList
 
             match pat with

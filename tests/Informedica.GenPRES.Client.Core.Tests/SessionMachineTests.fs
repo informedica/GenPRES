@@ -53,11 +53,28 @@ module SessionMachineTests =
                     }
         }
 
-    /// A Session renewed after a sign: the token, and the patient in the context it holds.
+    /// Whom the signed version names, which the Session is for from the sign on.
+    let who =
+        {
+            Name = "Stub Testpatiënt"
+            BirthYear = 2016
+            BirthMonth = 3
+            BirthDay = 15
+        }
+
+    /// A Session renewed after a sign: the token, and the patient with whom the version names
+    /// in the context it holds.
     let renewed (session: SessionOpened) =
         { session with
             OpenedToken = Some(OpenedToken "t2")
-            PatientContext = session.PatientContext |> Option.map (fun c -> { c with Patient = Some aged })
+            PatientContext =
+                session.PatientContext
+                |> Option.map (fun c ->
+                    { c with
+                        Patient = Some aged
+                        Identity = Some who
+                    }
+                )
         }
 
     /// The record's transition: the DU's tests, on the constructors.
@@ -608,8 +625,10 @@ module SessionMachineTests =
                     }
 
                     test
-                        "TokenRenewed from Open replaces the token and takes the patient, to the panel as at a resume; elsewhere dropped" {
-                        transition (SessionMsg.TokenRenewed(OpenedToken "t2", aged)) (SessionState.opened full None)
+                        "TokenRenewed from Open replaces the token and takes the patient and the identity, to the panel as at a resume; elsewhere dropped" {
+                        transition
+                            (SessionMsg.TokenRenewed(OpenedToken "t2", aged, Some who))
+                            (SessionState.opened full None)
                         |> Expect.equal
                             "renewed"
                             (SessionState.opened (renewed full) None, [ SessionEffect.SetPatient(Some aged) ])
@@ -623,14 +642,16 @@ module SessionMachineTests =
                         // a Session without a patient context: the token only
                         let none = sessionWith (Some "thumb") None
 
-                        transition (SessionMsg.TokenRenewed(OpenedToken "t2", aged)) (SessionState.opened none None)
+                        transition
+                            (SessionMsg.TokenRenewed(OpenedToken "t2", aged, Some who))
+                            (SessionState.opened none None)
                         |> Expect.equal
                             "the token only"
                             (SessionState.opened { none with OpenedToken = Some(OpenedToken "t2") } None,
                              [ SessionEffect.SetPatient(Some aged) ])
 
                         for state in [ SessionState.anonymous; SessionState.closing full; launching ] do
-                            transition (SessionMsg.TokenRenewed(OpenedToken "t2", aged)) state
+                            transition (SessionMsg.TokenRenewed(OpenedToken "t2", aged, Some who)) state
                             |> Expect.equal $"{state}" (state, [])
                     }
 
@@ -1008,7 +1029,9 @@ module SessionMachineTests =
                     transition (SessionMsg.Reopened(full.OpenedToken, Ok None)) (SessionState.opened full (Some two))
                     |> Expect.equal "nothing to open: kept" (SessionState.opened full (Some two), [])
 
-                    transition (SessionMsg.TokenRenewed(OpenedToken "t2", aged)) (SessionState.opened full (Some two))
+                    transition
+                        (SessionMsg.TokenRenewed(OpenedToken "t2", aged, Some who))
+                        (SessionState.opened full (Some two))
                     |> Expect.equal
                         "renewed, kept"
                         (SessionState.opened (renewed full) (Some two), [ SessionEffect.SetPatient(Some aged) ])

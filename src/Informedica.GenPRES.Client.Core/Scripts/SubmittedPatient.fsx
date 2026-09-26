@@ -27,7 +27,7 @@ System.Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 /// Session's patient after the sign, both from the one Submitted answer.
 [<RequireQualifiedAccess>]
 type SigningEffect =
-    | RenewToken of OpenedToken * Patient
+    | RenewToken of OpenedToken * Patient * identity: NameAndBirthDate option
     | TellSigned of SignedOrderPlan * askedOver: PlanWorkPolicy.PlanWork
 
 
@@ -39,7 +39,7 @@ module SigningMachine =
     let submitted (signed: SignedOrderPlan) (token: OpenedToken) (patient: Patient) (askedOver: PlanWorkPolicy.PlanWork) =
         SigningMachine.SigningState.idle,
         [
-            SigningEffect.RenewToken(token, patient)
+            SigningEffect.RenewToken(token, patient, signed.Identity)
             SigningEffect.TellSigned(signed, askedOver)
         ]
 
@@ -51,18 +51,37 @@ module SessionMachine =
     /// The Session after a signature: the token the next signature has to present, and the
     /// patient as the Session now holds it, in the context it opened with. A Session without
     /// a patient context signs nothing, so there is no context to fill.
-    let renewed (token: OpenedToken) (patient: Patient) (session: SessionOpened) : SessionOpened =
+    let renewed
+        (token: OpenedToken)
+        (patient: Patient)
+        (identity: NameAndBirthDate option)
+        (session: SessionOpened)
+        : SessionOpened
+        =
         { session with
             OpenedToken = Some token
-            PatientContext = session.PatientContext |> Option.map (fun c -> { c with Patient = Some patient })
+            PatientContext =
+                session.PatientContext
+                |> Option.map (fun c ->
+                    { c with
+                        Patient = Some patient
+                        Identity = identity
+                    }
+                )
         }
 
 
     /// The arm of the transition on TokenRenewed from Open with nothing under way: the Session
     /// renewed, the notice that the record moved on kept, and the patient to the panel as at a
     /// resume.
-    let tokenRenewed (token: OpenedToken) (patient: Patient) (session: SessionOpened) (movedOn: OrderPlanHead option) =
-        SessionState.opened (renewed token patient session) movedOn, [ SessionEffect.SetPatient(Some patient) ]
+    let tokenRenewed
+        (token: OpenedToken)
+        (patient: Patient)
+        (identity: NameAndBirthDate option)
+        (session: SessionOpened)
+        (movedOn: OrderPlanHead option)
+        =
+        SessionState.opened (renewed token patient identity session) movedOn, [ SessionEffect.SetPatient(Some patient) ]
 
 
 module Fixtures =
@@ -144,13 +163,14 @@ let tests =
                     "idle, the token with the patient, the signature over the work"
                     (SigningMachine.SigningState.idle,
                      [
-                         SigningEffect.RenewToken(OpenedToken "t2", aged)
+                         SigningEffect.RenewToken(OpenedToken "t2", aged, None)
                          SigningEffect.TellSigned(signed, work)
                      ])
             }
 
             test "the session machine takes the patient into the context it holds, with the token" {
-                let renewed = SessionMachine.renewed (OpenedToken "t2") aged session
+                let renamed = { identity with Name = "Stub Testpatiënt-Renamed" }
+                let renewed = SessionMachine.renewed (OpenedToken "t2") aged (Some renamed) session
 
                 renewed.OpenedToken |> Expect.equal "the token" (Some(OpenedToken "t2"))
 
@@ -160,7 +180,7 @@ let tests =
 
                 renewed.PatientContext
                 |> Option.bind _.Identity
-                |> Expect.equal "the identity kept" (Some identity)
+                |> Expect.equal "whom the version names, the EHR having renamed the patient" (Some renamed)
 
                 { renewed with
                     OpenedToken = session.OpenedToken
@@ -171,9 +191,10 @@ let tests =
 
             test "the patient goes to the panel as at a resume, and the moved-on notice is kept" {
                 let state, effects =
-                    SessionMachine.tokenRenewed (OpenedToken "t2") aged session (Some head)
+                    SessionMachine.tokenRenewed (OpenedToken "t2") aged (Some identity) session (Some head)
 
-                let _, atResume = SessionMachine.SessionState.onOpened (SessionMachine.renewed (OpenedToken "t2") aged session)
+                let _, atResume =
+                    SessionMachine.SessionState.onOpened (SessionMachine.renewed (OpenedToken "t2") aged (Some identity) session)
 
                 effects |> Expect.equal "SetPatient with the patient" [ SessionMachine.SessionEffect.SetPatient(Some aged) ]
 
@@ -195,7 +216,7 @@ let tests =
             test "a Session without a patient context gets the token and no patient" {
                 let none = { session with PatientContext = None }
 
-                SessionMachine.renewed (OpenedToken "t2") aged none
+                SessionMachine.renewed (OpenedToken "t2") aged (Some identity) none
                 |> Expect.equal "the token only" { none with OpenedToken = Some(OpenedToken "t2") }
             }
 

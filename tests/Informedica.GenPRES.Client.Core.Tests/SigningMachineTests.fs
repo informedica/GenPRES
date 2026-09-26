@@ -53,6 +53,14 @@ module Fixtures =
     let submitted key =
         SigningMsg.SubmitAnswered(key, Ok(SigningResponse.Submitted(signed, OpenedToken "t2", patient)))
 
+    let who =
+        {
+            Name = "Stub Testpatiënt"
+            BirthYear = 2016
+            BirthMonth = 3
+            BirthDay = 15
+        }
+
 
 open Fixtures
 
@@ -202,7 +210,7 @@ let tests =
                     "signed"
                     (SigningState.idle,
                      [
-                         SigningEffect.RenewToken(OpenedToken "t2", patient)
+                         SigningEffect.RenewToken(OpenedToken "t2", patient, None)
                          SigningEffect.TellSigned(signed, work)
                      ])
 
@@ -271,9 +279,22 @@ let tests =
                     "signed after all"
                     (SigningState.idle,
                      [
-                         SigningEffect.RenewToken(OpenedToken "t2", patient)
+                         SigningEffect.RenewToken(OpenedToken "t2", patient, None)
                          SigningEffect.TellSigned(signed, work)
                      ])
+            }
+
+            test "the token goes to the Session with whom the signed version names" {
+                let named = { signed with Identity = Some who }
+
+                transition
+                    (SigningMsg.SubmitAnswered("k-1", Ok(SigningResponse.Submitted(named, OpenedToken "t2", patient))))
+                    submitting
+                |> snd
+                |> List.head
+                |> Expect.equal
+                    "the identity with the token"
+                    (SigningEffect.RenewToken(OpenedToken "t2", patient, Some who))
             }
 
             test "the plan submitted is the plan challenged, whatever the cart did meanwhile (ext 3b, 3c)" {
@@ -369,7 +390,7 @@ let workTests =
                 |> Expect.equal
                     "signed over the first work"
                     [
-                        SigningEffect.RenewToken(OpenedToken "t2", patient)
+                        SigningEffect.RenewToken(OpenedToken "t2", patient, None)
                         SigningEffect.TellSigned(signed, PlanWork.Changed 1)
                     ]
             }
@@ -395,7 +416,7 @@ let workTests =
                 |> Expect.equal
                     "signed over the first work"
                     [
-                        SigningEffect.RenewToken(OpenedToken "t2", patient)
+                        SigningEffect.RenewToken(OpenedToken "t2", patient, None)
                         SigningEffect.TellSigned(signed, PlanWork.Changed 1)
                     ]
             }
