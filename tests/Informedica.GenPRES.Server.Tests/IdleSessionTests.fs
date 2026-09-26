@@ -145,7 +145,7 @@ let idleFirstTests =
 
                 let _, lookup, writes =
                     stateSeenAt openedAt
-                    |> StubDatabase.idleFirst hour now sid (Session.find now sid)
+                    |> StubDatabase.idleFirst hour (fun () -> now) sid (fun at -> Session.find at sid)
 
                 lookup |> Expect.equal "told as ended" (SessionLookup.Ended SessionEnding.Idle)
                 writes |> Expect.equal "the ending alone" (ended now)
@@ -156,7 +156,7 @@ let idleFirstTests =
 
                 let state, lookup, writes =
                     stateSeenAt openedAt
-                    |> StubDatabase.idleFirst hour now sid (Session.find now sid)
+                    |> StubDatabase.idleFirst hour (fun () -> now) sid (fun at -> Session.find at sid)
 
                 match lookup with
                 | SessionLookup.Found _ -> ()
@@ -164,6 +164,18 @@ let idleFirstTests =
 
                 writes |> Expect.equal "the heartbeat" [ Session.RecordSeen(sid, now) ]
                 state.Sessions[sid].Seen |> Expect.equal "seen now" now
+            }
+
+            test "the clock is read when the step runs, not when the step is built" {
+                let clock = ref (openedAt + TimeSpan.FromMinutes 10.0)
+
+                // built early, as a request builds its step before it waits for the port's lock
+                let step = StubDatabase.idleFirst hour (fun () -> clock.Value) sid (fun at -> Session.find at sid)
+
+                clock.Value <- openedAt + TimeSpan.FromMinutes 30.0
+                let state, _, _ = stateSeenAt openedAt |> step
+
+                state.Sessions[sid].Seen |> Expect.equal "the time it ran" clock.Value
             }
         ]
 
@@ -209,6 +221,21 @@ let portTests =
 
                 told
                 |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.Idle), None)
+            }
+
+            testAsync "a signing request keeps the Session alive, also one refused before its challenge" {
+                let clock = ref openedAt
+                let port = portAt clock (stateSeenAt openedAt)
+
+                // the signing member asks the age first, and may be refused right after it
+                clock.Value <- openedAt + TimeSpan.FromMinutes 50.0
+                let! _ = port.age sid
+
+                clock.Value <- openedAt + TimeSpan.FromMinutes 100.0
+
+                match! port.find sid with
+                | SessionLookup.Found _ -> ()
+                | other -> failtest $"expected Found, got %A{other}"
             }
 
             testAsync "a signing request's age in an idle Session is none" {
