@@ -19,7 +19,7 @@ open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 /// A fresh database with every migration applied.
 let withSessions f =
     withDb (fun cs ->
-        SqlSchema.apply cs |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6 ]
+        SqlSchema.apply cs |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6; 7 ]
         f cs
     )
 
@@ -1511,6 +1511,7 @@ let withOpenSession (cs: string) =
 let noticeOf nonce data : Session.Notice =
     {
         Nonce = nonce
+        Ehr = data |> Option.map (fun _ -> StubPatientData.data "stub-patient")
         Data = data
         Expiry = t0.AddMinutes 2.0
     }
@@ -1520,6 +1521,7 @@ let challengeOf nonce : Session.Challenge =
     {
         Nonce = nonce
         Digest = "digest-1"
+        Ehr = None
         Reading = None
         Expiry = t0.AddMinutes 2.0
     }
@@ -1564,6 +1566,52 @@ let flightWriteTests =
                     scalarOf cs "select count(*) from challenge where reading is null and json_version is null"
                     |> unbox<int64>
                     |> Expect.equal "the challenge carries neither" 1L
+                )
+            }
+
+            test
+                "the notice and the challenge keep the EHR data they were told or issued over, and a row from before has none" {
+                withSessions (fun cs ->
+                    withOpenSession cs
+                    let ehr = StubPatientData.data "stub-patient"
+
+                    runWrites
+                        cs
+                        [
+                            Session.WriteNotice("s-1", noticeOf "n-1" (Some patient), t0)
+                            Session.WriteChallenge("s-1", { challengeOf "c-1" with Ehr = Some ehr }, t0)
+                        ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    use conn = connect cs
+
+                    SqlSessions.loadNotice conn t0 "s-1"
+                    |> Option.map (Result.map _.Ehr)
+                    |> Expect.equal "the notice's read" (Some(Ok(Some ehr)))
+
+                    SqlSessions.loadChallenge conn t0 "s-1"
+                    |> Option.map (Result.map _.Ehr)
+                    |> Expect.equal "the challenge's read" (Some(Ok(Some ehr)))
+
+                    // a row written before the columns existed
+                    use cmd =
+                        SqlSessions.command
+                            conn
+                            null
+                            "insert into challenge (session_id, nonce, digest, expiry, at) values ($sid, $n, $d, $e, $at)"
+                            [
+                                "$sid", box "s-1"
+                                "$n", box "c-0"
+                                "$d", box "digest-0"
+                                "$e", box (SqlSessions.ms (t0.AddMinutes 2.0))
+                                "$at", box (SqlSessions.ms t0)
+                            ]
+
+                    cmd.ExecuteNonQuery() |> ignore
+
+                    SqlSessions.loadChallenge conn t0 "s-1"
+                    |> Option.map (Result.map (fun c -> c.Nonce, c.Ehr))
+                    |> Expect.equal "the newest, with no read" (Some(Ok("c-0", None)))
                 )
             }
 
