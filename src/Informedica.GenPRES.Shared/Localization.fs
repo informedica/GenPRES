@@ -147,6 +147,7 @@ type Terms =
     | ``Patient Context Held Title``
     | ``Patient Context Held``
     | ``Patient Context Held Remove``
+    | ``Patient Context Held Refresh``
     // Shared UI terms
     | Print
     | ``Not Configured``

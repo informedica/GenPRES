@@ -780,6 +780,55 @@ module SessionMachineTests =
                         |> Expect.equal "failed" (SessionState.opened full None, [])
                     }
 
+                    test "Refresh from Open calls the server with the token it starts from; elsewhere dropped" {
+                        transition SessionMsg.Refresh (SessionState.opened full None)
+                        |> Expect.equal
+                            "call"
+                            (SessionState.opened full None, [ SessionEffect.CallRefresh full.OpenedToken ])
+
+                        for state in [ SessionState.anonymous; SessionState.closing full ] do
+                            transition SessionMsg.Refresh state |> Expect.equal "dropped" (state, [])
+                    }
+
+                    test "Refreshed sets the patient read again and loads the head, or clears the plan without one" {
+                        let refreshed =
+                            { reopened with
+                                PatientContext =
+                                    full.PatientContext |> Option.map (fun c -> { c with Patient = Some aged })
+                            }
+
+                        transition
+                            (SessionMsg.Refreshed(full.OpenedToken, Ok(Some refreshed)))
+                            (SessionState.opened full None)
+                        |> Expect.equal
+                            "the patient, then the head's orders"
+                            (SessionState.opened refreshed None,
+                             [ SessionEffect.SetPatient(Some aged); SessionEffect.LoadCart head ])
+
+                        let noHead = { refreshed with Head = None }
+
+                        transition
+                            (SessionMsg.Refreshed(full.OpenedToken, Ok(Some noHead)))
+                            (SessionState.opened full None)
+                        |> Expect.equal
+                            "the plan cleared, then the patient"
+                            (SessionState.opened noHead None,
+                             [ SessionEffect.SetPatient None; SessionEffect.SetPatient(Some aged) ])
+                    }
+
+                    test "Refreshed with nothing, a failure or a stale token leaves the Session as it was" {
+                        for answer in [ Ok None; Error "offline" ] do
+                            transition (SessionMsg.Refreshed(full.OpenedToken, answer)) (SessionState.opened full None)
+                            |> Expect.equal $"%A{answer}" (SessionState.opened full None, [])
+
+                        let newer = { full with OpenedToken = Some(OpenedToken "t-newer") }
+
+                        transition
+                            (SessionMsg.Refreshed(full.OpenedToken, Ok(Some reopened)))
+                            (SessionState.opened newer None)
+                        |> Expect.equal "stale: dropped" (SessionState.opened newer None, [])
+                    }
+
                     test "Reopened lands only on the open Session that still holds the token it started from" {
                         transition (SessionMsg.Reopened(full.OpenedToken, Ok(Some reopened))) SessionState.anonymous
                         |> Expect.equal "not open: dropped" (SessionState.anonymous, [])

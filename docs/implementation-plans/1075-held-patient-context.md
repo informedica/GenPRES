@@ -199,7 +199,7 @@ One pull request per step unless the step says two. Everything outside
      held data: no patient set, the challenge asked over the order plan as it is. Released, it
      sets the notice's data and challenges over it, as today. The App says with the accept
      whether the context is held. The notice's data applies after the sign, when the Submitted
-     answer brings the Session's patient, the merge at the clock.
+     answer brings the Session's patient, projected at the time of the sign.
 
      Tests: released, the order plan follows the notice's data; held, it keeps the held data
      and no patient is set; without a reading, held or not, the challenge is over the order
@@ -211,14 +211,20 @@ One pull request per step unless the step says two. Everything outside
      difference. `Verified` keeps its meaning. Built as a read-side function when a view needs
      it.
 
-8. **Refresh (script, then migration; two pull requests).** A Session command that reads the EHR
-   again, projects it at the date of the refresh with the user's measurements over it, and
-   returns the Session's patient with a fresh token; the Client asks first, drops the new and
-   changed orders and reopens the head on the new patient. Closes #1075.
+8. **Refresh (script, migrated and removed).**
+   `src/Informedica.GenPRES.Server/Scripts/Refresh.fsx`: `Session.refresh`, `openVersion` on
+   the head with the patient read again. The EHR is read once and projected at the date of the
+   refresh with the user's measurements over it; the head is reopened under a fresh
+   OpenedToken; the standing challenge is spent and the notice dropped. No reading leaves the
+   patient and the EHR data as they were. The migration adds `SessionCommand.Refresh`,
+   answered as `OpenVersion` is, and on the Client the refresh as the third action of the held
+   question: it asks first, since the new and changed orders are dropped with the reopen, and
+   takes the answer as it takes a version opened. Closes #1075.
 
    Tests: a refresh reads the EHR once and projects at the date of the refresh; the age is the
    one at the refresh; the measurements stand; a refresh with no EHR data leaves the patient as
-   it was.
+   it was; a fresh token, the head reopened, the challenge spent and the notice dropped;
+   nothing to refresh without a Session, anonymously or without a Patient.
 
 ## Verification, per step
 

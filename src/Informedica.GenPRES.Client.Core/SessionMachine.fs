@@ -132,6 +132,11 @@ type SessionMsg =
     // failure; `from` is the OpenedToken the request started from, so that an answer lands
     // only on the Session that asked (the guard of Outcome and of the signing answers)
     | Reopened of from: OpenedToken option * Result<SessionOpened option, string>
+    // read the EHR again and reopen the head on it: the way out of a held patient context that
+    // takes the EHR's data, the new and changed orders dropped with the reopen
+    | Refresh
+    // the answer, as Reopened, with the patient read again
+    | Refreshed of from: OpenedToken option * Result<SessionOpened option, string>
     // what a computing reply told beside its answer: the record moved on, or the server ended
     // the Session; `from` is the OpenedToken the request started from, the same guard
     | Told of from: OpenedToken option * RecordNotice
@@ -157,6 +162,8 @@ type SessionEffect =
     | LoadCart of SignedOrderPlan
     // processSession OpenVersion; `from` comes back in Reopened
     | CallOpenVersion of id: string * from: OpenedToken option
+    // processSession Refresh; `from` comes back in Refreshed
+    | CallRefresh of from: OpenedToken option
     // the version is open; told once
     | TellVersionOpened of OrderPlanHead
     // the record moved on to this version; told once per version, the bar offers it
@@ -532,6 +539,26 @@ module SessionState =
                 [ SessionEffect.LoadCart head; SessionEffect.TellVersionOpened head.Head ]
             | _ -> opened session state.MovedOn, []
         | SessionMsg.Reopened _, _, _ -> state, []
+
+        // only an open Session has something to read again; the request remembers the token it
+        // started from
+        | SessionMsg.Refresh, SessionPhase.Open session, None ->
+            state, [ SessionEffect.CallRefresh session.OpenedToken ]
+        | SessionMsg.Refresh, _, _ -> state, []
+
+        // the Session refreshed: its patient read again goes to the panel and the plan, and the
+        // head's orders into the cart, the plan's new and changed orders dropped with them; without
+        // a head the plan is cleared first, so that it opens empty for the patient. The same
+        // stale-request guard as Reopened; nothing to refresh, or a failure: the Session as it was
+        | SessionMsg.Refreshed(from, Ok(Some session)), SessionPhase.Open current, None when current.OpenedToken = from ->
+            let patient = session.PatientContext |> Option.bind _.Patient
+
+            match session.PatientContext, session.Head with
+            | Some _, Some head ->
+                opened session (MovedOn.opened state.MovedOn head.Head),
+                [ SessionEffect.SetPatient patient; SessionEffect.LoadCart head ]
+            | _ -> opened session state.MovedOn, [ SessionEffect.SetPatient None; SessionEffect.SetPatient patient ]
+        | SessionMsg.Refreshed _, _, _ -> state, []
 
         // what a reply told with its answer: the stale-request guard is the one Reopened has,
         // the notice counts only when the request started from the token the open Session

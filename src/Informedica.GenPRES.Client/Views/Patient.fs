@@ -126,7 +126,8 @@ module Patient =
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
         let settings = (AppEnv.asEnv<AppEnv.ISettings> props.appEnv).Settings
-        let session = (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session
+        let envSession = AppEnv.asEnv<AppEnv.ISession> props.appEnv
+        let session = envSession.Session
         let envPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
 
         // the patient is the subject of every workbench and plan request: while one is under
@@ -358,24 +359,73 @@ module Patient =
             | OrderPlanView.NoPatient -> setHeldOpen false
             | OrderPlanView.Changing _ -> ()
 
+        // the EHR read again and the head reopened on it; the new and changed orders go with the
+        // reopen
+        let onRefresh () =
+            setHeldOpen false
+            envSession.Refresh()
+
+        let onHeldClose = fun _ -> setHeldOpen false
+
+        // the question, with the two ways out that drop the new and changed orders: remove them,
+        // or read the patient data from the EHR again; signing is the plan's own button
         let heldDialog =
-            Components.ConfirmDialog.View
-                {|
-                    isOpen = heldOpen
-                    title =
-                        Terms.``Patient Context Held Title``
-                        |> getTerm "Patiëntgegevens kunnen niet worden gewijzigd"
-                    text =
-                        Terms.``Patient Context Held``
-                        |> getTerm
-                            "Het orderplan heeft nieuwe of gewijzigde orders. Onderteken het orderplan, of verwijder die orders, om de patiëntgegevens te wijzigen."
-                    confirmLabel =
-                        Terms.``Patient Context Held Remove``
-                        |> getTerm "Verwijder nieuwe en gewijzigde orders"
-                    cancelLabel = Terms.Cancel |> getTerm "Annuleren"
-                    onConfirm = onRemoveChanged
-                    onCancel = fun () -> setHeldOpen false
-                |}
+            let title =
+                Terms.``Patient Context Held Title``
+                |> getTerm "Patiëntgegevens kunnen niet worden gewijzigd"
+
+            let text =
+                Terms.``Patient Context Held``
+                |> getTerm
+                    "Het orderplan heeft nieuwe of gewijzigde orders. Onderteken het orderplan om de patiëntgegevens te wijzigen, of laat die orders vervallen: verwijder ze, of ververs de patiëntgegevens uit het EPD."
+
+            let actions =
+                Components.ActionBar.View
+                    {|
+                        actions =
+                            [|
+                                {|
+                                    label = Terms.Cancel |> getTerm "Annuleren"
+                                    kind = Components.ActionBar.Kind.Secondary
+                                    onClick = fun () -> setHeldOpen false
+                                    disabled = false
+                                    icon = None
+                                |}
+                                {|
+                                    label =
+                                        Terms.``Patient Context Held Remove``
+                                        |> getTerm "Verwijder nieuwe en gewijzigde orders"
+                                    kind = Components.ActionBar.Kind.Destructive
+                                    onClick = onRemoveChanged
+                                    disabled = false
+                                    icon = None
+                                |}
+                                {|
+                                    label = Terms.``Patient Context Held Refresh`` |> getTerm "Ververs uit het EPD"
+                                    kind = Components.ActionBar.Kind.Primary
+                                    onClick = onRefresh
+                                    disabled = false
+                                    icon = None
+                                |}
+                            |]
+                    |}
+
+            JSX.jsx
+                $"""
+            import Dialog from '@mui/material/Dialog';
+            import DialogTitle from '@mui/material/DialogTitle';
+            import DialogContent from '@mui/material/DialogContent';
+            import DialogContentText from '@mui/material/DialogContentText';
+            import DialogActions from '@mui/material/DialogActions';
+
+            <Dialog open={heldOpen} onClose={onHeldClose} fullWidth={true} maxWidth="sm">
+                <DialogTitle>{title}</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>{text}</DialogContentText>
+                </DialogContent>
+                <DialogActions>{actions}</DialogActions>
+            </Dialog>
+            """
 
         // bounded and to the left, so the button is not as wide as the panel it sits in and is
         // not where you click by default

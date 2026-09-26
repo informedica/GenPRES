@@ -842,6 +842,18 @@ module private Elmish =
                     return SessionMsg(SessionMsg.Reopened(from, Error ex.Message))
             }
             |> Cmd.fromAsync
+        | SessionEffect.CallRefresh from ->
+            state,
+            async {
+                try
+                    match! serverApi.processSession Api.SessionCommand.Refresh with
+                    | Api.SessionResponse.SessionResp opened -> return SessionMsg(SessionMsg.Refreshed(from, Ok opened))
+                    // never an answer to Refresh
+                    | _ -> return SessionMsg(SessionMsg.Refreshed(from, Ok None))
+                with ex ->
+                    return SessionMsg(SessionMsg.Refreshed(from, Error ex.Message))
+            }
+            |> Cmd.fromAsync
         | SessionEffect.CallCloseSession ->
             state,
             async {
@@ -1836,6 +1848,8 @@ type private ConcreteAppEnv
         member _.MovedOn = state.Lanes.Session |> SessionState.movedOn
 
         member _.OpenVersion id = SessionMsg(SessionMsg.OpenVersion id) |> dispatch
+
+        member _.Refresh() = SessionMsg SessionMsg.Refresh |> dispatch
 
     interface AppEnv.ISigning with
         member _.Signing = state.Lanes.Signing |> SigningState.view

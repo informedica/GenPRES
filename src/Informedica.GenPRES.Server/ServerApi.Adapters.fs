@@ -210,6 +210,7 @@ module Adapters =
             seen = fun _ _ _ -> async { return None, None }
             age = fun _ -> async { return Ok None }
             openVersion = fun _ _ -> async { return None }
+            refresh = fun _ -> async { return None }
         }
 
 
