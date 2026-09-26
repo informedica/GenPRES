@@ -1795,7 +1795,7 @@ module Patient =
 
         let fromDto (dto: Dto) =
             validate {
-                //                let! dep = dto.Department |> Validation.validateDepartment "Department"
+                let! dep = dto.Department |> Department.fromString
                 let! gend = dto.Gender |> Gender.Validation.validate "Gender"
 
                 let! gest =
@@ -1816,7 +1816,7 @@ module Patient =
                 let wght = dto.Weight |> Weight.Dto.fromDto
                 let hght = dto.Height |> Height.Dto.fromDto
 
-                return create dto.Id dto.Name Department.unknown dto.Diagnoses gend age wght hght gest ent ven
+                return create dto.Id dto.Name dep dto.Diagnoses gend age wght hght gest ent ven
             }
 
 

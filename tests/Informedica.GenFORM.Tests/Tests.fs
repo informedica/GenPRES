@@ -2548,6 +2548,41 @@ module Tests =
                              [ FormTypes.CVL; FormTypes.EnteralTube ])
                     }
 
+                    test "the EHR data goes there and back through its Dto, nothing dropped" {
+                        let ehr = ehr ()
+
+                        let full =
+                            { ehr with
+                                Patient =
+                                    { ehr.Patient with
+                                        Department = Department.pediatricICU "ICK"
+                                        Gender = Female
+                                        GestationalAge = Some(AgeWeeksDays.create 36<week> 2<day>)
+                                    }
+                                RenalFunction = Some(FormTypes.RenalFunction.EGFR(Some 30, Some 60))
+                                Access = [ FormTypes.CVL; FormTypes.EnteralTube ]
+                            }
+
+                        [ ehr; full ]
+                        |> List.map (fun e ->
+                            e
+                            |> Informedica.GenForm.Lib.EhrPatientData.Dto.toDto
+                            |> Informedica.GenForm.Lib.EhrPatientData.Dto.fromDto
+                        )
+                        |> Expect.equal "there and back again" [ Ok ehr; Ok full ]
+                    }
+
+                    test "a string that names nothing is a reason the Dto is no EHR data" {
+                        let dto = ehr () |> Informedica.GenForm.Lib.EhrPatientData.Dto.toDto
+
+                        { dto with
+                            RenalFunction = Some "nope"
+                            Access = [| "CVL"; "wire" |]
+                        }
+                        |> Informedica.GenForm.Lib.EhrPatientData.Dto.fromDto
+                        |> Expect.equal "both named" (Error [ "unknown renal function: nope"; "unknown access: wire" ])
+                    }
+
                     test "the identity is the core patient's" {
                         ehr ()
                         |> Informedica.GenForm.Lib.EhrPatientData.identity

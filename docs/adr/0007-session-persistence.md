@@ -9,7 +9,8 @@ session service came to hold what the section says it holds, plan 725 Phase 5, #
 database; § 1 and § 4: Accepted (2026-09-17, when plan 516 step 4b landed: a store exists,
 SQLite runs it, `GENPRES_DB_CONNECTION` switches to it and production refuses the key); § 2:
 Accepted (2026-09-18, when plan 516 step 6 landed: two launches of one User are decided by the
-ordering of the session rows, with no lock and no uniqueness on the login).
+ordering of the session rows, with no lock and no uniqueness on the login); § 3 amended
+2026-09-26: GenCORE's patient among the working-state types.
 
 **Related Issues**: [#516 — GenPRES SessionRecord Store](https://github.com/informedica/GenPRES/issues/516),
 [#580 — Scope switch to expose only the accredited parts in production](https://github.com/informedica/GenPRES/issues/580)
@@ -74,7 +75,7 @@ A commit that touches two chains (Rule 42) runs serializable and is retried once
 request makes are the values the `Session` machine returns for it, never rows derived by
 comparing states. A test or development database starts fresh by deleting its file.
 
-### 3. The store is an adapter of the `Session` machine — amended 2026-09-16
+### 3. The store is an adapter of the `Session` machine — amended 2026-09-16 and 2026-09-26
 
 *Status of this section: Accepted (2026-09-17).* The session service holds its records as
 `StoredVersion` values, readable or kept by their identity, and what a Session is open on as a
@@ -88,8 +89,9 @@ a `State`, runs the function, and appends what changed. It reads `GENPRES_DB_CON
 the DMZ may.
 
 No new Core project. The machine's clinical records (`Records`, the order plan versions) and its
-working state (`Challenges`, `Notices`, the patient a Session shows, the head it opened with)
-carry the domain types of GenORDER and GenFORM; their Dtos appear only in the adapters, the
+working state (`Challenges`, `Notices`, the patient a Session shows, the EHR data it opened
+on, the head it opened with) carry the domain types of GenORDER, GenFORM and, since 2026-09-26,
+GenCORE, whose patient with the identity on it is the EHR data; their Dtos appear only in the adapters, the
 server mappers before `SessionPort` and the database adapter at load and write, as
 [ADR-0008](0008-contract-model-dto-mapping-boundary.md) decides. On the in-memory stub the
 working state lives in memory. Once the store exists, it is stored as Dtos under a structure

@@ -19,7 +19,7 @@ open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 /// A fresh database with every migration applied.
 let withSessions f =
     withDb (fun cs ->
-        SqlSchema.apply cs |> Expect.equal "every migration" [ 1; 2; 3; 4; 5 ]
+        SqlSchema.apply cs |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6 ]
         f cs
     )
 
@@ -712,6 +712,57 @@ let writerTests =
                 |> function
                     | Session.StoreOutcome.Failed reason -> reason |> Expect.isNotEmpty "the reason it failed"
                     | other -> failtest $"expected Failed, got %A{other}"
+            }
+
+            test "the EHR data a Session opened on is written under its version and loads back as read" {
+                withSessions (fun cs ->
+                    let ehr = StubPatientData.data "stub-patient"
+
+                    let session =
+                        { sessionOf "s-1" "prescriber" None None with
+                            Opened = { (sessionOf "s-1" "prescriber" None None).Opened with EhrData = Some ehr }
+                        }
+
+                    runWrites
+                        cs
+                        [
+                            Session.OpenSession("s-1", session)
+                            Session.RecordOpenedWith("s-1", session, t0)
+                        ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    match loadedSession cs "s-1" with
+                    | Some(Choice1Of2(Ok loaded)) ->
+                        loaded.Opened.EhrData |> Expect.equal "the EHR data as read" (Some ehr)
+                        loaded |> Expect.equal "the Session as it was" session
+                    | other -> failtest $"expected the Session, got %A{other}"
+
+                    use conn = connect cs
+
+                    use cmd =
+                        SqlSessions.command conn null "select ehr_json_version, ehr_data from session_opened_with" []
+
+                    use r = cmd.ExecuteReader()
+                    r.Read() |> Expect.isTrue "the row is there"
+                    r.GetInt32 0
+                    |> Expect.equal "under the version it was written with" SqlSessions.ehrJsonWritten
+                    r.GetString 1
+                    |> Expect.equal "the canonical form of its Dto" (SqlSessions.ehrJson ehr)
+                )
+            }
+
+            test "a row from before the EHR data column, or a Session opened on none, loads with no EHR data" {
+                withSessions (fun cs ->
+                    insertSession cs "s-1" (Some "prescriber") "prescriber"
+                    insertOpenedWith cs "s-1" (Some "plan-1") 1 (Some patientJson)
+
+                    match loadedSession cs "s-1" with
+                    | Some(Choice1Of2(Ok session)) ->
+                        session.Opened.EhrData |> Expect.isNone "no EHR data"
+                        session.Opened.Patient
+                        |> Expect.equal "the data it shows, as before" (Some patient)
+                    | other -> failtest $"expected the Session, got %A{other}"
+                )
             }
 
             test "the patient a Session shows is written as its Dto under the version it is written with" {

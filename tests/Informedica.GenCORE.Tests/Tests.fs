@@ -1061,11 +1061,12 @@ module Tests =
                         |> Expect.isTrue "there and back again"
                     }
 
-                    test "the id and the name go there and back" {
+                    test "the id, the name and the department go there and back" {
                         let pat =
                             { Patient.unknown with
                                 Id = "p1"
                                 Name = "Stub Testpatiënt"
+                                Department = Department.pediatricICU "ICK"
                             }
 
                         pat
