@@ -172,9 +172,9 @@ One projection, `GenForm.Patient.ofEhr`, derives the GenFORM patient at a date: 
 `getAgeValue now`, measures from the calculation values, rule-only data as given, BSA and
 post-menstrual age always calculated. This is the core patient's first use in the pipeline; its
 header note goes. Because the type derives nothing, whatever writes a dated measurement also
-writes the calculation value. Step 1 closes the shape gaps: a partial birthdate is read without
-throwing and, lacking day or month, gives no identified patient; the optional age parts become
-days; the department is read.
+writes the calculation value. Step 1 closes the shape gaps: the birthdate becomes fully
+specified, a year, a month and a day, so that nothing downstream has to say what a partial one
+means (decided 2026-09-26); the optional age parts become days; the department is read.
 
 - *A server-only record (name, birthdate, dated measurements) beside the GenFORM patient*:
   rejected. It is the smaller change, since the core type has the gaps above, but it duplicates
@@ -346,7 +346,8 @@ than four areas is split into two pull requests.
    `Ports`, `StubPatientData` and `Mappers.Session`:
    - patient id and name on the core patient; `EhrPatientData` is the core patient plus renal
      function and access;
-   - a partial birthdate read without throwing; no identity when day or month is missing;
+   - the birthdate fully specified: month and day required on `BirthDate`, its Dto's
+     validators with them; the identity is a name and a birthdate;
    - `GenForm.Patient.ofEhr now`: age from `getAgeValue now` in days, measures from the
      calculation values, rule-only data as given, BSA and post-menstrual age calculated,
      department read, other fields copied;
@@ -358,7 +359,8 @@ than four areas is split into two pull requests.
 
    Tests: the stub patient's projection at a fixed date equals today's stub answer, field for
    field; EHR data round-trips to the client context with name and birthdate; `no-data` has
-   none; a partial birthdate opens anonymous; neither printer writes the name or the birthdate.
+   none; an age value in place of a birthdate opens anonymous; neither printer writes the name
+   or the birthdate.
 
 2. **EHR data migrated (two pull requests).**
    - Identity and data into `GenCORE.Lib`; the projection into `GenFORM.Lib`, which gets a
