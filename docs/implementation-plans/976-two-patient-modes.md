@@ -446,7 +446,8 @@ Additional checks:
 - **A day turning without a sign.** Should the challenge return a data notice when the current
   age differs from the Session's, as it does for an EHR change, so a long Session cannot sign a
   neonate at yesterday's age unaware? It would reuse the existing notice. The plan holds the age
-  until the sign.
+  until the sign. The bound itself is #1061: a Session left idle for an hour ends, so a Session
+  left behind cannot hold an age across the day.
 - **Core patient or wrapper.** The reviewer recommended a server-only record as the smaller
   change; the plan uses the core patient and closes its gaps in step 1. Confirm.
 - **Measurement write.** Validated, on change, in its own row, as planned; or at the challenge
@@ -460,6 +461,8 @@ Additional checks:
 
 ## Related, not a member
 
+- **#1061** a Session left idle for an hour ends: the bound the held age needs, so that a
+  Session left behind cannot carry an age across the day.
 - **#718** a weight alone, or a height alone, as the minimum; waits for a growth table.
 - **#598** client testing: would let step 10 test both modes without the browser, and let the
   client remember a measurement itself.
