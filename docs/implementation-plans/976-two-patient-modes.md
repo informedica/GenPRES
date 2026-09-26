@@ -316,9 +316,11 @@ episode. An age-only update: see [To settle in review](#to-settle-in-review).
   one release reads the projection as before. ADR-0007 section 3 adds GenCORE to the
   working-state types in the same pull request.
 - The contract carries the identity on `PatientContext` and `SignedOrderPlan`, the birthdate as
-  three integers. The title bar shows it beside the user, for a Reader and a Prescriber. The
+  three integers. The title bar shows the id, the birthdate and the full name beside the user,
+  for a Reader and a Prescriber; that is the only place the name and the birthdate are shown. The
   panel is in identified mode when the context carries an identity, not merely when a Session
-  is open: age read-only, identity and age kept through reset, other fields unchanged. A
+  is open: age read-only, identity and age kept through reset, the patient id shown and nothing
+  more of the identification, other fields unchanged. A
   `no-data` launch and a patient built by the MCP host are anonymous; the panel is unchanged
   for both.
 - The identity is shown in full to the user and kept by the Session, its store and the
@@ -428,12 +430,14 @@ than four areas is split into two pull requests.
    commit and migration into the server; tests into both test projects. Two pull requests if
    the size limit requires.
 
-10. **Title bar and panel.** `Components/TitleBar.fs` shows name, birthdate and id beside the
-    user when the context has an identity, for a Reader and a Prescriber. `Views/Patient.fs`
+10. **Title bar and panel.** `Components/TitleBar.fs` shows the id, the birthdate and the full
+    name beside the user when the context has an identity, for a Reader and a Prescriber; the
+    name and the birthdate are shown there and nowhere else. `Views/Patient.fs`
     chooses its mode by that identity, not by an open Session: a `no-data` launch with no
     signed version opens a Session without one, and one with a signed head opens identified
     from the head. Identified mode: age fields `readOnly`, identity and age kept through reset,
-    summary line names the patient, other fields unchanged. The signing machine's accept applies
+    the summary shows the patient id and nothing more of the identification, other fields
+    unchanged. The signing machine's accept applies
     the merge to the draft; the session machine takes the patient from `Submitted` as it does
     at a resume. Anonymous mode is unchanged for the anonymous url and the `no-data` launch
     without a head. Closes #976.
@@ -458,7 +462,7 @@ Additional checks:
 | 5–6 | A test compares the parsed patient of a request without a Session before and after, field for field, for every family that carries one; a version signed in a stub Session reads back with the Session's age and the typed weight. |
 | 7 | Ten panel edits to the same weight add one row. |
 | 8–9 | After a signature the versions table has the name and birthdate in its columns and the plan JSON under its previous structure version; after the migration older rows read as none. |
-| 10 | In the browser: a stub launch as Prescriber and as Reader shows the name and birthdate in the title bar and a read-only age; the anonymous url and the `no-data` launch without a head show the panel as today, age editable; a weight typed in identified mode survives a reload, an accepted data notice and a signature, and is in the signed version; after the signature the panel shows the age for the current date. |
+| 10 | In the browser: a stub launch as Prescriber and as Reader shows the id, the birthdate and the full name in the title bar, the id in the panel's summary and a read-only age; the anonymous url and the `no-data` launch without a head show the panel as today, age editable; a weight typed in identified mode survives a reload, an accepted data notice and a signature, and is in the signed version; after the signature the panel shows the age for the current date. |
 
 ## To settle in review
 

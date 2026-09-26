@@ -85,8 +85,9 @@ module Patient =
 
 
         /// The summary: the draft's data, and under it, while the draft is no patient yet, what is
-        /// missing: an age, or a weight and a height. Nothing entered asks for the data. Whom the
-        /// patient is stays in the title bar: the panel is about the data.
+        /// missing: an age, or a weight and a height. Nothing entered asks for the data. The name
+        /// and the birthdate stay in the title bar: the panel is about the data, and says only
+        /// the id under which it is held.
         let show lang terms pat =
             let term fallback t =
                 terms
@@ -161,13 +162,37 @@ module Patient =
         // an open Session, since a launch without data opens a Session without one, and one
         // with a signed head opens identified from the head. Identified, the age is the
         // platform's: shown, not chosen, and kept through a reset
-        let identity =
+        let patientContext =
             match session with
             | SessionMachine.SessionView.Open opened
-            | SessionMachine.SessionView.Closing opened -> opened.PatientContext |> Option.bind _.Identity
+            | SessionMachine.SessionView.Closing opened -> opened.PatientContext
             | _ -> None
 
+        let identity = patientContext |> Option.bind _.Identity
+
         let identified = identity.IsSome
+
+        // the summary: the data, and above it, identified, the id the data is held under; the
+        // name and the birthdate are the title bar's alone
+        let summary =
+            let data = pat |> show lang localizationTerms |> toJsx
+
+            match identity, patientContext with
+            | Some _, Some context ->
+                let idLabel = Terms.``Patient Id`` |> getTerm "Patiënt-ID"
+                let idLine = $"{idLabel} {context.PatientId}"
+
+                JSX.jsx
+                    $"""
+                import Box from '@mui/material/Box';
+                import Typography from '@mui/material/Typography';
+
+                <Box>
+                    <Typography variant="caption" color="text.secondary" component="div">{idLine}</Typography>
+                    {data}
+                </Box>
+                """
+            | _ -> data
 
         // the summary click opens or folds the panel; while the patient cannot be calculated
         // the panel stays open, since there is nothing to fold it over
@@ -614,7 +639,7 @@ module Patient =
             {|
                 isOpen = isExpanded
                 onToggle = toggle
-                summary = pat |> show lang localizationTerms |> toJsx
+                summary = summary
                 children = children
                 isMobile = isMobile
                 detailsPaddingTop = None
