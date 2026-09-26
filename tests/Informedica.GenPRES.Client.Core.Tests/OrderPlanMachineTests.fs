@@ -113,6 +113,7 @@ module Fixtures =
             Base = None
             OrderContexts = two.OrderContexts
             Patient = draft
+            Identity = None
             Verified = true
         }
 
@@ -592,6 +593,7 @@ let workTests =
             Base = None
             OrderContexts = one.OrderContexts
             Patient = draft
+            Identity = None
             Verified = true
         }
 

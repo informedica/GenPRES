@@ -69,7 +69,7 @@ let parse (text: string) =
 /// The stored form of a readable entry; None when it is unreadable.
 let storedForm =
     function
-    | StoredVersion.Readable v -> Some(SqlDatabase.toJson v)
+    | StoredVersion.Readable(v, _) -> Some(SqlDatabase.toJson v)
     | StoredVersion.Unreadable _ -> None
 
 
@@ -86,7 +86,7 @@ let tests =
         [
             test "a persisted order plan version loads back as written" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist cs [ Session.WriteVersion v1.Value ]
+                    SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, None) ]
                     |> Expect.equal "written" Session.StoreOutcome.Written
 
                     // compared in the stored form: a DateTime reads back as the same instant in UTC
@@ -101,7 +101,7 @@ let tests =
 
             test "a second version with the same number is a conflict with the head" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist cs [ Session.WriteVersion v1.Value ] |> ignore
+                    SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, None) ] |> ignore
 
                     let rival =
                         { v1.Value with
@@ -113,7 +113,7 @@ let tests =
                                 }
                         }
 
-                    match SqlDatabase.persist cs [ Session.WriteVersion rival ] with
+                    match SqlDatabase.persist cs [ Session.WriteVersion(rival, None) ] with
                     | Session.StoreOutcome.Conflict winner ->
                         winner
                         |> storedForm
@@ -124,9 +124,9 @@ let tests =
 
             test "a second version with the same id and a new number fails, it is no conflict" {
                 withRecord (fun cs ->
-                    SqlDatabase.persist cs [ Session.WriteVersion v1.Value ] |> ignore
+                    SqlDatabase.persist cs [ Session.WriteVersion(v1.Value, None) ] |> ignore
 
-                    match SqlDatabase.persist cs [ Session.WriteVersion { v1.Value with No = 2 } ] with
+                    match SqlDatabase.persist cs [ Session.WriteVersion({ v1.Value with No = 2 }, None) ] with
                     | Session.StoreOutcome.Failed reason ->
                         reason.Contains "order_plan.version_id"
                         |> Expect.isTrue "the reason names the column"
@@ -138,7 +138,7 @@ let tests =
                 withRecord (fun cs ->
                     let readOnly = SqliteConnectionStringBuilder(cs, Mode = SqliteOpenMode.ReadOnly).ToString()
 
-                    match SqlDatabase.persist readOnly [ Session.WriteVersion v1.Value ] with
+                    match SqlDatabase.persist readOnly [ Session.WriteVersion(v1.Value, None) ] with
                     | Session.StoreOutcome.Failed reason -> reason |> Expect.isNotEmpty "a reason"
                     | other -> failtest $"expected Failed, got %A{other}"
 

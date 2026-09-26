@@ -250,7 +250,7 @@ module SigningState =
         // an answer lands only on the Submission it answers
         | SigningMsg.SubmitAnswered(answered, _), _, Some(SigningRequest.Submission key) when answered <> key ->
             state, []
-        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Submitted(signed, token))),
+        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Submitted(signed, token, _))),
           SigningPhase.Challenged _,
           Some(SigningRequest.Submission _) ->
             idle,

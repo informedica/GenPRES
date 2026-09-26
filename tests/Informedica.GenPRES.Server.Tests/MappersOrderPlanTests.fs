@@ -87,6 +87,7 @@ let signed: SignedOrderPlan =
         Base = Some "plan-1"
         OrderContexts = plan.OrderContexts
         Patient = StubPatientData.patient
+        Identity = None
         Verified = true
     }
 
@@ -141,7 +142,7 @@ let tests =
             test "L3: a signed order plan to the version's Dto and back, on what the version records" {
                 signed
                 |> SessionMapper.ofSigned
-                |> SessionMapper.toSigned false
+                |> SessionMapper.toSigned false None
                 |> Expect.equal "the same signed plan" signed
             }
 
@@ -149,7 +150,7 @@ let tests =
                 let byReader =
                     { signed with Head = { signed.Head with By = { prescriber with Role = UserRole.Reader } } }
 
-                (byReader |> SessionMapper.ofSigned |> SessionMapper.toSigned false).Head.By.Role
+                (byReader |> SessionMapper.ofSigned |> SessionMapper.toSigned false None).Head.By.Role
                 |> Expect.equal "only a Prescriber signs" UserRole.Prescriber
             }
 
@@ -204,7 +205,7 @@ let tests =
                         Measured = Measurements.none
                         OpenedToken = Some(OpenedToken "opened-1")
                         KeyThumbprint = Some "thumb"
-                        Head = Some(StoredVersion.Readable version)
+                        Head = Some(StoredVersion.Readable(version, None))
                     }
 
                 let opened = SessionMapper.toOpened false stored
@@ -243,7 +244,9 @@ let tests =
                 opened.KeyThumbprint |> Expect.equal "thumbprint" (Some "thumb")
 
                 opened.Head
-                |> Expect.equal "head" (Some(version |> OrderPlanVersion.Dto.toDto |> SessionMapper.toSigned false))
+                |> Expect.equal
+                    "head"
+                    (Some(version |> OrderPlanVersion.Dto.toDto |> SessionMapper.toSigned false None))
 
                 let unreadable =
                     StoredVersion.Unreadable
@@ -258,6 +261,7 @@ let tests =
                                     DisplayName = "B"
                                 }
                             SignedAt = signed.Head.SignedAt
+                            Identity = None
                             Reason = "json_version 9 is newer than this release knows"
                         }
 

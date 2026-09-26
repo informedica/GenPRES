@@ -662,6 +662,9 @@ module Types =
             // every context of the plan as signed: a reopen is the plan as it was
             OrderContexts: OrderContext[]
             Patient: Patient
+            /// the patient's name and birthdate as the version names them; none for a version
+            /// signed in a Session without an identity
+            Identity: NameAndBirthDate option
             Verified: bool
         }
 
@@ -808,8 +811,9 @@ module Types =
         | ChallengeIssued of challenge: string
         // no challenge yet; the data as it stands, to show and to accept or not
         | DataNotice of DataNotice
-        // the version committed, and a fresh OpenedToken over it
-        | Submitted of SignedOrderPlan * OpenedToken
+        // the version committed, a fresh OpenedToken over it, and the Session's patient after
+        // the sign: the age computed again, what the user measured kept
+        | Submitted of SignedOrderPlan * OpenedToken * Patient
         | Refused of SigningRefusal
 
 

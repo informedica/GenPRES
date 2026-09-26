@@ -167,6 +167,7 @@ let tests =
                         Base = Some "plan-1"
                         OrderContexts = [||]
                         Patient = patient
+                        Identity = None
                         Verified = true
                     }
 
