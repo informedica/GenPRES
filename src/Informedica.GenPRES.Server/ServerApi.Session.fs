@@ -1342,6 +1342,24 @@ module Session =
         |> Array.exists (fun (_, n) -> n > 1)
 
 
+    /// The Session's patient from EHR data, at a date: the user's measurements on the core
+    /// patient, projected there and estimated, the age the birthdate gives at that date.
+    let merged (at: DateTime) (patientData: PatientDataPort) (measured: Measurements) (ehr: GenForm.EhrPatientData) =
+        { ehr with Patient = Measurements.onCore measured ehr.Patient }
+        |> patientData.patient at
+
+
+    /// The data a notice is told over: the fresh read merged at the date of the open, so that
+    /// the notice never moves the age and keeps what the user measured; none for no read.
+    let noticeData
+        (openedAt: DateTime)
+        (patientData: PatientDataPort)
+        (measured: Measurements)
+        (current: GenForm.EhrPatientData option)
+        =
+        current |> Option.map (merged openedAt patientData measured)
+
+
     /// The challenge request, checked in order: the Session with a User and a Patient; the
     /// Role Prescriber; the OpenedToken this Session holds; the patient data re-read: when it
     /// is not what the Session opened with and no notice over this reading was accepted, no
@@ -1382,7 +1400,7 @@ module Session =
                     // projected at the date of the open, so that the age the Session opened on
                     // holds; the adapter answers none for a reading that is no patient
                     let currentEhr = patientData.read patientId
-                    let current = currentEhr |> Option.map (patientData.patient record.OpenedAt)
+                    let current = noticeData record.OpenedAt patientData record.Opened.Measured currentEhr
                     let accepted = Reads.accepted state.Notices sid notice currentEhr
 
                     // no reading, or another than the Session opened on: told before the challenge
@@ -1445,8 +1463,9 @@ module Session =
     /// Submission that was never going to land costs no attempt. A pure function: on an
     /// accepted sign the returned state already holds the new head, which carries the
     /// Session's identity, with the challenge spent, the OpenedToken re-minted over it and the
-    /// Session's patient set to the reading at the challenge, else the data signed, and the
-    /// third value is the write for the adapter to run; on a refusal it is none. The answer is remembered under the key, refusals too.
+    /// Session's patient set to the merge at the clock (the identity from the EHR data, the age
+    /// computed again, what the user measured), else the data signed, and the third value is
+    /// the write for the adapter to run; on a refusal it is none. The answer is remembered under the key, refusals too.
     /// Three wrong PINs end the Session (WrongPinLimit), lock signing and mail the User; a
     /// wrong PIN while locked pushes the lock out; a right PIN while locked is refused and
     /// counts nothing.
@@ -1454,6 +1473,7 @@ module Session =
         (now: DateTime)
         (newId: unit -> string)
         (digest: GenOrder.OrderPlan -> string)
+        (patientData: PatientDataPort)
         (standing: BrowserIdentity -> UserStanding option)
         (send: Mail -> unit)
         (sid: string)
@@ -1553,12 +1573,16 @@ module Session =
                                         let token = OpenedToken $"opened-{newId ()}"
 
                                         // the EHR data is the read just signed on, and the identity the
-                                        // version names is that read's; the Session's patient is the
-                                        // EHR's reading at the challenge, else the data just signed, so
-                                        // a resume shows what a relaunch would
+                                        // version names is that read's; the Session's patient is its
+                                        // merge at the clock, the age computed again, else the data just
+                                        // signed; the version keeps the age it was signed at
                                         let ehr = Reads.afterCommit challenge record.Opened.EhrData
                                         let whom = OpenedSession.identity { record.Opened with EhrData = ehr }
-                                        let patient = challenge.Reading |> Option.defaultValue version.Plan.Patient
+
+                                        let patient =
+                                            ehr
+                                            |> Option.map (merged now patientData record.Opened.Measured)
+                                            |> Option.defaultValue version.Plan.Patient
 
                                         let opened =
                                             { record with

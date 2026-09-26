@@ -3,6 +3,13 @@ namespace ServerApi
 open System
 open Shared.Types
 
+module CoreConversions = Informedica.GenCore.Lib.Conversions
+module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
+module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
+module CoreHeightValue = Informedica.GenCore.Lib.Patients.HeightValue
+module CoreHeightAtDate = Informedica.GenCore.Lib.Patients.HeightAtDate
+module CoreAgeWeeksDays = Informedica.GenCore.Lib.Patients.AgeWeeksDays
+
 
 /// What the Session holds of the user's measurements. A weight, a height or a gestational age
 /// the user measures at the bedside stays for the Session, whatever the EHR reads later, and a
@@ -103,6 +110,62 @@ module Measurements =
                 g |> Option.map Measurement.GestAge
             ]
             |> List.choose id
+
+
+    /// The core patient with the measurements on it: a value as a dated actual and the
+    /// calculation value, so that the projection reads it as measured; a cleared one leaves
+    /// the actuals as read and no calculation value, so that the projection has none and the
+    /// estimate stands; one never touched leaves the patient as read.
+    let onCore
+        (held: Measurements)
+        (core: Informedica.GenCore.Lib.Patients.Patient)
+        : Informedica.GenCore.Lib.Patients.Patient
+        =
+        let weight =
+            match held.Weight with
+            | None -> core.Weight
+            | Some { Value = None } -> { core.Weight with Calculation = None }
+            | Some {
+                       Value = Some g
+                       At = at
+                   } ->
+                let w = CoreWeightAtDate.create at (CoreWeightValue.weightInGram (int g))
+
+                { core.Weight with
+                    Actual = core.Weight.Actual @ [ w ]
+                    Calculation = Some w
+                }
+
+        let height =
+            match held.Height with
+            | None -> core.Height
+            | Some { Value = None } -> { core.Height with Calculation = None }
+            | Some {
+                       Value = Some cm
+                       At = at
+                   } ->
+                let h = CoreHeightAtDate.create at (CoreHeightValue.heightInCm (decimal cm))
+
+                { core.Height with
+                    Actual = core.Height.Actual @ [ h ]
+                    Calculation = Some h
+                }
+
+        let gestAge =
+            match held.GestAge with
+            | None -> core.GestationalAge
+            | Some { Value = None } -> None
+            | Some { Value = Some ga } ->
+                CoreAgeWeeksDays.create
+                    (CoreConversions.weekFromInt (int ga.Weeks))
+                    (CoreConversions.dayFromInt (int ga.Days))
+                |> Some
+
+        { core with
+            Weight = weight
+            Height = height
+            GestationalAge = gestAge
+        }
 
 
     /// The contract patient with the measurements on it, for the client that resumes: a value

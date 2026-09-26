@@ -155,7 +155,7 @@ let versionWritten writes =
 
 
 let commitAt now ids state sid s =
-    Session.commit now ids StubDatabase.digest registry ignore sid s state
+    Session.commit now ids StubDatabase.digest StubAdapters.patientData registry ignore sid s state
 
 let submitWith persist now ids state sid s =
     StubDatabase.submitWith persist (fun st -> commitAt now ids st sid s) state

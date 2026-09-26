@@ -1,15 +1,21 @@
-/// The version's identity: whom a Session is for, and what the version it signs names.
+/// The version's identity and the age after the sign: whom a Session is for, what the version
+/// it signs names, and what the Session's patient is once the signature has landed.
 module Informedica.GenPRES.Server.Tests.VersionIdentityTests
 
 open System
 open Expecto
 open Expecto.Flip
 open Shared.Types
+open Informedica.Utils.Lib.BCL
+open Informedica.GenUnits.Lib
 open ServerApi
 
 module Store = Informedica.GenPRES.Server.Tests.SessionStoreTests
 module GenFormPatient = Informedica.GenForm.Lib.Patient
 module EhrPatientData = Informedica.GenForm.Lib.EhrPatientData
+module CoreWeightValue = Informedica.GenCore.Lib.Patients.WeightValue
+module CoreWeightAtDate = Informedica.GenCore.Lib.Patients.WeightAtDate
+module CoreWeight = Informedica.GenCore.Lib.Patients.Weight
 module CoreAgeValue = Informedica.GenCore.Lib.Patients.AgeValue
 module CorePatientAge = Informedica.GenCore.Lib.Patients.PatientAge
 
@@ -25,6 +31,13 @@ let port = StubPatientData.port
 let ehr = StubPatientData.data "stub-patient"
 
 let identity = ehr |> EhrPatientData.identity
+
+
+/// The stub's EHR data with a weight the EHR has since changed.
+let heavier =
+    let w = CoreWeightAtDate.create tomorrow (CoreWeightValue.weightInKg 34m)
+
+    { ehr with Patient = { ehr.Patient with Weight = CoreWeight.create [ w ] None [] (Some w) } }
 
 
 /// EHR data with an age value in place of a birthdate: no identity.
@@ -103,6 +116,7 @@ let signedAt (record: string * Session.SessionRecord) (challenge: Session.Challe
             tomorrow
             (Store.counter "id")
             StubDatabase.digest
+            port
             Store.registry
             ignore
             sid
@@ -114,10 +128,20 @@ let signedAt (record: string * Session.SessionRecord) (challenge: Session.Challe
     | other -> failtest $"expected Submitted, got %A{other}"
 
 
+let ageInDays (pat: Informedica.GenForm.Lib.Types.Patient) =
+    pat.Age
+    |> Option.map (ValueUnit.convertTo Units.Time.day >> ValueUnit.getValue >> Array.head)
+
+
+let weightInKg (pat: Informedica.GenForm.Lib.Types.Patient) =
+    pat.Weight
+    |> Option.map (ValueUnit.convertTo Units.Weight.kiloGram >> ValueUnit.getValue >> Array.head)
+
+
 [<Tests>]
 let tests =
     testList
-        "the version's identity"
+        "the version's identity and the age after the sign"
         [
             testList
                 "whom a Session is for"
@@ -193,6 +217,49 @@ let tests =
                             signedAt (opened "s-1" (Some unidentified) None) (challengeOver (Some unidentified))
 
                         whom |> Expect.isNone "no identity to name"
+                    }
+
+                    test "with the clock a day later, the Session's age is one day more and the version's is not" {
+                        let record, version, _, _, _ =
+                            signedAt (opened "s-1" (Some ehr) None) (challengeOver (Some ehr))
+
+                        (record.Opened.Patient |> Option.bind ageInDays, version.Plan.Patient |> ageInDays)
+                        |> Expect.equal "3842 on the Session, 3841 on the version" (Some 3842N, Some 3841N)
+                    }
+
+                    test "where the EHR reports another weight, the Session keeps the weight the user measured" {
+                        let sid, record = opened "s-1" (Some ehr) None
+
+                        let measured =
+                            { record with
+                                Opened =
+                                    { record.Opened with
+                                        Measured = Measurements.ofRows [ Measurement.Weight(Some 30000<gram>), today ]
+                                    }
+                            }
+
+                        let after, _, _, _, _ = signedAt (sid, measured) (challengeOver (Some heavier))
+
+                        (after.Opened.EhrData
+                         |> Option.bind (fun e -> e.Patient.Weight.Calculation)
+                         |> Option.map (fun w -> CoreWeightValue.getWeightInKg w.Weight |> decimal),
+                         after.Opened.Patient |> Option.bind weightInKg,
+                         after.Opened.Patient |> Option.map _.WeightMeasured)
+                        |> Expect.equal
+                            "the EHR data as read says 34 kg; the Session's patient 30 kg, measured"
+                            (Some 34m, Some 30N, Some true)
+                    }
+
+                    test "the data a notice is told over is merged at the date of the open" {
+                        let measured = Measurements.ofRows [ Measurement.Weight(Some 30000<gram>), today ]
+                        let told = Session.noticeData today port measured (Some heavier)
+
+                        (told |> Option.bind ageInDays,
+                         told |> Option.bind weightInKg,
+                         Session.noticeData today port measured None)
+                        |> Expect.equal
+                            "the age of the open, the measured weight; none for no read"
+                            (Some 3841N, Some 30N, None)
                     }
                 ]
         ]

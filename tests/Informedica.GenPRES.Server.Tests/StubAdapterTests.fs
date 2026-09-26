@@ -3024,7 +3024,9 @@ module SessionStubTests =
             let submitAt now ids send state sid (s: Signature) =
                 StubDatabase.submitWith
                     StubDatabase.persistNothing
-                    (fun st -> Session.commit now ids StubDatabase.digest registry send sid s st)
+                    (fun st ->
+                        Session.commit now ids StubDatabase.digest StubAdapters.patientData registry send sid s st
+                    )
                     state
 
             let submit state sid s = submitAt t0 (counter "id") ignore state sid s
