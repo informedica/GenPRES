@@ -1,5 +1,5 @@
 ---
-last_commit_released: 60eecb42254166e97e589ef502bfd96539659712
+last_commit_released: 45f71c3c246ef8502cb06b3c8dc323158f578ebc
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,20 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.35 - 2026-09-26
+
+### 🚀 Features
+
+* *(server)* End a Session left idle, as a script ([321f79f2](https://github.com/informedica/GenPRES/commit/321f79f2e036dd38f33047fdbe3beefa5ad3b781))
+* *(server)* End a Session left idle ([a7905c4e](https://github.com/informedica/GenPRES/commit/a7905c4e9cb9d5ba0d6ac7e70cf69d8bba97596a))
+
+### 🐞 Bug Fixes
+
+* *(server)* Read the idle clock under the port's lock ([a4b04754](https://github.com/informedica/GenPRES/commit/a4b04754ad760d6ff3ca83d8e45ae6a4f6c58f85))
+* *(server)* Answer a store failure at the age as StoreFailed ([ca4f9400](https://github.com/informedica/GenPRES/commit/ca4f940045539f7e5a17f9f81da5fd63b25ee471))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/60eecb42254166e97e589ef502bfd96539659712..45f71c3c246ef8502cb06b3c8dc323158f578ebc)</small></strong>
 
 ## 0.1.2-alpha.34 - 2026-09-26
 
