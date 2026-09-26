@@ -17,6 +17,7 @@ age from the open to the sign, and on the idle end of a Session (#1061).
 - [Verification, per step](#verification-per-step)
 - [To settle in review](#to-settle-in-review)
 - [Related issues](#related-issues)
+- [As built](#as-built)
 
 ## Problem description
 
@@ -248,20 +249,21 @@ One pull request per step unless the step says two. Everything outside
 - **Which fields.** Weight, height, gestational age, gender, department, renal function and
   access: the data the rules read that the User can change. The age is fixed by the Server.
   The check at the challenge compares the location too, which the rules read but the panel
-  does not offer. Confirm, or name the ones to leave out.
+  does not offer. As built.
 - **Which Sessions.** Settled: an identified patient only. Anonymous use and the url mode are
   never held; nothing is signed for them.
 - **What counts as changed.** An order context whose id the head does not hold, or whose content
-  differs from the head's after the same Dto; a change to the order plan's filter alone is not.
-  Confirm.
+  differs from the head's; a change to the order plan's filter alone is not. As built: the
+  Client compares the contexts as the open answered them; the Server compares the domain values
+  less the age and the intake.
 - **Re-prescribing on a new context.** Deferred to #672; until then a new bedside weight means
   signing the order plan or dropping its new and changed orders first. Accept the cost, or pull
   #672 in.
 - **Recording the difference from the EHR.** Settled: not stored, projected from the kept
   opened-with row the commit writes and the version's own patient data (step 7b); `Verified`
   keeps its meaning.
-- **Measurements.** Recorded per request as now; while the context is held the panel sends none;
-  they stand over a refresh, as they stand over a sign. Confirm.
+- **Measurements.** Recorded per request as now; while the context is held the panel's edits are
+  ignored, so it sends none; they stand over a refresh, as they stand over a sign. As built.
 
 ## Related issues
 
@@ -272,3 +274,51 @@ One pull request per step unless the step says two. Everything outside
 - **#598** client testing: would let step 4 be tested without the browser.
 - **#518** the carry-over of an order plan's changes into a relaunched tab, which would carry
   the hold with it.
+
+## As built
+
+Every step landed as a pull request from a fork branch against `master`, on 2026-09-26 and
+2026-09-27, script-first where it touched source outside the Client, the script migrated and
+removed in the same pull request once reviewed. The deviations follow the table.
+
+| Step | PR | Landed |
+|------|----|--------|
+| plan | [#1088](https://github.com/informedica/GenPRES/pull/1088) | UC-12 and this document |
+| 1, 2 | [#1090](https://github.com/informedica/GenPRES/pull/1090) | `HeldContextPolicy.fs` in `GenPRES.Client.Core`; the order plan state keeps the contexts of the version last opened or signed, `OrderPlanState.changed` and `contextHeld` |
+| 3 | [#1091](https://github.com/informedica/GenPRES/pull/1091) | signing blocks the order plan: `SigningPolicy.underWay`, `OrderPlanState.transitionWhile`, the sign dialog modal from the sign on; `AskedOver` and the count in `PlanWork.Changed` removed |
+| 4 | [#1092](https://github.com/informedica/GenPRES/pull/1092) | the patient panel held for an identified patient: the fields read-only, an attempt asks with the way out; `App.patientHeld`, `IOrderPlan.Changed` |
+| 5, 6 | [#1093](https://github.com/informedica/GenPRES/pull/1093) | the check at the challenge: `Session.changedContexts`, `ruleData`, `differingContexts`, `SigningRefusal.ContextDiffers` |
+| 7a | [#1094](https://github.com/informedica/GenPRES/pull/1094) | `SigningMsg.Accept of held`: held, the notice accepted keeps the held data; the notice's own sentence while held |
+| 7b | not built | the difference from the EHR, a projection when a view needs it |
+| 8 | [#1095](https://github.com/informedica/GenPRES/pull/1095) | `SessionCommand.Refresh`, `Session.refresh`, `SessionMsg.Refresh`; the refresh as the question's third action. Closes #1075 |
+
+### Deviations from the text above
+
+- **Step 3 was added during the build.** The review of #1090 found that the Client let the order
+  plan change while a signature was under way; the Server signs atomically, the Client did not.
+  Making the Client's signing atomic removed the case instead of tracking it, and with it the
+  work the signing machine carried and the count in `PlanWork.Changed`. The later steps moved
+  up one.
+- **A script and its migration landed in one pull request**, not two: the script was reviewed
+  on the branch, then migrated and removed before the merge.
+- **Only an identified patient is held.** Anonymous use and the url mode sign nothing, so they
+  have nothing to hold.
+- **No standing notice on the panel.** The fields keep their values, read-only and without a
+  clear cross; an attempt to change one, by pointer or keyboard, or the reset, asks the
+  question. Signing stays the order plan's own button, so the question offers removal and,
+  since step 8, the refresh.
+- **The Server compares domain values, not the Dto**, less the age the Server puts on every
+  context and the intake the totals recompute. The round trip of the head through the Client
+  was proved unchanged first.
+- **The check compares the location too**, found in the review of #1093: the rules read it,
+  though the panel does not offer it.
+- **Step 7 split.** 7a is the behaviour; 7b stores nothing, since the commit already keeps the
+  EHR reading a version was signed on beside it.
+- **The data notice while held says which data is signed**, found in the review of #1094: the
+  data as it was, the new data after the sign.
+- **The refresh without a head clears the order plan first**, so that it opens empty for the
+  patient read again; with a head it reopens the head, as a version opened. A refresh that did
+  not happen is told, found in the review of #1095. Data notices keep projecting at the date of
+  the open, as after a sign.
+- **Step 8 went over the size limit** at 209 changed `src/` lines, by agreement, to keep the
+  Server and the Client of the refresh in one pull request.
