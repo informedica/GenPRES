@@ -479,14 +479,35 @@ module OrderPlan =
                     children = orderView
                 |}
 
+        // the bars above the table keep their height and the table takes what is left, so the
+        // grid's footer stays above the totals bar instead of being pushed below the page
+        let sxPlan =
+            {|
+                height = "100%"
+                display = "flex"
+                flexDirection = "column"
+            |}
+
+        let sxBars = {| flexShrink = 0 |}
+
+        let sxTable =
+            {|
+                flex = 1
+                minHeight = 0
+            |}
+
         JSX.jsx
             $"""
         import Box from '@mui/material/Box';
 
-        <Box sx={ {| height = "100%" |} }>
-            {movedOnBar}{signBtn}
-            {deleteBtn}
-            {responsiveTable}
+        <Box sx={sxPlan}>
+            <Box sx={sxBars}>
+                {movedOnBar}{signBtn}
+                {deleteBtn}
+            </Box>
+            <Box sx={sxTable}>
+                {responsiveTable}
+            </Box>
             {orderDialog}
             {confirmDeleteDialog}
             {signDialog}
