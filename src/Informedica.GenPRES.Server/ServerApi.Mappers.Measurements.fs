@@ -129,7 +129,7 @@ module Measurements =
                        Value = Some g
                        At = at
                    } ->
-                let w = CoreWeightAtDate.create at (CoreWeightValue.weightInGram (int g))
+                let w = CoreWeightAtDate.create at (CoreWeightValue.weightInGram (decimal g))
 
                 { core.Weight with
                     Actual = core.Weight.Actual @ [ w ]
