@@ -1223,6 +1223,13 @@ module Session =
         | _ -> None
 
 
+    /// The order plan of the head of the record, when it can be read.
+    let headPlan (patientId: string) (state: State) =
+        match headOf patientId state with
+        | Some(StoredVersion.Readable(v, _)) -> Some v.Plan
+        | _ -> None
+
+
     /// The age a Session holds for an identified patient, as the contract carries it: the age
     /// in days of the patient it opened on, split as the contract splits a number of days.
     /// None without a Session, in a Session whose EHR data names no patient, or when its
@@ -1381,6 +1388,41 @@ module Session =
         |> Array.exists (fun (_, n) -> n > 1)
 
 
+    /// An order context as it is compared with the head's: less the age, which the Server puts on
+    /// every context at the Session's age, and the intake, which the totals recompute.
+    let contextContent (pc: GenOrder.PlanContext) =
+        pc.Id, pc.Category, { pc.Context with Patient = { pc.Context.Patient with Age = None } }
+
+
+    /// The contexts of the plan that the head does not hold as it is: new, or changed since.
+    /// Every context is new without a head.
+    let changedContexts (head: GenOrder.OrderPlan option) (plan: GenOrder.OrderPlan) =
+        let held = head |> Option.map _.Contexts |> Option.defaultValue [||]
+
+        plan.Contexts
+        |> Array.filter (fun pc ->
+            held
+            |> Array.tryFind (fun h -> h.Id = pc.Id)
+            |> Option.forall (fun h -> contextContent h <> contextContent pc)
+        )
+
+
+    /// The patient data the rules read. The age is left out: the Server puts the Session's age
+    /// on the plan and on every context.
+    let ruleData (p: GenForm.Patient) =
+        p.Location, p.Department, p.Gender, p.Weight, p.Height, p.GestAge, p.PMAge, p.Access, p.RenalFunction
+
+
+    /// The ids of the new or changed contexts that state another patient context than the plan;
+    /// none when every one agrees. The contexts the head holds unchanged are exempt: they were
+    /// signed on the data of their sign. What the contexts state is compared, nothing computed
+    /// again.
+    let differingContexts (head: GenOrder.OrderPlan option) (plan: GenOrder.OrderPlan) =
+        changedContexts head plan
+        |> Array.filter (fun pc -> ruleData pc.Context.Patient <> ruleData plan.Patient)
+        |> Array.map _.Id
+
+
     /// The Session's patient from EHR data, at a date: the user's measurements on the core
     /// patient, projected there and estimated, the age the birthdate gives at that date.
     let merged (at: DateTime) (patientData: PatientDataPort) (measured: Measurements) (ehr: GenForm.EhrPatientData) =
@@ -1404,7 +1446,8 @@ module Session =
     /// is not what the Session opened with and no notice over this reading was accepted, no
     /// challenge yet but a data notice, replacing any earlier notice and dropping any earlier
     /// challenge (it was over the data before the change); the head readable and not moved
-    /// on. Then a challenge over the digest of exactly this plan, replacing the Session's
+    /// on; every order new or changed since the head stating the plan's patient context. Then a
+    /// challenge over the digest of exactly this plan, replacing the Session's
     /// earlier one and spending the notice. The plan is the domain's, parsed at the boundary;
     /// its own patient data is what the User saw, entered or read, and is recorded as such;
     /// the Patient is the Session's, never the request's. The PIN is not involved: a refusal
@@ -1474,6 +1517,9 @@ module Session =
                         match unreadableHead patientId state, blockedBy record patientId state with
                         | Some head, _
                         | None, Some head -> refuse (SigningRefusal.Blocked head)
+                        // every order new or changed since the head on the plan's patient context
+                        | None, None when differingContexts (headPlan patientId state) plan |> Array.isEmpty |> not ->
+                            refuse SigningRefusal.ContextDiffers
                         | None, None ->
                             let nonce = newId ()
 

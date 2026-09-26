@@ -2593,6 +2593,34 @@ module SessionStubTests =
                         |> Expect.equal "entered data: issued" (SigningOutcome.ChallengeIssued "n-1")
                     }
 
+                    test "refuses an order composed on other patient data than the plan's, before a challenge" {
+                        let contextOn (data: Patient) id =
+                            { OrderContext.empty with
+                                Id = id
+                                Patient = data
+                                Scenarios = [| scenarioWithOrder $"o-{id}" |]
+                            }
+
+                        // no head: every order is new, and each states the plan's data
+                        stateOf [ opened ] [] |> ask t0 (counter "n")
+                        <| "s-1"
+                        <| (OrderPlan.create stubPatient [| contextOn stubPatient "c-1" |], token "s-1")
+                        |> snd
+                        |> Expect.equal "one patient context: issued" (SigningOutcome.ChallengeIssued "n-1")
+
+                        let state, answer =
+                            stateOf [ opened ] [] |> ask t0 (counter "n")
+                            <| "s-1"
+                            <| (OrderPlan.create
+                                    stubPatient
+                                    [| contextOn stubPatient "c-1"; contextOn otherData "c-2" |],
+                                token "s-1")
+
+                        answer
+                        |> Expect.equal "refused" (SigningOutcome.Refused SigningRefusal.ContextDiffers)
+                        state.Challenges |> Expect.isEmpty "no challenge issued"
+                    }
+
                     test "a Session opened on the signed patient, no reading: told unverified as before (Rule 44)" {
                         let state, answer =
                             stateOf [ session "s-1" (Some prescriber) (Some("no-data", otherData)) None ] []

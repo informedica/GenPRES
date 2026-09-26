@@ -911,6 +911,7 @@ module SqlSessions =
         | SigningRefusal.Locked until -> "locked", None, None, Some until
         | SigningRefusal.StoreFailed -> "store-failed", None, None, None
         | SigningRefusal.PlanUnreadable -> "plan-unreadable", None, None, None
+        | SigningRefusal.ContextDiffers -> "context-differs", None, None, None
 
 
     /// The rows of one write. Every case matched, so that a case without a row fails to
@@ -1699,6 +1700,7 @@ module SqlSessions =
         | "locked" -> until |> Option.map SigningRefusal.Locked
         | "store-failed" -> Some SigningRefusal.StoreFailed
         | "plan-unreadable" -> Some SigningRefusal.PlanUnreadable
+        | "context-differs" -> Some SigningRefusal.ContextDiffers
         | _ -> None
 
 

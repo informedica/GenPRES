@@ -176,8 +176,10 @@ One pull request per step unless the step says two. Everything outside
    ignored while held, where it enters the App (`IPatient.UpdatePatient`); the Session's
    patient and a data notice accepted do not come that way. New terms for the question.
 
-5. **The check (script).** `src/Informedica.GenPRES.Server/Scripts/HeldContext.fsx`: `changed`
-   against the head, by id and by content after the same Dto; the patient context each changed
+5. **The check (script, migrated with step 6 and removed).**
+   `src/Informedica.GenPRES.Server/Scripts/HeldContext.fsx`: `changed` against the head, by id
+   and by content on the domain values the order plan is parsed into, less the age the Server
+   puts on every context and the intake the totals recompute; the patient context each changed
    context states compared with the order plan's on the data the rules read; `challenge`
    shadowed to refuse `ContextDiffers` before the challenge is issued.
 
@@ -229,7 +231,8 @@ One pull request per step unless the step says two. Everything outside
 
 - **Which fields.** Weight, height, gestational age, gender, department, renal function and
   access: the data the rules read that the User can change. The age is fixed by the Server.
-  Confirm, or name the ones to leave out.
+  The check at the challenge compares the location too, which the rules read but the panel
+  does not offer. Confirm, or name the ones to leave out.
 - **Which Sessions.** Settled: an identified patient only. Anonymous use and the url mode are
   never held; nothing is signed for them.
 - **What counts as changed.** An order context whose id the head does not hold, or whose content

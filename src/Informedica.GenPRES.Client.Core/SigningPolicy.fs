@@ -37,6 +37,8 @@ let english (term: Terms) : string =
     | Terms.``Signing Refusal Locked`` -> "Signing is locked until {0}."
     | Terms.``Signing Refusal Store Failed`` -> "The version could not be stored. Nothing changed; sign again."
     | Terms.``Signing Refusal Plan Unreadable`` -> "The plan could not be read. Reload the page and sign again."
+    | Terms.``Signing Refusal Context Differs`` ->
+        "An order in the plan was composed on other patient data. Remove the new and changed orders and prescribe them again."
     | Terms.``Signing Send Failed`` -> "The signature could not be sent. Try again."
     | _ -> SessionGatePolicy.english term
 
@@ -62,6 +64,7 @@ let refusalSentence (tr: Terms -> string) (refusal: SigningRefusal) =
     | SigningRefusal.Locked until -> tr Terms.``Signing Refusal Locked`` |> SessionGatePolicy.fill [ time until ]
     | SigningRefusal.StoreFailed -> tr Terms.``Signing Refusal Store Failed``
     | SigningRefusal.PlanUnreadable -> tr Terms.``Signing Refusal Plan Unreadable``
+    | SigningRefusal.ContextDiffers -> tr Terms.``Signing Refusal Context Differs``
 
 
 /// What the User is told once the version landed.
