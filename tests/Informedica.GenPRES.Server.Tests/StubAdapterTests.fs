@@ -36,7 +36,7 @@ module Machine =
 
     /// The notice alone: the age the machine tells beside it has its own tests.
     let seen now sid opened state =
-        let state, (notice, _) = ServerApi.Session.seen now sid opened state |> answered
+        let state, (notice, _) = ServerApi.Session.seen now sid opened None state |> answered
         state, notice
 
     let openVersion now newId sid id state = ServerApi.Session.openVersion now newId sid id state |> answered
@@ -128,7 +128,7 @@ module StubAdapters =
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
-            seen = fun _ _ -> async { return None, None }
+            seen = fun _ _ _ -> async { return None, None }
             age = fun _ -> async { return None }
             openVersion = fun _ _ -> async { return None }
         }
@@ -287,6 +287,7 @@ let requireLoadedTests =
             Api.OrderContextCommand.toString
             (fun _ -> Gate.RequiresLoaded)
             OrderContextCommand.aged
+            OrderContextCommand.patientOf
             (OrderContextCommand.processCmd env)
             {
                 Opened = None
@@ -5062,7 +5063,7 @@ module BoundTests =
 
         { env with
             requireLoaded = (fun () -> if loaded then None else Some [| "not loaded" |])
-            session = { env.session with seen = fun _ _ -> async { return told, None } }
+            session = { env.session with seen = fun _ _ _ -> async { return told, None } }
         }
 
     let run env cookie handler cmd =
@@ -5072,6 +5073,7 @@ module BoundTests =
             OrderContextCommand.toString
             (fun _ -> Gate.RequiresLoaded)
             OrderContextCommand.aged
+            OrderContextCommand.patientOf
             handler
             {
                 Opened = None
@@ -5088,6 +5090,7 @@ module BoundTests =
             InteractionCommand.toString
             InteractionCommand.gate
             InteractionCommand.aged
+            InteractionCommand.patientOf
             (InteractionCommand.processCmd env)
             {
                 Opened = None

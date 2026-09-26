@@ -19,6 +19,9 @@ module InteractionCommand =
     let aged (_: Shared.Types.Age option) (cmd: InteractionCommand) = cmd
 
 
+    let patientOf (_: InteractionCommand) : Shared.Types.Patient option = None
+
+
     let processCmd (env: AppEnv) (cmd: InteractionCommand) =
         match cmd with
         | InteractionCommand.GetDrugNames ->

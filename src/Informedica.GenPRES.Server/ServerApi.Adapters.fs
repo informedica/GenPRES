@@ -207,7 +207,7 @@ module Adapters =
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
-            seen = fun _ _ -> async { return None, None }
+            seen = fun _ _ _ -> async { return None, None }
             age = fun _ -> async { return None }
             openVersion = fun _ _ -> async { return None }
         }

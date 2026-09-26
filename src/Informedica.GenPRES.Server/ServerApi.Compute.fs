@@ -15,9 +15,9 @@ type Gate =
 module Compute =
 
     /// Every computing member: the Session the cookie names is marked seen and told whether the
-    /// record moved on or the Session ended, and every patient the command carries is put at
-    /// the age the Session holds, before the command is computed; without a cookie the request
-    /// computes as it always did. The gate refuses a command that needs the formulary while it
+    /// record moved on or the Session ended, what the patient the request edits measures is
+    /// recorded, and every patient the command carries is put at the age the Session holds,
+    /// before the command is computed; without a cookie the request computes as it always did. The gate refuses a command that needs the formulary while it
     /// is not loaded, with the provider's messages. An exception is an Error with its message.
     /// The token is never logged.
     let bound
@@ -26,6 +26,7 @@ module Compute =
         (name: 'cmd -> string)
         (gate: 'cmd -> Gate)
         (aged: Age option -> 'cmd -> 'cmd)
+        (patientOf: 'cmd -> Patient option)
         (handler: 'cmd -> Async<Result<'resp, string[]>>)
         (request: Request<'cmd>)
         : Async<Result<Reply<'resp>, string[]>>
@@ -40,7 +41,7 @@ module Compute =
                 let! notice, age =
                     match cookie.read () with
                     | None -> async { return None, None }
-                    | Some id -> env.session.seen id request.Opened
+                    | Some id -> env.session.seen id request.Opened (patientOf cmd)
 
                 // an identified Session's age, never the client's, on every patient the command
                 // carries, before anything reads it

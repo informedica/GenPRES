@@ -7,7 +7,10 @@ open System
 open Expecto
 open Expecto.Flip
 open Shared.Types
+open Shared.Api
 open ServerApi
+open Informedica.GenPRES.Server.Tests.StubAdapterTests
+open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
 
 module GenFormPatient = Informedica.GenForm.Lib.Patient
 
@@ -40,6 +43,41 @@ let gestAge: GestAge =
         Weeks = 36<week>
         Days = 3<day>
     }
+
+
+/// A Session on the stub patient, open at today.
+let sid = "s-1"
+
+let state =
+    { Session.emptyState with
+        Sessions =
+            Map.ofList
+                [
+                    sid,
+                    {
+                        Opened =
+                            {
+                                User = None
+                                PatientId = Some "p1"
+                                EhrData = Some ehr
+                                Patient = Some(StubPatientData.port.patient today ehr)
+                                Measured = Measurements.none
+                                OpenedToken = Some(OpenedToken "opened-1")
+                                KeyThumbprint = Some "t"
+                                Head = None
+                            }
+                        Login = None
+                        OpenedWith = None
+                        OpenedAt = today
+                        Seen = today
+                    }
+                ]
+    }
+
+
+let seenWith (draft: Patient option) (state: Session.State) =
+    let state, _, writes = Session.seen later sid (Some(OpenedToken "opened-1")) draft state
+    state, writes
 
 
 [<Tests>]
@@ -156,4 +194,111 @@ let tests =
                 |> Option.map _.Weight.Measured
                 |> Expect.equal "the weight the user measured, not the EHR's" (Some(Some 34000<gram>))
             }
+
+            testList
+                "seen records what the request's patient measures"
+                [
+                    test "a row per value that changed, held from then on; the same again writes nothing" {
+                        let state, writes = state |> seenWith (Some(shown |> withWeight (Some 34000<gram>)))
+
+                        let held = state.Sessions[sid].Opened.Measured
+
+                        let _, again = state |> seenWith (Some(shown |> withWeight (Some 34000<gram>)))
+
+                        (writes
+                         |> List.filter (
+                             function
+                             | Session.WriteMeasurement _ -> true
+                             | _ -> false
+                         ),
+                         held.Weight,
+                         again)
+                        |> Expect.equal
+                            "one measurement row; held at the request; then the heartbeat alone"
+                            ([ Session.WriteMeasurement(sid, Measurement.Weight(Some 34000<gram>), later) ],
+                             Some
+                                 {
+                                     Value = Some 34000<gram>
+                                     At = later
+                                 },
+                             [ Session.RecordSeen(sid, later) ])
+                    }
+
+                    test "a request without a patient, or the EHR's values sent back, records nothing" {
+                        [ state |> seenWith None |> snd; state |> seenWith (Some shown) |> snd ]
+                        |> Expect.allEqual "the heartbeat alone" [ Session.RecordSeen(sid, later) ]
+                    }
+
+                    test "bound passes the patient the request edits, as sent" {
+                        let captured = ref None
+
+                        let env =
+                            { makeEnv (formularyAlwaysOk Shared.Models.Formulary.empty) (orderContextAlwaysOk emptyCtx) with
+                                session =
+                                    { sessionNone with
+                                        seen =
+                                            fun _ _ draft ->
+                                                async {
+                                                    captured.Value <- draft
+                                                    return None, None
+                                                }
+                                    }
+                            }
+
+                        let cookie: SessionCookie =
+                            {
+                                read = fun () -> Some sid
+                                write = ignore
+                                delete = ignore
+                            }
+
+                        let ctx =
+                            { Shared.Models.OrderContext.empty with Patient = shown |> withWeight (Some 34000<gram>) }
+
+                        Compute.bound
+                            env
+                            cookie
+                            (fun _ -> "test")
+                            (fun _ -> Gate.Open)
+                            OrderContextCommand.aged
+                            OrderContextCommand.patientOf
+                            (fun _ -> async { return Ok() })
+                            {
+                                Opened = None
+                                Command = (OrderContextCommand.UpdateOrderContext, ctx)
+                            }
+                        |> Async.RunSynchronously
+                        |> ignore
+
+                        captured.Value |> Expect.equal "the context's patient" (Some ctx.Patient)
+                    }
+
+                    test "the patient a request edits, per family" {
+                        let ctx = { Shared.Models.OrderContext.empty with Patient = shown }
+
+                        let other =
+                            { Shared.Models.OrderContext.empty with Patient = shown |> withWeight (Some 1000<gram>) }
+
+                        let plan = Shared.Models.OrderPlan.create shown [| other |]
+
+                        (OrderContextCommand.patientOf (OrderContextCommand.UpdateOrderContext, ctx),
+                         [
+                             OrderPlanCommand.Recalculate plan
+                             OrderPlanCommand.Navigate(plan, "1", OrderContextCommand.UpdateOrderContext, other)
+                             OrderPlanCommand.AddOrderContext(plan, other)
+                             OrderPlanCommand.NewOrderContext(plan, NutritionCategory.TPN)
+                             OrderPlanCommand.RemoveOrderContexts(plan, [| "1" |])
+                             OrderPlanCommand.Open(shown, [| other |])
+                         ]
+                         |> List.map OrderPlanCommand.patientOf
+                         |> List.distinct,
+                         FormularyCommand.patientOf { Shared.Models.Formulary.empty with Patient = Some shown },
+                         FormularyCommand.patientOf Shared.Models.Formulary.empty,
+                         ParenteraliaCommand.patientOf Shared.Models.Parenteralia.empty,
+                         InteractionCommand.patientOf InteractionCommand.GetDrugNames)
+                        |> Expect.equal
+                            "the context's; the plan's, never a context's own; the filter's or none; none; none"
+                            (Some shown, [ Some shown ], Some shown, None, None, None)
+                    }
+                ]
         ]
