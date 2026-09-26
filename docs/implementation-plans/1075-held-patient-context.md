@@ -168,9 +168,13 @@ One pull request per step unless the step says two. Everything outside
    they go out while idle; what is not a page's change is admitted; an order added before the
    sign is released by the signature, nothing added meanwhile.
 
-4. **The patient data fields.** `Views/Patient.fs` disables them while held, with a notice and
-   its three actions; the leave-page guard unchanged. `updatePatient` ignores an edit while
-   held. New terms for the notice and the actions.
+4. **The patient data fields.** `Views/Patient.fs`, for an identified patient only: while held
+   the fields show their values but take no change, without a clear cross. An attempt to change
+   one, or the reset, opens a question: why the patient data cannot change now, with the way
+   out that removes the new and changed orders, or cancel. Signing stays the order plan's own
+   button; the refresh comes with step 8. The leave-page guard unchanged. The panel's edit is
+   ignored while held, where it enters the App (`IPatient.UpdatePatient`); the Session's
+   patient and a data notice accepted do not come that way. New terms for the question.
 
 5. **The check (script).** `src/Informedica.GenPRES.Server/Scripts/HeldContext.fsx`: `changed`
    against the head, by id and by content after the same Dto; the patient context each changed
@@ -216,7 +220,7 @@ One pull request per step unless the step says two. Everything outside
 | Step | Check |
 |------|-------|
 | 3 | In the browser: click sign and, before the challenge comes back, try to add an order; nothing can be added until the signature is answered or cancelled. |
-| 4 | In the browser: add an order, the patient data fields are disabled with the notice; remove it, they are enabled; sign, they are enabled. |
+| 4 | In the browser, for an identified patient: add an order, a change to the weight asks the question and changes nothing; remove the new orders from the question, the weight can be changed; add one and sign, it can be changed. |
 | 6 | An order plan with a new order on another weight, sent by hand, is refused `ContextDiffers` at the challenge. |
 | 7 | With the stub's EHR data changed after the open and an order on the order plan, the version is signed on the held data and records the difference. |
 | 8 | A refresh after a change of the stub's EHR data shows the new data and no new or changed orders. |
@@ -226,8 +230,8 @@ One pull request per step unless the step says two. Everything outside
 - **Which fields.** Weight, height, gestational age, gender, department, renal function and
   access: the data the rules read that the User can change. The age is fixed by the Server.
   Confirm, or name the ones to leave out.
-- **Which Sessions.** Every Session, identified and anonymous; the url mode without a Session is
-  unchanged. Confirm.
+- **Which Sessions.** Settled: an identified patient only. Anonymous use and the url mode are
+  never held; nothing is signed for them.
 - **What counts as changed.** An order context whose id the head does not hold, or whose content
   differs from the head's after the same Dto; a change to the order plan's filter alone is not.
   Confirm.

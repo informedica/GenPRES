@@ -142,6 +142,11 @@ type Terms =
     | ``Patient Department Default``
     | ``Patient Department Chosen``
     | ``Patient Department Launched``
+    // the patient context held: asked when the panel's data is changed, with the way out that
+    // removes the order plan's new and changed orders
+    | ``Patient Context Held Title``
+    | ``Patient Context Held``
+    | ``Patient Context Held Remove``
     // Shared UI terms
     | Print
     | ``Not Configured``

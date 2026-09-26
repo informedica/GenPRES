@@ -127,14 +127,12 @@ module Patient =
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
         let settings = (AppEnv.asEnv<AppEnv.ISettings> props.appEnv).Settings
         let session = (AppEnv.asEnv<AppEnv.ISession> props.appEnv).Session
+        let envPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
 
         // the patient is the subject of every workbench and plan request: while one is under
         // way the panel is greyed, so that the patient cannot change under it
         let busy =
-            match
-                (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext,
-                (AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv).OrderPlan
-            with
+            match (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext, envPlan.OrderPlan with
             | OrderContextView.Changing _, _
             | _, OrderPlanView.Changing _ -> true
             | _ -> false
@@ -171,6 +169,35 @@ module Patient =
         let identity = patientContext |> Option.bind _.Identity
 
         let identified = identity.IsSome
+
+        // the patient context is held, for an identified patient only, while the plan has an
+        // order that is new or changed since the version last opened or signed: every order a
+        // signed version adds rests on one patient context, so the panel cannot change it until
+        // the plan is signed or those orders are removed
+        let held = identified && envPlan.Changed |> Array.isEmpty |> not
+
+        // held, the fields stay as they are but take no change: an attempt asks instead, with the
+        // way out that removes the new and changed orders; signing is the plan's own button
+        let heldOpen, setHeldOpen = React.useState false
+
+        // not while a request is under way: the panel is greyed then, and the orders cannot be
+        // removed until the plan is settled
+        let onAttempt (e: Browser.Types.Event) =
+            if held then
+                e.preventDefault ()
+                e.stopPropagation ()
+
+                if not busy then
+                    setHeldOpen true
+
+        // every edit of the panel goes out here, so that one the pointer does not make, from the
+        // keyboard or assistive technology, is held too: it asks instead of changing the panel
+        let dispatch msg =
+            if held then
+                if not busy then
+                    setHeldOpen true
+            else
+                dispatch msg
 
         // the summary: the data, and above it, identified, the id the data is held under; the
         // name and the birthdate are the title bar's alone
@@ -319,6 +346,37 @@ module Patient =
                         onClose = None
                     |}
 
+        // only over a settled plan; while a request is under way the question stays open, to be
+        // confirmed once it has landed
+        let onRemoveChanged () =
+            match envPlan.OrderPlan with
+            | OrderPlanView.Settled(tp, _) ->
+                setHeldOpen false
+
+                Api.OrderPlanCommand.RemoveOrderContexts(tp, envPlan.Changed)
+                |> envPlan.OrderPlanCommand
+            | OrderPlanView.NoPatient -> setHeldOpen false
+            | OrderPlanView.Changing _ -> ()
+
+        let heldDialog =
+            Components.ConfirmDialog.View
+                {|
+                    isOpen = heldOpen
+                    title =
+                        Terms.``Patient Context Held Title``
+                        |> getTerm "Patiëntgegevens kunnen niet worden gewijzigd"
+                    text =
+                        Terms.``Patient Context Held``
+                        |> getTerm
+                            "Het orderplan heeft nieuwe of gewijzigde orders. Onderteken het orderplan, of verwijder die orders, om de patiëntgegevens te wijzigen."
+                    confirmLabel =
+                        Terms.``Patient Context Held Remove``
+                        |> getTerm "Verwijder nieuwe en gewijzigde orders"
+                    cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                    onConfirm = onRemoveChanged
+                    onCancel = fun () -> setHeldOpen false
+                |}
+
         // bounded and to the left, so the button is not as wide as the panel it sits in and is
         // not where you click by default
         let resetBar =
@@ -329,7 +387,7 @@ module Patient =
                             {|
                                 label = Terms.Reset |> getTerm "Reset"
                                 kind = Components.ActionBar.Kind.Secondary
-                                onClick = onReset
+                                onClick = fun () -> if held then setHeldOpen true else onReset ()
                                 disabled = busy
                                 icon = Some Mui.Icons.RefreshIcon
                             |}
@@ -346,8 +404,8 @@ module Patient =
                     updateSelected = changeValue
                     isLoading = false
                     disabled = busy
-                    readOnly = readOnly
-                    hasClear = not readOnly
+                    readOnly = readOnly || held
+                    hasClear = not (readOnly || held)
                     canStep = false
                     severity = Severity.Normal
                     minWidth = None
@@ -620,18 +678,22 @@ module Patient =
             JSX.jsx
                 $"""
             import React from 'react';
+            import Box from '@mui/material/Box';
             import Grid from '@mui/material/Grid';
 
             <React.Fragment>
-                <Grid container spacing={2}>
-                    {React.Fragment(items1 |> unbox<seq<ReactElement>>)}
-                </Grid>
-                <Grid container spacing={2} sx={ {| marginTop = 2 |} } >
-                    {React.Fragment(items2 |> unbox<seq<ReactElement>>)}
-                </Grid>
+                <Box onClickCapture={onAttempt} onMouseDownCapture={onAttempt}>
+                    <Grid container spacing={2}>
+                        {React.Fragment(items1 |> unbox<seq<ReactElement>>)}
+                    </Grid>
+                    <Grid container spacing={2} sx={ {| marginTop = 2 |} } >
+                        {React.Fragment(items2 |> unbox<seq<ReactElement>>)}
+                    </Grid>
+                </Box>
                 {departmentNotice}
                 {resetBar}
                 {confirmResetDialog}
+                {heldDialog}
             </React.Fragment>
             """
 

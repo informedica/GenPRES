@@ -173,8 +173,8 @@ changed.
 
 - **Which fields.** Default: weight, height, gestational age, gender, department, renal function
   and access, the data the rules read that the User can change. The age is fixed by the Server.
-- **Which Sessions.** Default: every Session, identified and anonymous; the url mode without a
-  Session is unchanged, since nothing is signed there.
+- **Which Sessions.** Settled: an identified patient only. Anonymous use and the url mode are
+  never held, since nothing is signed there.
 - **Measurements.** Recorded per request as now; while the context is held the panel sends none.
   They stand over a refresh, as they stand over a sign.
 - **What counts as changed.** Default: an order context whose id the head does not hold, or

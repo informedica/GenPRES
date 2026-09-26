@@ -45,6 +45,9 @@ type IOrderPlan =
     abstract Select: string option -> unit
     // the contexts the rows keep, by id; the totals follow
     abstract Filter: string[] -> unit
+    // the contexts of the plan that are new or changed since the version last opened or
+    // signed, by id; while there are any in an open Session the patient context is held
+    abstract Changed: string[]
 
 
 /// Patient data and updates

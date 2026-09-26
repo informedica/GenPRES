@@ -1101,6 +1101,19 @@ module private Elmish =
             ]
 
 
+    /// Whether the patient context is held: an identified patient whose plan has an order that
+    /// is new or changed since the version last opened or signed. The panel cannot change the
+    /// patient then, so that every order a signed version adds rests on one patient context.
+    /// Anonymous use and the url mode are never held.
+    let patientHeld (state: State) =
+        match SessionState.view state.Lanes.Session with
+        | SessionView.Open opened
+        | SessionView.Closing opened ->
+            (opened.PatientContext |> Option.bind _.Identity).IsSome
+            && state.Lanes.OrderPlan |> OrderPlanState.contextHeld
+        | _ -> false
+
+
     /// A medication chosen without a patient, from the url or a list, is dropped and said: the
     /// patient is part of the filter, so nothing waits for one.
     let noPatientForMedication (state: State) =
@@ -1784,9 +1797,15 @@ type private ConcreteAppEnv
         member _.Filter ids =
             OrderPlanMsg(OrderPlanMsg.Filter(ids, newRequest ())) |> dispatch
 
+        member _.Changed = state.Lanes.OrderPlan |> OrderPlanState.changed
+
     interface AppEnv.IPatient with
         member _.Draft = state.Ui.PatientDraft
-        member _.UpdatePatient p = UpdatePatient p |> dispatch
+        // the panel's edit is ignored while the patient context is held; the Session's patient
+        // and a data notice accepted do not come this way
+        member _.UpdatePatient p =
+            if not (patientHeld state) then
+                UpdatePatient p |> dispatch
 
     interface AppEnv.IFormulary with
         member _.Formulary = state.Fetches.Formulary
