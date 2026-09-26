@@ -680,6 +680,7 @@ module StubDatabase =
                                             (now ())
                                             newId
                                             digest
+                                            patientData
                                             registry.standing
                                             mail.send
                                             sid

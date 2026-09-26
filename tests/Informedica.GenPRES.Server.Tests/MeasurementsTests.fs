@@ -8,6 +8,8 @@ open Expecto
 open Expecto.Flip
 open Shared.Types
 open Shared.Api
+open Informedica.Utils.Lib.BCL
+open Informedica.GenUnits.Lib
 open ServerApi
 open Informedica.GenPRES.Server.Tests.StubAdapterTests
 open Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters
@@ -78,6 +80,34 @@ let state =
 let seenWith (draft: Patient option) (state: Session.State) =
     let state, _, writes = Session.seen later sid (Some(OpenedToken "opened-1")) draft state
     state, writes
+
+
+/// The core patient's weight, height and gestational age as the projection reads them, with
+/// whether the weight is measured and whether a post-menstrual age follows.
+let projected (held: Measurements) =
+    let pat =
+        { ehr with Patient = Measurements.onCore held ehr.Patient }
+        |> StubPatientData.port.patient today
+
+    let value unit vu =
+        vu |> ValueUnit.convertTo unit |> ValueUnit.getValue |> Array.head
+
+    pat.Weight |> Option.map (value Units.Weight.kiloGram),
+    pat.Height |> Option.map (value Units.Height.centiMeter),
+    pat.GestAge |> Option.map (value Units.Time.day),
+    pat.WeightMeasured,
+    pat.PMAge.IsSome
+
+
+/// A challenge standing over the Session's data.
+let standing: Session.Challenge =
+    {
+        Nonce = "c-1"
+        Digest = "digest"
+        Ehr = Some ehr
+        Reading = Some(StubPatientData.port.patient today ehr)
+        Expiry = later + Session.challengeLifetime
+    }
 
 
 [<Tests>]
@@ -196,6 +226,49 @@ let tests =
             }
 
             testList
+                "on the core patient, through the projection"
+                [
+                    test
+                        "a weight, a height and a gestational age set are measured, with the post-menstrual age following" {
+                        Measurements.ofRows
+                            [
+                                Measurement.Weight(Some 34000<gram>), later
+                                Measurement.Height(Some 150<cm>), later
+                                Measurement.GestAge(Some gestAge), later
+                            ]
+                        |> projected
+                        |> Expect.equal
+                            "34 kg measured, 150 cm, 255 days, a post-menstrual age"
+                            (Some 34N, Some 150N, Some 255N, true, true)
+                    }
+
+                    test
+                        "cleared, the weight and the height are none and the estimate's, the gestational age gone with the post-menstrual age" {
+                        let set = Measurements.ofRows [ Measurement.GestAge(Some gestAge), today ]
+
+                        (Measurements.ofRows
+                            [
+                                Measurement.Weight None, later
+                                Measurement.Height None, later
+                                Measurement.GestAge None, later
+                            ]
+                         |> projected,
+                         (projected set |> fun (_, _, g, _, pm) -> g, pm))
+                        |> Expect.equal
+                            "none, none, none, unmeasured, no post-menstrual age; and set before the clear: 255 days with one"
+                            ((None, None, None, false, false), (Some 255N, true))
+                    }
+
+                    test "never touched, the patient is as read" {
+                        Measurements.none
+                        |> projected
+                        |> Expect.equal
+                            "the EHR's 32 kg measured and 140 cm, no gestational age"
+                            (Some 32N, Some 140N, None, true, false)
+                    }
+                ]
+
+            testList
                 "seen records what the request's patient measures"
                 [
                     test "a row per value that changed, held from then on; the same again writes nothing" {
@@ -222,6 +295,21 @@ let tests =
                                      At = later
                                  },
                              [ Session.RecordSeen(sid, later) ])
+                    }
+
+                    test "a change spends the challenge standing over the data before; no change leaves it" {
+                        let ready = { state with Challenges = Map.ofList [ sid, standing ] }
+
+                        let changed, writes = ready |> seenWith (Some(shown |> withWeight (Some 34000<gram>)))
+                        let same, again = ready |> seenWith (Some shown)
+
+                        (changed.Challenges |> Map.isEmpty,
+                         writes |> List.contains (Session.SpendChallenge(sid, "c-1", later)),
+                         same.Challenges |> Map.containsKey sid,
+                         again)
+                        |> Expect.equal
+                            "spent and gone; standing, the heartbeat alone"
+                            (true, true, true, [ Session.RecordSeen(sid, later) ])
                     }
 
                     test "a request without a patient, or the EHR's values sent back, records nothing" {

@@ -313,7 +313,16 @@ let machineTests =
                     }
 
                 let _, answer, writes =
-                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid (signature "1234" "k-1") state
+                    Session.commit
+                        t0
+                        newId
+                        StubDatabase.digest
+                        StubAdapterTests.StubAdapters.patientData
+                        Store.registry
+                        ignore
+                        sid
+                        (signature "1234" "k-1")
+                        state
 
                 match answer with
                 | SigningOutcome.Submitted _ ->
@@ -334,7 +343,16 @@ let machineTests =
 
                 // three wrong PINs: the last ends the Session
                 let wrong (state, _, _) key =
-                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid (signature "9999" key) state
+                    Session.commit
+                        t0
+                        newId
+                        StubDatabase.digest
+                        StubAdapterTests.StubAdapters.patientData
+                        Store.registry
+                        ignore
+                        sid
+                        (signature "9999" key)
+                        state
 
                 let _, last, writes = [ "w-2"; "w-3" ] |> List.fold wrong (wrong (state, (), []) "w-1")
 
@@ -732,7 +750,16 @@ let flightWrites =
                     }
 
                 let state, answer, _ =
-                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid signature state
+                    Session.commit
+                        t0
+                        newId
+                        StubDatabase.digest
+                        StubAdapterTests.StubAdapters.patientData
+                        Store.registry
+                        ignore
+                        sid
+                        signature
+                        state
 
                 match answer with
                 | SigningOutcome.Submitted _ -> ()
@@ -781,7 +808,16 @@ let flightWrites =
                     }
 
                 let state, answer, writes =
-                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid signature state
+                    Session.commit
+                        t0
+                        newId
+                        StubDatabase.digest
+                        StubAdapterTests.StubAdapters.patientData
+                        Store.registry
+                        ignore
+                        sid
+                        signature
+                        state
 
                 writes
                 |> List.exists (
@@ -793,7 +829,16 @@ let flightWrites =
 
                 // the same Submission again: the answer it already has, and only the heartbeat
                 let _, again, writes =
-                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid signature state
+                    Session.commit
+                        t0
+                        newId
+                        StubDatabase.digest
+                        StubAdapterTests.StubAdapters.patientData
+                        Store.registry
+                        ignore
+                        sid
+                        signature
+                        state
 
                 again |> Expect.equal "answered as the first time" answer
 
