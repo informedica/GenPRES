@@ -534,6 +534,7 @@ module SessionStubTests =
                                 p |> Option.map (ehrOf pid)
                         )
                     Patient = patient |> Option.bind snd |> Option.map parsePatient
+                    Measured = Measurements.none
                     OpenedToken = Some(OpenedToken $"opened-{sid}")
                     KeyThumbprint = Some "t"
                     Head = None

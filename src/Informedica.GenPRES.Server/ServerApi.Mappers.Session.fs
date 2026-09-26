@@ -91,8 +91,8 @@ module SessionMapper =
 
     /// What the client keeps of an open Session, from what the store holds: the head as the
     /// signed order plan on the wire when it can be read, none when it cannot, the identity
-    /// when the EHR data has one, the patient data as the contract model; the demo flag on
-    /// every context.
+    /// when the EHR data has one, the patient data as the contract model with what the user
+    /// measured on it; the demo flag on every context.
     let toOpened (demo: bool) (opened: OpenedSession) : SessionOpened =
         {
             User = opened.User
@@ -107,7 +107,11 @@ module SessionMapper =
                             |> Option.map identity
                         Patient =
                             opened.Patient
-                            |> Option.map (Informedica.GenForm.Lib.Patient.Dto.toDto >> Patient.toModel)
+                            |> Option.map (
+                                Informedica.GenForm.Lib.Patient.Dto.toDto
+                                >> Patient.toModel
+                                >> Measurements.apply opened.Measured
+                            )
                     }
                 )
             OpenedToken = opened.OpenedToken

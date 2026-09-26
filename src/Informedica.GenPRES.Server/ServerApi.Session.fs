@@ -738,6 +738,7 @@ module Session =
                 PatientId = Some patientId
                 EhrData = ehr
                 Patient = sessionPatient now patientData ehr head
+                Measured = Measurements.none
                 OpenedToken = Some(OpenedToken $"opened-{id}")
                 KeyThumbprint = Some(PublicKey.thumbprint key)
                 Head = head

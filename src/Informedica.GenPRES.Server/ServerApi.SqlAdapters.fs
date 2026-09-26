@@ -732,6 +732,8 @@ module SqlSessions =
                                     PatientId = row.PatientId
                                     EhrData = ehr
                                     Patient = patient
+                                    // the measurement rows come with the store's next migration
+                                    Measured = Measurements.none
                                     OpenedToken = opened |> Option.bind _.OpenedToken
                                     KeyThumbprint = row.KeyThumbprint
                                     Head = opened |> Option.bind _.HeadId |> Option.bind headOf
@@ -1753,6 +1755,7 @@ module SqlSessions =
                 PatientId = row.PatientId
                 EhrData = opened |> Option.bind (fun o -> o.EhrData |> Result.toOption |> Option.flatten)
                 Patient = opened |> Option.bind (fun o -> o.Patient |> Result.toOption |> Option.flatten)
+                Measured = Measurements.none
                 OpenedToken = opened |> Option.bind _.OpenedToken
                 KeyThumbprint = row.KeyThumbprint
                 Head = opened |> Option.bind _.HeadId |> Option.bind headOf

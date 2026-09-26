@@ -201,6 +201,7 @@ let tests =
                             |> Patient.parse
                             |> Result.defaultWith (fun e -> failtest $"no patient: %A{e}")
                             |> Some
+                        Measured = Measurements.none
                         OpenedToken = Some(OpenedToken "opened-1")
                         KeyThumbprint = Some "thumb"
                         Head = Some(StoredVersion.Readable version)
