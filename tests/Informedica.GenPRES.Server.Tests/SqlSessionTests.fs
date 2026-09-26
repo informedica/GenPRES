@@ -765,6 +765,33 @@ let writerTests =
                 )
             }
 
+            test "a row with the EHR data but not its version, or the other way round, makes the Session unreadable" {
+                withSessions (fun cs ->
+                    insertSession cs "s-1" (Some "prescriber") "prescriber"
+                    insertOpenedWith cs "s-1" (Some "plan-1") 1 (Some patientJson)
+
+                    use conn = connect cs
+
+                    use cmd =
+                        SqlSessions.command
+                            conn
+                            null
+                            "update session_opened_with set ehr_data = $ehr where session_id = $sid"
+                            [
+                                "$ehr", box (SqlSessions.ehrJson (StubPatientData.data "stub-patient"))
+                                "$sid", box "s-1"
+                            ]
+
+                    cmd.ExecuteNonQuery() |> ignore
+
+                    match loadedSession cs "s-1" with
+                    | Some(Choice1Of2(Error reason)) ->
+                        reason
+                        |> Expect.stringContains "the reason names the columns" "not both present"
+                    | other -> failtest $"expected an unreadable Session, got %A{other}"
+                )
+            }
+
             test "the patient a Session shows is written as its Dto under the version it is written with" {
                 withSessions (fun cs ->
                     let session = sessionOf "s-1" "prescriber" None None

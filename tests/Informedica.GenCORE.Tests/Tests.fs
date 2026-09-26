@@ -653,6 +653,10 @@ module Tests =
                                 let s = noName |> f |> Department.toString
 
                                 s |> Department.fromString |> Expect.isOk "should be ok"
+
+                                s
+                                |> Department.fromString
+                                |> Expect.equal "and comes back without one" (Ok(noName |> f))
                             }
 
                         for f in deps do

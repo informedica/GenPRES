@@ -1360,19 +1360,24 @@ module rec Department =
         open Validus
         open Validus.Operators
 
+        /// The kind's words stripped from the front, the name trimmed: a ward without a name
+        /// comes back without one.
+        let named kind (s: string) = s |> String.replace kind "" |> String.trim
+
+
         let validate =
             Check.String.equals $"{unknown |> toString}" *| unknown
             <|> Check.String.equals $"{any |> toString}" *| any
             <|> Check.String.pattern $"^{Constants.adultICU}"
-                *|* ((String.replace $"{Constants.adultICU} " "") >> adultICU)
+                *|* (named Constants.adultICU >> adultICU)
             <|> Check.String.pattern $"^{Constants.pediatricICU}"
-                *|* ((String.replace $"{Constants.pediatricICU} " "") >> pediatricICU)
+                *|* (named Constants.pediatricICU >> pediatricICU)
             <|> Check.String.pattern $"^{Constants.neonatalICU}"
-                *|* ((String.replace $"{Constants.neonatalICU} " "") >> neonatalICU)
+                *|* (named Constants.neonatalICU >> neonatalICU)
             <|> Check.String.pattern $"^{Constants.adultDepartment}"
-                *|* ((String.replace $"{Constants.adultDepartment} " "") >> adultDepartment)
+                *|* (named Constants.adultDepartment >> adultDepartment)
             <|> Check.String.pattern $"^{Constants.pediatricDepartment}"
-                *|* ((String.replace $"{Constants.pediatricDepartment} " "") >> pediatricDepartment)
+                *|* (named Constants.pediatricDepartment >> pediatricDepartment)
 
 
 module Gender =

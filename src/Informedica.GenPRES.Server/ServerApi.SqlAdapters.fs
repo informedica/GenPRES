@@ -580,10 +580,13 @@ module SqlSessions =
                     | false, false -> readPatient (r.GetInt32 3) (r.GetString 4) |> Result.map Some
                     | _ -> Ok None // a Session that opened on no patient data at all
 
+                // the two columns have no check binding them, as the patient's have, since a
+                // column added later cannot carry one; the loader holds them to it
                 let ehr =
                     match r.IsDBNull 5, r.IsDBNull 6 with
                     | false, false -> readEhr (r.GetInt32 5) (r.GetString 6) |> Result.map Some
-                    | _ -> Ok None // no EHR data, or a row from before the column
+                    | true, true -> Ok None // no EHR data, or a row from before the column
+                    | _ -> Error "the EHR data and its JSON structure version are not both present"
 
                 {|
                     VersionId = textOrNull r 0
