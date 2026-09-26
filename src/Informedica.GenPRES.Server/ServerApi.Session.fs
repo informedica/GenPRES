@@ -407,13 +407,14 @@ module Session =
     /// A Session as the store holds it: what it is open on, the login it belongs to (a User
     /// has at most one open Session), the id of the version it opened with (None from
     /// nothing, or from a head that cannot be read), which a Submission is checked against,
-    /// and when it was last seen (nothing acts on it yet; the idle and absolute lifetimes of
-    /// Rule 10 are not built).
+    /// when it opened, the date its patient data is projected at, and when it was last seen
+    /// (nothing acts on it yet; the idle and absolute lifetimes of Rule 10 are not built).
     type SessionRecord =
         {
             Opened: OpenedSession
             Login: string option
             OpenedWith: string option
+            OpenedAt: DateTime
             Seen: DateTime
         }
 
@@ -711,6 +712,7 @@ module Session =
                 Opened = opened
                 Login = login
                 OpenedWith = head |> Option.bind StoredVersion.readableId
+                OpenedAt = now
                 Seen = now
             }
 
@@ -1294,9 +1296,10 @@ module Session =
                 elif record.Opened.OpenedToken <> Some opened then
                     refuse SigningRefusal.StaleToken
                 else
-                    // read again, as at the open, and projected at this date; the adapter
+                    // read again, and projected at the date of the open, so that only the EHR
+                    // data tells a change and the age the Session opened on holds; the adapter
                     // answers none for a reading that is no patient
-                    let current = patientData.read patientId |> Option.map (patientData.patient now)
+                    let current = patientData.read patientId |> Option.map (patientData.patient record.OpenedAt)
 
                     let accepted =
                         notice

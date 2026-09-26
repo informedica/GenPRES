@@ -228,13 +228,15 @@ let tests =
                 |> Option.bind _.Identity
                 |> Expect.equal
                     "the identity, the birthdate as three integers"
-                    (Some
+                    (Some(
                         {
                             Name = StubPatientData.name
                             BirthYear = 2016
                             BirthMonth = 3
                             BirthDay = 15
-                        })
+                        }
+                        : NameAndBirthDate
+                    ))
 
                 opened.OpenedToken |> Expect.equal "token" (Some(OpenedToken "opened-1"))
                 opened.KeyThumbprint |> Expect.equal "thumbprint" (Some "thumb")

@@ -520,6 +520,7 @@ let sessionOf sid login openedWith head : Session.SessionRecord =
             }
         Login = Some login
         OpenedWith = openedWith
+        OpenedAt = t0
         Seen = t0
     }
 

@@ -614,10 +614,10 @@ module Types =
         }
 
 
-    /// Who the patient of a Session is, as the EHR identifies them: the full name and the
-    /// birthdate as three integers, as the url already carries one. Shown in full: the user
-    /// sits at the EHR that launched the Session.
-    type PatientIdentity =
+    /// Who the patient of a Session is, beside the id: the full name and the birthdate as
+    /// three integers, as the url already carries one. Shown in full: the user sits at the EHR
+    /// that launched the Session.
+    type NameAndBirthDate =
         {
             Name: string
             BirthYear: int
@@ -633,7 +633,7 @@ module Types =
         {
             PatientId: string
             /// None for a patient the EHR did not identify: an anonymous Session
-            Identity: PatientIdentity option
+            Identity: NameAndBirthDate option
             Patient: Patient option
         }
 

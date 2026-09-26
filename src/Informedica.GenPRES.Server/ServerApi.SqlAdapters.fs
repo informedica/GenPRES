@@ -692,6 +692,7 @@ module SqlSessions =
                                 }
                             Login = row.Login
                             OpenedWith = opened |> Option.bind _.VersionId
+                            OpenedAt = row.OpenedAt
                             Seen = loadSeen conn sid |> Option.defaultValue row.OpenedAt
                         }
 

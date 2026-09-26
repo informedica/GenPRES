@@ -509,6 +509,7 @@ module SessionStubTests =
                 }
             Login = user |> Option.map _.UserId
             OpenedWith = openedWith
+            OpenedAt = t0
             Seen = t0
         }
 
@@ -2581,6 +2582,39 @@ module SessionStubTests =
                         |> Expect.equal "unverified: told" (SigningOutcome.DataNotice("n-1", None))
 
                         state.Challenges |> Expect.isEmpty "no challenge yet"
+                    }
+
+                    test
+                        "a challenge on a later day than the open, the EHR unchanged: issued over the age the open held" {
+                        // the real port projects at the date it is given; the Session opened at t0
+                        let sid, record = session "s-1" (Some prescriber) (Some("stub-patient", stubPatient)) None
+
+                        let ehr = StubPatientData.data "stub-patient"
+
+                        let record =
+                            { record with
+                                Opened =
+                                    { record.Opened with
+                                        EhrData = Some ehr
+                                        Patient = Some(StubPatientData.port.patient t0 ehr)
+                                    }
+                            }
+
+                        let state, answer =
+                            Machine.challenge
+                                (t0.AddDays 1.0)
+                                (counter "n")
+                                StubDatabase.digest
+                                StubPatientData.port
+                                sid
+                                (parsed plan, token "s-1", None)
+                                (stateOf [ sid, record ] [])
+
+                        answer
+                        |> Expect.equal "issued, not a notice" (SigningOutcome.ChallengeIssued "n-1")
+
+                        state.Challenges[sid].Reading
+                        |> Expect.equal "the reading projected at the open's date" record.Opened.Patient
                     }
 
                     test "refuses a Reader (Rule 26) before the token is looked at, and a stale token (Rule 34)" {

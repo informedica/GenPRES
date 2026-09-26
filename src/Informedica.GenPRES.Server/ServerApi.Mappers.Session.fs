@@ -78,8 +78,9 @@ module SessionMapper =
         }
 
 
-    /// The identity on the wire: the name and the birthdate as three integers.
-    let identity (id: Informedica.GenCore.Lib.Patients.PatientIdentity) : PatientIdentity =
+    /// The identity on the wire, beside the id the context carries: the name and the birthdate
+    /// as three integers.
+    let identity (id: Informedica.GenCore.Lib.Patients.PatientIdentity) : NameAndBirthDate =
         {
             Name = id.Name
             BirthYear = int id.BirthDate.Year
