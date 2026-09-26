@@ -648,11 +648,24 @@ module Tests =
                         let noName = ""
                         let name = "Test"
 
+                        test "a ward named after its kind keeps its name" {
+                            let ward = Department.adultICU "Adult ICU"
+
+                            ward
+                            |> Department.toString
+                            |> Department.fromString
+                            |> Expect.equal "there and back" (Ok ward)
+                        }
+
                         for f in deps do
                             test $"can create without a name {noName |> f}" {
                                 let s = noName |> f |> Department.toString
 
                                 s |> Department.fromString |> Expect.isOk "should be ok"
+
+                                s
+                                |> Department.fromString
+                                |> Expect.equal "and comes back without one" (Ok(noName |> f))
                             }
 
                         for f in deps do
@@ -1061,11 +1074,12 @@ module Tests =
                         |> Expect.isTrue "there and back again"
                     }
 
-                    test "the id and the name go there and back" {
+                    test "the id, the name and the department go there and back" {
                         let pat =
                             { Patient.unknown with
                                 Id = "p1"
                                 Name = "Stub Testpatiënt"
+                                Department = Department.pediatricICU "ICK"
                             }
 
                         pat

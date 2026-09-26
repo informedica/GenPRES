@@ -506,6 +506,72 @@ module EhrPatientData =
     let identity (ehr: EhrPatientData) = ehr.Patient |> CorePatient.identity
 
 
+    /// The serializable shape of the EHR data: the core patient's Dto, the renal function and
+    /// the access devices as the strings their modules write.
+    module Dto =
+
+        type Dto =
+            {
+                Patient: CorePatient.Dto.Dto
+                RenalFunction: string option
+                Access: string[]
+            }
+
+
+        /// Total: every EHR data has a Dto.
+        let toDto (ehr: EhrPatientData) : Dto =
+            {
+                Patient = ehr.Patient |> CorePatient.Dto.toDto
+                RenalFunction = ehr.RenalFunction |> Option.map RenalFunction.toString
+                Access = ehr.Access |> List.map AccessDevice.toString |> List.toArray
+            }
+
+
+        /// The EHR data the Dto is, or every reason it is none: the core patient's own, a
+        /// renal function or an access string that names nothing.
+        let fromDto (dto: Dto) : Result<EhrPatientData, string list> =
+            let patient =
+                dto.Patient
+                |> CorePatient.Dto.fromDto
+                |> Result.mapError (fun errs -> [ $"the patient does not parse: %A{errs}" ])
+
+            let renal =
+                match dto.RenalFunction with
+                | None -> Ok None
+                | Some s ->
+                    match RenalFunction.tryFromString s with
+                    | Some r -> Ok(Some r)
+                    | None -> Error [ $"unknown renal function: %s{s}" ]
+
+            let access =
+                // a reference field a serializer left null is read as absent
+                (if isNull dto.Access then [||] else dto.Access)
+                |> Array.toList
+                |> List.map (fun s ->
+                    match AccessDevice.tryFromString s with
+                    | Some a -> Ok a
+                    | None -> Error [ $"unknown access: %s{s}" ]
+                )
+
+            let errors =
+                [
+                    match patient with
+                    | Error e -> yield! e
+                    | Ok _ -> ()
+                    match renal with
+                    | Error e -> yield! e
+                    | Ok _ -> ()
+                    for a in access do
+                        match a with
+                        | Error e -> yield! e
+                        | Ok _ -> ()
+                ]
+
+            match patient, renal, errors with
+            | Ok pat, Ok renal, [] -> create pat renal (access |> List.choose Result.toOption) |> Ok
+            | _ -> Error errors
+
+
 module Patient =
 
     open Informedica.Utils.Lib.BCL

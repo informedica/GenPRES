@@ -535,14 +535,42 @@ module SqlSessions =
         )
 
 
+    /// The highest JSON structure version this release reads for stored EHR data.
+    let ehrJsonRead = 1
+
+
+    /// Brings stored EHR data JSON to the structure this release reads. There are no steps yet.
+    let upgradeEhr (version: int) (json: string) : Result<string, string> =
+        if version < 1 then
+            Error $"JSON structure version %i{version} does not exist"
+        elif version > ehrJsonRead then
+            Error $"JSON structure version %i{version} is newer than this release knows"
+        else
+            Ok json
+
+
+    /// The EHR data a stored row holds, upgraded and parsed.
+    let readEhr (version: int) (json: string) : Result<GenForm.EhrPatientData, string> =
+        upgradeEhr version json
+        |> Result.bind (fun json ->
+            try
+                json
+                |> Canonical.deserialize<Informedica.GenForm.Lib.EhrPatientData.Dto.Dto>
+                |> Informedica.GenForm.Lib.EhrPatientData.Dto.fromDto
+                |> Result.mapError (fun errs -> $"the EHR data does not parse: %A{errs}")
+            with e ->
+                Error $"the JSON does not read: %s{e.Message}"
+        )
+
+
     /// What a Session opened with, the newest row: the token, the id of the version it opened
-    /// with, the head it saw, and the patient data it shows, whose reason for not reading
-    /// makes the Session unreadable.
+    /// with, the head it saw, the EHR data it opened on and the patient data it shows, whose
+    /// reasons for not reading make the Session unreadable.
     let loadOpenedWith (conn: SqliteConnection) (sid: string) =
         rows
             conn
             """
-            select version_id, head_id, opened_token, json_version, patient
+            select version_id, head_id, opened_token, json_version, patient, ehr_json_version, ehr_data
             from session_opened_with where session_id = $sid order by id desc limit 1
             """
             [ "$sid", box sid ]
@@ -552,11 +580,20 @@ module SqlSessions =
                     | false, false -> readPatient (r.GetInt32 3) (r.GetString 4) |> Result.map Some
                     | _ -> Ok None // a Session that opened on no patient data at all
 
+                // the two columns have no check binding them, as the patient's have, since a
+                // column added later cannot carry one; the loader holds them to it
+                let ehr =
+                    match r.IsDBNull 5, r.IsDBNull 6 with
+                    | false, false -> readEhr (r.GetInt32 5) (r.GetString 6) |> Result.map Some
+                    | true, true -> Ok None // no EHR data, or a row from before the column
+                    | _ -> Error "the EHR data and its JSON structure version are not both present"
+
                 {|
                     VersionId = textOrNull r 0
                     HeadId = textOrNull r 1
                     OpenedToken = textOrNull r 2 |> Option.map OpenedToken
                     Patient = patient
+                    EhrData = ehr
                 |}
             )
         |> List.tryHead
@@ -672,19 +709,23 @@ module SqlSessions =
                         opened
                         |> Option.map _.Patient
                         |> Option.defaultValue (Ok None)
-                        |> Result.map (fun patient -> user, patient)
+                        |> Result.bind (fun patient ->
+                            opened
+                            |> Option.map _.EhrData
+                            |> Option.defaultValue (Ok None)
+                            |> Result.map (fun ehr -> user, patient, ehr)
+                        )
                     )
 
                 read
-                |> Result.map (fun (user, patient) ->
+                |> Result.map (fun (user, patient, ehr) ->
                     let session: Session.SessionRecord =
                         {
                             Opened =
                                 {
                                     User = user
                                     PatientId = row.PatientId
-                                    // the EHR data has no column yet, so a reloaded Session holds none
-                                    EhrData = None
+                                    EhrData = ehr
                                     Patient = patient
                                     OpenedToken = opened |> Option.bind _.OpenedToken
                                     KeyThumbprint = row.KeyThumbprint
@@ -708,6 +749,14 @@ module SqlSessions =
 
     let patientJson (patient: GenForm.Patient) =
         patient |> Informedica.GenForm.Lib.Patient.Dto.toDto |> Canonical.serialize
+
+
+    /// The JSON structure version this release writes for the EHR data a Session opened on.
+    let ehrJsonWritten = 1
+
+
+    let ehrJson (ehr: GenForm.EhrPatientData) =
+        ehr |> Informedica.GenForm.Lib.EhrPatientData.Dto.toDto |> Canonical.serialize
 
 
     /// The word an ending is stored under. Every ending matched, so that one without a word
@@ -814,8 +863,9 @@ module SqlSessions =
                 tx
                 """
                 insert into session_opened_with
-                    (session_id, version_id, head_id, opened_token, json_version, patient, at)
-                values ($sid, $version, $head, $token, $jv, $patient, $at)
+                    (session_id, version_id, head_id, opened_token, json_version, patient,
+                     ehr_json_version, ehr_data, at)
+                values ($sid, $version, $head, $token, $jv, $patient, $ejv, $ehr, $at)
                 """
                 [
                     "$sid", box sid
@@ -824,6 +874,8 @@ module SqlSessions =
                     "$token", nullable token
                     "$jv", nullable (session.Opened.Patient |> Option.map (fun _ -> patientJsonWritten))
                     "$patient", nullable (session.Opened.Patient |> Option.map patientJson)
+                    "$ejv", nullable (session.Opened.EhrData |> Option.map (fun _ -> ehrJsonWritten))
+                    "$ehr", nullable (session.Opened.EhrData |> Option.map ehrJson)
                     "$at", box (ms at)
                 ]
         | Session.RecordSeen(sid, at) ->
@@ -1678,7 +1730,7 @@ module SqlSessions =
                     |> Result.toOption
                     |> Option.flatten
                 PatientId = row.PatientId
-                EhrData = None
+                EhrData = opened |> Option.bind (fun o -> o.EhrData |> Result.toOption |> Option.flatten)
                 Patient = opened |> Option.bind (fun o -> o.Patient |> Result.toOption |> Option.flatten)
                 OpenedToken = opened |> Option.bind _.OpenedToken
                 KeyThumbprint = row.KeyThumbprint

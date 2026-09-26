@@ -1360,19 +1360,25 @@ module rec Department =
         open Validus
         open Validus.Operators
 
+        /// The kind's words dropped from the front, where the pattern found them, and the name
+        /// trimmed: a ward without a name comes back without one, a ward named after its kind
+        /// keeps its name.
+        let named (kind: string) (s: string) = s.Substring(kind.Length) |> String.trim
+
+
         let validate =
             Check.String.equals $"{unknown |> toString}" *| unknown
             <|> Check.String.equals $"{any |> toString}" *| any
             <|> Check.String.pattern $"^{Constants.adultICU}"
-                *|* ((String.replace $"{Constants.adultICU} " "") >> adultICU)
+                *|* (named Constants.adultICU >> adultICU)
             <|> Check.String.pattern $"^{Constants.pediatricICU}"
-                *|* ((String.replace $"{Constants.pediatricICU} " "") >> pediatricICU)
+                *|* (named Constants.pediatricICU >> pediatricICU)
             <|> Check.String.pattern $"^{Constants.neonatalICU}"
-                *|* ((String.replace $"{Constants.neonatalICU} " "") >> neonatalICU)
+                *|* (named Constants.neonatalICU >> neonatalICU)
             <|> Check.String.pattern $"^{Constants.adultDepartment}"
-                *|* ((String.replace $"{Constants.adultDepartment} " "") >> adultDepartment)
+                *|* (named Constants.adultDepartment >> adultDepartment)
             <|> Check.String.pattern $"^{Constants.pediatricDepartment}"
-                *|* ((String.replace $"{Constants.pediatricDepartment} " "") >> pediatricDepartment)
+                *|* (named Constants.pediatricDepartment >> pediatricDepartment)
 
 
 module Gender =
@@ -1795,7 +1801,7 @@ module Patient =
 
         let fromDto (dto: Dto) =
             validate {
-                //                let! dep = dto.Department |> Validation.validateDepartment "Department"
+                let! dep = dto.Department |> Department.fromString
                 let! gend = dto.Gender |> Gender.Validation.validate "Gender"
 
                 let! gest =
@@ -1816,7 +1822,7 @@ module Patient =
                 let wght = dto.Weight |> Weight.Dto.fromDto
                 let hght = dto.Height |> Height.Dto.fromDto
 
-                return create dto.Id dto.Name Department.unknown dto.Diagnoses gend age wght hght gest ent ven
+                return create dto.Id dto.Name dep dto.Diagnoses gend age wght hght gest ent ven
             }
 
 
