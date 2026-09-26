@@ -452,6 +452,21 @@ module StubDatabase =
         runWith persist (fun _ -> SigningOutcome.Refused SigningRefusal.StoreFailed) step state
 
 
+    /// A member's step over a Session, with the idle end run first: the ending's row goes out
+    /// ahead of the step's own writes, in the one persist the member makes.
+    let idleFirst
+        (idle: TimeSpan)
+        (now: DateTime)
+        (sid: string)
+        (step: Session.State -> Session.State * 'a * Session.Persist list)
+        (state: Session.State)
+        : Session.State * 'a * Session.Persist list
+        =
+        let state, ended = Session.endIdle idle now sid state
+        let state, result, writes = step state
+        state, result, ended @ writes
+
+
     /// A member that answers nothing and one that writes nothing, in the shape runWith takes.
     let private asUnit (state, writes) = state, (), writes
 
@@ -511,9 +526,12 @@ module StubDatabase =
     /// The session port over a record store: every request runs under one lock; a request
     /// that can touch a patient's record loads it first. A load that throws leaves the state
     /// as it was; a signing request answers it as a store failure, any other request fails.
+    /// Every request that names a Session, a close excepted, first ends it when it has gone
+    /// the idle lifetime without one.
     /// </summary>
     let makeSessionPortWith
         (store: SessionStore)
+        (idle: TimeSpan)
         (now: unit -> DateTime)
         (newId: unit -> string)
         (newCode: unit -> string)
@@ -626,7 +644,12 @@ module StubDatabase =
                                 (fun s -> Session.present (now ()) newId verify idp.authorizeUrl s launch)
                     }
             callback = fun cb -> async { return update (Slice.LaunchState cb.State) (callbackStep cb) }
-            find = fun id -> async { return update (Slice.Session id) (Session.find (now ()) id) }
+            find =
+                fun id ->
+                    async {
+                        let at = now ()
+                        return update (Slice.Session id) (idleFirst idle at id (Session.find at id))
+                    }
             close = fun id -> async { return update (Slice.Session id) (Session.close (now ()) id >> asUnit) }
             findEnrolment =
                 fun attempt ->
@@ -660,40 +683,57 @@ module StubDatabase =
             challenge =
                 fun sid request ->
                     async {
+                        let at = now ()
+
                         return
                             signing
                                 (Slice.Session sid)
                                 (challengeWith
                                     persisting
-                                    (fun s -> Session.challenge (now ()) newId digest patientData sid request s))
+                                    (idleFirst idle at sid (Session.challenge at newId digest patientData sid request)))
                     }
             submit =
                 fun sid signature ->
                     async {
+                        let at = now ()
+
                         return
                             signing
                                 (Slice.Submission(sid, signature.IdemKey))
                                 (submitWith
                                     persisting
-                                    (fun s ->
-                                        Session.commit
-                                            (now ())
+                                    (idleFirst
+                                        idle
+                                        at
+                                        sid
+                                        (Session.commit
+                                            at
                                             newId
                                             digest
                                             patientData
                                             registry.standing
                                             mail.send
                                             sid
-                                            signature
-                                            s
-                                    ))
+                                            signature)))
                     }
             seen =
                 fun sid opened draft ->
-                    async { return update (Slice.Session sid) (Session.seen (now ()) sid opened draft) }
-            age = fun sid -> async { return update (Slice.Session sid) (fun s -> s, Session.age sid s, []) }
+                    async {
+                        let at = now ()
+                        return update (Slice.Session sid) (idleFirst idle at sid (Session.seen at sid opened draft))
+                    }
+            age =
+                fun sid ->
+                    async {
+                        return
+                            update (Slice.Session sid) (idleFirst idle (now ()) sid (fun s -> s, Session.age sid s, []))
+                    }
             openVersion =
-                fun sid id -> async { return update (Slice.Session sid) (Session.openVersion (now ()) newId sid id) }
+                fun sid id ->
+                    async {
+                        let at = now ()
+                        return update (Slice.Session sid) (idleFirst idle at sid (Session.openVersion at newId sid id))
+                    }
         }
 
 

@@ -388,6 +388,7 @@ let portOver (store: StubDatabase.SessionStore) =
     let port =
         StubDatabase.makeSessionPortWith
             store
+            Session.defaultIdleLifetime
             (fun () -> t0)
             (ids ())
             (codes ())

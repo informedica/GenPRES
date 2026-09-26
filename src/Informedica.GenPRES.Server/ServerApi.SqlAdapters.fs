@@ -756,6 +756,7 @@ module SqlSessions =
             | Some("closed", _) -> None, true
             | Some("wrong-pin-limit", at) -> Some(SessionEnding.WrongPinLimit, at), false
             | Some("unreadable", at) -> Some(SessionEnding.Unreadable, at), false
+            | Some("idle", at) -> Some(SessionEnding.Idle, at), false
             // free text: a word this release cannot read still ended the Session
             | Some(_, at) -> Some(SessionEnding.Unreadable, at), false
             | None -> superseded, false
@@ -880,6 +881,7 @@ module SqlSessions =
         | Session.StoredEnding.Closed -> "closed"
         | Session.StoredEnding.Ended SessionEnding.WrongPinLimit -> "wrong-pin-limit"
         | Session.StoredEnding.Ended SessionEnding.Unreadable -> "unreadable"
+        | Session.StoredEnding.Ended SessionEnding.Idle -> "idle"
         | Session.StoredEnding.Ended SessionEnding.SupersededByLaunch -> "superseded"
 
 

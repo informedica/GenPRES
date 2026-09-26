@@ -174,6 +174,9 @@ module SessionGatePolicyTests =
 
                     (namedGateOf (SessionView.Ended SessionEnding.Unreadable)).Body
                     |> Expect.equal "the store could not be read" "<Session Ending Unreadable> <Session Relaunch>"
+
+                    (namedGateOf (SessionView.Ended SessionEnding.Idle)).Body
+                    |> Expect.equal "left idle" "<Session Ending Idle> <Session Relaunch>"
                 }
 
                 test "Launching is busy, names the attempt, offers nothing" {
@@ -338,6 +341,7 @@ module SessionGatePolicyTests =
                             Terms.``Session Ending Superseded``
                             Terms.``Session Ending Pin Limit``
                             Terms.``Session Ending Unreadable``
+                            Terms.``Session Ending Idle``
                         ] do
                         english term |> Expect.notEqual $"default for {term}" $"{term}"
 

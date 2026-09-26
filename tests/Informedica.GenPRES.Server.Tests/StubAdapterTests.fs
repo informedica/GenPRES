@@ -592,6 +592,7 @@ module SessionStubTests =
         let port =
             StubDatabase.makeSessionPortWith
                 (newStore ())
+                Session.defaultIdleLifetime
                 (fun () -> clock.Value)
                 (fun () ->
                     count.Value <- count.Value + 1
@@ -1232,6 +1233,7 @@ module SessionStubTests =
 
                         let port =
                             StubDatabase.makeSessionPort
+                                Session.defaultIdleLifetime
                                 (fun () -> t0)
                                 ids
                                 (codes ())

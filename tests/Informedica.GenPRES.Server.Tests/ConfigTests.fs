@@ -388,6 +388,51 @@ let languageTests =
         ]
 
 
+let sessionIdleTests =
+    let settings (m: Map<string, string>) = Config.fromEnv (fun key -> m |> Map.tryFind key)
+
+    testList
+        "GENPRES_SESSION_IDLE_MINUTES"
+        [
+            for raw, expected in
+                [
+                    None, Ok(System.TimeSpan.FromHours 1.0)
+                    Some "", Ok(System.TimeSpan.FromHours 1.0)
+                    Some "   ", Ok(System.TimeSpan.FromHours 1.0)
+                    Some "30", Ok(System.TimeSpan.FromMinutes 30.0)
+                    Some " 90 ", Ok(System.TimeSpan.FromMinutes 90.0)
+                ] do
+                test $"%A{raw} is %A{expected}" {
+                    raw |> Config.parseSessionIdle |> Expect.equal "the lifetime" expected
+                }
+
+            for raw in [ "0"; "-5"; "1.5"; "an hour"; "60m" ] do
+                test $"'%s{raw}' is refused" {
+                    Some raw
+                    |> Config.parseSessionIdle
+                    |> Expect.isError "not a positive whole number of minutes"
+                }
+
+            test "fromEnv reads it, blank as unset" {
+                (Map [ "GENPRES_SESSION_IDLE_MINUTES", "45" ] |> settings).SessionIdle
+                |> Expect.equal "raw" (Some "45")
+
+                (Map [ "GENPRES_SESSION_IDLE_MINUTES", " " ] |> settings).SessionIdle
+                |> Expect.isNone "blank"
+            }
+
+            test "a lifetime that does not parse refuses the start, naming the setting" {
+                match
+                    Map [ "GENPRES_URL_ID", "sheet-id"; "GENPRES_SESSION_IDLE_MINUTES", "an hour" ]
+                    |> settings
+                    |> Config.validateStartup
+                with
+                | Error msg -> msg |> Expect.stringContains "names the setting" "GENPRES_SESSION_IDLE_MINUTES"
+                | Ok _ -> failtest "expected a refused start"
+            }
+        ]
+
+
 [<Tests>]
 let tests =
     testList
@@ -399,4 +444,5 @@ let tests =
             redactionTests
             fromEnvTests
             languageTests
+            sessionIdleTests
         ]
