@@ -1612,6 +1612,21 @@ let flightWriteTests =
                     SqlSessions.loadChallenge conn t0 "s-1"
                     |> Option.map (Result.map (fun c -> c.Nonce, c.Ehr))
                     |> Expect.equal "the newest, with no read" (Some(Ok("c-0", None)))
+
+                    // the notice row as one from before the columns holds it: patient data, no
+                    // read; it is no live notice, so that the Session tells a fresh one instead
+                    // of matching it to a read that has since become none
+                    use cmd =
+                        SqlSessions.command
+                            conn
+                            null
+                            "update data_notice set ehr_json_version = null, ehr_data = null"
+                            []
+
+                    cmd.ExecuteNonQuery() |> ignore
+
+                    SqlSessions.loadNotice conn t0 "s-1"
+                    |> Expect.isNone "a notice told before the store kept the read is not held"
                 )
             }
 

@@ -1450,7 +1450,9 @@ module SqlSessions =
     // ---- what a Session holds in flight -------------------------------------------------------
 
     /// The live data notice of a Session: the newest row within its two minutes. A reading this
-    /// release cannot read makes the Session unreadable, as an opened-with does.
+    /// release cannot read makes the Session unreadable, as an opened-with does. A notice told
+    /// over patient data before the store kept the read is no live notice: it cannot be matched
+    /// to any read, so the Session tells a fresh one.
     let loadNotice (conn: SqliteConnection) (now: DateTime) (sid: string) =
         rows
             conn
@@ -1480,6 +1482,9 @@ module SqlSessions =
         |> List.tryHead
         |> Option.filter (fun notice ->
             match notice with
+            // patient data without the read it was projected from: a row from before the
+            // columns, which a read that has since become none would wrongly match
+            | Ok n when n.Data.IsSome && n.Ehr.IsNone -> false
             | Ok n -> now <= n.Expiry
             // an unreadable row is answered whatever its lifetime says: the Session ends on it
             | Error _ -> true
