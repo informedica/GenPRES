@@ -49,7 +49,7 @@ let versionOf writes =
     writes
     |> List.tryPick (
         function
-        | Session.WriteVersion v -> Some v
+        | Session.WriteVersion(v, _) -> Some v
         | _ -> None
     )
 
@@ -190,13 +190,13 @@ let rows (cs: string) =
 
 let noOf =
     function
-    | SigningOutcome.Submitted(v, _) -> Some v.No
+    | SigningOutcome.Submitted(v, _, _, _) -> Some v.No
     | _ -> None
 
 
 let submittedId =
     function
-    | SigningOutcome.Submitted(v, _) -> v.Id
+    | SigningOutcome.Submitted(v, _, _, _) -> v.Id
     | other -> failtest $"expected Submitted, got %A{other}"
 
 
@@ -243,7 +243,7 @@ let tests =
                         let! sid, opened = openAs port directory "n-2" "prescriber"
 
                         match opened.Head with
-                        | Some(StoredVersion.Readable v) ->
+                        | Some(StoredVersion.Readable(v, _)) ->
                             (v.Id, v.No) |> Expect.equal "opened on the stored head" (firstId, 1)
                         | other -> failtest $"expected a readable head, got %A{other}"
 
@@ -488,7 +488,7 @@ let tests =
                     async {
                         let warnings = ResizeArray<string>()
                         let v1 = Store.versionOf 1 Store.prescriber Store.t0 plan.Value
-                        SqlDatabase.persist cs [ Session.WriteVersion v1 ] |> ignore
+                        SqlDatabase.persist cs [ Session.WriteVersion(v1, None) ] |> ignore
 
                         let fixture = Informedica.GenPRES.Server.Tests.SqlRecordTests.fixtureText ()
 
@@ -910,7 +910,7 @@ let flightOverSqlite =
 
                         let canonical outcome =
                             match outcome with
-                            | SigningOutcome.Submitted(v, token) -> SqlDatabase.toJson v, token
+                            | SigningOutcome.Submitted(v, _, token, _) -> SqlDatabase.toJson v, token
                             | other -> failtest $"expected Submitted, got %A{other}"
 
                         canonical again
@@ -931,7 +931,7 @@ let flightOverSqlite =
 
                         let token =
                             match signed with
-                            | SigningOutcome.Submitted(_, token) -> token
+                            | SigningOutcome.Submitted(_, _, token, _) -> token
                             | other -> failtest $"expected Submitted, got %A{other}"
 
                         // the same challenge under a new key, and the token the signature

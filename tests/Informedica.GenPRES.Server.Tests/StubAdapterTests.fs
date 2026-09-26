@@ -432,6 +432,7 @@ module SessionStubTests =
             Base = baseId
             OrderContexts = contexts
             Patient = pat
+            Identity = None
             Verified = verified
         }
 
@@ -443,7 +444,8 @@ module SessionStubTests =
 
 
     /// A patient's versions as the store keeps them, newest first: parsed at load.
-    let storedOf (versions: SignedOrderPlan list) = versions |> List.map (versionOfSigned >> StoredVersion.Readable)
+    let storedOf (versions: SignedOrderPlan list) =
+        versions |> List.map (fun v -> StoredVersion.Readable(versionOfSigned v, None))
 
 
     /// The records of the store: each patient's versions, newest first.
@@ -461,7 +463,7 @@ module SessionStubTests =
         |> Option.defaultValue []
         |> List.choose (fun v ->
             match v with
-            | StoredVersion.Readable v -> Some v
+            | StoredVersion.Readable(v, _) -> Some v
             | StoredVersion.Unreadable _ -> None
         )
 
@@ -867,7 +869,7 @@ module SessionStubTests =
                             state.Sessions[id].Opened.Head
                             |> Expect.equal
                                 "the version itself, for the cart"
-                                (Some(StoredVersion.Readable(versionOfSigned (signedAs "prescriber-b" 2))))
+                                (Some(StoredVersion.Readable(versionOfSigned (signedAs "prescriber-b" 2), None)))
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -900,6 +902,7 @@ module SessionStubTests =
                                             DisplayName = "prescriber-b"
                                         }
                                     SignedAt = t0
+                                    Identity = None
                                     Reason = "json_version 9 is newer than this release knows"
                                 }
 
@@ -961,7 +964,7 @@ module SessionStubTests =
                             o.Patient |> Expect.equal "the signed patient" (Some(parsePatient entered))
 
                             o.Head
-                            |> Expect.equal "the version" (Some(StoredVersion.Readable(versionOfSigned signed)))
+                            |> Expect.equal "the version" (Some(StoredVersion.Readable(versionOfSigned signed, None)))
                         | other -> failtest $"expected Opened, got {other}"
                     }
 
@@ -2437,7 +2440,7 @@ module SessionStubTests =
                             opened.Head
                             |> Expect.equal
                                 "the version"
-                                (Some(StoredVersion.Readable(versionOfSigned (signedBy prescriber 1))))
+                                (Some(StoredVersion.Readable(versionOfSigned (signedBy prescriber 1), None)))
                         | other -> failtest $"expected the Session, got {other}"
 
                         state.Challenges |> Map.containsKey "s-1" |> Expect.isTrue "challenge kept"
@@ -2453,7 +2456,7 @@ module SessionStubTests =
                             opened.Head
                             |> Expect.equal
                                 "B's version"
-                                (Some(StoredVersion.Readable(versionOfSigned (signedBy other 2))))
+                                (Some(StoredVersion.Readable(versionOfSigned (signedBy other 2), None)))
                         | other -> failtest $"expected the Session, got {other}"
 
                         state.Sessions["s-1"].OpenedWith
@@ -2488,7 +2491,9 @@ module SessionStubTests =
                         match answer with
                         | Some opened ->
                             opened.Head
-                            |> Expect.equal "plan-2" (Some(StoredVersion.Readable(versionOfSigned (signedBy other 2))))
+                            |> Expect.equal
+                                "plan-2"
+                                (Some(StoredVersion.Readable(versionOfSigned (signedBy other 2), None)))
                         | other -> failtest $"expected the Session, got {other}"
 
                         Session.blockedBy state.Sessions["s-1"] "pat-1" state
@@ -3037,7 +3042,7 @@ module SessionStubTests =
                         let state, answer = submitAt t0 ids ignore ready "s-1" (submission "s-1" "1234" "k-1")
 
                         match answer with
-                        | SigningOutcome.Submitted(version, fresh) ->
+                        | SigningOutcome.Submitted(version, _, fresh, _) ->
                             version.Id |> Expect.equal "id" "id-1"
                             version.No |> Expect.equal "the first" 1
                             version.SignedBy.UserId |> Expect.equal "by" prescriber.UserId
@@ -3052,10 +3057,17 @@ module SessionStubTests =
                             state.Sessions["s-1"].OpenedWith |> Expect.equal "the new head" (Some "id-1")
                             state.Sessions["s-1"].Opened.OpenedToken |> Expect.equal "held" (Some fresh)
 
+                            // the version names the patient the Session is for
                             state.Sessions["s-1"].Opened.Head
                             |> Expect.equal
-                                "a resume opens on the version just signed"
-                                (Some(StoredVersion.Readable version))
+                                "a resume opens on the version just signed, with the Session's identity"
+                                (Some(
+                                    StoredVersion.Readable(
+                                        version,
+                                        StubPatientData.data "stub-patient"
+                                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+                                    )
+                                ))
 
                             state.Sessions["s-1"].Opened.Patient
                             |> Expect.equal
@@ -3074,7 +3086,7 @@ module SessionStubTests =
                             }
 
                         match submitAt (t0 + minutes 1.0) ids ignore state "s-1" again |> snd with
-                        | SigningOutcome.Submitted(version, _) ->
+                        | SigningOutcome.Submitted(version, _, _, _) ->
                             version.No |> Expect.equal "second" 2
                             version.Base |> Expect.equal "over the first" (Some "id-1")
                         | other -> failtest $"expected Submitted, got {other}"
@@ -3210,7 +3222,7 @@ module SessionStubTests =
                                 { submission "s-1" "1234" "k" with Plan = parsed plan }
                             |> snd
                         with
-                        | SigningOutcome.Submitted(version, _) ->
+                        | SigningOutcome.Submitted(version, _, _, _) ->
                             version.Plan.Contexts
                             |> Array.map _.Id
                             |> Expect.equal "the version holds the two contexts" (contexts |> Array.map _.Id)
@@ -3251,7 +3263,8 @@ module SessionStubTests =
                         |> Expect.equal "not counted" 0
                     }
 
-                    test "unverified: the Session's patient becomes the data signed, so a resume shows it" {
+                    test
+                        "unverified, without EHR data: the Session's patient becomes the data signed, so a resume shows it" {
                         let sid, unverified = challenged "s-1" t0
 
                         let ready =
@@ -3262,6 +3275,7 @@ module SessionStubTests =
                                     sid,
                                     { unverified with
                                         Digest = StubDatabase.digest (parsed (OrderPlan.create otherData [||]))
+                                        Ehr = None
                                         Reading = None
                                     }
                                 ]
@@ -3273,7 +3287,7 @@ module SessionStubTests =
                                 { submission "s-1" "1234" "k-1" with Plan = parsed (OrderPlan.create otherData [||]) }
 
                         match answer with
-                        | SigningOutcome.Submitted(version, _) ->
+                        | SigningOutcome.Submitted(version, _, _, _) ->
                             version.Plan.Patient |> Expect.equal "the data signed" (parsePatient otherData)
                             version.Verified |> Expect.isFalse "no reading"
 
@@ -3296,6 +3310,7 @@ module SessionStubTests =
                                     sid,
                                     { over with
                                         Digest = StubDatabase.digest (parsed (OrderPlan.create otherData [||]))
+                                        Ehr = Some(ehrOf "stub-patient" otherData)
                                         Reading = Some(parsePatient otherData)
                                     }
                                 ]
@@ -3307,7 +3322,7 @@ module SessionStubTests =
                                 { submission "s-1" "1234" "k-1" with Plan = parsed (OrderPlan.create otherData [||]) }
 
                         match answer with
-                        | SigningOutcome.Submitted(version, _) ->
+                        | SigningOutcome.Submitted(version, _, _, _) ->
                             version.Verified |> Expect.isTrue "the reading"
 
                             state.Sessions["s-1"].Opened.Patient
@@ -4497,7 +4512,7 @@ module SessionStubTests =
                             cookie
                             (SigningCommand.Submit(submission StubCredentials.stubPin "k-2"))
                     with
-                    | SigningResponse.Submitted(signed, fresh) ->
+                    | SigningResponse.Submitted(signed, fresh, _) ->
                         signed.Head.No |> Expect.equal "the first version" 1
                         signed.Head.By.UserId |> Expect.equal "by the Session's user" "prescriber"
                         fresh |> Expect.notEqual "re-minted" opened.OpenedToken.Value
@@ -4595,7 +4610,7 @@ module SessionStubTests =
                                     cookieB
                                     (SigningCommand.Submit(submission openedB forB "k-b"))
                             with
-                            | SigningResponse.Submitted(signed, _) -> return signed.Head
+                            | SigningResponse.Submitted(signed, _, _) -> return signed.Head
                             | other -> return failtest $"expected Submitted, got {other}"
                         }
 

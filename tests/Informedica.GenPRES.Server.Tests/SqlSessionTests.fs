@@ -486,7 +486,7 @@ let sessionTests =
                     let head =
                         Store.domainPlan.Value
                         |> Store.versionOf 1 Store.prescriber Store.t0
-                        |> fun v -> StoredVersion.Readable { v with Id = "plan-1" }
+                        |> fun v -> StoredVersion.Readable({ v with Id = "plan-1" }, None)
 
                     use conn = connect cs
 
@@ -668,14 +668,14 @@ let writerTests =
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
 
                     // the Session opened on the version it signed, which the rows name by id
-                    let session = sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable v1))
+                    let session = sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable(v1, None)))
 
-                    runWrites cs [ Session.OpenSession("s-1", session); Session.WriteVersion v1 ]
+                    runWrites cs [ Session.OpenSession("s-1", session); Session.WriteVersion(v1, None) ]
                     |> Expect.equal "the first lands" Session.StoreOutcome.Written
 
                     let rival = { v1 with Id = "plan-rival" }
 
-                    match runWrites cs [ Session.WriteVersion rival; Session.RecordSeen("s-1", t0) ] with
+                    match runWrites cs [ Session.WriteVersion(rival, None); Session.RecordSeen("s-1", t0) ] with
                     | Session.StoreOutcome.Conflict head ->
                         head |> StoredVersion.id |> Expect.equal "the row that won" v1.Id
                     | other -> failtest $"expected Conflict, got %A{other}"
@@ -904,14 +904,14 @@ let sliceTests =
 
                     // the Session opened on the version that was signed, which the rows name
                     // by its id alone
-                    let session = sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable v1))
+                    let session = sessionOf "s-1" "prescriber" (Some v1.Id) (Some(StoredVersion.Readable(v1, None)))
 
                     runWrites
                         cs
                         [
                             Session.OpenSession("s-1", session)
                             Session.RecordOpenedWith("s-1", session, t0)
-                            Session.WriteVersion v1
+                            Session.WriteVersion(v1, None)
                         ]
                     |> ignore
 
@@ -1726,7 +1726,7 @@ let flightWriteTests =
                 withSessions (fun cs ->
                     withOpenSession cs
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
-                    runWrites cs [ Session.WriteVersion v1 ] |> ignore
+                    runWrites cs [ Session.WriteVersion(v1, None) ] |> ignore
 
                     runWrites
                         cs
@@ -1734,7 +1734,7 @@ let flightWriteTests =
                             Session.RememberAnswer(
                                 "s-1",
                                 "k-1",
-                                SigningOutcome.Submitted(v1, OpenedToken "opened-again"),
+                                SigningOutcome.Submitted(v1, None, OpenedToken "opened-again", v1.Plan.Patient),
                                 t0
                             )
                         ]
@@ -1768,7 +1768,7 @@ let flightWriteTests =
                 withSessions (fun cs ->
                     withOpenSession cs
                     let v1 = Store.domainPlan.Value |> Store.versionOf 1 Store.prescriber Store.t0
-                    runWrites cs [ Session.WriteVersion v1 ] |> ignore
+                    runWrites cs [ Session.WriteVersion(v1, None) ] |> ignore
                     let until = t0.AddMinutes 1.0
 
                     let refusals =
@@ -1776,7 +1776,7 @@ let flightWriteTests =
                             SigningRefusal.NoSession
                             SigningRefusal.NoPatient
                             SigningRefusal.NotPrescriber
-                            SigningRefusal.Blocked(StoredVersion.head (StoredVersion.Readable v1))
+                            SigningRefusal.Blocked(StoredVersion.head (StoredVersion.Readable(v1, None)))
                             SigningRefusal.StaleToken
                             SigningRefusal.ChallengeMismatch
                             SigningRefusal.ChallengeExpired
@@ -1970,10 +1970,15 @@ let auditTests =
                 SqlSessions.auditOf
                     t0
                     [
-                        Session.WriteVersion v1
+                        Session.WriteVersion(v1, None)
                         Session.RecordOpenedWith("s-1", session, t0)
                         Session.SpendChallenge("s-1", "c-1", t0)
-                        Session.RememberAnswer("s-1", "k-1", SigningOutcome.Submitted(v1, OpenedToken "t"), t0)
+                        Session.RememberAnswer(
+                            "s-1",
+                            "k-1",
+                            SigningOutcome.Submitted(v1, None, OpenedToken "t", v1.Plan.Patient),
+                            t0
+                        )
                     ]
                 |> List.map (fun e -> e.Action, e.SessionId, e.Actor)
                 |> Expect.equal

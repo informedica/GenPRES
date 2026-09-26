@@ -478,7 +478,7 @@ let portTests =
                             }
 
                     match answer with
-                    | SigningOutcome.Submitted(v, _) -> v.No |> Expect.equal "version 1" 1
+                    | SigningOutcome.Submitted(v, _, _, _) -> v.No |> Expect.equal "version 1" 1
                     | other -> failtest $"expected Submitted, got %A{other}"
                 | other -> failtest $"expected ChallengeIssued, got %A{other}"
             }

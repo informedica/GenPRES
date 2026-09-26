@@ -105,6 +105,7 @@ let unreadable no (by: UserContext) (at: DateTime) : StoredVersion =
                     DisplayName = by.DisplayName
                 }
             SignedAt = at
+            Identity = None
             Reason = "json_version 9 is newer than this release knows"
         }
 
@@ -148,7 +149,7 @@ let versionWritten writes =
     writes
     |> List.tryPick (
         function
-        | Session.WriteVersion v -> Some v
+        | Session.WriteVersion(v, _) -> Some v
         | _ -> None
     )
 
@@ -185,7 +186,7 @@ let tests =
                     commitAt t0 (counter "id") ready.Value "s-1" (signature "s-1" "1234" "k-1" domainPlan.Value)
 
                 match answer, versionWritten write with
-                | SigningOutcome.Submitted(version, token), Some written ->
+                | SigningOutcome.Submitted(version, _, token, _), Some written ->
                     version |> Expect.equal "the write is the version" written
                     version.No |> Expect.equal "first" 1
 
@@ -195,14 +196,19 @@ let tests =
                     version.SignedBy.UserId |> Expect.equal "by" "prescriber"
                     version.Verified |> Expect.isTrue "the reading stood"
 
+                    // the version names the patient the Session is for
+                    let whom =
+                        StubPatientData.data "stub-patient"
+                        |> Informedica.GenForm.Lib.EhrPatientData.identity
+
                     Session.headOf "stub-patient" state
-                    |> Expect.equal "the head" (Some(StoredVersion.Readable version))
+                    |> Expect.equal "the head" (Some(StoredVersion.Readable(version, whom)))
 
                     state.Sessions["s-1"].OpenedWith
                     |> Expect.equal "opened with it" (Some version.Id)
 
                     state.Sessions["s-1"].Opened.Head
-                    |> Expect.equal "the head held" (Some(StoredVersion.Readable version))
+                    |> Expect.equal "the head held" (Some(StoredVersion.Readable(version, whom)))
 
                     state.Sessions["s-1"].Opened.OpenedToken
                     |> Expect.equal "re-minted" (Some token)
@@ -304,7 +310,7 @@ let tests =
 
             test
                 "a violated constraint is another server's sign: a stale sign against the version that won, not StoreFailed" {
-                let winner = StoredVersion.Readable(versionOf 1 other (t0 - minutes 1.0) domainPlan.Value)
+                let winner = StoredVersion.Readable(versionOf 1 other (t0 - minutes 1.0) domainPlan.Value, None)
 
                 let state, answer =
                     submitWith
@@ -325,7 +331,7 @@ let tests =
 
             test
                 "an unreadable row is the head when it is the newest; a sign against it is refused whatever the base; it cannot be opened" {
-                let readable = StoredVersion.Readable(versionOf 1 prescriber (t0 - minutes 5.0) domainPlan.Value)
+                let readable = StoredVersion.Readable(versionOf 1 prescriber (t0 - minutes 5.0) domainPlan.Value, None)
 
                 let newest = unreadable 2 other (t0 - minutes 1.0)
                 let records = [ "stub-patient", [ newest; readable ] ]
@@ -372,7 +378,7 @@ let tests =
                 let s = session "s-1" prescriber None
 
                 let st =
-                    { stateOf [ s ] [ "stub-patient", [ StoredVersion.Readable written ] ] with
+                    { stateOf [ s ] [ "stub-patient", [ StoredVersion.Readable(written, None) ] ] with
                         Challenges = Map.ofList [ challenged "s-1" t0 domainPlan.Value ]
                     }
 
@@ -382,7 +388,9 @@ let tests =
                 answer
                 |> Expect.equal
                     "stale"
-                    (SigningOutcome.Refused(SigningRefusal.Blocked(StoredVersion.head (StoredVersion.Readable written))))
+                    (SigningOutcome.Refused(
+                        SigningRefusal.Blocked(StoredVersion.head (StoredVersion.Readable(written, None)))
+                    ))
 
                 write |> versionWritten |> Expect.isNone "no version written"
 
@@ -390,7 +398,7 @@ let tests =
 
                 opened
                 |> Option.bind _.Head
-                |> Expect.equal "the version signed" (Some(StoredVersion.Readable written))
+                |> Expect.equal "the version signed" (Some(StoredVersion.Readable(written, None)))
 
                 st.Sessions["s-1"].OpenedWith |> Expect.equal "opened with it" (Some "plan-1")
             }
@@ -408,7 +416,15 @@ let tests =
                         submit =
                             fun _ s ->
                                 seen.Value <- Some s.Plan
-                                async { return SigningOutcome.Submitted(versionOf 1 prescriber t0 s.Plan, token "s-2") }
+                                async {
+                                    return
+                                        SigningOutcome.Submitted(
+                                            versionOf 1 prescriber t0 s.Plan,
+                                            None,
+                                            token "s-2",
+                                            s.Plan.Patient
+                                        )
+                                }
                     }
 
                 let envOver demo =
@@ -448,7 +464,7 @@ let tests =
                     SigningCommand.processCmd (envOver false) cookie (Shared.Api.SigningCommand.Submit submission)
 
                 match submitted with
-                | SigningResponse.Submitted(signed, _) ->
+                | SigningResponse.Submitted(signed, _, _) ->
                     signed.Head.Id |> Expect.equal "the version" "plan-1"
 
                     signed.OrderContexts

@@ -539,7 +539,8 @@ module Session =
     /// returns the writes of its request next to the new state and its answer.
     type Persist =
         /// the order plan version of a commit; the Launch and what its callback came to
-        | WriteVersion of GenOrder.OrderPlanVersion
+        /// the version signed, with the identity of the patient it names
+        | WriteVersion of GenOrder.OrderPlanVersion * identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
         | RecordLaunch of LaunchRecord
         | RecordLaunchOutcome of nonce: string * LaunchResult * at: DateTime
         /// the Session opened, what it opened with (at the open, at a version opened and at a
@@ -708,7 +709,7 @@ module Session =
             head
             |> Option.bind (fun h ->
                 match h with
-                | StoredVersion.Readable v -> Some v.Plan.Patient
+                | StoredVersion.Readable(v, _) -> Some v.Plan.Patient
                 | StoredVersion.Unreadable _ -> None
             )
         )
@@ -1204,11 +1205,7 @@ module Session =
     let age (sid: string) (state: State) : Age option =
         state.Sessions
         |> Map.tryFind sid
-        |> Option.filter (fun r ->
-            r.Opened.EhrData
-            |> Option.bind Informedica.GenForm.Lib.EhrPatientData.identity
-            |> Option.isSome
-        )
+        |> Option.filter (fun r -> r.Opened |> OpenedSession.identity |> Option.isSome)
         |> Option.bind _.Opened.Patient
         |> Option.bind (Informedica.GenForm.Lib.Patient.Dto.toDto >> ServerApi.Patient.toModel >> _.Age)
 
@@ -1295,7 +1292,7 @@ module Session =
                     |> Option.bind (
                         List.tryPick (fun v ->
                             match v with
-                            | StoredVersion.Readable v when v.Id = id -> Some v
+                            | StoredVersion.Readable(v, _) as stored when v.Id = id -> Some stored
                             | _ -> None
                         )
                     )
@@ -1303,7 +1300,7 @@ module Session =
                 match version with
                 | None -> state, Some record.Opened, seen
                 | Some version when record.OpenedWith = Some id ->
-                    let opened = { record.Opened with Head = Some(StoredVersion.Readable version) }
+                    let opened = { record.Opened with Head = Some version }
                     let session = { state.Sessions[sid] with Opened = opened }
 
                     { state with Sessions = state.Sessions |> Map.add sid session },
@@ -1313,7 +1310,7 @@ module Session =
                     let opened =
                         { record.Opened with
                             OpenedToken = Some(OpenedToken $"opened-{newId ()}")
-                            Head = Some(StoredVersion.Readable version)
+                            Head = Some version
                         }
 
                     let session =
@@ -1446,10 +1443,10 @@ module Session =
     /// the OpenedToken this Session holds; the head readable and not moved on; the challenge
     /// this Session was issued, over exactly this plan by digest; and last the PIN, so that a
     /// Submission that was never going to land costs no attempt. A pure function: on an
-    /// accepted sign the returned state already holds the new head, with the challenge spent,
-    /// the OpenedToken re-minted over it and the Session's patient set to the reading at the
-    /// challenge, else the data signed, and the third value is the write for the adapter to
-    /// run; on a refusal it is none. The answer is remembered under the key, refusals too.
+    /// accepted sign the returned state already holds the new head, which carries the
+    /// Session's identity, with the challenge spent, the OpenedToken re-minted over it and the
+    /// Session's patient set to the reading at the challenge, else the data signed, and the
+    /// third value is the write for the adapter to run; on a refusal it is none. The answer is remembered under the key, refusals too.
     /// Three wrong PINs end the Session (WrongPinLimit), lock signing and mail the User; a
     /// wrong PIN while locked pushes the lock out; a right PIN while locked is refused and
     /// counts nothing.
@@ -1554,21 +1551,22 @@ module Session =
                                             }
 
                                         let token = OpenedToken $"opened-{newId ()}"
+                                        let whom = OpenedSession.identity record.Opened
 
                                         // the Session's patient is the EHR's reading at the challenge,
                                         // else the data just signed, so a resume shows what a relaunch
                                         // would; the EHR data is the read just signed on
+                                        let ehr = Reads.afterCommit challenge record.Opened.EhrData
+                                        let patient = challenge.Reading |> Option.defaultValue version.Plan.Patient
+
                                         let opened =
                                             { record with
                                                 Opened =
                                                     { record.Opened with
                                                         OpenedToken = Some token
-                                                        Head = Some(StoredVersion.Readable version)
-                                                        EhrData = Reads.afterCommit challenge record.Opened.EhrData
-                                                        Patient =
-                                                            challenge.Reading
-                                                            |> Option.defaultValue version.Plan.Patient
-                                                            |> Some
+                                                        Head = Some(StoredVersion.Readable(version, whom))
+                                                        EhrData = ehr
+                                                        Patient = Some patient
                                                     }
                                                 OpenedWith = Some id
                                             }
@@ -1581,17 +1579,17 @@ module Session =
                                                         patientId
                                                         (fun versions ->
                                                             Some(
-                                                                StoredVersion.Readable version
+                                                                StoredVersion.Readable(version, whom)
                                                                 :: (versions |> Option.defaultValue [])
                                                             )
                                                         )
                                                 Challenges = state.Challenges |> Map.remove sid
                                                 Sessions = state.Sessions |> Map.add sid opened
                                             }
-                                            (SigningOutcome.Submitted(version, token))
+                                            (SigningOutcome.Submitted(version, whom, token, patient))
                                             [
                                                 credentialWrite
-                                                WriteVersion version
+                                                WriteVersion(version, whom)
                                                 RecordOpenedWith(sid, opened, now)
                                                 // the challenge this signature answered, used up
                                                 SpendChallenge(sid, challenge.Nonce, now)

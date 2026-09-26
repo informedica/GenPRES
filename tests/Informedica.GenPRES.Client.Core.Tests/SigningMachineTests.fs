@@ -34,6 +34,7 @@ module Fixtures =
             Base = None
             OrderContexts = [||]
             Patient = patient
+            Identity = None
             Verified = true
         }
 
@@ -50,7 +51,7 @@ module Fixtures =
         SigningMsg.ChallengeAnswered(request, Ok(SigningResponse.ChallengeIssued "c-1"))
 
     let submitted key =
-        SigningMsg.SubmitAnswered(key, Ok(SigningResponse.Submitted(signed, OpenedToken "t2")))
+        SigningMsg.SubmitAnswered(key, Ok(SigningResponse.Submitted(signed, OpenedToken "t2", patient)))
 
 
 open Fixtures

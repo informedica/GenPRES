@@ -132,6 +132,7 @@ module SessionMachineTests =
                                 Base = None
                                 OrderContexts = [||]
                                 Patient = patient
+                                Identity = None
                                 Verified = true
                             }
 
@@ -640,6 +641,7 @@ module SessionMachineTests =
                     Base = Some "plan-1"
                     OrderContexts = [||]
                     Patient = patient
+                    Identity = None
                     Verified = true
                 }
 
@@ -945,6 +947,7 @@ module SessionMachineTests =
                             Base = Some "plan-1"
                             OrderContexts = [||]
                             Patient = patient
+                            Identity = None
                             Verified = true
                         }
 

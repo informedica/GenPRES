@@ -229,8 +229,9 @@ module SqlDatabase =
             with :? ArgumentOutOfRangeException ->
                 DateTime.MinValue, Some $"signed_at %i{row.SignedAt} is out of range"
 
+        // the identity columns come with the store's next migration
         match parsed, reason with
-        | Ok v, _ -> StoredVersion.Readable v
+        | Ok v, _ -> StoredVersion.Readable(v, None)
         | Error parseReason, timeReason ->
             StoredVersion.Unreadable
                 {
@@ -244,6 +245,7 @@ module SqlDatabase =
                             DisplayName = row.SignedByDisplayName
                         }
                     SignedAt = signedAt
+                    Identity = None
                     Reason =
                         timeReason
                         |> Option.map (fun r -> $"%s{parseReason}; %s{r}")
@@ -356,7 +358,7 @@ module SqlDatabase =
         writes
         |> List.choose (
             function
-            | Session.WriteVersion v -> Some v
+            | Session.WriteVersion(v, _) -> Some v
             | _ -> None
         )
         |> List.fold
@@ -849,7 +851,7 @@ module SqlSessions =
     /// compile.
     let run (conn: SqliteConnection) (tx: SqliteTransaction) (write: Session.Persist) =
         match write with
-        | Session.WriteVersion v -> SqlDatabase.insertVersion conn tx v
+        | Session.WriteVersion(v, _) -> SqlDatabase.insertVersion conn tx v
         | Session.RecordLaunch r ->
             let (PublicKey key) = r.PublicKey
 
@@ -1114,7 +1116,7 @@ module SqlSessions =
         | Session.RememberAnswer(sid, key, outcome, at) ->
             let answer, versionId, token, left, until =
                 match outcome with
-                | SigningOutcome.Submitted(v, OpenedToken t) -> "submitted", Some v.Id, Some t, None, None
+                | SigningOutcome.Submitted(v, _, OpenedToken t, _) -> "submitted", Some v.Id, Some t, None, None
                 | SigningOutcome.Refused refusal ->
                     let word, blocked, left, until = refusalRow refusal
                     $"refused:%s{word}", blocked, None, left, until
@@ -1187,7 +1189,7 @@ module SqlSessions =
         | Session.SpendChallenge(sid, _, _)
         | Session.RememberAnswer(sid, _, _, _)
         | Session.WriteMeasurement(sid, _, _) -> Some sid, None
-        | Session.WriteVersion v -> None, Some v.SignedBy.UserId
+        | Session.WriteVersion(v, _) -> None, Some v.SignedBy.UserId
         | Session.WriteCredential(userId, _, _, _)
         | Session.CountCodeTry(userId, _, _)
         | Session.SpendCode(userId, _, _)
@@ -1238,7 +1240,7 @@ module SqlSessions =
                     SessionId = Some sid
                     Detail = Some $"""{{"ending":%s{jsonText (endingWord ending)}}}"""
                 }
-        | Session.WriteVersion v ->
+        | Session.WriteVersion(v, _) ->
             Some
                 { auditEntry v.SignedAt "signed" "ok" with
                     Actor = Some v.SignedBy.UserId
@@ -1390,7 +1392,7 @@ module SqlSessions =
                     writes
                     |> List.tryPick (
                         function
-                        | Session.WriteVersion v -> Some v.PatientId
+                        | Session.WriteVersion(v, _) -> Some v.PatientId
                         | _ -> None
                     )
 
@@ -1661,8 +1663,11 @@ module SqlSessions =
 
                 let outcome =
                     if word = "submitted" then
+                        // the Session's patient at the answer is not kept: a retry after a lost
+                        // answer is answered with the plan just signed
                         match versionId |> Option.bind headOf, token with
-                        | Some(StoredVersion.Readable v), Some t -> Some(SigningOutcome.Submitted(v, OpenedToken t))
+                        | Some(StoredVersion.Readable(v, whom)), Some t ->
+                            Some(SigningOutcome.Submitted(v, whom, OpenedToken t, v.Plan.Patient))
                         // the version it names cannot be read: there is no answer to repeat
                         | _ -> None
                     elif word.StartsWith "refused:" then

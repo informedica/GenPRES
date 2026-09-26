@@ -143,16 +143,21 @@ type UnreadableVersion =
         Base: string option
         SignedBy: GenOrder.Signer
         SignedAt: System.DateTime
+        /// the patient's name and birthdate from the columns; none for a version signed in a
+        /// Session without an identity, and for a row from before the columns
+        Identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
         Reason: string
     }
 
 
 /// A version as the record holds it once loaded: parsed, or kept by its identity when the
 /// row cannot be read (a structure version newer than the release knows, an upgrade that
-/// fails, a Dto the domain refuses), so that nothing vanishes and nothing is overtaken.
+/// fails, a Dto the domain refuses), so that nothing vanishes and nothing is overtaken. In
+/// both cases the patient's name and birthdate beside it, from the columns and never from
+/// the plan's JSON; none for a version signed in a Session without an identity.
 [<RequireQualifiedAccess>]
 type StoredVersion =
-    | Readable of GenOrder.OrderPlanVersion
+    | Readable of GenOrder.OrderPlanVersion * identity: Informedica.GenCore.Lib.Patients.PatientIdentity option
     | Unreadable of UnreadableVersion
 
 
@@ -169,27 +174,34 @@ module StoredVersion =
 
     let id =
         function
-        | StoredVersion.Readable v -> v.Id
+        | StoredVersion.Readable(v, _) -> v.Id
         | StoredVersion.Unreadable u -> u.Id
 
 
     let no =
         function
-        | StoredVersion.Readable v -> v.No
+        | StoredVersion.Readable(v, _) -> v.No
         | StoredVersion.Unreadable u -> u.No
 
 
     /// The id of a version that can be read; none for one that cannot.
     let readableId =
         function
-        | StoredVersion.Readable v -> Some v.Id
+        | StoredVersion.Readable(v, _) -> Some v.Id
         | StoredVersion.Unreadable _ -> None
+
+
+    /// Whom the version names: the patient's name and birthdate, in both cases.
+    let identity =
+        function
+        | StoredVersion.Readable(_, identity) -> identity
+        | StoredVersion.Unreadable u -> u.Identity
 
 
     /// What identifies the version to the client: whose, and when.
     let head (version: StoredVersion) : OrderPlanHead =
         match version with
-        | StoredVersion.Readable v ->
+        | StoredVersion.Readable(v, _) ->
             {
                 Id = v.Id
                 No = v.No
@@ -256,6 +268,17 @@ type OpenedSession =
     }
 
 
+module OpenedSession =
+
+    /// Whom the Session is for: the identity in the EHR data it opened on, or the head's
+    /// when the EHR answered none, so that a Session opened from the head is identified.
+    /// EHR data without an identity is anonymous, whatever the head says.
+    let identity (opened: OpenedSession) =
+        match opened.EhrData with
+        | Some ehr -> ehr |> Informedica.GenForm.Lib.EhrPatientData.identity
+        | None -> opened.Head |> Option.bind StoredVersion.identity
+
+
 /// The signature as the session service takes it: the plan parsed at the boundary, the
 /// OpenedToken the Session holds, the challenge it was issued, the PIN, and the client's own
 /// key so that the commit takes effect once. Never logged.
@@ -277,8 +300,13 @@ type SigningOutcome =
     | ChallengeIssued of challenge: string
     /// no challenge yet: the token, and the data as it stands, none when it could not be read
     | DataNotice of token: string * data: GenForm.Patient option
-    /// the version committed, and a fresh OpenedToken over it
-    | Submitted of GenOrder.OrderPlanVersion * OpenedToken
+    /// the version committed with the identity it names, a fresh OpenedToken over it, and the
+    /// Session's patient after the sign
+    | Submitted of
+        version: GenOrder.OrderPlanVersion *
+        identity: Informedica.GenCore.Lib.Patients.PatientIdentity option *
+        OpenedToken *
+        patient: GenForm.Patient
     | Refused of SigningRefusal
 
 

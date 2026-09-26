@@ -23,8 +23,14 @@ module SigningCommand =
                         |> Option.map (Informedica.GenForm.Lib.Patient.Dto.toDto >> ServerApi.Patient.toModel)
                     Token = token
                 }
-        | SigningOutcome.Submitted(version, token) ->
-            SigningResponse.Submitted(version |> OrderPlanVersion.Dto.toDto |> SessionMapper.toSigned demo, token)
+        | SigningOutcome.Submitted(version, whom, token, patient) ->
+            SigningResponse.Submitted(
+                version |> OrderPlanVersion.Dto.toDto |> SessionMapper.toSigned demo whom,
+                token,
+                patient
+                |> Informedica.GenForm.Lib.Patient.Dto.toDto
+                |> ServerApi.Patient.toModel
+            )
         | SigningOutcome.Refused refusal -> SigningResponse.Refused refusal
 
 

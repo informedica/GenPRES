@@ -48,8 +48,24 @@ module SessionMapper =
         }
 
 
-    /// The version's Dto as the signed order plan the wire carries.
-    let toSigned (demo: bool) (dto: OrderPlanVersion.Dto.Dto) : SignedOrderPlan =
+    /// The identity on the wire, beside the id the context carries: the name and the birthdate
+    /// as three integers.
+    let identity (id: Informedica.GenCore.Lib.Patients.PatientIdentity) : NameAndBirthDate =
+        {
+            Name = id.Name
+            BirthYear = int id.BirthDate.Year
+            BirthMonth = int id.BirthDate.Month
+            BirthDay = int id.BirthDate.Day
+        }
+
+
+    /// The version's Dto as the signed order plan the wire carries, with whom it names.
+    let toSigned
+        (demo: bool)
+        (whom: Informedica.GenCore.Lib.Patients.PatientIdentity option)
+        (dto: OrderPlanVersion.Dto.Dto)
+        : SignedOrderPlan
+        =
         {
             Head =
                 {
@@ -62,6 +78,7 @@ module SessionMapper =
             Base = dto.Base
             OrderContexts = dto.Plan.Contexts |> Array.map (OrderContextMapper.toModel demo)
             Patient = dto.Plan.Patient |> Patient.toModel
+            Identity = whom |> Option.map identity
             Verified = dto.Verified
         }
 
@@ -78,21 +95,10 @@ module SessionMapper =
         }
 
 
-    /// The identity on the wire, beside the id the context carries: the name and the birthdate
-    /// as three integers.
-    let identity (id: Informedica.GenCore.Lib.Patients.PatientIdentity) : NameAndBirthDate =
-        {
-            Name = id.Name
-            BirthYear = int id.BirthDate.Year
-            BirthMonth = int id.BirthDate.Month
-            BirthDay = int id.BirthDate.Day
-        }
-
-
     /// What the client keeps of an open Session, from what the store holds: the head as the
-    /// signed order plan on the wire when it can be read, none when it cannot, the identity
-    /// when the EHR data has one, the patient data as the contract model with what the user
-    /// measured on it; the demo flag on every context.
+    /// signed order plan on the wire when it can be read, none when it cannot, whom the
+    /// Session is for, the patient data as the contract model with what the user measured on
+    /// it; the demo flag on every context.
     let toOpened (demo: bool) (opened: OpenedSession) : SessionOpened =
         {
             User = opened.User
@@ -101,10 +107,7 @@ module SessionMapper =
                 |> Option.map (fun id ->
                     {
                         PatientId = id
-                        Identity =
-                            opened.EhrData
-                            |> Option.bind Informedica.GenForm.Lib.EhrPatientData.identity
-                            |> Option.map identity
+                        Identity = opened |> OpenedSession.identity |> Option.map identity
                         Patient =
                             opened.Patient
                             |> Option.map (
@@ -120,7 +123,7 @@ module SessionMapper =
                 opened.Head
                 |> Option.bind (fun head ->
                     match head with
-                    | StoredVersion.Readable v -> v |> OrderPlanVersion.Dto.toDto |> toSigned demo |> Some
+                    | StoredVersion.Readable(v, whom) -> v |> OrderPlanVersion.Dto.toDto |> toSigned demo whom |> Some
                     | StoredVersion.Unreadable _ -> None
                 )
         }
