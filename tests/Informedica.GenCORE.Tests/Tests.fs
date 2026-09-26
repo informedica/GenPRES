@@ -648,6 +648,15 @@ module Tests =
                         let noName = ""
                         let name = "Test"
 
+                        test "a ward named after its kind keeps its name" {
+                            let ward = Department.adultICU "Adult ICU"
+
+                            ward
+                            |> Department.toString
+                            |> Department.fromString
+                            |> Expect.equal "there and back" (Ok ward)
+                        }
+
                         for f in deps do
                             test $"can create without a name {noName |> f}" {
                                 let s = noName |> f |> Department.toString

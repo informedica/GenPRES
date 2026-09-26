@@ -1360,9 +1360,10 @@ module rec Department =
         open Validus
         open Validus.Operators
 
-        /// The kind's words stripped from the front, the name trimmed: a ward without a name
-        /// comes back without one.
-        let named kind (s: string) = s |> String.replace kind "" |> String.trim
+        /// The kind's words dropped from the front, where the pattern found them, and the name
+        /// trimmed: a ward without a name comes back without one, a ward named after its kind
+        /// keeps its name.
+        let named (kind: string) (s: string) = s.Substring(kind.Length) |> String.trim
 
 
         let validate =
