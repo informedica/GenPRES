@@ -202,9 +202,6 @@ Define units for all physical quantities, keep calculations unit-safe, and write
 - `seq` for large data that need not be materialized; arrays and `[<Struct>]` wrappers in tight numeric work; `voption` in hot paths
 - Memoize expensive pure functions; `async`/`task` for IO; tail recursion or folds over unbounded recursion
 
-## Logging
-
-The core takes a `Logger` record as a parameter; only the composition roots construct one (see the dependency rule in AGENTS.md). Use message templates rather than interpolation, log at the right level, and never log patient-identifying data.
 
 ## Testing
 
