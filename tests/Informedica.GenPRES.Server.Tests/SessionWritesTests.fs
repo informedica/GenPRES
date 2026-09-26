@@ -608,6 +608,23 @@ let credentialWrites =
         ]
 
 
+/// The stub port with the EHR now saying another ward than the Session opened on.
+let moved =
+    { StubAdapterTests.StubAdapters.patientData with
+        read =
+            fun pid ->
+                StubAdapterTests.StubAdapters.patientData.read pid
+                |> Option.map (fun ehr ->
+                    { ehr with
+                        Patient =
+                            { ehr.Patient with
+                                Department = Informedica.GenCore.Lib.Patients.Department.pediatricICU "ICU"
+                            }
+                    }
+                )
+    }
+
+
 [<Tests>]
 let flightWrites =
     testList
@@ -661,22 +678,6 @@ let flightWrites =
                         state
 
                 // the EHR now says another ward
-                let moved =
-                    { StubAdapterTests.StubAdapters.patientData with
-                        read =
-                            fun pid ->
-                                StubAdapterTests.StubAdapters.patientData.read pid
-                                |> Option.map (fun ehr ->
-                                    { ehr with
-                                        Patient =
-                                            { ehr.Patient with
-                                                Department =
-                                                    Informedica.GenCore.Lib.Patients.Department.pediatricICU "ICU"
-                                            }
-                                    }
-                                )
-                    }
-
                 let _, answer, writes =
                     Session.challenge t0 newId StubDatabase.digest moved sid (Store.domainPlan.Value, token, None) state
 
@@ -687,6 +688,67 @@ let flightWrites =
                         "the challenge over the old data is spent, and the notice written"
                         [ "RecordSeen"; "SpendChallenge"; "WriteNotice" ]
                 | other -> failtest $"expected DataNotice, got %A{other}"
+            }
+
+            test "after a commit the Session holds the read it signed on: the same read is no notice" {
+                let state, sid, newId = opened ()
+
+                // the token is re-minted by the commit, so each request takes the current one
+                let issue port notice (state: Session.State) =
+                    let token = state.Sessions[sid].Opened.OpenedToken.Value
+
+                    Session.challenge
+                        t0
+                        newId
+                        StubDatabase.digest
+                        port
+                        sid
+                        (Store.domainPlan.Value, token, notice)
+                        state
+
+                // the EHR moved the patient since the open: told, then a challenge over the notice
+                let state, told, _ = issue moved None state
+
+                let noticeToken =
+                    match told with
+                    | SigningOutcome.DataNotice(n, _) -> n
+                    | other -> failtest $"expected DataNotice, got %A{other}"
+
+                let state, challenge, _ = issue moved (Some noticeToken) state
+
+                let nonce =
+                    match challenge with
+                    | SigningOutcome.ChallengeIssued n -> n
+                    | other -> failtest $"expected ChallengeIssued, got %A{other}"
+
+                let signature: Signature =
+                    {
+                        Plan = Store.domainPlan.Value
+                        Opened = state.Sessions[sid].Opened.OpenedToken.Value
+                        Challenge = nonce
+                        Pin = "1234"
+                        IdemKey = "k-1"
+                    }
+
+                let state, answer, _ =
+                    Session.commit t0 newId StubDatabase.digest Store.registry ignore sid signature state
+
+                match answer with
+                | SigningOutcome.Submitted _ -> ()
+                | other -> failtest $"expected Submitted, got %A{other}"
+
+                state.Sessions[sid].Opened.EhrData
+                |> Expect.equal "the read just signed on" (moved.read "stub-patient")
+
+                // the read just signed on is no change: a challenge, not another notice
+                match issue moved None state with
+                | _, SigningOutcome.ChallengeIssued _, _ -> ()
+                | _, other, _ -> failtest $"expected ChallengeIssued, got %A{other}"
+
+                // the read of the open now is a change from what was signed on
+                match issue StubAdapterTests.StubAdapters.patientData None state with
+                | _, SigningOutcome.DataNotice _, _ -> ()
+                | _, other, _ -> failtest $"expected DataNotice, got %A{other}"
             }
 
             test "an answer is remembered once: the same Submission writes nothing more" {

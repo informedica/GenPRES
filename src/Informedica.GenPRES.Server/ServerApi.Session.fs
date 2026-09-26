@@ -445,28 +445,66 @@ module Session =
         }
 
 
-    /// A data notice as the store holds it: one per Session, the platform's reading it was
-    /// told over (None: unreadable), for two minutes.
+    /// A data notice as the store holds it: one per Session, the EHR data it was told over as
+    /// read and its projection (none: unreadable), for two minutes.
     type Notice =
         {
             Nonce: string
+            /// the EHR data as read when the notice was told; none when it could not be read
+            Ehr: GenForm.EhrPatientData option
+            /// its projection, what the client is shown
             Data: GenForm.Patient option
             Expiry: DateTime
         }
 
 
     /// A signing challenge as the store holds it: one per Session, the digest of exactly the
-    /// plan shown over the store's canonical form, whether the platform's reading stood when it
-    /// was issued, for two minutes. The plan itself is never held: the submission carries it
-    /// and is compared by digest.
+    /// plan shown over the store's canonical form, the EHR data as read when it was issued and
+    /// its projection at the date of the open, for two minutes. The plan itself is never held:
+    /// the submission carries it and is compared by digest.
     type Challenge =
         {
             Nonce: string
             Digest: string
-            /// the platform's reading at the challenge, none when it could not be read
+            /// the EHR data as read at the challenge; none when it could not be read
+            Ehr: GenForm.EhrPatientData option
+            /// its projection at the date of the open, the patient the version is signed on
             Reading: GenForm.Patient option
             Expiry: DateTime
         }
+
+
+    /// What a challenge compares: the EHR data as read, never its projection, whose age moves
+    /// with the clock.
+    module Reads =
+
+        /// Whether a fresh read tells a change: none, or other than the EHR data the Session
+        /// opened on. A Session that opened on none is told on every read that answers.
+        let changed (opened: GenForm.EhrPatientData option) (current: GenForm.EhrPatientData option) =
+            current.IsNone || current <> opened
+
+
+        /// The notice the token names, when the Session has one and it was told over exactly
+        /// the read at hand; a read that moved since is a fresh notice.
+        let accepted
+            (notices: Map<string, Notice>)
+            (sid: string)
+            (token: string option)
+            (current: GenForm.EhrPatientData option)
+            =
+            token
+            |> Option.bind (fun token ->
+                notices
+                |> Map.tryFind sid
+                |> Option.filter (fun n -> n.Nonce = token && n.Ehr = current)
+            )
+
+
+        /// The EHR data a Session holds after a commit: the read the challenge was issued
+        /// over, so that the next challenge compares against the data just signed on; what it
+        /// opened on when the challenge had none.
+        let afterCommit (challenge: Challenge) (opened: GenForm.EhrPatientData option) =
+            challenge.Ehr |> Option.orElse opened
 
 
     /// What the adapter's write came to: landed; refused by the store because another server
@@ -1296,26 +1334,21 @@ module Session =
                 elif record.Opened.OpenedToken <> Some opened then
                     refuse SigningRefusal.StaleToken
                 else
-                    // read again, and projected at the date of the open, so that only the EHR
-                    // data tells a change and the age the Session opened on holds; the adapter
-                    // answers none for a reading that is no patient
-                    let current = patientData.read patientId |> Option.map (patientData.patient record.OpenedAt)
-
-                    let accepted =
-                        notice
-                        |> Option.bind (fun token ->
-                            state.Notices
-                            |> Map.tryFind sid
-                            |> Option.filter (fun n -> n.Nonce = token && n.Data = current)
-                        )
+                    // read again and compared as read, so that only the EHR data tells a change;
+                    // projected at the date of the open, so that the age the Session opened on
+                    // holds; the adapter answers none for a reading that is no patient
+                    let currentEhr = patientData.read patientId
+                    let current = currentEhr |> Option.map (patientData.patient record.OpenedAt)
+                    let accepted = Reads.accepted state.Notices sid notice currentEhr
 
                     // no reading, or another than the Session opened on: told before the challenge
-                    if (current.IsNone || current <> record.Opened.Patient) && accepted.IsNone then
+                    if Reads.changed record.Opened.EhrData currentEhr && accepted.IsNone then
                         let nonce = newId ()
 
                         let notice =
                             {
                                 Nonce = nonce
+                                Ehr = currentEhr
                                 Data = current
                                 Expiry = now + challengeLifetime
                             }
@@ -1347,6 +1380,7 @@ module Session =
                                 {
                                     Nonce = nonce
                                     Digest = digest plan
+                                    Ehr = currentEhr
                                     Reading = current
                                     Expiry = now + challengeLifetime
                                 }
@@ -1474,15 +1508,16 @@ module Session =
 
                                         let token = OpenedToken $"opened-{newId ()}"
 
-                                        // the Session's patient is the platform's reading at the
-                                        // challenge, else the data just signed, so a resume shows what
-                                        // a relaunch would
+                                        // the Session's patient is the EHR's reading at the challenge,
+                                        // else the data just signed, so a resume shows what a relaunch
+                                        // would; the EHR data is the read just signed on
                                         let opened =
                                             { record with
                                                 Opened =
                                                     { record.Opened with
                                                         OpenedToken = Some token
                                                         Head = Some(StoredVersion.Readable version)
+                                                        EhrData = Reads.afterCommit challenge record.Opened.EhrData
                                                         Patient =
                                                             challenge.Reading
                                                             |> Option.defaultValue version.Plan.Patient

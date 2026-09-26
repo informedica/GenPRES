@@ -460,8 +460,24 @@ module SessionStubTests =
         )
 
 
+    /// The EHR data the stub would have read for the id, with the ward the contract model names,
+    /// so that a fixture stated as a contract patient has the EHR data its projection came from.
+    let ehrOf (pid: string) (p: Patient) : Informedica.GenForm.Lib.Types.EhrPatientData =
+        let ehr = StubPatientData.data pid
+
+        { ehr with
+            Patient =
+                { ehr.Patient with
+                    Department =
+                        p.Department
+                        |> Option.map Informedica.GenCore.Lib.Patients.Department.pediatricICU
+                        |> Option.defaultValue Informedica.GenCore.Lib.Patients.Department.unknown
+                }
+        }
+
+
     /// A signing challenge as the store holds it: over the digest of the plan of the patient
-    /// data and the contexts given.
+    /// data and the contexts given, issued over the EHR data the reading came from.
     let challengeOf
         (nonce: string)
         (pat: Patient)
@@ -473,15 +489,17 @@ module SessionStubTests =
         {
             Nonce = nonce
             Digest = OrderPlan.create pat contexts |> parsed |> StubDatabase.digest
+            Ehr = reading |> Option.map (ehrOf "stub-patient")
             Reading = reading |> Option.map parsePatient
             Expiry = expiry
         }
 
 
-    /// A data notice as the store holds it.
+    /// A data notice as the store holds it, told over the EHR data the data came from.
     let noticeOf (nonce: string) (data: Patient option) (expiry: DateTime) : Session.Notice =
         {
             Nonce = nonce
+            Ehr = data |> Option.map (ehrOf "stub-patient")
             Data = data |> Option.map parsePatient
             Expiry = expiry
         }
@@ -501,7 +519,15 @@ module SessionStubTests =
                 {
                     User = user
                     PatientId = patient |> Option.map fst
-                    EhrData = None
+                    // what the stub would have read at the open: none for no-data
+                    EhrData =
+                        patient
+                        |> Option.bind (fun (pid, p) ->
+                            if pid = "no-data" then
+                                None
+                            else
+                                p |> Option.map (ehrOf pid)
+                        )
                     Patient = patient |> Option.bind snd |> Option.map parsePatient
                     OpenedToken = Some(OpenedToken $"opened-{sid}")
                     KeyThumbprint = Some "t"
@@ -2650,6 +2676,7 @@ module SessionStubTests =
                             "stored"
                             {
                                 Nonce = "n-1"
+                                Ehr = Some(StubPatientData.data "stub-patient")
                                 Data = Some(parsePatient stubPatient)
                                 Expiry = t0 + minutes 2.0
                             }
@@ -2758,10 +2785,17 @@ module SessionStubTests =
                         |> snd
                         |> Expect.equal "spent" (SigningOutcome.DataNotice("n-5", Some(parsePatient stubPatient)))
 
-                        // a notice over another reading than the platform's now does not fit
+                        // a notice told over another read than the EHR's now does not fit
                         let other =
                             { state with
-                                Notices = state.Notices |> Map.add "s-1" { state.Notices["s-1"] with Data = None }
+                                Notices =
+                                    state.Notices
+                                    |> Map.add
+                                        "s-1"
+                                        { state.Notices["s-1"] with
+                                            Ehr = None
+                                            Data = None
+                                        }
                             }
 
                         askWith "n-1" (t0 + seconds 5.0) nonces other "s-1" (plan, token "s-1")
@@ -2873,6 +2907,7 @@ module SessionStubTests =
                             {
                                 Nonce = "n-1"
                                 Digest = StubDatabase.digest (parsed plan)
+                                Ehr = Some(StubPatientData.data "stub-patient")
                                 Reading = Some(parsePatient stubPatient)
                                 Expiry = t0 + minutes 2.0
                             }

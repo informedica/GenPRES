@@ -563,6 +563,17 @@ module SqlSessions =
         )
 
 
+    /// The EHR data of a row, from the two columns that hold its structure version and its JSON:
+    /// both present reads it, both null is none (the read was none, or the row is from before
+    /// the columns), one of them null is a reason. The columns were added later and cannot
+    /// carry the check the patient's have, so the loader holds them to it.
+    let readEhrColumns (r: SqliteDataReader) (version: int) (json: int) =
+        match r.IsDBNull version, r.IsDBNull json with
+        | false, false -> readEhr (r.GetInt32 version) (r.GetString json) |> Result.map Some
+        | true, true -> Ok None
+        | _ -> Error "the EHR data and its JSON structure version are not both present"
+
+
     /// What a Session opened with, the newest row: the token, the id of the version it opened
     /// with, the head it saw, the EHR data it opened on and the patient data it shows, whose
     /// reasons for not reading make the Session unreadable.
@@ -580,13 +591,7 @@ module SqlSessions =
                     | false, false -> readPatient (r.GetInt32 3) (r.GetString 4) |> Result.map Some
                     | _ -> Ok None // a Session that opened on no patient data at all
 
-                // the two columns have no check binding them, as the patient's have, since a
-                // column added later cannot carry one; the loader holds them to it
-                let ehr =
-                    match r.IsDBNull 5, r.IsDBNull 6 with
-                    | false, false -> readEhr (r.GetInt32 5) (r.GetString 6) |> Result.map Some
-                    | true, true -> Ok None // no EHR data, or a row from before the column
-                    | _ -> Error "the EHR data and its JSON structure version are not both present"
+                let ehr = readEhrColumns r 5 6
 
                 {|
                     VersionId = textOrNull r 0
@@ -996,14 +1001,17 @@ module SqlSessions =
                 conn
                 tx
                 """
-                insert into data_notice (session_id, nonce, json_version, data, expiry, at)
-                values ($sid, $n, $jv, $data, $e, $at)
+                insert into data_notice
+                    (session_id, nonce, json_version, data, ehr_json_version, ehr_data, expiry, at)
+                values ($sid, $n, $jv, $data, $ejv, $ehr, $e, $at)
                 """
                 [
                     "$sid", box sid
                     "$n", box notice.Nonce
                     "$jv", nullable (notice.Data |> Option.map (fun _ -> patientJsonWritten))
                     "$data", nullable (notice.Data |> Option.map patientJson)
+                    "$ejv", nullable (notice.Ehr |> Option.map (fun _ -> ehrJsonWritten))
+                    "$ehr", nullable (notice.Ehr |> Option.map ehrJson)
                     "$e", box (ms notice.Expiry)
                     "$at", box (ms at)
                 ]
@@ -1012,8 +1020,9 @@ module SqlSessions =
                 conn
                 tx
                 """
-                insert into challenge (session_id, nonce, digest, json_version, reading, expiry, at)
-                values ($sid, $n, $d, $jv, $reading, $e, $at)
+                insert into challenge
+                    (session_id, nonce, digest, json_version, reading, ehr_json_version, ehr_data, expiry, at)
+                values ($sid, $n, $d, $jv, $reading, $ejv, $ehr, $e, $at)
                 """
                 [
                     "$sid", box sid
@@ -1021,6 +1030,8 @@ module SqlSessions =
                     "$d", box challenge.Digest
                     "$jv", nullable (challenge.Reading |> Option.map (fun _ -> patientJsonWritten))
                     "$reading", nullable (challenge.Reading |> Option.map patientJson)
+                    "$ejv", nullable (challenge.Ehr |> Option.map (fun _ -> ehrJsonWritten))
+                    "$ehr", nullable (challenge.Ehr |> Option.map ehrJson)
                     "$e", box (ms challenge.Expiry)
                     "$at", box (ms at)
                 ]
@@ -1439,12 +1450,14 @@ module SqlSessions =
     // ---- what a Session holds in flight -------------------------------------------------------
 
     /// The live data notice of a Session: the newest row within its two minutes. A reading this
-    /// release cannot read makes the Session unreadable, as an opened-with does.
+    /// release cannot read makes the Session unreadable, as an opened-with does. A notice told
+    /// over patient data before the store kept the read is no live notice: it cannot be matched
+    /// to any read, so the Session tells a fresh one.
     let loadNotice (conn: SqliteConnection) (now: DateTime) (sid: string) =
         rows
             conn
             """
-            select nonce, json_version, data, expiry
+            select nonce, json_version, data, expiry, ehr_json_version, ehr_data
             from data_notice where session_id = $sid order by id desc limit 1
             """
             [ ("$sid", box sid) ]
@@ -1455,9 +1468,11 @@ module SqlSessions =
                     | _ -> Ok None
 
                 data
-                |> Result.map (fun data ->
+                |> Result.bind (fun data -> readEhrColumns r 4 5 |> Result.map (fun ehr -> data, ehr))
+                |> Result.map (fun (data, ehr) ->
                     {
                         Nonce = r.GetString 0
+                        Ehr = ehr
                         Data = data
                         Expiry = at (r.GetInt64 3)
                     }
@@ -1467,6 +1482,9 @@ module SqlSessions =
         |> List.tryHead
         |> Option.filter (fun notice ->
             match notice with
+            // patient data without the read it was projected from: a row from before the
+            // columns, which a read that has since become none would wrongly match
+            | Ok n when n.Data.IsSome && n.Ehr.IsNone -> false
             | Ok n -> now <= n.Expiry
             // an unreadable row is answered whatever its lifetime says: the Session ends on it
             | Error _ -> true
@@ -1480,7 +1498,8 @@ module SqlSessions =
             conn
             """
             select c.nonce, c.digest, c.json_version, c.reading, c.expiry,
-                   exists (select 1 from challenge_spent s where s.challenge_id = c.id)
+                   exists (select 1 from challenge_spent s where s.challenge_id = c.id),
+                   c.ehr_json_version, c.ehr_data
             from challenge c
             where c.session_id = $sid
             order by c.id desc limit 1
@@ -1495,11 +1514,13 @@ module SqlSessions =
                 let spent = r.GetInt64 5 = 1L
 
                 reading
-                |> Result.map (fun reading ->
+                |> Result.bind (fun reading -> readEhrColumns r 6 7 |> Result.map (fun ehr -> reading, ehr))
+                |> Result.map (fun (reading, ehr) ->
                     spent,
                     ({
                         Nonce = r.GetString 0
                         Digest = r.GetString 1
+                        Ehr = ehr
                         Reading = reading
                         Expiry = at (r.GetInt64 4)
                     }
