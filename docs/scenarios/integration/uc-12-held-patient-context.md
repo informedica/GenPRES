@@ -64,8 +64,9 @@ sequenceDiagram
    plan's totals. The orders of the last signed version stay as they were signed.
 2. **User A adds an order.** It is computed on the order plan's patient data. From here the
    order plan has a new order, and the context is held.
-3. **The patient data takes no change.** The fields keep their values, read-only. An attempt to
-   change one, by pointer or keyboard, or the reset, asks why, with two ways out that drop the
+3. **The patient data takes no change.** The fields keep their values and refuse a change: the
+   selects are read-only, the gender and access controls stay enabled and reject it. An attempt
+   to change one, by pointer or keyboard, or the reset, asks why, with two ways out that drop the
    new and changed orders: remove them, or refresh from the EHR (12b). The third way out,
    signing, is the order plan's own button.
 4. **User A signs.** The Client asks for a challenge over the order plan. The Server first

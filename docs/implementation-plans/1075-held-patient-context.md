@@ -5,11 +5,15 @@ signed version adds rests on one patient context. The use case is
 [UC-12](../scenarios/integration/uc-12-held-patient-context.md); this implementation plan builds
 it.
 
+**Built.** The sections from the problem description to the related issues are the plan as it
+was reviewed before the build, and speak of the code as it was then; [As built](#as-built) says
+what landed and where the build deviated from it.
+
 Builds on [the two patient modes](976-two-patient-modes.md), which fixes an identified patient's
 age from the open to the sign, and on the idle end of a Session (#1061).
 
 - [Problem description](#problem-description)
-- [What the code does today](#what-the-code-does-today)
+- [What the code did before the build](#what-the-code-did-before-the-build)
 - [Approaches considered](#approaches-considered)
 - [Chosen approach](#chosen-approach)
 - [Confidence](#confidence)
@@ -27,7 +31,7 @@ the signed version's patient data follow the edit; nothing compares them with th
 order was computed on. So a User can sign orders composed on different data, and the version
 says they rest on the last of it.
 
-## What the code does today
+## What the code did before the build
 
 - **Client.** `updatePatient` in `App.fs` sends `PatientChanged` to the order context and the
   order plan. `OrderPlanMachine.step` puts the new patient on the order plan and asks
@@ -229,8 +233,8 @@ One pull request per step unless the step says two. Everything outside
 
 ## Verification, per step
 
-- Script steps: `dotnet fsi` on the script, checking that Expecto reports `Status: Ok`; the
-  script stays in the repository.
+- Script steps: `dotnet fsi` on the script, checking that Expecto reports `Status: Ok`. As built,
+  each script was removed with its migration.
 - Migration steps: `dotnet run build`, `dotnet run servertests` and
   `dotnet fsi scripts/CheckDependencyRule.fsx`, each checked for its success line.
 - Client steps: `dotnet run clientbuild`, the generated JSX checked for the changed element,
@@ -286,7 +290,7 @@ removed in the same pull request once reviewed. The deviations follow the table.
 | plan | [#1088](https://github.com/informedica/GenPRES/pull/1088) | UC-12 and this document |
 | 1, 2 | [#1090](https://github.com/informedica/GenPRES/pull/1090) | `HeldContextPolicy.fs` in `GenPRES.Client.Core`; the order plan state keeps the contexts of the version last opened or signed, `OrderPlanState.changed` and `contextHeld` |
 | 3 | [#1091](https://github.com/informedica/GenPRES/pull/1091) | signing blocks the order plan: `SigningPolicy.underWay`, `OrderPlanState.transitionWhile`, the sign dialog modal from the sign on; `AskedOver` and the count in `PlanWork.Changed` removed |
-| 4 | [#1092](https://github.com/informedica/GenPRES/pull/1092) | the patient panel held for an identified patient: the fields read-only, an attempt asks with the way out; `App.patientHeld`, `IOrderPlan.Changed` |
+| 4 | [#1092](https://github.com/informedica/GenPRES/pull/1092) | the patient panel held for an identified patient: the fields refuse a change, an attempt asks with the way out; `App.patientHeld`, `IOrderPlan.Changed` |
 | 5, 6 | [#1093](https://github.com/informedica/GenPRES/pull/1093) | the check at the challenge: `Session.changedContexts`, `ruleData`, `differingContexts`, `SigningRefusal.ContextDiffers` |
 | 7a | [#1094](https://github.com/informedica/GenPRES/pull/1094) | `SigningMsg.Accept of held`: held, the notice accepted keeps the held data; the notice's own sentence while held |
 | 7b | not built | the difference from the EHR, a projection when a view needs it |
@@ -303,9 +307,10 @@ removed in the same pull request once reviewed. The deviations follow the table.
   on the branch, then migrated and removed before the merge.
 - **Only an identified patient is held.** Anonymous use and the url mode sign nothing, so they
   have nothing to hold.
-- **No standing notice on the panel.** The fields keep their values, read-only and without a
-  clear cross; an attempt to change one, by pointer or keyboard, or the reset, asks the
-  question. Signing stays the order plan's own button, so the question offers removal and,
+- **No standing notice on the panel.** The fields keep their values and refuse a change: the
+  selects are read-only and without a clear cross, the gender and access controls stay enabled
+  and reject the change; an attempt to change one, by pointer or keyboard, or the reset, asks
+  the question. Signing stays the order plan's own button, so the question offers removal and,
   since step 8, the refresh.
 - **The Server compares domain values, not the Dto**, less the age the Server puts on every
   context and the intake the totals recompute. The round trip of the head through the Client
