@@ -5,11 +5,12 @@
 ///
 /// Four libraries prototyped at once, each shadowed under its own name:
 ///
-/// - GenCORE.Lib `Patients`: the patient id and the name on the core patient; who the patient
-///   is, as `PatientIdentity`, only from a name and a complete birthdate; a partial birthdate
-///   read without throwing. The script keeps the record's other fields on the original type
-///   behind `Patient.data`, so that the original functions stay in use; at migration the two
-///   fields join the record and `data` goes.
+/// - GenCORE.Lib `Patients`: the patient id and the name on the core patient; the birthdate
+///   fully specified, a year, a month and a day, where today the month and the day are
+///   optional; who the patient is, as `PatientIdentity`, from a name and a birthdate. The
+///   script keeps the rest on the original types behind `data`, so that the original
+///   functions stay in use; at migration the two fields join the record, the two options go
+///   from the birthdate and its Dto's validators require them, and `data` goes.
 /// - GenFORM.Lib `GenForm`: `EhrPatientData`, the core patient plus renal function and access;
 ///   `Patient.ofEhr now`, the projection: age from the birthdate at the date, in days; weight
 ///   and height from the calculation values, measured when present; gestational age in days
@@ -57,21 +58,65 @@ module Patients =
     open Informedica.GenCore.Lib.Patients
 
 
+    /// A birthdate, fully specified: a year, a month and a day. A year alone, or a year and
+    /// a month, is no birthdate.
+    type BirthDate =
+        {
+            Year: int<year>
+            Month: int<month>
+            Day: int<day>
+        }
+
+
+    /// The patient's age as the EHR gives it: a birthdate, an age value, or unknown.
+    type PatientAge =
+        | AgeValue of AgeValue
+        | BirthDate of BirthDate
+        | UnknownAge
+
+
     module BirthDate =
 
-        /// Whether the date names a day: a year alone, or a year and a month, is not a
-        /// birthdate a patient is identified by.
-        let isComplete (bd: BirthDate) = bd.Month.IsSome && bd.Day.IsSome
+        let create y m d : BirthDate =
+            {
+                Year = y
+                Month = m
+                Day = d
+            }
 
 
-    module AgeValue =
+        let toDate (bd: BirthDate) = DateTime(int bd.Year, int bd.Month, int bd.Day)
 
-        /// The age at a date from a birthdate, total: a missing month or day counts as the
-        /// first, as getAgeValue already counts it. Today this throws on a partial birthdate.
-        let fromBirthDate now (bd: BirthDate) =
-            now
-            |> Calculations.Age.fromBirthDate (bd |> BirthDate.toDate)
-            |> fun (ys, ms, ws, ds) -> AgeValue.create (Some ys) (Some ms) (Some ws) (Some ds)
+
+        let fromDate (dt: DateTime) =
+            create
+                (dt.Year |> Conversions.yearFromInt)
+                (dt.Month |> Conversions.monthFromInt)
+                (dt.Day |> Conversions.dayFromInt)
+
+
+        /// The record as it is today, every part present. Goes at migration.
+        let data (bd: BirthDate) : Informedica.GenCore.Lib.Patients.BirthDate =
+            BirthDate.create bd.Year (Some bd.Month) (Some bd.Day)
+
+
+    module PatientAge =
+
+        let birthDate bd = bd |> BirthDate
+
+
+        let ageValue av = av |> AgeValue
+
+
+        let unknown = UnknownAge
+
+
+        /// The union as it is today. Goes at migration.
+        let data =
+            function
+            | BirthDate bd -> bd |> BirthDate.data |> PatientAge.birthDate
+            | AgeValue av -> av |> PatientAge.ageValue
+            | UnknownAge -> PatientAge.unknown
 
 
     module Department =
@@ -156,7 +201,7 @@ module Patients =
                 pat.Department
                 pat.Diagnoses
                 pat.Gender
-                pat.Age
+                (pat.Age |> PatientAge.data)
                 pat.Weight
                 pat.Height
                 pat.GestationalAge
@@ -164,10 +209,10 @@ module Patients =
                 pat.VenousAccess
 
 
-        /// The patient's identity: none without a name or without a complete birthdate.
+        /// The patient's identity: none without a name or without a birthdate.
         let identity (pat: Patient) : PatientIdentity option =
             match pat.Age with
-            | BirthDate bd when bd |> BirthDate.isComplete && pat.Name |> String.notEmpty ->
+            | BirthDate bd when pat.Name |> String.notEmpty ->
                 Some
                     {
                         Id = pat.Id
@@ -187,6 +232,11 @@ module Patients =
         /// age, the calculation weight and height and the BSA. Neither the name nor the
         /// birthdate, which it prints as an age.
         let toString dt = data >> Patient.toString dt
+
+
+/// The birthdate module by a name a qualified lookup cannot mistake: from outside the module,
+/// Patients.BirthDate is the union case, not the module. Script only.
+module CoreBirthDate = Patients.BirthDate
 
 
 // ── GenFORM.Lib, Types.fs and Patient.fs ──────────────────────────────────────────────────
@@ -369,7 +419,7 @@ module StubPatientData =
 
 
     /// The stub patient's birthdate: the fifteenth of March, 2016.
-    let birthDate = BirthDate.create 2016<year> (Some 3<month>) (Some 15<day>)
+    let birthDate = CoreBirthDate.create 2016<year> 3<month> 15<day>
 
 
     /// The date the stub's measurements carry: the patient's tenth birthday, so that the
@@ -388,7 +438,7 @@ module StubPatientData =
             Department.unknown
             [||]
             UnknownGender
-            (PatientAge.birthDate birthDate)
+            (Patients.PatientAge.birthDate birthDate)
             (Weight.create [ weight ] None [] (Some weight))
             (Height.create [ height ] None (Some height))
             None
@@ -414,9 +464,9 @@ module SessionMapper =
     let identity (id: Patients.PatientIdentity) : Contract.PatientIdentity =
         {
             Name = id.Name
-            BirthYear = id.BirthDate |> BirthDate.SetGet.getIntYear
-            BirthMonth = id.BirthDate |> BirthDate.SetGet.getIntMonth
-            BirthDay = id.BirthDate |> BirthDate.SetGet.getIntDay
+            BirthYear = int id.BirthDate.Year
+            BirthMonth = int id.BirthDate.Month
+            BirthDay = int id.BirthDate.Day
         }
 
 
@@ -479,15 +529,6 @@ let ageInDays (pat: Informedica.GenForm.Lib.Types.Patient) =
     |> Option.map (ValueUnit.convertTo Units.Time.day >> ValueUnit.getValue >> Array.head)
 
 
-let partialBirthDate = BirthDate.create 2016<year> None None
-
-
-let withBirthDate bd (ehr: GenForm.EhrPatientData) =
-    { ehr with
-        Patient = { ehr.Patient with Age = PatientAge.birthDate bd }
-    }
-
-
 let tests =
     testList
         "EHR data"
@@ -520,7 +561,7 @@ let tests =
                                         { ehr.Patient with
                                             Age =
                                                 AgeValue.create (Some 2<year>) (Some 3<month>) None (Some 4<day>)
-                                                |> PatientAge.ageValue
+                                                |> Patients.PatientAge.ageValue
                                         }
                                 }
 
@@ -624,8 +665,16 @@ let tests =
                         |> Expect.equal "the id alone" (Some("no-data", None, None))
                     }
 
-                    test "a partial birthdate opens anonymous, with the data" {
-                        let ehr = StubPatientData.data "p1" |> withBirthDate partialBirthDate
+                    test "an age value in place of a birthdate opens anonymous, with the data" {
+                        let ehr = StubPatientData.data "p1"
+
+                        let ehr =
+                            { ehr with
+                                Patient =
+                                    { ehr.Patient with
+                                        Age = AgeValue.ten |> Patients.PatientAge.ageValue
+                                    }
+                            }
 
                         let opened: OpenedSession =
                             { openedOn tenthBirthday "p1" with
@@ -663,24 +712,21 @@ let tests =
                 ]
 
             testList
-                "a partial birthdate"
+                "the birthdate"
                 [
-                    test "is read without throwing, the missing parts counted as the first" {
-                        partialBirthDate
-                        |> Patients.AgeValue.fromBirthDate tenthBirthday
-                        |> AgeValue.getAgeInDays
-                        |> Expect.equal "ten years and the days from January to March" (3650<day> + 74<day>)
-                    }
-
-                    test "throws today" {
-                        (fun () -> partialBirthDate |> AgeValue.fromBirthDate tenthBirthday |> ignore)
-                        |> Expect.throws "the day zero of the month zero"
-                    }
-
-                    test "a complete birthdate is read as before" {
+                    test "is a day, and round-trips through a date" {
                         StubPatientData.birthDate
-                        |> Patients.AgeValue.fromBirthDate tenthBirthday
-                        |> Expect.equal "as today" (StubPatientData.birthDate |> AgeValue.fromBirthDate tenthBirthday)
+                        |> CoreBirthDate.toDate
+                        |> fun dt -> dt, dt |> CoreBirthDate.fromDate
+                        |> Expect.equal
+                            "the fifteenth of March, 2016"
+                            (DateTime(2016, 3, 15), StubPatientData.birthDate)
+                    }
+
+                    test "is the record of today with every part present" {
+                        StubPatientData.birthDate
+                        |> CoreBirthDate.data
+                        |> Expect.equal "as today" (BirthDate.create 2016<year> (Some 3<month>) (Some 15<day>))
                     }
                 ]
 
