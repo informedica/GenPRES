@@ -29,6 +29,7 @@ module SessionMachineTests =
                 |> Option.map (fun p ->
                     {
                         PatientId = "p"
+                        Identity = None
                         Patient = Some p
                     }
                 )

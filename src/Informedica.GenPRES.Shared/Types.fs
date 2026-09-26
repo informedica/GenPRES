@@ -614,11 +614,26 @@ module Types =
         }
 
 
-    /// The Patient a Session is for: its id, and its data as read from the platform at the
-    /// launch, else as signed last; `None` when neither has any, so the User enters it.
+    /// Who the patient of a Session is, as the EHR identifies them: the full name and the
+    /// birthdate as three integers, as the url already carries one. Shown in full: the user
+    /// sits at the EHR that launched the Session.
+    type PatientIdentity =
+        {
+            Name: string
+            BirthYear: int
+            BirthMonth: int
+            BirthDay: int
+        }
+
+
+    /// The Patient a Session is for: its id, who it is when the EHR said, and its data as read
+    /// from the EHR at the launch, else as signed last; the data is `None` when neither has
+    /// any, so the User enters it.
     type PatientContext =
         {
             PatientId: string
+            /// None for a patient the EHR did not identify: an anonymous Session
+            Identity: PatientIdentity option
             Patient: Patient option
         }
 

@@ -649,18 +649,20 @@ module Session =
                 [ RecordLaunch record ]
 
 
-    /// The patient data a Session opens on: the PatientDataPlatform's reading, the source of
-    /// truth, when there is one (the adapter answers none for a reading that is no patient);
-    /// without one, the patient data the head of the record was signed on, the last seen, when
-    /// the head can be read; from nothing, none, so that the User enters it and a data outage
-    /// does not block prescribing.
+    /// The patient data a Session opens on: the EHR's data, the source of truth, projected at
+    /// the date of the open, when there is any (the adapter answers none for a reading that is
+    /// no patient); without any, the patient data the head of the record was signed on, the
+    /// last seen, when the head can be read; from nothing, none, so that the User enters it
+    /// and a data outage does not block prescribing.
     let sessionPatient
-        (patientData: string -> GenForm.Patient option)
-        (patientId: string)
+        (now: DateTime)
+        (patientData: PatientDataPort)
+        (ehr: GenForm.EhrPatientData option)
         (head: StoredVersion option)
         : GenForm.Patient option
         =
-        patientData patientId
+        ehr
+        |> Option.map (patientData.patient now)
         |> Option.orElse (
             head
             |> Option.bind (fun h ->
@@ -681,7 +683,7 @@ module Session =
     let private openWith
         (now: DateTime)
         (newId: unit -> string)
-        (patientData: string -> GenForm.Patient option)
+        (patientData: PatientDataPort)
         (patientId: string)
         (key: PublicKey)
         (user: UserContext)
@@ -689,12 +691,14 @@ module Session =
         =
         let id = newId ()
         let head = headOf patientId state
+        let ehr = patientData.read patientId
 
         let opened: OpenedSession =
             {
                 User = Some user
                 PatientId = Some patientId
-                Patient = sessionPatient patientData patientId head
+                EhrData = ehr
+                Patient = sessionPatient now patientData ehr head
                 OpenedToken = Some(OpenedToken $"opened-{id}")
                 KeyThumbprint = Some(PublicKey.thumbprint key)
                 Head = head
@@ -896,7 +900,7 @@ module Session =
         (newId: unit -> string)
         (newCode: unit -> string)
         (codeMac: string -> byte[])
-        (patientData: string -> GenForm.Patient option)
+        (patientData: PatientDataPort)
         (send: Mail -> unit)
         (record: LaunchRecord, identity: BrowserIdentity, standing: UserStanding)
         (state: State)
@@ -928,7 +932,7 @@ module Session =
         (codeMac: string -> byte[])
         (redeemCode: string -> BrowserIdentity option)
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: string -> GenForm.Patient option)
+        (patientData: PatientDataPort)
         (send: Mail -> unit)
         (state: State)
         (cb: Callback)
@@ -1004,7 +1008,7 @@ module Session =
         (newSalt: int -> byte[])
         (codeMac: string -> byte[])
         (standing: BrowserIdentity -> UserStanding option)
-        (patientData: string -> GenForm.Patient option)
+        (patientData: PatientDataPort)
         (send: Mail -> unit)
         (attempt: string)
         (code: string)
@@ -1268,7 +1272,7 @@ module Session =
         (now: DateTime)
         (newId: unit -> string)
         (digest: GenOrder.OrderPlan -> string)
-        (patientData: string -> GenForm.Patient option)
+        (patientData: PatientDataPort)
         (sid: string)
         (plan: GenOrder.OrderPlan, opened: OpenedToken, notice: string option)
         (state: State)
@@ -1290,9 +1294,9 @@ module Session =
                 elif record.Opened.OpenedToken <> Some opened then
                     refuse SigningRefusal.StaleToken
                 else
-                    // read again, as at the open; the adapter answers none for a reading that
-                    // is no patient
-                    let current = patientData patientId
+                    // read again, as at the open, and projected at this date; the adapter
+                    // answers none for a reading that is no patient
+                    let current = patientData.read patientId |> Option.map (patientData.patient now)
 
                     let accepted =
                         notice

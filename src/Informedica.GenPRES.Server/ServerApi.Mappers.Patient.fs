@@ -220,19 +220,18 @@ module Patient =
         |> Result.defaultValue pat
 
 
-    /// The platform port with every reading estimated: the inbound boundary, so no reading
-    /// with an age alone reaches the rules without a weight and a height. Unestimated while
-    /// the tables are not loaded.
+    /// The EHR port with every projection estimated: the inbound boundary, so no reading with
+    /// an age alone reaches the rules without a weight and a height. Unestimated while the
+    /// tables are not loaded.
     let estimating (nv: unit -> NormalValues option) (port: PatientDataPort) : PatientDataPort =
         { port with
-            read =
-                fun pid ->
-                    port.read pid
-                    |> Option.map (fun pat ->
-                        match nv () with
-                        | Some nv -> pat |> estimated nv
-                        | None -> pat
-                    )
+            patient =
+                fun now ehr ->
+                    let pat = port.patient now ehr
+
+                    match nv () with
+                    | Some nv -> pat |> estimated nv
+                    | None -> pat
         }
 
 

@@ -106,10 +106,16 @@ type IdentityProviderPort =
 type UserRegistryPort = { standing: BrowserIdentity -> UserStanding option }
 
 
-/// The PatientDataPlatform, read once at the launch and again at a challenge, as the domain's
-/// patient: the adapter parses what the platform gives, and a reading that is no patient is
-/// no reading. None is not a refusal: the Session opens without imported data.
-type PatientDataPort = { read: string -> GenForm.Patient option }
+/// The EHR, read once at the launch and again at a challenge: what it returns for a patient
+/// id, as the domain's patient with the identity on it, or none, and the patient the rules see
+/// from it at a date. The adapter parses what the EHR gives, and a reading that is no patient
+/// is no reading; none is not a refusal: the Session opens without imported data.
+type PatientDataPort =
+    {
+        read: string -> GenForm.EhrPatientData option
+        /// the GenFORM patient the EHR data is at a date; the composition root adds the estimate
+        patient: System.DateTime -> GenForm.EhrPatientData -> GenForm.Patient
+    }
 
 
 /// One mail from the Server to a User: a confirmation code, a notice that the PIN was set,
@@ -208,7 +214,10 @@ type OpenedSession =
         User: UserContext option
         /// None = launch without an active patient
         PatientId: string option
-        /// the data shown for the patient: the platform's reading, else the head's, else none
+        /// the EHR data as read at the launch; none for no-data and for a launch without EHR
+        EhrData: GenForm.EhrPatientData option
+        /// the data shown for the patient: the EHR data projected at the open, else the head's,
+        /// else none
         Patient: GenForm.Patient option
         OpenedToken: OpenedToken option
         /// RFC 7638 thumbprint of the public key this Session will sign requests with

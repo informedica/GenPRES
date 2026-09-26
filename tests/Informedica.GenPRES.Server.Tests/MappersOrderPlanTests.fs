@@ -195,6 +195,7 @@ let tests =
                     {
                         User = Some prescriber
                         PatientId = Some "stub-patient"
+                        EhrData = None
                         Patient =
                             StubPatientData.patient
                             |> Patient.parse
@@ -215,7 +216,24 @@ let tests =
                     (Some
                         {
                             PatientId = "stub-patient"
+                            Identity = None
                             Patient = Some StubPatientData.patient
+                        })
+
+                let identified =
+                    { stored with EhrData = Some(StubPatientData.data "stub-patient") }
+                    |> SessionMapper.toOpened false
+
+                identified.PatientContext
+                |> Option.bind _.Identity
+                |> Expect.equal
+                    "the identity, the birthdate as three integers"
+                    (Some
+                        {
+                            Name = StubPatientData.name
+                            BirthYear = 2016
+                            BirthMonth = 3
+                            BirthDay = 15
                         })
 
                 opened.OpenedToken |> Expect.equal "token" (Some(OpenedToken "opened-1"))

@@ -48,6 +48,17 @@ module StubAdapters =
     let private notStubbed _ = raise (System.NotImplementedException "not stubbed")
 
 
+    /// The stub EHR with its projection at the stub patient's tenth birthday whatever the
+    /// clock, so that the ten-year reading the fixtures state is the reading at every date the
+    /// suites run at. The real port projects at the date it is given.
+    let patientData: PatientDataPort =
+        { StubPatientData.port with patient = fun _ ehr -> StubPatientData.port.patient StubPatientData.measuredOn ehr }
+
+
+    /// An EHR that has nothing for any id.
+    let noPatientData: PatientDataPort = { patientData with read = fun _ -> None }
+
+
     let formularyAlwaysOk (returnForm: Formulary) : FormularyPort =
         {
             getFormulary = fun _ -> async { return Ok returnForm }
@@ -490,6 +501,7 @@ module SessionStubTests =
                 {
                     User = user
                     PatientId = patient |> Option.map fst
+                    EhrData = None
                     Patient = patient |> Option.bind snd |> Option.map parsePatient
                     OpenedToken = Some(OpenedToken $"opened-{sid}")
                     KeyThumbprint = Some "t"
@@ -555,7 +567,7 @@ module SessionStubTests =
                 (fun launch -> LaunchSeal.verify clock.Value sealKey launch)
                 directory.idp
                 directory.registry
-                StubPatientData.port
+                StubAdapters.patientData
                 outbox.port
                 seeded
 
@@ -662,7 +674,7 @@ module SessionStubTests =
                 codeMac
                 directory.idp.redeem
                 directory.registry.standing
-                StubPatientData.port.read
+                StubAdapters.patientData
                 (StubMail.make ()).port.send
                 state
                 cb
@@ -1063,7 +1075,7 @@ module SessionStubTests =
                                 codeMac
                                 d.idp.redeem
                                 d.registry.standing
-                                StubPatientData.port.read
+                                StubAdapters.patientData
                                 (StubMail.make ()).port.send
                                 state
                                 cb
@@ -1191,7 +1203,7 @@ module SessionStubTests =
                                 (verifyAt t0)
                                 d.idp
                                 d.registry
-                                StubPatientData.port
+                                StubAdapters.patientData
                                 (StubMail.make ()).port
                                 seeded
 
@@ -1606,7 +1618,7 @@ module SessionStubTests =
                 codeMac
                 f.d.idp.redeem
                 f.d.registry.standing
-                StubPatientData.port.read
+                StubAdapters.patientData
                 f.outbox.port.send
                 state
                 cb
@@ -1635,7 +1647,7 @@ module SessionStubTests =
                 salts
                 codeMac
                 f.d.registry.standing
-                StubPatientData.port.read
+                StubAdapters.patientData
                 f.outbox.port.send
                 attempt
                 code
@@ -2012,7 +2024,7 @@ module SessionStubTests =
                                 salts
                                 codeMac
                                 moved
-                                StubPatientData.port.read
+                                StubAdapters.patientData
                                 f.outbox.port.send
                                 attempt
                                 code
@@ -2044,7 +2056,7 @@ module SessionStubTests =
                                 salts
                                 codeMac
                                 reader
-                                StubPatientData.port.read
+                                StubAdapters.patientData
                                 f.outbox.port.send
                                 attempt
                                 (mailedCode f)
@@ -2071,7 +2083,7 @@ module SessionStubTests =
                                 salts
                                 codeMac
                                 (fun _ -> None)
-                                StubPatientData.port.read
+                                StubAdapters.patientData
                                 f.outbox.port.send
                                 attempt
                                 code
@@ -2496,7 +2508,7 @@ module SessionStubTests =
                     now
                     nonces
                     StubDatabase.digest
-                    StubPatientData.port.read
+                    StubAdapters.patientData
                     sid
                     (parsed plan, opened, None)
                     state
@@ -2506,7 +2518,7 @@ module SessionStubTests =
                     now
                     nonces
                     StubDatabase.digest
-                    StubPatientData.port.read
+                    StubAdapters.patientData
                     sid
                     (parsed plan, opened, Some notice)
                     state
@@ -2560,7 +2572,7 @@ module SessionStubTests =
                                 t0
                                 (counter "n")
                                 StubDatabase.digest
-                                (fun _ -> None)
+                                StubAdapters.noPatientData
                                 "s-1"
                                 (parsed plan, token "s-1", None)
                                 (stateOf [ opened ] [])

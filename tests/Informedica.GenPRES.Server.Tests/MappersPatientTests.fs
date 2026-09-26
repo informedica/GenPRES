@@ -246,15 +246,27 @@ let estimateTests =
                 |> Expect.equal "unchanged" Patient.patient
             }
 
-            test "the port wrapped: a reading arrives estimated, and unestimated while the tables are not loaded" {
-                let read = Patient.patient |> Patient.setAge [ Years 2 ]
-                let port: ServerApi.PatientDataPort = { read = fun _ -> Some read }
+            test "the port wrapped: a projection arrives estimated, and unestimated while the tables are not loaded" {
+                // the stub patient with its birthdate and no measurement at all
+                let ehr = ServerApi.StubPatientData.data "any"
 
-                (port |> ServerApi.Patient.estimating (fun () -> Some tables)).read "any"
-                |> Option.map _.Weight.IsSome
-                |> Expect.equal "estimated" (Some true)
+                let bare =
+                    { ehr with
+                        Patient =
+                            { ehr.Patient with
+                                Weight = Informedica.GenCore.Lib.Patients.Weight.unknown
+                                Height = Informedica.GenCore.Lib.Patients.Height.unknown
+                            }
+                    }
 
-                (port |> ServerApi.Patient.estimating (fun () -> None)).read "any"
-                |> Expect.equal "as read" (Some read)
+                let port = ServerApi.StubPatientData.port
+                let at = ServerApi.StubPatientData.measuredOn
+
+                (port |> ServerApi.Patient.estimating (fun () -> Some tables)).patient at bare
+                |> _.Weight.IsSome
+                |> Expect.isTrue "estimated"
+
+                (port |> ServerApi.Patient.estimating (fun () -> None)).patient at bare
+                |> Expect.equal "as projected" (port.patient at bare)
             }
         ]

@@ -150,12 +150,13 @@ module StubDirectory =
         }
 
 
-/// The PatientDataPlatform stub: one fixed patient for every PatientId, so a launch fills the
-/// patient panel from the platform, except that no-data has no record at all, so the
-/// Session opens on what was signed last, or on nothing.
+/// The EHR stub: one fixed patient for every PatientId, so a launch fills the patient panel
+/// from the EHR, except that no-data has no record at all, so the Session opens on what was
+/// signed last, or on nothing.
 module StubPatientData =
 
-    /// The stub's reading: ten years, 32 kg, 140 cm, nothing else known.
+    /// The stub's reading projected at its patient's tenth birthday, as the contract model:
+    /// ten years, 32 kg and 140 cm measured, nothing else known.
     let patient: Patient =
         Shared.Models.Patient.create
             (Some(Shared.Measures.toYear 10))
@@ -173,16 +174,50 @@ module StubPatientData =
         |> Option.defaultValue Shared.Models.Patient.empty
 
 
-    /// The reading parsed at the adapter: what the platform gives is a patient, or it is no
-    /// reading.
+    open Informedica.GenCore.Lib
+    open Informedica.GenCore.Lib.Patients
+
+
+    /// The stub patient's name. A stub, and shown as one.
+    let name = "Stub Testpatiënt"
+
+
+    /// The stub patient's birthdate: the fifteenth of March, 2016.
+    let birthDate =
+        BirthDate.create (Conversions.yearFromInt 2016) (Conversions.monthFromInt 3) (Conversions.dayFromInt 15)
+
+
+    /// The date the stub's measurements carry: the patient's tenth birthday, so that the
+    /// projection at that date is the reading above.
+    let measuredOn = DateTime(2026, 3, 15)
+
+
+    /// The stub's EHR data for an id: the fixed patient under that id, nothing else known.
+    let data (pid: string) : Informedica.GenForm.Lib.Types.EhrPatientData =
+        let weight = WeightAtDate.create measuredOn (WeightValue.weightInKg 32m)
+        let height = HeightAtDate.create measuredOn (HeightValue.heightInCm 140m)
+
+        Patient.create
+            pid
+            name
+            Department.unknown
+            [||]
+            UnknownGender
+            (PatientAge.birthDate birthDate)
+            (Weight.create [ weight ] None [] (Some weight))
+            (Height.create [ height ] None (Some height))
+            None
+            UnknownEnteral
+            UnknownVenous
+        |> fun pat -> Informedica.GenForm.Lib.EhrPatientData.create pat None []
+
+
+    /// The EHR data for an id, none for no-data; the patient the rules see is the projection
+    /// at the date, unestimated here.
     let port: PatientDataPort =
         {
-            read =
-                fun pid ->
-                    if pid = "no-data" then
-                        None
-                    else
-                        patient |> Patient.parse |> Result.toOption
+            read = fun pid -> if pid = "no-data" then None else Some(data pid)
+            patient = Informedica.GenForm.Lib.Patient.ofEhr
         }
 
 
@@ -577,7 +612,7 @@ module StubDatabase =
                     newId
                     newCode
                     codeMac
-                    patientData.read
+                    patientData
                     mail.send
                     (record, identity, standing)
 
@@ -611,7 +646,7 @@ module StubDatabase =
                                         newSalt
                                         codeMac
                                         registry.standing
-                                        patientData.read
+                                        patientData
                                         mail.send
                                         attempt
                                         code
@@ -630,7 +665,7 @@ module StubDatabase =
                                 (Slice.Session sid)
                                 (challengeWith
                                     persisting
-                                    (fun s -> Session.challenge (now ()) newId digest patientData.read sid request s))
+                                    (fun s -> Session.challenge (now ()) newId digest patientData sid request s))
                     }
             submit =
                 fun sid signature ->
