@@ -113,6 +113,8 @@ type ISigning =
     abstract Signing: SigningMachine.SigningView
     // ask a challenge over the plan as shown
     abstract Sign: OrderPlan -> unit
+    // whether the patient context is held: a notice accepted then signs over the data as it was
+    abstract Held: bool
     // the data notice accepted
     abstract Accept: unit -> unit
     // the PIN; the idempotency key is minted here, once per confirmation

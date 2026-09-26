@@ -1844,6 +1844,8 @@ type private ConcreteAppEnv
         member _.Sign plan =
             SigningMsg(SigningMsg.Sign(plan, Guid.NewGuid().ToString())) |> dispatch
 
+        member _.Held = patientHeld state
+
         // held, the plan keeps the data its new and changed orders were composed on
         member _.Accept() = SigningMsg(SigningMsg.Accept(patientHeld state)) |> dispatch
 

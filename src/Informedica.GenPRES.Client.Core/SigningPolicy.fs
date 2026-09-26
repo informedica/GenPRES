@@ -21,6 +21,8 @@ let english (term: Terms) : string =
     | Terms.``Signing Signed`` -> "Version {0} was signed by {1}."
     | Terms.``Signing Data Changed`` ->
         "The patient data changed since the session opened. It is shown as it stands now; continue to sign over it, or cancel."
+    | Terms.``Signing Data Changed Held`` ->
+        "The patient data changed since the session opened, but the plan has new or changed orders composed on the data as it was. Continue to sign over the data as it was; the new data applies after the sign. Or cancel."
     | Terms.``Signing Data Unverified`` ->
         "The patient data could not be verified. Continue to sign over the data the session opened with, or cancel."
     | Terms.``Signing Refusal No Session`` -> "There is no session to sign in. Open GenPRES again from MainEHR."
@@ -85,9 +87,11 @@ let versionOpenedSentence (tr: Terms -> string) (head: OrderPlanHead) =
     |> SessionGatePolicy.fill [ string head.No; head.By.DisplayName ]
 
 
-/// What the data notice says, with or without a reading.
-let noticeSentence (tr: Terms -> string) (notice: DataNotice) =
+/// What the data notice says, with or without a reading. With a reading while the patient
+/// context is held, the plan is signed over the data as it was, and the notice says so.
+let noticeSentence (tr: Terms -> string) (held: bool) (notice: DataNotice) =
     match notice.Data with
+    | Some _ when held -> tr Terms.``Signing Data Changed Held``
     | Some _ -> tr Terms.``Signing Data Changed``
     | None -> tr Terms.``Signing Data Unverified``
 
