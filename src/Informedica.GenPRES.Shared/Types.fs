@@ -780,6 +780,9 @@ module Types =
         | StoreFailed
         // the plan as sent cannot be read as an order plan; nothing to sign
         | PlanUnreadable
+        // an order new or changed since the head states another patient context than the plan;
+        // at the challenge, so it costs no PIN attempt
+        | ContextDiffers
 
 
     /// The patient data as it stands, told before a challenge is issued when it is not what

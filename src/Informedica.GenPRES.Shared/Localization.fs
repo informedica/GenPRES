@@ -232,6 +232,7 @@ type Terms =
     | ``Signing Refusal Locked``
     | ``Signing Refusal Store Failed``
     | ``Signing Refusal Plan Unreadable``
+    | ``Signing Refusal Context Differs``
     | ``Signing Send Failed``
     // the record moved on, told once per version; the button that takes the version up;
     // what is told once it is open
