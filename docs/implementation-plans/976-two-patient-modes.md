@@ -4,8 +4,8 @@ Second half of G5, the patient panel: two patient modes, decided by the launch.
 
 - **Identified**: a specific person the EHR has data for, with a patient id, a name and a
   birthdate.
-- **Anonymous**: a patient entered at the keyboard or by url parameters, or a launch the EHR has
-  no data for.
+- **Anonymous**: a patient entered at the keyboard or by url parameters, or a launch for which
+  neither the EHR nor a signed version of the record has an identity.
 
 In this plan, *EHR data* means what the EHR returns for a patient id. Builds on
 [the patient panel plan](986-the-patient-what-is-entered-estimated-hidden.md); see also
@@ -152,8 +152,11 @@ calculation behind it used, and the next round starts on a fresh age.
 - *One mode, age read-only whenever EHR data is present*: rejected in #976; EHR data carries an
   age today, so it would go stale, and the identity would still be missing.
 
-The chosen rule has no bound: a Session open thirty hours without a sign keeps a neonate at
-yesterday's age, and nothing says so. See [To settle in review](#to-settle-in-review).
+The chosen rule has one bound: a Session left idle ends after an hour (#1061), so a browser
+left behind cannot hold yesterday's age for whoever picks it up. A Session in use across a day
+keeps the age it opened on, and signs on it; the project accepts that, since working on one
+order plan for more than an hour is extremely rare, and states it here rather than adding a
+check to the signing path.
 
 ### What EHR data carries
 
@@ -254,6 +257,22 @@ mapper. A version read later names the patient on its own, and its plan is what 
   would name only an id, and a Session opened from the head (EHR answering none) would have no
   identity.
 
+### What the store holds of EHR data
+
+**Chosen: new nullable columns beside the three patient JSON columns, the projection column
+untouched.** `session_opened_with`, `challenge` and `data_notice` each gain an `ehr_data` column,
+the EHR data as its own JSON under its own structure version, and `session_opened_with` the
+identity columns beside it; `patient`, `reading` and `data` keep holding the projection as
+today. A release before this one ignores the new columns and reads the projection as before, so
+a rollback by one release is safe without a downgrade step, and no expand and contract is
+needed.
+
+- *A new structure version of the three patient columns*: rejected. ADR-0008 section 6 has the
+  first release still write the old shape through a downgrade step and write nothing the old
+  shape cannot hold before the release after, so the identity and the EHR data would not be
+  stored for two releases; and an expand that writes the new shape at once, as an earlier
+  draft of this plan had, breaks the rollback by one release that the rule protects.
+
 ### How the identity reaches the client
 
 **Chosen: on `SessionOpened.PatientContext`, beside the id and the projection, as a contract
@@ -291,10 +310,11 @@ episode. An age-only update: see [To settle in review](#to-settle-in-review).
   plan JSON, the identity. Right after the commit the Session's age is computed again, the
   projection and estimate follow, and the client receives the Session's patient with the fresh
   token.
-- The three stored patient columns move to a new structure version (core patient Dto beside
-  rule-only data): expand first (write the new shape, read both), then contract in a separate
-  step after a release that reads the new shape has shipped. ADR-0007 section 3 adds GenCORE to
-  the working-state types, in the expand pull request.
+- The store keeps the three patient JSON columns as they are and gains, beside them, the EHR
+  data as its own JSON column under its own structure version and the identity columns:
+  additive, nullable, ignored by the release before, so no expand and contract and a rollback by
+  one release reads the projection as before. ADR-0007 section 3 adds GenCORE to the
+  working-state types in the same pull request.
 - The contract carries the identity on `PatientContext` and `SignedOrderPlan`, the birthdate as
   three integers. The title bar shows it beside the user, for a Reader and a Prescriber. The
   panel is in identified mode when the context carries an identity, not merely when a Session
@@ -345,9 +365,10 @@ than four areas is split into two pull requests.
      direct `ProjectReference` to `GenCORE.Lib` instead of the path through `ZForm.Lib`
      (project graph in `ARCHITECTURE.md` regenerated, dependency check run); the identity into
      `GenPRES.Shared`; port, stub and mapper into the server; tests.
-   - Store expand: `session_opened_with.patient` under a new structure version, the core
-     patient's Dto beside the rule-only data, EHR data kept beside the projection; new shape
-     written, both read (ADR-0008 section 6). ADR-0007 section 3 amended to include GenCORE.
+   - Store: one migration adds `session_opened_with.ehr_data`, the EHR data as the core
+     patient's Dto beside the rule-only data under its own structure version, and the
+     identity columns beside it; `patient` keeps the projection unchanged. ADR-0007 section 3
+     amended to include GenCORE.
 
 3. **Age at the open (script).** `sessionPatient` shadowed: EHR data projected at `now` (the
    clock the Session already takes), so an identified patient opens on the birthdate's age and
@@ -360,8 +381,8 @@ than four areas is split into two pull requests.
    the one for the computed age; an unchanged read gives a challenge, a changed read a data
    notice.
 
-4. **Open migrated**, tests in the Server test project; `challenge.reading` and
-   `data_notice.data` expanded the same way (new shape written, both read).
+4. **Open migrated**, tests in the Server test project; `challenge` and `data_notice` gain an
+   `ehr_data` column the same way, `reading` and `data` keeping the projection.
 
 5. **Age on each request (script).** `aged` per command family; `Compute.bound` takes it beside
    `name` and `gate`, gets the Session's age from `seen` and applies it, no clock read;
@@ -396,7 +417,8 @@ than four areas is split into two pull requests.
    birthdate, and its plan with the projection the rules saw at the Session's age, its JSON
    under the unchanged structure version; one signed without an identity reads back with none;
    a row written before the migration reads as none; a Session opened from the head (EHR
-   answering none) gets the head's identity; after a commit with the clock a day later, the
+   answering none) gets the head's identity and is identified; after a commit with the clock a
+   day later, the
    Session's age is one day more and the version's is not; after a commit where the EHR reports
    another weight, the Session keeps the weight the user measured.
 
@@ -406,17 +428,13 @@ than four areas is split into two pull requests.
 
 10. **Title bar and panel.** `Components/TitleBar.fs` shows name, birthdate and id beside the
     user when the context has an identity, for a Reader and a Prescriber. `Views/Patient.fs`
-    chooses its mode by that identity, not by an open Session (a `no-data` launch opens a
-    Session without one). Identified mode: age fields `readOnly`, identity and age kept through
-    reset, summary line names the patient, other fields unchanged. The signing machine's accept
-    applies the merge to the draft; the session machine takes the patient from `Submitted` as it
-    does at a resume. Anonymous mode is unchanged for the anonymous url and the `no-data`
-    launch. Closes #976.
-
-11. **Old shapes contracted**, after a release that reads the new shapes has shipped: the three
-    patient columns are read in the new shape only; the old readers are removed. Per ADR-0008
-    section 6 expand and contract are separate releases, so this step waits for the release in
-    between.
+    chooses its mode by that identity, not by an open Session: a `no-data` launch with no
+    signed version opens a Session without one, and one with a signed head opens identified
+    from the head. Identified mode: age fields `readOnly`, identity and age kept through reset,
+    summary line names the patient, other fields unchanged. The signing machine's accept applies
+    the merge to the draft; the session machine takes the patient from `Submitted` as it does
+    at a resume. Anonymous mode is unchanged for the anonymous url and the `no-data` launch
+    without a head. Closes #976.
 
 ## Verification, per step
 
@@ -433,21 +451,15 @@ Additional checks:
 | Step | Check |
 |------|-------|
 | 1–2 | The server log of a stub launch contains neither the name nor the birthdate. |
-| 2 | A development database written before the structure version bump reads back after it. |
+| 2 | A development database written before the migration reads back after it, and one written after it reads back in the release before, the new columns ignored. |
 | 3–4 | Stub launch as Prescriber; a challenge requested with no EHR change returns a challenge, not a data notice; the same with the clock a day after the open. |
 | 5–6 | A test compares the parsed patient of a request without a Session before and after, field for field, for every family that carries one; a version signed in a stub Session reads back with the Session's age and the typed weight. |
 | 7 | Ten panel edits to the same weight add one row. |
 | 8–9 | After a signature the versions table has the name and birthdate in its columns and the plan JSON under its previous structure version; after the migration older rows read as none. |
-| 10 | In the browser: a stub launch as Prescriber and as Reader shows the name and birthdate in the title bar and a read-only age; the anonymous url and the `no-data` launch show the panel as today, age editable; a weight typed in identified mode survives a reload, an accepted data notice and a signature, and is in the signed version; after the signature the panel shows the age for the current date. |
-| 11 | A development database written by the previous release reads back after the contract. |
+| 10 | In the browser: a stub launch as Prescriber and as Reader shows the name and birthdate in the title bar and a read-only age; the anonymous url and the `no-data` launch without a head show the panel as today, age editable; a weight typed in identified mode survives a reload, an accepted data notice and a signature, and is in the signed version; after the signature the panel shows the age for the current date. |
 
 ## To settle in review
 
-- **A day turning without a sign.** Should the challenge return a data notice when the current
-  age differs from the Session's, as it does for an EHR change, so a long Session cannot sign a
-  neonate at yesterday's age unaware? It would reuse the existing notice. The plan holds the age
-  until the sign. The bound itself is #1061: a Session left idle for an hour ends, so a Session
-  left behind cannot hold an age across the day.
 - **Core patient or wrapper.** The reviewer recommended a server-only record as the smaller
   change; the plan uses the core patient and closes its gaps in step 1. Confirm.
 - **Measurement write.** Validated, on change, in its own row, as planned; or at the challenge
@@ -461,8 +473,8 @@ Additional checks:
 
 ## Related, not a member
 
-- **#1061** a Session left idle for an hour ends: the bound the held age needs, so that a
-  Session left behind cannot carry an age across the day.
+- **#1061** a Session left idle for an hour ends, so that a Session left behind cannot carry an
+  age across the day; a Session in use across a day is accepted, as rare.
 - **#718** a weight alone, or a height alone, as the minimum; waits for a growth table.
 - **#598** client testing: would let step 10 test both modes without the browser, and let the
   client remember a measurement itself.
