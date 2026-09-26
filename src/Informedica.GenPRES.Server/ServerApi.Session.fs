@@ -1218,7 +1218,8 @@ module Session =
     /// is not the Session's: nothing to say. Beside the notice, the age the Session holds for
     /// an identified patient, which every patient the request carries is put at. What the
     /// request's patient measures is recorded for a Session with a Patient: a row per value
-    /// that differs from the one the Session stood on, held from here on.
+    /// that differs from the one the Session stood on, held from here on; a challenge standing
+    /// over the data before is spent.
     let seen
         (now: DateTime)
         (sid: string)
@@ -1249,6 +1250,13 @@ module Session =
                     Measurements.record now shown record.Opened.Measured draft
                 | _ -> record.Opened.Measured, []
 
+            // a challenge over the data before a measurement changed must not be signed: it
+            // is spent, as a data notice spends it, and the next request asks for a fresh one
+            let spent =
+                match rows, state.Challenges |> Map.tryFind sid with
+                | _ :: _, Some c -> [ SpendChallenge(sid, c.Nonce, now) ]
+                | _ -> []
+
             let state =
                 { state with
                     Sessions =
@@ -1256,9 +1264,14 @@ module Session =
                         |> Map.change
                             sid
                             (Option.map (fun r -> { r with Opened = { r.Opened with Measured = measured } }))
+                    Challenges =
+                        if rows.IsEmpty then
+                            state.Challenges
+                        else
+                            state.Challenges |> Map.remove sid
                 }
 
-            state, (told, age sid state), writes @ (rows |> List.map (fun m -> WriteMeasurement(sid, m, now)))
+            state, (told, age sid state), writes @ spent @ (rows |> List.map (fun m -> WriteMeasurement(sid, m, now)))
 
 
     /// Version id becomes what the Session opened with. No Session, an anonymous one or one
