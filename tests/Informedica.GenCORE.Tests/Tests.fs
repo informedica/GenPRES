@@ -1096,10 +1096,15 @@ module Tests =
                                 })
                     }
 
-                    test "no name, or an age value in place of a birthdate, is no identity" {
+                    test "no id, no name, or an age value in place of a birthdate, is no identity" {
                         let bd = BirthDate.create 2016<year> 3<month> 15<day>
 
                         [
+                            // entered by hand: a name and a birthdate, no id
+                            { Patient.unknown with
+                                Name = "Stub Testpatiënt"
+                                Age = PatientAge.birthDate bd
+                            }
                             { Patient.unknown with
                                 Id = "p1"
                                 Age = PatientAge.birthDate bd

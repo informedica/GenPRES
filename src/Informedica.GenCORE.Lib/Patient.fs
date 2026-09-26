@@ -1688,10 +1688,11 @@ module Patient =
         let getAgeValue dt (pat: Patient) = pat.Age |> PatientAge.getAgeValue dt
 
 
-    /// The patient's identity: none without a name or without a birthdate.
+    /// The patient's identity: none without an id, a name or a birthdate. A patient entered
+    /// by hand has no id, so a name and a birthdate alone identify nobody.
     let identity (pat: Patient) : PatientIdentity option =
         match pat.Age with
-        | BirthDate bd when pat.Name |> String.notEmpty ->
+        | BirthDate bd when pat.Id |> String.notEmpty && pat.Name |> String.notEmpty ->
             Some
                 {
                     Id = pat.Id
