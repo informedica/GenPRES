@@ -1,5 +1,5 @@
 ---
-last_commit_released: 1a9664804acb0be1b69cea9ea7619bf5d1209ccd
+last_commit_released: 60eecb42254166e97e589ef502bfd96539659712
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,75 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.34 - 2026-09-26
+
+### 🚀 Features
+
+* *(api)* Prove what a patient setter keeps, as a script ([e188da2b](https://github.com/informedica/GenPRES/commit/e188da2bfb7fbac03b6303204a36872ae6d89f09))
+* *(client)* The patient after the sign, as a script ([85cbf589](https://github.com/informedica/GenPRES/commit/85cbf5892579d112ff8aa65ab53105e669913789))
+* *(client)* The identified patient in the title bar and the panel ([e06b9a97](https://github.com/informedica/GenPRES/commit/e06b9a976454acfb015771aef43af81fe572af1a))
+* *(client)* The patient id in the panel, the name in the title bar ([de40e9de](https://github.com/informedica/GenPRES/commit/de40e9deb14155e752c99f906c3f5bcc120b291a))
+* *(gencore)* The patient with the identity on it ([7af02f91](https://github.com/informedica/GenPRES/commit/7af02f91798b21d3cbc0227a83bda1e77289c860))
+* *(genform)* Prove what no department means, as a script ([698c5bf3](https://github.com/informedica/GenPRES/commit/698c5bf3983667cd2cacd8dd02877afa277a1497))
+* *(genform)* The department default from one source, as a script ([092ca259](https://github.com/informedica/GenPRES/commit/092ca259d43b6d152bc48e7aa79a20fd04989703))
+* *(genform)* Prove that an adult rule matches adults only, as a script ([fe079be0](https://github.com/informedica/GenPRES/commit/fe079be014a14dd5b9931f1dd86f6260b05d90ec))
+* *(genform)* An adult rule matches adults only ([248f19b3](https://github.com/informedica/GenPRES/commit/248f19b3174165e528ae03ba5fb2fda374dbcebd))
+* *(genform)* The EHR's patient data and its projection ([b262d5a4](https://github.com/informedica/GenPRES/commit/b262d5a41e3c91832129e34573eb42342683ff99))
+* *(mcp)* Prove the department input checked, as a script ([80a8cd3d](https://github.com/informedica/GenPRES/commit/80a8cd3df301913cc1fdbf38aba4db55f3560462))
+* *(mcp)* Check the department input against the rules' names ([5cf316fe](https://github.com/informedica/GenPRES/commit/5cf316fe6f9a0e872b25fccad6dfa31bebcdf423))
+* *(server)* Prove the estimate on the server, as a script ([ed1b57d4](https://github.com/informedica/GenPRES/commit/ed1b57d428244952210b2a16a6ae1a35cd0defd7))
+* *(server)* Estimate weight and height on the server ([a02912d1](https://github.com/informedica/GenPRES/commit/a02912d13b086844fc47488a286c7fc7d4ff585d))
+* *(server)* The EHR's patient data as the core patient ([ea426c54](https://github.com/informedica/GenPRES/commit/ea426c54504866e6d087db0703582f9ecf3f0904))
+* *(server)* The core birthdate fully specified ([2184d71f](https://github.com/informedica/GenPRES/commit/2184d71f8e285ab075acfcbc907271fc173f1cc8))
+* *(server)* The Session opens on the EHR's patient data ([3352531b](https://github.com/informedica/GenPRES/commit/3352531b6bbfb6770a58612a3d8ddb738b03444c))
+* *(server)* The store keeps the EHR data a Session opened on ([5a6858de](https://github.com/informedica/GenPRES/commit/5a6858ded2419ce8a487e6697cc0fe6974b7ac16))
+* *(server)* What the challenge compares, as read ([b91c09d4](https://github.com/informedica/GenPRES/commit/b91c09d4e5e665bbd94bb4900af27fe7f2ba6a28))
+* *(server)* The challenge compares the EHR data as read ([18f0aa5d](https://github.com/informedica/GenPRES/commit/18f0aa5d41de2f1f0c6b3f05262d9e060d00e90c))
+* *(server)* The age on each request, as a script ([ffcd67fb](https://github.com/informedica/GenPRES/commit/ffcd67fb53821ca5f5b54d5409df10a8f1888480))
+* *(server)* The age on each request ([fbdf2904](https://github.com/informedica/GenPRES/commit/fbdf290472a7cd46bbcbee95d08e245ec59217c8))
+* *(server)* The measurement recorded, as a script ([0e7ec358](https://github.com/informedica/GenPRES/commit/0e7ec358c53e793ffd6b0c109f969fb9f8972fd7))
+* *(server)* What the Session holds of the user's measurements ([7a656406](https://github.com/informedica/GenPRES/commit/7a656406997b6edb7d93e11b37d917aaed3cc946))
+* *(server)* The measurement recorded on each request ([61b35386](https://github.com/informedica/GenPRES/commit/61b3538616917682c64d82148cc17d9d4e08359d))
+* *(server)* The version's identity and the age after the sign, as a script ([ae0ea812](https://github.com/informedica/GenPRES/commit/ae0ea812e9f0b2a97fecee78bf983809554b8ffd))
+* *(server)* The version names its patient ([dde8d4d5](https://github.com/informedica/GenPRES/commit/dde8d4d541f7aeecd0e1103e7d53d343e6ae846e))
+* *(server)* The age after the sign ([8e967ec1](https://github.com/informedica/GenPRES/commit/8e967ec1f8fabf07f977c9f63155cb4acba0bed4))
+* *(server)* The version's identity in the record's columns ([f017c5d8](https://github.com/informedica/GenPRES/commit/f017c5d868de5c786d7ad71061920e8fd6def856))
+* *(ui)* Ask before the patient panel's reset, on a bounded button ([439f7dfc](https://github.com/informedica/GenPRES/commit/439f7dfcc37911e8daed4a5745829aa92b770ad9))
+* *(ui)* Show the department in force in the patient panel ([f2f4a62c](https://github.com/informedica/GenPRES/commit/f2f4a62c094fe0cbc39e14a3eb32645cc4df3935))
+* *(ui)* The department chosen in the patient panel ([66255b06](https://github.com/informedica/GenPRES/commit/66255b066dc631b30d1d941eb6d081850d9f0f1d))
+
+### 🐞 Bug Fixes
+
+* *(api)* Keep the measured weight and height on an age edit ([ac34ed4e](https://github.com/informedica/GenPRES/commit/ac34ed4e5f0b4dbe8d4046e07f7fc290022b3ae7))
+* *(api)* Estimate by the age past the neonatal tables' reach ([3747b100](https://github.com/informedica/GenPRES/commit/3747b100958fd35207ccd3a3e2f0d62d2279e120))
+* *(api)* Judge each neonatal table by its own reach ([bee44739](https://github.com/informedica/GenPRES/commit/bee44739b6b85397422dd747d8b18135b16a760a))
+* *(api)* Answer no estimate for a sex the table has no row for ([bdef5775](https://github.com/informedica/GenPRES/commit/bdef5775634bd82345d01af70d9d5a68ae5cfe89))
+* *(api)* Keep measured values on a gestational-age or measure edit ([44b98e59](https://github.com/informedica/GenPRES/commit/44b98e5961e7f0f53180ca11b064b0187cf656b2))
+* *(client)* Whom the version names, the name as text, the block capped ([df7a9833](https://github.com/informedica/GenPRES/commit/df7a98333d7b695056ff3a33b36cd39d80ee5f55))
+* *(client)* The patient's name in the title bar only ([eefbd5d0](https://github.com/informedica/GenPRES/commit/eefbd5d01959fab0c9440e31aef199ce70a4dab8))
+* *(client)* Fit the order plan above the totals bar ([332a68fa](https://github.com/informedica/GenPRES/commit/332a68faf903ba52cc4d48e2b6e5319bf89a4b9e))
+* *(gencore)* An identity needs the EHR's id ([ce4b54b9](https://github.com/informedica/GenPRES/commit/ce4b54b92d1054b842acebd4f03b473576e5addf))
+* *(gencore)* A ward named after its kind keeps its name ([983c3d55](https://github.com/informedica/GenPRES/commit/983c3d55b4c76469b844a2ab46ca94d46a1be151))
+* *(genform)* A patient with no department matches no ward rule ([418e98f7](https://github.com/informedica/GenPRES/commit/418e98f71a0f5c4ada024e6d3a06a5f960aa57ab))
+* *(genform)* One department default, applied where rules match ([20b0d6cd](https://github.com/informedica/GenPRES/commit/20b0d6cd069185a7b39f3f4588926b6900487d77))
+* *(genform)* The departments from the dose rules too, exact name first ([7f411eca](https://github.com/informedica/GenPRES/commit/7f411eca55a0f7333a5f5af0d16bb7ec029f6e90))
+* *(genform)* The adult threshold in days, as a patient's age is written ([285fbccb](https://github.com/informedica/GenPRES/commit/285fbccbe61790ebbbca22fa4b89fcc6690b84ec))
+* *(mcp)* Name the measure the estimate left blank, and why ([5fef67ab](https://github.com/informedica/GenPRES/commit/5fef67ab0cc33d17eb9ca4924218a54e5dff53c9))
+* *(server)* Refuse, not answer nothing, when the estimate is blank ([e0ca4e08](https://github.com/informedica/GenPRES/commit/e0ca4e086d4b2a7085fcb6809ff4e2aa1ec7fe64))
+* *(server)* The challenge projects at the date of the open ([5082af81](https://github.com/informedica/GenPRES/commit/5082af81fb938dbbf1ac15da4106ddd1d09f5aee))
+* *(server)* A nameless ward and the EHR columns read as written ([927a15a4](https://github.com/informedica/GenPRES/commit/927a15a4bbc5cad1c6769e6fc66550487abb583c))
+* *(server)* A notice from before the read columns is not held ([f3a33e1f](https://github.com/informedica/GenPRES/commit/f3a33e1f59ad8289bb2b0fc08ece6bc32b818ff4))
+* *(server)* A gestational age row has its weeks and its days ([d70c2af9](https://github.com/informedica/GenPRES/commit/d70c2af9c9d8948b7a1ba18a9371654a4dea33b6))
+* *(server)* The version names the patient of the read signed on ([b7e69c1a](https://github.com/informedica/GenPRES/commit/b7e69c1ae8683e785529b45614244f1edf9fc247))
+* *(server)* A measurement change spends the standing challenge ([4b382ae9](https://github.com/informedica/GenPRES/commit/4b382ae9e3fc4062fbfdd97f49c26024cbf42938))
+* *(server)* Hold the identity columns to the identity's rules ([040b58fe](https://github.com/informedica/GenPRES/commit/040b58febda3ea425f66039baffd08864e0de659))
+* *(server)* Pass the measured weight as a decimal ([060de3f1](https://github.com/informedica/GenPRES/commit/060de3f1e40709f88214b9d2624ff16c2e1e5784))
+* *(ui)* Name the launch, not the url, for a session's department ([1a5de91f](https://github.com/informedica/GenPRES/commit/1a5de91fa3d6f95871450c2cc162092878cafbf0))
+* *(ui)* Import Box in the patient panel's access block ([38b81a37](https://github.com/informedica/GenPRES/commit/38b81a37cc3991008c03796919096fbe044bbbc1))
+* *(ui)* Keep the department in force among the panel's options ([b2c4b970](https://github.com/informedica/GenPRES/commit/b2c4b970f5933ff443f954cce22a9640838790c5))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/1a9664804acb0be1b69cea9ea7619bf5d1209ccd..60eecb42254166e97e589ef502bfd96539659712)</small></strong>
 
 ## 0.1.2-alpha.33 - 2026-09-25
 
