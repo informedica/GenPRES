@@ -1551,12 +1551,13 @@ module Session =
                                             }
 
                                         let token = OpenedToken $"opened-{newId ()}"
-                                        let whom = OpenedSession.identity record.Opened
 
-                                        // the Session's patient is the EHR's reading at the challenge,
-                                        // else the data just signed, so a resume shows what a relaunch
-                                        // would; the EHR data is the read just signed on
+                                        // the EHR data is the read just signed on, and the identity the
+                                        // version names is that read's; the Session's patient is the
+                                        // EHR's reading at the challenge, else the data just signed, so
+                                        // a resume shows what a relaunch would
                                         let ehr = Reads.afterCommit challenge record.Opened.EhrData
+                                        let whom = OpenedSession.identity { record.Opened with EhrData = ehr }
                                         let patient = challenge.Reading |> Option.defaultValue version.Plan.Patient
 
                                         let opened =

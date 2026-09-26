@@ -910,11 +910,12 @@ let flightOverSqlite =
 
                         let canonical outcome =
                             match outcome with
-                            | SigningOutcome.Submitted(v, _, token, _) -> SqlDatabase.toJson v, token
+                            | SigningOutcome.Submitted(v, whom, token, patient) ->
+                                SqlDatabase.toJson v, whom, token, patient
                             | other -> failtest $"expected Submitted, got %A{other}"
 
                         canonical again
-                        |> Expect.equal "the same version and the same token" (canonical answer)
+                        |> Expect.equal "the same version, identity, token and patient" (canonical answer)
 
                         rows cs |> Expect.equal "one row in the record" 1L
                     }

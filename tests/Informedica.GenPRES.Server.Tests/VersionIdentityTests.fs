@@ -176,6 +176,18 @@ let tests =
                             (identity, identity, Some version.Id, Some token, record.Opened.Patient)
                     }
 
+                    test "the version names the patient of the read signed on: a notice accepted over another name" {
+                        let renamed = { ehr with Patient = { ehr.Patient with Name = "Renamed" } }
+
+                        let record, _, whom, _, _ =
+                            signedAt (opened "s-1" (Some ehr) None) (challengeOver (Some renamed))
+
+                        (whom |> Option.map _.Name, record.Opened |> OpenedSession.identity |> Option.map _.Name)
+                        |> Expect.equal
+                            "the name of the read signed on, on the version and on the Session"
+                            (Some "Renamed", Some "Renamed")
+                    }
+
                     test "none in a Session without an identity" {
                         let _, _, whom, _, _ =
                             signedAt (opened "s-1" (Some unidentified) None) (challengeOver (Some unidentified))

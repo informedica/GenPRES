@@ -1642,6 +1642,7 @@ module SqlSessions =
     let loadAnswer
         (conn: SqliteConnection)
         (headOf: string -> StoredVersion option)
+        (held: GenForm.Patient option)
         (sid: string)
         (key: string)
         : (SigningOutcome * DateTime) option
@@ -1663,11 +1664,12 @@ module SqlSessions =
 
                 let outcome =
                     if word = "submitted" then
-                        // the Session's patient at the answer is not kept: a retry after a lost
-                        // answer is answered with the plan just signed
+                        // the Session's patient is the one the commit wrote with this answer, as
+                        // the Session holds it; the plan just signed when it holds none
                         match versionId |> Option.bind headOf, token with
                         | Some(StoredVersion.Readable(v, whom)), Some t ->
-                            Some(SigningOutcome.Submitted(v, whom, OpenedToken t, v.Plan.Patient))
+                            let patient = held |> Option.defaultValue v.Plan.Patient
+                            Some(SigningOutcome.Submitted(v, whom, OpenedToken t, patient))
                         // the version it names cannot be read: there is no answer to repeat
                         | _ -> None
                     elif word.StartsWith "refused:" then
@@ -1960,8 +1962,10 @@ module SqlSessions =
                     |> Seq.collect snd
                     |> Seq.tryFind (fun v -> StoredVersion.id v = id)
 
+                let held = state.Sessions |> Map.tryFind sid |> Option.bind _.Opened.Patient
+
                 // the answer this key was already given, when it was given one at all
-                match loadAnswer conn headOf sid key with
+                match loadAnswer conn headOf held sid key with
                 | Some answer -> { state with Answered = state.Answered |> Map.add (sid, key) answer }
                 | None -> { state with Answered = state.Answered |> Map.remove (sid, key) }
             )
