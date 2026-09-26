@@ -2,12 +2,9 @@
 
 **Date**: 2026-09-24
 
-**Status**: Accepted
+**Status**: Accepted, amended (2026-09-26); § 4 removed
 
-**Related Issues**: [#979 — Record the three UX design rules as an ADR](https://github.com/informedica/GenPRES/issues/979),
-[#404](https://github.com/informedica/GenPRES/issues/404) and [#394](https://github.com/informedica/GenPRES/issues/394) (the button convention),
-[#976](https://github.com/informedica/GenPRES/issues/976), [#977](https://github.com/informedica/GenPRES/issues/977),
-[#978](https://github.com/informedica/GenPRES/issues/978) (decisions taken under the rules)
+**Related Issues**: [#979 — Record the three UX design rules as an ADR](https://github.com/informedica/GenPRES/issues/979)
 
 **Related Discussions**: [#477 — UX design: 3 basic rules](https://github.com/informedica/GenPRES/discussions/477),
 [#406 — UI and UX design](https://github.com/informedica/GenPRES/discussions/406)
@@ -91,46 +88,20 @@ Losing does not mean being ignored. A rule that loses is honored in whatever is 
 carries its reason (control), the kept interaction is a single explicit act rather than a form
 (efficiency), the made choice is one a site can change (control).
 
-### 4. Decisions already taken under the rules
+### 4. Decisions taken under the rules — amended 2026-09-26
 
-These are the worked applications. Each was decided by the ranking above and is recorded here so
-that the rules can be read through their consequences.
-
-**The call to action is the prominent button and goes on the right; the reset is secondary and
-goes on the left.** ([#404](https://github.com/informedica/GenPRES/issues/404),
-[#394](https://github.com/informedica/GenPRES/issues/394)) The button that completes the task is
-contained and right; the one that discards is outlined and left; both are bounded rather than
-full-width. The convention had to be stated as prominence *and* position, because the two were in
-conflict in the existing screens: the dialog frame puts the confirming button on the right, the TPN
-frames put it on the left of the outlined one. Under rule 1 the discarding action must not be the
-one you click by default, and under rule 2 the completing action must be; a single convention applied
-everywhere serves both, and the frames that contradict it follow it.
-
-**When no dose can be shown, the page stays and says why.**
-([#977](https://github.com/informedica/GenPRES/issues/977)) The user who picks a medication for
-which no dose rule exists is not moved to another page. The filter they built stays, and the
-reason is shown in place: what was missing, and whom to tell. The page switch loses the user's
-place and their reason at once, which rule 3 forbids and rule 2 does not buy back — rebuilding the
-filter to try another route costs more than the switch saves. The reason the server sends is data
-the client renders, not text the client matches on.
-
-**Which fields the dose dialog shows, in what order, and which one to start from is
-configuration the server sends.** ([#978](https://github.com/informedica/GenPRES/issues/978))
-The client renders the list it is given, one entry per order variable, and has no case of its own
-per dose type. Which field a clinician reaches for first differs by dose type, by setting and by
-habit; settled in the client it is settled once for everyone, in code, and every change is a
-client release. Rule 3 places the decision with the site, not with the interface; rule 2 is what
-makes the lead field worth marking at all.
-
-**The patient panel is identified or anonymous, decided by the launch, and an identified
-patient's age is computed rather than entered.**
-([#976](https://github.com/informedica/GenPRES/issues/976)) A launched patient is a specific
-person with a birthdate: their age is a fact the server computes on each request, since a
-neonate's age moves by the day, and the title bar says who they are. Weight, height and
-gestational age stay editable and a measured value is kept, because a bedside measurement is the
-better value. Without a launched patient the panel is the one that is filled in. Rule 1 makes the
-computed age unwritable — a stale or mistyped age is a dosing error — and rule 2 makes it
-unnecessary to type; rule 3 keeps the measured values in the user's hands.
+This section recorded four decisions taken under the rules, as worked applications: the button
+convention, the in-place reason when no dose can be shown, the dose dialog's field list as
+configuration, and the two patient modes. It is removed. An ADR states the rules; a decision
+taken under them is a domain decision, and it is recorded where it is taken and can change
+without touching the rules: in its issue, in the plan that builds it, and in that plan's
+as-built section once built. The four live in
+[#404](https://github.com/informedica/GenPRES/issues/404) and
+[#394](https://github.com/informedica/GenPRES/issues/394),
+[#977](https://github.com/informedica/GenPRES/issues/977),
+[#978](https://github.com/informedica/GenPRES/issues/978) and
+[#976](https://github.com/informedica/GenPRES/issues/976), and in
+[the grouping index](../implementation-plans/ux-issue-grouping.md).
 
 ## Consequences
 
@@ -140,11 +111,9 @@ unnecessary to type; rule 3 keeps the measured values in the user's hands.
   from taste, and an author can defend one the same way.
 - A design that has to break a rule says so, names the rule and says what is given up. It is not
   silently inconsistent with the other screens.
-- The four decisions in section 4 are settled for every group that touches them: the button
-  convention is applied once in the shared action bar rather than per page, and the three others
-  are the design input their group's plan starts from.
-- A further decision taken under the rules is added here as an amendment when it is worth
-  recording — when it would otherwise be re-argued in the next group — not for every screen.
+- A decision taken under the rules is not recorded here. It is recorded in its issue and in the
+  plan that builds it, which cites the rule it serves by number; this ADR changes only when a
+  rule does.
 - Discussion [#477](https://github.com/informedica/GenPRES/discussions/477) is closed with a link
   to this ADR. The wider UI and UX thread
   ([#406](https://github.com/informedica/GenPRES/discussions/406)) stays open as a discussion.
@@ -169,9 +138,11 @@ unnecessary to type; rule 3 keeps the measured values in the user's hands.
 - **Write the rules into `CONTRIBUTING.md`.** Rejected for the reason
   [ADR-0000](0000-documentation-rules.md) gives for its own rules: how the project decides is
   itself a decision, and it belongs with the decisions.
-- **Record only the ranking and leave the applications to the plans.** Rejected: a ranking that is
-  never shown being applied is recited rather than used, and the four decisions of section 4 would
-  then be re-argued in each group that meets them.
+- **Record the applications here beside the ranking.** The first version did, in a section 4 of
+  four worked decisions, so that the rules could be read through their consequences. Reversed on
+  2026-09-26: a decision under the rules is a domain decision, and holding it here made the ADR
+  the place to amend when the decision moved, which is the plan's and the issue's job. The
+  plans show the rules being applied, each citing the rule it serves.
 
 ## References
 
