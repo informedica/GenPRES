@@ -46,27 +46,29 @@ module SigningCommand =
     /// A signing command for the Session the cookie names. No cookie, no Session: refused
     /// before the port is asked. The plan's patient and that of every context in it put at the
     /// age the Session holds and made at the inbound boundary, then the plan parsed into the
-    /// domain; a plan the domain does not read is refused before the port is asked. Writes no
-    /// cookie.
+    /// domain; a plan the domain does not read is refused before the port is asked. A store
+    /// that fails while the age is asked answers StoreFailed. Writes no cookie.
     let processCmd (env: AppEnv) (cookie: SessionCookie) (cmd: SigningCommand) =
         async {
             match cookie.read () with
             | None -> return SigningResponse.Refused SigningRefusal.NoSession
             | Some id ->
-                let! age = env.session.age id
-                let cmd = cmd |> aged age
+                let! answer = env.session.age id
+                let cmd = cmd |> aged (answer |> Result.defaultValue None)
 
                 let plan =
                     match cmd with
                     | SigningCommand.RequestSignChallenge(plan, _, _) -> plan
                     | SigningCommand.Submit submission -> submission.Plan
 
-                if
+                match answer with
+                | Error refusal -> return SigningResponse.Refused refusal
+                | Ok _ when
                     ServerApi.Patient.ofPlan plan
                     |> List.exists (ServerApi.Patient.patient >> _.IsError)
-                then
+                    ->
                     return SigningResponse.Refused SigningRefusal.NoPatient
-                else
+                | Ok _ ->
                     match plan |> OrderPlanCommand.parsePlan with
                     | Error _ -> return SigningResponse.Refused SigningRefusal.PlanUnreadable
                     | Ok parsed ->

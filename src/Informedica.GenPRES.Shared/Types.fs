@@ -707,8 +707,7 @@ module Types =
 
 
     /// Why a Session ended other than by the User closing it. The server says it once, at
-    /// the next request, and the client shows it. The idle and absolute lifetimes (Rule 10)
-    /// are not built yet.
+    /// the next request, and the client shows it. The absolute lifetime is not built yet.
     [<RequireQualifiedAccess>]
     type SessionEnding =
         | SupersededByLaunch
@@ -717,6 +716,9 @@ module Types =
         // the store holds this Session's working state in a form this release cannot read;
         // a relaunch opens a fresh one
         | Unreadable
+        // no request for the idle lifetime: a Session left behind, whose data and age a
+        // relaunch reads again
+        | Idle
 
 
     /// What the client learns when its launch is waiting on a PIN: whom to greet and

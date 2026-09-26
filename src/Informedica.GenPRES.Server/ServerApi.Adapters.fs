@@ -208,7 +208,7 @@ module Adapters =
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ _ -> async { return None, None }
-            age = fun _ -> async { return None }
+            age = fun _ -> async { return Ok None }
             openVersion = fun _ _ -> async { return None }
         }
 
@@ -260,6 +260,7 @@ module Adapters =
     let makeAppEnvWith
         (demo: bool)
         (store: string option)
+        (sessionIdle: TimeSpan)
         (launchKey: LaunchSeal.Key)
         (directory: StubDirectory.Directory)
         (mail: MailPort)
@@ -351,6 +352,7 @@ module Adapters =
                             (fun () -> DateTime.UtcNow)
 
                 makeSessionPort
+                    sessionIdle
                     (fun () -> DateTime.UtcNow)
                     PublicKey.randomId
                     // the confirmation code and the salt from the CSPRNG, the code mac under
@@ -392,6 +394,7 @@ module Adapters =
         makeAppEnvWith
             demo
             None
+            Session.defaultIdleLifetime
             (LaunchSeal.newKey System.Security.Cryptography.RandomNumberGenerator.GetBytes)
             (StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId)
             (StubMail.make ()).port

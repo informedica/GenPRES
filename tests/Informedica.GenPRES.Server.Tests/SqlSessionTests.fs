@@ -350,7 +350,13 @@ let sessionTests =
 
             test "the endings that are acts, and an acknowledged one told no more" {
                 withSessions (fun cs ->
-                    for sid, ending in [ "s-1", "wrong-pin-limit"; "s-2", "unreadable"; "s-3", "closed" ] do
+                    for sid, ending in
+                        [
+                            "s-1", "wrong-pin-limit"
+                            "s-2", "unreadable"
+                            "s-3", "closed"
+                            "s-4", "idle"
+                        ] do
                         insertSession cs sid (Some $"user-%s{sid}") "prescriber"
                         insertOpenedWith cs sid None 1 (Some patientJson)
 
@@ -375,7 +381,17 @@ let sessionTests =
                     match loadedSession cs "s-3" with
                     | Some(Choice2Of2 None) -> ()
                     | other -> failtest $"expected a closed Session, told nothing, got %A{other}"
+
+                    match loadedSession cs "s-4" with
+                    | Some(Choice2Of2(Some(SessionEnding.Idle, _))) -> ()
+                    | other -> failtest $"expected ended idle, got %A{other}"
                 )
+            }
+
+            test "an idle ending is written under the word it is read back from" {
+                Session.StoredEnding.Ended SessionEnding.Idle
+                |> SqlSessions.endingWord
+                |> Expect.equal "the word the loader reads" "idle"
             }
 
             test "an ending the User acknowledged leaves no Session, whatever it ended of" {

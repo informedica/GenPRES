@@ -188,6 +188,8 @@ type Terms =
     | ``Session Ending Pin Limit``
     // the Session ended because the store holds it in a form this release cannot read
     | ``Session Ending Unreadable``
+    // the Session ended after an hour, or the site's lifetime, without a request
+    | ``Session Ending Idle``
     // the enrolment form: title, body with {0} the name and {1} the hinted
     // mail address, the three field labels, the button, and one sentence per refusal
     | ``Session Gate Enrolment``

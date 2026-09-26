@@ -29,6 +29,7 @@ let portOver (store: StubDatabase.SessionStore) =
     let port =
         StubDatabase.makeSessionPortWith
             store
+            Session.defaultIdleLifetime
             (fun () -> t0)
             (fun () -> $"id-{Guid.NewGuid()}")
             (codes ())
@@ -554,6 +555,7 @@ let tests =
                             Adapters.makeAppEnvWith
                                 true
                                 (Some cs)
+                                Session.defaultIdleLifetime
                                 key
                                 directory
                                 (StubMail.make ()).port
@@ -606,7 +608,15 @@ let tests =
                 let directory = StubDirectory.make (fun () -> DateTime.UtcNow) PublicKey.randomId
                 let key = LaunchSeal.newKey Security.Cryptography.RandomNumberGenerator.GetBytes
 
-                let env = Adapters.makeAppEnvWith true None key directory (StubMail.make ()).port (unloadedProvider ())
+                let env =
+                    Adapters.makeAppEnvWith
+                        true
+                        None
+                        Session.defaultIdleLifetime
+                        key
+                        directory
+                        (StubMail.make ()).port
+                        (unloadedProvider ())
 
                 async {
                     let! sid, opened = openLive key env.session directory "prescriber"

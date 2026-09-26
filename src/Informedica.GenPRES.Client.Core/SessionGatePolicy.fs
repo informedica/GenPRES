@@ -75,6 +75,8 @@ let english (term: Terms) =
     | Terms.``Session Ending Superseded`` -> "Another launch of yours opened a newer session, and this one was closed."
     | Terms.``Session Ending Pin Limit`` -> "The PIN was entered wrong three times, and signing is locked for a while."
     | Terms.``Session Ending Unreadable`` -> "This session could not be read back after an update of GenPRES."
+    | Terms.``Session Ending Idle`` ->
+        "This session was not used for too long and was closed, so that nothing is prescribed on patient data read long ago."
     | Terms.``Session Gate Enrolment`` -> "Set a PIN to continue"
     | Terms.``Session Gate Enrolment Text`` ->
         "Welcome, {0}. A confirmation code was mailed to {1}. Enter it together with the PIN of your choice: four to six digits."
@@ -247,6 +249,7 @@ let gateFor (tr: Terms -> string) (session: SessionView) : Gate option =
                             | SessionEnding.SupersededByLaunch -> tr Terms.``Session Ending Superseded``
                             | SessionEnding.WrongPinLimit -> tr Terms.``Session Ending Pin Limit``
                             | SessionEnding.Unreadable -> tr Terms.``Session Ending Unreadable``
+                            | SessionEnding.Idle -> tr Terms.``Session Ending Idle``
                             tr Terms.``Session Relaunch``
                         ]
                 Busy = false

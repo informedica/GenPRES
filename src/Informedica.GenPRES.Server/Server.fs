@@ -51,6 +51,9 @@ module Config =
             Lang: string option
             /// GENPRES_DB_CONNECTION, the SQLite session store; None when unset or blank
             DbConnection: string option
+            /// GENPRES_SESSION_IDLE_MINUTES, raw; None when unset or blank. Parsed by
+            /// parseSessionIdle.
+            SessionIdle: string option
         }
 
 
@@ -210,15 +213,32 @@ module Config =
         | _ -> Ok()
 
 
+    /// GENPRES_SESSION_IDLE_MINUTES as the idle lifetime of a Session: unset or blank is the
+    /// default of an hour, a positive whole number of minutes is taken, and anything else is
+    /// the message the server refuses to start with, so that a lifetime mistyped does not end
+    /// Sessions at a value nobody chose.
+    let parseSessionIdle (raw: string option) : Result<System.TimeSpan, string> =
+        match raw |> Option.map _.Trim() |> nonBlank with
+        | None -> Ok ServerApi.Session.defaultIdleLifetime
+        | Some s ->
+            match System.Int32.TryParse s with
+            | true, minutes when minutes > 0 -> Ok(System.TimeSpan.FromMinutes(float minutes))
+            | _ ->
+                Error
+                    $"GENPRES_SESSION_IDLE_MINUTES is '%s{s}', not a positive whole number of minutes. \
+                      Leave it unset for the default of %i{int ServerApi.Session.defaultIdleLifetime.TotalMinutes} minutes."
+
+
     /// <summary>
-    /// Every start-up guard in one place: the session store, the production password policy, the
-    /// language, then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries
+    /// Every start-up guard in one place: the session store, the idle lifetime, the production
+    /// password policy, the language, then the presence of <c>GENPRES_URL_ID</c>. <c>Ok</c> carries
     /// the URL ID the host needs and the warnings to print; <c>Error</c> is the
     /// message the server exits with.
     /// </summary>
     let validateStartup (settings: Settings) : Result<Startup, string> =
         validateStore settings.IsProd settings.DbConnection
-        |> Result.bind (fun () -> validateProductionPassword settings.IsProd settings.Password)
+        |> Result.bind (fun () -> parseSessionIdle settings.SessionIdle)
+        |> Result.bind (fun _ -> validateProductionPassword settings.IsProd settings.Password)
         |> Result.bind (fun warning ->
             language settings
             |> Result.bind (fun _ ->
@@ -266,6 +286,7 @@ module Config =
             Debug = getEnv "GENPRES_DEBUG" |> Option.defaultValue "i"
             Lang = getEnv "GENPRES_LANG" |> nonBlank
             DbConnection = getEnv "GENPRES_DB_CONNECTION" |> nonBlank
+            SessionIdle = getEnv "GENPRES_SESSION_IDLE_MINUTES" |> nonBlank
         }
 
 
@@ -285,6 +306,7 @@ GENPRES_DB_CONNECTION = {if settings.DbConnection.IsSome then
                              "set (SQLite session store)"
                          else
                              "unset (in-memory session store)"}
+GENPRES_SESSION_IDLE_MINUTES = {settings.SessionIdle |> Option.defaultValue "unset (an hour)"}
 
 === System Info ===
 
@@ -644,6 +666,9 @@ module Host =
                 Adapters.makeAppEnvWith
                     (not settings.IsProd)
                     settings.DbConnection
+                    // validated at the start, so the fallback is dead
+                    (Config.parseSessionIdle settings.SessionIdle
+                     |> Result.defaultValue Session.defaultIdleLifetime)
                     launchKey
                     directory
                     mail.port

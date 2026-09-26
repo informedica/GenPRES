@@ -554,6 +554,7 @@ GENPRES_LANG=nl                # Default UI language: en, nl, fr, de, es, it
 GENPRES_PASSWORD=<password>    # Admin password, see policy below
 GENPRES_ROOT=<path>            # Directory holding data/; unset resolves from .env, then data/zindex, then cwd
 GENPRES_DB_CONNECTION=<conn>   # SQLite session store; unset = in-memory
+GENPRES_SESSION_IDLE_MINUTES=60 # A Session with no request this long ends; unset = 60, not a positive whole number refuses the start
 GENPRES_TRUSTED_PROXIES=<ips>  # Comma-separated IPs whose X-Forwarded-For is believed; unset = loopback only
 SERVER_PORT=8085               # Kestrel's listen port (no GENPRES_ prefix); the Vite dev proxy targets it
 ```

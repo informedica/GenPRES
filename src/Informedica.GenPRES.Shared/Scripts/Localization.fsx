@@ -57,6 +57,7 @@ type SessionTerms =
     // Rule 28 (UC-3, plan 622 PR 1): the Session ended at the third wrong PIN
     | ``Session Ending Pin Limit``
     | ``Session Ending Unreadable``
+    | ``Session Ending Idle``
     // the enrolment form (UC-2, plan 615 PR 3): title, body with {0} the name and {1} the
     // hinted mail address, the three field labels, the button, and one sentence per refusal
     | ``Session Gate Enrolment``
@@ -135,6 +136,8 @@ let english term =
         "Another launch of yours opened a newer session, and this one was closed."
     | ``Session Ending Pin Limit`` -> "The PIN was entered wrong three times, and signing is locked for a while."
     | ``Session Ending Unreadable`` -> "This session could not be read back after an update of GenPRES."
+    | ``Session Ending Idle`` ->
+        "This session was not used for too long and was closed, so that nothing is prescribed on patient data read long ago."
     | ``Session Gate Enrolment`` -> "Set a PIN to continue"
     | ``Session Gate Enrolment Text`` ->
         "Welcome, {0}. A confirmation code was mailed to {1}. Enter it together with the PIN of your choice: four to six digits."
@@ -211,6 +214,8 @@ let dutch term =
         "Een andere start van u heeft een nieuwere sessie geopend; deze sessie is gesloten."
     | ``Session Ending Pin Limit`` -> "De pincode is drie keer verkeerd ingevoerd; ondertekenen is een tijdje geblokkeerd."
     | ``Session Ending Unreadable`` -> "Deze sessie kon na een update van GenPRES niet meer worden gelezen."
+    | ``Session Ending Idle`` ->
+        "Deze sessie is te lang niet gebruikt en is gesloten, zodat er niet wordt voorgeschreven op patiëntgegevens van lang geleden."
     | ``Session Gate Enrolment`` -> "Stel een pincode in om verder te gaan"
     | ``Session Gate Enrolment Text`` ->
         "Welkom, {0}. Er is een bevestigingscode gemaild naar {1}. Voer die in samen met de pincode van uw keuze: vier tot zes cijfers."

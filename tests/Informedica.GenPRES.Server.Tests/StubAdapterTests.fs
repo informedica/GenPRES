@@ -129,7 +129,7 @@ module StubAdapters =
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ _ -> async { return None, None }
-            age = fun _ -> async { return None }
+            age = fun _ -> async { return Ok None }
             openVersion = fun _ _ -> async { return None }
         }
 
@@ -592,6 +592,7 @@ module SessionStubTests =
         let port =
             StubDatabase.makeSessionPortWith
                 (newStore ())
+                Session.defaultIdleLifetime
                 (fun () -> clock.Value)
                 (fun () ->
                     count.Value <- count.Value + 1
@@ -1232,6 +1233,7 @@ module SessionStubTests =
 
                         let port =
                             StubDatabase.makeSessionPort
+                                Session.defaultIdleLifetime
                                 (fun () -> t0)
                                 ids
                                 (codes ())

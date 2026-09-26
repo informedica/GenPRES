@@ -407,8 +407,8 @@ module Session =
     /// A Session as the store holds it: what it is open on, the login it belongs to (a User
     /// has at most one open Session), the id of the version it opened with (None from
     /// nothing, or from a head that cannot be read), which a Submission is checked against,
-    /// when it opened, the date its patient data is projected at, and when it was last seen
-    /// (nothing acts on it yet; the idle and absolute lifetimes of Rule 10 are not built).
+    /// when it opened, the date its patient data is projected at, and when it was last seen,
+    /// which the idle lifetime is counted from (the absolute lifetime is not built).
     type SessionRecord =
         {
             Opened: OpenedSession
@@ -626,6 +626,11 @@ module Session =
     /// How long a challenge lives: the Launch's two minutes, the time to read the modal and
     /// enter a PIN, so what is signed was checked against the platform moments ago.
     let challengeLifetime = TimeSpan.FromMinutes 2.0
+
+    /// How long a Session lives without a request unless the site sets its own: an hour. A
+    /// Session that has seen no request for that long is probably left behind, and a relaunch
+    /// costs the User one click.
+    let defaultIdleLifetime = TimeSpan.FromHours 1.0
 
 
     let credentialOf (userId: string) (state: State) =
@@ -1139,6 +1144,27 @@ module Session =
                     let state, (id, session), writes = openWith now newId patientData e.PatientId e.PublicKey user state
 
                     state, SupplyPinResult.Opened(id, session), settled @ writes
+
+
+    /// Whether a Session has gone the idle lifetime without a request: at the lifetime itself
+    /// it has.
+    let isIdle (idle: TimeSpan) (now: DateTime) (record: SessionRecord) = now - record.Seen >= idle
+
+
+    /// A Session left idle ends before the request that names it runs: it leaves the open
+    /// Sessions and its ending is recorded, so the request finds the ending and tells it, as a
+    /// supersession or the PIN limit is told, and a relaunch reads the patient data again. An
+    /// open Session seen within the lifetime, an ended one and an unknown id are left as they
+    /// are. No timer and no sweep: a Session nobody asks for again ends at no cost.
+    let endIdle (idle: TimeSpan) (now: DateTime) (sid: string) (state: State) : State * Persist list =
+        match state.Sessions |> Map.tryFind sid with
+        | Some record when isIdle idle now record ->
+            { state with
+                Sessions = state.Sessions |> Map.remove sid
+                Endings = state.Endings |> Map.add sid (SessionEnding.Idle, now)
+            },
+            [ EndSession(sid, StoredEnding.Ended SessionEnding.Idle, now) ]
+        | _ -> state, []
 
 
     /// A request from the Session refreshes its idle clock. Applied by every member that takes
