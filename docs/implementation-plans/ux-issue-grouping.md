@@ -204,8 +204,9 @@ minimum, deferred from the patient-minimum plan. #489 is the five-second idle au
 
 - **Launched with a patient**: there is a specific patient to point at, and the title bar
   identifies them — id, name, birthdate. The age is computed from the birthdate on the server,
-  when the Session opens and again on each request, since a neonate's age moves by the day;
-  the panel shows it and it cannot be changed. Weight, height and gestational age are
+  when the Session opens and again right after each sign, and held still in between, so that
+  every calculation of an episode rests on one age (the plan for #976 decided this over the
+  "on each request" first filed); the panel shows it and it cannot be changed. Weight, height and gestational age are
   editable and kept as measured: a bedside value overrides the platform's reading and stays,
   and the next signature records the change. The department comes from the launch, in place
   of the hidden default of #717. Today the reading carries an age in years, months, weeks and

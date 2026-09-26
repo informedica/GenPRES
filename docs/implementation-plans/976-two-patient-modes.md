@@ -12,10 +12,11 @@ rule 2 makes unnecessary to type; the title bar says who they are; weight, heigh
 gestational age stay editable and a measured value is kept, which rule 3 asks. The decision
 itself is #976's and this plan's. The ADR's fourth section recorded that decision and three
 others of the same kind, domain decisions under the rules; an ADR states the rules, so that
-section goes, in the pull request that brings this plan, and each decision stays where it was
-taken, in its issue and its plan. On one point this plan departs from #976's wording: the issue says the
-age is computed on each request; this plan computes it at the open and again right after each
-sign, and holds it still in between, for the reason given below.
+section went on 2026-09-26, in the pull request that brought this plan, and each decision stays
+where it was taken, in its issue and its plan. On one point this plan departs from #976's
+wording, and the grouping index follows the plan: the issue says the age is computed on each
+request; this plan computes it at the open and again right after each sign, and holds it still
+in between, for the reason given below. A comment on #976 says so when the plan lands.
 
 - [Problem description](#problem-description)
 - [What the code does today](#what-the-code-does-today)
@@ -64,8 +65,9 @@ every step below sits on it.
   -> GenForm.Patient option`: what the EHR hands over is the projection, with an age in days,
   no name and no birthdate. What the EHR will return is: the patient id, the full name, the
   birthdate and the gender; and, each optional, a weight, a height, a gestational age, a
-  department, renal function or lab results, and vascular access, with a date on every value
-  that changes over time. The only adapter is `StubPatientData` in
+  department, renal function and vascular access, with a date on every value that changes over
+  time; that is the integration's specification as the project states it, since no live
+  adapter exists to read it from. The only adapter is `StubPatientData` in
   `ServerApi.StubAdapters.fs`: one fixed ten-year-old for every id, none for `no-data`. There
   is no live adapter in the solution: ADR-0004, the FHIR integration, is superseded and its
   prototype deleted. Since #1056 the port is wrapped by `Patient.estimating`, in
@@ -175,7 +177,8 @@ is left to review; it would reuse the notice as it is.
   `Patients.Patient`, which models the identity and the core data, the patient id and the
   name added to the type, the birthdate as its age, the gender, and the EHR's weight and
   height as dated measurements with the dates the EHR gives them; beside it the data only the
-  rules read, renal function or lab results, and access, vascular and enteral. The GenFORM
+  rules read, renal function and access, vascular and enteral, on the rule-only record alone,
+  so that the core patient's own access fields stay unread by the EHR's data. The GenFORM
   patient the rules match is derived from both at a date by one projection,
   `GenForm.Patient.ofEhr`, which becomes the core patient's first use in the pipeline and
   retires its header note: the age from `getAgeValue now`, the measures from the calculation
@@ -199,14 +202,15 @@ is left to review; it would reuse the notice as it is.
 
 - *One function per command family, `aged: Age option -> 'cmd -> 'cmd`, that rewrites every
   contract patient the command carries; `Compute.bound` takes it beside `name` and `gate`,
-  reads the opened Session by the cookie through the port's `find`, and applies the Session's
-  age, none for a Session without an identity or no Session; `SigningCommand.processCmd`,
+  learns the Session's age from `seen`, which it already calls per request and which gains the
+  age beside the notice, and applies it, none for a Session without an identity or no Session; `SigningCommand.processCmd`,
   which runs through `Compute.logged`, applies the same function to the plan before it checks
   and parses it.* **Chosen.** The rewrite is pure and per family, the mapper stays pure, and the
   two paths a patient can take into the server both pass it, so the signed version carries the
   Session's age and not the client's. The families that carry a patient are the order
   context, the order plan, the formulary and the signing; the interaction command carries
-  none.
+  none. `seen` and not `find`, because both touch the Session and persist the touch, and one
+  touch per request is what there is today.
 - *In `Compute.bound` alone.* Rejected: it is generic over the command and cannot reach a
   patient inside one, and the signing commands never pass through it, so the plan signed would
   keep the age the client sent while the calculations used the Session's.
@@ -228,32 +232,40 @@ is left to review; it would reuse the notice as it is.
 - *A measured value the user entered stays for the Session, whatever the EHR reads later;
   the version records it; the data notice still tells that the EHR's patient data changed.*
   **Chosen**, as #976 decided. The value is the user's by rule 3, the notice is the user's to
-  see by rule 1. Two existing flows break this and both change: the accept of a data notice
-  merges instead of replacing, the identity and the age from the EHR's patient data and the measured
-  values kept, on the client and in the plan it challenges; and the commit sets the Session's
-  patient to the same merge, the EHR's identity and the fresh age with the Session's
-  measured values, instead of the EHR's patient data alone.
+  see by rule 1. Two existing flows break this and both change, with one merge, field by
+  field: the identity, the gender and the department from the EHR's patient data; the age the
+  Session's, held, no clock read; weight, height and gestational age the Session's measured
+  values where the user measured, else the EHR's; renal function and access the EHR's unless
+  entered. The accept of a data notice applies it on the client, and the notice's payload is
+  projected at the challenge over the Session's age, so the notice never moves the age; the
+  commit applies it to the Session's patient, and after that the age is computed again.
 - *The Session records the measured weight, height and gestational age a request carries, as
   dated actual measurements on the core patient it holds, so that a resume restores them.*
   **Chosen**, with the write bounded: the panel dispatches the whole draft on every edit, each
   edit reaches the server as a request, and the store is append-only, so a write per request
   would be a row per edit with unvalidated intermediate values. The Session records a
   measurement only when the request's patient is a patient, and only when the value differs
-  from the last one it holds; the row is the measurement's own, not a new opened-with row.
-  Whether that is worth its rows, or a write at the challenge alone should do until #598 gives
-  the client a memory of its own, is left to review.
+  from the last one it holds; the row is the measurement's own, not a new opened-with row. A
+  measurement cleared is a row as well, one that says none, since the store never deletes and
+  the latest row decides; else a cleared weight would return at the next resume. Whether that
+  is worth its rows, or a write at the challenge alone should do until #598 gives the client a
+  memory of its own, is left to review.
 - *At the next open, the head's measured values over the platform's.* Not decided here: the
   EHR's patient data is the source of truth at an open, and the head may be days old. Left to
   review, with the plan's default being the EHR's patient data.
 
 **What the signed version stores.**
 
-- *The identity beside the patient id, the plan carrying the projection as today.* **Chosen.**
-  `OrderPlanVersion` gains `Identity: PatientIdentity option`, none for a version signed in a
-  Session that had none; `Session.commit` writes the Session's, never the request's; the wire's
-  `SignedOrderPlan` carries it through the session mapper; the versions table gains it by one
-  migration, nullable, since every row before it has none and the store never rewrites a row.
-  A version read later then says who the patient was, on its own, and the plan inside it is
+- *The identity beside the patient id, in columns of the versions table, the plan carrying
+  the projection as today.* **Chosen.** `order_plan` gains a name and a birthdate, nullable,
+  by one migration, beside `patient_id` among the identity columns that are authoritative
+  whatever the JSON says; every row before it has none, and the store never rewrites a row.
+  `OrderPlanVersion` and its Dto stay as they are, so `order_plan.plan` keeps its structure
+  version: the identity is not part of the plan but of the record, and the store's
+  `StoredVersion` carries it in both its cases, readable and unreadable, as it carries the
+  other identity columns. `Session.commit` writes the Session's identity, never the request's;
+  the wire's `SignedOrderPlan` carries it from the columns through the session mapper. A
+  version read later then says who the patient was, on its own, and the plan inside it is
   what the rules saw.
 - *The identity in the Session only.* Rejected: a version reopened from the record, or listed,
   would name an id and nobody; and a Session that opens from the head when the platform
@@ -273,10 +285,10 @@ is left to review; it would reuse the notice as it is.
 - *The `Submitted` answer carries the Session's patient beside the fresh token, and the
   session machine hands it to the panel as `SetPatient` does at a resume.* **Chosen**, with
   the cost named: the app interprets `SetPatient` as `UpdatePatient`, which re-evaluates the
-  workbench, the formulary and the parenteralia over the new patient. After a sign that is the
-  right thing to do, since the age the calculations rest on has changed and rule 1 forbids
-  showing calculations over an age that has passed; the plan signed is untouched. Whether an
-  age-only update that touches less is worth building is left to review.
+  workbench, the formulary and the parenteralia over the new patient. The sign ends an
+  episode; the plan signed is untouched, and what the user builds next is built on the day's
+  age, so the re-evaluation is the start of the next episode, not a loss of the last. Whether
+  an age-only update that touches less is worth building is left to review.
 
 ## Chosen approach
 
@@ -299,11 +311,14 @@ is left to review; it would reuse the notice as it is.
 - The accept of a data notice and the commit both merge: the EHR's identity and age, the
   Session's measured values.
 - The version signed carries the Session's age, the one its calculations used, and the
-  identity beside the patient id. Right after the commit the Session's age is computed again
-  from the birthdate, the projection and the estimate follow, and the client receives the
-  Session's patient with the fresh token.
-- The store's three patient columns and the versions table change by expand and contract
-  under a new structure version, the EHR's patient data as the core patient's Dto beside the rule-only data.
+  identity beside the patient id, in the record's columns and not in the plan's JSON. Right
+  after the commit the Session's age is computed again from the birthdate, the projection and
+  the estimate follow, and the client receives the Session's patient with the fresh token.
+- The store's three patient columns change under a new structure version, the EHR's patient
+  data as the core patient's Dto beside the rule-only data: expanded first, the new shape
+  written and both read, and contracted in a step of its own after a release that reads the
+  new shape has shipped. ADR-0007's sentence that the working state carries GenORDER and
+  GenFORM types gains GenCORE, in the same pull request as the expand.
 - The contract carries the identity on `PatientContext` and on `SignedOrderPlan`, the
   birthdate as three integers. The client shows it in the title bar beside the user, for a
   Reader as for a Prescriber; the panel in identified mode, decided by the context carrying an
@@ -331,12 +346,6 @@ One pull request each, in this order. Everything outside `src/Informedica.GenPRE
 script first and a migration after; a migration that spans more than four areas is two pull
 requests, and the steps say which.
 
-0. **The ADR trimmed**, in the pull request that brings this plan. ADR-0009 loses its fourth
-   section, "Decisions already taken under the rules", the four domain decisions of #404 and
-   #394, #976, #977 and #978, and the two passages in its consequences and alternatives that
-   count them; the ADR keeps the three rules, what each means on a screen and how they
-   conflict, and a dated amendment in the section's place saying where the decisions live. The
-   grouping index says the same.
 1. **The EHR's patient data as the core patient and the rule-only data, as a script.** A
    script in `src/Informedica.GenPRES.Server/Scripts/` shadows `Patients.Patient`,
    `GenForm.Patient`, `Ports`, `StubPatientData` and `Mappers.Session`: the patient id and the
@@ -354,11 +363,16 @@ requests, and the steps say which.
    the client's context with its name and birthdate; a `no-data` launch has none; EHR patient
    data with a partial birthdate opens anonymous; the core printer and the projection's printer
    write neither the name nor the birthdate.
-2. **The EHR's patient data migrated**, in two pull requests. First the identity and the data into
-   `GenCORE.Lib`, the projection into `GenFORM.Lib`, the identity into `GenPRES.Shared`, the
-   port, the stub and the mapper into the server, with the tests. Then the store: the core
-   patient's Dto in `session_opened_with.patient` under a new structure version, read back by
-   both versions, per ADR-0008 section 6, with the EHR's patient data kept beside the projection.
+2. **The EHR's patient data migrated**, in two pull requests. First the identity and the data
+   into `GenCORE.Lib`; the projection into `GenFORM.Lib`, which gains a direct
+   `ProjectReference` to `GenCORE.Lib` in place of the path through `ZForm.Lib`, with the
+   project graph in `ARCHITECTURE.md` regenerated and the dependency check run; the identity
+   into `GenPRES.Shared`; the port, the stub and the mapper into the server, with the tests.
+   Then the store, the expand half: the core patient's Dto beside the rule-only data in
+   `session_opened_with.patient` under a new structure version, the new shape written and
+   both shapes read, per ADR-0008 section 6, with the EHR's patient data kept beside the
+   projection; and ADR-0007 section 3 amended to name GenCORE among the working state's
+   types.
 3. **The age computed at the open, as a script.** `sessionPatient` shadowed: the projection at
    `now` of the EHR's patient data, so an identified patient opens on the age the birthdate
    gives and the EHR's own age value is ignored; `now` is the clock the Session already takes; the
@@ -370,12 +384,12 @@ requests, and the steps say which.
    unchanged read is a challenge, not a data notice, and one over a changed read is a
    notice.
 4. **The open migrated**, with the tests in the Server test project, and `challenge.reading`
-   and `data_notice.data` under the new structure version, read back by both.
+   and `data_notice.data` expanded the same way: the new shape written, both read.
 5. **The age on each request, as a script.** `aged` per command family, the pure rewrite of
    every contract patient a command carries; `Compute.bound` taking it beside `name` and `gate`,
-   reading the opened Session through the port's `find`, and applying the Session's age, no
-   clock read; `SigningCommand.processCmd` applying it to the plan before the check and the
-   parse. Proved over the order-context, order-plan, formulary and signing commands: an
+   learning the Session's age from `seen`, which gains it beside the notice, and applying it,
+   no clock read; `SigningCommand.processCmd` applying it to the plan before the check and
+   the parse. Proved over the order-context, order-plan, formulary and signing commands: an
    identified request with a mistyped age is evaluated at the Session's, and the plan handed
    to the session port for a challenge carries it; two requests of one Session evaluate at one
    age whatever the clock says between them; a request without a Session, or in a Session
@@ -386,28 +400,29 @@ requests, and the steps say which.
 7. **The measurement recorded, as a script and then migrated.** The session port recording a
    measured weight, height or gestational age a request carries, as a dated actual and the
    calculation value on the Session's core patient, only for a request whose patient is a
-   patient and only when the value differs from the one held, in a row of its own. Proved: a
-   measured weight in a request is the latest actual on the Session's core patient afterwards;
-   the same weight again writes nothing; a draft that is no patient writes nothing; a resume
-   restores the measurement. Two pull requests.
-8. **The version with the identity, and the age after the sign, as a script.**
-   `OrderPlanVersion.Identity` in the domain, `SignedOrderPlan.Identity` on the wire, the
-   session mapper carrying it both ways; `Session.commit` writing the Session's identity into
-   the version and, once the version has landed, setting the Session's patient to the merge,
-   the EHR's identity with the age computed again at `now`, the projection and the
-   estimate over it, and the Session's measured values, instead of the EHR's patient data alone, and
-   answering the Session's patient beside the fresh token; the versions table's identity by a
-   new numbered migration, nullable. Proved: a version signed in an identified Session reads
-   back with the name and the birthdate the Session had, and the plan inside it with the
-   projection the rules saw, at the age the Session had; one signed in a Session without an
-   identity reads back with none; a row written before the migration reads as none; a Session
-   that opens from the head, the EHR answering none, opens with the head's identity;
-   after a commit with the clock a day on, the Session's age is a day more and the version's
-   is not; after a commit with the EHR answering another weight, the Session's weight is
-   the one the user measured.
-9. **The version migrated**, the domain field into `GenORDER.Lib`, the wire field into
-   `GenPRES.Shared`, the mapper, the commit and the migration into the server, the tests into
-   the three test projects; two pull requests if the size limit asks.
+   patient and only when the value differs from the one held, in a row of its own, a clearing
+   a row that says none. Proved: a measured weight in a request is the latest actual on the
+   Session's core patient afterwards; the same weight again writes nothing; a draft that is no
+   patient writes nothing; a resume restores the measurement; a weight cleared stays cleared at
+   the resume. Two pull requests.
+8. **The version with the identity, and the age after the sign, as a script.** The identity
+   in the store's `StoredVersion`, both cases, and on the wire's `SignedOrderPlan`, the session
+   mapper carrying it both ways, `OrderPlanVersion` and its Dto untouched; `Session.commit`
+   writing the Session's identity into the record and, once the version has landed, setting
+   the Session's patient to the merge, field by field as above, the age computed again at
+   `now`, the projection and the estimate over it, and answering the Session's patient beside
+   the fresh token; the identity columns by a new numbered migration, nullable. Proved: a
+   version signed in an identified Session reads back with the name and the birthdate the
+   Session had, and the plan inside it with the projection the rules saw, at the age the
+   Session had, its JSON under the structure version it had before; one signed in a Session
+   without an identity reads back with none; a row written before the migration reads as
+   none; a Session that opens from the head, the EHR answering none, opens with the head's
+   identity; after a commit with the clock a day on, the Session's age is a day more and the
+   version's is not; after a commit with the EHR answering another weight, the Session's
+   weight is the one the user measured.
+9. **The version migrated**, the wire field into `GenPRES.Shared`, the store's identity, the
+   mapper, the commit and the migration into the server, the tests into the two test
+   projects; two pull requests if the size limit asks.
 10. **The title bar and the panel.** `Components/TitleBar.fs` shows the identity beside the
     user for a Session whose context has one, for a Reader as for a Prescriber: name, birthdate
     and id. `Views/Patient.fs` decides its mode by that identity, not by a Session being open,
@@ -418,6 +433,10 @@ requests, and the steps say which.
     measured values kept, and the session machine takes the patient the `Submitted` answer
     carries as it takes a resume's. Anonymous mode is unchanged, for the anonymous url and for
     the `no-data` launch alike. Closes #976.
+11. **The old shapes contracted**, after a release that reads the new shapes has shipped: the
+    three patient columns read in the new shape alone, the readers of the old one removed.
+    Per ADR-0008 section 6 the expand and the contract are two releases, not two pull
+    requests, so this step waits for the release between.
 
 ## Verification, per step
 
@@ -441,8 +460,10 @@ requests, and the steps say which.
 - Step 7 also: the rows the session store gains over a panel edited ten times to the same
   weight, counted: one.
 - Steps 8 and 9 also: the versions table of a development database, read after a signature,
-  carrying the name and the birthdate; and the same database after the migration, its older
-  rows reading as none.
+  carrying the name and the birthdate in its columns and its plan JSON under the structure
+  version it had; and the same database after the migration, its older rows reading as none.
+- Step 11 also: a development database written by the release before, read after the
+  contract.
 - Step 10 also, in the browser: a stub launch as the prescriber shows the fixed patient's name
   and birthdate in the title bar and a held age in the panel, and as the reader the same;
   the anonymous url and the `no-data` launch both show the panel as today, the age editable;
