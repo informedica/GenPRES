@@ -140,7 +140,7 @@ let tests =
 
                 let shown = { plan with Patient = otherData }
 
-                transition SigningMsg.Accept (SigningState.noticed plan changed)
+                transition (SigningMsg.Accept false) (SigningState.noticed plan changed)
                 |> Expect.equal
                     "over the reading"
                     (SigningState.requesting shown (Some "d-1") "d-1",
@@ -155,14 +155,28 @@ let tests =
                         Token = "d-2"
                     }
 
-                transition SigningMsg.Accept (SigningState.noticed plan unverified)
+                transition (SigningMsg.Accept false) (SigningState.noticed plan unverified)
                 |> Expect.equal
                     "over the opened data"
                     (SigningState.requesting plan (Some "d-2") "d-2",
                      [ SigningEffect.CallChallenge(plan, Some "d-2", "d-2") ])
 
+                // held: the plan keeps the data its new and changed orders were composed on
+                transition (SigningMsg.Accept true) (SigningState.noticed plan changed)
+                |> Expect.equal
+                    "held: over the plan as it is, no patient set"
+                    (SigningState.requesting plan (Some "d-1") "d-1",
+                     [ SigningEffect.CallChallenge(plan, Some "d-1", "d-1") ])
+
+                transition (SigningMsg.Accept true) (SigningState.noticed plan unverified)
+                |> Expect.equal
+                    "held, no reading: over the plan as it is"
+                    (SigningState.requesting plan (Some "d-2") "d-2",
+                     [ SigningEffect.CallChallenge(plan, Some "d-2", "d-2") ])
+
                 for state in [ SigningState.idle; requesting; challenged; submitting; unsent ] do
-                    transition SigningMsg.Accept state |> Expect.equal $"{state}" (state, [])
+                    transition (SigningMsg.Accept false) state
+                    |> Expect.equal $"{state}" (state, [])
             }
 
             test

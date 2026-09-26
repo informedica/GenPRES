@@ -135,9 +135,9 @@ it, and the Session's patient becomes that; the order plan's totals are recalcul
 orders stay as signed.
 
 **12c The EHR reads other data at the sign.** The data notice is shown as in uc-03, but the
-version is signed on the held context, and records that it rests on data other than the EHR's
-reading; how it records that is [to settle](#to-settle). The new data applies from the next
-round, once the context is released.
+version is signed on the held context. That it rests on data other than the EHR's reading is not
+stored: the commit keeps the EHR reading it was signed on beside the version, and the two tell
+the difference. The new data applies from the next round, once the context is released.
 
 **12d Two Users.** Each holds their own context in their own order plan. The first to sign wins
 ([uc-04](uc-04-two-users.md)); the other rebuilds on the new head, and their new and changed
@@ -183,7 +183,8 @@ changed.
 - **Re-prescribing on a new context.** A path that takes the new and changed orders to a new
   context instead of dropping them, which is the replacement
   [#672](https://github.com/informedica/GenPRES/issues/672) asks for signed contexts too.
-- **How the version records** that it was signed on data other than the EHR's reading. Not the
+- **How the version records** that it was signed on data other than the EHR's reading. Settled:
+  it does not; it is projected from the EHR reading the commit keeps beside the version. Not the
   `Verified` flag: that records whether the platform could be read at the challenge, and old
   versions keep that meaning.
 
