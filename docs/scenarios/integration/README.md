@@ -33,7 +33,7 @@ design; the gap is named under the page's *Not built*.
 | UC-9 | [A Reader consults a Patient](uc-09-reader.md) | reads the plan that counts, signs nothing | yes |
 | UC-10 | [User closes GenPRES](uc-10-close.md) | no stray Session, no notice | yes |
 | UC-11 | [A User's authority is withdrawn](uc-11-authority-withdrawn.md) | anonymous decision support, and nothing more | partly: refused at the launch, blocked at the signature |
-| UC-12 | [The patient context is held while the plan has new or changed orders](uc-12-held-patient-context.md) | one patient context behind every order a version adds | **no**, the design to build to |
+| UC-12 | [The patient context is held while the plan has new or changed orders](uc-12-held-patient-context.md) | one patient context behind every order a version adds | yes, for an identified patient; the difference from the EHR is a projection, built when needed |
 
 Three extensions have diagrams of their own, where the order of messages is the point: two
 launches racing (UC-1), the signing modal (UC-3) and both Users signing at once (UC-4).

@@ -2,19 +2,21 @@
 
 UC-12. User A prescribes for a Patient, and every order they add is computed on the patient
 context of that moment: weight, height, gestational age, gender, department, renal function and
-access. Today User A can change that context after the first order is on the order plan, and the
-orders already there are left as they were computed, while the order plan's patient follows the
-edit. So User A can sign orders that were composed on different data. This page holds the
-context from the first new or changed order to the sign, so that everything a signed version
-adds rests on one patient context.
+access. Without a hold User A could change that context after the first order was on the order
+plan, and the orders already there were left as they were computed, while the order plan's
+patient followed the edit. So User A could sign orders that were composed on different data.
+This page holds the context from the first new or changed order to the sign, so that everything
+a signed version adds rests on one patient context.
 
-**Not built.** Unlike the other pages here, this one draws the design the code is to be built
-to ([#1075](https://github.com/informedica/GenPRES/issues/1075)), in the steps of its
-[implementation plan](../../implementation-plans/1075-held-patient-context.md); what the code
-does today is under [Today](#today).
+**Built** in [#1075](https://github.com/informedica/GenPRES/issues/1075), pull requests #1090
+to #1095; the [implementation plan](../../implementation-plans/1075-held-patient-context.md)
+lists what each step landed and where the build deviated from the design. The difference from
+the EHR's reading (12c) is a projection, built when a view needs it. What the code did before is
+under [Before #1075](#before-1075).
 
-Precondition: [uc-01](uc-01-launch.md) has left an open Session for the Patient, started from
-the head of its record, with the Prescriber Role.
+Precondition: [uc-01](uc-01-launch.md) has left an open Session for an identified Patient,
+started from the head of its record, with the Prescriber Role. Anonymous use and the url mode
+sign nothing and are never held.
 
 ```mermaid
 sequenceDiagram
@@ -38,7 +40,7 @@ sequenceDiagram
     U->>C: 2. adds an order
     C->>S: processOrderPlan (the order, computed on the order plan's patient)
     S-->>C: Reply
-    Note over U,S: 3. the patient data fields are disabled, the panel says why and how to release them
+    Note over U,S: 3. the patient data takes no change, an attempt asks why and offers the ways out
 
     U->>C: 4. signs (uc-03)
     C->>S: processSigning RequestSignChallenge (order plan, OpenedToken, None)
@@ -62,8 +64,11 @@ sequenceDiagram
    plan's totals. The orders of the last signed version stay as they were signed.
 2. **User A adds an order.** It is computed on the order plan's patient data. From here the
    order plan has a new order, and the context is held.
-3. **The patient data fields are disabled.** The panel says why, and names the three ways out:
-   sign the order plan, remove its new and changed orders, or refresh.
+3. **The patient data takes no change.** The fields keep their values and refuse a change: the
+   selects are read-only, the gender and access controls stay enabled and reject it. An attempt
+   to change one, by pointer or keyboard, or the reset, asks why, with two ways out that drop the
+   new and changed orders: remove them, or refresh from the EHR (12b). The third way out,
+   signing, is the order plan's own button.
 4. **User A signs.** The Client asks for a challenge over the order plan. The Server first
    checks that every new or changed context states the order plan's patient context, and refuses
    `ContextDiffers` when one does not.
@@ -73,7 +78,7 @@ sequenceDiagram
    the order plan with the challenge by digest, so it signs the order plan checked in step 4,
    and appends the version.
 7. **The context is released.** The order plan is its new signed version: nothing in it is new
-   or changed, and the patient data fields are enabled again.
+   or changed, and the patient data can be changed again.
 
 **Held by the order plan, not by a clock or a row.** The context is held while the order plan
 has a new or changed order: one added, or changed, since the version last opened or signed. Only
@@ -84,8 +89,10 @@ Server keeps nothing of the order plan between requests (Rule 32). The Client de
 the order plan it holds, and the Server derives the same fact from the order plan it is asked to
 sign.
 
-**The Client informs, the Server checks.** The patient data fields are disabled while the
-context is held, and the panel says why, with the three ways out. The rule is the Server's:
+**The Client informs, the Server checks.** The patient data takes no change while the context is
+held, and an attempt asks why, with the ways out. From the sign until the signature is answered
+or cancelled the order plan takes no change at all, so the version signed is the order plan
+shown. The rule is the Server's:
 every order context of the order plan states the patient it was computed on
 (`OrderPlan.OrderContexts[].Patient` on the wire, `PlanContext.Context.Patient` in the domain),
 and at the challenge the Server refuses an order plan whose new or changed contexts state
@@ -126,16 +133,19 @@ remove or prescribe again.
 ## Extensions
 
 **12a User A removes every new and changed order.** Nothing new or changed is left, so the
-patient data fields are enabled at once. Releasing the hold does not restore the version it
+patient data can be changed at once. Releasing the hold does not restore the version it
 opened: an order of that version that was changed and then removed stays removed.
 
-**12b User A refreshes.** GenPRES asks first: the new and changed orders are dropped. The Server
-reads the EHR again, projects it at the date of the refresh with the user's measurements over
-it, and the Session's patient becomes that; the order plan's totals are recalculated on it, its
-orders stay as signed.
+**12b User A refreshes.** From the question of step 3, which says the new and changed orders are
+dropped. The Server reads the EHR again, projects it at the time of the refresh with the user's
+measurements over it, and reopens the head on it under a fresh OpenedToken; the standing
+challenge is spent and the notice dropped. The Session's patient becomes the one read again,
+the age with it, and the order plan is the head again, released; without a head it opens empty.
+A refresh that did not happen is told, and changes nothing.
 
-**12c The EHR reads other data at the sign.** The data notice is shown as in uc-03, but the
-version is signed on the held context. That it rests on data other than the EHR's reading is not
+**12c The EHR reads other data at the sign.** The data notice is shown as in uc-03, saying that
+the version is signed on the data as it was and the new data applies after the sign; the version
+is signed on the held context. That it rests on data other than the EHR's reading is not
 stored: the commit keeps the EHR reading it was signed on beside the version, and the two tell
 the difference. The new data applies from the next round, once the context is released.
 
@@ -148,16 +158,14 @@ Client state as they do today; the relaunch starts released. Once the carry-over
 [#518](https://github.com/informedica/GenPRES/issues/518) is built, the order plan carried into
 the next Session carries its hold with it.
 
-## Today
+## Before #1075
 
-A change to the patient context sends `PatientChanged` to the order context and the order plan
-(`updatePatient` in `App.fs`). The order plan recomputes its totals with the new patient; the
-contexts keep the patient they were created with (`OrderPlanMachine.step`). The order plan's
-patient, its totals and the patient data of a signed version follow the edit, and nothing
-compares them with the patient of each context. The accept of a data notice sets the draft to
-the notice's data, orders or not. `PlanWork` (`PlanWorkPolicy.fs`) counts the changes per order
-plan, for the guard that asks before leaving the page. It does not say which orders are new or
-changed.
+A change to the patient context sent `PatientChanged` to the order context and the order plan
+(`updatePatient` in `App.fs`). The order plan recomputed its totals with the new patient; the
+contexts kept the patient they were created with (`OrderPlanMachine.step`). The order plan's
+patient, its totals and the patient data of a signed version followed the edit, and nothing
+compared them with the patient of each context. The accept of a data notice set the draft to
+the notice's data, orders or not. The order plan could change while a signature was under way.
 
 ## Where this changes the design
 
@@ -171,15 +179,17 @@ changed.
 
 ## To settle
 
-- **Which fields.** Default: weight, height, gestational age, gender, department, renal function
-  and access, the data the rules read that the User can change. The age is fixed by the Server.
+- **Which fields.** As built: weight, height, gestational age, gender, department, renal function
+  and access, the data the rules read that the User can change; the age is fixed by the Server.
+  The check at the challenge compares the location too, which the rules read but the panel does
+  not offer.
 - **Which Sessions.** Settled: an identified patient only. Anonymous use and the url mode are
   never held, since nothing is signed there.
-- **Measurements.** Recorded per request as now; while the context is held the panel sends none.
-  They stand over a refresh, as they stand over a sign.
-- **What counts as changed.** Default: an order context whose id the head does not hold, or
-  whose content differs from the head's, compared after both go through the same Dto; a change
-  to the order plan's filter alone is not.
+- **Measurements.** As built: recorded per request; while the context is held the panel's edits
+  are ignored, so it sends none. They stand over a refresh, as they stand over a sign.
+- **What counts as changed.** As built: an order context whose id the head does not hold, or
+  whose content differs from the head's; the Server compares the domain values less the age and
+  the intake. A change to the order plan's filter alone is not.
 - **Re-prescribing on a new context.** A path that takes the new and changed orders to a new
   context instead of dropping them, which is the replacement
   [#672](https://github.com/informedica/GenPRES/issues/672) asks for signed contexts too.
@@ -190,8 +200,10 @@ changed.
 
 ---
 
-Read off `updatePatient` in `src/Informedica.GenPRES.Client/App.fs`, `OrderPlanMachine.fs` and
-`PlanWorkPolicy.fs` in `src/Informedica.GenPRES.Client.Core/`, and `Session.challenge` and
-`Session.commit` in `src/Informedica.GenPRES.Server/ServerApi.Session.fs`. The design it changes
+Read off `patientHeld` in `src/Informedica.GenPRES.Client/App.fs` and the panel in
+`Views/Patient.fs`; `HeldContextPolicy.fs`, `OrderPlanMachine.fs`, `SigningMachine.fs` and
+`SessionMachine.fs` in `src/Informedica.GenPRES.Client.Core/`; and `Session.challenge`,
+`Session.differingContexts` and `Session.refresh` in
+`src/Informedica.GenPRES.Server/ServerApi.Session.fs`. The design it changes
 is Concepts 15 and 16 and Rule 44 in
 [GenPRES-MainEHR-Integration-V8.md](GenPRES-MainEHR-Integration-V8.md).
