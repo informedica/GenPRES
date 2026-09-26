@@ -84,10 +84,10 @@ module Patient =
             pat |> Option.bind (Patient.validate >> Result.toOption) |> Option.isSome
 
 
-        /// The summary: whom the patient is when the EHR said, the draft's data, and under it,
-        /// while the draft is no patient yet, what is missing: an age, or a weight and a height.
-        /// Nothing entered asks for the data.
-        let show lang terms (identity: NameAndBirthDate option) pat =
+        /// The summary: the draft's data, and under it, while the draft is no patient yet, what is
+        /// missing: an age, or a weight and a height. Nothing entered asks for the data. Whom the
+        /// patient is stays in the title bar: the panel is about the data.
+        let show lang terms pat =
             let term fallback t =
                 terms
                 |> Deferred.map (fun terms -> Localization.getTerm terms lang t |> Option.defaultValue fallback)
@@ -103,16 +103,10 @@ module Patient =
                     "Voer een leeftijd in, of een gewicht en een lengte"
                     Terms.``Patient enter age or weight and height``
 
-            let named =
-                identity
-                |> Option.map (fun who -> $"**{who.Name |> String.escapeMarkdown}**, {Global.birthDateText who}")
-                |> Option.toList
-
             match pat with
             | Some p when p |> Patient.validate |> Result.isOk -> [ p |> toString ]
             | Some p -> [ p |> toString; missing ]
             | None -> [ term "Voer patient gegevens in" Terms.``Patient enter patient data`` ]
-            |> List.append named
             |> List.filter (fun s -> s <> "")
             |> String.concat "\n\n"
             |> Markdown.markdown.children
@@ -620,7 +614,7 @@ module Patient =
             {|
                 isOpen = isExpanded
                 onToggle = toggle
-                summary = pat |> show lang localizationTerms identity |> toJsx
+                summary = pat |> show lang localizationTerms |> toJsx
                 children = children
                 isMobile = isMobile
                 detailsPaddingTop = None

@@ -7,12 +7,6 @@ module String =
     let replace (oldS: string) newS (s: string) = s.Replace(oldS, newS)
 
 
-    /// The text as Markdown shows it literally: every character Markdown reads as syntax gets
-    /// a backslash, so that a name from the EHR is never a link, an emphasis or a heading.
-    let escapeMarkdown (s: string) =
-        System.Text.RegularExpressions.Regex.Replace(s, @"([\\`*_{}\[\]()#+!<>|~])", @"\$1")
-
-
 open Fable.Core
 open Feliz
 open Browser.Types
