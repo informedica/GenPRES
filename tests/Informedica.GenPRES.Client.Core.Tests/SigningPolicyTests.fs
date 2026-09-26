@@ -70,6 +70,7 @@ let tests =
                         Terms.``Signing Proceed``
                         Terms.``Signing Signed``
                         Terms.``Signing Data Changed``
+                        Terms.``Signing Data Changed Held``
                         Terms.``Signing Data Unverified``
                         Terms.``Signing Refusal No Session``
                         Terms.``Signing Refusal No Patient``
@@ -180,6 +181,7 @@ let tests =
 
                 noticeSentence
                     named
+                    false
                     {
                         Data = Some patient
                         Token = "d"
@@ -188,11 +190,22 @@ let tests =
 
                 noticeSentence
                     named
+                    true
                     {
-                        Data = None
+                        Data = Some patient
                         Token = "d"
                     }
-                |> Expect.equal "unverified" "<Signing Data Unverified>"
+                |> Expect.equal "changed while held: signed over the data as it was" "<Signing Data Changed Held>"
+
+                for held in [ false; true ] do
+                    noticeSentence
+                        named
+                        held
+                        {
+                            Data = None
+                            Token = "d"
+                        }
+                    |> Expect.equal $"unverified, held %b{held}" "<Signing Data Unverified>"
             }
 
             test "the PIN's own check is the enrolment's: four to six digits" {

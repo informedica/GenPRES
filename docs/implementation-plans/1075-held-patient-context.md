@@ -97,9 +97,9 @@ next signature: safe, but wrong. Signing now blocks the order plan from the sign
 
 ### The data notice under the hold
 
-**Chosen: signed on the held context, recorded as resting on data other than the EHR's
-reading.** The notice is shown as today; while the context is held the accept does not replace
-the draft. How the version records the difference is to settle; not `Verified`, which keeps its
+**Chosen: signed on the held context.** The notice is shown as today; while the context is held
+the accept does not replace the draft. That the version rests on data other than the EHR's
+reading is not stored but projected from what is kept (step 7b); not `Verified`, which keeps its
 meaning for old and new versions alike. The new data applies once the context is released.
 
 - *The accept replaces the draft, as today*: rejected; it changes the context under the new and
@@ -193,13 +193,23 @@ One pull request per step unless the step says two. Everything outside
    into `ServerApi.Session.fs`, the refusal's sentence into `SigningPolicy.fs`; tests in both
    test projects.
 
-7. **The data notice under the hold (script, then migration; two pull requests).** The accept
-   keeps the draft while held; the version signed over an accepted notice records that it rests
-   on data other than the EHR's reading, as settled in review.
+7. **The data notice under the hold.**
+   - **7a (script, migrated and removed).**
+     `src/Informedica.GenPRES.Client.Core/Scripts/NoticeUnderHold.fsx`. The accept keeps the
+     held data: no patient set, the challenge asked over the order plan as it is. Released, it
+     sets the notice's data and challenges over it, as today. The App says with the accept
+     whether the context is held. The notice's data applies after the sign, when the Submitted
+     answer brings the Session's patient, the merge at the clock.
 
-   Tests: a notice accepted while held leaves the draft; the version records the difference and
-   keeps `Verified` as the platform's reading; a notice accepted while released replaces the
-   draft as today.
+     Tests: released, the order plan follows the notice's data; held, it keeps the held data
+     and no patient is set; without a reading, held or not, the challenge is over the order
+     plan as it is; the machine's own arm agrees with the released case.
+   - **7b (when needed).** Nothing is stored: that a version rests on data other than the EHR's
+     reading is a projection. The commit writes the Session's opened-with row naming the new
+     version with the EHR reading it was signed on, and that row is kept; the version holds the
+     patient data it was signed on. Compared on the data the rules read, the two tell the
+     difference. `Verified` keeps its meaning. Built as a read-side function when a view needs
+     it.
 
 8. **Refresh (script, then migration; two pull requests).** A Session command that reads the EHR
    again, projects it at the date of the refresh with the user's measurements over it, and
@@ -224,7 +234,7 @@ One pull request per step unless the step says two. Everything outside
 | 3 | In the browser: click sign and, before the challenge comes back, try to add an order; nothing can be added until the signature is answered or cancelled. |
 | 4 | In the browser, for an identified patient: add an order, a change to the weight asks the question and changes nothing; remove the new orders from the question, the weight can be changed; add one and sign, it can be changed. |
 | 6 | An order plan with a new order on another weight, sent by hand, is refused `ContextDiffers` at the challenge. |
-| 7 | With the stub's EHR data changed after the open and an order on the order plan, the version is signed on the held data and records the difference. |
+| 7 | With the stub's EHR data changed after the open and an order on the order plan, accepting the notice signs on the held data; after the sign the panel shows the EHR's data. |
 | 8 | A refresh after a change of the stub's EHR data shows the new data and no new or changed orders. |
 
 ## To settle in review
@@ -241,8 +251,9 @@ One pull request per step unless the step says two. Everything outside
 - **Re-prescribing on a new context.** Deferred to #672; until then a new bedside weight means
   signing the order plan or dropping its new and changed orders first. Accept the cost, or pull
   #672 in.
-- **Recording the difference from the EHR.** A field of its own on the version; `Verified` keeps
-  its meaning. Name the field.
+- **Recording the difference from the EHR.** Settled: not stored, projected from the kept
+  opened-with row the commit writes and the version's own patient data (step 7b); `Verified`
+  keeps its meaning.
 - **Measurements.** Recorded per request as now; while the context is held the panel sends none;
   they stand over a refresh, as they stand over a sign. Confirm.
 

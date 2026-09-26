@@ -219,6 +219,8 @@ type Terms =
     | ``Signing Proceed``
     | ``Signing Signed``
     | ``Signing Data Changed``
+    // the data changed while the patient context is held: signed over the data as it was
+    | ``Signing Data Changed Held``
     | ``Signing Data Unverified``
     | ``Signing Refusal No Session``
     | ``Signing Refusal No Patient``

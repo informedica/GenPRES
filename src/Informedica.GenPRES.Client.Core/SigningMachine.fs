@@ -71,8 +71,9 @@ type SigningMsg =
     | Sign of OrderPlan * request: string
     // the answer to the challenge request with this id; Error = transport failure
     | ChallengeAnswered of request: string * Result<SigningResponse, string>
-    // the data notice accepted: sign over the data as it stands
-    | Accept
+    // the data notice accepted: sign over the data as it stands, unless the patient context is
+    // held, when the order plan keeps the data its new and changed orders were composed on
+    | Accept of held: bool
     // the PIN, and a fresh idempotency key the caller minted; ignored on a retry
     | Confirm of pin: string * key: string
     | Cancel
@@ -171,6 +172,27 @@ module SigningState =
         | SigningPhase.Challenged(_, plan, refusal), _ -> SigningView.Challenged(plan, refusal)
 
 
+    /// The arm on a notice accepted, nothing under way: the challenge asked again, the dialog
+    /// closed meanwhile. The notice token is the request id: one notice, one acceptance.
+    /// Released, with a reading, the plan follows it and the patient is set. Held, the plan keeps
+    /// the data its new and changed orders were composed on, which the notice's data would
+    /// contradict at the server's check; the notice's data reaches the patient after the sign.
+    /// Without a reading the plan stays as it is.
+    let accepted (held: bool) (plan: OrderPlan) (notice: DataNotice) =
+        match notice.Data with
+        | Some data when not held ->
+            let shown = { plan with Patient = data }
+
+            requesting shown (Some notice.Token) notice.Token,
+            [
+                SigningEffect.SetPatient data
+                SigningEffect.CallChallenge(shown, Some notice.Token, notice.Token)
+            ]
+        | _ ->
+            requesting plan (Some notice.Token) notice.Token,
+            [ SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token) ]
+
+
     /// Every arm names the phase and the request under way, and every new state is built through
     /// a constructor, so that no field outlives the state it belongs to.
     let transition (msg: SigningMsg) (state: SigningState) : SigningState * SigningEffect list =
@@ -205,23 +227,8 @@ module SigningState =
             idle, [ SigningEffect.TellError reason ]
         | SigningMsg.ChallengeAnswered _, _, _ -> state, []
 
-        // the User signs over the data as it stands; with a reading, the cart follows it. The
-        // notice token is the request id: one notice, one acceptance. The dialog closes while the
-        // challenge is asked again
-        | SigningMsg.Accept, SigningPhase.Noticed(plan, notice), None ->
-            match notice.Data with
-            | Some data ->
-                let shown = { plan with Patient = data }
-
-                requesting shown (Some notice.Token) notice.Token,
-                [
-                    SigningEffect.SetPatient data
-                    SigningEffect.CallChallenge(shown, Some notice.Token, notice.Token)
-                ]
-            | None ->
-                requesting plan (Some notice.Token) notice.Token,
-                [ SigningEffect.CallChallenge(plan, Some notice.Token, notice.Token) ]
-        | SigningMsg.Accept, _, _ -> state, []
+        | SigningMsg.Accept held, SigningPhase.Noticed(plan, notice), None -> accepted held plan notice
+        | SigningMsg.Accept _, _, _ -> state, []
 
         // the plan submitted is the plan challenged, never the live cart, under the caller's key;
         // a retry after a lost answer goes out under the key it had, so that the server answers

@@ -116,7 +116,7 @@ module SignDialog =
 
         let body =
             match notice with
-            | Some notice -> noticeSentence tr notice
+            | Some notice -> noticeSentence tr signing.Held notice
             | None -> tr Terms.``Signing Dialog Text``
 
         // the orders as they will be signed: each scenario's prescription, one line per row
