@@ -34,7 +34,10 @@ module Machine =
 
     let touch now sid state = ServerApi.Session.touch now sid state |> fst
 
-    let seen now sid opened state = ServerApi.Session.seen now sid opened state |> answered
+    /// The notice alone: the age the machine tells beside it has its own tests.
+    let seen now sid opened state =
+        let state, (notice, _) = ServerApi.Session.seen now sid opened state |> answered
+        state, notice
 
     let openVersion now newId sid id state = ServerApi.Session.openVersion now newId sid id state |> answered
 
@@ -125,7 +128,8 @@ module StubAdapters =
             dropEnrolment = fun _ -> async { return () }
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
-            seen = fun _ _ -> async { return None }
+            seen = fun _ _ -> async { return None, None }
+            age = fun _ -> async { return None }
             openVersion = fun _ _ -> async { return None }
         }
 
@@ -282,6 +286,7 @@ let requireLoadedTests =
             noCookie
             Api.OrderContextCommand.toString
             (fun _ -> Gate.RequiresLoaded)
+            OrderContextCommand.aged
             (OrderContextCommand.processCmd env)
             {
                 Opened = None
@@ -5056,7 +5061,7 @@ module BoundTests =
 
         { env with
             requireLoaded = (fun () -> if loaded then None else Some [| "not loaded" |])
-            session = { env.session with seen = fun _ _ -> async { return told } }
+            session = { env.session with seen = fun _ _ -> async { return told, None } }
         }
 
     let run env cookie handler cmd =
@@ -5065,6 +5070,7 @@ module BoundTests =
             cookie
             OrderContextCommand.toString
             (fun _ -> Gate.RequiresLoaded)
+            OrderContextCommand.aged
             handler
             {
                 Opened = None
@@ -5080,6 +5086,7 @@ module BoundTests =
             cookie
             InteractionCommand.toString
             InteractionCommand.gate
+            InteractionCommand.aged
             (InteractionCommand.processCmd env)
             {
                 Opened = None

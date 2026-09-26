@@ -28,15 +28,28 @@ module SigningCommand =
         | SigningOutcome.Refused refusal -> SigningResponse.Refused refusal
 
 
+    /// The plan of a challenge or of a submission at the Session's age.
+    let aged (age: Age option) (cmd: SigningCommand) : SigningCommand =
+        match cmd with
+        | SigningCommand.RequestSignChallenge(plan, opened, notice) ->
+            SigningCommand.RequestSignChallenge(OrderPlanCommand.agedPlan age plan, opened, notice)
+        | SigningCommand.Submit submission ->
+            SigningCommand.Submit { submission with Plan = OrderPlanCommand.agedPlan age submission.Plan }
+
+
     /// A signing command for the Session the cookie names. No cookie, no Session: refused
-    /// before the port is asked. The plan's patient and that of every context in it made at
-    /// the inbound boundary, then the plan parsed into the domain; a plan the domain does not
-    /// read is refused before the port is asked. Writes no cookie.
+    /// before the port is asked. The plan's patient and that of every context in it put at the
+    /// age the Session holds and made at the inbound boundary, then the plan parsed into the
+    /// domain; a plan the domain does not read is refused before the port is asked. Writes no
+    /// cookie.
     let processCmd (env: AppEnv) (cookie: SessionCookie) (cmd: SigningCommand) =
         async {
             match cookie.read () with
             | None -> return SigningResponse.Refused SigningRefusal.NoSession
             | Some id ->
+                let! age = env.session.age id
+                let cmd = cmd |> aged age
+
                 let plan =
                     match cmd with
                     | SigningCommand.RequestSignChallenge(plan, _, _) -> plan

@@ -1193,28 +1193,49 @@ module Session =
         | _ -> None
 
 
+    /// The age a Session holds for an identified patient, as the contract carries it: the age
+    /// in days of the patient it opened on, split as the contract splits a number of days.
+    /// None without a Session, in a Session whose EHR data names no patient, or when its
+    /// patient has no age. No clock: the age is the one the Session opened on, up to and
+    /// including the next sign.
+    let age (sid: string) (state: State) : Age option =
+        state.Sessions
+        |> Map.tryFind sid
+        |> Option.filter (fun r ->
+            r.Opened.EhrData
+            |> Option.bind Informedica.GenForm.Lib.EhrPatientData.identity
+            |> Option.isSome
+        )
+        |> Option.bind _.Opened.Patient
+        |> Option.bind (Informedica.GenForm.Lib.Patient.Dto.toDto >> ServerApi.Patient.toModel >> _.Age)
+
+
     /// For every computing request that names a Session: no Session under this id and an
     /// ending recorded for it, the ending; a Session, touched, and, when the token is the
     /// Session's own, the head compared against the version it opened with: a newer version,
     /// whose and when. The notice informs and gates nothing; the refusal at a Submission stays
     /// the only guard. An anonymous Session, one without a Patient, no head, or a token that
-    /// is not the Session's: nothing to say.
+    /// is not the Session's: nothing to say. Beside the notice, the age the Session holds for
+    /// an identified patient, which every patient the request carries is put at.
     let seen
         (now: DateTime)
         (sid: string)
         (opened: OpenedToken option)
         (state: State)
-        : State * RecordNotice option * Persist list
+        : State * (RecordNotice option * Age option) * Persist list
         =
         match state.Sessions |> Map.tryFind sid with
-        | None -> state, state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended), []
+        | None -> state, (state.Endings |> Map.tryFind sid |> Option.map (fst >> RecordNotice.Ended), None), []
         | Some record ->
             let state, writes = touch now sid state
 
-            match record.Opened.User, record.Opened.PatientId with
-            | Some _, Some patientId when opened.IsSome && opened = record.Opened.OpenedToken ->
-                state, blockedBy record patientId state |> Option.map RecordNotice.NewerVersion, writes
-            | _ -> state, None, writes
+            let told =
+                match record.Opened.User, record.Opened.PatientId with
+                | Some _, Some patientId when opened.IsSome && opened = record.Opened.OpenedToken ->
+                    blockedBy record patientId state |> Option.map RecordNotice.NewerVersion
+                | _ -> None
+
+            state, (told, age sid state), writes
 
 
     /// Version id becomes what the Session opened with. No Session, an anonymous one or one

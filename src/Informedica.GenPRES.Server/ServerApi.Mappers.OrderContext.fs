@@ -369,3 +369,8 @@ module OrderContextMapper =
         | DtoError.UnknownTextKind s -> $"Onbekende tekstsoort: %s{s}"
         | DtoError.UnknownCategory s -> $"Onbekende categorie: %s{s}"
         | DtoError.Missing f -> $"Ontbreekt: %s{f}"
+
+
+    /// The context's patient at the Session's age.
+    let aged (age: Age option) (ctx: OrderContext) : OrderContext =
+        { ctx with Patient = ctx.Patient |> Patient.aged age }

@@ -8,6 +8,10 @@ open Shared.Api
 /// The order-context member: the prescribing workbench over the order-context port.
 module OrderContextCommand =
 
+    /// The context's patient at the Session's age.
+    let aged (age: Age option) (cmd: OrderContextCommand, ctx: OrderContext) = cmd, OrderContextMapper.aged age ctx
+
+
     /// The context's patient made at the inbound boundary, the context parsed into the
     /// domain, the verb mapped, the port asked, the answer mapped out with the environment's
     /// demo flag. A draft that is none, or a context the domain does not read, is refused.

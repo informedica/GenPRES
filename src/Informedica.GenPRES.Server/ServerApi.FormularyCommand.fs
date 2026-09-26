@@ -10,8 +10,14 @@ module FormularyCommand =
     let toString (_: Formulary) = "Formulary"
 
 
-    /// The filter's patient, where it has one, made at the ingress; a draft that is none is
-    /// refused, no patient is the formulary unfiltered.
+    /// The filter's patient, where it has one, at the Session's age; a filter without one stays
+    /// the formulary unfiltered.
+    let aged (age: Age option) (form: Formulary) : Formulary =
+        { form with Patient = form.Patient |> Option.map (Patient.aged age) }
+
+
+    /// The filter's patient, where it has one, made at the inbound boundary; a draft that is
+    /// none is refused, no patient is the formulary unfiltered.
     let processCmd (env: AppEnv) (form: Formulary) =
         match Patient.patientOption form.Patient with
         | Ok _ -> env.formulary.getFormulary form
@@ -22,6 +28,10 @@ module FormularyCommand =
 module ParenteraliaCommand =
 
     let toString (_: Parenteralia) = "Parenteralia"
+
+
+    /// No patient to age.
+    let aged (_: Age option) (par: Parenteralia) = par
 
 
     let processCmd (env: AppEnv) (par: Parenteralia) = env.formulary.getParenteralia par

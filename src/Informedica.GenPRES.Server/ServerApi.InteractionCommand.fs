@@ -15,6 +15,10 @@ module InteractionCommand =
         | InteractionCommand.CheckInteractions _ -> Gate.RequiresLoaded
 
 
+    /// No patient to age.
+    let aged (_: Shared.Types.Age option) (cmd: InteractionCommand) = cmd
+
+
     let processCmd (env: AppEnv) (cmd: InteractionCommand) =
         match cmd with
         | InteractionCommand.GetDrugNames ->
