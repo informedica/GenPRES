@@ -390,9 +390,10 @@ type SessionPort =
         // whether the record moved on or the Session ended, and the age it holds for an
         // identified patient; what the patient the request edits measures is recorded
         seen: string -> OpenedToken option -> Patient option -> Async<RecordNotice option * Age option>
-        // the age the Session the cookie names holds for an identified patient; the Session is
-        // not touched, a signing request does that itself
-        age: string -> Async<Age option>
+        // the age the Session the cookie names holds for an identified patient, asked first by
+        // every signing request, which it marks seen; a store that fails answers StoreFailed,
+        // as the challenge and the commit do
+        age: string -> Async<Result<Age option, SigningRefusal>>
         // the version named becomes what the Session the cookie names opened with
         openVersion: string -> string -> Async<OpenedSession option>
     }

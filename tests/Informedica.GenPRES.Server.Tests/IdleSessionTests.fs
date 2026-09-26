@@ -55,13 +55,13 @@ let ended now =
     [ Session.EndSession(sid, Session.StoredEnding.Ended SessionEnding.Idle, now) ]
 
 
-/// An in-memory session port over the state given, with a clock the test moves and an idle
+/// A session port over a store and the state given, with a clock the test moves and an idle
 /// lifetime of an hour.
-let portAt (clock: DateTime ref) (initial: Session.State) =
+let portOver (store: StubDatabase.SessionStore) (clock: DateTime ref) (initial: Session.State) =
     let directory = StubDirectory.make (fun () -> clock.Value) (fun () -> $"code-{Guid.NewGuid()}")
 
     StubDatabase.makeSessionPortWith
-        StubDatabase.inMemory
+        store
         hour
         (fun () -> clock.Value)
         (fun () -> $"id-{Guid.NewGuid()}")
@@ -74,6 +74,20 @@ let portAt (clock: DateTime ref) (initial: Session.State) =
         Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.patientData
         (StubMail.make ()).port
         initial
+
+
+/// An in-memory session port over the state given.
+let portAt = portOver StubDatabase.inMemory
+
+
+/// A store that refuses every write.
+let refusing: StubDatabase.SessionStore =
+    { StubDatabase.inMemory with persist = fun _ -> Session.StoreOutcome.Failed "the database is gone" }
+
+
+/// A store whose loads throw.
+let unreadable: StubDatabase.SessionStore =
+    { StubDatabase.inMemory with load = fun _ _ -> invalidOp "the database is gone" }
 
 
 let endIdleTests =
@@ -244,10 +258,85 @@ let portTests =
 
                 let! age = port.age sid
 
-                age |> Expect.isNone "no Session to hold an age"
+                age |> Expect.equal "no Session to hold an age" (Ok None)
+            }
+
+            testAsync "a signing request's age answers StoreFailed when its heartbeat does not land" {
+                let clock = ref (openedAt + TimeSpan.FromMinutes 10.0)
+                let port = portOver refusing clock (stateSeenAt openedAt)
+
+                let! age = port.age sid
+
+                age
+                |> Expect.equal "a refusal, not an exception" (Error SigningRefusal.StoreFailed)
+            }
+
+            testAsync "a signing request's age answers StoreFailed when the idle end does not land" {
+                let clock = ref (openedAt + TimeSpan.FromHours 2.0)
+                let port = portOver refusing clock (stateSeenAt openedAt)
+
+                let! age = port.age sid
+
+                age
+                |> Expect.equal "a refusal, not an exception" (Error SigningRefusal.StoreFailed)
+
+                // the ending did not land, so the Session is as it was
+                clock.Value <- openedAt + TimeSpan.FromMinutes 10.0
+
+                match! (portOver refusing clock (stateSeenAt openedAt)).age sid with
+                | Error SigningRefusal.StoreFailed -> ()
+                | other -> failtest $"expected StoreFailed, got %A{other}"
+            }
+
+            testAsync "a signing request's age answers StoreFailed when the store cannot load" {
+                let clock = ref openedAt
+                let port = portOver unreadable clock (stateSeenAt openedAt)
+
+                let! age = port.age sid
+
+                age
+                |> Expect.equal "a refusal, not an exception" (Error SigningRefusal.StoreFailed)
+            }
+        ]
+
+
+let signingTests =
+    testList
+        "the signing member"
+        [
+            testAsync "a store that fails while the age is asked refuses the request as StoreFailed" {
+                let port =
+                    { Adapters.sessionDisabled with age = fun _ -> async { return Error SigningRefusal.StoreFailed } }
+
+                let env =
+                    { Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.makeEnv
+                          (Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.formularyAlwaysOk
+                              Shared.Models.Formulary.empty)
+                          (Informedica.GenPRES.Server.Tests.StubAdapterTests.StubAdapters.orderContextAlwaysOk
+                              Shared.Models.OrderContext.empty) with
+                        session = port
+                    }
+
+                let cookie: SessionCookie =
+                    {
+                        read = fun () -> Some sid
+                        write = ignore
+                        delete = ignore
+                    }
+
+                let plan = Informedica.GenPRES.Server.Tests.StubAdapterTests.emptyPlan
+
+                let! response =
+                    SigningCommand.processCmd
+                        env
+                        cookie
+                        (Shared.Api.SigningCommand.RequestSignChallenge(plan, OpenedToken "t", None))
+
+                response
+                |> Expect.equal "refused" (Shared.Types.SigningResponse.Refused SigningRefusal.StoreFailed)
             }
         ]
 
 
 [<Tests>]
-let tests = testList "IdleSession" [ endIdleTests; idleFirstTests; portTests ]
+let tests = testList "IdleSession" [ endIdleTests; idleFirstTests; portTests; signingTests ]

@@ -129,7 +129,7 @@ module StubAdapters =
             challenge = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             submit = fun _ _ -> async { return SigningOutcome.Refused SigningRefusal.NoSession }
             seen = fun _ _ _ -> async { return None, None }
-            age = fun _ -> async { return None }
+            age = fun _ -> async { return Ok None }
             openVersion = fun _ _ -> async { return None }
         }
 

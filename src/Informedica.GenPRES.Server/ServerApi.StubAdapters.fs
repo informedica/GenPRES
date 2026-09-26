@@ -452,11 +452,9 @@ module StubDatabase =
         runWith persist (fun _ -> SigningOutcome.Refused SigningRefusal.StoreFailed) step state
 
 
-    /// A member's step over a Session, with the idle end run first: the ending's row goes out
-    /// ahead of the step's own writes, in the one persist the member makes. The clock is read
-    /// when the step runs, under the port's lock, and once, so that the idle check and the step
-    /// see one time and a request that waited for the lock never writes a heartbeat older than
-    /// the one before it.
+    /// A member's step over a Session, the idle end first, its row ahead of the step's writes.
+    /// The clock is read once, when the step runs under the port's lock, so that a request that
+    /// waited for the lock never writes a heartbeat older than the one before it.
     let idleFirst
         (idle: TimeSpan)
         (now: unit -> DateTime)
@@ -594,7 +592,9 @@ module StubDatabase =
                     result
                 )
 
-        let signing slice f =
+        // a request that answers a store failure rather than failing: a load that throws is
+        // answered with `failed`, and `f` answers its own writes that did not land
+        let guarded failed slice f =
             lock
                 gate
                 (fun () ->
@@ -606,13 +606,19 @@ module StubDatabase =
                          with _ ->
                              Error())
                     with
-                    | Error() -> SigningOutcome.Refused SigningRefusal.StoreFailed
+                    | Error() -> failed
                     | Ok s ->
                         let next, result = f s
                         state <- next
                         flush true
                         result
                 )
+
+        let signing slice f =
+            guarded (SigningOutcome.Refused SigningRefusal.StoreFailed) slice f
+
+        // a member over one Session's rows, the idle end first
+        let overSession sid step = update (Slice.Session sid) (idleFirst idle now sid step)
 
         // a Launch names its rows only once its seal is read; one that does not verify names
         // nothing, and the machine refuses it in the same breath
@@ -648,9 +654,7 @@ module StubDatabase =
                                 (fun s -> Session.present (now ()) newId verify idp.authorizeUrl s launch)
                     }
             callback = fun cb -> async { return update (Slice.LaunchState cb.State) (callbackStep cb) }
-            find =
-                fun id ->
-                    async { return update (Slice.Session id) (idleFirst idle now id (fun at -> Session.find at id)) }
+            find = fun id -> async { return overSession id (fun at -> Session.find at id) }
             close = fun id -> async { return update (Slice.Session id) (Session.close (now ()) id >> asUnit) }
             findEnrolment =
                 fun attempt ->
@@ -719,39 +723,31 @@ module StubDatabase =
                                                 signature
                                         )))
                     }
-            seen =
-                fun sid opened draft ->
-                    async {
-                        return
-                            update
-                                (Slice.Session sid)
-                                (idleFirst idle now sid (fun at -> Session.seen at sid opened draft))
-                    }
-            // a signing request is a request from the Session, also when it is refused before its
-            // challenge or its commit, which touch the Session themselves
+            seen = fun sid opened draft -> async { return overSession sid (fun at -> Session.seen at sid opened draft) }
+            // a signing request marks the Session seen also when refused before its challenge or
+            // commit, which touch it themselves; a store that fails is answered as they answer it
             age =
                 fun sid ->
                     async {
+                        let storeFailed = Error SigningRefusal.StoreFailed
+
                         return
-                            update
+                            guarded
+                                storeFailed
                                 (Slice.Session sid)
-                                (idleFirst
-                                    idle
-                                    now
-                                    sid
-                                    (fun at s ->
-                                        let s, touched = Session.touch at sid s
-                                        s, Session.age sid s, touched
-                                    ))
+                                (runWith
+                                    persisting
+                                    (fun _ -> storeFailed)
+                                    (idleFirst
+                                        idle
+                                        now
+                                        sid
+                                        (fun at s ->
+                                            let s, touched = Session.touch at sid s
+                                            s, Ok(Session.age sid s), touched
+                                        )))
                     }
-            openVersion =
-                fun sid id ->
-                    async {
-                        return
-                            update
-                                (Slice.Session sid)
-                                (idleFirst idle now sid (fun at -> Session.openVersion at newId sid id))
-                    }
+            openVersion = fun sid id -> async { return overSession sid (fun at -> Session.openVersion at newId sid id) }
         }
 
 

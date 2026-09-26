@@ -117,7 +117,7 @@ let portOver (clock: unit -> DateTime) (captured: ResizeArray<Informedica.GenOrd
                     st.Value <- next
                     return told
                 }
-        age = fun sid -> async { return Session.age sid st.Value }
+        age = fun sid -> async { return Ok(Session.age sid st.Value) }
     }
 
 
