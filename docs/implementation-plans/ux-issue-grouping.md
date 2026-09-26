@@ -204,8 +204,9 @@ minimum, deferred from the patient-minimum plan. #489 is the five-second idle au
 
 - **Launched with a patient**: there is a specific patient to point at, and the title bar
   identifies them — id, name, birthdate. The age is computed from the birthdate on the server,
-  when the Session opens and again on each request, since a neonate's age moves by the day;
-  the panel shows it and it cannot be changed. Weight, height and gestational age are
+  when the Session opens and again right after each sign, and held still in between, so that
+  every calculation of an episode rests on one age (the plan for #976 decided this over the
+  "on each request" first filed); the panel shows it and it cannot be changed. Weight, height and gestational age are
   editable and kept as measured: a bedside value overrides the platform's reading and stays,
   and the next signature records the change. The department comes from the launch, in place
   of the hidden default of #717. Today the reading carries an age in years, months, weeks and
@@ -283,9 +284,11 @@ a GitHub discussion (*UX design: 3 basic rules*, unanswered since 2026-08-21; *U
 is the wider thread) and had never been brought into the repository. *Decision*, filed as #979
 and landed as [ADR-0009](../adr/0009-ux-design-rules.md): the rules are an ADR — they are ranked,
 every group's plan cites them, and reversing one after the interface is built means rebuilding it,
-which is what an ADR records. The ADR also carries the decisions already taken under the rules
-(the button convention of G0, the in-place reason of G4, the field list of G3, the patient modes
-of G5) as worked applications, and what a losing rule gives up when two conflict.
+which is what an ADR records, and what a losing rule gives up when two conflict. The decisions
+already taken under the rules (the button convention of G0, the in-place reason of G4, the field
+list of G3, the patient modes of G5) stay in their issues and in this index; the ADR carried
+them as worked applications until 2026-09-26, when its section 4 was removed, since an ADR
+states rules and a decision under them belongs where it is taken.
 Issue #915 belongs here because four
 pages that can be reached from the menu but not linked to is the same navigation question as #396's
 reorganisation.
