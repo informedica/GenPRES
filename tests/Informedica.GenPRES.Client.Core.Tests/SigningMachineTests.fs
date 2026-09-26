@@ -202,7 +202,7 @@ let tests =
                     "signed"
                     (SigningState.idle,
                      [
-                         SigningEffect.RenewToken(OpenedToken "t2")
+                         SigningEffect.RenewToken(OpenedToken "t2", patient)
                          SigningEffect.TellSigned(signed, work)
                      ])
 
@@ -271,7 +271,7 @@ let tests =
                     "signed after all"
                     (SigningState.idle,
                      [
-                         SigningEffect.RenewToken(OpenedToken "t2")
+                         SigningEffect.RenewToken(OpenedToken "t2", patient)
                          SigningEffect.TellSigned(signed, work)
                      ])
             }
@@ -369,7 +369,7 @@ let workTests =
                 |> Expect.equal
                     "signed over the first work"
                     [
-                        SigningEffect.RenewToken(OpenedToken "t2")
+                        SigningEffect.RenewToken(OpenedToken "t2", patient)
                         SigningEffect.TellSigned(signed, PlanWork.Changed 1)
                     ]
             }
@@ -395,7 +395,7 @@ let workTests =
                 |> Expect.equal
                     "signed over the first work"
                     [
-                        SigningEffect.RenewToken(OpenedToken "t2")
+                        SigningEffect.RenewToken(OpenedToken "t2", patient)
                         SigningEffect.TellSigned(signed, PlanWork.Changed 1)
                     ]
             }

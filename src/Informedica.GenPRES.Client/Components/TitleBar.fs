@@ -195,6 +195,17 @@ module TitleBar =
                 whiteSpace = "nowrap"
             |}
 
+        // the patient beside the user, set off by a rule: the name on one line, the birthdate
+        // and the id under it, shown in full since the user sits at the EHR that launched the
+        // Session
+        let sxPatientBox =
+            {|
+                marginLeft = 2
+                paddingLeft = 2
+                borderLeft = "1px solid rgba(255, 255, 255, 0.5)"
+                lineHeight = 1.2
+            |}
+
         // the session terms in the User's language, else the policy's English
         let terms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
 
@@ -207,12 +218,32 @@ module TitleBar =
             | UserRole.Reader -> tr Terms.``Session Role Reader``
 
         // who is in this Session, next to the hospital: only for an open Session with a user;
-        // nothing for anonymous use
+        // nothing for anonymous use. Whom the Session is for, when the EHR said: the name, the
+        // birthdate and the id beside the user, for a Reader as for a Prescriber
         let sessionView =
+            let patientOf (opened: SessionOpened) =
+                opened.PatientContext
+                |> Option.bind (fun context ->
+                    context.Identity
+                    |> Option.map (fun who ->
+                        let detail = $"{Global.birthDateText who} · {context.PatientId}"
+
+                        JSX.jsx
+                            $"""
+                        <Box sx={sxPatientBox}>
+                            <Typography variant="body2" component="div">{who.Name}</Typography>
+                            <Typography variant="caption" component="div">{detail}</Typography>
+                        </Box>
+                        """
+                    )
+                )
+                |> Option.defaultValue null
+
             let userOf (opened: SessionOpened) closing =
                 opened.User
                 |> Option.map (fun user ->
                     let label = $"{user.DisplayName} ({roleName user.Role})"
+                    let patient = patientOf opened
 
                     JSX.jsx
                         $"""
@@ -240,6 +271,7 @@ module TitleBar =
                                 <Typography>{tr Terms.``Session Close``}</Typography>
                             </MenuItem>
                         </Menu>
+                        {patient}
                     </Box>
                     """
                 )
