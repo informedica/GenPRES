@@ -472,7 +472,7 @@ let tests =
 
                                 let! before = port.find sid
                                 failing.Value <- true
-                                let! failed = fails (port.seen sid opened.OpenedToken)
+                                let! failed = fails (port.seen sid opened.OpenedToken None)
                                 failed |> Expect.isTrue "the call fails"
 
                                 failing.Value <- false

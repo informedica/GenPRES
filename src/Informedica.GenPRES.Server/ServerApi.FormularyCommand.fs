@@ -16,6 +16,10 @@ module FormularyCommand =
         { form with Patient = form.Patient |> Option.map (Patient.aged age) }
 
 
+    /// The patient the request edits: the filter's, where it has one.
+    let patientOf (form: Formulary) = form.Patient
+
+
     /// The filter's patient, where it has one, made at the inbound boundary; a draft that is
     /// none is refused, no patient is the formulary unfiltered.
     let processCmd (env: AppEnv) (form: Formulary) =
@@ -32,6 +36,9 @@ module ParenteraliaCommand =
 
     /// No patient to age.
     let aged (_: Age option) (par: Parenteralia) = par
+
+
+    let patientOf (_: Parenteralia) : Patient option = None
 
 
     let processCmd (env: AppEnv) (par: Parenteralia) = env.formulary.getParenteralia par

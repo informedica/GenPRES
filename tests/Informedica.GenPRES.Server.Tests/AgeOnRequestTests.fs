@@ -111,9 +111,9 @@ let portOver (clock: unit -> DateTime) (captured: ResizeArray<Informedica.GenOrd
                     return SigningOutcome.Refused SigningRefusal.PinLimit
                 }
         seen =
-            fun sid opened ->
+            fun sid opened draft ->
                 async {
-                    let next, told, _ = Session.seen (clock ()) sid opened st.Value
+                    let next, told, _ = Session.seen (clock ()) sid opened draft st.Value
                     st.Value <- next
                     return told
                 }
@@ -166,7 +166,7 @@ let boundOver (clock: unit -> DateTime) (sid: string option) aged (cmd: 'cmd) : 
             return Ok()
         }
 
-    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) aged handler request
+    Compute.bound env (cookieOf sid) (fun _ -> "test") (fun _ -> Gate.Open) aged (fun _ -> None) handler request
     |> Async.RunSynchronously
     |> ignore
 
@@ -215,7 +215,7 @@ let tests =
 
                     test "seen tells the age beside the notice" {
                         let _, told, writes =
-                            Session.seen today identified (Some(OpenedToken $"opened-{identified}")) state
+                            Session.seen today identified (Some(OpenedToken $"opened-{identified}")) None state
 
                         (told, writes |> List.length)
                         |> Expect.equal "no notice, the age, and the one touch" ((None, Some sessionAge), 1)

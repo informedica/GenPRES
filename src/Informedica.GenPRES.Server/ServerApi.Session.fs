@@ -571,6 +571,8 @@ module Session =
         | WriteChallenge of sessionId: string * Challenge * at: DateTime
         | SpendChallenge of sessionId: string * nonce: string * at: DateTime
         | RememberAnswer of sessionId: string * idemKey: string * SigningOutcome * at: DateTime
+        /// what the user measured in the Session, one row per value that changed
+        | WriteMeasurement of sessionId: string * Measurement * at: DateTime
 
 
     type State =
@@ -1217,11 +1219,14 @@ module Session =
     /// whose and when. The notice informs and gates nothing; the refusal at a Submission stays
     /// the only guard. An anonymous Session, one without a Patient, no head, or a token that
     /// is not the Session's: nothing to say. Beside the notice, the age the Session holds for
-    /// an identified patient, which every patient the request carries is put at.
+    /// an identified patient, which every patient the request carries is put at. What the
+    /// request's patient measures is recorded for a Session with a Patient: a row per value
+    /// that differs from the one the Session stood on, held from here on.
     let seen
         (now: DateTime)
         (sid: string)
         (opened: OpenedToken option)
+        (draft: Patient option)
         (state: State)
         : State * (RecordNotice option * Age option) * Persist list
         =
@@ -1236,7 +1241,27 @@ module Session =
                     blockedBy record patientId state |> Option.map RecordNotice.NewerVersion
                 | _ -> None
 
-            state, (told, age sid state), writes
+            let measured, rows =
+                match record.Opened.PatientId, draft with
+                | Some _, Some draft ->
+                    // the EHR's value as shown is what the Session stood on before any row
+                    let shown =
+                        record.Opened.Patient
+                        |> Option.map (Informedica.GenForm.Lib.Patient.Dto.toDto >> ServerApi.Patient.toModel)
+
+                    Measurements.record now shown record.Opened.Measured draft
+                | _ -> record.Opened.Measured, []
+
+            let state =
+                { state with
+                    Sessions =
+                        state.Sessions
+                        |> Map.change
+                            sid
+                            (Option.map (fun r -> { r with Opened = { r.Opened with Measured = measured } }))
+                }
+
+            state, (told, age sid state), writes @ (rows |> List.map (fun m -> WriteMeasurement(sid, m, now)))
 
 
     /// Version id becomes what the Session opened with. No Session, an anonymous one or one

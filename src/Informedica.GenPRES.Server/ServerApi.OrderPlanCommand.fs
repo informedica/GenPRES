@@ -83,6 +83,17 @@ module OrderPlanCommand =
             OrderPlanCommand.Open(Patient.aged age pat, contexts |> Array.map (OrderContextMapper.aged age))
 
 
+    /// The patient the request edits: the plan's, the panel's; not a context's own.
+    let patientOf (cmd: OrderPlanCommand) =
+        match cmd with
+        | OrderPlanCommand.Recalculate plan
+        | OrderPlanCommand.Navigate(plan, _, _, _)
+        | OrderPlanCommand.AddOrderContext(plan, _)
+        | OrderPlanCommand.NewOrderContext(plan, _)
+        | OrderPlanCommand.RemoveOrderContexts(plan, _) -> Some plan.Patient
+        | OrderPlanCommand.Open(pat, _) -> Some pat
+
+
     /// The plan's patient and that of every context it carries, and the context's where a
     /// command carries one, made at the inbound boundary; the plan and the context parsed into
     /// the domain, the verb mapped, the port asked, the answer mapped out with the environment's

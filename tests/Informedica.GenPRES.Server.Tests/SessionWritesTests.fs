@@ -93,6 +93,7 @@ let caseName (w: Session.Persist) =
     | Session.WriteChallenge _ -> "WriteChallenge"
     | Session.SpendChallenge _ -> "SpendChallenge"
     | Session.RememberAnswer _ -> "RememberAnswer"
+    | Session.WriteMeasurement _ -> "WriteMeasurement"
 
 
 let names writes = writes |> List.map caseName

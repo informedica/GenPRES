@@ -303,6 +303,7 @@ let processCmdGuardTests =
                         ServerApi.FormularyCommand.toString
                         (fun _ -> ServerApi.Gate.RequiresLoaded)
                         ServerApi.FormularyCommand.aged
+                        ServerApi.FormularyCommand.patientOf
                         (ServerApi.FormularyCommand.processCmd env)
                         {
                             Opened = None
@@ -328,6 +329,7 @@ let processCmdGuardTests =
                         ServerApi.ParenteraliaCommand.toString
                         (fun _ -> ServerApi.Gate.RequiresLoaded)
                         ServerApi.ParenteraliaCommand.aged
+                        ServerApi.ParenteraliaCommand.patientOf
                         (ServerApi.ParenteraliaCommand.processCmd env)
                         {
                             Opened = None

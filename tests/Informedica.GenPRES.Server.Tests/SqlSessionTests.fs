@@ -19,7 +19,7 @@ open Informedica.GenPRES.Server.Tests.SqlSchemaTests
 /// A fresh database with every migration applied.
 let withSessions f =
     withDb (fun cs ->
-        SqlSchema.apply cs |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6; 7 ]
+        SqlSchema.apply cs |> Expect.equal "every migration" [ 1; 2; 3; 4; 5; 6; 7; 8 ]
         f cs
     )
 
@@ -749,6 +749,54 @@ let writerTests =
                     |> Expect.equal "under the version it was written with" SqlSessions.ehrJsonWritten
                     r.GetString 1
                     |> Expect.equal "the canonical form of its Dto" (SqlSessions.ehrJson ehr)
+                )
+            }
+
+            test "the measurements of a Session are written one row each and load back, the latest per kind" {
+                withSessions (fun cs ->
+                    insertSession cs "s-1" (Some "prescriber") "prescriber"
+                    let gestAge: GestAge =
+                        {
+                            Weeks = 36<week>
+                            Days = 3<day>
+                        }
+
+                    runWrites
+                        cs
+                        [
+                            Session.WriteMeasurement("s-1", Measurement.Weight(Some 33000<gram>), t0)
+                            Session.WriteMeasurement("s-1", Measurement.Weight(Some 34000<gram>), t0.AddMinutes 1.0)
+                            Session.WriteMeasurement("s-1", Measurement.Height None, t0.AddMinutes 2.0)
+                            Session.WriteMeasurement("s-1", Measurement.GestAge(Some gestAge), t0.AddMinutes 3.0)
+                        ]
+                    |> Expect.equal "written" Session.StoreOutcome.Written
+
+                    match loadedSession cs "s-1" with
+                    | Some(Choice1Of2(Ok loaded)) ->
+                        loaded.Opened.Measured
+                        |> Expect.equal
+                            "the latest weight, the height cleared, the gestational age"
+                            {
+                                Weight =
+                                    Some
+                                        {
+                                            Value = Some 34000<gram>
+                                            At = t0.AddMinutes 1.0
+                                        }
+                                Height =
+                                    Some
+                                        {
+                                            Value = None
+                                            At = t0.AddMinutes 2.0
+                                        }
+                                GestAge =
+                                    Some
+                                        {
+                                            Value = Some gestAge
+                                            At = t0.AddMinutes 3.0
+                                        }
+                            }
+                    | other -> failtest $"expected the Session, got %A{other}"
                 )
             }
 

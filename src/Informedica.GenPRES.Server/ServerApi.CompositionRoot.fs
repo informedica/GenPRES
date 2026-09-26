@@ -26,6 +26,7 @@ module CompositionRoot =
                     OrderContextCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
                     OrderContextCommand.aged
+                    OrderContextCommand.patientOf
                     (OrderContextCommand.processCmd env)
 
             processFormulary =
@@ -35,6 +36,7 @@ module CompositionRoot =
                     FormularyCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
                     FormularyCommand.aged
+                    FormularyCommand.patientOf
                     (FormularyCommand.processCmd env)
 
             processParenteralia =
@@ -44,6 +46,7 @@ module CompositionRoot =
                     ParenteraliaCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
                     ParenteraliaCommand.aged
+                    ParenteraliaCommand.patientOf
                     (ParenteraliaCommand.processCmd env)
 
             // the one plan, nutrition included
@@ -54,6 +57,7 @@ module CompositionRoot =
                     OrderPlanCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
                     OrderPlanCommand.aged
+                    OrderPlanCommand.patientOf
                     (OrderPlanCommand.processCmd env)
 
             // the one member whose gate differs per command: the drug names run open
@@ -64,6 +68,7 @@ module CompositionRoot =
                     InteractionCommand.toString
                     InteractionCommand.gate
                     InteractionCommand.aged
+                    InteractionCommand.patientOf
                     (InteractionCommand.processCmd env)
 
             processLaunch =

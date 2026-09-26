@@ -574,6 +574,42 @@ module SqlSessions =
         | _ -> Error "the EHR data and its JSON structure version are not both present"
 
 
+    /// What the user measured in a Session, its rows oldest first, the latest per kind
+    /// deciding; a kind this release does not know is a reason.
+    let loadMeasurements (conn: SqliteConnection) (sid: string) : Result<Measurements, string> =
+        rows
+            conn
+            "select kind, value, days, at from measurement where session_id = $sid order by id"
+            [ "$sid", box sid ]
+            (fun r ->
+                let value = if r.IsDBNull 1 then None else Some(r.GetInt32 1)
+                let days = if r.IsDBNull 2 then 0 else r.GetInt32 2
+                let at = at (r.GetInt64 3)
+
+                match r.GetString 0 with
+                | "weight" -> Ok(Measurement.Weight(value |> Option.map Shared.Measures.toGram), at)
+                | "height" -> Ok(Measurement.Height(value |> Option.map Shared.Measures.toCm), at)
+                | "gestage" ->
+                    let gestAge (w: int) : GestAge =
+                        {
+                            Weeks = Shared.Measures.toWeek w
+                            Days = Shared.Measures.toDay days
+                        }
+
+                    Ok(Measurement.GestAge(value |> Option.map gestAge), at)
+                | kind -> Error $"the measurement kind %s{kind} is not known"
+            )
+        |> List.fold
+            (fun acc row ->
+                match acc, row with
+                | Ok rows, Ok row -> Ok(row :: rows)
+                | Error e, _
+                | _, Error e -> Error e
+            )
+            (Ok [])
+        |> Result.map (List.rev >> Measurements.ofRows)
+
+
     /// What a Session opened with, the newest row: the token, the id of the version it opened
     /// with, the head it saw, the EHR data it opened on and the patient data it shows, whose
     /// reasons for not reading make the Session unreadable.
@@ -718,12 +754,15 @@ module SqlSessions =
                             opened
                             |> Option.map _.EhrData
                             |> Option.defaultValue (Ok None)
-                            |> Result.map (fun ehr -> user, patient, ehr)
+                            |> Result.bind (fun ehr ->
+                                loadMeasurements conn sid
+                                |> Result.map (fun measured -> user, patient, ehr, measured)
+                            )
                         )
                     )
 
                 read
-                |> Result.map (fun (user, patient, ehr) ->
+                |> Result.map (fun (user, patient, ehr, measured) ->
                     let session: Session.SessionRecord =
                         {
                             Opened =
@@ -732,8 +771,7 @@ module SqlSessions =
                                     PatientId = row.PatientId
                                     EhrData = ehr
                                     Patient = patient
-                                    // the measurement rows come with the store's next migration
-                                    Measured = Measurements.none
+                                    Measured = measured
                                     OpenedToken = opened |> Option.bind _.OpenedToken
                                     KeyThumbprint = row.KeyThumbprint
                                     Head = opened |> Option.bind _.HeadId |> Option.bind headOf
@@ -1017,6 +1055,25 @@ module SqlSessions =
                     "$e", box (ms notice.Expiry)
                     "$at", box (ms at)
                 ]
+        | Session.WriteMeasurement(sid, measurement, at) ->
+            let kind, value, days =
+                match measurement with
+                | Measurement.Weight g -> "weight", g |> Option.map int, None
+                | Measurement.Height cm -> "height", cm |> Option.map int, None
+                | Measurement.GestAge ga ->
+                    "gestage", ga |> Option.map (fun g -> int g.Weeks), ga |> Option.map (fun g -> int g.Days)
+
+            exec
+                conn
+                tx
+                "insert into measurement (session_id, kind, value, days, at) values ($sid, $k, $v, $d, $at)"
+                [
+                    "$sid", box sid
+                    "$k", box kind
+                    "$v", nullable value
+                    "$d", nullable days
+                    "$at", box (ms at)
+                ]
         | Session.WriteChallenge(sid, challenge, at) ->
             exec
                 conn
@@ -1125,7 +1182,8 @@ module SqlSessions =
         | Session.WriteNotice(sid, _, _)
         | Session.WriteChallenge(sid, _, _)
         | Session.SpendChallenge(sid, _, _)
-        | Session.RememberAnswer(sid, _, _, _) -> Some sid, None
+        | Session.RememberAnswer(sid, _, _, _)
+        | Session.WriteMeasurement(sid, _, _) -> Some sid, None
         | Session.WriteVersion v -> None, Some v.SignedBy.UserId
         | Session.WriteCredential(userId, _, _, _)
         | Session.CountCodeTry(userId, _, _)
@@ -1191,6 +1249,19 @@ module SqlSessions =
             Some { auditEntry at "code-entered" "refused" with Actor = Some userId }
         | Session.WriteNotice(sid, _, at) -> Some { auditEntry at "notice-told" "ok" with SessionId = Some sid }
         | Session.WriteChallenge(sid, _, at) -> Some { auditEntry at "challenge-issued" "ok" with SessionId = Some sid }
+        // what was measured is the value's business: the audit names the kind alone
+        | Session.WriteMeasurement(sid, measurement, at) ->
+            let kind =
+                match measurement with
+                | Measurement.Weight _ -> "weight"
+                | Measurement.Height _ -> "height"
+                | Measurement.GestAge _ -> "gestational-age"
+
+            Some
+                { auditEntry at "measurement-recorded" "ok" with
+                    SessionId = Some sid
+                    Detail = Some $"""{{"kind":%s{jsonText kind}}}"""
+                }
         | Session.RememberAnswer(sid, _, outcome, at) ->
             match outcome with
             // the signature itself is audited by the version it wrote
@@ -1755,7 +1826,10 @@ module SqlSessions =
                 PatientId = row.PatientId
                 EhrData = opened |> Option.bind (fun o -> o.EhrData |> Result.toOption |> Option.flatten)
                 Patient = opened |> Option.bind (fun o -> o.Patient |> Result.toOption |> Option.flatten)
-                Measured = Measurements.none
+                Measured =
+                    loadMeasurements conn sid
+                    |> Result.toOption
+                    |> Option.defaultValue Measurements.none
                 OpenedToken = opened |> Option.bind _.OpenedToken
                 KeyThumbprint = row.KeyThumbprint
                 Head = opened |> Option.bind _.HeadId |> Option.bind headOf
