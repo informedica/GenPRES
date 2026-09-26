@@ -683,6 +683,8 @@ module SqlSessions =
                                 {
                                     User = user
                                     PatientId = row.PatientId
+                                    // the EHR data has no column yet, so a reloaded Session holds none
+                                    EhrData = None
                                     Patient = patient
                                     OpenedToken = opened |> Option.bind _.OpenedToken
                                     KeyThumbprint = row.KeyThumbprint
@@ -690,6 +692,7 @@ module SqlSessions =
                                 }
                             Login = row.Login
                             OpenedWith = opened |> Option.bind _.VersionId
+                            OpenedAt = row.OpenedAt
                             Seen = loadSeen conn sid |> Option.defaultValue row.OpenedAt
                         }
 
@@ -1675,6 +1678,7 @@ module SqlSessions =
                     |> Result.toOption
                     |> Option.flatten
                 PatientId = row.PatientId
+                EhrData = None
                 Patient = opened |> Option.bind (fun o -> o.Patient |> Result.toOption |> Option.flatten)
                 OpenedToken = opened |> Option.bind _.OpenedToken
                 KeyThumbprint = row.KeyThumbprint

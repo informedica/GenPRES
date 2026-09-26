@@ -37,7 +37,7 @@ let portOver (store: StubDatabase.SessionStore) =
             (fun launch -> LaunchSeal.verify t0 sealKey launch)
             directory.idp
             directory.registry
-            StubPatientData.port
+            StubAdapterTests.StubAdapters.patientData
             outbox.port
             seeded
 

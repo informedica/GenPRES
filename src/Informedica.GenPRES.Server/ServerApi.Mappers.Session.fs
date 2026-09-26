@@ -78,9 +78,21 @@ module SessionMapper =
         }
 
 
+    /// The identity on the wire, beside the id the context carries: the name and the birthdate
+    /// as three integers.
+    let identity (id: Informedica.GenCore.Lib.Patients.PatientIdentity) : NameAndBirthDate =
+        {
+            Name = id.Name
+            BirthYear = int id.BirthDate.Year
+            BirthMonth = int id.BirthDate.Month
+            BirthDay = int id.BirthDate.Day
+        }
+
+
     /// What the client keeps of an open Session, from what the store holds: the head as the
-    /// signed order plan on the wire when it can be read, none when it cannot, the patient
-    /// data as the contract model; the demo flag on every context.
+    /// signed order plan on the wire when it can be read, none when it cannot, the identity
+    /// when the EHR data has one, the patient data as the contract model; the demo flag on
+    /// every context.
     let toOpened (demo: bool) (opened: OpenedSession) : SessionOpened =
         {
             User = opened.User
@@ -89,6 +101,10 @@ module SessionMapper =
                 |> Option.map (fun id ->
                     {
                         PatientId = id
+                        Identity =
+                            opened.EhrData
+                            |> Option.bind Informedica.GenForm.Lib.EhrPatientData.identity
+                            |> Option.map identity
                         Patient =
                             opened.Patient
                             |> Option.map (Informedica.GenForm.Lib.Patient.Dto.toDto >> Patient.toModel)

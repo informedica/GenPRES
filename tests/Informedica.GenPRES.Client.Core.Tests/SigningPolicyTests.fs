@@ -29,6 +29,7 @@ module Fixtures =
                     Some
                         {
                             PatientId = "p"
+                            Identity = None
                             Patient = Some patient
                         }
                 else

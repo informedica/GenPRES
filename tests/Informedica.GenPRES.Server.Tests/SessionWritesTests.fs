@@ -59,7 +59,17 @@ let callbackCounting (d: StubDirectory.Directory) newId (count: int ref) state c
         count.Value <- count.Value + 1
         d.idp.redeem code
 
-    Session.callback t0 newId (codes ()) codeMac redeem d.registry.standing StubPatientData.port.read ignore state cb
+    Session.callback
+        t0
+        newId
+        (codes ())
+        codeMac
+        redeem
+        d.registry.standing
+        StubAdapterTests.StubAdapters.patientData
+        ignore
+        state
+        cb
 
 
 let caseName (w: Session.Persist) =
@@ -169,7 +179,7 @@ let machineTests =
                         codeMac
                         redeem
                         Store.registry
-                        StubPatientData.port.read
+                        StubAdapterTests.StubAdapters.patientData
                         ignore
                         state
                         cb
@@ -182,7 +192,7 @@ let machineTests =
                             (ids ())
                             (codes ())
                             codeMac
-                            StubPatientData.port.read
+                            StubAdapterTests.StubAdapters.patientData
                             ignore
                             (record, identity, standing)
                             state
@@ -282,7 +292,7 @@ let machineTests =
                         t0
                         newId
                         StubDatabase.digest
-                        StubPatientData.port.read
+                        StubAdapterTests.StubAdapters.patientData
                         sid
                         (Store.domainPlan.Value, token, None)
                         state
@@ -367,7 +377,7 @@ let portOver (store: StubDatabase.SessionStore) =
             verify
             d.idp
             d.registry
-            StubPatientData.port
+            StubAdapterTests.StubAdapters.patientData
             (StubMail.make ()).port
             seeded
 
@@ -524,7 +534,7 @@ let credentialWrites =
                         salts
                         codeMac
                         d.registry.standing
-                        StubPatientData.port.read
+                        StubAdapterTests.StubAdapters.patientData
                         ignore
                         attempt
                         code
@@ -557,7 +567,7 @@ let credentialWrites =
                         salts
                         codeMac
                         d.registry.standing
-                        StubPatientData.port.read
+                        StubAdapterTests.StubAdapters.patientData
                         ignore
                         attempt
                         code
@@ -613,7 +623,7 @@ let flightWrites =
                         t0
                         newId
                         StubDatabase.digest
-                        StubPatientData.port.read
+                        StubAdapterTests.StubAdapters.patientData
                         sid
                         (Store.domainPlan.Value, token, None)
                         state
@@ -645,15 +655,27 @@ let flightWrites =
                         t0
                         newId
                         StubDatabase.digest
-                        StubPatientData.port.read
+                        StubAdapterTests.StubAdapters.patientData
                         sid
                         (Store.domainPlan.Value, token, None)
                         state
 
-                let moved _ =
-                    { StubPatientData.patient with Department = Some "ICU" }
-                    |> Patient.parse
-                    |> Result.toOption
+                // the EHR now says another ward
+                let moved =
+                    { StubAdapterTests.StubAdapters.patientData with
+                        read =
+                            fun pid ->
+                                StubAdapterTests.StubAdapters.patientData.read pid
+                                |> Option.map (fun ehr ->
+                                    { ehr with
+                                        Patient =
+                                            { ehr.Patient with
+                                                Department =
+                                                    Informedica.GenCore.Lib.Patients.Department.pediatricICU "ICU"
+                                            }
+                                    }
+                                )
+                    }
 
                 let _, answer, writes =
                     Session.challenge t0 newId StubDatabase.digest moved sid (Store.domainPlan.Value, token, None) state
@@ -676,7 +698,7 @@ let flightWrites =
                         t0
                         newId
                         StubDatabase.digest
-                        StubPatientData.port.read
+                        StubAdapterTests.StubAdapters.patientData
                         sid
                         (Store.domainPlan.Value, token, None)
                         state

@@ -115,7 +115,14 @@ let stateOf sessions records =
     }
 
 let ask now nonces state sid (p, opened) =
-    Machine.challenge now nonces StubDatabase.digest StubPatientData.port.read sid (p, opened, None) state
+    Machine.challenge
+        now
+        nonces
+        StubDatabase.digest
+        StubAdapterTests.StubAdapters.patientData
+        sid
+        (p, opened, None)
+        state
 
 let signature sid pin key (p: Types.OrderPlan) : Signature =
     {
