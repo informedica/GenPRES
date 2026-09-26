@@ -231,7 +231,8 @@ One pull request per step unless the step says two. Everything outside
 
 - **Which fields.** Weight, height, gestational age, gender, department, renal function and
   access: the data the rules read that the User can change. The age is fixed by the Server.
-  Confirm, or name the ones to leave out.
+  The check at the challenge compares the location too, which the rules read but the panel
+  does not offer. Confirm, or name the ones to leave out.
 - **Which Sessions.** Settled: an identified patient only. Anonymous use and the url mode are
   never held; nothing is signed for them.
 - **What counts as changed.** An order context whose id the head does not hold, or whose content

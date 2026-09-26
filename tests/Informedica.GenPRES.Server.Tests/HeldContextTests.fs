@@ -89,6 +89,7 @@ let tests =
                         [
                             "weight", patient |> weighing 35
                             "department", { patient with Department = Some "NEO" }
+                            "location", { patient with Location = Some "PICU" }
                             "renal function", { patient with RenalFunction = Some(EGFR(Some 10, Some 30)) }
                         ] do
                         test name {

@@ -1410,7 +1410,7 @@ module Session =
     /// The patient data the rules read. The age is left out: the Server puts the Session's age
     /// on the plan and on every context.
     let ruleData (p: GenForm.Patient) =
-        p.Department, p.Gender, p.Weight, p.Height, p.GestAge, p.PMAge, p.Access, p.RenalFunction
+        p.Location, p.Department, p.Gender, p.Weight, p.Height, p.GestAge, p.PMAge, p.Access, p.RenalFunction
 
 
     /// The ids of the new or changed contexts that state another patient context than the plan;
