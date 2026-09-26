@@ -242,6 +242,8 @@ type Terms =
     | ``Session Newer Version``
     | ``Session Open Newest``
     | ``Session Version Opened``
+    // a refresh from the EHR that did not happen
+    | ``Session Refresh Failed``
 
 
 module Localization =

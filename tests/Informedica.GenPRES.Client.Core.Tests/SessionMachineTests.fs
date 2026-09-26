@@ -816,10 +816,13 @@ module SessionMachineTests =
                              [ SessionEffect.SetPatient None; SessionEffect.SetPatient(Some aged) ])
                     }
 
-                    test "Refreshed with nothing, a failure or a stale token leaves the Session as it was" {
+                    test
+                        "Refreshed with nothing or a failure leaves the Session as it was and says so; a stale token says nothing" {
                         for answer in [ Ok None; Error "offline" ] do
                             transition (SessionMsg.Refreshed(full.OpenedToken, answer)) (SessionState.opened full None)
-                            |> Expect.equal $"%A{answer}" (SessionState.opened full None, [])
+                            |> Expect.equal
+                                $"%A{answer}"
+                                (SessionState.opened full None, [ SessionEffect.TellRefreshFailed ])
 
                         let newer = { full with OpenedToken = Some(OpenedToken "t-newer") }
 

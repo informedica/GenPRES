@@ -828,6 +828,8 @@ module private Elmish =
             state
             |> tell (SigningPolicy.versionOpenedSentence (signingTerm state) head) "success",
             Cmd.none
+        | SessionEffect.TellRefreshFailed ->
+            state |> tell (signingTerm state Terms.``Session Refresh Failed``) "warning", Cmd.none
         | SessionEffect.TellMovedOn head ->
             state |> tell (SigningPolicy.movedOnSentence (signingTerm state) head) "warning", Cmd.none
         | SessionEffect.CallOpenVersion(id, from) ->

@@ -168,6 +168,9 @@ type SessionEffect =
     | TellVersionOpened of OrderPlanHead
     // the record moved on to this version; told once per version, the bar offers it
     | TellMovedOn of OrderPlanHead
+    // the refresh did not happen: nothing to refresh, or the request never got there; the
+    // orders stay as they are
+    | TellRefreshFailed
 
 
 /// The notice that the record moved on, as the Session keeps it: the newest head it was told,
@@ -558,6 +561,11 @@ module SessionState =
                 opened session (MovedOn.opened state.MovedOn head.Head),
                 [ SessionEffect.SetPatient patient; SessionEffect.LoadCart head ]
             | _ -> opened session state.MovedOn, [ SessionEffect.SetPatient None; SessionEffect.SetPatient patient ]
+        // the question closed when the refresh was asked, so a refresh that did not happen is told
+        | SessionMsg.Refreshed(from, (Ok None | Error _)), SessionPhase.Open current, None when
+            current.OpenedToken = from
+            ->
+            state, [ SessionEffect.TellRefreshFailed ]
         | SessionMsg.Refreshed _, _, _ -> state, []
 
         // what a reply told with its answer: the stale-request guard is the one Reopened has,
