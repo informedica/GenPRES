@@ -396,6 +396,8 @@ type SessionPort =
         age: string -> Async<Result<Age option, SigningRefusal>>
         // the version named becomes what the Session the cookie names opened with
         openVersion: string -> string -> Async<OpenedSession option>
+        // the EHR read again for the Session the cookie names and the head reopened on it
+        refresh: string -> Async<OpenedSession option>
     }
 
 

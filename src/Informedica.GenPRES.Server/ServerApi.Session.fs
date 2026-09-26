@@ -1441,6 +1441,65 @@ module Session =
         current |> Option.map (merged openedAt patientData measured)
 
 
+    /// The Session refreshed: the EHR read again and projected at the time of the refresh with the user's
+    /// measurements over it, the head of the record reopened under a fresh OpenedToken, the
+    /// standing challenge spent and the notice dropped. None for no Session, an anonymous one or
+    /// one without a Patient. No reading: the patient and the EHR data as they were.
+    let refresh
+        (now: DateTime)
+        (newId: unit -> string)
+        (patientData: PatientDataPort)
+        (sid: string)
+        (state: State)
+        : State * OpenedSession option * Persist list
+        =
+        match state.Sessions |> Map.tryFind sid with
+        | None -> state, None, []
+        | Some record ->
+            let state, seen = touch now sid state
+
+            match record.Opened.User, record.Opened.PatientId with
+            | None, _
+            | _, None -> state, None, seen
+            | Some _, Some patientId ->
+                let read = patientData.read patientId
+
+                let patient =
+                    read
+                    |> Option.map (merged now patientData record.Opened.Measured)
+                    |> Option.orElse record.Opened.Patient
+
+                let head = headOf patientId state
+
+                let opened =
+                    { record.Opened with
+                        OpenedToken = Some(OpenedToken $"opened-{newId ()}")
+                        EhrData = read |> Option.orElse record.Opened.EhrData
+                        Patient = patient
+                        Head = head
+                    }
+
+                let session =
+                    { state.Sessions[sid] with
+                        Opened = opened
+                        OpenedWith = head |> Option.bind StoredVersion.readableId
+                    }
+
+                let spent =
+                    state.Challenges
+                    |> Map.tryFind sid
+                    |> Option.map (fun c -> [ SpendChallenge(sid, c.Nonce, now) ])
+                    |> Option.defaultValue []
+
+                { state with
+                    Sessions = state.Sessions |> Map.add sid session
+                    Challenges = state.Challenges |> Map.remove sid
+                    Notices = state.Notices |> Map.remove sid
+                },
+                Some opened,
+                seen @ spent @ [ RecordOpenedWith(sid, session, now) ]
+
+
     /// The challenge request, checked in order: the Session with a User and a Patient; the
     /// Role Prescriber; the OpenedToken this Session holds; the patient data re-read: when it
     /// is not what the Session opened with and no notice over this reading was accepted, no
@@ -1548,7 +1607,7 @@ module Session =
     /// Submission that was never going to land costs no attempt. A pure function: on an
     /// accepted sign the returned state already holds the new head, which carries the
     /// Session's identity, with the challenge spent, the OpenedToken re-minted over it and the
-    /// Session's patient set to the merge at the clock (the identity from the EHR data, the age
+    /// Session's patient set to the merge at the time of the sign (the identity from the EHR data, the age
     /// computed again, what the user measured), else the data signed, and the third value is
     /// the write for the adapter to run; on a refusal it is none. The answer is remembered under the key, refusals too.
     /// Three wrong PINs end the Session (WrongPinLimit), lock signing and mail the User; a
@@ -1659,7 +1718,7 @@ module Session =
 
                                         // the EHR data is the read just signed on, and the identity the
                                         // version names is that read's; the Session's patient is its
-                                        // merge at the clock, the age computed again, else the data just
+                                        // merge at the time of the sign, the age computed again, else the data just
                                         // signed; the version keeps the age it was signed at
                                         let ehr = Reads.afterCommit challenge record.Opened.EhrData
                                         let whom = OpenedSession.identity { record.Opened with EhrData = ehr }

@@ -26,6 +26,7 @@
     <Compile Include="AgeOnRequestTests.fs" />
     <Compile Include="IdleSessionTests.fs" />
     <Compile Include="HeldContextTests.fs" />
+    <Compile Include="RefreshTests.fs" />
     <Compile Include="VersionIdentityTests.fs" />
     <Compile Include="SqlSchemaTests.fs" />
     <Compile Include="SqlRecordTests.fs" />

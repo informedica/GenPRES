@@ -748,6 +748,7 @@ module StubDatabase =
                                         )))
                     }
             openVersion = fun sid id -> async { return overSession sid (fun at -> Session.openVersion at newId sid id) }
+            refresh = fun sid -> async { return overSession sid (fun at -> Session.refresh at newId patientData sid) }
         }
 
 

@@ -61,6 +61,14 @@ module SessionCommand =
                 | Some sid ->
                     let! opened = env.session.openVersion sid id
                     return SessionResponse.SessionResp(opened |> Option.map (SessionMapper.toOpened env.demo))
+            // the EHR read again for the Session the cookie names and its head reopened on it;
+            // without a cookie there is nothing to refresh. Writes no cookie.
+            | SessionCommand.Refresh ->
+                match cookie.read () with
+                | None -> return SessionResponse.SessionResp None
+                | Some sid ->
+                    let! opened = env.session.refresh sid
+                    return SessionResponse.SessionResp(opened |> Option.map (SessionMapper.toOpened env.demo))
             | SessionCommand.CloseSession ->
                 try
                     match cookie.read () with

@@ -99,6 +99,7 @@ let tests =
                         Terms.``Session Newer Version``
                         Terms.``Session Open Newest``
                         Terms.``Session Version Opened``
+                        Terms.``Session Refresh Failed``
                     ] do
                     english term |> Expect.notEqual $"default for {term}" $"{term}"
             }
