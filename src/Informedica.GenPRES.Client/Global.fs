@@ -22,6 +22,12 @@ let getLocalizedTerm (localizationTerms: Deferred<string[][]>) (lang: Localizati
     |> Deferred.defaultValue defVal
 
 
+/// The birthdate as the title bar and the panel show it: day, month and year as the EHR that
+/// launched the Session writes them, from the three integers the context carries, so that no
+/// time zone can move it by a day.
+let birthDateText (who: Types.NameAndBirthDate) = $"%02i{who.BirthDay}-%02i{who.BirthMonth}-%04i{who.BirthYear}"
+
+
 let pageToString terms locale page =
     let getTerm term = getLocalizedTerm terms locale $"{term}" term
 

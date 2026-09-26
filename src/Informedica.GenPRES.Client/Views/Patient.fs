@@ -25,7 +25,9 @@ module Patient =
 
 
         type Msg =
-            | Clear
+            // the draft discarded, but for what the reset keeps: the age of an identified
+            // patient, which is the platform's and not the user's to clear
+            | Clear of kept: Age option
             | UpdateYear of string option
             | UpdateMonth of string option
             | UpdateWeek of string option
@@ -56,7 +58,7 @@ module Patient =
         let update dispatch msg (state: State) : State * Cmd<Msg> =
             let state =
                 match msg with
-                | Clear -> None
+                | Clear kept -> kept |> Option.map (fun age -> { Patient.empty with Age = Some age })
                 | UpdateYear s -> state |> Patient.setYear s
                 | UpdateMonth s -> state |> Patient.setMonth s
                 | UpdateWeek s -> state |> Patient.setWeek s
@@ -83,7 +85,9 @@ module Patient =
 
 
         /// The summary: the draft's data, and under it, while the draft is no patient yet, what is
-        /// missing: an age, or a weight and a height. Nothing entered asks for the data.
+        /// missing: an age, or a weight and a height. Nothing entered asks for the data. The name
+        /// and the birthdate stay in the title bar: the panel is about the data, and says only
+        /// the id under which it is held.
         let show lang terms pat =
             let term fallback t =
                 terms
@@ -154,6 +158,42 @@ module Patient =
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
+        // whom the patient is when the EHR said: the panel is in identified mode by it, not by
+        // an open Session, since a launch without data opens a Session without one, and one
+        // with a signed head opens identified from the head. Identified, the age is the
+        // platform's: shown, not chosen, and kept through a reset
+        let patientContext =
+            match session with
+            | SessionMachine.SessionView.Open opened
+            | SessionMachine.SessionView.Closing opened -> opened.PatientContext
+            | _ -> None
+
+        let identity = patientContext |> Option.bind _.Identity
+
+        let identified = identity.IsSome
+
+        // the summary: the data, and above it, identified, the id the data is held under; the
+        // name and the birthdate are the title bar's alone
+        let summary =
+            let data = pat |> show lang localizationTerms |> toJsx
+
+            match identity, patientContext with
+            | Some _, Some context ->
+                let idLabel = Terms.``Patient Id`` |> getTerm "Patiënt-ID"
+                let idLine = $"{idLabel} {context.PatientId}"
+
+                JSX.jsx
+                    $"""
+                import Box from '@mui/material/Box';
+                import Typography from '@mui/material/Typography';
+
+                <Box>
+                    <Typography variant="caption" color="text.secondary" component="div">{idLine}</Typography>
+                    {data}
+                </Box>
+                """
+            | _ -> data
+
         // the summary click opens or folds the panel; while the patient cannot be calculated
         // the panel stays open, since there is nothing to fold it over
         let toggle =
@@ -176,7 +216,7 @@ module Patient =
 
         let onResetConfirmed =
             fun () ->
-                Clear |> dispatch
+                (if identified then pat |> Option.bind _.Age else None) |> Clear |> dispatch
                 setConfirmResetOpen false
 
         let confirmResetDialog =
@@ -185,9 +225,14 @@ module Patient =
                     isOpen = confirmResetOpen
                     title = Terms.``Patient Reset Dialog Title`` |> getTerm "Patiëntgegevens wissen"
                     text =
-                        Terms.``Patient Reset Dialog Text``
-                        |> getTerm
-                            "De leeftijd, het gewicht, de lengte en de overige gegevens van de patiënt worden gewist. Wilt u doorgaan?"
+                        if identified then
+                            Terms.``Patient Reset Dialog Text Identified``
+                            |> getTerm
+                                "Het gewicht, de lengte en de overige gegevens van de patiënt worden gewist; de leeftijd blijft. Wilt u doorgaan?"
+                        else
+                            Terms.``Patient Reset Dialog Text``
+                            |> getTerm
+                                "De leeftijd, het gewicht, de lengte en de overige gegevens van de patiënt worden gewist. Wilt u doorgaan?"
                     confirmLabel = Terms.Reset |> getTerm "Reset"
                     cancelLabel = Terms.Cancel |> getTerm "Annuleren"
                     onConfirm = onResetConfirmed
@@ -291,7 +336,8 @@ module Patient =
                         |]
                 |}
 
-        let createSelect label sel changeValue vs =
+        // a read-only field cannot be opened and has no cross: what it holds is not the user's
+        let createField readOnly label sel changeValue vs =
             Components.SimpleSelect.View
                 {|
                     label = label
@@ -300,12 +346,17 @@ module Patient =
                     updateSelected = changeValue
                     isLoading = false
                     disabled = busy
-                    readOnly = false
-                    hasClear = true
+                    readOnly = readOnly
+                    hasClear = not readOnly
                     canStep = false
                     severity = Severity.Normal
                     minWidth = None
                 |}
+
+        let createSelect label sel changeValue vs = createField false label sel changeValue vs
+
+        // the age fields: read-only for an identified patient, whose age the platform computes
+        let createAgeSelect label sel changeValue vs = createField identified label sel changeValue vs
 
         let wghts =
             [| 21000..1000..100000 |]
@@ -407,7 +458,7 @@ module Patient =
             [|
                 [| 0..19 |]
                 |> Array.map (fun k -> $"{k}", if k > 18 then "> 18" else $"{k}")
-                |> createSelect
+                |> createAgeSelect
                     (Terms.``Patient Age years`` |> getTerm "jaren")
                     (pat |> Option.bind Patient.getAgeYears)
                     (fun s ->
@@ -417,7 +468,7 @@ module Patient =
 
                 [| 1..11 |]
                 |> Array.map (fun k -> $"{k}", $"{k}")
-                |> createSelect
+                |> createAgeSelect
                     (Terms.``Patient Age months`` |> getTerm "maanden")
                     (pat |> Option.bind Patient.getAgeMonths |> zeroToNone)
                     (fun s ->
@@ -427,7 +478,7 @@ module Patient =
 
                 [| 1..3 |]
                 |> Array.map (fun k -> $"{k}", $"{k}")
-                |> createSelect
+                |> createAgeSelect
                     (Terms.``Patient Age weeks`` |> getTerm "weken")
                     (pat |> Option.bind Patient.getAgeWeeks |> zeroToNone)
                     (fun s ->
@@ -437,7 +488,7 @@ module Patient =
 
                 [| 1..6 |]
                 |> Array.map (fun k -> $"{k}", $"{k}")
-                |> createSelect
+                |> createAgeSelect
                     (Terms.``Patient Age days`` |> getTerm "dagen")
                     (pat |> Option.bind Patient.getAgeDays |> zeroToNone)
                     (fun s ->
@@ -588,7 +639,7 @@ module Patient =
             {|
                 isOpen = isExpanded
                 onToggle = toggle
-                summary = pat |> show lang localizationTerms |> toJsx
+                summary = summary
                 children = children
                 isMobile = isMobile
                 detailsPaddingTop = None
