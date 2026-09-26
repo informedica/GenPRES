@@ -193,9 +193,9 @@ module SqlDatabase =
             JsonVersion: int
             Plan: string
             PatientName: string option
-            BirthYear: int option
-            BirthMonth: int option
-            BirthDay: int option
+            BirthYear: int64 option
+            BirthMonth: int64 option
+            BirthDay: int64 option
         }
 
 
@@ -204,14 +204,16 @@ module SqlDatabase =
     /// identity columns; else unreadable with the reason, its identity from the columns, which
     /// are authoritative. Whom it names comes from its own columns in both cases: all four
     /// present is the identity, all four null is none (a version signed without one, or a row
-    /// from before the columns), else a reason, as is a birthdate the calendar does not have.
+    /// from before the columns), else a reason, as is an empty name or a birthdate the calendar
+    /// does not have, which a column too wide for a year, a month or a day counts as.
     /// </summary>
     let readRow (row: Row) : StoredVersion =
         let identity: Result<Informedica.GenCore.Lib.Patients.PatientIdentity option, string> =
             match row.PatientName, row.BirthYear, row.BirthMonth, row.BirthDay with
+            | Some name, _, _, _ when name |> String.isNullOrWhiteSpace -> Error "the patient's name is empty"
             | Some name, Some y, Some m, Some d ->
                 try
-                    DateTime(y, m, d) |> ignore
+                    let date = DateTime(Checked.int y, Checked.int m, Checked.int d)
 
                     Ok(
                         Some
@@ -220,13 +222,14 @@ module SqlDatabase =
                                 Name = name
                                 BirthDate =
                                     CoreBirthDate.create
-                                        (Informedica.GenCore.Lib.Conversions.yearFromInt y)
-                                        (Informedica.GenCore.Lib.Conversions.monthFromInt m)
-                                        (Informedica.GenCore.Lib.Conversions.dayFromInt d)
+                                        (Informedica.GenCore.Lib.Conversions.yearFromInt date.Year)
+                                        (Informedica.GenCore.Lib.Conversions.monthFromInt date.Month)
+                                        (Informedica.GenCore.Lib.Conversions.dayFromInt date.Day)
                             }
                     )
-                with :? ArgumentOutOfRangeException ->
-                    Error $"the birthdate %i{y}-%i{m}-%i{d} is no date"
+                with
+                | :? ArgumentOutOfRangeException
+                | :? OverflowException -> Error $"the birthdate %i{y}-%i{m}-%i{d} is no date"
             | None, None, None, None -> Ok None
             | _ -> Error "the patient's name and birthdate are not all present"
 
@@ -322,9 +325,9 @@ module SqlDatabase =
                         JsonVersion = r.GetInt32 7
                         Plan = r.GetString 8
                         PatientName = if r.IsDBNull 9 then None else Some(r.GetString 9)
-                        BirthYear = if r.IsDBNull 10 then None else Some(r.GetInt32 10)
-                        BirthMonth = if r.IsDBNull 11 then None else Some(r.GetInt32 11)
-                        BirthDay = if r.IsDBNull 12 then None else Some(r.GetInt32 12)
+                        BirthYear = if r.IsDBNull 10 then None else Some(r.GetInt64 10)
+                        BirthMonth = if r.IsDBNull 11 then None else Some(r.GetInt64 11)
+                        BirthDay = if r.IsDBNull 12 then None else Some(r.GetInt64 12)
                     }
         ]
 
