@@ -1,13 +1,7 @@
-/// Rich patient domain model for reference and potential future use.
-///
-/// NOTE: These types (AgeValue, PatientAge, WeightValue, etc.) are NOT used
-/// in the production GenPRES pipeline. The production flow is:
-///   Shared.Types.Patient → GenForm.Lib.Types.Patient (via ServerApi.mapFromSharedPatient)
-///
-/// This module is retained for:
-/// - Domain modeling reference
-/// - Potential future EHR/FHIR integration
-/// - The Calculations module (BSA, Renal) IS used by GenFORM
+/// The patient as the EHR knows them: the identity, the birthdate, the gender, the dated
+/// weights and heights, the gestational age, the department and the access. The rules do not
+/// read this record; they read the GenFORM patient projected from it at a date, with the age
+/// in days and one weight and one height.
 namespace Informedica.GenCore.Lib.Patients
 
 #nowarn "40"
@@ -76,11 +70,13 @@ type AgeValue =
     }
 
 
+/// A birthdate, fully specified: a year, a month and a day. A year alone, or a year and a
+/// month, is no birthdate.
 type BirthDate =
     {
         Year: int<year>
-        Month: int<month> option
-        Day: int<day> option
+        Month: int<month>
+        Day: int<day>
     }
 
 
@@ -143,8 +139,14 @@ type EstimatedHeight =
     }
 
 
+/// The patient with the identity on it: the id the EHR knows the patient by and the name,
+/// beside the data.
 type Patient =
     {
+        /// The id the EHR knows the patient by; empty for a patient entered by hand.
+        Id: string
+        /// The patient's full name as the EHR gives it; empty when unknown.
+        Name: string
         Department: Department
         Diagnoses: string[]
         Gender: Gender
@@ -160,6 +162,17 @@ and AgeWeeksDays =
     {
         Weeks: int<week>
         Days: int<day>
+    }
+
+
+/// Who the patient is, when the EHR gave enough to say: the id, the name and the birthdate.
+/// Shown in full to the user, kept by the Session and its store, never printed by a patient
+/// printer or a log line.
+type PatientIdentity =
+    {
+        Id: string
+        Name: string
+        BirthDate: BirthDate
     }
 
 
@@ -245,11 +258,11 @@ module AgeValue =
 
 
     let fromBirthDate now (bd: BirthDate) =
-        let y, m, d =
-            bd.Year |> int, bd.Month |> Option.defaultValue 0<month> |> int, bd.Day |> Option.defaultValue 0<day> |> int
+        // the birthdate module comes later in the file, so the date is built here
+        let y, m, w, d =
+            now
+            |> Calculations.Age.fromBirthDate (DateTime(int bd.Year, int bd.Month, int bd.Day))
 
-        let bd = DateTime(y, m, d)
-        let y, m, w, d = now |> Calculations.Age.fromBirthDate bd
         create (Some y) (Some m) (Some w) (Some d)
 
 
@@ -436,7 +449,7 @@ module BirthDate =
         }
 
 
-    let zero = create 1900<year> None None
+    let zero = create 1900<year> 1<month> 1<day>
 
 
     let get
@@ -473,18 +486,18 @@ module BirthDate =
 
         let setMonth m (bd: BirthDate) = { bd with Month = m }
 
-        let getIntMonth (bd: BirthDate) = bd.Month |> Option.map int |> Option.defaultValue 1
+        let getIntMonth (bd: BirthDate) = bd.Month |> int
 
-        let setIntMonth i (bd: BirthDate) = { bd with Month = Conversions.monthFromInt i |> Some }
+        let setIntMonth i (bd: BirthDate) = { bd with Month = Conversions.monthFromInt i }
 
 
         let getDay (bd: BirthDate) = bd.Day
 
         let setDay d (bd: BirthDate) = { bd with Day = d }
 
-        let getIntDay (bd: BirthDate) = bd.Day |> Option.map int |> Option.defaultValue 1
+        let getIntDay (bd: BirthDate) = bd.Day |> int
 
-        let setIntDay i (bd: BirthDate) = { bd with Day = Conversions.dayFromInt i |> Some }
+        let setIntDay i (bd: BirthDate) = { bd with Day = Conversions.dayFromInt i }
 
 
     let toDate bd =
@@ -495,9 +508,7 @@ module BirthDate =
 
     let fromDate (dt: DateTime) =
         let y, m, d =
-            dt.Year |> Conversions.yearFromInt,
-            dt.Month |> Conversions.monthFromInt |> Some,
-            dt.Day |> Conversions.dayFromInt |> Some
+            dt.Year |> Conversions.yearFromInt, dt.Month |> Conversions.monthFromInt, dt.Day |> Conversions.dayFromInt
 
         create y m d
 
@@ -509,10 +520,10 @@ module BirthDate =
 
         let yearValidator = Check.Int.greaterThanOrEqualTo 1900 |> map Conversions.yearFromInt
 
-        let monthValidator = Check.optional (Check.Int.between 1 12) |> mapOpt Conversions.monthFromInt
+        let monthValidator = Check.Int.between 1 12 |> map Conversions.monthFromInt
 
 
-        let dayValidator = Check.optional (Check.Int.between 1 31) |> mapOpt Conversions.dayFromInt
+        let dayValidator = Check.Int.between 1 31 |> map Conversions.dayFromInt
 
         let ageValidator =
             let msg = sprintf "age cannot be > 120 years %s"
@@ -537,8 +548,8 @@ module BirthDate =
 
         type Dto() =
             member val Year = 0 with get, set
-            member val Month: int option = None with get, set
-            member val Day: int option = None with get, set
+            member val Month = 0 with get, set
+            member val Day = 0 with get, set
 
 
         let dto () = Dto()
@@ -550,15 +561,9 @@ module BirthDate =
                 let! m = Validation.monthValidator "Month" dto.Month
                 let! d = Validation.dayValidator "Day" dto.Day
 
-                let! _ =
-                    Validators.dateValidator
-                        "Valid date"
-                        (y, m |> Option.defaultValue 1<month>, d |> Option.defaultValue 1<day>)
+                let! _ = Validators.dateValidator "Valid date" (y, m, d)
 
-                and! _ =
-                    Validation.ageValidator
-                        "Valid Age"
-                        (DateTime.Now, y, m |> Option.defaultValue 1<month>, d |> Option.defaultValue 1<day>)
+                and! _ = Validation.ageValidator "Valid Age" (DateTime.Now, y, m, d)
 
                 return create y m d
             }
@@ -568,8 +573,8 @@ module BirthDate =
             let dto = dto ()
 
             dto.Year <- ymd.Year |> int
-            dto.Month <- ymd.Month |> Option.map int
-            dto.Day <- ymd.Day |> Option.map int
+            dto.Month <- ymd.Month |> int
+            dto.Day <- ymd.Day |> int
 
             dto
 
@@ -1342,6 +1347,14 @@ module rec Department =
     let fromString = Validation.validate "Department" >> Result.map id
 
 
+    /// The name the rules match: the ward's own name; none for any ward, an unknown one or a
+    /// ward without a name.
+    let name =
+        let named (s: string) = if s |> String.isNullOrWhiteSpace then None else Some s
+
+        map None None named named named named named
+
+
     module Validation =
 
         open Validus
@@ -1581,8 +1594,10 @@ module AgeWeeksDays =
 module Patient =
 
 
-    let create dep diagn gend age wght hght gest ent ven =
+    let create id name dep diagn gend age wght hght gest ent ven =
         {
+            Id = id
+            Name = name
             Department = dep
             Diagnoses = diagn
             Gender = gend
@@ -1596,6 +1611,8 @@ module Patient =
 
     let unknown =
         create
+            ""
+            ""
             Department.unknown
             [||]
             UnknownGender
@@ -1609,6 +1626,8 @@ module Patient =
 
     let fromAgeType gend dt at =
         create
+            ""
+            ""
             Department.unknown
             [||]
             UnknownGender
@@ -1621,6 +1640,10 @@ module Patient =
 
 
     module Optics =
+
+        let id = (fun (pat: Patient) -> pat.Id), (fun id pat -> { pat with Patient.Id = id })
+
+        let name = (fun (pat: Patient) -> pat.Name), (fun name pat -> { pat with Patient.Name = name })
 
         let department =
             (fun (pat: Patient) -> pat.Department), (fun dep pat -> { pat with Patient.Department = dep })
@@ -1663,6 +1686,19 @@ module Patient =
         let getGestationalAge (pat: Patient) = pat.GestationalAge
 
         let getAgeValue dt (pat: Patient) = pat.Age |> PatientAge.getAgeValue dt
+
+
+    /// The patient's identity: none without a name or without a birthdate.
+    let identity (pat: Patient) : PatientIdentity option =
+        match pat.Age with
+        | BirthDate bd when pat.Name |> String.notEmpty ->
+            Some
+                {
+                    Id = pat.Id
+                    Name = pat.Name
+                    BirthDate = bd
+                }
+        | _ -> None
 
 
     module BSA =
@@ -1739,6 +1775,8 @@ module Patient =
 
 
         type Dto() =
+            member val Id: string = "" with get, set
+            member val Name: string = "" with get, set
             member val Department: string = "" with get, set
             member val Diagnoses: string[] = [||] with get, set
             member val Gender = "" with get, set
@@ -1777,13 +1815,15 @@ module Patient =
                 let wght = dto.Weight |> Weight.Dto.fromDto
                 let hght = dto.Height |> Height.Dto.fromDto
 
-                return create Department.unknown dto.Diagnoses gend age wght hght gest ent ven
+                return create dto.Id dto.Name Department.unknown dto.Diagnoses gend age wght hght gest ent ven
             }
 
 
         let toDto (pat: Patient) =
             let dto = dto ()
 
+            dto.Id <- pat.Id
+            dto.Name <- pat.Name
             dto.Department <- pat.Department |> Department.toString //pat.Department
             dto.Diagnoses <- pat.Diagnoses
             dto.Gender <- pat.Gender |> Gender.toString

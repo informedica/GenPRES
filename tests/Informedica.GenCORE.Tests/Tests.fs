@@ -809,8 +809,8 @@ module Tests =
                                             for d in ds do
                                                 let dto = BirthDate.Dto.dto ()
                                                 dto.Year <- y
-                                                dto.Month <- Some m
-                                                dto.Day <- Some d
+                                                dto.Month <- m
+                                                dto.Day <- d
 
                                                 dto
                                 ]
@@ -819,10 +819,8 @@ module Tests =
                                     | Ok ymd ->
                                         try
                                             let y = ymd.Year |> int
-
-                                            let m = ymd.Month |> Option.defaultValue 1<month> |> int
-
-                                            let d = ymd.Day |> Option.defaultValue 1<day> |> int
+                                            let m = ymd.Month |> int
+                                            let d = ymd.Day |> int
 
                                             DateTime(y, m, d) |> ignore
                                             true
@@ -856,9 +854,34 @@ module Tests =
                                 | Error _ -> true
                         |> testProperty "there and back again"
 
+                        test "a year alone, or a year and a month, is no birthdate" {
+                            let dto = BirthDate.Dto.dto ()
+                            dto.Year <- 2016
+
+                            let yearAlone = dto |> BirthDate.Dto.fromDto |> Result.isError
+
+                            dto.Month <- 3
+                            let noDay = dto |> BirthDate.Dto.fromDto |> Result.isError
+
+                            dto.Day <- 15
+                            let complete = dto |> BirthDate.Dto.fromDto |> Result.isOk
+
+                            (yearAlone, noDay, complete)
+                            |> Expect.equal "refused, refused, read" (true, true, true)
+                        }
+
+                        test "a birthdate is a day, and round-trips through a date" {
+                            let bd = BirthDate.create 2016<year> 3<month> 15<day>
+
+                            (bd |> BirthDate.toDate, bd |> BirthDate.toDate |> BirthDate.fromDate)
+                            |> Expect.equal "the fifteenth of March, 2016" (DateTime(2016, 3, 15), bd)
+                        }
+
                         test "birthDay cannot be from person older than 120" {
                             let dto = BirthDate.Dto.dto ()
                             dto.Year <- (DateTime.Now |> DateTime.addYears -121).Year
+                            dto.Month <- 1
+                            dto.Day <- 1
 
                             dto
                             |> BirthDate.Dto.fromDto
@@ -1036,6 +1059,76 @@ module Tests =
                                 printfn $"{errs}"
                                 false
                         |> Expect.isTrue "there and back again"
+                    }
+
+                    test "the id and the name go there and back" {
+                        let pat =
+                            { Patient.unknown with
+                                Id = "p1"
+                                Name = "Stub Testpatiënt"
+                            }
+
+                        pat
+                        |> Patient.Dto.toDto
+                        |> Patient.Dto.fromDto
+                        |> Expect.equal "there and back again" (Ok pat)
+                    }
+
+                    test "the identity is the id, the name and the birthdate" {
+                        let bd = BirthDate.create 2016<year> 3<month> 15<day>
+
+                        let pat =
+                            { Patient.unknown with
+                                Id = "p1"
+                                Name = "Stub Testpatiënt"
+                                Age = PatientAge.birthDate bd
+                            }
+
+                        pat
+                        |> Patient.identity
+                        |> Expect.equal
+                            "the identity"
+                            (Some
+                                {
+                                    Id = "p1"
+                                    Name = "Stub Testpatiënt"
+                                    BirthDate = bd
+                                })
+                    }
+
+                    test "no name, or an age value in place of a birthdate, is no identity" {
+                        let bd = BirthDate.create 2016<year> 3<month> 15<day>
+
+                        [
+                            { Patient.unknown with
+                                Id = "p1"
+                                Age = PatientAge.birthDate bd
+                            }
+                            { Patient.unknown with
+                                Id = "p1"
+                                Name = "Stub Testpatiënt"
+                                Age = PatientAge.ageValue AgeValue.ten
+                            }
+                            { Patient.unknown with
+                                Id = "p1"
+                                Name = "Stub Testpatiënt"
+                            }
+                        ]
+                        |> List.map Patient.identity
+                        |> Expect.allEqual "none" None
+                    }
+
+                    test "the department's name is the ward's own; any, unknown or nameless is none" {
+                        [
+                            Department.pediatricICU "ICK", Some "ICK"
+                            Department.neonatalICU "NEO", Some "NEO"
+                            AnyDepartment, None
+                            UnknownDepartment, None
+                            Department.pediatricICU "", None
+                            Department.pediatricICU "  ", None
+                        ]
+                        |> List.map (fun (dep, exp) -> dep |> Department.name, exp)
+                        |> List.iter (fun (act, exp) -> act |> Expect.equal "the name" exp)
                     }
 
                     test "newborn patient" {
