@@ -122,8 +122,10 @@ type SessionMsg =
     | CloseFailed of reason: string
     // a signing answer said the server ended the Session at the wrong-PIN limit
     | EndedByServer of SessionEnding
-    // a signature re-minted the OpenedToken over the new head
-    | TokenRenewed of OpenedToken
+    // a signature re-minted the OpenedToken over the new head; the patient as the Session
+    // holds it after the sign comes with it, and whom the signed version names, which the
+    // Session is for from here
+    | TokenRenewed of OpenedToken * Patient * identity: NameAndBirthDate option
     // take up the version the notice named: it becomes what the Session opened with
     | OpenVersion of id: string
     // the answer: the Session as it now is (Some), nothing to open (None), or a transport
@@ -488,9 +490,25 @@ module SessionState =
         | SessionMsg.EndedByServer ending, SessionPhase.Open _, None -> ended ending, [ SessionEffect.CallCloseSession ]
         | SessionMsg.EndedByServer _, _, _ -> state, []
 
-        // the token the next signature has to present
-        | SessionMsg.TokenRenewed token, SessionPhase.Open session, None ->
-            opened { session with OpenedToken = Some token } state.MovedOn, []
+        // the token the next signature has to present, and the patient as the Session now holds
+        // it, with whom it is for as the signed version names them: into the context it opened
+        // with, and to the panel as at a resume. A Session without a patient context signs
+        // nothing, so there is no context to fill
+        | SessionMsg.TokenRenewed(token, patient, identity), SessionPhase.Open session, None ->
+            let renewed =
+                { session with
+                    OpenedToken = Some token
+                    PatientContext =
+                        session.PatientContext
+                        |> Option.map (fun c ->
+                            { c with
+                                Patient = Some patient
+                                Identity = identity
+                            }
+                        )
+                }
+
+            opened renewed state.MovedOn, [ SessionEffect.SetPatient(Some patient) ]
         | SessionMsg.TokenRenewed _, _, _ -> state, []
 
         // only an open Session has a version to take up; the request remembers the token it

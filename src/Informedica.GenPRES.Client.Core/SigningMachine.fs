@@ -90,8 +90,12 @@ type SigningEffect =
     | CallChallenge of OrderPlan * notice: string option * request: string
     // Submit, completed with the open Session's OpenedToken; answered under the key
     | CallSubmit of OrderPlan * challenge: string * pin: string * key: string
-    // the Session's token, re-minted over the new head
-    | RenewToken of OpenedToken
+    // the Session's token, re-minted over the new head, with the Session's patient after the
+    // sign (the age computed again, the projection and estimate over it, the measured values
+    // kept) and whom the version names, which is whom the Session is for from here: the EHR
+    // may have renamed the patient in the data the User accepted; the Session takes both as at
+    // a resume
+    | RenewToken of OpenedToken * Patient * identity: NameAndBirthDate option
     // the server ended the Session at the wrong-PIN limit
     | EndSession of SessionEnding
     // the patient data as the notice showed it, so the cart is over it too
@@ -250,12 +254,12 @@ module SigningState =
         // an answer lands only on the Submission it answers
         | SigningMsg.SubmitAnswered(answered, _), _, Some(SigningRequest.Submission key) when answered <> key ->
             state, []
-        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Submitted(signed, token, _))),
+        | SigningMsg.SubmitAnswered(_, Ok(SigningResponse.Submitted(signed, token, patient))),
           SigningPhase.Challenged _,
           Some(SigningRequest.Submission _) ->
             idle,
             [
-                SigningEffect.RenewToken token
+                SigningEffect.RenewToken(token, patient, signed.Identity)
                 SigningEffect.TellSigned(signed, carried state)
             ]
         // the dialog stays open with what went wrong (tries left, or locked)
