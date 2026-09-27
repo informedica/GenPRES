@@ -154,9 +154,11 @@ module ViewHelpers =
         (incr: int * bool -> 'Msg)
         setMax
         step
+        large
         =
         {|
             step = step
+            large = large
             first =
                 if navigable then
                     (fun (_: int) -> setMin |> dispatch) |> Some
@@ -219,6 +221,15 @@ module ViewHelpers =
     let definedIncrement (ovar: OrderVariable) : decimal option =
         [ ovar.DefinedConstraints.Incr; ovar.Variable.Incr ]
         |> List.tryPick (Option.bind firstSnd)
+
+
+    /// The large step of a value as its buttons show it: the server's large increment, or the
+    /// defined increment when the server sends none.
+    let largeStepText (ovar: OrderVariable) =
+        ovar.LargeIncr
+        |> Option.bind firstSnd
+        |> Option.orElse (definedIncrement ovar)
+        |> Option.map Decimal.toStringNumberNLWithoutTrailingZeros
 
 
     /// Build a per-click step function for a solved order variable. Given the net small-step
@@ -420,6 +431,7 @@ module ViewHelpers =
 
             {|
                 step = ord.Orderable.Dose.Quantity |> ovarStepTo doseQtyCeiling string
+                large = ord.Orderable.Dose.Quantity |> largeStepText
                 first =
                     if navigable then
                         (fun (_: int) -> setMin |> dispatch) |> Some

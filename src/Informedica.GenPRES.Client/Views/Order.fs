@@ -1169,6 +1169,7 @@ module Order =
                                 IncreaseComponentQuantityProperty
                                 SetMaxComponentQuantityProperty
                                 (cmp |> Option.bind (_.OrderableQuantity >> ViewHelpers.ovarStep string))
+                                (cmp |> Option.bind (_.OrderableQuantity >> ViewHelpers.largeStepText))
 
                     let severity =
                         cmp
@@ -1331,6 +1332,7 @@ module Order =
                                 (fun _ -> IncreaseFrequencyProperty)
                                 SetMaxFrequencyProperty
                                 None
+                                None
 
                     let severity = ord.Schedule.Frequency |> markOf
 
@@ -1388,6 +1390,7 @@ module Order =
                             IncreaseDoseRateProperty
                             SetMaxDoseRateProperty
                             (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
+                            (ord.Orderable.Dose.Rate |> ViewHelpers.largeStepText)
 
                     let severity = ord.Orderable.Dose.Rate |> markOf
 

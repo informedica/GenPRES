@@ -24,6 +24,7 @@ module QuantityField =
     type Steps =
         {|
             step: (int * int -> string * string) option
+            large: string option
             first: (int -> unit) option
             decrease: (int -> unit) option
             increase: (int -> unit) option
@@ -66,58 +67,150 @@ module QuantityField =
         |}
 
 
-    // a button slot: as wide as a small icon button, as tall as the select's input line
-    let slotWidth = 32
+    // a button slot: a square as tall as the value cell
+    let slotWidth = 40
     let slotHeight = 40
+    // the column right of the group that holds the severity mark, kept whether or not the
+    // value is marked, so the groups of all fields line up
+    let markWidth = 28
 
     // the hover texts of the four button slots, per mode
     let navigableTitles = "naar minimum", "lager", "hoger", "naar maximum"
     let stepableTitles = "grote stap omlaag", "stap omlaag", "stap omhoog", "grote stap omhoog"
 
 
-    // Five fixed columns: the four button slots and the value between them. The value column
-    // takes what the slots leave and may shrink, so the row spans exactly the width it is given.
-    let rowSx (minWidth: int) (isLead: bool) =
+    // the label above the group; the field the user is pointed at first carries the accent on
+    // its left
+    let fieldSx (minWidth: int) (isLead: bool) =
         {|
-            display = "grid"
-            gridTemplateColumns = $"%i{slotWidth}px %i{slotWidth}px minmax(0, 1fr) %i{slotWidth}px %i{slotWidth}px"
-            alignItems = "end"
-            columnGap = 0.5
+            display = "flex"
+            flexDirection = "column"
             width = "100%"
             minWidth = minWidth
-            // the field the user is pointed at first carries the accent on its left
             borderLeft = if isLead then "3px solid" else "none"
             borderColor = if isLead then Mui.Styles.accentColor else "transparent"
             paddingLeft = if isLead then 1 else 0
         |}
 
 
-    // a slot keeps its size when its button is hidden: visibility, not display, so the grid
-    // never reflows and a hidden button leaves the tab order
-    let slotSx (visible: bool) =
+    // Six fixed columns: the four button slots, the value between them and the severity mark
+    // after them. The value column takes what the others leave and may shrink, so the row spans
+    // exactly the width it is given.
+    let rowSx =
         {|
-            width = slotWidth
+            display = "grid"
+            gridTemplateColumns =
+                $"%i{slotWidth}px %i{slotWidth}px minmax(0, 1fr) %i{slotWidth}px %i{slotWidth}px %i{markWidth}px"
+            alignItems = "stretch"
+            columnGap = 0
+        |}
+
+
+    // One cell of the segmented group. Each cell has its own border and overlaps the one on its
+    // left by a pixel, so neighbours share a single line and a hidden slot leaves the value cell
+    // with its border all round.
+    let cellSx (first: bool) (radius: string) =
+        {|
             height = slotHeight
             display = "flex"
             alignItems = "center"
-            justifyContent = "center"
-            visibility = if visible then "visible" else "hidden"
+            border = "1px solid"
+            borderColor = "divider"
+            borderRadius = radius
+            marginLeft = if first then "0" else "-1px"
         |}
 
 
-    let valueSx =
+    // a slot keeps its size when its button is hidden: visibility, not display, so the grid
+    // never reflows and a hidden button leaves the tab order
+    let slotSx (visible: bool) (first: bool) (radius: string) =
+        {| cellSx first radius with
+            justifyContent = "center"
+            backgroundColor = "grey.100"
+            visibility = if visible then "visible" else "hidden"
+            // the span the tooltip anchors on, and the button in it, fill the whole cell
+            ``& > span`` =
+                {|
+                    display = "flex"
+                    width = "100%"
+                    height = "100%"
+                |}
+            ``& .MuiIconButton-root`` =
+                {|
+                    width = "100%"
+                    height = "100%"
+                    // hover and focus follow the rounded outer corners
+                    borderRadius = "inherit"
+                |}
+        |}
+
+
+    // The value cell: the select without its own label and underline, since the label stands
+    // above the group and the cell draws the border; the border shows the focus instead.
+    let valueSx (hasButtons: bool) =
+        {| cellSx false (if hasButtons then "0" else "4px") with
+            minWidth = 0
+            overflow = "hidden"
+            backgroundColor = "background.paper"
+            ``&:focus-within`` = {| borderColor = "primary.main" |}
+            ``& .MuiInputLabel-root`` = {| display = "none" |}
+            // the select fills the cell, so a single value's grey meets the cell border
+            ``& .MuiFormControl-root`` = {| height = "100%" |}
+            // && doubles the cell's class, so these win over the select's own rules of the same
+            // weight (the margin MUI gives an input after a label, the select's padding) whatever
+            // order the styles were inserted in
+            ``&& .MuiInput-root`` =
+                {|
+                    marginTop = 0
+                    height = "100%"
+                    padding = "0 8px"
+                    borderRadius = 0
+                |}
+            // the value text stands in the middle of the cell whatever the select's own styling
+            ``&& .MuiSelect-select`` =
+                {|
+                    display = "flex"
+                    alignItems = "center"
+                    height = "100%"
+                    paddingTop = 0
+                    paddingBottom = 0
+                |}
+            ``& .MuiInput-root::before`` = {| display = "none" |}
+            ``& .MuiInput-root::after`` = {| display = "none" |}
+        |}
+
+
+    // the label starts where the value text starts: after the two left slots and the value
+    // cell's text padding
+    let labelSx = {| paddingLeft = $"%i{2 * slotWidth + 8}px" |}
+
+
+    let markSx =
         {|
             display = "flex"
-            alignItems = "flex-end"
-            minWidth = 0
+            alignItems = "center"
+            justifyContent = "center"
         |}
 
 
+    // a flex box, so the select's own flexGrow fills the value column instead of keeping the
+    // natural width of its label
     let growSx =
         {|
+            display = "flex"
             flexGrow = 1
+            alignSelf = "stretch"
             minWidth = 0
         |}
+
+
+    // the large step as text on a button, in the size of the value
+    let stepText (text: string) =
+        JSX.jsx
+            $"""
+        import Typography from '@mui/material/Typography';
+        <Typography variant="body2">{text}</Typography>
+        """
 
 
     let plainButton (disabled: bool) (onClick: unit -> unit) (icon: JSX.Element) =
@@ -149,8 +242,8 @@ module QuantityField =
 
     // One button slot. The button sits in a span so the tooltip still anchors when the button
     // is disabled, since a disabled element fires no pointer events of its own.
-    let slot (visible: bool) (title: string) (button: JSX.Element) =
-        let sx = slotSx visible
+    let slot (visible: bool) (first: bool) (radius: string) (title: string) (button: JSX.Element) =
+        let sx = slotSx visible first radius
 
         JSX.jsx
             $"""
@@ -274,21 +367,38 @@ module QuantityField =
             | Stepable _
             | Selectable
             | Fixed ->
+                // the large step shows as text when the steps name it, as double arrows otherwise
+                let large sign icon =
+                    steps
+                    |> Option.bind _.large
+                    |> Option.map (fun text -> stepText $"%s{sign}%s{text}")
+                    |> Option.defaultValue icon
+
                 steps.IsSome,
                 stepableTitles,
-                (Mui.Icons.KeyboardDoubleArrowLeftIcon,
+                (large "−" Mui.Icons.KeyboardDoubleArrowLeftIcon,
                  Mui.Icons.RemoveIcon,
                  Mui.Icons.Add,
-                 Mui.Icons.KeyboardDoubleArrowRightIcon)
+                 large "+" Mui.Icons.KeyboardDoubleArrowRightIcon)
 
         let button (pick: Steps -> (int -> unit) option) onStep icon =
             let useDebounce = steps |> Option.exists _.useDebounce
             stepButton props.disabled useDebounce (steps |> Option.bind pick) onStep icon
 
-        let slot1 = button _.first (fun () -> bumpLarge -1) icon1 |> slot hasButtons title1
-        let slot2 = button _.decrease (fun () -> bumpSmall -1) icon2 |> slot hasButtons title2
-        let slot4 = button _.increase (fun () -> bumpSmall 1) icon4 |> slot hasButtons title4
-        let slot5 = button _.last (fun () -> bumpLarge 1) icon5 |> slot hasButtons title5
+        let slot1 =
+            button _.first (fun () -> bumpLarge -1) icon1
+            |> slot hasButtons true "4px 0 0 4px" title1
+
+        let slot2 =
+            button _.decrease (fun () -> bumpSmall -1) icon2
+            |> slot hasButtons false "0" title2
+        let slot4 =
+            button _.increase (fun () -> bumpSmall 1) icon4
+            |> slot hasButtons false "0" title4
+
+        let slot5 =
+            button _.last (fun () -> bumpLarge 1) icon5
+            |> slot hasButtons false "0 4px 4px 0" title5
 
         let mark =
             SeverityMark.View
@@ -299,22 +409,26 @@ module QuantityField =
 
         let minWidth = props.minWidth |> Option.defaultValue 150
 
-        let sx = rowSx minWidth props.isLead
+        let sx = fieldSx minWidth props.isLead
+        let cellSx = valueSx hasButtons
 
-        // the severity mark sits in the value column, on the right of the select, so it takes
-        // no slot of its own
+        // the severity mark stands outside the group, right of the last button
         JSX.jsx
             $"""
         import Box from '@mui/material/Box';
+        import Typography from '@mui/material/Typography';
 
         <Box sx={sx}>
-            {slot1}
-            {slot2}
-            <Box sx={valueSx}>
-                <Box sx={growSx}>{select}</Box>
-                {mark}
+            <Typography variant="caption" color="text.secondary" sx={labelSx}>{props.label}</Typography>
+            <Box sx={rowSx}>
+                {slot1}
+                {slot2}
+                <Box sx={cellSx}>
+                    <Box sx={growSx}>{select}</Box>
+                </Box>
+                {slot4}
+                {slot5}
+                <Box sx={markSx}>{mark}</Box>
             </Box>
-            {slot4}
-            {slot5}
         </Box>
         """

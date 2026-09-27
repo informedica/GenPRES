@@ -965,6 +965,7 @@ module Nutrition =
                                 (fun (n, uc) -> IncreaseComponentQuantityProperty(cmpName, n, uc))
                                 (SetMaxComponentQuantityProperty cmpName)
                                 (cmp.OrderableQuantity |> ViewHelpers.ovarStep string)
+                                (cmp.OrderableQuantity |> ViewHelpers.largeStepText)
 
                     let qtyWarning = cmp.OrderableQuantity |> markOf
 
@@ -1161,6 +1162,7 @@ module Nutrition =
                         IncreaseDoseRateProperty
                         SetMaxDoseRateProperty
                         (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
+                        (ord.Orderable.Dose.Rate |> ViewHelpers.largeStepText)
 
                 let severity = ord.Orderable.Dose.Rate |> markOf
                 let label = ord.Orderable.Dose.Rate |> ViewHelpers.ovarLabel "infuussnelheid"
