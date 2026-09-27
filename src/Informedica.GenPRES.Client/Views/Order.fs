@@ -972,7 +972,7 @@ module Order =
                             "componenten"
                             state.SelectedComponent
                             (ChangeComponent >> dispatch)
-                            None
+                            ViewHelpers.noSteps
                             ViewHelpers.noMark
                             None
                 | _ -> null
@@ -986,7 +986,14 @@ module Order =
                         itms
                         |> Array.map _.Name
                         |> Array.map (fun s -> s, s)
-                        |> pick false "stoffen" state.SelectedItem (ChangeItem >> dispatch) None ViewHelpers.noMark None
+                        |> pick
+                            false
+                            "stoffen"
+                            state.SelectedItem
+                            (ChangeItem >> dispatch)
+                            ViewHelpers.noSteps
+                            ViewHelpers.noMark
+                            None
                 | _ -> null
 
             let substDoseQtySelect =
@@ -1005,7 +1012,14 @@ module Order =
                     let severity = itms[i].Dose.Quantity |> markOf
 
                     vals
-                    |> selectFor "substDoseQty" label None (ChangeSubstanceDoseQuantity >> dispatch) None severity None
+                    |> selectFor
+                        "substDoseQty"
+                        label
+                        None
+                        (ChangeSubstanceDoseQuantity >> dispatch)
+                        ViewHelpers.noSteps
+                        severity
+                        None
                 | _ -> null
 
             let substDoseQtyAdjSelect =
@@ -1035,7 +1049,7 @@ module Order =
                         label
                         None
                         (ChangeSubstanceDoseQuantityAdjust >> dispatch)
-                        None
+                        ViewHelpers.noSteps
                         severity
                         None
                 | _ -> null
@@ -1070,11 +1084,12 @@ module Order =
                         else
                             itms[i].Dose.PerTime |> markOf
 
-                    vals |> selectFor "substPerTime" label None dispatch None severity None
+                    vals
+                    |> selectFor "substPerTime" label None dispatch ViewHelpers.noSteps severity None
                 | _ -> null
 
             let substRateSelect =
-                let stepper = None
+                let stepper = ViewHelpers.noSteps
 
                 match substIndx, displayOrder with
                 | Some i, Some ord when ord.Schedule.IsContinuous && itms |> Array.length > 0 ->
@@ -1136,11 +1151,11 @@ module Order =
                                 || c >= 1
 
                         if not show then
-                            None
+                            ViewHelpers.noSteps
                         else
                             let solved = ord |> isSolved
 
-                            // can jump to the min, median, or max
+                            // can jump to the min or the max
                             let navigable =
                                 cmp
                                 |> Option.map (_.OrderableQuantity >> OrderVariable.isNavigable)
@@ -1151,7 +1166,6 @@ module Order =
                                 solved
                                 SetMinComponentQuantityProperty
                                 DecreaseComponentQuantityProperty
-                                SetMedianComponentQuantityProperty
                                 IncreaseComponentQuantityProperty
                                 SetMaxComponentQuantityProperty
                                 (cmp |> Option.bind (_.OrderableQuantity >> ViewHelpers.ovarStep string))
@@ -1198,7 +1212,7 @@ module Order =
                                 "product sterkte"
                                 None
                                 (change >> dispatch)
-                                None
+                                ViewHelpers.noSteps
                                 ViewHelpers.noMark
                                 None
                         else
@@ -1227,7 +1241,7 @@ module Order =
                                         "product sterkte"
                                         None
                                         (change >> dispatch)
-                                        None
+                                        ViewHelpers.noSteps
                                         ViewHelpers.noMark
                                         None
                                 else
@@ -1253,7 +1267,7 @@ module Order =
                         $"{itms[i].Name} hoeveelheid"
                         None
                         (ChangeSubstanceOrderableQuantity >> dispatch)
-                        None
+                        ViewHelpers.noSteps
                         severity
                         None
                 | _ -> null
@@ -1274,7 +1288,7 @@ module Order =
                         $"{itms[i].Name} concentratie"
                         None
                         (ChangeSubstanceOrderableConcentration >> dispatch)
-                        None
+                        ViewHelpers.noSteps
                         severity
                         None
                 | _ -> null
@@ -1291,7 +1305,7 @@ module Order =
                         "totale hoeveelheid"
                         None
                         (ChangeOrderableQuantity >> dispatch)
-                        None
+                        ViewHelpers.noSteps
                         severity
                         None
                 | _ -> null
@@ -1303,10 +1317,10 @@ module Order =
 
                     let stepper =
                         if xs |> Array.length <> 1 then
-                            None
+                            ViewHelpers.noSteps
                         else
                             let solved = ord |> isSolved
-                            // frequency: no jump to the min, median, or max
+                            // frequency: no jump to the min or the max
                             let navigable = false
 
                             createStepper
@@ -1314,7 +1328,6 @@ module Order =
                                 solved
                                 SetMinFrequencyProperty
                                 (fun _ -> DecreaseFrequencyProperty)
-                                SetMedianFrequencyProperty
                                 (fun _ -> IncreaseFrequencyProperty)
                                 SetMaxFrequencyProperty
                                 None
@@ -1342,7 +1355,6 @@ module Order =
                             ord
                             SetMinDoseQuantityProperty
                             DecreaseDoseQuantityProperty
-                            SetMedianDoseQuantityProperty
                             IncreaseDoseQuantityProperty
                             SetMaxDoseQuantityProperty
 
@@ -1364,7 +1376,7 @@ module Order =
                 match displayOrder with
                 | Some ord when ord.Schedule.IsContinuous || ord.Schedule.IsTimed || ord.Schedule.IsOnceTimed ->
                     let solved = ord |> isSolved
-                    // can jump to the min, median, or max
+                    // can jump to the min or the max
                     let navigable = ord.Orderable.Dose.Rate |> OrderVariable.isNavigable
 
                     let stepper =
@@ -1373,7 +1385,6 @@ module Order =
                             solved
                             SetMinDoseRateProperty
                             DecreaseDoseRateProperty
-                            SetMedianDoseRateProperty
                             IncreaseDoseRateProperty
                             SetMaxDoseRateProperty
                             (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
@@ -1405,7 +1416,7 @@ module Order =
                         (Terms.``Order Administration time`` |> getTerm "inloop tijd")
                         None
                         (ChangeTime >> dispatch)
-                        None
+                        ViewHelpers.noSteps
                         severity
                         None
                 | _ -> null
