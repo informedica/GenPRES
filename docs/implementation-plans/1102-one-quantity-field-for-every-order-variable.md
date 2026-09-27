@@ -88,9 +88,7 @@ The following stay exactly as they are:
 - the icons per mode: first, previous, next and last when navigating, and large and small minus
   and plus when stepping;
 - a tooltip on every button, disabled buttons included;
-- no median button;
-- no click-count badge on a button. The predicted value in the field already follows every
-  click.
+- no median button.
 
 The tooltips are Dutch text in the component. Translating them through `Terms` goes to the
 follow-up issue, because new keys change the shared localization.
@@ -134,6 +132,8 @@ large for one PR under the 200-line limit, so the work is split into three steps
     - every click, held or not, updates the predicted value at once, and the clicks within the
       window go out as one command with their count;
     - the timers are cleared when the field unmounts;
+    - the badge on the button shows the number of clicks counted so far, from the second click
+      on, and disappears when the command goes out;
   - the icons and tooltips per mode.
 - The adaptations to the repository rules:
   - the icons come from `Mui.Icons` in `MUI.fs`, next to the existing `FirstPageIcon` and
@@ -190,5 +190,5 @@ large for one PR under the 200-line limit, so the work is split into three steps
   5. An answer with the same value but a new revision clears the predicted value, for example
      a step at the dose limit.
   6. Holding the small plus of a Stepable dose quantity steps the predicted value every 150 ms.
-     Releasing it sends one command with the count of all held clicks, 700 ms after the last
-     one, as on master.
+     Its badge counts the clicks. Releasing it sends one command with the count of all held
+     clicks, 700 ms after the last one, and the badge disappears, as on master.
