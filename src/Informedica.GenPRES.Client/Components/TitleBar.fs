@@ -236,9 +236,9 @@ module TitleBar =
                 overflow = "hidden"
             |}
 
-        // the patient in the middle: the name on one line, the birthdate and the id under it,
-        // shown in full since the user sits at the EHR that launched the Session; capped and
-        // clipped, the full text in the tooltip
+        // the patient in the middle: the id, the name and the birthdate on one line, shown in
+        // full since the user sits at the EHR that launched the Session; capped and clipped, the
+        // full text in the tooltip
         let sxPatientBox =
             {|
                 marginLeft = 2
@@ -278,8 +278,8 @@ module TitleBar =
             | SessionView.SupplyingPin _
             | SessionView.EnrolmentFailed _ -> None
 
-        // whom the Session is for, when the EHR said: the name, the birthdate and the id in the
-        // middle of the toolbar, for a Reader as for a Prescriber
+        // whom the Session is for, when the EHR said: the id, the name and the birthdate in the
+        // middle of the toolbar, in that order, for a Reader as for a Prescriber
         let patientView =
             openSession
             |> Option.bind (fun (opened, _) ->
@@ -287,13 +287,12 @@ module TitleBar =
                 |> Option.bind (fun context ->
                     context.Identity
                     |> Option.map (fun who ->
-                        let detail = $"{Global.birthDateText who} · {context.PatientId}"
+                        let identity = $"{context.PatientId} · {who.Name} · {Global.birthDateText who}"
 
                         JSX.jsx
                             $"""
                         <Box sx={sxPatientBox}>
-                            <Typography variant="body2" component="div" noWrap title={who.Name}>{who.Name}</Typography>
-                            <Typography variant="caption" component="div" noWrap title={detail}>{detail}</Typography>
+                            <Typography variant="body2" component="div" noWrap title={identity}>{identity}</Typography>
                         </Box>
                         """
                     )
