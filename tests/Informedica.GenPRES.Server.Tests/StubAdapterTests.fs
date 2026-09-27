@@ -655,7 +655,7 @@ module SessionStubTests =
             ]
 
 
-    /// The hop over the stubs: the script tests of Server/Scripts/Hop.fsx, unchanged.
+    /// The hop over the stubs: the session machine, launch, enrolment and credentials, run against the stub adapters.
     module SessionTests =
 
         let verifyAt (now: DateTime) = LaunchSeal.verify now sealKey
