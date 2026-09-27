@@ -73,6 +73,11 @@ module QuantityField =
     // the column right of the group that holds the severity mark, kept whether or not the
     // value is marked, so the groups of all fields line up
     let markWidth = 28
+    // the least width the value cell keeps, so a value stays readable in a narrow row
+    let valueMinWidth = 120
+    // the least width of a field that keeps its button slots, and of one that drops them
+    let fieldWidth = 4 * slotWidth + markWidth + valueMinWidth
+    let fieldWidthWithoutSlots = markWidth + valueMinWidth
 
     // the hover texts of the four button slots, per mode
     let navigableTitles = "naar minimum", "lager", "hoger", "naar maximum"
@@ -167,6 +172,14 @@ module QuantityField =
                     borderRadius = 0
                 |}
             // the value text stands in the middle of the cell whatever the select's own styling
+            // with the cross shown the dropdown arrow is hidden, so its room goes to the value,
+            // and the cross is a compact button: both fit a narrow cell without being cut off
+            ``&& .MuiInputBase-adornedEnd .MuiSelect-select`` = {| paddingRight = 0 |}
+            ``&& .MuiInputBase-root > .MuiIconButton-root`` =
+                {|
+                    padding = "4px"
+                    flexShrink = 0
+                |}
             ``&& .MuiSelect-select`` =
                 {|
                     display = "flex"
@@ -183,6 +196,19 @@ module QuantityField =
     // the label starts where the value text starts: after the two left slots and the value
     // cell's text padding
     let labelSx = {| paddingLeft = $"%i{2 * slotWidth + 8}px" |}
+
+
+    // For a container where a field without buttons never gets any, so dropping its hidden
+    // slots moves nothing: such a field gives their width to its value, and its label moves
+    // along with the value.
+    let dropUnusedSlotsSx =
+        {|
+            ``& [data-buttons="none"]`` = {| minWidth = $"%i{fieldWidthWithoutSlots}px" |}
+            ``& [data-buttons="none"] [data-part="slot"]`` = {| display = "none" |}
+            ``& [data-buttons="none"] [data-part="row"]`` =
+                {| gridTemplateColumns = $"minmax(0, 1fr) %i{markWidth}px" |}
+            ``& [data-buttons="none"] [data-part="label"]`` = {| paddingLeft = "8px" |}
+        |}
 
 
     let markSx =
@@ -250,7 +276,7 @@ module QuantityField =
         import Box from '@mui/material/Box';
         import Tooltip from '@mui/material/Tooltip';
 
-        <Box sx={sx}>
+        <Box sx={sx} data-part="slot">
             <Tooltip title={title}>
                 <span>{button}</span>
             </Tooltip>
@@ -407,7 +433,20 @@ module QuantityField =
                     reason = props.reason
                 |}
 
-        let minWidth = props.minWidth |> Option.defaultValue 150
+        // the field is never narrower than its fixed columns and the least value width, whatever
+        // the caller asks
+        let minWidth = props.minWidth |> Option.defaultValue 150 |> max fieldWidth
+
+        // the caption is not the select's own label, so a click on it moves the focus to the
+        // select, as a click on a label does
+        // read by a container that drops the hidden slots of a field without buttons
+        let buttons = if hasButtons then "some" else "none"
+
+        let focusSelect =
+            fun _ ->
+                match Browser.Dom.document.getElementById props.label with
+                | null -> ()
+                | el -> el.focus ()
 
         let sx = fieldSx minWidth props.isLead
         let cellSx = valueSx hasButtons
@@ -418,9 +457,9 @@ module QuantityField =
         import Box from '@mui/material/Box';
         import Typography from '@mui/material/Typography';
 
-        <Box sx={sx}>
-            <Typography variant="caption" color="text.secondary" sx={labelSx}>{props.label}</Typography>
-            <Box sx={rowSx}>
+        <Box sx={sx} data-buttons={buttons}>
+            <Typography variant="caption" color="text.secondary" sx={labelSx} data-part="label" onClick={focusSelect}>{props.label}</Typography>
+            <Box sx={rowSx} data-part="row">
                 {slot1}
                 {slot2}
                 <Box sx={cellSx}>
