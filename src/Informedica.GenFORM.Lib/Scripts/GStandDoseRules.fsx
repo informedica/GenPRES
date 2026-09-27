@@ -17,7 +17,7 @@
 
 #I __SOURCE_DIRECTORY__
 #load "load.fsx"
-#r "../bin/Debug/net10.0/Informedica.GenForm.Lib.dll"
+#r "../bin/Debug/net10.0/Informedica.GenFORM.Lib.dll"
 
 open System
 open Informedica.Utils.Lib

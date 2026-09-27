@@ -16,8 +16,6 @@ Copy the Z-Index files to the `data/zindex` folder. Ensure that the source direc
 
 #!fsharp
 
-#r "nuget: Fli, 1.111.11"
-
 #load "../Scripts/load.fsx"
 
 open System
@@ -46,8 +44,7 @@ let sourcePath =
 
 // Check the path to the zindex
 if 
-    sourcePath
-    |> Path.combineWith FilePath.GStandPath
+    FilePath.GStandPath ()
     |> Path.combineWith "BST000T"
     |> File.exists
     then printfn $"Source Path: {sourcePath}"
@@ -64,14 +61,15 @@ if not (FilePath.useDemo ()) then printfn "Production Mode!"
 #!fsharp
 
 // Check the date time of the source 
-sourcePath
-|> Path.combineWith FilePath.GStandPath
+FilePath.GStandPath ()
 |> Path.combineWith "BST000T"
 |> File.timeStamp
 
 #!markdown
 
 ## Clear the Current Cache and Reload Z-Index Data
+
+The loaders write the cache files to `data/cache`, where the server reads them.
 
 #!fsharp
 
@@ -88,28 +86,3 @@ DoseRule.load []
 printfn "Loading Substance"
 Substance.load ()
 
-#!markdown
-
-## Copy the Generated Cache Files to the Server Data Target Directory
-
-#!fsharp
-
-// first check the target Directory
-sourcePath
-|> Path.combineWith "./src/Informedica.GenPRES.Server/data/cache/README.md"
-|> File.exists
-
-// copy the cache files to the cache folder
-open Fli
-
-cli {
-    Shell BASH
-    WorkingDirectory sourcePath
-    Command "cp ./data/cache/*.cache ./src/Informedica.GenPRES.Server/data/cache"
-}
-|> Command.execute
-
-// check one of the copied files to the target directory
-sourcePath
-|> Path.combineWith "./src/Informedica.GenPRES.Server/data/cache/product.cache"
-|> File.exists
