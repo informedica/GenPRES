@@ -2618,4 +2618,6 @@ let tests =
             ConstraintsTests.tests
             GoldenOrderTests.tests
             OrderBuilderTests.tests
+            MedicationTextTests.MedicationTextFormatTests.tests
+            MedicationTextTests.MedicationTextScenarioTests.tests
         ]

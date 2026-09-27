@@ -301,6 +301,8 @@
 # Informedica.ZIndex.Tests
 !/tests/Informedica.ZIndex.Tests/
 !/tests/Informedica.ZIndex.Tests/Scripts/
+# Informedica.GenINTERACT.Tests
+!/tests/Informedica.GenINTERACT.Tests/
 # Informedica.ZForm.Tests
 !/tests/Informedica.ZForm.Tests/
 !/tests/Informedica.ZForm.Tests/Scripts/
