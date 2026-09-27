@@ -219,6 +219,127 @@ module Tests =
                 ]
 
 
+    module DotEnvTests =
+
+        open System.IO
+        open Expecto.Flip
+
+
+        [<Tests>]
+        let tests =
+            testList
+                "DotEnv"
+                [
+                    testList
+                        "unquote"
+                        [
+                            for input, exp in
+                                [
+                                    "plain", "plain"
+                                    "\"double\"", "double"
+                                    "'single'", "single"
+                                    "\"Data Source=data/db/genpres.db\"", "Data Source=data/db/genpres.db"
+                                    "\"\"", ""
+                                    "''", ""
+                                    "\"", "\""
+                                    "'", "'"
+                                    "\"unmatched", "\"unmatched"
+                                    "unmatched\"", "unmatched\""
+                                    "\"mixed'", "\"mixed'"
+                                    "\"\"twice\"\"", "\"twice\""
+                                    "a \"quoted\" word", "a \"quoted\" word"
+                                    "", ""
+                                ] do
+                                test $"unquote [%s{input}] gives [%s{exp}]" {
+                                    input |> Env.unquote |> Expect.equal $"should be %s{exp}" exp
+                                }
+                        ]
+
+                    testList
+                        "parseLine"
+                        [
+                            for input, exp in
+                                [
+                                    "KEY=value", Some("KEY", "value")
+                                    "KEY=\"value\"", Some("KEY", "value")
+                                    "KEY='value'", Some("KEY", "value")
+                                    "KEY=Data Source=data/db/genpres.db", Some("KEY", "Data Source=data/db/genpres.db")
+                                    "KEY=\"Data Source=data/db/genpres.db\"",
+                                    Some("KEY", "Data Source=data/db/genpres.db")
+                                    "KEY=a=b=c", Some("KEY", "a=b=c")
+                                    "KEY=\"unmatched", Some("KEY", "\"unmatched")
+                                    "KEY='unmatched\"", Some("KEY", "'unmatched\"")
+                                    "  KEY  =  \"  padded  \"  ", Some("KEY", "  padded  ")
+                                    "KEY=", Some("KEY", "")
+                                    "KEY=\"\"", Some("KEY", "")
+                                    "", None
+                                    "   ", None
+                                    "# KEY=value", None
+                                    "   # KEY=value", None
+                                    "no equals sign", None
+                                    "=value", None
+                                    "  =value", None
+                                ] do
+                                test $"parseLine [%s{input}] gives %A{exp}" {
+                                    input |> Env.parseLine |> Expect.equal $"should be %A{exp}" exp
+                                }
+                        ]
+
+                    // loadDotEnv reads the current directory, which is process wide, so this test
+                    // must not run beside the parallel ones
+                    testSequenced
+                    <| test "loadDotEnv sets unquoted values and keeps a value already set" {
+                        let dir = Path.Combine(Path.GetTempPath(), $"dotenv-%s{Guid.NewGuid().ToString()}")
+                        let key k =
+                            $"DOTENV_TEST_%s{k}_%s{Guid.NewGuid().ToString().Replace('-', '_')}"
+
+                        let plain = key "PLAIN"
+                        let double = key "DOUBLE"
+                        let single = key "SINGLE"
+                        let preset = key "PRESET"
+                        let cwd = Environment.CurrentDirectory
+
+                        try
+                            Directory.CreateDirectory dir |> ignore
+
+                            File.WriteAllLines(
+                                Path.Combine(dir, ".env"),
+                                [|
+                                    "# a comment"
+                                    $"%s{plain}=Data Source=data/db/genpres.db"
+                                    $"%s{double}=\"Data Source=data/db/genpres.db\""
+                                    $"%s{single}='a value'"
+                                    $"%s{preset}=\"from the file\""
+                                |]
+                            )
+
+                            Environment.SetEnvironmentVariable(preset, "from the shell")
+                            Environment.CurrentDirectory <- dir
+
+                            Env.loadDotEnv () |> Expect.isTrue "should find the .env file"
+
+                            [ plain; double; single; preset ]
+                            |> List.map Environment.GetEnvironmentVariable
+                            |> Expect.equal
+                                "should unquote the values and keep the preset one"
+                                [
+                                    "Data Source=data/db/genpres.db"
+                                    "Data Source=data/db/genpres.db"
+                                    "a value"
+                                    "from the shell"
+                                ]
+                        finally
+                            Environment.CurrentDirectory <- cwd
+
+                            [ plain; double; single; preset ]
+                            |> List.iter (fun k -> Environment.SetEnvironmentVariable(k, null))
+
+                            if Directory.Exists dir then
+                                Directory.Delete(dir, true)
+                    }
+                ]
+
+
     module DirectoryTests =
 
         open System.IO

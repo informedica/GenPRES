@@ -46,6 +46,39 @@ module Env =
         | v -> Some v
 
 
+    /// Removes one pair of matching surrounding quotes, double or single, from a value.
+    /// A value without them, or with a quote at one end only, is returned as it is.
+    let unquote (value: string) =
+        let quotedWith (q: string) = value.Length >= 2 && value.StartsWith q && value.EndsWith q
+
+        if quotedWith "\"" || quotedWith "'" then
+            value.Substring(1, value.Length - 2)
+        else
+            value
+
+
+    /// Parses one line of a .env file into its key and value, both trimmed and the value
+    /// unquoted. The value runs from the first equals sign to the end of the line, so it can
+    /// hold an equals sign itself. A blank line, a comment, a line without an equals sign and a
+    /// line with an empty key give None.
+    let parseLine (line: string) =
+        let trimmed = line.Trim()
+
+        if trimmed |> String.isNullOrWhiteSpace || trimmed.StartsWith "#" then
+            None
+        else
+            match trimmed.IndexOf '=' with
+            | -1 -> None
+            | idx ->
+                let key = trimmed.Substring(0, idx).Trim()
+                let value = trimmed.Substring(idx + 1).Trim() |> unquote
+
+                if key |> String.isNullOrWhiteSpace then
+                    None
+                else
+                    Some(key, value)
+
+
     /// Load environment variables from a .env file.
     /// Searches upward from the current directory for a .env file.
     /// Only sets variables that are not already set in the environment,
@@ -56,18 +89,11 @@ module Env =
         | None -> false
         | Some path ->
             File.ReadAllLines(path)
-            |> Array.iter (fun line ->
-                let trimmed = line.Trim()
-
-                if trimmed |> String.notNullOrEmpty && not (trimmed.StartsWith("#")) then
-                    match trimmed.IndexOf('=') with
-                    | -1 -> ()
-                    | idx ->
-                        let key = trimmed.Substring(0, idx).Trim()
-                        let value = trimmed.Substring(idx + 1).Trim()
-                        // Only set if not already present in the environment
-                        if Environment.GetEnvironmentVariable(key) |> isNull then
-                            Environment.SetEnvironmentVariable(key, value)
+            |> Array.choose parseLine
+            |> Array.iter (fun (key, value) ->
+                // Only set if not already present in the environment
+                if Environment.GetEnvironmentVariable(key) |> isNull then
+                    Environment.SetEnvironmentVariable(key, value)
             )
 
             true

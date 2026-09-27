@@ -267,7 +267,7 @@ window fails with "manifest unknown". The image itself defaults to demo mode, so
 `docker run -p 8080:8085 informedica/genpres:<tag>` works with no flags. `GENPRES_PROD=1` needs the
 proprietary `GENPRES_URL_ID` and the `data/cache` bind mount: production reads `*.cache`, the image
 ships only `*.demo`. `compose.yaml` forwards only the `GENPRES_*` keys. For a demo that keeps its
-signed order plans across a recreated container, set `GENPRES_DB_CONNECTION=Data Source=data/db/genpres.db`
+signed order plans across a recreated container, set `GENPRES_DB_CONNECTION="Data Source=data/db/genpres.db"`
 in `.env`; `compose.yaml` mounts `./data/db` for it.
 
 **Exit codes**: the image runs `tini` as PID 1. A refused start-up (short production password,
@@ -628,7 +628,10 @@ So a variable set in the shell always overrides `.env`.
 
 #### Loading in Different Contexts
 
-- **Shell**: `set -a; source .env; set +a` before running commands
+- **Shell**: `set -a; source .env; set +a` before running commands. Quote a value that holds a
+  space, a `#` or a `;` (`GENPRES_DB_CONNECTION="Data Source=data/db/genpres.db"`): the shell stops
+  an unquoted value at the first space, without an error. `loadDotEnv`, direnv and docker compose
+  remove one pair of surrounding quotes, so the quoted value reads the same in all four
 - **F# scripts and IDEs**: `Informedica.Utils.Lib.Env.loadDotEnv()` searches upward for `.env`
 - **Docker**: the image defaults to demo mode. For production inject `GENPRES_PROD=1`,
   `GENPRES_URL_ID` and `GENPRES_PASSWORD` at container runtime and mount `data/cache`; `compose.yaml`
