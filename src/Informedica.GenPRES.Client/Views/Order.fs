@@ -880,11 +880,19 @@ module Order =
 
         // the component and the item selects are the dialog's own, never a request; the dialog
         // always has one of each, so neither can be cleared
-        let pick = ViewHelpers.orderFixed false false
+        // what an empty value shows while there are values to pick from, and what a click on a
+        // range does
+        let texts =
+            {|
+                pickValue = Terms.``Pick a value`` |> getTerm "kies een waarde"
+                pickMedian = Terms.``Pick the median`` |> getTerm "naar mediaan"
+            |}
+
+        let pick = ViewHelpers.orderFixed texts false false
 
         // a field's select: rests while another field is changing, shows it while its own is
         let selectFor field =
-            ViewHelpers.orderSelect false (rests field) (isFieldLoading field)
+            ViewHelpers.orderSelect texts false (rests field) (isFieldLoading field)
 
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
 
@@ -1179,6 +1187,7 @@ module Order =
                                 solved
                                 SetMinComponentQuantityProperty
                                 DecreaseComponentQuantityProperty
+                                SetMedianComponentQuantityProperty
                                 IncreaseComponentQuantityProperty
                                 SetMaxComponentQuantityProperty
                                 (cmp |> Option.bind (_.OrderableQuantity >> ViewHelpers.ovarStep string))
@@ -1342,6 +1351,7 @@ module Order =
                                 solved
                                 SetMinFrequencyProperty
                                 (fun _ -> DecreaseFrequencyProperty)
+                                SetMedianFrequencyProperty
                                 (fun _ -> IncreaseFrequencyProperty)
                                 SetMaxFrequencyProperty
                                 None
@@ -1370,6 +1380,7 @@ module Order =
                             ord
                             SetMinDoseQuantityProperty
                             DecreaseDoseQuantityProperty
+                            SetMedianDoseQuantityProperty
                             IncreaseDoseQuantityProperty
                             SetMaxDoseQuantityProperty
 
@@ -1400,6 +1411,7 @@ module Order =
                             solved
                             SetMinDoseRateProperty
                             DecreaseDoseRateProperty
+                            SetMedianDoseRateProperty
                             IncreaseDoseRateProperty
                             SetMaxDoseRateProperty
                             (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)

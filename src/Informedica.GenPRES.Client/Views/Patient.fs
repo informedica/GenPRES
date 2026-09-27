@@ -459,6 +459,7 @@ module Patient =
                     canStep = false
                     severity = Severity.Normal
                     minWidth = None
+                    description = None
                 |}
 
         let createSelect label sel changeValue vs = createField false label sel changeValue vs

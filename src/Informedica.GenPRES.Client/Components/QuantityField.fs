@@ -13,6 +13,7 @@ module QuantityField =
 
 
     open Fable.Core
+    open Fable.Core.JsInterop
     open Feliz
     open Shared
 
@@ -27,10 +28,20 @@ module QuantityField =
             large: string option
             first: (int -> unit) option
             decrease: (int -> unit) option
+            median: (unit -> unit) option
             increase: (int -> unit) option
             last: (int -> unit) option
             useDebounce: bool
             revision: int
+        |}
+
+
+    /// The texts the field shows in the user's language: what an empty value asks, and what a
+    /// click on a range does.
+    type Texts =
+        {|
+            pickValue: string
+            pickMedian: string
         |}
 
 
@@ -56,6 +67,7 @@ module QuantityField =
             selected: string option
             onChange: string option -> unit
             mode: Mode
+            texts: Texts
             hasClear: bool
             disabled: bool
             isLoading: bool
@@ -156,6 +168,8 @@ module QuantityField =
         {| cellSx false (if hasButtons then "0" else "4px") with
             minWidth = 0
             overflow = "hidden"
+            // the placeholder stands over the empty select
+            position = "relative"
             backgroundColor = "background.paper"
             ``&:focus-within`` = {| borderColor = "primary.main" |}
             ``& .MuiInputLabel-root`` = {| display = "none" |}
@@ -227,6 +241,25 @@ module QuantityField =
             flexGrow = 1
             alignSelf = "stretch"
             minWidth = 0
+        |}
+
+
+    // over the empty select, where its value would stand, and out of the way of a click on it
+    let placeholderSx =
+        {|
+            position = "absolute"
+            left = "8px"
+            color = "text.disabled"
+            pointerEvents = "none"
+            whiteSpace = "nowrap"
+        |}
+
+
+    // the range that picks its median on a click shows the hand, as a button does
+    let medianSx =
+        {| growSx with
+            cursor = "pointer"
+            ``& .MuiSelect-select`` = {| cursor = "pointer" |}
         |}
 
 
@@ -365,6 +398,14 @@ module QuantityField =
             |> Option.map (fun s -> s.first.IsSome || s.decrease.IsSome || s.increase.IsSome || s.last.IsSome)
             |> Option.defaultValue false
 
+        // A navigable field that shows its range picks the median on a click or on Enter or
+        // Space; the dropdown, which would hold the range alone, does not open. A click on the
+        // cross still clears the value.
+        let median =
+            match props.mode, props.values with
+            | Navigable steps, [| ("range", _) |] when not props.disabled -> steps.median
+            | _ -> None
+
         let select =
             SimpleSelect.View
                 {|
@@ -380,6 +421,7 @@ module QuantityField =
                     severity = props.severity
                     // the minimum is the field's; the select takes the column the slots leave
                     minWidth = None
+                    description = median |> Option.map (fun _ -> props.texts.pickMedian)
                 |}
 
         // the step buttons rest only when the field is disabled: a step sent while the value
@@ -442,6 +484,58 @@ module QuantityField =
         // read by a container that drops the hidden slots of a field without buttons
         let buttons = if hasButtons then "some" else "none"
 
+        let onButton (e: Browser.Types.Event) = e.target?closest (".MuiIconButton-root") |> isNull |> not
+
+        let pickMedian (e: Browser.Types.Event) =
+            match median with
+            | Some pick when not (onButton e) ->
+                e.preventDefault ()
+                e.stopPropagation ()
+                pick ()
+            | _ -> ()
+
+        // Enter and Space pick the median; the arrow keys, which would open the menu, do nothing
+        let pickMedianByKey (e: Browser.Types.KeyboardEvent) =
+            match e.key with
+            | "Enter"
+            | " " -> pickMedian e
+            | "ArrowUp"
+            | "ArrowDown" when median.IsSome ->
+                e.preventDefault ()
+                e.stopPropagation ()
+            | _ -> ()
+
+        let value =
+            match median with
+            | None ->
+                JSX.jsx
+                    $"""
+                import Box from '@mui/material/Box';
+                <Box sx={growSx}>{select}</Box>
+                """
+            | Some _ ->
+                JSX.jsx
+                    $"""
+                import Box from '@mui/material/Box';
+                import Tooltip from '@mui/material/Tooltip';
+                <Tooltip title={props.texts.pickMedian}>
+                    <Box sx={medianSx} onMouseDownCapture={pickMedian} onKeyDownCapture={pickMedianByKey}>
+                        {select}
+                    </Box>
+                </Tooltip>
+                """
+
+        // with values to pick from and none picked the cell is not left blank: it asks for one
+        let placeholder =
+            match displaySelected, displayValues with
+            | None, values when values.Length > 0 ->
+                JSX.jsx
+                    $"""
+                import Typography from '@mui/material/Typography';
+                <Typography variant="body1" sx={placeholderSx}>{props.texts.pickValue}</Typography>
+                """
+            | _ -> null
+
         let focusSelect =
             fun _ ->
                 match Browser.Dom.document.getElementById props.label with
@@ -463,7 +557,8 @@ module QuantityField =
                 {slot1}
                 {slot2}
                 <Box sx={cellSx}>
-                    <Box sx={growSx}>{select}</Box>
+                    {value}
+                    {placeholder}
                 </Box>
                 {slot4}
                 {slot5}

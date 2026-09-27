@@ -921,9 +921,17 @@ module Nutrition =
             React.useElmish (init ctx, update updateOrderScenario resetOrderScenario stepper shownOrder, [| box ctx |])
 
         let isOrderLoading = props.isRecalculating
-        let select = ViewHelpers.orderSelect true isOrderLoading
+        // what an empty value shows while there are values to pick from, and what a click on a
+        // range does
+        let texts =
+            {|
+                pickValue = Terms.``Pick a value`` |> getTerm "kies een waarde"
+                pickMedian = Terms.``Pick the median`` |> getTerm "naar mediaan"
+            |}
+
+        let select = ViewHelpers.orderSelect texts true isOrderLoading
         // a value only shown has nothing for a cross to clear
-        let display = ViewHelpers.orderFixed true isOrderLoading
+        let display = ViewHelpers.orderFixed texts true isOrderLoading
         let filterSelect = ViewHelpers.filterSelect isOrderLoading isOrderLoading
         let autoComplete = ViewHelpers.autoComplete isOrderLoading isOrderLoading
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
@@ -963,6 +971,7 @@ module Nutrition =
                                 solved
                                 (SetMinComponentQuantityProperty cmpName)
                                 (fun (n, uc) -> DecreaseComponentQuantityProperty(cmpName, n, uc))
+                                (SetMedianComponentQuantityProperty cmpName)
                                 (fun (n, uc) -> IncreaseComponentQuantityProperty(cmpName, n, uc))
                                 (SetMaxComponentQuantityProperty cmpName)
                                 (cmp.OrderableQuantity |> ViewHelpers.ovarStep string)
@@ -1039,6 +1048,7 @@ module Nutrition =
                         ord
                         SetMinDoseQuantityProperty
                         DecreaseDoseQuantityProperty
+                        SetMedianDoseQuantityProperty
                         IncreaseDoseQuantityProperty
                         SetMaxDoseQuantityProperty
 
@@ -1192,6 +1202,7 @@ module Nutrition =
                         solved
                         SetMinDoseRateProperty
                         DecreaseDoseRateProperty
+                        SetMedianDoseRateProperty
                         IncreaseDoseRateProperty
                         SetMaxDoseRateProperty
                         (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)

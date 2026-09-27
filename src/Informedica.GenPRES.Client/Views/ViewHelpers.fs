@@ -73,7 +73,20 @@ module ViewHelpers =
     let noSteps = Components.QuantityField.Selectable
 
 
-    let orderField canClear alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
+    let orderField
+        canClear
+        (texts: Components.QuantityField.Texts)
+        alwaysShow
+        disabled
+        isLoading
+        lbl
+        selected
+        updateSelected
+        mode
+        (mark: Mark)
+        minWidth
+        xs
+        =
         // a field with steps is never empty: its buttons can still give it a value
         let hasSteps =
             match mode with
@@ -114,6 +127,7 @@ module ViewHelpers =
                     severity = mark.severity
                     reason = mark.reason
                     mode = mode
+                    texts = texts
                     minWidth = minWidth
                     isLead = false
                 |}
@@ -121,15 +135,15 @@ module ViewHelpers =
 
     /// A value the rules narrowed, which the user may narrow further and may put back: it
     /// offers the cross when it can be used and holds a value.
-    let orderSelect alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
-        orderField true alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
+    let orderSelect texts alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
+        orderField true texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
     /// A field there is nothing to clear in: a choice among the order's own parts, which always
     /// holds one of them, or a value that is only shown. It never offers the cross, since the
     /// cross would say the value can be taken away and it cannot.
-    let orderFixed alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
-        orderField false alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
+    let orderFixed texts alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
+        orderField false texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
     /// The mode of a field with steps: Navigable when the range can be navigated, where first
@@ -142,7 +156,7 @@ module ViewHelpers =
 
 
     /// Build the steps of a field and its mode. navigable: first and last jump to the min and
-    /// the max; solved: decrease and increase step the value, and first and last make a large
+    /// the max, and a click on the range picks the median; solved: decrease and increase step the value, and first and last make a large
     /// step when the field cannot be navigated.
     let createStepper
         dispatch
@@ -151,6 +165,7 @@ module ViewHelpers =
         solved
         setMin
         (decr: int * bool -> 'Msg)
+        setMed
         (incr: int * bool -> 'Msg)
         setMax
         step
@@ -169,6 +184,11 @@ module ViewHelpers =
             decrease =
                 if solved then
                     (fun n -> (n, false) |> decr |> dispatch) |> Some
+                else
+                    None
+            median =
+                if navigable then
+                    (fun () -> setMed |> dispatch) |> Some
                 else
                     None
             increase =
@@ -343,7 +363,7 @@ module ViewHelpers =
     /// and Nutrition views. Handles the optimistic stepping with feasibility-ceiling
     /// saturation: the displayed value follows the click count up to the prepared orderable
     /// quantity, and dispatched steps are saturated at that ceiling so an overshoot is not
-    /// reverted by the solver. The four message constructors (setMin/decr/incr/setMax)
+    /// reverted by the solver. The five message constructors (setMin/decr/setMed/incr/setMax)
     /// are supplied by each view from its own Msg type. Returns a field without steps when
     /// navigation must be hidden (a multi-component orderable whose components do not each
     /// have a single distinct orderable quantity).
@@ -353,6 +373,7 @@ module ViewHelpers =
         (ord: Order)
         (setMin: 'Msg)
         (decr: int * bool -> 'Msg)
+        (setMed: 'Msg)
         (incr: int * bool -> 'Msg)
         (setMax: 'Msg)
         =
@@ -442,6 +463,11 @@ module ViewHelpers =
                 decrease =
                     if solved then
                         (fun n -> (n, false) |> decr |> dispatch) |> Some
+                    else
+                        None
+                median =
+                    if navigable then
+                        (fun () -> setMed |> dispatch) |> Some
                     else
                         None
                 increase =
