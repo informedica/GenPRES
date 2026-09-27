@@ -192,7 +192,7 @@ In production a user reaches GenPRES from the hospital EHR: a launch script open
    - **PatientId**, default `123456` (Test Patient, born 15-03-2016, a ten-year-old of 32 kg). `no-data` stands for a patient the platform has no record for: the session then opens on the last signed data, or asks for patient data.
    - **Identity at the browser**: who the stub identity provider says is signed on (table below).
 2. Press **Launch**. The server mints a launch token valid for two minutes and redirects to `#/session?launch=<token>`. The client erases the token from the address bar and presents it.
-3. **Expected**: the server redirects through `/authorize` and `/callback`, asks the stub user registry for the role and active patient, reads the patient data, and opens the session. The browser lands on `#/session`; the title bar shows the user and role, and the session menu offers **Close session**.
+3. **Expected**: the server redirects through `/authorize` and `/callback`, asks the stub user registry for the role and active patient, reads the patient data, and opens the session. The browser lands on `#/session`; the title bar shows the user and role, and the session menu offers **Close session**. In the middle of the title bar, centred on the whole width, one line reads `123456 · Test Patient · 15-03-2016`, in that order, for `prescriber` and for `reader` alike; the patient panel shows the id only.
 
 | Identity | Stands for | Ends in |
 |---|---|---|
@@ -209,6 +209,7 @@ A refusal arrives as `#/session?refused=<word>` with the words `expired`, `spent
 **Further checks:**
 
 - **Reload after the launch**: the session resumes from the `genpres_session` cookie.
+- **A long identity**: narrow the window until the identification line clips. It ends in an ellipsis, hovering it shows the full text, and the controls on the right stay in place.
 - **Replay the launch**: open the `#/session?launch=…` URL from the Network tab in another browser profile within two minutes: `spent`. After two minutes: `expired`. A token from an earlier server run: `invalid`, because the sealing key is new at every start.
 - **Two launches of the same user**: the second session is open; the first is told a newer launch ended it on its next request.
 - **Production**: `GENPRES_PROD=1 GENPRES_PASSWORD=<16+ chars> dotnet run`; `/stub/launch` and `/authorize` are 404, `/callback` redirects to `refused=invalid`.
