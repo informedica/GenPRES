@@ -703,7 +703,7 @@ let tests =
                         | SessionLookup.Found opened ->
                             opened.User
                             |> Option.map _.DisplayName
-                            |> Expect.equal "the User it opened for" (Some "Stub Prescriber")
+                            |> Expect.equal "the User it opened for" (Some "Prescriber A")
                         | other -> failtest $"expected the Session, got %A{other}"
                     }
                 )

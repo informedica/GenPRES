@@ -195,17 +195,57 @@ module TitleBar =
                 whiteSpace = "nowrap"
             |}
 
-        // the patient beside the user, set off by a rule: the name on one line, the birthdate
-        // and the id under it, shown in full since the user sits at the EHR that launched the
-        // Session; capped and clipped as the user's name is, the full text in the tooltip, so
-        // that a long name or id cannot push the language and login controls out
+        // three columns, the outer two of equal width, so the middle one is centred against
+        // the whole toolbar for as long as both sides fit; when one side needs more room the
+        // middle one moves over rather than overlap it
+        let sxToolbar =
+            {|
+                display = "grid"
+                gridTemplateColumns = "1fr auto 1fr"
+                alignItems = "center"
+            |}
+
+        let sxLeftBox =
+            {|
+                display = "flex"
+                alignItems = "center"
+                minWidth = 0
+            |}
+
+        let sxRightBox =
+            {|
+                display = "flex"
+                alignItems = "center"
+                justifyContent = "flex-end"
+            |}
+
+        let sxTitle =
+            {|
+                flexGrow = 1
+                minWidth = 0
+            |}
+
+        // the middle column is always there, empty without a patient, so the right-hand
+        // controls keep to the third column; the hidden overflow lets it shrink below the width
+        // of the text, so that a long name or id gives way first
+        let sxMiddleBox =
+            {|
+                display = "flex"
+                justifyContent = "center"
+                minWidth = 0
+                overflow = "hidden"
+            |}
+
+        // the patient in the middle: the id, the name and the birthdate on one line, shown in
+        // full since the user sits at the EHR that launched the Session; capped and clipped, the
+        // full text in the tooltip
         let sxPatientBox =
             {|
                 marginLeft = 2
-                paddingLeft = 2
-                borderLeft = "1px solid rgba(255, 255, 255, 0.5)"
+                marginRight = 2
+                textAlign = "center"
                 lineHeight = 1.2
-                maxWidth = 260
+                maxWidth = 360
                 minWidth = 0
             |}
 
@@ -220,33 +260,52 @@ module TitleBar =
             | UserRole.Prescriber -> tr Terms.``Session Role Prescriber``
             | UserRole.Reader -> tr Terms.``Session Role Reader``
 
-        // who is in this Session, next to the hospital: only for an open Session with a user;
-        // nothing for anonymous use. Whom the Session is for, when the EHR said: the name, the
-        // birthdate and the id beside the user, for a Reader as for a Prescriber
-        let sessionView =
-            let patientOf (opened: SessionOpened) =
+        // the open Session with a user, and whether it is closing; nothing for anonymous use
+        let openSession =
+            match session.Session with
+            | SessionView.Open opened when opened.User.IsSome -> Some(opened, false)
+            | SessionView.Closing opened when opened.User.IsSome -> Some(opened, true)
+            | SessionView.Open _
+            | SessionView.Closing _
+            | SessionView.Anonymous
+            | SessionView.Launching _
+            | SessionView.Resuming
+            | SessionView.Refused _
+            | SessionView.Retryable _
+            | SessionView.Unreachable
+            | SessionView.Ended _
+            | SessionView.Enrolling _
+            | SessionView.SupplyingPin _
+            | SessionView.EnrolmentFailed _ -> None
+
+        // whom the Session is for, when the EHR said: the id, the name and the birthdate in the
+        // middle of the toolbar, in that order, for a Reader as for a Prescriber
+        let patientView =
+            openSession
+            |> Option.bind (fun (opened, _) ->
                 opened.PatientContext
                 |> Option.bind (fun context ->
                     context.Identity
                     |> Option.map (fun who ->
-                        let detail = $"{Global.birthDateText who} · {context.PatientId}"
+                        let identity = $"{context.PatientId} · {who.Name} · {Global.birthDateText who}"
 
                         JSX.jsx
                             $"""
                         <Box sx={sxPatientBox}>
-                            <Typography variant="body2" component="div" noWrap title={who.Name}>{who.Name}</Typography>
-                            <Typography variant="caption" component="div" noWrap title={detail}>{detail}</Typography>
+                            <Typography variant="body2" component="div" noWrap title={identity}>{identity}</Typography>
                         </Box>
                         """
                     )
                 )
-                |> Option.defaultValue null
+            )
+            |> Option.defaultValue null
 
+        // who is in this Session, next to the hospital
+        let sessionView =
             let userOf (opened: SessionOpened) closing =
                 opened.User
                 |> Option.map (fun user ->
                     let label = $"{user.DisplayName} ({roleName user.Role})"
-                    let patient = patientOf opened
 
                     JSX.jsx
                         $"""
@@ -274,24 +333,12 @@ module TitleBar =
                                 <Typography>{tr Terms.``Session Close``}</Typography>
                             </MenuItem>
                         </Menu>
-                        {patient}
                     </Box>
                     """
                 )
 
-            match session.Session with
-            | SessionView.Open opened -> userOf opened false
-            | SessionView.Closing opened -> userOf opened true
-            | SessionView.Anonymous
-            | SessionView.Launching _
-            | SessionView.Resuming
-            | SessionView.Refused _
-            | SessionView.Retryable _
-            | SessionView.Unreachable
-            | SessionView.Ended _
-            | SessionView.Enrolling _
-            | SessionView.SupplyingPin _
-            | SessionView.EnrolmentFailed _ -> None
+            openSession
+            |> Option.bind (fun (opened, closing) -> userOf opened closing)
             |> Option.defaultValue null
 
         JSX.jsx
@@ -313,63 +360,69 @@ module TitleBar =
 
         <Box sx={flexGrowSx}>
             <AppBar position="static">
-                <Toolbar>
-                    <IconButton
-                        size="large"
-                        edge="start"
-                        color="inherit"
-                        aria-label="menu"
-                        sx={menuIconSx}
-                        onClick={props.toggleSideMenu}
-                        >
-                        <MenuIcon />
+                <Toolbar sx={sxToolbar}>
+                    <Box sx={sxLeftBox}>
+                        <IconButton
+                            size="large"
+                            edge="start"
+                            color="inherit"
+                            aria-label="menu"
+                            sx={menuIconSx}
+                            onClick={props.toggleSideMenu}
+                            >
+                            <MenuIcon />
 
-                    </IconButton>
-                    <Typography variant="body1" component="div" sx={flexGrowSx}>
-                        {props.title}
-                    </Typography>
-
-                    <Box sx={ {| paddingLeft = 1 |} }>
-                        <IconButton color="inherit" onClick={handleOpenHospMenu}>
-                            {Mui.Icons.LocalHospital}
                         </IconButton>
-                        <Menu
-                            sx={menuSx}
-                            anchorEl={anchorElHosp}
-                            anchorOrigin={topRightOrigin}
-                            keepMounted
-                            transformOrigin={topRightOrigin}
-                            open={anchorElHosp.IsSome}
-                            onClose={handleCloseHospMenu}
-                        >
-                            {hospitals}
-                        </Menu>
-                    </Box>
-                    <Typography variant="body1" component="div" >
-                        {$"{context.Hospital}"}
-                    </Typography>
-                    {sessionView}
-
-                    <Box sx={sxLangBox}>
-                        <IconButton color="inherit" onClick={handleOpenLangMenu}>
-                            {Mui.Icons.Language}
-                        </IconButton>
-                        <Typography variant="body1" component="div" sx={sxLangLabel} onClick={handleOpenLangMenu}>
-                            {context.Localization |> Shared.Localization.toShortCode}
+                        <Typography variant="body1" component="div" noWrap sx={sxTitle}>
+                            {props.title}
                         </Typography>
-                        <Menu
-                            sx={menuSx}
-                            anchorEl={anchorElLang}
-                            anchorOrigin={topRightOrigin}
-                            keepMounted
-                            transformOrigin={topRightOrigin}
-                            open={anchorElLang.IsSome}
-                            onClose={handleCloseLangMenu}
-                        >
-                            {menuItems}
-                        </Menu>
                     </Box>
-                    <Button color="inherit" onClick={handleLoginClick} startIcon={loginButtonIcon} sx={loginButtonSx}>{loginButtonText}</Button>
+                    <Box sx={sxMiddleBox}>
+                        {patientView}
+                    </Box>
+                    <Box sx={sxRightBox}>
+                        <Box sx={ {| paddingLeft = 1 |} }>
+                            <IconButton color="inherit" onClick={handleOpenHospMenu}>
+                                {Mui.Icons.LocalHospital}
+                            </IconButton>
+                            <Menu
+                                sx={menuSx}
+                                anchorEl={anchorElHosp}
+                                anchorOrigin={topRightOrigin}
+                                keepMounted
+                                transformOrigin={topRightOrigin}
+                                open={anchorElHosp.IsSome}
+                                onClose={handleCloseHospMenu}
+                            >
+                                {hospitals}
+                            </Menu>
+                        </Box>
+                        <Typography variant="body1" component="div" >
+                            {$"{context.Hospital}"}
+                        </Typography>
+                        {sessionView}
+    
+                        <Box sx={sxLangBox}>
+                            <IconButton color="inherit" onClick={handleOpenLangMenu}>
+                                {Mui.Icons.Language}
+                            </IconButton>
+                            <Typography variant="body1" component="div" sx={sxLangLabel} onClick={handleOpenLangMenu}>
+                                {context.Localization |> Shared.Localization.toShortCode}
+                            </Typography>
+                            <Menu
+                                sx={menuSx}
+                                anchorEl={anchorElLang}
+                                anchorOrigin={topRightOrigin}
+                                keepMounted
+                                transformOrigin={topRightOrigin}
+                                open={anchorElLang.IsSome}
+                                onClose={handleCloseLangMenu}
+                            >
+                                {menuItems}
+                            </Menu>
+                        </Box>
+                        <Button color="inherit" onClick={handleLoginClick} startIcon={loginButtonIcon} sx={loginButtonSx}>{loginButtonText}</Button>
+                    </Box>
                 </Toolbar>
             </AppBar>
             <Dialog open={loginDialogOpen} onClose={handleLoginClose}>

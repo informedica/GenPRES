@@ -35,10 +35,10 @@ module StubDirectory =
             Login = choice
             DisplayName =
                 match choice with
-                | "prescriber" -> "Stub Prescriber"
+                | "prescriber" -> "Prescriber A"
                 // a second Prescriber on the same patient, so that the record can move on
                 // under another Session
-                | "prescriber-b" -> "Stub Prescriber B"
+                | "prescriber-b" -> "Prescriber B"
                 | "reader" -> "Stub Reader"
                 | "prescriber-other-patient" -> "Stub Prescriber (other patient)"
                 | "no-pin" -> "Stub Prescriber (no PIN)"
@@ -178,8 +178,8 @@ module StubPatientData =
     open Informedica.GenCore.Lib.Patients
 
 
-    /// The stub patient's name. A stub, and shown as one.
-    let name = "Stub Testpatiënt"
+    /// The stub patient's name.
+    let name = "Test Patient"
 
 
     /// The stub patient's birthdate: the fifteenth of March, 2016.
@@ -328,7 +328,7 @@ module StubLaunch =
 <p>Stands in for the MainEHR LaunchScript (uc-01 step 1): mints a sealed Launch for the patient
 below and opens GenPRES on it. Development and test servers only.</p>
 <form method="post" action="{path}">
-  <p><label>PatientId <input name="pid" value="stub-patient" required></label>
+  <p><label>PatientId <input name="pid" value="123456" required></label>
   <small>(<code>no-data</code>: a patient without imported data)</small></p>
   <p><label>Identity at the browser
   <select name="identity">
@@ -356,7 +356,7 @@ below and opens GenPRES on it. Development and test servers only.</p>
     let mint (now: DateTime) (newNonce: unit -> string) (key: LaunchSeal.Key) (pid: string) =
         let pid =
             if pid |> String.isNullOrWhiteSpace then
-                "stub-patient"
+                "123456"
             else
                 pid.Trim()
 
