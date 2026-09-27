@@ -1,5 +1,5 @@
 ---
-last_commit_released: 60eecb42254166e97e589ef502bfd96539659712
+last_commit_released: b8b294113d29e8c9f71189a28f7bc1c4149a2d73
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,30 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.35 - 2026-09-27
+
+### 🚀 Features
+
+* Refresh the patient data from the EHR ([3c096387](https://github.com/informedica/GenPRES/commit/3c0963874cfa74e218346db26776f5cd2b8f1e52))
+* *(client)* Hold the patient context on new orders ([b3273bee](https://github.com/informedica/GenPRES/commit/b3273bee572d92e7db858bdee323e5288d552573))
+* *(client)* Block the order plan while signing ([cddcab7e](https://github.com/informedica/GenPRES/commit/cddcab7e9f77c3d84042d53726b3c74145a316d2))
+* *(client)* Hold the patient data on new orders ([068b28d8](https://github.com/informedica/GenPRES/commit/068b28d85d956ae97668a28b86627cac07ff6f82))
+* *(client)* Keep held data on a notice accepted ([eebc55a7](https://github.com/informedica/GenPRES/commit/eebc55a776b94c2dccd1865e51e0b8a812ff402d))
+* *(server)* End a Session left idle, as a script ([321f79f2](https://github.com/informedica/GenPRES/commit/321f79f2e036dd38f33047fdbe3beefa5ad3b781))
+* *(server)* End a Session left idle ([a7905c4e](https://github.com/informedica/GenPRES/commit/a7905c4e9cb9d5ba0d6ac7e70cf69d8bba97596a))
+* *(server)* Refuse a sign over mixed patient data ([0b89db78](https://github.com/informedica/GenPRES/commit/0b89db78a7ef0733129b13de2bb326047dc93328))
+
+### 🐞 Bug Fixes
+
+* *(client)* Hold keyboard edits, remove when settled ([829817af](https://github.com/informedica/GenPRES/commit/829817af1978164b98999019e13d4adde2a8f661))
+* *(client)* Say which data a held notice signs ([d730ec6b](https://github.com/informedica/GenPRES/commit/d730ec6b0cbd04e968a4341087141cd35db11af7))
+* *(client)* Tell a refresh that did not happen ([4ab8d62f](https://github.com/informedica/GenPRES/commit/4ab8d62f7bda2b309485d7d08d9dd2b37904a898))
+* *(server)* Read the idle clock under the port's lock ([a4b04754](https://github.com/informedica/GenPRES/commit/a4b04754ad760d6ff3ca83d8e45ae6a4f6c58f85))
+* *(server)* Answer a store failure at the age as StoreFailed ([ca4f9400](https://github.com/informedica/GenPRES/commit/ca4f940045539f7e5a17f9f81da5fd63b25ee471))
+* *(server)* Compare the location at the challenge ([96ba7cff](https://github.com/informedica/GenPRES/commit/96ba7cff09496c6a4dc2543602f4b4620ec1ee70))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/60eecb42254166e97e589ef502bfd96539659712..b8b294113d29e8c9f71189a28f7bc1c4149a2d73)</small></strong>
 
 ## 0.1.2-alpha.34 - 2026-09-26
 
