@@ -39,8 +39,6 @@
     <Compile Include="Program.fs" />
     <Content Include="fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Scripts/load.fsx" />
-    <None Include="Scripts/Tests.fsx" />
-    <None Include="Scripts\Tests2.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Informedica.GenPRES.Server\Informedica.GenPRES.Server.fsproj" />
