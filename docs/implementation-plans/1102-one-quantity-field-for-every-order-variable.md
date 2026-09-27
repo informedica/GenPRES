@@ -48,9 +48,10 @@ The five-slot component, under three rules:
    they are enabled, and the debouncing.
 3. Only the visualization changes.
 
-The one exception is the **median** button. The five slots have no place for it, so it is
-dropped. The four `SetMedian*` cases in the shared contract, the server mapper and GenORDER stay
-in place until a follow-up issue removes them.
+The **median** stays as well, without a button of its own, since the five slots have no place
+for one. A navigable field that shows its range picks the median when the user clicks the value,
+or presses Enter or Space on it. The dropdown does not open for a range, since it would hold the
+range alone. The existing `SetMedian*` commands carry the pick; the server does not change.
 
 ### The mode, taken from today's decisions
 
@@ -84,14 +85,34 @@ The following stay exactly as they are:
 
 ### What the user sees change
 
-- the five fixed slots, with the value in the middle, which keep their size in every mode;
-- the icons per mode: first, previous, next and last when navigating, and large and small minus
-  and plus when stepping;
-- a tooltip on every button, disabled buttons included;
-- no median button.
+- The value and its four buttons form one segmented group: grey square buttons around a white
+  value cell, with neighbouring cells sharing one border line and rounded outer corners.
+- The slots keep their size in every mode. A slot without a button is hidden and keeps its
+  space, so the value does not move when the mode changes.
+- The label is a caption above the group, starting where the value text starts. The select in
+  the cell draws no label or underline of its own; the cell border shows the focus, and a click
+  on the caption focuses the select.
+- The icons per mode:
+  - navigating: first, previous, next and last;
+  - stepping: small minus and plus, and the large step as text on the outer buttons (`−5` /
+    `+5`). That is the server's large increment, or the defined increment when the server sends
+    none.
+- Every button has a hover text, disabled buttons included.
+- The severity mark stands in a column of its own, right of the group. The column is there on
+  every field, so the groups line up.
+- A field with values to pick from and none picked shows the placeholder "kies een waarde", from
+  the term `Pick a value`. A range that picks its median has the hover text "naar mediaan", from
+  the term `Pick the median`. Both terms need a row in the Localization sheet for other
+  languages.
+- A field is never narrower than its buttons plus 120 px of value.
+  - An enteral feeding keeps its filter and fields on one row while they fit, and switches to
+    one column when a container query finds the row too narrow.
+  - In that row, a field that never gets buttons drops its hidden slots.
+- The spinner of a reloading order lies over the fields in the order and nutrition views, so the
+  fields no longer move.
 
-The tooltips are Dutch text in the component. Translating them through `Terms` goes to the
-follow-up issue, because new keys change the shared localization.
+The button hover texts ("naar minimum", "stap omhoog", ...) are Dutch text in the component.
+Translating them through `Terms` goes to a follow-up issue.
 
 ## Confidence
 
@@ -100,73 +121,38 @@ measured in the browser.
 
 ## Steps
 
-One PR at a time; each waits for the previous one to be merged. The component alone is too
-large for one PR under the 200-line limit, so the work is split into three steps.
+One PR at a time; each waited for the previous one to be merged. As built:
 
-### Step 1: the mode replaces the stepper option
+1. **The mode replaces the stepper option** (#1108).
+   - `QuantityField` takes a `Mode`.
+   - `createStepper` and `createDoseQtyStepper` return it.
+   - Every call site maps its current decision onto the mode.
+2. **The five-slot rendering** (#1109). Besides the grid itself:
+   - the segmented look, the caption label and the mark column;
+   - readable narrow fields and the enteral row that fits on one row or turns into a column;
+   - the spinner that no longer moves the fields.
 
-- `Components/QuantityField.fs`:
-  - add `Mode`;
-  - `Props.steps` becomes `Props.mode`;
-  - `Steps` loses `median`.
+   The debounced buttons stay `ClickCountingButton`. The plan had a new `useClicker` hook in
+   its place; keeping the existing button keeps its 700 ms window, its repeat while held and
+   its count badge exactly.
+3. **The median with a click on a range, and the placeholder** (#1111).
+   - This replaced the earlier decision to drop the median.
+   - It adds the terms `Pick a value` and `Pick the median`.
+   - The range keeps the arrow keys from opening its menu, and tells a screen reader what Enter
+     does.
+4. **The unused `Stepper.fs` removed** (#1113). The median messages stay, since the click on a
+   range uses them.
+5. **Docs**: this plan as built, C1 in [the foundation plan](981-ux-foundation-and-common-components.md),
+   [the dose quantity stepping flow](../domain/dose-quantity-stepping-flow.md) and G3 in
+   [the grouping index](ux-issue-grouping.md).
 
-  Rendering stays on the Stepper for now, with `median = None`.
-- `Views/ViewHelpers.fs`:
-  - `createStepper` and `createDoseQtyStepper` drop the median parameter and return a `Mode`,
-    following the table above;
-  - `orderField`, `orderSelect`, `orderFixed` and `ovarDisplay` take `mode` in place of
-    `stepper`.
-- `Views/Order.fs`, `Views/Nutrition.fs`: the call sites stop passing the median messages.
-- Changelog entry: the median button is gone.
+Left for a follow-up issue:
 
-### Step 2: the five-slot rendering
-
-- `Components/QuantityField.fs` renders the draft's grid in place of the Stepper:
-  - four slots around the value, hidden with `visibility: hidden` and never with
-    `display: none`;
-  - the `useClicker` hook in place of ClickCountingButton. It keeps what ClickCountingButton
-    does today:
-    - a debounce window of 700 ms, where the draft uses 250 ms;
-    - holding a debounced button down repeats the click every 150 ms, on mouse and on touch,
-      and stops on release or when the pointer leaves the button;
-    - every click, held or not, updates the predicted value at once, and the clicks within the
-      window go out as one command with their count;
-    - the timers are cleared when the field unmounts;
-    - the badge on the button shows the number of clicks counted so far, from the second click
-      on, and disappears when the command goes out;
-  - the icons and tooltips per mode.
-- The adaptations to the repository rules:
-  - the icons come from `Mui.Icons` in `MUI.fs`, next to the existing `FirstPageIcon` and
-    `LastPageIcon`, and the missing ones are added there;
-  - interpolation with format specifiers (`$"%i{slotWidth}px ..."`);
-  - lines under 120 characters;
-  - no `private` on the pure helpers `rowSx`, `slotSx` and `slot`. The hook `useClicker` keeps
-    `private`.
-- Changelog entry.
-
-### Step 3: remove the median messages and the old stepper
-
-- Remove the median messages, `update` branches, `msgToField` cases and prop fields from
-  `Order.fs` and `Nutrition.fs`.
-- Remove the median callbacks from `Prescribe.fs` and `OrderPlan.fs`.
-- Delete `Components/Stepper.fs` and `Components/ClickCountingButton.fs`, and their project
-  entries.
-- File the follow-up issue. It covers four things:
-  - remove `SetMedian*` from the contract, the server and GenORDER;
-  - remove the unused active pattern `(|NonNavigable|Navigable|Selectable|Stepable|)` in
-    `Shared/Models.fs`;
-  - translate the QuantityField tooltips through `Terms`;
-  - optionally, one rule that decides the mode, which would make the order and nutrition views
-    behave the same.
-
-### Step 4: docs
-
-- Add the modes and the render invariants from the spec to the C1 section of
-  [the foundation plan](981-ux-foundation-and-common-components.md).
-- Update [the dose quantity stepping flow](../domain/dose-quantity-stepping-flow.md), which
-  still names SimpleSelect, ClickCountingButton and Prescribe.
-- Update G3 in [the grouping index](ux-issue-grouping.md). It still describes the five Stepper
-  buttons and the `first` and `last` of `createStepper`, which no longer exist after Step 3.
+- the button hover texts through `Terms`;
+- the unused active pattern `(|NonNavigable|Navigable|Selectable|Stepable|)` in
+  `Shared/Models.fs`;
+- optionally, one rule that decides the mode, which would make the order and nutrition views
+  behave the same.
 
 ## Verification
 
@@ -178,9 +164,8 @@ large for one PR under the 200-line limit, so the work is split into three steps
   - `dotnet fsi scripts/CheckDependencyRule.fsx`.
 - **In the browser, behavior against master**: take a paracetamol oral solution order and a
   parenteral nutrition order through the same clicks on master and on the branch. The requests
-  sent (network tab) and the values shown after each answer must be the same, except for the
-  median button.
-- **In the browser, the render invariants** for Steps 2 and 3:
+  sent (network tab) and the values shown after each answer must be the same.
+- **In the browser, the render invariants** for Step 2:
   1. The five slot rectangles and the row height are the same in Selectable, Navigable and
      Stepable, and while loading.
   2. Going from Navigable to Stepable changes only the icons and tooltips.

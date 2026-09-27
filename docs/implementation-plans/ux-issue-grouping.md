@@ -137,7 +137,9 @@ setting without a client change. Severity reaches the user only as a double
 underline in a colour (`SimpleSelect`'s `warning` styling): no reason, no icon (#402). The outer two
 of the five stepper buttons carry two meanings, min/max while the variable is still navigable
 and large step once it is solved (`ViewHelpers.createStepper`'s `first` and `last`), which is
-exactly #405's finding. #496 — which field do I change to move the dose? — is
+exactly #405's finding. Since #1102 the field shows which meaning applies: jump icons while the
+value is navigable, and the large step as text (`−5` / `+5`) once it can be stepped. The two
+meanings are not split yet. #496 — which field do I change to move the dose? — is
 information the solver already has and does not surface.
 
 To settle: the shape of the field list the server sends (which order variables, in what

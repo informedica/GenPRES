@@ -239,6 +239,17 @@ sends with the order (#978), not one to make at the call site meanwhile. The `bo
 them apart is #405's design decision in G3, and the field keeps the shape its callers have until
 that lands.
 
+As built in #1102 ([its plan](1102-one-quantity-field-for-every-order-variable.md)):
+
+- The field is one row of fixed slots, four buttons around the value, with a column for the
+  severity mark on the right.
+- Its `Mode` (Selectable, Navigable, Stepable, Fixed) is read from each call site's existing
+  decisions, and a hidden button keeps its slot, so the value does not move when the mode
+  changes.
+- `first` and `last` still carry both meanings. The mode now shows which one applies: jump
+  icons while navigable, the large step as text once stepable.
+- A click on a navigable range picks its median.
+
 ### C2 — `PickField` and `MultiPickField`
 
 Serves **#498, #403, #501, #487**.
@@ -463,7 +474,8 @@ call sites migrate with their group.
    says what completes the question.
 3. **C1 `QuantityField`, part one: split the stepper from the input.** The stepper leaves
    `SimpleSelect`'s `endAdornment`, which is what makes #398's clear cross possible at all.
-   Landed as `Components/Stepper.fs`: the five buttons as one group, a step the caller does
+   Landed as `Components/Stepper.fs`, which the five-slot field of #1102 later replaced: the
+   five buttons as one group, a step the caller does
    not offer drawn disabled, the clicks sent to the caller as small and large deltas; it knows
    nothing of the value. `SimpleSelect` renders it beside the select instead of inside it, keeps
    the optimistic display of a stepped value (the deltas belong with the value they predict,
@@ -508,8 +520,9 @@ call sites migrate with their group.
    `Outside` when the server marked it and the bounds do not say why. Then the mark itself,
    with the icon and the reason on hover, and the order fields on it: landed as
    `Components/SeverityMark.fs`, an icon per severity in the severity's colour with the reason
-   in a tooltip on hover and nothing else, no popup; `QuantityField` shows it between the
-   value and the stepper beside the underline it already had. `ViewHelpers.markOf` reads a
+   in a tooltip on hover and nothing else, no popup; `QuantityField` shows it
+   in a column of its own right of the step buttons since #1102, while the value keeps the
+   coloured double underline of its severity. `ViewHelpers.markOf` reads a
    `Mark`, severity and reason, from an order variable, the reason worded as "max 15 mg" or
    "min 2 mg" in the value's unit and left unsaid for `Outside`; `orderSelect` takes the mark
    where it took a severity, so every order and nutrition field carries the reason.
