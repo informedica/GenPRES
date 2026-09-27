@@ -44,7 +44,7 @@
 
 open System
 open System.Collections.Generic
-open MathNet.Numerics
+open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenSolver.Lib
 
@@ -95,7 +95,7 @@ type LRUCache<'K, 'V when 'K : equality>(capacity: int) =
                 // Update in-place and promote
                 list.Remove existing
 
-                let newNode = list.AddFirst(key, value)
+                let newNode = list.AddFirst((key, value))
                 map.[key] <- newNode
             | false, _ ->
                 if map.Count >= capacity then
@@ -107,7 +107,7 @@ type LRUCache<'K, 'V when 'K : equality>(capacity: int) =
                         map.Remove evictKey |> ignore
                         list.RemoveLast()
 
-                let node = list.AddFirst(key, value)
+                let node = list.AddFirst((key, value))
                 map.[key] <- node
         )
 
@@ -124,7 +124,7 @@ type LRUCache<'K, 'V when 'K : equality>(capacity: int) =
 
 module CanonKey =
 
-    let sortedNames (eq: Types.Equation.T) =
+    let sortedNames (eq: Types.Equation) =
         eq
         |> Equation.toVars
         |> List.map (Variable.getName >> Variable.Name.toString)
@@ -132,7 +132,7 @@ module CanonKey =
 
     let symbol i = $"x{i}"
 
-    let nameMap (eq: Types.Equation.T) =
+    let nameMap (eq: Types.Equation) =
         eq |> sortedNames |> List.mapi (fun i n -> n, symbol i) |> Map.ofList
 
     let canonicalise (nmap: Map<string, string>) (s: string) =
@@ -141,7 +141,7 @@ module CanonKey =
         |> Seq.sortByDescending (fun (name, _) -> name.Length)
         |> Seq.fold (fun (acc: string) (name, sym) -> acc.Replace(name, sym)) s
 
-    let ofEquation (eq: Types.Equation.T) =
+    let ofEquation (eq: Types.Equation) =
         let nmap = nameMap eq
         eq |> Equation.toString true |> canonicalise nmap
 
@@ -154,7 +154,7 @@ module Solver =
 
     open Informedica.GenSolver.Lib.Solver
     open Types
-    open ConsoleWriter.NewLineNoTime
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
     type LRUStats =
         {
@@ -172,13 +172,13 @@ module Solver =
     let solveAllLRU
         (onlyMinIncrMax: bool)
         log
-        (sessionCache: LRUCache<string, Equation.T * SolveResult>)
+        (sessionCache: LRUCache<string, Equation * SolveResult>)
         eqs
         =
         let hits = ref 0
         let misses = ref 0
 
-        let solveE n eqs (eq: Equation.T) =
+        let solveE n eqs (eq: Equation) =
             let key = CanonKey.ofEquation eq
 
             match sessionCache.TryGet key with
@@ -200,7 +200,7 @@ module Solver =
                 | e ->
                     let msg = $"didn't catch {e}"
                     writeErrorMessage msg
-                    msg |> failwith
+                    msg |> invalidOp
 
         let rec loop n que acc =
             match acc with
@@ -209,7 +209,7 @@ module Solver =
                 let n = n + 1
 
                 if n > (que @ acc |> List.length) * Constants.MAX_LOOP_COUNT then
-                    (n, [], que @ acc) |> Exceptions.SolverErrored |> raise
+                    (n, que @ acc) |> Exceptions.SolverTooManyLoops |> Exceptions.raiseExc (Some log) []
 
                 match que with
                 | [] -> Ok acc
@@ -229,8 +229,8 @@ module Solver =
 
         let stats =
             {
-                Hits = !hits
-                Misses = !misses
+                Hits = hits.Value
+                Misses = misses.Value
                 Evictions = 0 // tracked separately via cache.Count before/after
                 CacheSize = sessionCache.Count
             }
@@ -258,7 +258,7 @@ let setValues u n vs eqs =
 // ------------------------------------------------------------------
 
 let solveBaseline onlyMinIncrMax eqs =
-    eqs |> Solver.solveAll onlyMinIncrMax (fun _ -> ())
+    eqs |> Solver.solveAll onlyMinIncrMax Informedica.Logging.Lib.Logging.noOp
 
 
 // ------------------------------------------------------------------
@@ -268,14 +268,14 @@ let solveBaseline onlyMinIncrMax eqs =
 module PerCallSolver =
 
     open Types
-    open ConsoleWriter.NewLineNoTime
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
     let solveAllMemo onlyMinIncrMax log eqs =
-        let cache = Dictionary<string, Equation.T * SolveResult>()
+        let cache = Dictionary<string, Equation * SolveResult>()
         let hits = ref 0
         let misses = ref 0
 
-        let solveE n eqs (eq: Equation.T) =
+        let solveE n eqs (eq: Equation) =
             let key = eq |> Equation.toString true
 
             match cache.TryGetValue key with
@@ -297,7 +297,7 @@ module PerCallSolver =
                 | e ->
                     let msg = $"didn't catch {e}"
                     writeErrorMessage msg
-                    msg |> failwith
+                    msg |> invalidOp
 
         let rec loop n que acc =
             match acc with
@@ -306,7 +306,7 @@ module PerCallSolver =
                 let n = n + 1
 
                 if n > (que @ acc |> List.length) * Constants.MAX_LOOP_COUNT then
-                    (n, [], que @ acc) |> Exceptions.SolverErrored |> raise
+                    (n, que @ acc) |> Exceptions.SolverTooManyLoops |> Exceptions.raiseExc (Some log) []
 
                 match que with
                 | [] -> Ok acc
@@ -457,7 +457,7 @@ printfn "Setup: 10 patients × dosing formula, %d iterations each" 20
 printfn ""
 
 // Shared session cache (capacity 512)
-let sessionCache = LRUCache<string, Equation.T * Types.SolveResult>(512)
+let sessionCache = LRUCache<string, Equation * Types.SolveResult>(512)
 
 let b_base =
     timeMean
@@ -474,7 +474,7 @@ let b_percall =
         20
         (fun () ->
             for w in patientWeights do
-                PerCallSolver.solveAllMemo false (fun _ -> ()) (dosingSetup w)
+                PerCallSolver.solveAllMemo false Informedica.Logging.Lib.Logging.noOp (dosingSetup w)
                 |> ignore
         )
 
@@ -484,7 +484,7 @@ let b_session =
         20
         (fun () ->
             for w in patientWeights do
-                Solver.solveAllLRU false (fun _ -> ()) sessionCache (dosingSetup w)
+                Solver.solveAllLRU false Informedica.Logging.Lib.Logging.noOp sessionCache (dosingSetup w)
                 |> ignore
         )
 
@@ -502,7 +502,7 @@ sessionCache.Clear()
 
 for _ in 1..5 do
     for w in patientWeights do
-        let _, stats = Solver.solveAllLRU false (fun _ -> ()) sessionCache (dosingSetup w)
+        let _, stats = Solver.solveAllLRU false Informedica.Logging.Lib.Logging.noOp sessionCache (dosingSetup w)
         totalHits <- totalHits + stats.Hits
         totalMisses <- totalMisses + stats.Misses
 

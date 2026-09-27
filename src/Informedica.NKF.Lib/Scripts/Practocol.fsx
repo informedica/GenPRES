@@ -324,7 +324,7 @@ medications
             else
                 m |> (gpp.Name |> String.containsCapsInsens)
         )
-        |> Array.distinctBy (fun gpp -> gpp.Name, gpp.Shape, gpp.Routes)
+        |> Array.distinctBy (fun gpp -> gpp.Name, gpp.Form, gpp.Routes)
 
     m,
     gpps
@@ -333,7 +333,7 @@ medications
     |> Array.tryExactlyOne
     |> Option.defaultValue "",
     gpps
-    |> Array.map _.Shape
+    |> Array.map _.Form
     |> Array.distinct
     |> Array.tryExactlyOne
     |> Option.defaultValue "",
@@ -371,7 +371,7 @@ medications
 |> Array.distinct
 |> Array.collect (fun gpp ->
     gpp.Routes
-    |> Array.map (fun r -> $"{gpp.Name |> String.toLower}\t{gpp.Shape |> String.toLower}\t{r}")
+    |> Array.map (fun r -> $"{gpp.Name |> String.toLower}\t{gpp.Form |> String.toLower}\t{r}")
 )
 |> Array.distinct
 |> Array.iter (printfn "%s")
@@ -463,7 +463,7 @@ reconstitute
 
 GenPresProduct.get []
 |> Array.filter (fun gpp -> gpp.Name |> String.equalsCapInsens "allopurinol")
-|> Array.map (fun gpp -> gpp.Name, gpp.Shape, gpp.Routes)
+|> Array.map (fun gpp -> gpp.Name, gpp.Form, gpp.Routes)
 
 
 let solutions =
@@ -611,7 +611,7 @@ solutions
     |> Array.map (fun gpp ->
         {|
             generic = r.generic
-            shape = gpp.Shape |> String.toLower
+            shape = gpp.Form |> String.toLower
             route = route
             solutions = r.solutions
             unit = r.unit
@@ -635,7 +635,7 @@ solutions
 
 
 GenPresProduct.filter "insuline-gewoon" "" ""
-|> Array.map _.Shape
+|> Array.map _.Form
 |> Array.distinct
 |> Array.map String.toLower
 

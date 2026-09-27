@@ -1220,8 +1220,8 @@ module Pipeline =
             |> _.Split('\n')
             |> Array.map _.Split('\t')
 
-        DoseRule.get (fun () -> DoseRule.parseDoseRuleData matrix) routeMapping formRoutes prods
-        |> Result.map fst
+        Informedica.GenForm.Lib.DoseRuleData.parseDoseRuleData matrix
+        |> Result.map (DoseRuleLoader.fromData routeMapping formRoutes prods >> fst)
 
 
     /// End-to-end: free text → `DoseRuleExtractionResult` via Ollama →
@@ -1637,7 +1637,6 @@ module Interactive =
 module Benchmark =
 
     open System.Diagnostics
-    open MathNet.Numerics
 
     /// Canonical TSV path relative to the repo root.
     let tsvPath =

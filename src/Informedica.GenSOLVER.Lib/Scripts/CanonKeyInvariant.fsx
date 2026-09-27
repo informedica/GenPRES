@@ -46,7 +46,7 @@
 #r "nuget: Expecto.FsCheck, 9.0.4"
 
 open System
-open MathNet.Numerics
+open Informedica.Utils.Lib.BCL
 open Expecto
 open Expecto.Flip
 open FsCheck
@@ -61,7 +61,7 @@ open Informedica.GenSolver.Lib
 
 module CanonKey =
 
-    let sortedNames (eq: Types.Equation.T) =
+    let sortedNames (eq: Types.Equation) =
         eq
         |> Equation.toVars
         |> List.map (Variable.getName >> Variable.Name.toString)
@@ -69,7 +69,7 @@ module CanonKey =
 
     let symbol i = $"x{i}"
 
-    let nameMap (eq: Types.Equation.T) =
+    let nameMap (eq: Types.Equation) =
         eq |> sortedNames |> List.mapi (fun i n -> n, symbol i) |> Map.ofList
 
     let canonicalise (nmap: Map<string, string>) (s: string) =
@@ -78,7 +78,7 @@ module CanonKey =
         |> Seq.sortByDescending (fun (name, _) -> name.Length)
         |> Seq.fold (fun (acc: string) (name, sym) -> acc.Replace(name, sym)) s
 
-    let ofEquation (eq: Types.Equation.T) =
+    let ofEquation (eq: Types.Equation) =
         let nmap = nameMap eq
         eq |> Equation.toString true |> canonicalise nmap
 
@@ -88,15 +88,15 @@ module CanonKey =
 // ------------------------------------------------------------------
 
 let setValues u n vs eqs =
-    eqs
-    |> List.collect (fun eq ->
-        eq
-        |> Api.setVariable
-            {
-                Variable.Dto.dto n with
-                    Vals = Variable.Dto.createValueUnit vs u
-            }
-    )
+    let nm = n |> Variable.Name.createExc
+
+    let prop =
+        vs |> ValueUnit.create u |> Variable.ValueRange.ValueSet.create |> Types.ValsProp
+
+    match eqs |> Api.setVariableValues nm prop with
+    | Some var -> eqs |> List.map (Equation.replace var)
+    | None -> eqs
+
 
 /// Build a 3-variable product equation: lhs = rhs1 * rhs2
 let makeMultEq lhs rhs1 rhs2 values =
@@ -248,14 +248,14 @@ let propertyTests =
             testPropertyWithConfig fsCheckConfig "P1. idempotence — ofEquation is deterministic" <|
             fun (NonNegativeInt seed) ->
                 let names = distinctNames 3 seed
-                let lhs, r1, r2 = names.[2], names.[0], names.[1]
+                let lhs, r1, r2 = names[2], names[0], names[1]
                 let eq = makeMultEq lhs r1 r2 [| 1N .. 5N |] |> List.head
                 CanonKey.ofEquation eq = CanonKey.ofEquation eq
 
             testPropertyWithConfig fsCheckConfig "P2. name-count invariant — sortedNames = #variables" <|
             fun (NonNegativeInt seed) ->
                 let names = distinctNames 3 seed
-                let lhs, r1, r2 = names.[2], names.[0], names.[1]
+                let lhs, r1, r2 = names[2], names[0], names[1]
                 let eq = makeMultEq lhs r1 r2 [| 1N .. 3N |] |> List.head
                 let sorted = CanonKey.sortedNames eq
                 sorted |> List.length = 3
@@ -263,7 +263,7 @@ let propertyTests =
             testPropertyWithConfig fsCheckConfig "P3. nameMap assigns a symbol to every variable" <|
             fun (NonNegativeInt seed) ->
                 let names = distinctNames 3 seed
-                let lhs, r1, r2 = names.[2], names.[0], names.[1]
+                let lhs, r1, r2 = names[2], names[0], names[1]
                 let eq = makeMultEq lhs r1 r2 [| 1N .. 3N |] |> List.head
                 let nmap = CanonKey.nameMap eq
                 nmap |> Map.count = 3 && nmap |> Map.forall (fun _ v -> v.StartsWith "x")
@@ -278,8 +278,8 @@ let propertyTests =
                 let sortedNames1 = List.sort names1
                 let sortedNames2 = List.sort names2
 
-                let lhs1, r1a, r1b = sortedNames1.[2], sortedNames1.[0], sortedNames1.[1]
-                let lhs2, r2a, r2b = sortedNames2.[2], sortedNames2.[0], sortedNames2.[1]
+                let lhs1, r1a, r1b = sortedNames1[2], sortedNames1[0], sortedNames1[1]
+                let lhs2, r2a, r2b = sortedNames2[2], sortedNames2[0], sortedNames2[1]
 
                 let vals = [| 1N .. 5N |]
                 let eq1 = makeMultEq lhs1 r1a r1b vals |> List.head
@@ -291,17 +291,17 @@ let propertyTests =
             fun (NonNegativeInt seed) ->
                 let names = distinctNames 3 seed
                 let sorted = List.sort names
-                let lhs, r1, r2 = sorted.[2], sorted.[0], sorted.[1]
+                let lhs, r1, r2 = sorted[2], sorted[0], sorted[1]
                 let eq = makeMultEq lhs r1 r2 [| 1N .. 3N |] |> List.head
                 let nmap = CanonKey.nameMap eq
                 // First alphabetically → x0, second → x1, third → x2
-                nmap.[sorted.[0]] = "x0" && nmap.[sorted.[1]] = "x1" && nmap.[sorted.[2]] = "x2"
+                nmap[sorted[0]] = "x0" && nmap[sorted[1]] = "x1" && nmap[sorted[2]] = "x2"
 
             testPropertyWithConfig fsCheckConfig "P6. canonicalise replaces all occurrences" <|
             fun (NonNegativeInt seed) ->
                 let names = distinctNames 3 seed
                 let sorted = List.sort names
-                let n0, n1, n2 = sorted.[0], sorted.[1], sorted.[2]
+                let n0, n1, n2 = sorted[0], sorted[1], sorted[2]
                 let nmap = Map.ofList [ n0, "x0"; n1, "x1"; n2, "x2" ]
                 let s = $"{n2} = {n0} * {n1}"
                 let result = CanonKey.canonicalise nmap s

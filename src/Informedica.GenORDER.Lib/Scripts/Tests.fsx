@@ -26,6 +26,7 @@ module Generators =
 
     open Expecto
     open FsCheck
+    open FsCheck.FSharp
     open MathNet.Numerics
 
 
@@ -39,8 +40,8 @@ module Generators =
 
     let bigRGenerator =
         gen {
-            let! n = Arb.generate<int>
-            let! d = Arb.generate<int>
+            let! n = ArbMap.defaults |> ArbMap.generate<int>
+            let! d = ArbMap.defaults |> ArbMap.generate<int>
             return bigRGen (n, d)
         }
 
@@ -69,7 +70,9 @@ module Generators =
     type ListOf37<'a> = ListOf37 of 'a List
 
     let listOf37Arb () =
-        Gen.listOfLength 37 Arb.generate
+        ArbMap.defaults
+        |> ArbMap.generate<'a>
+        |> Gen.listOfLength 37
         |> Arb.fromGen
         |> Arb.convert ListOf37 (fun (ListOf37 xs) -> xs)
 

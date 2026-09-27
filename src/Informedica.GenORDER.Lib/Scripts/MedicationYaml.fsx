@@ -22,8 +22,6 @@
 #I __SOURCE_DIRECTORY__
 #load "load.fsx"
 #r "nuget: YamlDotNet, 15.3.0"
-#r "nuget: Expecto, 10.2.1"
-#r "nuget: Expecto.Flip, 10.2.1"
 
 open System
 open MathNet.Numerics
@@ -433,8 +431,8 @@ let roundTripTests =
 
                     match result with
                     | Error errs ->
-                        failwith
-                            $"Parse failed for {scenarioName}:\n{errs |> String.concat \"\n\"}"
+                        let errs = errs |> String.concat "\n"
+                        failtest $"Parse failed for %s{scenarioName}:\n%s{errs}"
                     | Ok parsed ->
                         parsed
                         |> Expect.equal $"round-trip: {scenarioName}" med
@@ -444,8 +442,10 @@ let roundTripTests =
                 let yaml = Scenarios.pcmSupp |> Medication.yamlToString
                 let stream = YamlDotNet.RepresentationModel.YamlStream()
 
-                (fun () -> stream.Load(new IO.StringReader(yaml)))
-                |> Expect.isNotThrowing "should load without exceptions"
+                try
+                    stream.Load(new IO.StringReader(yaml))
+                with e ->
+                    failtest $"should load without exceptions: %s{e.Message}"
             }
         ]
 

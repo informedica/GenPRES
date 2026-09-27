@@ -9,7 +9,7 @@ open Informedica.GenSolver.Lib
 open System
 open System.IO
 
-open MathNet.Numerics
+open Informedica.Utils.Lib.BCL
 
 
 module Name = Variable.Name
@@ -52,7 +52,7 @@ module Solve =
             eqs
 
     let create c u v =
-        let u = u |> Units.fromString
+        let u = u |> UnitsParse.fromString
         v |> ValueUnit.create u.Value |> c
 
     let solveIncr n incr u =

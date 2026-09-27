@@ -41,7 +41,7 @@
 
 open System
 open System.Collections.Generic
-open MathNet.Numerics
+open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenSolver.Lib
 
@@ -76,7 +76,7 @@ type LRUCache<'K, 'V when 'K : equality>(capacity: int) =
             match dict.TryGetValue(key) with
             | true, node ->
                 order.Remove node
-                let newNode = order.AddFirst(key, value)
+                let newNode = order.AddFirst((key, value))
                 dict.[key] <- newNode
             | false, _ ->
                 if dict.Count >= capacity then
@@ -84,7 +84,7 @@ type LRUCache<'K, 'V when 'K : equality>(capacity: int) =
                     order.RemoveLast()
                     dict.Remove(lru.Value |> fst) |> ignore
 
-                let newNode = order.AddFirst(key, value)
+                let newNode = order.AddFirst((key, value))
                 dict.[key] <- newNode
         )
 
@@ -103,12 +103,12 @@ module CanonKey =
 
     open Types
 
-    let private nameMap (eq: Types.Equation.T) : Map<string, string> =
+    let private nameMap (eq: Types.Equation) : Map<string, string> =
         eq
         |> Equation.toString true
         |> fun _ ->
             eq
-            |> Equation.vars
+            |> Equation.toVars
             |> List.map (Variable.getName >> Variable.Name.toString)
             |> List.distinct
             |> List.sort
@@ -116,16 +116,16 @@ module CanonKey =
             |> Map.ofList
 
     /// Canonical name map: original-name → symbol.
-    let sortedNames (eq: Types.Equation.T) : (string * string) list =
+    let sortedNames (eq: Types.Equation) : (string * string) list =
         eq
-        |> Equation.vars
+        |> Equation.toVars
         |> List.map (Variable.getName >> Variable.Name.toString)
         |> List.distinct
         |> List.sort
         |> List.mapi (fun i name -> name, $"x{i}")
 
     /// Canonical name → original name (inverse map).
-    let invertedNames (eq: Types.Equation.T) : Map<string, string> =
+    let invertedNames (eq: Types.Equation) : Map<string, string> =
         eq
         |> sortedNames
         |> List.map (fun (orig, sym) -> sym, orig)
@@ -137,7 +137,7 @@ module CanonKey =
         |> Seq.sortByDescending (fun (name, _) -> name.Length)
         |> Seq.fold (fun (acc: string) (name, sym) -> acc.Replace(name, sym)) s
 
-    let ofEquation (eq: Types.Equation.T) =
+    let ofEquation (eq: Types.Equation) =
         let nmap = nameMap eq
         eq |> Equation.toString true |> canonicalise nmap
 
@@ -156,7 +156,7 @@ module Remap =
 
     /// Rename a variable: replace its Name with the given string.
     let private renameVar (newName: string) (v: Variable) : Variable =
-        v |> Variable.setName (Variable.Name.createExc newName)
+        { v with Name = Variable.Name.createExc newName }
 
     /// Remap canonical variable names in a Changed result back to original names.
     ///
@@ -178,9 +178,9 @@ module Remap =
     /// Remap a full SolveResult (only Changed carries variables to rename).
     let solveResult
         (invertMap: Map<string, string>)
-        (eq: Equation.T)
+        (eq: Equation)
         (sr: SolveResult)
-        : Equation.T * SolveResult
+        : Equation * SolveResult
         =
         match sr with
         | Unchanged -> eq, Unchanged
@@ -197,7 +197,7 @@ module Remap =
 module SessionSolver =
 
     open Types
-    open ConsoleWriter.NewLineNoTime
+    open Informedica.Utils.Lib.ConsoleWriter.NewLineNoTime
 
     type Stats =
         {
@@ -210,21 +210,21 @@ module SessionSolver =
     /// a single injectable value.  Create one per server session/process.
     type T =
         {
-            Cache: LRUCache<string, Equation.T * SolveResult>
+            Cache: LRUCache<string, Equation * SolveResult>
             OnlyMinIncrMax: bool
-            Log: SolveResult -> unit
+            Log: Informedica.Logging.Lib.Logger
         }
 
     /// Create a session solver with the given LRU capacity.
     let create capacity onlyMinIncrMax log =
         {
-            Cache = LRUCache<string, Equation.T * SolveResult>(capacity)
+            Cache = LRUCache<string, Equation * SolveResult>(capacity)
             OnlyMinIncrMax = onlyMinIncrMax
             Log = log
         }
 
     /// Solve a single equation, using the LRU cache where possible.
-    let private solveEquation (sess: T) n eqs (eq: Equation.T) : Equation.T * SolveResult =
+    let private solveEquation (sess: T) n eqs (eq: Equation) : Equation * SolveResult =
         let key = CanonKey.ofEquation eq
         let invertMap = CanonKey.invertedNames eq
 
@@ -244,20 +244,20 @@ module SessionSolver =
             | e ->
                 let msg = $"SessionSolver: unexpected exception: {e}"
                 writeErrorMessage msg
-                msg |> failwith
+                msg |> invalidOp
 
     /// Solve all equations in a system using the session LRU cache.
     ///
     /// Returns the solved equation list and hit/miss statistics for
     /// this call.
-    let solveAll (sess: T) (eqs: Equation.T list) : Result<Equation.T list, Equation.T list * Exceptions.Message list> * Stats =
+    let solveAll (sess: T) (eqs: Equation list) : Result<Equation list, Equation list * Exceptions.Message list> * Stats =
         let hits = ref 0
         let misses = ref 0
 
         // Track hits by checking cache before vs after solveEquation
         let trackingCache = sess.Cache
 
-        let solveE n eqs (eq: Equation.T) =
+        let solveE n eqs (eq: Equation) =
             let key = CanonKey.ofEquation eq
             let wasCached = trackingCache.TryGet key |> Option.isSome
 
@@ -272,7 +272,7 @@ module SessionSolver =
                 let n = n + 1
 
                 if n > (que @ acc |> List.length) * Constants.MAX_LOOP_COUNT then
-                    (n, [], que @ acc) |> Exceptions.SolverErrored |> raise
+                    (n, que @ acc) |> Exceptions.SolverTooManyLoops |> Exceptions.raiseExc (Some sess.Log) []
 
                 match que with
                 | [] -> Ok acc
@@ -288,8 +288,8 @@ module SessionSolver =
 
         let stats =
             {
-                Hits = !hits
-                Misses = !misses
+                Hits = hits.Value
+                Misses = misses.Value
                 CacheSize = sess.Cache.Count
             }
 
@@ -297,7 +297,7 @@ module SessionSolver =
 
     /// Warm the session cache by running one pass over a representative
     /// set of equations.  Call once at server startup before serving requests.
-    let warmUp (sess: T) (equations: Equation.T list list) : unit =
+    let warmUp (sess: T) (equations: Equation list list) : unit =
         for eqs in equations do
             solveAll sess eqs |> ignore
 
@@ -343,18 +343,18 @@ let correctnessTests =
         "SessionSolver"
         [
             test "solve same system twice: second is cache hit" {
-                let sess = SessionSolver.create 64 false (fun _ -> ())
+                let sess = SessionSolver.create 64 false Informedica.Logging.Lib.Logging.noOp
                 let eqs = dosingSetup 30N
 
                 let _, stats1 = SessionSolver.solveAll sess eqs
                 let _, stats2 = SessionSolver.solveAll sess eqs
 
                 stats1.Hits |> Expect.equal "first call: 0 hits" 0
-                stats2.Hits |> Expect.isGreaterThan "second call: at least 1 hit" 0
+                (stats2.Hits, 0) |> Expect.isGreaterThan "second call: at least 1 hit"
             }
 
             test "remapped variable names match original names" {
-                let sess = SessionSolver.create 64 false (fun _ -> ())
+                let sess = SessionSolver.create 64 false Informedica.Logging.Lib.Logging.noOp
 
                 // Solve with weight=30 first (fills cache with canonical names)
                 let eqs30 = dosingSetup 30N
@@ -369,7 +369,7 @@ let correctnessTests =
                 | Ok solvedEqs ->
                     let varNames =
                         solvedEqs
-                        |> List.collect Equation.vars
+                        |> List.collect Equation.toVars
                         |> List.map (Variable.getName >> Variable.Name.toString)
                         |> List.distinct
                         |> List.sort
@@ -382,22 +382,22 @@ let correctnessTests =
             }
 
             test "cache accumulates entries across multiple patients" {
-                let sess = SessionSolver.create 64 false (fun _ -> ())
+                let sess = SessionSolver.create 64 false Informedica.Logging.Lib.Logging.noOp
                 let weights = [| 5N; 10N; 20N; 30N; 40N |]
 
                 for w in weights do
                     SessionSolver.solveAll sess (dosingSetup w) |> ignore
 
-                sess.Cache.Count
-                |> Expect.isGreaterThan "cache should have entries after solving" 0
+                (sess.Cache.Count, 0)
+                |> Expect.isGreaterThan "cache should have entries after solving"
             }
 
             test "session solver produces same result as baseline" {
-                let sess = SessionSolver.create 64 false (fun _ -> ())
+                let sess = SessionSolver.create 64 false Informedica.Logging.Lib.Logging.noOp
                 let eqs = dosingSetup 50N
 
                 let cached, _ = SessionSolver.solveAll sess eqs
-                let baseline = eqs |> Solver.solveAll false (fun _ -> ())
+                let baseline = eqs |> Solver.solveAll false Informedica.Logging.Lib.Logging.noOp
 
                 // Both should succeed
                 match cached, baseline with
@@ -407,14 +407,14 @@ let correctnessTests =
             }
 
             test "warm-up populates cache" {
-                let sess = SessionSolver.create 64 false (fun _ -> ())
+                let sess = SessionSolver.create 64 false Informedica.Logging.Lib.Logging.noOp
 
                 let warmupSets =
                     [ 10N; 30N; 50N ]
                     |> List.map dosingSetup
 
                 SessionSolver.warmUp sess warmupSets
-                sess.Cache.Count |> Expect.isGreaterThan "cache should have entries after warm-up" 0
+                (sess.Cache.Count, 0) |> Expect.isGreaterThan "cache should have entries after warm-up"
             }
 
             test "CanonKey invertedNames maps symbols back to originals" {
@@ -458,7 +458,7 @@ let patientWeights =
 
 
 let measureHitRate capacity =
-    let sess = SessionSolver.create capacity false (fun _ -> ())
+    let sess = SessionSolver.create capacity false Informedica.Logging.Lib.Logging.noOp
     let mutable totalHits = 0
     let mutable totalMisses = 0
 
@@ -481,7 +481,7 @@ for capacity in [ 8; 16; 32; 64; 128; 256; 512; 1024 ] do
     let hitRate = measureHitRate capacity
 
     let msPerIter =
-        let sess = SessionSolver.create capacity false (fun _ -> ())
+        let sess = SessionSolver.create capacity false Informedica.Logging.Lib.Logging.noOp
         SessionSolver.warmUp sess (patientWeights |> Array.toList |> List.map dosingSetup)
 
         timeMean $"cap={capacity}" 20 (fun () ->
@@ -501,11 +501,11 @@ printfn "\n=== Comparison vs baseline (no cache) ==="
 let baseMs =
     timeMean "baseline (no cache)" 20 (fun () ->
         for w in patientWeights do
-            dosingSetup w |> Solver.solveAll false (fun _ -> ()) |> ignore
+            dosingSetup w |> Solver.solveAll false Informedica.Logging.Lib.Logging.noOp |> ignore
     )
 
 let sessMs =
-    let sess = SessionSolver.create 128 false (fun _ -> ())
+    let sess = SessionSolver.create 128 false Informedica.Logging.Lib.Logging.noOp
     SessionSolver.warmUp sess (patientWeights |> Array.toList |> List.map dosingSetup)
 
     timeMean "session LRU (cap=128, warm)" 20 (fun () ->
@@ -536,7 +536,7 @@ All four steps of the solver-optimisation roadmap are now prototyped:
 Migration path to production (Solver.fs)
 -----------------------------------------
   1. Move LRUCache<K,V> into a new Informedica.Utils.Lib module.
-  2. Move CanonKey into Equation.fs (it depends only on Equation.vars).
+  2. Move CanonKey into Equation.fs (it depends only on Equation.toVars).
   3. Add SessionSolver.T as a parameter to the public Solver API or
      expose a `Solver.Session.create` factory for DI.
   4. Replace Solver.solveAll call-sites with SessionSolver.solveAll,

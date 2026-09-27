@@ -3,6 +3,7 @@
 // load demo or product cache
 
 #load "load.fsx"
+#r "../../Informedica.ZForm.Lib/bin/Debug/net10.0/Informedica.ZForm.Lib.dll"
 
 
 open System
