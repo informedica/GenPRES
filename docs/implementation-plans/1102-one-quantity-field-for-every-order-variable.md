@@ -91,8 +91,17 @@ let doseQuantityCanStep (ord: Order) : bool
 | exactly 1 | `canStep && allSolved && DefinedConstraints.Incr.IsSome` | Stepable |
 | exactly 1 | otherwise | Fixed |
 | 0 | `canStep && OrderVariable.isNavigable` (a max and a defined increment) | Navigable |
-| 0 | `canStep`, and a range the user cannot move | Fixed |
-| 0 | not `canStep`, which includes a field just cleared (T10) | Selectable |
+| 0 | `canStep`, and a min or a max the user cannot move | Fixed |
+| 0 | otherwise: no min and no max, or not `canStep` | Selectable |
+
+The mode follows the server's answer, not the user's action. A clear sends the variable back
+unrestricted, and the solver narrows it again from the rest of the order. What comes back
+decides the mode:
+
+- a range with a max and a defined increment gives Navigable. An example is a dose quantity
+  whose component quantities stay solved. This is T8, "a clear on a dependent re-opens the
+  range".
+- nothing, neither values nor a min or a max, gives the empty Selectable of T10.
 
 `decide` is the only place where a mode is chosen. The call site computes `canStep`:
 
@@ -140,7 +149,10 @@ One PR at a time; each waits for the previous one to be merged.
   - T1 Navigable→Selectable, T2 Selectable→Stepable, T3 Navigable→Stepable,
     T4 Navigable→Fixed, T5 Navigable→Navigable;
   - T6 Selectable→Fixed, T7 Fixed→Stepable, T8 Stepable→Navigable or Selectable,
-    T10 clear→Selectable.
+    T10 clear→Selectable;
+  - two tests for a clear. A cleared dose quantity whose max and defined increment come back,
+    with every component still solved, gives Navigable (T8). A cleared field with no values and
+    no min or max gives Selectable (T10).
 
   T9 does not change the mode; it is checked in the browser.
 - Tests for `canStep` on dose quantity:
@@ -260,7 +272,9 @@ The draft alone is 407 lines, so the client work is split into two PRs from the 
      Stepable and Fixed, and while loading.
   2. Going from Navigable to Stepable changes only the icons and tooltips.
   3. A disabled button keeps its slot and shows its tooltip on hover.
-  4. Five rapid clicks update the shown value five times and send one command with n = 5.
+  4. Five rapid clicks on a Stepable dose quantity update the shown value five times and send
+     one command with n = 5. Five rapid clicks on a Stepable frequency send five commands,
+     one per click, with no count.
   5. An answer with the same value but a new revision clears the predicted value, for example
      a step at the dose limit.
   6. The dose quantity run from the spec (range, 5;6 mL, 6 mL, 6,1 mL, then clear) passes
