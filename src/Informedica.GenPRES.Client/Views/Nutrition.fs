@@ -963,6 +963,7 @@ module Nutrition =
                                 solved
                                 (SetMinComponentQuantityProperty cmpName)
                                 (fun (n, uc) -> DecreaseComponentQuantityProperty(cmpName, n, uc))
+                                (SetMedianComponentQuantityProperty cmpName)
                                 (fun (n, uc) -> IncreaseComponentQuantityProperty(cmpName, n, uc))
                                 (SetMaxComponentQuantityProperty cmpName)
                                 (cmp.OrderableQuantity |> ViewHelpers.ovarStep string)
@@ -1039,6 +1040,7 @@ module Nutrition =
                         ord
                         SetMinDoseQuantityProperty
                         DecreaseDoseQuantityProperty
+                        SetMedianDoseQuantityProperty
                         IncreaseDoseQuantityProperty
                         SetMaxDoseQuantityProperty
 
@@ -1192,6 +1194,7 @@ module Nutrition =
                         solved
                         SetMinDoseRateProperty
                         DecreaseDoseRateProperty
+                        SetMedianDoseRateProperty
                         IncreaseDoseRateProperty
                         SetMaxDoseRateProperty
                         (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)

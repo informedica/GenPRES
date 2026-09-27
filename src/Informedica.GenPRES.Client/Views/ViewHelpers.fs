@@ -142,7 +142,7 @@ module ViewHelpers =
 
 
     /// Build the steps of a field and its mode. navigable: first and last jump to the min and
-    /// the max; solved: decrease and increase step the value, and first and last make a large
+    /// the max, and a click on the range picks the median; solved: decrease and increase step the value, and first and last make a large
     /// step when the field cannot be navigated.
     let createStepper
         dispatch
@@ -151,6 +151,7 @@ module ViewHelpers =
         solved
         setMin
         (decr: int * bool -> 'Msg)
+        setMed
         (incr: int * bool -> 'Msg)
         setMax
         step
@@ -169,6 +170,11 @@ module ViewHelpers =
             decrease =
                 if solved then
                     (fun n -> (n, false) |> decr |> dispatch) |> Some
+                else
+                    None
+            median =
+                if navigable then
+                    (fun () -> setMed |> dispatch) |> Some
                 else
                     None
             increase =
@@ -343,7 +349,7 @@ module ViewHelpers =
     /// and Nutrition views. Handles the optimistic stepping with feasibility-ceiling
     /// saturation: the displayed value follows the click count up to the prepared orderable
     /// quantity, and dispatched steps are saturated at that ceiling so an overshoot is not
-    /// reverted by the solver. The four message constructors (setMin/decr/incr/setMax)
+    /// reverted by the solver. The five message constructors (setMin/decr/setMed/incr/setMax)
     /// are supplied by each view from its own Msg type. Returns a field without steps when
     /// navigation must be hidden (a multi-component orderable whose components do not each
     /// have a single distinct orderable quantity).
@@ -353,6 +359,7 @@ module ViewHelpers =
         (ord: Order)
         (setMin: 'Msg)
         (decr: int * bool -> 'Msg)
+        (setMed: 'Msg)
         (incr: int * bool -> 'Msg)
         (setMax: 'Msg)
         =
@@ -442,6 +449,11 @@ module ViewHelpers =
                 decrease =
                     if solved then
                         (fun n -> (n, false) |> decr |> dispatch) |> Some
+                    else
+                        None
+                median =
+                    if navigable then
+                        (fun () -> setMed |> dispatch) |> Some
                     else
                         None
                 increase =

@@ -13,6 +13,7 @@ module QuantityField =
 
 
     open Fable.Core
+    open Fable.Core.JsInterop
     open Feliz
     open Shared
 
@@ -27,6 +28,7 @@ module QuantityField =
             large: string option
             first: (int -> unit) option
             decrease: (int -> unit) option
+            median: (unit -> unit) option
             increase: (int -> unit) option
             last: (int -> unit) option
             useDebounce: bool
@@ -227,6 +229,14 @@ module QuantityField =
             flexGrow = 1
             alignSelf = "stretch"
             minWidth = 0
+        |}
+
+
+    // the range that picks its median on a click shows the hand, as a button does
+    let medianSx =
+        {| growSx with
+            cursor = "pointer"
+            ``& .MuiSelect-select`` = {| cursor = "pointer" |}
         |}
 
 
@@ -442,6 +452,48 @@ module QuantityField =
         // read by a container that drops the hidden slots of a field without buttons
         let buttons = if hasButtons then "some" else "none"
 
+        // A navigable field that shows its range picks the median on a click or on Enter or
+        // Space; the dropdown, which would hold the range alone, does not open. A click on the
+        // cross still clears the value.
+        let median =
+            match props.mode, props.values with
+            | Navigable steps, [| ("range", _) |] when not props.disabled -> steps.median
+            | _ -> None
+
+        let onButton (e: Browser.Types.Event) = e.target?closest (".MuiIconButton-root") |> isNull |> not
+
+        let pickMedian (e: Browser.Types.Event) =
+            match median with
+            | Some pick when not (onButton e) ->
+                e.preventDefault ()
+                e.stopPropagation ()
+                pick ()
+            | _ -> ()
+
+        let pickMedianByKey (e: Browser.Types.KeyboardEvent) =
+            if e.key = "Enter" || e.key = " " then
+                pickMedian e
+
+        let value =
+            match median with
+            | None ->
+                JSX.jsx
+                    $"""
+                import Box from '@mui/material/Box';
+                <Box sx={growSx}>{select}</Box>
+                """
+            | Some _ ->
+                JSX.jsx
+                    $"""
+                import Box from '@mui/material/Box';
+                import Tooltip from '@mui/material/Tooltip';
+                <Tooltip title="naar mediaan">
+                    <Box sx={medianSx} onMouseDownCapture={pickMedian} onKeyDownCapture={pickMedianByKey}>
+                        {select}
+                    </Box>
+                </Tooltip>
+                """
+
         let focusSelect =
             fun _ ->
                 match Browser.Dom.document.getElementById props.label with
@@ -462,9 +514,7 @@ module QuantityField =
             <Box sx={rowSx} data-part="row">
                 {slot1}
                 {slot2}
-                <Box sx={cellSx}>
-                    <Box sx={growSx}>{select}</Box>
-                </Box>
+                <Box sx={cellSx}>{value}</Box>
                 {slot4}
                 {slot5}
                 <Box sx={markSx}>{mark}</Box>

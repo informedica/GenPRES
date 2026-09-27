@@ -1179,6 +1179,7 @@ module Order =
                                 solved
                                 SetMinComponentQuantityProperty
                                 DecreaseComponentQuantityProperty
+                                SetMedianComponentQuantityProperty
                                 IncreaseComponentQuantityProperty
                                 SetMaxComponentQuantityProperty
                                 (cmp |> Option.bind (_.OrderableQuantity >> ViewHelpers.ovarStep string))
@@ -1342,6 +1343,7 @@ module Order =
                                 solved
                                 SetMinFrequencyProperty
                                 (fun _ -> DecreaseFrequencyProperty)
+                                SetMedianFrequencyProperty
                                 (fun _ -> IncreaseFrequencyProperty)
                                 SetMaxFrequencyProperty
                                 None
@@ -1370,6 +1372,7 @@ module Order =
                             ord
                             SetMinDoseQuantityProperty
                             DecreaseDoseQuantityProperty
+                            SetMedianDoseQuantityProperty
                             IncreaseDoseQuantityProperty
                             SetMaxDoseQuantityProperty
 
@@ -1400,6 +1403,7 @@ module Order =
                             solved
                             SetMinDoseRateProperty
                             DecreaseDoseRateProperty
+                            SetMedianDoseRateProperty
                             IncreaseDoseRateProperty
                             SetMaxDoseRateProperty
                             (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
