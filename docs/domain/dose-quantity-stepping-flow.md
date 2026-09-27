@@ -7,11 +7,11 @@ server and the constraint solver — the client never computes the value locally
 ```mermaid
 flowchart TD
     subgraph CLIENT["Client (Fable/Elmish)"]
-        UI["Stepper +/- button<br/>Views/Prescribe.fs"]
+        UI["QuantityField step button<br/>Components/QuantityField.fs<br/>steps built in Views/ViewHelpers.fs"]
         MSG["dispatch OrderContextMsg.Command(cmd, ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
         CALL["interpretOrderContextEffect<br/>CallContext(cmd, ctx, request) → processOrderContext<br/>App.fs"]
         RESP["OrderContextAnswered → OrderContextMsg.Answered(request, Ok ctx)<br/>landing on the request, then OrderContextWorkbench.Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
-        RENDER["Re-render dose select +<br/>enable/disable steppers<br/>Views/Order.fs"]
+        RENDER["Re-render the dose quantity field +<br/>enable/disable its step buttons<br/>Views/Order.fs"]
     end
 
     subgraph SHARED["Shared API DTO"]
@@ -61,9 +61,9 @@ field rests until the answer, since the lane keeps one command pending.
 
 ```mermaid
 flowchart TD
-    CLICK["User clicks +/- stepper<br/>ClickCountingButton.onStep<br/>Components/SimpleSelect.fs"]
-    DELTA["bump local smallDelta/largeDelta<br/>(React.useState)<br/>SimpleSelect.fs"]
-    PRELIM["Render PRELIMINARY label<br/>stepFn(smallDelta, largeDelta)<br/>key stays = server value<br/>SimpleSelect.fs"]
+    CLICK["User clicks a step button<br/>ClickCountingButton.onStep<br/>Components/QuantityField.fs"]
+    DELTA["bump local smallDelta/largeDelta<br/>(React.useState)<br/>QuantityField.fs"]
+    PRELIM["Render PRELIMINARY label<br/>stepFn(smallDelta, largeDelta)<br/>key stays = server value<br/>QuantityField.fs"]
     DISPATCH["debounce fires: dispatch OrderContextMsg.Command<br/>(Increase/DecreaseOrderableDoseQuantityProperty(n, useCalc), ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
 
     REC["OrderContextWorkbench.Evaluated held stays; InFlight = ((cmd, sent), request)<br/>shown as OrderContextView.Changing sent<br/>OrderContextState.view, OrderContextMachine.fs"]
@@ -73,7 +73,7 @@ flowchart TD
 
     DONE["OrderContextAnswered -> OrderContextMsg.Answered(request, Ok ctx)<br/>landing on the request, then OrderContextWorkbench.step: Evaluated ctx<br/>App.fs, OrderContextMachine.fs"]
     BUMP["revision++<br/>Order.fs"]
-    RESET["useLayoutEffect resets deltas to 0<br/>keyed on valueKey + revision<br/>SimpleSelect.fs"]
+    RESET["useLayoutEffect resets deltas to 0<br/>keyed on valueKey + revision<br/>QuantityField.fs"]
     FINAL["Render SOLVED value from server<br/>preliminary -> confirmed"]
 
     CLICK --> DELTA --> PRELIM
@@ -146,7 +146,9 @@ confirmed solver result.
 
 | Hop | File | Symbol |
 | --- | ---- | ------ |
-| UI stepper | `src/Informedica.GenPRES.Client/Views/Prescribe.fs` | `Increase/DecreaseOrderableDoseQuantityProperty` |
+| UI step button | `src/Informedica.GenPRES.Client/Components/QuantityField.fs` | `stepButton`, `ClickCountingButton` |
+| Steps and mode | `src/Informedica.GenPRES.Client/Views/ViewHelpers.fs` | `createDoseQtyStepper` |
+| Step message | `src/Informedica.GenPRES.Client/Views/Order.fs` | `Increase/DecreaseDoseQuantityProperty` |
 | Client machine | `src/Informedica.GenPRES.Client.Core/OrderContextMachine.fs` | `OrderContextMsg.Command`, `OrderContextWorkbench.step`, `OrderContextState.transition` |
 | Server call | `src/Informedica.GenPRES.Client/App.fs` | `interpretOrderContextEffect`, `OrderContextAnswered` |
 | Shared DTO | `src/Informedica.GenPRES.Shared/Api.fs` | `OrderContextCommand` |
@@ -158,4 +160,4 @@ confirmed solver result.
 | Step math | `src/Informedica.GenORDER.Lib/OrderVariable.fs` | `step`, `pickNearestHigherElseLower` |
 | Constraint recalc | `src/Informedica.GenORDER.Lib/OrderProcessor.fs` | `calcMinMaxStep` |
 | Solve | `src/Informedica.GenORDER.Lib/Order.fs` | `solve` |
-| UI re-render | `src/Informedica.GenPRES.Client/Views/Order.fs` | dose quantity select |
+| UI re-render | `src/Informedica.GenPRES.Client/Views/Order.fs` | dose quantity field |
