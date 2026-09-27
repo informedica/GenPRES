@@ -630,8 +630,12 @@ So a variable set in the shell always overrides `.env`.
 
 - **Shell**: `set -a; source .env; set +a` before running commands. Quote a value that holds a
   space, a `#` or a `;` (`GENPRES_DB_CONNECTION="Data Source=data/db/genpres.db"`): the shell stops
-  an unquoted value at the first space, without an error. `loadDotEnv`, direnv and docker compose
-  remove one pair of surrounding quotes, so the quoted value reads the same in all four
+  an unquoted value at the first space. The rest of the line runs as a command, unless it holds an
+  `=` itself: then it is a second assignment and no error shows, so the unquoted connection string
+  silently sets `GENPRES_DB_CONNECTION=Data` and `Source=data/db/genpres.db`. `loadDotEnv`, direnv
+  and docker compose remove one pair of surrounding quotes. Inside double quotes the shell and
+  docker compose expand a `$`, and `loadDotEnv` does not, so put a value that holds a `$` in single
+  quotes; then it reads the same in all four
 - **F# scripts and IDEs**: `Informedica.Utils.Lib.Env.loadDotEnv()` searches upward for `.env`
 - **Docker**: the image defaults to demo mode. For production inject `GENPRES_PROD=1`,
   `GENPRES_URL_ID` and `GENPRES_PASSWORD` at container runtime and mount `data/cache`; `compose.yaml`
