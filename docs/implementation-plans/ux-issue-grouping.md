@@ -313,15 +313,17 @@ reason, not a marker the client matches on.
   from the launch, replacing the hidden default of #717. EHR data used to carry an age (years,
   months, weeks, days) and no name; it now carries the birthdate and the name.
 - **Anonymous** (no specific patient): the panel asks for age, weight and the rest, as before. A
-  launch the EHR has no data for is anonymous, and so is a patient the MCP host creates from an
-  age.
+  launch the EHR has no data for is anonymous unless a signed version already names the patient;
+  then the Session opens identified from that version. A patient the MCP host creates from an
+  age is anonymous too.
 
 The setters of #488 therefore still matter: in anonymous mode, and for weight and height in both
 modes. In identified mode the age has no setter.
 
 **Built** in two plans: [986's](986-the-patient-what-is-entered-estimated-hidden.md), in
-PRs #1041 to #1059, and [976's](976-two-patient-modes.md), in PRs #1060 to #1085. The umbrella
-stays open as the parent of #718. Follow-ups:
+PRs #1041 to #1059, and [976's](976-two-patient-modes.md), in PRs #1060 to #1085. Each range
+opens with the plan's own PR and closes with its as-built record; the steps are the PRs between,
+as the member rows list them. The umbrella stays open as the parent of #718. Follow-ups:
 
 - #1061, an idle Session ends: done, PR #1086;
 - #1075, the patient context held from the first order to the sign: done, PRs #1088 to #1096;
@@ -484,8 +486,8 @@ This group is mostly a record of what is not yet known, which is why it is kept 
   profile and amend the session-ends use case to say so, or (b) close the issue and let the
   leave-page guard be the answer.
 - #682: a tab left open across a deployment keeps the old bundle, sends the old commands, and
-  shows the general error without saying that a reload is needed. `ServerSettings` carries only
-  the language and the demo flag today, no build version.
+  shows the general error without saying that a reload is needed. `ServerSettings` carries the
+  language, the demo flag and the departments today, and no build version.
 
 `UnsignedWorkPolicy` (the leave-page guard) already defines what work would be lost, and both
 issues need exactly that rule. Since PR #1086 a Session left idle for an hour ends, which is the
