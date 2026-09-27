@@ -120,7 +120,7 @@ Every library has a `Scripts/` directory with:
   #load "../Variable.fs"
   ```
 
-- development scripts (`Solver.fsx`, `Medication.fsx`, `Tests.fsx`, ...)
+- development scripts (`Solver.fsx`, `Medication.fsx`, ...)
 
 Rebuild first (`dotnet run build`) so `load.fsx` finds the DLLs.
 
@@ -162,7 +162,7 @@ FSI resolves `#load` from its **include path**, not from the current directory, 
 
 `load_f_sharp_script` sends the statements one by one, so set `#I` before calling it too. The session is persistent: load each dependency once, since a type loaded twice conflicts (`FSI_0005.Types.gram` vs `FSI_0010.Types.gram`) and the server must then be restarted. A DLL loaded with `#r` cannot be unloaded, so after any build that changes a referenced DLL, ask the user to restart the FSI server before continuing; files loaded with `#load` are recompiled and need no restart.
 
-Without the server, run scripts from their own directory: `cd src/Informedica.GenORDER.Lib/Scripts && dotnet fsi Tests.fsx`.
+Without the server, run scripts from their own directory: `cd src/Informedica.GenORDER.Lib/Scripts && dotnet fsi Medication.fsx`.
 
 ## Data Dependencies
 

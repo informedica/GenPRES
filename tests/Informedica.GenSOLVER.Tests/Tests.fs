@@ -879,6 +879,22 @@ module Tests =
 
                                         result |> Expect.equal "should return both elements" [| 3N; 107N |]
                                     }
+
+                                    test "prune 5 to 1000 mL to at most 50 keeps min and max" {
+                                        let incrVu =
+                                            Units.Volume.liter |> ValueUnit.singleWithValue (5N / 1000N) |> Some
+
+                                        let result =
+                                            Units.Volume.milliLiter
+                                            |> ValueUnit.withValue [| 5N .. 5N .. 1000N |]
+                                            |> ValueSet.create
+                                            |> ValueSet.prune incrVu 50
+                                            |> fun (ValueSet vu) -> vu |> ValueUnit.getValue
+
+                                        result |> Array.length <= 50 |> Expect.isTrue "should be <= 50 elements"
+                                        result |> Array.min |> Expect.equal "min should be 5" 5N
+                                        result |> Array.max |> Expect.equal "max should be 1000" 1000N
+                                    }
                                 ]
 
                             testList

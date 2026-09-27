@@ -180,7 +180,7 @@ If FSI scripts fail to load dependencies, ensure you're running from the script'
 
 ```bash
 cd src/Informedica.GenORDER.Lib/Scripts
-dotnet fsi Tests.fsx
+dotnet fsi Medication.fsx
 ```
 
 ### DLL Not Found
@@ -242,7 +242,7 @@ Because `load.fsx` loads the GenUNITS source files via `#load` and references th
 Every library has a `Scripts/` directory containing:
 
 - `load.fsx` — Bootstrap script that loads compiled DLLs from dependent libraries and `#load`s the library's own `.fs` source files. This gives FSI access to the full library context.
-- Development scripts (e.g., `Solver.fsx`, `Medication.fsx`, `Tests.fsx`) — Working scripts for experimentation and testing.
+- Development scripts (e.g., `Solver.fsx`, `Medication.fsx`) — Working scripts for experimentation and testing.
 
 Example `load.fsx` pattern:
 
