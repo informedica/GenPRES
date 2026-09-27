@@ -15,6 +15,7 @@
     <Compile Include="LanguagePolicyTests.fs" />
     <Compile Include="PickPolicyTests.fs" />
     <Compile Include="SeverityReasonTests.fs" />
+    <Compile Include="QuantityModeTests.fs" />
     <Compile Include="SessionMachineTests.fs" />
     <Compile Include="SessionGatePolicyTests.fs" />
     <Compile Include="PlanWorkPolicyTests.fs" />

@@ -146,23 +146,25 @@ module ViewHelpers =
         orderField false texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
-    /// The mode of a field with steps: Navigable when the range can be navigated, where first
-    /// and last jump to the min and the max, and Stepable otherwise.
-    let stepsMode navigable (steps: Components.QuantityField.Steps) =
-        if navigable then
-            Components.QuantityField.Navigable steps
-        else
-            Components.QuantityField.Stepable steps
+    /// The field mode of a decided quantity mode: Navigable and Stepable carry the steps,
+    /// Selectable and Fixed have none.
+    let stepsMode (mode: QuantityMode.Mode) (steps: Components.QuantityField.Steps) =
+        match mode with
+        | QuantityMode.Mode.Selectable -> Components.QuantityField.Selectable
+        | QuantityMode.Mode.Fixed -> Components.QuantityField.Fixed
+        | QuantityMode.Mode.Navigable -> Components.QuantityField.Navigable steps
+        | QuantityMode.Mode.Stepable -> Components.QuantityField.Stepable steps
 
 
-    /// Build the steps of a field and its mode. navigable: first and last jump to the min and
-    /// the max, and a click on the range picks the median; solved: decrease and increase step the value, and first and last make a large
-    /// step when the field cannot be navigated.
+    /// Build the steps of a field for its decided mode. Navigable: first and last jump to the
+    /// min and the max, and a click on the range picks the median; Stepable: decrease and
+    /// increase step the value, and first and last make a large step. hasLarge: the large step
+    /// differs from the small one; without it a stepable field shows only the inner buttons.
     let createStepper
         dispatch
         revision
-        navigable
-        solved
+        (mode: QuantityMode.Mode)
+        hasLarge
         setMin
         (decr: int * bool -> 'Msg)
         setMed
@@ -171,9 +173,13 @@ module ViewHelpers =
         step
         large
         =
+        let navigable = mode = QuantityMode.Mode.Navigable
+        let solved = mode = QuantityMode.Mode.Stepable
+
         {|
             step = step
             large = large
+            hasLarge = hasLarge
             first =
                 if navigable then
                     (fun (_: int) -> setMin |> dispatch) |> Some
@@ -206,7 +212,7 @@ module ViewHelpers =
             useDebounce = not navigable && solved
             revision = revision
         |}
-        |> stepsMode navigable
+        |> stepsMode mode
 
 
     let ovarLabel (name: string) (ovar: OrderVariable) =
@@ -250,6 +256,15 @@ module ViewHelpers =
         |> Option.bind firstSnd
         |> Option.orElse (definedIncrement ovar)
         |> Option.map Decimal.toStringNumberNLWithoutTrailingZeros
+
+
+    /// Whether the large step of a value differs from its small one: the server's large
+    /// increment, when it sends one, against the defined increment.
+    let hasLargeStep (ovar: OrderVariable) =
+        match ovar.LargeIncr |> Option.bind firstSnd, definedIncrement ovar with
+        | Some large, Some small -> large <> small
+        | Some _, None -> true
+        | None, _ -> false
 
 
     /// Build a per-click step function for a solved order variable. Given the net small-step
@@ -364,9 +379,8 @@ module ViewHelpers =
     /// saturation: the displayed value follows the click count up to the prepared orderable
     /// quantity, and dispatched steps are saturated at that ceiling so an overshoot is not
     /// reverted by the solver. The five message constructors (setMin/decr/setMed/incr/setMax)
-    /// are supplied by each view from its own Msg type. Returns a field without steps when
-    /// navigation must be hidden (a multi-component orderable whose components do not each
-    /// have a single distinct orderable quantity).
+    /// are supplied by each view from its own Msg type. The mode is the quantity mode rule's,
+    /// which gives no steps unless every component has a single orderable quantity.
     let createDoseQtyStepper
         dispatch
         revision
@@ -377,27 +391,23 @@ module ViewHelpers =
         (incr: int * bool -> 'Msg)
         (setMax: 'Msg)
         =
-        // Only show nav when every component has a single distinct orderable quantity.
-        let showNav =
-            ord.Orderable.Components
-            |> Array.forall (fun cmp ->
-                cmp.OrderableQuantity.Variable.Vals
-                |> Option.map (fun vu -> vu.Value |> Array.length = 1)
-                |> Option.defaultValue false
-            )
+        let mode =
+            ord.Orderable.Dose.Quantity
+            |> QuantityMode.decideFor QuantityMode.Field.DoseQuantity ord
 
-        if not showNav then
-            noSteps
-        else
+        match mode with
+        | QuantityMode.Mode.Selectable -> Components.QuantityField.Selectable
+        | QuantityMode.Mode.Fixed -> Components.QuantityField.Fixed
+        | QuantityMode.Mode.Navigable
+        | QuantityMode.Mode.Stepable ->
             let canIncr =
                 ord.Orderable.Components |> Array.length = 1
                 || ord.Orderable.DoseCount.Variable.Vals
                    |> Option.map (fun vu -> vu.Value |> Array.map snd |> Array.forall (fun v -> v > 1m))
                    |> Option.defaultValue false
 
-            let solved = ord |> isSolved
-            // can jump to the min or the max
-            let navigable = ord.Orderable.Dose.Quantity |> OrderVariable.isNavigable
+            let navigable = mode = QuantityMode.Mode.Navigable
+            let solved = mode = QuantityMode.Mode.Stepable
 
             // For a multi-component orderable the dose quantity cannot exceed the prepared
             // orderable quantity. Use it as a feasibility ceiling: the optimistic value stays
@@ -453,6 +463,7 @@ module ViewHelpers =
             {|
                 step = ord.Orderable.Dose.Quantity |> ovarStepTo doseQtyCeiling string
                 large = ord.Orderable.Dose.Quantity |> largeStepText
+                hasLarge = ord.Orderable.Dose.Quantity |> hasLargeStep
                 first =
                     if navigable then
                         (fun (_: int) -> setMin |> dispatch) |> Some
@@ -485,7 +496,7 @@ module ViewHelpers =
                 useDebounce = not navigable && solved
                 revision = revision
             |}
-            |> stepsMode navigable
+            |> stepsMode mode
 
 
     /// A value shown and not changed. `display` is built from `orderFixed`, since a field that

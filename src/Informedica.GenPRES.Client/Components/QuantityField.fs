@@ -8,7 +8,8 @@ namespace Components
 ///
 /// The field is one row of five slots, whatever its mode: four button slots around the value.
 /// A slot without a button in the current mode is hidden, not left out, so a change of mode
-/// keeps the value and the buttons where they were on screen.
+/// keeps the value and the buttons where they were on screen. A value whose large step is its
+/// small step is the exception: it never has outer buttons, so it leaves their slots out.
 module QuantityField =
 
 
@@ -22,10 +23,13 @@ module QuantityField =
     /// prediction maps counted small and large clicks to the key and label the value would
     /// have, so the field can show it before the server confirms; the revision is bumped by the
     /// caller on every answer, so a prediction is dropped even when the answer repeats the value.
+    /// A value whose large step is its small step has no large step: a stepable field then shows
+    /// only the inner buttons.
     type Steps =
         {|
             step: (int * int -> string * string) option
             large: string option
+            hasLarge: bool
             first: (int -> unit) option
             decrease: (int -> unit) option
             median: (unit -> unit) option
@@ -89,6 +93,8 @@ module QuantityField =
     let valueMinWidth = 120
     // the least width of a field that keeps its button slots, and of one that drops them
     let fieldWidth = 4 * slotWidth + markWidth + valueMinWidth
+    // the least width of a field with only the inner buttons
+    let fieldWidthInnerSlots = 2 * slotWidth + markWidth + valueMinWidth
     let fieldWidthWithoutSlots = markWidth + valueMinWidth
 
     // the hover texts of the four button slots, per mode
@@ -121,6 +127,11 @@ module QuantityField =
             alignItems = "stretch"
             columnGap = 0
         |}
+
+
+    // The row of a field with only the inner buttons: the outer slots are left out.
+    let innerRowSx =
+        {| rowSx with gridTemplateColumns = $"%i{slotWidth}px minmax(0, 1fr) %i{slotWidth}px %i{markWidth}px" |}
 
 
     // One cell of the segmented group. Each cell has its own border and overlaps the one on its
@@ -210,6 +221,7 @@ module QuantityField =
     // the label starts where the value text starts: after the two left slots and the value
     // cell's text padding
     let labelSx = {| paddingLeft = $"%i{2 * slotWidth + 8}px" |}
+    let innerLabelSx = {| paddingLeft = $"%i{slotWidth + 8}px" |}
 
 
     // For a container where a field without buttons never gets any, so dropping its hidden
@@ -453,20 +465,35 @@ module QuantityField =
             let useDebounce = steps |> Option.exists _.useDebounce
             stepButton props.disabled useDebounce (steps |> Option.bind pick) onStep icon
 
+        // a stepable value without a large step leaves out the outer slots, which would step the
+        // same as the inner ones; the inner buttons then close the group
+        let hasOuter =
+            match props.mode with
+            | Stepable steps -> steps.hasLarge
+            | Navigable _
+            | Selectable
+            | Fixed -> true
+
         let slot1 =
-            button _.first (fun () -> bumpLarge -1) icon1
-            |> slot hasButtons true "4px 0 0 4px" title1
+            if hasOuter then
+                button _.first (fun () -> bumpLarge -1) icon1
+                |> slot hasButtons true "4px 0 0 4px" title1
+            else
+                null
 
         let slot2 =
             button _.decrease (fun () -> bumpSmall -1) icon2
-            |> slot hasButtons false "0" title2
+            |> slot hasButtons (not hasOuter) (if hasOuter then "0" else "4px 0 0 4px") title2
         let slot4 =
             button _.increase (fun () -> bumpSmall 1) icon4
-            |> slot hasButtons false "0" title4
+            |> slot hasButtons false (if hasOuter then "0" else "0 4px 4px 0") title4
 
         let slot5 =
-            button _.last (fun () -> bumpLarge 1) icon5
-            |> slot hasButtons false "0 4px 4px 0" title5
+            if hasOuter then
+                button _.last (fun () -> bumpLarge 1) icon5
+                |> slot hasButtons false "0 4px 4px 0" title5
+            else
+                null
 
         let mark =
             SeverityMark.View
@@ -477,7 +504,10 @@ module QuantityField =
 
         // the field is never narrower than its fixed columns and the least value width, whatever
         // the caller asks
-        let minWidth = props.minWidth |> Option.defaultValue 150 |> max fieldWidth
+        let minWidth =
+            props.minWidth
+            |> Option.defaultValue 150
+            |> max (if hasOuter then fieldWidth else fieldWidthInnerSlots)
 
         // the caption is not the select's own label, so a click on it moves the focus to the
         // select, as a click on a label does
@@ -543,6 +573,8 @@ module QuantityField =
                 | el -> el.focus ()
 
         let sx = fieldSx minWidth props.isLead
+        let fieldRowSx = if hasOuter then rowSx else innerRowSx
+        let fieldLabelSx = if hasOuter then labelSx else innerLabelSx
         let cellSx = valueSx hasButtons
 
         // the severity mark stands outside the group, right of the last button
@@ -552,8 +584,8 @@ module QuantityField =
         import Typography from '@mui/material/Typography';
 
         <Box sx={sx} data-buttons={buttons}>
-            <Typography variant="caption" color="text.secondary" sx={labelSx} data-part="label" onClick={focusSelect}>{props.label}</Typography>
-            <Box sx={rowSx} data-part="row">
+            <Typography variant="caption" color="text.secondary" sx={fieldLabelSx} data-part="label" onClick={focusSelect}>{props.label}</Typography>
+            <Box sx={fieldRowSx} data-part="row">
                 {slot1}
                 {slot2}
                 <Box sx={cellSx}>

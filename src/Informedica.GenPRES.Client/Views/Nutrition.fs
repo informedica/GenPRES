@@ -71,6 +71,12 @@ module Nutrition =
             | SetMinComponentQuantityProperty of cmp: string
             | SetMaxComponentQuantityProperty of cmp: string
             | SetMedianComponentQuantityProperty of cmp: string
+            // Frequency navigation
+            | DecreaseFrequencyProperty
+            | IncreaseFrequencyProperty
+            | SetMinFrequencyProperty
+            | SetMaxFrequencyProperty
+            | SetMedianFrequencyProperty
 
 
         /// The component picked, seeded from the one scenario of the slot's context: its first
@@ -113,6 +119,12 @@ module Nutrition =
                     setComponentQtyMed: OrderLoader -> unit
                     setComponentQtyInc: int * bool -> OrderLoader -> unit
                     setComponentQtyMax: OrderLoader -> unit
+
+                    setFreqMin: OrderLoader -> unit
+                    setFreqDec: OrderLoader -> unit
+                    setFreqMed: OrderLoader -> unit
+                    setFreqInc: OrderLoader -> unit
+                    setFreqMax: OrderLoader -> unit
                 |})
             (shown: Order option)
             (msg: Msg)
@@ -256,6 +268,13 @@ module Nutrition =
             | SetMedianComponentQuantityProperty cmp -> handleNavWithCmp cmp stepper.setComponentQtyMed
             | IncreaseComponentQuantityProperty(cmp, n, uc) -> handleNavWithCmp cmp (stepper.setComponentQtyInc (n, uc))
             | SetMaxComponentQuantityProperty cmp -> handleNavWithCmp cmp stepper.setComponentQtyMax
+
+            // Frequency navigation
+            | SetMinFrequencyProperty -> handleNav stepper.setFreqMin
+            | DecreaseFrequencyProperty -> handleNav stepper.setFreqDec
+            | SetMedianFrequencyProperty -> handleNav stepper.setFreqMed
+            | IncreaseFrequencyProperty -> handleNav stepper.setFreqInc
+            | SetMaxFrequencyProperty -> handleNav stepper.setFreqMax
 
 
     open Elmish
@@ -912,6 +931,12 @@ module Nutrition =
                     createWithCmpN (navCmpQtyN Api.OrderContextCommand.IncreaseComponentOrderableQuantityProperty)
                 setComponentQtyMax =
                     createWithCmp (navCmpQty Api.OrderContextCommand.SetMaxComponentOrderableQuantityProperty)
+                // Frequency
+                setFreqMin = create (navRate Api.OrderContextCommand.SetMinScheduleFrequencyProperty)
+                setFreqDec = create (navRate Api.OrderContextCommand.DecreaseScheduleFrequencyProperty)
+                setFreqMed = create (navRate Api.OrderContextCommand.SetMedianScheduleFrequencyProperty)
+                setFreqInc = create (navRate Api.OrderContextCommand.IncreaseScheduleFrequencyProperty)
+                setFreqMax = create (navRate Api.OrderContextCommand.SetMaxScheduleFrequencyProperty)
             |}
 
         // the order shown: the one scenario's of the slot's context
@@ -946,36 +971,25 @@ module Nutrition =
                     // Quantity control (bereiding)
                     let qtyVals = cmp.OrderableQuantity |> ViewHelpers.ovarValsWithRange string 3
 
-                    // can jump to the min or the max
-                    let navigable = cmp.OrderableQuantity |> OrderVariable.isNavigable
-                    let solved = ord |> isSolved
-
                     let nav =
-                        let c = qtyVals |> Array.length
+                        let cmpName = cmp.Name
 
-                        let show =
-                            cmp.OrderableQuantity.Variable.Min.IsSome
-                            && cmp.OrderableQuantity.Variable.Incr.IsSome
-                            && cmp.OrderableQuantity.Variable.Max.IsSome
-                            || c >= 1
+                        let mode =
+                            cmp.OrderableQuantity
+                            |> QuantityMode.decideFor QuantityMode.Field.ComponentQuantity ord
 
-                        if not show then
-                            ViewHelpers.noSteps
-                        else
-                            let cmpName = cmp.Name
-
-                            ViewHelpers.createStepper
-                                dispatch
-                                revision
-                                navigable
-                                solved
-                                (SetMinComponentQuantityProperty cmpName)
-                                (fun (n, uc) -> DecreaseComponentQuantityProperty(cmpName, n, uc))
-                                (SetMedianComponentQuantityProperty cmpName)
-                                (fun (n, uc) -> IncreaseComponentQuantityProperty(cmpName, n, uc))
-                                (SetMaxComponentQuantityProperty cmpName)
-                                (cmp.OrderableQuantity |> ViewHelpers.ovarStep string)
-                                (cmp.OrderableQuantity |> ViewHelpers.largeStepText)
+                        ViewHelpers.createStepper
+                            dispatch
+                            revision
+                            mode
+                            (cmp.OrderableQuantity |> ViewHelpers.hasLargeStep)
+                            (SetMinComponentQuantityProperty cmpName)
+                            (fun (n, uc) -> DecreaseComponentQuantityProperty(cmpName, n, uc))
+                            (SetMedianComponentQuantityProperty cmpName)
+                            (fun (n, uc) -> IncreaseComponentQuantityProperty(cmpName, n, uc))
+                            (SetMaxComponentQuantityProperty cmpName)
+                            (cmp.OrderableQuantity |> ViewHelpers.ovarStep string)
+                            (cmp.OrderableQuantity |> ViewHelpers.largeStepText)
 
                     let qtyWarning = cmp.OrderableQuantity |> markOf
 
@@ -1077,15 +1091,26 @@ module Nutrition =
                 let label = ord.Schedule.Frequency |> ViewHelpers.ovarLabel "frequentie"
                 let freqVals = ord.Schedule.Frequency |> ViewHelpers.ovarVals string
 
-                select
-                    false
-                    label
-                    None
-                    (ChangeFrequency >> dispatch)
-                    ViewHelpers.noSteps
-                    severity
-                    selectMinWidth
-                    freqVals
+                let freqNav =
+                    let mode =
+                        ord.Schedule.Frequency
+                        |> QuantityMode.decideFor QuantityMode.Field.Frequency ord
+
+                    // a frequency steps one increment per click, so it has no large step
+                    ViewHelpers.createStepper
+                        dispatch
+                        revision
+                        mode
+                        false
+                        SetMinFrequencyProperty
+                        (fun _ -> DecreaseFrequencyProperty)
+                        SetMedianFrequencyProperty
+                        (fun _ -> IncreaseFrequencyProperty)
+                        SetMaxFrequencyProperty
+                        None
+                        None
+
+                select false label None (ChangeFrequency >> dispatch) freqNav severity selectMinWidth freqVals
             | _ -> null
 
         let genericFilter =
@@ -1109,14 +1134,16 @@ module Nutrition =
                         width = "100%"
                     |}
 
-                // Every feeding keeps its items on one row while they fit: the filter, the dose
-                // field with its buttons, frequency and dose per time without, and the gaps.
-                // Narrower, all items stand in one column, never wrapped part-way and never
-                // scrolled sideways.
+                // Every feeding keeps its items on one row while they fit: the filter with the
+                // room of a severity mark, frequency with its inner buttons, the dose field with
+                // all its buttons, dose per time without, and the gaps. Narrower, all items stand
+                // in one column, never wrapped part-way and never scrolled sideways.
                 let rowWidth =
                     200
+                    + Components.QuantityField.markWidth
+                    + Components.QuantityField.fieldWidthInnerSlots
                     + Components.QuantityField.fieldWidth
-                    + 2 * Components.QuantityField.fieldWidthWithoutSlots
+                    + Components.QuantityField.fieldWidthWithoutSlots
                     + 3 * 16
 
                 let flexSx =
@@ -1133,10 +1160,13 @@ module Nutrition =
                                 |}
                         ]
 
+                // the filter keeps the room a field gives its severity mark, so the gaps between
+                // all items look the same
                 let itemSx =
                     {|
                         flex = "1 1 0%"
                         minWidth = 200
+                        paddingRight = $"%i{Components.QuantityField.markWidth}px"
                         ``& .MuiFormControl-root`` = {| width = "100%" |}
                         ``& .MuiAutocomplete-root`` = {| minWidth = "unset" |}
                     |}
@@ -1148,6 +1178,9 @@ module Nutrition =
                         minWidth = "min-content"
                     |}
 
+                // frequency keeps one width whether it is chosen from the dropdown or stepped
+                let frequencyItemSx = {| fieldItemSx with minWidth = Components.QuantityField.fieldWidthInnerSlots |}
+
                 JSX.jsx
                     $"""
                 import Box from '@mui/material/Box';
@@ -1156,7 +1189,7 @@ module Nutrition =
                         <Box sx={itemSx}>
                             {genericFilter}
                         </Box>
-                        <Box sx={fieldItemSx}>
+                        <Box sx={frequencyItemSx}>
                             {frequencyControl}
                         </Box>
                         <Box sx={fieldItemSx}>
@@ -1190,16 +1223,16 @@ module Nutrition =
         let rateControl =
             match displayOrder with
             | Some ord when ord.Schedule.IsTimed || ord.Schedule.IsContinuous ->
-                let solved = ord |> isSolved
-                // can jump to the min or the max
-                let navigable = ord.Orderable.Dose.Rate |> OrderVariable.isNavigable
-
                 let nav =
+                    let mode =
+                        ord.Orderable.Dose.Rate
+                        |> QuantityMode.decideFor QuantityMode.Field.DoseRate ord
+
                     ViewHelpers.createStepper
                         dispatch
                         revision
-                        navigable
-                        solved
+                        mode
+                        (ord.Orderable.Dose.Rate |> ViewHelpers.hasLargeStep)
                         SetMinDoseRateProperty
                         DecreaseDoseRateProperty
                         SetMedianDoseRateProperty
