@@ -956,6 +956,19 @@ module Order =
                 {|
                     paddingX = (if isMobile then 1.5 else 2)
                     paddingY = (if isMobile then 1 else 2)
+                    position = "relative"
+                |}
+
+            // the spinner lies over the fields and takes no room, so the dialog keeps its height
+            // and the fields stay where they are while the order reloads
+            let progressSx =
+                {|
+                    position = "absolute"
+                    inset = 0
+                    display = "flex"
+                    alignItems = "center"
+                    justifyContent = "center"
+                    pointerEvents = "none"
                 |}
 
             let componentSelect =
@@ -1463,6 +1476,7 @@ module Order =
             import Stack from '@mui/material/Stack';
             import Paper from '@mui/material/Paper';
             import Divider from '@mui/material/Divider';
+            import Box from '@mui/material/Box';
             <div>
             <CardHeader
                 sx = {headerSx}
@@ -1473,7 +1487,7 @@ module Order =
                 <Stack direction={"column"} spacing={if isMobile then 1.5 else 3} >
                     {fields}
                 </Stack>
-                {loadingIndicator}
+                <Box sx={progressSx}>{loadingIndicator}</Box>
             </CardContent>
             <CardActions >
                 {actionBar}
