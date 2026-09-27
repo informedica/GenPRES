@@ -88,7 +88,9 @@ The following stay exactly as they are:
 - the icons per mode: first, previous, next and last when navigating, and large and small minus
   and plus when stepping;
 - a tooltip on every button, disabled buttons included;
-- no median button.
+- no median button;
+- no click-count badge on a button. The predicted value in the field already follows every
+  click.
 
 The tooltips are Dutch text in the component. Translating them through `Terms` goes to the
 follow-up issue, because new keys change the shared localization.
@@ -124,7 +126,14 @@ large for one PR under the 200-line limit, so the work is split into three steps
 - `Components/QuantityField.fs` renders the draft's grid in place of the Stepper:
   - four slots around the value, hidden with `visibility: hidden` and never with
     `display: none`;
-  - the `useClicker` hook in place of ClickCountingButton;
+  - the `useClicker` hook in place of ClickCountingButton. It keeps what ClickCountingButton
+    does today:
+    - a debounce window of 700 ms, where the draft uses 250 ms;
+    - holding a debounced button down repeats the click every 150 ms, on mouse and on touch,
+      and stops on release or when the pointer leaves the button;
+    - every click, held or not, updates the predicted value at once, and the clicks within the
+      window go out as one command with their count;
+    - the timers are cleared when the field unmounts;
   - the icons and tooltips per mode.
 - The adaptations to the repository rules:
   - the icons come from `Mui.Icons` in `MUI.fs`, next to the existing `FirstPageIcon` and
@@ -156,6 +165,8 @@ large for one PR under the 200-line limit, so the work is split into three steps
   [the foundation plan](981-ux-foundation-and-common-components.md).
 - Update [the dose quantity stepping flow](../domain/dose-quantity-stepping-flow.md), which
   still names SimpleSelect, ClickCountingButton and Prescribe.
+- Update G3 in [the grouping index](ux-issue-grouping.md). It still describes the five Stepper
+  buttons and the `first` and `last` of `createStepper`, which no longer exist after Step 3.
 
 ## Verification
 
@@ -178,3 +189,6 @@ large for one PR under the 200-line limit, so the work is split into three steps
      command with n = 5, and the answer replaces the predicted value.
   5. An answer with the same value but a new revision clears the predicted value, for example
      a step at the dose limit.
+  6. Holding the small plus of a Stepable dose quantity steps the predicted value every 150 ms.
+     Releasing it sends one command with the count of all held clicks, 700 ms after the last
+     one, as on master.
