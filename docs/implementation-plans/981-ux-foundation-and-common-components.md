@@ -521,8 +521,8 @@ call sites migrate with their group.
    with the icon and the reason on hover, and the order fields on it: landed as
    `Components/SeverityMark.fs`, an icon per severity in the severity's colour with the reason
    in a tooltip on hover and nothing else, no popup; `QuantityField` shows it
-   beside the underline it already had, since #1102 in a column of its own right of the step
-   buttons. `ViewHelpers.markOf` reads a
+   in a column of its own right of the step buttons since #1102, while the value keeps the
+   coloured double underline of its severity. `ViewHelpers.markOf` reads a
    `Mark`, severity and reason, from an order variable, the reason worded as "max 15 mg" or
    "min 2 mg" in the value's unit and left unsaid for `Outside`; `orderSelect` takes the mark
    where it took a severity, so every order and nutrition field carries the reason.

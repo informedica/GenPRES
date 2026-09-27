@@ -61,7 +61,7 @@ field rests until the answer, since the lane keeps one command pending.
 
 ```mermaid
 flowchart TD
-    CLICK["User clicks a step button<br/>ClickCountingButton.onStep<br/>Components/QuantityField.fs"]
+    CLICK["User clicks a step button<br/>ClickCountingButton.onStep<br/>Components/ClickCountingButton.fs"]
     DELTA["bump local smallDelta/largeDelta<br/>(React.useState)<br/>QuantityField.fs"]
     PRELIM["Render PRELIMINARY label<br/>stepFn(smallDelta, largeDelta)<br/>key stays = server value<br/>QuantityField.fs"]
     DISPATCH["debounce fires: dispatch OrderContextMsg.Command<br/>(Increase/DecreaseOrderableDoseQuantityProperty(n, useCalc), ctx, request)<br/>OrderContextState.transition<br/>OrderContextMachine.fs"]
@@ -146,7 +146,8 @@ confirmed solver result.
 
 | Hop | File | Symbol |
 | --- | ---- | ------ |
-| UI step button | `src/Informedica.GenPRES.Client/Components/QuantityField.fs` | `stepButton`, `ClickCountingButton` |
+| UI step button | `src/Informedica.GenPRES.Client/Components/QuantityField.fs` | `stepButton` |
+| Click counting | `src/Informedica.GenPRES.Client/Components/ClickCountingButton.fs` | `ClickCountingButton` |
 | Steps and mode | `src/Informedica.GenPRES.Client/Views/ViewHelpers.fs` | `createDoseQtyStepper` |
 | Step message | `src/Informedica.GenPRES.Client/Views/Order.fs` | `Increase/DecreaseDoseQuantityProperty` |
 | Client machine | `src/Informedica.GenPRES.Client.Core/OrderContextMachine.fs` | `OrderContextMsg.Command`, `OrderContextWorkbench.step`, `OrderContextState.transition` |
