@@ -1321,7 +1321,7 @@ module Order =
             let frequencySelect =
                 match displayOrder with
                 | Some ord when ord.Schedule.IsDiscontinuous || ord.Schedule.IsTimed ->
-                    let xs = ord.Schedule.Frequency |> ViewHelpers.ovarVals string
+                    let xs = ord.Schedule.Frequency |> ViewHelpers.ovarValsWithRange string 3
 
                     let stepper =
                         let mode =

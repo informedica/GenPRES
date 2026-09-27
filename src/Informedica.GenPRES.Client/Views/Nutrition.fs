@@ -1089,7 +1089,7 @@ module Nutrition =
             | Some ord when ord.Schedule.IsDiscontinuous || ord.Schedule.IsTimed ->
                 let severity = ord.Schedule.Frequency |> markOf
                 let label = ord.Schedule.Frequency |> ViewHelpers.ovarLabel "frequentie"
-                let freqVals = ord.Schedule.Frequency |> ViewHelpers.ovarVals string
+                let freqVals = ord.Schedule.Frequency |> ViewHelpers.ovarValsWithRange string 3
 
                 let freqNav =
                     let mode =
