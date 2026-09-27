@@ -5,6 +5,10 @@ namespace Components
 /// rules allow, its severity marked on it, the step buttons beside it, and the value the
 /// steps predict shown while the server answers. The field renders one entry of a list its
 /// caller orders; it knows neither where it stands nor what the other fields are.
+///
+/// The field is one row of five slots, whatever its mode: four button slots around the value.
+/// A slot without a button in the current mode is hidden, not left out, so a change of mode
+/// keeps the value and the buttons where they were on screen.
 module QuantityField =
 
 
@@ -62,33 +66,103 @@ module QuantityField =
         |}
 
 
-    // The select and its stepper side by side on one line, the stepper on the value's baseline.
-    // The field spans the width it is given, as the select did when the stepper sat inside it:
-    // the select fills what the stepper leaves, and the caller's minimum is the field's.
-    let private rowSx (minWidth: int) =
+    // a button slot: as wide as a small icon button, as tall as the select's input line
+    let slotWidth = 32
+    let slotHeight = 40
+
+    // the hover texts of the four button slots, per mode
+    let navigableTitles = "naar minimum", "lager", "hoger", "naar maximum"
+    let stepableTitles = "grote stap omlaag", "stap omlaag", "stap omhoog", "grote stap omhoog"
+
+
+    // Five fixed columns: the four button slots and the value between them. The value column
+    // takes what the slots leave and may shrink, so the row spans exactly the width it is given.
+    let rowSx (minWidth: int) (isLead: bool) =
         {|
-            display = "flex"
-            flexWrap = "nowrap"
-            alignItems = "flex-end"
-            gap = 0.5
+            display = "grid"
+            gridTemplateColumns = $"%i{slotWidth}px %i{slotWidth}px minmax(0, 1fr) %i{slotWidth}px %i{slotWidth}px"
+            alignItems = "end"
+            columnGap = 0.5
             width = "100%"
             minWidth = minWidth
+            // the field the user is pointed at first carries the accent on its left
+            borderLeft = if isLead then "3px solid" else "none"
+            borderColor = if isLead then Mui.Styles.accentColor else "transparent"
+            paddingLeft = if isLead then 1 else 0
         |}
 
 
-    // the field the user is pointed at first carries the accent on its left
-    let private leadSx (minWidth: int) =
+    // a slot keeps its size when its button is hidden: visibility, not display, so the grid
+    // never reflows and a hidden button leaves the tab order
+    let slotSx (visible: bool) =
+        {|
+            width = slotWidth
+            height = slotHeight
+            display = "flex"
+            alignItems = "center"
+            justifyContent = "center"
+            visibility = if visible then "visible" else "hidden"
+        |}
+
+
+    let valueSx =
         {|
             display = "flex"
-            flexWrap = "nowrap"
             alignItems = "flex-end"
-            gap = 0.5
-            width = "100%"
-            minWidth = minWidth
-            borderLeft = $"3px solid"
-            borderColor = Mui.Styles.accentColor
-            paddingLeft = 1
+            minWidth = 0
         |}
+
+
+    let growSx =
+        {|
+            flexGrow = 1
+            minWidth = 0
+        |}
+
+
+    let plainButton (disabled: bool) (onClick: unit -> unit) (icon: JSX.Element) =
+        let click = fun _ -> onClick ()
+
+        JSX.jsx
+            $"""
+        import IconButton from "@mui/material/IconButton";
+        <IconButton size="small" sx={Mui.Styles.stepButtonSx} disabled={disabled} onClick={click}>{icon}</IconButton>
+        """
+
+
+    // A step button as the Stepper drew it: disabled when the step is not offered; with
+    // debounce a counting button, which repeats while held, shows the count on a badge and
+    // predicts each click; otherwise a plain button that sends one step per click.
+    let stepButton disabled useDebounce (step: (int -> unit) option) (onStep: unit -> unit) icon =
+        match step with
+        | None -> plainButton true ignore icon
+        | Some onClick when useDebounce ->
+            ClickCountingButton.View
+                {|
+                    disabled = disabled
+                    onClick = onClick
+                    onStep = onStep
+                    icon = icon
+                |}
+        | Some onClick -> plainButton disabled (fun () -> onClick 1) icon
+
+
+    // One button slot. The button sits in a span so the tooltip still anchors when the button
+    // is disabled, since a disabled element fires no pointer events of its own.
+    let slot (visible: bool) (title: string) (button: JSX.Element) =
+        let sx = slotSx visible
+
+        JSX.jsx
+            $"""
+        import Box from '@mui/material/Box';
+        import Tooltip from '@mui/material/Tooltip';
+
+        <Box sx={sx}>
+            <Tooltip title={title}>
+                <span>{button}</span>
+            </Tooltip>
+        </Box>
+        """
 
 
     [<JSX.Component>]
@@ -185,30 +259,36 @@ module QuantityField =
                     hasClear = props.hasClear
                     canStep = canStep
                     severity = props.severity
-                    // the minimum is the field's; the select grows into what the stepper leaves
+                    // the minimum is the field's; the select takes the column the slots leave
                     minWidth = None
                 |}
 
         // the step buttons rest only when the field is disabled: a step sent while the value
         // is loading waits for the answer and steps from it
-        let stepper =
-            match steps with
-            | None -> null
-            | Some steps ->
-                Stepper.View
-                    {|
-                        first = steps.first
-                        decrease = steps.decrease
-                        // the five-slot field has no median; the Stepper that still draws the
-                        // buttons shows it disabled until it is replaced (#1102)
-                        median = None
-                        increase = steps.increase
-                        last = steps.last
-                        useDebounce = steps.useDebounce
-                        disabled = props.disabled
-                        onSmallStep = bumpSmall
-                        onLargeStep = bumpLarge
-                    |}
+        let hasButtons, (title1, title2, title4, title5), (icon1, icon2, icon4, icon5) =
+            match props.mode with
+            | Navigable _ ->
+                true,
+                navigableTitles,
+                (Mui.Icons.FirstPageIcon, Mui.Icons.SkipPreviousIcon, Mui.Icons.SkipNextIcon, Mui.Icons.LastPageIcon)
+            | Stepable _
+            | Selectable
+            | Fixed ->
+                steps.IsSome,
+                stepableTitles,
+                (Mui.Icons.KeyboardDoubleArrowLeftIcon,
+                 Mui.Icons.RemoveIcon,
+                 Mui.Icons.Add,
+                 Mui.Icons.KeyboardDoubleArrowRightIcon)
+
+        let button (pick: Steps -> (int -> unit) option) onStep icon =
+            let useDebounce = steps |> Option.exists _.useDebounce
+            stepButton props.disabled useDebounce (steps |> Option.bind pick) onStep icon
+
+        let slot1 = button _.first (fun () -> bumpLarge -1) icon1 |> slot hasButtons title1
+        let slot2 = button _.decrease (fun () -> bumpSmall -1) icon2 |> slot hasButtons title2
+        let slot4 = button _.increase (fun () -> bumpSmall 1) icon4 |> slot hasButtons title4
+        let slot5 = button _.last (fun () -> bumpLarge 1) icon5 |> slot hasButtons title5
 
         let mark =
             SeverityMark.View
@@ -219,19 +299,22 @@ module QuantityField =
 
         let minWidth = props.minWidth |> Option.defaultValue 150
 
-        let sx =
-            if props.isLead then
-                box (leadSx minWidth)
-            else
-                box (rowSx minWidth)
+        let sx = rowSx minWidth props.isLead
 
+        // the severity mark sits in the value column, on the right of the select, so it takes
+        // no slot of its own
         JSX.jsx
             $"""
         import Box from '@mui/material/Box';
 
         <Box sx={sx}>
-            {select}
-            {mark}
-            {stepper}
+            {slot1}
+            {slot2}
+            <Box sx={valueSx}>
+                <Box sx={growSx}>{select}</Box>
+                {mark}
+            </Box>
+            {slot4}
+            {slot5}
         </Box>
         """

@@ -472,6 +472,27 @@ module Icons =
     <KeyboardDoubleArrowDownIcon/>
     """
 
+    let KeyboardDoubleArrowLeftIcon =
+        JSX.jsx
+            $"""
+    import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
+    <KeyboardDoubleArrowLeftIcon/>
+    """
+
+    let RemoveIcon =
+        JSX.jsx
+            $"""
+    import RemoveIcon from '@mui/icons-material/Remove';
+    <RemoveIcon/>
+    """
+
+    let KeyboardDoubleArrowRightIcon =
+        JSX.jsx
+            $"""
+    import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
+    <KeyboardDoubleArrowRightIcon/>
+    """
+
     [<JSX.Component>]
     let WarningAmber =
         JSX.jsx
