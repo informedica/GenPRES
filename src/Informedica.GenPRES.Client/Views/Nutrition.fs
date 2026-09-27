@@ -5,6 +5,7 @@ namespace Views
 module Nutrition =
 
     open Fable.Core
+    open Fable.Core.JsInterop
     open Fable.React
     open Feliz
     open Shared
@@ -965,6 +966,7 @@ module Nutrition =
                                 (fun (n, uc) -> IncreaseComponentQuantityProperty(cmpName, n, uc))
                                 (SetMaxComponentQuantityProperty cmpName)
                                 (cmp.OrderableQuantity |> ViewHelpers.ovarStep string)
+                                (cmp.OrderableQuantity |> ViewHelpers.largeStepText)
 
                     let qtyWarning = cmp.OrderableQuantity |> markOf
 
@@ -1089,14 +1091,37 @@ module Nutrition =
 
         let frequencyDoseRow =
             if isEnteral then
-                let flexSx =
-                    {|
-                        display = "flex"
-                        flexWrap = "wrap"
-                        gap = 4
-                        alignItems = "flex-end"
+                // The row is measured, not the window: the container query below decides, and a
+                // field that never gets buttons here drops its hidden slots.
+                let containerSx =
+                    {| Components.QuantityField.dropUnusedSlotsSx with
+                        containerType = "inline-size"
                         width = "100%"
                     |}
+
+                // Every feeding keeps its items on one row while they fit: the filter, the dose
+                // field with its buttons, frequency and dose per time without, and the gaps.
+                // Narrower, all items stand in one column, never wrapped part-way and never
+                // scrolled sideways.
+                let rowWidth =
+                    200
+                    + Components.QuantityField.fieldWidth
+                    + 2 * Components.QuantityField.fieldWidthWithoutSlots
+                    + 3 * 16
+
+                let flexSx =
+                    createObj
+                        [
+                            "display" ==> "flex"
+                            "flexWrap" ==> "nowrap"
+                            "gap" ==> 2
+                            "alignItems" ==> "flex-end"
+                            $"@container (max-width: %i{rowWidth - 1}px)"
+                            ==> {|
+                                    flexDirection = "column"
+                                    alignItems = "stretch"
+                                |}
+                        ]
 
                 let itemSx =
                     {|
@@ -1106,21 +1131,30 @@ module Nutrition =
                         ``& .MuiAutocomplete-root`` = {| minWidth = "unset" |}
                     |}
 
+                // a quantity field is as wide as its buttons and a readable value need
+                let fieldItemSx =
+                    {|
+                        flex = "1 1 0%"
+                        minWidth = "min-content"
+                    |}
+
                 JSX.jsx
                     $"""
                 import Box from '@mui/material/Box';
-                <Box sx={flexSx}>
-                    <Box sx={itemSx}>
-                        {genericFilter}
-                    </Box>                        
-                    <Box sx={itemSx}>
-                        {frequencyControl}
-                    </Box>
-                    <Box sx={itemSx}>
-                        {doseQtyControl}
-                    </Box>
-                    <Box sx={itemSx}>
-                        {dosePerTimeAdjDisplay}
+                <Box sx={containerSx}>
+                    <Box sx={flexSx}>
+                        <Box sx={itemSx}>
+                            {genericFilter}
+                        </Box>
+                        <Box sx={fieldItemSx}>
+                            {frequencyControl}
+                        </Box>
+                        <Box sx={fieldItemSx}>
+                            {doseQtyControl}
+                        </Box>
+                        <Box sx={fieldItemSx}>
+                            {dosePerTimeAdjDisplay}
+                        </Box>
                     </Box>
                 </Box>
                 """
@@ -1161,6 +1195,7 @@ module Nutrition =
                         IncreaseDoseRateProperty
                         SetMaxDoseRateProperty
                         (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
+                        (ord.Orderable.Dose.Rate |> ViewHelpers.largeStepText)
 
                 let severity = ord.Orderable.Dose.Rate |> markOf
                 let label = ord.Orderable.Dose.Rate |> ViewHelpers.ovarLabel "infuussnelheid"
@@ -1260,20 +1295,37 @@ module Nutrition =
                         |]
                 |}
 
+        // the spinner lies over the details and takes no room, so the fields stay where they are
+        // while the order reloads
+        let detailsSx = {| position = "relative" |}
+
+        let progressSx =
+            {|
+                position = "absolute"
+                inset = 0
+                display = "flex"
+                alignItems = "center"
+                justifyContent = "center"
+                pointerEvents = "none"
+            |}
+
         let details =
             JSX.jsx
                 $"""
             import Stack from '@mui/material/Stack';
             import Divider from '@mui/material/Divider';
             import Typography from '@mui/material/Typography';
-            <Stack direction={"column"} spacing={1} >
-                {loadingIndicator}
-                {preparationSection}
-                {if isEnteral then null else administrationDivider}
-                {frequencyDoseRow}
-                {rateControl}
-                {resetBar}
-            </Stack>
+            import Box from '@mui/material/Box';
+            <Box sx={detailsSx}>
+                <Stack direction={"column"} spacing={1} >
+                    {preparationSection}
+                    {if isEnteral then null else administrationDivider}
+                    {frequencyDoseRow}
+                    {rateControl}
+                    {resetBar}
+                </Stack>
+                <Box sx={progressSx}>{loadingIndicator}</Box>
+            </Box>
             """
 
         let indicationFilter =
