@@ -189,7 +189,7 @@ In production a user reaches GenPRES from the hospital EHR: a launch script open
 **Steps:**
 
 1. Open <http://localhost:5173/stub/launch>. The page has two fields:
-   - **PatientId**, default `stub-patient` (a ten-year-old of 32 kg). `no-data` stands for a patient the platform has no record for: the session then opens on the last signed data, or asks for patient data.
+   - **PatientId**, default `123456` (Test Patient, born 15-03-2016, a ten-year-old of 32 kg). `no-data` stands for a patient the platform has no record for: the session then opens on the last signed data, or asks for patient data.
    - **Identity at the browser**: who the stub identity provider says is signed on (table below).
 2. Press **Launch**. The server mints a launch token valid for two minutes and redirects to `#/session?launch=<token>`. The client erases the token from the address bar and presents it.
 3. **Expected**: the server redirects through `/authorize` and `/callback`, asks the stub user registry for the role and active patient, reads the patient data, and opens the session. The browser lands on `#/session`; the title bar shows the user and role, and the session menu offers **Close session**.
@@ -197,7 +197,7 @@ In production a user reaches GenPRES from the hospital EHR: a launch script open
 | Identity | Stands for | Ends in |
 |---|---|---|
 | `prescriber` | a prescriber whose active patient is the launched one | an open session as prescriber |
-| `prescriber-b` | a second prescriber on the same patient, for two-browser tests | an open session as Stub Prescriber B |
+| `prescriber-b` | a second prescriber on the same patient, for two-browser tests | an open session as Prescriber B |
 | `reader` | a reader; no PIN needed | an open session as reader |
 | `prescriber-other-patient` | a prescriber with another patient active in the EHR | the gate: wrong patient, relaunch |
 | `no-pin` | a prescriber without a PIN | the enrolment form (Workflow 9) |

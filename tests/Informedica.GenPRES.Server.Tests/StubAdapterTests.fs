@@ -774,7 +774,7 @@ module SessionStubTests =
 
                             session.User
                             |> Option.map _.DisplayName
-                            |> Expect.equal "user" (Some "Stub Prescriber")
+                            |> Expect.equal "user" (Some "Prescriber A")
                         | other -> failtest $"expected Opened twice, got {other}"
                     }
 
@@ -3744,7 +3744,7 @@ module SessionStubTests =
                     StubLaunch.mint t0 (fun () -> "n") sealKey "  "
                     |> LaunchSeal.verify t0 sealKey
                     |> Result.map _.PatientId
-                    |> Expect.equal "stub-patient" (Ok "stub-patient")
+                    |> Expect.equal "the stub patient" (Ok "123456")
                 }
 
                 test "the launch url is the hash form with the token escaped" {
@@ -4022,7 +4022,7 @@ module SessionStubTests =
                     | SessionResponse.SessionResp(Some session) ->
                         session.User
                         |> Option.map _.DisplayName
-                        |> Expect.equal "user" (Some "Stub Prescriber")
+                        |> Expect.equal "user" (Some "Prescriber A")
                     | other -> failtest $"expected the session, got {other}"
                 }
 
@@ -4614,7 +4614,7 @@ module SessionStubTests =
 
                     openedB.User
                     |> Option.map _.DisplayName
-                    |> Expect.equal "B" (Some "Stub Prescriber B")
+                    |> Expect.equal "B" (Some "Prescriber B")
 
                     let challenge cookie opened =
                         async {
