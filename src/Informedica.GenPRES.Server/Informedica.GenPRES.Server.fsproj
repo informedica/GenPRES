@@ -41,7 +41,6 @@
     <Compile Include="Server.fs" />
     <EmbeddedResource Include="Sql\*.sql" LogicalName="Sql/%(Filename)%(Extension)" />
     <None Include="Scripts\load.fsx" />
-    <None Include="Scripts\MemoryStream.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenPRES.Shared\Informedica.GenPRES.Shared.fsproj" />

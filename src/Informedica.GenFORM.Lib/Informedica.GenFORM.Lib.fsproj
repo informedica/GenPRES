@@ -34,8 +34,6 @@
     <Compile Include="Export.fs" />
     <Compile Include="Api.fs" />
     <None Include="Scripts\load.fsx" />
-    <None Include="Scripts\Scripts.fsx" />
-    <None Include="Scripts\Tests.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenCORE.Lib\Informedica.GenCORE.Lib.fsproj" />

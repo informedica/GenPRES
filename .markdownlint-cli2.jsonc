@@ -11,8 +11,6 @@
     // no one: it is generated, captured, or written to somebody else's format.
     //   - BenchmarkDotNet writes its result tables as Markdown. The pre-commit hook already
     //     skips them (.husky/task-runner.json); this makes the build target agree.
-    //   - formularium.md and solutions.md beside the NKF and GenFORM scripts are captured
-    //     formulary output, Dutch clinical data rather than prose.
     //   - a dot folder (.github, .claude, .husky, ...) holds configuration, templates and
     //     working notes for tools, not documentation of the project, and none of it is
     //     written to the house style the rest of docs/ follows.
@@ -21,8 +19,6 @@
     "ignores": [
         "**/node_modules/**",
         "**/BenchmarkDotNet.Artifacts/**",
-        "**/Scripts/formularium.md",
-        "**/Scripts/solutions.md",
         "**/.*/**"
     ],
 

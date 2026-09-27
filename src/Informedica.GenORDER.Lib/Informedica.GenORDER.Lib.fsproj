@@ -24,12 +24,9 @@
     <Compile Include="Api.fs" />
     <Compile Include="OrderPlan.fs" />
     <None Include="Scripts\load.fsx" />
-    <None Include="Scripts\OrderVariable.fsx" />
     <None Include="Scripts\Scenarios.fsx" />
     <None Include="Scripts\Medication.fsx" />
     <None Include="Scripts\Constraints.fsx" />
-    <None Include="Scripts\NormDose.fsx" />
-    <None Include="Scripts\Nutrition.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenSOLVER.Lib\Informedica.GenSOLVER.Lib.fsproj" />
