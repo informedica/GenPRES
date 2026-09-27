@@ -1,5 +1,5 @@
 ---
-last_commit_released: b8b294113d29e8c9f71189a28f7bc1c4149a2d73
+last_commit_released: 1f7a7c5325618a00b87221b3f754082a4d70494b
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,24 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.36 - 2026-09-27
+
+### 🚀 Features
+
+* *(client)* The quantity field in five slots ([2d102ff8](https://github.com/informedica/GenPRES/commit/2d102ff8922e5a70e3d75789788733c52357d52f))
+* *(client)* The quantity field as a segmented group ([1e9ac406](https://github.com/informedica/GenPRES/commit/1e9ac40652d948a70b080ab14ba03f4c9ee48c48))
+* *(client)* Pick the median with a click on a range ([892f2327](https://github.com/informedica/GenPRES/commit/892f2327e1ad88146c1cbcf6d49187357646e02e))
+* *(client)* Ask to pick a value in an empty field ([7e545773](https://github.com/informedica/GenPRES/commit/7e5457732763205e793e36f31e01cfa4abaa367b))
+
+### 🐞 Bug Fixes
+
+* *(client)* Keep the order fields still while loading ([46960aa9](https://github.com/informedica/GenPRES/commit/46960aa90074e6af9c7e5636ea428e5bed808530))
+* *(client)* Keep a narrow quantity field readable ([2a88f516](https://github.com/informedica/GenPRES/commit/2a88f5167f207252e3210016ae5e11094cd823c1))
+* *(client)* Keep the nutrition fields still while loading ([8cc4e8ed](https://github.com/informedica/GenPRES/commit/8cc4e8eda3451b36d63d95f8434747e717cd8a42))
+* *(client)* Make the median reachable and translatable ([2a0b66e8](https://github.com/informedica/GenPRES/commit/2a0b66e857148dd6c4a1b1948db3fd9ee2eb6e50))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/b8b294113d29e8c9f71189a28f7bc1c4149a2d73..1f7a7c5325618a00b87221b3f754082a4d70494b)</small></strong>
 
 ## 0.1.2-alpha.35 - 2026-09-27
 
