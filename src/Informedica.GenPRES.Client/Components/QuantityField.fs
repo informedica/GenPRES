@@ -22,7 +22,6 @@ module QuantityField =
             step: (int * int -> string * string) option
             first: (int -> unit) option
             decrease: (int -> unit) option
-            median: (unit -> unit) option
             increase: (int -> unit) option
             last: (int -> unit) option
             useDebounce: bool
@@ -30,16 +29,28 @@ module QuantityField =
         |}
 
 
-    /// The field: its label, the values allowed and the one chosen, what choosing does, its
-    /// steps if any, whether it can be cleared, its severity, and whether it is the field the
-    /// user is pointed at first.
+    /// How the user may move the value; decided by the caller from the order variable.
+    type Mode =
+        /// Several values allowed: the value is chosen from the dropdown, without step buttons.
+        | Selectable
+        /// A range allowed: the steps narrow it, first and last jump to the min and the max.
+        | Navigable of Steps
+        /// One value: the steps move it, first and last make a large step.
+        | Stepable of Steps
+        /// One value or a range the user cannot move from this field.
+        | Fixed
+
+
+    /// The field: its label, the values allowed and the one chosen, what choosing does, how
+    /// the value may be moved, whether it can be cleared, its severity, and whether it is the
+    /// field the user is pointed at first.
     type Props =
         {|
             label: string
             values: (string * string)[]
             selected: string option
             onChange: string option -> unit
-            steps: Steps option
+            mode: Mode
             hasClear: bool
             disabled: bool
             isLoading: bool
@@ -82,6 +93,14 @@ module QuantityField =
 
     [<JSX.Component>]
     let View (props: Props) =
+        // Steps holds functions, so Mode has no equality; the mode is read by matching only.
+        let steps =
+            match props.mode with
+            | Navigable steps
+            | Stepable steps -> Some steps
+            | Selectable
+            | Fixed -> None
+
         // Net click deltas accumulated from the step buttons. Drive an optimistic displayed
         // value that follows the live click count (the badge) before the server confirms.
         // Small = single-step decrease/increase (the defined increment); Large = jump
@@ -97,7 +116,7 @@ module QuantityField =
         // option would create a new reference every render and reset on every render.
         let valueKey = props.values |> Array.tryHead |> Option.map fst |> Option.defaultValue ""
 
-        let revision = props.steps |> Option.map (fun s -> s.revision) |> Option.defaultValue 0
+        let revision = steps |> Option.map (fun s -> s.revision) |> Option.defaultValue 0
 
         // useLayoutEffect (not useEffect) so the deltas are reset BEFORE the browser
         // paints the frame on which the server's new value arrives — otherwise that frame
@@ -112,7 +131,7 @@ module QuantityField =
             [| box valueKey; box revision |]
         )
 
-        let stepFn = props.steps |> Option.bind (fun s -> s.step)
+        let stepFn = steps |> Option.bind (fun s -> s.step)
 
         // Only accumulate a click that actually moves the predicted value. When the step
         // has saturated at a bound (the feasibility ceiling or the increment floor) the
@@ -149,14 +168,8 @@ module QuantityField =
             | _ -> props.values, props.selected
 
         let canStep =
-            props.steps
-            |> Option.map (fun s ->
-                s.first.IsSome
-                || s.decrease.IsSome
-                || s.median.IsSome
-                || s.increase.IsSome
-                || s.last.IsSome
-            )
+            steps
+            |> Option.map (fun s -> s.first.IsSome || s.decrease.IsSome || s.increase.IsSome || s.last.IsSome)
             |> Option.defaultValue false
 
         let select =
@@ -179,14 +192,16 @@ module QuantityField =
         // the step buttons rest only when the field is disabled: a step sent while the value
         // is loading waits for the answer and steps from it
         let stepper =
-            match props.steps with
+            match steps with
             | None -> null
             | Some steps ->
                 Stepper.View
                     {|
                         first = steps.first
                         decrease = steps.decrease
-                        median = steps.median
+                        // the five-slot field has no median; the Stepper that still draws the
+                        // buttons shows it disabled until it is replaced (#1102)
+                        median = None
                         increase = steps.increase
                         last = steps.last
                         useDebounce = steps.useDebounce

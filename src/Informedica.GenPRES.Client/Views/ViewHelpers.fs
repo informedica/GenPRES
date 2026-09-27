@@ -69,12 +69,23 @@ module ViewHelpers =
         |}
 
 
-    let orderField canClear alwaysShow disabled isLoading lbl selected updateSelected stepper (mark: Mark) minWidth xs =
+    /// A field without step buttons: the value is only chosen from the dropdown.
+    let noSteps = Components.QuantityField.Selectable
 
-        if not alwaysShow && xs |> Array.isEmpty && stepper |> Option.isNone then
+
+    let orderField canClear alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
+        // a field with steps is never empty: its buttons can still give it a value
+        let hasSteps =
+            match mode with
+            | Components.QuantityField.Navigable _
+            | Components.QuantityField.Stepable _ -> true
+            | Components.QuantityField.Selectable
+            | Components.QuantityField.Fixed -> false
+
+        if not alwaysShow && xs |> Array.isEmpty && not hasSteps then
             null
         else
-            let isEmpty = xs |> Array.isEmpty && stepper |> Option.isNone
+            let isEmpty = xs |> Array.isEmpty && not hasSteps
 
             let shown =
                 if xs |> Array.length = 1 then
@@ -102,7 +113,7 @@ module ViewHelpers =
                     hasClear = hasClear
                     severity = mark.severity
                     reason = mark.reason
-                    steps = stepper
+                    mode = mode
                     minWidth = minWidth
                     isLead = false
                 |}
@@ -110,19 +121,29 @@ module ViewHelpers =
 
     /// A value the rules narrowed, which the user may narrow further and may put back: it
     /// offers the cross when it can be used and holds a value.
-    let orderSelect alwaysShow disabled isLoading lbl selected updateSelected stepper (mark: Mark) minWidth xs =
-        orderField true alwaysShow disabled isLoading lbl selected updateSelected stepper mark minWidth xs
+    let orderSelect alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
+        orderField true alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
     /// A field there is nothing to clear in: a choice among the order's own parts, which always
     /// holds one of them, or a value that is only shown. It never offers the cross, since the
     /// cross would say the value can be taken away and it cannot.
-    let orderFixed alwaysShow disabled isLoading lbl selected updateSelected stepper (mark: Mark) minWidth xs =
-        orderField false alwaysShow disabled isLoading lbl selected updateSelected stepper mark minWidth xs
+    let orderFixed alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
+        orderField false alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
-    /// Build the stepper record for a select. `navigable` = can jump to the min, median, or max
-    /// (gates the first/median/last buttons); `solved` enables single-step decrease/increase.
+    /// The mode of a field with steps: Navigable when the range can be navigated, where first
+    /// and last jump to the min and the max, and Stepable otherwise.
+    let stepsMode navigable (steps: Components.QuantityField.Steps) =
+        if navigable then
+            Components.QuantityField.Navigable steps
+        else
+            Components.QuantityField.Stepable steps
+
+
+    /// Build the steps of a field and its mode. navigable: first and last jump to the min and
+    /// the max; solved: decrease and increase step the value, and first and last make a large
+    /// step when the field cannot be navigated.
     let createStepper
         dispatch
         revision
@@ -130,7 +151,6 @@ module ViewHelpers =
         solved
         setMin
         (decr: int * bool -> 'Msg)
-        setMed
         (incr: int * bool -> 'Msg)
         setMax
         step
@@ -149,11 +169,6 @@ module ViewHelpers =
                     (fun n -> (n, false) |> decr |> dispatch) |> Some
                 else
                     None
-            median =
-                if navigable then
-                    (fun () -> setMed |> dispatch) |> Some
-                else
-                    None
             increase =
                 if solved then
                     (fun n -> (n, false) |> incr |> dispatch) |> Some
@@ -169,7 +184,7 @@ module ViewHelpers =
             useDebounce = not navigable && solved
             revision = revision
         |}
-        |> Some
+        |> stepsMode navigable
 
 
     let ovarLabel (name: string) (ovar: OrderVariable) =
@@ -313,21 +328,20 @@ module ViewHelpers =
         ovar |> stepsToCeiling ceiling largeIncr
 
 
-    /// Build the stepper record for the orderable dose-quantity select, shared by the Order
+    /// Build the steps and the mode of the orderable dose-quantity select, shared by the Order
     /// and Nutrition views. Handles the optimistic stepping with feasibility-ceiling
     /// saturation: the displayed value follows the click count up to the prepared orderable
     /// quantity, and dispatched steps are saturated at that ceiling so an overshoot is not
-    /// reverted by the solver. The five message constructors (setMin/decr/setMed/incr/setMax)
-    /// are supplied by each view from its own Msg type. Returns None when navigation must be
-    /// hidden (a multi-component orderable whose components do not each have a single distinct
-    /// orderable quantity).
+    /// reverted by the solver. The four message constructors (setMin/decr/incr/setMax)
+    /// are supplied by each view from its own Msg type. Returns a field without steps when
+    /// navigation must be hidden (a multi-component orderable whose components do not each
+    /// have a single distinct orderable quantity).
     let createDoseQtyStepper
         dispatch
         revision
         (ord: Order)
         (setMin: 'Msg)
         (decr: int * bool -> 'Msg)
-        (setMed: 'Msg)
         (incr: int * bool -> 'Msg)
         (setMax: 'Msg)
         =
@@ -341,7 +355,7 @@ module ViewHelpers =
             )
 
         if not showNav then
-            None
+            noSteps
         else
             let canIncr =
                 ord.Orderable.Components |> Array.length = 1
@@ -350,7 +364,7 @@ module ViewHelpers =
                    |> Option.defaultValue false
 
             let solved = ord |> isSolved
-            // can jump to the min, median, or max
+            // can jump to the min or the max
             let navigable = ord.Orderable.Dose.Quantity |> OrderVariable.isNavigable
 
             // For a multi-component orderable the dose quantity cannot exceed the prepared
@@ -418,11 +432,6 @@ module ViewHelpers =
                         (fun n -> (n, false) |> decr |> dispatch) |> Some
                     else
                         None
-                median =
-                    if navigable then
-                        (fun () -> setMed |> dispatch) |> Some
-                    else
-                        None
                 increase =
                     if solved && canIncr && canStepUp then
                         (fun n -> (saturateInc n, false) |> incr |> dispatch) |> Some
@@ -438,7 +447,7 @@ module ViewHelpers =
                 useDebounce = not navigable && solved
                 revision = revision
             |}
-            |> Some
+            |> stepsMode navigable
 
 
     /// A value shown and not changed. `display` is built from `orderFixed`, since a field that
@@ -447,7 +456,7 @@ module ViewHelpers =
         let mark = ovar |> markOf
         let label = ovar |> ovarLabel name
         let vals = ovar |> ovarVals format
-        display false label None ignore None mark minWidth vals
+        display false label None ignore noSteps mark minWidth vals
 
 
     /// The same filter select, typed into rather than scrolled, for a list long enough that

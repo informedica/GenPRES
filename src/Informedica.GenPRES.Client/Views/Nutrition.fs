@@ -937,7 +937,7 @@ module Nutrition =
                     // Quantity control (bereiding)
                     let qtyVals = cmp.OrderableQuantity |> ViewHelpers.ovarValsWithRange string 3
 
-                    // can jump to the min, median, or max
+                    // can jump to the min or the max
                     let navigable = cmp.OrderableQuantity |> OrderVariable.isNavigable
                     let solved = ord |> isSolved
 
@@ -951,7 +951,7 @@ module Nutrition =
                             || c >= 1
 
                         if not show then
-                            None
+                            ViewHelpers.noSteps
                         else
                             let cmpName = cmp.Name
 
@@ -962,7 +962,6 @@ module Nutrition =
                                 solved
                                 (SetMinComponentQuantityProperty cmpName)
                                 (fun (n, uc) -> DecreaseComponentQuantityProperty(cmpName, n, uc))
-                                (SetMedianComponentQuantityProperty cmpName)
                                 (fun (n, uc) -> IncreaseComponentQuantityProperty(cmpName, n, uc))
                                 (SetMaxComponentQuantityProperty cmpName)
                                 (cmp.OrderableQuantity |> ViewHelpers.ovarStep string)
@@ -993,7 +992,7 @@ module Nutrition =
                             doseLabel
                             None
                             (fun s -> ChangeComponentDoseQuantityAdjust(cmp.Name, s) |> dispatch)
-                            None
+                            ViewHelpers.noSteps
                             doseWarning
                             (Some 400)
                             doseVals
@@ -1038,7 +1037,6 @@ module Nutrition =
                         ord
                         SetMinDoseQuantityProperty
                         DecreaseDoseQuantityProperty
-                        SetMedianDoseQuantityProperty
                         IncreaseDoseQuantityProperty
                         SetMaxDoseQuantityProperty
 
@@ -1067,7 +1065,15 @@ module Nutrition =
                 let label = ord.Schedule.Frequency |> ViewHelpers.ovarLabel "frequentie"
                 let freqVals = ord.Schedule.Frequency |> ViewHelpers.ovarVals string
 
-                select false label None (ChangeFrequency >> dispatch) None severity selectMinWidth freqVals
+                select
+                    false
+                    label
+                    None
+                    (ChangeFrequency >> dispatch)
+                    ViewHelpers.noSteps
+                    severity
+                    selectMinWidth
+                    freqVals
             | _ -> null
 
         let genericFilter =
@@ -1141,7 +1147,7 @@ module Nutrition =
             match displayOrder with
             | Some ord when ord.Schedule.IsTimed || ord.Schedule.IsContinuous ->
                 let solved = ord |> isSolved
-                // can jump to the min, median, or max
+                // can jump to the min or the max
                 let navigable = ord.Orderable.Dose.Rate |> OrderVariable.isNavigable
 
                 let nav =
@@ -1152,7 +1158,6 @@ module Nutrition =
                         solved
                         SetMinDoseRateProperty
                         DecreaseDoseRateProperty
-                        SetMedianDoseRateProperty
                         IncreaseDoseRateProperty
                         SetMaxDoseRateProperty
                         (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
