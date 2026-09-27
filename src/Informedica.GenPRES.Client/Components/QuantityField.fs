@@ -282,9 +282,9 @@ module QuantityField =
         """
 
 
-    // A step button as the Stepper drew it: disabled when the step is not offered; with
-    // debounce a counting button, which repeats while held, shows the count on a badge and
-    // predicts each click; otherwise a plain button that sends one step per click.
+    // A step button: disabled when the step is not offered; with debounce a counting button,
+    // which repeats while held, shows the count on a badge and predicts each click; otherwise a
+    // plain button that sends one step per click.
     let stepButton disabled useDebounce (step: (int -> unit) option) (onStep: unit -> unit) icon =
         match step with
         | None -> plainButton true ignore icon
