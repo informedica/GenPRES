@@ -921,9 +921,12 @@ module Nutrition =
             React.useElmish (init ctx, update updateOrderScenario resetOrderScenario stepper shownOrder, [| box ctx |])
 
         let isOrderLoading = props.isRecalculating
-        let select = ViewHelpers.orderSelect true isOrderLoading
+        // what an empty value shows while there are values to pick from
+        let placeholder = Terms.``Pick a value`` |> getTerm "kies een waarde"
+
+        let select = ViewHelpers.orderSelect placeholder true isOrderLoading
         // a value only shown has nothing for a cross to clear
-        let display = ViewHelpers.orderFixed true isOrderLoading
+        let display = ViewHelpers.orderFixed placeholder true isOrderLoading
         let filterSelect = ViewHelpers.filterSelect isOrderLoading isOrderLoading
         let autoComplete = ViewHelpers.autoComplete isOrderLoading isOrderLoading
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading

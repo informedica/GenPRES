@@ -122,6 +122,8 @@ type Terms =
     | ``Pharmaceutical Form``
     | Diluent
     | Components
+    // what an empty value shows while there are values to pick from
+    | ``Pick a value``
     // Patient-specific terms
     | ``Patient Male``
     | ``Patient Female``

@@ -73,7 +73,20 @@ module ViewHelpers =
     let noSteps = Components.QuantityField.Selectable
 
 
-    let orderField canClear alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
+    let orderField
+        canClear
+        placeholder
+        alwaysShow
+        disabled
+        isLoading
+        lbl
+        selected
+        updateSelected
+        mode
+        (mark: Mark)
+        minWidth
+        xs
+        =
         // a field with steps is never empty: its buttons can still give it a value
         let hasSteps =
             match mode with
@@ -114,6 +127,7 @@ module ViewHelpers =
                     severity = mark.severity
                     reason = mark.reason
                     mode = mode
+                    placeholder = placeholder
                     minWidth = minWidth
                     isLead = false
                 |}
@@ -121,15 +135,27 @@ module ViewHelpers =
 
     /// A value the rules narrowed, which the user may narrow further and may put back: it
     /// offers the cross when it can be used and holds a value.
-    let orderSelect alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
-        orderField true alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
+    let orderSelect
+        placeholder
+        alwaysShow
+        disabled
+        isLoading
+        lbl
+        selected
+        updateSelected
+        mode
+        (mark: Mark)
+        minWidth
+        xs
+        =
+        orderField true placeholder alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
     /// A field there is nothing to clear in: a choice among the order's own parts, which always
     /// holds one of them, or a value that is only shown. It never offers the cross, since the
     /// cross would say the value can be taken away and it cannot.
-    let orderFixed alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
-        orderField false alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
+    let orderFixed placeholder alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
+        orderField false placeholder alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
     /// The mode of a field with steps: Navigable when the range can be navigated, where first
