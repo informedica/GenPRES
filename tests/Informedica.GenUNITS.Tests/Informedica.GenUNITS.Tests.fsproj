@@ -11,7 +11,6 @@
     <Compile Include="Tests.fs" />
     <Compile Include="Main.fs" />
     <None Include="./Scripts/load.fsx" />
-    <None Include="./Scripts/Tests.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Informedica.GenUNITS.Lib\Informedica.GenUNITS.Lib.fsproj" />
