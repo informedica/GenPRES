@@ -880,14 +880,19 @@ module Order =
 
         // the component and the item selects are the dialog's own, never a request; the dialog
         // always has one of each, so neither can be cleared
-        // what an empty value shows while there are values to pick from
-        let placeholder = Terms.``Pick a value`` |> getTerm "kies een waarde"
+        // what an empty value shows while there are values to pick from, and what a click on a
+        // range does
+        let texts =
+            {|
+                pickValue = Terms.``Pick a value`` |> getTerm "kies een waarde"
+                pickMedian = Terms.``Pick the median`` |> getTerm "naar mediaan"
+            |}
 
-        let pick = ViewHelpers.orderFixed placeholder false false
+        let pick = ViewHelpers.orderFixed texts false false
 
         // a field's select: rests while another field is changing, shows it while its own is
         let selectFor field =
-            ViewHelpers.orderSelect placeholder false (rests field) (isFieldLoading field)
+            ViewHelpers.orderSelect texts false (rests field) (isFieldLoading field)
 
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
 

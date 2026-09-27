@@ -75,7 +75,7 @@ module ViewHelpers =
 
     let orderField
         canClear
-        placeholder
+        (texts: Components.QuantityField.Texts)
         alwaysShow
         disabled
         isLoading
@@ -127,7 +127,7 @@ module ViewHelpers =
                     severity = mark.severity
                     reason = mark.reason
                     mode = mode
-                    placeholder = placeholder
+                    texts = texts
                     minWidth = minWidth
                     isLead = false
                 |}
@@ -135,27 +135,15 @@ module ViewHelpers =
 
     /// A value the rules narrowed, which the user may narrow further and may put back: it
     /// offers the cross when it can be used and holds a value.
-    let orderSelect
-        placeholder
-        alwaysShow
-        disabled
-        isLoading
-        lbl
-        selected
-        updateSelected
-        mode
-        (mark: Mark)
-        minWidth
-        xs
-        =
-        orderField true placeholder alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
+    let orderSelect texts alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
+        orderField true texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
     /// A field there is nothing to clear in: a choice among the order's own parts, which always
     /// holds one of them, or a value that is only shown. It never offers the cross, since the
     /// cross would say the value can be taken away and it cannot.
-    let orderFixed placeholder alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
-        orderField false placeholder alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
+    let orderFixed texts alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
+        orderField false texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
     /// The mode of a field with steps: Navigable when the range can be navigated, where first

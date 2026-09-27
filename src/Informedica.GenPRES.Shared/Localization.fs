@@ -124,6 +124,8 @@ type Terms =
     | Components
     // what an empty value shows while there are values to pick from
     | ``Pick a value``
+    // what a click on a range, or Enter or Space on it, does
+    | ``Pick the median``
     // Patient-specific terms
     | ``Patient Male``
     | ``Patient Female``

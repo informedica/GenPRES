@@ -111,6 +111,7 @@ module PickField =
                     canStep = false
                     severity = Types.Severity.Normal
                     minWidth = None
+                    description = None
                 |}
         | Shape.Type ->
             Autocomplete.View

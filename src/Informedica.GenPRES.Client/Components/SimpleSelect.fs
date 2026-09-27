@@ -30,6 +30,9 @@ module SimpleSelect =
                 canStep: bool
                 severity: Types.Severity
                 minWidth: int option
+                // what a click or a key on the select does beyond choosing, told to a screen
+                // reader on the element that has the focus
+                description: string option
             |})
         =
 
@@ -96,6 +99,11 @@ module SimpleSelect =
             else
                 None
 
+        let displayProps =
+            match props.description with
+            | Some text -> {| ``aria-description`` = text |} |> box
+            | None -> {| |} |> box
+
         let hasInteraction = props.canStep || props.values.Length > 1
 
         let sx =
@@ -145,6 +153,7 @@ module SimpleSelect =
             endAdornment={endAdornment}
             sx={sx}
             slotProps={selectSlotProps}
+            SelectDisplayProps={displayProps}
             >
                 {items}
             </Select>

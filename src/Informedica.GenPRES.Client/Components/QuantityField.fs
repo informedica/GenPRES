@@ -36,6 +36,15 @@ module QuantityField =
         |}
 
 
+    /// The texts the field shows in the user's language: what an empty value asks, and what a
+    /// click on a range does.
+    type Texts =
+        {|
+            pickValue: string
+            pickMedian: string
+        |}
+
+
     /// How the user may move the value; decided by the caller from the order variable.
     type Mode =
         /// Several values allowed: the value is chosen from the dropdown, without step buttons.
@@ -58,7 +67,7 @@ module QuantityField =
             selected: string option
             onChange: string option -> unit
             mode: Mode
-            placeholder: string
+            texts: Texts
             hasClear: bool
             disabled: bool
             isLoading: bool
@@ -389,6 +398,14 @@ module QuantityField =
             |> Option.map (fun s -> s.first.IsSome || s.decrease.IsSome || s.increase.IsSome || s.last.IsSome)
             |> Option.defaultValue false
 
+        // A navigable field that shows its range picks the median on a click or on Enter or
+        // Space; the dropdown, which would hold the range alone, does not open. A click on the
+        // cross still clears the value.
+        let median =
+            match props.mode, props.values with
+            | Navigable steps, [| ("range", _) |] when not props.disabled -> steps.median
+            | _ -> None
+
         let select =
             SimpleSelect.View
                 {|
@@ -404,6 +421,7 @@ module QuantityField =
                     severity = props.severity
                     // the minimum is the field's; the select takes the column the slots leave
                     minWidth = None
+                    description = median |> Option.map (fun _ -> props.texts.pickMedian)
                 |}
 
         // the step buttons rest only when the field is disabled: a step sent while the value
@@ -466,14 +484,6 @@ module QuantityField =
         // read by a container that drops the hidden slots of a field without buttons
         let buttons = if hasButtons then "some" else "none"
 
-        // A navigable field that shows its range picks the median on a click or on Enter or
-        // Space; the dropdown, which would hold the range alone, does not open. A click on the
-        // cross still clears the value.
-        let median =
-            match props.mode, props.values with
-            | Navigable steps, [| ("range", _) |] when not props.disabled -> steps.median
-            | _ -> None
-
         let onButton (e: Browser.Types.Event) = e.target?closest (".MuiIconButton-root") |> isNull |> not
 
         let pickMedian (e: Browser.Types.Event) =
@@ -484,9 +494,16 @@ module QuantityField =
                 pick ()
             | _ -> ()
 
+        // Enter and Space pick the median; the arrow keys, which would open the menu, do nothing
         let pickMedianByKey (e: Browser.Types.KeyboardEvent) =
-            if e.key = "Enter" || e.key = " " then
-                pickMedian e
+            match e.key with
+            | "Enter"
+            | " " -> pickMedian e
+            | "ArrowUp"
+            | "ArrowDown" when median.IsSome ->
+                e.preventDefault ()
+                e.stopPropagation ()
+            | _ -> ()
 
         let value =
             match median with
@@ -501,7 +518,7 @@ module QuantityField =
                     $"""
                 import Box from '@mui/material/Box';
                 import Tooltip from '@mui/material/Tooltip';
-                <Tooltip title="naar mediaan">
+                <Tooltip title={props.texts.pickMedian}>
                     <Box sx={medianSx} onMouseDownCapture={pickMedian} onKeyDownCapture={pickMedianByKey}>
                         {select}
                     </Box>
@@ -515,7 +532,7 @@ module QuantityField =
                 JSX.jsx
                     $"""
                 import Typography from '@mui/material/Typography';
-                <Typography variant="body1" sx={placeholderSx}>{props.placeholder}</Typography>
+                <Typography variant="body1" sx={placeholderSx}>{props.texts.pickValue}</Typography>
                 """
             | _ -> null
 
