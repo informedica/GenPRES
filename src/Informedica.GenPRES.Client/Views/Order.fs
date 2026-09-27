@@ -1160,38 +1160,23 @@ module Order =
                         |> Option.defaultValue [||]
 
                     let stepper =
-                        let c = vals |> Array.length
-
-                        let show =
-                            match cmp with
-                            | None -> false
-                            | Some cmp ->
-                                cmp.OrderableQuantity.Variable.Min.IsSome
-                                && cmp.OrderableQuantity.Variable.Incr.IsSome
-                                && cmp.OrderableQuantity.Variable.Max.IsSome
-                                || c >= 1
-
-                        if not show then
-                            ViewHelpers.noSteps
-                        else
-                            let solved = ord |> isSolved
-
-                            // can jump to the min or the max
-                            let navigable =
-                                cmp
-                                |> Option.map (_.OrderableQuantity >> OrderVariable.isNavigable)
-                                |> Option.defaultValue false
+                        match cmp with
+                        | None -> ViewHelpers.noSteps
+                        | Some cmp ->
+                            let mode =
+                                cmp.OrderableQuantity
+                                |> QuantityMode.decideFor QuantityMode.Field.ComponentQuantity ord
 
                             createStepper
-                                navigable
-                                solved
+                                mode
+                                (cmp.OrderableQuantity |> ViewHelpers.hasLargeStep)
                                 SetMinComponentQuantityProperty
                                 DecreaseComponentQuantityProperty
                                 SetMedianComponentQuantityProperty
                                 IncreaseComponentQuantityProperty
                                 SetMaxComponentQuantityProperty
-                                (cmp |> Option.bind (_.OrderableQuantity >> ViewHelpers.ovarStep string))
-                                (cmp |> Option.bind (_.OrderableQuantity >> ViewHelpers.largeStepText))
+                                (cmp.OrderableQuantity |> ViewHelpers.ovarStep string)
+                                (cmp.OrderableQuantity |> ViewHelpers.largeStepText)
 
                     let severity =
                         cmp
@@ -1336,26 +1321,24 @@ module Order =
             let frequencySelect =
                 match displayOrder with
                 | Some ord when ord.Schedule.IsDiscontinuous || ord.Schedule.IsTimed ->
-                    let xs = ord.Schedule.Frequency |> ViewHelpers.ovarVals string
+                    let xs = ord.Schedule.Frequency |> ViewHelpers.ovarValsWithRange string 3
 
                     let stepper =
-                        if xs |> Array.length <> 1 then
-                            ViewHelpers.noSteps
-                        else
-                            let solved = ord |> isSolved
-                            // frequency: no jump to the min or the max
-                            let navigable = false
+                        let mode =
+                            ord.Schedule.Frequency
+                            |> QuantityMode.decideFor QuantityMode.Field.Frequency ord
 
-                            createStepper
-                                navigable
-                                solved
-                                SetMinFrequencyProperty
-                                (fun _ -> DecreaseFrequencyProperty)
-                                SetMedianFrequencyProperty
-                                (fun _ -> IncreaseFrequencyProperty)
-                                SetMaxFrequencyProperty
-                                None
-                                None
+                        // a frequency steps one increment per click, so it has no large step
+                        createStepper
+                            mode
+                            false
+                            SetMinFrequencyProperty
+                            (fun _ -> DecreaseFrequencyProperty)
+                            SetMedianFrequencyProperty
+                            (fun _ -> IncreaseFrequencyProperty)
+                            SetMaxFrequencyProperty
+                            None
+                            None
 
                     let severity = ord.Schedule.Frequency |> markOf
 
@@ -1401,14 +1384,14 @@ module Order =
             let ordDoseRateSelect =
                 match displayOrder with
                 | Some ord when ord.Schedule.IsContinuous || ord.Schedule.IsTimed || ord.Schedule.IsOnceTimed ->
-                    let solved = ord |> isSolved
-                    // can jump to the min or the max
-                    let navigable = ord.Orderable.Dose.Rate |> OrderVariable.isNavigable
-
                     let stepper =
+                        let mode =
+                            ord.Orderable.Dose.Rate
+                            |> QuantityMode.decideFor QuantityMode.Field.DoseRate ord
+
                         createStepper
-                            navigable
-                            solved
+                            mode
+                            (ord.Orderable.Dose.Rate |> ViewHelpers.hasLargeStep)
                             SetMinDoseRateProperty
                             DecreaseDoseRateProperty
                             SetMedianDoseRateProperty

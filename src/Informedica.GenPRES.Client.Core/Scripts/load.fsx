@@ -6,6 +6,7 @@
 #load "../LanguagePolicy.fs"
 #load "../PickPolicy.fs"
 #load "../SeverityReason.fs"
+#load "../QuantityMode.fs"
 #load "../SessionMachine.fs"
 #load "../SessionGatePolicy.fs"
 #load "../PlanWorkPolicy.fs"
