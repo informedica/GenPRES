@@ -33,7 +33,7 @@ let devScriptFormatter =
     MessageFormatter.create
         [
             typeof<OrderMessage>, OrderLogging.formatOrderMessage
-            typeof<SolverMessage>, SolverLogging.formatSolverMessage
+            typeof<SolverMessage>, Informedica.GenSolver.Lib.SolverLogging.formatSolverMessage
             typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
         ]
 
@@ -93,9 +93,6 @@ module HelperFunctions =
                 |> loop cmds
 
 
-module GenFormResult = Utils.GenFormResult
-
-
 module UnitValidation = Medication.UnitValidation
 
 
@@ -129,11 +126,11 @@ module MedicationTests =
                                         MinMax.createInclIncl
                                             (10N
                                              |> ValueUnit.singleWithUnit (
-                                                 Units.Mass.milliGram |> Units.per Units.Weight.kiloGram
+                                                 Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
                                              ))
                                             (20N
                                              |> ValueUnit.singleWithUnit (
-                                                 Units.Mass.milliGram |> Units.per Units.Weight.kiloGram
+                                                 Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
                                              ))
                                 }
 
@@ -149,14 +146,14 @@ module MedicationTests =
                                             (10N
                                              |> ValueUnit.singleWithUnit (
                                                  Units.Mass.milliGram
-                                                 |> Units.per Units.Weight.kiloGram
-                                                 |> Units.per Units.Time.day
+                                                 |> ValueUnit.per Units.Weight.kiloGram
+                                                 |> ValueUnit.per Units.Time.day
                                              ))
                                             (20N
                                              |> ValueUnit.singleWithUnit (
                                                  Units.Mass.milliGram
-                                                 |> Units.per Units.Weight.kiloGram
-                                                 |> Units.per Units.Time.day
+                                                 |> ValueUnit.per Units.Weight.kiloGram
+                                                 |> ValueUnit.per Units.Time.day
                                              ))
                                 }
 
@@ -172,14 +169,14 @@ module MedicationTests =
                                             (10N
                                              |> ValueUnit.singleWithUnit (
                                                  Units.Mass.microGram
-                                                 |> Units.per Units.Weight.kiloGram
-                                                 |> Units.per Units.Time.hour
+                                                 |> ValueUnit.per Units.Weight.kiloGram
+                                                 |> ValueUnit.per Units.Time.hour
                                              ))
                                             (40N
                                              |> ValueUnit.singleWithUnit (
                                                  Units.Mass.microGram
-                                                 |> Units.per Units.Weight.kiloGram
-                                                 |> Units.per Units.Time.hour
+                                                 |> ValueUnit.per Units.Weight.kiloGram
+                                                 |> ValueUnit.per Units.Time.hour
                                              ))
                                 }
 
@@ -193,28 +190,28 @@ module MedicationTests =
                     "Unit validation"
                     [
                         test "hasAdjustUnit detects kg" {
-                            let unit = Units.Mass.milliGram |> Units.per Units.Weight.kiloGram
+                            let unit = Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
 
                             UnitValidation.hasAdjustUnit unit
                             |> Expect.isTrue "should detect kg as adjust unit"
                         }
 
                         test "hasAdjustUnit detects m2" {
-                            let unit = Units.Mass.milliGram |> Units.per Units.BSA.m2
+                            let unit = Units.Mass.milliGram |> ValueUnit.per Units.BSA.m2
 
                             UnitValidation.hasAdjustUnit unit
                             |> Expect.isTrue "should detect m2 as adjust unit"
                         }
 
                         test "hasTimeUnit detects day" {
-                            let unit = Units.Mass.milliGram |> Units.per Units.Time.day
+                            let unit = Units.Mass.milliGram |> ValueUnit.per Units.Time.day
 
                             UnitValidation.hasTimeUnit unit
                             |> Expect.isTrue "should detect day as time unit"
                         }
 
                         test "hasTimeUnit detects hour" {
-                            let unit = Units.Volume.milliLiter |> Units.per Units.Time.hour
+                            let unit = Units.Volume.milliLiter |> ValueUnit.per Units.Time.hour
 
                             UnitValidation.hasTimeUnit unit
                             |> Expect.isTrue "should detect hour as time unit"
@@ -223,8 +220,8 @@ module MedicationTests =
                         test "complex unit mg/kg/dag has both adjust and time" {
                             let unit =
                                 Units.Mass.milliGram
-                                |> Units.per Units.Weight.kiloGram
-                                |> Units.per Units.Time.day
+                                |> ValueUnit.per Units.Weight.kiloGram
+                                |> ValueUnit.per Units.Time.day
 
                             UnitValidation.hasAdjustUnit unit |> Expect.isTrue "should have adjust unit"
                             UnitValidation.hasTimeUnit unit |> Expect.isTrue "should have time unit"
@@ -433,11 +430,11 @@ Components:
                                 MinMax.createInclIncl
                                     (10N
                                      |> ValueUnit.singleWithUnit (
-                                         Units.Mass.milliGram |> Units.per Units.Weight.kiloGram
+                                         Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
                                      ))
                                     (20N
                                      |> ValueUnit.singleWithUnit (
-                                         Units.Mass.milliGram |> Units.per Units.Weight.kiloGram
+                                         Units.Mass.milliGram |> ValueUnit.per Units.Weight.kiloGram
                                      ))
                         }
 
@@ -1072,6 +1069,7 @@ Components:
 module MedicationScenarios =
 
     open Informedica.Utils.Lib
+    open HelperFunctions
 
 
     let createTest logger txt =
@@ -1239,7 +1237,7 @@ MedicationTexts.timedMultipleComponentsDoseComponent
             (fun ord -> (ord, "NaCl 3%" |> SetMedianComponentOrderableQuantity) |> ChangeProperty)
             (fun ord -> (ord, "KCl 7,4%" |> SetMedianComponentOrderableQuantity) |> ChangeProperty)
             (fun ord -> (ord, "gluc 10%" |> SetMedianComponentOrderableQuantity) |> ChangeProperty)
-            (fun ord -> (ord, DecreaseOrderableDoseQuantity 5000) |> ChangeProperty)
+            (fun ord -> (ord, DecreaseOrderableDoseQuantity(5000, true)) |> ChangeProperty)
             (fun ord -> (ord, "Samenstelling C" |> SetMinComponentOrderableQuantity) |> ChangeProperty)
         ]
         |> HelperFunctions.run (Some fileLogger) med

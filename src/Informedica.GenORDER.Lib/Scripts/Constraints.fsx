@@ -75,9 +75,6 @@ module HelperFunctions =
                 |> loop cmds
 
 
-module GenFormResult = Utils.GenFormResult
-
-
 module MedicationTexts =
 
 

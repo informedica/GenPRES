@@ -1222,8 +1222,6 @@ ZIndexFixture.setupForTest zindexDir
 
 #load "load.fsx"
 
-#load "../../../scripts/Expecto.fsx"
-
 
 // ============================================================================
 // Section 4 — Tests using the synthetic fixture data

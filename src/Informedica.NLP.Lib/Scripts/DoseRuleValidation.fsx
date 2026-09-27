@@ -486,7 +486,7 @@ module Formulary =
     /// Extract the sorted list of unique generic names from the formulary dose rules.
     let getGenericNames (provider: IResourceProvider) : string list =
         provider.GetDoseRules()
-        |> Array.map _.Generic
+        |> Array.map (_.Generic >> Generic.toString)
         |> Array.distinct
         |> Array.sort
         |> Array.toList

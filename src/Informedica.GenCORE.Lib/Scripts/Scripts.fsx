@@ -176,8 +176,6 @@ module PatientScripts =
 module ValueUnitScripts =
 
 
-    open MathNet.Numerics
-
     open Informedica.Utils.Lib.BCL
     open Informedica.GenUnits.Lib
     open Informedica.GenCore.Lib
@@ -238,7 +236,7 @@ module ValueUnitScripts =
     ValueUnit.Calculations.Age.ageToStringNLShort None (Some m) (Some w) (Some d)
 
 
-open MathNet.Numerics
+open Informedica.Utils.Lib.BCL
 open Informedica.GenUnits.Lib
 open Informedica.GenCore.Lib.Ranges
 

@@ -74,9 +74,6 @@ module HelperFunctions =
                 |> loop cmds
 
 
-module GenFormResult = Utils.GenFormResult
-
-
 module UnitValidation = Medication.UnitValidation
 
 
@@ -166,7 +163,7 @@ let devScriptFormatter =
     MessageFormatter.create
         [
             typeof<OrderMessage>, OrderLogging.formatOrderMessage
-            typeof<SolverMessage>, SolverLogging.formatSolverMessage
+            typeof<SolverMessage>, Informedica.GenSolver.Lib.SolverLogging.formatSolverMessage
             typeof<Informedica.GenForm.Lib.Types.Message>, Informedica.GenForm.Lib.FormLogging.formatMessage
         ]
 

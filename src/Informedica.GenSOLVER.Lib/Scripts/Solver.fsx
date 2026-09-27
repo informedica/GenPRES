@@ -31,13 +31,13 @@ module TestSolver =
     let printEqs =
         function
         | Ok eqs -> eqs |> Solver.printEqs true procss
-        | Error _ -> failwith "errors"
+        | Error _ -> invalidOp "errors"
 
 
     let printEqsWithUnits =
         function
         | Ok eqs -> eqs |> Solver.printEqs false procss
-        | Error _ -> failwith "errors"
+        | Error _ -> invalidOp "errors"
 
 
     let setProp n p eqs =
@@ -115,7 +115,7 @@ module TestSolver =
     let solveCountValues u n vals = solveValues Units.Count.times u n vals
 
 
-open MathNet.Numerics
+open Informedica.Utils.Lib.BCL
 
 open Informedica.GenSolver.Lib
 open Informedica.GenUnits.Lib
@@ -140,8 +140,8 @@ eqs
         |> Solver.solveAll false TestSolver.logger
         |> function
             | Ok eqs -> eqs |> Solver.printEqs true (fun s -> printfn $"{s}") |> ignore
-            | Error _ -> failwith "errors"
-    | Error _ -> failwith "errors"
+            | Error _ -> invalidOp "errors"
+    | Error _ -> invalidOp "errors"
 
 
 let min =
@@ -174,7 +174,7 @@ let prune incr n =
             xs
             |> Array.filter (fun x -> x = mn || x = mx || (x / (incr * m)).Denominator = 1I)
 
-        if filtered |> Array.length <= (max n 2) then
+        if filtered |> Array.length <= (Operators.max n 2) then
             filtered
         else
             loop mn mx (m + 1N) incr xs

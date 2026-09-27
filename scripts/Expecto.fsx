@@ -16,6 +16,7 @@ module Generators =
 
     open Expecto
     open FsCheck
+    open FsCheck.FSharp
     open MathNet.Numerics
 
 
@@ -28,8 +29,8 @@ module Generators =
 
     let bigRGenerator =
         gen {
-            let! n = Arb.generate<int>
-            let! d = Arb.generate<int>
+            let! n = ArbMap.defaults |> ArbMap.generate<int>
+            let! d = ArbMap.defaults |> ArbMap.generate<int>
             return bigRGen (n, d)
         }
 
@@ -43,9 +44,7 @@ module Generators =
 
     type BigRGenerator() =
         static member BigRational() =
-            { new Arbitrary<BigRational>() with
-                override x.Generator = bigRGenerator
-            }
+            Arb.fromGen bigRGenerator
 
 
     let config =

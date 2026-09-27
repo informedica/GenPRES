@@ -28,6 +28,10 @@ open Informedica.ZForm.Lib
 
 // Note: GenForm types are accessible via the 'Informedica.GenForm.Lib' namespace
 open Informedica.GenForm.Lib
+open Informedica.GenForm.Lib.Resources
+
+// GenForm opens last and shadows the ZForm types of the same name.
+module ZF = Informedica.ZForm.Lib.Types
 
 Environment.SetEnvironmentVariable("GENPRES_PROD", "1")
 Informedica.Utils.Lib.Env.loadDotEnv () |> ignore
@@ -63,14 +67,18 @@ let limitValueInDays (lim: Limit) =
         |> ValueUnit.convertTo Units.Time.day
         |> ValueUnit.getValue
         |> Array.tryHead
+        |> Option.map BigRational.toFloat
         |> Option.defaultValue 0.0
 
 let isAdultPatientCategory (cat: Types.PatientCategory) =
-    match cat.Age.Min with
-    | Some lim -> limitValueInDays lim >= adultAgeThresholdDays
-    | None     ->
-        // No minimum age: adult if no maximum either (open-ended)
-        cat.Age.Max |> Option.isNone
+    match cat.Age with
+    | Age.IsAdult -> true
+    | Age.AbsoluteAge age ->
+        match age.Min with
+        | Some lim -> limitValueInDays lim >= adultAgeThresholdDays
+        | None ->
+            // No minimum age: adult if no maximum either (open-ended)
+            age.Max |> Option.isNone
 
 // ===================================================================
 // 3.  Find combos that have no adult dose rule in GenFORM
@@ -78,7 +86,9 @@ let isAdultPatientCategory (cat: Types.PatientCategory) =
 
 let missingAdultCombos =
     genFormDoseRules
-    |> Array.groupBy (fun dr -> dr.Generic, dr.Form, dr.Route)
+    |> Array.groupBy (fun dr ->
+        dr.Generic |> Generic.genericName, dr.Generic.Form |> PharmaceuticalForm.toString, dr.Route
+    )
     |> Array.filter (fun (_, rules) ->
         rules |> Array.exists (fun dr -> isAdultPatientCategory dr.PatientCategory) |> not
     )
@@ -97,7 +107,7 @@ missingAdultCombos
 // 4.  Query G-Standard (ZForm) for a (generic, form, route) combo
 // ===================================================================
 
-let gstandConfig: CreateConfig =
+let gstandConfig: ZF.CreateConfig =
     {
         GPKs        = []
         IsRate      = false
@@ -119,17 +129,17 @@ let queryGStand (gen: string) (frm: string) (rte: string) =
 //       - Otherwise → NoDoseType
 // ===================================================================
 
-let dosageIsRate (dosage: Dosage) =
+let dosageIsRate (dosage: ZF.Dosage) =
     let rdr, _ = dosage.RateDosage
     rdr.Norm.Min |> Option.isSome
     || rdr.Norm.Max |> Option.isSome
     || (rdr.NormWeight |> fst |> fun mm -> mm.Min |> Option.isSome || mm.Max |> Option.isSome)
 
-let dosageHasFrequency (dosage: Dosage) =
+let dosageHasFrequency (dosage: ZF.Dosage) =
     let _, freq = dosage.TotalDosage
     freq.Frequencies |> List.isEmpty |> not
 
-let zformDosageToGenFormDoseType (dosage: Dosage) : DoseType =
+let zformDosageToGenFormDoseType (dosage: ZF.Dosage) : DoseType =
     if dosage |> dosageIsRate then
         DoseType.Continuous dosage.Name
     elif dosage |> dosageHasFrequency then
@@ -160,17 +170,17 @@ let convertMinMaxUnit (toUnit: Unit) (mm: MinMax) =
 
 let zformGenderToGenForm =
     function
-    | Gender.Male          -> Types.Gender.Male
-    | Gender.Female        -> Types.Gender.Female
-    | Gender.Undetermined  -> Types.Gender.AnyGender
+    | ZF.Gender.Male          -> Types.Gender.Male
+    | ZF.Gender.Female        -> Types.Gender.Female
+    | ZF.Gender.Undetermined  -> Types.Gender.AnyGender
 
-let zformPatCatToGenFormPatCat (zcat: PatientCategory) : Types.PatientCategory =
+let zformPatCatToGenFormPatCat (zcat: ZF.PatientCategory) : Types.PatientCategory =
     {
         Location   = None
         Department = None
         Gender     = zcat.Gender |> zformGenderToGenForm
         // age: months → days
-        Age        = zcat.Age    |> convertMinMaxUnit Units.Time.day
+        Age        = zcat.Age    |> convertMinMaxUnit Units.Time.day |> Age.AbsoluteAge
         // weight: kg → grams
         Weight     = zcat.Weight |> convertMinMaxUnit Units.Weight.gram
         BSA        = zcat.BSA    // already m²
@@ -195,7 +205,7 @@ let zformDoseRangeToSubstanceLimit
     (name: string)
     (doseUnit: Unit)
     (isTotalDose: bool)
-    (dr: DoseRange)
+    (dr: ZF.DoseRange)
     : Types.DoseLimit =
     let qty, qtyAdj =
         if isTotalDose then MinMax.empty, MinMax.empty
@@ -223,11 +233,11 @@ let zformDoseRangeToSubstanceLimit
 // ===================================================================
 
 let patientDosageToGenFormDoseRule
-    (zdr    : DoseRule)
+    (zdr    : ZF.DoseRule)
     (indication : string)
     (route  : string)
     (form   : string)
-    (pd     : PatientDosage)
+    (pd     : ZF.PatientDosage)
     : Types.DoseRule option =
 
     // Prefer FormDosage if it has a name; otherwise first SubstanceDosage
@@ -286,12 +296,20 @@ let patientDosageToGenFormDoseRule
 
     Some
         {
-            Source           = "G-Standaard"
+            Id               = ""
+            DataId           = ""
+            GroupId          = ""
+            SortNo           = 0
+            Source           = "G-Standaard" |> Source.other
+            SourceText       = scheduleText
             Indication       = indication
-            Generic          = zdr.Generic
-            Form             = form
-            Brand            = None
+            Generic          =
+                Generic.create
+                    (GenericLabel.toLabel zdr.Generic form "")
+                    (form |> PharmaceuticalForm.fromString)
+                    []
             Route            = route
+            PatientText      = ""
             ScheduleText     = scheduleText
             PatientCategory  = patCat
             DoseType         = doseType
@@ -305,20 +323,22 @@ let patientDosageToGenFormDoseRule
                 [|
                     {
                         Name            = zdr.Generic
-                        GPKs            = [||]
+                        ProductIds      = [||]
                         Limit           = None
                         Products        = [||]
                         SubstanceLimits = substanceLimits
                     }
                 |]
-            RenalRule        = None
+            RenalRuleSource  = None
+            Validated        = None
+            Check            = { FreqCheck = None; DoseCheck = None }
         }
 
 // ===================================================================
 // 9.  Flatten one ZForm.DoseRule into GenFORM.DoseRule entries
 // ===================================================================
 
-let flattenZFormDoseRule (zdr: DoseRule) : Types.DoseRule seq =
+let flattenZFormDoseRule (zdr: ZF.DoseRule) : Types.DoseRule seq =
     seq {
         for ind in zdr.IndicationsDosages do
             let indication =
@@ -386,11 +406,14 @@ let demoRules =
             |> Array.iter (fun dr ->
                 let limStr lim = lim |> Limit.getValueUnit |> ValueUnit.toStringDecimalDutchShort
                 let ageStr =
-                    match dr.PatientCategory.Age.Min, dr.PatientCategory.Age.Max with
-                    | None, None     -> "all ages"
-                    | Some mn, None  -> $"≥ {mn |> limStr}"
-                    | None, Some mx  -> $"< {mx |> limStr}"
-                    | Some mn, Some mx -> $"{mn |> limStr} – {mx |> limStr}"
+                    match dr.PatientCategory.Age with
+                    | Age.IsAdult -> "adult"
+                    | Age.AbsoluteAge age ->
+                        match age.Min, age.Max with
+                        | None, None     -> "all ages"
+                        | Some mn, None  -> $"≥ {mn |> limStr}"
+                        | None, Some mx  -> $"< {mx |> limStr}"
+                        | Some mn, Some mx -> $"{mn |> limStr} – {mx |> limStr}"
 
                 printfn "    • %s | %s | age: %s"
                     dr.Indication
