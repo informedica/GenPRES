@@ -1295,20 +1295,37 @@ module Nutrition =
                         |]
                 |}
 
+        // the spinner lies over the details and takes no room, so the fields stay where they are
+        // while the order reloads
+        let detailsSx = {| position = "relative" |}
+
+        let progressSx =
+            {|
+                position = "absolute"
+                inset = 0
+                display = "flex"
+                alignItems = "center"
+                justifyContent = "center"
+                pointerEvents = "none"
+            |}
+
         let details =
             JSX.jsx
                 $"""
             import Stack from '@mui/material/Stack';
             import Divider from '@mui/material/Divider';
             import Typography from '@mui/material/Typography';
-            <Stack direction={"column"} spacing={1} >
-                {loadingIndicator}
-                {preparationSection}
-                {if isEnteral then null else administrationDivider}
-                {frequencyDoseRow}
-                {rateControl}
-                {resetBar}
-            </Stack>
+            import Box from '@mui/material/Box';
+            <Box sx={detailsSx}>
+                <Stack direction={"column"} spacing={1} >
+                    {preparationSection}
+                    {if isEnteral then null else administrationDivider}
+                    {frequencyDoseRow}
+                    {rateControl}
+                    {resetBar}
+                </Stack>
+                <Box sx={progressSx}>{loadingIndicator}</Box>
+            </Box>
             """
 
         let indicationFilter =
