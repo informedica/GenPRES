@@ -822,6 +822,30 @@ module Types =
         | Refused of SigningRefusal
 
 
+    /// Why an evaluation answers no scenarios: the picks of the filter match no dose rule. The
+    /// same three cases as GenORDER's Refusal, in the contract's own words.
+    [<RequireQualifiedAccess>]
+    type OrderContextRefusal =
+        /// No dose rule exists for the picks at all.
+        | NoDoseRules
+        /// Dose rules exist for the picks, and none of them covers this patient.
+        | NoDoseRulesForPatient
+        /// Dose rules cover the picks and the patient, and none of them can be prescribed: no
+        /// product, or no dose type.
+        | NoProducts
+
+
+    /// The answer to an order-context command. A payload like `LaunchOutcome`: the context
+    /// evaluated, or the context as it was sent, its picks kept, with the refusal. The error
+    /// channel stays for failures.
+    [<RequireQualifiedAccess>]
+    type OrderContextResponse =
+        /// The context evaluated.
+        | Evaluated of OrderContext
+        /// The context as it was sent, and why it could not be evaluated.
+        | Refused of OrderContext * OrderContextRefusal
+
+
     /// What a reply says about the Session next to its result. `NewerVersion`: a version
     /// newer than the one the request's OpenedToken names exists, whose and when; it gates
     /// nothing. `Ended`: the server ended this Session, told at the next request. Lives here,

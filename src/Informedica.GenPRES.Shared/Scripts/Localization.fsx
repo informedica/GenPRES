@@ -684,6 +684,145 @@ let printResetRow () =
     resetRows |> Array.iter (fun r -> r |> String.concat "\t" |> printfn "%s")
 
 
+// --- The reason when no dose rule allows the pick (plan 985, step 3) -------------------------
+//
+// Migrated to `Types.fs` and `Localization.fs` on 2026-09-28; kept as the draft and its tests.
+//
+// The server answers a typed refusal in the reply instead of a Dutch message the client matched
+// on: no dose rule for the picks at all, rules that cover no patient like this one, or rules
+// for the patient that have no product or no dose type to prescribe. The client renders it as
+// a notice on the page the user is on: a title, one body per case naming the picks through
+// `{0}`, and one contact sentence for every site. The two types → `Shared/Types.fs`, after
+// `SigningResponse`; the terms → `Terms`, after ``Prescribe Height unknown``; the rows → the
+// sheet and `data/localization/*.tsv`. The API signature does not change here; step 4 does.
+
+/// → `Shared/Types.fs`. Why an evaluation answers no scenarios; the same three cases as
+/// GenORDER's Refusal, in the contract's own words.
+[<RequireQualifiedAccess>]
+type OrderContextRefusal =
+    /// No dose rule exists for the picks at all.
+    | NoDoseRules
+    /// Dose rules exist for the picks, and none of them covers this patient.
+    | NoDoseRulesForPatient
+    /// Dose rules cover the picks and the patient, and none of them can be prescribed: no
+    /// product, or no dose type.
+    | NoProducts
+
+
+/// → `Shared/Types.fs`. The answer to an order-context command. A payload like `LaunchOutcome`:
+/// the context evaluated, or the context as it was sent, its picks kept, with the refusal.
+/// The error channel stays for failures.
+[<RequireQualifiedAccess>]
+type OrderContextResponse =
+    | Evaluated of Types.OrderContext
+    | Refused of Types.OrderContext * OrderContextRefusal
+
+
+/// → `Shared/Localization.fs`, `Terms`.
+type RefusalTerms =
+    // the title of the notice
+    | ``Prescribe Refusal``
+    // one body per case, the picks filled into {0}
+    | ``Prescribe Refusal No dose rules``
+    | ``Prescribe Refusal Patient``
+    | ``Prescribe Refusal No products``
+    // whom to tell, one sentence for every site
+    | ``Prescribe Refusal Contact``
+
+
+let refusalRows: string[][] =
+    [|
+        [|
+            "Prescribe Refusal"
+            "No dose can be shown"
+            "Er kan geen dosering worden getoond"
+            "Aucune dose ne peut être affichée"
+            "Es kann keine Dosierung angezeigt werden"
+            "No se puede mostrar ninguna dosis"
+            "Non è possibile mostrare alcuna dose"
+        |]
+        [|
+            "Prescribe Refusal No dose rules"
+            "There is no dose rule for {0}"
+            "Er is geen doseerregel voor {0}"
+            "Il n'y a pas de règle de dosage pour {0}"
+            "Es gibt keine Dosierregel für {0}"
+            "No hay ninguna regla de dosificación para {0}"
+            "Non esiste una regola di dosaggio per {0}"
+        |]
+        [|
+            "Prescribe Refusal Patient"
+            "There are dose rules for {0}, but none covers the age, weight or department of this patient"
+            "Er zijn doseerregels voor {0}, maar geen ervan geldt voor de leeftijd, het gewicht of de afdeling van deze patiënt"
+            "Il existe des règles de dosage pour {0}, mais aucune ne couvre l'âge, le poids ou le service de ce patient"
+            "Es gibt Dosierregeln für {0}, aber keine gilt für Alter, Gewicht oder Abteilung dieses Patienten"
+            "Hay reglas de dosificación para {0}, pero ninguna cubre la edad, el peso o el departamento de este paciente"
+            "Esistono regole di dosaggio per {0}, ma nessuna copre l'età, il peso o il reparto di questo paziente"
+        |]
+        [|
+            "Prescribe Refusal No products"
+            "There are dose rules for {0} that cover this patient, but none has a product that can be prescribed"
+            "Er zijn doseerregels voor {0} die voor deze patiënt gelden, maar geen ervan heeft een product dat voorgeschreven kan worden"
+            "Il existe des règles de dosage pour {0} qui couvrent ce patient, mais aucune n'a de produit prescriptible"
+            "Es gibt Dosierregeln für {0}, die für diesen Patienten gelten, aber keine hat ein verordenbares Produkt"
+            "Hay reglas de dosificación para {0} que cubren a este paciente, pero ninguna tiene un producto que se pueda prescribir"
+            "Esistono regole di dosaggio per {0} che coprono questo paziente, ma nessuna ha un prodotto prescrivibile"
+        |]
+        [|
+            "Prescribe Refusal Contact"
+            "Report this to the pharmacy or the application manager, so that the rule can be added"
+            "Meld dit bij de apotheek of de applicatiebeheerder, zodat de regel toegevoegd kan worden"
+            "Signalez-le à la pharmacie ou au gestionnaire de l'application, afin que la règle puisse être ajoutée"
+            "Melden Sie dies der Apotheke oder dem Anwendungsbetreuer, damit die Regel ergänzt werden kann"
+            "Comuníquelo a la farmacia o al administrador de la aplicación, para que se pueda añadir la regla"
+            "Segnalalo alla farmacia o al responsabile dell'applicazione, in modo che la regola possa essere aggiunta"
+        |]
+    |]
+
+
+let refusalTests =
+    testList
+        "refusal terms"
+        [
+            test "the keys are the cases' names, and resolve in every language" {
+                [
+                    ``Prescribe Refusal``
+                    ``Prescribe Refusal No dose rules``
+                    ``Prescribe Refusal Patient``
+                    ``Prescribe Refusal No products``
+                    ``Prescribe Refusal Contact``
+                ]
+                |> List.map (fun t -> $"{t}")
+                |> Expect.equal "the keys" (refusalRows |> Array.map (fun r -> r[0]) |> Array.toList)
+
+                for r in refusalRows do
+                    for l in languages do
+                        getTerm refusalRows l r[0] |> Expect.isSome $"{r[0]} in {l}"
+            }
+
+            test "every body takes the picks, the title and the contact sentence take none" {
+                for r in refusalRows do
+                    let takesPicks = r[0] <> "Prescribe Refusal" && r[0] <> "Prescribe Refusal Contact"
+
+                    for text in r[1..] do
+                        text.Contains "{0}" |> Expect.equal $"{r[0]}: {text}" takesPicks
+            }
+
+            test "the picks fill the body" {
+                getTerm refusalRows Dutch "Prescribe Refusal Patient"
+                |> Option.map (fill [ "salbutamol, intraveneus" ])
+                |> Expect.equal
+                    "filled"
+                    (Some
+                        "Er zijn doseerregels voor salbutamol, intraveneus, maar geen ervan geldt voor de leeftijd, het gewicht of de afdeling van deze patiënt")
+            }
+        ]
+
+
+let printRefusalRows () =
+    refusalRows |> Array.iter (fun r -> r |> String.concat "\t" |> printfn "%s")
+
+
 runTestsWithCLIArgs
     []
     [||]
@@ -696,5 +835,6 @@ runTestsWithCLIArgs
             patientTests
             prescribeTests
             resetTests
+            refusalTests
         ])
 |> ignore
