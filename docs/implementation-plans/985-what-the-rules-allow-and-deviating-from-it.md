@@ -263,3 +263,4 @@ outside this plan.
 
 | Step | Pull request | Note |
 |---|---|---|
+| 1, the plan | #1146 | Read locally before the push: #505 had been closed the same morning, and the plan says so. |
