@@ -88,6 +88,16 @@ server mirrors those for the button text as `LargeIncr`
 `isWithinConstraints` reads the same flag for a different purpose, the level of a value, and
 does not change.
 
+The calculated increment is not arbitrary. For a discontinuous order in volume units the
+pipeline step `increaseIncrements` (`Order.fs`, run with a limit of ten values) widens the
+orderable quantity and rate increments through 0.1, 0.5, 1, 5, 10 and 20 ml until at most ten
+values remain, and the calculated increment is the grid the order narrowed to. Today's large
+step moves along that grid. After the change a large step of ten times 0.1 ml on a variable
+whose grid is 5 ml is snapped to the grid by `pickNearestHigherElseLower` after the re-solve, so
+it may not move the value, or move it 5 ml. The small step, ten times smaller, has had this
+since it stepped by the defined increment; the change makes the two steps agree. A continuous
+order is not widened, so the 0.1 ml/h rate, the common case, steps as it does today.
+
 **The rule.** In GenORDER:
 
 - `OrderVariable.largeStepFactor`, a documented domain constant of ten, beside `step`.
@@ -97,20 +107,30 @@ does not change.
 - `Quantity.stepQuantity` and `Dose.stepRate` lose their special cases and pass the flag
   through, so every stepped variable follows the one rule.
 - `OrderVariable.largeIncrement`: the defined increment times the factor, the one place the
-  server reads the step it will make.
+  step the server will make is read.
+- A defined increment holds one value. `Increment.create` allows several, and `step` would
+  turn a two-valued increment into a set of values, for the small step today as much as for the
+  large step. The rule takes the single value as given; the script asserts it for every
+  increment `Medication.fs` sets.
+- `OrderVariable.Dto` gains `LargeIncrOpt`, filled by `Dto.toDto` from `largeIncrement`, so the
+  factor lives in GenORDER alone and the server only copies the value.
 
-**The server.** `mapLargeIncr` reads `OrderVariable.largeIncrement` in place of the calculated
-increment and the coarse multiplication; the three mappers per kind of variable and the two
-0.1 increments collapse into `mapToOrderVariable`. Every variable with a defined increment then
+**The server.** `mapLargeIncr` copies `dto.LargeIncrOpt` in place of the calculated increment
+and the coarse multiplication; the three mappers per kind of variable and the two 0.1
+increments collapse into `mapToOrderVariable`. Every variable with a defined increment then
 carries a `LargeIncr`, those the client never steps large included; the client offers the large
-step only where it has a command for it.
+step only where it has a command for it. A test in `Server.Tests` reads the mapped `LargeIncr`
+of a variable with a defined increment, and None of one without.
 
 **The client.** No change of code but the comments: `LargeIncr` is still the text on the outer
 buttons, and the outer buttons still send the flag. On screen the outer buttons now appear on
-every stepable dose quantity, dose rate and component quantity with a defined increment, where
-today they are left out when the calculated increment equals the defined one; frequency keeps
-them out, since its stepper names no large step. Comments in `ViewHelpers.fs` and
-`QuantityField.fs` that call the large step the server's calculated increment say what it is now.
+every stepable dose quantity, dose rate and component quantity with a defined increment, in the
+order view and the nutrition view alike, where today they are left out when the calculated
+increment equals the defined one; frequency keeps them out in both views, since its stepper
+names no large step. Comments in `ViewHelpers.fs` and `QuantityField.fs` that call the large
+step the server's calculated increment say what it is now, and the `LargeIncr` field in
+`Shared/Types.fs`, whose comment says only a variable whose outer step differs emits one, gets a
+`///` comment that says what it carries.
 
 **Left to the maintainer.** The flag is named `useCalc` in GenORDER, `Shared.Api`, the server
 mappers and both client message types, and after this change it means "large step". Renaming
@@ -148,11 +168,16 @@ let toggle fold = { fold with Override = Some (not (isOpen fold)) }
   orderable concentration otherwise, and the total orderable quantity. The heading shows when
   the list is not empty; the section is solved when `SectionFold.allSolved` says so. Today the
   heading tests the concentration's values where the field tests its defined values; the list
-  follows the field, so the heading shows exactly when a preparation field shows.
+  follows the field, so the heading shows exactly when a preparation field shows. Two things
+  make that exact: the concentration field has a second branch, the component's item of the
+  component's own name when the selected item is not found, and the list follows both; and a
+  field without values and without steps renders nothing, so a variable enters the list only
+  when its field would show.
 - The fold is component-local state, as the view already keeps which field is being changed: a
-  React state
-  holding the `Fold`, and an effect keyed on the solved flag that applies `observe`. Keyed on
-  the flag, so an answer that keeps the section solved does not reopen it.
+  React state holding the `Fold`, and an effect keyed on the order's id and the solved flag that
+  applies `observe`, and `initial` when the id changed. Keyed on the flag, so an answer that
+  keeps the section solved does not reopen it; keyed on the id, so the user's toggle does not
+  carry over to another order shown by the same component.
 - The five fields render inside `Components.Disclosure` with the fold's open state and toggle,
   and the mobile flag and padding the patient panel passes.
   The summary is the heading text and, when solved, one `ValueChip` per preparation variable
@@ -173,7 +198,9 @@ let toggle fold = { fold with Override = Some (not (isOpen fold)) }
 High for the large step: the rule replaces two special cases with one, and every stepped
 variable already goes through `OrderVariable.step`. A 0.1 ml quantity and a 0.1 ml/h rate whose
 defined increment is 0.1 as well step the same as today; a variable whose calculated increment
-differed from its defined one steps differently, which is the decision.
+differed from its defined one steps differently, which is the decision. What is given up is the
+large step along the widened grid of a discontinuous order; the order-level test of step 2 shows
+where such a step lands.
 
 High for the fold: the rule is small and tested, and the component exists.
 
@@ -191,17 +218,22 @@ code pull request.
    to +1 mg small and +10 mg large; the calculated increment is ignored where it differs from
    the defined one; a 0.1 ml quantity and a 0.1 ml/h rate step 1 ml and 1 ml/h large, as
    today, and a 0.5 ml quantity 5 ml, where today it stepped 0.5 ml; no defined increment
-   leaves the variable unchanged; `largeIncrement` is None without one. The server mapper
-   change is prototyped in `src/Informedica.GenPRES.Server/Scripts/` against it. The comments in
-   the client and the `useCalc` bullet in
+   leaves the variable unchanged; `largeIncrement` is None without one; every defined increment
+   `Medication.fs` sets holds one value; `Dto.toDto` fills `LargeIncrOpt`. One order-level test
+   steps a discontinuous order whose quantity increment was widened through the pipeline and
+   records where the value lands. The server mapper change is prototyped in
+   `src/Informedica.GenPRES.Server/Scripts/` against it, with the mapper test of `Server.Tests`.
+   The comments in the client, the `LargeIncr` comment in `Shared/Types.fs`, the `useCalc`
+   bullet and the step node of the diagram in
    [the dose quantity stepping flow](../domain/dose-quantity-stepping-flow.md) and the icons
    bullet in [plan 1102](1102-one-quantity-field-for-every-order-variable.md) follow in the same
-   pull request. About 50 source lines in GenORDER; about 40 removed in the server.
+   pull request. About 60 source lines in GenORDER; about 40 removed in the server.
 3. **The preparation section folds when solved.** A script in
    `src/Informedica.GenPRES.Client.Core/Scripts/` with `SectionFold` and its tests: open when
    not solved, folded when solved, the toggle flips and holds, `observe` with the same state
    keeps the toggle and with a changed state drops it, an empty section counts as solved. Then
-   the view. About 40 source lines in `Client.Core`, about 80 in `Views/Order.fs`.
+   the view, where the effect also starts the fold anew when the order's id changes. About 40
+   source lines in `Client.Core`, about 80 in `Views/Order.fs`.
 4. **Docs and issues**, as above.
 
 ## Verification
@@ -216,12 +248,15 @@ code pull request.
   click sends the property command with a count of one and the flag set, and the value moves
   ten increments; a 0.1 ml/h rate still moves 1 ml/h; a dose quantity whose calculated increment
   equalled its defined one now shows its outer buttons; frequency shows no outer slots; a dose
-  quantity of a multi-component orderable still saturates at the prepared quantity. The nutrition
-  view's fields are unchanged, and its frequency shows no outer slots either.
+  quantity of a multi-component orderable still saturates at the prepared quantity. On a
+  paracetamol oral solution whose quantity increment the pipeline widened, a large step lands on
+  the widened grid, as the order-level test says. In the nutrition view a stepable component
+  quantity and dose rate show their outer buttons as well, reading ten times the defined
+  increment, and its frequency shows no outer slots.
 - Step 3: the script's tests, then the `Client.Core` tests. In the browser, on a
   multi-component order such as a reconstituted antibiotic: the preparation heading shows exactly
   when a preparation field shows; the section is open while any preparation variable has more
-  than one value; it folds with its value chips once
-  all hold one; opened by hand, it stays open through a step that keeps it solved; clearing a
-  preparation value reopens it; the dosing and administration sections are unchanged.
+  than one value; it folds with its value chips once all hold one; opened by hand, it stays open
+  through a step that keeps it solved; clearing a preparation value reopens it; opening another
+  order from the plan starts the fold anew; the dosing and administration sections are unchanged.
 - Docs: `npx markdownlint-cli2` on the touched files.
