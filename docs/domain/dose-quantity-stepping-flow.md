@@ -27,7 +27,7 @@ flowchart TD
         GEVAL["evaluate -> processPropertyCmd<br/>ChangeProperty(o, ...DoseQuantity)<br/>Api.fs"]
         PIPE["OrderProcessor.processPipeline<br/>ChangeProperty case<br/>OrderProcessor.fs"]
         PCHANGE["processChangeProperty<br/>Dose.increase/decreaseQuantity<br/>OrderProcessor.fs"]
-        STEP["OrderVariable.step true/false useCalc n<br/>min + N*incr  /  max - N*incr<br/>pickNearestHigherElseLower<br/>OrderVariable.fs"]
+        STEP["OrderVariable.step true/false useCalc n<br/>min + N*incr  /  max - N*incr<br/>OrderVariable.fs"]
         CALCMM["calcMinMaxStep<br/>recompute constraints<br/>OrderProcessor.fs"]
         SOLVE["Order.solve<br/>mapToOrderEquations -> ... -> mapFromOrderEquations<br/>Order.fs"]
     end
@@ -136,8 +136,12 @@ confirmed solver result.
 - **`useCalc`** flag decides whether stepping uses calculated constraints vs
   defined ones (`OrderVariable.step`).
 - **The step math** (`OrderVariable.fs`): increase = `min + N*incr`,
-  decrease = `max - N*incr`, then `pickNearestHigherElseLower` snaps to a
-  feasible value in the variable's domain.
+  decrease = `max - N*incr`. The stepped value is set as the variable's one
+  value and re-solved; nothing snaps it to the grid the order had narrowed
+  to. The solver either accepts it or fails, and a failed solve leaves the
+  order as it was before the step (`processScenarioOrder` in `Api.fs`), which
+  the client shows as the value coming back. `pickNearestHigherElseLower`
+  runs for component quantities in the solve pipeline, not after a step.
 - **Re-solve**: after the property change, `calcMinMaxStep` recomputes
   constraints and `Order.solve` feeds equations to GenSOLVER, which returns
   refined domains mapped back into the `OrderScenario` DTO.
@@ -158,7 +162,7 @@ confirmed solver result.
 | GenORDER eval | `src/Informedica.GenORDER.Lib/Api.fs` | `evaluate` / `processPropertyCmd` |
 | Pipeline | `src/Informedica.GenORDER.Lib/OrderProcessor.fs` | `processPipeline` |
 | Property change | `src/Informedica.GenORDER.Lib/OrderProcessor.fs` | `processChangeProperty` |
-| Step math | `src/Informedica.GenORDER.Lib/OrderVariable.fs` | `step`, `pickNearestHigherElseLower` |
+| Step math | `src/Informedica.GenORDER.Lib/OrderVariable.fs` | `step` |
 | Constraint recalc | `src/Informedica.GenORDER.Lib/OrderProcessor.fs` | `calcMinMaxStep` |
 | Solve | `src/Informedica.GenORDER.Lib/Order.fs` | `solve` |
 | UI re-render | `src/Informedica.GenPRES.Client/Views/Order.fs` | dose quantity field |

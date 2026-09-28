@@ -11,6 +11,7 @@ and how the preparation section behaves once it is solved.
 - [Confidence](#confidence)
 - [Steps](#steps)
 - [Verification](#verification)
+- [As built](#as-built)
 
 ## Problem description
 
@@ -158,3 +159,23 @@ pull request.
   preparation value reopens it; opening another order from the plan starts the fold anew; the
   dosing and administration sections are unchanged.
 - Docs: `npx markdownlint-cli2` on the touched files.
+
+## As built
+
+| Step | Pull request | Note |
+|---|---|---|
+| 1, the plan | #1128 | Two review rounds: a stepped value is re-solved, not snapped, and the tenfold exceptions of the stepping are named. The server's copy of the stepping rule became #1129. |
+| 2, the fold | #1131 | `SectionFold` in `Client.Core` with fourteen tests, the view in `Order.fs`, two icons in `MUI.fs`. |
+
+Deviations from the plan, both on the maintainer's check in the browser:
+
+- The folded section shows its heading as the other sections show theirs, a line with the name,
+  with a button beside the name that opens and folds it. `Disclosure` and the value chips were
+  built and taken out again: the accordion did not look like the dosing and administration
+  sections beside it.
+- The five fields stand as plain siblings in the dialog while the section is open, and are not
+  rendered while it is folded.
+
+From the review of #1131: the list of preparation variables tests what each field shows, so a
+component quantity holding only a range keeps its heading and field; the fold button is named
+after its section for a screen reader.
