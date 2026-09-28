@@ -112,9 +112,17 @@ module OrderContextWorkbench =
         | OrderContextWorkbenchMsg.Seed ctx, OrderContextWorkbench.Evaluated(pat, _) ->
             workbench, [ OrderContextWorkbenchIntent.Evaluate { ctx with Patient = pat } ]
 
-        // a command over the workbench held, always for the patient held
-        | OrderContextWorkbenchMsg.Command(cmd, ctx), OrderContextWorkbench.Evaluated(pat, _) ->
-            workbench, [ OrderContextWorkbenchIntent.Call(cmd, { ctx with Patient = pat }) ]
+        // a command over the workbench held, always for the patient held; a reset takes the
+        // argumentation with it as it goes out, from the context held and the one sent, so that
+        // its answer keeps what the client holds by then, a text written meanwhile included
+        | OrderContextWorkbenchMsg.Command(cmd, ctx), OrderContextWorkbench.Evaluated(pat, held) ->
+            let sent = { ctx with Patient = pat }
+
+            if ArgumentationPolicy.clearedBy cmd then
+                OrderContextWorkbench.Evaluated(pat, ArgumentationPolicy.clear held),
+                [ OrderContextWorkbenchIntent.Call(cmd, ArgumentationPolicy.clear sent) ]
+            else
+                workbench, [ OrderContextWorkbenchIntent.Call(cmd, sent) ]
         // nothing to command without a patient
         | OrderContextWorkbenchMsg.Command _, OrderContextWorkbench.NoPatient -> workbench, []
 

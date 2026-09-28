@@ -5,6 +5,7 @@ module Informedica.GenPRES.Client.Core.Tests.ArgumentationPolicyTests
 open Expecto
 open Expecto.Flip
 open Shared.Types
+open Shared.Api
 open Informedica.GenPRES.Client.Core.Tests.OrderPlanMachineTests.Fixtures
 
 
@@ -131,5 +132,46 @@ let tests =
                 kept.OrderContexts
                 |> Array.map _.Argumentation
                 |> Expect.equal "the client's on c-1 and c-2, the answer's on c-3" [| Some "held"; Some text; None |]
+            }
+        ]
+
+
+/// The reset: the one command that clears the text, as it goes out.
+[<Tests>]
+let resetTests =
+    testList
+        "ArgumentationPolicy, the reset"
+        [
+            test "the reset is the one command that clears the text" {
+                ArgumentationPolicy.clearedBy OrderContextCommand.ResetOrderScenario
+                |> Expect.isTrue "the reset"
+
+                [
+                    OrderContextCommand.UpdateOrderContext
+                    OrderContextCommand.SelectOrderScenario
+                    OrderContextCommand.UpdateOrderScenario
+                    OrderContextCommand.IncreaseOrderableDoseQuantityProperty(1, false)
+                ]
+                |> List.exists ArgumentationPolicy.clearedBy
+                |> Expect.isFalse "no other"
+            }
+
+            test "clear takes the text off a context; clearIn off the context named in a plan" {
+                let argued = { context "c-1" "paracetamol" with Argumentation = Some text }
+
+                (argued |> ArgumentationPolicy.clear).Argumentation |> Expect.isNone "cleared"
+
+                let held =
+                    two
+                    |> ArgumentationPolicy.writeIn "c-1" text
+                    |> ArgumentationPolicy.writeIn "c-2" "other"
+
+                (held |> ArgumentationPolicy.clearIn "c-1").OrderContexts
+                |> Array.map _.Argumentation
+                |> Expect.equal "c-1 cleared, c-2 kept" [| None; Some "other" |]
+
+                held
+                |> ArgumentationPolicy.clearIn "c-9"
+                |> Expect.equal "unknown id: unchanged" held
             }
         ]

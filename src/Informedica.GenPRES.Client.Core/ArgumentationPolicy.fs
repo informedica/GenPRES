@@ -6,6 +6,7 @@ module ArgumentationPolicy
 
 open Shared.Types
 open Shared.Models
+open Shared.Api
 
 
 /// Every order variable of an order: the adjust and the duration, the schedule's two, the
@@ -113,3 +114,22 @@ let keepAll (held: OrderPlan) (answered: OrderPlan) =
                 |> Option.defaultValue c
             )
     }
+
+
+/// The one command that clears the text: a reset puts the order back within what the rules
+/// allow, and the text argues the deviation it undoes. The text goes as the reset goes out, so
+/// that the answer keeps what the client holds, as every answer does, and a text written while
+/// the reset runs is kept.
+let clearedBy (cmd: OrderContextCommand) =
+    match cmd with
+    | OrderContextCommand.ResetOrderScenario -> true
+    | _ -> false
+
+
+/// The context without its argumentation.
+let clear (ctx: OrderContext) = { ctx with Argumentation = None }
+
+
+/// The plan with the context named cleared of its argumentation; a plan without it unchanged.
+let clearIn (id: string) (plan: OrderPlan) =
+    { plan with OrderContexts = plan.OrderContexts |> Array.map (fun c -> if c.Id = id then clear c else c) }

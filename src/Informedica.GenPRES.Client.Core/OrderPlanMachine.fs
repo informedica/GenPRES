@@ -170,7 +170,16 @@ module OrderPlanCart =
         | OrderPlanCartMsg.Version head, OrderPlanCart.Opened(pat, _) ->
             OrderPlanCart.Opened(pat, OrderPlan.create pat [||]), [ OrderPlanCartIntent.Open(pat, head.OrderContexts) ]
 
-        // a change from a page, over the plan held
+        // a change from a page, over the plan held; a reset navigated into a context takes its
+        // argumentation with it as it goes out, from the plan held and the context sent, so that
+        // its answer keeps what the client holds by then, a text written meanwhile included
+        | OrderPlanCartMsg.Command(OrderPlanCommand.Navigate(_, id, ctxCmd, ctx)), OrderPlanCart.Opened(pat, tp) when
+            ArgumentationPolicy.clearedBy ctxCmd
+            ->
+            let tp = tp |> ArgumentationPolicy.clearIn id
+            let cmd = OrderPlanCommand.Navigate(tp, id, ctxCmd, ArgumentationPolicy.clear ctx)
+
+            OrderPlanCart.Opened(pat, tp), [ OrderPlanCartIntent.Call cmd ]
         | OrderPlanCartMsg.Command cmd, OrderPlanCart.Opened(_, tp) -> plan, [ OrderPlanCartIntent.Call(rebase tp cmd) ]
         | OrderPlanCartMsg.Command _, _ -> plan, []
 

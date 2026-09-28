@@ -816,6 +816,45 @@ let argueTests =
                 |> Expect.equal "the seed, no text" (OrderContextView.Settled seed)
             }
 
+            test "a reset takes the text with it as it goes out; a text written meanwhile survives its answer" {
+                let resetting, effects =
+                    held argued
+                    |> transition (OrderContextMsg.Command(OrderContextCommand.ResetOrderScenario, argued, "r-1"))
+
+                effects
+                |> Expect.equal
+                    "the context sent without the text"
+                    [
+                        OrderContextEffect.CallContext(OrderContextCommand.ResetOrderScenario, paracetamol, "r-1")
+                    ]
+
+                resetting
+                |> OrderContextState.view
+                |> Expect.equal "shown without the text meanwhile" (OrderContextView.Changing paracetamol)
+
+                // the server echoes the text it was not sent: the answer keeps none
+                let landed, _ =
+                    resetting
+                    |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated argued)))
+
+                landed
+                |> OrderContextState.view
+                |> Expect.equal "cleared" (OrderContextView.Settled paracetamol)
+
+                // a text written while the reset runs is the newer intent, and stays
+                let newer = paracetamol |> ArgumentationPolicy.write "newer"
+
+                let landed, _ =
+                    resetting
+                    |> transition (OrderContextMsg.Argue "newer")
+                    |> fst
+                    |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
+
+                landed
+                |> OrderContextState.view
+                |> Expect.equal "the newer text kept" (OrderContextView.Settled newer)
+            }
+
             test "blank clears the text; nothing without a patient" {
                 let state, _ = held argued |> transition (OrderContextMsg.Argue "   ")
 

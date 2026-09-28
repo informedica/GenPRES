@@ -946,6 +946,60 @@ let argueTests =
                 | other -> failtest $"expected settled, got %A{other}"
             }
 
+            test "a reset navigated into a context takes its text with it as it goes out, the other keeps its own" {
+                let argued =
+                    two
+                    |> ArgumentationPolicy.writeIn "c-1" text
+                    |> ArgumentationPolicy.writeIn "c-2" "other"
+
+                let ctx = argued.OrderContexts[0]
+                let reset = OrderPlanCommand.Navigate(argued, "c-1", OrderContextCommand.ResetOrderScenario, ctx)
+                let cleared = argued |> ArgumentationPolicy.clearIn "c-1"
+
+                let busy, effects = held argued (Some "c-1") |> transition (OrderPlanMsg.Command(reset, "r-1"))
+
+                effects
+                |> Expect.equal
+                    "the plan and the context sent without the text"
+                    [
+                        OrderPlanEffect.CallPlan(
+                            OrderPlanCommand.Navigate(
+                                cleared,
+                                "c-1",
+                                OrderContextCommand.ResetOrderScenario,
+                                ArgumentationPolicy.clear ctx
+                            ),
+                            "r-1"
+                        )
+                    ]
+
+                let texts (state: OrderPlanState) =
+                    match state |> OrderPlanState.view with
+                    | OrderPlanView.Settled(tp, _)
+                    | OrderPlanView.Changing(tp, _) -> tp.OrderContexts |> Array.map _.Argumentation
+                    | OrderPlanView.NoPatient -> [||]
+
+                busy
+                |> texts
+                |> Expect.equal "shown without the text meanwhile" [| None; Some "other" |]
+
+                // the server echoes the text it was not sent: the answer keeps what the plan holds
+                busy
+                |> transition (OrderPlanMsg.Answered("r-1", Ok argued))
+                |> fst
+                |> texts
+                |> Expect.equal "c-1 cleared, c-2 kept" [| None; Some "other" |]
+
+                // a text written while the reset runs is the newer intent, and stays
+                busy
+                |> transition (OrderPlanMsg.Argue("c-1", "newer"))
+                |> fst
+                |> transition (OrderPlanMsg.Answered("r-1", Ok argued))
+                |> fst
+                |> texts
+                |> Expect.equal "the newer text kept" [| Some "newer"; Some "other" |]
+            }
+
             test "not admitted while a signature is under way" {
                 let argue = OrderPlanMsg.Argue("c-1", text)
 
