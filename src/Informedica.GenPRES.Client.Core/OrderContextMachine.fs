@@ -121,12 +121,13 @@ module OrderContextWorkbench =
         // nothing was asked without a patient, so nothing lands there
         | OrderContextWorkbenchMsg.Landed _, OrderContextWorkbench.NoPatient -> workbench, []
         // an answer lands for the patient held, with the argumentation as it was sent: the text
-        // is the client's own, and an answer computed over an earlier text does not take it back
-        | OrderContextWorkbenchMsg.Landed((_, sent), Ok(OrderContextResponse.Evaluated ctx)),
+        // is the client's own, and an answer computed over an earlier text does not take it
+        // back; a reset's answer is the one that clears it
+        | OrderContextWorkbenchMsg.Landed((cmd, sent), Ok(OrderContextResponse.Evaluated ctx)),
           OrderContextWorkbench.Evaluated(pat, _) ->
-            OrderContextWorkbench.Evaluated(pat, ctx |> ArgumentationPolicy.keep sent), []
-        | OrderContextWorkbenchMsg.Landed((_, sent), Ok(OrderContextResponse.Refused(back, _))),
-          OrderContextWorkbench.Evaluated(pat, _) -> refused pat (back |> ArgumentationPolicy.keep sent)
+            OrderContextWorkbench.Evaluated(pat, ctx |> ArgumentationPolicy.keepFor cmd sent), []
+        | OrderContextWorkbenchMsg.Landed((cmd, sent), Ok(OrderContextResponse.Refused(back, _))),
+          OrderContextWorkbench.Evaluated(pat, _) -> refused pat (back |> ArgumentationPolicy.keepFor cmd sent)
         // a failed change leaves the workbench as the request found it, never the context sent,
         // whose order and texts the server did not confirm; for a failed first evaluation that
         // is the empty workbench

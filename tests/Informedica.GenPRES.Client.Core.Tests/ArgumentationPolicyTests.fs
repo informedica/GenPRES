@@ -5,6 +5,7 @@ module Informedica.GenPRES.Client.Core.Tests.ArgumentationPolicyTests
 open Expecto
 open Expecto.Flip
 open Shared.Types
+open Shared.Api
 open Informedica.GenPRES.Client.Core.Tests.OrderPlanMachineTests.Fixtures
 
 
@@ -131,5 +132,67 @@ let tests =
                 kept.OrderContexts
                 |> Array.map _.Argumentation
                 |> Expect.equal "the client's on c-1 and c-2, the answer's on c-3" [| Some "held"; Some text; None |]
+            }
+        ]
+
+
+/// The reset: the one command whose answer clears the text.
+[<Tests>]
+let resetTests =
+    testList
+        "ArgumentationPolicy, the reset"
+        [
+            test "the reset is the one command whose answer clears the text" {
+                ArgumentationPolicy.clearedBy OrderContextCommand.ResetOrderScenario
+                |> Expect.isTrue "the reset"
+
+                [
+                    OrderContextCommand.UpdateOrderContext
+                    OrderContextCommand.SelectOrderScenario
+                    OrderContextCommand.UpdateOrderScenario
+                    OrderContextCommand.IncreaseOrderableDoseQuantityProperty(1, false)
+                ]
+                |> List.exists ArgumentationPolicy.clearedBy
+                |> Expect.isFalse "no other"
+            }
+
+            test "keepFor: cleared after a reset, as sent after any other command" {
+                let sent = { context "c-1" "paracetamol" with Argumentation = Some text }
+                let answered = { sent with Argumentation = Some "the server's echo" }
+
+                (answered
+                 |> ArgumentationPolicy.keepFor OrderContextCommand.ResetOrderScenario sent)
+                    .Argumentation
+                |> Expect.isNone "cleared"
+
+                (answered
+                 |> ArgumentationPolicy.keepFor OrderContextCommand.UpdateOrderScenario sent)
+                    .Argumentation
+                |> Expect.equal "as sent" (Some text)
+            }
+
+            test "keepAllFor: the context a reset navigated into is cleared, the others keep the client's" {
+                let held =
+                    two
+                    |> ArgumentationPolicy.writeIn "c-1" text
+                    |> ArgumentationPolicy.writeIn "c-2" "other"
+
+                let reset =
+                    OrderPlanCommand.Navigate(held, "c-1", OrderContextCommand.ResetOrderScenario, context "c-1" "p")
+
+                let step =
+                    OrderPlanCommand.Navigate(held, "c-1", OrderContextCommand.UpdateOrderScenario, context "c-1" "p")
+
+                (two |> ArgumentationPolicy.keepAllFor reset held).OrderContexts
+                |> Array.map _.Argumentation
+                |> Expect.equal "c-1 cleared, c-2 kept" [| None; Some "other" |]
+
+                (two |> ArgumentationPolicy.keepAllFor step held).OrderContexts
+                |> Array.map _.Argumentation
+                |> Expect.equal "both kept" [| Some text; Some "other" |]
+
+                (two |> ArgumentationPolicy.keepAllFor (OrderPlanCommand.Recalculate two) held).OrderContexts
+                |> Array.map _.Argumentation
+                |> Expect.equal "a recalculation keeps both" [| Some text; Some "other" |]
             }
         ]

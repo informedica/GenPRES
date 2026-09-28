@@ -1,3 +1,5 @@
+// Migrated to ArgumentationPolicy.fs, the two machines and their tests on 2026-09-28; kept as the draft.
+//
 // #1160, found in the browser check of step 9 of the plan for #985: a reset of the order in the
 // dose dialog put the dose back within what the rules allow and left the argumentation under
 // it, since the machines keep the text over every answer (#1158). The reset's answer is now the

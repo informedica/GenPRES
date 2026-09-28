@@ -946,6 +946,26 @@ let argueTests =
                 | other -> failtest $"expected settled, got %A{other}"
             }
 
+            test "a reset navigated into a context clears its text, the other context keeps its own" {
+                let argued =
+                    two
+                    |> ArgumentationPolicy.writeIn "c-1" text
+                    |> ArgumentationPolicy.writeIn "c-2" "other"
+
+                let reset =
+                    OrderPlanCommand.Navigate(argued, "c-1", OrderContextCommand.ResetOrderScenario, context "c-1" "p")
+
+                let busy = recalculating argued (Some "c-1") "r-1" reset
+                let landed, _ = busy |> transition (OrderPlanMsg.Answered("r-1", Ok argued))
+
+                match landed |> OrderPlanState.view with
+                | OrderPlanView.Settled(tp, _) ->
+                    tp.OrderContexts
+                    |> Array.map _.Argumentation
+                    |> Expect.equal "c-1 cleared" [| None; Some "other" |]
+                | other -> failtest $"expected settled, got %A{other}"
+            }
+
             test "not admitted while a signature is under way" {
                 let argue = OrderPlanMsg.Argue("c-1", text)
 

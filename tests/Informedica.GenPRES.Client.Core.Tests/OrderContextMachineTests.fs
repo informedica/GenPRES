@@ -816,6 +816,28 @@ let argueTests =
                 |> Expect.equal "the seed, no text" (OrderContextView.Settled seed)
             }
 
+            test "a reset's answer clears the text, though the server echoes it; a step's answer keeps it" {
+                let resetting = inFlight OrderContextCommand.ResetOrderScenario argued argued "r-1"
+
+                let landed, _ =
+                    resetting
+                    |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated argued)))
+
+                landed
+                |> OrderContextState.view
+                |> Expect.equal "cleared" (OrderContextView.Settled paracetamol)
+
+                let stepping = inFlight OrderContextCommand.UpdateOrderScenario argued argued "r-2"
+
+                let landed, _ =
+                    stepping
+                    |> transition (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated paracetamol)))
+
+                landed
+                |> OrderContextState.view
+                |> Expect.equal "kept" (OrderContextView.Settled argued)
+            }
+
             test "blank clears the text; nothing without a patient" {
                 let state, _ = held argued |> transition (OrderContextMsg.Argue "   ")
 

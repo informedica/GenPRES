@@ -133,10 +133,10 @@ module OrderPlanCart =
 
     /// The plan answered, with the argumentation the client holds on every context it held,
     /// since the text is the client's own and an answer computed over an earlier text does not
-    /// take it back; its drugs checked; an order prescribed opens the plan page and clears the
-    /// workbench.
+    /// take it back, except the context a reset navigated into, which the reset clears; its
+    /// drugs checked; an order prescribed opens the plan page and clears the workbench.
     let private answered (pat: Patient) (held: OrderPlan) (sent: OrderPlanCommand) (tp: OrderPlan) =
-        let tp = tp |> ArgumentationPolicy.keepAll held
+        let tp = tp |> ArgumentationPolicy.keepAllFor sent held
 
         let prescribed =
             match sent with
