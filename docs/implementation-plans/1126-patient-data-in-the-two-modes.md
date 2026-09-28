@@ -214,6 +214,7 @@ Not part of this plan; each worth its own issue if wanted:
 | 1, the plan | #1133 | One review round: the server fills in only the missing measure, so a client estimate of the other is kept; an unknown gender over a table with rows for one sex only still refuses. |
 | 2, the panel | #1134 | No reset and no clear cross on weight, height and gestational age for an identified patient; renal function keeps its cross. The two patient modes plan amended, the held patient context scenario and the launch workflow updated. |
 | 3, the server | #1135 | `Patient.estimate` and `AppEnv.normalValues`; each command's `aged` became `patients`. Prototyped in a script and migrated in the same pull request; thirteen tests in `AgeOnRequestTests.fs`. |
+| 4, the closing docs | #1139 | This table; #1126 closed. |
 
 Deviation from the plan, from the review of #1135: signing takes no estimate. The challenge is a
 digest of the plan as sent, and estimates filled in at the challenge and again at the submission,
