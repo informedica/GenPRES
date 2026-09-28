@@ -616,22 +616,20 @@ let tests =
                         |> Expect.isTrue "computed"
                     }
 
-                    test "signing a plan whose patient carries only an age is not refused" {
+                    test "signing takes no estimate: the plan is signed as sent, whatever the normal values" {
+                        // the challenge is a digest of the plan as sent; an estimate from tables
+                        // reloaded before the submission would change the plan under it
                         let ctx = { Shared.Models.OrderContext.empty with Patient = ageOnly 10 }
 
                         let plan = Shared.Models.OrderPlan.create (ageOnly 10) [| ctx |]
 
                         let cmd = SigningCommand.RequestSignChallenge(plan, OpenedToken $"opened-{identified}", None)
 
-                        let refused, _ = signedWith (fun () -> None) (Some identified) cmd
-                        let answered, asked = signedWith loaded (Some identified) cmd
-
-                        (refused, answered, asked.IsSome)
-                        |> Expect.equal
-                            "refused without the normal values; with them, the port asked"
-                            (SigningResponse.Refused SigningRefusal.NoPatient,
-                             SigningResponse.ChallengeIssued "c-1",
-                             true)
+                        [ (fun () -> None); loaded ]
+                        |> List.map (fun nv -> signedWith nv (Some identified) cmd |> fst)
+                        |> Expect.allEqual
+                            "an age-only plan is refused, with or without the normal values"
+                            (SigningResponse.Refused SigningRefusal.NoPatient)
                     }
                 ]
         ]

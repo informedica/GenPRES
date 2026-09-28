@@ -45,8 +45,8 @@ module SigningCommand =
 
     /// A signing command for the Session the cookie names. No cookie, no Session: refused
     /// before the port is asked. The plan's patient and that of every context in it put at the
-    /// age the Session holds, given the estimates of weight and height it lacks and made at the
-    /// inbound boundary, then the plan parsed into the domain; a plan the domain does not read is refused before the port is asked. A store
+    /// age the Session holds and made at the inbound boundary, then the plan parsed into the
+    /// domain; a plan the domain does not read is refused before the port is asked. A store
     /// that fails while the age is asked answers StoreFailed. Writes no cookie.
     let processCmd (env: AppEnv) (cookie: SessionCookie) (cmd: SigningCommand) =
         async {
@@ -54,13 +54,11 @@ module SigningCommand =
             | None -> return SigningResponse.Refused SigningRefusal.NoSession
             | Some id ->
                 let! answer = env.session.age id
-                // the Session's age, then the estimates a patient lacks
-                let cmd =
-                    cmd
-                    |> patients (
-                        Patient.aged (answer |> Result.defaultValue None)
-                        >> Patient.estimate env.normalValues
-                    )
+                // the Session's age only, no estimates: the challenge is a digest of the plan as
+                // sent, and an estimate from tables reloaded between the challenge and the
+                // submission would change the plan under it. A plan the server computed carries
+                // its estimates already
+                let cmd = cmd |> patients (Patient.aged (answer |> Result.defaultValue None))
 
                 let plan =
                     match cmd with
