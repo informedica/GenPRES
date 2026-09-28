@@ -1,210 +1,227 @@
-/// <summary>
-/// The client's session state machine, from the Launch in the url to an open Session: the
-/// Session as the client knows it, the one request under way, the messages that move between
-/// them and the effects App.fs interprets into commands. The pages read a view of it, with
-/// nothing of the request. Pure F#, opens Shared.Types only, no React, so it runs under Expecto
-/// in .NET as well as under Fable.
-/// </summary>
-/// <remarks>
-/// The file module is <c>SessionMachine</c> and not <c>Session</c>: the type-first pair
-/// <c>type SessionState</c> / <c>module SessionState</c> lives here beside the messages, the
-/// effects and the view, and a file module named after the domain would shadow the
-/// <c>Session</c> the rest of the client speaks of.
-/// </remarks>
+/// Tracks the client's session from the launch url to an open session, one server request at a
+/// time. The App carries out the effects.
 module SessionMachine
 
 open Shared.Types
 
 
-/// The client's view of its Session, one phase at a time.
-/// The Session as the pages show it: the states a page can be in, each with what is valid in it
-/// and nothing of the request: today's phases without the Launch, the key and the counts. A
-/// refusal is Retryable when the same Launch can be presented again; the count of a server
-/// unreachable is always the maximum, so the view carries none.
+/// What the pages read of the SessionState: the session's phase combined with the request under
+/// way.
 [<RequireQualifiedAccess>]
 type SessionView =
+    /// No session.
     | Anonymous
+    /// The launch is being presented; this attempt.
     | Launching of attempt: int
+    /// The session is being read again after a reload or a login.
     | Resuming
+    /// The session is open.
     | Open of SessionOpened
+    /// The session is closing.
     | Closing of SessionOpened
+    /// The server refused the launch.
     | Refused of LaunchRefusal
+    /// The server refused the launch, and the same launch can be presented again.
     | Retryable of LaunchRefusal
+    /// The server did not answer the last attempt.
     | Unreachable
+    /// The server ended the session.
     | Ended of SessionEnding
+    /// The launch waits on a PIN, with the last refusal of the form if any.
     | Enrolling of EnrolmentPending * refusal: PinRefusal option
+    /// The PIN is being sent.
     | SupplyingPin of EnrolmentPending
+    /// The enrolment failed; only a new launch goes on.
     | EnrolmentFailed of PinRefusal
 
 
-/// The Session as the client knows it, no request here: none; open; refused, the server
-/// unreachable, or ended; enrolling, with the last refusal of the form if any; or the enrolment
-/// failed.
+/// The session itself, without any request under way.
 [<RequireQualifiedAccess>]
 type SessionPhase =
+    /// No session.
     | Anonymous
+    /// The session is open.
     | Open of SessionOpened
+    /// The server refused the launch.
     | Refused of LaunchRefusal
+    /// The server did not answer the last attempt.
     | Unreachable
-    // the server ended the Session and said so once; the User continues anonymously or
-    // relaunches
+    /// The server ended the session and said so once; the user continues anonymously or
+    /// launches again.
     | Ended of SessionEnding
-    // the launch waits on a PIN; the browser holds the attempt in a cookie, the gate shows the
-    // form, and the last refusal of the form if any
+    /// The launch waits on a PIN. A cookie holds the attempt; the gate shows the form, with the
+    /// last refusal if any.
     | Enrolling of EnrolmentPending * refusal: PinRefusal option
-    // the enrolment ended without a PIN (the code void or expired) or, the PIN set, with
-    // another Patient active in MainEHR; a relaunch is the only way on
+    /// The enrolment failed: the code was void or expired, or another patient became active in
+    /// MainEHR. Only a new launch goes on.
     | EnrolmentFailed of PinRefusal
 
 
-/// The one request under way: the presentation, and which attempt it is; GetSession after a
-/// reload or the IdentityProvider's return; CloseSession; SupplyPin.
+/// The one request under way.
 [<RequireQualifiedAccess>]
 type SessionRequest =
+    /// The launch is presented; this attempt.
     | Presenting of attempt: int
+    /// The session read again, after a reload or a login.
     | Resuming
+    /// The session closing.
     | Closing
+    /// The PIN being sent.
     | SupplyingPin
 
 
-/// The phase, the one request under way, the Launch this page presents with its key, kept
-/// while presenting it again is meaningful (during a presentation, after the server was
-/// unreachable, after a refusal worth retrying), and the notice that the record moved on: the
-/// newest version told while the open Session is on an older one, the pages' own beside the
-/// phase, none unless the Session is open with nothing under way. Built through the
-/// constructors below only, which admit the combinations that occur.
+/// Everything the session machine holds, hidden from the pages, which read a SessionView of it
+/// instead.
 type SessionState =
     private
         {
+            /// The session itself.
             Phase: SessionPhase
+            /// The one request under way, if any.
             InFlight: SessionRequest option
+            /// The launch and its key, kept while it can still be presented again: during a
+            /// presentation, after the server was unreachable, or after a refusal worth retrying.
             Presentation: (Launch * PublicKey) option
+            /// The newest order plan version, when the open session is on an older one; only
+            /// while the session is open with no request under way.
             MovedOn: OrderPlanHead option
         }
 
 
-/// What GetSession answered at a resume.
+/// What the server answered when the session was read again.
 [<RequireQualifiedAccess>]
 type ResumeResult =
+    /// An open session.
     | Found of SessionOpened
+    /// No session.
     | NotFound
+    /// The server ended the session.
     | Ended of SessionEnding
+    /// The launch waits on a PIN.
     | Enrolling of EnrolmentPending
 
 
 /// What SupplyPin answered.
 [<RequireQualifiedAccess>]
 type PinOutcome =
+    /// The session opened.
     | Opened of SessionOpened
+    /// The server refused the PIN or the code.
     | Refused of PinRefusal
 
 
+/// What moves the session machine.
 [<RequireQualifiedAccess>]
 type SessionMsg =
-    // key pair made by Keys.fs, once per page load
+    /// Present the launch, with the key pair made once per page load.
     | Present of Launch * PublicKey
-    // Error = transport failure
+    /// The server's answer to a presentation; Error is a transport failure.
     | Outcome of Launch * PublicKey * Result<LaunchOutcome, string>
-    // from Unreachable, or Refused with a retry
+    /// Present the same launch again, after the server was unreachable or refused with a retry.
     | Retry
+    /// Read the session again, after a reload or a login.
     | Resume
+    /// The answer to Resume.
     | Resumed of Result<ResumeResult, string>
-    // the confirmation code and the chosen PIN, from the gate's form
+    /// Send the mailed code and the chosen PIN from the gate's form.
     | SupplyPin of code: string * pin: string
-    // Error = transport failure
+    /// The answer to SupplyPin; Error is a transport failure.
     | PinAnswered of Result<PinOutcome, string>
-    // from #/session?refused={reason}, the answer to the identity callback
+    /// The identity callback refused the launch (#/session?refused={reason}).
     | RefusedAtCallback of LaunchRefusal
+    /// Continue without a session.
     | OpenAnonymous
+    /// Close the session.
     | Close
+    /// The session is closed.
     | Closed
-    // the close request did not reach the server: the cookie is still there, so is the Session
+    /// The close did not reach the server; the cookie, and so the session, are still there.
     | CloseFailed of reason: string
-    // a signing answer said the server ended the Session at the wrong-PIN limit
+    /// A signing answer said the server ended the session at the wrong-PIN limit.
     | EndedByServer of SessionEnding
-    // a signature re-minted the OpenedToken over the new head; the patient as the Session
-    // holds it after the sign comes with it, and whom the signed version names, which the
-    // Session is for from here
+    /// A signature renewed the token. The patient after the signature comes with it, and the
+    /// identity the signed version names, which the session is for from now on.
     | TokenRenewed of OpenedToken * Patient * identity: NameAndBirthDate option
-    // take up the version the notice named: it becomes what the Session opened with
+    /// Open the version a notice named; it becomes the version the session opened with.
     | OpenVersion of id: string
-    // the answer: the Session as it now is (Some), nothing to open (None), or a transport
-    // failure; `from` is the OpenedToken the request started from, so that an answer lands
-    // only on the Session that asked (the guard of Outcome and of the signing answers)
+    /// The answer to OpenVersion: the session as it now is, None when there was nothing to open,
+    /// or a transport failure. The token the request started from lets the answer land only on
+    /// the session that asked.
     | Reopened of from: OpenedToken option * Result<SessionOpened option, string>
-    // read the EHR again and reopen the head on it: the way out of a held patient context that
-    // takes the EHR's data, the new and changed orders dropped with the reopen
+    /// Read the EHR again and reopen the latest version on it: the way out of a held patient
+    /// context that takes the EHR's data and drops the new and changed orders.
     | Refresh
-    // the answer, as Reopened, with the patient read again
+    /// The answer to Refresh, as for Reopened, with the patient read again.
     | Refreshed of from: OpenedToken option * Result<SessionOpened option, string>
-    // what a computing reply told beside its answer: the record moved on, or the server ended
-    // the Session; `from` is the OpenedToken the request started from, the same guard
+    /// What a reply said besides its answer: a newer version exists, or the server ended the
+    /// session. The token the request started from guards it, as for Reopened.
     | Told of from: OpenedToken option * RecordNotice
-    // a signature was refused because the record moved on: the newest version, to offer
+    /// A signature was refused because a newer version exists; this is the version to offer.
     | Blocked of OrderPlanHead
 
 
+/// What the App carries out for the session machine.
 [<RequireQualifiedAccess>]
 type SessionEffect =
+    /// Present the launch to the server.
     | CallPresentLaunch of Launch * PublicKey
+    /// Read the session from the server.
     | CallGetSession
+    /// Close the session on the server.
     | CallCloseSession
+    /// Send the mailed code and the PIN to the server.
     | CallSupplyPin of code: string * pin: string
-    // window.location.assign, for RedirectTo
+    /// Go to the url the server redirected to.
     | GoTo of url: string
-    // interpreted as UpdatePatient, so everything derived from the patient reloads
+    /// Set the patient, so everything derived from it reloads.
     | SetPatient of Patient option
-    // Keys.keep: prune the other private keys
+    /// Keep this private key and remove the others.
     | KeepKey of thumbprint: string
-    // the orders of the version the Session opened with go into the cart, over the
-    // patient as the client holds it after SetPatient (normal values applied); interpreted as
-    // the plan machine's Version, which keeps the version while that patient is on its way
+    /// The orders of the version the session opened with go into the cart; the patient reaches the
+    /// plan machine a message later, so the plan machine keeps the orders until it has the patient.
     | LoadCart of SignedOrderPlan
-    // processSession OpenVersion; `from` comes back in Reopened
+    /// Ask the server to open the version; the token comes back in Reopened.
     | CallOpenVersion of id: string * from: OpenedToken option
-    // processSession Refresh; `from` comes back in Refreshed
+    /// Ask the server to read the EHR again; the token comes back in Refreshed.
     | CallRefresh of from: OpenedToken option
-    // the version is open; told once
+    /// Tell the user the version is open.
     | TellVersionOpened of OrderPlanHead
-    // the record moved on to this version; told once per version, the bar offers it
+    /// Tell the user a newer version exists, once per version; the bar offers it.
     | TellMovedOn of OrderPlanHead
-    // the refresh did not happen: nothing to refresh, or the request never got there; the
-    // orders stay as they are
+    /// Tell the user the refresh did not happen; the orders stay as they are.
     | TellRefreshFailed
 
 
-/// The notice that the record moved on, as the Session keeps it: the newest head it was told,
-/// so that it is told once per version, and the bar can offer that version. Spent when the
-/// version is opened; gone with the Session.
+/// The newest version the session was told about, so the user is told once per version and the
+/// bar can offer it. It goes when that version is opened or the session ends.
 module MovedOn =
 
-    /// A notice arrived: the head to keep, and whether it is news. Versions are ordered by
-    /// `No`, their place in the record, not by arrival: replies to concurrent requests can land out of order, so
-    /// a notice of a version no newer than the one kept is not news and keeps nothing, and only
-    /// a newer version replaces the kept one.
+    /// The version to keep after a notice, and whether the notice is news. Versions are compared
+    /// by number, not by arrival, since replies can land out of order: only a newer version is
+    /// news and replaces the kept one.
     let receive (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option * bool =
         match current with
         | Some kept when kept.No >= head.No -> current, false
         | _ -> Some head, true
 
 
-    /// A version was opened: the notice is spent when the version opened is at
-    /// least as new as the one kept; a newer notice, told while the request was in flight,
-    /// stays, so the offer to open it stays too.
+    /// The version to keep after a version was opened: none, unless the kept one is newer than
+    /// the one opened.
     let opened (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option =
         match current with
         | Some kept when kept.No > head.No -> current
         | _ -> None
 
 
+/// The constructors and the transition of the session machine.
 module SessionState =
 
-    /// Presentations are attempted this many times before the UI offers Retry.
+    /// The number of attempts to present a launch before the gate offers Retry.
     let maxAttempts = 3
 
 
-    /// Whether a refusal answered by presentLaunch itself is worth retrying with the same
-    /// Launch and key: only a missing browser identity is.
+    /// Whether a refused presentation is worth retrying with the same launch and key: only a
+    /// missing browser identity is.
     let private worthRetrying refusal =
         match refusal with
         | LaunchRefusal.NoBrowserIdentity -> true
@@ -216,6 +233,7 @@ module SessionState =
         | LaunchRefusal.EnrolmentRequired -> false
 
 
+    /// No session, nothing under way.
     let anonymous =
         {
             Phase = SessionPhase.Anonymous
@@ -225,7 +243,7 @@ module SessionState =
         }
 
 
-    /// The presentation under way, the attempt it is; there is no Session meanwhile.
+    /// The launch presented, at this attempt; no session meanwhile.
     let launching (launch: Launch) (key: PublicKey) (attempt: int) =
         {
             Phase = SessionPhase.Anonymous
@@ -235,7 +253,7 @@ module SessionState =
         }
 
 
-    /// GetSession under way, after a reload or the IdentityProvider's return.
+    /// The session read again after a reload or a login.
     let resuming =
         {
             Phase = SessionPhase.Anonymous
@@ -245,7 +263,7 @@ module SessionState =
         }
 
 
-    /// The Session open, nothing under way, with the notice that the record moved on if any.
+    /// The session open, with the newer version to offer if any.
     let opened (session: SessionOpened) (movedOn: OrderPlanHead option) =
         {
             Phase = SessionPhase.Open session
@@ -255,7 +273,7 @@ module SessionState =
         }
 
 
-    /// CloseSession under way over the open Session; the notice goes with the Session it was for.
+    /// The session closing; the newer version to offer goes with it.
     let closing (session: SessionOpened) =
         {
             Phase = SessionPhase.Open session
@@ -265,7 +283,7 @@ module SessionState =
         }
 
 
-    /// Refused, with nothing to present again.
+    /// The launch refused, with nothing to present again.
     let refused (refusal: LaunchRefusal) =
         {
             Phase = SessionPhase.Refused refusal
@@ -275,7 +293,7 @@ module SessionState =
         }
 
 
-    /// Refused, with the same Launch and key kept to present again.
+    /// The launch refused, with the launch and key kept to present again.
     let retryable (refusal: LaunchRefusal) (launch: Launch) (key: PublicKey) =
         {
             Phase = SessionPhase.Refused refusal
@@ -285,7 +303,7 @@ module SessionState =
         }
 
 
-    /// The server did not answer the last attempt; the Launch and key are kept to present again.
+    /// The server did not answer the last attempt; the launch and key are kept to present again.
     let unreachable (launch: Launch) (key: PublicKey) =
         {
             Phase = SessionPhase.Unreachable
@@ -295,7 +313,7 @@ module SessionState =
         }
 
 
-    /// The server ended the Session and said so.
+    /// The session ended by the server.
     let ended (ending: SessionEnding) =
         {
             Phase = SessionPhase.Ended ending
@@ -305,7 +323,7 @@ module SessionState =
         }
 
 
-    /// The launch waits on a PIN: the form is shown, with the last refusal if any.
+    /// The launch waits on a PIN; the form shows the last refusal if any.
     let enrolling (pending: EnrolmentPending) (refusal: PinRefusal option) =
         {
             Phase = SessionPhase.Enrolling(pending, refusal)
@@ -315,7 +333,7 @@ module SessionState =
         }
 
 
-    /// SupplyPin under way; the form is sent once at a time, and the refusal it answers is spent.
+    /// The PIN being sent; the last refusal is cleared.
     let supplyingPin (pending: EnrolmentPending) =
         {
             Phase = SessionPhase.Enrolling(pending, None)
@@ -325,7 +343,7 @@ module SessionState =
         }
 
 
-    /// The enrolment ended without a Session.
+    /// The enrolment failed.
     let enrolmentFailed (refusal: PinRefusal) =
         {
             Phase = SessionPhase.EnrolmentFailed refusal
@@ -335,24 +353,23 @@ module SessionState =
         }
 
 
-    /// The Session held, none unless open and not closing: what a request is completed from.
+    /// The open session, when nothing is under way; requests take their token from it.
     let session (state: SessionState) =
         match state.Phase, state.InFlight with
         | SessionPhase.Open session, None -> Some session
         | _ -> None
 
 
-    /// The token of the Session held, none unless open and not closing.
+    /// The token of the open session, when nothing is under way.
     let token (state: SessionState) = state |> session |> Option.bind _.OpenedToken
 
 
-    /// The newest version told while the open Session is on an older one; none otherwise.
+    /// The newer version to offer, if any.
     let movedOn (state: SessionState) = state.MovedOn
 
 
-    /// The Session as the pages show it: the request wins when it can render on its own, the
-    /// phase when the request needs the phase's payload; a stray request on any other phase
-    /// shows as that phase, and the presentation is read under a refusal only.
+    /// What the pages read: the request when it can show on its own, else the phase. A refusal
+    /// with a launch kept is Retryable.
     let view (state: SessionState) : SessionView =
         match state.Phase, state.InFlight, state.Presentation with
         | _, Some(SessionRequest.Presenting attempt), _ -> SessionView.Launching attempt
@@ -369,10 +386,8 @@ module SessionState =
         | SessionPhase.EnrolmentFailed refusal, _, _ -> SessionView.EnrolmentFailed refusal
 
 
-    /// The state and effects of a Session that just opened: the patient goes through
-    /// UpdatePatient, the key of this Session is the one to keep, and the orders of the version
-    /// it opened with go into the cart. The patient reaches the plan machine a message later
-    /// than the version does, so the machine keeps the version until it has.
+    /// The state and effects of a session that just opened: set the patient, keep this session's
+    /// key, and load the orders of its version into the cart.
     let onOpened (session: SessionOpened) =
         opened session None,
         [
@@ -386,27 +401,25 @@ module SessionState =
         ]
 
 
-    /// A fresh presentation of the Launch, attempt 1.
+    /// A new presentation of the launch, at attempt 1.
     let present (launch: Launch) (key: PublicKey) =
         launching launch key 1, [ SessionEffect.CallPresentLaunch(launch, key) ]
 
 
-    /// Every arm names the phase and the request under way, and every new state is built through
-    /// a constructor, so that a Launch kept to present again never outlives the state it belongs
-    /// to.
+    /// The next state and effects for a message. Every new state is built through a constructor,
+    /// so a launch kept to present again never outlives the state it belongs to.
     let transition (msg: SessionMsg) (state: SessionState) : SessionState * SessionEffect list =
         match msg, state.Phase, state.InFlight with
-        // a presentation under way is never replaced by a second one for the same Launch; the
-        // Launch kept after a refusal or the server unreachable is presented afresh
+        // a presentation under way is not replaced by a second one for the same launch
         | SessionMsg.Present(launch, _), _, Some(SessionRequest.Presenting _) when
             state.Presentation |> Option.exists (fun (current, _) -> current = launch)
             ->
             state, []
-        // in every other state a Present starts a fresh presentation; a different Launch
-        // supersedes the one under way, whose outcome is then dropped by the guard below
+        // otherwise Present starts a new presentation; a different launch replaces the one under
+        // way, whose outcome the guard below then drops
         | SessionMsg.Present(launch, key), _, _ -> present launch key
 
-        // the stale-request guard: an outcome lands only on the presentation that sent it
+        // an outcome lands only on the presentation that sent it
         | SessionMsg.Outcome(launch, key, result), _, Some(SessionRequest.Presenting attempt) when
             state.Presentation = Some(launch, key)
             ->
@@ -424,8 +437,7 @@ module SessionState =
             | Error _ -> unreachable launch key, []
         | SessionMsg.Outcome _, _, _ -> state, []
 
-        // a retry always carries the same Launch and the same key, so the server answers it
-        // as it answered the first presentation
+        // a retry sends the same launch and key, so the server answers as it did the first time
         | SessionMsg.Retry, SessionPhase.Unreachable, None
         | SessionMsg.Retry, SessionPhase.Refused _, None ->
             match state.Presentation with
@@ -438,45 +450,45 @@ module SessionState =
 
         | SessionMsg.Resumed(Ok(ResumeResult.Found session)), SessionPhase.Anonymous, Some SessionRequest.Resuming ->
             onOpened session
-        // told once: the cookie is gone, the gate says why, the User chooses; the close
-        // acknowledges the ending: the server deletes the cookie and drops the mark
+        // the gate says why once and the user chooses; the close tells the server to delete the
+        // cookie
         | SessionMsg.Resumed(Ok(ResumeResult.Ended ending)), SessionPhase.Anonymous, Some SessionRequest.Resuming ->
             ended ending, [ SessionEffect.CallCloseSession ]
-        // the launch waits on a PIN: the gate shows the form
+        // the launch waits on a PIN; the gate shows the form
         | SessionMsg.Resumed(Ok(ResumeResult.Enrolling pending)), SessionPhase.Anonymous, Some SessionRequest.Resuming ->
             enrolling pending None, []
         | SessionMsg.Resumed _, SessionPhase.Anonymous, Some SessionRequest.Resuming -> anonymous, []
         | SessionMsg.Resumed _, _, _ -> state, []
 
-        // the Launch was consumed server-side; nothing is left to retry with
+        // the server used up the launch; nothing is left to retry
         | SessionMsg.RefusedAtCallback refusal, _, _ -> refused refusal, []
 
-        // an anonymous open carries nothing over from the launch
+        // continuing anonymously keeps nothing from the launch
         | SessionMsg.OpenAnonymous, SessionPhase.Refused _, None
         | SessionMsg.OpenAnonymous, SessionPhase.Unreachable, None
         | SessionMsg.OpenAnonymous, SessionPhase.Ended _, None -> anonymous, [ SessionEffect.SetPatient None ]
         | SessionMsg.OpenAnonymous, _, _ -> state, []
 
-        // the form is sent once at a time, and the refusal it answers is spent; the answer lands
-        // only on the request in flight
+        // the form is sent once at a time; the answer lands only on the request in flight
         | SessionMsg.SupplyPin(code, pin), SessionPhase.Enrolling(pending, _), None ->
             supplyingPin pending, [ SessionEffect.CallSupplyPin(code, pin) ]
         | SessionMsg.SupplyPin _, _, _ -> state, []
         | SessionMsg.PinAnswered(Ok(PinOutcome.Opened session)),
           SessionPhase.Enrolling _,
           Some SessionRequest.SupplyingPin -> onOpened session
-        // the form stays open with what went wrong (a wrong code with a try left; a PIN out of format)
+        // the form stays open and says what went wrong: a wrong code with tries left, or a PIN out
+        // of format
         | SessionMsg.PinAnswered(Ok(PinOutcome.Refused(PinRefusal.WrongCode _ as refusal))),
           SessionPhase.Enrolling(pending, _),
           Some SessionRequest.SupplyingPin
         | SessionMsg.PinAnswered(Ok(PinOutcome.Refused(PinRefusal.PinFormat as refusal))),
           SessionPhase.Enrolling(pending, _),
           Some SessionRequest.SupplyingPin -> enrolling pending (Some refusal), []
-        // terminal: the code is void or expired, or the active Patient moved; relaunch
+        // the code is void or expired, or another patient became active; only a new launch goes on
         | SessionMsg.PinAnswered(Ok(PinOutcome.Refused refusal)),
           SessionPhase.Enrolling _,
           Some SessionRequest.SupplyingPin -> enrolmentFailed refusal, []
-        // the request never got there: the attempt stands, the form comes back as it was
+        // the request never arrived: the form comes back as it was
         | SessionMsg.PinAnswered(Error _), SessionPhase.Enrolling(pending, _), Some SessionRequest.SupplyingPin ->
             enrolling pending None, []
         | SessionMsg.PinAnswered _, _, _ -> state, []
@@ -484,26 +496,24 @@ module SessionState =
         | SessionMsg.Close, SessionPhase.Open session, None -> closing session, [ SessionEffect.CallCloseSession ]
         | SessionMsg.Close, _, _ -> state, []
 
-        // a launched patient and everything derived from it leave with the session. Closed
-        // lands only on the close under way: a close that completes after a newer presentation
-        // has superseded it must not touch the newer session (the same guard as Outcome)
+        // the patient leaves with the session. Closed lands only on a close under way, so a late
+        // close never touches a newer session
         | SessionMsg.Closed, _, Some SessionRequest.Closing -> anonymous, [ SessionEffect.SetPatient None ]
         | SessionMsg.Closed, _, _ -> state, []
 
-        // a close that never reached the server has closed nothing: the Session stays open,
-        // with its patient, and the UI says so; the same guard as Closed
+        // a close that never reached the server closed nothing: the session stays open with its
+        // patient
         | SessionMsg.CloseFailed _, SessionPhase.Open session, Some SessionRequest.Closing -> opened session None, []
         | SessionMsg.CloseFailed _, _, _ -> state, []
 
-        // the server ended the Session at a signature; the gate says why and the close
-        // acknowledges it, as a Resumed ending does; a close under way is left to complete
+        // the server ended the session at a signature: the gate says why and the close tells the
+        // server; a close under way is left to complete
         | SessionMsg.EndedByServer ending, SessionPhase.Open _, None -> ended ending, [ SessionEffect.CallCloseSession ]
         | SessionMsg.EndedByServer _, _, _ -> state, []
 
-        // the token the next signature has to present, and the patient as the Session now holds
-        // it, with whom it is for as the signed version names them: into the context it opened
-        // with, and to the panel as at a resume. A Session without a patient context signs
-        // nothing, so there is no context to fill
+        // the new token for the next signature, and the patient and identity the signed version
+        // names, into the session's patient context and to the panel. A session without a patient
+        // context signs nothing, so there is none to fill
         | SessionMsg.TokenRenewed(token, patient, identity), SessionPhase.Open session, None ->
             let renewed =
                 { session with
@@ -521,38 +531,32 @@ module SessionState =
             opened renewed state.MovedOn, [ SessionEffect.SetPatient(Some patient) ]
         | SessionMsg.TokenRenewed _, _, _ -> state, []
 
-        // only an open Session has a version to take up; the request remembers the token it
-        // started from
+        // only an open session can open a version; the request carries its token
         | SessionMsg.OpenVersion id, SessionPhase.Open session, None ->
             state, [ SessionEffect.CallOpenVersion(id, session.OpenedToken) ]
         | SessionMsg.OpenVersion _, _, _ -> state, []
 
-        // the Session as the server now holds it: the token over the version opened, and its
-        // orders into the cart; the patient is unchanged, so no SetPatient. Nothing to open, or
-        // the request never got there: the Session stays as it was, and the next request tells
-        // what the head is. The stale-request guard: an answer lands only on the open Session
-        // that still holds the token the request started from; a Session closed, relaunched or
-        // reopened meanwhile drops it
+        // the session with the version opened: its orders go into the cart; the patient is
+        // unchanged. The answer lands only on the open session that still holds the token the
+        // request started from; nothing to open, or a failure, leaves the session as it was
         | SessionMsg.Reopened(from, Ok(Some session)), SessionPhase.Open current, None when current.OpenedToken = from ->
             match session.PatientContext, session.Head with
-            // the version is open: told once, and the notice is spent by it; a newer notice
-            // told meanwhile stays, with its offer
+            // the version is open: told once; a newer version told meanwhile stays on offer
             | Some _, Some head ->
                 opened session (MovedOn.opened state.MovedOn head.Head),
                 [ SessionEffect.LoadCart head; SessionEffect.TellVersionOpened head.Head ]
             | _ -> opened session state.MovedOn, []
         | SessionMsg.Reopened _, _, _ -> state, []
 
-        // only an open Session has something to read again; the request remembers the token it
-        // started from
+        // only an open session can be refreshed; the request carries its token
         | SessionMsg.Refresh, SessionPhase.Open session, None ->
             state, [ SessionEffect.CallRefresh session.OpenedToken ]
         | SessionMsg.Refresh, _, _ -> state, []
 
-        // the Session refreshed: its patient read again goes to the panel and the plan, and the
-        // head's orders into the cart, the plan's new and changed orders dropped with them; without
-        // a head the plan is cleared first, so that it opens empty for the patient. The same
-        // stale-request guard as Reopened; nothing to refresh, or a failure: the Session as it was
+        // the session refreshed: the patient read again goes to the panel and the plan, and the
+        // latest version's orders into the cart, dropping the new and changed ones. Without a
+        // version the patient is cleared first, so the plan opens empty. The same guard as
+        // Reopened
         | SessionMsg.Refreshed(from, Ok(Some session)), SessionPhase.Open current, None when current.OpenedToken = from ->
             let patient = session.PatientContext |> Option.bind _.Patient
 
@@ -561,29 +565,27 @@ module SessionState =
                 opened session (MovedOn.opened state.MovedOn head.Head),
                 [ SessionEffect.SetPatient patient; SessionEffect.LoadCart head ]
             | _ -> opened session state.MovedOn, [ SessionEffect.SetPatient None; SessionEffect.SetPatient patient ]
-        // the question closed when the refresh was asked, so a refresh that did not happen is told
+        // the user asked for the refresh, so a refresh that did not happen is told
         | SessionMsg.Refreshed(from, (Ok None | Error _)), SessionPhase.Open current, None when
             current.OpenedToken = from
             ->
             state, [ SessionEffect.TellRefreshFailed ]
         | SessionMsg.Refreshed _, _, _ -> state, []
 
-        // what a reply told with its answer: the stale-request guard is the one Reopened has,
-        // the notice counts only when the request started from the token the open Session
-        // holds now, with nothing under way; a reply of a Session since closed, replaced or
-        // re-minted says nothing about this one, and the next request repeats what still holds
+        // a notice counts only when its request started from the token the open session holds now,
+        // as for Reopened; the next request repeats what still holds
         | SessionMsg.Told(from, notice), SessionPhase.Open current, None when current.OpenedToken = from ->
             match notice with
-            // told once per version: kept, and said when it is news
+            // kept, and told once per version
             | RecordNotice.NewerVersion head ->
                 let kept, news = MovedOn.receive state.MovedOn head
                 opened current kept, (if news then [ SessionEffect.TellMovedOn head ] else [])
-            // the server ended the Session; the gate says why and the close acknowledges it
+            // the server ended the session: the gate says why and the close tells the server
             | RecordNotice.Ended ending -> ended ending, [ SessionEffect.CallCloseSession ]
         | SessionMsg.Told _, _, _ -> state, []
 
-        // a signature refused because the record moved on: the head is kept for the bar, and
-        // not told again, since the refusal already said it
+        // a signature refused for a newer version: the version is kept for the bar, not told
+        // again, since the refusal said it
         | SessionMsg.Blocked head, SessionPhase.Open current, None ->
             opened current (MovedOn.receive state.MovedOn head |> fst), []
         | SessionMsg.Blocked _, _, _ -> state, []

@@ -1,8 +1,6 @@
 /// <summary>
-/// The session gate's policy: for every session phase, what the gate
-/// says and what it offers. Pure F#, no React, so it runs under Expecto next to the machine;
-/// Views/SessionGate.fs renders it. The texts are `Terms`, translated by the caller: the view
-/// passes the sheet lookup, the tests pass `english`.
+/// Decides what the session gate says and offers in every session phase. The texts are
+/// <c>Terms</c>, translated by the caller.
 /// </summary>
 module SessionGatePolicy
 
@@ -15,37 +13,46 @@ open TermText
 /// What the gate offers besides the text.
 [<RequireQualifiedAccess>]
 type Action =
+    /// Present the same launch again.
     | Retry
+    /// Continue anonymously, without the launch.
     | ContinueWithoutLaunch
 
 
-/// The enrolment form: the labels of its three fields and its button, and what the
-/// server said about the last submission, if anything.
+/// The enrolment form's labels, and the server's error on the last submission.
 type EnrolmentForm =
     {
+        /// The label of the mailed code field.
         Code: string
+        /// The label of the PIN field.
         Pin: string
+        /// The label of the field that repeats the PIN.
         Repeat: string
+        /// The label of the button.
         Submit: string
+        /// What the server said about the last submission, if anything.
         Error: string option
     }
 
 
-/// One gate: a title, a body, whether work is in progress, the actions, and the form when the
-/// launch waits on a PIN.
+/// What the gate shows.
 type Gate =
     {
+        /// The title.
         Title: string
+        /// The text.
         Body: string
+        /// Whether a request is under way.
         Busy: bool
+        /// The actions offered besides the text.
         Actions: Action list
+        /// The enrolment form, when the launch waits on a PIN.
         Form: EnrolmentForm option
     }
 
 
-/// The English of the session terms: what the gate and the session menu show when the sheet has
-/// no row for a term, or the terms have not loaded. Any other term falls back to its name, as
-/// `Global.pageToString` does.
+/// The English of the session terms, used when the sheet has no row for a term or has not
+/// loaded. Any other term shows its name.
 let english (term: Terms) =
     match term with
     | Terms.``Session Gate Opening`` -> "Opening your session"
@@ -99,8 +106,8 @@ let english (term: Terms) =
     | _ -> $"{term}"
 
 
-/// The sentences of a refusal: what happened, then what the User can do. Every sentence is one
-/// term, so no translation is ever embedded in another.
+/// The sentences of a refusal: what happened, then what the user can do. Each sentence is its
+/// own term, so no translation is embedded in another.
 let refusalBody (tr: Terms -> string) refusal =
     match refusal with
     | LaunchRefusal.LaunchExpired -> [ tr Terms.``Session Refusal Expired``; tr Terms.``Session Relaunch`` ]
@@ -112,7 +119,7 @@ let refusalBody (tr: Terms -> string) refusal =
     | LaunchRefusal.EnrolmentRequired -> [ tr Terms.``Session Refusal Enrolment`` ]
 
 
-/// Digits only, of a given length range: what the form checks before the server does.
+/// Whether the text is only digits, between the given lengths.
 let digits (min: int) (max: int) (s: string) =
     not (isNull s)
     && s.Length >= min
@@ -120,9 +127,8 @@ let digits (min: int) (max: int) (s: string) =
     && s |> Seq.forall (fun c -> c >= '0' && c <= '9')
 
 
-/// The form's own check before a submission: the code has six digits, the PIN four to
-/// six, and the repeat agrees. The first thing wrong, as a translated sentence; None when the
-/// submission can go.
+/// The first error of the enrolment form before it is sent: the code must be six digits, the PIN
+/// four to six, and the repeat must match. None when the form can be sent.
 let formError (tr: Terms -> string) (code: string) (pin: string) (repeat: string) : string option =
     if not (digits 6 6 code) then
         Some(tr Terms.``Session Enrolment Code Format``)
@@ -134,7 +140,7 @@ let formError (tr: Terms -> string) (code: string) (pin: string) (repeat: string
         None
 
 
-/// What the server said about a submission that left the form open.
+/// The server's error on a submission that left the form open.
 let refusalSentence (tr: Terms -> string) (refusal: PinRefusal) =
     match refusal with
     | PinRefusal.WrongCode left -> tr Terms.``Session Enrolment Wrong Code`` |> fill [ $"%i{left}" ]
@@ -144,7 +150,7 @@ let refusalSentence (tr: Terms -> string) (refusal: PinRefusal) =
     | PinRefusal.WrongActivePatient -> tr Terms.``Session Refusal Wrong Patient``
 
 
-/// Whether the gate is over the app: false while the app is usable (anonymous, open, closing).
+/// Whether the gate covers the app: false while the app is usable (anonymous, open, closing).
 let isGated (session: SessionView) =
     match session with
     | SessionView.Anonymous
@@ -161,10 +167,9 @@ let isGated (session: SessionView) =
     | SessionView.EnrolmentFailed _ -> true
 
 
-/// The gate of a refusal: what happened, what the User can do, and the action offered when
-/// the same Launch can be presented again. A missing role offers the anonymous open whatever
-/// the retry, so that the order of the two rules never has to be known to the caller; only a
-/// missing browser identity is ever retried.
+/// The gate for a refused launch: what happened, what the user can do, and Retry when the same
+/// launch can be presented again. A missing role always offers to continue anonymously; only a
+/// missing browser identity is retried.
 let refused (tr: Terms -> string) (refusal: LaunchRefusal) (retry: Action option) =
     {
         Title = tr Terms.``Session Gate Refused``
@@ -279,7 +284,7 @@ let gateFor (tr: Terms -> string) (session: SessionView) : Gate option =
                 Actions = []
                 Form = None
             }
-    // the enrolment ended without a Session: the code void or expired, or the Patient moved
+    // the enrolment ended without a session: the code void or expired, or the patient moved
     | SessionView.EnrolmentFailed refusal ->
         Some
             {

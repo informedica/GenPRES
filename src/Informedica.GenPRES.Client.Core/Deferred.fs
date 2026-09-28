@@ -1,23 +1,25 @@
-/// One value the client asks the server for, as the pages read it: not asked yet, asked with
-/// nothing to show meanwhile, answered, or asked again with the previous answer kept and shown
-/// meanwhile. The reading of a plain fetch, the formulary or the log files; the order lanes,
-/// which show a value while a request is under way, have their own view types in the machines.
+/// Models a server response the way the page shows it: not requested yet, loading, loaded, or
+/// reloading while the last response stays on screen.
 [<AutoOpen>]
 module Deferred
 
-/// A value the server is asked for, in the four states a page can find it in. A page renders
-/// from Resolved and Refreshing alike, so that the screen stays populated while a fetch runs
-/// again, and acts on Resolved only.
+/// A value fetched from the server. Pages render Resolved and Refreshing alike, so the screen
+/// stays filled during a reload, and act on Resolved only.
 type Deferred<'t> =
+    /// Not requested yet.
     | HasNotStartedYet
+    /// Requested, with nothing to show yet.
     | InProgress
+    /// Loaded.
     | Resolved of 't
+    /// Requested again, with the last value still shown.
     | Refreshing of 't
 
 
-/// Utility functions around `Deferred<'T>` types.
+/// Functions over Deferred values.
 module Deferred =
 
+    /// Transforms the value, in whichever state holds one.
     let map (transform: 'T -> 'U) (deferred: Deferred<'T>) : Deferred<'U> =
         match deferred with
         | HasNotStartedYet -> HasNotStartedYet
@@ -26,10 +28,8 @@ module Deferred =
         | Refreshing value -> Refreshing(transform value)
 
 
-    /// Like `map` but instead of transforming just the value into another type in the `Resolved`
-    /// case, it will transform the value into potentially a different case of the `Deferred<'T>`
-    /// type. A value kept while a fetch runs again stays kept: an answer of the function over it
-    /// is Refreshing too.
+    /// A value kept while a fetch runs again stays kept: a Resolved answer of the function over it
+    /// is Refreshing.
     let bind (transform: 'T -> Deferred<'U>) (deferred: Deferred<'T>) : Deferred<'U> =
         match deferred with
         | HasNotStartedYet -> HasNotStartedYet
@@ -41,6 +41,7 @@ module Deferred =
             | other -> other
 
 
+    /// The value, or the default while there is none.
     let defaultValue defVal =
         function
         | HasNotStartedYet
@@ -49,6 +50,7 @@ module Deferred =
         | Refreshing value -> value
 
 
+    /// The value, if there is one.
     let toOption =
         function
         | HasNotStartedYet
@@ -57,8 +59,7 @@ module Deferred =
         | Refreshing value -> Some value
 
 
-    /// The fetch asked again: the value kept and shown meanwhile when there is one, nothing to
-    /// show otherwise.
+    /// Starts a reload: Refreshing when there is a value to keep showing, InProgress otherwise.
     let refresh =
         function
         | Resolved value

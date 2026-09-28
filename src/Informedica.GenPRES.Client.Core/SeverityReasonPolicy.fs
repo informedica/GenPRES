@@ -1,33 +1,31 @@
-/// Why a value is marked, read from the bounds the rules define and the values the variable
-/// has, both of which the client receives with every order variable. Pure F#, no React, so it
-/// runs under Expecto; the mark shows what it answers.
+/// Decides why the rules mark a value, from the bounds they define and the values the order
+/// variable holds.
 module SeverityReasonPolicy
 
 open Shared.Types
 
 
-/// A bound a value crossed: what it is, in what unit, and whether the bound itself is still
-/// allowed.
+/// A bound a value crossed.
 type Bound =
     {
         /// The bound's value, in the values' unit.
         Value: decimal
-        /// The unit, the values' own.
+        /// The unit of the bound and the values.
         Unit: string
         /// Whether a value on the bound is still allowed.
         Inclusive: bool
     }
 
 
-/// What a value crossed: the maximum the rules define, their minimum, or something the bounds
-/// do not show, such as an increment the value is not a multiple of.
+/// Why a value is marked.
 [<RequireQualifiedAccess>]
 type Reason =
-    /// The values' top is over the maximum.
+    /// The highest value is above the maximum.
     | AboveMax of Bound
-    /// The values' bottom is under the minimum.
+    /// The lowest value is below the minimum.
     | BelowMin of Bound
-    /// Marked by the server, for a reason the bounds do not show.
+    /// Marked by the server for a reason the bounds do not show, such as a value that is not a
+    /// multiple of the increment.
     | Outside
 
 
@@ -47,10 +45,9 @@ let private highest (values: (string * decimal)[]) = values |> Array.maxBy snd |
 let private lowest (values: (string * decimal)[]) = values |> Array.minBy snd |> snd
 
 
-/// Why the variable's values stand outside the constraints defined for it, or nothing when the
-/// client cannot tell: no values, no bound in the values' unit, or values within both bounds.
-/// The highest value against the maximum first, then the lowest against the minimum, so a
-/// range that spills over both is reported by its top.
+/// Why the values fall outside the defined constraints, or None when there are no values, no
+/// bound in the values' unit, or the values are within both bounds. The maximum is checked
+/// first, so values beyond both bounds are reported as above the maximum.
 let ofConstraints (defined: Variable) (var: Variable) =
     match var.Vals with
     | None -> None
@@ -80,8 +77,8 @@ let ofConstraints (defined: Variable) (var: Variable) =
         | _ -> None
 
 
-/// The reason for a marked order variable: read from its defined constraints when they explain
-/// the mark, and Outside when the server marked it and the bounds do not say why.
+/// Why the order variable is marked: from its constraints when they explain it, else Outside.
+/// None when it is not marked.
 let ofOrderVariable (ovar: OrderVariable) =
     match ovar.Level with
     | IsNormal -> None

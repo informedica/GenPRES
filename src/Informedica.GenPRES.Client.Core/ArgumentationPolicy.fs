@@ -1,7 +1,5 @@
-/// The argumentation a clinician writes when a dose leaves what the rules allow, on the client:
-/// when the dialog asks for it, how a text is taken, and that the text is the client's own,
-/// kept over every answer. Pure F#, no React, so it runs under Expecto; the two machines carry
-/// the messages that write it, the dose dialog shows the field.
+/// Decides when the dose dialog asks for an argumentation of a dose the rules mark, and keeps
+/// the text the clinician writes unchanged by server answers.
 module ArgumentationPolicy
 
 open Shared.Types
@@ -9,9 +7,8 @@ open Shared.Models
 open Shared.Api
 
 
-/// Every order variable of an order: the adjust and the duration, the schedule's two, the
-/// orderable's four and its dose's eight, then each component's six and its dose's eight,
-/// and each item's four and its dose's eight.
+/// Every order variable of an order: its own, the schedule's, the orderable's, and those of each
+/// component and item, doses included.
 let variables (ord: Order) : OrderVariable list =
     let dose (d: Dose) =
         [
@@ -54,26 +51,25 @@ let variables (ord: Order) : OrderVariable list =
     @ (orb.Components |> Array.toList |> List.collect comp)
 
 
-/// Whether the rules mark the order: any of its variables carries a severity reason.
+/// Whether the rules mark any variable of the order.
 let marked (ord: Order) =
     variables ord
     |> List.exists (SeverityReasonPolicy.ofOrderVariable >> Option.isSome)
 
 
-/// Whether the dialog asks for the argumentation: the context is narrowed to one scenario
-/// whose order the rules mark, or a text is present, which stays once written until the
-/// user clears it.
+/// Whether the dialog asks for an argumentation: when the context is narrowed to one scenario
+/// whose order the rules mark, or when a text is already written.
 let wanted (ctx: OrderContext) =
     ctx.Argumentation.IsSome
     || (ctx |> OrderContext.contribution |> Option.exists (fun sc -> marked sc.Order))
 
 
-/// The most characters a text keeps: the server's cap, the same number, so that a text the
-/// client holds is never one the server refuses. The dialog's field carries it too.
+/// The maximum length of a text, the same as the server's, so the server never refuses a text
+/// the client holds.
 let maxLength = 1000
 
 
-/// The text as the client keeps it: trimmed, empty is none, and clipped at the cap.
+/// The text trimmed and cut to the maximum length; None when empty.
 let normalise (text: string) =
     match text with
     | null -> None
@@ -88,22 +84,21 @@ let normalise (text: string) =
             Some text
 
 
-/// The context with the text written, normalised.
+/// The context with the text written.
 let write (text: string) (ctx: OrderContext) = { ctx with Argumentation = normalise text }
 
 
-/// The answered context with the argumentation as it was sent: the text is the client's own,
-/// never the server's to change.
+/// The answered context with the argumentation as sent: the server never changes the text.
 let keep (sent: OrderContext) (answered: OrderContext) = { answered with Argumentation = sent.Argumentation }
 
 
-/// The plan with the text written on the context named; a plan without it is unchanged.
+/// The plan with the text written on the context with this id.
 let writeIn (id: string) (text: string) (plan: OrderPlan) =
     { plan with OrderContexts = plan.OrderContexts |> Array.map (fun c -> if c.Id = id then write text c else c) }
 
 
-/// The answered plan with the argumentation the client holds on every context it held; a
-/// context the client did not hold keeps the answer's.
+/// The answered plan with the client's argumentation on every context it held; other contexts
+/// keep the answer's.
 let keepAll (held: OrderPlan) (answered: OrderPlan) =
     { answered with
         OrderContexts =
@@ -117,10 +112,9 @@ let keepAll (held: OrderPlan) (answered: OrderPlan) =
     }
 
 
-/// The one command that clears the text: a reset puts the order back within what the rules
-/// allow, and the text argues the deviation it undoes. The text goes as the reset goes out, so
-/// that the answer keeps what the client holds, as every answer does, and a text written while
-/// the reset runs is kept.
+/// Whether the command clears the text: only a reset does, since it puts the order back within
+/// the rules. The text is cleared when the reset is sent, so a text written while it runs is
+/// kept.
 let clearedBy (cmd: OrderContextCommand) =
     match cmd with
     | OrderContextCommand.ResetOrderScenario -> true
@@ -131,6 +125,6 @@ let clearedBy (cmd: OrderContextCommand) =
 let clear (ctx: OrderContext) = { ctx with Argumentation = None }
 
 
-/// The plan with the context named cleared of its argumentation; a plan without it unchanged.
+/// The plan with the argumentation cleared from the context with this id.
 let clearIn (id: string) (plan: OrderPlan) =
     { plan with OrderContexts = plan.OrderContexts |> Array.map (fun c -> if c.Id = id then clear c else c) }

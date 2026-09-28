@@ -1,24 +1,24 @@
-/// What the plan holds beside the order plan version last opened or signed, and how the plan
-/// commands move it. Pure F#, no React, so it runs under Expecto; the leave-page guard reads it.
+/// Tracks whether the order plan has changed since the version last opened or signed.
 module PlanWorkPolicy
 
 open Shared.Api
 
 
-/// What the plan holds beside the order plan version last opened or signed.
+/// Whether the order plan has changed since the version last opened or signed.
 [<RequireQualifiedAccess>]
 type PlanWork =
-    /// The plan is the version last opened or signed, or empty with none opened yet.
+    /// The plan is the version last opened or signed, or empty when none was opened.
     | AsSigned
-    /// Commands changed the plan since; nothing signed holds the changes.
+    /// Commands changed the plan since; the changes are not signed.
     | Changed
 
 
+/// Functions over PlanWork.
 module PlanWork =
 
-    /// Whether a plan command changes what the plan holds. A navigation within an order, an
-    /// order added, a nutrition workbench opened in the plan and contexts removed do; the
-    /// totals recomputed and a signed version opened do not.
+    /// Whether a plan command changes the plan: navigating an order, adding an order, opening a
+    /// new nutrition context and removing contexts do; recalculating and opening a version do
+    /// not.
     let changedBy (cmd: OrderPlanCommand) =
         match cmd with
         | OrderPlanCommand.Recalculate _
@@ -29,5 +29,5 @@ module PlanWork =
         | OrderPlanCommand.RemoveOrderContexts _ -> true
 
 
-    /// The plan's work once a command went out.
+    /// The plan's state after a command.
     let afterCommand (cmd: OrderPlanCommand) (work: PlanWork) = if changedBy cmd then PlanWork.Changed else work

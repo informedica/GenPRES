@@ -1,29 +1,26 @@
-/// Whether a section of order fields is open or folded: folded once every value it shows holds
-/// one value, open while one is still to be chosen, and the user's to toggle in between. Pure
-/// F#, no React, so it runs under Expecto; the view renders what it answers.
+/// Decides whether a section of order fields is open or folded: open while a value is still to be
+/// chosen, folded once all are, and the user can toggle it in between.
 module SectionFoldPolicy
 
 open Shared.Types
 open Shared.Models
 
 
-/// The fold of a section: what the last answer said about its values, and the user's last
-/// toggle since that changed.
+/// Whether a section is folded: what the last answer said, and the user's toggle since.
 type Fold =
     {
-        /// Whether every variable the section shows held one value at the last answer.
+        /// Whether every variable in the section held one value at the last answer.
         Solved: bool
-        /// The user's last toggle since the solved state last changed; None follows the rule.
+        /// The user's last toggle since Solved changed; None follows the rule.
         Override: bool option
     }
 
 
-/// Whether every variable holds one value. An empty section counts as solved: there is nothing
-/// in it left to choose.
+/// Whether every variable holds one value. An empty section counts as solved.
 let allSolved (ovars: OrderVariable seq) = ovars |> Seq.forall Order.OrderVariable.isSolved
 
 
-/// The fold of a section as first shown: it follows the rule.
+/// The fold of a section as first shown, following the rule.
 let initial solved =
     {
         Solved = solved
@@ -31,15 +28,14 @@ let initial solved =
     }
 
 
-/// An answer of the server. A change of the solved state drops the user's toggle, so the
-/// section follows the rule again; no change keeps the toggle.
+/// The fold after a server answer: when Solved changes, the user's toggle is dropped and the
+/// rule applies again.
 let observe solved fold = if solved = fold.Solved then fold else initial solved
 
 
-/// Open while a value is to be chosen, folded once all are solved, unless the user said
-/// otherwise since.
+/// Whether the section is open: while a value is still to be chosen, unless the user toggled it.
 let isOpen fold = fold.Override |> Option.defaultValue (not fold.Solved)
 
 
-/// The user opens a folded section or folds an open one.
+/// The fold after the user opens or folds the section.
 let toggle fold = { fold with Override = Some(not (isOpen fold)) }

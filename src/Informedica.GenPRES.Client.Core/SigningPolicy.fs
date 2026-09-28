@@ -1,5 +1,5 @@
-/// What the signing UI says and offers, decided from the Session and
-/// the signing phase: every text a `Terms` case, so the view only renders.
+/// Decides what the signing dialog says and offers, from the session and the signing phase. The
+/// texts are Terms, translated by the caller.
 module SigningPolicy
 
 open Shared
@@ -8,8 +8,8 @@ open SessionMachine
 open SigningMachine
 
 
-/// The English default of every signing term: what the UI shows when the sheet has no row
-/// yet, and what the tests assert.
+/// The English of the signing terms, used when the sheet has no row for a term. Other terms
+/// fall back to the session gate's English.
 let english (term: Terms) : string =
     match term with
     | Terms.``Signing Sign`` -> "Sign"
@@ -45,11 +45,11 @@ let english (term: Terms) : string =
     | _ -> SessionGatePolicy.english term
 
 
-/// A moment as the User reads it: the local time of day.
+/// A moment as the user reads it: the local time of day.
 let time (at: System.DateTime) = at.ToLocalTime().ToString "HH:mm"
 
 
-/// One sentence per refusal, the numbers and names filled in.
+/// The sentence for a refusal, with its numbers and names filled in.
 let refusalSentence (tr: Terms -> string) (refusal: SigningRefusal) =
     match refusal with
     | SigningRefusal.NoSession -> tr Terms.``Signing Refusal No Session``
@@ -69,25 +69,25 @@ let refusalSentence (tr: Terms -> string) (refusal: SigningRefusal) =
     | SigningRefusal.ContextDiffers -> tr Terms.``Signing Refusal Context Differs``
 
 
-/// What the User is told once the version landed.
+/// The sentence once a version is signed.
 let signedSentence (tr: Terms -> string) (signed: SignedOrderPlan) =
     tr Terms.``Signing Signed``
     |> TermText.fill [ string signed.Head.No; signed.Head.By.DisplayName ]
 
 
-/// The record moved on; whose version, and when.
+/// The sentence when a newer version exists: who signed it, and when.
 let movedOnSentence (tr: Terms -> string) (head: OrderPlanHead) =
     tr Terms.``Session Newer Version``
     |> TermText.fill [ head.By.DisplayName; time head.SignedAt ]
 
 
-/// The version taken up is open.
+/// The sentence when a version is opened.
 let versionOpenedSentence (tr: Terms -> string) (head: OrderPlanHead) =
     tr Terms.``Session Version Opened``
     |> TermText.fill [ string head.No; head.By.DisplayName ]
 
 
-/// What the data notice says, with or without a reading. With a reading while the patient
+/// The sentence of the data notice: the data changed, or could not be verified. When the patient
 /// context is held, the plan is signed over the data as it was, and the notice says so.
 let noticeSentence (tr: Terms -> string) (held: bool) (notice: DataNotice) =
     match notice.Data with
@@ -96,7 +96,7 @@ let noticeSentence (tr: Terms -> string) (held: bool) (notice: DataNotice) =
     | None -> tr Terms.``Signing Data Unverified``
 
 
-/// The PIN's own check before anything is sent: the enrolment's four to six digits.
+/// The error for a PIN that is not four to six digits, checked before anything is sent.
 let pinError (tr: Terms -> string) (pin: string) =
     if SessionGatePolicy.digits 4 6 pin then
         None
@@ -104,8 +104,8 @@ let pinError (tr: Terms -> string) (pin: string) =
         Some(tr Terms.``Session Enrolment Pin Format``)
 
 
-/// Whether the plan can be signed: an open Session as Prescriber for a patient, and at least
-/// one order. Without a patient nothing can be submitted; a Reader never signs.
+/// Whether the plan can be signed: an open session with a patient, a user with the Prescriber
+/// role, and at least one order.
 let canSign (session: SessionView) (plan: OrderPlan) =
     match session with
     | SessionView.Open opened ->
@@ -115,8 +115,8 @@ let canSign (session: SessionView) (plan: OrderPlan) =
     | _ -> false
 
 
-/// Whether a signature is under way: from the sign until it is answered or cancelled. The
-/// signing act is atomic on the client too: the order plan takes no change from a page meanwhile.
+/// Whether a signature is under way, from the sign until it is answered or cancelled. The order
+/// plan takes no change meanwhile.
 let underWay (signing: SigningView) =
     match signing with
     | SigningView.Idle -> false
@@ -126,6 +126,5 @@ let underWay (signing: SigningView) =
     | SigningView.Submitting _ -> true
 
 
-/// Whether the dialog is up: from the sign on, the challenge asked included, until the
-/// signature is answered or cancelled.
+/// Whether the signing dialog is open: for as long as a signature is under way.
 let dialogOpen (signing: SigningView) = underWay signing
