@@ -13,119 +13,13 @@ module Patient =
     open Shared.Models
     open OrderPlanMachine
     open OrderContextMachine
+    open PatientDraftPolicy
 
 
     module private Elmish =
 
 
         module Patient = Patient
-
-
-        type State = Patient option
-
-
-        type Msg =
-            // the draft discarded as a whole: the data of an anonymous patient, which is
-            // fictitious; an identified patient's data is changed, never cleared
-            | Clear
-            | UpdateYear of string option
-            | UpdateMonth of string option
-            | UpdateWeek of string option
-            | UpdateDay of string option
-            | UpdateWeight of string option
-            | UpdateHeight of string option
-            | UpdateGAWeek of string option
-            | UpdateGADay of string option
-            | UpdateGender of string
-            | UpdateRenal of string option
-            | UpdateDepartment of string option
-            | ToggleCVL
-            | TogglePVL
-            | ToggleET
-
-
-        /// The department chosen for the draft, or none, which leaves the server's default in
-        /// force. Clearing what was never a draft stays no draft.
-        let setDepartment (s: string option) (p: Patient option) : Patient option =
-            match p, s with
-            | None, None -> None
-            | _ -> { (p |> Option.defaultValue Patient.empty) with Department = s } |> Some
-
-
-        /// The draft after one edit, applied to the draft the App holds. The setters blank both
-        /// estimates, so this is what the App receives, not what it shows: the App estimates the
-        /// weight and height again.
-        let update msg (state: State) : State =
-            match msg with
-            | Clear -> None
-            | UpdateYear s -> state |> Patient.setYear s
-            | UpdateMonth s -> state |> Patient.setMonth s
-            | UpdateWeek s -> state |> Patient.setWeek s
-            | UpdateDay s -> state |> Patient.setDay s
-            | UpdateWeight s -> state |> Patient.setWeight s
-            | UpdateHeight s -> state |> Patient.setHeight s
-            | UpdateGAWeek s -> state |> Patient.setGAWeek s
-            | UpdateGADay s -> state |> Patient.setGADay s
-            | UpdateRenal s -> state |> Patient.setRenal s
-            | UpdateGender s -> state |> Patient.setGender s
-            | UpdateDepartment s -> state |> setDepartment s
-            | ToggleCVL -> state |> Patient.toggleCVL
-            | TogglePVL -> state |> Patient.togglePVL
-            | ToggleET -> state |> Patient.toggleET
-
-
-        /// What becomes of the estimated weight and height after an edit.
-        [<RequireQualifiedAccess>]
-        type Estimates =
-            /// Estimated again, for the weight and height the user did not enter: after an edit
-            /// of the age, the gender or the gestational age, which the normal values follow.
-            | Renewed
-            /// Kept as they were: after any other edit, so that a weight or a height the user
-            /// cleared stays cleared and is not estimated again.
-            | Kept
-
-
-        let estimates msg =
-            match msg with
-            | Clear
-            | UpdateYear _
-            | UpdateMonth _
-            | UpdateWeek _
-            | UpdateDay _
-            | UpdateGender _
-            | UpdateGAWeek _
-            | UpdateGADay _ -> Estimates.Renewed
-            | UpdateWeight _
-            | UpdateHeight _
-            | UpdateRenal _
-            | UpdateDepartment _
-            | ToggleCVL
-            | TogglePVL
-            | ToggleET -> Estimates.Kept
-
-
-        /// The edited draft with the weight and the height the edit does not set as they were in
-        /// the draft, estimates included. The setters blank both estimates; the measure an edit
-        /// sets or clears keeps none, so a cleared weight or height shows nothing.
-        let keepEstimates msg (draft: State) (edited: State) : State =
-            match draft, edited with
-            | Some d, Some e ->
-                match msg with
-                | UpdateWeight _ -> { e with Height = d.Height }
-                | UpdateHeight _ -> { e with Weight = d.Weight }
-                | _ ->
-                    { e with
-                        Weight = d.Weight
-                        Height = d.Height
-                    }
-                |> Some
-            | _ -> edited
-
-
-        /// Whether the draft is a patient: an age, or a measured weight and height; the estimate
-        /// no longer stands in for a measurement, so the minimum decides.
-        let canCalculate (pat: Patient option) : bool =
-            pat |> Option.bind (Patient.validate >> Result.toOption) |> Option.isSome
 
 
         /// The summary: the draft's data, and under it, while the draft is no patient yet, what is
@@ -295,7 +189,7 @@ module Patient =
 
         let onResetConfirmed =
             fun () ->
-                Clear |> dispatch
+                Msg.Clear |> dispatch
                 setConfirmResetOpen false
 
         let confirmResetDialog =
@@ -351,7 +245,7 @@ module Patient =
             let changeDepartment =
                 fun s ->
                     keepOpen ()
-                    s |> UpdateDepartment |> dispatch
+                    s |> Msg.UpdateDepartment |> dispatch
 
             Components.PickField.View
                 {|
@@ -592,7 +486,7 @@ module Patient =
                 fun ev ->
                     keepOpen ()
 
-                    ev?target?value |> string |> UpdateGender |> dispatch
+                    ev?target?value |> string |> Msg.UpdateGender |> dispatch
 
             let genderLabel = Terms.``Patient Gender`` |> getTerm "Geslacht"
             let maleLabel = Terms.``Patient Male`` |> getTerm "Man"
@@ -631,7 +525,7 @@ module Patient =
                     (pat |> Option.bind Patient.getAgeYears)
                     (fun s ->
                         keepOpen ()
-                        s |> UpdateYear |> dispatch
+                        s |> Msg.UpdateYear |> dispatch
                     )
 
                 [| 1..11 |]
@@ -641,7 +535,7 @@ module Patient =
                     (pat |> Option.bind Patient.getAgeMonths |> zeroToNone)
                     (fun s ->
                         keepOpen ()
-                        s |> UpdateMonth |> dispatch
+                        s |> Msg.UpdateMonth |> dispatch
                     )
 
                 [| 1..3 |]
@@ -651,7 +545,7 @@ module Patient =
                     (pat |> Option.bind Patient.getAgeWeeks |> zeroToNone)
                     (fun s ->
                         keepOpen ()
-                        s |> UpdateWeek |> dispatch
+                        s |> Msg.UpdateWeek |> dispatch
                     )
 
                 [| 1..6 |]
@@ -661,7 +555,7 @@ module Patient =
                     (pat |> Option.bind Patient.getAgeDays |> zeroToNone)
                     (fun s ->
                         keepOpen ()
-                        s |> UpdateDay |> dispatch
+                        s |> Msg.UpdateDay |> dispatch
                     )
 
                 wghts
@@ -671,7 +565,7 @@ module Patient =
                     (pat |> Option.bind (Patient.getWeight >> weightToNone))
                     (fun s ->
                         keepOpen ()
-                        s |> UpdateWeight |> dispatch
+                        s |> Msg.UpdateWeight |> dispatch
                     )
 
                 [| 40..220 |]
@@ -681,7 +575,7 @@ module Patient =
                     (pat |> Option.bind (Patient.getHeight >> heightToNone))
                     (fun s ->
                         keepOpen ()
-                        s |> UpdateHeight |> dispatch
+                        s |> Msg.UpdateHeight |> dispatch
                     )
 
                 if
@@ -697,7 +591,7 @@ module Patient =
                         (pat |> Option.bind Patient.getGAWeeks |> zeroToNone)
                         (fun s ->
                             keepOpen ()
-                            s |> UpdateGAWeek |> dispatch
+                            s |> Msg.UpdateGAWeek |> dispatch
                         )
 
                     [| 1..6 |]
@@ -707,7 +601,7 @@ module Patient =
                         (pat |> Option.bind Patient.getGADays |> zeroToNone)
                         (fun s ->
                             keepOpen ()
-                            s |> UpdateGADay |> dispatch
+                            s |> Msg.UpdateGADay |> dispatch
                         )
             |]
             |> Array.map (fun el ->
@@ -741,17 +635,17 @@ module Patient =
                     <FormGroup row>
                         <FormControl>
                             <FormControlLabel
-                                control={checkBox "access-cvl" CVL ToggleCVL}
+                                control={checkBox "access-cvl" CVL Msg.ToggleCVL}
                                 label="CVL" />
                         </FormControl>
                         <FormControl>
                             <FormControlLabel
-                                control={checkBox "access-pvl" PVL TogglePVL}
+                                control={checkBox "access-pvl" PVL Msg.TogglePVL}
                                 label="PVL" />
                         </FormControl>
                         <FormControl>
                             <FormControlLabel
-                                control={checkBox "access-et" EnteralTube ToggleET}
+                                control={checkBox "access-et" EnteralTube Msg.ToggleET}
                                 label={tubeLabel} />
                         </FormControl>
                     </FormGroup>
@@ -765,7 +659,7 @@ module Patient =
                     (pat |> Option.bind Patient.getRenalFunction)
                     (fun s ->
                         keepOpen ()
-                        s |> UpdateRenal |> dispatch
+                        s |> Msg.UpdateRenal |> dispatch
                     )
 
                 departmentField

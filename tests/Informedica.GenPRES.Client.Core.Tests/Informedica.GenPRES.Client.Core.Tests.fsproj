@@ -13,6 +13,7 @@
   <ItemGroup>
     <Compile Include="DeferredTests.fs" />
     <Compile Include="LanguagePolicyTests.fs" />
+    <Compile Include="PatientDraftPolicyTests.fs" />
     <Compile Include="PickPolicyTests.fs" />
     <Compile Include="SeverityReasonTests.fs" />
     <Compile Include="QuantityModeTests.fs" />

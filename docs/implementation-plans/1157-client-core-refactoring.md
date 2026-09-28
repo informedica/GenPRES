@@ -13,6 +13,7 @@ one it does not list yet: moving the patient panel's edit rules from the view in
 - [Steps](#steps)
 - [Left out](#left-out)
 - [Verification](#verification)
+- [As built](#as-built)
 
 ## Problem description
 
@@ -221,3 +222,10 @@ Fable and bundles with Vite (Vite alone would bundle the JavaScript Fable last w
 recompiles on save and serves as a quick check between the builds. Step 1 also: the patient panel in the browser, anonymous mode, the checks of #1152
 (clear a weight, change the department, change the age). Step 2 also: the order dialog, the
 quantity field and a marked dose in the browser, since those views call the renamed modules.
+
+## As built
+
+| Step | Pull request | Note |
+|---|---|---|
+| The plan | #1167 | From the review: the client is verified through Fable (`dotnet run ClientBuild`), not Vite alone. |
+| 1, the panel's edit rules | #1168 | `Msg` takes qualified access, so the view's dispatch sites read `Msg.UpdateWeight` and the like; every case got a `///` comment. 44 tests, four of them new for `canCalculate`. 143 lines added and 122 removed in shipped code, over the guideline, nearly all a move. The client check ran Fable and Vite without `npm ci`, which would have emptied `node_modules` under the running dev server. |
