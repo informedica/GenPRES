@@ -12,6 +12,7 @@ or height must not leave a panel that shows nothing while the doses rest on the 
 - [Steps](#steps)
 - [Open questions](#open-questions)
 - [Verification](#verification)
+- [As built](#as-built)
 
 ## Problem description
 
@@ -209,3 +210,11 @@ client exception of the script-only policy; anything pure that moves to `Client.
   in the browser unchanged.
 - Step 4: in the browser, the formulary and parenteralia selects keep their values through a
   refresh and after Clear.
+
+## As built
+
+| Step | Pull request | Note |
+|---|---|---|
+| The plan | #1163 | Two review rounds: the url path that drops the estimates, tests that pin the round trip rather than the panel, and the identified path through choosing the weight already shown. |
+| 1, the script | #1164 | `Client.Core/Scripts/PatientPanel.fsx`: the panel's edits as a pure module, 40 tests. Not migrated; the reducer stays in `Views/Patient.fs`. |
+| 2, the panel shows the App's draft | #1164 | With a rule the maintainer set in the browser check, which replaces the plan's "clearing shows the estimate again": the weight and height the user did not enter are estimated after an edit of the age, the gender or the gestational age, on a url patient and when the normal values arrive, and only then, per measure. Every other edit goes through a new `EditPatient` path that takes the draft as sent, so a weight or height the user cleared stays cleared in anonymous mode. The summary reads the draft with the estimates of its age applied, derived on read, so it always shows the estimated ranges. The url fix of step 3 moved here, since the new path would have kept a url patient without estimates. Kept by decision: the server still fills a weight or height that is neither measured nor estimated (#1126), so after a clear the doses rest on the server's estimate; and a measure cleared before the normal values arrive is estimated when they do, which only a marker in the draft could prevent. |
