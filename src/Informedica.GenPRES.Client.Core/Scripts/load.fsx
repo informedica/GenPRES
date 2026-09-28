@@ -4,6 +4,7 @@
 
 #load "../Deferred.fs"
 #load "../LanguagePolicy.fs"
+#load "../PatientDraftPolicy.fs"
 #load "../PickPolicy.fs"
 #load "../SeverityReason.fs"
 #load "../ArgumentationPolicy.fs"
