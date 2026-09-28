@@ -24,7 +24,7 @@ let ctx: OrderContext =
         Intake = { Shared.Models.Totals.empty with Volume = [| Normal "10 ml" |] }
     }
 
-let echo: OrderContextPort = { evaluate = fun _ pc -> async { return Ok pc } }
+let echo: OrderContextPort = { evaluate = fun _ pc -> async { return Ok(Evaluated pc) } }
 
 let envOver demo (port: OrderContextPort) =
     { makeEnv (formularyAlwaysOk Shared.Models.Formulary.empty) port with demo = demo }
@@ -42,19 +42,35 @@ let tests =
                         (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
 
                 match answer with
-                | Ok a ->
+                | Ok(OrderContextResponse.Evaluated a) ->
                     a
                     |> Expect.equal "the context as sent, but for the demo flag" { ctx with DemoVersion = false }
-                | Error e -> failtest $"refused: %A{e}"
+                | other -> failtest $"expected the context evaluated, got: %A{other}"
 
                 let! demo =
                     OrderContextCommand.processCmd
                         (envOver true echo)
                         (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
 
-                demo
-                |> Result.map _.DemoVersion
-                |> Expect.equal "demo as the environment says" (Ok true)
+                match demo with
+                | Ok(OrderContextResponse.Evaluated a) -> a.DemoVersion |> Expect.isTrue "demo as the environment says"
+                | other -> failtest $"expected the context evaluated, got: %A{other}"
+            }
+
+            testAsync "the port's refusal is the response, the context as sent with why in the contract's words" {
+                let port: OrderContextPort =
+                    { evaluate = fun _ pc -> async { return Ok(Refused(pc, Refusal.NoDoseRulesForPatient)) } }
+
+                let! answer =
+                    OrderContextCommand.processCmd
+                        (envOver false port)
+                        (Shared.Api.OrderContextCommand.UpdateOrderContext, ctx)
+
+                match answer with
+                | Ok(OrderContextResponse.Refused(a, OrderContextRefusal.NoDoseRulesForPatient)) ->
+                    a.Filter.Generic |> Expect.equal "the pick kept" (Some "glucose")
+                    a.Id |> Expect.equal "the id kept" "c-1"
+                | other -> failtest $"expected the refusal, got: %A{other}"
             }
 
             testAsync "the port receives the verb over the parsed context, id and category included" {
@@ -65,7 +81,7 @@ let tests =
                         evaluate =
                             fun cmd pc ->
                                 seen.Value <- Some(cmd pc.Context, pc.Id, pc.Category)
-                                async { return Ok pc }
+                                async { return Ok(Evaluated pc) }
                     }
 
                 let! _ =
@@ -94,7 +110,7 @@ let tests =
                         evaluate =
                             fun _ pc ->
                                 asked.Value <- true
-                                async { return Ok pc }
+                                async { return Ok(Evaluated pc) }
                     }
 
                 let! answer =
@@ -107,7 +123,7 @@ let tests =
                 asked.Value |> Expect.isFalse "the port never asked"
             }
 
-            testAsync "the port's refusal is the answer" {
+            testAsync "the port's failure is the answer" {
                 let port: OrderContextPort = { evaluate = fun _ _ -> async { return Error [| "ctx error" |] } }
 
                 let! answer =

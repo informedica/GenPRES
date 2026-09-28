@@ -264,6 +264,7 @@ module GenPres =
             | Global.Pages.Prescribe ->
                 match orderContext with
                 | OrderContextView.Settled pr
+                | OrderContextView.Refused(pr, _)
                 | OrderContextView.Changing pr -> Views.Totals.View {| intake = pr.Intake |} |> Some
                 | OrderContextView.NoPatient -> None
             // the one plan: the nutrition page shows the plan's totals, nutrition included

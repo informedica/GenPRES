@@ -94,7 +94,7 @@ module StubAdapters =
 
 
     let orderContextAlwaysOk (returnCtx: OrderContext) : OrderContextPort =
-        { evaluate = fun _ _ -> async { return Ok(portContext returnCtx) } }
+        { evaluate = fun _ _ -> async { return Ok(Informedica.GenOrder.Lib.Types.Evaluated(portContext returnCtx)) } }
 
 
     let orderContextAlwaysFails (msgs: string[]) : OrderContextPort =
@@ -5166,7 +5166,8 @@ module BoundTests =
                     | Ok reply ->
                         reply.Notice |> Expect.isNone "nothing told without a cookie"
 
-                        reply.Response |> Expect.equal "computed" emptyCtx
+                        reply.Response
+                        |> Expect.equal "computed" (Shared.Types.OrderContextResponse.Evaluated emptyCtx)
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
@@ -5178,7 +5179,8 @@ module BoundTests =
                         reply.Notice
                         |> Expect.equal "the ending" (Some(RecordNotice.Ended SessionEnding.SupersededByLaunch))
 
-                        reply.Response |> Expect.equal "computed" emptyCtx
+                        reply.Response
+                        |> Expect.equal "computed" (Shared.Types.OrderContextResponse.Evaluated emptyCtx)
                     | Error errs -> failtest $"expected Ok, got {errs}"
                 }
 
