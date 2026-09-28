@@ -149,6 +149,7 @@ module Adapters =
                                             }
                                         Patient = plan.Patient
                                         Scenarios = [||]
+                                        Argumentation = None
                                     }
 
                                 let planContext = PlanContext.create (newId ()) (OrderCategory.Nutrition category)

@@ -1,3 +1,5 @@
+// Migrated to the source files and OrderPlanTests on 2026-09-28; kept as the draft.
+//
 // Step 7 of the plan for #985, the domain's half: the argumentation a clinician writes when a
 // dose leaves what the rules allow, on GenORDER's OrderContext and its Dto. The text is an
 // optional string on the record evaluation works on, so every command that copies the record

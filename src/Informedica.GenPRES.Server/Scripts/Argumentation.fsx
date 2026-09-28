@@ -1,3 +1,5 @@
+// Migrated to the source files and MappersOrderContextTests and SqlRecordTests on 2026-09-28; kept as the draft.
+//
 // Step 7 of the plan for #985, the server's half: the argumentation on the contract, through
 // the mappers, capped where the server parses a context, and into the stored plan JSON under
 // structure version 2. The domain's half is src/Informedica.GenORDER.Lib/Scripts/Argumentation.fsx.

@@ -1980,6 +1980,7 @@ module Models =
                 Patient = Patient.empty
                 Scenarios = [||]
                 Intake = Totals.empty
+                Argumentation = None
             }
 
         let setPatient pat ctx : OrderContext = { ctx with Patient = pat }

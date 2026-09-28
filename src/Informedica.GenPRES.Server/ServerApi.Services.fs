@@ -347,10 +347,47 @@ module OrderContextService =
         | Refused(pc, refusal) -> OrderContextResponse.Refused(model pc, refusalToModel refusal)
 
 
+    /// The argumentation as the server takes it in: at most maxLength characters. The client
+    /// normalises the text; the server only refuses what is too long to store.
+    module Argumentation =
+
+        let maxLength = 1000
+
+
+        /// The text as sent, or the reason it is refused in the server's words: longer than
+        /// the cap. None passes.
+        let check (text: string option) : Result<string option, string[]> =
+            match text with
+            | Some s when s.Length > maxLength ->
+                Error
+                    [|
+                        $"De argumentatie is te lang: %i{s.Length} tekens, ten hoogste %i{maxLength}"
+                    |]
+            | _ -> Ok text
+
+
+        /// Every context's text checked, the first refusal the answer.
+        let checkAll (contexts: OrderContext[]) : Result<unit, string[]> =
+            contexts
+            |> Array.tryPick (fun ctx ->
+                match ctx.Argumentation |> check with
+                | Error e -> Some e
+                | Ok _ -> None
+            )
+            |> function
+                | Some e -> Error e
+                | None -> Ok()
+
+
     /// The contract model's context parsed: the plan context the mapper makes of it, or the
-    /// reasons it is none in the server's words.
+    /// reasons it is none in the server's words; a text over the cap is refused before the
+    /// mapping.
     let parse (ctx: OrderContext) : Result<PlanContext, string[]> =
-        ctx
-        |> OrderContextMapper.ofModel
-        |> PlanContext.Dto.fromDto
-        |> Result.mapError (List.map OrderContextMapper.words >> List.toArray)
+        ctx.Argumentation
+        |> Argumentation.check
+        |> Result.bind (fun _ ->
+            ctx
+            |> OrderContextMapper.ofModel
+            |> PlanContext.Dto.fromDto
+            |> Result.mapError (List.map OrderContextMapper.words >> List.toArray)
+        )

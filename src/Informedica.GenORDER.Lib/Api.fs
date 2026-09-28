@@ -645,6 +645,7 @@ module OrderContext =
             Filter = filter
             Patient = pat
             Scenarios = [||]
+            Argumentation = None
         }
 
 
@@ -1292,7 +1293,7 @@ Scenarios: {scenarios}
 
 
     /// The serializable shape of an OrderContext: its filter, its patient and its scenarios,
-    /// each as its own Dto.
+    /// each as its own Dto, and its argumentation as written.
     module Dto =
 
         type Dto =
@@ -1300,6 +1301,7 @@ Scenarios: {scenarios}
                 Filter: Filter.Dto.Dto
                 Patient: Patient.Dto.Dto
                 Scenarios: OrderScenario.Dto.Dto[]
+                Argumentation: string option
             }
 
 
@@ -1308,11 +1310,13 @@ Scenarios: {scenarios}
                 Filter = ctx.Filter |> Filter.Dto.toDto
                 Patient = ctx.Patient |> Informedica.GenForm.Lib.Patient.Dto.toDto
                 Scenarios = ctx.Scenarios |> Array.map OrderScenario.Dto.toDto
+                Argumentation = ctx.Argumentation
             }
 
 
         /// The context a Dto is, or every reason it is none: the filter's, the patient's
-        /// and every scenario's, a scenario that fails never dropped.
+        /// and every scenario's, a scenario that fails never dropped. The argumentation is
+        /// copied as it is: a Dto without it, as a version 1 row holds, reads as none.
         let fromDto (dto: Dto) : Result<OrderContext, DtoError list> =
             Nested.required
                 "OrderContext"
@@ -1345,6 +1349,7 @@ Scenarios: {scenarios}
                                 Filter = filter
                                 Patient = patient
                                 Scenarios = scenarios |> List.toArray
+                                Argumentation = dto.Argumentation
                             }
                     | _ ->
                         let errorsOf r =

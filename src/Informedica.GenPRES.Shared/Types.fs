@@ -519,6 +519,9 @@ module Types =
             Patient: Patient
             Scenarios: OrderScenario[]
             Intake: Totals
+            /// What the clinician wrote when the dose left what the rules allow; none until
+            /// written.
+            Argumentation: string option
         }
 
 

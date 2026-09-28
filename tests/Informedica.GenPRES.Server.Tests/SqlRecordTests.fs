@@ -60,6 +60,12 @@ let fixtureText () =
     File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v1.json"))
 
 
+/// The same version as this release writes it, structure version 2: the version 1 fixture
+/// upgraded, parsed and written, with the argumentation on every context, none.
+let currentFixtureText () =
+    File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "fixtures", "order_plan_v2.json"))
+
+
 let parse (text: string) =
     text
     |> Canonical.deserialize<OrderPlanVersion.Dto.Dto>
@@ -315,8 +321,72 @@ let tests =
                 | other -> failtest $"expected a parsed version, got %A{other}"
             }
 
-            test "the read snapshot: the fixture parses and serializes back to its text" {
-                let text = fixtureText ()
+            test "this release reads and writes structure version 2; 1 is left as it is, 0 and 3 are reasons" {
+                let json = currentFixtureText ()
+
+                (SqlDatabase.jsonVersionRead, SqlDatabase.jsonVersionWritten)
+                |> Expect.equal "read and written" (2, 2)
+
+                SqlDatabase.upgrade 1 json |> Expect.equal "1 to 2 leaves the JSON" (Ok json)
+                SqlDatabase.upgrade 2 json |> Expect.equal "2 is current" (Ok json)
+
+                SqlDatabase.upgrade 0 json
+                |> Expect.equal "0" (Error "JSON structure version 0 does not exist")
+
+                SqlDatabase.upgrade 3 json
+                |> Expect.equal "3" (Error "JSON structure version 3 is newer than this release knows")
+            }
+
+            test "a version 2 row with an argumentation loads back with it; the version 1 fixture with none" {
+                let text = "Sepsis, hogere dosis in overleg met de apotheek"
+
+                let argued =
+                    match parse (currentFixtureText ()) with
+                    | Ok v ->
+                        // the row's columns are authoritative: the JSON names the same version
+                        { v with
+                            Id = "plan-2"
+                            No = 2
+                            Plan =
+                                { v.Plan with
+                                    Contexts =
+                                        v.Plan.Contexts
+                                        |> Array.mapi (fun i pc ->
+                                            if i = 0 then
+                                                { pc with Context = { pc.Context with Argumentation = Some text } }
+                                            else
+                                                pc
+                                        )
+                                }
+                        }
+                    | Error e -> failtest $"%A{e}"
+
+                argued.Plan.Contexts
+                |> Array.isEmpty
+                |> Expect.isFalse "the fixture has contexts"
+
+                withRecord (fun cs ->
+                    insertRow cs "plan-1" 1 1 (fixtureText ())
+                    insertRow cs "plan-2" 2 2 (argued |> SqlDatabase.toJson)
+
+                    let texts (v: OrderPlanVersion) =
+                        v.Plan.Contexts |> Array.map _.Context.Argumentation |> Array.choose id
+
+                    SqlDatabase.loadRecords cs "stub-patient"
+                    |> List.choose (
+                        function
+                        | StoredVersion.Readable(v, _) -> Some(v.Id, texts v)
+                        | StoredVersion.Unreadable _ -> None
+                    )
+                    |> List.sortBy fst
+                    |> Expect.equal
+                        "the version 1 row with none, the version 2 row with the text"
+                        [ "plan-1", [||]; "plan-2", [| text |] ]
+                )
+            }
+
+            test "the read snapshot: the current fixture parses and serializes back to its text" {
+                let text = currentFixtureText ()
 
                 match parse text with
                 | Ok v ->
@@ -327,8 +397,8 @@ let tests =
                 | Error errs -> failtest $"%A{errs}"
             }
 
-            test "the write snapshot: the fixture, read and written as this release writes, is its text" {
-                let text = fixtureText ()
+            test "the write snapshot: the current fixture, read and written as this release writes, is its text" {
+                let text = currentFixtureText ()
 
                 match text |> SqlDatabase.upgrade SqlDatabase.jsonVersionWritten |> Result.map parse with
                 | Ok(Ok v) -> v |> SqlDatabase.toJson |> Expect.equal "the same text" text

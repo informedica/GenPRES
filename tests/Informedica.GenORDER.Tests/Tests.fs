@@ -1104,6 +1104,7 @@ module TypeTests =
                 Filter = filter
                 Patient = Patient.patient
                 Scenarios = [||]
+                Argumentation = None
             }
 
 
@@ -2314,6 +2315,7 @@ module OrderPlanDtoTests =
                 Filter = filter
                 Patient = child
                 Scenarios = [| scenario |]
+                Argumentation = None
             }
 
         let totals: Totals =
@@ -2612,6 +2614,7 @@ let tests =
             OrderPlanTests.evaluateTests
             OrderPlanTests.rulesTests
             OrderPlanTests.refusalTests
+            OrderPlanTests.argumentationTests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
             MedicationParserTests.tests
