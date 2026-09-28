@@ -233,7 +233,7 @@ Planned in [985-what-the-rules-allow-and-deviating-from-it.md](985-what-the-rule
 | Issue | Milestone | Status |
 |---|---|---|
 | #499 | M4 | open: planned, the argumentation on the order context |
-| #505 | M4 | open, leaves the group: a constraint question in GenORDER, to be planned on its own |
+| #505 | M4 | closed 2026-09-28, not built: a user-defined range outside the rules is a missing dose rule; stepping out of range stays the deliberate route |
 | **+**#478 | M4 | open: planned, the contact sentence in the notice |
 | **+**#911 | none | open: planned, the reason in place |
 | **+**#977 | none | open: the umbrella for the decision below; planned |
@@ -273,8 +273,8 @@ stays for failures. Two refusals: no dose rule for the generic and route at all,
 exist but cover no patient like this one. Whom to contact is one localized sentence for every
 site. The argumentation lives on the order context, GenORDER's and the contract's, typed in the
 dose dialog and stored with the signed version under a new structure version of the plan JSON.
-Issue #505 leaves the group: the range is a constraint question in GenORDER before it is a
-widget question, and it is planned on its own.
+Issue #505 was closed the same day, not built: a range the user defines outside the rules is a
+missing dose rule, and stepping a value out of its range stays the deliberate route.
 
 **To settle:**
 
@@ -284,9 +284,9 @@ widget question, and it is planned on its own.
   refusal and a policy words it;
 - where a free-text argumentation is stored on the signed order plan version: decided, on the
   order context; when the dialog asks for it is confirmed on its pull request;
-- the range as an order variable the user may leave unresolved: out of the group, with #505.
+- the range as an order variable the user may leave unresolved: closed with #505, not built.
 
-**Uses** C4 `SeverityMark`, C6 `Notice`; C5 `ValueChip` goes with #505.
+**Uses** C4 `SeverityMark`, C6 `Notice`.
 
 ### G5 — The patient: what is entered, what is estimated, what is hidden (#986)
 

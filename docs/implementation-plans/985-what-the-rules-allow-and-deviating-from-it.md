@@ -18,9 +18,9 @@ deviates from the rules.
 
 G4 groups #499, #505, #478, #911 and #977 under #985. One question from two sides.
 
-**The rules allow nothing** (#478, #911, #977). When the filter has picks and no dose rule
-matches them, `OrderContext.getScenarios` in `src/Informedica.GenORDER.Lib/Api.fs` answers an
-error message, `Geen doseerregels gevonden voor het geselecteerde filter`. The server flattens
+**The rules allow nothing** (#478, #911, #977). When the filter has picks and the answered
+filter offers no generic and no indication, `OrderContext.getScenarios` in
+`src/Informedica.GenORDER.Lib/Api.fs` answers an error message, `Geen doseerregels gevonden voor het geselecteerde filter`. The server flattens
 every message to a string array, prefixed with `Error:` and joined, and the client's
 `OrderContextWorkbench.noDoseRules` in `Client.Core/OrderContextMachine.fs` recognises the case
 by a substring match on the Dutch text. It then starts over: the workbench is emptied, the
@@ -40,10 +40,10 @@ such field, and neither has GenORDER's `OrderContext` or the `PlanContext` that 
 plan. Severity is computed in GenORDER when the order is converted to its DTO, one `Level` per
 order variable against the dose rule's limits, and the sign-time snapshot already reaches the
 stored plan JSON, where nothing reads it back. The gap overview names this as the storage half of
-its row 2.2.7, with #499 as the UX half. #505, prescribing a range rather than one value, is a
-constraint question: the solver holds a range, and it is collapsed in three places, on the client
-when a pick keeps one value, and in the solve pipeline when a range is expanded to values and
-the median is pinned.
+its row 2.2.7, with #499 as the UX half. #505, prescribing a range rather than one value, was
+closed on 2026-09-28, not built: a range the user defines outside the rules is a missing dose
+rule, which can be validated, verified and added, and stepping a value out of its range stays
+the deliberate route.
 
 ## Decisions
 
@@ -53,15 +53,19 @@ Taken 2026-09-28 by the maintainer.
 |---|---|
 | How the reason travels (#977) | In the reply, not in the error channel: `processOrderContext` answers a response, `Evaluated` with the context or `Refused` with the context as sent and a typed refusal. This follows `LaunchOutcome.Refused` and `SigningResponse.Refused`. The string array stays the error channel for failures: the patient gate, a DTO that does not parse, rules not loaded, an exception. |
 | Whom to contact (#478) | One localized sentence, the same for every site. No server setting. |
-| Where the argumentation lives (#499) | On GenORDER's `OrderContext`, the record evaluation works on, and on the contract's `OrderContext`. Not on the `PlanContext` wrapper, and not on the order or the scenario, which every solve regenerates. It reaches the stored plan JSON through the context of each plan context. |
-| When the dialog asks for it (#499) | Open, to confirm on the pull request of step 8: the plan assumes the field shows when any order variable of the scenario is marked, or when text is present, and that text stays once written until the user clears it. |
-| The range (#505) | Out of this plan. It is a constraint question in GenORDER before it is a widget question, and it leaves the group as #978 left G3, to be planned on its own. |
+| Where the argumentation lives (#499) | On GenORDER's `OrderContext`, the record evaluation works on, and on the contract's `OrderContext`. Not on GenORDER's `PlanContext` wrapper, and not on the order or the scenario, which every solve regenerates. The contract has no wrapper: its `OrderContext` already carries the id, the category and the intake. It reaches the stored plan JSON through the context of each plan context. |
+| The range (#505) | Closed on 2026-09-28, before this plan, not built: a range the user defines outside the rules is a missing dose rule, and stepping a value out of its range stays the deliberate route. Nothing in this plan. |
+
+One question stays open, to confirm on the pull request of step 8: when the dialog asks for the
+argumentation. The plan assumes the field shows when any order variable of the scenario is
+marked, or when text is present, and that text stays once written until the user clears it.
 
 The rules of [ADR-0009](../adr/0009-ux-design-rules.md) behind them: staying on the page with the
-reason is rule 3, honoured under rule 1, safety over control, where the refusal is paid with its
-reason on the page the user is on. The argumentation is rule 1: deviating stays an explicit act,
-and this is where the act is written down. One contact sentence for every site is rule 2 read at
-its simplest; a sentence per site is configuration and can follow when a site asks for it.
+reason is rule 3, honoured under rule 1, safety over control: the refusal comes with its
+reason, on the page the user is on. The argumentation is rule 1: deviating stays an explicit
+act, and this is where the act is written down. One contact sentence for every site is the least
+configuration that works, which is rule 2; a sentence per site can follow when a site asks for
+it.
 
 ## Approaches considered
 
@@ -120,13 +124,13 @@ and pasted into `Terms` and the localization sheet, as the session refusals were
 **Server.** The order-context port and service carry the outcome; `processOrderContext` maps it
 to the response. The plan lane's `Navigate` and the nutrition discovery evaluate through the same
 service; there a refusal becomes the words of the error channel, so `processOrderPlan` keeps its
-type. A refusal on the plan lane can only follow a rules reload, and the generic banner is the
-right answer for it.
+type. The plan holds only contexts that evaluated once, so a refusal there can only follow a
+rules reload, and the generic banner is the right answer for it.
 
-**Client.Core.** The answer the machine lands carries the response. `noDoseRules`, `startOver`
-and the `GoToLifeSupport` intent and effect go. A refused answer keeps the workbench evaluated
-with the context as sent and holds the refusal in the state, cleared by the next accepted answer,
-a patient change, a seed or a reset; while idle with a refusal the view is a new
+**Client.Core.** The answer the machine receives carries the response. `noDoseRules`,
+`startOver` and the `GoToLifeSupport` intent and effect go. A refused answer keeps the workbench
+evaluated with the context as sent and holds the refusal in the state. The next accepted answer,
+a patient change, a seed or a reset clears it. While idle with a refusal the view is a new
 `OrderContextView.Refused` with the context and the refusal, so the page keeps its selects and
 the user can re-pick. A pending dialog command drops on a refusal as it drops on a failure. A new
 `OrderContextRefusalPolicy` after `SessionGatePolicy` in the project words the refusal from the
@@ -168,11 +172,10 @@ gap overview's row 2.2.7, not this plan.
 
 ### Related, not planned
 
-- **#505**, the range. The solver holds a dose as a range, and the pipeline and the client
-  collapse it: a pick keeps one value, the solve expands a range to values and pins the median,
-  and severity reads the rule's limits, so a user's range cannot simply narrow them. A control
-  for two values does not exist. It is planned on its own, from a script that keeps a user range
-  through the pipeline and records what survives.
+- **#505**, the range, closed 2026-09-28 and not built, for the reason above. What was found
+  while grouping, should it ever reopen: the solver holds a dose as a range, and the pipeline
+  and the client collapse it, a pick keeping one value and the solve expanding a range to values
+  and pinning the median; severity reads the rule's limits; no control takes two values.
 - **#598**, no test harness for the client's rendering: the notice and the field are checked in
   the browser, which is why the rules behind them live in `Client.Core`.
 - **#1129**, the large step named in the domain; unrelated in code, the same move of a rule out
@@ -184,14 +187,14 @@ gap overview's row 2.2.7, not this plan.
 - The G4 section of the grouping index: the plan link, the status of each member, #505 out of
   the group, the components used.
 - #977, #478 and #911 close with the pull requests of the first track; #499 with those of the
-  second; #985 closes when both are built, #505 having left it.
+  second; #985 closes when both are built, #505 being closed already.
 
 ## Confidence
 
 High for the reason: the reply shape has two precedents in the contract, the machine change is
 tested in `Client.Core.Tests`, and the notice component exists. Medium for the argumentation: the
-field itself is small, but the stored JSON's structure version and the digest of already signed
-versions need the script's check before the step is sized.
+field itself is small, but step 7 is sized only after its script has checked whether any read
+path recomputes the digest of a stored version.
 
 ## Steps
 
@@ -207,15 +210,16 @@ changed lines of shipped code under `src/`.
    gives `NoDoseRulesForPatient`; a normal pick gives `Evaluated`; the wrapper still yields the
    Dutch message. The tests migrate to `tests/Informedica.GenORDER.Tests`. About 40 source lines.
 3. **The contract additions.** The two types and the terms, sheet rows included; the API
-   signature does not change, so nothing else moves. About 25 source lines.
+   signature does not change yet, step 4 changes it, so nothing else moves here. About 25 source
+   lines.
 4. **The wire and the machine.** The reply type; the server port, service, command and
    adapters; the machine, from a script in `src/Informedica.GenPRES.Client.Core/Scripts/` that
    carries the two tests of `OrderContextMachineTests.fs` that assert the start over, rewritten,
    and new ones: a refusal keeps the picks, the next accepted answer clears it, the view is
    refused while idle and changing while a re-evaluation runs; the stub adapter tests retyped
-   with a refused case; `App.fs` and the matches on the view. One compile unit, so one pull
-   request; if it passes 200 source lines, the adapters' plan-lane mapping goes first on its own.
-   About 130 source lines.
+   with a refused case; `App.fs` and the matches on the view. The wire type ties the server,
+   `Client.Core` and the client together, so one pull request; if it passes 200 source lines, the
+   adapters' plan-lane mapping goes first on its own. About 130 source lines.
 5. **The notice.** The refusal policy from a script, one test per case with and without the
    contact sentence, and the notice on the prescribing page. About 80 source lines.
 6. **Docs for the first track**: the index, the as-built table, the three issues closed.
@@ -232,8 +236,7 @@ changed lines of shipped code under `src/`.
    field shows is confirmed on this pull request.
 9. **The dialogs.** The field in the dose dialog, its wiring on the two pages, the read-only text
    in the sign dialog, the terms. About 95 source lines.
-10. **Closing docs**: the index, the as-built table, #499 closed, #505 out of the group, #985
-    closed.
+10. **Closing docs**: the index, the as-built table, #499 closed, #985 closed.
 
 The MCP host reading the typed outcome instead of the wrapper is a later pull request of its own,
 outside this plan.
@@ -245,7 +248,7 @@ outside this plan.
   where server code is removed or reshaped; the Fable compile with a reading of the generated
   output for nesting and hoisted icon imports, then `npx vite build`, after steps 4, 5 and 9.
 - In the browser, the first track: a six-day-old patient, the infusion-pump list, salbutamol.
-  The page stays on the prescribing page with its picks; the notice names the generic and the
+  The prescribing page stays, with its picks; the notice names the generic and the
   route, says the patient is outside every rule, and ends with the contact sentence; picking
   another route clears it; a medication with no rules at all, from the emergency list, gives the
   other sentence; a real failure still reaches the snackbar; no answer ever shows the emergency
