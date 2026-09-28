@@ -967,6 +967,22 @@ module Order =
 
         let onArgumentationBlur = fun _ -> props.argue argumentation
 
+        // Escape closes the dialog without a blur, so a draft not yet committed goes with the
+        // dialog when it unmounts; through refs, since the cleanup runs with the first
+        // render's values otherwise
+        let draftRef = React.useRef argumentation
+        draftRef.current <- argumentation
+        let heldRef = React.useRef heldArgumentation
+        heldRef.current <- heldArgumentation
+        let argueRef = React.useRef props.argue
+        argueRef.current <- props.argue
+
+        React.useEffectOnce (fun () ->
+            fun () ->
+                if draftRef.current <> heldRef.current then
+                    argueRef.current draftRef.current
+        )
+
         let argumentationWanted = shownContext |> Option.exists ArgumentationPolicy.wanted
 
         // Ok completes the dialog and Reset discards the changes: the bar places them
