@@ -2,12 +2,12 @@ namespace Informedica.GenPRES.Client.Core.Tests
 
 
 /// Why a value is marked: the bound it crosses, read from what the client receives.
-module SeverityReasonTests =
+module SeverityReasonPolicyTests =
 
     open Expecto
     open Expecto.Flip
     open Shared.Types
-    open SeverityReason
+    open SeverityReasonPolicy
 
 
     let private vu unit (values: decimal list) : ValueUnit =
@@ -63,7 +63,7 @@ module SeverityReasonTests =
     [<Tests>]
     let tests =
         testList
-            "SeverityReason"
+            "SeverityReasonPolicy"
             [
                 testList
                     "ofConstraints"

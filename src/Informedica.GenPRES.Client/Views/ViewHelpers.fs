@@ -48,16 +48,16 @@ module ViewHelpers =
     /// precision, so it is the bound the value crossed and not a rounding of it. A bound that
     /// is itself allowed reads "max 15 mg" or "min 2 mg"; one that is not reads "< 15 mg" or
     /// "> 2 mg". Nothing for a mark the bounds do not explain.
-    let reasonText (reason: SeverityReason.Reason) =
-        let show (b: SeverityReason.Bound) =
+    let reasonText (reason: SeverityReasonPolicy.Reason) =
+        let show (b: SeverityReasonPolicy.Bound) =
             $"{b.Value |> Decimal.toStringNumberNLWithoutTrailingZeros} {b.Unit}"
 
         match reason with
-        | SeverityReason.Reason.AboveMax b when b.Inclusive -> Some $"max {show b}"
-        | SeverityReason.Reason.AboveMax b -> Some $"< {show b}"
-        | SeverityReason.Reason.BelowMin b when b.Inclusive -> Some $"min {show b}"
-        | SeverityReason.Reason.BelowMin b -> Some $"> {show b}"
-        | SeverityReason.Reason.Outside -> None
+        | SeverityReasonPolicy.Reason.AboveMax b when b.Inclusive -> Some $"max {show b}"
+        | SeverityReasonPolicy.Reason.AboveMax b -> Some $"< {show b}"
+        | SeverityReasonPolicy.Reason.BelowMin b when b.Inclusive -> Some $"min {show b}"
+        | SeverityReasonPolicy.Reason.BelowMin b -> Some $"> {show b}"
+        | SeverityReasonPolicy.Reason.Outside -> None
 
 
     /// The mark an order variable carries: its level as a severity, and the bound its values
@@ -65,7 +65,7 @@ module ViewHelpers =
     let markOf (ovar: OrderVariable) : Mark =
         {|
             severity = ovar.Level |> Models.Severity.ofLevel
-            reason = ovar |> SeverityReason.ofOrderVariable |> Option.bind reasonText
+            reason = ovar |> SeverityReasonPolicy.ofOrderVariable |> Option.bind reasonText
         |}
 
 
@@ -148,12 +148,12 @@ module ViewHelpers =
 
     /// The field mode of a decided quantity mode: Navigable and Stepable carry the steps,
     /// Selectable and Fixed have none.
-    let stepsMode (mode: QuantityMode.Mode) (steps: Components.QuantityField.Steps) =
+    let stepsMode (mode: QuantityModePolicy.Mode) (steps: Components.QuantityField.Steps) =
         match mode with
-        | QuantityMode.Mode.Selectable -> Components.QuantityField.Selectable
-        | QuantityMode.Mode.Fixed -> Components.QuantityField.Fixed
-        | QuantityMode.Mode.Navigable -> Components.QuantityField.Navigable steps
-        | QuantityMode.Mode.Stepable -> Components.QuantityField.Stepable steps
+        | QuantityModePolicy.Mode.Selectable -> Components.QuantityField.Selectable
+        | QuantityModePolicy.Mode.Fixed -> Components.QuantityField.Fixed
+        | QuantityModePolicy.Mode.Navigable -> Components.QuantityField.Navigable steps
+        | QuantityModePolicy.Mode.Stepable -> Components.QuantityField.Stepable steps
 
 
     /// Build the steps of a field for its decided mode. Navigable: first and last jump to the
@@ -163,7 +163,7 @@ module ViewHelpers =
     let createStepper
         dispatch
         revision
-        (mode: QuantityMode.Mode)
+        (mode: QuantityModePolicy.Mode)
         hasLarge
         setMin
         (decr: int * bool -> 'Msg)
@@ -173,8 +173,8 @@ module ViewHelpers =
         step
         large
         =
-        let navigable = mode = QuantityMode.Mode.Navigable
-        let solved = mode = QuantityMode.Mode.Stepable
+        let navigable = mode = QuantityModePolicy.Mode.Navigable
+        let solved = mode = QuantityModePolicy.Mode.Stepable
 
         {|
             step = step
@@ -393,21 +393,21 @@ module ViewHelpers =
         =
         let mode =
             ord.Orderable.Dose.Quantity
-            |> QuantityMode.decideFor QuantityMode.Field.DoseQuantity ord
+            |> QuantityModePolicy.decideFor QuantityModePolicy.Field.DoseQuantity ord
 
         match mode with
-        | QuantityMode.Mode.Selectable -> Components.QuantityField.Selectable
-        | QuantityMode.Mode.Fixed -> Components.QuantityField.Fixed
-        | QuantityMode.Mode.Navigable
-        | QuantityMode.Mode.Stepable ->
+        | QuantityModePolicy.Mode.Selectable -> Components.QuantityField.Selectable
+        | QuantityModePolicy.Mode.Fixed -> Components.QuantityField.Fixed
+        | QuantityModePolicy.Mode.Navigable
+        | QuantityModePolicy.Mode.Stepable ->
             let canIncr =
                 ord.Orderable.Components |> Array.length = 1
                 || ord.Orderable.DoseCount.Variable.Vals
                    |> Option.map (fun vu -> vu.Value |> Array.map snd |> Array.forall (fun v -> v > 1m))
                    |> Option.defaultValue false
 
-            let navigable = mode = QuantityMode.Mode.Navigable
-            let solved = mode = QuantityMode.Mode.Stepable
+            let navigable = mode = QuantityModePolicy.Mode.Navigable
+            let solved = mode = QuantityModePolicy.Mode.Stepable
 
             // For a multi-component orderable the dose quantity cannot exceed the prepared
             // orderable quantity. Use it as a feasibility ceiling: the optimistic value stays

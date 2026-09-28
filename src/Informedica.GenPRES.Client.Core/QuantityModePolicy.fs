@@ -1,7 +1,7 @@
 /// How the user may move the value of a quantity field, decided by one rule for every order
 /// variable, so the order and the nutrition views decide the same way. Pure F#, no React, so
 /// it runs under Expecto; the quantity field shows what it answers.
-module QuantityMode
+module QuantityModePolicy
 
 open Shared.Types
 open Shared.Models

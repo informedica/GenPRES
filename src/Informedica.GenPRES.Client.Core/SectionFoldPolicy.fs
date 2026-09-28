@@ -1,7 +1,7 @@
 /// Whether a section of order fields is open or folded: folded once every value it shows holds
 /// one value, open while one is still to be chosen, and the user's to toggle in between. Pure
 /// F#, no React, so it runs under Expecto; the view renders what it answers.
-module SectionFold
+module SectionFoldPolicy
 
 open Shared.Types
 open Shared.Models
