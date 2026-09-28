@@ -1,5 +1,5 @@
 ---
-last_commit_released: 1f7a7c5325618a00b87221b3f754082a4d70494b
+last_commit_released: 696be8c8ad2c1cdc07dae951f6d657921235b5e6
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,59 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.37 - 2026-09-28
+
+### 🚀 Features
+
+* *(api)* Draft the refusal on the contract and its terms ([b8f4ee7d](https://github.com/informedica/GenPRES/commit/b8f4ee7d6b8316e832ae9acb11843bcca27d1185))
+* *(api)* The refusal on the contract and its terms ([c2f42172](https://github.com/informedica/GenPRES/commit/c2f421727e5a97a37f95163b11129fade2ed6164))
+* *(client)* The patient in the middle of the title bar ([d3734b6c](https://github.com/informedica/GenPRES/commit/d3734b6c5d85fa51f7548c19c444e3ad2487c529))
+* *(client)* The patient as id, name and birthdate on one line ([24e541fe](https://github.com/informedica/GenPRES/commit/24e541fec7dd9ec24913087494f6df3333e24833))
+* *(client)* Draft the fold rule of a section of fields ([78c572c5](https://github.com/informedica/GenPRES/commit/78c572c58aee88993804ddc9ccd4f1d871444155))
+* *(client)* The fold rule of a section of fields ([fd56845f](https://github.com/informedica/GenPRES/commit/fd56845ffc1838b128b5604a2da24a2eb91f28bb))
+* *(client)* Fold the preparation section once solved ([c7429553](https://github.com/informedica/GenPRES/commit/c7429553524c9804ca56c8eba9ffd67101e627f6))
+* *(client)* Fold the preparation section behind its heading ([6de134ac](https://github.com/informedica/GenPRES/commit/6de134ac478ed967c7d600c19eb180b4cfca1edf))
+* *(client)* The expand icons the fold button uses ([f42a03df](https://github.com/informedica/GenPRES/commit/f42a03df615e77a7b46e3b52222403b291a18f2a))
+* *(client)* Draft the refused answer in the machine and on the server ([ecd5c9a1](https://github.com/informedica/GenPRES/commit/ecd5c9a1ec40303281629f9b3b4395a68663f0c7))
+* *(client)* The refused answer reaches the page in place ([030b7dff](https://github.com/informedica/GenPRES/commit/030b7dff41d776cedb2e716d70850c0dd39ba6f8))
+* *(client)* Draft the words of a refusal ([dbf83b56](https://github.com/informedica/GenPRES/commit/dbf83b56f793ace115ab5035006e330e112f605f))
+* *(client)* The page says why no dose can be shown ([1cdb79b1](https://github.com/informedica/GenPRES/commit/1cdb79b1a908bd8d53a2feb486a80db41580f91a))
+* *(client)* Draft the argumentation policy and its messages ([c09ac494](https://github.com/informedica/GenPRES/commit/c09ac494948a09cda4f1a9e07219a37e579586db))
+* *(client)* The argumentation policy and its two messages ([a66e305a](https://github.com/informedica/GenPRES/commit/a66e305a530e6558eaac336fad18e80109e76259))
+* *(client)* The argumentation field in the dialogs ([61a1a260](https://github.com/informedica/GenPRES/commit/61a1a260ec930c662f880182c9332ad444027a09))
+* *(genorder)* Typed refusal when no dose rule allows the pick ([7a7893cd](https://github.com/informedica/GenPRES/commit/7a7893cd5196784f906dae7d3a731051909711ed))
+* *(genorder)* Evaluate answers a typed refusal, no dose rule found ([2945e8e7](https://github.com/informedica/GenPRES/commit/2945e8e77c796e85bf7e9d13d13e6d1d02631d7d))
+* *(genorder)* A third refusal for rules without products ([ecef8299](https://github.com/informedica/GenPRES/commit/ecef82999664fb521b069bb84278028dea320d30))
+* *(genorder)* The plan context evaluated as an outcome ([b8d27184](https://github.com/informedica/GenPRES/commit/b8d27184518a1d563768f42ab58a84553dd4804a))
+* *(genorder)* Draft the argumentation, domain to store ([1f906140](https://github.com/informedica/GenPRES/commit/1f906140b68494743b21cfc579633e3f6260578b))
+* *(genorder)* The argumentation, domain to store ([ee950815](https://github.com/informedica/GenPRES/commit/ee950815411612b41ec0248dc6de44b3ffadba2f))
+
+### 🐞 Bug Fixes
+
+* *(api)* Draft the invariant parse of sheet floats ([099eecbf](https://github.com/informedica/GenPRES/commit/099eecbf0ebdf433a694796a60c78fcecf2f7ada))
+* *(api)* Parse the sheet floats with the invariant culture ([23da4a1b](https://github.com/informedica/GenPRES/commit/23da4a1bfa90b7a109adf7079b519949bffe1f1d))
+* *(client)* Show a frequency range in its field ([bf374828](https://github.com/informedica/GenPRES/commit/bf37482813e3ae08f76a467b0b884978e05ece75))
+* *(client)* Keep a preparation range, name the fold button ([16c17dd6](https://github.com/informedica/GenPRES/commit/16c17dd6855cea813bf9a2879b988b0e53ffd623))
+* *(client)* Identified patient data is never cleared ([d84ddd94](https://github.com/informedica/GenPRES/commit/d84ddd943fb8b5256fe0e3ace8c79bcd53f8aed9))
+* *(client)* Valid markup in the sign dialog ([1ff33a03](https://github.com/informedica/GenPRES/commit/1ff33a03fb3d22833985de6636b7ac226964b777))
+* *(client)* The refusal notice defers to the missing weight or height ([33fa278a](https://github.com/informedica/GenPRES/commit/33fa278aebfdad0375e0c734dc1785b841dce11d))
+* *(client)* The text shows while a recalculation runs, and is capped ([41bfc9f9](https://github.com/informedica/GenPRES/commit/41bfc9f9f4943165a43b4d2c045fcb9125ab8a93))
+* *(client)* The argumentation draft goes with the dialog on Escape ([c181b3c9](https://github.com/informedica/GenPRES/commit/c181b3c945f6a1a24ae1166472b11206a1afd90a))
+* *(client)* Draft the reset clearing the argumentation ([49ba3de0](https://github.com/informedica/GenPRES/commit/49ba3de045ad0e73d9061585ecadb52b5ca1afb1))
+* *(client)* A reset of the order clears the argumentation ([f630d0b2](https://github.com/informedica/GenPRES/commit/f630d0b21028b5ec2a66df1997f7382b6c694986))
+* *(client)* The reset takes the text with it as it goes out ([24ed597a](https://github.com/informedica/GenPRES/commit/24ed597aa95233d66a152964cd2eaf9b89f02e73))
+* *(client)* The patient panel shows the App's draft ([d0e18cde](https://github.com/informedica/GenPRES/commit/d0e18cde3737fa76fbccea10723e66205b1ca06f))
+* *(client)* A cleared weight or height stays cleared ([5c2cd0e3](https://github.com/informedica/GenPRES/commit/5c2cd0e3f6c1bb3ba6b9a4528454fa2b28c884aa))
+* *(genorder)* A reload refreshes the rules before the pick is checked ([847d5ad6](https://github.com/informedica/GenPRES/commit/847d5ad6d5aece14d4c8a28ced898d0f8a7449cb))
+* *(genorder)* The intake after a reload reads the totals reloaded ([af643b99](https://github.com/informedica/GenPRES/commit/af643b99a7556be40ab8e4d32e9f3b3c4e2338e6))
+* *(genorder)* A context made afresh keeps its argumentation ([2b5884d5](https://github.com/informedica/GenPRES/commit/2b5884d58536128f5c4b7dc19b7324224761cc47))
+* *(server)* Draft filling in missing estimates ([5861f1e2](https://github.com/informedica/GenPRES/commit/5861f1e29bd995950e2081b0a86fc0173e07a611))
+* *(server)* Fill in the estimates a patient lacks ([8a4fc937](https://github.com/informedica/GenPRES/commit/8a4fc93727c9b146b1a0cfc7743f8440304a25af))
+* *(server)* Sign the plan without estimates ([3d762264](https://github.com/informedica/GenPRES/commit/3d762264dcf1bb2d94c1fc7f0ea1d4ddbc150a6b))
+* *(utils)* Strip surrounding quotes in loadDotEnv ([9774a460](https://github.com/informedica/GenPRES/commit/9774a4602d5d07b15838ef5628fdc4cb743e8d6c))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/1f7a7c5325618a00b87221b3f754082a4d70494b..696be8c8ad2c1cdc07dae951f6d657921235b5e6)</small></strong>
 
 ## 0.1.2-alpha.36 - 2026-09-27
 
