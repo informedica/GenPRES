@@ -80,9 +80,10 @@ module SignDialog =
 
         let onConfirm = fun _ -> confirm ()
 
-        let onKeyDown (e: Browser.Types.KeyboardEvent) =
-            if e.key = "Enter" then
-                confirm ()
+        // the PIN field sits in a form, so Enter submits it; the page does not reload
+        let onSubmit (e: Browser.Types.Event) =
+            e.preventDefault ()
+            confirm ()
 
         let onCancel = fun _ -> signing.Cancel()
         let onAccept = fun _ -> signing.Accept()
@@ -119,6 +120,10 @@ module SignDialog =
             | Some notice -> noticeSentence tr signing.Held notice
             | None -> tr Terms.``Signing Dialog Text``
 
+        // the rows are block elements, so the secondary text is a div, not the paragraph
+        // ListItemText makes of it
+        let secondarySlot = {| secondary = {| ``component`` = "div" |} |}
+
         // the orders as they will be signed: each scenario's prescription, one line per row
         let orderList =
             orders
@@ -127,7 +132,16 @@ module SignDialog =
                     sc.Prescription
                     |> TextBlock.flatten
                     |> Array.mapi (fun j row ->
-                        let cells = row |> Array.map Mui.TypoGraphy.fromTextBlock
+                        let cells =
+                            row
+                            |> Array.mapi (fun k cell ->
+                                JSX.jsx
+                                    $"""
+                                import React from 'react';
+
+                                <React.Fragment key={k}>{cell |> Mui.TypoGraphy.fromTextBlock}</React.Fragment>
+                                """
+                            )
 
                         JSX.jsx
                             $"""
@@ -144,7 +158,7 @@ module SignDialog =
                 JSX.jsx
                     $"""
                 <ListItem key={i} divider={true}>
-                    <ListItemText primary={sc.Order.Orderable.Name} secondary={rows} />
+                    <ListItemText primary={sc.Order.Orderable.Name} secondary={rows} slotProps={secondarySlot} />
                 </ListItem>
                 """
             )
@@ -158,30 +172,31 @@ module SignDialog =
 
                 JSX.jsx
                     $"""
-                <TextField
-                    id="sign-dialog-pin"
-                    name="pin"
-                    autoFocus={true}
-                    margin="dense"
-                    label={tr Terms.``Signing Pin``}
-                    type="password"
-                    fullWidth={true}
-                    variant="outlined"
-                    value={pin}
-                    onChange={onPin}
-                    onKeyDown={onKeyDown}
-                    disabled={busy}
-                    error={hasError}
-                    helperText={helper}
-                    slotProps={ {|
-                                    htmlInput =
-                                        {|
-                                            inputMode = "numeric"
-                                            autoComplete = "current-password"
-                                            maxLength = 6
-                                        |}
-                                |} }
-                />
+                <Box component="form" noValidate={true} onSubmit={onSubmit}>
+                    <TextField
+                        id="sign-dialog-pin"
+                        name="pin"
+                        autoFocus={true}
+                        margin="dense"
+                        label={tr Terms.``Signing Pin``}
+                        type="password"
+                        fullWidth={true}
+                        variant="outlined"
+                        value={pin}
+                        onChange={onPin}
+                        disabled={busy}
+                        error={hasError}
+                        helperText={helper}
+                        slotProps={ {|
+                                        htmlInput =
+                                            {|
+                                                inputMode = "numeric"
+                                                autoComplete = "current-password"
+                                                maxLength = 6
+                                            |}
+                                    |} }
+                    />
+                </Box>
                 """
 
         let progress =
