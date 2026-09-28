@@ -1,72 +1,15 @@
-// The fold of a section of order fields: open while a value in it is still to be chosen, folded
-// to its heading once every value it shows holds one value, and the user's to open and fold in
-// between (#984, the preparation section of the dose dialog).
-//
-// The rule has three inputs: whether the section is solved, the user's last toggle, and a new
-// answer of the server. A toggle holds until the solved state changes; an answer that keeps the
-// section solved keeps the toggle, one that changes the solved state drops it and the section
-// follows the rule again. This script drafts the pure rule for Client.Core and checks each
-// transition. The view keys the fold on the order shown as well, so a toggle does not carry over
-// to another order; that is the view's, not the rule's.
-//
-// Run: `dotnet fsi SectionFold.fsx` from this directory after `dotnet run build`, or via the
-// FSI MCP after `#I "<this directory>"`.
-
-#I __SOURCE_DIRECTORY__
-#r "nuget: Expecto, 10.2.3"
-#load "load.fsx"
-
-open Shared.Types
-open Shared.Models
+namespace Informedica.GenPRES.Client.Core.Tests
 
 
-/// Whether a section of order fields is open or folded: folded once every value it shows holds
-/// one value, open while one is still to be chosen, and the user's to toggle in between.
-module SectionFold =
-
-    /// The fold of a section: what the last answer said about its values, and the user's last
-    /// toggle since that changed.
-    type Fold =
-        {
-            /// Whether every variable the section shows held one value at the last answer.
-            Solved: bool
-            /// The user's last toggle since the solved state last changed; None follows the rule.
-            Override: bool option
-        }
-
-
-    /// Whether every variable holds one value. An empty section counts as solved: there is
-    /// nothing in it left to choose.
-    let allSolved (ovars: OrderVariable seq) =
-        ovars |> Seq.forall Order.OrderVariable.isSolved
-
-
-    /// The fold of a section as first shown: it follows the rule.
-    let initial solved = { Solved = solved; Override = None }
-
-
-    /// An answer of the server. A change of the solved state drops the user's toggle, so the
-    /// section follows the rule again; no change keeps the toggle.
-    let observe solved fold =
-        if solved = fold.Solved then fold else initial solved
-
-
-    /// Open while a value is to be chosen, folded once all are solved, unless the user said
-    /// otherwise since.
-    let isOpen fold =
-        fold.Override |> Option.defaultValue (not fold.Solved)
-
-
-    /// The user opens a folded section or folds an open one.
-    let toggle fold =
-        { fold with Override = Some(not (isOpen fold)) }
-
-
-
-module Tests =
+/// The fold of a section of order fields: folded once solved, open while a value is to be
+/// chosen, the user's toggle in between, and a server answer that changes the solved state
+/// dropping the toggle.
+module SectionFoldTests =
 
     open Expecto
     open Expecto.Flip
+    open Shared.Types
+    open Shared.Models
 
 
     let vu vals =
@@ -87,6 +30,7 @@ module Tests =
     let noVals = ovar None
 
 
+    [<Tests>]
     let tests =
         testList
             "SectionFold"
@@ -95,9 +39,7 @@ module Tests =
                     "allSolved"
                     [
                         test "every variable with one value is solved" {
-                            [ oneVal; oneVal ]
-                            |> SectionFold.allSolved
-                            |> Expect.isTrue "should be solved"
+                            [ oneVal; oneVal ] |> SectionFold.allSolved |> Expect.isTrue "should be solved"
                         }
 
                         test "one variable with two values is not solved" {
@@ -113,9 +55,7 @@ module Tests =
                         }
 
                         test "an empty section counts as solved" {
-                            []
-                            |> SectionFold.allSolved
-                            |> Expect.isTrue "should be solved"
+                            [] |> SectionFold.allSolved |> Expect.isTrue "should be solved"
                         }
                     ]
 
@@ -192,9 +132,7 @@ module Tests =
                         test "an answer with the same state and no toggle changes nothing" {
                             let fold = SectionFold.initial false
 
-                            fold
-                            |> SectionFold.observe false
-                            |> Expect.equal "should be the same fold" fold
+                            fold |> SectionFold.observe false |> Expect.equal "should be the same fold" fold
                         }
 
                         test "an answer with a changed state is the initial fold of that state" {
@@ -205,6 +143,3 @@ module Tests =
                         }
                     ]
             ]
-
-
-Tests.tests |> Expecto.Tests.runTestsWithCLIArgs [] [||]
