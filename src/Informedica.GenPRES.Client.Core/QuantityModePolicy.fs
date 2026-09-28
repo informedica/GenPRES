@@ -1,21 +1,21 @@
-/// How the user may move the value of a quantity field, decided by one rule for every order
-/// variable, so the order and the nutrition views decide the same way.
+/// Decides how the user can change the value of a quantity field, with one rule for the order
+/// and the nutrition views.
 module QuantityModePolicy
 
 open Shared.Types
 open Shared.Models
 
 
-/// How the user may move the value of a quantity field.
+/// How the user can change the value of a quantity field.
 [<RequireQualifiedAccess>]
 type Mode =
-    /// Several values allowed: the value is chosen from the dropdown, without step buttons.
+    /// Several values: chosen from the dropdown, without step buttons.
     | Selectable
-    /// A range allowed: the steps narrow it, first and last jump to the min and the max.
+    /// A range: the steps narrow it; first and last jump to the minimum and the maximum.
     | Navigable
-    /// One value: the steps move it, first and last make a large step.
+    /// One value: the steps move it; first and last make a large step.
     | Stepable
-    /// One value or a range the user cannot move from this field.
+    /// A value or range the user cannot change from this field.
     | Fixed
 
 
@@ -30,19 +30,19 @@ type Field =
     | DoseRate
     /// The schedule's frequency.
     | Frequency
-    /// Any other order variable, which the server has no step commands for.
+    /// Any other order variable; the server has no step commands for it.
     | Other
 
 
-/// The number of values the order variable holds; 0 when it holds a range or nothing.
+/// The number of values the order variable holds; 0 for a range or nothing.
 let valuesCount (ovar: OrderVariable) =
     ovar.Variable.Vals
     |> Option.map (_.Value >> Array.length)
     |> Option.defaultValue 0
 
 
-/// Whether the server has step commands for the field and the order allows them now. The dose
-/// quantity can only be stepped when every component's orderable quantity holds one value.
+/// Whether the field can be stepped now. The dose quantity can only be stepped when every
+/// component's orderable quantity holds one value.
 let canStep (field: Field) (ord: Order) =
     match field with
     | Field.ComponentQuantity
@@ -54,12 +54,11 @@ let canStep (field: Field) (ord: Order) =
     | Field.Other -> false
 
 
-/// Decide the mode of a field. canStep: the server has step commands for this variable and the
-/// order allows them now. allSolved: every variable the order depends on holds one value.
-/// Several values are chosen from; one value is stepped only when it can step, the order is
-/// solved and the rules define an increment, and is fixed otherwise; a range is navigated when
-/// it can step and has a max and an increment, is fixed when it can step and has a bound the
-/// user cannot move, and is chosen from otherwise.
+/// The mode of a field, given whether it can step and whether the whole order is solved.
+/// Several values are Selectable. One value is Stepable when it can step, the order is solved
+/// and the rules define an increment; otherwise Fixed. A range is Navigable when it can step and
+/// has a maximum and an increment, Fixed when it can step and has a bound, and Selectable
+/// otherwise.
 let decide (canStep: bool) (allSolved: bool) (ovar: OrderVariable) =
     match ovar |> valuesCount with
     | n when n > 1 -> Mode.Selectable
@@ -77,6 +76,6 @@ let decide (canStep: bool) (allSolved: bool) (ovar: OrderVariable) =
             Mode.Selectable
 
 
-/// Decide the mode of a field of an order, as both views call it.
+/// The mode of a field of an order, as the views ask for it.
 let decideFor (field: Field) (ord: Order) (ovar: OrderVariable) =
     ovar |> decide (ord |> canStep field) (ord |> Order.isSolved)

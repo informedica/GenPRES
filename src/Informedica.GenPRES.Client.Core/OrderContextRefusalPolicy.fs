@@ -1,6 +1,5 @@
-/// The notice of a refused order context: what the prescribing page says when no dose can be
-/// shown, from the refusal the server sent and the picks the user made. The texts are Terms,
-/// translated by the caller: the view passes the sheet lookup, the tests pass english.
+/// Decides what the prescribing page says when the server refuses an order context. The texts
+/// are Terms, translated by the caller.
 module OrderContextRefusalPolicy
 
 open Shared
@@ -8,18 +7,20 @@ open Shared.Types
 open Shared.Models
 
 
-/// What the page shows for a refusal: the title, the body naming the picks, and whom to
-/// tell.
+/// What the page shows for a refusal.
 type Notice =
     {
+        /// The title.
         Title: string
+        /// Why no dose can be shown, naming the picks.
         Body: string
+        /// Whom to tell.
         Contact: string
     }
 
 
-/// The English of the refusal terms: what the notice shows when the sheet has no row for a
-/// term, or the terms have not loaded. Any other term falls back to its name.
+/// The English of the refusal terms, used when the sheet has no row for a term or has not
+/// loaded. Any other term shows its name.
 let english (term: Terms) =
     match term with
     | Terms.``Prescribe Refusal`` -> "No dose can be shown"
@@ -33,8 +34,8 @@ let english (term: Terms) =
     | term -> $"{term}"
 
 
-/// The picks the notice names, in the order the page shows them: indication, medication,
-/// route, form and dose type, as far as chosen, one after the other.
+/// The picks the notice names, in the page's order: indication, medication, route, form and
+/// dose type, as far as chosen.
 let picks (filter: Filter) =
     [
         filter.Indication
@@ -47,8 +48,8 @@ let picks (filter: Filter) =
     |> String.concat ", "
 
 
-/// The body's term per case. The products term speaks for the third case as a whole: a rule
-/// dropped for having no dose type is refused under it too, so its text names both.
+/// The term of the body for each refusal. The products term also covers a rule dropped for
+/// having no dose type, so its text names both.
 let bodyTerm (refusal: OrderContextRefusal) =
     match refusal with
     | OrderContextRefusal.NoDoseRules -> Terms.``Prescribe Refusal No dose rules``
@@ -56,17 +57,14 @@ let bodyTerm (refusal: OrderContextRefusal) =
     | OrderContextRefusal.NoProducts -> Terms.``Prescribe Refusal No products``
 
 
-/// Whether the patient as sent lacks a weight or a height, measured or estimated. When rules
-/// exist for the picks, the server refuses such a patient under the patient case before any
-/// rule is matched; no rule for the picks at all stays the first refusal.
+/// Whether the patient lacks a weight or a height, measured or estimated. When rules exist for
+/// the picks, the server refuses such a patient before matching any rule.
 let patientIncomplete (patient: Patient) =
     (patient |> Patient.getWeight).IsNone || (patient |> Patient.getHeight).IsNone
 
 
-/// The notice for the context refused: the title, the body of the case with the picks
-/// filled in, and the contact sentence. None for the patient case when the weight or the
-/// height is missing: the page already says what to enter, and a notice blaming the rules
-/// and asking to report them would send the user the wrong way.
+/// The notice for a refused context. None when the patient lacks a weight or height: the page
+/// already says what to enter, and a notice blaming the rules would mislead.
 let notice (tr: Terms -> string) (ctx: OrderContext) (refusal: OrderContextRefusal) : Notice option =
     match refusal with
     | OrderContextRefusal.NoDoseRulesForPatient when ctx.Patient |> patientIncomplete -> None
@@ -79,6 +77,5 @@ let notice (tr: Terms -> string) (ctx: OrderContext) (refusal: OrderContextRefus
             }
 
 
-/// The notice's text under its title: the body, then whom to tell; an empty translation
-/// adds no sentence.
+/// The text under the notice's title: the body, then whom to tell.
 let message (notice: Notice) = TermText.sentences [ notice.Body; notice.Contact ]

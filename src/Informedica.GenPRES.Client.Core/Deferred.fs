@@ -3,19 +3,23 @@
 [<AutoOpen>]
 module Deferred
 
-/// A value the server is asked for, in the four states a page can find it in. A page renders
-/// from Resolved and Refreshing alike, so that the screen stays populated while a fetch runs
-/// again, and acts on Resolved only.
+/// A value fetched from the server. Pages render Resolved and Refreshing alike, so the screen
+/// stays filled during a reload, and act on Resolved only.
 type Deferred<'t> =
+    /// Not requested yet.
     | HasNotStartedYet
+    /// Requested, with nothing to show yet.
     | InProgress
+    /// Loaded.
     | Resolved of 't
+    /// Requested again, with the last value still shown.
     | Refreshing of 't
 
 
 /// Functions over Deferred values.
 module Deferred =
 
+    /// Transforms the value, in whichever state holds one.
     let map (transform: 'T -> 'U) (deferred: Deferred<'T>) : Deferred<'U> =
         match deferred with
         | HasNotStartedYet -> HasNotStartedYet
@@ -37,6 +41,7 @@ module Deferred =
             | other -> other
 
 
+    /// The value, or the default while there is none.
     let defaultValue defVal =
         function
         | HasNotStartedYet
@@ -45,6 +50,7 @@ module Deferred =
         | Refreshing value -> value
 
 
+    /// The value, if there is one.
     let toOption =
         function
         | HasNotStartedYet
@@ -53,8 +59,7 @@ module Deferred =
         | Refreshing value -> Some value
 
 
-    /// The fetch asked again: the value kept and shown meanwhile when there is one, nothing to
-    /// show otherwise.
+    /// Starts a reload: Refreshing when there is a value to keep showing, InProgress otherwise.
     let refresh =
         function
         | Resolved value

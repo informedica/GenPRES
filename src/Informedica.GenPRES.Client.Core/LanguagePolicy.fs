@@ -1,29 +1,31 @@
 /// <summary>
-/// Which UI language the client shows, and why: the url's <c>la</c> parameter and the User's
-/// choice outrank the server default (<c>GENPRES_LANG</c>), which outranks the built-in
-/// fallback.
+/// Decides which language the client shows: the url's <c>la</c> parameter and the user's choice
+/// outrank the server default (<c>GENPRES_LANG</c>), which outranks the built-in fallback.
 /// </summary>
 module LanguagePolicy
 
 open Shared.Localization
 
 
-/// The current language and whether the url or the User chose it. Once chosen, the server
-/// default no longer applies, whichever order the messages arrive in.
+/// The current language, and whether the url or the user chose it. Once chosen, the server
+/// default no longer applies, whatever order the messages arrive in.
 type Language =
     {
+        /// The language shown.
         Current: Locales
+        /// Whether the url or the user chose it.
         Chosen: bool
     }
 
 
+/// Functions over Language.
 module Language =
 
-    /// Until the server settings arrive, and when they never do: Dutch, the client's default.
+    /// Dutch: the language until the server settings arrive, and if they never do.
     let fallback = Dutch
 
 
-    /// At start: the url's language, else the fallback, not yet chosen.
+    /// The language at start: the url's, chosen, or else the fallback, not chosen.
     let initial (url: Locales option) =
         {
             Current = url |> Option.defaultValue fallback
@@ -31,8 +33,7 @@ module Language =
         }
 
 
-    /// A navigation: only an la parameter changes the language; without one the current
-    /// language stays, chosen or not.
+    /// The language after a navigation: an la parameter changes it; without one it stays.
     let onUrl (url: Locales option) (language: Language) =
         match url with
         | Some l ->
@@ -43,7 +44,7 @@ module Language =
         | None -> language
 
 
-    /// The User picks a language.
+    /// The language the user picks.
     let choose (l: Locales) (_: Language) =
         {
             Current = l
@@ -51,7 +52,8 @@ module Language =
         }
 
 
-    /// The server default arrives: it applies unless the url or the User already chose.
+    /// The language once the server default arrives: the default, unless the url or the user
+    /// already chose.
     let onServerDefault (l: Locales) (language: Language) =
         if language.Chosen then
             language

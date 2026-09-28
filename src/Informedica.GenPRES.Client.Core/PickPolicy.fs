@@ -3,8 +3,7 @@
 module PickPolicy
 
 
-/// What the field is given: its options as keys, the key chosen, whether clearing is
-/// allowed, and whether the caller has it enabled.
+/// What the caller gives the field.
 type Pick =
     {
         /// The keys the user may choose from.
@@ -13,25 +12,26 @@ type Pick =
         Chosen: string option
         /// Whether the caller allows the choice to be cleared.
         Clearable: bool
-        /// Whether the caller has the field enabled at all.
+        /// Whether the caller has the field enabled.
         Enabled: bool
     }
 
 
-/// What the field shows: whether it can be used, the key shown as chosen, and whether the
-/// cross that clears is offered.
+/// What the field shows.
 type Offer =
     {
-        /// The field cannot be used.
+        /// Whether the field cannot be used.
         Disabled: bool
         /// The key shown as chosen.
         Selected: string option
-        /// The cross that clears is offered.
+        /// Whether the field offers the cross that clears it.
         CanClear: bool
     }
 
 
-/// The rule.
+/// What the field shows: no option leaves it disabled and empty; one option is shown chosen and
+/// disabled; more options follow the caller's enabled flag, and can be cleared when the caller
+/// allows it and something is chosen.
 let offer (pick: Pick) =
     match pick.Options with
     | [||] ->
@@ -57,5 +57,5 @@ let offer (pick: Pick) =
         }
 
 
-/// Whether a change the user makes is taken: only from a field that is offered enabled.
+/// Whether the field takes a change from the user: only when it is enabled.
 let acceptsChange (pick: Pick) = (offer pick).Disabled |> not
