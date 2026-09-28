@@ -66,9 +66,9 @@ sequenceDiagram
    order plan has a new order, and the context is held.
 3. **The patient data takes no change.** The fields keep their values and refuse a change: the
    selects are read-only, the gender and access controls stay enabled and reject it. An attempt
-   to change one, by pointer or keyboard, or the reset, asks why, with two ways out that drop the
-   new and changed orders: remove them, or refresh from the EHR (12b). The third way out,
-   signing, is the order plan's own button.
+   to change one, by pointer or keyboard, asks why, with two ways out that drop the new and
+   changed orders: remove them, or refresh from the EHR (12b). The third way out, signing, is
+   the order plan's own button. An identified patient's panel has no reset (#1126).
 4. **User A signs.** The Client asks for a challenge over the order plan. The Server first
    checks that every new or changed context states the order plan's patient context, and refuses
    `ContextDiffers` when one does not.

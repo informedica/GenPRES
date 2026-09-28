@@ -209,6 +209,7 @@ A refusal arrives as `#/session?refused=<word>` with the words `expired`, `spent
 **Further checks:**
 
 - **Reload after the launch**: the session resumes from the `genpres_session` cookie.
+- **Identified patient data**: the patient panel offers no **Reset**, and weight, height and gestational age have no clear cross; a value can only be replaced by another. Renal function keeps its cross. Without a launch the panel has **Reset** and every cross.
 - **A long identity**: narrow the window until the identification line clips. It ends in an ellipsis, hovering it shows the full text, and the controls on the right stay in place.
 - **Replay the launch**: open the `#/session?launch=…` URL from the Network tab in another browser profile within two minutes: `spent`. After two minutes: `expired`. A token from an earlier server run: `invalid`, because the sealing key is new at every start.
 - **Two launches of the same user**: the second session is open; the first is told a newer launch ended it on its next request.
