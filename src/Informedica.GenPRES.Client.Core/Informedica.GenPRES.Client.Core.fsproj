@@ -13,6 +13,7 @@
     <Compile Include="LanguagePolicy.fs" />
     <Compile Include="PickPolicy.fs" />
     <Compile Include="SeverityReason.fs" />
+    <Compile Include="ArgumentationPolicy.fs" />
     <Compile Include="QuantityMode.fs" />
     <Compile Include="SectionFold.fs" />
     <Compile Include="SessionMachine.fs" />

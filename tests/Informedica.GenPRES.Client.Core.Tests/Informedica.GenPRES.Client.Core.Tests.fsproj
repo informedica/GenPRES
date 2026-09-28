@@ -27,6 +27,7 @@
     <Compile Include="UnsignedWorkPolicyTests.fs" />
     <Compile Include="OrderPlanMachineTests.fs" />
     <Compile Include="OrderContextMachineTests.fs" />
+    <Compile Include="ArgumentationPolicyTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

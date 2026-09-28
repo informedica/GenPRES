@@ -1,3 +1,5 @@
+// Migrated to ArgumentationPolicy.fs, the two machines and their tests on 2026-09-28; kept as the draft.
+//
 // Step 8 of the plan for #985: the argumentation on the client. ArgumentationPolicy decides
 // when the dose dialog asks for it (the context narrowed to one scenario whose order the rules
 // mark, or a text present, which stays once written until the user clears it; the open
