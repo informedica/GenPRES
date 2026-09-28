@@ -75,6 +75,14 @@ type Terms =
     // one of the two missing, the other measured or estimated
     | ``Prescribe Weight unknown``
     | ``Prescribe Height unknown``
+    // no dose can be shown: the title of the notice
+    | ``Prescribe Refusal``
+    // one body per refusal, the picks filled into {0}
+    | ``Prescribe Refusal No dose rules``
+    | ``Prescribe Refusal Patient``
+    | ``Prescribe Refusal No products``
+    // whom to tell, one sentence for every site
+    | ``Prescribe Refusal Contact``
     | ``Order``
     | ``Order Frequency``
     | ``Order Dose``

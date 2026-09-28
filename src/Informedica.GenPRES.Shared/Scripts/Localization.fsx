@@ -686,6 +686,8 @@ let printResetRow () =
 
 // --- The reason when no dose rule allows the pick (plan 985, step 3) -------------------------
 //
+// Migrated to `Types.fs` and `Localization.fs` on 2026-09-28; kept as the draft and its tests.
+//
 // The server answers a typed refusal in the reply instead of a Dutch message the client matched
 // on: no dose rule for the picks at all, rules that cover no patient like this one, or rules
 // for the patient that have no product or no dose type to prescribe. The client renders it as
