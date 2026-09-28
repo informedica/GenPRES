@@ -8,9 +8,8 @@ The eleven umbrella issues were filed from this index on 2026-09-24:
 [#981](https://github.com/informedica/GenPRES/issues/981) for G0 and
 [#982](https://github.com/informedica/GenPRES/issues/982) to
 [#991](https://github.com/informedica/GenPRES/issues/991) for G1 to G10. Each group's members are
-sub-issues of its umbrella. Three umbrellas are built and closed: #981 and #982 (2026-09-25),
-and #984 (2026-09-28). G5's work is built, but #986 stays open for #718. Member status in the
-tables below is as of 2026-09-28.
+sub-issues of its umbrella. Four umbrellas are built and closed: #981 and #982 on 2026-09-25,
+then #984 and #986 on 2026-09-28. Member status in the tables below is as of 2026-09-28.
 
 The index has no issue number of its own, because it is not a plan for one issue; each per-group
 plan is named after its umbrella.
@@ -282,7 +281,7 @@ reason, not a marker the client matches on.
 | #489 | post-MVP | done: the panel closes only when the user closes it, C9, PR #1020 |
 | **+**#716 | none | done: the server estimates, PR #1056 |
 | **+**#717 | none | done: the department is a visible choice with one default, PRs #1048 to #1054 |
-| **+**#718 | none | open: waits for a growth table |
+| **+**#718 | none | open: waits for a growth table; detached from the umbrella 2026-09-28 |
 | **+**#976 | none | done: the two patient modes, PRs #1062 to #1081, closed 2026-09-26 |
 
 **Cause.**
@@ -321,7 +320,8 @@ modes. In identified mode the age has no setter.
 **Built** in two plans: [986's](986-the-patient-what-is-entered-estimated-hidden.md), in
 PRs #1041 to #1059, and [976's](976-two-patient-modes.md), in PRs #1060 to #1085. Each range
 opens with the plan's own PR and closes with its as-built record; the steps are the PRs between,
-as the member rows list them. The umbrella stays open as the parent of #718. Follow-ups:
+as the member rows list them. #718 waits on a growth table that nobody has named, so it was
+detached on 2026-09-28 and the umbrella closed that day; #718 stands on its own. Follow-ups:
 
 - #1061, an idle Session ends: done, PR #1086;
 - #1075, the patient context held from the first order to the sign: done, PRs #1088 to #1096;
@@ -338,7 +338,7 @@ as the member rows list them. The umbrella stays open as the parent of #718. Fol
 - where the estimate is computed: done; the normal-value tables are a server resource, the server
   estimates for launched and MCP-host patients, and the client still estimates in anonymous mode;
 - the department visible: done, a `PickField` in the panel with its default from one resource;
-- the weight-only and height-only minimum: open, #718;
+- the weight-only and height-only minimum: open in #718, no longer a member;
 - whether the panel closes on a timer at all: done, it does not.
 
 **Uses** C2 `PickField`, C6 `Notice`, C9 `Disclosure`.
@@ -560,8 +560,7 @@ on a design come last:
 1. G0, [981-ux-foundation-and-common-components.md](981-ux-foundation-and-common-components.md):
    built, closed 2026-09-25;
 2. G5, [986-the-patient-what-is-entered-estimated-hidden.md](986-the-patient-what-is-entered-estimated-hidden.md)
-   and [976-two-patient-modes.md](976-two-patient-modes.md): built; the umbrella stays open for
-   #718;
+   and [976-two-patient-modes.md](976-two-patient-modes.md): built, closed 2026-09-28;
 3. G1, [982-one-dropdown-one-set-of-controls-one-state.md](982-one-dropdown-one-set-of-controls-one-state.md):
    built, closed 2026-09-25;
 4. G4;

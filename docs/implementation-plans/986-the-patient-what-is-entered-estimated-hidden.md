@@ -449,8 +449,10 @@ the reason.
 
 ### Left open
 
-- **#718** stays a member, waiting for a growth table. **#976**, the two patient modes, gets its
-  own plan.
+- **#718** waits for a growth table. It stayed a member while the group was built; on
+  2026-09-28, with the other five members closed, it was detached and the umbrella closed, so
+  that an issue waiting on clinical data does not hold a built group open. **#976**, the two
+  patient modes, got its own plan.
 - The emergency-list workbook id is a literal twice, in the client's `Utils.fs` and in
   `Mapping.normalValuesUrlId`; the two become one setting together.
 - The departments the panel offers are the ones the rules name; a hospital naming its wards in
