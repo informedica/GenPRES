@@ -151,10 +151,14 @@ client exception of the script-only policy; anything pure that moves to `Client.
    React state that Expecto cannot reach. The guard against a recurrence is the shape of the
    panel: it keeps no copy of the draft. To make that testable, move the panel's edit
    reducer (the `Msg -> Patient option -> Patient option` in `Views/Patient.fs`, with
-   `setDepartment`) to `Client.Core` as a pure module, and test that each edit is a function
-   of the App's draft alone: applied to the draft the App hands back after an equal round
-   trip, it gives what the App holds. What the panel shows is then checked in the browser,
-   under Verification.
+   `setDepartment`) to `Client.Core` as a pure module, and test it in two parts, because the
+   setters blank both estimates and only the App's `applyNormalValues` fills them again:
+   - the edit alone: applied to the App's draft, it changes the one field and leaves the
+     estimates blank, and nothing else;
+   - the edit followed by the App's step: `draft |> edit |> applyNormalValues` gives the draft
+     the App holds, also when that draft is equal to the one before.
+
+   What the panel shows is then checked in the browser, under Verification.
 2. **The panel shows the App's draft** (fixes #1152). In `Views/Patient.fs`:
    - remove the `useElmish` over `Patient option`; the fields read `envPatient.Draft`;
    - an edit is `draft |> Patient.setX s |> updatePatient`, computed from the prop on each
