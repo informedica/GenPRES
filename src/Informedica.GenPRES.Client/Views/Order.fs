@@ -1002,16 +1002,6 @@ module Order =
 
             // the spinner lies over the fields and takes no room, so the dialog keeps its height
             // and the fields stay where they are while the order reloads
-            // the folded heading: the name and, once solved, the values as chips on one line
-            let preparationSummarySx =
-                {|
-                    display = "flex"
-                    alignItems = "center"
-                    flexWrap = "wrap"
-                    gap = 1
-                    minWidth = 0
-                |}
-
             let progressSx =
                 {|
                     position = "absolute"
@@ -1475,83 +1465,39 @@ module Order =
                         None
                 | _ -> null
 
-            // the preparation section: its heading, with the solved values as chips once it is folded,
-            // and the five preparation fields as its content
-            let preparationSection =
+            // the preparation section: its heading like the other sections', with the button that
+            // opens or folds it beside the name, and its five fields below while it is open
+            let preparationOpen = showPrepDivider && (fold |> SectionFold.isOpen)
+
+            let preparationDivider =
                 if not showPrepDivider then
                     null
                 else
-                    let label = Terms.``Prescribe Preparation`` |> getTerm "bereiding"
-
-                    let chips =
-                        if preparationSolved then
-                            preparationVariables
-                            |> List.map (fun ovar ->
-                                let mark = ovar |> markOf
-
-                                let value =
-                                    ovar
-                                    |> ViewHelpers.ovarVals (fixPrecision 3)
-                                    |> Array.tryHead
-                                    |> Option.map snd
-                                    |> Option.defaultValue ""
-
-                                Components.ValueChip.View
-                                    {|
-                                        value = value
-                                        severity = mark.severity
-                                        label = None
-                                    |}
-                            )
-                            |> unbox<seq<ReactElement>>
-                            |> React.Fragment
+                    let icon =
+                        if preparationOpen then
+                            Mui.Icons.ExpandLessIcon
                         else
-                            null
+                            Mui.Icons.ExpandMoreIcon
 
-                    let summary =
+                    let onClick = fun _ -> toggleFold ()
+
+                    let foldButton =
                         JSX.jsx
                             $"""
-                        import Box from '@mui/material/Box';
-                        import Typography from '@mui/material/Typography';
+                        import IconButton from '@mui/material/IconButton';
 
-                        <Box sx={preparationSummarySx}>
-                            <Typography variant="caption">{label}</Typography>
-                            {chips}
-                        </Box>
+                        <IconButton size="small" onClick={onClick} aria-expanded={preparationOpen}>
+                            {icon}
+                        </IconButton>
                         """
 
-                    let children =
-                        let prepFields =
-                            [|
-                                compOrdQtySelect
-                                substCompConcSelect
-                                substOrdQtySelect
-                                substOrdConcSelect
-                                ordQtySelect
-                            |]
-                            |> unbox<seq<ReactElement>>
-                            |> React.Fragment
-
-                        JSX.jsx
-                            $"""
-                        import Stack from '@mui/material/Stack';
-
-                        <Stack direction={"column"} spacing={if isMobile then 1.5 else 3}>
-                            {prepFields}
-                        </Stack>
-                        """
-
-                    Components.Disclosure.View
+                    Components.SectionHeading.View
                         {|
-                            isOpen = fold |> SectionFold.isOpen
-                            onToggle = toggleFold
-                            summary = summary
-                            children = children
-                            isMobile = isMobile
-                            detailsPaddingTop = None
-                            ariaControls = Some "order-preparation"
-                            summaryId = Some "order-preparation-heading"
+                            label = Terms.``Prescribe Preparation`` |> getTerm "bereiding"
+                            action = Some foldButton
                         |}
+
+            let whileOpen field = if preparationOpen then field else null
 
             // The fields the dialog shows, in the order it shows them: the case per dose type the
             // client hard-codes today, as one literal at the call site. Each field decides for
@@ -1567,7 +1513,12 @@ module Order =
                     substDoseQtyAdjSelect
                     substPerTimeSelect
                     substRateSelect
-                    preparationSection
+                    preparationDivider
+                    whileOpen compOrdQtySelect
+                    whileOpen substCompConcSelect
+                    whileOpen substOrdQtySelect
+                    whileOpen substOrdConcSelect
+                    whileOpen ordQtySelect
                     administrationDivider
                     frequencySelect
                     ordDoseQtySelect
