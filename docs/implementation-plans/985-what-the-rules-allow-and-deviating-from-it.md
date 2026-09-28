@@ -269,3 +269,4 @@ outside this plan.
 | Step | Pull request | Note |
 |---|---|---|
 | 1, the plan | #1146 | Read locally before the push: #505 had been closed the same morning, and the plan says so. |
+| 2, the typed outcome | #1147 | Script first, migrated on the maintainer's request in the same branch. The second refusal is checked by the script against the live data; the test project has no dose rules. |
