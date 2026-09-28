@@ -99,8 +99,10 @@ put on it and before the gate. Then:
 - an age-only patient is always calculable while the resources are loaded: the resumed patient,
   a url patient with only an age on the first load, and Sessions already stored with cleared
   measurements all compute on the estimate. `applyNormalValues` takes the nearest table row, so
-  every age gets a value while the tables have rows; a missing `weight` or `height` sheet gives
-  an empty table and the gate still refuses, which is tested, not fixed;
+  every age gets a value while the tables have rows for the patient's sex, and for both sexes
+  when the gender is unknown, since that estimate is the average of the two. A missing `weight`
+  or `height` sheet, or a table with rows for one sex only, leaves the estimate out and the gate
+  still refuses; both are tested, not fixed;
 - the gate "no weight and height" otherwise fires only while the resources are not loaded, which
   `requireLoaded` refuses for every command already;
 - a draft below the minimum (no age, and not both a measured weight and height) never leaves the
@@ -148,9 +150,13 @@ maintainer has checked it in the browser.
 3. **The server fills in missing estimates** (script,
    `src/Informedica.GenPRES.Server/Scripts/EstimateOnRequest.fsx`, then the maintainer's
    migration).
-   - `Patient.estimate` in `ServerApi.Mappers.Patient`: a patient without a weight or without a
-     height, measured or estimated, gets `Shared.Models.NormalValues.apply` when the normal
-     values are there; any other patient passes unchanged. A measured value is never touched.
+   - `Patient.estimate` in `ServerApi.Mappers.Patient`, per measure: a weight or a height that
+     is neither measured nor estimated gets the server's estimate when the normal values are
+     there; a measured value and an estimate already on the patient are kept. The estimates come
+     from `Shared.Models.NormalValues.apply` on a copy, and only the missing measure is taken
+     from it: `apply` writes both estimates, so applying it to the patient itself would replace
+     the client's estimate of the other measure with the server's, and the panel and the
+     calculation could differ.
    - The per-command `aged: Age option -> 'cmd -> 'cmd` becomes
      `patients: (Patient -> Patient) -> 'cmd -> 'cmd` in the order context, formulary,
      parenteralia, order plan (with `agedPlan`), interaction and signing commands; each maps
@@ -167,9 +173,11 @@ maintainer has checked it in the browser.
      `Compute.bound` and `SigningCommand.processCmd`; the field is a migration-time change.
    - Tests, homed in `AgeOnRequestTests.fs`: an age-only request patient computes on the
      estimate (order context, order plan); a measured weight is kept and the height estimated;
-     the Session's age is put on before the estimate; a resumed Session with weight and height
+     a client estimate of the weight is kept when only the height is filled in; the Session's
+     age is put on before the estimate; a resumed Session with weight and height
      cleared computes; a command without a patient never asks for the normal values; empty
-     tables still refuse with "Gewicht en lengte onbekend"; signing a plan with an age-only
+     tables, and an unknown gender over a table with rows for one sex only, still refuse with
+     "Gewicht en lengte onbekend"; signing a plan with an age-only
      patient is not refused. The comment on the cleared-weight test in `MeasurementsTests.fs`
      is reworded: the panel sends a cleared weight in anonymous use only.
 4. **Closing docs**: the as-built table below, and #1126 closed.
