@@ -211,3 +211,16 @@ Not part of this plan; each worth its own issue if wanted:
 
 | Step | Pull request | Note |
 |---|---|---|
+| 1, the plan | #1133 | One review round: the server fills in only the missing measure, so a client estimate of the other is kept; an unknown gender over a table with rows for one sex only still refuses. |
+| 2, the panel | #1134 | No reset and no clear cross on weight, height and gestational age for an identified patient; renal function keeps its cross. The two patient modes plan amended, the held patient context scenario and the launch workflow updated. |
+| 3, the server | #1135 | `Patient.estimate` and `AppEnv.normalValues`; each command's `aged` became `patients`. Prototyped in a script and migrated in the same pull request; thirteen tests in `AgeOnRequestTests.fs`. |
+
+Deviation from the plan, from the review of #1135: signing takes no estimate. The challenge is a
+digest of the plan as sent, and estimates filled in at the challenge and again at the submission,
+from tables reloaded in between, would change the plan under it and refuse a legitimate
+signature. The client signs the plan the server answered, which carries the server's estimates
+already; an age-only plan is refused as it was before.
+
+Found while testing #1135 and fixed there: the sign dialog put the order rows in a paragraph and
+the PIN field outside a form. The rows now render in a `div`, the cells of a row have a key, and
+the PIN field sits in a form that submits on Enter.
