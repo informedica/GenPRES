@@ -2611,6 +2611,7 @@ let tests =
             OrderPlanTests.tests
             OrderPlanTests.evaluateTests
             OrderPlanTests.rulesTests
+            OrderPlanTests.refusalTests
             DosePrintoutTests.tests
             PatientConstructorTests.tests
             MedicationParserTests.tests

@@ -751,3 +751,84 @@ let rulesTests =
                 ctx.Scenarios |> Expect.isEmpty "afresh: no scenarios"
             }
         ]
+
+
+/// An evaluation that finds no dose rule answers a refusal with the context as sent; the
+/// message-list evaluate still answers the message.
+let refusalTests =
+    let start = System.DateTime(2026, 9, 28)
+    let evaluateOutcome cmd =
+        cmd |> OrderContext.evaluateOutcome start OrderLogging.noOp (NoRules())
+    let evaluate cmd = cmd |> OrderContext.evaluate start OrderLogging.noOp (NoRules())
+
+    testList
+        "a refused evaluation"
+        [
+            testList
+                "the picks"
+                [
+                    test "the field's own choice is the pick, over no patient" {
+                        let picks = EvaluateFixtures.pcmContext |> OrderContext.picks
+
+                        picks.Generic |> Expect.equal "chosen" (Some "Paracetamol")
+                        picks.Indication |> Expect.equal "chosen" (Some "koorts")
+                        picks.Patient |> Expect.equal "no patient" Patient.patient
+                    }
+
+                    test "one option offered is the pick, more are none" {
+                        let fresh = { EvaluateFixtures.pcmContext with Filter = EvaluateFixtures.fresh }
+                        (OrderContext.picks fresh).Route |> Expect.isNone "two routes, no pick"
+
+                        let one = { fresh with Filter = { fresh.Filter with Routes = [| "or" |] } }
+
+                        (OrderContext.picks one).Route |> Expect.equal "the one route" (Some "or")
+                    }
+                ]
+
+            testList
+                "the refusal"
+                [
+                    test "no rules for the picks is the first case" {
+                        OrderContext.refusalOf [||] |> Expect.equal "none" Refusal.NoDoseRules
+
+                        EvaluateFixtures.pcmContext
+                        |> OrderContext.refusal (NoRules())
+                        |> Expect.equal "none from the provider" Refusal.NoDoseRules
+                    }
+
+                    test "a pick without rules is refused with the context as sent" {
+                        let sent = EvaluateFixtures.pcmContext
+
+                        match sent |> OrderContext.UpdateOrderContext |> evaluateOutcome with
+                        | Ok(Refused(OrderContext.UpdateOrderContext ctx, Refusal.NoDoseRules)) ->
+                            ctx.Filter.Generic |> Expect.equal "the pick kept" sent.Filter.Generic
+                            ctx.Scenarios |> Expect.equal "the scenarios as sent" sent.Scenarios
+                        | other -> failtest $"expected a refusal without rules, got %A{other}"
+                    }
+
+                    test "no pick at all is evaluated, not refused" {
+                        let fresh = { EvaluateFixtures.pcmContext with Filter = EvaluateFixtures.fresh }
+
+                        match fresh |> OrderContext.UpdateOrderContext |> evaluateOutcome with
+                        | Ok(Evaluated(OrderContext.UpdateOrderContext _)) -> ()
+                        | other -> failtest $"expected an evaluation, got %A{other}"
+                    }
+
+                    test "a scenario command is evaluated" {
+                        match
+                            EvaluateFixtures.pcmContext
+                            |> OrderContext.SelectOrderScenario
+                            |> evaluateOutcome
+                        with
+                        | Ok(Evaluated(OrderContext.SelectOrderScenario _)) -> ()
+                        | other -> failtest $"expected an evaluation, got %A{other}"
+                    }
+
+                    test "the message-list evaluate still answers the message" {
+                        EvaluateFixtures.pcmContext
+                        |> OrderContext.UpdateOrderContext
+                        |> evaluate
+                        |> Expect.equal "the message" (Error [ ErrorMsg(OrderContext.noDoseRulesMessage, None) ])
+                    }
+                ]
+        ]

@@ -1,3 +1,6 @@
+// Migrated to Types.fs and Api.fs on 2026-09-28; kept as the prototype and as the check
+// against the live provider, which the test project has no access to.
+//
 // Step 2 of the plan for #985: an evaluation that finds no dose rule answers a typed refusal
 // instead of a message the client has to match on. Prototype of the change to the OrderContext
 // module of Api.fs: the Refusal and Outcome types, the detection of which refusal it is, the

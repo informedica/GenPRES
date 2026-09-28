@@ -332,6 +332,23 @@ module OrderScenario =
                 )
 
 
+/// Functions over an evaluation's outcome.
+module Outcome =
+
+    /// The outcome over the value mapped, the refusal kept.
+    let map f =
+        function
+        | Evaluated a -> Evaluated(f a)
+        | Refused(a, r) -> Refused(f a, r)
+
+
+    /// The value the outcome carries, evaluated or as sent.
+    let get =
+        function
+        | Evaluated a
+        | Refused(a, _) -> a
+
+
 module OrderContext =
 
     open ConsoleTables
@@ -984,9 +1001,58 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    let getScenarios (start: System.DateTime) logger provider ctx =
-        let inputFilter = ctx.Filter
-        let ctx, result = ctx |> getRules logger provider
+    /// The message a refusal has been until now, kept for the message-list contract.
+    let noDoseRulesMessage = "Geen doseerregels gevonden voor het geselecteerde filter"
+
+
+    /// The five picks of the filter as the rule lookup reads them: the field's own choice,
+    /// else the one option the field offers. Over no patient, so the dose rule filter leaves
+    /// the patient out.
+    let picks (ctx: OrderContext) : DoseFilter =
+        let pick chosen offered =
+            if chosen |> Option.isSome then
+                chosen
+            else
+                offered |> Array.someIfOne
+
+        { Filter.doseFilter with
+            Indication = pick ctx.Filter.Indication ctx.Filter.Indications
+            Generic = pick ctx.Filter.Generic ctx.Filter.Generics
+            Route = pick ctx.Filter.Route ctx.Filter.Routes
+            Form = pick ctx.Filter.Form ctx.Filter.Forms
+            DoseType = pick ctx.Filter.DoseType ctx.Filter.DoseTypes
+        }
+
+
+    /// Which refusal an empty answer is: the dose rules for the picks, the patient left out,
+    /// decide. None at all is the first case; some, none of which matched with the patient
+    /// in, is the second.
+    let refusalOf (rulesForPicks: DoseRule[]) =
+        if rulesForPicks |> Array.isEmpty then
+            Refusal.NoDoseRules
+        else
+            Refusal.NoDoseRulesForPatient
+
+
+    /// The refusal for the context, read from the provider's dose rules.
+    let refusal provider (ctx: OrderContext) =
+        Api.getDoseRules provider
+        |> Api.filterDoseRules provider (picks ctx)
+        |> refusalOf
+
+
+    /// The scenarios for the context, as an outcome: evaluated, or refused with the context
+    /// as it was sent, so the picks that matched nothing stay the user's. The rule lookup's
+    /// own failure stays an error.
+    let getScenarios
+        (start: System.DateTime)
+        logger
+        provider
+        (sent: OrderContext)
+        : Result<Outcome<OrderContext>, Message list>
+        =
+        let inputFilter = sent.Filter
+        let ctx, result = sent |> getRules logger provider
 
         let inputHadSelections =
             inputFilter.Generic.IsSome
@@ -1000,9 +1066,7 @@ Scenarios: {scenarios}
         | Error e when inputHadSelections && outputIsEmpty ->
             // propagate the underlying error when getRules failed
             Error e
-        | _ when inputHadSelections && outputIsEmpty ->
-            [ ErrorMsg("Geen doseerregels gevonden voor het geselecteerde filter", None) ]
-            |> Error
+        | _ when inputHadSelections && outputIsEmpty -> Refused(sent, refusal provider sent) |> Ok
         | _ ->
             let prs =
                 match result with
@@ -1028,6 +1092,7 @@ Scenarios: {scenarios}
                         |> filterScenariosByPreparation
                 }
             |> updateFilterIfOneScenario
+            |> Evaluated
             |> Ok
 
 
@@ -1037,7 +1102,9 @@ Scenarios: {scenarios}
         ctx |> getScenarios start logger provider
 
 
-    let evaluate (start: System.DateTime) logger provider cmd =
+    /// The command evaluated, as an outcome. The two commands that look the rules up can be
+    /// refused; every other command is evaluated as it is.
+    let evaluateOutcome (start: System.DateTime) logger provider cmd : Result<Outcome<Command>, Message list> =
         // Helper to process property commands when there's exactly one scenario with an order
         let processPropertyCmd ctx propCmd wrapResult =
             match ctx.Scenarios |> Array.tryExactlyOne with
@@ -1045,18 +1112,40 @@ Scenarios: {scenarios}
                 ctx
                 |> processScenarioOrder logger (fun o -> ChangeProperty(o, propCmd))
                 |> wrapResult
+                |> Evaluated
                 |> Ok
             | None ->
                 // No single scenario, return ctx unchanged
-                wrapResult ctx |> Ok
+                wrapResult ctx |> Evaluated |> Ok
 
         match cmd with
-        | UpdateOrderContext ctx -> ctx |> getScenarios start logger provider |> Result.map UpdateOrderContext
-        | ReloadResources ctx -> ctx |> reloadResources start logger provider |> Result.map ReloadResources
+        | UpdateOrderContext ctx ->
+            ctx
+            |> getScenarios start logger provider
+            |> Result.map (Outcome.map UpdateOrderContext)
+        | ReloadResources ctx ->
+            ctx
+            |> reloadResources start logger provider
+            |> Result.map (Outcome.map ReloadResources)
         // TODO: need to implement validation
-        | SelectOrderScenario ctx -> ctx |> processScenarioOrder logger CalcValues |> SelectOrderScenario |> Ok
-        | UpdateOrderScenario ctx -> ctx |> processScenarioOrder logger SolveOrder |> UpdateOrderScenario |> Ok
-        | ResetOrderScenario ctx -> ctx |> processScenarioOrder logger ReCalcValues |> ResetOrderScenario |> Ok
+        | SelectOrderScenario ctx ->
+            ctx
+            |> processScenarioOrder logger CalcValues
+            |> SelectOrderScenario
+            |> Evaluated
+            |> Ok
+        | UpdateOrderScenario ctx ->
+            ctx
+            |> processScenarioOrder logger SolveOrder
+            |> UpdateOrderScenario
+            |> Evaluated
+            |> Ok
+        | ResetOrderScenario ctx ->
+            ctx
+            |> processScenarioOrder logger ReCalcValues
+            |> ResetOrderScenario
+            |> Evaluated
+            |> Ok
         // Frequency property commands
         | DecreaseScheduleFrequencyProperty ctx ->
             processPropertyCmd ctx DecreaseScheduleFrequency DecreaseScheduleFrequencyProperty
@@ -1128,6 +1217,19 @@ Scenarios: {scenarios}
                 ctx
                 (SetMedianComponentOrderableQuantity cmp)
                 (fun ctx -> SetMedianComponentQuantityProperty(ctx, cmp))
+
+
+    /// The evaluate of the message-list contract, over the outcome: a refusal is the message
+    /// it has always been. Keeps the callers that read messages as they are until they read
+    /// the outcome.
+    let evaluate (start: System.DateTime) logger provider cmd : Result<Command, Message list> =
+        cmd
+        |> evaluateOutcome start logger provider
+        |> Result.bind (
+            function
+            | Evaluated cmd -> Ok cmd
+            | Refused _ -> Error [ ErrorMsg(noDoseRulesMessage, None) ]
+        )
 
 
     /// The context as an evaluation starts from it: its patient as the rules take it, its
