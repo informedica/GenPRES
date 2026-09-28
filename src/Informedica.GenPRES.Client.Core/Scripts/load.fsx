@@ -10,6 +10,7 @@
 #load "../SectionFold.fs"
 #load "../SessionMachine.fs"
 #load "../SessionGatePolicy.fs"
+#load "../OrderContextRefusalPolicy.fs"
 #load "../PlanWorkPolicy.fs"
 #load "../HeldContextPolicy.fs"
 #load "../SigningMachine.fs"
