@@ -493,6 +493,20 @@ module Icons =
     <KeyboardDoubleArrowRightIcon/>
     """
 
+    let ExpandMoreIcon =
+        JSX.jsx
+            $"""
+    import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+    <ExpandMoreIcon/>
+    """
+
+    let ExpandLessIcon =
+        JSX.jsx
+            $"""
+    import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+    <ExpandLessIcon/>
+    """
+
     [<JSX.Component>]
     let WarningAmber =
         JSX.jsx
