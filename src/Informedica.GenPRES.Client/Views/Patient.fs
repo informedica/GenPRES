@@ -44,9 +44,6 @@ module Patient =
             | ToggleET
 
 
-        let init pat : State * Cmd<Msg> = pat, Cmd.none
-
-
         /// The department chosen for the draft, or none, which leaves the server's default in
         /// force. Clearing what was never a draft stays no draft.
         let setDepartment (s: string option) (p: Patient option) : Patient option =
@@ -55,27 +52,26 @@ module Patient =
             | _ -> { (p |> Option.defaultValue Patient.empty) with Department = s } |> Some
 
 
-        let update dispatch msg (state: State) : State * Cmd<Msg> =
-            let state =
-                match msg with
-                | Clear -> None
-                | UpdateYear s -> state |> Patient.setYear s
-                | UpdateMonth s -> state |> Patient.setMonth s
-                | UpdateWeek s -> state |> Patient.setWeek s
-                | UpdateDay s -> state |> Patient.setDay s
-                | UpdateWeight s -> state |> Patient.setWeight s
-                | UpdateHeight s -> state |> Patient.setHeight s
-                | UpdateGAWeek s -> state |> Patient.setGAWeek s
-                | UpdateGADay s -> state |> Patient.setGADay s
-                | UpdateRenal s -> state |> Patient.setRenal s
-                | UpdateGender s -> state |> Patient.setGender s
-                | UpdateDepartment s -> state |> setDepartment s
-                | ToggleCVL -> state |> Patient.toggleCVL
-                | TogglePVL -> state |> Patient.togglePVL
-                | ToggleET -> state |> Patient.toggleET
-
-            state |> dispatch
-            state, Cmd.none
+        /// The draft after one edit, applied to the draft the App holds. The setters blank both
+        /// estimates, so this is what the App receives, not what it shows: the App estimates the
+        /// weight and height again.
+        let update msg (state: State) : State =
+            match msg with
+            | Clear -> None
+            | UpdateYear s -> state |> Patient.setYear s
+            | UpdateMonth s -> state |> Patient.setMonth s
+            | UpdateWeek s -> state |> Patient.setWeek s
+            | UpdateDay s -> state |> Patient.setDay s
+            | UpdateWeight s -> state |> Patient.setWeight s
+            | UpdateHeight s -> state |> Patient.setHeight s
+            | UpdateGAWeek s -> state |> Patient.setGAWeek s
+            | UpdateGADay s -> state |> Patient.setGADay s
+            | UpdateRenal s -> state |> Patient.setRenal s
+            | UpdateGender s -> state |> Patient.setGender s
+            | UpdateDepartment s -> state |> setDepartment s
+            | ToggleCVL -> state |> Patient.toggleCVL
+            | TogglePVL -> state |> Patient.togglePVL
+            | ToggleET -> state |> Patient.toggleET
 
 
         /// Whether the draft is a patient: an age, or a measured weight and height; the estimate
@@ -145,15 +141,13 @@ module Patient =
 
         let isExpanded, setExpanded = React.useState (patient |> canCalculate |> not)
 
-        // Use a ref so useElmish closures always call the latest updatePatient
-        // without needing the function in the deps array (which would cause infinite re-renders)
-        let updatePatientRef = React.useRef updatePatient
-        updatePatientRef.current <- updatePatient
+        // the panel shows the App's draft and keeps no copy of it: an edit is applied to that
+        // draft and sent to the App, which estimates the weight and height again. A copy would
+        // go stale whenever the App's answer equals the draft it had, as after clearing an
+        // estimated height, and show values the doses no longer rest on
+        let pat = patient
 
-        let depArr = [| box patient; box lang |]
-
-        let pat, dispatch =
-            React.useElmish (init patient, (fun msg state -> update updatePatientRef.current msg state), depArr)
+        let dispatch msg = pat |> update msg |> updatePatient
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
