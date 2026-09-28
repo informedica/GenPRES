@@ -4,6 +4,7 @@ namespace Views
 module Order =
 
     open Fable.Core
+    open Fable.Core.JsInterop
     open Fable.React
     open Feliz
     open Shared.Types
@@ -420,6 +421,9 @@ module Order =
                     |}
                 refreshOrderScenario: OrderContext -> unit
                 closeOrder: unit -> unit
+                // the argumentation typed, committed when the field loses focus; the page
+                // writes it on its lane
+                argue: string -> unit
                 localizationTerms: Deferred<string[][]>
             |})
         =
@@ -950,6 +954,20 @@ module Order =
         let fixPrecision = Decimal.toStringNumberNLWithoutTrailingZerosFixPrecision
 
         let onClickOk = fun () -> props.closeOrder ()
+
+        // the argumentation: the text the context holds, typed here and committed when the
+        // field loses focus, so that a blur before Ok lands it; the draft follows the context
+        let heldArgumentation = shownContext |> Option.bind _.Argumentation |> Option.defaultValue ""
+
+        let argumentation, setArgumentation = React.useState heldArgumentation
+
+        React.useEffect ((fun () -> setArgumentation heldArgumentation), [| box heldArgumentation |])
+
+        let onArgumentation (e: Browser.Types.Event) = setArgumentation (e.target?value: string)
+
+        let onArgumentationBlur = fun _ -> props.argue argumentation
+
+        let argumentationWanted = shownContext |> Option.exists ArgumentationPolicy.wanted
 
         // Ok completes the dialog and Reset discards the changes: the bar places them
         let actionBar =
@@ -1515,6 +1533,39 @@ module Order =
 
             let whileOpen field = if preparationOpen then field else null
 
+            // the argumentation, last: shown when the rules mark the order or a text is there,
+            // capped where the policy caps it
+            let argumentationField =
+                if not argumentationWanted then
+                    null
+                else
+                    let label = Terms.``Order Argumentation`` |> getTerm "argumentatie"
+
+                    let helper =
+                        Terms.``Order Argumentation Helper``
+                        |> getTerm "waarom de dosering afwijkt van wat de regels toestaan"
+
+                    let inputProps = {| htmlInput = {| maxLength = ArgumentationPolicy.maxLength |} |}
+
+                    JSX.jsx
+                        $"""
+                    import TextField from '@mui/material/TextField';
+
+                    <TextField
+                        id="order-argumentation"
+                        label={label}
+                        helperText={helper}
+                        multiline={true}
+                        minRows={2}
+                        fullWidth={true}
+                        variant="outlined"
+                        value={argumentation}
+                        onChange={onArgumentation}
+                        onBlur={onArgumentationBlur}
+                        slotProps={inputProps}
+                    />
+                    """
+
             // The fields the dialog shows, in the order it shows them: the case per dose type the
             // client hard-codes today, as one literal at the call site. Each field decides for
             // itself whether it applies to the order and renders nothing otherwise; none is the
@@ -1540,6 +1591,7 @@ module Order =
                     ordDoseQtySelect
                     ordDoseRateSelect
                     timeSelect
+                    argumentationField
                 |]
                 |> unbox<seq<ReactElement>>
                 |> React.Fragment

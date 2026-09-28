@@ -91,6 +91,10 @@ type Terms =
     | ``Order Concentration``
     | ``Order Drip rate``
     | ``Order Administration time``
+    // the argumentation for a dose outside what the rules allow: the field's label, and the
+    // line under it that says what to write
+    | ``Order Argumentation``
+    | ``Order Argumentation Helper``
     | ``Nutrition``
     | ``Order Plan``
     | ``Formulary``
