@@ -109,12 +109,9 @@ module private Elmish =
         }
 
 
-    /// The four lanes, each a machine's state the pages read a projection of, and the patient
-    /// they are for.
+    /// The four lanes, each a machine's state the pages read a projection of.
     type LanesState =
         {
-            // the patient the workbench and the plan are for: the draft, once it meets the minimum
-            Patient: Patient option
             // the prescribing workbench, as the order-context machine holds it
             OrderContext: OrderContextState
             // the one plan, as the order-plan machine holds it
@@ -296,6 +293,13 @@ module private Elmish =
         |> Cmd.fromAsync
 
 
+    /// The patient the workbench and the plan are for: the draft, once it meets the minimum, an
+    /// age or a measured weight and height; below that there is no patient. Derived from the
+    /// draft whenever it is read, so that the two cannot differ.
+    let patientOf (state: State) =
+        state.Ui.PatientDraft |> Option.bind (Patient.validate >> Result.toOption)
+
+
     /// A reload settles when the refresh it started has answered: the order context over a
     /// patient, else the formulary.
     let settleReload (state: State) =
@@ -327,7 +331,7 @@ module private Elmish =
         | Api.AdminResponse.LogFileAnalyzed report -> { state with Admin.LogAnalysisReport = Resolved report }, Cmd.none
         | Api.AdminResponse.ResourcesReloaded ->
             let refresh =
-                match state.Lanes.Patient with
+                match patientOf state with
                 // the workbench evaluated again, as it is, whatever was in flight
                 | Some _ ->
                     let ctx =
@@ -599,8 +603,6 @@ module private Elmish =
         {
             Lanes =
                 {
-                    // the patient follows through UpdatePatient, once the draft is a patient
-                    Patient = None
                     // a medication in the url is seeded by UrlChanged, which the router fires on
                     // mount too, once the patient is set
                     OrderContext = OrderContextState.noPatient
@@ -1096,7 +1098,6 @@ module private Elmish =
             )
 
         { state with
-            Lanes.Patient = pat
             Ui.PatientDraft = dto
             Fetches.Formulary = { Formulary.empty with Patient = pat } |> Resolved
             Fetches.Parenteralia = Parenteralia.empty |> Resolved
@@ -1167,7 +1168,7 @@ module private Elmish =
 
             // the medication chosen is evaluated for the patient held; without one it is dropped
             // and said, since the patient is part of the filter
-            match state.Lanes.Patient with
+            match patientOf state with
             | Some _ ->
                 { state with Ui.Page = Prescribe },
                 Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Seed(ctx, newRequest ())))
@@ -1403,7 +1404,7 @@ module private Elmish =
             let state, seed =
                 match med with
                 | None -> state, Cmd.none
-                | Some m when state.Lanes.Patient.IsSome ->
+                | Some m when (patientOf state).IsSome ->
                     state,
                     state.Lanes.OrderContext
                     |> OrderContextState.context
@@ -1619,7 +1620,7 @@ module private Elmish =
             | _ ->
                 let form =
                     match state.Fetches.Formulary with
-                    | Resolved form -> { form with Patient = state.Lanes.Patient }
+                    | Resolved form -> { form with Patient = patientOf state }
                     | _ -> Formulary.empty
 
                 let cmd = form |> loadFormulary (tokenOf state.Lanes.Session)
@@ -1629,7 +1630,7 @@ module private Elmish =
         // without a patient the formulary is what a reload refreshes, so it settles the reload
         | LoadFormulary(Finished(Ok msg)) ->
             let state =
-                if state.Lanes.Patient.IsNone then
+                if (patientOf state).IsNone then
                     settleReload state
                 else
                     state
@@ -1637,7 +1638,7 @@ module private Elmish =
 
         | LoadFormulary(Finished(Error err)) ->
             let state =
-                if state.Lanes.Patient.IsNone then
+                if (patientOf state).IsNone then
                     settleReload state
                 else
                     state
