@@ -332,6 +332,23 @@ module OrderScenario =
                 )
 
 
+/// Functions over an evaluation's outcome.
+module Outcome =
+
+    /// The outcome over the value mapped, the refusal kept.
+    let map f =
+        function
+        | Evaluated a -> Evaluated(f a)
+        | Refused(a, r) -> Refused(f a, r)
+
+
+    /// The value the outcome carries, evaluated or as sent.
+    let get =
+        function
+        | Evaluated a
+        | Refused(a, _) -> a
+
+
 module OrderContext =
 
     open ConsoleTables
@@ -631,6 +648,56 @@ module OrderContext =
         }
 
 
+    /// The five picks of the filter as the rule lookup reads them: the field's own choice,
+    /// else the one option the field offers. Over no patient, so the dose rule filter leaves
+    /// the patient out.
+    let picks (ctx: OrderContext) : DoseFilter =
+        let pick chosen offered =
+            if chosen |> Option.isSome then
+                chosen
+            else
+                offered |> Array.someIfOne
+
+        { Filter.doseFilter with
+            Indication = pick ctx.Filter.Indication ctx.Filter.Indications
+            Generic = pick ctx.Filter.Generic ctx.Filter.Generics
+            Route = pick ctx.Filter.Route ctx.Filter.Routes
+            Form = pick ctx.Filter.Form ctx.Filter.Forms
+            DoseType = pick ctx.Filter.DoseType ctx.Filter.DoseTypes
+        }
+
+
+    /// The patient as the rules match it: the provider's default department for one without,
+    /// which applies to the matching only and never to the patient, and the weight and the
+    /// height it has.
+    let matchedPatient
+        (provider: Informedica.GenForm.Lib.Resources.IResourceProvider)
+        w
+        h
+        (ctx: OrderContext)
+        : Patient
+        =
+        {
+            Location = ctx.Patient.Location
+            Department =
+                ctx.Patient.Department
+                |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
+                    provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
+                )
+            Age = ctx.Patient.Age
+            GestAge = ctx.Patient.GestAge
+            PMAge = ctx.Patient.PMAge
+            Weight = Some w
+            Height = Some h
+            WeightMeasured = ctx.Patient.WeightMeasured
+            HeightMeasured = ctx.Patient.HeightMeasured
+            Diagnoses = [||]
+            Gender = ctx.Patient.Gender
+            Access = ctx.Patient.Access
+            RenalFunction = ctx.Patient.RenalFunction
+        }
+
+
     /// The rules for the context's selection and patient, and the context with its pick lists
     /// narrowed to them. A weight and a height are needed; a department is not, a patient
     /// without one being matched as a patient of the provider's default department, while the
@@ -638,69 +705,14 @@ module OrderContext =
     /// there are no rules.
     let getRules logger (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) (ctx: OrderContext) =
 
-        match ctx.Patient.Weight, ctx.Patient.Height, ctx.Patient.Department with
-        | Some w, Some h, d ->
-
-            let ind =
-                if ctx.Filter.Indication.IsSome then
-                    ctx.Filter.Indication
-                else
-                    ctx.Filter.Indications |> Array.someIfOne
-
-            let gen =
-                if ctx.Filter.Generic.IsSome then
-                    ctx.Filter.Generic
-                else
-                    ctx.Filter.Generics |> Array.someIfOne
-
-            let rte =
-                if ctx.Filter.Route.IsSome then
-                    ctx.Filter.Route
-                else
-                    ctx.Filter.Routes |> Array.someIfOne
-
-            let frm =
-                if ctx.Filter.Form.IsSome then
-                    ctx.Filter.Form
-                else
-                    ctx.Filter.Forms |> Array.someIfOne
-
-            let dst =
-                if ctx.Filter.DoseType.IsSome then
-                    ctx.Filter.DoseType
-                else
-                    ctx.Filter.DoseTypes |> Array.someIfOne
+        match ctx.Patient.Weight, ctx.Patient.Height with
+        | Some w, Some h ->
 
             let doseFilter =
-                {
-                    Indication = ind
-                    Generic = gen
-                    Route = rte
-                    Form = frm
-                    DoseType = dst
+                { picks ctx with
                     Diluent = ctx.Filter.Diluent
                     Components = ctx.Filter.SelectedComponents |> Array.toList //TODO probably go for lists
-                    Patient =
-                        {
-                            Location = ctx.Patient.Location
-                            // the default applies to the matching only, never to the patient
-                            Department =
-                                d
-                                |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
-                                    provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
-                                )
-                            Age = ctx.Patient.Age
-                            GestAge = ctx.Patient.GestAge
-                            PMAge = ctx.Patient.PMAge
-                            Weight = Some w
-                            Height = Some h
-                            WeightMeasured = ctx.Patient.WeightMeasured
-                            HeightMeasured = ctx.Patient.HeightMeasured
-                            Diagnoses = [||]
-                            Gender = ctx.Patient.Gender
-                            Access = ctx.Patient.Access
-                            RenalFunction = ctx.Patient.RenalFunction
-                        }
+                    Patient = ctx |> matchedPatient provider w h
                 }
 
             let inds = doseFilter |> filterIndications logger provider
@@ -984,14 +996,55 @@ Scenarios: {scenarios}
             |> updateFilterIfOneScenario
 
 
-    let getScenarios (start: System.DateTime) logger provider ctx =
-        let inputFilter = ctx.Filter
-        let ctx, result = ctx |> getRules logger provider
+    /// The message a refusal has been until now, kept for the message-list contract.
+    let noDoseRulesMessage = "Geen doseerregels gevonden voor het geselecteerde filter"
+
+
+    /// Which refusal an empty answer is, from the dose rules for the picks: none with the
+    /// patient left out is the first case; none with the patient in is the second; some with
+    /// the patient in, which the rule lookup then dropped for having no product or no dose
+    /// type, is the third. Reads only whether each set is empty.
+    let refusalOf (forPicks: 'a[]) (forPatient: 'a[]) =
+        if forPicks |> Array.isEmpty then
+            Refusal.NoDoseRules
+        elif forPatient |> Array.isEmpty then
+            Refusal.NoDoseRulesForPatient
+        else
+            Refusal.NoProducts
+
+
+    /// The refusal for the context, read from the provider's dose rules: the picks alone,
+    /// then the picks with the patient as the rules match it. Without a weight and a height
+    /// no rule covers the patient.
+    let refusal provider (ctx: OrderContext) =
+        let forPicks = Api.getDoseRules provider |> Api.filterDoseRules provider (picks ctx)
+
+        match ctx.Patient.Weight, ctx.Patient.Height with
+        | Some w, Some h ->
+            forPicks
+            |> Api.filterDoseRules provider { picks ctx with Patient = ctx |> matchedPatient provider w h }
+            |> refusalOf forPicks
+        | _ -> refusalOf forPicks [||]
+
+
+    /// The scenarios for the context, as an outcome: evaluated, or refused with the context
+    /// as it was sent, so the picks that matched nothing stay the user's. The rule lookup's
+    /// own failure stays an error.
+    let getScenarios
+        (start: System.DateTime)
+        logger
+        provider
+        (sent: OrderContext)
+        : Result<Outcome<OrderContext>, Message list>
+        =
+        let inputFilter = sent.Filter
+        let ctx, result = sent |> getRules logger provider
 
         let inputHadSelections =
             inputFilter.Generic.IsSome
             || inputFilter.Indication.IsSome
             || inputFilter.Route.IsSome
+            || inputFilter.Form.IsSome
             || inputFilter.DoseType.IsSome
 
         let outputIsEmpty = ctx.Filter.Generics |> Array.isEmpty && ctx.Filter.Indications |> Array.isEmpty
@@ -1000,9 +1053,7 @@ Scenarios: {scenarios}
         | Error e when inputHadSelections && outputIsEmpty ->
             // propagate the underlying error when getRules failed
             Error e
-        | _ when inputHadSelections && outputIsEmpty ->
-            [ ErrorMsg("Geen doseerregels gevonden voor het geselecteerde filter", None) ]
-            |> Error
+        | _ when inputHadSelections && outputIsEmpty -> Refused(sent, refusal provider sent) |> Ok
         | _ ->
             let prs =
                 match result with
@@ -1028,6 +1079,7 @@ Scenarios: {scenarios}
                         |> filterScenariosByPreparation
                 }
             |> updateFilterIfOneScenario
+            |> Evaluated
             |> Ok
 
 
@@ -1037,7 +1089,9 @@ Scenarios: {scenarios}
         ctx |> getScenarios start logger provider
 
 
-    let evaluate (start: System.DateTime) logger provider cmd =
+    /// The command evaluated, as an outcome. The two commands that look the rules up can be
+    /// refused; every other command is evaluated as it is.
+    let evaluateOutcome (start: System.DateTime) logger provider cmd : Result<Outcome<Command>, Message list> =
         // Helper to process property commands when there's exactly one scenario with an order
         let processPropertyCmd ctx propCmd wrapResult =
             match ctx.Scenarios |> Array.tryExactlyOne with
@@ -1045,18 +1099,40 @@ Scenarios: {scenarios}
                 ctx
                 |> processScenarioOrder logger (fun o -> ChangeProperty(o, propCmd))
                 |> wrapResult
+                |> Evaluated
                 |> Ok
             | None ->
                 // No single scenario, return ctx unchanged
-                wrapResult ctx |> Ok
+                wrapResult ctx |> Evaluated |> Ok
 
         match cmd with
-        | UpdateOrderContext ctx -> ctx |> getScenarios start logger provider |> Result.map UpdateOrderContext
-        | ReloadResources ctx -> ctx |> reloadResources start logger provider |> Result.map ReloadResources
+        | UpdateOrderContext ctx ->
+            ctx
+            |> getScenarios start logger provider
+            |> Result.map (Outcome.map UpdateOrderContext)
+        | ReloadResources ctx ->
+            ctx
+            |> reloadResources start logger provider
+            |> Result.map (Outcome.map ReloadResources)
         // TODO: need to implement validation
-        | SelectOrderScenario ctx -> ctx |> processScenarioOrder logger CalcValues |> SelectOrderScenario |> Ok
-        | UpdateOrderScenario ctx -> ctx |> processScenarioOrder logger SolveOrder |> UpdateOrderScenario |> Ok
-        | ResetOrderScenario ctx -> ctx |> processScenarioOrder logger ReCalcValues |> ResetOrderScenario |> Ok
+        | SelectOrderScenario ctx ->
+            ctx
+            |> processScenarioOrder logger CalcValues
+            |> SelectOrderScenario
+            |> Evaluated
+            |> Ok
+        | UpdateOrderScenario ctx ->
+            ctx
+            |> processScenarioOrder logger SolveOrder
+            |> UpdateOrderScenario
+            |> Evaluated
+            |> Ok
+        | ResetOrderScenario ctx ->
+            ctx
+            |> processScenarioOrder logger ReCalcValues
+            |> ResetOrderScenario
+            |> Evaluated
+            |> Ok
         // Frequency property commands
         | DecreaseScheduleFrequencyProperty ctx ->
             processPropertyCmd ctx DecreaseScheduleFrequency DecreaseScheduleFrequencyProperty
@@ -1128,6 +1204,19 @@ Scenarios: {scenarios}
                 ctx
                 (SetMedianComponentOrderableQuantity cmp)
                 (fun ctx -> SetMedianComponentQuantityProperty(ctx, cmp))
+
+
+    /// The evaluate of the message-list contract, over the outcome: a refusal is the message
+    /// it has always been. Keeps the callers that read messages as they are until they read
+    /// the outcome.
+    let evaluate (start: System.DateTime) logger provider cmd : Result<Command, Message list> =
+        cmd
+        |> evaluateOutcome start logger provider
+        |> Result.bind (
+            function
+            | Evaluated cmd -> Ok cmd
+            | Refused _ -> Error [ ErrorMsg(noDoseRulesMessage, None) ]
+        )
 
 
     /// The context as an evaluation starts from it: its patient as the rules take it, its

@@ -575,6 +575,27 @@ module Types =
         }
 
 
+    /// Why an evaluation answers no scenarios: the picks of the filter match no dose rule.
+    [<RequireQualifiedAccess>]
+    type Refusal =
+        /// No dose rule exists for the picks at all.
+        | NoDoseRules
+        /// Dose rules exist for the picks, and none of them covers this patient.
+        | NoDoseRulesForPatient
+        /// Dose rules cover the picks and the patient, and none of them can be prescribed: no
+        /// product, or no dose type.
+        | NoProducts
+
+
+    /// What an evaluation answers when it does not fail: the value evaluated, or the value as
+    /// it was sent together with the reason it could not be evaluated.
+    type Outcome<'a> =
+        /// The value evaluated.
+        | Evaluated of 'a
+        /// The value as it was sent, and why it could not be evaluated.
+        | Refused of 'a * Refusal
+
+
     /// The kinds of nutrition order an order plan holds, one context per category
     /// except supplements (any number, each under a feeding) and the electrolyte
     /// and glucose lines (any number).
