@@ -308,6 +308,45 @@ module OrderContextService =
             Error [| e.Message |]
 
 
+    /// The plan context evaluated against the rules, as an outcome: the domain's pipeline, the
+    /// intake over the provider's totals data. An exception on the way is the refusal of the
+    /// error channel.
+    let evaluateOutcome
+        (start: System.DateTime)
+        logger
+        (provider: Resources.IResourceProvider)
+        (cmd: Informedica.GenOrder.Lib.Types.OrderContext -> GenOrderContext.Command)
+        (pc: PlanContext)
+        : Result<Outcome<PlanContext>, string[]>
+        =
+        try
+            pc
+            |> PlanContext.evaluateOutcome start logger provider (provider.GetTotals()) cmd
+            |> Result.mapError refusal
+        with e ->
+            Logging.ServerLogging.Error $"errored:\n{e}"
+            |> Informedica.Logging.Lib.Logging.logError logger
+
+            Error [| e.Message |]
+
+
+    /// GenORDER's refusal as the contract's.
+    let refusalToModel =
+        function
+        | Refusal.NoDoseRules -> OrderContextRefusal.NoDoseRules
+        | Refusal.NoDoseRulesForPatient -> OrderContextRefusal.NoDoseRulesForPatient
+        | Refusal.NoProducts -> OrderContextRefusal.NoProducts
+
+
+    /// The outcome mapped out as the contract's response, with the environment's demo flag.
+    let toResponse (demo: bool) (outcome: Outcome<PlanContext>) : OrderContextResponse =
+        let model (pc: PlanContext) = pc |> PlanContext.Dto.toDto |> OrderContextMapper.toModel demo
+
+        match outcome with
+        | Evaluated pc -> OrderContextResponse.Evaluated(model pc)
+        | Refused(pc, refusal) -> OrderContextResponse.Refused(model pc, refusalToModel refusal)
+
+
     /// The contract model's context parsed: the plan context the mapper makes of it, or the
     /// reasons it is none in the server's words.
     let parse (ctx: OrderContext) : Result<PlanContext, string[]> =

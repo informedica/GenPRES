@@ -172,6 +172,18 @@ module Filter =
         }
 
 
+    /// Whether the reconciliation let a pick go: the held filter chose what the reconciled one
+    /// no longer does, for any of the five picks.
+    let dropped (held: Filter) (reconciled: Filter) =
+        let gone (chosen: 'a option) (kept: 'a option) = chosen.IsSome && kept.IsNone
+
+        gone held.Indication reconciled.Indication
+        || gone held.Generic reconciled.Generic
+        || gone held.Route reconciled.Route
+        || gone held.Form reconciled.Form
+        || gone held.DoseType reconciled.DoseType
+
+
     /// The serializable shape of a Filter: the same fields, dose types as strings.
     module Dto =
 

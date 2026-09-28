@@ -75,6 +75,43 @@ module PlanContext =
             cmd
 
 
+    /// The plan context evaluated against the rules as an outcome. Reconciled first: for the two
+    /// commands that look the rules up, a pick the rules no longer offer for the patient is a
+    /// refusal with the context as it was sent, not a pick dropped in silence. Else the command
+    /// run, and the intake recorded over the answer, evaluated or refused. The id and the
+    /// category stay the plan's. An evaluation that fails is the answer.
+    let evaluateOutcome
+        (start: System.DateTime)
+        logger
+        provider
+        (totalsData: Types.Data.TotalsData[])
+        (cmd: OrderContext -> OrderContext.Command)
+        (pc: PlanContext)
+        : Result<Outcome<PlanContext>, Message list>
+        =
+        let sent = pc.Context
+        let reconciled = sent |> OrderContext.reconcile logger provider
+
+        match reconciled |> cmd with
+        // the two commands that look the rules up: a pick dropped is their refusal
+        | OrderContext.UpdateOrderContext _
+        | OrderContext.ReloadResources _ when Filter.dropped sent.Filter reconciled.Filter ->
+            Refused(pc, OrderContext.refusal provider sent) |> Ok
+        | command ->
+            command
+            |> OrderContext.evaluateOutcome start logger provider
+            |> Result.map (
+                Outcome.map (fun answer ->
+                    let ctx = answer |> OrderContext.Command.get
+
+                    { pc with
+                        Context = ctx
+                        Intake = ctx |> OrderContext.intake totalsData
+                    }
+                )
+            )
+
+
     /// The serializable shape of a PlanContext: the category as a string, the context and
     /// the intake as their own Dtos.
     module Dto =
