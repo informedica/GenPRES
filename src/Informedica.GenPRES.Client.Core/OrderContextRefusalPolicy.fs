@@ -75,11 +75,11 @@ let notice (tr: Terms -> string) (ctx: OrderContext) (refusal: OrderContextRefus
         Some
             {
                 Title = tr Terms.``Prescribe Refusal``
-                Body = tr (bodyTerm refusal) |> SessionGatePolicy.fill [ picks ctx.Filter ]
+                Body = tr (bodyTerm refusal) |> TermText.fill [ picks ctx.Filter ]
                 Contact = tr Terms.``Prescribe Refusal Contact``
             }
 
 
 /// The notice's text under its title: the body, then whom to tell; an empty translation
 /// adds no sentence.
-let message (notice: Notice) = SessionGatePolicy.sentences [ notice.Body; notice.Contact ]
+let message (notice: Notice) = TermText.sentences [ notice.Body; notice.Contact ]

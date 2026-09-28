@@ -976,7 +976,7 @@ module Nutrition =
 
                         let mode =
                             cmp.OrderableQuantity
-                            |> QuantityMode.decideFor QuantityMode.Field.ComponentQuantity ord
+                            |> QuantityModePolicy.decideFor QuantityModePolicy.Field.ComponentQuantity ord
 
                         ViewHelpers.createStepper
                             dispatch
@@ -1094,7 +1094,7 @@ module Nutrition =
                 let freqNav =
                     let mode =
                         ord.Schedule.Frequency
-                        |> QuantityMode.decideFor QuantityMode.Field.Frequency ord
+                        |> QuantityModePolicy.decideFor QuantityModePolicy.Field.Frequency ord
 
                     // a frequency steps one increment per click, so it has no large step
                     ViewHelpers.createStepper
@@ -1226,7 +1226,7 @@ module Nutrition =
                 let nav =
                     let mode =
                         ord.Orderable.Dose.Rate
-                        |> QuantityMode.decideFor QuantityMode.Field.DoseRate ord
+                        |> QuantityModePolicy.decideFor QuantityModePolicy.Field.DoseRate ord
 
                     ViewHelpers.createStepper
                         dispatch

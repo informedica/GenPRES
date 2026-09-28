@@ -9,6 +9,7 @@ module SessionGatePolicy
 open Shared
 open Shared.Types
 open SessionMachine
+open TermText
 
 
 /// What the gate offers besides the text.
@@ -96,17 +97,6 @@ let english (term: Terms) =
     | Terms.``Session Refresh Failed`` ->
         "The patient data could not be read from the EHR again. Nothing changed; the orders are as they were."
     | _ -> $"{term}"
-
-
-/// Fills `{0}`, `{1}`, ... in a translated sentence with the given values, in order.
-let fill (args: string list) (s: string) =
-    args
-    |> List.indexed
-    |> List.fold (fun s (i, a) -> s |> String.replace $"{{{i}}}" a) s
-
-
-/// Joins translated sentences into one body; an empty translation adds no sentence.
-let sentences (xs: string list) = xs |> List.filter String.notEmpty |> String.concat " "
 
 
 /// The sentences of a refusal: what happened, then what the User can do. Every sentence is one

@@ -57,13 +57,13 @@ let refusalSentence (tr: Terms -> string) (refusal: SigningRefusal) =
     | SigningRefusal.NotPrescriber -> tr Terms.``Signing Refusal Not Prescriber``
     | SigningRefusal.Blocked head ->
         tr Terms.``Signing Refusal Blocked``
-        |> SessionGatePolicy.fill [ head.By.DisplayName; time head.SignedAt ]
+        |> TermText.fill [ head.By.DisplayName; time head.SignedAt ]
     | SigningRefusal.StaleToken -> tr Terms.``Signing Refusal Stale Token``
     | SigningRefusal.ChallengeMismatch -> tr Terms.``Signing Refusal Challenge Mismatch``
     | SigningRefusal.ChallengeExpired -> tr Terms.``Signing Refusal Challenge Expired``
-    | SigningRefusal.PinWrong left -> tr Terms.``Signing Refusal Pin Wrong`` |> SessionGatePolicy.fill [ string left ]
+    | SigningRefusal.PinWrong left -> tr Terms.``Signing Refusal Pin Wrong`` |> TermText.fill [ string left ]
     | SigningRefusal.PinLimit -> tr Terms.``Signing Refusal Pin Limit``
-    | SigningRefusal.Locked until -> tr Terms.``Signing Refusal Locked`` |> SessionGatePolicy.fill [ time until ]
+    | SigningRefusal.Locked until -> tr Terms.``Signing Refusal Locked`` |> TermText.fill [ time until ]
     | SigningRefusal.StoreFailed -> tr Terms.``Signing Refusal Store Failed``
     | SigningRefusal.PlanUnreadable -> tr Terms.``Signing Refusal Plan Unreadable``
     | SigningRefusal.ContextDiffers -> tr Terms.``Signing Refusal Context Differs``
@@ -72,19 +72,19 @@ let refusalSentence (tr: Terms -> string) (refusal: SigningRefusal) =
 /// What the User is told once the version landed.
 let signedSentence (tr: Terms -> string) (signed: SignedOrderPlan) =
     tr Terms.``Signing Signed``
-    |> SessionGatePolicy.fill [ string signed.Head.No; signed.Head.By.DisplayName ]
+    |> TermText.fill [ string signed.Head.No; signed.Head.By.DisplayName ]
 
 
 /// The record moved on; whose version, and when.
 let movedOnSentence (tr: Terms -> string) (head: OrderPlanHead) =
     tr Terms.``Session Newer Version``
-    |> SessionGatePolicy.fill [ head.By.DisplayName; time head.SignedAt ]
+    |> TermText.fill [ head.By.DisplayName; time head.SignedAt ]
 
 
 /// The version taken up is open.
 let versionOpenedSentence (tr: Terms -> string) (head: OrderPlanHead) =
     tr Terms.``Session Version Opened``
-    |> SessionGatePolicy.fill [ string head.No; head.By.DisplayName ]
+    |> TermText.fill [ string head.No; head.By.DisplayName ]
 
 
 /// What the data notice says, with or without a reading. With a reading while the patient

@@ -11,24 +11,37 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- the rest -->
     <Compile Include="DeferredTests.fs" />
+    <Compile Include="TermTextTests.fs" />
+
+    <!-- policies over the contract alone -->
     <Compile Include="LanguagePolicyTests.fs" />
+    <Compile Include="OrderContextRefusalPolicyTests.fs" />
     <Compile Include="PatientDraftPolicyTests.fs" />
     <Compile Include="PickPolicyTests.fs" />
-    <Compile Include="SeverityReasonTests.fs" />
-    <Compile Include="QuantityModeTests.fs" />
-    <Compile Include="SectionFoldTests.fs" />
-    <Compile Include="SessionMachineTests.fs" />
-    <Compile Include="SessionGatePolicyTests.fs" />
-    <Compile Include="OrderContextRefusalPolicyTests.fs" />
+    <Compile Include="SeverityReasonPolicyTests.fs" />
+    <Compile Include="QuantityModePolicyTests.fs" />
+    <Compile Include="SectionFoldPolicyTests.fs" />
     <Compile Include="PlanWorkPolicyTests.fs" />
     <Compile Include="HeldContextPolicyTests.fs" />
+
+    <!-- the session and signing machines -->
+    <Compile Include="SessionMachineTests.fs" />
     <Compile Include="SigningMachineTests.fs" />
+
+    <!-- policies over the session and signing machines -->
+    <Compile Include="SessionGatePolicyTests.fs" />
     <Compile Include="SigningPolicyTests.fs" />
     <Compile Include="UnsignedWorkPolicyTests.fs" />
+
+    <!-- the order machines -->
     <Compile Include="OrderPlanMachineTests.fs" />
     <Compile Include="OrderContextMachineTests.fs" />
+
+    <!-- a policy over the contract alone, whose tests read the order plan machine's fixtures -->
     <Compile Include="ArgumentationPolicyTests.fs" />
+
     <Compile Include="Main.fs" />
   </ItemGroup>
 

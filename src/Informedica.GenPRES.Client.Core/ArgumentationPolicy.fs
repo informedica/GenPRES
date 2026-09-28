@@ -56,7 +56,8 @@ let variables (ord: Order) : OrderVariable list =
 
 /// Whether the rules mark the order: any of its variables carries a severity reason.
 let marked (ord: Order) =
-    variables ord |> List.exists (SeverityReason.ofOrderVariable >> Option.isSome)
+    variables ord
+    |> List.exists (SeverityReasonPolicy.ofOrderVariable >> Option.isSome)
 
 
 /// Whether the dialog asks for the argumentation: the context is narrowed to one scenario

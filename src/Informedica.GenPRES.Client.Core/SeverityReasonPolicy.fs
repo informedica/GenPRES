@@ -1,7 +1,7 @@
 /// Why a value is marked, read from the bounds the rules define and the values the variable
 /// has, both of which the client receives with every order variable. Pure F#, no React, so it
 /// runs under Expecto; the mark shows what it answers.
-module SeverityReason
+module SeverityReasonPolicy
 
 open Shared.Types
 

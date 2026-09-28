@@ -9,25 +9,35 @@
     is what keeps it that way: add a Browser call here and this project stops compiling.
   -->
   <ItemGroup>
+    <!-- the rest -->
     <Compile Include="Deferred.fs" />
+    <Compile Include="FilterSync.fs" />
+    <Compile Include="TermText.fs" />
+
+    <!-- policies over the contract alone -->
     <Compile Include="LanguagePolicy.fs" />
+    <Compile Include="OrderContextRefusalPolicy.fs" />
     <Compile Include="PatientDraftPolicy.fs" />
     <Compile Include="PickPolicy.fs" />
-    <Compile Include="SeverityReason.fs" />
+    <Compile Include="SeverityReasonPolicy.fs" />
     <Compile Include="ArgumentationPolicy.fs" />
-    <Compile Include="QuantityMode.fs" />
-    <Compile Include="SectionFold.fs" />
-    <Compile Include="SessionMachine.fs" />
-    <Compile Include="SessionGatePolicy.fs" />
-    <Compile Include="OrderContextRefusalPolicy.fs" />
+    <Compile Include="QuantityModePolicy.fs" />
+    <Compile Include="SectionFoldPolicy.fs" />
     <Compile Include="PlanWorkPolicy.fs" />
     <Compile Include="HeldContextPolicy.fs" />
+
+    <!-- the session and signing machines -->
+    <Compile Include="SessionMachine.fs" />
     <Compile Include="SigningMachine.fs" />
+
+    <!-- policies over the session and signing machines -->
+    <Compile Include="SessionGatePolicy.fs" />
     <Compile Include="SigningPolicy.fs" />
     <Compile Include="UnsignedWorkPolicy.fs" />
+
+    <!-- the order machines -->
     <Compile Include="OrderPlanMachine.fs" />
     <Compile Include="OrderContextMachine.fs" />
-    <Compile Include="FilterSync.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenPRES.Shared\Informedica.GenPRES.Shared.fsproj" />

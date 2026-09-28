@@ -4,7 +4,7 @@ namespace Informedica.GenPRES.Client.Core.Tests
 /// The fold of a section of order fields: folded once solved, open while a value is to be
 /// chosen, the user's toggle in between, and a server answer that changes the solved state
 /// dropping the toggle.
-module SectionFoldTests =
+module SectionFoldPolicyTests =
 
     open Expecto
     open Expecto.Flip
@@ -33,29 +33,31 @@ module SectionFoldTests =
     [<Tests>]
     let tests =
         testList
-            "SectionFold"
+            "SectionFoldPolicy"
             [
                 testList
                     "allSolved"
                     [
                         test "every variable with one value is solved" {
-                            [ oneVal; oneVal ] |> SectionFold.allSolved |> Expect.isTrue "should be solved"
+                            [ oneVal; oneVal ]
+                            |> SectionFoldPolicy.allSolved
+                            |> Expect.isTrue "should be solved"
                         }
 
                         test "one variable with two values is not solved" {
                             [ oneVal; twoVals ]
-                            |> SectionFold.allSolved
+                            |> SectionFoldPolicy.allSolved
                             |> Expect.isFalse "should not be solved"
                         }
 
                         test "one variable with no values is not solved" {
                             [ oneVal; noVals ]
-                            |> SectionFold.allSolved
+                            |> SectionFoldPolicy.allSolved
                             |> Expect.isFalse "should not be solved"
                         }
 
                         test "an empty section counts as solved" {
-                            [] |> SectionFold.allSolved |> Expect.isTrue "should be solved"
+                            [] |> SectionFoldPolicy.allSolved |> Expect.isTrue "should be solved"
                         }
                     ]
 
@@ -63,14 +65,14 @@ module SectionFoldTests =
                     "isOpen"
                     [
                         test "open while not solved" {
-                            SectionFold.initial false
-                            |> SectionFold.isOpen
+                            SectionFoldPolicy.initial false
+                            |> SectionFoldPolicy.isOpen
                             |> Expect.isTrue "should be open"
                         }
 
                         test "folded when solved" {
-                            SectionFold.initial true
-                            |> SectionFold.isOpen
+                            SectionFoldPolicy.initial true
+                            |> SectionFoldPolicy.isOpen
                             |> Expect.isFalse "should be folded"
                         }
                     ]
@@ -79,24 +81,24 @@ module SectionFoldTests =
                     "toggle"
                     [
                         test "opens a folded section" {
-                            SectionFold.initial true
-                            |> SectionFold.toggle
-                            |> SectionFold.isOpen
+                            SectionFoldPolicy.initial true
+                            |> SectionFoldPolicy.toggle
+                            |> SectionFoldPolicy.isOpen
                             |> Expect.isTrue "should be open"
                         }
 
                         test "folds an open section" {
-                            SectionFold.initial false
-                            |> SectionFold.toggle
-                            |> SectionFold.isOpen
+                            SectionFoldPolicy.initial false
+                            |> SectionFoldPolicy.toggle
+                            |> SectionFoldPolicy.isOpen
                             |> Expect.isFalse "should be folded"
                         }
 
                         test "a second toggle undoes the first" {
-                            SectionFold.initial true
-                            |> SectionFold.toggle
-                            |> SectionFold.toggle
-                            |> SectionFold.isOpen
+                            SectionFoldPolicy.initial true
+                            |> SectionFoldPolicy.toggle
+                            |> SectionFoldPolicy.toggle
+                            |> SectionFoldPolicy.isOpen
                             |> Expect.isFalse "should be folded again"
                         }
                     ]
@@ -105,41 +107,43 @@ module SectionFoldTests =
                     "observe"
                     [
                         test "an answer that keeps the solved state keeps the toggle" {
-                            SectionFold.initial true
-                            |> SectionFold.toggle
-                            |> SectionFold.observe true
-                            |> SectionFold.isOpen
+                            SectionFoldPolicy.initial true
+                            |> SectionFoldPolicy.toggle
+                            |> SectionFoldPolicy.observe true
+                            |> SectionFoldPolicy.isOpen
                             |> Expect.isTrue "should stay open as the user said"
                         }
 
                         test "an answer that solves the section drops the toggle and folds it" {
-                            SectionFold.initial false
-                            |> SectionFold.toggle
-                            |> SectionFold.observe true
-                            |> SectionFold.isOpen
+                            SectionFoldPolicy.initial false
+                            |> SectionFoldPolicy.toggle
+                            |> SectionFoldPolicy.observe true
+                            |> SectionFoldPolicy.isOpen
                             |> Expect.isFalse "should follow the rule and fold"
                         }
 
                         test "an answer that unsolves the section drops the toggle and opens it" {
-                            SectionFold.initial true
-                            |> SectionFold.toggle
-                            |> SectionFold.toggle
-                            |> SectionFold.observe false
-                            |> SectionFold.isOpen
+                            SectionFoldPolicy.initial true
+                            |> SectionFoldPolicy.toggle
+                            |> SectionFoldPolicy.toggle
+                            |> SectionFoldPolicy.observe false
+                            |> SectionFoldPolicy.isOpen
                             |> Expect.isTrue "should follow the rule and open"
                         }
 
                         test "an answer with the same state and no toggle changes nothing" {
-                            let fold = SectionFold.initial false
+                            let fold = SectionFoldPolicy.initial false
 
-                            fold |> SectionFold.observe false |> Expect.equal "should be the same fold" fold
+                            fold
+                            |> SectionFoldPolicy.observe false
+                            |> Expect.equal "should be the same fold" fold
                         }
 
                         test "an answer with a changed state is the initial fold of that state" {
-                            SectionFold.initial false
-                            |> SectionFold.toggle
-                            |> SectionFold.observe true
-                            |> Expect.equal "should be the initial solved fold" (SectionFold.initial true)
+                            SectionFoldPolicy.initial false
+                            |> SectionFoldPolicy.toggle
+                            |> SectionFoldPolicy.observe true
+                            |> Expect.equal "should be the initial solved fold" (SectionFoldPolicy.initial true)
                         }
                     ]
             ]

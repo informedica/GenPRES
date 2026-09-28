@@ -817,12 +817,12 @@ module Order =
                 let hasVals (ovar: OrderVariable) =
                     ovar.Variable.Vals |> Option.exists (fun v -> v.Value |> Array.isEmpty |> not)
 
-                let hasSteps (mode: QuantityMode.Mode) =
+                let hasSteps (mode: QuantityModePolicy.Mode) =
                     match mode with
-                    | QuantityMode.Mode.Navigable
-                    | QuantityMode.Mode.Stepable -> true
-                    | QuantityMode.Mode.Selectable
-                    | QuantityMode.Mode.Fixed -> false
+                    | QuantityModePolicy.Mode.Navigable
+                    | QuantityModePolicy.Mode.Stepable -> true
+                    | QuantityModePolicy.Mode.Selectable
+                    | QuantityModePolicy.Mode.Fixed -> false
 
                 // component orderable quantity: more than one component, with values, a range shown
                 // as one, or steps; the field shows a range as one entry where the others show none
@@ -835,7 +835,7 @@ module Order =
                         |> Option.filter (fun ovar ->
                             ovar |> ViewHelpers.ovarValsWithRange string 3 |> Array.isEmpty |> not
                             || ovar
-                               |> QuantityMode.decideFor QuantityMode.Field.ComponentQuantity ord
+                               |> QuantityModePolicy.decideFor QuantityModePolicy.Field.ComponentQuantity ord
                                |> hasSteps
                         )
 
@@ -887,23 +887,23 @@ module Order =
         // the preparation section folds to its heading once every value it shows holds one value;
         // the user opens and folds it in between, and an answer that changes the solved state puts
         // it back under the rule. Another order shown by this component starts its fold anew.
-        let preparationSolved = preparationVariables |> SectionFold.allSolved
+        let preparationSolved = preparationVariables |> SectionFoldPolicy.allSolved
         let shownOrderId = displayOrder |> Option.map _.Id |> Option.defaultValue ""
-        let fold, setFold = React.useState (SectionFold.initial preparationSolved)
+        let fold, setFold = React.useState (SectionFoldPolicy.initial preparationSolved)
         let foldOrderIdRef = React.useRef shownOrderId
 
         React.useEffect (
             (fun () ->
                 if foldOrderIdRef.current <> shownOrderId then
                     foldOrderIdRef.current <- shownOrderId
-                    setFold (SectionFold.initial preparationSolved)
+                    setFold (SectionFoldPolicy.initial preparationSolved)
                 else
-                    setFold (fold |> SectionFold.observe preparationSolved)
+                    setFold (fold |> SectionFoldPolicy.observe preparationSolved)
             ),
             [| box shownOrderId; box preparationSolved |]
         )
 
-        let toggleFold = fun () -> setFold (fold |> SectionFold.toggle)
+        let toggleFold = fun () -> setFold (fold |> SectionFoldPolicy.toggle)
 
         let showAdminDivider =
             match displayOrder with
@@ -1244,7 +1244,7 @@ module Order =
                         | Some cmp ->
                             let mode =
                                 cmp.OrderableQuantity
-                                |> QuantityMode.decideFor QuantityMode.Field.ComponentQuantity ord
+                                |> QuantityModePolicy.decideFor QuantityModePolicy.Field.ComponentQuantity ord
 
                             createStepper
                                 mode
@@ -1405,7 +1405,7 @@ module Order =
                     let stepper =
                         let mode =
                             ord.Schedule.Frequency
-                            |> QuantityMode.decideFor QuantityMode.Field.Frequency ord
+                            |> QuantityModePolicy.decideFor QuantityModePolicy.Field.Frequency ord
 
                         // a frequency steps one increment per click, so it has no large step
                         createStepper
@@ -1466,7 +1466,7 @@ module Order =
                     let stepper =
                         let mode =
                             ord.Orderable.Dose.Rate
-                            |> QuantityMode.decideFor QuantityMode.Field.DoseRate ord
+                            |> QuantityModePolicy.decideFor QuantityModePolicy.Field.DoseRate ord
 
                         createStepper
                             mode
@@ -1513,7 +1513,7 @@ module Order =
 
             // the preparation section: its heading like the other sections', with the button that
             // opens or folds it beside the name, and its five fields below while it is open
-            let preparationOpen = showPrepDivider && (fold |> SectionFold.isOpen)
+            let preparationOpen = showPrepDivider && (fold |> SectionFoldPolicy.isOpen)
 
             let preparationDivider =
                 if not showPrepDivider then

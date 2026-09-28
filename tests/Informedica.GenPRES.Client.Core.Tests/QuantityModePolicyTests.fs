@@ -2,7 +2,7 @@ namespace Informedica.GenPRES.Client.Core.Tests
 
 
 /// How the user may move the value of a quantity field: one rule for every order variable.
-module QuantityModeTests =
+module QuantityModePolicyTests =
 
     open System
     open Expecto
@@ -88,7 +88,7 @@ module QuantityModeTests =
     [<Tests>]
     let tests =
         testList
-            "QuantityMode"
+            "QuantityModePolicy"
             [
                 testList
                     "decide"
@@ -97,85 +97,85 @@ module QuantityModeTests =
                             for canStep, allSolved in [ true, true; true, false; false, true; false, false ] do
                                 twoVals
                                 |> withIncr
-                                |> QuantityMode.decide canStep allSolved
-                                |> Expect.equal "should be Selectable" QuantityMode.Mode.Selectable
+                                |> QuantityModePolicy.decide canStep allSolved
+                                |> Expect.equal "should be Selectable" QuantityModePolicy.Mode.Selectable
                         }
 
                         test "one value that can step, all solved and an increment is Stepable" {
                             oneVal
                             |> withIncr
-                            |> QuantityMode.decide true true
-                            |> Expect.equal "should be Stepable" QuantityMode.Mode.Stepable
+                            |> QuantityModePolicy.decide true true
+                            |> Expect.equal "should be Stepable" QuantityModePolicy.Mode.Stepable
                         }
 
                         test "one value with dependents unsolved is Fixed" {
                             oneVal
                             |> withIncr
-                            |> QuantityMode.decide true false
-                            |> Expect.equal "should be Fixed" QuantityMode.Mode.Fixed
+                            |> QuantityModePolicy.decide true false
+                            |> Expect.equal "should be Fixed" QuantityModePolicy.Mode.Fixed
                         }
 
                         test "one value without a defined increment is Fixed" {
                             oneVal
                             |> withoutIncr
-                            |> QuantityMode.decide true true
-                            |> Expect.equal "should be Fixed" QuantityMode.Mode.Fixed
+                            |> QuantityModePolicy.decide true true
+                            |> Expect.equal "should be Fixed" QuantityModePolicy.Mode.Fixed
                         }
 
                         test "one value that cannot step is Fixed" {
                             oneVal
                             |> withIncr
-                            |> QuantityMode.decide false true
-                            |> Expect.equal "should be Fixed" QuantityMode.Mode.Fixed
+                            |> QuantityModePolicy.decide false true
+                            |> Expect.equal "should be Fixed" QuantityModePolicy.Mode.Fixed
                         }
 
                         test "no value with a max and an increment that can step is Navigable" {
                             range
                             |> withIncr
-                            |> QuantityMode.decide true false
-                            |> Expect.equal "should be Navigable" QuantityMode.Mode.Navigable
+                            |> QuantityModePolicy.decide true false
+                            |> Expect.equal "should be Navigable" QuantityModePolicy.Mode.Navigable
                         }
 
                         test "no value with a navigable range that cannot step is Selectable" {
                             range
                             |> withIncr
-                            |> QuantityMode.decide false false
-                            |> Expect.equal "should be Selectable" QuantityMode.Mode.Selectable
+                            |> QuantityModePolicy.decide false false
+                            |> Expect.equal "should be Selectable" QuantityModePolicy.Mode.Selectable
                         }
 
                         test "no value with a range but no increment that can step is Fixed" {
                             range
                             |> withoutIncr
-                            |> QuantityMode.decide true false
-                            |> Expect.equal "should be Fixed" QuantityMode.Mode.Fixed
+                            |> QuantityModePolicy.decide true false
+                            |> Expect.equal "should be Fixed" QuantityModePolicy.Mode.Fixed
                         }
 
                         test "no value with only a min and an increment that can step is Fixed" {
                             minOnly
                             |> withIncr
-                            |> QuantityMode.decide true false
-                            |> Expect.equal "should be Fixed" QuantityMode.Mode.Fixed
+                            |> QuantityModePolicy.decide true false
+                            |> Expect.equal "should be Fixed" QuantityModePolicy.Mode.Fixed
                         }
 
                         test "no value with only a max but no increment that can step is Fixed" {
                             maxOnly
                             |> withoutIncr
-                            |> QuantityMode.decide true false
-                            |> Expect.equal "should be Fixed" QuantityMode.Mode.Fixed
+                            |> QuantityModePolicy.decide true false
+                            |> Expect.equal "should be Fixed" QuantityModePolicy.Mode.Fixed
                         }
 
                         test "no value and no bounds that can step is Selectable" {
                             emptyVar
                             |> withIncr
-                            |> QuantityMode.decide true true
-                            |> Expect.equal "should be Selectable" QuantityMode.Mode.Selectable
+                            |> QuantityModePolicy.decide true true
+                            |> Expect.equal "should be Selectable" QuantityModePolicy.Mode.Selectable
                         }
 
                         test "no value and no bounds that cannot step is Selectable" {
                             emptyVar
                             |> withoutIncr
-                            |> QuantityMode.decide false false
-                            |> Expect.equal "should be Selectable" QuantityMode.Mode.Selectable
+                            |> QuantityModePolicy.decide false false
+                            |> Expect.equal "should be Selectable" QuantityModePolicy.Mode.Selectable
                         }
                     ]
 
@@ -186,29 +186,29 @@ module QuantityModeTests =
                             let ord = order [ unsolvedVar ] unsolvedVar
 
                             [
-                                QuantityMode.Field.ComponentQuantity
-                                QuantityMode.Field.DoseRate
-                                QuantityMode.Field.Frequency
+                                QuantityModePolicy.Field.ComponentQuantity
+                                QuantityModePolicy.Field.DoseRate
+                                QuantityModePolicy.Field.Frequency
                             ]
-                            |> List.forall (fun field -> ord |> QuantityMode.canStep field)
+                            |> List.forall (fun field -> ord |> QuantityModePolicy.canStep field)
                             |> Expect.isTrue "should all step"
                         }
 
                         test "any other field cannot step" {
                             order [ solvedVar ] solvedVar
-                            |> QuantityMode.canStep QuantityMode.Field.Other
+                            |> QuantityModePolicy.canStep QuantityModePolicy.Field.Other
                             |> Expect.isFalse "should not step"
                         }
 
                         test "dose quantity steps when every component quantity holds one value" {
                             order [ solvedVar; solvedVar ] unsolvedVar
-                            |> QuantityMode.canStep QuantityMode.Field.DoseQuantity
+                            |> QuantityModePolicy.canStep QuantityModePolicy.Field.DoseQuantity
                             |> Expect.isTrue "should step"
                         }
 
                         test "dose quantity cannot step when a component quantity holds several values" {
                             order [ solvedVar; unsolvedVar ] unsolvedVar
-                            |> QuantityMode.canStep QuantityMode.Field.DoseQuantity
+                            |> QuantityModePolicy.canStep QuantityModePolicy.Field.DoseQuantity
                             |> Expect.isFalse "should not step"
                         }
                     ]
@@ -220,16 +220,16 @@ module QuantityModeTests =
                             let ord = order [ solvedVar ] solvedVar
 
                             ord.Orderable.Dose.Quantity
-                            |> QuantityMode.decideFor QuantityMode.Field.DoseQuantity ord
-                            |> Expect.equal "should be Stepable" QuantityMode.Mode.Stepable
+                            |> QuantityModePolicy.decideFor QuantityModePolicy.Field.DoseQuantity ord
+                            |> Expect.equal "should be Stepable" QuantityModePolicy.Mode.Stepable
                         }
 
                         test "an unsolved order fixes a single dose quantity" {
                             let ord = order [ unsolvedVar ] solvedVar
 
                             ord.Orderable.Dose.Quantity
-                            |> QuantityMode.decideFor QuantityMode.Field.DoseQuantity ord
-                            |> Expect.equal "should be Fixed" QuantityMode.Mode.Fixed
+                            |> QuantityModePolicy.decideFor QuantityModePolicy.Field.DoseQuantity ord
+                            |> Expect.equal "should be Fixed" QuantityModePolicy.Mode.Fixed
                         }
                     ]
             ]
