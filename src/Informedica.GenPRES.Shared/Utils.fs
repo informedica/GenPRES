@@ -1,6 +1,7 @@
 namespace Shared
 
 open System
+open System.Globalization
 
 
 module Measures =
@@ -408,15 +409,22 @@ module Csv =
     open Types
 
 
+    /// The number as the sheet writes it, with a decimal point, whatever the culture of the host:
+    /// a parse with the current culture drops the point as a group separator under a culture that
+    /// writes the decimal comma, and reads 0.0192 as 192.
+    let tryParseFloat (x: string) =
+        Double.TryParse(x, NumberStyles.Float, CultureInfo.InvariantCulture)
+
+
     let tryCast dt (x: string) =
         match dt with
         | StringData -> box (x.Trim())
         | FloatData ->
-            match Double.TryParse(x) with
+            match tryParseFloat x with
             | true, n -> n |> box
             | _ -> raise (System.FormatException $"cannot parse {x} to double")
         | FloatOptionData ->
-            match Double.TryParse(x) with
+            match tryParseFloat x with
             | true, n -> n |> Some |> box
             | _ -> None |> box
 
