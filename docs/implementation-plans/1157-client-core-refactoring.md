@@ -215,7 +215,9 @@ One pull request each, one at a time.
 ## Verification
 
 For each step: `dotnet run build`; `dotnet test tests/Informedica.GenPRES.Client.Core.Tests/`;
-the Fable watcher or `npx vite build` for the client; `dotnet fantomas --check` on the changed
-files. Step 1 also: the patient panel in the browser, anonymous mode, the checks of #1152
+`dotnet run ClientBuild` for the client, which restores the npm packages, compiles the F# with
+Fable and bundles with Vite (Vite alone would bundle the JavaScript Fable last wrote); and
+`dotnet fantomas --check` on the changed files. While `dotnet run` is up, its Fable watcher
+recompiles on save and serves as a quick check between the builds. Step 1 also: the patient panel in the browser, anonymous mode, the checks of #1152
 (clear a weight, change the department, change the age). Step 2 also: the order dialog, the
 quantity field and a marked dose in the browser, since those views call the renamed modules.
