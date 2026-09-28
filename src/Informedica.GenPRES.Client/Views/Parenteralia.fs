@@ -17,14 +17,6 @@ module Parenteralia =
     module private Elmish =
 
 
-        type State =
-            {
-                Generic: string option
-                Form: string option
-                Route: string option
-            }
-
-
         type Msg =
             | Clear
             | GenericChange of string option
@@ -32,45 +24,15 @@ module Parenteralia =
             | RouteChange of string option
 
 
-        let empty =
-            {
-                Generic = None
-                Form = None
-                Route = None
-            }
-
-
-        let init (par: Deferred<Parenteralia>) =
-            // the selects keep their state through a fetch that runs again over what is shown
-            let state =
-                match par with
-                | Resolved form
-                | Refreshing form ->
-                    {
-                        Generic = form.Generic //|> Option.orElse gen
-                        Form = form.Form //|> Option.orElse ind
-                        Route = form.Route //|> Option.orElse rte
-                    }
-                | _ -> empty
-
-            state, Cmd.none
-
-
-        let update
-            (parentaralia: Deferred<Parenteralia>)
-            updateParenteralia
-            (msg: Msg)
-            (state: State)
-            : State * Cmd<Msg>
-            =
+        /// The parenteralia filter with one choice applied, sent to the App: the selects read the
+        /// filter the App holds, never a copy of their own, so what they show is what is filtered on.
+        let update (parentaralia: Deferred<Parenteralia>) updateParenteralia (msg: Msg) : unit =
 
             match msg with
             | Clear ->
                 match parentaralia with
                 | Resolved par -> Parenteralia.empty |> updateParenteralia
                 | _ -> ()
-
-                empty, Cmd.none
 
             | GenericChange s ->
                 match parentaralia with
@@ -82,8 +44,6 @@ module Parenteralia =
                     |> updateParenteralia
                 | _ -> ()
 
-                { state with Generic = s }, Cmd.none
-
             | FormChange s ->
                 match parentaralia with
                 | Resolved par ->
@@ -94,8 +54,6 @@ module Parenteralia =
                     |> updateParenteralia
                 | _ -> ()
 
-                { state with Form = s }, Cmd.none
-
             | RouteChange s ->
                 match parentaralia with
                 | Resolved par ->
@@ -105,8 +63,6 @@ module Parenteralia =
                         { par with Route = s }
                     |> updateParenteralia
                 | _ -> ()
-
-                { state with Route = s }, Cmd.none
 
 
     open Elmish
@@ -124,8 +80,7 @@ module Parenteralia =
 
         let getTerm = Global.getLocalizedTerm HasNotStartedYet lang
 
-        let state, dispatch =
-            React.useElmish (init parenteralia, update parenteralia updateParenteralia, [| box parenteralia |])
+        let dispatch msg = msg |> update parenteralia updateParenteralia
 
         // the filter is the workbench's: a change here is evaluated there, so the selects are
         // greyed while a workbench request is under way
@@ -170,17 +125,13 @@ module Parenteralia =
                          if isMobile then
                              items
                              |> Array.map (fun s -> s, s)
-                             |> select
-                                 isLoading
-                                 (Terms.``Formulary Medications`` |> getTerm "Medicatie")
-                                 state.Generic
-                                 (GenericChange >> dispatch)
+                             |> select isLoading (Terms.``Formulary Medications`` |> getTerm "Medicatie") sel (GenericChange >> dispatch)
                          else
                              items
                              |> autoComplete
                                  isLoading
                                  (Terms.``Formulary Medications`` |> getTerm "Medicatie")
-                                 state.Generic
+                                 sel
                                  (GenericChange >> dispatch)
 
                 }
@@ -194,14 +145,10 @@ module Parenteralia =
                          else if isMobile then
                              items
                              |> Array.map (fun s -> s, s)
-                             |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Forms") state.Form (FormChange >> dispatch)
+                             |> select isLoading (Terms.``Formulary Indications`` |> getTerm "Forms") sel (FormChange >> dispatch)
                          else
                              items
-                             |> autoComplete
-                                 isLoading
-                                 (Terms.``Formulary Indications`` |> getTerm "Forms")
-                                 state.Form
-                                 (FormChange >> dispatch)}
+                             |> autoComplete isLoading (Terms.``Formulary Indications`` |> getTerm "Forms") sel (FormChange >> dispatch)}
                     {match parenteralia with
                      | Resolved par -> false, par.Route, par.Routes
                      | Refreshing par -> true, par.Route, par.Routes
@@ -210,10 +157,10 @@ module Parenteralia =
                          if isMobile then
                              items
                              |> Array.map (fun s -> s, s)
-                             |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") state.Route (RouteChange >> dispatch)
+                             |> select isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
                          else
                              items
-                             |> autoComplete isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") state.Route (RouteChange >> dispatch)
+                             |> autoComplete isLoading (Terms.``Formulary Routes`` |> getTerm "Routes") sel (RouteChange >> dispatch)
 
                 }
 
