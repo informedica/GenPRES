@@ -232,11 +232,11 @@ Planned in [985-what-the-rules-allow-and-deviating-from-it.md](985-what-the-rule
 
 | Issue | Milestone | Status |
 |---|---|---|
-| #499 | M4 | open: planned, the argumentation on the order context |
+| #499 | M4 | open: planned, the argumentation on the order context; the second track |
 | #505 | M4 | closed 2026-09-28, not built: a user-defined range outside the rules is a missing dose rule; stepping out of range stays the deliberate route |
-| **+**#478 | M4 | open: planned, the contact sentence in the notice |
-| **+**#911 | none | open: planned, the reason in place |
-| **+**#977 | none | open: the umbrella for the decision below; planned |
+| **+**#478 | M4 | done: the contact sentence in the notice, PRs #1147 to #1151 |
+| **+**#911 | none | done: the reason in place, no page switch, PRs #1147 to #1151 |
+| **+**#977 | none | done: the decision below, built in PRs #1147 to #1151 |
 
 **Cause.** One question, from two sides.
 
@@ -269,24 +269,33 @@ reason, not a marker the client matches on.
 **Decisions** (2026-09-28, in [985's plan](985-what-the-rules-allow-and-deviating-from-it.md)):
 the reason travels in the reply, as a response that is either the evaluated context or the
 context as sent with a typed refusal, the shape of `LaunchOutcome.Refused`; the error channel
-stays for failures. Two refusals: no dose rule for the picks at all, and rules for the picks that
-cover no patient like this one; the text is optional, as #499 asks. Whom to contact is one localized sentence for every
-site. The argumentation lives on the order context, GenORDER's and the contract's, typed in the
+stays for failures. Three refusals: no dose rule for the picks at all, rules for the picks that
+cover no patient like this one, and rules that cover both with no product or dose type to
+prescribe with; the text is optional, as #499 asks. Whom to contact is one localized sentence for
+every site. The argumentation lives on the order context, GenORDER's and the contract's, typed in the
 dose dialog and stored with the signed version under a new structure version of the plan JSON.
 Issue #505 was closed the same day, not built: a range the user defines outside the rules is a
 missing dose rule, and stepping a value out of its range stays the deliberate route.
 
+**Built**, the first track, in [985's plan](985-what-the-rules-allow-and-deviating-from-it.md),
+PRs #1146 to #1151, 2026-09-28: the server answers a typed refusal in the reply, the page keeps
+its place and its picks and says why, with whom to tell, and the emergency list is never the
+answer. Found on the way and filed as #1155: the plan lane's `Navigate` and the nutrition
+discovery still drop a pick the rules no longer offer, in silence. The second track, the
+argumentation of #499, follows in the same plan.
+
 **To settle:**
 
 - the reason the server sends when the rule set is empty, and whom the user should contact:
-  decided, two typed refusals and one contact sentence;
-- the `Client.Core` change that shows it in place, with a test: decided, the machine holds the
-  refusal and a policy words it;
+  done, three typed refusals and one contact sentence;
+- the `Client.Core` change that shows it in place, with a test: done, the machine holds the
+  refusal and a policy words it, deferring to the page's own notice on a missing weight or
+  height;
 - where a free-text argumentation is stored on the signed order plan version: decided, on the
   order context; when the dialog asks for it is confirmed on its pull request;
 - the range as an order variable the user may leave unresolved: closed with #505, not built.
 
-**Uses** C4 `SeverityMark`, C6 `Notice`.
+**Uses** C6 `Notice` in the first track; C4 `SeverityMark` in the second.
 
 ### G5 — The patient: what is entered, what is estimated, what is hidden (#986)
 
@@ -579,7 +588,7 @@ on a design come last:
 3. G1, [982-one-dropdown-one-set-of-controls-one-state.md](982-one-dropdown-one-set-of-controls-one-state.md):
    built, closed 2026-09-25;
 4. G4, [985-what-the-rules-allow-and-deviating-from-it.md](985-what-the-rules-allow-and-deviating-from-it.md):
-   planned 2026-09-28;
+   first track built 2026-09-28, the argumentation of #499 to follow;
 5. G6;
 6. G7;
 7. G2;

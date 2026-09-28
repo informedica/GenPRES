@@ -77,9 +77,9 @@ module OrderContextRefusalPolicy =
         | OrderContextRefusal.NoProducts -> Terms.``Prescribe Refusal No products``
 
 
-    /// Whether the patient as sent lacks a weight or a height, measured or estimated. The server
-    /// refuses such a patient under the patient case whatever the rules say, since no rule can be
-    /// matched without both.
+    /// Whether the patient as sent lacks a weight or a height, measured or estimated. When rules
+    /// exist for the picks, the server refuses such a patient under the patient case before any
+    /// rule is matched; no rule for the picks at all stays the first refusal.
     let patientIncomplete (patient: Patient) =
         (patient |> Patient.getWeight).IsNone || (patient |> Patient.getHeight).IsNone
 
