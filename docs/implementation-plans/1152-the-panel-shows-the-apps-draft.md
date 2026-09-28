@@ -17,8 +17,13 @@ or height must not leave a panel that shows nothing while the doses rest on the 
 
 In anonymous mode, enter an age and clear the height the panel shows. The panel then shows no
 weight and no height, while the workbench, the plan and the server go on dosing on the
-estimated weight and height. Identified mode has the same fault for the weight and height
-fields.
+estimated weight and height.
+
+Identified mode has no clear control for the weight and height: its values are changed, never
+cleared. It reaches the same fault another way: with a measured weight and an estimated
+height, choose the weight value that is already shown. The panel's copy loses the height
+estimate, the App re-estimates it into a draft equal to the one before, and the height
+disappears from the panel while the doses keep using it.
 
 ## What the code does today
 
@@ -66,10 +71,19 @@ removed that side effect and exposed the stale local copy, which has existed sin
 
 `Lanes.Patient` came with `7a0b0137` (2026-09-15), when `Patient` was a separate type with a
 private representation built by `fromDto`. `026a0351` (2026-09-16) removed that type again, and
-`Patient.validate` now hands back the same record or an error. So `Lanes.Patient` always equals
-`state.Ui.PatientDraft |> Option.bind (Patient.validate >> Result.toOption)`; stored anyway, it
-can drift from the draft. `App.fs` reads it in six places and writes it only in
-`updatePatient`.
+`Patient.validate` now hands back the same record or an error. `App.fs` reads `Lanes.Patient`
+in six places and writes it only in `updatePatient`, which writes the draft beside it. So
+`Lanes.Patient` is meant to equal
+`state.Ui.PatientDraft |> Option.bind (Patient.validate >> Result.toOption)`.
+
+It does not always, and that shows the risk of storing it. On an anonymous `UrlChanged`, the
+App first calls `updatePatient` with the URL's patient, which applies the estimates to both
+fields, and then sets `Ui.PatientDraft = pat` in its own record update, the **raw** patient
+from the URL. After a URL change the draft has no estimates, while `Lanes.Patient` and the
+workbench have them. The panel and the emergency lists, which read the draft, show and
+calculate without an estimated weight until the next edit or the next load of the normal
+values. Step 3 fixes this first: deriving the patient from the draft as it is now would send
+a patient without estimates with the next formulary request.
 
 ## The same pattern elsewhere in the client
 
@@ -127,15 +141,20 @@ Each step is one pull request, one at a time. `src/Informedica.GenPRES.Client` f
 client exception of the script-only policy; anything pure that moves to `Client.Core` or
 `Shared` is prototyped in a script first and migrated by the maintainer.
 
-1. **Regression tests in a script.** A script under `Client.Core/Scripts/` or `Shared/Scripts/`
-   loads `Shared` and tests the round trip the panel must survive:
-   - an estimated height cleared: after `applyNormalValues` the draft still has both estimates;
-   - a measured height cleared: the height estimate comes back, and a measured weight stays;
-   - a measured weight with an estimated height: both are there.
+1. **Tests in a script.** A script under `Client.Core/Scripts/` or `Shared/Scripts/` loads
+   `Shared` and pins the round trip that produces an equal draft, the condition #1152 needs:
+   - an estimated height cleared: after `applyNormalValues` the draft equals the draft before;
+   - the measured weight chosen again with an estimated height: the same;
+   - a measured height cleared: the height estimate comes back, and the measured weight stays.
 
-   Decide here whether the panel's edit reducer (the `Msg -> Patient option -> Patient option`
-   in `Views/Patient.fs`, with `setDepartment`) moves to `Client.Core` as a pure module, so
-   that it can be tested under Expecto.
+   These tests pin the precondition; they do not catch a stale copy in the panel, which is
+   React state that Expecto cannot reach. The guard against a recurrence is the shape of the
+   panel: it keeps no copy of the draft. To make that testable, move the panel's edit
+   reducer (the `Msg -> Patient option -> Patient option` in `Views/Patient.fs`, with
+   `setDepartment`) to `Client.Core` as a pure module, and test that each edit is a function
+   of the App's draft alone: applied to the draft the App hands back after an equal round
+   trip, it gives what the App holds. What the panel shows is then checked in the browser,
+   under Verification.
 2. **The panel shows the App's draft** (fixes #1152). In `Views/Patient.fs`:
    - remove the `useElmish` over `Patient option`; the fields read `envPatient.Draft`;
    - an edit is `draft |> Patient.setX s |> updatePatient`, computed from the prop on each
@@ -145,7 +164,11 @@ client exception of the script-only policy; anything pure that moves to `Client.
    - `Clear` becomes `updatePatient None`.
 
    A changelog entry under Fixed.
-3. **Derive `Lanes.Patient`** (`refactor(client)`). Add
+3. **Derive `Lanes.Patient`** (`refactor(client)`). First the anonymous `UrlChanged` keeps
+   the draft `updatePatient` wrote, with the estimates, instead of setting the raw URL
+   patient over it; only the non-anonymous branch keeps `state.Ui.PatientDraft` as it is.
+   This is a fix of its own (the lists calculate without an estimated weight after a URL
+   change), so it may go first as a separate `fix(client)` pull request. Then add
    `patientOf (state: State) = state.Ui.PatientDraft |> Option.bind (Patient.validate >> Result.toOption)`,
    replace the six reads, and remove `LanesState.Patient`. `updatePatient` still computes the
    patient for `PatientChanged` and `Formulary.Patient`, and keeps the warning for a draft below
@@ -172,9 +195,13 @@ client exception of the script-only policy; anything pure that moves to `Client.
 - Step 1: the script's tests pass in FSI.
 - Step 2: in the browser, anonymous mode with a six-day-old and a six-year-old: clear an
   estimated height, clear a measured height, clear a measured weight; the panel always shows
-  what the workbench doses on. Identified mode: the same for weight and height. Then
+  what the workbench doses on. Identified mode, where weight and height have no clear control:
+  with a measured weight and an estimated height, choose the weight value already shown; the
+  height estimate stays on the panel. Then
   `dotnet run build`, the Fable output checked, `npx vite build`.
-- Step 3: `dotnet run build`, `dotnet run servertests`, and the anonymous and identified flows
+- Step 3: in a running app, once the normal values have loaded, change the URL to another
+  anonymous patient with an age only; the panel and the emergency list show and use the
+  estimated weight at once. Then `dotnet run build`, `dotnet run servertests`, and the anonymous and identified flows
   in the browser unchanged.
 - Step 4: in the browser, the formulary and parenteralia selects keep their values through a
   refresh and after Clear.
