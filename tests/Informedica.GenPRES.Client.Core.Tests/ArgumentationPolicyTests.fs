@@ -98,6 +98,9 @@ let tests =
                 ArgumentationPolicy.normalise "" |> Expect.isNone "empty"
                 ArgumentationPolicy.normalise null |> Expect.isNone "null"
 
+                ArgumentationPolicy.normalise (String.replicate 1001 "a")
+                |> Expect.equal "clipped at the server's cap" (Some(String.replicate 1000 "a"))
+
                 (context "c-1" "p" |> ArgumentationPolicy.write " x ").Argumentation
                 |> Expect.equal "written normalised" (Some "x")
             }

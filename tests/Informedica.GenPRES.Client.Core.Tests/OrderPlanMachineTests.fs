@@ -909,6 +909,15 @@ let argueTests =
             test "written while a step is under way, the answer keeps it; an added context keeps the answer's" {
                 let busy = recalculating two None "r-1" (OrderPlanCommand.Recalculate two)
                 let state, _ = busy |> transition (OrderPlanMsg.Argue("c-1", text))
+
+                // shown meanwhile, though the recalculation carries the plan without it
+                match state |> OrderPlanState.view with
+                | OrderPlanView.Changing(shown, _) ->
+                    shown.OrderContexts
+                    |> Array.map _.Argumentation
+                    |> Expect.equal "shown while the step runs" [| Some text; None |]
+                | other -> failtest $"expected changing, got %A{other}"
+
                 let landed, _ = state |> transition (OrderPlanMsg.Answered("r-1", Ok two))
 
                 match landed |> OrderPlanState.view with

@@ -82,14 +82,21 @@ module ArgumentationPolicy =
         || (ctx |> OrderContext.contribution |> Option.exists (fun sc -> marked sc.Order))
 
 
-    /// The text as the client keeps it: trimmed, and empty is none.
+    /// The most characters a text keeps: the server's cap, the same number, so that a text the
+    /// client holds is never one the server refuses. The dialog's field carries it too.
+    let maxLength = 1000
+
+
+    /// The text as the client keeps it: trimmed, empty is none, and clipped at the cap.
     let normalise (text: string) =
         match text with
         | null -> None
         | text ->
             let text = text.Trim()
 
-            if text = "" then None else Some text
+            if text = "" then None
+            elif text.Length > maxLength then Some(text.Substring(0, maxLength))
+            else Some text
 
 
     /// The context with the text written, normalised.
@@ -528,10 +535,11 @@ module OrderPlanMachine =
 
 
         /// The plan the pages show while a change is under way: for a recalculation the one the
-        /// command carries, since the rows chosen show at once; the plan held otherwise.
+        /// command carries, since the rows chosen show at once, with the argumentation the plan
+        /// held has meanwhile, since a text written while it runs is kept; the plan held otherwise.
         let meanwhile (tp: OrderPlan) (sent: OrderPlanCommand) =
             match sent with
-            | OrderPlanCommand.Recalculate shown -> shown
+            | OrderPlanCommand.Recalculate shown -> shown |> ArgumentationPolicy.keepAll tp
             | _ -> tp
 
 

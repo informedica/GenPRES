@@ -397,10 +397,11 @@ module OrderPlanState =
 
 
     /// The plan the pages show while a change is under way: for a recalculation the one the
-    /// command carries, since the rows chosen show at once; the plan held otherwise.
+    /// command carries, since the rows chosen show at once, with the argumentation the plan
+    /// held has meanwhile, since a text written while it runs is kept; the plan held otherwise.
     let meanwhile (tp: OrderPlan) (sent: OrderPlanCommand) =
         match sent with
-        | OrderPlanCommand.Recalculate shown -> shown
+        | OrderPlanCommand.Recalculate shown -> shown |> ArgumentationPolicy.keepAll tp
         | _ -> tp
 
 
