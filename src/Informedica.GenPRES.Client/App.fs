@@ -147,6 +147,7 @@ module private Elmish =
 
         | UpdatePage of Global.Pages
         | UpdatePatient of Patient option
+        | EditPatient of Patient option
 
         | LoadNormalValues of AsyncOperationStatus<Result<NormalValues, string>>
 
@@ -1079,14 +1080,11 @@ module private Elmish =
             Cmd.none
 
 
-    /// The patient data received, from the panel, the url or the Session: the estimate applied,
-    /// the draft kept for the panel and the lists, and the patient it is, if any, for the
-    /// workbench and the plan, which follow it: evaluated for a new one, again over a change.
-    /// The draft is a patient with an age, or a measured weight and height; below that there is
-    /// no patient: no workbench, no plan.
-    let updatePatient (dto: Patient option) (state: State) : State * Cmd<Msg> =
-        let dto = dto |> applyNormalValues state.Fetches.NormalValues
-
+    /// The patient data received as it is, the estimates included: the draft kept for the panel
+    /// and the lists, and the patient it is, if any, for the workbench and the plan, which follow
+    /// it: evaluated for a new one, again over a change. The draft is a patient with an age, or a
+    /// measured weight and height; below that there is no patient: no workbench, no plan.
+    let setPatient (dto: Patient option) (state: State) : State * Cmd<Msg> =
         let pat =
             dto
             |> Option.bind (fun dto ->
@@ -1112,6 +1110,12 @@ module private Elmish =
                 Cmd.ofMsg (LoadFormulary Started)
                 Cmd.ofMsg (LoadParenteralia Started)
             ]
+
+
+    /// The patient data received, from the panel, the url or the Session, with the estimate of
+    /// every weight and height the user did not enter applied, then set as it is.
+    let updatePatient (dto: Patient option) (state: State) : State * Cmd<Msg> =
+        state |> setPatient (dto |> applyNormalValues state.Fetches.NormalValues)
 
 
     /// Whether the patient context is held: an identified patient whose plan has an order that
@@ -1357,6 +1361,8 @@ module private Elmish =
 
         | UpdatePatient dto -> updatePatient dto state
 
+        | EditPatient dto -> setPatient dto state
+
         | UrlChanged sl ->
             let launchUrl = sl |> parseLaunch
 
@@ -1382,7 +1388,9 @@ module private Elmish =
 
             // the url's patient taken here, not by a message of its own: the workbench learns of
             // it through the commands this yields, which go out before the seed below, so that
-            // the seed lands on a patient held
+            // the seed lands on a patient held. The draft is the one updatePatient sets, the
+            // estimate applied, or while a Session holds the patient the one there was; never the
+            // url's patient as parsed, without the estimate
             let state, patientCmd =
                 if anonymous then
                     updatePatient pat state
@@ -1409,7 +1417,6 @@ module private Elmish =
             { state with
                 Ui.ShowDisclaimer = discl
                 Ui.Page = page |> Option.defaultValue LifeSupport
-                Ui.PatientDraft = pat
                 // the path from the state; it also keeps the field apart from the Global.Context type
                 Ui.Context.Localization = language.Current
                 Ui.LanguageChosen = language.Chosen
@@ -1820,11 +1827,17 @@ type private ConcreteAppEnv
 
     interface AppEnv.IPatient with
         member _.Draft = state.Ui.PatientDraft
+
+        member _.Estimated = state.Ui.PatientDraft |> applyNormalValues state.Fetches.NormalValues
         // the panel's edit is ignored while the patient context is held; the Session's patient
         // and a data notice accepted do not come this way
         member _.UpdatePatient p =
             if not (patientHeld state) then
                 UpdatePatient p |> dispatch
+
+        member _.EditPatient p =
+            if not (patientHeld state) then
+                EditPatient p |> dispatch
 
     interface AppEnv.IFormulary with
         member _.Formulary = state.Fetches.Formulary

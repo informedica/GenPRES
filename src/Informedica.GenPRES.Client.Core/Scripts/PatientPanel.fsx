@@ -6,6 +6,10 @@
 // the draft it had, the hook is not re-seeded: the panel shows the blanked copy while the doses
 // rest on the estimates. The fix lets the panel show the App's draft and keep no copy of it.
 //
+// The rule the panel follows: the weight and height the user did not enter are estimated after
+// an edit of the age, the gender or the gestational age, and only then. After any other edit
+// the estimates stay as they were, so a weight or a height the user cleared stays cleared.
+//
 // The module below is `PatientPanel.fs` as it becomes in Client.Core: the edit reducer of
 // Views/Patient.fs without the dispatch, so that each edit is a function of the App's draft
 // alone. The tests at the end migrate to `PatientPanelTests.fs` in the Client.Core tests.
@@ -80,6 +84,54 @@ module PatientPanel =
         | Msg.ToggleET -> draft |> Patient.toggleET
 
 
+    /// What becomes of the estimated weight and height after an edit.
+    [<RequireQualifiedAccess>]
+    type Estimates =
+        /// Estimated again, for the weight and height the user did not enter: after an edit of
+        /// the age, the gender or the gestational age, which the normal values follow.
+        | Renewed
+        /// Kept as they were: after any other edit, so that a weight or a height the user
+        /// cleared stays cleared and is not estimated again.
+        | Kept
+
+
+    let estimates msg =
+        match msg with
+        | Msg.Clear
+        | Msg.UpdateYear _
+        | Msg.UpdateMonth _
+        | Msg.UpdateWeek _
+        | Msg.UpdateDay _
+        | Msg.UpdateGender _
+        | Msg.UpdateGAWeek _
+        | Msg.UpdateGADay _ -> Estimates.Renewed
+        | Msg.UpdateWeight _
+        | Msg.UpdateHeight _
+        | Msg.UpdateRenal _
+        | Msg.UpdateDepartment _
+        | Msg.ToggleCVL
+        | Msg.TogglePVL
+        | Msg.ToggleET -> Estimates.Kept
+
+
+    /// The edited draft with the weight and the height the edit does not set as they were in the
+    /// draft, estimates included. The setters blank both estimates; the measure an edit sets or
+    /// clears keeps none, so a cleared weight or height shows nothing.
+    let keepEstimates msg (draft: Patient option) (edited: Patient option) : Patient option =
+        match draft, edited with
+        | Some d, Some e ->
+            match msg with
+            | Msg.UpdateWeight _ -> { e with Height = d.Height }
+            | Msg.UpdateHeight _ -> { e with Weight = d.Weight }
+            | _ ->
+                { e with
+                    Weight = d.Weight
+                    Height = d.Height
+                }
+            |> Some
+        | _ -> edited
+
+
 module Fixtures =
 
     open Shared.Types
@@ -104,6 +156,16 @@ module Fixtures =
     /// What the App does with every draft it receives: the estimates filled again.
     let appStep (draft: Patient option) =
         draft |> Option.map (Patient.applyNormalValues weights heights None None)
+
+
+    /// What the App holds after the panel's edit: estimated again after an edit of the age, the
+    /// gender or the gestational age (UpdatePatient), taken as it is after any other (EditPatient).
+    let afterEdit msg (draft: Patient option) =
+        let edited = draft |> PatientPanel.update msg
+
+        match PatientPanel.estimates msg with
+        | PatientPanel.Estimates.Renewed -> edited |> appStep
+        | PatientPanel.Estimates.Kept -> edited |> PatientPanel.keepEstimates msg draft
 
 
     /// A ten-year-old boy as the App holds him: the age entered, weight and height estimated.
@@ -304,42 +366,84 @@ let editTests =
         ]
 
 
-// The edit followed by the App's step: what the panel shows once it reads the App's draft.
-let editThenAppTests =
+// What the App holds after the panel's edit, and so what the panel shows.
+let afterEditTests =
     testList
-        "the edit followed by the App's step"
+        "what the App holds after the panel's edit"
         [
-            test "an estimated height cleared: the panel shows both estimates" {
-                let shown = estimatedBoy |> PatientPanel.update (PatientPanel.Msg.UpdateHeight None) |> appStep
+            test "an estimated weight cleared: no weight, the height estimate stays" {
+                let held = estimatedBoy |> afterEdit (PatientPanel.Msg.UpdateWeight None)
 
-                (estimatedWeight shown, estimatedHeight shown)
-                |> Expect.equal "32 kg and 140 cm" (Some 32000<gram>, Some 140<cm>)
+                (weight held |> Option.map (fun w -> w.Measured, w.Estimated), estimatedHeight held)
+                |> Expect.equal "no weight, 140 cm" (Some(None, None), Some 140<cm>)
             }
 
-            test "the measured weight chosen again: the panel shows the height estimate" {
+            test "an estimated height cleared: no height, the weight estimate stays" {
+                let held = estimatedBoy |> afterEdit (PatientPanel.Msg.UpdateHeight None)
+
+                (estimatedWeight held, height held |> Option.map (fun h -> h.Measured, h.Estimated))
+                |> Expect.equal "32 kg, no height" (Some 32000<gram>, Some(None, None))
+            }
+
+            test "a measured weight cleared: no weight, no estimate in its place" {
+                let held = weighedBoy |> afterEdit (PatientPanel.Msg.UpdateWeight None)
+
+                (measuredWeight held, estimatedWeight held, estimatedHeight held)
+                |> Expect.equal "no weight, 140 cm" (None, None, Some 140<cm>)
+            }
+
+            test "a weight entered: the weight measured, the height estimate stays" {
+                let held = estimatedBoy |> afterEdit (PatientPanel.Msg.UpdateWeight(Some "28000"))
+
+                (measuredWeight held, estimatedHeight held)
+                |> Expect.equal "28 kg measured, 140 cm" (Some 28000<gram>, Some 140<cm>)
+            }
+
+            test "a cleared weight stays cleared over an edit of the department" {
+                estimatedBoy
+                |> afterEdit (PatientPanel.Msg.UpdateWeight None)
+                |> afterEdit (PatientPanel.Msg.UpdateDepartment(Some "ICK"))
+                |> weight
+                |> Option.map (fun w -> w.Measured, w.Estimated)
+                |> Expect.equal "no weight" (Some(None, None))
+            }
+
+            test "a cleared weight is estimated again after an edit of the age" {
+                estimatedBoy
+                |> afterEdit (PatientPanel.Msg.UpdateWeight None)
+                |> afterEdit (PatientPanel.Msg.UpdateMonth(Some "1"))
+                |> estimatedWeight
+                |> Expect.equal "32 kg" (Some 32000<gram>)
+            }
+
+            test "a cleared weight is estimated again after an edit of the gender" {
+                estimatedBoy
+                |> afterEdit (PatientPanel.Msg.UpdateWeight None)
+                |> afterEdit (PatientPanel.Msg.UpdateGender "female")
+                |> estimatedWeight
+                |> Expect.equal "32 kg" (Some 32000<gram>)
+            }
+
+            test "a measured weight stays measured after an edit of the age" {
                 weighedBoy
-                |> PatientPanel.update (PatientPanel.Msg.UpdateWeight(Some "30000"))
-                |> appStep
-                |> estimatedHeight
-                |> Expect.equal "140 cm" (Some 140<cm>)
+                |> afterEdit (PatientPanel.Msg.UpdateYear(Some "11"))
+                |> measuredWeight
+                |> Expect.equal "30 kg" (Some 30000<gram>)
             }
 
-            testList "every edit ends with the estimates of the age it leaves" [
+            testList "every edit that keeps the estimates leaves weight and height as they were" [
                 for msg in allEdits do
-                    test $"%A{msg}" {
-                        let shown = weighedBoy |> PatientPanel.update msg |> appStep
+                    match msg with
+                    | PatientPanel.Msg.UpdateWeight _
+                    | PatientPanel.Msg.UpdateHeight _ -> ()
+                    | _ when PatientPanel.estimates msg = PatientPanel.Estimates.Kept ->
+                        test $"%A{msg}" {
+                            let held = weighedBoy |> afterEdit msg
 
-                        shown
-                        |> Expect.equal
-                            "the App's step over the edit is a fixpoint of the App's step"
-                            (shown |> appStep)
-
-                        shown
-                        |> Option.bind _.Age
-                        |> Option.iter (fun _ ->
-                            estimatedHeight shown |> Expect.isSome "an age, so a height estimate"
-                        )
-                    }
+                            (weight held, height held)
+                            |> Expect.equal "the same weight and height" (weight weighedBoy, height weighedBoy)
+                        }
+                    | _ -> ()
             ]
         ]
 
@@ -352,7 +456,7 @@ let tests =
             roundTripTests
             staleCopyTests
             editTests
-            editThenAppTests
+            afterEditTests
         ]
 
 

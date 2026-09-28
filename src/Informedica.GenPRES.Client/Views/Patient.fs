@@ -74,6 +74,54 @@ module Patient =
             | ToggleET -> state |> Patient.toggleET
 
 
+        /// What becomes of the estimated weight and height after an edit.
+        [<RequireQualifiedAccess>]
+        type Estimates =
+            /// Estimated again, for the weight and height the user did not enter: after an edit
+            /// of the age, the gender or the gestational age, which the normal values follow.
+            | Renewed
+            /// Kept as they were: after any other edit, so that a weight or a height the user
+            /// cleared stays cleared and is not estimated again.
+            | Kept
+
+
+        let estimates msg =
+            match msg with
+            | Clear
+            | UpdateYear _
+            | UpdateMonth _
+            | UpdateWeek _
+            | UpdateDay _
+            | UpdateGender _
+            | UpdateGAWeek _
+            | UpdateGADay _ -> Estimates.Renewed
+            | UpdateWeight _
+            | UpdateHeight _
+            | UpdateRenal _
+            | UpdateDepartment _
+            | ToggleCVL
+            | TogglePVL
+            | ToggleET -> Estimates.Kept
+
+
+        /// The edited draft with the weight and the height the edit does not set as they were in
+        /// the draft, estimates included. The setters blank both estimates; the measure an edit
+        /// sets or clears keeps none, so a cleared weight or height shows nothing.
+        let keepEstimates msg (draft: State) (edited: State) : State =
+            match draft, edited with
+            | Some d, Some e ->
+                match msg with
+                | UpdateWeight _ -> { e with Height = d.Height }
+                | UpdateHeight _ -> { e with Weight = d.Weight }
+                | _ ->
+                    { e with
+                        Weight = d.Weight
+                        Height = d.Height
+                    }
+                |> Some
+            | _ -> edited
+
+
         /// Whether the draft is a patient: an age, or a measured weight and height; the estimate
         /// no longer stands in for a measurement, so the minimum decides.
         let canCalculate (pat: Patient option) : bool =
@@ -118,7 +166,11 @@ module Patient =
     let View (props: {| appEnv: obj |}) =
         let envPatient = AppEnv.asEnv<AppEnv.IPatient> props.appEnv
         let patient = envPatient.Draft
+        // the summary shows the full estimates of the age, also for a weight or height that was
+        // entered or cleared; the fields show the draft
+        let estimated = envPatient.Estimated
         let updatePatient = envPatient.UpdatePatient
+        let editPatient = envPatient.EditPatient
 
         let localizationTerms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
         let settings = (AppEnv.asEnv<AppEnv.ISettings> props.appEnv).Settings
@@ -142,12 +194,16 @@ module Patient =
         let isExpanded, setExpanded = React.useState (patient |> canCalculate |> not)
 
         // the panel shows the App's draft and keeps no copy of it: an edit is applied to that
-        // draft and sent to the App, which estimates the weight and height again. A copy would
-        // go stale whenever the App's answer equals the draft it had, as after clearing an
-        // estimated height, and show values the doses no longer rest on
+        // draft and sent to the App. A copy would go stale whenever the App's answer equals the
+        // draft it had, and show values the App no longer holds
         let pat = patient
 
-        let dispatch msg = pat |> update msg |> updatePatient
+        let dispatch msg =
+            let edited = pat |> update msg
+
+            match estimates msg with
+            | Estimates.Renewed -> edited |> updatePatient
+            | Estimates.Kept -> edited |> keepEstimates msg pat |> editPatient
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
@@ -197,7 +253,7 @@ module Patient =
         // the summary: the data, and above it, identified, the id the data is held under; the
         // name and the birthdate are the title bar's alone
         let summary =
-            let data = pat |> show lang localizationTerms |> toJsx
+            let data = estimated |> show lang localizationTerms |> toJsx
 
             match identity, patientContext with
             | Some _, Some context ->
