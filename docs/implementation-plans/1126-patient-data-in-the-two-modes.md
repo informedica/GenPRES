@@ -201,8 +201,9 @@ Not part of this plan:
 
 - **"Identified" has two meanings** (#1140). The panel calls a patient identified when the
   Session has an identity; the server records measurements for any Session with a patient id,
-  and signing needs only the patient id, so a launch without data is anonymous in the panel yet
-  has its measurements recorded and can be signed for.
+  and signing asks for a patient id, not an identity. So a launch without data is anonymous in
+  the panel, yet has its measurements recorded, and a prescriber can sign a plan for it that
+  meets the other requirements: at least one order, and a patient with a weight and a height.
 - **The banner stays** (#1141). Order plan errors go to the "Server fout" banner, which stays
   until dismissed; order context errors are a passing warning.
 - **An unused term.** `Patient Reset Dialog Text Identified` in `Shared/Localization.fs` is no
