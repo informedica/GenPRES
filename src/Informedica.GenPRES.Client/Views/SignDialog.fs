@@ -107,13 +107,37 @@ module SignDialog =
             | SigningView.Noticed(_, notice) -> Some notice
             | _ -> None
 
+        // the orders as they will be signed, each with the argumentation its context holds
         let orders =
             match phase with
             | SigningView.Noticed(plan, _)
             | SigningView.Challenged(plan, _)
-            | SigningView.Submitting plan -> OrderPlan.orders plan
+            | SigningView.Submitting plan ->
+                plan.OrderContexts
+                |> Array.choose (fun ctx ->
+                    OrderContext.contribution ctx |> Option.map (fun sc -> sc, ctx.Argumentation)
+                )
             | SigningView.Idle
             | SigningView.Requesting -> [||]
+
+        let argumentationLabel =
+            Global.getLocalizedTerm terms context.Localization "Argumentation" Terms.``Order Argumentation``
+
+        let argumentationSx =
+            {|
+                marginTop = 0.5
+                fontStyle = "italic"
+            |}
+
+        // the text read-only under the order, so that the signer reads what the pharmacist will
+        let argued (text: string option) =
+            match text with
+            | None -> null
+            | Some text ->
+                JSX.jsx
+                    $"""
+                <Box sx={argumentationSx}>{argumentationLabel}: {text}</Box>
+                """
 
         let body =
             match notice with
@@ -127,7 +151,7 @@ module SignDialog =
         // the orders as they will be signed: each scenario's prescription, one line per row
         let orderList =
             orders
-            |> Array.mapi (fun i sc ->
+            |> Array.mapi (fun i (sc, argumentation) ->
                 let rows =
                     sc.Prescription
                     |> TextBlock.flatten
@@ -155,10 +179,16 @@ module SignDialog =
                         """
                     )
 
+                let secondary =
+                    JSX.jsx
+                        $"""
+                    <div>{rows}{argued argumentation}</div>
+                    """
+
                 JSX.jsx
                     $"""
                 <ListItem key={i} divider={true}>
-                    <ListItemText primary={sc.Order.Orderable.Name} secondary={rows} slotProps={secondarySlot} />
+                    <ListItemText primary={sc.Order.Orderable.Name} secondary={secondary} slotProps={secondarySlot} />
                 </ListItem>
                 """
             )

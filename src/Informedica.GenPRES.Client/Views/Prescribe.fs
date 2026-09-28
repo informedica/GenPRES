@@ -728,6 +728,7 @@ module Prescribe =
                         |}
                     refreshOrderScenario = fun ctx -> orderContextMsg (Api.OrderContextCommand.ResetOrderScenario, ctx)
                     closeOrder = handleModalClose
+                    argue = envOrderContext.Argue
                     localizationTerms = localizationTerms
                 |}
 

@@ -823,6 +823,60 @@ let printRefusalRows () =
     refusalRows |> Array.iter (fun r -> r |> String.concat "\t" |> printfn "%s")
 
 
+// ---------------------------------------------------------------------------------------------
+// The argumentation (plan 985, step 9): the field's label in the dose dialog and the sign
+// dialog, and the line under the field that says what to write.
+// ---------------------------------------------------------------------------------------------
+
+/// → `Shared/Localization.fs`, `Terms`, after ``Order Administration time``.
+type ArgumentationTerms =
+    | ``Order Argumentation``
+    | ``Order Argumentation Helper``
+
+
+let argumentationRows: string[][] =
+    [|
+        [|
+            "Order Argumentation"
+            "Argumentation"
+            "Argumentatie"
+            "Argumentation"
+            "Begründung"
+            "Argumentación"
+            "Argomentazione"
+        |]
+        [|
+            "Order Argumentation Helper"
+            "Why the dose leaves what the rules allow"
+            "Waarom de dosering afwijkt van wat de regels toestaan"
+            "Pourquoi la dose s'écarte de ce que les règles permettent"
+            "Warum die Dosierung von dem abweicht, was die Regeln erlauben"
+            "Por qué la dosis se aparta de lo que permiten las reglas"
+            "Perché la dose si discosta da quanto consentono le regole"
+        |]
+    |]
+
+
+let argumentationTests =
+    testList
+        "argumentation terms"
+        [
+            test "the keys are the cases' names, and resolve in every language" {
+                [ ``Order Argumentation``; ``Order Argumentation Helper`` ]
+                |> List.map (fun t -> $"{t}")
+                |> Expect.equal "the keys" (argumentationRows |> Array.map (fun r -> r[0]) |> Array.toList)
+
+                for r in argumentationRows do
+                    for l in languages do
+                        getTerm argumentationRows l r[0] |> Expect.isSome $"{r[0]} in {l}"
+            }
+        ]
+
+
+let printArgumentationRows () =
+    argumentationRows |> Array.iter (fun r -> r |> String.concat "\t" |> printfn "%s")
+
+
 runTestsWithCLIArgs
     []
     [||]
@@ -836,5 +890,6 @@ runTestsWithCLIArgs
             prescribeTests
             resetTests
             refusalTests
+            argumentationTests
         ])
 |> ignore
