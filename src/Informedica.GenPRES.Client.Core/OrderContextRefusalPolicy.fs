@@ -28,7 +28,7 @@ let english (term: Terms) =
     | Terms.``Prescribe Refusal Patient`` ->
         "There are dose rules for {0}, but none covers the age, weight or department of this patient"
     | Terms.``Prescribe Refusal No products`` ->
-        "There are dose rules for {0} that cover this patient, but none has a product that can be prescribed"
+        "There are dose rules for {0} that cover this patient, but none has a product and dose type to prescribe"
     | Terms.``Prescribe Refusal Contact`` ->
         "Report this to the pharmacy or the application manager, so that the rule can be added"
     | term -> $"{term}"
@@ -48,7 +48,8 @@ let picks (filter: Filter) =
     |> String.concat ", "
 
 
-/// The body's term per case.
+/// The body's term per case. The products term speaks for the third case as a whole: a rule
+/// dropped for having no dose type is refused under it too, so its text names both.
 let bodyTerm (refusal: OrderContextRefusal) =
     match refusal with
     | OrderContextRefusal.NoDoseRules -> Terms.``Prescribe Refusal No dose rules``
@@ -56,14 +57,27 @@ let bodyTerm (refusal: OrderContextRefusal) =
     | OrderContextRefusal.NoProducts -> Terms.``Prescribe Refusal No products``
 
 
+/// Whether the patient as sent lacks a weight or a height, measured or estimated. The server
+/// refuses such a patient under the patient case whatever the rules say, since no rule can be
+/// matched without both.
+let patientIncomplete (patient: Patient) =
+    (patient |> Patient.getWeight).IsNone || (patient |> Patient.getHeight).IsNone
+
+
 /// The notice for the context refused: the title, the body of the case with the picks
-/// filled in, and the contact sentence.
-let notice (tr: Terms -> string) (ctx: OrderContext) (refusal: OrderContextRefusal) : Notice =
-    {
-        Title = tr Terms.``Prescribe Refusal``
-        Body = tr (bodyTerm refusal) |> SessionGatePolicy.fill [ picks ctx.Filter ]
-        Contact = tr Terms.``Prescribe Refusal Contact``
-    }
+/// filled in, and the contact sentence. None for the patient case when the weight or the
+/// height is missing: the page already says what to enter, and a notice blaming the rules
+/// and asking to report them would send the user the wrong way.
+let notice (tr: Terms -> string) (ctx: OrderContext) (refusal: OrderContextRefusal) : Notice option =
+    match refusal with
+    | OrderContextRefusal.NoDoseRulesForPatient when ctx.Patient |> patientIncomplete -> None
+    | _ ->
+        Some
+            {
+                Title = tr Terms.``Prescribe Refusal``
+                Body = tr (bodyTerm refusal) |> SessionGatePolicy.fill [ picks ctx.Filter ]
+                Contact = tr Terms.``Prescribe Refusal Contact``
+            }
 
 
 /// The notice's text under its title: the body, then whom to tell; an empty translation

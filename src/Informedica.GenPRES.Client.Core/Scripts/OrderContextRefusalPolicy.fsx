@@ -48,7 +48,7 @@ module OrderContextRefusalPolicy =
         | Terms.``Prescribe Refusal Patient`` ->
             "There are dose rules for {0}, but none covers the age, weight or department of this patient"
         | Terms.``Prescribe Refusal No products`` ->
-            "There are dose rules for {0} that cover this patient, but none has a product that can be prescribed"
+            "There are dose rules for {0} that cover this patient, but none has a product and dose type to prescribe"
         | Terms.``Prescribe Refusal Contact`` ->
             "Report this to the pharmacy or the application manager, so that the rule can be added"
         | term -> $"{term}"
@@ -68,7 +68,8 @@ module OrderContextRefusalPolicy =
         |> String.concat ", "
 
 
-    /// The body's term per case.
+    /// The body's term per case. The products term speaks for the third case as a whole: a rule
+    /// dropped for having no dose type is refused under it too, so its text names both.
     let bodyTerm (refusal: OrderContextRefusal) =
         match refusal with
         | OrderContextRefusal.NoDoseRules -> Terms.``Prescribe Refusal No dose rules``
@@ -76,14 +77,27 @@ module OrderContextRefusalPolicy =
         | OrderContextRefusal.NoProducts -> Terms.``Prescribe Refusal No products``
 
 
+    /// Whether the patient as sent lacks a weight or a height, measured or estimated. The server
+    /// refuses such a patient under the patient case whatever the rules say, since no rule can be
+    /// matched without both.
+    let patientIncomplete (patient: Patient) =
+        (patient |> Patient.getWeight).IsNone || (patient |> Patient.getHeight).IsNone
+
+
     /// The notice for the context refused: the title, the body of the case with the picks
-    /// filled in, and the contact sentence.
-    let notice (tr: Terms -> string) (ctx: OrderContext) (refusal: OrderContextRefusal) : Notice =
-        {
-            Title = tr Terms.``Prescribe Refusal``
-            Body = tr (bodyTerm refusal) |> SessionGatePolicy.fill [ picks ctx.Filter ]
-            Contact = tr Terms.``Prescribe Refusal Contact``
-        }
+    /// filled in, and the contact sentence. None for the patient case when the weight or the
+    /// height is missing: the page already says what to enter, and a notice blaming the rules
+    /// and asking to report them would send the user the wrong way.
+    let notice (tr: Terms -> string) (ctx: OrderContext) (refusal: OrderContextRefusal) : Notice option =
+        match refusal with
+        | OrderContextRefusal.NoDoseRulesForPatient when ctx.Patient |> patientIncomplete -> None
+        | _ ->
+            Some
+                {
+                    Title = tr Terms.``Prescribe Refusal``
+                    Body = tr (bodyTerm refusal) |> SessionGatePolicy.fill [ picks ctx.Filter ]
+                    Contact = tr Terms.``Prescribe Refusal Contact``
+                }
 
 
     /// The notice's text under its title: the body, then whom to tell; an empty translation
@@ -104,6 +118,20 @@ open OrderContextRefusalPolicy
 let named (term: Terms) = $"<{term}>"
 
 
+/// A patient the rules can match: a weight and a height.
+let measured =
+    { Models.Patient.empty with
+        Weight =
+            { Models.Patient.empty.Weight with
+                Measured = Some 12000<gram>
+            }
+        Height =
+            { Models.Patient.empty.Height with
+                Measured = Some 90<cm>
+            }
+    }
+
+
 let salbutamol =
     { Models.OrderContext.empty with
         Filter =
@@ -111,6 +139,7 @@ let salbutamol =
                 Generic = Some "salbutamol"
                 Route = Some "intraveneus"
             }
+        Patient = measured
     }
 
 
@@ -139,6 +168,9 @@ let tests =
 
                 (english Terms.``Prescribe Refusal``).Contains "{0}" |> Expect.isFalse "the title takes none"
                 (english Terms.``Prescribe Refusal Contact``).Contains "{0}" |> Expect.isFalse "the contact takes none"
+
+                (english Terms.``Prescribe Refusal No products``).Contains "dose type"
+                |> Expect.isTrue "the products body names the dose type too"
             }
 
             test "the picks are named in the page's order, as far as chosen" {
@@ -155,7 +187,9 @@ let tests =
             }
 
             test "the notice is the title, the body of the case with the picks, and the contact" {
-                let n = notice english salbutamol OrderContextRefusal.NoDoseRulesForPatient
+                let n =
+                    notice english salbutamol OrderContextRefusal.NoDoseRulesForPatient
+                    |> Expect.wantSome "a notice"
 
                 n.Title |> Expect.equal "the title" "No dose can be shown"
 
@@ -176,7 +210,7 @@ let tests =
                     OrderContextRefusal.NoDoseRulesForPatient
                     OrderContextRefusal.NoProducts
                 ]
-                |> List.map (fun r -> (notice named salbutamol r).Body)
+                |> List.map (fun r -> (notice named salbutamol r |> Expect.wantSome "a notice").Body)
                 |> Expect.equal
                     "the three bodies"
                     [
@@ -186,8 +220,29 @@ let tests =
                     ]
             }
 
+            test "a patient without a weight or a height gets no notice for the patient case" {
+                // the page's own notice above the picks already says what to enter
+                let incomplete = { salbutamol with Patient = Models.Patient.empty }
+
+                notice english incomplete OrderContextRefusal.NoDoseRulesForPatient
+                |> Expect.isNone "nothing to add to the missing weight and height"
+
+                notice english incomplete OrderContextRefusal.NoDoseRules
+                |> Expect.isSome "no rule at all is said whatever the patient"
+
+                notice english salbutamol OrderContextRefusal.NoDoseRulesForPatient
+                |> Expect.isSome "with a weight and a height the patient case is said"
+
+                let noHeight = { measured with Height = Models.Patient.empty.Height }
+
+                notice english { salbutamol with Patient = noHeight } OrderContextRefusal.NoDoseRulesForPatient
+                |> Expect.isNone "a height alone missing"
+            }
+
             test "the message is the body then the contact, an empty contact adding nothing" {
-                let n = notice english salbutamol OrderContextRefusal.NoDoseRules
+                let n =
+                    notice english salbutamol OrderContextRefusal.NoDoseRules
+                    |> Expect.wantSome "a notice"
 
                 message n |> Expect.equal "both" $"{n.Body} {n.Contact}"
                 message { n with Contact = "" } |> Expect.equal "the body alone" n.Body

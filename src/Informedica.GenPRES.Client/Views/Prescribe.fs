@@ -219,28 +219,30 @@ module Prescribe =
                 """
 
         // the server refused the picks: no dose can be shown, and the page says why, with the
-        // picks kept above it for the user to change
+        // picks kept above it for the user to change. A patient without a weight or a height
+        // gets no second notice: the one above already says what to enter
         let refusalNotice =
             match orderContext with
             | OrderContextView.Refused(ctx, refusal) ->
                 let tr (term: Terms) = term |> getTerm (OrderContextRefusalPolicy.english term)
 
-                let words = OrderContextRefusalPolicy.notice tr ctx refusal
+                match OrderContextRefusalPolicy.notice tr ctx refusal with
+                | None -> null
+                | Some words ->
+                    let notice =
+                        Components.Notice.View
+                            {|
+                                kind = Components.Notice.Kind.Warning
+                                title = Some words.Title
+                                message = words |> OrderContextRefusalPolicy.message
+                                action = None
+                                onClose = None
+                            |}
 
-                let notice =
-                    Components.Notice.View
-                        {|
-                            kind = Components.Notice.Kind.Warning
-                            title = Some words.Title
-                            message = words |> OrderContextRefusalPolicy.message
-                            action = None
-                            onClose = None
-                        |}
-
-                JSX.jsx
-                    $"""
-                <Box sx={noticeSx}>{notice}</Box>
-                """
+                    JSX.jsx
+                        $"""
+                    <Box sx={noticeSx}>{notice}</Box>
+                    """
             | _ -> null
 
         let progress =

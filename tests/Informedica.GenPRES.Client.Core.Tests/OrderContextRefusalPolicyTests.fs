@@ -12,6 +12,14 @@ open OrderContextRefusalPolicy
 let named (term: Terms) = $"<{term}>"
 
 
+/// A patient the rules can match: a weight and a height.
+let measured =
+    { Models.Patient.empty with
+        Weight = { Models.Patient.empty.Weight with Measured = Some 12000<gram> }
+        Height = { Models.Patient.empty.Height with Measured = Some 90<cm> }
+    }
+
+
 let salbutamol =
     { Models.OrderContext.empty with
         Filter =
@@ -19,6 +27,7 @@ let salbutamol =
                 Generic = Some "salbutamol"
                 Route = Some "intraveneus"
             }
+        Patient = measured
     }
 
 
@@ -51,6 +60,9 @@ let tests =
                 |> Expect.isFalse "the title takes none"
                 (english Terms.``Prescribe Refusal Contact``).Contains "{0}"
                 |> Expect.isFalse "the contact takes none"
+
+                (english Terms.``Prescribe Refusal No products``).Contains "dose type"
+                |> Expect.isTrue "the products body names the dose type too"
             }
 
             test "the picks are named in the page's order, as far as chosen" {
@@ -68,7 +80,9 @@ let tests =
             }
 
             test "the notice is the title, the body of the case with the picks, and the contact" {
-                let n = notice english salbutamol OrderContextRefusal.NoDoseRulesForPatient
+                let n =
+                    notice english salbutamol OrderContextRefusal.NoDoseRulesForPatient
+                    |> Expect.wantSome "a notice"
 
                 n.Title |> Expect.equal "the title" "No dose can be shown"
 
@@ -89,7 +103,7 @@ let tests =
                     OrderContextRefusal.NoDoseRulesForPatient
                     OrderContextRefusal.NoProducts
                 ]
-                |> List.map (fun r -> (notice named salbutamol r).Body)
+                |> List.map (fun r -> (notice named salbutamol r |> Expect.wantSome "a notice").Body)
                 |> Expect.equal
                     "the three bodies"
                     [
@@ -99,8 +113,29 @@ let tests =
                     ]
             }
 
+            test "a patient without a weight or a height gets no notice for the patient case" {
+                // the page's own notice above the picks already says what to enter
+                let incomplete = { salbutamol with Patient = Models.Patient.empty }
+
+                notice english incomplete OrderContextRefusal.NoDoseRulesForPatient
+                |> Expect.isNone "nothing to add to the missing weight and height"
+
+                notice english incomplete OrderContextRefusal.NoDoseRules
+                |> Expect.isSome "no rule at all is said whatever the patient"
+
+                notice english salbutamol OrderContextRefusal.NoDoseRulesForPatient
+                |> Expect.isSome "with a weight and a height the patient case is said"
+
+                let noHeight = { measured with Height = Models.Patient.empty.Height }
+
+                notice english { salbutamol with Patient = noHeight } OrderContextRefusal.NoDoseRulesForPatient
+                |> Expect.isNone "a height alone missing"
+            }
+
             test "the message is the body then the contact, an empty contact adding nothing" {
-                let n = notice english salbutamol OrderContextRefusal.NoDoseRules
+                let n =
+                    notice english salbutamol OrderContextRefusal.NoDoseRules
+                    |> Expect.wantSome "a notice"
 
                 message n |> Expect.equal "both" $"{n.Body} {n.Contact}"
                 message { n with Contact = "" } |> Expect.equal "the body alone" n.Body
