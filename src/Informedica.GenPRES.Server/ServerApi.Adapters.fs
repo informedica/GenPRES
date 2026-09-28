@@ -224,6 +224,17 @@ module Adapters =
             info.Messages |> Array.map (fun msg -> FormLogging.formatMessage msg) |> Some
 
 
+    /// The normal values of weight and height from the provider's tables, while it is loaded;
+    /// none when it is not.
+    let normalValuesOf (provider: Resources.IResourceProvider) () : Shared.Types.NormalValues option =
+        match notLoaded provider with
+        | None ->
+            provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueRows
+            |> Shared.Models.NormalValues.ofRows
+            |> Some
+        | Some _ -> None
+
+
     /// <summary>
     /// The env of the server. <c>store</c> is the SQLite connection string of the session store:
     /// set, the migrations are applied and the session port runs over the record in the
@@ -330,6 +341,7 @@ module Adapters =
                             }
                 }
             requireLoaded = fun () -> notLoaded provider
+            normalValues = normalValuesOf provider
             departments =
                 fun () ->
                     match notLoaded provider with
@@ -365,15 +377,7 @@ module Adapters =
                     directory.idp
                     directory.registry
                     // the platform's reading estimated at the boundary, from the tables as loaded
-                    (StubPatientData.port
-                     |> Patient.estimating (fun () ->
-                         match notLoaded provider with
-                         | None ->
-                             provider.Get Informedica.GenForm.Lib.Resources.Keys.normalValueRows
-                             |> Shared.Models.NormalValues.ofRows
-                             |> Some
-                         | Some _ -> None
-                     ))
+                    (StubPatientData.port |> Patient.estimating (normalValuesOf provider))
                     mail
                     // the credential store, seeded per stub login
                     (Session.initialState (

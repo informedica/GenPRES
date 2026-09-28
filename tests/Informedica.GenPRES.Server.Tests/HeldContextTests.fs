@@ -30,7 +30,8 @@ let context (pat: Patient) (id: string) =
 
 
 /// The plan as the client sends it, at the Session's age, parsed as the signing handler does.
-let parsedAt (age: Age option) (plan: OrderPlan) = plan |> OrderPlanCommand.agedPlan age |> parsed
+let parsedAt (age: Age option) (plan: OrderPlan) =
+    plan |> OrderPlanCommand.patientsPlan (ServerApi.Patient.aged age) |> parsed
 
 
 /// A head as the record holds it: the order plan signed, in the domain.

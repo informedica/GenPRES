@@ -350,7 +350,7 @@ let tests =
                             cookie
                             (fun _ -> "test")
                             (fun _ -> Gate.Open)
-                            OrderContextCommand.aged
+                            OrderContextCommand.patients
                             OrderContextCommand.patientOf
                             (fun _ -> async { return Ok() })
                             {

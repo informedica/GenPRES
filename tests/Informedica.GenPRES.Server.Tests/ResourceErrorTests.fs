@@ -302,7 +302,7 @@ let processCmdGuardTests =
                         noCookie
                         ServerApi.FormularyCommand.toString
                         (fun _ -> ServerApi.Gate.RequiresLoaded)
-                        ServerApi.FormularyCommand.aged
+                        ServerApi.FormularyCommand.patients
                         ServerApi.FormularyCommand.patientOf
                         (ServerApi.FormularyCommand.processCmd env)
                         {
@@ -328,7 +328,7 @@ let processCmdGuardTests =
                         noCookie
                         ServerApi.ParenteraliaCommand.toString
                         (fun _ -> ServerApi.Gate.RequiresLoaded)
-                        ServerApi.ParenteraliaCommand.aged
+                        ServerApi.ParenteraliaCommand.patients
                         ServerApi.ParenteraliaCommand.patientOf
                         (ServerApi.ParenteraliaCommand.processCmd env)
                         {

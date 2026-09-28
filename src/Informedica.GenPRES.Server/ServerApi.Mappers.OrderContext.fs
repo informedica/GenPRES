@@ -371,6 +371,5 @@ module OrderContextMapper =
         | DtoError.Missing f -> $"Ontbreekt: %s{f}"
 
 
-    /// The context's patient at the Session's age.
-    let aged (age: Age option) (ctx: OrderContext) : OrderContext =
-        { ctx with Patient = ctx.Patient |> Patient.aged age }
+    /// The context with its patient mapped.
+    let patients (f: Patient -> Patient) (ctx: OrderContext) : OrderContext = { ctx with Patient = f ctx.Patient }

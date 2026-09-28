@@ -446,5 +446,8 @@ type AppEnv =
         // the departments the loaded rules name and the default; none until the resources
         // are loaded, since the settings are asked for before that
         departments: unit -> Informedica.GenForm.Lib.Types.Departments option
+        // the normal values of weight and height the server estimates from; none until the
+        // resources are loaded. Asking may load
+        normalValues: unit -> NormalValues option
         logger: Informedica.Logging.Lib.Logger
     }

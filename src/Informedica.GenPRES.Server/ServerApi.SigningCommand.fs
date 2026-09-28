@@ -34,19 +34,19 @@ module SigningCommand =
         | SigningOutcome.Refused refusal -> SigningResponse.Refused refusal
 
 
-    /// The plan of a challenge or of a submission at the Session's age.
-    let aged (age: Age option) (cmd: SigningCommand) : SigningCommand =
+    /// The plan of a challenge or of a submission with every patient mapped.
+    let patients (f: Patient -> Patient) (cmd: SigningCommand) : SigningCommand =
         match cmd with
         | SigningCommand.RequestSignChallenge(plan, opened, notice) ->
-            SigningCommand.RequestSignChallenge(OrderPlanCommand.agedPlan age plan, opened, notice)
+            SigningCommand.RequestSignChallenge(OrderPlanCommand.patientsPlan f plan, opened, notice)
         | SigningCommand.Submit submission ->
-            SigningCommand.Submit { submission with Plan = OrderPlanCommand.agedPlan age submission.Plan }
+            SigningCommand.Submit { submission with Plan = OrderPlanCommand.patientsPlan f submission.Plan }
 
 
     /// A signing command for the Session the cookie names. No cookie, no Session: refused
     /// before the port is asked. The plan's patient and that of every context in it put at the
-    /// age the Session holds and made at the inbound boundary, then the plan parsed into the
-    /// domain; a plan the domain does not read is refused before the port is asked. A store
+    /// age the Session holds, given the estimates of weight and height it lacks and made at the
+    /// inbound boundary, then the plan parsed into the domain; a plan the domain does not read is refused before the port is asked. A store
     /// that fails while the age is asked answers StoreFailed. Writes no cookie.
     let processCmd (env: AppEnv) (cookie: SessionCookie) (cmd: SigningCommand) =
         async {
@@ -54,7 +54,13 @@ module SigningCommand =
             | None -> return SigningResponse.Refused SigningRefusal.NoSession
             | Some id ->
                 let! answer = env.session.age id
-                let cmd = cmd |> aged (answer |> Result.defaultValue None)
+                // the Session's age, then the estimates a patient lacks
+                let cmd =
+                    cmd
+                    |> patients (
+                        Patient.aged (answer |> Result.defaultValue None)
+                        >> Patient.estimate env.normalValues
+                    )
 
                 let plan =
                     match cmd with

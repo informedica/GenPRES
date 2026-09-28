@@ -8,8 +8,9 @@ open Shared.Api
 /// The order-context member: the prescribing workbench over the order-context port.
 module OrderContextCommand =
 
-    /// The context's patient at the Session's age.
-    let aged (age: Age option) (cmd: OrderContextCommand, ctx: OrderContext) = cmd, OrderContextMapper.aged age ctx
+    /// The context's patient mapped.
+    let patients (f: Patient -> Patient) (cmd: OrderContextCommand, ctx: OrderContext) =
+        cmd, OrderContextMapper.patients f ctx
 
 
     /// The patient the request edits: the context's.

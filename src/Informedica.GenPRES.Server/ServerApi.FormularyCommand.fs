@@ -10,10 +10,10 @@ module FormularyCommand =
     let toString (_: Formulary) = "Formulary"
 
 
-    /// The filter's patient, where it has one, at the Session's age; a filter without one stays
-    /// the formulary unfiltered.
-    let aged (age: Age option) (form: Formulary) : Formulary =
-        { form with Patient = form.Patient |> Option.map (Patient.aged age) }
+    /// The filter's patient mapped, where it has one; a filter without one stays the formulary
+    /// unfiltered.
+    let patients (f: Patient -> Patient) (form: Formulary) : Formulary =
+        { form with Patient = form.Patient |> Option.map f }
 
 
     /// The patient the request edits: the filter's, where it has one.
@@ -34,8 +34,8 @@ module ParenteraliaCommand =
     let toString (_: Parenteralia) = "Parenteralia"
 
 
-    /// No patient to age.
-    let aged (_: Age option) (par: Parenteralia) = par
+    /// No patient to map.
+    let patients (_: Patient -> Patient) (par: Parenteralia) = par
 
 
     let patientOf (_: Parenteralia) : Patient option = None
