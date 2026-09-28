@@ -290,8 +290,9 @@ module Api =
     type IServerApi =
         {
             // one member per use case, each on the same envelope
+            // the context evaluated, or refused with why; the error channel is for failures
             processOrderContext:
-                Request<OrderContextCommand * OrderContext> -> Async<Result<Reply<OrderContext>, string[]>>
+                Request<OrderContextCommand * OrderContext> -> Async<Result<Reply<OrderContextResponse>, string[]>>
             processFormulary: Request<Formulary> -> Async<Result<Reply<Formulary>, string[]>>
             processParenteralia: Request<Parenteralia> -> Async<Result<Reply<Parenteralia>, string[]>>
             processInteraction: Request<InteractionCommand> -> Async<Result<Reply<InteractionResponse>, string[]>>

@@ -193,6 +193,7 @@ module Formulary =
             match (AppEnv.asEnv<AppEnv.IOrderContext> props.appEnv).OrderContext with
             | OrderContextView.Changing _ -> true
             | OrderContextView.NoPatient
+            | OrderContextView.Refused _
             | OrderContextView.Settled _ -> false
 
         let select = ViewHelpers.filterSelect busy

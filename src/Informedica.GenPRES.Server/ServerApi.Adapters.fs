@@ -77,7 +77,10 @@ module Adapters =
         (now: unit -> DateTime)
         : OrderContextPort
         =
-        { evaluate = fun cmd pc -> async { return pc |> OrderContextService.evaluate (now ()) logger provider cmd } }
+        {
+            evaluate =
+                fun cmd pc -> async { return pc |> OrderContextService.evaluateOutcome (now ()) logger provider cmd }
+        }
 
 
     /// The order plan port over the domain's rules: the plan's contexts through the order

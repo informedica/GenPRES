@@ -18,8 +18,9 @@ module OrderContextCommand =
 
 
     /// The context's patient made at the inbound boundary, the context parsed into the
-    /// domain, the verb mapped, the port asked, the answer mapped out with the environment's
-    /// demo flag. A draft that is none, or a context the domain does not read, is refused.
+    /// domain, the verb mapped, the port asked, the outcome mapped out as the response with
+    /// the environment's demo flag. A draft that is none, or a context the domain does not
+    /// read, is a failure.
     let processCmd (env: AppEnv) (cmd: OrderContextCommand, ctx: OrderContext) =
         Patient.over
             ctx.Patient
@@ -30,8 +31,6 @@ module OrderContextCommand =
                     async {
                         let! answer = env.orderContext.evaluate (OrderContextMapper.Command.toDomain cmd) pc
 
-                        return
-                            answer
-                            |> Result.map (PlanContext.Dto.toDto >> OrderContextMapper.toModel env.demo)
+                        return answer |> Result.map (OrderContextService.toResponse env.demo)
                     }
             )

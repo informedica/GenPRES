@@ -77,6 +77,7 @@ module Order =
             let cmp, itm =
                 match ctx with
                 | OrderContextView.Settled ctx
+                | OrderContextView.Refused(ctx, _)
                 | OrderContextView.Changing ctx ->
                     match ctx.Scenarios with
                     | [| sc |] ->
@@ -432,6 +433,7 @@ module Order =
         let shownContext =
             match props.orderContext with
             | OrderContextView.Settled ctx
+            | OrderContextView.Refused(ctx, _)
             | OrderContextView.Changing ctx -> Some ctx
             | OrderContextView.NoPatient -> None
 
@@ -447,6 +449,7 @@ module Order =
         let updateOrderScenario (ol: OrderLoader) =
             match props.orderContext with
             | OrderContextView.Settled ctx
+            | OrderContextView.Refused(ctx, _)
             | OrderContextView.Changing ctx ->
                 { ctx with
                     Scenarios =
@@ -468,6 +471,7 @@ module Order =
         let resetOrderScenario (ol: OrderLoader) =
             match props.orderContext with
             | OrderContextView.Settled ctx
+            | OrderContextView.Refused(ctx, _)
             | OrderContextView.Changing ctx ->
                 { ctx with
                     Scenarios =
@@ -491,6 +495,7 @@ module Order =
                 fun (ol: OrderLoader) ->
                     match props.orderContext with
                     | OrderContextView.Settled ctx
+                    | OrderContextView.Refused(ctx, _)
                     | OrderContextView.Changing ctx ->
                         { ctx with
                             Scenarios =
@@ -513,6 +518,7 @@ module Order =
                 fun (ol: OrderLoader) ->
                     match props.orderContext with
                     | OrderContextView.Settled ctx
+                    | OrderContextView.Refused(ctx, _)
                     | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
@@ -540,6 +546,7 @@ module Order =
                 fun (n, uc) (ol: OrderLoader) ->
                     match props.orderContext with
                     | OrderContextView.Settled ctx
+                    | OrderContextView.Refused(ctx, _)
                     | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
@@ -567,6 +574,7 @@ module Order =
                 fun (n, uc) (ol: OrderLoader) ->
                     match props.orderContext with
                     | OrderContextView.Settled ctx
+                    | OrderContextView.Refused(ctx, _)
                     | OrderContextView.Changing ctx ->
                         match ol.Component with
                         | None -> ()
@@ -631,7 +639,8 @@ module Order =
         React.useEffect (
             (fun () ->
                 match props.orderContext with
-                | OrderContextView.Settled _ -> setChanging None
+                | OrderContextView.Settled _
+                | OrderContextView.Refused _ -> setChanging None
                 | _ -> ()
             ),
             [| box props.orderContext |]
@@ -641,6 +650,7 @@ module Order =
             match props.orderContext with
             | OrderContextView.Changing _ -> true
             | OrderContextView.NoPatient
+            | OrderContextView.Refused _
             | OrderContextView.Settled _ -> false
 
         let isFieldLoading field = isOrderLoading && changing = Some(field, true)
@@ -665,7 +675,8 @@ module Order =
             prevCtxRef.current <- props.orderContext
 
             match props.orderContext with
-            | OrderContextView.Settled _ -> revisionRef.current <- revisionRef.current + 1
+            | OrderContextView.Settled _
+            | OrderContextView.Refused _ -> revisionRef.current <- revisionRef.current + 1
             | _ -> ()
 
         let revision = revisionRef.current

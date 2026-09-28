@@ -18,14 +18,15 @@ type FormularyPort =
 
 
 /// The prescribing workbench's port: the domain's command verb over a plan context, the
-/// answer a plan context with its intake. The verb is the wire's, mapped by the command
-/// handler; the context is parsed there too, so the port never sees the contract model.
+/// answer a plan context with its intake, evaluated or refused with why. The verb is the
+/// wire's, mapped by the command handler; the context is parsed there too, so the port never
+/// sees the contract model.
 type OrderContextPort =
     {
         evaluate:
             (GenOrder.OrderContext -> GenOrderContext.Command)
                 -> GenOrder.PlanContext
-                -> Async<Result<GenOrder.PlanContext, string[]>>
+                -> Async<Result<GenOrder.Outcome<GenOrder.PlanContext>, string[]>>
     }
 
 

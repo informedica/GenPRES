@@ -6,7 +6,7 @@
 /// the request first and reaches the workbench only when it lands; a command passes the
 /// workbench first and reaches the request as an intent, dropped while one is under way. The
 /// interpreter completes each call from the open Session, keeps the formulary and parenteralia
-/// filters in step, and puts words on the snackbar.
+/// filters in step, and puts the words of a failure on the snackbar.
 ///
 /// Four invariants: one request is in flight at a time, and a command sent while one is under way
 /// is dropped (the page greys its controls meanwhile) unless it is the dialog's, which waits as
@@ -15,6 +15,11 @@
 /// and lands only on that request; the workbench is always evaluated for the patient held, a
 /// patient change re-evaluating it; and a filter needs a patient, since the patient is part of
 /// it: one that arrives without (from the url) is dropped, and the App says so.
+///
+/// An answer is one of three: the context evaluated; the context refused, as it was sent, with
+/// the reason no dose can be shown, which the page says in place and the user re-picks from;
+/// or a failure, the server's or the call's, after which the workbench stays as the request
+/// found it. The page is never taken away.
 module OrderContextMachine
 
 open Shared.Types
@@ -27,7 +32,8 @@ open Shared.Api
 type OrderContextWorkbench =
     | NoPatient
     // the patient held and the context last evaluated for it, the original a failed change goes
-    // back to; the empty context while the first evaluation is under way
+    // back to; the empty context while the first evaluation is under way; the context as sent
+    // after a refusal
     | Evaluated of Patient * OrderContext
 
 
@@ -37,7 +43,7 @@ type OrderContextWorkbenchMsg =
     | PatientChanged of Patient option
     | Seed of OrderContext
     | Command of OrderContextCommand * OrderContext
-    | Landed of sent: (OrderContextCommand * OrderContext) * Result<OrderContext, string[]>
+    | Landed of sent: (OrderContextCommand * OrderContext) * Result<OrderContextResponse, string[]>
     | Reset
 
 
@@ -54,8 +60,6 @@ type OrderContextWorkbenchIntent =
     | Call of OrderContextCommand * OrderContext
     // the formulary and the parenteralia onto the filter
     | Sync of Filter
-    // the server found no dose rules for the filter: back to the first page
-    | GoToLifeSupport
     | Tell of string[]
 
 
@@ -63,11 +67,6 @@ module OrderContextWorkbench =
 
     /// The workbench emptied for the patient.
     let emptyFor (pat: Patient) = OrderContext.empty |> OrderContext.setPatient pat
-
-
-    /// What the server says when the filter matches no dose rule; the page then starts over.
-    let noDoseRules (errs: string[]) =
-        errs |> Array.exists (fun e -> e.ToLower().Contains "geen doseerregels")
 
 
     /// A failed change: the context given, the original, kept, and the formulary and the
@@ -80,17 +79,11 @@ module OrderContextWorkbench =
         ]
 
 
-    /// The filter matched no dose rule: the page is left, the failure said, and the empty
-    /// workbench evaluated again.
-    let private startOver (pat: Patient) (errs: string[]) =
-        let empty = emptyFor pat
-
-        OrderContextWorkbench.Evaluated(pat, empty),
-        [
-            OrderContextWorkbenchIntent.GoToLifeSupport
-            OrderContextWorkbenchIntent.Tell errs
-            OrderContextWorkbenchIntent.Evaluate empty
-        ]
+    /// A refusal: the context as it was sent, its picks kept for the user to re-pick from, its
+    /// scenarios dropped, since the server confirmed none. The pages were put on its filter
+    /// when it went out, so nothing to sync, and the page says why, so nothing to tell.
+    let private refused (pat: Patient) (sent: OrderContext) =
+        OrderContextWorkbench.Evaluated(pat, { sent with Scenarios = [||] }), []
 
 
     /// The domain stage: the workbench changes only on an answer that landed and on the patient;
@@ -128,10 +121,10 @@ module OrderContextWorkbench =
         // nothing was asked without a patient, so nothing lands there
         | OrderContextWorkbenchMsg.Landed _, OrderContextWorkbench.NoPatient -> workbench, []
         // an answer lands for the patient held
-        | OrderContextWorkbenchMsg.Landed(_, Ok ctx), OrderContextWorkbench.Evaluated(pat, _) ->
-            OrderContextWorkbench.Evaluated(pat, ctx), []
-        | OrderContextWorkbenchMsg.Landed(_, Error errs), OrderContextWorkbench.Evaluated(pat, _) when noDoseRules errs ->
-            startOver pat errs
+        | OrderContextWorkbenchMsg.Landed(_, Ok(OrderContextResponse.Evaluated ctx)),
+          OrderContextWorkbench.Evaluated(pat, _) -> OrderContextWorkbench.Evaluated(pat, ctx), []
+        | OrderContextWorkbenchMsg.Landed(_, Ok(OrderContextResponse.Refused(sent, _))),
+          OrderContextWorkbench.Evaluated(pat, _) -> refused pat sent
         // a failed change leaves the workbench as the request found it, never the context sent,
         // whose order and texts the server did not confirm; for a failed first evaluation that
         // is the empty workbench
@@ -148,10 +141,11 @@ module OrderContextWorkbench =
 /// The workbench, the one request under way (the command and the context sent, what the page
 /// shows meanwhile, and the id the answer must name; none while idle), the dialog's command
 /// waiting on it (with the context it was sent with and its own id; none but while a request is
-/// under way) and the dialog's selection. Built through the constructors below only, which admit
-/// the combinations that can occur: no patient with nothing under way, a context held, a change
-/// under way (the first evaluation over the empty context among them), with or without a command
-/// pending, with or without a scenario selected.
+/// under way), the dialog's selection and the refusal the last answer carried. Built through
+/// the constructors below only, which admit the combinations that can occur: no patient with
+/// nothing under way, a context held, a change under way (the first evaluation over the empty
+/// context among them), with or without a command pending, with or without a scenario
+/// selected, with or without a refusal to show.
 type OrderContextState =
     private
         {
@@ -161,6 +155,9 @@ type OrderContextState =
             // the scenario the order dialog shows, by its order's id: only one the context
             // shown holds; none while the dialog is closed
             Selected: string option
+            // why the last answer refused the context held; none after any other answer, a
+            // patient change, a seed or a reset
+            Refusal: OrderContextRefusal option
         }
 
 
@@ -174,8 +171,9 @@ type OrderContextMsg =
     | Seed of OrderContext * request: string
     // an order-context command from the page, over the context as the page holds it
     | Command of OrderContextCommand * OrderContext * request: string
-    // the server's answer to the request named; Error = a failure, the server's or the call's
-    | Answered of request: string * Result<OrderContext, string[]>
+    // the server's answer to the request named: the context evaluated or refused; Error = a
+    // failure, the server's or the call's
+    | Answered of request: string * Result<OrderContextResponse, string[]>
     // the workbench cleared and evaluated empty: after an order was prescribed
     | Reset of request: string
     // the dialog's selection, a scenario by its order's id; the client's own
@@ -189,21 +187,22 @@ type OrderContextEffect =
     // the filter chosen, into the formulary's and the parenteralia's
     | SyncFormulary of Filter
     | SyncParenteralia of Filter
-    // the server found no dose rules for the filter: back to the first page
-    | GoToLifeSupport
     | TellError of string[]
 
 
 /// The workbench as the page shows it: the states a page can be in, each with what is valid in
 /// it and nothing of the request. Nothing without a patient; the context the server answered,
-/// nothing under way; a change under way, the context sent shown meanwhile, the empty context
-/// while the first evaluation runs. A page renders from `Settled` and `Changing` alike,
-/// so that the screen stays populated while a request runs; it steps from `Changing` too, over
-/// the context shown, and builds every other command from `Settled` only.
+/// nothing under way; the context the server refused, as it was sent, with why, nothing under
+/// way; a change under way, the context sent shown meanwhile, the empty context while the
+/// first evaluation runs. A page renders from `Settled`, `Refused` and `Changing` alike, so
+/// that the screen stays populated while a request runs and the picks stay after a refusal;
+/// it steps from `Changing` too, over the context shown, and builds every other command from
+/// `Settled` and `Refused` only.
 [<RequireQualifiedAccess>]
 type OrderContextView =
     | NoPatient
     | Settled of OrderContext
+    | Refused of OrderContext * OrderContextRefusal
     | Changing of OrderContext
 
 
@@ -231,6 +230,7 @@ module OrderContextState =
             InFlight = None
             Pending = None
             Selected = None
+            Refusal = None
         }
 
 
@@ -244,6 +244,7 @@ module OrderContextState =
             InFlight = Some((OrderContextCommand.UpdateOrderContext, emptyFor pat), request)
             Pending = None
             Selected = None
+            Refusal = None
         }
 
 
@@ -254,7 +255,13 @@ module OrderContextState =
             InFlight = None
             Pending = None
             Selected = None
+            Refusal = None
         }
+
+
+    /// The context refused for the patient, as it was sent, with why; nothing under way.
+    let refused (pat: Patient) (ctx: OrderContext) (refusal: OrderContextRefusal) =
+        { held pat ctx with Refusal = Some refusal }
 
 
     /// A command under way over the context sent, always for the patient held; the context held
@@ -265,6 +272,7 @@ module OrderContextState =
             InFlight = Some((cmd, { sent with Patient = pat }), request)
             Pending = None
             Selected = None
+            Refusal = None
         }
 
 
@@ -304,20 +312,21 @@ module OrderContextState =
 
         let pending = state.Pending |> Option.map (fun (cmd, ctx, request) -> cmd, f ctx, request)
 
-        {
+        { state with
             Workbench = workbench
             InFlight = inFlight
             Pending = pending
-            Selected = state.Selected
         }
 
 
-    /// The workbench as the page shows it: the context sent shown while a request is under way.
+    /// The workbench as the page shows it: the context sent shown while a request is under way,
+    /// the context refused with why while idle after a refusal.
     let view (state: OrderContextState) : OrderContextView =
-        match state.Workbench, state.InFlight with
-        | OrderContextWorkbench.NoPatient, _ -> OrderContextView.NoPatient
-        | OrderContextWorkbench.Evaluated _, Some((_, sent), _) -> OrderContextView.Changing sent
-        | OrderContextWorkbench.Evaluated(_, ctx), None -> OrderContextView.Settled ctx
+        match state.Workbench, state.InFlight, state.Refusal with
+        | OrderContextWorkbench.NoPatient, _, _ -> OrderContextView.NoPatient
+        | OrderContextWorkbench.Evaluated _, Some((_, sent), _), _ -> OrderContextView.Changing sent
+        | OrderContextWorkbench.Evaluated(_, ctx), None, Some refusal -> OrderContextView.Refused(ctx, refusal)
+        | OrderContextWorkbench.Evaluated(_, ctx), None, None -> OrderContextView.Settled ctx
 
 
     /// Whether the context has a scenario with the order named.
@@ -394,7 +403,6 @@ module OrderContextState =
                             OrderContextEffect.SyncFormulary filter
                             OrderContextEffect.SyncParenteralia filter
                         ]
-                    | OrderContextWorkbenchIntent.GoToLifeSupport -> state, [ OrderContextEffect.GoToLifeSupport ]
                     | OrderContextWorkbenchIntent.Tell errs -> state, [ OrderContextEffect.TellError errs ]
 
                 state, effects @ added
@@ -405,8 +413,10 @@ module OrderContextState =
     /// The domain stage first, then the request stage: the workbench steps, and its intents
     /// become the request under way and the effects. The dialog follows: closed by a patient
     /// change, a seed and a reset, narrowed to what the workbench holds after an answer (a
-    /// failed change keeps the context held, and the order with it; a start over holds none),
-    /// kept otherwise; a patient cleared clears the request.
+    /// failed change keeps the context held, and the order with it; a refusal holds none),
+    /// kept otherwise. The refusal follows the answer: held from the answer that refused,
+    /// gone with any other answer, a patient change, a seed or a reset, kept while a command
+    /// goes out. A patient cleared clears the request.
     let private run (request: string) (msg: OrderContextWorkbenchMsg) (state: OrderContextState) =
         let workbench, intents = OrderContextWorkbench.step msg state.Workbench
 
@@ -419,6 +429,16 @@ module OrderContextState =
             | OrderContextWorkbenchMsg.Landed _, OrderContextWorkbench.Evaluated(_, ctx) ->
                 state.Selected |> Option.filter (fun id -> ctx |> holds id)
             | OrderContextWorkbenchMsg.Command _, _ -> state.Selected
+
+        let refusal =
+            match msg, workbench with
+            | _, OrderContextWorkbench.NoPatient -> None
+            | OrderContextWorkbenchMsg.Landed(_, Ok(OrderContextResponse.Refused(_, refusal))), _ -> Some refusal
+            | OrderContextWorkbenchMsg.Landed _, _
+            | OrderContextWorkbenchMsg.PatientChanged _, _
+            | OrderContextWorkbenchMsg.Seed _, _
+            | OrderContextWorkbenchMsg.Reset, _ -> None
+            | OrderContextWorkbenchMsg.Command _, _ -> state.Refusal
 
         let inFlight, pending =
             match workbench with
@@ -433,6 +453,7 @@ module OrderContextState =
                 InFlight = inFlight
                 Pending = pending
                 Selected = selected
+                Refusal = refusal
             }
 
 
@@ -453,9 +474,11 @@ module OrderContextState =
                         }
 
                 // the command that waited goes out: a step over the context answered, a value
-                // typed over the context it was sent with; a failure drops it
+                // typed over the context it was sent with; a refusal or a failure drops it
                 match result, state.Pending, landed.Workbench with
-                | Ok _, Some(cmd, ctx, next), OrderContextWorkbench.Evaluated(_, answered) ->
+                | Ok(OrderContextResponse.Evaluated _),
+                  Some(cmd, ctx, next),
+                  OrderContextWorkbench.Evaluated(_, answered) ->
                     let over =
                         if OrderPlanMachine.Dialog.carries cmd then
                             ctx
@@ -469,7 +492,8 @@ module OrderContextState =
         | OrderContextMsg.Select id, _, _ -> select id state, []
 
         // the patient changed while a change is under way: the context sent is evaluated for the
-        // new patient, the one held stays what a failed change goes back to, the dialog closes
+        // new patient, the one held stays what a failed change goes back to, the dialog closes,
+        // the refusal is gone
         | OrderContextMsg.PatientChanged(Some pat, request), OrderContextWorkbench.Evaluated _, Some((_, sent), _) ->
             let workbench, _ =
                 OrderContextWorkbench.step (OrderContextWorkbenchMsg.PatientChanged(Some pat)) state.Workbench
@@ -480,6 +504,7 @@ module OrderContextState =
                 { state with
                     Workbench = workbench
                     Selected = None
+                    Refusal = None
                 }
 
         | OrderContextMsg.PatientChanged(pat, request), _, _ ->

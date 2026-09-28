@@ -162,7 +162,7 @@ module private Elmish =
         | OrderContextMsg of OrderContextMsg
         // the server's answer to a workbench request: the notice is told here, the context goes
         // to the machine under the request it answers
-        | OrderContextAnswered of request: string * Answer<OrderContext>
+        | OrderContextAnswered of request: string * Answer<OrderContextResponse>
 
         // the one plan, nutrition included: the order-plan machine's messages
         | OrderPlanMsg of OrderPlanMsg
@@ -1071,7 +1071,6 @@ module private Elmish =
                     |> Deferred.map (FilterSync.syncFilterToParenteralia filter)
             },
             Cmd.ofMsg (LoadParenteralia Started)
-        | OrderContextEffect.GoToLifeSupport -> { state with Ui.Page = LifeSupport }, Cmd.none
         | OrderContextEffect.TellError errs ->
             Logging.warning "order context error" errs
 
@@ -1585,7 +1584,9 @@ module private Elmish =
             processApiMsg
                 state
                 answer
-                (fun state ctx -> state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Answered(request, Ok ctx))))
+                (fun state response ->
+                    state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Answered(request, Ok response)))
+                )
 
         | OrderPlanMsg msg ->
             // a change from a page is dropped while a signature is under way

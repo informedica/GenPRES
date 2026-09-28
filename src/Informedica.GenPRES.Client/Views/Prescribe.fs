@@ -45,7 +45,8 @@ module Prescribe =
         React.useEffect (
             (fun () ->
                 match orderContext with
-                | OrderContextView.Settled _ -> setLoadingSource None
+                | OrderContextView.Settled _
+                | OrderContextView.Refused _ -> setLoadingSource None
                 | _ -> ()
             ),
             [| box orderContext |]
@@ -56,42 +57,48 @@ module Prescribe =
 
         let indicationChange s =
             match orderContext with
-            | OrderContextView.Settled pr ->
+            | OrderContextView.Settled pr
+            | OrderContextView.Refused(pr, _) ->
                 setLoadingSource (Some IndicationLoading)
                 pr |> OrderContext.indicationChange s |> updateOrderContext
             | _ -> ()
 
         let medicationChange s =
             match orderContext with
-            | OrderContextView.Settled pr ->
+            | OrderContextView.Settled pr
+            | OrderContextView.Refused(pr, _) ->
                 setLoadingSource (Some MedicationLoading)
                 pr |> OrderContext.medicationChange s |> updateOrderContext
             | _ -> ()
 
         let routeChange s =
             match orderContext with
-            | OrderContextView.Settled pr ->
+            | OrderContextView.Settled pr
+            | OrderContextView.Refused(pr, _) ->
                 setLoadingSource (Some RouteLoading)
                 pr |> OrderContext.routeChange s |> updateOrderContext
             | _ -> ()
 
         let formChange s =
             match orderContext with
-            | OrderContextView.Settled ctx ->
+            | OrderContextView.Settled ctx
+            | OrderContextView.Refused(ctx, _) ->
                 setLoadingSource (Some FormLoading)
                 ctx |> OrderContext.formChange s |> updateOrderContext
             | _ -> ()
 
         let diluentChange s =
             match orderContext with
-            | OrderContextView.Settled pr ->
+            | OrderContextView.Settled pr
+            | OrderContextView.Refused(pr, _) ->
                 setLoadingSource (Some DiluentLoading)
                 pr |> OrderContext.diluentChange s |> updateOrderContext
             | _ -> ()
 
         let componentsChange cs =
             match orderContext with
-            | OrderContextView.Settled prctx ->
+            | OrderContextView.Settled prctx
+            | OrderContextView.Refused(prctx, _) ->
                 setLoadingSource (Some ComponentsLoading)
                 prctx |> OrderContext.componentsChange cs |> updateOrderContext
             | _ -> ()
@@ -100,14 +107,16 @@ module Prescribe =
             let dt = s |> Option.map DoseType.doseTypeFromString
 
             match orderContext with
-            | OrderContextView.Settled pr ->
+            | OrderContextView.Settled pr
+            | OrderContextView.Refused(pr, _) ->
                 setLoadingSource (Some DoseTypeLoading)
                 pr |> OrderContext.doseTypeChange dt |> updateOrderContext
             | _ -> ()
 
         let clear () =
             match orderContext with
-            | OrderContextView.Settled _ ->
+            | OrderContextView.Settled _
+            | OrderContextView.Refused(_, _) ->
                 setLoadingSource None
                 OrderContext.empty |> updateOrderContext
             | _ -> ()
@@ -120,7 +129,8 @@ module Prescribe =
             match orderContext with
             | OrderContextView.Changing _ -> true
             | OrderContextView.NoPatient
-            | OrderContextView.Settled _ -> false
+            | OrderContextView.Settled _
+            | OrderContextView.Refused _ -> false
 
         let isSourceLoading source = isAnythingLoading && loadingSource = Some source
 
@@ -443,6 +453,7 @@ module Prescribe =
                     </Typography>
                     {match orderContext with
                      | OrderContextView.Settled pr
+                     | OrderContextView.Refused(pr, _)
                      | OrderContextView.Changing pr -> pr.Filter.Indication, pr.Filter.Indications
                      | OrderContextView.NoPatient -> None, [||]
                      |> fun (sel, items) ->
@@ -456,6 +467,7 @@ module Prescribe =
                     <Stack direction={stackDirection} spacing={if isMobile then 1 else 3} >
                         {match orderContext with
                          | OrderContextView.Settled pr
+                         | OrderContextView.Refused(pr, _)
                          | OrderContextView.Changing pr -> pr.Filter.Generic, pr.Filter.Generics
                          | OrderContextView.NoPatient -> None, [||]
                          |> fun (sel, items) ->
@@ -470,6 +482,7 @@ module Prescribe =
                 }
                         {match orderContext with
                          | OrderContextView.Settled pr
+                         | OrderContextView.Refused(pr, _)
                          | OrderContextView.Changing pr -> pr.Filter.Route, pr.Filter.Routes
                          | OrderContextView.NoPatient -> None, [||]
                          |> fun (sel, items) ->
@@ -484,6 +497,7 @@ module Prescribe =
                 }
                         {match orderContext with
                          | OrderContextView.Settled ctx
+                         | OrderContextView.Refused(ctx, _)
                          | OrderContextView.Changing ctx when
                              ctx.Filter.Forms |> Array.length >= 1
                              && (not isMobile || ctx.Scenarios |> Array.length <> 1)
@@ -502,6 +516,7 @@ module Prescribe =
                                  items |> Array.map (fun s -> s, s) |> select isLoading lbl sel formChange}
                         {match orderContext with
                          | OrderContextView.Settled pr
+                         | OrderContextView.Refused(pr, _)
                          | OrderContextView.Changing pr when
                              pr.Filter.Indication.IsSome
                              && pr.Filter.Generic.IsSome
@@ -520,6 +535,7 @@ module Prescribe =
                          | _ -> null}
                         {match orderContext with
                          | OrderContextView.Settled pr
+                         | OrderContextView.Refused(pr, _)
                          | OrderContextView.Changing pr when
                              pr.Filter.Indication.IsSome
                              && pr.Filter.Generic.IsSome
@@ -545,6 +561,7 @@ module Prescribe =
                          | _ -> null}
                         {match orderContext with
                          | OrderContextView.Settled pr
+                         | OrderContextView.Refused(pr, _)
                          | OrderContextView.Changing pr when
                              pr.Filter.Indication.IsSome
                              && pr.Filter.Generic.IsSome
@@ -568,6 +585,7 @@ module Prescribe =
                     <Stack direction="column" spacing={1} >
                         {match orderContext with
                          | OrderContextView.Settled pr
+                         | OrderContextView.Refused(pr, _)
                          | OrderContextView.Changing pr ->
                              pr.Scenarios
                              |> Array.map (displayScenario pr pr.Filter.Generic)

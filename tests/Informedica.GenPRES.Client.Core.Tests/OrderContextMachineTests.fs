@@ -88,7 +88,9 @@ let tests =
                                 OrderContextEffect.CallContext(OrderContextCommand.UpdateOrderContext, empty, "r-1")
                             ]
 
-                        transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) loading
+                        transition
+                            (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
+                            loading
                         |> Expect.equal "shown" (held paracetamol, [])
                     }
 
@@ -105,7 +107,9 @@ let tests =
 
                         effects |> Expect.equal "the call and the syncs" (evaluated expected "r-2")
 
-                        transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) state
+                        transition
+                            (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
+                            state
                         |> Expect.equal "the older answer dropped" (state, [])
                     }
 
@@ -162,7 +166,9 @@ let tests =
 
                         effects |> Expect.equal "the call and the syncs" (evaluated paracetamol "r-2")
 
-                        transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) seeded
+                        transition
+                            (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
+                            seeded
                         |> Expect.equal "the first evaluation's answer is stale" (seeded, [])
 
                         transition (OrderContextMsg.Answered("r-2", Error [| "refused" |])) seeded
@@ -253,10 +259,10 @@ let tests =
                         let answer =
                             { paracetamol with OrderContext.Filter.Generics = [| "paracetamol"; "ibuprofen" |] }
 
-                        transition (OrderContextMsg.Answered("r-1", Ok answer)) busy
+                        transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated answer))) busy
                         |> Expect.equal "shown" (held answer, [])
 
-                        transition (OrderContextMsg.Answered("r-9", Ok answer)) busy
+                        transition (OrderContextMsg.Answered("r-9", Ok(OrderContextResponse.Evaluated answer))) busy
                         |> Expect.equal "stale" (busy, [])
                     }
 
@@ -268,20 +274,6 @@ let tests =
 
                         transition (OrderContextMsg.Answered("r-1", Error [| "not loaded" |])) (opening patient "r-1")
                         |> Expect.equal "the empty workbench" (held empty, restored empty [| "not loaded" |])
-                    }
-
-                    test "no dose rules for the filter: back to the first page, the empty workbench evaluated again" {
-                        let busy = evaluating paracetamol paracetamol "r-1"
-
-                        let errs = [| "Geen doseerregels gevonden voor het geselecteerde filter" |]
-
-                        transition (OrderContextMsg.Answered("r-1", Error errs)) busy
-                        |> Expect.equal
-                            "left, told, evaluated empty with the pages in step"
-                            (evaluating empty empty "r-1",
-                             OrderContextEffect.GoToLifeSupport
-                             :: OrderContextEffect.TellError errs
-                             :: evaluated empty "r-1")
                     }
 
                     test "a refused step restores the context last evaluated, never the one sent" {
@@ -415,7 +407,7 @@ let pendingTests =
             test "a step goes out over the context answered; a value typed over the context it was sent with" {
                 let answer = { paracetamol with OrderContext.Filter.Generics = [| "paracetamol"; "ibuprofen" |] }
 
-                transition (OrderContextMsg.Answered("r-1", Ok answer)) waiting
+                transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated answer))) waiting
                 |> Expect.equal
                     "the step, from the answer"
                     (inFlight step answer answer "r-2", [ OrderContextEffect.CallContext(step, answer, "r-2") ])
@@ -425,7 +417,7 @@ let pendingTests =
 
                 busy
                 |> OrderContextState.pending update typed "r-2"
-                |> transition (OrderContextMsg.Answered("r-1", Ok answer))
+                |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated answer)))
                 |> Expect.equal
                     "the value typed, over what it was typed into"
                     (inFlight update typed answer "r-2", [ OrderContextEffect.CallContext(update, typed, "r-2") ])
@@ -479,13 +471,13 @@ let stagesTests =
                 let landed =
                     OrderContextWorkbenchMsg.Landed(
                         (OrderContextCommand.UpdateOrderContext, paracetamol),
-                        Ok paracetamol
+                        Ok(OrderContextResponse.Evaluated paracetamol)
                     )
 
                 OrderContextWorkbench.step landed OrderContextWorkbench.NoPatient
                 |> Expect.equal "no patient" (OrderContextWorkbench.NoPatient, [])
 
-                transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) noPatient
+                transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol))) noPatient
                 |> Expect.equal "no request under way to land on" (noPatient, [])
             }
 
@@ -586,12 +578,14 @@ let selectionTests =
             }
 
             test "an answer keeps it while the context answered holds the order, and drops it otherwise" {
-                transition (OrderContextMsg.Answered("r-1", Ok withOrder)) busySelected
+                transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated withOrder))) busySelected
                 |> fst
                 |> dialog
                 |> Expect.equal "the order answered" (Some(OrderContextView.Settled withOrder))
 
-                transition (OrderContextMsg.Answered("r-1", Ok paracetamol)) busySelected
+                transition
+                    (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
+                    busySelected
                 |> fst
                 |> dialog
                 |> Expect.equal "the order gone from the answer" None
@@ -602,10 +596,152 @@ let selectionTests =
                 |> Expect.equal
                     "a failed change keeps the context held, and the order"
                     (Some(OrderContextView.Settled withOrder))
+            }
+        ]
 
-                transition (OrderContextMsg.Answered("r-1", Error [| "geen doseerregels" |])) busySelected
+
+[<Tests>]
+let refusalTests =
+    // a context whose one scenario has an order the dialog can select
+    let withOrder =
+        { paracetamol with Scenarios = [| OrderPlanMachineTests.Fixtures.scenario "o-1" "paracetamol" |] }
+
+    let refused = OrderContextState.refused patient
+    let view = OrderContextState.view
+    let dialog = OrderContextState.dialog
+    let evaluatedAnswer ctx = Ok(OrderContextResponse.Evaluated ctx)
+    let refusedAnswer ctx r = Ok(OrderContextResponse.Refused(ctx, r))
+
+    testList
+        "a refused answer"
+        [
+            test "an evaluated answer is shown" {
+                transition
+                    (OrderContextMsg.Answered("r-1", evaluatedAnswer paracetamol))
+                    (evaluating paracetamol empty "r-1")
+                |> Expect.equal "shown" (held paracetamol, [])
+            }
+
+            test "a refused answer keeps the picks, drops the scenarios, holds why, and tells nothing" {
+                let busy = evaluating withOrder empty "r-1"
+
+                transition
+                    (OrderContextMsg.Answered("r-1", refusedAnswer withOrder OrderContextRefusal.NoDoseRules))
+                    busy
+                |> Expect.equal
+                    "refused, as sent, without scenarios"
+                    (refused paracetamol OrderContextRefusal.NoDoseRules, [])
+            }
+
+            test "a refused first evaluation holds the empty context and why" {
+                transition
+                    (OrderContextMsg.Answered("r-1", refusedAnswer empty OrderContextRefusal.NoProducts))
+                    (opening patient "r-1")
+                |> Expect.equal "the empty workbench, refused" (refused empty OrderContextRefusal.NoProducts, [])
+            }
+
+            test "the page shows the refusal while idle, a change while a request runs" {
+                let shown = refused paracetamol OrderContextRefusal.NoDoseRulesForPatient
+
+                shown
+                |> view
+                |> Expect.equal
+                    "refused"
+                    (OrderContextView.Refused(paracetamol, OrderContextRefusal.NoDoseRulesForPatient))
+
+                let again = { paracetamol with OrderContext.Filter.Route = Some "or" }
+
+                let busy, effects =
+                    transition (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, again, "r-2")) shown
+
+                effects |> Expect.equal "evaluated again" (evaluated again "r-2")
+                busy
+                |> view
+                |> Expect.equal "changing meanwhile" (OrderContextView.Changing again)
+            }
+
+            test "the next evaluated answer clears the refusal" {
+                let shown = refused paracetamol OrderContextRefusal.NoDoseRules
+                let again = { paracetamol with OrderContext.Filter.Route = Some "or" }
+
+                let busy, _ =
+                    transition (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, again, "r-2")) shown
+
+                transition (OrderContextMsg.Answered("r-2", evaluatedAnswer again)) busy
+                |> Expect.equal "settled" (held again, [])
+            }
+
+            test "a failure after a refusal restores the context refused, the refusal gone" {
+                let shown = refused paracetamol OrderContextRefusal.NoDoseRules
+                let again = { paracetamol with OrderContext.Filter.Route = Some "or" }
+
+                let busy, _ =
+                    transition (OrderContextMsg.Command(OrderContextCommand.UpdateOrderContext, again, "r-2")) shown
+
+                transition (OrderContextMsg.Answered("r-2", Error [| "not loaded" |])) busy
+                |> Expect.equal "as found, told" (held paracetamol, restored paracetamol [| "not loaded" |])
+            }
+
+            test "a patient change, a seed and a reset clear the refusal" {
+                let shown = refused paracetamol OrderContextRefusal.NoDoseRules
+
+                transition (OrderContextMsg.PatientChanged(Some other, "r-2")) shown
+                |> fst
+                |> view
+                |> Expect.equal
+                    "changing for the other patient"
+                    (OrderContextView.Changing { paracetamol with Patient = other })
+
+                transition (OrderContextMsg.Seed(empty, "r-2")) shown
+                |> fst
+                |> view
+                |> Expect.equal "changing over the seed" (OrderContextView.Changing empty)
+
+                transition (OrderContextMsg.Reset "r-2") shown
+                |> fst
+                |> view
+                |> Expect.equal "changing over the empty context" (OrderContextView.Changing empty)
+
+                transition (OrderContextMsg.PatientChanged(None, "r-2")) shown
+                |> fst
+                |> view
+                |> Expect.equal "no patient" OrderContextView.NoPatient
+            }
+
+            test "a refusal drops the dialog's pending command and its selection" {
+                let busy =
+                    evaluating withOrder withOrder "r-1"
+                    |> OrderContextState.select (Some "o-1")
+                    |> OrderContextState.pending
+                        OrderContextCommand.SetMedianOrderableDoseQuantityProperty
+                        withOrder
+                        "r-2"
+
+                let landed, effects =
+                    transition
+                        (OrderContextMsg.Answered("r-1", refusedAnswer withOrder OrderContextRefusal.NoDoseRules))
+                        busy
+
+                effects |> Expect.isEmpty "nothing goes out"
+                landed |> dialog |> Expect.equal "the dialog closed" None
+                landed
+                |> view
+                |> Expect.equal "refused" (OrderContextView.Refused(paracetamol, OrderContextRefusal.NoDoseRules))
+            }
+
+            test "a failed change still keeps the context held and the order, and says why" {
+                let busy = evaluating withOrder withOrder "r-1" |> OrderContextState.select (Some "o-1")
+
+                transition (OrderContextMsg.Answered("r-1", Error [| "not loaded" |])) busy
                 |> fst
                 |> dialog
-                |> Expect.equal "a start over holds none" None
+                |> Expect.equal "kept" (Some(OrderContextView.Settled withOrder))
+            }
+
+            test "a stale answer lands nowhere, refused or not" {
+                let shown = held paracetamol
+
+                transition (OrderContextMsg.Answered("r-9", refusedAnswer empty OrderContextRefusal.NoDoseRules)) shown
+                |> Expect.equal "stale" (shown, [])
             }
         ]
