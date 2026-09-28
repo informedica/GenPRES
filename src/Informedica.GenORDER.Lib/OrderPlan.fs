@@ -75,6 +75,56 @@ module PlanContext =
             cmd
 
 
+    /// The plan context evaluated against the rules as an outcome. For the two commands that
+    /// look the rules up, a pick the rules no longer offer for the patient is a refusal with
+    /// the context as it was sent, not a pick dropped in silence; a reload refreshes the rules
+    /// first, so that the pick is checked against them as they are now. Every other command
+    /// runs over the context reconciled. The intake is recorded over the answer, evaluated or
+    /// refused, from the totals data read after any reload; the id and the category stay the
+    /// plan's. An evaluation that fails is the answer.
+    let evaluateOutcome
+        (start: System.DateTime)
+        logger
+        provider
+        (totalsData: unit -> Types.Data.TotalsData[])
+        (cmd: OrderContext -> OrderContext.Command)
+        (pc: PlanContext)
+        : Result<Outcome<PlanContext>, Message list>
+        =
+        let sent = pc.Context
+
+        let recorded answer =
+            let ctx = answer |> OrderContext.Command.get
+
+            { pc with
+                Context = ctx
+                Intake = ctx |> OrderContext.intake (totalsData ())
+            }
+
+        let lookUp () =
+            let reconciled = sent |> OrderContext.reconcile logger provider
+
+            if Filter.dropped sent.Filter reconciled.Filter then
+                Refused(pc, OrderContext.refusal provider sent) |> Ok
+            else
+                reconciled
+                |> OrderContext.UpdateOrderContext
+                |> OrderContext.evaluateOutcome start logger provider
+                |> Result.map (Outcome.map recorded)
+
+        match sent |> cmd with
+        | OrderContext.UpdateOrderContext _ -> lookUp ()
+        | OrderContext.ReloadResources _ ->
+            Api.reloadCache logger provider
+            lookUp ()
+        | _ ->
+            sent
+            |> OrderContext.reconcile logger provider
+            |> cmd
+            |> OrderContext.evaluateOutcome start logger provider
+            |> Result.map (Outcome.map recorded)
+
+
     /// The serializable shape of a PlanContext: the category as a string, the context and
     /// the intake as their own Dtos.
     module Dto =

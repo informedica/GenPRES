@@ -852,4 +852,53 @@ let refusalTests =
                         |> Expect.equal "the message" (Error [ ErrorMsg(OrderContext.noDoseRulesMessage, None) ])
                     }
                 ]
+
+            testList
+                "the plan context as an outcome"
+                [
+                    let planContext = PlanContext.create "c-1" OrderCategory.Drug EvaluateFixtures.pcmContext
+
+                    let evaluateOutcome cmd pc =
+                        pc
+                        |> PlanContext.evaluateOutcome start OrderLogging.noOp (NoRules()) (fun () -> [||]) cmd
+
+                    test "a pick the rules no longer offer is gone from the reconciled filter" {
+                        let held = EvaluateFixtures.pcmContext.Filter
+                        let reconciled =
+                            EvaluateFixtures.pcmContext
+                            |> OrderContext.reconcile OrderLogging.noOp (NoRules())
+
+                        reconciled.Filter.Generic |> Expect.isNone "dropped by the reconciliation"
+                        Filter.dropped held reconciled.Filter |> Expect.isTrue "the generic gone"
+                        Filter.dropped held held |> Expect.isFalse "kept"
+                        Filter.dropped reconciled.Filter held
+                        |> Expect.isFalse "nothing chosen, nothing gone"
+                    }
+
+                    test "a dropped pick is refused with the plan context as sent, id and category kept" {
+                        match planContext |> evaluateOutcome OrderContext.UpdateOrderContext with
+                        | Ok(Refused(pc, Refusal.NoDoseRules)) ->
+                            pc.Id |> Expect.equal "the id" "c-1"
+                            pc.Category |> Expect.equal "the category" OrderCategory.Drug
+
+                            pc.Context.Filter.Generic
+                            |> Expect.equal "the pick kept" EvaluateFixtures.pcmContext.Filter.Generic
+                        | other -> failtest $"expected a refusal without rules, got %A{other}"
+                    }
+
+                    test "no pick is evaluated, and so is a scenario command over a dropped pick" {
+                        let fresh =
+                            { planContext with
+                                Context = { EvaluateFixtures.pcmContext with Filter = EvaluateFixtures.fresh }
+                            }
+
+                        match fresh |> evaluateOutcome OrderContext.UpdateOrderContext with
+                        | Ok(Evaluated pc) -> pc.Id |> Expect.equal "the id" "c-1"
+                        | other -> failtest $"expected an evaluation, got %A{other}"
+
+                        match planContext |> evaluateOutcome OrderContext.SelectOrderScenario with
+                        | Ok(Evaluated _) -> ()
+                        | other -> failtest $"expected an evaluation, got %A{other}"
+                    }
+                ]
         ]
