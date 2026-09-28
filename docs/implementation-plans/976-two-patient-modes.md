@@ -240,6 +240,12 @@ measurement's own row, not a new opened-with row. Clearing a value writes a row 
 since the latest row decides; otherwise a cleared weight would return at the next resume.
 Alternative: see [To settle in review](#to-settle-in-review).
 
+*Amended 2026-09-28* ([#1126](1126-patient-data-in-the-two-modes.md)): the panel no longer
+offers the clearing for an identified patient. Weight, height and gestational age are changed,
+never cleared, and the panel has no reset; renal function keeps its clear cross, since its
+options have no "unknown". The Session still records a cleared value as described above, for a
+request that carries one.
+
 - *At the next open, the head's measured values over EHR data*: not decided; the default is EHR
   data. See [To settle in review](#to-settle-in-review).
 

@@ -25,9 +25,9 @@ module Patient =
 
 
         type Msg =
-            // the draft discarded, but for what the reset keeps: the age of an identified
-            // patient, which is the platform's and not the user's to clear
-            | Clear of kept: Age option
+            // the draft discarded as a whole: the data of an anonymous patient, which is
+            // fictitious; an identified patient's data is changed, never cleared
+            | Clear
             | UpdateYear of string option
             | UpdateMonth of string option
             | UpdateWeek of string option
@@ -58,7 +58,7 @@ module Patient =
         let update dispatch msg (state: State) : State * Cmd<Msg> =
             let state =
                 match msg with
-                | Clear kept -> kept |> Option.map (fun age -> { Patient.empty with Age = Some age })
+                | Clear -> None
                 | UpdateYear s -> state |> Patient.setYear s
                 | UpdateMonth s -> state |> Patient.setMonth s
                 | UpdateWeek s -> state |> Patient.setWeek s
@@ -160,7 +160,7 @@ module Patient =
         // whom the patient is when the EHR said: the panel is in identified mode by it, not by
         // an open Session, since a launch without data opens a Session without one, and one
         // with a signed head opens identified from the head. Identified, the age is the
-        // platform's: shown, not chosen, and kept through a reset
+        // platform's, shown, not chosen, and the rest of the data is changed, never cleared
         let patientContext =
             match session with
             | SessionMachine.SessionView.Open opened
@@ -237,35 +237,34 @@ module Patient =
 
         // the reset is asked first: the button opens the question, confirming discards the
         // draft. An age, a weight and a height typed at the bedside are not rebuilt by picking
-        // again, which is why this reset asks where the prescribing page's does not
+        // again, which is why this reset asks where the prescribing page's does not. Only an
+        // anonymous patient has a reset: an identified patient's data is changed, never cleared
         let confirmResetOpen, setConfirmResetOpen = React.useState false
 
         let onReset = fun () -> setConfirmResetOpen true
 
         let onResetConfirmed =
             fun () ->
-                (if identified then pat |> Option.bind _.Age else None) |> Clear |> dispatch
+                Clear |> dispatch
                 setConfirmResetOpen false
 
         let confirmResetDialog =
-            Components.ConfirmDialog.View
-                {|
-                    isOpen = confirmResetOpen
-                    title = Terms.``Patient Reset Dialog Title`` |> getTerm "Patiëntgegevens wissen"
-                    text =
-                        if identified then
-                            Terms.``Patient Reset Dialog Text Identified``
-                            |> getTerm
-                                "Het gewicht, de lengte en de overige gegevens van de patiënt worden gewist; de leeftijd blijft. Wilt u doorgaan?"
-                        else
+            if identified then
+                null
+            else
+                Components.ConfirmDialog.View
+                    {|
+                        isOpen = confirmResetOpen
+                        title = Terms.``Patient Reset Dialog Title`` |> getTerm "Patiëntgegevens wissen"
+                        text =
                             Terms.``Patient Reset Dialog Text``
                             |> getTerm
                                 "De leeftijd, het gewicht, de lengte en de overige gegevens van de patiënt worden gewist. Wilt u doorgaan?"
-                    confirmLabel = Terms.Reset |> getTerm "Reset"
-                    cancelLabel = Terms.Cancel |> getTerm "Annuleren"
-                    onConfirm = onResetConfirmed
-                    onCancel = fun () -> setConfirmResetOpen false
-                |}
+                        confirmLabel = Terms.Reset |> getTerm "Reset"
+                        cancelLabel = Terms.Cancel |> getTerm "Annuleren"
+                        onConfirm = onResetConfirmed
+                        onCancel = fun () -> setConfirmResetOpen false
+                    |}
 
         // a launched patient's department is the platform's, as its age is: shown, not chosen
         let launched =
@@ -430,22 +429,26 @@ module Patient =
         // bounded and to the left, so the button is not as wide as the panel it sits in and is
         // not where you click by default
         let resetBar =
-            Components.ActionBar.View
-                {|
-                    actions =
-                        [|
-                            {|
-                                label = Terms.Reset |> getTerm "Reset"
-                                kind = Components.ActionBar.Kind.Secondary
-                                onClick = fun () -> if held then setHeldOpen true else onReset ()
-                                disabled = busy
-                                icon = Some Mui.Icons.RefreshIcon
-                            |}
-                        |]
-                |}
+            if identified then
+                null
+            else
+                Components.ActionBar.View
+                    {|
+                        actions =
+                            [|
+                                {|
+                                    label = Terms.Reset |> getTerm "Reset"
+                                    kind = Components.ActionBar.Kind.Secondary
+                                    onClick = onReset
+                                    disabled = busy
+                                    icon = Some Mui.Icons.RefreshIcon
+                                |}
+                            |]
+                    |}
 
-        // a read-only field cannot be opened and has no cross: what it holds is not the user's
-        let createField readOnly label sel changeValue vs =
+        // a read-only field cannot be opened and has no cross: what it holds is not the user's;
+        // a field that is not clearable can be changed, but not emptied
+        let createField readOnly clearable label sel changeValue vs =
             Components.SimpleSelect.View
                 {|
                     label = label
@@ -455,17 +458,23 @@ module Patient =
                     isLoading = false
                     disabled = busy
                     readOnly = readOnly || held
-                    hasClear = not (readOnly || held)
+                    hasClear = clearable && not (readOnly || held)
                     canStep = false
                     severity = Severity.Normal
                     minWidth = None
                     description = None
                 |}
 
-        let createSelect label sel changeValue vs = createField false label sel changeValue vs
+        // renal function has no "unknown" among its options, so the cross is the only way back
+        // to none, for an identified patient too
+        let createSelect label sel changeValue vs = createField false true label sel changeValue vs
+
+        // weight, height and gestational age: an identified patient's are changed, never
+        // cleared; an anonymous patient's are fictitious and may be
+        let createMeasureSelect label sel changeValue vs = createField false (not identified) label sel changeValue vs
 
         // the age fields: read-only for an identified patient, whose age the platform computes
-        let createAgeSelect label sel changeValue vs = createField identified label sel changeValue vs
+        let createAgeSelect label sel changeValue vs = createField identified true label sel changeValue vs
 
         let wghts =
             [| 21000..1000..100000 |]
@@ -607,7 +616,7 @@ module Patient =
 
                 wghts
                 |> Array.map (fun k -> $"{k}", $"{(k |> float) / 1000.}")
-                |> createSelect
+                |> createMeasureSelect
                     (Terms.``Patient Weight`` |> getTerm "gewicht" |> (fun s -> $"{s} (kg)"))
                     (pat |> Option.bind (Patient.getWeight >> weightToNone))
                     (fun s ->
@@ -617,7 +626,7 @@ module Patient =
 
                 [| 40..220 |]
                 |> Array.map (fun k -> $"{k}", $"{k}")
-                |> createSelect
+                |> createMeasureSelect
                     (Terms.``Patient Length`` |> getTerm "lengte" |> (fun s -> $"{s} (cm)"))
                     (pat |> Option.bind (Patient.getHeight >> heightToNone))
                     (fun s ->
@@ -633,7 +642,7 @@ module Patient =
                 then
                     [| 24..42 |]
                     |> Array.map (fun k -> $"{k}", $"{k}")
-                    |> createSelect
+                    |> createMeasureSelect
                         (Terms.``Patient Age weeks`` |> getTerm "weken" |> (fun s -> $"GA {s}"))
                         (pat |> Option.bind Patient.getGAWeeks |> zeroToNone)
                         (fun s ->
@@ -643,7 +652,7 @@ module Patient =
 
                     [| 1..6 |]
                     |> Array.map (fun k -> $"{k}", $"{k}")
-                    |> createSelect
+                    |> createMeasureSelect
                         (Terms.``Patient Age days`` |> getTerm "dagen" |> (fun s -> $"GA {s}"))
                         (pat |> Option.bind Patient.getGADays |> zeroToNone)
                         (fun s ->
