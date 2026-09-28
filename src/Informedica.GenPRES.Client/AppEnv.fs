@@ -59,7 +59,16 @@ type IOrderPlan =
 type IPatient =
     // the patient data as the panel edits it and the lists read it, the estimate applied
     abstract Draft: Patient option
+    // the draft with the estimates of its age, the gender and the gestational age applied to
+    // every weight and height, cleared or entered as well: what the summary shows, not what
+    // the fields show
+    abstract Estimated: Patient option
+    // the draft, with the weight and height the user did not enter estimated again: after an
+    // edit of the age, the gender or the gestational age, which the normal values follow
     abstract UpdatePatient: Patient option -> unit
+    // the draft with its estimates as they are: after any other edit, so that a weight or a
+    // height the user cleared stays cleared
+    abstract EditPatient: Patient option -> unit
 
 
 /// Formulary data and updates
