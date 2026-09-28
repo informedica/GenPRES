@@ -2,7 +2,7 @@
 
 Closing G3, the dose dialog, of [the grouping index](ux-issue-grouping.md#g3--the-dose-dialog-984):
 which fields the dialog shows, how a value is stepped, how a value outside the rules is marked,
-and how the preparation section behaves once it is settled.
+and how the preparation section behaves once it is solved.
 
 - [Problem description](#problem-description)
 - [Decisions](#decisions)
@@ -14,23 +14,21 @@ and how the preparation section behaves once it is settled.
 
 ## Problem description
 
-G3 groups #397, #402, #405, #496 and #978 under #984. Since the index was written, three pull
-requests changed the dialog:
+G3 groups #397, #402, #405, #496 and #978 under #984. Since the index was written, two pull
+requests and the work under issue #1102 changed the dialog:
 
-- #1016 gave every marked field a severity icon with the crossed bound on hover, worded from
-  the defined constraints: `max 15 mg`, `< 15 mg`, `min 2 mg`; nothing for a mark the bounds do
-  not explain.
-- #1102 made the quantity field five fixed slots, so the outer buttons show which meaning they
-  carry: jump icons while the value can be navigated, the large step as text (`−5` / `+5`) once
-  it can be stepped.
+- #1016 gave every marked field a severity icon with the crossed bound on hover (#402).
+- The pull requests of #1102 gave the quantity field five fixed slots and showed on the outer
+  buttons which meaning they carry (#405).
 - #1125 put the field mode under one rule, `QuantityMode` in `Client.Core`, and left out the
   outer slots of a value whose large step equals its small one.
 
 What is left of the group is settled here, and two things are added that the issues did not
-name. First, the large step is today the *calculated* increment, which the solver derives from
-the order, while the small step is the *defined* increment, which the dose rule gives; a
-clinician cannot tell from the dialog what the large step will be. Second, the preparation
-section stays open with all its fields once every preparation value is settled, and takes room
+name. First, the small step is the *defined* increment, which the dose rule gives, but the large
+step is the *calculated* increment, which the solver derives from the order, multiplied by ten in
+two special cases; the button shows the step, but no rule a clinician could know says what it
+will be. Second, the preparation
+section stays open with all its fields once every preparation value is solved, and takes room
 from the dosing and administration sections the user is working in.
 
 ## Decisions
@@ -40,17 +38,17 @@ Taken 2026-09-28 by the maintainer.
 | Question | Decision |
 |---|---|
 | The order of the fields (#397, #978) | The order stays as it is in the client: `keer dosis` before `dosering`, since the dose is calculated from the dose per administration and the frequency. #397 closes with that reply. #978, the server sending the field list and the lead field, leaves G3 and stays open on its own. |
-| Severity (#402) | Fixed by #1016. The wording stands. Close. |
-| The outer buttons (#405) | Fixed by #1102 and #1125: the field shows which meaning applies, and hides the outer slots when the large step is the small one. Halve and double are not planned. Close. |
+| Severity (#402) | Fixed by #1016: the reason on hover reads the crossed bound in the value's unit, `max 15 mg` or `min 2 mg` for a bound that is itself allowed and `< 15 mg` or `> 2 mg` for one that is not, and the icon alone where the bounds do not explain the mark. The wording stands. Close. |
+| The outer buttons (#405) | Fixed by the pull requests of #1102 and by #1125: jump icons while the value can be navigated, the large step as text (`−5` / `+5`) once it can be stepped, and the outer slots left out when the large step is the small one. Halve and double are not planned. Close. |
 | Which field moves the dose (#496) | The lead marker was part of the server's field list, so #496 leaves G3 together with #978. |
 | Which constraints step a value | Only the defined constraints. The small step is the defined increment; the large step is ten times the defined increment. Nothing steps by the calculated constraints any more. |
-| The preparation section | Folds to its heading when every preparation variable it shows holds one value. The user can open and fold it; after every answer of the server it follows the settled state again. The order view only, not the nutrition view. |
+| The preparation section | Folds to its heading when every preparation variable it shows holds one value. The user can open and fold it; after every server answer it follows the solved state again. The order view only, not the nutrition view. |
 
 ## Approaches considered
 
 For the large step:
 
-- **Compose it in the client**: send ten small steps with the small-step flag. Rejected: it
+- **Compose it in the client**: send a count of ten with the flag cleared. Rejected: it
   bypasses `OrderVariable.step`, the one place that steps a value, and puts a domain rule, the
   factor, in the client.
 - **Change the rule in GenORDER**: `OrderVariable.step` uses the defined increment for both
@@ -63,17 +61,18 @@ For the large step:
 For the preparation section:
 
 - **Fold on a rule in the view**: a React state in `Views/Order.fs` that starts folded when the
-  variables are settled. Rejected: the open-or-folded rule has three inputs (settled, the user's
+  variables are solved. Rejected: the open-or-folded rule has three inputs (solved, the user's
   toggle, a new answer) and belongs in a tested module.
 - **A pure fold rule in `Client.Core`, rendered with `Disclosure`**: the rule decides open or
-  folded from the settled state and the user's last toggle; the existing `Components/Disclosure`
+  folded from the solved state and the user's last toggle; the existing `Components/Disclosure`
   renders it, as the patient panel and the nutrition contexts do. Chosen.
 - **Fold every section**: dosing and administration too. Rejected: those hold the fields the
   user is changing; folding them would take the controls away.
 
 ## Chosen approach
 
-Two changes of code and one of documentation, each its own pull request, one at a time.
+Two changes of code, this plan before them and the closing documentation after, each its own
+pull request, one at a time.
 
 ### The large step from the defined increment
 
@@ -85,7 +84,7 @@ flag is set and `DefinedConstraints.Incr` otherwise, and steps the count of incr
 value. Two special cases multiply the count by ten when the calculated increment is exactly
 0.1 ml (`Quantity.stepQuantity`, same file) or 0.1 ml/h (`Dose.stepRate`, `Order.fs`). The
 server mirrors those for the button text as `LargeIncr`
-(`ServerApi.Mappers.Order.fs`, `mapLargeIncr` with its two coarse increments).
+(`ServerApi.Mappers.Order.fs`, `mapLargeIncr` with the two 0.1 increments).
 `isWithinConstraints` reads the same flag for a different purpose, the level of a value, and
 does not change.
 
@@ -102,35 +101,39 @@ does not change.
 
 **The server.** `mapLargeIncr` reads `OrderVariable.largeIncrement` in place of the calculated
 increment and the coarse multiplication; the three mappers per kind of variable and the two
-coarse increments collapse into `mapToOrderVariable`.
+0.1 increments collapse into `mapToOrderVariable`. Every variable with a defined increment then
+carries a `LargeIncr`, those the client never steps large included; the client offers the large
+step only where it has a command for it.
 
-**The client.** No change of behaviour: `LargeIncr` is still the text on the outer buttons, and
-the outer buttons still send the flag. Comments in `ViewHelpers.fs` and `QuantityField.fs` that
-call the large step the server's calculated increment say what it is now.
+**The client.** No change of code but the comments: `LargeIncr` is still the text on the outer
+buttons, and the outer buttons still send the flag. On screen the outer buttons now appear on
+every stepable dose quantity, dose rate and component quantity with a defined increment, where
+today they are left out when the calculated increment equals the defined one; frequency keeps
+them out, since its stepper names no large step. Comments in `ViewHelpers.fs` and
+`QuantityField.fs` that call the large step the server's calculated increment say what it is now.
 
 **Left to the maintainer.** The flag is named `useCalc` in GenORDER, `Shared.Api`, the server
 mappers and both client message types, and after this change it means "large step". Renaming
 it is a refactor across four rings and the contract; the wire shape, a bool in the same
 position, does not change. Recommended as its own pull request after this one.
 
-### The preparation section folds when settled
+### The preparation section folds when solved
 
 **The rule**, a new module `SectionFold` in `Client.Core`, after `QuantityMode` in the project:
 
 ```fsharp
-[<RequireQualifiedAccess>]
 type Fold =
     {
         /// Whether every variable the section shows held one value at the last answer.
         Solved: bool
-        /// The user's last toggle since the settled state last changed; None follows the rule.
+        /// The user's last toggle since the solved state last changed; None follows the rule.
         Override: bool option
     }
 
-/// Every variable holds one value; an empty section counts as settled.
+/// Every variable holds one value; an empty section counts as solved.
 let allSolved (ovars: OrderVariable seq) = ovars |> Seq.forall Order.OrderVariable.isSolved
 let initial solved = { Solved = solved; Override = None }
-/// An answer: a change of the settled state drops the user's toggle; no change keeps it.
+/// An answer: a change of the solved state drops the user's toggle; no change keeps it.
 let observe solved fold = if solved = fold.Solved then fold else initial solved
 let isOpen fold = fold.Override |> Option.defaultValue (not fold.Solved)
 let toggle fold = { fold with Override = Some (not (isOpen fold)) }
@@ -143,12 +146,16 @@ let toggle fold = { fold with Override = Some (not (isOpen fold)) }
   apply: the component's orderable quantity, the item's component concentration when its
   defined values are more than one, the item's orderable quantity for a continuous order or its
   orderable concentration otherwise, and the total orderable quantity. The heading shows when
-  the list is not empty; the section is settled when `SectionFold.allSolved` says so.
-- The fold is component-local state, as the field under change already is: a React state
-  holding the `Fold`, and an effect keyed on the settled flag that applies `observe`. Keyed on
-  the flag, so an answer that keeps the section settled does not reopen it.
-- The five fields render inside `Components.Disclosure` with the fold's open state and toggle.
-  The summary is the heading text and, when settled, one `ValueChip` per preparation variable
+  the list is not empty; the section is solved when `SectionFold.allSolved` says so. Today the
+  heading tests the concentration's values where the field tests its defined values; the list
+  follows the field, so the heading shows exactly when a preparation field shows.
+- The fold is component-local state, as the view already keeps which field is being changed: a
+  React state
+  holding the `Fold`, and an effect keyed on the solved flag that applies `observe`. Keyed on
+  the flag, so an answer that keeps the section solved does not reopen it.
+- The five fields render inside `Components.Disclosure` with the fold's open state and toggle,
+  and the mobile flag and padding the patient panel passes.
+  The summary is the heading text and, when solved, one `ValueChip` per preparation variable
   with its value, unit and severity, so the folded section reads its result. The field order
   does not change; the heading and the five fields become one element in it.
 - The dosing and administration sections stay plain headings.
@@ -164,9 +171,9 @@ let toggle fold = { fold with Override = Some (not (isOpen fold)) }
 ## Confidence
 
 High for the large step: the rule replaces two special cases with one, and every stepped
-variable already goes through `OrderVariable.step`. A 0.1 ml quantity and a 0.1 ml/h rate step
-the same as today; a variable whose calculated increment differed from its defined one steps
-differently, which is the decision.
+variable already goes through `OrderVariable.step`. A 0.1 ml quantity and a 0.1 ml/h rate whose
+defined increment is 0.1 as well step the same as today; a variable whose calculated increment
+differed from its defined one steps differently, which is the decision.
 
 High for the fold: the rule is small and tested, and the component exists.
 
@@ -180,7 +187,7 @@ code pull request.
 1. **This plan** (docs).
 2. **The large step from the defined increment.** A script in
    `src/Informedica.GenORDER.Lib/Scripts/` that shadows `OrderVariable` and its `Quantity` and
-   `Dose` wrappers, with Expecto tests: a settled value with a defined increment of 1 mg steps
+   `Dose` wrappers, with Expecto tests: a solved value with a defined increment of 1 mg steps
    to +1 mg small and +10 mg large; the calculated increment is ignored where it differs from
    the defined one; a 0.1 ml quantity and a 0.1 ml/h rate step 1 ml and 1 ml/h large, as
    today, and a 0.5 ml quantity 5 ml, where today it stepped 0.5 ml; no defined increment
@@ -190,10 +197,10 @@ code pull request.
    [the dose quantity stepping flow](../domain/dose-quantity-stepping-flow.md) and the icons
    bullet in [plan 1102](1102-one-quantity-field-for-every-order-variable.md) follow in the same
    pull request. About 50 source lines in GenORDER; about 40 removed in the server.
-3. **The preparation section folds when settled.** A script in
+3. **The preparation section folds when solved.** A script in
    `src/Informedica.GenPRES.Client.Core/Scripts/` with `SectionFold` and its tests: open when
-   not settled, folded when settled, the toggle flips and holds, `observe` with the same state
-   keeps the toggle and with a changed state drops it, an empty section counts as settled. Then
+   not solved, folded when solved, the toggle flips and holds, `observe` with the same state
+   keeps the toggle and with a changed state drops it, an empty section counts as solved. Then
    the view. About 40 source lines in `Client.Core`, about 80 in `Views/Order.fs`.
 4. **Docs and issues**, as above.
 
@@ -207,11 +214,14 @@ code pull request.
   In the browser, on a paracetamol oral solution and a continuous morphine order: the outer
   buttons of a stepable dose quantity and dose rate read ten times the defined increment; one
   click sends the property command with a count of one and the flag set, and the value moves
-  ten increments; a 0.1 ml/h rate still moves 1 ml/h; frequency shows no outer slots; a dose
-  quantity of a multi-component orderable still saturates at the prepared quantity.
+  ten increments; a 0.1 ml/h rate still moves 1 ml/h; a dose quantity whose calculated increment
+  equalled its defined one now shows its outer buttons; frequency shows no outer slots; a dose
+  quantity of a multi-component orderable still saturates at the prepared quantity. The nutrition
+  view's fields are unchanged, and its frequency shows no outer slots either.
 - Step 3: the script's tests, then the `Client.Core` tests. In the browser, on a
-  multi-component order such as a reconstituted antibiotic: the preparation section is open
-  while any preparation variable has more than one value; it folds with its value chips once
-  all hold one; opened by hand, it stays open through a step that keeps it settled; clearing a
+  multi-component order such as a reconstituted antibiotic: the preparation heading shows exactly
+  when a preparation field shows; the section is open while any preparation variable has more
+  than one value; it folds with its value chips once
+  all hold one; opened by hand, it stays open through a step that keeps it solved; clearing a
   preparation value reopens it; the dosing and administration sections are unchanged.
 - Docs: `npx markdownlint-cli2` on the touched files.
