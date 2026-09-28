@@ -861,3 +861,98 @@ let signingTests =
                 |> Expect.isFalse "the order plan is the version signed"
             }
         ]
+
+
+/// The argumentation written on a context of the plan: the client's own, no call, a change of
+/// the plan, kept over the answer under way.
+[<Tests>]
+let argueTests =
+    let text = "Sepsis, hogere dosis in overleg met de apotheek"
+    let transition = OrderPlanState.transition
+
+    testList
+        "OrderPlanMsg.Argue"
+        [
+            test "written on the context named, no call, and the plan's work is changed" {
+                let state, effects =
+                    held two None
+                    |> OrderPlanState.withOpened two.OrderContexts
+                    |> transition (OrderPlanMsg.Argue("c-2", text))
+
+                effects |> Expect.isEmpty "no call"
+                state |> OrderPlanState.work |> Expect.equal "changed" PlanWork.Changed
+
+                state
+                |> OrderPlanState.changed
+                |> Expect.equal "held against the version opened" [| "c-2" |]
+
+                match state |> OrderPlanState.view with
+                | OrderPlanView.Settled(tp, _) ->
+                    tp.OrderContexts
+                    |> Array.map _.Argumentation
+                    |> Expect.equal "c-2 only" [| None; Some text |]
+                | other -> failtest $"expected settled, got %A{other}"
+            }
+
+            test "a text the plan already holds, and an id it does not, change nothing" {
+                let shown = held two None
+
+                shown
+                |> transition (OrderPlanMsg.Argue("c-1", ""))
+                |> Expect.equal "none written as none: as it was, work as signed" (shown, [])
+
+                shown
+                |> transition (OrderPlanMsg.Argue("c-9", text))
+                |> Expect.equal "unknown id" (shown, [])
+            }
+
+            test "written while a step is under way, the answer keeps it; an added context keeps the answer's" {
+                let busy = recalculating two None "r-1" (OrderPlanCommand.Recalculate two)
+                let state, _ = busy |> transition (OrderPlanMsg.Argue("c-1", text))
+
+                // shown meanwhile, though the recalculation carries the plan without it
+                match state |> OrderPlanState.view with
+                | OrderPlanView.Changing(shown, _) ->
+                    shown.OrderContexts
+                    |> Array.map _.Argumentation
+                    |> Expect.equal "shown while the step runs" [| Some text; None |]
+                | other -> failtest $"expected changing, got %A{other}"
+
+                let landed, _ = state |> transition (OrderPlanMsg.Answered("r-1", Ok two))
+
+                match landed |> OrderPlanState.view with
+                | OrderPlanView.Settled(tp, _) ->
+                    tp.OrderContexts
+                    |> Array.map _.Argumentation
+                    |> Expect.equal "kept on c-1" [| Some text; None |]
+                | other -> failtest $"expected settled, got %A{other}"
+
+                let added =
+                    plan
+                        [|
+                            context "c-1" "paracetamol"
+                            { context "c-3" "new" with Argumentation = Some "from the workbench" }
+                        |]
+
+                let adding = recalculating one None "r-2" (OrderPlanCommand.AddOrderContext(one, context "c-3" "new"))
+
+                let landed, _ = adding |> transition (OrderPlanMsg.Answered("r-2", Ok added))
+
+                match landed |> OrderPlanState.view with
+                | OrderPlanView.Settled(tp, _) ->
+                    tp.OrderContexts
+                    |> Array.map _.Argumentation
+                    |> Expect.equal "c-1 the client's none, c-3 the answer's" [| None; Some "from the workbench" |]
+                | other -> failtest $"expected settled, got %A{other}"
+            }
+
+            test "not admitted while a signature is under way" {
+                let argue = OrderPlanMsg.Argue("c-1", text)
+
+                OrderPlanState.admitted SigningMachine.SigningView.Requesting argue
+                |> Expect.isFalse "a change, held back like a command"
+
+                OrderPlanState.admitted SigningMachine.SigningView.Idle argue
+                |> Expect.isTrue "admitted while idle"
+            }
+        ]

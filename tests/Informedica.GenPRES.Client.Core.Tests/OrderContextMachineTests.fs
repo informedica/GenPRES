@@ -745,3 +745,86 @@ let refusalTests =
                 |> Expect.equal "stale" (shown, [])
             }
         ]
+
+
+/// The argumentation written on the workbench: the client's own, no request, kept over the
+/// answer under way.
+[<Tests>]
+let argueTests =
+    let text = "Sepsis, hogere dosis in overleg met de apotheek"
+    let argued = paracetamol |> ArgumentationPolicy.write text
+
+    testList
+        "OrderContextMsg.Argue"
+        [
+            test "written on the context held, no effect; the view shows it" {
+                let state, effects = held paracetamol |> transition (OrderContextMsg.Argue text)
+
+                effects |> Expect.isEmpty "no call"
+                state
+                |> OrderContextState.view
+                |> Expect.equal "settled with the text" (OrderContextView.Settled argued)
+            }
+
+            test
+                "written while a request is under way: the one sent has it, the request is kept, and the answer keeps it" {
+                let busy = evaluating paracetamol paracetamol "r-1"
+                let state, effects = busy |> transition (OrderContextMsg.Argue text)
+
+                effects |> Expect.isEmpty "no call"
+                state
+                |> OrderContextState.view
+                |> Expect.equal "changing, with the text" (OrderContextView.Changing argued)
+
+                // the answer was computed over the context without the text
+                let landed, more =
+                    state
+                    |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
+
+                more |> Expect.isEmpty "nothing more"
+                landed
+                |> OrderContextState.view
+                |> Expect.equal "the text kept over the answer" (OrderContextView.Settled argued)
+
+                // the same for a refusal
+                let refused, _ =
+                    state
+                    |> transition (
+                        OrderContextMsg.Answered(
+                            "r-1",
+                            Ok(OrderContextResponse.Refused(paracetamol, OrderContextRefusal.NoDoseRules))
+                        )
+                    )
+
+                match refused |> OrderContextState.view with
+                | OrderContextView.Refused(shown, _) ->
+                    shown.Argumentation |> Expect.equal "kept on the refusal" (Some text)
+                | other -> failtest $"expected refused, got %A{other}"
+            }
+
+            test "a seed evaluated after a text does not carry it: the text goes with the context sent" {
+                let seed = { paracetamol with OrderContext.Filter.Generic = Some "ibuprofen" }
+
+                let state, _ = held argued |> transition (OrderContextMsg.Seed(seed, "r-2"))
+
+                let landed, _ =
+                    state
+                    |> transition (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated seed)))
+
+                landed
+                |> OrderContextState.view
+                |> Expect.equal "the seed, no text" (OrderContextView.Settled seed)
+            }
+
+            test "blank clears the text; nothing without a patient" {
+                let state, _ = held argued |> transition (OrderContextMsg.Argue "   ")
+
+                state
+                |> OrderContextState.view
+                |> Expect.equal "cleared" (OrderContextView.Settled paracetamol)
+
+                noPatient
+                |> transition (OrderContextMsg.Argue text)
+                |> Expect.equal "no patient, nothing" (noPatient, [])
+            }
+        ]

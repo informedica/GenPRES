@@ -131,9 +131,13 @@ module OrderPlanCart =
         | OrderPlanCommand.RemoveOrderContexts(_, ids) -> OrderPlanCommand.RemoveOrderContexts(tp, ids)
 
 
-    /// The plan answered: its drugs checked; an order prescribed opens the plan page and clears
-    /// the workbench.
-    let private answered (pat: Patient) (sent: OrderPlanCommand) (tp: OrderPlan) =
+    /// The plan answered, with the argumentation the client holds on every context it held,
+    /// since the text is the client's own and an answer computed over an earlier text does not
+    /// take it back; its drugs checked; an order prescribed opens the plan page and clears the
+    /// workbench.
+    let private answered (pat: Patient) (held: OrderPlan) (sent: OrderPlanCommand) (tp: OrderPlan) =
+        let tp = tp |> ArgumentationPolicy.keepAll held
+
         let prescribed =
             match sent with
             | OrderPlanCommand.AddOrderContext _ ->
@@ -173,7 +177,7 @@ module OrderPlanCart =
         // nothing was asked without a patient, so nothing lands there
         | OrderPlanCartMsg.Landed _, OrderPlanCart.NoPatient _ -> plan, []
         // an answer lands for the patient held
-        | OrderPlanCartMsg.Landed(sent, Ok tp), OrderPlanCart.Opened(pat, _) -> answered pat sent tp
+        | OrderPlanCartMsg.Landed(sent, Ok tp), OrderPlanCart.Opened(pat, held) -> answered pat held sent tp
         // a failed change leaves the plan as the request found it; for a failed open that is
         // the empty plan for the patient
         | OrderPlanCartMsg.Landed(_, Error errs), OrderPlanCart.Opened _ -> plan, [ OrderPlanCartIntent.Tell errs ]
@@ -231,6 +235,9 @@ type OrderPlanMsg =
     // a signature told: the plan took no change from a page while it was under way, so it is
     // the version just signed
     | Signed
+    // the argumentation written on a context of the plan, by id: the client's own, no call; a
+    // text that changes is work, as a command that goes out is
+    | Argue of contextId: string * text: string
 
 
 /// What the machine asks the App to do.
@@ -390,10 +397,11 @@ module OrderPlanState =
 
 
     /// The plan the pages show while a change is under way: for a recalculation the one the
-    /// command carries, since the rows chosen show at once; the plan held otherwise.
+    /// command carries, since the rows chosen show at once, with the argumentation the plan
+    /// held has meanwhile, since a text written while it runs is kept; the plan held otherwise.
     let meanwhile (tp: OrderPlan) (sent: OrderPlanCommand) =
         match sent with
-        | OrderPlanCommand.Recalculate shown -> shown
+        | OrderPlanCommand.Recalculate shown -> shown |> ArgumentationPolicy.keepAll tp
         | _ -> tp
 
 
@@ -562,6 +570,22 @@ module OrderPlanState =
                 }
         | OrderPlanMsg.Command(cmd, request) -> run request (OrderPlanCartMsg.Command cmd) state
         | OrderPlanMsg.Filter(ids, request) -> run request (OrderPlanCartMsg.Filter ids) state
+        // the argumentation written on a context of the plan: the client's own, no call, next to
+        // whatever is in flight; a text that changes is work, an unchanged one nothing
+        | OrderPlanMsg.Argue(id, text) ->
+            match state.Cart with
+            | OrderPlanCart.Opened(pat, tp) ->
+                let written = tp |> ArgumentationPolicy.writeIn id text
+
+                if written = tp then
+                    state, []
+                else
+                    { state with
+                        Cart = OrderPlanCart.Opened(pat, written)
+                        Work = PlanWork.Changed
+                    },
+                    []
+            | OrderPlanCart.NoPatient _ -> state, []
         // the plan is the version just signed, its contexts the ones kept
         | OrderPlanMsg.Signed ->
             let opened =
@@ -582,7 +606,8 @@ module OrderPlanState =
     let admitted (signing: SigningMachine.SigningView) (msg: OrderPlanMsg) =
         match msg with
         | OrderPlanMsg.Command _
-        | OrderPlanMsg.Filter _ -> not (SigningPolicy.underWay signing)
+        | OrderPlanMsg.Filter _
+        | OrderPlanMsg.Argue _ -> not (SigningPolicy.underWay signing)
         | OrderPlanMsg.PatientChanged _
         | OrderPlanMsg.Version _
         | OrderPlanMsg.Answered _
