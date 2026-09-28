@@ -569,4 +569,5 @@ script-first where it touched source outside the client and reviewed before migr
 - **#1076**: one dated measurement for weight and height in GenCORE; `Measurements.onCore`
   repeats the two branches because the core types do.
 - **Live adapter**: how a real EHR record maps onto the core patient, decided when one exists.
-- **#718** and **#598**, as under Related, not a member; G5 (#986) stays open for #718.
+- **#718** and **#598**, as under Related, not a member. #718 was detached from G5 (#986) on
+  2026-09-28 and the umbrella closed that day; #718 stands on its own.
