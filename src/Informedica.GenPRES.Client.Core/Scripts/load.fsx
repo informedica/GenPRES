@@ -7,6 +7,7 @@
 #load "../PickPolicy.fs"
 #load "../SeverityReason.fs"
 #load "../QuantityMode.fs"
+#load "../SectionFold.fs"
 #load "../SessionMachine.fs"
 #load "../SessionGatePolicy.fs"
 #load "../PlanWorkPolicy.fs"
