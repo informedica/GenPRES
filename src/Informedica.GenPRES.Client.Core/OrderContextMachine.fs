@@ -112,22 +112,29 @@ module OrderContextWorkbench =
         | OrderContextWorkbenchMsg.Seed ctx, OrderContextWorkbench.Evaluated(pat, _) ->
             workbench, [ OrderContextWorkbenchIntent.Evaluate { ctx with Patient = pat } ]
 
-        // a command over the workbench held, always for the patient held
-        | OrderContextWorkbenchMsg.Command(cmd, ctx), OrderContextWorkbench.Evaluated(pat, _) ->
-            workbench, [ OrderContextWorkbenchIntent.Call(cmd, { ctx with Patient = pat }) ]
+        // a command over the workbench held, always for the patient held; a reset takes the
+        // argumentation with it as it goes out, from the context held and the one sent, so that
+        // its answer keeps what the client holds by then, a text written meanwhile included
+        | OrderContextWorkbenchMsg.Command(cmd, ctx), OrderContextWorkbench.Evaluated(pat, held) ->
+            let sent = { ctx with Patient = pat }
+
+            if ArgumentationPolicy.clearedBy cmd then
+                OrderContextWorkbench.Evaluated(pat, ArgumentationPolicy.clear held),
+                [ OrderContextWorkbenchIntent.Call(cmd, ArgumentationPolicy.clear sent) ]
+            else
+                workbench, [ OrderContextWorkbenchIntent.Call(cmd, sent) ]
         // nothing to command without a patient
         | OrderContextWorkbenchMsg.Command _, OrderContextWorkbench.NoPatient -> workbench, []
 
         // nothing was asked without a patient, so nothing lands there
         | OrderContextWorkbenchMsg.Landed _, OrderContextWorkbench.NoPatient -> workbench, []
         // an answer lands for the patient held, with the argumentation as it was sent: the text
-        // is the client's own, and an answer computed over an earlier text does not take it
-        // back; a reset's answer is the one that clears it
-        | OrderContextWorkbenchMsg.Landed((cmd, sent), Ok(OrderContextResponse.Evaluated ctx)),
+        // is the client's own, and an answer computed over an earlier text does not take it back
+        | OrderContextWorkbenchMsg.Landed((_, sent), Ok(OrderContextResponse.Evaluated ctx)),
           OrderContextWorkbench.Evaluated(pat, _) ->
-            OrderContextWorkbench.Evaluated(pat, ctx |> ArgumentationPolicy.keepFor cmd sent), []
-        | OrderContextWorkbenchMsg.Landed((cmd, sent), Ok(OrderContextResponse.Refused(back, _))),
-          OrderContextWorkbench.Evaluated(pat, _) -> refused pat (back |> ArgumentationPolicy.keepFor cmd sent)
+            OrderContextWorkbench.Evaluated(pat, ctx |> ArgumentationPolicy.keep sent), []
+        | OrderContextWorkbenchMsg.Landed((_, sent), Ok(OrderContextResponse.Refused(back, _))),
+          OrderContextWorkbench.Evaluated(pat, _) -> refused pat (back |> ArgumentationPolicy.keep sent)
         // a failed change leaves the workbench as the request found it, never the context sent,
         // whose order and texts the server did not confirm; for a failed first evaluation that
         // is the empty workbench

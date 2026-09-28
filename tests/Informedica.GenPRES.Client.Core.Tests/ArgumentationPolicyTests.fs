@@ -136,13 +136,13 @@ let tests =
         ]
 
 
-/// The reset: the one command whose answer clears the text.
+/// The reset: the one command that clears the text, as it goes out.
 [<Tests>]
 let resetTests =
     testList
         "ArgumentationPolicy, the reset"
         [
-            test "the reset is the one command whose answer clears the text" {
+            test "the reset is the one command that clears the text" {
                 ArgumentationPolicy.clearedBy OrderContextCommand.ResetOrderScenario
                 |> Expect.isTrue "the reset"
 
@@ -156,43 +156,22 @@ let resetTests =
                 |> Expect.isFalse "no other"
             }
 
-            test "keepFor: cleared after a reset, as sent after any other command" {
-                let sent = { context "c-1" "paracetamol" with Argumentation = Some text }
-                let answered = { sent with Argumentation = Some "the server's echo" }
+            test "clear takes the text off a context; clearIn off the context named in a plan" {
+                let argued = { context "c-1" "paracetamol" with Argumentation = Some text }
 
-                (answered
-                 |> ArgumentationPolicy.keepFor OrderContextCommand.ResetOrderScenario sent)
-                    .Argumentation
-                |> Expect.isNone "cleared"
+                (argued |> ArgumentationPolicy.clear).Argumentation |> Expect.isNone "cleared"
 
-                (answered
-                 |> ArgumentationPolicy.keepFor OrderContextCommand.UpdateOrderScenario sent)
-                    .Argumentation
-                |> Expect.equal "as sent" (Some text)
-            }
-
-            test "keepAllFor: the context a reset navigated into is cleared, the others keep the client's" {
                 let held =
                     two
                     |> ArgumentationPolicy.writeIn "c-1" text
                     |> ArgumentationPolicy.writeIn "c-2" "other"
 
-                let reset =
-                    OrderPlanCommand.Navigate(held, "c-1", OrderContextCommand.ResetOrderScenario, context "c-1" "p")
-
-                let step =
-                    OrderPlanCommand.Navigate(held, "c-1", OrderContextCommand.UpdateOrderScenario, context "c-1" "p")
-
-                (two |> ArgumentationPolicy.keepAllFor reset held).OrderContexts
+                (held |> ArgumentationPolicy.clearIn "c-1").OrderContexts
                 |> Array.map _.Argumentation
                 |> Expect.equal "c-1 cleared, c-2 kept" [| None; Some "other" |]
 
-                (two |> ArgumentationPolicy.keepAllFor step held).OrderContexts
-                |> Array.map _.Argumentation
-                |> Expect.equal "both kept" [| Some text; Some "other" |]
-
-                (two |> ArgumentationPolicy.keepAllFor (OrderPlanCommand.Recalculate two) held).OrderContexts
-                |> Array.map _.Argumentation
-                |> Expect.equal "a recalculation keeps both" [| Some text; Some "other" |]
+                held
+                |> ArgumentationPolicy.clearIn "c-9"
+                |> Expect.equal "unknown id: unchanged" held
             }
         ]

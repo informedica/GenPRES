@@ -116,33 +116,20 @@ let keepAll (held: OrderPlan) (answered: OrderPlan) =
     }
 
 
-/// The one command whose answer does not keep the text: a reset puts the order back within
-/// what the rules allow, and the text argues the deviation it undoes.
+/// The one command that clears the text: a reset puts the order back within what the rules
+/// allow, and the text argues the deviation it undoes. The text goes as the reset goes out, so
+/// that the answer keeps what the client holds, as every answer does, and a text written while
+/// the reset runs is kept.
 let clearedBy (cmd: OrderContextCommand) =
     match cmd with
     | OrderContextCommand.ResetOrderScenario -> true
     | _ -> false
 
 
-/// The answered context after the command: cleared of its argumentation after a reset, else
-/// with the argumentation as it was sent.
-let keepFor (cmd: OrderContextCommand) (sent: OrderContext) (answered: OrderContext) =
-    if clearedBy cmd then
-        { answered with Argumentation = None }
-    else
-        keep sent answered
+/// The context without its argumentation.
+let clear (ctx: OrderContext) = { ctx with Argumentation = None }
 
 
-/// The answered plan after the command: the context a reset navigated into cleared of its
-/// argumentation, every other context with the argumentation the client holds.
-let keepAllFor (sent: OrderPlanCommand) (held: OrderPlan) (answered: OrderPlan) =
-    let kept = keepAll held answered
-
-    match sent with
-    | OrderPlanCommand.Navigate(_, id, cmd, _) when clearedBy cmd ->
-        { kept with
-            OrderContexts =
-                kept.OrderContexts
-                |> Array.map (fun c -> if c.Id = id then { c with Argumentation = None } else c)
-        }
-    | _ -> kept
+/// The plan with the context named cleared of its argumentation; a plan without it unchanged.
+let clearIn (id: string) (plan: OrderPlan) =
+    { plan with OrderContexts = plan.OrderContexts |> Array.map (fun c -> if c.Id = id then clear c else c) }

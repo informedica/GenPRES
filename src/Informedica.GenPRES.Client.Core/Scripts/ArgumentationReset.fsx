@@ -2,15 +2,18 @@
 //
 // #1160, found in the browser check of step 9 of the plan for #985: a reset of the order in the
 // dose dialog put the dose back within what the rules allow and left the argumentation under
-// it, since the machines keep the text over every answer (#1158). The reset's answer is now the
-// one that clears it: ArgumentationPolicy.clearedBy names the command, keepFor decides for a
-// context and keepAllFor for a plan (the context a Navigate with a reset went into), and the two
-// machines call them where they kept the text. The dialog's draft follows the context, so the
-// field empties, and goes away when the reset order is no longer marked.
+// it, since the machines keep the text over every answer (#1158). The reset now takes the text
+// with it as it goes out: ArgumentationPolicy.clearedBy names the command, clear and clearIn
+// take the text off a context and off the context named in a plan, and the two machines call
+// them where the command goes out, from the context held and the one sent. The answer then
+// keeps what the client holds, as every answer does, so a text written while the reset runs
+// survives it (the review of #1161: the first draft cleared on the answer, which lost such a
+// text). The dialog's draft follows the context, so the field empties at once, and goes away
+// when the reset order is no longer marked.
 //
 // The modules below are ArgumentationPolicy.fs, OrderPlanMachine.fs and OrderContextMachine.fs
-// as they become, generated from the source files with the edits applied, shadowing the ones
-// load.fsx loads. The tests at the end migrate to ArgumentationPolicyTests.fs,
+// as they are after the migration, generated from the source files, shadowing the ones
+// load.fsx loads. The tests at the end are the ones in ArgumentationPolicyTests.fs,
 // OrderPlanMachineTests.fs and OrderContextMachineTests.fs.
 //
 // Run: `dotnet fsi ArgumentationReset.fsx` from this directory, after `dotnet run build`.
@@ -142,45 +145,28 @@ module ArgumentationPolicy =
         }
 
 
-    /// The one command whose answer does not keep the text: a reset puts the order back within
-    /// what the rules allow, and the text argues the deviation it undoes.
+    /// The one command that clears the text: a reset puts the order back within what the rules
+    /// allow, and the text argues the deviation it undoes. The text goes as the reset goes out, so
+    /// that the answer keeps what the client holds, as every answer does, and a text written while
+    /// the reset runs is kept.
     let clearedBy (cmd: OrderContextCommand) =
         match cmd with
         | OrderContextCommand.ResetOrderScenario -> true
         | _ -> false
 
 
-    /// The answered context after the command: cleared of its argumentation after a reset, else
-    /// with the argumentation as it was sent.
-    let keepFor (cmd: OrderContextCommand) (sent: OrderContext) (answered: OrderContext) =
-        if clearedBy cmd then
-            { answered with
-                Argumentation = None
-            }
-        else
-            keep sent answered
+    /// The context without its argumentation.
+    let clear (ctx: OrderContext) =
+        { ctx with
+            Argumentation = None
+        }
 
 
-    /// The answered plan after the command: the context a reset navigated into cleared of its
-    /// argumentation, every other context with the argumentation the client holds.
-    let keepAllFor (sent: OrderPlanCommand) (held: OrderPlan) (answered: OrderPlan) =
-        let kept = keepAll held answered
-
-        match sent with
-        | OrderPlanCommand.Navigate(_, id, cmd, _) when clearedBy cmd ->
-            { kept with
-                OrderContexts =
-                    kept.OrderContexts
-                    |> Array.map (fun c ->
-                        if c.Id = id then
-                            { c with
-                                Argumentation = None
-                            }
-                        else
-                            c
-                    )
-            }
-        | _ -> kept
+    /// The plan with the context named cleared of its argumentation; a plan without it unchanged.
+    let clearIn (id: string) (plan: OrderPlan) =
+        { plan with
+            OrderContexts = plan.OrderContexts |> Array.map (fun c -> if c.Id = id then clear c else c)
+        }
 
 
 /// The order plan as the client holds it, from no patient to the empty plan opened for one,
@@ -318,10 +304,10 @@ module OrderPlanMachine =
 
         /// The plan answered, with the argumentation the client holds on every context it held,
         /// since the text is the client's own and an answer computed over an earlier text does not
-        /// take it back, except the context a reset navigated into, which the reset clears; its
-        /// drugs checked; an order prescribed opens the plan page and clears the workbench.
+        /// take it back; its drugs checked; an order prescribed opens the plan page and clears the
+        /// workbench.
         let private answered (pat: Patient) (held: OrderPlan) (sent: OrderPlanCommand) (tp: OrderPlan) =
-            let tp = tp |> ArgumentationPolicy.keepAllFor sent held
+            let tp = tp |> ArgumentationPolicy.keepAll held
 
             let prescribed =
                 match sent with
@@ -355,7 +341,16 @@ module OrderPlanMachine =
             | OrderPlanCartMsg.Version head, OrderPlanCart.Opened(pat, _) ->
                 OrderPlanCart.Opened(pat, OrderPlan.create pat [||]), [ OrderPlanCartIntent.Open(pat, head.OrderContexts) ]
 
-            // a change from a page, over the plan held
+            // a change from a page, over the plan held; a reset navigated into a context takes its
+            // argumentation with it as it goes out, from the plan held and the context sent, so that
+            // its answer keeps what the client holds by then, a text written meanwhile included
+            | OrderPlanCartMsg.Command(OrderPlanCommand.Navigate(_, id, ctxCmd, ctx)), OrderPlanCart.Opened(pat, tp) when
+                ArgumentationPolicy.clearedBy ctxCmd
+                ->
+                let tp = tp |> ArgumentationPolicy.clearIn id
+                let cmd = OrderPlanCommand.Navigate(tp, id, ctxCmd, ArgumentationPolicy.clear ctx)
+
+                OrderPlanCart.Opened(pat, tp), [ OrderPlanCartIntent.Call cmd ]
             | OrderPlanCartMsg.Command cmd, OrderPlanCart.Opened(_, tp) -> plan, [ OrderPlanCartIntent.Call(rebase tp cmd) ]
             | OrderPlanCartMsg.Command _, _ -> plan, []
 
@@ -922,22 +917,29 @@ module OrderContextMachine =
             | OrderContextWorkbenchMsg.Seed ctx, OrderContextWorkbench.Evaluated(pat, _) ->
                 workbench, [ OrderContextWorkbenchIntent.Evaluate { ctx with Patient = pat } ]
 
-            // a command over the workbench held, always for the patient held
-            | OrderContextWorkbenchMsg.Command(cmd, ctx), OrderContextWorkbench.Evaluated(pat, _) ->
-                workbench, [ OrderContextWorkbenchIntent.Call(cmd, { ctx with Patient = pat }) ]
+            // a command over the workbench held, always for the patient held; a reset takes the
+            // argumentation with it as it goes out, from the context held and the one sent, so that
+            // its answer keeps what the client holds by then, a text written meanwhile included
+            | OrderContextWorkbenchMsg.Command(cmd, ctx), OrderContextWorkbench.Evaluated(pat, held) ->
+                let sent = { ctx with Patient = pat }
+
+                if ArgumentationPolicy.clearedBy cmd then
+                    OrderContextWorkbench.Evaluated(pat, ArgumentationPolicy.clear held),
+                    [ OrderContextWorkbenchIntent.Call(cmd, ArgumentationPolicy.clear sent) ]
+                else
+                    workbench, [ OrderContextWorkbenchIntent.Call(cmd, sent) ]
             // nothing to command without a patient
             | OrderContextWorkbenchMsg.Command _, OrderContextWorkbench.NoPatient -> workbench, []
 
             // nothing was asked without a patient, so nothing lands there
             | OrderContextWorkbenchMsg.Landed _, OrderContextWorkbench.NoPatient -> workbench, []
             // an answer lands for the patient held, with the argumentation as it was sent: the text
-            // is the client's own, and an answer computed over an earlier text does not take it
-            // back; a reset's answer is the one that clears it
-            | OrderContextWorkbenchMsg.Landed((cmd, sent), Ok(OrderContextResponse.Evaluated ctx)),
+            // is the client's own, and an answer computed over an earlier text does not take it back
+            | OrderContextWorkbenchMsg.Landed((_, sent), Ok(OrderContextResponse.Evaluated ctx)),
               OrderContextWorkbench.Evaluated(pat, _) ->
-                OrderContextWorkbench.Evaluated(pat, ctx |> ArgumentationPolicy.keepFor cmd sent), []
-            | OrderContextWorkbenchMsg.Landed((cmd, sent), Ok(OrderContextResponse.Refused(back, _))),
-              OrderContextWorkbench.Evaluated(pat, _) -> refused pat (back |> ArgumentationPolicy.keepFor cmd sent)
+                OrderContextWorkbench.Evaluated(pat, ctx |> ArgumentationPolicy.keep sent), []
+            | OrderContextWorkbenchMsg.Landed((_, sent), Ok(OrderContextResponse.Refused(back, _))),
+              OrderContextWorkbench.Evaluated(pat, _) -> refused pat (back |> ArgumentationPolicy.keep sent)
             // a failed change leaves the workbench as the request found it, never the context sent,
             // whose order and texts the server did not confirm; for a failed first evaluation that
             // is the empty workbench
@@ -1351,7 +1353,7 @@ let policyTests =
     testList
         "ArgumentationPolicy, the reset"
         [
-            test "the reset is the one command whose answer clears the text" {
+            test "the reset is the one command that clears the text" {
                 ArgumentationPolicy.clearedBy OrderContextCommand.ResetOrderScenario |> Expect.isTrue "the reset"
 
                 [
@@ -1364,33 +1366,18 @@ let policyTests =
                 |> Expect.isFalse "no other"
             }
 
-            test "keepFor: cleared after a reset, as sent after any other command" {
-                let sent = { context "c-1" "paracetamol" with Argumentation = Some text }
-                let answered = { sent with Argumentation = Some "the server's echo" }
+            test "clear takes the text off a context; clearIn off the context named in a plan" {
+                let argued = { context "c-1" "paracetamol" with Argumentation = Some text }
 
-                (answered |> ArgumentationPolicy.keepFor OrderContextCommand.ResetOrderScenario sent).Argumentation
-                |> Expect.isNone "cleared"
+                (argued |> ArgumentationPolicy.clear).Argumentation |> Expect.isNone "cleared"
 
-                (answered |> ArgumentationPolicy.keepFor OrderContextCommand.UpdateOrderScenario sent).Argumentation
-                |> Expect.equal "as sent" (Some text)
-            }
-
-            test "keepAllFor: the context a reset navigated into is cleared, the others keep the client's" {
                 let held = two |> ArgumentationPolicy.writeIn "c-1" text |> ArgumentationPolicy.writeIn "c-2" "other"
-                let reset = OrderPlanCommand.Navigate(held, "c-1", OrderContextCommand.ResetOrderScenario, context "c-1" "p")
-                let step = OrderPlanCommand.Navigate(held, "c-1", OrderContextCommand.UpdateOrderScenario, context "c-1" "p")
 
-                (two |> ArgumentationPolicy.keepAllFor reset held).OrderContexts
+                (held |> ArgumentationPolicy.clearIn "c-1").OrderContexts
                 |> Array.map _.Argumentation
                 |> Expect.equal "c-1 cleared, c-2 kept" [| None; Some "other" |]
 
-                (two |> ArgumentationPolicy.keepAllFor step held).OrderContexts
-                |> Array.map _.Argumentation
-                |> Expect.equal "both kept" [| Some text; Some "other" |]
-
-                (two |> ArgumentationPolicy.keepAllFor (OrderPlanCommand.Recalculate two) held).OrderContexts
-                |> Array.map _.Argumentation
-                |> Expect.equal "a recalculation keeps both" [| Some text; Some "other" |]
+                held |> ArgumentationPolicy.clearIn "c-9" |> Expect.equal "unknown id: unchanged" held
             }
         ]
 
@@ -1406,26 +1393,38 @@ let workbenchTests =
         }
 
     let argued = ctx |> ArgumentationPolicy.write text
+    let transition = Ctx.transition
 
     testList
-        "OrderContextMsg, the reset's answer"
+        "OrderContextMsg, the reset"
         [
-            test "a reset's answer clears the text, though the server echoes it; a step's answer keeps it" {
-                let resetting = Ctx.changing patient OrderContextCommand.ResetOrderScenario argued argued "r-1"
+            test "a reset takes the text with it as it goes out; a text written meanwhile survives its answer" {
+                let resetting, effects =
+                    Ctx.held patient argued
+                    |> transition (OrderContextMachine.OrderContextMsg.Command(OrderContextCommand.ResetOrderScenario, argued, "r-1"))
+
+                effects
+                |> Expect.equal
+                    "the context sent without the text"
+                    [ OrderContextMachine.OrderContextEffect.CallContext(OrderContextCommand.ResetOrderScenario, ctx, "r-1") ]
+
+                resetting |> Ctx.view |> Expect.equal "shown without the text meanwhile" (OrderContextMachine.OrderContextView.Changing ctx)
 
                 let landed, _ =
                     resetting
-                    |> Ctx.transition (OrderContextMachine.OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated argued)))
+                    |> transition (OrderContextMachine.OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated argued)))
 
-                landed |> Ctx.view |> Expect.equal "cleared" (OrderContextMachine.OrderContextView.Settled ctx)
+                landed |> Ctx.view |> Expect.equal "cleared, though the server echoed a text" (OrderContextMachine.OrderContextView.Settled ctx)
 
-                let stepping = Ctx.changing patient OrderContextCommand.UpdateOrderScenario argued argued "r-2"
+                let newer = ctx |> ArgumentationPolicy.write "newer"
 
                 let landed, _ =
-                    stepping
-                    |> Ctx.transition (OrderContextMachine.OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated ctx)))
+                    resetting
+                    |> transition (OrderContextMachine.OrderContextMsg.Argue "newer")
+                    |> fst
+                    |> transition (OrderContextMachine.OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated ctx)))
 
-                landed |> Ctx.view |> Expect.equal "kept" (OrderContextMachine.OrderContextView.Settled argued)
+                landed |> Ctx.view |> Expect.equal "the newer text kept" (OrderContextMachine.OrderContextView.Settled newer)
             }
         ]
 
@@ -1434,20 +1433,50 @@ module Plan = OrderPlanMachine.OrderPlanState
 
 
 let planTests =
+    let transition = Plan.transition
+
+    let texts (state: OrderPlanMachine.OrderPlanState) =
+        match state |> Plan.view with
+        | OrderPlanMachine.OrderPlanView.Settled(tp, _)
+        | OrderPlanMachine.OrderPlanView.Changing(tp, _) -> tp.OrderContexts |> Array.map _.Argumentation
+        | OrderPlanMachine.OrderPlanView.NoPatient -> [||]
+
     testList
-        "OrderPlanMsg, the reset's answer"
+        "OrderPlanMsg, the reset"
         [
-            test "a reset navigated into a context clears its text, the other context keeps its own" {
-                let held = two |> ArgumentationPolicy.writeIn "c-1" text |> ArgumentationPolicy.writeIn "c-2" "other"
-                let reset = OrderPlanCommand.Navigate(held, "c-1", OrderContextCommand.ResetOrderScenario, context "c-1" "p")
-                let busy = Plan.changing patient held (Some "c-1") reset "r-1"
+            test "a reset navigated into a context takes its text with it as it goes out, the other keeps its own" {
+                let argued = two |> ArgumentationPolicy.writeIn "c-1" text |> ArgumentationPolicy.writeIn "c-2" "other"
+                let ctx = argued.OrderContexts[0]
+                let reset = OrderPlanCommand.Navigate(argued, "c-1", OrderContextCommand.ResetOrderScenario, ctx)
+                let cleared = argued |> ArgumentationPolicy.clearIn "c-1"
 
-                let landed, _ = busy |> Plan.transition (OrderPlanMachine.OrderPlanMsg.Answered("r-1", Ok held))
+                let busy, effects = Plan.held patient argued (Some "c-1") |> transition (OrderPlanMachine.OrderPlanMsg.Command(reset, "r-1"))
 
-                match landed |> Plan.view with
-                | OrderPlanMachine.OrderPlanView.Settled(tp, _) ->
-                    tp.OrderContexts |> Array.map _.Argumentation |> Expect.equal "c-1 cleared" [| None; Some "other" |]
-                | other -> failtest $"expected settled, got %A{other}"
+                effects
+                |> Expect.equal
+                    "the plan and the context sent without the text"
+                    [
+                        OrderPlanMachine.OrderPlanEffect.CallPlan(
+                            OrderPlanCommand.Navigate(cleared, "c-1", OrderContextCommand.ResetOrderScenario, ArgumentationPolicy.clear ctx),
+                            "r-1"
+                        )
+                    ]
+
+                busy |> texts |> Expect.equal "shown without the text meanwhile" [| None; Some "other" |]
+
+                busy
+                |> transition (OrderPlanMachine.OrderPlanMsg.Answered("r-1", Ok argued))
+                |> fst
+                |> texts
+                |> Expect.equal "c-1 cleared though the server echoed a text, c-2 kept" [| None; Some "other" |]
+
+                busy
+                |> transition (OrderPlanMachine.OrderPlanMsg.Argue("c-1", "newer"))
+                |> fst
+                |> transition (OrderPlanMachine.OrderPlanMsg.Answered("r-1", Ok argued))
+                |> fst
+                |> texts
+                |> Expect.equal "the newer text kept" [| Some "newer"; Some "other" |]
             }
         ]
 

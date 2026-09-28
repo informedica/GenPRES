@@ -816,9 +816,23 @@ let argueTests =
                 |> Expect.equal "the seed, no text" (OrderContextView.Settled seed)
             }
 
-            test "a reset's answer clears the text, though the server echoes it; a step's answer keeps it" {
-                let resetting = inFlight OrderContextCommand.ResetOrderScenario argued argued "r-1"
+            test "a reset takes the text with it as it goes out; a text written meanwhile survives its answer" {
+                let resetting, effects =
+                    held argued
+                    |> transition (OrderContextMsg.Command(OrderContextCommand.ResetOrderScenario, argued, "r-1"))
 
+                effects
+                |> Expect.equal
+                    "the context sent without the text"
+                    [
+                        OrderContextEffect.CallContext(OrderContextCommand.ResetOrderScenario, paracetamol, "r-1")
+                    ]
+
+                resetting
+                |> OrderContextState.view
+                |> Expect.equal "shown without the text meanwhile" (OrderContextView.Changing paracetamol)
+
+                // the server echoes the text it was not sent: the answer keeps none
                 let landed, _ =
                     resetting
                     |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated argued)))
@@ -827,15 +841,18 @@ let argueTests =
                 |> OrderContextState.view
                 |> Expect.equal "cleared" (OrderContextView.Settled paracetamol)
 
-                let stepping = inFlight OrderContextCommand.UpdateOrderScenario argued argued "r-2"
+                // a text written while the reset runs is the newer intent, and stays
+                let newer = paracetamol |> ArgumentationPolicy.write "newer"
 
                 let landed, _ =
-                    stepping
-                    |> transition (OrderContextMsg.Answered("r-2", Ok(OrderContextResponse.Evaluated paracetamol)))
+                    resetting
+                    |> transition (OrderContextMsg.Argue "newer")
+                    |> fst
+                    |> transition (OrderContextMsg.Answered("r-1", Ok(OrderContextResponse.Evaluated paracetamol)))
 
                 landed
                 |> OrderContextState.view
-                |> Expect.equal "kept" (OrderContextView.Settled argued)
+                |> Expect.equal "the newer text kept" (OrderContextView.Settled newer)
             }
 
             test "blank clears the text; nothing without a patient" {
