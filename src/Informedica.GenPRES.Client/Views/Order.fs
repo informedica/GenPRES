@@ -809,7 +809,8 @@ module Order =
                     | QuantityMode.Mode.Selectable
                     | QuantityMode.Mode.Fixed -> false
 
-                // component orderable quantity: more than one component, with values or steps
+                // component orderable quantity: more than one component, with values, a range shown
+                // as one, or steps; the field shows a range as one entry where the others show none
                 let compOrdQty =
                     if not multiComponent then
                         None
@@ -817,7 +818,7 @@ module Order =
                         selectedCmp
                         |> Option.map _.OrderableQuantity
                         |> Option.filter (fun ovar ->
-                            hasVals ovar
+                            ovar |> ViewHelpers.ovarValsWithRange string 3 |> Array.isEmpty |> not
                             || ovar
                                |> QuantityMode.decideFor QuantityMode.Field.ComponentQuantity ord
                                |> hasSteps
@@ -1481,19 +1482,23 @@ module Order =
 
                     let onClick = fun _ -> toggleFold ()
 
+                    let label = Terms.``Prescribe Preparation`` |> getTerm "bereiding"
+
+                    // the button is named after the section it opens and folds, since its icon
+                    // says nothing to a screen reader and the name beside it is not linked to it
                     let foldButton =
                         JSX.jsx
                             $"""
                         import IconButton from '@mui/material/IconButton';
 
-                        <IconButton size="small" onClick={onClick} aria-expanded={preparationOpen}>
+                        <IconButton size="small" onClick={onClick} aria-label={label} aria-expanded={preparationOpen}>
                             {icon}
                         </IconButton>
                         """
 
                     Components.SectionHeading.View
                         {|
-                            label = Terms.``Prescribe Preparation`` |> getTerm "bereiding"
+                            label = label
                             action = Some foldButton
                         |}
 
