@@ -1,7 +1,7 @@
 /// <summary>
 /// Which UI language the client shows, and why: the url's <c>la</c> parameter and the User's
 /// choice outrank the server default (<c>GENPRES_LANG</c>), which outranks the built-in
-/// fallback. Pure F#, no React, so it runs under Expecto; App.fs applies it.
+/// fallback.
 /// </summary>
 module LanguagePolicy
 
@@ -31,7 +31,7 @@ module Language =
         }
 
 
-    /// A navigation: only an `la` parameter changes the language; without one the current
+    /// A navigation: only an la parameter changes the language; without one the current
     /// language stays, chosen or not.
     let onUrl (url: Locales option) (language: Language) =
         match url with

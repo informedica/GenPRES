@@ -1,7 +1,6 @@
 /// Whether the patient context is held: the order plan has an order that is new or changed
 /// since the order plan version last opened or signed. While it is held the patient data cannot
-/// be changed, so that every order a signed version adds rests on one patient context. Pure F#,
-/// no React, so it runs under Expecto.
+/// be changed, so that every order a signed version adds rests on one patient context.
 module HeldContextPolicy
 
 open Shared.Types

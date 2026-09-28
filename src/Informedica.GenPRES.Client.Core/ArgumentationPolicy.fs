@@ -1,7 +1,5 @@
-/// The argumentation a clinician writes when a dose leaves what the rules allow, on the client:
-/// when the dialog asks for it, how a text is taken, and that the text is the client's own,
-/// kept over every answer. Pure F#, no React, so it runs under Expecto; the two machines carry
-/// the messages that write it, the dose dialog shows the field.
+/// Decides when the dose dialog asks for an argumentation of a dose the rules mark, and keeps
+/// the text the clinician writes unchanged by server answers.
 module ArgumentationPolicy
 
 open Shared.Types

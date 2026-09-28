@@ -1,8 +1,7 @@
 /// <summary>
-/// The session gate's policy: for every session phase, what the gate
-/// says and what it offers. Pure F#, no React, so it runs under Expecto next to the machine;
-/// Views/SessionGate.fs renders it. The texts are `Terms`, translated by the caller: the view
-/// passes the sheet lookup, the tests pass `english`.
+/// The session gate's policy: for every session phase, what the gate says and what it offers.
+/// The texts are <c>Terms</c>, translated by the caller: the view passes the sheet lookup, the
+/// tests pass <c>english</c>.
 /// </summary>
 module SessionGatePolicy
 
@@ -45,7 +44,7 @@ type Gate =
 
 /// The English of the session terms: what the gate and the session menu show when the sheet has
 /// no row for a term, or the terms have not loaded. Any other term falls back to its name, as
-/// `Global.pageToString` does.
+/// Global.pageToString does.
 let english (term: Terms) =
     match term with
     | Terms.``Session Gate Opening`` -> "Opening your session"

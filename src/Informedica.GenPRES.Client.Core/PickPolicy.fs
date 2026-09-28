@@ -1,8 +1,5 @@
-/// What a pick field offers, decided from what it is given rather than by each page: a field
-/// with nothing to choose is disabled and empty; a field with one option shows it chosen and
-/// is disabled, since there is nothing to pick; a field with more is enabled when its caller
-/// says so, shows what was chosen, and clears when its caller allows and something is chosen.
-/// Pure F#, no React, so it runs under Expecto; the pick field component renders the answer.
+/// Decides whether a pick field is enabled, what it shows as chosen and whether it can be
+/// cleared, from the options it is given.
 module PickPolicy
 
 

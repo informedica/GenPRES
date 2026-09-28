@@ -2,7 +2,7 @@
 /// no patient to the empty context opened for one, shown, changed and cleared, as a pure state machine next to the
 /// order plan's, with effects for the App to interpret. The machine is two stages: the workbench
 /// as the clinical model has it, which knows no request, and the one request under way, which
-/// knows no context beyond the one it carries. `transition` runs them in order: an answer passes
+/// knows no context beyond the one it carries. transition runs them in order: an answer passes
 /// the request first and reaches the workbench only when it lands; a command passes the
 /// workbench first and reaches the request as an intent, dropped while one is under way. The
 /// interpreter completes each call from the open Session, keeps the formulary and parenteralia
@@ -207,10 +207,10 @@ type OrderContextEffect =
 /// it and nothing of the request. Nothing without a patient; the context the server answered,
 /// nothing under way; the context the server refused, as it was sent, with why, nothing under
 /// way; a change under way, the context sent shown meanwhile, the empty context while the
-/// first evaluation runs. A page renders from `Settled`, `Refused` and `Changing` alike, so
+/// first evaluation runs. A page renders from Settled, Refused and Changing alike, so
 /// that the screen stays populated while a request runs and the picks stay after a refusal;
-/// it steps from `Changing` too, over the context shown, and builds every other command from
-/// `Settled` and `Refused` only.
+/// it steps from Changing too, over the context shown, and builds every other command from
+/// Settled and Refused only.
 [<RequireQualifiedAccess>]
 type OrderContextView =
     | NoPatient

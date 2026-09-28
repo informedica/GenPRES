@@ -1,5 +1,4 @@
-/// What leaving the page would lose, and what tells it. Pure F#, no React, so it runs under
-/// Expecto; App.fs asks it from the browser's beforeunload listener.
+/// What leaving the page would lose, and what tells it.
 module UnsignedWorkPolicy
 
 open Shared.Types

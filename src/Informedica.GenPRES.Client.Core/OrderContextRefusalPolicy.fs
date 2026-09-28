@@ -1,7 +1,6 @@
 /// The notice of a refused order context: what the prescribing page says when no dose can be
-/// shown, from the refusal the server sent and the picks the user made. Pure F#, no React, so
-/// it runs under Expecto; Views/Prescribe.fs renders it. The texts are `Terms`, translated by
-/// the caller: the view passes the sheet lookup, the tests pass `english`.
+/// shown, from the refusal the server sent and the picks the user made. The texts are Terms,
+/// translated by the caller: the view passes the sheet lookup, the tests pass english.
 module OrderContextRefusalPolicy
 
 open Shared

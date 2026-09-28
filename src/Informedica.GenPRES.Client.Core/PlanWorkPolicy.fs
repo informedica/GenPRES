@@ -1,5 +1,5 @@
 /// What the plan holds beside the order plan version last opened or signed, and how the plan
-/// commands move it. Pure F#, no React, so it runs under Expecto; the leave-page guard reads it.
+/// commands move it.
 module PlanWorkPolicy
 
 open Shared.Api

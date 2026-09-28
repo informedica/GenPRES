@@ -1,5 +1,5 @@
 /// What the signing UI says and offers, decided from the Session and
-/// the signing phase: every text a `Terms` case, so the view only renders.
+/// the signing phase: every text a Terms case, so the view only renders.
 module SigningPolicy
 
 open Shared

@@ -1,26 +1,12 @@
-/// <summary>
-/// The client's session state machine, from the Launch in the url to an open Session: the
-/// Session as the client knows it, the one request under way, the messages that move between
-/// them and the effects App.fs interprets into commands. The pages read a view of it, with
-/// nothing of the request. Pure F#, opens Shared.Types only, no React, so it runs under Expecto
-/// in .NET as well as under Fable.
-/// </summary>
-/// <remarks>
-/// The file module is <c>SessionMachine</c> and not <c>Session</c>: the type-first pair
-/// <c>type SessionState</c> / <c>module SessionState</c> lives here beside the messages, the
-/// effects and the view, and a file module named after the domain would shadow the
-/// <c>Session</c> the rest of the client speaks of.
-/// </remarks>
+/// Tracks the client's session from the launch url to an open session, one server request at a
+/// time.
 module SessionMachine
 
 open Shared.Types
 
 
-/// The client's view of its Session, one phase at a time.
-/// The Session as the pages show it: the states a page can be in, each with what is valid in it
-/// and nothing of the request: today's phases without the Launch, the key and the counts. A
-/// refusal is Retryable when the same Launch can be presented again; the count of a server
-/// unreachable is always the maximum, so the view carries none.
+/// What the pages read of the SessionState: the session's phase combined with the request under
+/// way.
 [<RequireQualifiedAccess>]
 type SessionView =
     | Anonymous
@@ -37,9 +23,7 @@ type SessionView =
     | EnrolmentFailed of PinRefusal
 
 
-/// The Session as the client knows it, no request here: none; open; refused, the server
-/// unreachable, or ended; enrolling, with the last refusal of the form if any; or the enrolment
-/// failed.
+/// The session itself, without any request under way.
 [<RequireQualifiedAccess>]
 type SessionPhase =
     | Anonymous
@@ -67,18 +51,20 @@ type SessionRequest =
     | SupplyingPin
 
 
-/// The phase, the one request under way, the Launch this page presents with its key, kept
-/// while presenting it again is meaningful (during a presentation, after the server was
-/// unreachable, after a refusal worth retrying), and the notice that the record moved on: the
-/// newest version told while the open Session is on an older one, the pages' own beside the
-/// phase, none unless the Session is open with nothing under way. Built through the
-/// constructors below only, which admit the combinations that occur.
+/// Everything the session machine holds, hidden from the pages, which read a SessionView of it
+/// instead.
 type SessionState =
     private
         {
+            /// The session itself.
             Phase: SessionPhase
+            /// The one request under way, if any.
             InFlight: SessionRequest option
+            /// The launch and its key, kept while it can still be presented again: during a
+            /// presentation, after the server was unreachable, or after a refusal worth retrying.
             Presentation: (Launch * PublicKey) option
+            /// The newest order plan version, when the open session is on an older one; only
+            /// while the session is open with no request under way.
             MovedOn: OrderPlanHead option
         }
 
@@ -156,9 +142,8 @@ type SessionEffect =
     | SetPatient of Patient option
     // Keys.keep: prune the other private keys
     | KeepKey of thumbprint: string
-    // the orders of the version the Session opened with go into the cart, over the
-    // patient as the client holds it after SetPatient (normal values applied); interpreted as
-    // the plan machine's Version, which keeps the version while that patient is on its way
+    /// The orders of the version the Session opened with go into the cart; the patient reaches the
+    /// plan machine a message later, so the plan machine keeps the orders until it has the patient.
     | LoadCart of SignedOrderPlan
     // processSession OpenVersion; `from` comes back in Reopened
     | CallOpenVersion of id: string * from: OpenedToken option
@@ -179,7 +164,7 @@ type SessionEffect =
 module MovedOn =
 
     /// A notice arrived: the head to keep, and whether it is news. Versions are ordered by
-    /// `No`, their place in the record, not by arrival: replies to concurrent requests can land out of order, so
+    /// No, their place in the record, not by arrival: replies to concurrent requests can land out of order, so
     /// a notice of a version no newer than the one kept is not news and keeps nothing, and only
     /// a newer version replaces the kept one.
     let receive (current: OrderPlanHead option) (head: OrderPlanHead) : OrderPlanHead option * bool =

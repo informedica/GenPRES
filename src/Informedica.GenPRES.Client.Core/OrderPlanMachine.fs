@@ -3,7 +3,7 @@
 /// with effects for the App to
 /// interpret. The machine is two stages: the plan as the clinical model has it, which knows no
 /// request, and the one request under way, which knows no plan beyond the command it carries;
-/// the dialog's selection, the client's own, sits beside them. `transition` runs the stages in
+/// the dialog's selection, the client's own, sits beside them. transition runs the stages in
 /// order: an answer passes the request first and reaches the plan only when it lands; a change
 /// passes the plan first and reaches the request as an intent, dropped while one is under way.
 /// The interpreter completes each call from the open Session and puts words on the snackbar.
@@ -204,10 +204,10 @@ module OrderPlanCart =
 /// The plan, the one request under way (the command sent and the id the answer must name; none
 /// while idle), the dialog's step waiting on it (the command and its own id; none but while a
 /// request is under way), the context the dialog shows, by id, and the plan's work since the
-/// version last opened or signed: the client's own, next to whatever is in flight. Built through the constructors below only, which admit the
-/// combinations that can occur: no patient with nothing under way, a version awaiting its
-/// patient, a plan held, a change under way (an open over the empty plan among them), with or
-/// without a step pending.
+/// version last opened or signed: the client's own, next to whatever is in flight. Built through
+/// the constructors below only, which admit the combinations that can occur: no patient with
+/// nothing under way, a version awaiting its patient, a plan held, a change under way (an open over
+/// the empty plan among them), with or without a step pending.
 type OrderPlanState =
     private
         {
@@ -266,9 +266,9 @@ type OrderPlanEffect =
 /// and nothing of the request. Nothing without a patient; the plan the server answered, nothing
 /// under way, with the context the dialog shows by id; a change under way, the plan shown
 /// meanwhile with that selection, the empty plan while an open runs. A selection without a
-/// plan cannot be written. A page renders from `Settled` and `Changing` alike, so that the
-/// screen stays populated while a request runs; it steps the dialog's order from `Changing` too,
-/// over the plan shown, and builds every other command from `Settled` only.
+/// plan cannot be written. A page renders from Settled and Changing alike, so that the
+/// screen stays populated while a request runs; it steps the dialog's order from Changing too,
+/// over the plan shown, and builds every other command from Settled only.
 [<RequireQualifiedAccess>]
 type OrderPlanView =
     | NoPatient
