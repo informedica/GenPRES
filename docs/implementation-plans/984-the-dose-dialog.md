@@ -166,6 +166,7 @@ pull request.
 |---|---|---|
 | 1, the plan | #1128 | Two review rounds: a stepped value is re-solved, not snapped, and the tenfold exceptions of the stepping are named. The server's copy of the stepping rule became #1129. |
 | 2, the fold | #1131 | `SectionFold` in `Client.Core` with fourteen tests, the view in `Order.fs`, two icons in `MUI.fs`. |
+| 3, the closing docs | #1132 | The grouping index, this table, the stepping flow document; #397, #402 and #405 closed, #978 with #496 out of the group. |
 
 Deviations from the plan, both on the maintainer's check in the browser:
 

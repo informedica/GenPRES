@@ -188,7 +188,7 @@ and it reaches beyond the client: the brand belongs to the product, not to the g
 
 ### G3 — The dose dialog (#984)
 
-Planned in [984-the-dose-dialog.md](984-the-dose-dialog.md); built in PRs #1128 and #1131,
+Planned in [984-the-dose-dialog.md](984-the-dose-dialog.md); built in PRs #1128, #1131 and #1132,
 closed 2026-09-28.
 
 | Issue | Milestone | Status |
