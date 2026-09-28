@@ -752,6 +752,19 @@ let rulesTests =
                 rules |> Expect.equal "no rules" (Ok [||])
                 ctx.Scenarios |> Expect.isEmpty "afresh: no scenarios"
             }
+
+            test "made afresh, the context keeps its argumentation" {
+                let held =
+                    { EvaluateFixtures.pcmContext with
+                        Patient = { EvaluateFixtures.child with Weight = None }
+                        Argumentation = Some "Sepsis, hogere dosis in overleg met de apotheek"
+                    }
+
+                let ctx, _ = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
+
+                ctx.Scenarios |> Expect.isEmpty "afresh: no scenarios"
+                ctx.Argumentation |> Expect.equal "the text kept" held.Argumentation
+            }
         ]
 
 

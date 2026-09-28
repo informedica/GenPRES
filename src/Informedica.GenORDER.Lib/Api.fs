@@ -756,7 +756,12 @@ module OrderContext =
                 }
                 |> Api.filterPrescriptionRules provider
             | _ -> Ok [||]
-        | _ -> ctx.Patient |> create logger provider, Ok [||]
+        | _ ->
+            // the context afresh, its argumentation kept: the text is the clinician's, not a
+            // rule's, and survives every command
+            let fresh = ctx.Patient |> create logger provider
+
+            { fresh with Argumentation = ctx.Argumentation }, Ok [||]
 
 
     let setFilter filter ctx = { ctx with Filter = filter }
