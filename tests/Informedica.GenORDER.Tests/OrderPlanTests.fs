@@ -73,6 +73,7 @@ module Fixtures =
             Filter = filter
             Patient = Patient.patient
             Scenarios = scenarios
+            Argumentation = None
         }
 
 
@@ -485,6 +486,7 @@ module EvaluateFixtures =
             Filter = held
             Patient = child
             Scenarios = [| pcmScenario |]
+            Argumentation = None
         }
 
 
@@ -750,6 +752,19 @@ let rulesTests =
                 rules |> Expect.equal "no rules" (Ok [||])
                 ctx.Scenarios |> Expect.isEmpty "afresh: no scenarios"
             }
+
+            test "made afresh, the context keeps its argumentation" {
+                let held =
+                    { EvaluateFixtures.pcmContext with
+                        Patient = { EvaluateFixtures.child with Weight = None }
+                        Argumentation = Some "Sepsis, hogere dosis in overleg met de apotheek"
+                    }
+
+                let ctx, _ = held |> OrderContext.getRules OrderLogging.noOp (NoRules())
+
+                ctx.Scenarios |> Expect.isEmpty "afresh: no scenarios"
+                ctx.Argumentation |> Expect.equal "the text kept" held.Argumentation
+            }
         ]
 
 
@@ -901,4 +916,68 @@ let refusalTests =
                         | other -> failtest $"expected an evaluation, got %A{other}"
                     }
                 ]
+        ]
+
+
+/// The argumentation on the order context: kept through the Dto and through an evaluation,
+/// none where a row from before the field holds nothing.
+let argumentationTests =
+    let text = "Sepsis, hogere dosis in overleg met de apotheek"
+
+    let argued = { EvaluateFixtures.pcmContext with Argumentation = Some text }
+
+    let roundTrip (ctx: OrderContext) = ctx |> OrderContext.Dto.toDto |> OrderContext.Dto.fromDto
+
+    testList
+        "the argumentation"
+        [
+            test "to the Dto and back keeps the text, and keeps none" {
+                match roundTrip argued with
+                | Ok ctx -> ctx.Argumentation |> Expect.equal "the text" (Some text)
+                | Error e -> failtest $"the round trip failed: %A{e}"
+
+                match roundTrip EvaluateFixtures.pcmContext with
+                | Ok ctx -> ctx.Argumentation |> Expect.isNone "none stays none"
+                | Error e -> failtest $"the round trip failed: %A{e}"
+            }
+
+            test "the JSON a version 1 row holds, without the field, reads as none" {
+                // the canonical form as the release before the field wrote it: the field cut out
+                let json =
+                    (EvaluateFixtures.pcmContext |> OrderContext.Dto.toDto |> Canonical.serialize)
+                        .Replace(",\"Argumentation\":null", "")
+
+                json.Contains "Argumentation" |> Expect.isFalse "no such field in the row"
+
+                match json |> Canonical.deserialize<OrderContext.Dto.Dto> |> OrderContext.Dto.fromDto with
+                | Ok ctx -> ctx |> Expect.equal "the context, the field none" EvaluateFixtures.pcmContext
+                | Error e -> failtest $"a version 1 context does not parse: %A{e}"
+            }
+
+            test "the new Dto's canonical JSON carries the field, null or the text" {
+                let none = EvaluateFixtures.pcmContext |> OrderContext.Dto.toDto |> Canonical.serialize
+                let some = argued |> OrderContext.Dto.toDto |> Canonical.serialize
+
+                none.Contains "\"Argumentation\":null"
+                |> Expect.isTrue "none is written as null"
+                some.Contains $"\"Argumentation\":\"{text}\""
+                |> Expect.isTrue "the text is written"
+            }
+
+            test "a plan context evaluated keeps its argumentation: every command copies the record" {
+                let evaluate (cmd: OrderContext.Command) =
+                    match cmd with
+                    | OrderContext.SelectOrderScenario ctx ->
+                        Ok(OrderContext.SelectOrderScenario { ctx with Scenarios = [| EvaluateFixtures.pcmScenario |] })
+                    | other -> failtest $"the command as given, got {other}"
+
+                let pc = PlanContext.create "c-1" OrderCategory.Drug argued
+
+                match
+                    pc
+                    |> PlanContext.evaluateWith id evaluate (fun _ -> Totals.empty) OrderContext.SelectOrderScenario
+                with
+                | Ok pc -> pc.Context.Argumentation |> Expect.equal "the text survives" (Some text)
+                | Error e -> failtest $"{e}"
+            }
         ]

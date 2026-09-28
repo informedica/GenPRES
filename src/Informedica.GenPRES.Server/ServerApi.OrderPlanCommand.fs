@@ -10,12 +10,17 @@ open Shared.Api
 module OrderPlanCommand =
 
     /// The contract model's plan parsed into the domain, or the reasons it is none in the
-    /// server's words.
+    /// server's words; an argumentation over the cap on any context is refused first, so a
+    /// plan submitted for signing is held to it too.
     let parsePlan (plan: OrderPlan) : Result<Informedica.GenOrder.Lib.Types.OrderPlan, string[]> =
-        plan
-        |> OrderPlanMapper.ofModel
-        |> Informedica.GenOrder.Lib.OrderPlan.Dto.fromDto
-        |> Result.mapError (List.map OrderContextMapper.words >> List.toArray)
+        plan.OrderContexts
+        |> OrderContextService.Argumentation.checkAll
+        |> Result.bind (fun () ->
+            plan
+            |> OrderPlanMapper.ofModel
+            |> Informedica.GenOrder.Lib.OrderPlan.Dto.fromDto
+            |> Result.mapError (List.map OrderContextMapper.words >> List.toArray)
+        )
 
 
     /// The contexts parsed, all of them or the first refusal.

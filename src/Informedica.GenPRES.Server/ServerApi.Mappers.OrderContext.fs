@@ -267,7 +267,8 @@ module OrderContextMapper =
         }
 
 
-    /// Total: the contract model's order context as the plan context's Dto, nothing dropped.
+    /// Total: the contract model's order context as the plan context's Dto, nothing dropped,
+    /// the argumentation as written.
     let ofModel (ctx: OrderContext) : PlanContextDto.Dto =
         {
             Id = ctx.Id
@@ -277,13 +278,15 @@ module OrderContextMapper =
                     Filter = ctx.Filter |> filter
                     Patient = ctx.Patient |> Patient.ofModel
                     Scenarios = ctx.Scenarios |> Array.mapi scenario
+                    Argumentation = ctx.Argumentation
                 }
             Intake = ctx.Intake |> totals
         }
 
 
     /// The plan context's Dto as the contract model's order context, built from the Dto alone;
-    /// the demo flag is the server's. A category string the Dto does not write shows as a drug.
+    /// the demo flag is the server's. A category string the Dto does not write shows as a drug;
+    /// the argumentation is the Dto's, none when it has none.
     let toModel (demo: bool) (dto: PlanContextDto.Dto) : OrderContext =
         {
             Id = dto.Id
@@ -297,6 +300,7 @@ module OrderContextMapper =
             Patient = dto.Context.Patient |> Patient.toModel
             Scenarios = dto.Context.Scenarios |> Array.map scenarioBack
             Intake = dto.Intake |> totalsBack
+            Argumentation = dto.Context.Argumentation
         }
 
 

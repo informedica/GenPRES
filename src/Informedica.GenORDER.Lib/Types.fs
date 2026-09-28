@@ -572,6 +572,9 @@ module Types =
             Patient: Patient
             /// The list of available scenarios
             Scenarios: OrderScenario[]
+            /// What the clinician wrote when the dose left what the rules allow; none until
+            /// written. Kept as written: the client normalises it, the server caps its length.
+            Argumentation: string option
         }
 
 

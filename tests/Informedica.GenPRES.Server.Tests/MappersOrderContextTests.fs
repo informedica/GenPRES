@@ -87,6 +87,64 @@ let tests =
                 |> Expect.isTrue "demo as the server says"
             }
 
+            test "the argumentation goes to the Dto and back, the text and none" {
+                let text = "Sepsis, hogere dosis in overleg met de apotheek"
+                let argued = { context with Argumentation = Some text }
+
+                (argued |> OrderContextMapper.ofModel).Context.Argumentation
+                |> Expect.equal "on the Dto" (Some text)
+
+                (argued |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false).Argumentation
+                |> Expect.equal "and back" (Some text)
+
+                (context |> OrderContextMapper.ofModel |> OrderContextMapper.toModel false).Argumentation
+                |> Expect.isNone "none stays none"
+            }
+
+            test "a plan context JSON from before the field, a version 1 row, reads with none" {
+                let json =
+                    (context |> OrderContextMapper.ofModel |> Canonical.serialize)
+                        .Replace(",\"Argumentation\":null", "")
+
+                json.Contains "Argumentation" |> Expect.isFalse "no such field in the row"
+
+                json
+                |> Canonical.deserialize<PlanContext.Dto.Dto>
+                |> OrderContextMapper.toModel false
+                |> Expect.equal "the context as it was, the field none" context
+            }
+
+            test "the cap: none and a text of at most 1000 characters pass, one over is refused in the server's words" {
+                let atCap = String.replicate 1000 "a"
+
+                OrderContextService.Argumentation.check None |> Expect.equal "none" (Ok None)
+
+                OrderContextService.Argumentation.check (Some atCap)
+                |> Expect.equal "at the cap" (Ok(Some atCap))
+
+                OrderContextService.Argumentation.check (Some(atCap + "a"))
+                |> Expect.equal "one over" (Error [| "De argumentatie is te lang: 1001 tekens, ten hoogste 1000" |])
+            }
+
+            test "the parse refuses a text over the cap before it maps, for a context and for a plan" {
+                let over = { context with Argumentation = Some(String.replicate 1001 "a") }
+                let refused = Error [| "De argumentatie is te lang: 1001 tekens, ten hoogste 1000" |]
+
+                over
+                |> OrderContextService.parse
+                |> Result.map ignore
+                |> Expect.equal "the context" refused
+
+                { Shared.Models.OrderPlan.empty with OrderContexts = [| context; over |] }
+                |> OrderPlanCommand.parsePlan
+                |> Result.map ignore
+                |> Expect.equal "the plan, on any of its contexts" refused
+
+                match { context with Argumentation = Some "kort" } |> OrderContextService.parse with
+                | Ok pc -> pc.Context.Argumentation |> Expect.equal "within the cap, parsed" (Some "kort")
+                | Error e -> failtest $"refused: %A{e}"
+            }
+
             test "outside L3: blank text items are dropped, and the scenario number is the Dto's" {
                 let blank =
                     { context with
@@ -178,6 +236,7 @@ let tests =
                             |> Result.defaultWith (fun e -> failtest $"{e}")
                         Patient = Informedica.GenForm.Lib.Patient.patient
                         Scenarios = [||]
+                        Argumentation = None
                     }
 
                 let verbs =
