@@ -80,12 +80,13 @@ module PlanContext =
     /// the context as it was sent, not a pick dropped in silence; a reload refreshes the rules
     /// first, so that the pick is checked against them as they are now. Every other command
     /// runs over the context reconciled. The intake is recorded over the answer, evaluated or
-    /// refused; the id and the category stay the plan's. An evaluation that fails is the answer.
+    /// refused, from the totals data read after any reload; the id and the category stay the
+    /// plan's. An evaluation that fails is the answer.
     let evaluateOutcome
         (start: System.DateTime)
         logger
         provider
-        (totalsData: Types.Data.TotalsData[])
+        (totalsData: unit -> Types.Data.TotalsData[])
         (cmd: OrderContext -> OrderContext.Command)
         (pc: PlanContext)
         : Result<Outcome<PlanContext>, Message list>
@@ -97,7 +98,7 @@ module PlanContext =
 
             { pc with
                 Context = ctx
-                Intake = ctx |> OrderContext.intake totalsData
+                Intake = ctx |> OrderContext.intake (totalsData ())
             }
 
         let lookUp () =

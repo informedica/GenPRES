@@ -859,7 +859,8 @@ let refusalTests =
                     let planContext = PlanContext.create "c-1" OrderCategory.Drug EvaluateFixtures.pcmContext
 
                     let evaluateOutcome cmd pc =
-                        pc |> PlanContext.evaluateOutcome start OrderLogging.noOp (NoRules()) [||] cmd
+                        pc
+                        |> PlanContext.evaluateOutcome start OrderLogging.noOp (NoRules()) (fun () -> [||]) cmd
 
                     test "a pick the rules no longer offer is gone from the reconciled filter" {
                         let held = EvaluateFixtures.pcmContext.Filter

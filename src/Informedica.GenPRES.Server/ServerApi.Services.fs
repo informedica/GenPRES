@@ -321,7 +321,7 @@ module OrderContextService =
         =
         try
             pc
-            |> PlanContext.evaluateOutcome start logger provider (provider.GetTotals()) cmd
+            |> PlanContext.evaluateOutcome start logger provider provider.GetTotals cmd
             |> Result.mapError refusal
         with e ->
             Logging.ServerLogging.Error $"errored:\n{e}"
