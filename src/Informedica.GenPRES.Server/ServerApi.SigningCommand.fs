@@ -34,13 +34,13 @@ module SigningCommand =
         | SigningOutcome.Refused refusal -> SigningResponse.Refused refusal
 
 
-    /// The plan of a challenge or of a submission at the Session's age.
-    let aged (age: Age option) (cmd: SigningCommand) : SigningCommand =
+    /// The plan of a challenge or of a submission with every patient mapped.
+    let patients (f: Patient -> Patient) (cmd: SigningCommand) : SigningCommand =
         match cmd with
         | SigningCommand.RequestSignChallenge(plan, opened, notice) ->
-            SigningCommand.RequestSignChallenge(OrderPlanCommand.agedPlan age plan, opened, notice)
+            SigningCommand.RequestSignChallenge(OrderPlanCommand.patientsPlan f plan, opened, notice)
         | SigningCommand.Submit submission ->
-            SigningCommand.Submit { submission with Plan = OrderPlanCommand.agedPlan age submission.Plan }
+            SigningCommand.Submit { submission with Plan = OrderPlanCommand.patientsPlan f submission.Plan }
 
 
     /// A signing command for the Session the cookie names. No cookie, no Session: refused
@@ -54,7 +54,11 @@ module SigningCommand =
             | None -> return SigningResponse.Refused SigningRefusal.NoSession
             | Some id ->
                 let! answer = env.session.age id
-                let cmd = cmd |> aged (answer |> Result.defaultValue None)
+                // the Session's age only, no estimates: the challenge is a digest of the plan as
+                // sent, and an estimate from tables reloaded between the challenge and the
+                // submission would change the plan under it. A plan the server computed carries
+                // its estimates already
+                let cmd = cmd |> patients (Patient.aged (answer |> Result.defaultValue None))
 
                 let plan =
                     match cmd with

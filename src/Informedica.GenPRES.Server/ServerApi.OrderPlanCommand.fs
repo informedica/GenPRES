@@ -58,29 +58,29 @@ module OrderPlanCommand =
             }
 
 
-    /// The plan's patient and that of every context in it at the Session's age.
-    let agedPlan (age: Age option) (plan: OrderPlan) : OrderPlan =
+    /// The plan's patient and that of every context in it mapped.
+    let patientsPlan (f: Patient -> Patient) (plan: OrderPlan) : OrderPlan =
         { plan with
-            Patient = plan.Patient |> Patient.aged age
-            OrderContexts = plan.OrderContexts |> Array.map (OrderContextMapper.aged age)
+            Patient = f plan.Patient
+            OrderContexts = plan.OrderContexts |> Array.map (OrderContextMapper.patients f)
         }
 
 
-    /// Every patient the command carries at the Session's age: the plan's and its contexts',
-    /// and the context's where the command carries one.
-    let aged (age: Age option) (cmd: OrderPlanCommand) : OrderPlanCommand =
+    /// Every patient the command carries mapped: the plan's and its contexts', and the
+    /// context's where the command carries one.
+    let patients (f: Patient -> Patient) (cmd: OrderPlanCommand) : OrderPlanCommand =
         match cmd with
-        | OrderPlanCommand.Recalculate plan -> OrderPlanCommand.Recalculate(agedPlan age plan)
+        | OrderPlanCommand.Recalculate plan -> OrderPlanCommand.Recalculate(patientsPlan f plan)
         | OrderPlanCommand.Navigate(plan, contextId, ctxCmd, ctx) ->
-            OrderPlanCommand.Navigate(agedPlan age plan, contextId, ctxCmd, OrderContextMapper.aged age ctx)
+            OrderPlanCommand.Navigate(patientsPlan f plan, contextId, ctxCmd, OrderContextMapper.patients f ctx)
         | OrderPlanCommand.AddOrderContext(plan, ctx) ->
-            OrderPlanCommand.AddOrderContext(agedPlan age plan, OrderContextMapper.aged age ctx)
+            OrderPlanCommand.AddOrderContext(patientsPlan f plan, OrderContextMapper.patients f ctx)
         | OrderPlanCommand.NewOrderContext(plan, category) ->
-            OrderPlanCommand.NewOrderContext(agedPlan age plan, category)
+            OrderPlanCommand.NewOrderContext(patientsPlan f plan, category)
         | OrderPlanCommand.RemoveOrderContexts(plan, ids) ->
-            OrderPlanCommand.RemoveOrderContexts(agedPlan age plan, ids)
+            OrderPlanCommand.RemoveOrderContexts(patientsPlan f plan, ids)
         | OrderPlanCommand.Open(pat, contexts) ->
-            OrderPlanCommand.Open(Patient.aged age pat, contexts |> Array.map (OrderContextMapper.aged age))
+            OrderPlanCommand.Open(f pat, contexts |> Array.map (OrderContextMapper.patients f))
 
 
     /// The patient the request edits: the plan's, the panel's; not a context's own.

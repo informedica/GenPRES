@@ -160,6 +160,8 @@ module StubAdapters =
             admin = adminNone
             requireLoaded = fun () -> None
             departments = fun () -> None
+            // no normal values: a patient is estimated only where a test gives them
+            normalValues = fun () -> None
             // the tests run as the demo server does
             session = sessionNone
             demo = true
@@ -188,6 +190,7 @@ module StubAdapters =
             admin = adminNone
             requireLoaded = fun () -> Some msgs
             departments = fun () -> None
+            normalValues = fun () -> None
             // the tests run as the demo server does
             session = sessionNone
             demo = true
@@ -287,7 +290,7 @@ let requireLoadedTests =
             noCookie
             Api.OrderContextCommand.toString
             (fun _ -> Gate.RequiresLoaded)
-            OrderContextCommand.aged
+            OrderContextCommand.patients
             OrderContextCommand.patientOf
             (OrderContextCommand.processCmd env)
             {
@@ -5120,7 +5123,7 @@ module BoundTests =
             cookie
             OrderContextCommand.toString
             (fun _ -> Gate.RequiresLoaded)
-            OrderContextCommand.aged
+            OrderContextCommand.patients
             OrderContextCommand.patientOf
             handler
             {
@@ -5137,7 +5140,7 @@ module BoundTests =
             cookie
             InteractionCommand.toString
             InteractionCommand.gate
-            InteractionCommand.aged
+            InteractionCommand.patients
             InteractionCommand.patientOf
             (InteractionCommand.processCmd env)
             {

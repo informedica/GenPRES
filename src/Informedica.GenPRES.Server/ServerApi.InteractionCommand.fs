@@ -15,8 +15,8 @@ module InteractionCommand =
         | InteractionCommand.CheckInteractions _ -> Gate.RequiresLoaded
 
 
-    /// No patient to age.
-    let aged (_: Shared.Types.Age option) (cmd: InteractionCommand) = cmd
+    /// No patient to map.
+    let patients (_: Shared.Types.Patient -> Shared.Types.Patient) (cmd: InteractionCommand) = cmd
 
 
     let patientOf (_: InteractionCommand) : Shared.Types.Patient option = None

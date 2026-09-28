@@ -25,7 +25,7 @@ module CompositionRoot =
                     cookie
                     OrderContextCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    OrderContextCommand.aged
+                    OrderContextCommand.patients
                     OrderContextCommand.patientOf
                     (OrderContextCommand.processCmd env)
 
@@ -35,7 +35,7 @@ module CompositionRoot =
                     cookie
                     FormularyCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    FormularyCommand.aged
+                    FormularyCommand.patients
                     FormularyCommand.patientOf
                     (FormularyCommand.processCmd env)
 
@@ -45,7 +45,7 @@ module CompositionRoot =
                     cookie
                     ParenteraliaCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    ParenteraliaCommand.aged
+                    ParenteraliaCommand.patients
                     ParenteraliaCommand.patientOf
                     (ParenteraliaCommand.processCmd env)
 
@@ -56,7 +56,7 @@ module CompositionRoot =
                     cookie
                     OrderPlanCommand.toString
                     (fun _ -> Gate.RequiresLoaded)
-                    OrderPlanCommand.aged
+                    OrderPlanCommand.patients
                     OrderPlanCommand.patientOf
                     (OrderPlanCommand.processCmd env)
 
@@ -67,7 +67,7 @@ module CompositionRoot =
                     cookie
                     InteractionCommand.toString
                     InteractionCommand.gate
-                    InteractionCommand.aged
+                    InteractionCommand.patients
                     InteractionCommand.patientOf
                     (InteractionCommand.processCmd env)
 

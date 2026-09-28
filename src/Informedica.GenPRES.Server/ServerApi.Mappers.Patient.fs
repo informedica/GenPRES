@@ -269,3 +269,44 @@ module Patient =
         match age with
         | Some age -> { draft with Age = Some age }
         | None -> draft
+
+
+    /// The draft with the estimates it lacks filled in from the normal values, per measure: a
+    /// weight or a height that is neither measured nor estimated gets the estimate; a measured
+    /// value and an estimate already there are kept, so that the calculation uses the estimate
+    /// the panel shows. The normal values are asked only when a measure is missing; without
+    /// them the draft stays as it is, and the gate refuses it.
+    let estimate (normalValues: unit -> NormalValues option) (draft: Patient) : Patient =
+        let lacks (measured: 'a option) (estimated: 'a option) = measured.IsNone && estimated.IsNone
+        let lacksWeight = lacks draft.Weight.Measured draft.Weight.Estimated
+        let lacksHeight = lacks draft.Height.Measured draft.Height.Estimated
+
+        if not (lacksWeight || lacksHeight) then
+            draft
+        else
+            match normalValues () with
+            | None -> draft
+            | Some nv ->
+                // apply writes both estimates; only the missing measure is taken from it
+                let estimated = draft |> NormalValues.apply nv
+
+                { draft with
+                    Weight =
+                        if lacksWeight then
+                            { draft.Weight with
+                                EstimatedP3 = estimated.Weight.EstimatedP3
+                                Estimated = estimated.Weight.Estimated
+                                EstimatedP97 = estimated.Weight.EstimatedP97
+                            }
+                        else
+                            draft.Weight
+                    Height =
+                        if lacksHeight then
+                            { draft.Height with
+                                EstimatedP3 = estimated.Height.EstimatedP3
+                                Estimated = estimated.Height.Estimated
+                                EstimatedP97 = estimated.Height.EstimatedP97
+                            }
+                        else
+                            draft.Height
+                }
