@@ -786,69 +786,108 @@ module Order =
 
                 hasSubstDoseQty || hasSubstDoseQtyAdj || hasSubstPerTime || hasSubstRate
 
-        let showPrepDivider =
+        // the preparation variables the five preparation fields will show, under the conditions
+        // the fields apply themselves, so the heading shows exactly when a preparation field
+        // shows: a field without values and without steps renders nothing
+        let preparationVariables: OrderVariable list =
             match displayOrder with
-            | None -> false
+            | None -> []
             | Some ord ->
                 let multiComponent = ord.Orderable.Components |> Array.length > 1
 
-                // component orderable quantity: requires components > 1
-                let hasCompOrdQty =
-                    multiComponent
-                    && ord.Orderable.Components
-                       |> Array.tryFind (fun c ->
-                           state.SelectedComponent.IsNone || c.Name = state.SelectedComponent.Value
-                       )
-                       |> Option.bind _.OrderableQuantity.Variable.Vals
-                       |> Option.map (fun v -> v.Value |> Array.isEmpty |> not)
-                       |> Option.defaultValue false
+                let selectedCmp =
+                    ord.Orderable.Components
+                    |> Array.tryFind (fun c -> state.SelectedComponent.IsNone || c.Name = state.SelectedComponent.Value)
 
-                // substance component concentration: requires substIndx and vals > 1
-                let hasSubstCompConc =
-                    substIndx
-                    |> Option.bind (fun i -> itms |> Array.tryItem i)
-                    |> Option.bind (fun itm ->
-                        itm.ComponentConcentration.Variable.Vals
-                        |> Option.map (fun v -> v.Value |> Array.length > 1)
-                    )
-                    |> Option.defaultValue false
+                let hasVals (ovar: OrderVariable) =
+                    ovar.Variable.Vals |> Option.exists (fun v -> v.Value |> Array.isEmpty |> not)
 
-                // substance orderable quantity: requires substIndx, itms > 0, components > 1, continuous
-                let hasSubstOrbQty =
-                    multiComponent
-                    && ord.Schedule.IsContinuous
-                    && substIndx
-                       |> Option.bind (fun i -> itms |> Array.tryItem i)
-                       |> Option.bind (fun itm ->
-                           itm.OrderableQuantity.Variable.Vals
-                           |> Option.map (fun v -> v.Value |> Array.isEmpty |> not)
-                       )
-                       |> Option.defaultValue false
+                let hasSteps (mode: QuantityMode.Mode) =
+                    match mode with
+                    | QuantityMode.Mode.Navigable
+                    | QuantityMode.Mode.Stepable -> true
+                    | QuantityMode.Mode.Selectable
+                    | QuantityMode.Mode.Fixed -> false
 
-                // substance orderable concentration: requires substIndx, itms > 0, components > 1, not continuous
-                let hasSubstOrbConc =
-                    multiComponent
-                    && ord.Schedule.IsContinuous |> not
-                    && substIndx
-                       |> Option.bind (fun i -> itms |> Array.tryItem i)
-                       |> Option.bind (fun itm ->
-                           itm.OrderableConcentration.Variable.Vals
-                           |> Option.map (fun v -> v.Value |> Array.isEmpty |> not)
-                       )
-                       |> Option.defaultValue false
+                // component orderable quantity: more than one component, with values or steps
+                let compOrdQty =
+                    if not multiComponent then
+                        None
+                    else
+                        selectedCmp
+                        |> Option.map _.OrderableQuantity
+                        |> Option.filter (fun ovar ->
+                            hasVals ovar
+                            || ovar
+                               |> QuantityMode.decideFor QuantityMode.Field.ComponentQuantity ord
+                               |> hasSteps
+                        )
 
-                // orderable quantity: requires components > 1
-                let hasOrbQty =
-                    multiComponent
-                    && ord.Orderable.OrderableQuantity.Variable.Vals
-                       |> Option.map (fun v -> v.Value |> Array.isEmpty |> not)
-                       |> Option.defaultValue false
+                // substance component concentration: the selected item, else the component's own
+                // item, when its defined values are more than one and it has values
+                let substCompConc =
+                    let concOf (itm: Item) =
+                        itm.ComponentConcentration
+                        |> Some
+                        |> Option.filter (fun ovar ->
+                            ovar.DefinedConstraints.Vals
+                            |> Option.exists (fun vu -> vu.Value |> Array.length > 1)
+                            && hasVals ovar
+                        )
 
-                hasCompOrdQty
-                || hasSubstCompConc
-                || hasSubstOrbConc
-                || hasSubstOrbQty
-                || hasOrbQty
+                    match substIndx |> Option.bind (fun i -> itms |> Array.tryItem i) with
+                    | Some itm -> concOf itm
+                    | None ->
+                        selectedCmp
+                        |> Option.bind (fun cmp -> cmp.Items |> Array.tryFind (fun i -> i.Name = cmp.Name))
+                        |> Option.bind concOf
+
+                // substance orderable quantity: continuous, more than one component, with values
+                let substOrbQty =
+                    match substIndx with
+                    | Some i when multiComponent && ord.Schedule.IsContinuous && itms |> Array.length > 0 ->
+                        itms[i].OrderableQuantity |> Some |> Option.filter hasVals
+                    | _ -> None
+
+                // substance orderable concentration: not continuous, more than one component, with values
+                let substOrbConc =
+                    match substIndx with
+                    | Some i when multiComponent && ord.Schedule.IsContinuous |> not && itms |> Array.length > 0 ->
+                        itms[i].OrderableConcentration |> Some |> Option.filter hasVals
+                    | _ -> None
+
+                // orderable quantity: more than one component, with values
+                let orbQty =
+                    if multiComponent then
+                        ord.Orderable.OrderableQuantity |> Some |> Option.filter hasVals
+                    else
+                        None
+
+                [ compOrdQty; substCompConc; substOrbQty; substOrbConc; orbQty ]
+                |> List.choose id
+
+        let showPrepDivider = preparationVariables |> List.isEmpty |> not
+
+        // the preparation section folds to its heading once every value it shows holds one value;
+        // the user opens and folds it in between, and an answer that changes the solved state puts
+        // it back under the rule. Another order shown by this component starts its fold anew.
+        let preparationSolved = preparationVariables |> SectionFold.allSolved
+        let shownOrderId = displayOrder |> Option.map _.Id |> Option.defaultValue ""
+        let fold, setFold = React.useState (SectionFold.initial preparationSolved)
+        let foldOrderIdRef = React.useRef shownOrderId
+
+        React.useEffect (
+            (fun () ->
+                if foldOrderIdRef.current <> shownOrderId then
+                    foldOrderIdRef.current <- shownOrderId
+                    setFold (SectionFold.initial preparationSolved)
+                else
+                    setFold (fold |> SectionFold.observe preparationSolved)
+            ),
+            [| box shownOrderId; box preparationSolved |]
+        )
+
+        let toggleFold = fun () -> setFold (fold |> SectionFold.toggle)
 
         let showAdminDivider =
             match displayOrder with
@@ -943,12 +982,6 @@ module Order =
                     action = None
                 |}
 
-        let preparationDivider =
-            if showPrepDivider then
-                Terms.``Prescribe Preparation`` |> getTerm "bereiding" |> heading
-            else
-                null
-
         let dosingDivider = if showDosingDivider then heading "dosering" else null
 
         let administrationDivider =
@@ -969,6 +1002,16 @@ module Order =
 
             // the spinner lies over the fields and takes no room, so the dialog keeps its height
             // and the fields stay where they are while the order reloads
+            // the folded heading: the name and, once solved, the values as chips on one line
+            let preparationSummarySx =
+                {|
+                    display = "flex"
+                    alignItems = "center"
+                    flexWrap = "wrap"
+                    gap = 1
+                    minWidth = 0
+                |}
+
             let progressSx =
                 {|
                     position = "absolute"
@@ -1432,6 +1475,84 @@ module Order =
                         None
                 | _ -> null
 
+            // the preparation section: its heading, with the solved values as chips once it is folded,
+            // and the five preparation fields as its content
+            let preparationSection =
+                if not showPrepDivider then
+                    null
+                else
+                    let label = Terms.``Prescribe Preparation`` |> getTerm "bereiding"
+
+                    let chips =
+                        if preparationSolved then
+                            preparationVariables
+                            |> List.map (fun ovar ->
+                                let mark = ovar |> markOf
+
+                                let value =
+                                    ovar
+                                    |> ViewHelpers.ovarVals (fixPrecision 3)
+                                    |> Array.tryHead
+                                    |> Option.map snd
+                                    |> Option.defaultValue ""
+
+                                Components.ValueChip.View
+                                    {|
+                                        value = value
+                                        severity = mark.severity
+                                        label = None
+                                    |}
+                            )
+                            |> unbox<seq<ReactElement>>
+                            |> React.Fragment
+                        else
+                            null
+
+                    let summary =
+                        JSX.jsx
+                            $"""
+                        import Box from '@mui/material/Box';
+                        import Typography from '@mui/material/Typography';
+
+                        <Box sx={preparationSummarySx}>
+                            <Typography variant="caption">{label}</Typography>
+                            {chips}
+                        </Box>
+                        """
+
+                    let children =
+                        let prepFields =
+                            [|
+                                compOrdQtySelect
+                                substCompConcSelect
+                                substOrdQtySelect
+                                substOrdConcSelect
+                                ordQtySelect
+                            |]
+                            |> unbox<seq<ReactElement>>
+                            |> React.Fragment
+
+                        JSX.jsx
+                            $"""
+                        import Stack from '@mui/material/Stack';
+
+                        <Stack direction={"column"} spacing={if isMobile then 1.5 else 3}>
+                            {prepFields}
+                        </Stack>
+                        """
+
+                    Components.Disclosure.View
+                        {|
+                            isOpen = fold |> SectionFold.isOpen
+                            onToggle = toggleFold
+                            summary = summary
+                            children = children
+                            isMobile = isMobile
+                            detailsPaddingTop = None
+                            ariaControls = Some "order-preparation"
+                            summaryId = Some "order-preparation-heading"
+                        |}
+
             // The fields the dialog shows, in the order it shows them: the case per dose type the
             // client hard-codes today, as one literal at the call site. Each field decides for
             // itself whether it applies to the order and renders nothing otherwise; none is the
@@ -1446,12 +1567,7 @@ module Order =
                     substDoseQtyAdjSelect
                     substPerTimeSelect
                     substRateSelect
-                    preparationDivider
-                    compOrdQtySelect
-                    substCompConcSelect
-                    substOrdQtySelect
-                    substOrdConcSelect
-                    ordQtySelect
+                    preparationSection
                     administrationDivider
                     frequencySelect
                     ordDoseQtySelect
