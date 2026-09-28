@@ -16,16 +16,6 @@ module Formulary =
     module private Elmish =
 
 
-        type State =
-            {
-                Generic: string option
-                Indication: string option
-                Route: string option
-                Form: string option
-                DoseType: string option
-            }
-
-
         type Msg =
             | GenericChange of string option
             | IndicationChange of string option
@@ -35,35 +25,9 @@ module Formulary =
             | Clear
 
 
-        let empty =
-            {
-                Generic = None
-                Indication = None
-                Route = None
-                Form = None
-                DoseType = None
-            }
-
-
-        let init (form: Deferred<Formulary>) =
-            // the selects keep their state through a fetch that runs again over the formulary shown
-            let state =
-                match form with
-                | Resolved form
-                | Refreshing form ->
-                    {
-                        Generic = form.Generic //|> Option.orElse gen
-                        Indication = form.Indication //|> Option.orElse ind
-                        Route = form.Route //|> Option.orElse rte
-                        Form = form.Form
-                        DoseType = form.DoseType |> Option.map DoseType.doseTypeToDescription
-                    }
-                | _ -> empty
-
-            state, Cmd.none
-
-
-        let update (formulary: Deferred<Formulary>) updateFormulary (msg: Msg) (state: State) : State * Cmd<Msg> =
+        /// The formulary with one choice applied, sent to the App: the selects read the formulary
+        /// the App holds, never a copy of their own, so what they show is what is filtered on.
+        let update (formulary: Deferred<Formulary>) updateFormulary (msg: Msg) : unit =
             let clear (form: Formulary) =
                 { form with
                     Indications = [||]
@@ -86,14 +50,6 @@ module Formulary =
                 | Resolved form -> form |> clear |> updateFormulary
                 | _ -> ()
 
-                { state with
-                    Indication = None
-                    Generic = None
-                    Route = None
-                    DoseType = None
-                },
-                Cmd.none
-
             | IndicationChange s ->
                 match formulary with
                 | Resolved form ->
@@ -106,8 +62,6 @@ module Formulary =
                         { form with Indication = s }
                     |> updateFormulary
                 | _ -> ()
-
-                { state with Indication = s }, Cmd.none
 
             | GenericChange s ->
                 match formulary with
@@ -128,8 +82,6 @@ module Formulary =
                     |> updateFormulary
                 | _ -> ()
 
-                { state with Generic = s }, Cmd.none
-
             | RouteChange s ->
                 match formulary with
                 | Resolved form ->
@@ -143,8 +95,6 @@ module Formulary =
                     |> updateFormulary
                 | _ -> ()
 
-                { state with Route = s }, Cmd.none
-
             | FormChange s ->
                 match formulary with
                 | Resolved form ->
@@ -156,16 +106,12 @@ module Formulary =
                     |> updateFormulary
                 | _ -> ()
 
-                { state with Form = s }, Cmd.none
-
             | DoseTypeChange s ->
                 match formulary with
                 | Resolved form ->
                     { form with DoseType = s |> Option.map DoseType.doseTypeFromString }
                     |> updateFormulary
                 | _ -> ()
-
-                { state with DoseType = s }, Cmd.none
 
     open Elmish
 
@@ -184,8 +130,7 @@ module Formulary =
 
         let getTerm = Global.getLocalizedTerm localizationTerms lang
 
-        let state, dispatch =
-            React.useElmish (init formulary, update formulary updateFormulary, [| box formulary |])
+        let dispatch msg = msg |> update formulary updateFormulary
 
         // the filter is the workbench's: a change here is evaluated there, so the selects are
         // greyed while a workbench request is under way
@@ -353,7 +298,7 @@ module Formulary =
                          if isMobile then
                              items
                              |> Array.map (fun s -> s, s)
-                             |> select isLoading lbl state.Indication (IndicationChange >> dispatch)
+                             |> select isLoading lbl sel (IndicationChange >> dispatch)
                          else
                              items |> autoComplete isLoading lbl sel (IndicationChange >> dispatch)
 
@@ -369,7 +314,7 @@ module Formulary =
                              if isMobile then
                                  items
                                  |> Array.map (fun s -> s, s)
-                                 |> select isLoading lbl state.Generic (GenericChange >> dispatch)
+                                 |> select isLoading lbl sel (GenericChange >> dispatch)
                              else
                                  items |> autoComplete isLoading lbl sel (GenericChange >> dispatch)}
                         {match formulary with
@@ -382,7 +327,7 @@ module Formulary =
                              if isMobile then
                                  items
                                  |> Array.map (fun s -> s, s)
-                                 |> select isLoading lbl state.Route (RouteChange >> dispatch)
+                                 |> select isLoading lbl sel (RouteChange >> dispatch)
                              else
                                  items |> autoComplete isLoading lbl sel (RouteChange >> dispatch)}
                         {match formulary with
@@ -395,7 +340,7 @@ module Formulary =
                              if isMobile then
                                  items
                                  |> Array.map (fun s -> s, s)
-                                 |> select isLoading lbl state.Route (FormChange >> dispatch)
+                                 |> select isLoading lbl sel (FormChange >> dispatch)
                              else
                                  items |> autoComplete isLoading lbl sel (FormChange >> dispatch)}
                         {match formulary with
