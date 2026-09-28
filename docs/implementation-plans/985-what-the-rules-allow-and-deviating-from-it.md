@@ -269,4 +269,4 @@ outside this plan.
 | Step | Pull request | Note |
 |---|---|---|
 | 1, the plan | #1146 | Read locally before the push: #505 had been closed the same morning, and the plan says so. |
-| 2, the typed outcome | #1147 | Script first, migrated on the maintainer's request in the same branch. The second refusal is checked by the script against the live data; the test project has no dose rules. |
+| 2, the typed outcome | #1147 | Script first, migrated on the maintainer's request in the same branch. From the review: a third refusal, `NoProducts`, for rules that cover the picks and the patient and are dropped for having no product or no dose type, decided with the patient in as well as out; and a form alone counts as a pick. The patient and product cases are checked by the script against the live data; the test project has no dose rules. |

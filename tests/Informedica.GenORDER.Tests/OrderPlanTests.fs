@@ -788,8 +788,18 @@ let refusalTests =
             testList
                 "the refusal"
                 [
+                    test "the three cases, read from the two rule sets" {
+                        OrderContext.refusalOf [||] [||]
+                        |> Expect.equal "none at all" Refusal.NoDoseRules
+
+                        OrderContext.refusalOf [| 1 |] [||]
+                        |> Expect.equal "none for the patient" Refusal.NoDoseRulesForPatient
+
+                        OrderContext.refusalOf [| 1 |] [| 1 |]
+                        |> Expect.equal "rules for the patient, dropped for their products" Refusal.NoProducts
+                    }
+
                     test "no rules for the picks is the first case" {
-                        OrderContext.refusalOf [||] |> Expect.equal "none" Refusal.NoDoseRules
 
                         EvaluateFixtures.pcmContext
                         |> OrderContext.refusal (NoRules())
@@ -803,6 +813,17 @@ let refusalTests =
                         | Ok(Refused(OrderContext.UpdateOrderContext ctx, Refusal.NoDoseRules)) ->
                             ctx.Filter.Generic |> Expect.equal "the pick kept" sent.Filter.Generic
                             ctx.Scenarios |> Expect.equal "the scenarios as sent" sent.Scenarios
+                        | other -> failtest $"expected a refusal without rules, got %A{other}"
+                    }
+
+                    test "a form alone is a pick, refused without rules" {
+                        let formOnly =
+                            { EvaluateFixtures.pcmContext with
+                                Filter = { EvaluateFixtures.fresh with Form = Some "tablet" }
+                            }
+
+                        match formOnly |> OrderContext.UpdateOrderContext |> evaluateOutcome with
+                        | Ok(Refused(_, Refusal.NoDoseRules)) -> ()
                         | other -> failtest $"expected a refusal without rules, got %A{other}"
                     }
 

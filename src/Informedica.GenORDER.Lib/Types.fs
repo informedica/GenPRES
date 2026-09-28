@@ -582,6 +582,9 @@ module Types =
         | NoDoseRules
         /// Dose rules exist for the picks, and none of them covers this patient.
         | NoDoseRulesForPatient
+        /// Dose rules cover the picks and the patient, and none of them can be prescribed: no
+        /// product, or no dose type.
+        | NoProducts
 
 
     /// What an evaluation answers when it does not fail: the value evaluated, or the value as

@@ -41,6 +41,9 @@ type Refusal =
     | NoDoseRules
     /// Dose rules exist for the picks, and none of them covers this patient.
     | NoDoseRulesForPatient
+    /// Dose rules cover the picks and the patient, and none of them can be prescribed: no
+    /// product, or no dose type.
+    | NoProducts
 
 
 /// What an evaluation answers when it does not fail: the value evaluated, or the value as it
@@ -93,21 +96,31 @@ module OrderContext =
         }
 
 
-    /// Which refusal an empty answer is: the dose rules for the picks, the patient left out,
-    /// decide. None at all is the first case; some, none of which matched with the patient
-    /// in, is the second.
-    let refusalOf (rulesForPicks: Types.DoseRule[]) =
-        if rulesForPicks |> Array.isEmpty then
+    /// Which refusal an empty answer is, from the dose rules for the picks: none with the
+    /// patient left out is the first case; none with the patient in is the second; some with
+    /// the patient in, which the rule lookup then dropped for having no product or no dose
+    /// type, is the third. Reads only whether each set is empty.
+    let refusalOf (forPicks: 'a[]) (forPatient: 'a[]) =
+        if forPicks |> Array.isEmpty then
             Refusal.NoDoseRules
-        else
+        elif forPatient |> Array.isEmpty then
             Refusal.NoDoseRulesForPatient
+        else
+            Refusal.NoProducts
 
 
-    /// The refusal for the context, read from the provider's dose rules.
+    /// The refusal for the context, read from the provider's dose rules: the picks alone,
+    /// then the picks with the patient as the rules match it (matchedPatient is in Api.fs).
+    /// Without a weight and a height no rule covers the patient.
     let refusal provider (ctx: OrderContext) =
-        Api.getDoseRules provider
-        |> Api.filterDoseRules provider (picks ctx)
-        |> refusalOf
+        let forPicks = Api.getDoseRules provider |> Api.filterDoseRules provider (picks ctx)
+
+        match ctx.Patient.Weight, ctx.Patient.Height with
+        | Some w, Some h ->
+            forPicks
+            |> Api.filterDoseRules provider { picks ctx with Patient = ctx |> matchedPatient provider w h }
+            |> refusalOf forPicks
+        | _ -> refusalOf forPicks [||]
 
 
     /// The scenarios for the context, as an outcome: evaluated, or refused with the context
@@ -127,6 +140,7 @@ module OrderContext =
             inputFilter.Generic.IsSome
             || inputFilter.Indication.IsSome
             || inputFilter.Route.IsSome
+            || inputFilter.Form.IsSome
             || inputFilter.DoseType.IsSome
 
         let outputIsEmpty =
@@ -209,10 +223,15 @@ let logger = OrderLogging.noOp
 let start = DateTime(2026, 9, 28)
 
 
-/// A provider that answers the dose rules given and nothing else the refusal reads.
+/// A provider that answers the dose rules given, the departments the matched patient reads,
+/// and nothing else.
 type Rules(rules: Types.DoseRule[]) =
     interface Resources.IResourceProvider with
-        member _.Get(_: Resources.ResourceKey<'T>) : 'T = raise (NotImplementedException())
+        member _.Get(key: Resources.ResourceKey<'T>) : 'T =
+            if key.Name = Resources.Keys.departments.Name then
+                box (Resources.Departments.ofNamed []) :?> 'T
+            else
+                raise (NotImplementedException())
         member _.GetData() = raise (NotImplementedException())
         member _.GetUnitMappings() = raise (NotImplementedException())
         member _.GetRouteMappings() = [||]
@@ -296,15 +315,16 @@ let tests =
             testList
                 "the refusal over a rule set"
                 [
-                    test "no rules for the picks is the first case" {
-                        OrderContext.refusalOf [||] |> Expect.equal "none" Refusal.NoDoseRules
-                    }
+                    test "the three cases, read from the two rule sets" {
+                        OrderContext.refusalOf [||] [||] |> Expect.equal "none at all" Refusal.NoDoseRules
 
-                    test "rules for the picks that left the patient out is the second case" {
+                        OrderContext.refusalOf [| 1 |] [||]
+                        |> Expect.equal "none for the patient" Refusal.NoDoseRulesForPatient
+
+                        OrderContext.refusalOf [| 1 |] [| 1 |]
+                        |> Expect.equal "rules for the patient, dropped for their products" Refusal.NoProducts
+
                         salbutamolRules |> Array.isEmpty |> Expect.isFalse "the data holds salbutamol rules"
-
-                        OrderContext.refusalOf salbutamolRules
-                        |> Expect.equal "some" Refusal.NoDoseRulesForPatient
                     }
 
                     test "the refusal reads the provider's rules through the picks" {
@@ -313,8 +333,11 @@ let tests =
                         OrderContext.refusal (Rules [||]) ctx
                         |> Expect.equal "no rules at all" Refusal.NoDoseRules
 
+                        // some salbutamol rule covers a six-day-old by another route, so with the
+                        // generic alone the refusal is for the products or for the patient, never
+                        // none; the route-bound case is the live test below
                         OrderContext.refusal (Rules salbutamolRules) ctx
-                        |> Expect.equal "rules for salbutamol" Refusal.NoDoseRulesForPatient
+                        |> Expect.notEqual "rules for salbutamol" Refusal.NoDoseRules
 
                         { ctx with Filter = { ctx.Filter with Generic = Some "geen middel" } }
                         |> OrderContext.refusal (Rules salbutamolRules)

@@ -648,6 +648,56 @@ module OrderContext =
         }
 
 
+    /// The five picks of the filter as the rule lookup reads them: the field's own choice,
+    /// else the one option the field offers. Over no patient, so the dose rule filter leaves
+    /// the patient out.
+    let picks (ctx: OrderContext) : DoseFilter =
+        let pick chosen offered =
+            if chosen |> Option.isSome then
+                chosen
+            else
+                offered |> Array.someIfOne
+
+        { Filter.doseFilter with
+            Indication = pick ctx.Filter.Indication ctx.Filter.Indications
+            Generic = pick ctx.Filter.Generic ctx.Filter.Generics
+            Route = pick ctx.Filter.Route ctx.Filter.Routes
+            Form = pick ctx.Filter.Form ctx.Filter.Forms
+            DoseType = pick ctx.Filter.DoseType ctx.Filter.DoseTypes
+        }
+
+
+    /// The patient as the rules match it: the provider's default department for one without,
+    /// which applies to the matching only and never to the patient, and the weight and the
+    /// height it has.
+    let matchedPatient
+        (provider: Informedica.GenForm.Lib.Resources.IResourceProvider)
+        w
+        h
+        (ctx: OrderContext)
+        : Patient
+        =
+        {
+            Location = ctx.Patient.Location
+            Department =
+                ctx.Patient.Department
+                |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
+                    provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
+                )
+            Age = ctx.Patient.Age
+            GestAge = ctx.Patient.GestAge
+            PMAge = ctx.Patient.PMAge
+            Weight = Some w
+            Height = Some h
+            WeightMeasured = ctx.Patient.WeightMeasured
+            HeightMeasured = ctx.Patient.HeightMeasured
+            Diagnoses = [||]
+            Gender = ctx.Patient.Gender
+            Access = ctx.Patient.Access
+            RenalFunction = ctx.Patient.RenalFunction
+        }
+
+
     /// The rules for the context's selection and patient, and the context with its pick lists
     /// narrowed to them. A weight and a height are needed; a department is not, a patient
     /// without one being matched as a patient of the provider's default department, while the
@@ -655,69 +705,14 @@ module OrderContext =
     /// there are no rules.
     let getRules logger (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) (ctx: OrderContext) =
 
-        match ctx.Patient.Weight, ctx.Patient.Height, ctx.Patient.Department with
-        | Some w, Some h, d ->
-
-            let ind =
-                if ctx.Filter.Indication.IsSome then
-                    ctx.Filter.Indication
-                else
-                    ctx.Filter.Indications |> Array.someIfOne
-
-            let gen =
-                if ctx.Filter.Generic.IsSome then
-                    ctx.Filter.Generic
-                else
-                    ctx.Filter.Generics |> Array.someIfOne
-
-            let rte =
-                if ctx.Filter.Route.IsSome then
-                    ctx.Filter.Route
-                else
-                    ctx.Filter.Routes |> Array.someIfOne
-
-            let frm =
-                if ctx.Filter.Form.IsSome then
-                    ctx.Filter.Form
-                else
-                    ctx.Filter.Forms |> Array.someIfOne
-
-            let dst =
-                if ctx.Filter.DoseType.IsSome then
-                    ctx.Filter.DoseType
-                else
-                    ctx.Filter.DoseTypes |> Array.someIfOne
+        match ctx.Patient.Weight, ctx.Patient.Height with
+        | Some w, Some h ->
 
             let doseFilter =
-                {
-                    Indication = ind
-                    Generic = gen
-                    Route = rte
-                    Form = frm
-                    DoseType = dst
+                { picks ctx with
                     Diluent = ctx.Filter.Diluent
                     Components = ctx.Filter.SelectedComponents |> Array.toList //TODO probably go for lists
-                    Patient =
-                        {
-                            Location = ctx.Patient.Location
-                            // the default applies to the matching only, never to the patient
-                            Department =
-                                d
-                                |> Informedica.GenForm.Lib.Resources.Departments.forPatient (
-                                    provider.Get Informedica.GenForm.Lib.Resources.Keys.departments
-                                )
-                            Age = ctx.Patient.Age
-                            GestAge = ctx.Patient.GestAge
-                            PMAge = ctx.Patient.PMAge
-                            Weight = Some w
-                            Height = Some h
-                            WeightMeasured = ctx.Patient.WeightMeasured
-                            HeightMeasured = ctx.Patient.HeightMeasured
-                            Diagnoses = [||]
-                            Gender = ctx.Patient.Gender
-                            Access = ctx.Patient.Access
-                            RenalFunction = ctx.Patient.RenalFunction
-                        }
+                    Patient = ctx |> matchedPatient provider w h
                 }
 
             let inds = doseFilter |> filterIndications logger provider
@@ -1005,40 +1000,31 @@ Scenarios: {scenarios}
     let noDoseRulesMessage = "Geen doseerregels gevonden voor het geselecteerde filter"
 
 
-    /// The five picks of the filter as the rule lookup reads them: the field's own choice,
-    /// else the one option the field offers. Over no patient, so the dose rule filter leaves
-    /// the patient out.
-    let picks (ctx: OrderContext) : DoseFilter =
-        let pick chosen offered =
-            if chosen |> Option.isSome then
-                chosen
-            else
-                offered |> Array.someIfOne
-
-        { Filter.doseFilter with
-            Indication = pick ctx.Filter.Indication ctx.Filter.Indications
-            Generic = pick ctx.Filter.Generic ctx.Filter.Generics
-            Route = pick ctx.Filter.Route ctx.Filter.Routes
-            Form = pick ctx.Filter.Form ctx.Filter.Forms
-            DoseType = pick ctx.Filter.DoseType ctx.Filter.DoseTypes
-        }
-
-
-    /// Which refusal an empty answer is: the dose rules for the picks, the patient left out,
-    /// decide. None at all is the first case; some, none of which matched with the patient
-    /// in, is the second.
-    let refusalOf (rulesForPicks: DoseRule[]) =
-        if rulesForPicks |> Array.isEmpty then
+    /// Which refusal an empty answer is, from the dose rules for the picks: none with the
+    /// patient left out is the first case; none with the patient in is the second; some with
+    /// the patient in, which the rule lookup then dropped for having no product or no dose
+    /// type, is the third. Reads only whether each set is empty.
+    let refusalOf (forPicks: 'a[]) (forPatient: 'a[]) =
+        if forPicks |> Array.isEmpty then
             Refusal.NoDoseRules
-        else
+        elif forPatient |> Array.isEmpty then
             Refusal.NoDoseRulesForPatient
+        else
+            Refusal.NoProducts
 
 
-    /// The refusal for the context, read from the provider's dose rules.
+    /// The refusal for the context, read from the provider's dose rules: the picks alone,
+    /// then the picks with the patient as the rules match it. Without a weight and a height
+    /// no rule covers the patient.
     let refusal provider (ctx: OrderContext) =
-        Api.getDoseRules provider
-        |> Api.filterDoseRules provider (picks ctx)
-        |> refusalOf
+        let forPicks = Api.getDoseRules provider |> Api.filterDoseRules provider (picks ctx)
+
+        match ctx.Patient.Weight, ctx.Patient.Height with
+        | Some w, Some h ->
+            forPicks
+            |> Api.filterDoseRules provider { picks ctx with Patient = ctx |> matchedPatient provider w h }
+            |> refusalOf forPicks
+        | _ -> refusalOf forPicks [||]
 
 
     /// The scenarios for the context, as an outcome: evaluated, or refused with the context
@@ -1058,6 +1044,7 @@ Scenarios: {scenarios}
             inputFilter.Generic.IsSome
             || inputFilter.Indication.IsSome
             || inputFilter.Route.IsSome
+            || inputFilter.Form.IsSome
             || inputFilter.DoseType.IsSome
 
         let outputIsEmpty = ctx.Filter.Generics |> Array.isEmpty && ctx.Filter.Indications |> Array.isEmpty
