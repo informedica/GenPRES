@@ -232,7 +232,7 @@ Planned in [985-what-the-rules-allow-and-deviating-from-it.md](985-what-the-rule
 
 | Issue | Milestone | Status |
 |---|---|---|
-| #499 | M4 | open: planned, the argumentation on the order context; the second track |
+| #499 | M4 | done: the argumentation on the order context, typed in the dose dialog, stored with the signed version, PRs #1156 to #1161 |
 | #505 | M4 | closed 2026-09-28, not built: a user-defined range outside the rules is a missing dose rule; stepping out of range stays the deliberate route |
 | **+**#478 | M4 | done: the contact sentence in the notice, PRs #1147 to #1151 |
 | **+**#911 | none | done: the reason in place, no page switch, PRs #1147 to #1151 |
@@ -281,8 +281,14 @@ missing dose rule, and stepping a value out of its range stays the deliberate ro
 PRs #1146 to #1151, 2026-09-28: the server answers a typed refusal in the reply, the page keeps
 its place and its picks and says why, with whom to tell, and the emergency list is never the
 answer. Found on the way and filed as #1155: the plan lane's `Navigate` and the nutrition
-discovery still drop a pick the rules no longer offer, in silence. The second track, the
-argumentation of #499, follows in the same plan.
+discovery still drop a pick the rules no longer offer, in silence.
+
+**Built**, the second track, PRs #1156 to #1161, 2026-09-28: the argumentation from the domain to
+the store, under structure version 2 of the plan JSON, capped by the server where it parses a
+context; the rule and the two messages in `Client.Core`, the text the client's own and kept over
+every answer; the field last in the dose dialog, shown when the one scenario's order is marked or
+a text is present, and the read-only line in the sign dialog; a reset takes the text with it.
+Closed 2026-09-28 with #499 and #985; #1155 stays open on its own.
 
 **To settle:**
 
@@ -291,8 +297,9 @@ argumentation of #499, follows in the same plan.
 - the `Client.Core` change that shows it in place, with a test: done, the machine holds the
   refusal and a policy words it, deferring to the page's own notice on a missing weight or
   height;
-- where a free-text argumentation is stored on the signed order plan version: decided, on the
-  order context; when the dialog asks for it is confirmed on its pull request;
+- where a free-text argumentation is stored on the signed order plan version: done, on the
+  order context, under structure version 2; the dialog asks for it when the one scenario's
+  order is marked or a text is present, confirmed on #1158;
 - the range as an order variable the user may leave unresolved: closed with #505, not built.
 
 **Uses** C6 `Notice` in the first track; C4 `SeverityMark` in the second.
@@ -588,7 +595,7 @@ on a design come last:
 3. G1, [982-one-dropdown-one-set-of-controls-one-state.md](982-one-dropdown-one-set-of-controls-one-state.md):
    built, closed 2026-09-25;
 4. G4, [985-what-the-rules-allow-and-deviating-from-it.md](985-what-the-rules-allow-and-deviating-from-it.md):
-   first track built 2026-09-28, the argumentation of #499 to follow;
+   built, closed 2026-09-28;
 5. G6;
 6. G7;
 7. G2;
