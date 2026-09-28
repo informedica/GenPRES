@@ -8,9 +8,9 @@ The eleven umbrella issues were filed from this index on 2026-09-24:
 [#981](https://github.com/informedica/GenPRES/issues/981) for G0 and
 [#982](https://github.com/informedica/GenPRES/issues/982) to
 [#991](https://github.com/informedica/GenPRES/issues/991) for G1 to G10. Each group's members are
-sub-issues of its umbrella. Two umbrellas are built and closed, #981 and #982 (2026-09-25); G5's
-work is built, but #986 stays open for #718. Member status in the tables below is as of
-2026-09-27.
+sub-issues of its umbrella. Three umbrellas are built and closed: #981 and #982 (2026-09-25),
+and #984 (2026-09-28). G5's work is built, but #986 stays open for #718. Member status in the
+tables below is as of 2026-09-28.
 
 The index has no issue number of its own, because it is not a plan for one issue; each per-group
 plan is named after its umbrella.
@@ -570,6 +570,6 @@ on a design come last:
 7. G2;
 8. G10, whose plan opens with the (a)/(b) decision of #518, so it may end as a closing note
    rather than a build;
-9. G3;
+9. G3, [984-the-dose-dialog.md](984-the-dose-dialog.md): built, closed 2026-09-28;
 10. G8;
 11. G9, whose plan may end as a set of questions.
