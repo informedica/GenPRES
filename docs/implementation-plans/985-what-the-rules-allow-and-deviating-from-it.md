@@ -54,6 +54,7 @@ Taken 2026-09-28 by the maintainer.
 | How the reason travels (#977) | In the reply, not in the error channel: `processOrderContext` answers a response, `Evaluated` with the context or `Refused` with the context as sent and a typed refusal. This follows `LaunchOutcome.Refused` and `SigningResponse.Refused`. The string array stays the error channel for failures: the patient gate, a DTO that does not parse, rules not loaded, an exception. |
 | Whom to contact (#478) | One localized sentence, the same for every site. No server setting. |
 | Where the argumentation lives (#499) | On GenORDER's `OrderContext`, the record evaluation works on, and on the contract's `OrderContext`. Not on GenORDER's `PlanContext` wrapper, and not on the order or the scenario, which every solve regenerates. The contract has no wrapper: its `OrderContext` already carries the id, the category and the intake. It reaches the stored plan JSON through the context of each plan context. |
+| Whether the text is required (#499) | No. The issue asks for an optional field, and the plan follows it: the explicit act of rule 1 is the step that takes the dose out of its range, and signing does not check for a text. A required text would be a change to #499, decided on the issue, not here. |
 | The range (#505) | Closed on 2026-09-28, before this plan, not built: a range the user defines outside the rules is a missing dose rule, and stepping a value out of its range stays the deliberate route. Nothing in this plan. |
 
 One question stays open, to confirm on the pull request of step 8: when the dialog asks for the
@@ -105,10 +106,13 @@ documentation after each track.
 ### The page stays and says why
 
 **GenORDER.** A refusal type beside `OrderContext` with two cases: `NoDoseRules`, no dose rule
-exists for the generic and route at all; and `NoDoseRulesForPatient`, dose rules exist for the
-generic and route and none covers this patient. The second is detected by filtering the loaded
-dose rules on generic and route alone, without the patient. It is not detected by running the
-rule filter with the patient's values left out: a missing value never matches a bounded range,
+exists for the picks at all; and `NoDoseRulesForPatient`, dose rules exist for the picks and
+none covers this patient. The picks are the indication, the generic, the route, the form and the
+dose type, as far as they are set: the same five `getRules` puts in its dose filter. The second
+case is detected by filtering the loaded dose rules on those picks and nothing else, so a
+generic and route that have rules only for another indication, form or dose type give the first
+case, not the second. It is not detected by running the rule filter with the patient's values
+left out: a missing value never matches a bounded range,
 as the comment above the selects in `Views/Prescribe.fs` already says of a patient without an
 age. `OrderContext.evaluate` returns an outcome, `Evaluated` with the context or `Refused` with
 the context as sent, its picks kept, and the refusal; the message list stays the error for real
@@ -117,8 +121,8 @@ message, so the MCP host and the GenORDER tests do not move in the same pull req
 
 **Contract.** `OrderContextRefusal` and `OrderContextResponse`, next to `LaunchOutcome` in
 `Shared/Types.fs`; `processOrderContext` replies the response. Terms for the notice: a title, one
-body per case naming the generic and the route, and for the patient case that the patient is
-outside every rule, and the contact sentence. They are drafted in `Shared/Scripts/Localization.fsx`
+body per case naming the picks, and for the patient case that the patient is outside every
+rule, and the contact sentence. They are drafted in `Shared/Scripts/Localization.fsx`
 and pasted into `Terms` and the localization sheet, as the session refusals were.
 
 **Server.** The order-context port and service carry the outcome; `processOrderContext` maps it
@@ -205,10 +209,11 @@ changed lines of shipped code under `src/`.
 
 1. **This plan** (docs), committed locally and read by the maintainer before it is pushed.
 2. **The typed outcome in GenORDER.** A script in `src/Informedica.GenORDER.Lib/Scripts/` with
-   the refusal type, the outcome, the generic-and-route detection and the wrapper. Its tests: an
-   unknown generic gives `NoDoseRules`; salbutamol for a six-day-old on the infusion-pump list
-   gives `NoDoseRulesForPatient`; a normal pick gives `Evaluated`; the wrapper still yields the
-   Dutch message. The tests migrate to `tests/Informedica.GenORDER.Tests`. About 40 source lines.
+   the refusal type, the outcome, the detection on the picks without the patient, and the
+   wrapper. Its tests: an unknown generic gives `NoDoseRules`; a generic and route with rules
+   only for another indication give `NoDoseRules`; salbutamol for a six-day-old on the
+   infusion-pump list gives `NoDoseRulesForPatient`; a normal pick gives `Evaluated`; the
+   wrapper still yields the Dutch message. The tests migrate to `tests/Informedica.GenORDER.Tests`. About 40 source lines.
 3. **The contract additions.** The two types and the terms, sheet rows included; the API
    signature does not change yet, step 4 changes it, so nothing else moves here. About 25 source
    lines.
@@ -248,8 +253,8 @@ outside this plan.
   where server code is removed or reshaped; the Fable compile with a reading of the generated
   output for nesting and hoisted icon imports, then `npx vite build`, after steps 4, 5 and 9.
 - In the browser, the first track: a six-day-old patient, the infusion-pump list, salbutamol.
-  The prescribing page stays, with its picks; the notice names the generic and the
-  route, says the patient is outside every rule, and ends with the contact sentence; picking
+  The prescribing page stays, with its picks; the notice names the picks, says the patient is
+  outside every rule, and ends with the contact sentence; picking
   another route clears it; a medication with no rules at all, from the emergency list, gives the
   other sentence; a real failure still reaches the snackbar; no answer ever shows the emergency
   list.

@@ -269,8 +269,8 @@ reason, not a marker the client matches on.
 **Decisions** (2026-09-28, in [985's plan](985-what-the-rules-allow-and-deviating-from-it.md)):
 the reason travels in the reply, as a response that is either the evaluated context or the
 context as sent with a typed refusal, the shape of `LaunchOutcome.Refused`; the error channel
-stays for failures. Two refusals: no dose rule for the generic and route at all, and rules that
-exist but cover no patient like this one. Whom to contact is one localized sentence for every
+stays for failures. Two refusals: no dose rule for the picks at all, and rules for the picks that
+cover no patient like this one; the text is optional, as #499 asks. Whom to contact is one localized sentence for every
 site. The argumentation lives on the order context, GenORDER's and the contract's, typed in the
 dose dialog and stored with the signed version under a new structure version of the plan JSON.
 Issue #505 was closed the same day, not built: a range the user defines outside the rules is a
