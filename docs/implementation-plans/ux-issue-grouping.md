@@ -188,46 +188,44 @@ and it reaches beyond the client: the brand belongs to the product, not to the g
 
 ### G3 — The dose dialog (#984)
 
+Planned in [984-the-dose-dialog.md](984-the-dose-dialog.md); built in PRs #1128, #1131 and #1132,
+closed 2026-09-28.
+
 | Issue | Milestone | Status |
 |---|---|---|
-| #397 | post-MVP | open |
-| #402 | none | open: the reason on hover exists (C4, PR #1016); the wording is not settled |
-| #405 | post-MVP | open: since #1102 the field shows which meaning applies; the two are not yet split |
-| #496 | none | open: #500 was closed into it on 2026-09-26 |
-| **+**#978 | none | open: the umbrella for the field list below |
+| #397 | post-MVP | closed 2026-09-28: the order stays, `keer dosis` before `dosering`, the calculation order |
+| #402 | none | done: the reason on hover, C4, PR #1016; the wording stands; closed 2026-09-28 |
+| #405 | post-MVP | done: the field shows which meaning applies, #1102 and PR #1125; closed 2026-09-28 |
+| #496 | none | open, left the group with #978; #500 was closed into it on 2026-09-26 |
+| **+**#978 | none | open, left the group: the server-sent field list and lead field, on its own |
 
 **Cause.**
 
-- *Field order.* `Views/Order.fs` decides for itself which fields it shows and in what order:
-  `keer dosis` then `dosering`, hard-coded per dose type. #397 asks for the reverse; the reply on
-  the issue argues that the current order is the calculation order. The client should not settle
-  this. Which fields an order shows, and in what order, is configuration: the server sends it with
-  the order (#978), and the client renders what it receives, in that order. The order is then set
-  once, in configuration, and can differ per dose type or setting without a client change.
-- *Severity.* Severity reached the user only as a coloured double underline (`SimpleSelect`'s
-  `warning` styling), with no reason and no icon (#402).
+- *Field order.* `Views/Order.fs` decides which fields it shows and in what order: `keer dosis`
+  then `dosering`, hard-coded per dose type. #397 asked for the reverse; the reply on the issue
+  argues that the current order is the calculation order.
+- *Severity.* Severity reached the user only as a coloured double underline, with no reason and
+  no icon (#402).
 - *Stepper buttons.* The outer two of the five stepper buttons have two meanings: min/max while
-  the variable can still be navigated, and a large step once it is solved (`first` and `last` in
-  `ViewHelpers.createStepper`). That is #405. Since #1102 the field shows which meaning applies:
-  jump icons while navigable, and the large step as text (`−5` / `+5`) once it can be stepped. The
-  two meanings are not yet split.
-- *Which field moves the dose.* #496 asks which field to change to move the dose; the solver knows
-  this but does not show it.
+  the variable can still be navigated, and a large step once it is solved (#405).
+- *Which field moves the dose.* #496 asks which field to change to move the dose; the solver
+  knows this but does not show it.
+- *The preparation section*, not in the issues: it stayed open with all its fields once every
+  preparation value was solved, and took room from the sections the user was working in.
 
-**To settle:**
+**Decision** (2026-09-28): the field order stays as it is; the dose is calculated from the dose
+per administration and the frequency, and #397 closes with that. Which fields the server sends,
+in what order and which one to start from (#978, with #496 as its member) leaves the group and
+stays open on its own. #402 is fixed by the mark with its reason; #405 by the field showing which
+meaning the outer buttons carry, and leaving the outer slots out when the large step is the small
+one. Halve and double are not planned. The stepping stays as it is: the small step is the defined
+increment, the large step the calculated increment, which is the grid the solver narrowed the
+order to; the server's copy of that rule moves into GenORDER under #1129. The preparation section
+folds behind its heading once every value it shows holds one value, opens while one is still to
+be chosen, and takes the user's toggle in between; the order view only.
 
-- the shape of the field list the server sends: which order variables, in what order, which of
-  them the user may change, and where this is configured;
-- the client rendering from that list instead of from its own case per dose type;
-- a hover reason for a warning, built from what the wire already carries: every `OrderVariable`
-  arrives with its `Level` (four values, no text) and its `DefinedConstraints` and
-  `CalculatedConstraints`, so which bound was crossed, and by how much, can be shown without a new
-  server field;
-- splitting min/max from the large step, plus double and halve;
-- "this field moves the dose" (#496) as part of the same list, with the server marking the field
-  the user should start from.
-
-**Uses** C1 `QuantityField`, C4 `SeverityMark`, C5 `ValueChip`, C10 `SectionHeading`.
+**Uses** C1 `QuantityField`, C4 `SeverityMark`, C10 `SectionHeading`; the fold is `SectionFold`
+in `Client.Core`, a heading with a button, not C9.
 
 ### G4 — What the rules allow, and deviating from it (#985)
 
