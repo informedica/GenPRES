@@ -280,7 +280,7 @@ missing dose rule, and stepping a value out of its range stays the deliberate ro
 **Built**, the first track, in [985's plan](985-what-the-rules-allow-and-deviating-from-it.md),
 PRs #1146 to #1151, 2026-09-28: the server answers a typed refusal in the reply, the page keeps
 its place and its picks and says why, with whom to tell, and the emergency list is never the
-answer. Found on the way and left as a follow-up: the plan lane's `Navigate` and the nutrition
+answer. Found on the way and filed as #1155: the plan lane's `Navigate` and the nutrition
 discovery still drop a pick the rules no longer offer, in silence. The second track, the
 argumentation of #499, follows in the same plan.
 
