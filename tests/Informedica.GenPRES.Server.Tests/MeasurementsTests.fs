@@ -168,7 +168,9 @@ let tests =
             }
 
             test "a cleared weight stays cleared after a resume, whatever the EHR's actual" {
-                // the panel shows the estimate once the measured weight is cleared, and sends it
+                // a request that carries a cleared weight, with the estimate in its place: the
+                // panel sends one only for an anonymous patient, since an identified patient's
+                // weight is changed, never cleared; the Session records it all the same
                 let cleared =
                     { shown with
                         Weight =
