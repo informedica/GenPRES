@@ -93,10 +93,14 @@ pipeline step `increaseIncrements` (`Order.fs`, run with a limit of ten values) 
 orderable quantity and rate increments through 0.1, 0.5, 1, 5, 10 and 20 ml until at most ten
 values remain, and the calculated increment is the grid the order narrowed to. Today's large
 step moves along that grid. After the change a large step of ten times 0.1 ml on a variable
-whose grid is 5 ml is snapped to the grid by `pickNearestHigherElseLower` after the re-solve, so
-it may not move the value, or move it 5 ml. The small step, ten times smaller, has had this
-since it stepped by the defined increment; the change makes the two steps agree. A continuous
-order is not widened, so the 0.1 ml/h rate, the common case, steps as it does today.
+whose grid is 5 ml sets a value off the grid as the variable's one value. Nothing snaps it back:
+the change-property pipeline applies the step and re-solves the min and max (`calcMinMax`), and
+`pickNearestHigherElseLower` runs only for component quantities in the solve pipeline. Either
+the solver accepts the value and the other variables follow it, or the solve fails and the
+order stays as it was before the step, which the client shows as the value coming back. The
+small step, ten times smaller, has had this since it stepped by the defined increment; the
+change makes the two steps agree. A continuous order is not widened, so the 0.1 ml/h rate, the
+common case, steps as it does today.
 
 **The rule.** In GenORDER:
 
@@ -227,7 +231,9 @@ code pull request.
    bullet and the step node of the diagram in
    [the dose quantity stepping flow](../domain/dose-quantity-stepping-flow.md) and the icons
    bullet in [plan 1102](1102-one-quantity-field-for-every-order-variable.md) follow in the same
-   pull request. About 60 source lines in GenORDER; about 40 removed in the server.
+   pull request. The stepping flow document says in three places that a step is snapped by
+   `pickNearestHigherElseLower`; it is not, and the same pull request corrects that. About 60
+   source lines in GenORDER; about 40 removed in the server.
 3. **The preparation section folds when solved.** A script in
    `src/Informedica.GenPRES.Client.Core/Scripts/` with `SectionFold` and its tests: open when
    not solved, folded when solved, the toggle flips and holds, `observe` with the same state
@@ -249,8 +255,8 @@ code pull request.
   ten increments; a 0.1 ml/h rate still moves 1 ml/h; a dose quantity whose calculated increment
   equalled its defined one now shows its outer buttons; frequency shows no outer slots; a dose
   quantity of a multi-component orderable still saturates at the prepared quantity. On a
-  paracetamol oral solution whose quantity increment the pipeline widened, a large step lands on
-  the widened grid, as the order-level test says. In the nutrition view a stepable component
+  paracetamol oral solution whose quantity increment the pipeline widened, a large step does what
+  the order-level test says: the value is accepted or comes back. In the nutrition view a stepable component
   quantity and dose rate show their outer buttons as well, reading ten times the defined
   increment, and its frequency shows no outer slots.
 - Step 3: the script's tests, then the `Client.Core` tests. In the browser, on a
