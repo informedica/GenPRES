@@ -1,3 +1,5 @@
+// Migrated to OrderContextRefusalPolicy.fs and its tests on 2026-09-28; kept as the draft.
+//
 // Step 5 of the plan for #985: the words of a refusal. The server says why no dose can be shown
 // as one of three cases; the page renders a notice from the terms of #1148: a title, the body
 // of the case with the picks filled in, and the contact sentence. Pure F#, the pattern of

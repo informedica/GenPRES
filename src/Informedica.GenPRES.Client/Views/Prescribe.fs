@@ -218,6 +218,31 @@ module Prescribe =
                 <Box sx={noticeSx}>{notice}</Box>
                 """
 
+        // the server refused the picks: no dose can be shown, and the page says why, with the
+        // picks kept above it for the user to change
+        let refusalNotice =
+            match orderContext with
+            | OrderContextView.Refused(ctx, refusal) ->
+                let tr (term: Terms) = term |> getTerm (OrderContextRefusalPolicy.english term)
+
+                let words = OrderContextRefusalPolicy.notice tr ctx refusal
+
+                let notice =
+                    Components.Notice.View
+                        {|
+                            kind = Components.Notice.Kind.Warning
+                            title = Some words.Title
+                            message = words |> OrderContextRefusalPolicy.message
+                            action = None
+                            onClose = None
+                        |}
+
+                JSX.jsx
+                    $"""
+                <Box sx={noticeSx}>{notice}</Box>
+                """
+            | _ -> null
+
         let progress =
             match orderContext with
             | OrderContextView.NoPatient ->
@@ -720,6 +745,7 @@ module Prescribe =
         <div>
             <Box>
                 {notice}
+                {refusalNotice}
                 {cards}
                 {progress}
             </Box>
