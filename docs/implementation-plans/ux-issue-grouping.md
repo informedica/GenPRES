@@ -228,13 +228,15 @@ in `Client.Core`, a heading with a button, not C9.
 
 ### G4 — What the rules allow, and deviating from it (#985)
 
+Planned in [985-what-the-rules-allow-and-deviating-from-it.md](985-what-the-rules-allow-and-deviating-from-it.md).
+
 | Issue | Milestone | Status |
 |---|---|---|
-| #499 | M4 | open |
-| #505 | M4 | open |
-| **+**#478 | M4 | open |
-| **+**#911 | none | open |
-| **+**#977 | none | open: the umbrella for the decision below |
+| #499 | M4 | open: planned, the argumentation on the order context |
+| #505 | M4 | open, leaves the group: a constraint question in GenORDER, to be planned on its own |
+| **+**#478 | M4 | open: planned, the contact sentence in the notice |
+| **+**#911 | none | open: planned, the reason in place |
+| **+**#977 | none | open: the umbrella for the decision below; planned |
 
 **Cause.** One question, from two sides.
 
@@ -264,14 +266,27 @@ reason, the page stays where it is and says why. There is no page switch. `GoToL
 removed; the server's error is shown as a `Notice` on the current page, and the server sends the
 reason, not a marker the client matches on.
 
+**Decisions** (2026-09-28, in [985's plan](985-what-the-rules-allow-and-deviating-from-it.md)):
+the reason travels in the reply, as a response that is either the evaluated context or the
+context as sent with a typed refusal, the shape of `LaunchOutcome.Refused`; the error channel
+stays for failures. Two refusals: no dose rule for the generic and route at all, and rules that
+exist but cover no patient like this one. Whom to contact is one localized sentence for every
+site. The argumentation lives on the order context, GenORDER's and the contract's, typed in the
+dose dialog and stored with the signed version under a new structure version of the plan JSON.
+Issue #505 leaves the group: the range is a constraint question in GenORDER before it is a
+widget question, and it is planned on its own.
+
 **To settle:**
 
-- the reason the server sends when the rule set is empty, and whom the user should contact;
-- the `Client.Core` change that shows it in place, with a test;
-- where a free-text argumentation is stored on the signed order plan version;
-- the range as an order variable the user may leave unresolved.
+- the reason the server sends when the rule set is empty, and whom the user should contact:
+  decided, two typed refusals and one contact sentence;
+- the `Client.Core` change that shows it in place, with a test: decided, the machine holds the
+  refusal and a policy words it;
+- where a free-text argumentation is stored on the signed order plan version: decided, on the
+  order context; when the dialog asks for it is confirmed on its pull request;
+- the range as an order variable the user may leave unresolved: out of the group, with #505.
 
-**Uses** C4 `SeverityMark`, C5 `ValueChip`, C6 `Notice`.
+**Uses** C4 `SeverityMark`, C6 `Notice`; C5 `ValueChip` goes with #505.
 
 ### G5 — The patient: what is entered, what is estimated, what is hidden (#986)
 
@@ -563,7 +578,8 @@ on a design come last:
    and [976-two-patient-modes.md](976-two-patient-modes.md): built, closed 2026-09-28;
 3. G1, [982-one-dropdown-one-set-of-controls-one-state.md](982-one-dropdown-one-set-of-controls-one-state.md):
    built, closed 2026-09-25;
-4. G4;
+4. G4, [985-what-the-rules-allow-and-deviating-from-it.md](985-what-the-rules-allow-and-deviating-from-it.md):
+   planned 2026-09-28;
 5. G6;
 6. G7;
 7. G2;
