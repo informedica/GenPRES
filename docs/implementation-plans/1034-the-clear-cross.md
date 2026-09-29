@@ -30,8 +30,8 @@ Three terms are used throughout:
   `Navigable` (`QuantityModePolicy`).
 - **Stepped** means changed with the stepper buttons beside a field.
 
-Since #1031 pressing the cross clears one field and asks the server again. The recordings on
-#398 (alpha.38) show it still reads as a control that does nothing.
+Since #1031 pressing the cross clears one field and asks the server again. The recordings on the
+issue #398 (alpha.38) show it still reads as a control that does nothing.
 
 The cause: the cross does two different jobs.
 
