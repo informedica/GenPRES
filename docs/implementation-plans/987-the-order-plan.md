@@ -41,9 +41,9 @@ Taken 2026-09-29 by the maintainer.
 | Nutrition rows (#399) | The same rule applies to every plan row, drug and nutrition alike. |
 | The term cases (#648) | The maintainer grants the edit of `Shared/Localization.fs` in the sign dialog step. |
 | Nothing changed (#648) | The dialog shows one line saying there is no change, and signing stays allowed. |
-| What can change in a plan context | Only the frequency, the orderable dose quantity and the orderable dose rate. The plan cells and the order dialog opened from the plan both keep to this. Once start and stop are built, they can change too. |
+| What can change in a plan context | Only the frequency, the orderable dose quantity and the orderable dose rate. The plan cells and the order dialog opened from the plan both keep to this. It holds for every context in the plan, one added since the last signature too: another medication or route means removing the order and adding it again. The component orderable quantity of an order with more than one component is fixed as well. Once start and stop are built, they can change too. |
 | When a plan context can change | Only while its patient data match the plan's patient data: the whole patient record, age aside. Age changes by itself as time passes and needs a mechanism of its own. Later, the rules version joins the context, and a context whose rules version differs is locked too. |
-| A locked context | The row carries a lock mark whose hover text gives the reason. Its cells do not step, the order dialog opens read-only, and the context can still be removed. |
+| A locked context | Patient data that change after a signature, a new weight, access or department, lock every context calculated with the earlier data. The row carries a lock mark whose hover text gives the reason. Its cells do not step, the order dialog opens read-only, and the context can still be removed. |
 | Changed, for the sign dialog (#648) | A context counts as changed when one of the three variables or the argumentation differs from the version opened or signed. Other differences are not changes to an order in the plan. |
 
 ## Approaches considered
