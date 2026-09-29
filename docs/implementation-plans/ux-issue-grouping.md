@@ -539,7 +539,8 @@ other way a tab is left behind (#825).
 ## Small UI bugs outside the groups
 
 Six open bugs, found on 2026-09-29, belong to no group and need no design decision first. Each is
-low or medium effort. They are planned in pairs by the code they touch, not under an umbrella:
+low or medium effort. They are planned in pairs by the code they touch, not under an umbrella.
+All six were built and closed on 2026-09-29, in PRs #1196 to #1203:
 
 | Plan | Issues | What |
 |---|---|---|
