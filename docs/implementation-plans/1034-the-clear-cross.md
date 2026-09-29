@@ -130,7 +130,11 @@ constrained, in the field and in the reopen alike: the field offers the arrow, a
 gives an unknown value back as it gives a flagged one, so no choice of the user is lost. On such
 an order the values the solver derived are unknown too and are given back with the rest, so the
 reopen may bring back one value only, as a clear does today; it opens the list once the order
-has been built again after this change. A value the server
+has been built again after this change. So on such an order the arrow can make a round trip
+without showing another choice. That is accepted: the plan store holds development and test data
+only, so no order in use is stored before the flag. Treating only the fields the dialog lets the
+user pick as constrained would reopen these orders too, at the cost of a guess about who chose;
+it is not worth it for test data. A value the server
 chose by default when the order was first built is not flagged, and the reopen chooses it again
 the same way; only the cleared variable is left open.
 
