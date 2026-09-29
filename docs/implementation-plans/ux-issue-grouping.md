@@ -547,9 +547,9 @@ low or medium effort. They are planned in pairs by the code they touch, not unde
 | [1188-texts-through-the-terms.md](1188-texts-through-the-terms.md) | #1188, #1117 | A lowercase plan header; Dutch hover texts on the step buttons |
 | [1141-the-error-banner-and-the-float-parse.md](1141-the-error-banner-and-the-float-parse.md) | #1141, #1176 | A server error banner that outlives the error; the browser's float parse |
 
-Left out of this set: #398 and #1034, the clear cross that seems to do nothing, wait on the rule
-#1034 asks for; #1136 touches every page; #1155 is a GenORDER and server change; #507 sits in G9;
-#502 waits on a design.
+Left out of this set: #398 and #1034, the clear cross that seems to do nothing, wait on the
+rule that #1034 asks for; #1136 touches every page; #1155 is a GenORDER and server change; #507
+sits in G9; and #502 waits on a design.
 
 ## What the grouping surfaced
 
