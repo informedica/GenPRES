@@ -398,7 +398,9 @@ Planned in [987-the-order-plan.md](987-the-order-plan.md).
 **Decision** (2026-09-29): no adjust button. A cell that holds a stepable order variable opens
 a quantity field in a popover on hover, or on a tap in the card layout, and a click on the row
 still opens the dialog. The sign dialog lists the differences, each marked new, changed or
-removed, and says so when there are none; signing a plan as it is stays allowed.
+removed, and says so when there are none; signing a plan as it is stays allowed. An order context
+in the plan changes only in its frequency, orderable dose quantity and orderable dose rate, and
+only while its patient data, age aside, match the plan's; otherwise it is locked.
 
 **Uses** C1 `QuantityField`.
 

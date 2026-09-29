@@ -1,7 +1,8 @@
 # Implementation plan for issue #987
 
 Closing G6, the order plan, of [the grouping index](ux-issue-grouping.md#g6--the-order-plan-987):
-stepping an order from the plan table, and signing with a dialog that lists what changed.
+what an order context in the plan can change and when, stepping an order from the plan table,
+and signing with a dialog that lists what changed.
 
 - [Problem description](#problem-description)
 - [Decisions](#decisions)
@@ -40,6 +41,10 @@ Taken 2026-09-29 by the maintainer.
 | Nutrition rows (#399) | The same rule applies to every plan row, drug and nutrition alike. |
 | The term cases (#648) | The maintainer grants the edit of `Shared/Localization.fs` in the sign dialog step. |
 | Nothing changed (#648) | The dialog shows one line saying there is no change, and signing stays allowed. |
+| What can change in a plan context | Only the frequency, the orderable dose quantity and the orderable dose rate. The plan cells and the order dialog opened from the plan both keep to this. Once start and stop are built, they can change too. |
+| When a plan context can change | Only while its patient data match the plan's patient data: the whole patient record, age aside. Age changes by itself as time passes and needs a mechanism of its own. Later, the rules version joins the context, and a context whose rules version differs is locked too. |
+| A locked context | The row carries a lock mark whose hover text gives the reason. Its cells do not step, the order dialog opens read-only, and the context can still be removed. |
+| Changed, for the sign dialog (#648) | A context counts as changed when one of the three variables or the argumentation differs from the version opened or signed. Other differences are not changes to an order in the plan. |
 
 ## Approaches considered
 
@@ -58,12 +63,61 @@ For the sign dialog:
 
 - **Filter by `changed` alone.** A plan whose only change is a removal would then show an
   empty list while it does change the plan. Rejected.
-- **One pure difference over the opened contexts and the plan.** New, changed and removed come
-  from one function in `Client.Core`, and `changed` equals its new and changed part. Chosen.
+- **Compare whole contexts, as `changed` does.** A context also differs when its intake or
+  filter differs, which the plan context rule does not let the user change. Rejected.
+- **One pure difference over the opened contexts and the plan, on what the plan context rule
+  lets change.** New, changed and removed come from one function in `Client.Core`. Changed
+  means one of the three variables or the argumentation differs. Chosen.
 - **Block signing when nothing changed.** That would change `SigningPolicy.canSign`, which
   allows signing a plan as it is. Rejected by the decision above.
 
 ## Chosen approach
+
+### The order context in the plan
+
+Two rules decide what can happen to an order context once it is in the plan. Both hold for every
+context in the plan, drug and nutrition alike, and the cells, the order dialog and the sign
+dialog all read them from one pure module, `PlanContextPolicy` in `Client.Core`, after
+`QuantityModePolicy`:
+
+```fsharp
+/// Whether a field of an order context in the plan can change: the frequency, the orderable
+/// dose quantity and the orderable dose rate can; every other field cannot.
+let editable (field: QuantityModePolicy.Field) : bool
+
+/// Whether the patient data an order context was calculated with match the plan's patient
+/// data, the age aside.
+let matches (plan: OrderPlan) (ctx: OrderContext) : bool
+
+/// Whether an order context in the plan is locked: its patient data do not match the plan's.
+let locked (plan: OrderPlan) (ctx: OrderContext) : bool
+
+/// Whether an order context in the plan changed against its opened or signed version: one of
+/// the editable variables or the argumentation differs.
+let changed (opened: OrderContext) (ctx: OrderContext) : bool
+```
+
+- `editable` is true for `Frequency`, `DoseQuantity` and `DoseRate`, and false for
+  `ComponentQuantity` and `Other`.
+- `matches` compares `ctx.Patient` with `plan.Patient` after setting the context's age to the
+  plan's. Every other field, access, location and department included, has to be equal.
+- `changed` compares the values of `Schedule.Frequency`, `Orderable.Dose.Quantity` and
+  `Orderable.Dose.Rate` of the contributed orders, and the argumentation.
+- The two future additions, start and stop as editable fields and the rules version as a
+  second reason to lock, extend these functions and do not change their callers.
+
+**The order dialog opened from the plan**, `Views/OrderPlan.fs` and `Views/Order.fs`:
+
+- `Order.View` gets a prop that says per field whether it can be edited. The workbench on the
+  prescribe page passes all fields. The plan passes `PlanContextPolicy.editable`, or no field
+  at all when the context is locked.
+- A field that cannot be edited renders in the Fixed mode of the quantity field, which no call
+  site produces today. A select renders disabled.
+
+**The lock mark**, `Views/OrderPlan.fs`: the medication cell of a locked context shows a lock
+icon whose hover text gives the reason. Removing the context works as it does today. A new
+term, `Plan Context Locked`, holds the reason: the patient data differ from the data the order
+was calculated with.
 
 ### The sign dialog lists the differences (#648)
 
@@ -94,8 +148,9 @@ let differences (opened: OrderContext[]) (plan: OrderPlan) : (OrderContext * Dif
 - The rule compares contributions, the order a context holds once it is narrowed to one
   scenario, as the dialog shows them. A context that contributes no order has nothing to show:
   new, it is left out; of the version, it is removed.
-- `changed` keeps its meaning. A test holds that, over the contexts that contribute an order,
-  the ids of `differences` without the removed ones equal `changed`.
+- A context of the version is changed when `PlanContextPolicy.changed` says so.
+- `HeldContextPolicy.changed` keeps its meaning: whole contexts, for holding the patient
+  context. A test holds that every context `differences` marks changed is in it.
 - `OrderPlanState.differences` takes the plan and reads `Opened` the way `OrderPlanState.changed`
   does.
 - `IOrderPlan` gets a `Differences: OrderPlan -> (OrderContext * Difference)[]` member beside
@@ -136,8 +191,10 @@ an order and a plan column it gives the field and the variable the cell steps, o
 | medication, route, quantity, dose | nothing | nothing | nothing |
 
 - The quantity and dose columns show variables that the server has no step command for.
-- A cell opens only when `QuantityModePolicy.decideFor` says the variable is stepable. A cell
-  in any other mode keeps its text, and a click opens the order dialog as today.
+- A cell opens only when `QuantityModePolicy.decideFor` says the variable is stepable and the
+  context is not locked. A cell in any other mode keeps its text, and a click opens the order
+  dialog as today.
+- Every field the table steps is one `PlanContextPolicy.editable` allows.
 - The rule applies to nutrition rows as to drug rows. The nutrition view offers no frequency
   steps, so the frequency of a nutrition order becomes stepable from the table alone.
 
@@ -168,7 +225,10 @@ an order and a plan column it gives the field and the variable the cell steps, o
 
 ## Confidence
 
-- The sign dialog: High. The rule is small, and the data it needs is already in the machine.
+- The plan context rules and the sign dialog: High. The rules are small, and the data they
+  need is already in the machine.
+- The read-only order dialog: Medium. `Views/Order.fs` decides per field today; every field has
+  to take the new prop, and a field missed stays editable.
 - The stepable cells: Medium. How a hover popper behaves inside the DataGrid, with focus, the
   row click and row virtualization, has to be proven in the browser.
 
@@ -180,30 +240,37 @@ the maintainer has checked it in the browser. `scripts/CheckDependencyRule.fsx` 
 code pull request.
 
 1. **This plan** and the G6 section of the grouping index (docs).
-2. **The difference rule.** A script in `src/Informedica.GenPRES.Client.Core/Scripts/` with
-   `differences` and its tests:
-   - a new, a changed and a removed context;
-   - the order: plan order, then the removed contexts;
-   - an unchanged plan gives an empty list;
-   - a changed argumentation counts as changed;
-   - a change of the plan's filtered rows or the totals alone counts as no change;
-   - a context of the version that holds several candidates again counts as removed;
-   - a new context that contributes no order is left out;
-   - over the contexts that contribute an order, the new and changed ids equal `changed`.
+2. **The plan context rules and the difference rule.** A script in
+   `src/Informedica.GenPRES.Client.Core/Scripts/` with `PlanContextPolicy` and `differences`,
+   and their tests:
+   - `editable` for each field;
+   - `matches` with equal patient data, with only the age different, and with the weight,
+     the access or the department different;
+   - `changed` for each of the three variables, for the argumentation, and for a filter or
+     intake difference alone, which is no change;
+   - `differences`: a new, a changed and a removed context; plan order, then the removed
+     contexts; an unchanged plan gives an empty list; a change of the plan's filtered rows or
+     the totals alone is no change; a context of the version that holds several candidates
+     again counts as removed; a new context that contributes no order is left out; every
+     context marked changed is in `HeldContextPolicy.changed`.
 
-   The maintainer migrates it to `HeldContextPolicy`, `OrderPlanMachine` and the Client.Core
-   tests.
+   The maintainer migrates it to `PlanContextPolicy`, `HeldContextPolicy`, `OrderPlanMachine`
+   and the Client.Core tests.
 3. **The sign dialog.** The four term cases in `Shared/Localization.fs` with their English texts
    in `SigningPolicy`, `AppEnv.IOrderPlan.Differences`, its implementation in `App.fs`,
    `Views/SignDialog.fs`, and the Localization sheet rows.
-4. **The plan cell rule.** A script with `PlanCellPolicy` and its tests: each column for a
+4. **The plan dialog and the lock.** The per-field prop of `Order.View`, the plan passing
+   `PlanContextPolicy.editable` or nothing for a locked context, the lock mark in the medication
+   cell, and the `Plan Context Locked` term in `Shared/Localization.fs` and the Localization
+   sheet.
+5. **The plan cell rule.** A script with `PlanCellPolicy` and its tests: each column for a
    discontinuous, a timed, a once, a once timed and a continuous order; a solved against an
-   unsolved order; an order with more than one component; a nutrition order. The maintainer
-   migrates it.
-5. **The stepable cells.** `PlanCell` with its popper, the `renderCell` on the two columns and
+   unsolved order; an order with more than one component; a nutrition order; a locked context.
+   The maintainer migrates it.
+6. **The stepable cells.** `PlanCell` with its popper, the `renderCell` on the two columns and
    the card cell renderer in `ResponsiveTable`. The Fable output is checked, and
    `npx vite build` runs.
-6. **Docs and issues.** This plan gains its as-built table, the G6 section its status, and #399
+7. **Docs and issues.** This plan gains its as-built table, the G6 section its status, and #399
    its description of the decided behaviour. #399, #648 and #987 close.
 
 ## Verification
@@ -219,5 +286,10 @@ code pull request.
     value and the order dialog does not open;
   - hover the frequency cell of a continuous order, which shows the rate, and the solution cell
     of a discontinuous order;
-  - repeat on a narrow window, where the table shows cards and a tap opens the field.
+  - repeat on a narrow window, where the table shows cards and a tap opens the field;
+  - open an order from the plan: only the frequency, the orderable dose quantity and the rate
+    can be changed;
+  - change the patient's weight after signing: the plan's contexts show the lock mark, their
+    cells do not step, their dialog is read-only, and they can be removed;
+  - change nothing but the argumentation and sign: the dialog lists the context as changed.
 - `dotnet run servertests`, `dotnet fantomas --check` and `scripts/CheckDependencyRule.fsx`.
