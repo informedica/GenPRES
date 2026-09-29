@@ -119,8 +119,10 @@ let changed (opened: OrderContext) (ctx: OrderContext) : bool
     fixed. The plan dialog has no Reset, only Ok; undoing a step is another step. The
     prescribe page keeps its Reset.
   - The argumentation is committed on blur and when the dialog closes. For a locked context
-    the field is read-only and nothing is committed. For a context that is not locked, the
-    argumentation stays editable, since it is part of what is signed.
+    the field is read-only and nothing is committed: it cannot be stepped, so no new warning
+    arises. For a context that is not locked, the argumentation stays editable: a step that
+    raises a warning asks for one, as it does on the prescribe page, and it is part of what is
+    signed.
 - A locked context therefore opens a dialog that sends no command at all.
 
 **The lock mark**, `Views/OrderPlan.fs`: the medication cell of a locked context shows a lock
