@@ -400,7 +400,8 @@ a quantity field in a popover on hover, or on a tap in the card layout, and a cl
 still opens the dialog. The sign dialog lists the differences, each marked new, changed or
 removed, and says so when there are none; signing a plan as it is stays allowed. An order context
 in the plan changes only in its frequency, orderable dose quantity and orderable dose rate, and
-only while its patient data, age aside, match the plan's; otherwise it is locked.
+only while the patient data its doses rest on, age aside, match the plan's; otherwise it is
+locked.
 
 **Uses** C1 `QuantityField`.
 
