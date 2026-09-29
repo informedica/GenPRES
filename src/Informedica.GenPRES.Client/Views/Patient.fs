@@ -253,8 +253,9 @@ module Patient =
                     options = options
                     selected = selected
                     onChange = changeDepartment
-                    // the cross returns to the default, so it is offered only while there is a
-                    // choice to take back; clearing a default already shown would change nothing
+                    // the cross leaves no department chosen, so the server's default applies, and
+                    // follows it when it changes: a state of its own, not the default picked. It is
+                    // offered only while a department is chosen
                     clearable = own.IsSome
                     isLoading = settings |> Deferred.toOption |> Option.isNone
                     enabled = not busy && not launched

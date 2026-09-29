@@ -141,7 +141,37 @@ module FormularyService =
             | xs -> xs
 
 
+    /// The lists of the chosen fields as the options each could take given the other choices,
+    /// filtered without the field's own choice; a field without a choice keeps the list the whole
+    /// filter gives it. What the page shows stays filtered by every choice.
+    let withAlternatives
+        provider
+        (sent: Formulary)
+        (filter: Informedica.GenForm.Lib.Types.DoseFilter)
+        (form: Formulary)
+        =
+        let rulesWithout f = Formulary.getDoseRules provider (f filter)
+
+        let listed (chosen: 'a option) without pick held = if chosen.IsSome then rulesWithout without |> pick else held
+
+        { form with
+            Generics = listed sent.Generic (fun f -> { f with Generic = None }) DoseRule.generics form.Generics
+            Indications =
+                listed sent.Indication (fun f -> { f with Indication = None }) DoseRule.indications form.Indications
+            Routes = listed sent.Route (fun f -> { f with Route = None }) DoseRule.routes form.Routes
+            Forms = listed sent.Form (fun f -> { f with Form = None }) DoseRule.forms form.Forms
+            DoseTypes =
+                listed
+                    sent.DoseType
+                    (fun f -> { f with DoseType = None })
+                    (DoseRule.doseTypes >> Array.map Mappers.mapFromOrderDoseTypeToSharedDoseType)
+                    form.DoseTypes
+        }
+
+
     let get (provider: Informedica.GenForm.Lib.Resources.IResourceProvider) (form: Formulary) =
+        let sent = form
+
         let filter =
             form
             |> mapFormularyToFilter (provider.Get Informedica.GenForm.Lib.Resources.Keys.departments)
@@ -175,6 +205,7 @@ DoseType : {filter.DoseType |> Option.map DoseType.toDescription |> Option.defau
                     |> Array.map Mappers.mapFromOrderDoseTypeToSharedDoseType
                 PatientCategories = dsrs |> DoseRule.patientCategories
             }
+            |> withAlternatives provider sent filter
             |> fun form ->
                 { form with
                     Generic = form.Generics |> selectIfOne form.Generic
@@ -241,27 +272,38 @@ module ParenteraliaService =
 
         let srs = Formulary.getSolutionRules provider par.Generic par.Form par.Route
 
-        let gens = srs |> SolutionRule.generics
-        let shps = srs |> SolutionRule.forms
-        let rtes = srs |> SolutionRule.routes
+        // a chosen field lists the options it could take given the other choices: filtered
+        // without its own choice
+        let listed (chosen: string option) gen shp rte pick =
+            if chosen.IsSome then
+                Formulary.getSolutionRules provider gen shp rte |> pick
+            else
+                srs |> pick
+
+        let gens = listed par.Generic None par.Form par.Route SolutionRule.generics
+        let shps = listed par.Form par.Generic None par.Route SolutionRule.forms
+        let rtes = listed par.Route par.Generic par.Form None SolutionRule.routes
+
+        // a choice stays while its list holds it, else the one option is chosen; the solution
+        // rules shown are those of the selection that results, so they always match it
+        let gen = gens |> OrderContext.keep par.Generic
+        let shp = shps |> OrderContext.keep par.Form
+        let rte = rtes |> OrderContext.keep par.Route
 
         { par with
             Generics = gens
             Forms = shps
             Routes = rtes
-            Generic =
-                if gens |> Array.length = 1 then
-                    Some gens[0]
-                else
-                    par.Generic
-            Form = if shps |> Array.length = 1 then Some shps[0] else par.Form
-            Route = if rtes |> Array.length = 1 then Some rtes[0] else par.Route
+            Generic = gen
+            Form = shp
+            Route = rte
 
             Markdown =
-                if par.Generic |> Option.isNone then
-                    ""
-                else
-                    srs |> SolutionRule.Print.toMarkdown ""
+                match gen with
+                | None -> ""
+                | Some _ ->
+                    Formulary.getSolutionRules provider gen shp rte
+                    |> SolutionRule.Print.toMarkdown ""
         }
         |> Ok
 
