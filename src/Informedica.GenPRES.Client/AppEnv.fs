@@ -52,9 +52,6 @@ type IOrderPlan =
     // the contexts of the plan that are new or changed since the version last opened or
     // signed, by id; while there are any in an open Session the patient context is held
     abstract Changed: string[]
-    // the contexts of the plan given that are new, changed or removed since the version last
-    // opened or signed, as the sign dialog lists them
-    abstract Differences: OrderPlan -> (OrderContext * HeldContextPolicy.Difference)[]
 
 
 /// Patient data and updates
@@ -129,6 +126,9 @@ type ISession =
 [<Interface>]
 type ISigning =
     abstract Signing: SigningMachine.SigningView
+    // the orders that differ from the version last opened or signed, as they stood at the sign;
+    // the dialog lists these
+    abstract Differences: (OrderContext * HeldContextPolicy.Difference)[]
     // ask a challenge over the plan as shown
     abstract Sign: OrderPlan -> unit
     // whether the patient context is held: a notice accepted then signs over the data as it was

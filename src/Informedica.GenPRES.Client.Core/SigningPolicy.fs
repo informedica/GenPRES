@@ -14,7 +14,8 @@ let english (term: Terms) : string =
     match term with
     | Terms.``Signing Sign`` -> "Sign"
     | Terms.``Signing Dialog Title`` -> "Sign the order plan"
-    | Terms.``Signing Dialog Text`` -> "Sign the orders as shown with your PIN, or cancel and edit."
+    | Terms.``Signing Dialog Text`` ->
+        "The list shows the orders changed since the last signed version. Your PIN signs the whole order plan; or cancel and edit."
     | Terms.``Signing Pin`` -> "PIN"
     | Terms.``Signing Cancel`` -> "Cancel"
     | Terms.``Signing Proceed`` -> "Continue"

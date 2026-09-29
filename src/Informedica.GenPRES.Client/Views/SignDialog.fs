@@ -24,7 +24,6 @@ module SignDialog =
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv
-        let envPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let terms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
         let context: Global.Context = React.useContext Global.context
 
@@ -108,14 +107,15 @@ module SignDialog =
             | SigningView.Noticed(_, notice) -> Some notice
             | _ -> None
 
-        // the orders that differ from the version last opened or signed, each with how it
-        // differs and the argumentation its context holds; a removed one as the version held it
+        // the orders that differ from the version last opened or signed, as they stood at the
+        // sign, each with how it differs and the argumentation its context holds; a removed one
+        // as the version held it
         let orders =
             match phase with
-            | SigningView.Noticed(plan, _)
-            | SigningView.Challenged(plan, _)
-            | SigningView.Submitting plan ->
-                envPlan.Differences plan
+            | SigningView.Noticed _
+            | SigningView.Challenged _
+            | SigningView.Submitting _ ->
+                signing.Differences
                 |> Array.choose (fun (ctx, difference) ->
                     OrderContext.contribution ctx
                     |> Option.map (fun sc -> sc, difference, ctx.Argumentation)
