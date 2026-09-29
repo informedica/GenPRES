@@ -995,6 +995,14 @@ module Order =
                     minWidth
                     xs
             else
+                // several values and none picked would show blank in a field that cannot open:
+                // the values show as one range, from the first to the last
+                let shown =
+                    if xs |> Array.length > 1 && selected |> Option.isNone then
+                        [| "fixed", $"%s{xs |> Array.head |> snd} – %s{xs |> Array.last |> snd}" |]
+                    else
+                        xs
+
                 ViewHelpers.orderFixed
                     texts
                     false
@@ -1006,7 +1014,7 @@ module Order =
                     Components.QuantityField.Fixed
                     mark
                     minWidth
-                    xs
+                    shown
 
         let argues = props.editing <> Editing.Locked
 
