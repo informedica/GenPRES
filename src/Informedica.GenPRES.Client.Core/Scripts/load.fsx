@@ -13,6 +13,7 @@
 #load "../ArgumentationPolicy.fs"
 #load "../QuantityModePolicy.fs"
 #load "../PlanContextPolicy.fs"
+#load "../PlanCellPolicy.fs"
 #load "../SectionFoldPolicy.fs"
 #load "../PlanWorkPolicy.fs"
 #load "../HeldContextPolicy.fs"
