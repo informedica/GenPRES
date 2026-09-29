@@ -376,32 +376,33 @@ detached on 2026-09-28 and the umbrella closed that day; #718 stands on its own.
 
 ### G6 — The order plan (#987)
 
+Planned in [987-the-order-plan.md](987-the-order-plan.md).
+
 | Issue | Milestone | Status |
 |---|---|---|
-| #399 | post-MVP | open |
-| #510 | M3 | open |
-| **+**#648 | none | open |
+| #399 | post-MVP | open: planned |
+| #510 | M3 | open, left the group: the nurse's preparation view, item 3.5 of M3 in the gap overview |
+| **+**#648 | none | open: planned |
 
-**Cause.** Three readings of the same plan table.
+**Cause.** Two readings of the same plan table, and a third that left the group.
 
-- #399: `Views/OrderPlan.fs` already passes `actions = None` per row to `ResponsiveTable`, which
-  renders row actions when they are `Some`, but only in its card layout (narrow screens); the
-  DataGrid has no actions column. #399 needs that hook plus the column.
-- #648: the sign dialog should list only what this user changed. `PlanWorkPolicy` knows *that*
-  and *how many* commands changed the plan (`PlanWork.Changed of generation`), not *which* orders,
-  so the data is not there yet: it has to come from the plan's contexts, by id, compared with the
-  version opened.
-- #510: a nurse's view (how do I prepare this?). Already folded into M3's pharmacy-notification
-  work in the gap overview.
+- #399: `Views/OrderPlan.fs` renders every plan cell as text, and the order is changed only in
+  the dialog that a row click opens. Every row already carries the value sets the order dialog
+  steps with, and `OrderPlanCommand.Navigate` steps a context by its id.
+- #648: the sign dialog lists every order of the plan. `HeldContextPolicy.changed` (#1090) gives
+  the contexts new or changed since the order plan version was last opened or signed; the
+  removed ones have to come from the same comparison.
+- #510: a nurse's view (how do I prepare this?). It builds on one preparation document model in
+  M3's pharmacy-notification work, so it left G6.
 
-**To settle:**
+**Decision** (2026-09-29): no adjust button. A cell that holds a stepable order variable opens
+a quantity field in a popover on hover, or on a tap in the card layout, and a click on the row
+still opens the dialog. The sign dialog lists the differences, each marked new, changed or
+removed, and says so when there are none; signing a plan as it is stays allowed. An order context
+in the plan changes only in its frequency, orderable dose quantity and orderable dose rate, and
+only while its patient data, age aside, match the plan's; otherwise it is locked.
 
-- the adjust action, and the columns the plan table needs for it;
-- the changes shown in the sign dialog, computed in `Client.Core` from the contexts against the
-  opened version rather than by comparing whole plans;
-- the preparation view as a nurse's view of the same orders.
-
-**Uses** C8 `ConfirmDialog`, C11 `ListToolbar` (the row `actions` hook), C12 `PrintTable`.
+**Uses** C1 `QuantityField`.
 
 ### G7 — Nutrition and TPN (#988)
 
@@ -596,7 +597,7 @@ on a design come last:
    built, closed 2026-09-25;
 4. G4, [985-what-the-rules-allow-and-deviating-from-it.md](985-what-the-rules-allow-and-deviating-from-it.md):
    built, closed 2026-09-28;
-5. G6;
+5. G6, [987-the-order-plan.md](987-the-order-plan.md): planned;
 6. G7;
 7. G2;
 8. G10, whose plan opens with the (a)/(b) decision of #518, so it may end as a closing note
