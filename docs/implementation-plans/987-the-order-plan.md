@@ -44,6 +44,7 @@ Taken 2026-09-29 by the maintainer.
 | What can change in a plan context | Only the frequency, the orderable dose quantity and the orderable dose rate. The plan cells and the order dialog opened from the plan both keep to this. It holds for every context in the plan, one added since the last signature too: another medication or route means removing the order and adding it again. The component orderable quantity of an order with more than one component is fixed as well. Once start and stop are built, they can change too. |
 | When a plan context can change | Only while its patient data match the plan's patient data: the whole patient record, age aside. Age changes by itself as time passes and needs a mechanism of its own. Later, the rules version joins the context, and a context whose rules version differs is locked too. |
 | A locked context | Patient data that change after a signature, a new weight, access or department, lock every context calculated with the earlier data. The row carries a lock mark whose hover text gives the reason. Its cells do not step, the order dialog opens read-only, and the context can still be removed. |
+| Reset in the plan dialog | Left out. Reset re-solves from the rules and can change what the rule keeps fixed; undoing a step is another step. The prescribe page keeps it. |
 | Changed, for the sign dialog (#648) | A context counts as changed when one of the three variables or the argumentation differs from the version opened or signed. Other differences are not changes to an order in the plan. |
 
 ## Approaches considered
@@ -113,6 +114,14 @@ let changed (opened: OrderContext) (ctx: OrderContext) : bool
   at all when the context is locked.
 - A field that cannot be edited renders in the Fixed mode of the quantity field, which no call
   site produces today. A select renders disabled.
+- The dialog has two more ways to change a context, and the plan closes both:
+  - Reset re-solves the order from the dose rules, which can change fields the rule keeps
+    fixed. The plan dialog has no Reset, only Ok; undoing a step is another step. The
+    prescribe page keeps its Reset.
+  - The argumentation is committed on blur and when the dialog closes. For a locked context
+    the field is read-only and nothing is committed. For a context that is not locked, the
+    argumentation stays editable, since it is part of what is signed.
+- A locked context therefore opens a dialog that sends no command at all.
 
 **The lock mark**, `Views/OrderPlan.fs`: the medication cell of a locked context shows a lock
 icon whose hover text gives the reason. Removing the context works as it does today. A new
@@ -260,9 +269,10 @@ code pull request.
    in `SigningPolicy`, `AppEnv.IOrderPlan.Differences`, its implementation in `App.fs`,
    `Views/SignDialog.fs`, and the Localization sheet rows.
 4. **The plan dialog and the lock.** The per-field prop of `Order.View`, the plan passing
-   `PlanContextPolicy.editable` or nothing for a locked context, the lock mark in the medication
-   cell, and the `Plan Context Locked` term in `Shared/Localization.fs` and the Localization
-   sheet.
+   `PlanContextPolicy.editable` or nothing for a locked context, no Reset in the plan dialog,
+   a read-only argumentation that commits nothing for a locked context, the lock mark in the
+   medication cell, and the `Plan Context Locked` term in `Shared/Localization.fs` and the
+   Localization sheet.
 5. **The plan cell rule.** A script with `PlanCellPolicy` and its tests: each column for a
    discontinuous, a timed, a once, a once timed and a continuous order; a solved against an
    unsolved order; an order with more than one component; a nutrition order; a locked context.
@@ -290,6 +300,8 @@ code pull request.
   - open an order from the plan: only the frequency, the orderable dose quantity and the rate
     can be changed;
   - change the patient's weight after signing: the plan's contexts show the lock mark, their
-    cells do not step, their dialog is read-only, and they can be removed;
+    cells do not step, their dialog is read-only with a read-only argumentation, and they can
+    be removed; no request leaves the browser while that dialog is open;
+  - the dialog opened from the plan has no Reset;
   - change nothing but the argumentation and sign: the dialog lists the context as changed.
 - `dotnet run servertests`, `dotnet fantomas --check` and `scripts/CheckDependencyRule.fsx`.
