@@ -12,6 +12,7 @@
 #load "../SeverityReasonPolicy.fs"
 #load "../ArgumentationPolicy.fs"
 #load "../QuantityModePolicy.fs"
+#load "../PlanContextPolicy.fs"
 #load "../SectionFoldPolicy.fs"
 #load "../PlanWorkPolicy.fs"
 #load "../HeldContextPolicy.fs"

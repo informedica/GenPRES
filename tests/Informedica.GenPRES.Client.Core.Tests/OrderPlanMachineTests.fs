@@ -708,6 +708,22 @@ let heldTests =
                 |> Expect.equal "the order added is new" [| "c-2" |]
             }
 
+            test "the differences list the order added as new" {
+                held one None
+                |> landed (OrderPlanCommand.AddOrderContext(one, context "c-2" "ibuprofen")) (Ok two)
+                |> fun (state, _) -> state |> OrderPlanState.differences two
+                |> Array.map (fun (c, d) -> c.Id, d)
+                |> Expect.equal "the order added is new" [| "c-2", HeldContextPolicy.Difference.New |]
+            }
+
+            test "the differences list an order of the version removed" {
+                held two None
+                |> landed (OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])) (Ok one)
+                |> fun (state, _) -> state |> OrderPlanState.differences one
+                |> Array.map (fun (c, d) -> c.Id, d)
+                |> Expect.equal "the order removed is listed" [| "c-2", HeldContextPolicy.Difference.Removed |]
+            }
+
             test "an order of the version removed does not hold" {
                 held two None
                 |> landed (OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])) (Ok one)

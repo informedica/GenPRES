@@ -22,6 +22,7 @@
     <Compile Include="SeverityReasonPolicy.fs" />
     <Compile Include="ArgumentationPolicy.fs" />
     <Compile Include="QuantityModePolicy.fs" />
+    <Compile Include="PlanContextPolicy.fs" />
     <Compile Include="SectionFoldPolicy.fs" />
     <Compile Include="PlanWorkPolicy.fs" />
     <Compile Include="HeldContextPolicy.fs" />
