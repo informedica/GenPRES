@@ -33,6 +33,11 @@ module SimpleSelect =
                 // what a click or a key on the select does beyond choosing, told to a screen
                 // reader on the element that has the focus
                 description: string option
+                // a field the user narrowed: opening it clears its choice first and the list shows
+                // what the server answers; None opens the list as it is
+                reopen: (unit -> unit) option
+                // the list of a reopen closed without a pick: the page puts back what it showed
+                restore: unit -> unit
             |})
         =
 
@@ -45,9 +50,30 @@ module SimpleSelect =
             else
                 {| |} |> box
 
+        // the list is opened by the select and by a reopen; a reopen opens it at once, showing
+        // the value held until the answer brings the others
+        let isOpen, setOpen = React.useState false
+        // a reopen under way, whether its answer has been asked for, and the value held before it
+        let reopening = React.useRef false
+        let sawLoading = React.useRef false
+        let prior = React.useRef props.selected
+        // the list of a reopen waits for its answer: drawn under a loading overlay meanwhile
+        let waiting, setWaiting = React.useState false
+
+        // a lone range is no list: its click picks the median
+        let listed =
+            match props.values with
+            | [| ("range", _) |] -> 0
+            | values -> values.Length
+
         let handleChange =
             fun ev ->
                 let value = ev?target?value
+
+                // a pick ends a reopen: nothing to put back
+                reopening.current <- false
+                setWaiting false
+                setOpen false
 
                 value
                 |> string
@@ -57,6 +83,47 @@ module SimpleSelect =
                 |> props.updateSelected
 
         let clear = fun _ -> None |> props.updateSelected
+
+        let handleOpen =
+            fun _ ->
+                match props.reopen with
+                | Some _ when props.isLoading -> ()
+                | Some reopen ->
+                    reopening.current <- true
+                    sawLoading.current <- false
+                    prior.current <- props.selected
+                    reopen ()
+                    setWaiting true
+                    setOpen true
+                | None -> setOpen true
+
+        // closed without a pick after a reopen: the page puts back what it showed
+        let handleClose =
+            fun _ ->
+                setOpen false
+                setWaiting false
+
+                if reopening.current then
+                    reopening.current <- false
+                    props.restore ()
+
+        // the answer to a reopen with no values to list closes the list; the field shows the range
+        React.useEffect (
+            (fun () ->
+                if reopening.current then
+                    if props.isLoading then
+                        sawLoading.current <- true
+                    elif sawLoading.current then
+                        setWaiting false
+
+                        match FieldOpenPolicy.reopened listed with
+                        | FieldOpenPolicy.Reopened.NoList ->
+                            reopening.current <- false
+                            setOpen false
+                        | FieldOpenPolicy.Reopened.ShowList -> ()
+            ),
+            [| box props.isLoading; box listed |]
+        )
 
         let menuItemSx =
             {|
@@ -74,6 +141,39 @@ module SimpleSelect =
                 </MenuItem>
                 """
             )
+
+        // laid over the list, not added to it, so nothing in the list moves while the answer comes
+        let waitingSx =
+            {|
+                position = "absolute"
+                top = 0
+                right = 0
+                bottom = 0
+                left = 0
+                display = "flex"
+                alignItems = "center"
+                justifyContent = "center"
+                backgroundColor = "rgba(255, 255, 255, 0.6)"
+                lineHeight = "normal"
+                zIndex = 1
+            |}
+
+        let waitingOverlay =
+            JSX.jsx
+                $"""
+            import ListSubheader from '@mui/material/ListSubheader';
+            import CircularProgress from '@mui/material/CircularProgress';
+
+            <ListSubheader key="waiting" sx={waitingSx}>
+                <CircularProgress size={20} />
+            </ListSubheader>
+            """
+
+        let items =
+            if waiting then
+                Array.append items [| waitingOverlay |]
+            else
+                items
 
         let isClear = props.selected |> Option.defaultValue "" |> String.isNullOrWhiteSpace
 
@@ -104,25 +204,41 @@ module SimpleSelect =
             | Some text -> {| ``aria-description`` = text |} |> box
             | None -> {| |} |> box
 
-        let hasInteraction = props.canStep || props.values.Length > 1
+        let hasInteraction = props.canStep || props.values.Length > 1 || props.reopen.IsSome
+
+        // the arrow shows where it opens something: not beside the cross, not on a field that
+        // cannot be opened
+        let iconVisibility =
+            if endAdornment.IsNone && not props.readOnly then
+                "visible"
+            else
+                "hidden"
 
         let sx =
             match props.severity |> Models.Severity.isRaised, hasInteraction with
             | true, _ ->
-                {| ``& .MuiSelect-icon`` = {| visibility = if endAdornment.IsNone then "visible" else "hidden" |} |}
+                {| ``& .MuiSelect-icon`` = {| visibility = iconVisibility |} |}
                 |> box
                 |> Mui.Styles.markSx props.severity
             | false, false ->
                 {|
-                    ``& .MuiSelect-icon`` = {| visibility = if endAdornment.IsNone then "visible" else "hidden" |}
+                    ``& .MuiSelect-icon`` = {| visibility = iconVisibility |}
                     backgroundColor = "action.hover"
                     borderRadius = "4px"
                     padding = "2px 8px"
                 |}
                 |> box
-            | false, true ->
-                {| ``& .MuiSelect-icon`` = {| visibility = if endAdornment.IsNone then "visible" else "hidden" |} |}
-                |> box
+            | false, true -> {| ``& .MuiSelect-icon`` = {| visibility = iconVisibility |} |} |> box
+
+        // while a reopen waits or lists, the value held before it stays chosen when it is offered
+        let value =
+            match props.selected with
+            | Some s -> s
+            | None when reopening.current ->
+                prior.current
+                |> Option.filter (fun p -> props.values |> Array.exists (fst >> (=) p))
+                |> Option.defaultValue ""
+            | None -> ""
 
         // in a row beside a stepper the select takes the width the stepper leaves
         let formControlSx =
@@ -145,7 +261,10 @@ module SimpleSelect =
             labelId={props.label + "-label"}
             id={props.label}
             name={props.label}
-            value={props.selected |> Option.defaultValue ""}
+            value={value}
+            open={isOpen}
+            onOpen={handleOpen}
+            onClose={handleClose}
             onChange={handleChange}
             label={props.label}
             disabled={props.disabled}

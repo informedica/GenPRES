@@ -699,6 +699,9 @@ module Nutrition =
                 nutritionContext: OrderContext
                 plan: OrderPlan
                 planCommand: Api.OrderPlanCommand -> unit
+                // a clear from a field's arrow, and the list of such a reopen closed without a pick
+                planReopen: Api.OrderPlanCommand -> unit
+                planRestore: unit -> unit
                 localizationTerms: Deferred<string[][]>
                 onRemove: (unit -> unit) option
                 wrapInAccordion: bool
@@ -772,7 +775,16 @@ module Nutrition =
                 Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.UpdateOrderContext, updCtx)
             |> props.planCommand
 
+        // set by a field's arrow just before it clears its value, so that the change goes out as
+        // a reopen rather than as a change
+        let reopening = React.useRef false
+
+        // a change goes out with what it picked added to the scenario's picks; a reopen goes as it
+        // is, and the server keeps the picks made before the cleared one
         let updateOrderScenario (ol: OrderLoader) =
+            let isReopen = reopening.current
+            reopening.current <- false
+
             { ctx with
                 Scenarios =
                     ctx.Scenarios
@@ -784,6 +796,11 @@ module Nutrition =
                                 Component = ol.Component
                                 Item = ol.Item
                                 Order = ol.Order
+                                Picks =
+                                    if isReopen then
+                                        sc.Picks
+                                    else
+                                        sc.Picks |> PickList.afterChange sc.Order ol.Order
                             }
                     )
             }
@@ -794,7 +811,7 @@ module Nutrition =
                     Api.OrderContextCommand.UpdateOrderScenario,
                     updCtx
                 )
-                |> props.planCommand
+                |> if isReopen then props.planReopen else props.planCommand
 
         let resetOrderScenario (_ol: OrderLoader) =
             Api.OrderPlanCommand.Navigate(planRef.current, ncId, Api.OrderContextCommand.ResetOrderScenario, ctx)
@@ -949,6 +966,18 @@ module Nutrition =
         let texts = ViewHelpers.quantityFieldTexts getTerm
 
         let select = ViewHelpers.orderSelect texts true isOrderLoading
+
+        // a field reopens by its arrow when the user constrained its variable, by name
+        let reopenOf (ovar: OrderVariable) : ViewHelpers.Reopen =
+            {|
+                constrained =
+                    ctx.Scenarios
+                    |> Array.tryExactlyOne
+                    |> Option.bind _.Picks
+                    |> fun picks -> PickList.constrained picks ovar.Name
+                reopening = fun () -> reopening.current <- true
+                restore = props.planRestore
+            |}
         // a value only shown has nothing for a cross to clear
         let display = ViewHelpers.orderFixed texts true isOrderLoading
         let filterSelect = ViewHelpers.filterSelect isOrderLoading isOrderLoading
@@ -997,6 +1026,7 @@ module Nutrition =
                             (fun s -> ChangeComponentOrderableQuantity(cmp.Name, s) |> dispatch)
                             nav
                             qtyWarning
+                            (reopenOf cmp.OrderableQuantity)
                             (Some 400)
                             qtyVals
 
@@ -1013,6 +1043,7 @@ module Nutrition =
                             (fun s -> ChangeComponentDoseQuantityAdjust(cmp.Name, s) |> dispatch)
                             ViewHelpers.noSteps
                             doseWarning
+                            (reopenOf cmp.Dose.QuantityAdjust)
                             (Some 400)
                             doseVals
 
@@ -1067,6 +1098,7 @@ module Nutrition =
                     (ChangeOrderableDoseQuantity >> dispatch)
                     doseQtyNav
                     severity
+                    (reopenOf ord.Orderable.Dose.Quantity)
                     selectMinWidth
                     vals
             | None -> null
@@ -1104,7 +1136,16 @@ module Nutrition =
                         None
                         None
 
-                select false label None (ChangeFrequency >> dispatch) freqNav severity selectMinWidth freqVals
+                select
+                    false
+                    label
+                    None
+                    (ChangeFrequency >> dispatch)
+                    freqNav
+                    severity
+                    (reopenOf ord.Schedule.Frequency)
+                    selectMinWidth
+                    freqVals
             | _ -> null
 
         let genericFilter =
@@ -1241,7 +1282,15 @@ module Nutrition =
                 let rateDisplay =
                     ord.Orderable.Dose.Rate
                     |> ViewHelpers.ovarValsWithRange string 3
-                    |> select false label None (ChangeOrderableDoseRate >> dispatch) nav severity (Some 400)
+                    |> select
+                        false
+                        label
+                        None
+                        (ChangeOrderableDoseRate >> dispatch)
+                        nav
+                        severity
+                        (reopenOf ord.Orderable.Dose.Rate)
+                        (Some 400)
 
                 let timeDisplay =
                     ord.Schedule.Time
@@ -1592,6 +1641,8 @@ module Nutrition =
                     nutritionContext = nc
                     plan = plan
                     planCommand = planCommand
+                    planReopen = envOrderPlan.Reopen
+                    planRestore = envOrderPlan.Restore
                     localizationTerms = localizationTerms
                     onRemove = onRemove
                     wrapInAccordion = wrapInAccordion

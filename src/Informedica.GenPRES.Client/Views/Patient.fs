@@ -407,6 +407,8 @@ module Patient =
                     severity = Severity.Normal
                     minWidth = None
                     description = None
+                    reopen = None
+                    restore = ignore
                 |}
 
         // renal function has no "unknown" among its options, so the cross is the only way back

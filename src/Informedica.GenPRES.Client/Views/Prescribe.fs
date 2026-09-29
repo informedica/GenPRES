@@ -630,6 +630,9 @@ module Prescribe =
                     editing = PlanContextPolicy.Editing.Workbench
                     orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
                     updateOrderScenario = fun ctx -> orderContextMsg (Api.OrderContextCommand.UpdateOrderScenario, ctx)
+                    reopenOrderScenario =
+                        fun ctx -> envOrderContext.Reopen(Api.OrderContextCommand.UpdateOrderScenario, ctx)
+                    restoreOrderScenario = envOrderContext.Restore
                     stepOrderScenario =
                         {|
                             // Frequency

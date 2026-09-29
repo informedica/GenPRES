@@ -187,24 +187,35 @@ module Order =
                     }
                 )
 
-            // a change to the item picked, in the first component
+            // a change to the item the dialog shows: the item picked in the component picked, or, with
+            // none picked, as after a switch of component, the first of its substances and the first
+            // component, as the fields show them
             let overItem (f: Shared.Types.Item -> Shared.Types.Item) =
                 over (fun ord ->
+                    let cmpName =
+                        ord.Orderable.Components
+                        |> Array.tryFind (fun c ->
+                            state.SelectedComponent.IsNone || state.SelectedComponent = Some c.Name
+                        )
+                        |> Option.map _.Name
+
                     { ord with
                         Order.Orderable.Components =
                             ord.Orderable.Components
-                            |> Array.mapi (fun i cmp ->
-                                if i > 0 then
+                            |> Array.map (fun cmp ->
+                                if Some cmp.Name <> cmpName then
                                     cmp
                                 else
+                                    let itmName =
+                                        state.SelectedItem
+                                        |> Option.orElse (
+                                            cmp.Items |> Array.tryFind (_.IsAdditional >> not) |> Option.map _.Name
+                                        )
+
                                     { cmp with
                                         Items =
                                             cmp.Items
-                                            |> Array.map (fun itm ->
-                                                match state.SelectedItem with
-                                                | Some subst when subst = itm.Name -> f itm
-                                                | _ -> itm
-                                            )
+                                            |> Array.map (fun itm -> if Some itm.Name = itmName then f itm else itm)
                                     }
                             )
                     }
@@ -392,6 +403,10 @@ module Order =
             {|
                 orderContext: OrderContextView
                 updateOrderScenario: OrderContext -> unit
+                // a clear from a field's arrow: the page sends it and keeps what it showed before
+                reopenOrderScenario: OrderContext -> unit
+                // the list of a reopen closed without a pick: the page puts back what it showed
+                restoreOrderScenario: unit -> unit
                 stepOrderScenario:
                     {|
                         // Frequency
@@ -452,11 +467,20 @@ module Order =
             |> Option.bind (fun pr -> pr.Scenarios |> Array.tryExactlyOne |> Option.map _.UseAdjust)
             |> Option.defaultValue false
 
+        // set by a field's arrow just before it clears its value, so that the change goes out as
+        // a reopen rather than as a change
+        let reopening = React.useRef false
+
+        // a change goes out with what it picked added to the scenario's picks; a reopen goes as it
+        // is, and the server keeps the picks made before the cleared one
         let updateOrderScenario (ol: OrderLoader) =
             match props.orderContext with
             | OrderContextView.Settled ctx
             | OrderContextView.Refused(ctx, _)
             | OrderContextView.Changing ctx ->
+                let isReopen = reopening.current
+                reopening.current <- false
+
                 { ctx with
                     Scenarios =
                         ctx.Scenarios
@@ -468,10 +492,18 @@ module Order =
                                     Component = ol.Component
                                     Item = ol.Item
                                     Order = ol.Order
+                                    Picks =
+                                        if isReopen then
+                                            sc.Picks
+                                        else
+                                            sc.Picks |> PickList.afterChange sc.Order ol.Order
                                 }
                         )
                 }
-                |> props.updateOrderScenario
+                |> if isReopen then
+                       props.reopenOrderScenario
+                   else
+                       props.updateOrderScenario
             | _ -> ()
 
         let resetOrderScenario (ol: OrderLoader) =
@@ -641,12 +673,19 @@ module Order =
         // the field whose change went out, and whether it shows that it is loading
         let changing, setChanging = React.useState<(string * bool) option> None
 
+        // the order a reopen started from, shown until its answer lands: the order sent has the
+        // reopened value cleared, and a field without values is not drawn, which would take the
+        // field and its open list away while the server answers
+        let reopenedFrom, setReopenedFrom = React.useState<Order option> None
+
         // Clear the field changing when parent finishes recalculating
         React.useEffect (
             (fun () ->
                 match props.orderContext with
                 | OrderContextView.Settled _
-                | OrderContextView.Refused _ -> setChanging None
+                | OrderContextView.Refused _ ->
+                    setChanging None
+                    setReopenedFrom None
                 | _ -> ()
             ),
             [| box props.orderContext |]
@@ -713,8 +752,8 @@ module Order =
                 originalDispatch msg
 
         // the order shown, the one sent while a change is under way, so that the dialog stays
-        // populated while the server is processing
-        let displayOrder = shownOrder
+        // populated while the server is processing; during a reopen the one it started from
+        let displayOrder = reopenedFrom |> Option.orElse shownOrder
 
         let itms =
             match displayOrder with
@@ -943,7 +982,23 @@ module Order =
 
         // a field's select: rests while another field is changing, shows it while its own is; a
         // field the editing does not let change shows its value, without steps or a dropdown
-        let selectFor field lbl selected updateSelected mode mark minWidth xs =
+        let picks =
+            shownContext
+            |> Option.bind (_.Scenarios >> Array.tryExactlyOne)
+            |> Option.bind _.Picks
+
+        // a field reopens by its arrow when the user constrained its variable, by name
+        let reopenOf (name: string) : ViewHelpers.Reopen =
+            {|
+                constrained = PickList.constrained picks name
+                reopening =
+                    fun () ->
+                        reopening.current <- true
+                        setReopenedFrom shownOrder
+                restore = props.restoreOrderScenario
+            |}
+
+        let selectFor field (name: string) lbl selected updateSelected mode mark minWidth xs =
             if PlanContextPolicy.canEdit props.editing field then
                 ViewHelpers.orderSelect
                     texts
@@ -955,6 +1010,7 @@ module Order =
                     updateSelected
                     mode
                     mark
+                    (reopenOf name)
                     minWidth
                     xs
             else
@@ -1158,6 +1214,7 @@ module Order =
                     vals
                     |> selectFor
                         "substDoseQty"
+                        itms[i].Dose.Quantity.Name
                         label
                         None
                         (ChangeSubstanceDoseQuantity >> dispatch)
@@ -1190,6 +1247,7 @@ module Order =
                     vals
                     |> selectFor
                         "substDoseQtyAdj"
+                        itms[i].Dose.QuantityAdjust.Name
                         label
                         None
                         (ChangeSubstanceDoseQuantityAdjust >> dispatch)
@@ -1229,7 +1287,18 @@ module Order =
                             itms[i].Dose.PerTime |> markOf
 
                     vals
-                    |> selectFor "substPerTime" label None dispatch ViewHelpers.noSteps severity None
+                    |> selectFor
+                        "substPerTime"
+                        (if useAdjust then
+                             itms[i].Dose.PerTimeAdjust.Name
+                         else
+                             itms[i].Dose.PerTime.Name)
+                        label
+                        None
+                        dispatch
+                        ViewHelpers.noSteps
+                        severity
+                        None
                 | _ -> null
 
             let substRateSelect =
@@ -1260,6 +1329,7 @@ module Order =
                     |> Array.distinctBy snd
                     |> selectFor
                         "substRate"
+                        ovar.Name
                         (Terms.``Order Adjusted dose`` |> getTerm "dosering")
                         None
                         dispatch
@@ -1309,6 +1379,7 @@ module Order =
                     vals
                     |> selectFor
                         "compOrdQty"
+                        (cmp |> Option.map _.OrderableQuantity.Name |> Option.defaultValue "")
                         "bereiding hoeveelheid"
                         None
                         (ChangeComponentOrderableQuantity >> dispatch)
@@ -1340,6 +1411,7 @@ module Order =
                             |> ViewHelpers.ovarVals (fixPrecision 3)
                             |> selectFor
                                 "substCompConc"
+                                itm.ComponentConcentration.Name
                                 "product sterkte"
                                 None
                                 (change >> dispatch)
@@ -1369,6 +1441,7 @@ module Order =
                                     |> ViewHelpers.ovarVals string
                                     |> selectFor
                                         "substCompConc"
+                                        itm.ComponentConcentration.Name
                                         "product sterkte"
                                         None
                                         (change >> dispatch)
@@ -1395,6 +1468,7 @@ module Order =
                     |> ViewHelpers.ovarVals (fixPrecision 3)
                     |> selectFor
                         "substOrdQty"
+                        itms[i].OrderableQuantity.Name
                         $"{itms[i].Name} hoeveelheid"
                         None
                         (ChangeSubstanceOrderableQuantity >> dispatch)
@@ -1416,6 +1490,7 @@ module Order =
                     |> ViewHelpers.ovarVals (fixPrecision 3)
                     |> selectFor
                         "substOrdConc"
+                        itms[i].OrderableConcentration.Name
                         $"{itms[i].Name} concentratie"
                         None
                         (ChangeSubstanceOrderableConcentration >> dispatch)
@@ -1433,6 +1508,7 @@ module Order =
                     |> ViewHelpers.ovarVals string
                     |> selectFor
                         "ordQty"
+                        ord.Orderable.OrderableQuantity.Name
                         "totale hoeveelheid"
                         None
                         (ChangeOrderableQuantity >> dispatch)
@@ -1465,6 +1541,7 @@ module Order =
 
                     selectFor
                         "frequency"
+                        ord.Schedule.Frequency.Name
                         (Terms.``Order Frequency`` |> getTerm "frequentie")
                         None
                         (ChangeFrequency >> dispatch)
@@ -1494,6 +1571,7 @@ module Order =
                     |> ViewHelpers.ovarValsWithRange string 3
                     |> selectFor
                         "ordDoseQty"
+                        ord.Orderable.Dose.Quantity.Name
                         "toedien hoeveelheid"
                         None
                         (ChangeOrderableDoseQuantity >> dispatch)
@@ -1527,6 +1605,7 @@ module Order =
                     |> ViewHelpers.ovarValsWithRange string 3
                     |> selectFor
                         "ordDoseRate"
+                        ord.Orderable.Dose.Rate.Name
                         (Terms.``Order Drip rate`` |> getTerm "inloop snelheid")
                         None
                         (ChangeOrderableDoseRate >> dispatch)
@@ -1545,6 +1624,7 @@ module Order =
                     |> Array.distinctBy snd
                     |> selectFor
                         "time"
+                        ord.Schedule.Time.Name
                         (Terms.``Order Administration time`` |> getTerm "inloop tijd")
                         None
                         (ChangeTime >> dispatch)

@@ -641,6 +641,17 @@ module OrderPlan =
         let updateOrderScenario (ctx: OrderContext) =
             orderContextMsg (Api.OrderContextCommand.UpdateOrderScenario, ctx)
 
+        // a clear from a field's arrow goes as a reopen of the plan, which keeps the plan before it
+        let reopenOrderScenario (ctx: OrderContext) =
+            match orderPlan with
+            | OrderPlanView.Settled(tp, Some id)
+            | OrderPlanView.Changing(tp, Some id) ->
+                Api.OrderPlanCommand.Navigate(tp, id, Api.OrderContextCommand.UpdateOrderScenario, ctx)
+                |> envOrderPlan.Reopen
+            | OrderPlanView.Settled(_, None)
+            | OrderPlanView.Changing(_, None)
+            | OrderPlanView.NoPatient -> ()
+
         let refreshOrderScenario (ctx: OrderContext) =
             orderContextMsg (Api.OrderContextCommand.ResetOrderScenario, ctx)
 
@@ -843,6 +854,8 @@ module OrderPlan =
                     editing = editing
                     orderContext = orderContext
                     updateOrderScenario = updateOrderScenario
+                    reopenOrderScenario = reopenOrderScenario
+                    restoreOrderScenario = envOrderPlan.Restore
                     stepOrderScenario = stepOrderScenario
                     refreshOrderScenario = refreshOrderScenario
                     closeOrder = handleModalClose

@@ -92,8 +92,24 @@ module ViewHelpers =
     let noSteps = Components.QuantityField.Selectable
 
 
+    /// How a field the user may have narrowed reopens: whether the user constrained its variable,
+    /// what the page does before the field's choice is cleared, and what it does when the list of
+    /// a reopen closes without a pick.
+    type Reopen =
+        {|
+            constrained: FieldOpenPolicy.Constrained
+            reopening: unit -> unit
+            restore: unit -> unit
+        |}
+
+
+    /// A field of an order. It never offers the cross, since the solver fills an emptied value
+    /// again; the arrow opens the list, and on a value the user narrowed it clears that value
+    /// first and the list shows what the server answers. A value the solver determined has no
+    /// arrow. A field without a reopen is one whose values are the order's own parts or only
+    /// shown: it opens a list of several, never reopens.
     let orderField
-        canClear
+        (reopen: Reopen option)
         (texts: Components.QuantityField.Texts)
         alwaysShow
         disabled
@@ -125,13 +141,34 @@ module ViewHelpers =
                 else
                     selected
 
-            // the cross is offered wherever it means something: a field whose value can be
-            // cleared at all, that can be used, and that holds a value. Clearing sets the value
-            // back to unnarrowed and the solver picks again, which is how one narrowing is
-            // undone without discarding the rest; the dialog's reset is the way to discard them
-            // all. Which fields showed one used to be decided field by field at the call site,
-            // so two fields of the same kind differed.
-            let hasClear = canClear && not (disabled || isEmpty) && shown.IsSome
+            // a lone range holds no value to list
+            let values =
+                match xs with
+                | [| ("range", _) |] -> 0
+                | _ -> xs.Length
+
+            let policyMode =
+                match mode with
+                | Components.QuantityField.Selectable -> QuantityModePolicy.Mode.Selectable
+                | Components.QuantityField.Navigable _ -> QuantityModePolicy.Mode.Navigable
+                | Components.QuantityField.Stepable _ -> QuantityModePolicy.Mode.Stepable
+                | Components.QuantityField.Fixed -> QuantityModePolicy.Mode.Fixed
+
+            let constrained =
+                reopen
+                |> Option.map _.constrained
+                |> Option.defaultValue FieldOpenPolicy.Constrained.No
+
+            let offer = FieldOpenPolicy.orderVariable values policyMode constrained (not (disabled || isEmpty))
+
+            let reopenField =
+                match offer.Arrow, reopen with
+                | FieldOpenPolicy.Arrow.ReopenCleared, Some r ->
+                    Some(fun () ->
+                        r.reopening ()
+                        updateSelected None
+                    )
+                | _ -> None
 
             // no field is the lead yet: which one the user starts from is the server's to say
             Components.QuantityField.View
@@ -142,7 +179,10 @@ module ViewHelpers =
                     values = xs
                     isLoading = isLoading
                     disabled = disabled || isEmpty
-                    hasClear = hasClear
+                    hasClear = false
+                    readOnly = offer.Arrow = FieldOpenPolicy.Arrow.NoArrow && not (disabled || isEmpty)
+                    reopen = reopenField
+                    restore = reopen |> Option.map _.restore |> Option.defaultValue ignore
                     severity = mark.severity
                     reason = mark.reason
                     mode = mode
@@ -152,17 +192,28 @@ module ViewHelpers =
                 |}
 
 
-    /// A value the rules narrowed, which the user may narrow further and may put back: it
-    /// offers the cross when it can be used and holds a value.
-    let orderSelect texts alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
-        orderField true texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
+    /// A value the rules narrowed, which the user may narrow further and reopen by its arrow.
+    let orderSelect
+        texts
+        alwaysShow
+        disabled
+        isLoading
+        lbl
+        selected
+        updateSelected
+        mode
+        (mark: Mark)
+        reopen
+        minWidth
+        xs
+        =
+        orderField (Some reopen) texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
-    /// A field there is nothing to clear in: a choice among the order's own parts, which always
-    /// holds one of them, or a value that is only shown. It never offers the cross, since the
-    /// cross would say the value can be taken away and it cannot.
+    /// A field that never reopens: a choice among the order's own parts, which always holds one of
+    /// them, or a value that is only shown.
     let orderFixed texts alwaysShow disabled isLoading lbl selected updateSelected mode (mark: Mark) minWidth xs =
-        orderField false texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
+        orderField None texts alwaysShow disabled isLoading lbl selected updateSelected mode mark minWidth xs
 
 
     /// The field mode of a decided quantity mode: Navigable and Stepable carry the steps,

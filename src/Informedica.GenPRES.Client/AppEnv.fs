@@ -28,6 +28,10 @@ type IOrderContext =
     // the workbench as the pages show it
     abstract OrderContext: OrderContextMachine.OrderContextView
     abstract OrderContextMsg: Api.OrderContextCommand * OrderContext -> unit
+    // a clear from the dialog that opens the field's list, the workbench before it kept
+    abstract Reopen: Api.OrderContextCommand * OrderContext -> unit
+    // the list of a reopen closed without a pick: the workbench kept is put back
+    abstract Restore: unit -> unit
     // the workbench as the order dialog shows it; none while no scenario is selected
     abstract Dialog: OrderContextMachine.OrderContextView option
     // the scenario whose order the dialog shows, by its order's id; the client's own, no round trip
@@ -43,6 +47,10 @@ type IOrderPlan =
     // the plan as the pages show it, the dialog's selection inside
     abstract OrderPlan: OrderPlanMachine.OrderPlanView
     abstract OrderPlanCommand: Api.OrderPlanCommand -> unit
+    // a clear from the dialog that opens the field's list, the plan before it kept
+    abstract Reopen: Api.OrderPlanCommand -> unit
+    // the list of a reopen closed without a pick: the plan kept is put back, as signed or changed
+    abstract Restore: unit -> unit
     // the context whose order the dialog shows, by id; the client's own, no round trip
     abstract Select: string option -> unit
     // the contexts the rows keep, by id; the totals follow
