@@ -97,6 +97,9 @@ type Terms =
     | ``Order Argumentation Helper``
     | ``Nutrition``
     | ``Order Plan``
+    // the frequency column of the order plan table: a header, capitalized, where the order
+    // dialog's field label is lowercase
+    | ``Order Plan Frequency``
     | ``Formulary``
     | ``Formulary Medications``
     | ``Formulary Indications``
@@ -138,6 +141,16 @@ type Terms =
     | ``Pick a value``
     // what a click on a range, or Enter or Space on it, does
     | ``Pick the median``
+    // the hover texts of the quantity field's buttons: to the bounds and one value down or up
+    // where a field picks from a list, a large or a small step where a field steps
+    | ``Step to minimum``
+    | ``Step lower``
+    | ``Step higher``
+    | ``Step to maximum``
+    | ``Step large down``
+    | ``Step down``
+    | ``Step up``
+    | ``Step large up``
     // Patient-specific terms
     | ``Patient Male``
     | ``Patient Female``
