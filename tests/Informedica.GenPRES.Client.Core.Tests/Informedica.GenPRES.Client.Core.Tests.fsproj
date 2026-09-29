@@ -22,6 +22,7 @@
     <Compile Include="PickPolicyTests.fs" />
     <Compile Include="SeverityReasonPolicyTests.fs" />
     <Compile Include="QuantityModePolicyTests.fs" />
+    <Compile Include="FieldOpenPolicyTests.fs" />
     <Compile Include="SectionFoldPolicyTests.fs" />
     <Compile Include="PlanWorkPolicyTests.fs" />
     <Compile Include="HeldContextPolicyTests.fs" />

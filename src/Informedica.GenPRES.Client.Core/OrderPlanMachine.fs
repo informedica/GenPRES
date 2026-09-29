@@ -215,6 +215,9 @@ type OrderPlanState =
             /// The contexts of the version last opened or signed; an order is new or changed
             /// against these.
             Opened: OrderContext[]
+            /// The state before a reopen from the dialog, put back when its list closes without a
+            /// pick; None when no reopen is looked at.
+            Kept: OrderPlanState option
         }
 
 
@@ -234,6 +237,12 @@ type OrderPlanMsg =
     | Select of string option
     /// The contexts the rows keep, by id; the totals follow.
     | Filter of string[] * request: string
+    /// A clear from the dialog that opens the field's list: the command goes out as a change, and
+    /// the plan before it is kept to be put back.
+    | Reopen of OrderPlanCommand * request: string
+    /// The list of a reopen closed without a pick: the plan kept is put back, with whether it had
+    /// changed since the version last opened or signed, and the answer to the clear is dropped.
+    | Restore
     /// The plan was signed; it took no change meanwhile, so it is the version signed.
     | Signed
     /// The argumentation written on a context, by id. No request; a changed text counts as a
@@ -294,6 +303,7 @@ module OrderPlanState =
             Selected = None
             Work = PlanWork.AsSigned
             Opened = [||]
+            Kept = None
         }
 
 
@@ -306,6 +316,7 @@ module OrderPlanState =
             Selected = None
             Work = PlanWork.AsSigned
             Opened = [||]
+            Kept = None
         }
 
 
@@ -318,6 +329,7 @@ module OrderPlanState =
             Selected = None
             Work = PlanWork.AsSigned
             Opened = [||]
+            Kept = None
         }
 
 
@@ -330,6 +342,7 @@ module OrderPlanState =
             Selected = selected
             Work = PlanWork.AsSigned
             Opened = tp.OrderContexts
+            Kept = None
         }
 
 
@@ -342,6 +355,7 @@ module OrderPlanState =
             Selected = selected
             Work = PlanWork.AsSigned
             Opened = tp.OrderContexts
+            Kept = None
         }
 
 
@@ -496,8 +510,8 @@ module OrderPlanState =
             }
 
 
-    /// The next state and effects for a message.
-    let transition (msg: OrderPlanMsg) (state: OrderPlanState) : OrderPlanState * OrderPlanEffect list =
+    /// The next state and effects for a message, a reopen and a restore aside.
+    let private move (msg: OrderPlanMsg) (state: OrderPlanState) : OrderPlanState * OrderPlanEffect list =
         match msg with
         // only an answer to the request under way reaches the plan
         | OrderPlanMsg.Answered(request, result) ->
@@ -586,6 +600,9 @@ module OrderPlanState =
                     },
                     []
             | OrderPlanCart.NoPatient _ -> state, []
+        // taken by transition
+        | OrderPlanMsg.Reopen _
+        | OrderPlanMsg.Restore -> state, []
         // the plan is the version just signed
         | OrderPlanMsg.Signed ->
             let opened =
@@ -600,17 +617,37 @@ module OrderPlanState =
             []
 
 
+    /// The next state and effects for a message. A reopen keeps the state before it, which an
+    /// answer carries along and a restore puts back; any other message ends the look, and the
+    /// state kept goes. The state kept has nothing under way, since a reopen is not offered while
+    /// a request is, so the answer to the clear finds no request to land on after a restore.
+    let transition (msg: OrderPlanMsg) (state: OrderPlanState) : OrderPlanState * OrderPlanEffect list =
+        match msg with
+        | OrderPlanMsg.Reopen(cmd, request) ->
+            let kept = { state with Kept = None }
+            let moved, effects = move (OrderPlanMsg.Command(cmd, request)) kept
+            { moved with Kept = Some kept }, effects
+        | OrderPlanMsg.Restore ->
+            match state.Kept with
+            | Some kept -> kept, []
+            | None -> state, []
+        | OrderPlanMsg.Answered _ -> move msg state
+        | _ -> move msg { state with Kept = None }
+
+
     /// Whether the message reaches the plan: changes from a page do not while a signature is under
     /// way, so the plan signed is the plan shown.
     let admitted (signing: SigningMachine.SigningView) (msg: OrderPlanMsg) =
         match msg with
         | OrderPlanMsg.Command _
+        | OrderPlanMsg.Reopen _
         | OrderPlanMsg.Filter _
         | OrderPlanMsg.Argue _ -> not (SigningPolicy.underWay signing)
         | OrderPlanMsg.PatientChanged _
         | OrderPlanMsg.Version _
         | OrderPlanMsg.Answered _
         | OrderPlanMsg.Select _
+        | OrderPlanMsg.Restore
         | OrderPlanMsg.Signed -> true
 
 

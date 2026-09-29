@@ -1049,3 +1049,97 @@ let awaitsTests =
                 shown |> OrderPlanState.awaits "r-1" |> Expect.isFalse "no request under way"
             }
         ]
+
+
+[<Tests>]
+let reopenTests =
+    // the context as the dialog sends it with a field cleared, and as the server answers it
+    let cleared = context "c-1" "paracetamol-cleared"
+    let reopened = context "c-1" "paracetamol-reopened"
+    let answer = plan [| reopened; context "c-2" "ibuprofen" |]
+    let open' = held two (Some "c-1")
+    let clear = OrderPlanCommand.Navigate(two, "c-1", OrderContextCommand.UpdateOrderScenario, cleared)
+    let move = OrderPlanState.transition
+    let run msgs state = msgs |> List.fold (fun s m -> move m s |> fst) state
+
+    testList
+        "OrderPlanState.transition, a reopen and a restore"
+        [
+            test "a reopen sends the clear and counts as a change" {
+                let state, effects = open' |> move (OrderPlanMsg.Reopen(clear, "r-1"))
+
+                effects
+                |> Expect.equal "the clear goes out" [ OrderPlanEffect.CallPlan(clear, "r-1") ]
+
+                state
+                |> OrderPlanState.work
+                |> Expect.equal "changed while the list is open" PlanWork.Changed
+            }
+
+            test "a restore before the answer puts the plan back as signed, and the late answer is dropped" {
+                let restored = open' |> run [ OrderPlanMsg.Reopen(clear, "r-1"); OrderPlanMsg.Restore ]
+
+                restored |> Expect.equal "the state before the click" open'
+
+                restored
+                |> move (OrderPlanMsg.Answered("r-1", Ok answer))
+                |> Expect.equal "the answer finds no request" (open', [])
+            }
+
+            test "a restore after the answer puts the plan back as signed" {
+                let answered =
+                    open'
+                    |> run [ OrderPlanMsg.Reopen(clear, "r-1"); OrderPlanMsg.Answered("r-1", Ok answer) ]
+
+                answered
+                |> OrderPlanState.plan
+                |> Expect.equal "the list shows the answer" (Some answer)
+
+                answered
+                |> move OrderPlanMsg.Restore
+                |> Expect.equal "the state before the click" (open', [])
+            }
+
+            test "a plan changed before the click stays changed" {
+                let changed = open' |> OrderPlanState.withWork PlanWork.Changed
+
+                changed
+                |> run [ OrderPlanMsg.Reopen(clear, "r-1"); OrderPlanMsg.Restore ]
+                |> Expect.equal "as before the click" changed
+            }
+
+            test "a pick ends the look: a restore after it changes nothing" {
+                let pick = OrderPlanCommand.Navigate(answer, "c-1", OrderContextCommand.UpdateOrderScenario, reopened)
+
+                let picked =
+                    open'
+                    |> run
+                        [
+                            OrderPlanMsg.Reopen(clear, "r-1")
+                            OrderPlanMsg.Answered("r-1", Ok answer)
+                            OrderPlanMsg.Command(pick, "r-2")
+                        ]
+
+                picked
+                |> move OrderPlanMsg.Restore
+                |> Expect.equal "nothing to put back" (picked, [])
+            }
+
+            test "a restore without a reopen changes nothing" {
+                open'
+                |> move OrderPlanMsg.Restore
+                |> Expect.equal "nothing to put back" (open', [])
+            }
+
+            test "a reopen is not admitted while a signature is under way; a restore is" {
+                let signing = SigningMachine.SigningView.Requesting
+
+                OrderPlanMsg.Reopen(clear, "r-1")
+                |> OrderPlanState.admitted signing
+                |> Expect.isFalse "reopen not admitted"
+
+                OrderPlanMsg.Restore
+                |> OrderPlanState.admitted signing
+                |> Expect.isTrue "restore admitted"
+            }
+        ]
