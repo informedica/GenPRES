@@ -627,6 +627,7 @@ module Prescribe =
         let orderView =
             Order.View
                 {|
+                    editing = Order.Editing.Workbench
                     orderContext = dialog |> Option.defaultValue OrderContextView.NoPatient
                     updateOrderScenario = fun ctx -> orderContextMsg (Api.OrderContextCommand.UpdateOrderScenario, ctx)
                     stepOrderScenario =
