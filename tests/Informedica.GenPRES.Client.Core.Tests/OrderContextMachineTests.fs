@@ -867,3 +867,115 @@ let argueTests =
                 |> Expect.equal "no patient, nothing" (noPatient, [])
             }
         ]
+
+
+[<Tests>]
+let reopenTests =
+    let context id name =
+        { paracetamol with
+            Id = id
+            Scenarios = [| OrderPlanMachineTests.Fixtures.scenario $"o-{id}" name |]
+        }
+
+    let c1 = context "c-1" "paracetamol"
+    // the context as the dialog sends it with a field cleared, and as the server answers it
+    let cleared = context "c-1" "paracetamol-cleared"
+    let reopened = context "c-1" "paracetamol-reopened"
+
+    let open' = held c1 |> OrderContextState.select (Some "o-c-1")
+
+    let move = transition
+    let run msgs state = msgs |> List.fold (fun s m -> move m s |> fst) state
+    let view = OrderContextState.view
+
+    let reopen = OrderContextMsg.Reopen(OrderContextCommand.UpdateOrderScenario, cleared, "r-1")
+
+    let answered ctx = Ok(OrderContextResponse.Evaluated ctx)
+
+    testList
+        "OrderContextState.transition, a reopen and a restore"
+        [
+            test "a reopen sends the clear and shows the context sent" {
+                let state, effects = open' |> move reopen
+
+                effects
+                |> Expect.equal
+                    "the clear goes out"
+                    [
+                        OrderContextEffect.CallContext(
+                            OrderContextCommand.UpdateOrderScenario,
+                            { cleared with Patient = patient },
+                            "r-1"
+                        )
+                    ]
+
+                state |> view |> _.IsChanging |> Expect.isTrue "changing"
+            }
+
+            test "a restore before the answer puts the context back, and the late answer is dropped" {
+                let restored = open' |> run [ reopen; OrderContextMsg.Restore ]
+
+                restored |> Expect.equal "the state before the click" open'
+
+                restored
+                |> move (OrderContextMsg.Answered("r-1", answered reopened))
+                |> Expect.equal "the answer finds no request" (open', [])
+            }
+
+            test "a restore after the answer puts the context back" {
+                let answered = open' |> run [ reopen; OrderContextMsg.Answered("r-1", answered reopened) ]
+
+                answered
+                |> view
+                |> Expect.equal "the list shows the answer" (OrderContextView.Settled reopened)
+
+                answered
+                |> move OrderContextMsg.Restore
+                |> Expect.equal "the state before the click" (open', [])
+            }
+
+            test "a pick ends the look: a restore after it changes nothing" {
+                let picked =
+                    open'
+                    |> run
+                        [
+                            reopen
+                            OrderContextMsg.Answered("r-1", answered reopened)
+                            OrderContextMsg.Command(OrderContextCommand.UpdateOrderScenario, reopened, "r-2")
+                        ]
+
+                picked
+                |> move OrderContextMsg.Restore
+                |> Expect.equal "nothing to put back" (picked, [])
+            }
+
+            test "a restore without a reopen changes nothing" {
+                open'
+                |> move OrderContextMsg.Restore
+                |> Expect.equal "nothing to put back" (open', [])
+            }
+
+            test "a reopen while a request is under way keeps nothing: a restore cannot put that request back" {
+                let busy =
+                    open'
+                    |> move (OrderContextMsg.Command(OrderContextCommand.IncreaseScheduleFrequencyProperty, c1, "r-1"))
+                    |> fst
+
+                let settled =
+                    busy
+                    |> run
+                        [
+                            OrderContextMsg.Reopen(OrderContextCommand.UpdateOrderScenario, cleared, "r-2")
+                            OrderContextMsg.Answered("r-1", answered c1)
+                            OrderContextMsg.Answered("r-2", answered reopened)
+                        ]
+
+                settled
+                |> view
+                |> Expect.equal "the clear answered" (OrderContextView.Settled reopened)
+
+                settled
+                |> move OrderContextMsg.Restore
+                |> Expect.equal "nothing to put back, nothing in flight again" (settled, [])
+            }
+        ]

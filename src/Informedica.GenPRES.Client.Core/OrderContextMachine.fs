@@ -158,6 +158,9 @@ type OrderContextState =
             /// Why the last answer refused the context; None after any other answer, a patient
             /// change, a seed or a reset.
             Refusal: OrderContextRefusal option
+            /// The state before a reopen from the dialog, put back when its list closes without a
+            /// pick; None when no reopen is looked at.
+            Kept: OrderContextState option
         }
 
 
@@ -180,6 +183,12 @@ type OrderContextMsg =
     | Select of string option
     /// The argumentation written on the workbench. No request; the answer under way keeps it.
     | Argue of string
+    /// A clear from the dialog that opens the field's list: the command goes out, and the state
+    /// before it is kept to be put back.
+    | Reopen of OrderContextCommand * OrderContext * request: string
+    /// The list of a reopen closed without a pick: the context kept is put back, and the answer to
+    /// the clear is dropped.
+    | Restore
 
 
 /// What the App carries out for the order context machine.
@@ -238,6 +247,7 @@ module OrderContextState =
             Pending = None
             Selected = None
             Refusal = None
+            Kept = None
         }
 
 
@@ -253,6 +263,7 @@ module OrderContextState =
             Pending = None
             Selected = None
             Refusal = None
+            Kept = None
         }
 
 
@@ -264,6 +275,7 @@ module OrderContextState =
             Pending = None
             Selected = None
             Refusal = None
+            Kept = None
         }
 
 
@@ -280,6 +292,7 @@ module OrderContextState =
             Pending = None
             Selected = None
             Refusal = None
+            Kept = None
         }
 
 
@@ -456,8 +469,8 @@ module OrderContextState =
             }
 
 
-    /// The next state and effects for a message.
-    let transition (msg: OrderContextMsg) (state: OrderContextState) : OrderContextState * OrderContextEffect list =
+    /// The next state and effects for a message, a reopen and a restore aside.
+    let private move (msg: OrderContextMsg) (state: OrderContextState) : OrderContextState * OrderContextEffect list =
         match msg, state.Workbench, state.InFlight with
         // only an answer to the request under way reaches the workbench
         | OrderContextMsg.Answered(request, result), _, _ ->
@@ -516,3 +529,28 @@ module OrderContextState =
         | OrderContextMsg.Command(cmd, ctx, request), _, _ ->
             run request (OrderContextWorkbenchMsg.Command(cmd, ctx)) state
         | OrderContextMsg.Reset request, _, _ -> run request OrderContextWorkbenchMsg.Reset state
+        // taken by transition
+        | OrderContextMsg.Reopen _, _, _
+        | OrderContextMsg.Restore, _, _ -> state, []
+
+
+    /// The next state and effects for a message. A reopen keeps the state before it, which an
+    /// answer carries along and a restore puts back; any other message ends the look, and the
+    /// state kept goes. A reopen while a request is under way keeps nothing and goes as a plain
+    /// command: the state kept would hold that request, and a restore would put it back in flight
+    /// after its answer. So the state kept has nothing under way, and the answer to the clear
+    /// finds no request to land on after a restore.
+    let transition (msg: OrderContextMsg) (state: OrderContextState) : OrderContextState * OrderContextEffect list =
+        match msg with
+        | OrderContextMsg.Reopen(cmd, ctx, request) when state.InFlight.IsSome ->
+            move (OrderContextMsg.Command(cmd, ctx, request)) { state with Kept = None }
+        | OrderContextMsg.Reopen(cmd, ctx, request) ->
+            let kept = { state with Kept = None }
+            let moved, effects = move (OrderContextMsg.Command(cmd, ctx, request)) kept
+            { moved with Kept = Some kept }, effects
+        | OrderContextMsg.Restore ->
+            match state.Kept with
+            | Some kept -> kept, []
+            | None -> state, []
+        | OrderContextMsg.Answered _ -> move msg state
+        | _ -> move msg { state with Kept = None }
