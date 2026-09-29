@@ -720,21 +720,22 @@ module OrderPlan =
             | OrderPlanView.Changing(_, None)
             | OrderPlanView.NoPatient -> ()
 
-        let deleteBtn =
+        let nothingSelected =
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
-            | OrderPlanView.Changing(tp, _) when tp.Filtered |> Array.length > 0 ->
-                JSX.jsx
-                    $"""
-                import Button from '@mui/material/Button';
+            | OrderPlanView.Changing(tp, _) -> tp.Filtered |> Array.isEmpty
+            | OrderPlanView.NoPatient -> true
 
-                <Box sx={ {| marginTop = 2 |} }>
-                    <Button variant="text" onClick={onDelete} disabled={isRecalculating} fullWidth startIcon={Mui.Icons.Delete} >
-                        Verwijder Geselecteerde Voorschriften
-                    </Button>
-                </Box>
-                """
-            | _ -> null
+        // always there with a plan, disabled without a selection, so the row above the table
+        // keeps its height and the table does not move when a row is checked
+        let deleteAction =
+            {|
+                label = Terms.Delete |> getTerm "Verwijderen"
+                kind = Components.ActionBar.Kind.Destructive
+                onClick = onDelete
+                disabled = isRecalculating || nothingSelected
+                icon = Some Mui.Icons.Delete
+            |}
 
         // a Prescriber with an open Session signs the plan as shown
         let onSign =
@@ -749,21 +750,30 @@ module OrderPlan =
 
         // the button stays while the plan changes, disabled, so the table below does not move up
         // and down with every answer
-        let signBtn =
+        let signAction =
+            {|
+                label = tr Terms.``Signing Sign``
+                kind = Components.ActionBar.Kind.Primary
+                onClick = fun () -> onSign ()
+                disabled = signRests
+                icon = Some Mui.Icons.Assignment
+            |}
+
+        // the actions on one row: remove on the left, sign on the right
+        let actionBar =
             match orderPlan with
             | OrderPlanView.Settled(tp, _)
-            | OrderPlanView.Changing(tp, _) when SigningPolicy.canSign session.Session tp ->
-                JSX.jsx
-                    $"""
-                import Button from '@mui/material/Button';
-
-                <Box sx={ {| marginTop = 2 |} }>
-                    <Button variant="contained" onClick={onSign} disabled={signRests} startIcon={Mui.Icons.Assignment} >
-                        {tr Terms.``Signing Sign``}
-                    </Button>
-                </Box>
-                """
-            | _ -> null
+            | OrderPlanView.Changing(tp, _) ->
+                Components.ActionBar.View
+                    {|
+                        actions =
+                            [|
+                                deleteAction
+                                if SigningPolicy.canSign session.Session tp then
+                                    signAction
+                            |]
+                    |}
+            | OrderPlanView.NoPatient -> null
 
         // the record moved on while this Session is on an older version; the bar says whose
         // and when, and offers the newest version. Nothing is blocked here: the guard is the
@@ -876,8 +886,8 @@ module OrderPlan =
 
         <Box sx={sxPlan}>
             <Box sx={sxBars}>
-                {movedOnBar}{signBtn}
-                {deleteBtn}
+                {movedOnBar}
+                {actionBar}
             </Box>
             <Box sx={sxTable}>
                 {responsiveTable}
