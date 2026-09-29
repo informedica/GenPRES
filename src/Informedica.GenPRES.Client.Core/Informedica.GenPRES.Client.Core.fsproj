@@ -27,6 +27,7 @@
     <Compile Include="SectionFoldPolicy.fs" />
     <Compile Include="PlanWorkPolicy.fs" />
     <Compile Include="HeldContextPolicy.fs" />
+    <Compile Include="ServerErrorPolicy.fs" />
 
     <!-- the session and signing machines -->
     <Compile Include="SessionMachine.fs" />

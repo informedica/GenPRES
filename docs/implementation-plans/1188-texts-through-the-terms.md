@@ -101,3 +101,5 @@ One pull request per step: the Shared edit lands on its own, as for G1.
 
 | Step | Pull request | Note |
 |---|---|---|
+| 1, the terms | #1199 | As planned. |
+| 2, the client | #1200 | The three identical builders became one, `ViewHelpers.quantityFieldTexts`. No `aria-label` was added: the buttons have none today, and the tooltip carries the text. |
