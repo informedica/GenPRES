@@ -64,7 +64,8 @@ module private Elmish =
             // longer applies. The language itself lives in Context, where the views read it
             LanguageChosen: bool
             IsDemo: bool
-            ServerError: string option
+            // the error on the banner, with the kind of request that raised it
+            ServerError: ServerErrorPolicy.ServerError option
             EmergencyListFilter: string[]
             ContinuousMedsFilter: string[]
             Snackbar: Snackbar
@@ -87,6 +88,9 @@ module private Elmish =
             Formulary: Deferred<Formulary>
             Parenteralia: Deferred<Parenteralia>
             Interactions: Deferred<DrugInteraction[]>
+            // the number of the interaction check under way; an answer to an earlier check is
+            // dropped, so it can neither replace the rows nor clear the error of a later one
+            InteractionCheck: int
             InteractionDrugNames: Deferred<string[]>
             // the drug names are asked again on a failure, three times
             DrugNameRetries: int
@@ -175,7 +179,7 @@ module private Elmish =
         | LoadParenteralia of ApiResponse<Parenteralia>
 
         | CheckInteractions of string list
-        | LoadInteractionsResult of ApiResponse<Api.InteractionResponse>
+        | LoadInteractionsResult of check: int * ApiResponse<Api.InteractionResponse>
         | LoadInteractionDrugNames of ApiResponse<Api.InteractionResponse>
 
         | UpdateLanguage of Localization.Locales
@@ -623,6 +627,7 @@ module private Elmish =
                     Formulary = HasNotStartedYet
                     Parenteralia = HasNotStartedYet
                     Interactions = HasNotStartedYet
+                    InteractionCheck = 0
                     InteractionDrugNames = HasNotStartedYet
                     DrugNameRetries = 0
                     ServerStatus = HasNotStartedYet
@@ -744,8 +749,10 @@ module private Elmish =
 
 
     /// An error from the server said and kept: the first three messages, each cut to a
-    /// readable length, under the sentence that asks for a reload. The command passes through.
-    let processError err (state: State, cmd) =
+    /// readable length, under the sentence that asks for a reload. The banner keeps the kind of
+    /// request that raised it, so the next success of that kind clears it. The command passes
+    /// through.
+    let processError source err (state: State, cmd) =
         let errMsg =
             err
             |> Array.truncate 3
@@ -756,9 +763,14 @@ module private Elmish =
 
         { state with
             Ui.Snackbar = Snackbar.shown "Er ging iets mis, herladen" "error"
-            Ui.ServerError = Some $"Server fout: {errMsg}"
+            Ui.ServerError = Some(ServerErrorPolicy.raised source $"Server fout: {errMsg}")
         },
         cmd
+
+
+    /// A successful answer of source: the banner goes when that source raised it.
+    let clearError source (state: State, cmd) =
+        { state with Ui.ServerError = state.Ui.ServerError |> ServerErrorPolicy.clearedBy source }, cmd
 
 
     /// A sentence on the snackbar, in the severity it is said with.
@@ -1024,7 +1036,8 @@ module private Elmish =
         | OrderPlanEffect.ResetWorkbench -> state, Cmd.ofMsg (OrderContextMsg(OrderContextMsg.Reset(newRequest ())))
         // an order prescribed opens the plan page
         | OrderPlanEffect.GoToPlanPage -> { state with Ui.Page = OrderPlan }, Cmd.none
-        | OrderPlanEffect.TellError errs -> (state, Cmd.none) |> processError errs
+        | OrderPlanEffect.TellError errs ->
+            (state, Cmd.none) |> processError ServerErrorPolicy.ErrorSource.OrderPlan errs
 
 
     /// What one order-context effect changes, and the command it sends. A workbench call
@@ -1147,8 +1160,8 @@ module private Elmish =
 
     let update (msg: Msg) (state: State) =
         // a token the server no longer takes (expired, or a restart): the login is over
-        let tokenError err (state, cmd) =
-            let state, cmd = processError err (state, cmd)
+        let tokenError source err (state, cmd) =
+            let state, cmd = processError source err (state, cmd)
 
             if err |> Array.contains "Invalid token" then
                 state, Cmd.batch [ cmd; Cmd.ofMsg Logout ]
@@ -1187,7 +1200,9 @@ module private Elmish =
 
             { state with
                 Fetches.ServerStatus = Resolved true
-                Ui.ServerError = None
+                Ui.ServerError =
+                    state.Ui.ServerError
+                    |> ServerErrorPolicy.clearedBy ServerErrorPolicy.ErrorSource.Server
             },
             cmd
 
@@ -1196,7 +1211,11 @@ module private Elmish =
 
             { state with
                 Fetches.ServerStatus = Resolved false
-                Ui.ServerError = Some "De server is niet bereikbaar. Controleer of de server is gestart."
+                Ui.ServerError =
+                    ServerErrorPolicy.raised
+                        ServerErrorPolicy.ErrorSource.Server
+                        "De server is niet bereikbaar. Controleer of de server is gestart."
+                    |> Some
             },
             async {
                 do! Async.Sleep 5000
@@ -1233,7 +1252,8 @@ module private Elmish =
         // an answer of an earlier attempt: a login since logged out, or asked again
         | LoadLoginResult(attempt, Finished _) when attempt <> state.Admin.LoginAttempt -> state, Cmd.none
 
-        | LoadLoginResult(_, Finished(Ok resp)) -> applyAdmin state resp
+        | LoadLoginResult(_, Finished(Ok resp)) ->
+            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.Login
 
         | LoadLoginResult(_, Finished(Error err)) ->
             ({ state with
@@ -1241,7 +1261,7 @@ module private Elmish =
                 Admin.AuthToken = ""
              },
              Cmd.none)
-            |> processError err
+            |> processError ServerErrorPolicy.ErrorSource.Login err
 
         | LoadLoginResult(_, Started) -> state, Cmd.none
 
@@ -1268,17 +1288,24 @@ module private Elmish =
         | LoadReloadResult(token, Finished _) when token <> state.Admin.AuthToken -> state, Cmd.none
 
         | ListLogFiles ->
-            let token = state.Admin.AuthToken
+            match state.Admin.LogFiles with
+            // one listing at a time, so an earlier answer cannot clear the error of a later one
+            | InProgress
+            | Refreshing _ -> state, Cmd.none
+            | _ ->
+                let token = state.Admin.AuthToken
 
-            // the table shown stays until the answer
-            { state with Admin.LogFiles = state.Admin.LogFiles |> Deferred.refresh },
-            Api.AdminCommand.ListLogFiles token
-            |> createAdminMsg (fun result -> LoadLogFilesResult(token, result))
+                // the table shown stays until the answer
+                { state with Admin.LogFiles = state.Admin.LogFiles |> Deferred.refresh },
+                Api.AdminCommand.ListLogFiles token
+                |> createAdminMsg (fun result -> LoadLogFilesResult(token, result))
 
-        | LoadLogFilesResult(_, Finished(Ok resp)) -> applyAdmin state resp
+        | LoadLogFilesResult(_, Finished(Ok resp)) ->
+            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.LogFiles
 
         | LoadLogFilesResult(_, Finished(Error err)) ->
-            ({ state with Admin.LogFiles = HasNotStartedYet }, Cmd.none) |> tokenError err
+            ({ state with Admin.LogFiles = HasNotStartedYet }, Cmd.none)
+            |> tokenError ServerErrorPolicy.ErrorSource.LogFiles err
 
         | LoadLogFilesResult(_, Started) -> state, Cmd.none
 
@@ -1289,11 +1316,12 @@ module private Elmish =
             Api.AdminCommand.AnalyzeLogFile(token, fileName)
             |> createAdminMsg (fun result -> LoadLogAnalysisResult(token, result))
 
-        | LoadLogAnalysisResult(_, Finished(Ok resp)) -> applyAdmin state resp
+        | LoadLogAnalysisResult(_, Finished(Ok resp)) ->
+            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.LogAnalysis
 
         | LoadLogAnalysisResult(_, Finished(Error err)) ->
             ({ state with Admin.LogAnalysisReport = HasNotStartedYet }, Cmd.none)
-            |> tokenError err
+            |> tokenError ServerErrorPolicy.ErrorSource.LogAnalysis err
 
         | LoadLogAnalysisResult(_, Started) -> state, Cmd.none
 
@@ -1304,10 +1332,12 @@ module private Elmish =
             Api.AdminCommand.ReloadResources token
             |> createAdminMsg (fun result -> LoadReloadResult(token, result))
 
-        | LoadReloadResult(_, Finished(Ok resp)) -> applyAdmin state resp
+        | LoadReloadResult(_, Finished(Ok resp)) ->
+            applyAdmin state resp |> clearError ServerErrorPolicy.ErrorSource.Reload
 
         | LoadReloadResult(_, Finished(Error err)) ->
-            ({ state with Admin.Reloading = HasNotStartedYet }, Cmd.none) |> tokenError err
+            ({ state with Admin.Reloading = HasNotStartedYet }, Cmd.none)
+            |> tokenError ServerErrorPolicy.ErrorSource.Reload err
 
         | LoadReloadResult(_, Started) -> state, Cmd.none
 
@@ -1606,10 +1636,19 @@ module private Elmish =
         // what the Session is told rides on the reply; the plan goes to the machine under the
         // request it answers
         | OrderPlanAnswered(request, answer) ->
+            // only the answer the plan waits for clears the plan's error: a late answer to a
+            // request since replaced is dropped by the machine and says nothing of the one under way
+            let clear =
+                if state.Lanes.OrderPlan |> OrderPlanState.awaits request then
+                    clearError ServerErrorPolicy.ErrorSource.OrderPlan
+                else
+                    id
+
             processApiMsg
                 state
                 answer
                 (fun state plan -> state, Cmd.ofMsg (OrderPlanMsg(OrderPlanMsg.Answered(request, Ok plan))))
+            |> clear
 
         // asked again over the formulary shown, which stays shown until the answer; a second
         // request while one runs is dropped
@@ -1635,6 +1674,7 @@ module private Elmish =
                 else
                     state
             processApiMsg state msg applyFormulary
+            |> clearError ServerErrorPolicy.ErrorSource.Formulary
 
         | LoadFormulary(Finished(Error err)) ->
             let state =
@@ -1643,7 +1683,7 @@ module private Elmish =
                 else
                     state
             ({ state with Fetches.Formulary = HasNotStartedYet }, Cmd.none)
-            |> processError err
+            |> processError ServerErrorPolicy.ErrorSource.Formulary err
 
         | UpdateFormulary form ->
             let state =
@@ -1687,11 +1727,13 @@ module private Elmish =
 
                 { state with Fetches.Parenteralia = state.Fetches.Parenteralia |> Deferred.refresh }, cmd
 
-        | LoadParenteralia(Finished(Ok msg)) -> processApiMsg state msg applyParenteralia
+        | LoadParenteralia(Finished(Ok msg)) ->
+            processApiMsg state msg applyParenteralia
+            |> clearError ServerErrorPolicy.ErrorSource.Parenteralia
 
         | LoadParenteralia(Finished(Error err)) ->
             ({ state with Fetches.Parenteralia = HasNotStartedYet }, Cmd.none)
-            |> processError err
+            |> processError ServerErrorPolicy.ErrorSource.Parenteralia err
 
         | UpdateParenteralia par ->
             let state =
@@ -1726,18 +1768,35 @@ module private Elmish =
                 ]
 
         | CheckInteractions drugs ->
+            // every check, the empty one too, ends the checks before it
+            let check = state.Fetches.InteractionCheck + 1
+
             if drugs.Length < 2 then
-                { withdrawInteractionsNotice state with Fetches.Interactions = HasNotStartedYet }, Cmd.none
+                { withdrawInteractionsNotice state with
+                    Fetches.Interactions = HasNotStartedYet
+                    Fetches.InteractionCheck = check
+                },
+                Cmd.none
             else
                 // the rows shown stay until the answer
-                { state with Fetches.Interactions = state.Fetches.Interactions |> Deferred.refresh },
+                { state with
+                    Fetches.Interactions = state.Fetches.Interactions |> Deferred.refresh
+                    Fetches.InteractionCheck = check
+                },
                 Api.InteractionCommand.CheckInteractions drugs
-                |> createApiMsg serverApi.processInteraction (tokenOf state.Lanes.Session) LoadInteractionsResult
+                |> createApiMsg
+                    serverApi.processInteraction
+                    (tokenOf state.Lanes.Session)
+                    (fun result -> LoadInteractionsResult(check, result))
 
-        | LoadInteractionsResult(Finished(Ok msg)) -> processApiMsg state msg applyInteraction
-        | LoadInteractionsResult(Finished(Error err)) ->
+        | LoadInteractionsResult(check, Finished _) when check <> state.Fetches.InteractionCheck -> state, Cmd.none
+
+        | LoadInteractionsResult(_, Finished(Ok msg)) ->
+            processApiMsg state msg applyInteraction
+            |> clearError ServerErrorPolicy.ErrorSource.Interactions
+        | LoadInteractionsResult(_, Finished(Error err)) ->
             ({ state with Fetches.Interactions = HasNotStartedYet }, Cmd.none)
-            |> processError err
+            |> processError ServerErrorPolicy.ErrorSource.Interactions err
         | LoadInteractionsResult _ -> state, Cmd.none
 
         | LoadInteractionDrugNames Started ->
@@ -2062,12 +2121,12 @@ let View () =
 
     let serverErrorBanner =
         match state.Ui.ServerError with
-        | Some errMsg ->
+        | Some error ->
             Components.Notice.View
                 {|
                     kind = Components.Notice.Kind.Error
                     title = Some "Server probleem"
-                    message = errMsg
+                    message = error.Message
                     action = None
                     onClose = Some(fun () -> dispatch DismissServerError)
                 |}
