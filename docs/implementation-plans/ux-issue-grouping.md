@@ -126,7 +126,7 @@ In the status column a number marked PR is a pull request; any other number is a
 |---|---|---|
 | #498 | post-MVP | done: the one-option rule, PRs #1012, #1013 |
 | #403 | none | closed 2026-09-26 as a duplicate of #501 |
-| #501 | none | open: half done by PR #1028; the rest is issue #1033 |
+| #501 | none | done: PR #1028, and issue #1033 by PR #1216 |
 | #398 | post-MVP | done: one rule for the clear cross on a dose field, PR #1031 |
 | #394 | post-MVP | done: one word and a bounded button for the reset, PR #1030 |
 
@@ -147,9 +147,9 @@ In the status column a number marked PR is a pull request; any other number is a
   full-width text button.
 
 **Built** in [982's plan](982-one-dropdown-one-set-of-controls-one-state.md), PRs #1027 to #1032,
-closed 2026-09-25. What is left of #501: the server computes each option list from the whole
-filter, including that field's own choice, so a fully chosen filter reduces every list to the value
-it holds. #1033 gives each list the filter without its own field.
+closed 2026-09-25. What was left of #501, each option list computed from the whole filter
+including that field's own choice, was built with #1033 in
+[the clear-cross plan](1034-the-clear-cross.md), PR #1216, on 2026-09-30.
 
 **To settle:**
 
@@ -548,8 +548,9 @@ All six were built and closed on 2026-09-29, in PRs #1196 to #1203:
 | [1188-texts-through-the-terms.md](1188-texts-through-the-terms.md) | #1188, #1117 | A lowercase plan header; Dutch hover texts on the step buttons |
 | [1141-the-error-banner-and-the-float-parse.md](1141-the-error-banner-and-the-float-parse.md) | #1141, #1176 | A server error banner that outlives the error; the browser's float parse |
 
-Left out of this set: #398 and #1034, the clear cross that seems to do nothing, wait on the
-rule that #1034 asks for; #1136 touches every page; #1155 is a GenORDER and server change; #507
+Left out of this set: #1034, the clear cross that seems to do nothing, was planned on its own
+with #1195, #1193 and #1033 in [the clear-cross plan](1034-the-clear-cross.md) and built on
+2026-09-29 and 2026-09-30, in PRs #1205 to #1216; #1136 touches every page; #1155 is a GenORDER and server change; #507
 sits in G9; and #502 waits on a design.
 
 ## What the grouping surfaced
