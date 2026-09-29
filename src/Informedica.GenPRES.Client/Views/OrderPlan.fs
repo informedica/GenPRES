@@ -14,6 +14,102 @@ module OrderPlan =
     open OrderContextMachine
 
 
+    /// A plan table cell that steps its order: the text, and on a click, or Enter, a quantity
+    /// field in a popper anchored to the cell, closed with its own button or a second click. A
+    /// click or a key inside reaches no row, so the order dialog does not open. The popper
+    /// stays mounted while closed, so a step still counting its clicks is sent after the close.
+    [<JSX.Component>]
+    let PlanCell
+        (props:
+            {|
+                text: string
+                field: JSX.Element
+                closeLabel: string
+            |})
+        =
+        let anchor, setAnchor = React.useState<Browser.Types.Element option> None
+
+        let toggle (e: Browser.Types.Event) =
+            e.stopPropagation ()
+
+            match anchor with
+            | Some _ -> setAnchor None
+            | None -> setAnchor (Some(e.currentTarget :?> Browser.Types.Element))
+
+        let onKey (e: Browser.Types.KeyboardEvent) =
+            if e.key = "Enter" then
+                toggle e
+
+        let close (e: Browser.Types.Event) =
+            e.stopPropagation ()
+            setAnchor None
+
+        let stop (e: Browser.Types.Event) = e.stopPropagation ()
+
+        let isOpen = anchor.IsSome
+        let anchorEl = anchor |> Option.map box |> Option.defaultValue null
+
+        // a cell that can be stepped reads as a control: a light blue box with a pencil, darker
+        // under the pointer and while its field is open
+        let cellSx =
+            {|
+                display = "inline-flex"
+                alignItems = "center"
+                gap = 0.5
+                paddingX = 0.75
+                paddingY = 0.25
+                borderRadius = 1
+                border = $"1px solid %s{Mui.Colors.Blue.``200``}"
+                backgroundColor =
+                    (if anchor.IsSome then
+                         Mui.Colors.Blue.``100``
+                     else
+                         Mui.Colors.Blue.``50``)
+                color = Mui.Colors.Blue.``900``
+                cursor = "pointer"
+                ``& svg`` =
+                    {|
+                        fontSize = 16
+                        color = Mui.Colors.Blue.``700``
+                    |}
+                ``&:hover`` =
+                    {|
+                        borderColor = Mui.Colors.Blue.``700``
+                        backgroundColor = Mui.Colors.Blue.``100``
+                    |}
+            |}
+
+        let popperSx = {| zIndex = 1300 |}
+
+        let paperSx =
+            {|
+                display = "flex"
+                alignItems = "flex-start"
+                gap = 0.5
+                padding = 1
+            |}
+
+        JSX.jsx
+            $"""
+        import Box from '@mui/material/Box';
+        import IconButton from '@mui/material/IconButton';
+        import Paper from '@mui/material/Paper';
+        import Popper from '@mui/material/Popper';
+
+        <Box sx={cellSx} tabIndex={0} onClick={toggle} onKeyDown={onKey}>
+            {props.text}{Mui.Icons.Edit}
+            <Popper open={isOpen} anchorEl={anchorEl} placement="bottom-start" keepMounted={true} sx={popperSx}>
+                <Paper elevation={4} sx={paperSx} onClick={stop} onKeyDown={stop}>
+                    {props.field}
+                    <IconButton size="small" aria-label={props.closeLabel} title={props.closeLabel} onClick={close}>
+                        {Mui.Icons.Close}
+                    </IconButton>
+                </Paper>
+            </Popper>
+        </Box>
+        """
+
+
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let envOrderPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
@@ -75,27 +171,165 @@ module OrderPlan =
             {|
                 display = "flex"
                 alignItems = "center"
-                gap = 0.5
+                gap = 1
             |}
 
         // the medication, with the lock and its reason on hover when the order is locked
-        let renderMedicationCell =
-            fun (pars: obj) ->
-                let value: string = pars?value
-                let id: string = pars?id
+        // the medication name reads as a link, since a click on it opens the order: blue, bold,
+        // underlined under the pointer, after the icon of the prescribe page's edit button
+        let medicationSx =
+            {|
+                display = "inline-flex"
+                alignItems = "center"
+                color = Mui.Colors.Blue.``800``
+                fontWeight = 600
+                gap = 1
+                ``& svg`` = {| fontSize = 18 |}
+                ``&:hover`` = {| textDecoration = "underline" |}
+            |}
 
-                if lockedOrders |> Set.contains id then
-                    JSX.jsx
-                        $"""
+        let medicationCell (id: string) (value: string) =
+            // a locked order carries the lock in place of the edit icon: it opens read-only
+            if lockedOrders |> Set.contains id then
+                JSX.jsx
+                    $"""
                     import Box from '@mui/material/Box';
                     import Tooltip from '@mui/material/Tooltip';
 
                     <Tooltip title={lockedText}>
-                        <Box sx={lockSx}>{Mui.Icons.LockIcon}{value}</Box>
+                        <Box sx={lockSx}>{Mui.Icons.LockIcon}<Box sx={medicationSx}>{value}</Box></Box>
                     </Tooltip>
                     """
-                else
-                    Html.text value |> toJsx
+            else
+                JSX.jsx
+                    $"""
+                import Box from '@mui/material/Box';
+
+                <Box sx={medicationSx}>{Mui.Icons.CalculateIcon}{value}</Box>
+                """
+
+        // a new plan answer drops the value a step showed before the answer arrived
+        let revisionRef = React.useRef 0
+        let prevPlanRef = React.useRef orderPlan
+
+        if not (obj.ReferenceEquals(prevPlanRef.current, orderPlan)) then
+            prevPlanRef.current <- orderPlan
+
+            match orderPlan with
+            | OrderPlanView.Settled _ -> revisionRef.current <- revisionRef.current + 1
+            | OrderPlanView.Changing _
+            | OrderPlanView.NoPatient -> ()
+
+        let revision = revisionRef.current
+
+        // the cells step only while the plan is settled and no signature is under way
+        let cellsRest =
+            match orderPlan with
+            | OrderPlanView.Settled _ -> SigningPolicy.underWay signing.Signing
+            | OrderPlanView.Changing _
+            | OrderPlanView.NoPatient -> true
+
+        let fieldTexts =
+            {|
+                pickValue = Terms.``Pick a value`` |> getTerm "kies een waarde"
+                pickMedian = Terms.``Pick the median`` |> getTerm "naar mediaan"
+            |}
+
+        // the quantity field a cell steps, its commands sent into the row's own context, as the
+        // order dialog builds the same field
+        let cellField (tp: OrderPlan) (ctx: OrderContext) (ord: Order) (field, ovar: OrderVariable) =
+            let send cmd =
+                planCommand (Api.OrderPlanCommand.Navigate(tp, ctx.Id, cmd, ctx))
+
+            let stepable = QuantityModePolicy.Mode.Stepable
+
+            let mode, label =
+                match field with
+                | QuantityModePolicy.Field.Frequency ->
+                    ViewHelpers.frequencyStepper
+                        send
+                        revision
+                        stepable
+                        Api.OrderContextCommand.SetMinScheduleFrequencyProperty
+                        Api.OrderContextCommand.DecreaseScheduleFrequencyProperty
+                        Api.OrderContextCommand.SetMedianScheduleFrequencyProperty
+                        Api.OrderContextCommand.IncreaseScheduleFrequencyProperty
+                        Api.OrderContextCommand.SetMaxScheduleFrequencyProperty,
+                    Terms.``Order Frequency`` |> getTerm "frequentie"
+                | QuantityModePolicy.Field.DoseQuantity ->
+                    ViewHelpers.createDoseQtyStepper
+                        send
+                        revision
+                        ord
+                        Api.OrderContextCommand.SetMinOrderableDoseQuantityProperty
+                        Api.OrderContextCommand.DecreaseOrderableDoseQuantityProperty
+                        Api.OrderContextCommand.SetMedianOrderableDoseQuantityProperty
+                        Api.OrderContextCommand.IncreaseOrderableDoseQuantityProperty
+                        Api.OrderContextCommand.SetMaxOrderableDoseQuantityProperty,
+                    "toedien hoeveelheid"
+                | QuantityModePolicy.Field.DoseRate ->
+                    ViewHelpers.doseRateStepper
+                        send
+                        revision
+                        stepable
+                        ovar
+                        Api.OrderContextCommand.SetMinOrderableDoseRateProperty
+                        Api.OrderContextCommand.DecreaseOrderableDoseRateProperty
+                        Api.OrderContextCommand.SetMedianOrderableDoseRateProperty
+                        Api.OrderContextCommand.IncreaseOrderableDoseRateProperty
+                        Api.OrderContextCommand.SetMaxOrderableDoseRateProperty,
+                    Terms.``Order Drip rate`` |> getTerm "inloop snelheid"
+                | QuantityModePolicy.Field.ComponentQuantity
+                | QuantityModePolicy.Field.Other -> Components.QuantityField.Fixed, ""
+
+            ovar
+            |> ViewHelpers.ovarValsWithRange string 3
+            |> ViewHelpers.orderFixed
+                fieldTexts
+                false
+                cellsRest
+                false
+                label
+                None
+                ignore
+                mode
+                (ovar |> ViewHelpers.markOf)
+                None
+
+        // a cell of a column that can step: the quantity field in a popper when the plan cell
+        // rule says the cell steps, the text otherwise
+        let steppingCell (column: PlanCellPolicy.Column) (id: string) (value: string) =
+            let stepping =
+                match orderPlan with
+                | OrderPlanView.Settled(tp, _)
+                | OrderPlanView.Changing(tp, _) ->
+                    contextOf tp id
+                    |> Option.bind (fun ctx ->
+                        PlanCellPolicy.stepable tp ctx column
+                        |> Option.bind (fun fieldOf ->
+                            OrderContext.contribution ctx
+                            |> Option.map (fun sc -> cellField tp ctx sc.Order fieldOf)
+                        )
+                    )
+                | OrderPlanView.NoPatient -> None
+
+            match stepping with
+            | Some field ->
+                PlanCell
+                    {|
+                        text = value
+                        field = field
+                        closeLabel = "sluiten"
+                    |}
+            | None -> Html.text value |> toJsx
+
+        // one renderer for both layouts: the grid and the cards pass the row id and the value
+        let rendered (cell: string -> string -> JSX.Element) =
+            fun (pars: obj) -> cell (pars?id: string) (pars?value: string)
+
+        let renderMedicationCell = rendered medicationCell
+        let renderFrequencyCell = rendered (steppingCell PlanCellPolicy.Column.Frequency)
+        let renderSolutionCell = rendered (steppingCell PlanCellPolicy.Column.Solution)
 
         let columns =
             [|
@@ -114,6 +348,7 @@ module OrderPlan =
                     filterable = true
                     sortable = true
                     renderCell = renderMedicationCell
+                    renderCard = renderMedicationCell
                 |}
                 |> box
                 {|
@@ -130,6 +365,8 @@ module OrderPlan =
                     width = 150
                     filterable = false
                     sortable = false
+                    renderCell = renderFrequencyCell
+                    renderCard = renderFrequencyCell
                 |}
                 |> box
                 {|
@@ -146,6 +383,8 @@ module OrderPlan =
                     width = 150
                     filterable = false
                     sortable = false
+                    renderCell = renderSolutionCell
+                    renderCard = renderSolutionCell
                 |}
                 |> box //``type`` = "number"
                 {|
@@ -441,15 +680,18 @@ module OrderPlan =
                 | OrderPlanView.NoPatient
                 | OrderPlanView.Changing _ -> ()
 
+        // the button stays while the plan changes, disabled, so the table below does not move up
+        // and down with every answer
         let signBtn =
             match orderPlan with
-            | OrderPlanView.Settled(tp, _) when SigningPolicy.canSign session.Session tp ->
+            | OrderPlanView.Settled(tp, _)
+            | OrderPlanView.Changing(tp, _) when SigningPolicy.canSign session.Session tp ->
                 JSX.jsx
                     $"""
                 import Button from '@mui/material/Button';
 
                 <Box sx={ {| marginTop = 2 |} }>
-                    <Button variant="contained" onClick={onSign} startIcon={Mui.Icons.Assignment} >
+                    <Button variant="contained" onClick={onSign} disabled={isRecalculating} startIcon={Mui.Icons.Assignment} >
                         {tr Terms.``Signing Sign``}
                     </Button>
                 </Box>

@@ -39,6 +39,16 @@ module ResponsiveTable =
                 |})
             =
 
+            // a column may carry a renderer for the cards, called as the grid calls renderCell,
+            // with the row id and the value; the cell then shows what it renders
+            let renderCardOf (field: string) : (obj -> obj) option =
+                props.columns
+                |> Array.tryFind (fun c -> c.field = field)
+                |> Option.bind (fun c ->
+                    let render: obj = c?renderCard
+                    if isNull render then None else Some(unbox render)
+                )
+
             let cards =
                 props.rows
                 |> Array.map (fun row ->
@@ -67,6 +77,11 @@ module ResponsiveTable =
                                     Mui.Colors.Blue.``900``, cell.value.Replace("*", "")
                                 | _ -> Mui.Colors.Grey.``700``, cell.value
 
+                            let shown =
+                                match renderCardOf cell.field with
+                                | Some render -> render (createObj [ "id" ==> rowId; "value" ==> s ])
+                                | None -> box s
+
                             if i = 0 then
                                 let headerBoxSx =
                                     {|
@@ -89,8 +104,8 @@ module ResponsiveTable =
                                 import Box from '@mui/material/Box';
 
                                 <Box sx={headerBoxSx} >
-                                    <Typography variant="subtitle2" sx={headerTypoSx} >
-                                        {s}
+                                    <Typography variant="subtitle2" component="div" sx={headerTypoSx} >
+                                        {shown}
                                     </Typography>
                                 </Box>
                                 """
@@ -127,8 +142,8 @@ module ResponsiveTable =
                                     <Typography variant="body2" sx={labelSx} >
                                         {h}
                                     </Typography>
-                                    <Typography variant="body2" sx={valueSx} >
-                                        {s}
+                                    <Typography variant="body2" component="div" sx={valueSx} >
+                                        {shown}
                                     </Typography>
                                 </Stack>
                                 """
@@ -352,8 +367,9 @@ module ResponsiveTable =
                 let idx: int = pars?indexRelativeToCurrentPage
                 if idx % 2 = 0 then "even" else "odd"
 
-        // Style for striped rows: apply background to even rows
-        // Use lef border color blue to indicate selection
+        // Style for striped rows: apply background to even rows. The row under the pointer shows a
+        // blue bar on its left, drawn as an inset shadow: a border would take room and shift the
+        // row's cells each time the hover comes or goes, as it does when the rows are rendered anew
         let stripedSx: obj =
             createObj
                 [
@@ -361,20 +377,20 @@ module ResponsiveTable =
                     ==> createObj [ "backgroundColor" ==> Mui.Colors.Grey.``100`` ]
 
                     "& .MuiDataGrid-row"
-                    ==> createObj [ "cursor" ==> "pointer"; "transition" ==> "border-left 0.1s ease" ]
+                    ==> createObj [ "cursor" ==> "pointer"; "transition" ==> "box-shadow 0.1s ease" ]
 
                     "& .MuiDataGrid-row.even:hover"
                     ==> createObj
                             [
                                 "backgroundColor" ==> Mui.Colors.Grey.``100``
-                                "borderLeft" ==> $"4px solid {Mui.Colors.Blue.``700``}"
+                                "boxShadow" ==> $"inset 4px 0 0 {Mui.Colors.Blue.``700``}"
                             ]
 
                     "& .MuiDataGrid-row.odd:hover"
                     ==> createObj
                             [
                                 "backgroundColor" ==> "white"
-                                "borderLeft" ==> $"4px solid {Mui.Colors.Blue.``700``}"
+                                "boxShadow" ==> $"inset 4px 0 0 {Mui.Colors.Blue.``700``}"
                             ]
 
                     "& .MuiDataGrid-cell"
