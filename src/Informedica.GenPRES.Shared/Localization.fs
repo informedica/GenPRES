@@ -253,6 +253,12 @@ type Terms =
     | ``Signing Refusal Plan Unreadable``
     | ``Signing Refusal Context Differs``
     | ``Signing Send Failed``
+    // the sign dialog lists what differs from the version last opened or signed: the tag of a
+    // new, a changed and a removed order, and the line shown when nothing differs
+    | ``Signing New``
+    | ``Signing Changed``
+    | ``Signing Removed``
+    | ``Signing No Changes``
     // the record moved on, told once per version; the button that takes the version up;
     // what is told once it is open
     | ``Session Newer Version``

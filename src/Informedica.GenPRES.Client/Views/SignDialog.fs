@@ -2,9 +2,9 @@ namespace Views
 
 
 /// <summary>
-/// The signing dialog: modal over the order plan while a challenge stands. It shows the
-/// orders exactly as they will be signed and asks the PIN; sign as shown, or cancel and
-/// edit. Before a challenge, when the patient data changed or cannot be read, it is the data
+/// The signing dialog: modal over the order plan while a challenge stands. It lists the
+/// orders new, changed or removed since the version last opened or signed, each tagged, and
+/// asks the PIN; the whole plan is signed as shown, or the user cancels and edits. Before a challenge, when the patient data changed or cannot be read, it is the data
 /// notice instead: continue over the data
 /// as it stands, or cancel. Every text is a Terms case; what the dialog offers comes from
 /// SigningPolicy, and what happens from the signing machine.
@@ -24,6 +24,7 @@ module SignDialog =
     [<JSX.Component>]
     let View (props: {| appEnv: obj |}) =
         let signing = AppEnv.asEnv<AppEnv.ISigning> props.appEnv
+        let envPlan = AppEnv.asEnv<AppEnv.IOrderPlan> props.appEnv
         let terms = (AppEnv.asEnv<AppEnv.ILocalization> props.appEnv).LocalizationTerms
         let context: Global.Context = React.useContext Global.context
 
@@ -107,18 +108,50 @@ module SignDialog =
             | SigningView.Noticed(_, notice) -> Some notice
             | _ -> None
 
-        // the orders as they will be signed, each with the argumentation its context holds
+        // the orders that differ from the version last opened or signed, each with how it
+        // differs and the argumentation its context holds; a removed one as the version held it
         let orders =
             match phase with
             | SigningView.Noticed(plan, _)
             | SigningView.Challenged(plan, _)
             | SigningView.Submitting plan ->
-                plan.OrderContexts
-                |> Array.choose (fun ctx ->
-                    OrderContext.contribution ctx |> Option.map (fun sc -> sc, ctx.Argumentation)
+                envPlan.Differences plan
+                |> Array.choose (fun (ctx, difference) ->
+                    OrderContext.contribution ctx
+                    |> Option.map (fun sc -> sc, difference, ctx.Argumentation)
                 )
             | SigningView.Idle
             | SigningView.Requesting -> [||]
+
+        // the plan is up for signing and none of its orders differs from the version
+        let unchanged =
+            match phase with
+            | SigningView.Noticed _
+            | SigningView.Challenged _
+            | SigningView.Submitting _ -> orders |> Array.isEmpty
+            | SigningView.Idle
+            | SigningView.Requesting -> false
+
+        let differenceTag (difference: HeldContextPolicy.Difference) =
+            let label, color =
+                match difference with
+                | HeldContextPolicy.Difference.New -> tr Terms.``Signing New``, "success"
+                | HeldContextPolicy.Difference.Changed -> tr Terms.``Signing Changed``, "warning"
+                | HeldContextPolicy.Difference.Removed -> tr Terms.``Signing Removed``, "error"
+
+            JSX.jsx
+                $"""
+            <Chip label={label} color={color} size="small" variant="outlined" />
+            """
+
+        let primarySx =
+            {|
+                display = "flex"
+                alignItems = "center"
+                gap = 1
+            |}
+
+        let noChangesSx = {| marginTop = 1 |}
 
         let argumentationLabel =
             Global.getLocalizedTerm terms context.Localization "Argumentation" Terms.``Order Argumentation``
@@ -148,10 +181,11 @@ module SignDialog =
         // ListItemText makes of it
         let secondarySlot = {| secondary = {| ``component`` = "div" |} |}
 
-        // the orders as they will be signed: each scenario's prescription, one line per row
+        // the orders that differ: each scenario's prescription, one line per row, under the
+        // name and its tag
         let orderList =
             orders
-            |> Array.mapi (fun i (sc, argumentation) ->
+            |> Array.mapi (fun i (sc, difference, argumentation) ->
                 let rows =
                     sc.Prescription
                     |> TextBlock.flatten
@@ -185,13 +219,28 @@ module SignDialog =
                     <div>{rows}{argued argumentation}</div>
                     """
 
+                let primary =
+                    JSX.jsx
+                        $"""
+                    <Box sx={primarySx}>{sc.Order.Orderable.Name}{differenceTag difference}</Box>
+                    """
+
                 JSX.jsx
                     $"""
                 <ListItem key={i} divider={true}>
-                    <ListItemText primary={sc.Order.Orderable.Name} secondary={secondary} slotProps={secondarySlot} />
+                    <ListItemText primary={primary} secondary={secondary} slotProps={secondarySlot} />
                 </ListItem>
                 """
             )
+
+        let noChanges =
+            if unchanged then
+                JSX.jsx
+                    $"""
+                <Typography variant="body2" sx={noChangesSx}>{tr Terms.``Signing No Changes``}</Typography>
+                """
+            else
+                null
 
         let pinField =
             match notice with
@@ -261,6 +310,7 @@ module SignDialog =
             $"""
         import Box from '@mui/material/Box';
         import Button from '@mui/material/Button';
+        import Chip from '@mui/material/Chip';
         import CircularProgress from '@mui/material/CircularProgress';
         import Dialog from '@mui/material/Dialog';
         import DialogActions from '@mui/material/DialogActions';
@@ -271,11 +321,13 @@ module SignDialog =
         import ListItem from '@mui/material/ListItem';
         import ListItemText from '@mui/material/ListItemText';
         import TextField from '@mui/material/TextField';
+        import Typography from '@mui/material/Typography';
 
         <Dialog open={isOpen} onClose={onCancel} fullWidth={true} maxWidth="sm" aria-labelledby="sign-dialog-title">
             <DialogTitle id="sign-dialog-title">{tr Terms.``Signing Dialog Title``}</DialogTitle>
             <DialogContent>
                 <DialogContentText>{body}</DialogContentText>
+                {noChanges}
                 <List dense={true}>
                     {orderList}
                 </List>

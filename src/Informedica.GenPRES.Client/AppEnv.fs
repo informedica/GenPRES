@@ -52,6 +52,9 @@ type IOrderPlan =
     // the contexts of the plan that are new or changed since the version last opened or
     // signed, by id; while there are any in an open Session the patient context is held
     abstract Changed: string[]
+    // the contexts of the plan given that are new, changed or removed since the version last
+    // opened or signed, as the sign dialog lists them
+    abstract Differences: OrderPlan -> (OrderContext * HeldContextPolicy.Difference)[]
 
 
 /// Patient data and updates

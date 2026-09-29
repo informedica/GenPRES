@@ -1826,6 +1826,8 @@ type private ConcreteAppEnv
 
         member _.Changed = state.Lanes.OrderPlan |> OrderPlanState.changed
 
+        member _.Differences plan = state.Lanes.OrderPlan |> OrderPlanState.differences plan
+
     interface AppEnv.IPatient with
         member _.Draft = state.Ui.PatientDraft
 

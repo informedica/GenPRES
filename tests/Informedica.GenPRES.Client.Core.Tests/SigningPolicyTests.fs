@@ -86,6 +86,10 @@ let tests =
                         Terms.``Signing Refusal Plan Unreadable``
                         Terms.``Signing Refusal Context Differs``
                         Terms.``Signing Send Failed``
+                        Terms.``Signing New``
+                        Terms.``Signing Changed``
+                        Terms.``Signing Removed``
+                        Terms.``Signing No Changes``
                     ] do
                     english term |> Expect.notEqual $"default for {term}" $"{term}"
 
