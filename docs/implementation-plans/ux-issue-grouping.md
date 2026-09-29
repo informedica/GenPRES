@@ -21,6 +21,7 @@ index decides *what*. Every group follows [ADR-0009: UX Design Rules](../adr/000
 - [Why group them](#why-group-them)
 - [G0 — what the groups share](#g0--what-the-groups-share-981)
 - [The ten groups](#the-ten-groups)
+- [Small UI bugs outside the groups](#small-ui-bugs-outside-the-groups)
 - [What the grouping surfaced](#what-the-grouping-surfaced)
 - [Left out on purpose](#left-out-on-purpose)
 - [What this leads to](#what-this-leads-to)
@@ -534,6 +535,21 @@ other way a tab is left behind (#825).
 - the shared rule that neither may silently discard unsigned work.
 
 **Uses** C6 `Notice`.
+
+## Small UI bugs outside the groups
+
+Six open bugs, found on 2026-09-29, belong to no group and need no design decision first. Each is
+low or medium effort. They are planned in pairs by the code they touch, not under an umbrella:
+
+| Plan | Issues | What |
+|---|---|---|
+| [1191-the-plan-buttons-and-the-totals-width.md](1191-the-plan-buttons-and-the-totals-width.md) | #1191, #1138 | The plan table jumps on a selection; the totals bar is narrower than the page |
+| [1188-texts-through-the-terms.md](1188-texts-through-the-terms.md) | #1188, #1117 | A lowercase plan header; Dutch hover texts on the step buttons |
+| [1141-the-error-banner-and-the-float-parse.md](1141-the-error-banner-and-the-float-parse.md) | #1141, #1176 | A server error banner that outlives the error; the browser's float parse |
+
+Left out of this set: #398 and #1034, the clear cross that seems to do nothing, wait on the rule
+#1034 asks for; #1136 touches every page; #1155 is a GenORDER and server change; #507 sits in G9;
+#502 waits on a design.
 
 ## What the grouping surfaced
 
