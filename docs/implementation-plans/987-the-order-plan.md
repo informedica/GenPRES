@@ -11,6 +11,7 @@ and signing with a dialog that lists what changed.
 - [Confidence](#confidence)
 - [Steps](#steps)
 - [Verification](#verification)
+- [As built](#as-built)
 
 ## Problem description
 
@@ -32,8 +33,8 @@ Taken 2026-09-29 by the maintainer.
 
 | Question | Decision |
 |---|---|
-| The adjust action (#399) | No adjust button. A plan cell that holds a stepable order variable opens a quantity field on hover, and the order is stepped from there without opening the order dialog. A click on the row still opens the dialog. |
-| How the field shows (#399) | A popover anchored to the cell, so columns and rows do not move. On the card layout, a tap on the value opens the same popover. |
+| The adjust action (#399) | No adjust button. A plan cell that holds a stepable order variable opens a quantity field on a click, and the order is stepped from there without opening the order dialog. A click elsewhere on the row still opens the dialog; the medication name reads as the link to it. |
+| How the field shows (#399) | A popover anchored to the cell, so columns and rows do not move, closed with its own button or a second click on the cell. On the card layout, a tap on the value opens the same popover. |
 | The nurse's view (#510) | Leaves G6 and stays open as its own issue, item 3.5 of M3. |
 | What the sign dialog lists (#648) | The order contexts that are new or changed since the order plan version was last opened or signed. |
 | Removed orders (#648) | Listed too. Each row is marked new, changed or removed. |
@@ -119,11 +120,12 @@ let changed (opened: OrderContext) (ctx: OrderContext) : bool
 
 **The order dialog opened from the plan**, `Views/OrderPlan.fs` and `Views/Order.fs`:
 
-- `Order.View` gets a prop that says per field whether it can be edited. The workbench on the
-  prescribe page passes all fields. The plan passes `PlanContextPolicy.editable`, or no field
-  at all when the context is locked.
-- A field that cannot be edited renders in the Fixed mode of the quantity field, which no call
-  site produces today. A select renders disabled.
+- `Order.View` gets an `editing` prop, `PlanContextPolicy.Editing`: `Workbench` on the
+  prescribe page, and on the plan `PlanContext`, or `Locked` when the context is locked
+  (`PlanContextPolicy.editingOf`). `canEdit` decides per field from the key the dialog tracks
+  it under (`fieldKind`); `resets` and `argues` decide Reset and the argumentation.
+- A field that cannot be edited renders in the Fixed mode of the quantity field, disabled, and
+  shows several values without a pick as one range from the first to the last.
 - The dialog has two more ways to change a context, and the plan closes both:
   - Reset re-solves the order from the dose rules, which can change fields the rule keeps
     fixed. The plan dialog has no Reset, only Ok; undoing a step is another step. The
@@ -173,16 +175,19 @@ let differences (opened: OrderContext[]) (plan: OrderPlan) : (OrderContext * Dif
   context. A test holds that every context `differences` marks changed is in it.
 - `OrderPlanState.differences` takes the plan and reads `Opened` the way `OrderPlanState.changed`
   does.
-- `IOrderPlan` gets a `Differences: OrderPlan -> (OrderContext * Difference)[]` member beside
-  `Changed`. It takes the plan, so the dialog passes the plan it shows and there is one source.
+- The differences are taken when the user signs and carried by the signing machine
+  (`SigningMsg.Sign`, `SigningState.differences`) until the signature ends, so a version or a
+  patient answer that replaces `Opened` meanwhile does not change what the signer reads. The
+  dialog reads them through `ISigning.Differences`.
 
 **The view**, `Views/SignDialog.fs`:
 
-- The list reads `IOrderPlan.Differences` over the plan of the signing phase, in place of every
-  order of that plan.
+- The list reads `ISigning.Differences`, in place of every order of the plan.
 - A row shows its order as today, with a tag for new, changed or removed. A removed row reads
   its order from the opened context.
 - An empty list is replaced by one line: no change since the last signed version.
+- The dialog text says that the list shows the changes and that the PIN signs the whole order
+  plan.
 - Four terms are added: `Signing New`, `Signing Changed`, `Signing Removed` and
   `Signing No Changes`. Each needs a case in `Shared/Localization.fs`, an English text in
   `SigningPolicy.english`, and a row in the Localization sheet.
@@ -220,21 +225,33 @@ an order and a plan column it gives the field and the variable the cell steps, o
 
 **The view**, `Views/OrderPlan.fs` and `Components/ResponsiveTable.fs`:
 
-- A `PlanCell` component shows the cell text. On hover, or on keyboard focus, it opens an MUI
-  `Popper` anchored to the cell with the quantity field. The popper stays open while the
-  pointer is over the cell or the popper.
-- The steps are built with `ViewHelpers.createStepper` and `createDoseQtyStepper`. Their
-  callbacks send `Navigate` with the row's own context id, not the selected one.
+- A `PlanCell` component shows the cell text as a control: a light blue box with a pencil. It is
+  a button: a click, Enter or Space opens an MUI `Popper` anchored to the cell with the
+  quantity field, and its own close button or a second click closes it. The plan view owns
+  which cell is open, one at a time.
+- The steps are built with `ViewHelpers.frequencyStepper`, `doseRateStepper` and
+  `createDoseQtyStepper`, which the order dialog shares. Their callbacks send `Navigate` with the
+  row's own context id, not the selected one.
+- A step counts its clicks for 700 ms before it is sent. A click on a step button marks the cell
+  as counting until a second after the last click; meanwhile no other cell opens and the sign
+  waits, so a step is neither rejected by a signature started first nor replaced by another
+  while the plan keeps one waiting. The popper stays mounted while closed, so a counting step
+  is still sent.
 - The renderer finds the row's context by the row id, as `contextOf` does; the grid row holds
   strings only.
 - A click inside the popper does not reach the row, so neither the grid's row click nor the
   card's click opens the dialog. On a card, the tap on the value stops at the cell too, so the
   card's click does not open the dialog.
-- The field is disabled unless the plan is settled and no signing is under way.
+- The field is disabled unless the plan is settled and no signing is under way. A cell that
+  cannot be opened then is grey and leaves the tab order.
 - A revision counter moves on every plan answer, so the value shown before the answer arrives is
   dropped the way the order dialog drops it.
-- The two stepable columns get a `renderCell`. `ResponsiveTable` gets an optional cell renderer
-  for its card layout, so a tap on a stepable value opens the same popper.
+- The two stepable columns and the medication column get a `renderCell`, and the same renderer
+  as an opt-in `renderCard` column field that the card layout of `ResponsiveTable` calls, so a
+  tap on a stepable value opens the same popper and the lock shows on the cards too.
+- The medication name reads as a link to the order dialog: bold, blue, underlined under the
+  pointer, after the calculator icon of the prescribe page's edit button, or after the lock of a
+  locked order.
 - The row `actions` stay `None`. No actions column is added.
 
 ### #510 leaves the group
@@ -249,8 +266,8 @@ an order and a plan column it gives the field and the variable the cell steps, o
   need is already in the machine.
 - The read-only order dialog: Medium. `Views/Order.fs` decides per field today; every field has
   to take the new prop, and a field missed stays editable.
-- The stepable cells: Medium. How a hover popper behaves inside the DataGrid, with focus, the
-  row click and row virtualization, has to be proven in the browser.
+- The stepable cells: Medium. How a popper behaves inside the DataGrid, with focus, the row
+  click and row virtualization, has to be proven in the browser.
 
 ## Steps
 
@@ -295,7 +312,7 @@ code pull request.
    the card cell renderer in `ResponsiveTable`. The Fable output is checked, and
    `npx vite build` runs.
 7. **Docs and issues.** This plan gains its as-built table, the G6 section its status, and #399
-   its description of the decided behaviour. #399, #648 and #987 close.
+   its description of the decided behaviour. #399 and #987 close; #648 closed with step 3.
 
 ## Verification
 
@@ -306,10 +323,12 @@ code pull request.
     three rows marked changed, new and removed;
   - sign again without a change: the dialog shows the line saying there is no change, and the
     signature goes through;
-  - hover the frequency cell of a solved discontinuous order and step it: the row shows the new
+  - click the frequency cell of a solved discontinuous order and step it: the row shows the new
     value and the order dialog does not open;
-  - hover the frequency cell of a continuous order, which shows the rate, and the solution cell
+  - click the frequency cell of a continuous order, which shows the rate, and the solution cell
     of a discontinuous order;
+  - step a cell several times quickly: the sign button waits until the step is sent and
+    answered, and no other cell opens meanwhile;
   - repeat on a narrow window, where the table shows cards and a tap opens the field;
   - open an order from the plan: only the frequency, the orderable dose quantity and the rate
     can be changed;
@@ -319,3 +338,30 @@ code pull request.
   - the dialog opened from the plan has no Reset;
   - change nothing but the argumentation and sign: the dialog lists the context as changed.
 - `dotnet run servertests`, `dotnet fantomas --check` and `scripts/CheckDependencyRule.fsx`.
+
+## As built
+
+| Step | Pull request | Note |
+|---|---|---|
+| 1, the plan | #1177 | Three review rounds added the plan context rules, what counts as changed, Reset and the argumentation. #510 was taken off #987 after the merge. |
+| 2, the rules | #1178, #1180 | The script with `PlanContextPolicy` and `differences`, then its migration into `Client.Core`. From the reviews: the estimate a dose rests on counts when no measured value exists, a value compares by its numbers and its serialized unit, and another order in the same context is a change. |
+| 3, the sign dialog | #1181 | Closes #648. From the review: the differences are frozen in the signing machine when the user signs, and the dialog text says the PIN signs the whole plan. |
+| 4, the plan dialog and the lock | #1183, #1184 | From the review: a fixed field with several values shows them as a range. #1184 moved the editing rules from the view to `PlanContextPolicy`. |
+| 5, the plan cell rule | #1185 | Written directly in `Client.Core`, without a script, at the maintainer's request. From the review: the tests assert the variable each cell steps, not only its field. |
+| 6, the stepable cells | #1187 | About 300 changed source lines, over the limit, by the maintainer's decision. |
+| 7, the closing docs | this pull request | This table, the G6 section of the grouping index; #399 and #987 closed. |
+
+Deviations from the plan, all on the maintainer's check in the browser or on review:
+
+- The cell opens on a click, not on hover, and the popper has a close button.
+- The cell reads as a control, a light blue box with a pencil, and the medication name as the
+  link to the order dialog.
+- Only one cell is open at a time, and while a cell counts its clicks the sign waits and no other
+  cell opens, so no step is lost.
+- The sign button stays, disabled, while the plan changes, so the table no longer jumps with each
+  answer. The row hover bar became an inset shadow that takes no room.
+- The frequency and dose rate steppers moved to `ViewHelpers`, shared by the dialog and the cells.
+
+Still to do outside the code: rows in the Localization sheet for `Signing New`, `Signing Changed`,
+`Signing Removed`, `Signing No Changes` and `Plan Context Locked`, and the new meaning of
+`Signing Dialog Text` in each language.
