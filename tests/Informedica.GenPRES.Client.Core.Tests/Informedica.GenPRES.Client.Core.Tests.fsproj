@@ -25,6 +25,7 @@
     <Compile Include="SectionFoldPolicyTests.fs" />
     <Compile Include="PlanWorkPolicyTests.fs" />
     <Compile Include="HeldContextPolicyTests.fs" />
+    <Compile Include="ServerErrorPolicyTests.fs" />
 
     <!-- the session and signing machines -->
     <Compile Include="SessionMachineTests.fs" />
