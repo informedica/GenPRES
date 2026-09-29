@@ -70,7 +70,11 @@ Shared change here.
 ### The sheet
 
 `data/localization/*.tsv` is not tracked; the nine rows for the Localization sheet, in all six
-languages, are the maintainer's to add. The pull request lists them.
+languages, are the maintainer's to add. The step 1 pull request lists them.
+
+Without the rows every language shows the Dutch fallback, and #1117 is not fixed. So the rows go
+into the sheet after step 1 merges and before step 2 does, and step 2 is checked in the browser
+with the sheet loaded, not with the fallbacks.
 
 ## Confidence
 
@@ -81,12 +85,14 @@ High. The terms follow the pattern of `Pick a value` and `Pick the median` (#111
 1. **The terms.** The nine `Terms` cases in `Shared/Localization.fs`. `dotnet run servertests`
    for the Shared tests.
 2. **The client.** The header term, `QuantityField.Texts` with the titles, the three callers.
+   Merged only once the nine rows are in the Localization sheet.
 
 One pull request per step: the Shared edit lands on its own, as for G1.
 
 ## Verification
 
 - Fable compiles, `npx vite build` passes.
+- The nine rows are in the Localization sheet, and a resource reload has picked them up.
 - In the browser, with the sheet loaded, in Dutch and in English: the six plan headers start with
   a capital; the dialog's frequency label stays lowercase; the step buttons' hover texts follow
   the chosen language on the order dialog, the plan cells and the nutrition page.

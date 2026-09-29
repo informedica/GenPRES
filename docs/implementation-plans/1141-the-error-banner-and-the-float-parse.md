@@ -88,7 +88,9 @@ For the parse (#1176):
       | Parenteralia
       | Interactions
       | Login
-      | Admin
+      | LogFiles
+      | LogAnalysis
+      | Reload
       | Server
 
   type ServerError = { Source: ErrorSource; Message: string }
@@ -97,11 +99,14 @@ For the parse (#1176):
   let clearedBy source (error: ServerError option) = ...
   ```
 
+- The three admin calls get a source each. They share `tokenError`, but a log file listing that
+  succeeds says nothing about a reload that failed, so one `Admin` source would clear an error
+  that has not recovered. `tokenError` takes the source and passes it on.
 - `App.fs`: `Ui.ServerError` becomes `ServerErrorPolicy.ServerError option`. `processError` takes
   the source, and each call site passes its own; `CheckServer` sets `Server`. The banner renders
   `Message` as today.
 - The successful answers call `clearedBy`: `OrderPlanAnswered`, `LoadFormulary`,
-  `LoadParenteralia`, `LoadInteractionsResult`, the login result, and the admin results. The
+  `LoadParenteralia`, `LoadInteractionsResult`, the login result, and the three admin results, each for its own source. The
   server check clears every source, as today.
 - The snackbar text stays.
 
@@ -129,20 +134,28 @@ No sheet value is either; the difference is stated in the comment of the pull re
 
 Shared is source outside the client, so the function is written and tested in a script first,
 `src/Informedica.GenPRES.Shared/Scripts/TryParseFloat.fsx`, with the table above as its cases run
-against the .NET branch, and the Fable branch checked with the regex on the same cases. The
-maintainer migrates it.
+against the .NET branch. The maintainer migrates it.
+
+The .NET script cannot run the branch that changes, so the browser's parse is checked on the
+compiled JavaScript itself. Fable writes Shared's output beside its source,
+`src/Informedica.GenPRES.Shared/Utils.fs.js`. A Node script,
+`src/Informedica.GenPRES.Shared/Scripts/TryParseFloat.check.mjs`, imports `tryParseFloat` from
+that file and runs the same cases, expecting the .NET column of the table except for `Infinity`
+and `NaN`. It runs after the Fable build of the migrated function, and its output goes into the
+pull request.
 
 ## Confidence
 
-Medium for #1141: which call sites count as one source (the admin calls share `tokenError`) may
-move in review. High for #1176.
+Medium for #1141: the sources follow the requests, and a request added later needs a source of
+its own. High for #1176.
 
 ## Steps
 
 1. **`ServerErrorPolicy` in `Client.Core`**, with tests for every source: cleared by its own
    success, kept by another's, the server source cleared only by the server check.
 2. **The banner by source in `App.fs`.** `processError` with a source, the successes clearing.
-3. **The parse script** in `Shared/Scripts`, the cases of the table, for the maintainer to migrate.
+3. **The parse script** in `Shared/Scripts`, the cases of the table, for the maintainer to migrate,
+   with the Node check on the compiled JavaScript beside it.
 
 One pull request per step. Run `scripts/CheckDependencyRule.fsx` after step 1.
 
@@ -151,8 +164,11 @@ One pull request per step. Run `scripts/CheckDependencyRule.fsx` after step 1.
 - `dotnet run servertests` passes, the new `Client.Core` tests among them.
 - Fable compiles without the two `FABLE` warnings for `Utils.fs` once step 3 is migrated;
   `npx vite build` passes.
+- The Node check over the compiled `Utils.fs.js` gives the .NET answers on every case of the
+  table but `Infinity` and `NaN`.
 - In the browser: an order plan error followed by a successful order plan answer leaves no
-  banner; a formulary answer does not clear an order plan error; with the server stopped, the
+  banner; a formulary answer does not clear an order plan error; a log file listing does not clear a
+  failed reload; with the server stopped, the
   unreachable banner stays until it answers again.
 - The normal values load in the browser, and the estimated weight and height of a patient
   without measurements are the same as before.
