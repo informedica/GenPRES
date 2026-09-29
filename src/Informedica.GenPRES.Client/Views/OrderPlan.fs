@@ -517,13 +517,10 @@ module OrderPlan =
         let editing =
             match orderPlan with
             | OrderPlanView.Settled(tp, Some id)
-            | OrderPlanView.Changing(tp, Some id) ->
-                match tp.OrderContexts |> Array.tryFind (fun c -> c.Id = id) with
-                | Some ctx when PlanContextPolicy.locked tp ctx -> Order.Editing.Locked
-                | _ -> Order.Editing.PlanContext
+            | OrderPlanView.Changing(tp, Some id) -> PlanContextPolicy.editingOf tp id
             | OrderPlanView.Settled(_, None)
             | OrderPlanView.Changing(_, None)
-            | OrderPlanView.NoPatient -> Order.Editing.PlanContext
+            | OrderPlanView.NoPatient -> PlanContextPolicy.Editing.PlanContext
 
         let orderView =
             Order.View
