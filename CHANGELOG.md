@@ -1,5 +1,5 @@
 ---
-last_commit_released: 696be8c8ad2c1cdc07dae951f6d657921235b5e6
+last_commit_released: 9fc7be8ab5fd31cb1e37df5451ee78f5f99d2b57
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,27 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.38 - 2026-09-29
+
+### 🚀 Features
+
+* *(client)* Draft the plan context and difference rules ([f77a590d](https://github.com/informedica/GenPRES/commit/f77a590db40f9c23027b84f25de415546ffcb8be))
+* *(client)* Add the plan context and difference rules ([fedd888e](https://github.com/informedica/GenPRES/commit/fedd888ef379076b83ef3352925afe842c8552d4))
+* *(client)* List only what differs in the sign dialog ([f302834e](https://github.com/informedica/GenPRES/commit/f302834ed269f2239a5bb2f71251d0af2d253090))
+* *(client)* Keep plan orders to the plan context rule ([720e74d1](https://github.com/informedica/GenPRES/commit/720e74d19743200411bbcf498c6c1226a5d9d529))
+* *(client)* Add the plan cell rule ([98844044](https://github.com/informedica/GenPRES/commit/98844044c8c8b8293549f1ba41222d9be7da0da2))
+* *(client)* Step plan orders from the table ([bf2c3d37](https://github.com/informedica/GenPRES/commit/bf2c3d373672bbe15c32b94a5a8577ffd9fd00ab))
+
+### 🐞 Bug Fixes
+
+* *(client)* Count another order and unit as changed ([40b4b526](https://github.com/informedica/GenPRES/commit/40b4b5262fe2c7e6890bece0546a4edd5d8d565d))
+* *(client)* Freeze the sign dialog's differences at sign ([52fca39a](https://github.com/informedica/GenPRES/commit/52fca39a79f9344ee7ae2af08f28a08bfa044177))
+* *(client)* Show a fixed field's values as a range ([36669d2d](https://github.com/informedica/GenPRES/commit/36669d2d9efdaccb38093e1e343bf54e3b667fd9))
+* *(client)* Keep plan cell steps from being lost ([3bc1194f](https://github.com/informedica/GenPRES/commit/3bc1194f5ffe8b7f46829165a956a71db47b7d74))
+* *(client)* Count only step button clicks in a plan cell ([2ec6f831](https://github.com/informedica/GenPRES/commit/2ec6f831326c4cc6dbb05f4f1fc1047ceed909f9))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/696be8c8ad2c1cdc07dae951f6d657921235b5e6..9fc7be8ab5fd31cb1e37df5451ee78f5f99d2b57)</small></strong>
 
 ## 0.1.2-alpha.37 - 2026-09-28
 
