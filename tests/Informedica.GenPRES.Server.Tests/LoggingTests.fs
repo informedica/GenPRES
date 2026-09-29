@@ -231,10 +231,44 @@ let solved =
          events, events |> fileLinesOf)
 
 
+/// Runs f with the current culture set to the one named, the invariant one for "", and puts the
+/// culture back afterwards.
+let underCulture (name: string) f =
+    let saved = Globalization.CultureInfo.CurrentCulture
+
+    Globalization.CultureInfo.CurrentCulture <-
+        if name = "" then
+            Globalization.CultureInfo.InvariantCulture
+        else
+            Globalization.CultureInfo name
+
+    try
+        f ()
+    finally
+        Globalization.CultureInfo.CurrentCulture <- saved
+
+
 let analysisTests =
     testList
         "the log analysis"
         [
+            testList
+                "reads a fraction the same under every culture"
+                [
+                    for culture in [ ""; "nl-NL"; "de-DE"; "en-US" ] do
+                        for text, exp in [ "1.5/2", 0.75; "629/10", 62.9; "1.5N", 1.5; "3N/4N", 0.75 ] do
+                            test $"[%s{culture}] %s{text}" {
+                                underCulture culture (fun () -> text |> LogAnalyzer.Format.tryParseFraction)
+                                |> Expect.equal $"%s{text} reads as %f{exp}" (Some exp)
+                            }
+                ]
+
+            test "reads no fraction from a word or a zero denominator" {
+                [ "abc"; "1/0"; "1/2/3" ]
+                |> List.choose LogAnalyzer.Format.tryParseFraction
+                |> Expect.isEmpty "none read"
+            }
+
             test "keeps a flat line as it is" {
                 let flat = [| "Patient: 3 jaar"; ""; "[a]_x <1..3> = [a]_y <1> * [a]_z <1..3>" |]
 
