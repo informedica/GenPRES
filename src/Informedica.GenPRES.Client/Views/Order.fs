@@ -15,6 +15,37 @@ module Order =
     open FSharp.Core
 
 
+    /// What the order dialog lets the user change.
+    [<RequireQualifiedAccess>]
+    type Editing =
+        /// The prescribing workbench: every field, the argumentation and Reset.
+        | Workbench
+        /// An order context in the plan: the fields PlanContextPolicy allows and the
+        /// argumentation; no Reset, which re-solves from the rules and can change the rest.
+        | PlanContext
+        /// A locked order context in the plan: nothing; the dialog sends no command.
+        | Locked
+
+
+    /// The kind of a field of the dialog, by the key its changes are tracked under; the keys
+    /// the plan context rule names map to their kind, every other key is Other.
+    let fieldKind (key: string) =
+        match key with
+        | "frequency" -> QuantityModePolicy.Field.Frequency
+        | "ordDoseQty" -> QuantityModePolicy.Field.DoseQuantity
+        | "ordDoseRate" -> QuantityModePolicy.Field.DoseRate
+        | "compOrdQty" -> QuantityModePolicy.Field.ComponentQuantity
+        | _ -> QuantityModePolicy.Field.Other
+
+
+    /// Whether a field of the dialog can be edited under the editing given.
+    let canEdit (editing: Editing) (key: string) =
+        match editing with
+        | Editing.Workbench -> true
+        | Editing.PlanContext -> key |> fieldKind |> PlanContextPolicy.editable
+        | Editing.Locked -> false
+
+
     module private Elmish =
 
 
@@ -425,6 +456,8 @@ module Order =
                 // writes it on its lane
                 argue: string -> unit
                 localizationTerms: Deferred<string[][]>
+                // what the user can change: everything on the workbench, less in the plan
+                editing: Editing
             |})
         =
         let context: Global.Context = React.useContext Global.context
@@ -945,9 +978,45 @@ module Order =
 
         let pick = ViewHelpers.orderFixed texts false false
 
-        // a field's select: rests while another field is changing, shows it while its own is
-        let selectFor field =
-            ViewHelpers.orderSelect texts false (rests field) (isFieldLoading field)
+        // a field's select: rests while another field is changing, shows it while its own is; a
+        // field the editing does not let change shows its value, without steps or a dropdown
+        let selectFor field lbl selected updateSelected mode mark minWidth xs =
+            if canEdit props.editing field then
+                ViewHelpers.orderSelect
+                    texts
+                    false
+                    (rests field)
+                    (isFieldLoading field)
+                    lbl
+                    selected
+                    updateSelected
+                    mode
+                    mark
+                    minWidth
+                    xs
+            else
+                // several values and none picked would show blank in a field that cannot open:
+                // the values show as one range, from the first to the last
+                let shown =
+                    if xs |> Array.length > 1 && selected |> Option.isNone then
+                        [| "fixed", $"%s{xs |> Array.head |> snd} – %s{xs |> Array.last |> snd}" |]
+                    else
+                        xs
+
+                ViewHelpers.orderFixed
+                    texts
+                    false
+                    true
+                    false
+                    lbl
+                    selected
+                    ignore
+                    Components.QuantityField.Fixed
+                    mark
+                    minWidth
+                    shown
+
+        let argues = props.editing <> Editing.Locked
 
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
 
@@ -965,7 +1034,11 @@ module Order =
 
         let onArgumentation (e: Browser.Types.Event) = setArgumentation (e.target?value: string)
 
-        let onArgumentationBlur = fun _ -> props.argue argumentation
+        // a locked context commits nothing: its argumentation is shown, not edited
+        let onArgumentationBlur =
+            fun _ ->
+                if argues then
+                    props.argue argumentation
 
         // Escape closes the dialog without a blur, so a draft not yet committed goes with the
         // dialog when it unmounts; through refs, since the cleanup runs with the first
@@ -976,28 +1049,36 @@ module Order =
         heldRef.current <- heldArgumentation
         let argueRef = React.useRef props.argue
         argueRef.current <- props.argue
+        let arguesRef = React.useRef argues
+        arguesRef.current <- argues
 
         React.useEffectOnce (fun () ->
             fun () ->
-                if draftRef.current <> heldRef.current then
+                if arguesRef.current && draftRef.current <> heldRef.current then
                     argueRef.current draftRef.current
         )
 
         let argumentationWanted = shownContext |> Option.exists ArgumentationPolicy.wanted
 
-        // Ok completes the dialog and Reset discards the changes: the bar places them
+        // Ok completes the dialog and Reset discards the changes: the bar places them. Reset is
+        // the workbench's alone: it re-solves from the rules, which in the plan could change
+        // what the plan context rule keeps fixed
+        let resetAction =
+            {|
+                label = Terms.Reset |> getTerm "Reset"
+                kind = Components.ActionBar.Kind.Secondary
+                onClick = fun () -> ResetOrderScenario |> dispatch
+                disabled = isOrderLoading
+                icon = Some Mui.Icons.RefreshIcon
+            |}
+
         let actionBar =
             Components.ActionBar.View
                 {|
                     actions =
                         [|
-                            {|
-                                label = Terms.Reset |> getTerm "Reset"
-                                kind = Components.ActionBar.Kind.Secondary
-                                onClick = fun () -> ResetOrderScenario |> dispatch
-                                disabled = isOrderLoading
-                                icon = Some Mui.Icons.RefreshIcon
-                            |}
+                            if props.editing = Editing.Workbench then
+                                resetAction
                             {|
                                 label = Terms.``Ok `` |> getTerm "Ok"
                                 kind = Components.ActionBar.Kind.Primary
@@ -1561,7 +1642,14 @@ module Order =
                         Terms.``Order Argumentation Helper``
                         |> getTerm "waarom de dosering afwijkt van wat de regels toestaan"
 
-                    let inputProps = {| htmlInput = {| maxLength = ArgumentationPolicy.maxLength |} |}
+                    let inputProps =
+                        {|
+                            htmlInput =
+                                {|
+                                    maxLength = ArgumentationPolicy.maxLength
+                                    readOnly = not argues
+                                |}
+                        |}
 
                     JSX.jsx
                         $"""

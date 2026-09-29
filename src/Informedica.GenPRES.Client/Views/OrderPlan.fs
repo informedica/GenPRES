@@ -5,6 +5,7 @@ module OrderPlan =
 
 
     open Fable.Core
+    open Fable.Core.JsInterop
     open Feliz
     open Shared
     open Shared.Types
@@ -54,6 +55,48 @@ module OrderPlan =
         let tr term =
             Global.getLocalizedTerm localizationTerms lang (SigningPolicy.english term) term
 
+        // the orders of the contexts whose patient data differ from the plan's: locked, and
+        // marked in the medication cell
+        let lockedOrders =
+            match orderPlan with
+            | OrderPlanView.Settled(tp, _)
+            | OrderPlanView.Changing(tp, _) ->
+                tp.OrderContexts
+                |> Array.filter (PlanContextPolicy.locked tp)
+                |> Array.choose (OrderContext.contribution >> Option.map _.Order.Id)
+                |> Set.ofArray
+            | OrderPlanView.NoPatient -> Set.empty
+
+        let lockedText =
+            Terms.``Plan Context Locked``
+            |> getTerm "Berekend met andere patiëntgegevens; deze order kan niet worden aangepast"
+
+        let lockSx =
+            {|
+                display = "flex"
+                alignItems = "center"
+                gap = 0.5
+            |}
+
+        // the medication, with the lock and its reason on hover when the order is locked
+        let renderMedicationCell =
+            fun (pars: obj) ->
+                let value: string = pars?value
+                let id: string = pars?id
+
+                if lockedOrders |> Set.contains id then
+                    JSX.jsx
+                        $"""
+                    import Box from '@mui/material/Box';
+                    import Tooltip from '@mui/material/Tooltip';
+
+                    <Tooltip title={lockedText}>
+                        <Box sx={lockSx}>{Mui.Icons.LockIcon}{value}</Box>
+                    </Tooltip>
+                    """
+                else
+                    Html.text value |> toJsx
+
         let columns =
             [|
                 {|
@@ -70,6 +113,7 @@ module OrderPlan =
                     width = 200
                     filterable = true
                     sortable = true
+                    renderCell = renderMedicationCell
                 |}
                 |> box
                 {|
@@ -468,9 +512,23 @@ module OrderPlan =
                     searchLabel = ""
                 |}
 
+        // the order dialog under the plan context rule: the fields it allows, or nothing when
+        // the context is locked
+        let editing =
+            match orderPlan with
+            | OrderPlanView.Settled(tp, Some id)
+            | OrderPlanView.Changing(tp, Some id) ->
+                match tp.OrderContexts |> Array.tryFind (fun c -> c.Id = id) with
+                | Some ctx when PlanContextPolicy.locked tp ctx -> Order.Editing.Locked
+                | _ -> Order.Editing.PlanContext
+            | OrderPlanView.Settled(_, None)
+            | OrderPlanView.Changing(_, None)
+            | OrderPlanView.NoPatient -> Order.Editing.PlanContext
+
         let orderView =
             Order.View
                 {|
+                    editing = editing
                     orderContext = orderContext
                     updateOrderScenario = updateOrderScenario
                     stepOrderScenario = stepOrderScenario

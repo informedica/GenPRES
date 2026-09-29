@@ -259,6 +259,8 @@ type Terms =
     | ``Signing Changed``
     | ``Signing Removed``
     | ``Signing No Changes``
+    // an order context in the plan whose patient data differ from the plan's: locked, and why
+    | ``Plan Context Locked``
     // the record moved on, told once per version; the button that takes the version up;
     // what is told once it is open
     | ``Session Newer Version``

@@ -395,6 +395,13 @@ module Icons =
         <LocalDiningIcon/>
     """
 
+    let LockIcon =
+        JSX.jsx
+            $"""
+     import LockIcon from '@mui/icons-material/Lock';
+     <LockIcon fontSize="small"/>
+    """
+
     let RefreshIcon =
         JSX.jsx
             $"""
