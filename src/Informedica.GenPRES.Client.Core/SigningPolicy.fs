@@ -14,7 +14,8 @@ let english (term: Terms) : string =
     match term with
     | Terms.``Signing Sign`` -> "Sign"
     | Terms.``Signing Dialog Title`` -> "Sign the order plan"
-    | Terms.``Signing Dialog Text`` -> "Sign the orders as shown with your PIN, or cancel and edit."
+    | Terms.``Signing Dialog Text`` ->
+        "The list shows the orders changed since the last signed version. Your PIN signs the whole order plan; or cancel and edit."
     | Terms.``Signing Pin`` -> "PIN"
     | Terms.``Signing Cancel`` -> "Cancel"
     | Terms.``Signing Proceed`` -> "Continue"
@@ -42,6 +43,10 @@ let english (term: Terms) : string =
     | Terms.``Signing Refusal Context Differs`` ->
         "An order in the plan was composed on other patient data. Remove the new and changed orders and prescribe them again."
     | Terms.``Signing Send Failed`` -> "The signature could not be sent. Try again."
+    | Terms.``Signing New`` -> "New"
+    | Terms.``Signing Changed`` -> "Changed"
+    | Terms.``Signing Removed`` -> "Removed"
+    | Terms.``Signing No Changes`` -> "No order changed since the last signed version."
     | _ -> SessionGatePolicy.english term
 
 

@@ -1875,9 +1875,15 @@ type private ConcreteAppEnv
     interface AppEnv.ISigning with
         member _.Signing = state.Lanes.Signing |> SigningState.view
 
-        // one request id per Sign, so the answer lands on this request and no other
+        member _.Differences = state.Lanes.Signing |> SigningState.differences
+
+        // one request id per Sign, so the answer lands on this request and no other; the orders
+        // that differ are taken now, so what reaches the order plan meanwhile leaves them as signed
         member _.Sign plan =
-            SigningMsg(SigningMsg.Sign(plan, Guid.NewGuid().ToString())) |> dispatch
+            let differences = state.Lanes.OrderPlan |> OrderPlanState.differences plan
+
+            SigningMsg(SigningMsg.Sign(plan, differences, Guid.NewGuid().ToString()))
+            |> dispatch
 
         member _.Held = patientHeld state
 

@@ -46,6 +46,9 @@ type SigningState =
             InFlight: SigningRequest option
             /// The key of a submission whose answer was lost; the next Confirm goes out under it.
             Unsent: string option
+            /// The orders that differ from the version last opened or signed, as they stood when
+            /// the user signed; the dialog lists these, whatever reaches the order plan meanwhile.
+            Differences: (OrderContext * HeldContextPolicy.Difference)[]
         }
 
 
@@ -68,8 +71,9 @@ type SigningView =
 /// What moves the signing machine.
 [<RequireQualifiedAccess>]
 type SigningMsg =
-    /// Sign the plan as shown, under a request id the caller made.
-    | Sign of OrderPlan * request: string
+    /// Sign the plan as shown, under a request id the caller made, with the orders that differ
+    /// from the version last opened or signed as they stand now.
+    | Sign of OrderPlan * differences: (OrderContext * HeldContextPolicy.Difference)[] * request: string
     /// The answer to the challenge request with this id; Error is a transport failure.
     | ChallengeAnswered of request: string * Result<SigningResponse, string>
     /// The data notice is accepted. The plan is signed over the new data, unless the patient
@@ -116,6 +120,7 @@ module SigningState =
             Phase = SigningPhase.Idle
             InFlight = None
             Unsent = None
+            Differences = [||]
         }
 
 
@@ -125,6 +130,7 @@ module SigningState =
             Phase = SigningPhase.Idle
             InFlight = Some(SigningRequest.Challenge(plan, notice, request))
             Unsent = None
+            Differences = [||]
         }
 
 
@@ -134,6 +140,7 @@ module SigningState =
             Phase = SigningPhase.Noticed(plan, notice)
             InFlight = None
             Unsent = None
+            Differences = [||]
         }
 
 
@@ -143,6 +150,7 @@ module SigningState =
             Phase = SigningPhase.Challenged(challenge, plan, refusal)
             InFlight = None
             Unsent = None
+            Differences = [||]
         }
 
 
@@ -152,6 +160,7 @@ module SigningState =
             Phase = SigningPhase.Challenged(challenge, plan, None)
             InFlight = Some(SigningRequest.Submission key)
             Unsent = None
+            Differences = [||]
         }
 
 
@@ -162,6 +171,7 @@ module SigningState =
             Phase = SigningPhase.Challenged(challenge, plan, None)
             InFlight = None
             Unsent = Some key
+            Differences = [||]
         }
 
 
@@ -197,9 +207,9 @@ module SigningState =
 
     /// The next state and effects for a message. Every new state is built through a constructor,
     /// so no field outlives the state it belongs to.
-    let transition (msg: SigningMsg) (state: SigningState) : SigningState * SigningEffect list =
+    let step (msg: SigningMsg) (state: SigningState) : SigningState * SigningEffect list =
         match msg, state.Phase, state.InFlight with
-        | SigningMsg.Sign(plan, request), SigningPhase.Idle, None ->
+        | SigningMsg.Sign(plan, _, request), SigningPhase.Idle, None ->
             requesting plan None request, [ SigningEffect.CallChallenge(plan, None, request) ]
         // one thing at a time
         | SigningMsg.Sign _, _, _ -> state, []
@@ -281,3 +291,22 @@ module SigningState =
           SigningPhase.Challenged(challenge, plan, _),
           Some(SigningRequest.Submission key) -> unsent challenge plan key, [ SigningEffect.TellError reason ]
         | SigningMsg.SubmitAnswered _, _, _ -> state, []
+
+
+    /// The next state and effects for a message, the differences carried along: taken from the
+    /// sign that starts a signature, kept while it is under way, and dropped when it ends.
+    let transition (msg: SigningMsg) (state: SigningState) : SigningState * SigningEffect list =
+        let next, effects = step msg state
+
+        let differences =
+            match msg, state.Phase, state.InFlight, next.Phase, next.InFlight with
+            | SigningMsg.Sign(_, differences, _), SigningPhase.Idle, None, _, _ -> differences
+            | _, _, _, SigningPhase.Idle, None -> [||]
+            | _ -> state.Differences
+
+        { next with Differences = differences }, effects
+
+
+    /// The orders that differ from the version last opened or signed, as they stood when the user
+    /// signed; empty when no signature is under way.
+    let differences (state: SigningState) = state.Differences

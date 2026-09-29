@@ -126,6 +126,9 @@ type ISession =
 [<Interface>]
 type ISigning =
     abstract Signing: SigningMachine.SigningView
+    // the orders that differ from the version last opened or signed, as they stood at the sign;
+    // the dialog lists these
+    abstract Differences: (OrderContext * HeldContextPolicy.Difference)[]
     // ask a challenge over the plan as shown
     abstract Sign: OrderPlan -> unit
     // whether the patient context is held: a notice accepted then signs over the data as it was

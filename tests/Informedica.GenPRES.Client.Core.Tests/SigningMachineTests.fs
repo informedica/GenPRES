@@ -68,7 +68,7 @@ let tests =
         "SigningState.transition"
         [
             test "Sign from Idle asks the challenge over the plan under the request id; elsewhere it is a no-op" {
-                transition (SigningMsg.Sign(plan, "r-1")) SigningState.idle
+                transition (SigningMsg.Sign(plan, [||], "r-1")) SigningState.idle
                 |> Expect.equal "asked" (requesting, [ SigningEffect.CallChallenge(plan, None, "r-1") ])
 
                 for state in
@@ -84,7 +84,7 @@ let tests =
                                 Token = "d"
                             }
                     ] do
-                    transition (SigningMsg.Sign(plan, "r-9")) state
+                    transition (SigningMsg.Sign(plan, [||], "r-9")) state
                     |> Expect.equal $"{state}" (state, [])
             }
 
@@ -305,13 +305,29 @@ let tests =
             }
 
             test "the plan submitted is the plan challenged, whatever the cart did meanwhile (ext 3b, 3c)" {
-                let state, _ = transition (SigningMsg.Sign(plan, "r-1")) SigningState.idle
+                let state, _ = transition (SigningMsg.Sign(plan, [||], "r-1")) SigningState.idle
                 let state, _ = transition (issued "r-1") state
                 // the cart moved on: the machine never sees it
                 let _, effects = transition (SigningMsg.Confirm("1234", "k-1")) state
 
                 effects
                 |> Expect.equal "the challenged plan" [ SigningEffect.CallSubmit(plan, "c-1", "1234", "k-1") ]
+            }
+
+            test "the orders that differ stay as signed until the signature ends" {
+                let differ =
+                    [|
+                        { Shared.Models.OrderContext.empty with Id = "o-1" }, HeldContextPolicy.Difference.New
+                    |]
+
+                let state, _ = transition (SigningMsg.Sign(plan, differ, "r-1")) SigningState.idle
+                let state, _ = transition (issued "r-1") state
+                // a second sign while one is under way takes nothing over
+                let state, _ = transition (SigningMsg.Sign(plan, [||], "r-2")) state
+
+                (state |> SigningState.differences,
+                 transition SigningMsg.Cancel state |> fst |> SigningState.differences)
+                |> Expect.equal "kept while under way, dropped when it ends" (differ, [||])
             }
         ]
 
