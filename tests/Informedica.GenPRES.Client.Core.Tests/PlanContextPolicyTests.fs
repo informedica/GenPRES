@@ -29,7 +29,7 @@ module PlanContextPolicyTests =
     let plan contexts = Shared.Models.OrderPlan.create patient contexts
 
     /// One value in a unit, as an order variable holds it once it is solved.
-    let valueOf (v: decimal) =
+    let valueIn (json: string) (v: decimal) =
         Some
             {
                 Value = [| $"%M{v}", v |]
@@ -37,8 +37,10 @@ module PlanContextPolicyTests =
                 Group = ""
                 Short = true
                 Language = ""
-                Json = ""
+                Json = json
             }
+
+    let valueOf = valueIn "x/day"
 
     /// The context with its contributed order changed by f.
     let withOrder (f: Order -> Order) (ctx: OrderContext) =
@@ -235,14 +237,36 @@ module PlanContextPolicyTests =
                                                 { vu with
                                                     Unit = "x/day"
                                                     Language = "en"
-                                                    Json = "{}"
                                                 }
                                             )
                                     }
                                 )
 
                             PlanContextPolicy.changed (para |> withFrequency 3m) rendered
-                            |> Expect.isFalse "only the numbers and the unit group count"
+                            |> Expect.isFalse "only the numbers and the unit count"
+                        }
+
+                        test "the same number in another unit of the group changes it" {
+                            let inMg =
+                                para
+                                |> withOrder (fun o ->
+                                    { o with Order.Orderable.Dose.Quantity.Variable.Vals = valueIn "mg" 5m }
+                                )
+
+                            let inG =
+                                para
+                                |> withOrder (fun o ->
+                                    { o with Order.Orderable.Dose.Quantity.Variable.Vals = valueIn "g" 5m }
+                                )
+
+                            PlanContextPolicy.changed inMg inG |> Expect.isTrue "5 mg is not 5 g"
+                        }
+
+                        test "another order with the same values changes it" {
+                            let other = para |> withOrder (fun o -> { o with Id = "o-other" })
+
+                            PlanContextPolicy.changed para other
+                            |> Expect.isTrue "another medication in the same context is a change"
                         }
 
                         test "a variable the rule keeps fixed does not change it" {
@@ -310,6 +334,12 @@ module PlanContextPolicyTests =
                     |> Expect.equal
                         "the held rule sees the whole context, the difference rule the order"
                         ([| "c1" |], [||])
+                }
+
+                test "another medication in the same context is a change" {
+                    differences opened (plan [| para |> withOrder (fun o -> { o with Id = "o-other" }); morf |])
+                    |> kinds
+                    |> Expect.equal "the context is changed" [| "c1", Difference.Changed |]
                 }
 
                 test "the argumentation alone is a change" {

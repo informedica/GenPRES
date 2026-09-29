@@ -56,10 +56,20 @@ let matches (plan: OrderPlan) (ctx: OrderContext) = entered ctx.Patient = entere
 let locked (plan: OrderPlan) (ctx: OrderContext) = matches plan ctx |> not
 
 
-/// The values of an order variable as numbers with their unit group, leaving out how they
-/// are rendered: the unit text, the language and the JSON.
+/// The values of an order variable as numbers with their unit, leaving out how they are
+/// rendered. The unit is its JSON, the serialized unit, which is the same in every language
+/// and tells 5 mg from 5 g where the unit group does not; the unit text stands in when there
+/// is no JSON.
 let values (ovar: OrderVariable) =
-    ovar.Variable.Vals |> Option.map (fun vu -> vu.Value |> Array.map snd, vu.Group)
+    ovar.Variable.Vals
+    |> Option.map (fun vu ->
+        let unit =
+            if System.String.IsNullOrEmpty vu.Json then
+                vu.Unit
+            else
+                vu.Json
+        vu.Value |> Array.map snd, unit
+    )
 
 
 /// The values of the editable order variables of the order a context contributes; nothing
@@ -75,8 +85,16 @@ let editableValues (ctx: OrderContext) =
     )
 
 
-/// Whether an order context in the plan changed against its opened or signed version: one of
-/// the editable variables or the argumentation differs.
+/// The id of the order a context contributes; nothing when it contributes no order. An order
+/// created anew from the rules, for another medication or rebuilt, gets a new id; a step keeps
+/// it.
+let orderId (ctx: OrderContext) =
+    Shared.Models.OrderContext.contribution ctx |> Option.map _.Order.Id
+
+
+/// Whether an order context in the plan changed against its opened or signed version: it holds
+/// another order, or one of the editable variables or the argumentation differs.
 let changed (opened: OrderContext) (ctx: OrderContext) =
-    editableValues opened <> editableValues ctx
+    orderId opened <> orderId ctx
+    || editableValues opened <> editableValues ctx
     || opened.Argumentation <> ctx.Argumentation

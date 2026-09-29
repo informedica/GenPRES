@@ -45,7 +45,7 @@ Taken 2026-09-29 by the maintainer.
 | When a plan context can change | Only while its patient data match the plan's patient data: the whole patient record, the age and the P3 and P97 estimates aside, and the estimated weight and height aside only where a measured one exists. Age changes by itself as time passes and needs a mechanism of its own. Without a measured weight or height, the doses were calculated with the estimate, so an estimate changed by a corrected age locks the context. Later, the rules version joins the context, and a context whose rules version differs is locked too. |
 | A locked context | Patient data that change after a signature, a new weight, access or department, lock every context calculated with the earlier data. The row carries a lock mark whose hover text gives the reason. Its cells do not step, the order dialog opens read-only, and the context can still be removed. |
 | Reset in the plan dialog | Left out. Reset re-solves from the rules and can change what the rule keeps fixed; undoing a step is another step. The prescribe page keeps it. |
-| Changed, for the sign dialog (#648) | A context counts as changed when one of the three variables or the argumentation differs from the version opened or signed. Other differences are not changes to an order in the plan. |
+| Changed, for the sign dialog (#648) | A context counts as changed when it holds another order, or one of the three variables or the argumentation differs from the version opened or signed. Other differences are not changes to an order in the plan. |
 
 ## Approaches considered
 
@@ -68,7 +68,7 @@ For the sign dialog:
   filter differs, which the plan context rule does not let the user change. Rejected.
 - **One pure difference over the opened contexts and the plan, on what the plan context rule
   lets change.** New, changed and removed come from one function in `Client.Core`. Changed
-  means one of the three variables or the argumentation differs. Chosen.
+  means another order, or one of the three variables or the argumentation differs. Chosen.
 - **Block signing when nothing changed.** That would change `SigningPolicy.canSign`, which
   allows signing a plan as it is. Rejected by the decision above.
 
@@ -93,8 +93,8 @@ let matches (plan: OrderPlan) (ctx: OrderContext) : bool
 /// Whether an order context in the plan is locked: its patient data do not match the plan's.
 let locked (plan: OrderPlan) (ctx: OrderContext) : bool
 
-/// Whether an order context in the plan changed against its opened or signed version: one of
-/// the editable variables or the argumentation differs.
+/// Whether an order context in the plan changed against its opened or signed version: it holds
+/// another order, or one of the editable variables or the argumentation differs.
 let changed (opened: OrderContext) (ctx: OrderContext) : bool
 ```
 
@@ -106,10 +106,14 @@ let changed (opened: OrderContext) (ctx: OrderContext) : bool
   measured value the estimate is what the doses rest on and has to be equal. Every other field,
   the measured weight and height, gender, gestational age, access, renal function, location and
   department, has to be equal.
-- `changed` compares the values of `Schedule.Frequency`, `Orderable.Dose.Quantity` and
-  `Orderable.Dose.Rate` of the contributed orders, and the argumentation. A value is its numbers
-  and its unit group; the unit text, the language and the JSON are how it is rendered, so the
-  same values rendered otherwise are no change.
+- `changed` compares the ids of the contributed orders, the values of `Schedule.Frequency`,
+  `Orderable.Dose.Quantity` and `Orderable.Dose.Rate`, and the argumentation.
+  - An order created anew from the rules gets a new id, so another medication in the same
+    context is a change even when its values are equal; a step keeps the id.
+  - A value is its numbers and its unit, the unit as its JSON, the serialized unit, which is
+    the same in every language and tells 5 mg from 5 g where the unit group does not. The unit
+    text and the language are how it is rendered, so the same values rendered otherwise are no
+    change.
 - The two future additions, start and stop as editable fields and the rules version as a
   second reason to lock, extend these functions and do not change their callers.
 
