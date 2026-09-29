@@ -37,12 +37,12 @@ Taken 2026-09-29 by the maintainer.
 | The nurse's view (#510) | Leaves G6 and stays open as its own issue, item 3.5 of M3. |
 | What the sign dialog lists (#648) | The order contexts that are new or changed since the order plan version was last opened or signed. |
 | Removed orders (#648) | Listed too. Each row is marked new, changed or removed. |
-| A context without an order (#648) | A context of the version that no longer contributes an order, because it holds several candidates or none again, counts as removed. A new context that contributes no order yet is not listed. |
+| A context without an order | A drug context enters the plan only once narrowed to one scenario, and under the plan context rule it cannot widen again. A nutrition context still enters through `NewOrderContext` before it is narrowed; making it enter only once confirmed, as a drug workbench does, is #495 in G7. Until then the difference rule leaves out a context that contributes no order, on either side: new, it has nothing to list; of the version, it was never listed, so it is not removed; narrowed since the version, it is new. The sign dialog leaves such a context out today too. |
 | Nutrition rows (#399) | The same rule applies to every plan row, drug and nutrition alike. |
 | The term cases (#648) | The maintainer grants the edit of `Shared/Localization.fs` in the sign dialog step. |
 | Nothing changed (#648) | The dialog shows one line saying there is no change, and signing stays allowed. |
 | What can change in a plan context | Only the frequency, the orderable dose quantity and the orderable dose rate. The plan cells and the order dialog opened from the plan both keep to this. It holds for every context in the plan, one added since the last signature too: another medication or route means removing the order and adding it again. The component orderable quantity of an order with more than one component is fixed as well. Once start and stop are built, they can change too. |
-| When a plan context can change | Only while its patient data match the plan's patient data: the whole patient record, age aside. Age changes by itself as time passes and needs a mechanism of its own. Later, the rules version joins the context, and a context whose rules version differs is locked too. |
+| When a plan context can change | Only while its patient data match the plan's patient data: the whole patient record, the age and the P3 and P97 estimates aside, and the estimated weight and height aside only where a measured one exists. Age changes by itself as time passes and needs a mechanism of its own. Without a measured weight or height, the doses were calculated with the estimate, so an estimate changed by a corrected age locks the context. Later, the rules version joins the context, and a context whose rules version differs is locked too. |
 | A locked context | Patient data that change after a signature, a new weight, access or department, lock every context calculated with the earlier data. The row carries a lock mark whose hover text gives the reason. Its cells do not step, the order dialog opens read-only, and the context can still be removed. |
 | Reset in the plan dialog | Left out. Reset re-solves from the rules and can change what the rule keeps fixed; undoing a step is another step. The prescribe page keeps it. |
 | Changed, for the sign dialog (#648) | A context counts as changed when one of the three variables or the argumentation differs from the version opened or signed. Other differences are not changes to an order in the plan. |
@@ -87,7 +87,7 @@ dialog all read them from one pure module, `PlanContextPolicy` in `Client.Core`,
 let editable (field: QuantityModePolicy.Field) : bool
 
 /// Whether the patient data an order context was calculated with match the plan's patient
-/// data, the age aside.
+/// data: the data the doses rest on, the age aside.
 let matches (plan: OrderPlan) (ctx: OrderContext) : bool
 
 /// Whether an order context in the plan is locked: its patient data do not match the plan's.
@@ -100,10 +100,16 @@ let changed (opened: OrderContext) (ctx: OrderContext) : bool
 
 - `editable` is true for `Frequency`, `DoseQuantity` and `DoseRate`, and false for
   `ComponentQuantity` and `Other`.
-- `matches` compares `ctx.Patient` with `plan.Patient` after setting the context's age to the
-  plan's. Every other field, access, location and department included, has to be equal.
+- `matches` compares `ctx.Patient` with `plan.Patient` after blanking, on both, the age and
+  the P3 and P97 estimates, and the estimated weight or height when a measured one exists.
+  `Patient.getWeight` and `getHeight` take the measured value, else the estimate, so without a
+  measured value the estimate is what the doses rest on and has to be equal. Every other field,
+  the measured weight and height, gender, gestational age, access, renal function, location and
+  department, has to be equal.
 - `changed` compares the values of `Schedule.Frequency`, `Orderable.Dose.Quantity` and
-  `Orderable.Dose.Rate` of the contributed orders, and the argumentation.
+  `Orderable.Dose.Rate` of the contributed orders, and the argumentation. A value is its numbers
+  and its unit group; the unit text, the language and the JSON are how it is rendered, so the
+  same values rendered otherwise are no change.
 - The two future additions, start and stop as editable fields and the rules version as a
   second reason to lock, extend these functions and do not change their callers.
 
@@ -150,15 +156,14 @@ type Difference =
     | Changed
     | Removed
 
-/// The order contexts that contribute an order and are new or changed since the version last
-/// opened or signed, in plan order, followed by the contexts of that version that contributed
-/// an order and no longer do: gone from the plan, or holding several candidates or none again.
+/// The order contexts new or changed since the version last opened or signed, in plan order,
+/// followed by the contexts of that version no longer in the plan. A context that contributes
+/// no order is left out on either side.
 let differences (opened: OrderContext[]) (plan: OrderPlan) : (OrderContext * Difference)[]
 ```
 
-- The rule compares contributions, the order a context holds once it is narrowed to one
-  scenario, as the dialog shows them. A context that contributes no order has nothing to show:
-  new, it is left out; of the version, it is removed.
+- The rule compares contexts by id, over the contexts that contribute an order on either side,
+  so the view needs no filter of its own.
 - A context of the version is changed when `PlanContextPolicy.changed` says so.
 - `HeldContextPolicy.changed` keeps its meaning: whole contexts, for holding the patient
   context. A test holds that every context `differences` marks changed is in it.
@@ -255,15 +260,18 @@ code pull request.
    `src/Informedica.GenPRES.Client.Core/Scripts/` with `PlanContextPolicy` and `differences`,
    and their tests:
    - `editable` for each field;
-   - `matches` with equal patient data, with only the age different, and with the weight,
+   - `matches` with equal patient data; with only the age different; with a different estimate
+     beside a measured value, or different P3 and P97 estimates, which still match; with a
+     different estimated weight and no measured one, which locks; and with the measured weight,
      the access or the department different;
    - `changed` for each of the three variables, for the argumentation, and for a filter or
-     intake difference alone, which is no change;
+     intake difference alone or the same values rendered otherwise, which are no change;
    - `differences`: a new, a changed and a removed context; plan order, then the removed
      contexts; an unchanged plan gives an empty list; a change of the plan's filtered rows or
-     the totals alone is no change; a context of the version that holds several candidates
-     again counts as removed; a new context that contributes no order is left out; every
-     context marked changed is in `HeldContextPolicy.changed`.
+     the totals alone is no change; no version at all makes every context new; a context that
+     contributes no order is left out, new or of the version, and is new once narrowed; a filter
+     difference alone is held and no difference; every context marked new or changed is in
+     `HeldContextPolicy.changed`.
 
    The maintainer migrates it to `PlanContextPolicy`, `HeldContextPolicy`, `OrderPlanMachine`
    and the Client.Core tests.
