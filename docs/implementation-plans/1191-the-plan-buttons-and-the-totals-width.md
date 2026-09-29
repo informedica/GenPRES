@@ -109,3 +109,5 @@ One pull request per step, each committed locally and pushed after a check in th
 
 | Step | Pull request | Note |
 |---|---|---|
+| 1, the action row | #1196 | As planned. |
+| 2, the totals width | #1198 | A child selector on the stack, `& > *` with `flex: 1; minWidth: 0`, in place of a wrapper around each card. |
