@@ -51,17 +51,25 @@ module Format =
                 Math.Round(f, precision)
 
 
-    /// Convert a fraction string like "629/10" to a float option.
-    let private tryParseFraction (s: string) =
+    /// Convert a fraction string like "629/10" to a float option. The numbers are read with the
+    /// invariant culture, so a host with a decimal comma reads them the same.
+    let tryParseFraction (s: string) =
+        let parse (x: string) =
+            Double.TryParse(
+                x.TrimEnd('N'),
+                Globalization.NumberStyles.Float,
+                Globalization.CultureInfo.InvariantCulture
+            )
+
         let parts = s.Trim().Split('/')
 
         match parts with
         | [| num; den |] ->
-            match Double.TryParse(num.TrimEnd('N')), Double.TryParse(den.TrimEnd('N')) with
+            match parse num, parse den with
             | (true, n), (true, d) when d <> 0.0 -> Some(n / d)
             | _ -> None
         | [| num |] ->
-            match Double.TryParse(num.TrimEnd('N')) with
+            match parse num with
             | true, n -> Some n
             | _ -> None
         | _ -> None
