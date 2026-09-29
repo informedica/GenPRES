@@ -40,12 +40,15 @@ module QuantityField =
         |}
 
 
-    /// The texts the field shows in the user's language: what an empty value asks, and what a
-    /// click on a range does.
+    /// The texts the field shows in the user's language: what an empty value asks, what a
+    /// click on a range does, and the hover texts of the four button slots, from left to right,
+    /// where the field picks from a range and where it steps one value.
     type Texts =
         {|
             pickValue: string
             pickMedian: string
+            navigableTitles: string * string * string * string
+            stepableTitles: string * string * string * string
         |}
 
 
@@ -96,10 +99,6 @@ module QuantityField =
     // the least width of a field with only the inner buttons
     let fieldWidthInnerSlots = 2 * slotWidth + markWidth + valueMinWidth
     let fieldWidthWithoutSlots = markWidth + valueMinWidth
-
-    // the hover texts of the four button slots, per mode
-    let navigableTitles = "naar minimum", "lager", "hoger", "naar maximum"
-    let stepableTitles = "grote stap omlaag", "stap omlaag", "stap omhoog", "grote stap omhoog"
 
 
     // the label above the group; the field the user is pointed at first carries the accent on
@@ -442,7 +441,7 @@ module QuantityField =
             match props.mode with
             | Navigable _ ->
                 true,
-                navigableTitles,
+                props.texts.navigableTitles,
                 (Mui.Icons.FirstPageIcon, Mui.Icons.SkipPreviousIcon, Mui.Icons.SkipNextIcon, Mui.Icons.LastPageIcon)
             | Stepable _
             | Selectable
@@ -455,7 +454,7 @@ module QuantityField =
                     |> Option.defaultValue icon
 
                 steps.IsSome,
-                stepableTitles,
+                props.texts.stepableTitles,
                 (large "−" Mui.Icons.KeyboardDoubleArrowLeftIcon,
                  Mui.Icons.RemoveIcon,
                  Mui.Icons.Add,
