@@ -358,9 +358,12 @@ removed in the same pull request once reviewed. The deviations follow the table.
 
 - **The restore keeps a snapshot, not a request id.** A `Reopen` keeps the machine's whole state
   before it and a `Restore` puts it back; the state kept has nothing under way, so the answer to
-  the clear finds no request to land on, without request ids passed from the App. A reopen
-  while any request of the page is under way, also a step shown before its answer, is refused,
-  so the state kept never holds a request (review of #1206 and #1215).
+  the clear finds no request to land on, without request ids passed from the App. The state
+  kept never holds a request, on two levels: the machine takes a `Reopen` that arrives while a
+  request is under way as a plain command and keeps no snapshot, so a later `Restore` changes
+  nothing (review of #1206); and the arrow does nothing while any request of the page is under
+  way, also a step shown before its answer, so the page never sends such a reopen (review of
+  #1215).
 - **`BackToRange` is decided after the answer.** A picked range value and a picked list value
   both hold one value, so the click cannot tell them apart; `FieldOpenPolicy.reopened` decides
   once the answer lands: no values, no list.
