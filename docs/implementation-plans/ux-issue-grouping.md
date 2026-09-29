@@ -376,13 +376,14 @@ detached on 2026-09-28 and the umbrella closed that day; #718 stands on its own.
 
 ### G6 — The order plan (#987)
 
-Planned in [987-the-order-plan.md](987-the-order-plan.md).
+Planned in [987-the-order-plan.md](987-the-order-plan.md); built in PRs #1178 to #1187, closed
+2026-09-29.
 
 | Issue | Milestone | Status |
 |---|---|---|
-| #399 | post-MVP | open: planned |
+| #399 | post-MVP | done: a stepable plan cell opens a quantity field on a click, PR #1187; closed 2026-09-29 |
 | #510 | M3 | open, left the group: the nurse's preparation view, item 3.5 of M3 in the gap overview |
-| **+**#648 | none | open: planned |
+| **+**#648 | none | done: the sign dialog lists what is new, changed or removed, PR #1181; closed 2026-09-29 |
 
 **Cause.** Two readings of the same plan table, and a third that left the group.
 
@@ -396,7 +397,7 @@ Planned in [987-the-order-plan.md](987-the-order-plan.md).
   M3's pharmacy-notification work, so it left G6.
 
 **Decision** (2026-09-29): no adjust button. A cell that holds a stepable order variable opens
-a quantity field in a popover on hover, or on a tap in the card layout, and a click on the row
+a quantity field in a popover on a click, or on a tap in the card layout, and a click on the row
 still opens the dialog. The sign dialog lists the differences, each marked new, changed or
 removed, and says so when there are none; signing a plan as it is stays allowed. An order context
 in the plan changes only in its frequency, orderable dose quantity and orderable dose rate, and
@@ -598,7 +599,7 @@ on a design come last:
    built, closed 2026-09-25;
 4. G4, [985-what-the-rules-allow-and-deviating-from-it.md](985-what-the-rules-allow-and-deviating-from-it.md):
    built, closed 2026-09-28;
-5. G6, [987-the-order-plan.md](987-the-order-plan.md): planned;
+5. G6, [987-the-order-plan.md](987-the-order-plan.md): built, closed 2026-09-29;
 6. G7;
 7. G2;
 8. G10, whose plan opens with the (a)/(b) decision of #518, so it may end as a closing note
