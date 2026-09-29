@@ -112,6 +112,9 @@ module PickField =
                     severity = Types.Severity.Normal
                     minWidth = None
                     description = None
+                    reopen = None
+                    restore = ignore
+                    busy = false
                 |}
         | Shape.Type ->
             Autocomplete.View

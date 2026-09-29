@@ -1864,6 +1864,11 @@ type private ConcreteAppEnv
         member _.OrderContextMsg(cmd, ctx) =
             OrderContextMsg(OrderContextMsg.Command(cmd, ctx, newRequest ())) |> dispatch
 
+        member _.Reopen(cmd, ctx) =
+            OrderContextMsg(OrderContextMsg.Reopen(cmd, ctx, newRequest ())) |> dispatch
+
+        member _.Restore() = OrderContextMsg OrderContextMsg.Restore |> dispatch
+
         member _.Dialog = state.Lanes.OrderContext |> OrderContextState.dialog
 
         member _.Select id = OrderContextMsg(OrderContextMsg.Select id) |> dispatch
@@ -1875,6 +1880,11 @@ type private ConcreteAppEnv
 
         member _.OrderPlanCommand cmd =
             OrderPlanMsg(OrderPlanMsg.Command(cmd, newRequest ())) |> dispatch
+
+        member _.Reopen cmd =
+            OrderPlanMsg(OrderPlanMsg.Reopen(cmd, newRequest ())) |> dispatch
+
+        member _.Restore() = OrderPlanMsg OrderPlanMsg.Restore |> dispatch
 
         member _.Select id = OrderPlanMsg(OrderPlanMsg.Select id) |> dispatch
 

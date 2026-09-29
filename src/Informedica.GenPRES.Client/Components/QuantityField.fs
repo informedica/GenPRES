@@ -76,6 +76,14 @@ module QuantityField =
             mode: Mode
             texts: Texts
             hasClear: bool
+            // a field whose list cannot be opened: a value only shown, or one the solver determined
+            readOnly: bool
+            // a field the user narrowed: its arrow clears its choice and the list shows the answer
+            reopen: (unit -> unit) option
+            // the list of a reopen closed without a pick
+            restore: unit -> unit
+            // a request of the page under way: the arrow does not reopen meanwhile
+            busy: bool
             disabled: bool
             isLoading: bool
             severity: Types.Severity
@@ -426,13 +434,16 @@ module QuantityField =
                     updateSelected = props.onChange
                     isLoading = props.isLoading
                     disabled = props.disabled
-                    readOnly = false
+                    readOnly = props.readOnly
                     hasClear = props.hasClear
                     canStep = canStep
                     severity = props.severity
                     // the minimum is the field's; the select takes the column the slots leave
                     minWidth = None
                     description = median |> Option.map (fun _ -> props.texts.pickMedian)
+                    reopen = props.reopen
+                    restore = props.restore
+                    busy = props.busy
                 |}
 
         // the step buttons rest only when the field is disabled: a step sent while the value
