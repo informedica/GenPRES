@@ -406,14 +406,34 @@ module Decimal =
 
 module Csv =
 
+    open System.Text.RegularExpressions
     open Types
+
+
+    /// The text NumberStyles.Float accepts under the invariant culture, bar Infinity and NaN:
+    /// optional white space, an optional sign, digits with at most one decimal point, an optional
+    /// exponent. The digits and the six white space characters .NET allows are spelled out, since
+    /// \d and \s differ between .NET and JavaScript.
+    let plainDecimal =
+        Regex(@"^[ \t\n\v\f\r]*[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?[ \t\n\v\f\r]*$")
+
+
+    /// Whether the text is a plain decimal, the only form the sheet writes a number in.
+    let isPlainDecimal (x: string) = not (isNull x) && plainDecimal.IsMatch x
 
 
     /// The number as the sheet writes it, with a decimal point, whatever the culture of the host:
     /// a parse with the current culture drops the point as a group separator under a culture that
     /// writes the decimal comma, and reads 0.0192 as 192.
     let tryParseFloat (x: string) =
+#if FABLE_COMPILER
+        // Fable drops the style and the culture and parses as JavaScript does, which also takes
+        // 0x, 0b and 0o prefixes and an underscore; the shape check keeps the browser to what the
+        // server accepts. JavaScript's parse does not depend on the browser's locale
+        if isPlainDecimal x then Double.TryParse x else false, 0.
+#else
         Double.TryParse(x, NumberStyles.Float, CultureInfo.InvariantCulture)
+#endif
 
 
     let tryCast dt (x: string) =
