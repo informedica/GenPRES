@@ -6,6 +6,18 @@ module PlanContextPolicy
 open Shared.Types
 
 
+/// What the order dialog lets the user change.
+[<RequireQualifiedAccess>]
+type Editing =
+    /// The prescribing workbench: every field, the argumentation and Reset.
+    | Workbench
+    /// An order context in the plan: the fields the plan context rule allows and the
+    /// argumentation; no Reset, which re-solves from the rules and can change the rest.
+    | PlanContext
+    /// A locked order context in the plan: nothing; the dialog sends no command.
+    | Locked
+
+
 /// Whether a field of an order context in the plan can change: the frequency, the orderable
 /// dose quantity and the orderable dose rate can; every other field cannot.
 let editable (field: QuantityModePolicy.Field) =
@@ -98,3 +110,48 @@ let changed (opened: OrderContext) (ctx: OrderContext) =
     orderId opened <> orderId ctx
     || editableValues opened <> editableValues ctx
     || opened.Argumentation <> ctx.Argumentation
+
+
+/// The kind of a field of the order dialog, by the key its changes are tracked under; the keys
+/// the plan context rule names map to their kind, every other key is Other.
+let fieldKind (key: string) =
+    match key with
+    | "frequency" -> QuantityModePolicy.Field.Frequency
+    | "ordDoseQty" -> QuantityModePolicy.Field.DoseQuantity
+    | "ordDoseRate" -> QuantityModePolicy.Field.DoseRate
+    | "compOrdQty" -> QuantityModePolicy.Field.ComponentQuantity
+    | _ -> QuantityModePolicy.Field.Other
+
+
+/// Whether a field of the order dialog, by its key, can be edited under the editing given.
+let canEdit (editing: Editing) (key: string) =
+    match editing with
+    | Editing.Workbench -> true
+    | Editing.PlanContext -> key |> fieldKind |> editable
+    | Editing.Locked -> false
+
+
+/// Whether the order dialog offers Reset: on the workbench alone.
+let resets (editing: Editing) =
+    match editing with
+    | Editing.Workbench -> true
+    | Editing.PlanContext
+    | Editing.Locked -> false
+
+
+/// Whether the order dialog lets the argumentation change and commits it: everywhere but a
+/// locked context.
+let argues (editing: Editing) =
+    match editing with
+    | Editing.Workbench
+    | Editing.PlanContext -> true
+    | Editing.Locked -> false
+
+
+/// The editing of the order dialog for the context of the plan with this id: locked when its
+/// patient data differ from the plan's, the plan context rule otherwise.
+let editingOf (plan: OrderPlan) (contextId: string) =
+    match plan.OrderContexts |> Array.tryFind (fun c -> c.Id = contextId) with
+    | Some ctx when locked plan ctx -> Editing.Locked
+    | Some _
+    | None -> Editing.PlanContext

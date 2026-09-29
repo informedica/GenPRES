@@ -15,37 +15,6 @@ module Order =
     open FSharp.Core
 
 
-    /// What the order dialog lets the user change.
-    [<RequireQualifiedAccess>]
-    type Editing =
-        /// The prescribing workbench: every field, the argumentation and Reset.
-        | Workbench
-        /// An order context in the plan: the fields PlanContextPolicy allows and the
-        /// argumentation; no Reset, which re-solves from the rules and can change the rest.
-        | PlanContext
-        /// A locked order context in the plan: nothing; the dialog sends no command.
-        | Locked
-
-
-    /// The kind of a field of the dialog, by the key its changes are tracked under; the keys
-    /// the plan context rule names map to their kind, every other key is Other.
-    let fieldKind (key: string) =
-        match key with
-        | "frequency" -> QuantityModePolicy.Field.Frequency
-        | "ordDoseQty" -> QuantityModePolicy.Field.DoseQuantity
-        | "ordDoseRate" -> QuantityModePolicy.Field.DoseRate
-        | "compOrdQty" -> QuantityModePolicy.Field.ComponentQuantity
-        | _ -> QuantityModePolicy.Field.Other
-
-
-    /// Whether a field of the dialog can be edited under the editing given.
-    let canEdit (editing: Editing) (key: string) =
-        match editing with
-        | Editing.Workbench -> true
-        | Editing.PlanContext -> key |> fieldKind |> PlanContextPolicy.editable
-        | Editing.Locked -> false
-
-
     module private Elmish =
 
 
@@ -457,7 +426,7 @@ module Order =
                 argue: string -> unit
                 localizationTerms: Deferred<string[][]>
                 // what the user can change: everything on the workbench, less in the plan
-                editing: Editing
+                editing: PlanContextPolicy.Editing
             |})
         =
         let context: Global.Context = React.useContext Global.context
@@ -981,7 +950,7 @@ module Order =
         // a field's select: rests while another field is changing, shows it while its own is; a
         // field the editing does not let change shows its value, without steps or a dropdown
         let selectFor field lbl selected updateSelected mode mark minWidth xs =
-            if canEdit props.editing field then
+            if PlanContextPolicy.canEdit props.editing field then
                 ViewHelpers.orderSelect
                     texts
                     false
@@ -1016,7 +985,7 @@ module Order =
                     minWidth
                     shown
 
-        let argues = props.editing <> Editing.Locked
+        let argues = props.editing |> PlanContextPolicy.argues
 
         let loadingIndicator = ViewHelpers.inlineProgress isOrderLoading
 
@@ -1077,7 +1046,7 @@ module Order =
                 {|
                     actions =
                         [|
-                            if props.editing = Editing.Workbench then
+                            if props.editing |> PlanContextPolicy.resets then
                                 resetAction
                             {|
                                 label = Terms.``Ok `` |> getTerm "Ok"

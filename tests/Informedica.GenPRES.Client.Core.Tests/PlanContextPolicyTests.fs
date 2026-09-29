@@ -370,3 +370,71 @@ module PlanContextPolicyTests =
                     |> Expect.isTrue "the held rule sees each of them"
                 }
             ]
+
+
+    [<Tests>]
+    let editingTests =
+        testList
+            "PlanContextPolicy editing"
+            [
+                testList
+                    "canEdit"
+                    [
+                        for editing, key, exp in
+                            [
+                                PlanContextPolicy.Editing.Workbench, "substDoseQty", true
+                                PlanContextPolicy.Editing.Workbench, "compOrdQty", true
+                                PlanContextPolicy.Editing.PlanContext, "frequency", true
+                                PlanContextPolicy.Editing.PlanContext, "ordDoseQty", true
+                                PlanContextPolicy.Editing.PlanContext, "ordDoseRate", true
+                                PlanContextPolicy.Editing.PlanContext, "compOrdQty", false
+                                PlanContextPolicy.Editing.PlanContext, "substDoseQty", false
+                                PlanContextPolicy.Editing.Locked, "frequency", false
+                            ] do
+                            test $"%A{editing} edits %s{key}: %b{exp}" {
+                                PlanContextPolicy.canEdit editing key |> Expect.equal "as the rule says" exp
+                            }
+                    ]
+
+                test "an unknown key is Other" {
+                    PlanContextPolicy.fieldKind "time"
+                    |> Expect.equal "no step command for it" QuantityModePolicy.Field.Other
+                }
+
+                test "Reset on the workbench alone" {
+                    [
+                        PlanContextPolicy.Editing.Workbench
+                        PlanContextPolicy.Editing.PlanContext
+                        PlanContextPolicy.Editing.Locked
+                    ]
+                    |> List.map PlanContextPolicy.resets
+                    |> Expect.equal "only the workbench resets" [ true; false; false ]
+                }
+
+                test "the argumentation everywhere but a locked context" {
+                    [
+                        PlanContextPolicy.Editing.Workbench
+                        PlanContextPolicy.Editing.PlanContext
+                        PlanContextPolicy.Editing.Locked
+                    ]
+                    |> List.map PlanContextPolicy.argues
+                    |> Expect.equal "a locked context commits nothing" [ true; true; false ]
+                }
+
+                test "a context with the plan's patient data follows the plan context rule" {
+                    PlanContextPolicy.editingOf (plan [| para |]) para.Id
+                    |> Expect.equal "not locked" PlanContextPolicy.Editing.PlanContext
+                }
+
+                test "a context with other patient data is locked" {
+                    let moved = para |> planWithPatient (fun p -> { p with Department = Some "ICK" })
+
+                    PlanContextPolicy.editingOf moved para.Id
+                    |> Expect.equal "locked" PlanContextPolicy.Editing.Locked
+                }
+
+                test "an id the plan does not hold follows the plan context rule" {
+                    PlanContextPolicy.editingOf (plan [| para |]) "c-unknown"
+                    |> Expect.equal "nothing to lock" PlanContextPolicy.Editing.PlanContext
+                }
+            ]
