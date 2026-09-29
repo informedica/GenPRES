@@ -14,10 +14,12 @@ module OrderPlan =
     open OrderContextMachine
 
 
-    /// A plan table cell that steps its order: the text, and on a click, or Enter, a quantity
-    /// field in a popper anchored to the cell, closed with its own button or a second click. A
-    /// click or a key inside reaches no row, so the order dialog does not open. The popper
-    /// stays mounted while closed, so a step still counting its clicks is sent after the close.
+    /// A plan table cell that steps its order: the text, and a quantity field in a popper
+    /// anchored to the cell. The cell is a button: a click, Enter or Space asks to open or close
+    /// it, and the popper has its own close button. Which cell is open is the plan view's, so
+    /// one is open at a time. A click or a key inside reaches no row, so the order dialog does
+    /// not open; a click inside tells the view that a step is counting. The popper stays mounted
+    /// while closed, so a step still counting its clicks is sent after the close.
     [<JSX.Component>]
     let PlanCell
         (props:
@@ -25,6 +27,12 @@ module OrderPlan =
                 text: string
                 field: JSX.Element
                 closeLabel: string
+                isOpen: bool
+                // the cell cannot be opened now: greyed, and only an open popper can be closed
+                disabled: bool
+                onToggle: unit -> unit
+                onClose: unit -> unit
+                onStep: unit -> unit
             |})
         =
         let anchor, setAnchor = React.useState<Browser.Types.Element option> None
@@ -32,25 +40,50 @@ module OrderPlan =
         let toggle (e: Browser.Types.Event) =
             e.stopPropagation ()
 
-            match anchor with
-            | Some _ -> setAnchor None
-            | None -> setAnchor (Some(e.currentTarget :?> Browser.Types.Element))
+            if not props.disabled || props.isOpen then
+                setAnchor (Some(e.currentTarget :?> Browser.Types.Element))
+                props.onToggle ()
 
         let onKey (e: Browser.Types.KeyboardEvent) =
-            if e.key = "Enter" then
+            if e.key = "Enter" || e.key = " " then
+                e.preventDefault ()
                 toggle e
 
         let close (e: Browser.Types.Event) =
             e.stopPropagation ()
-            setAnchor None
+            props.onClose ()
+
+        let stepped (e: Browser.Types.Event) =
+            e.stopPropagation ()
+            props.onStep ()
 
         let stop (e: Browser.Types.Event) = e.stopPropagation ()
 
-        let isOpen = anchor.IsSome
+        let isOpen = props.isOpen && anchor.IsSome
         let anchorEl = anchor |> Option.map box |> Option.defaultValue null
 
         // a cell that can be stepped reads as a control: a light blue box with a pencil, darker
-        // under the pointer and while its field is open
+        // under the pointer and while its field is open; grey while it cannot be opened
+        let border, background, text, icon =
+            if props.disabled then
+                Mui.Colors.Grey.``300``, Mui.Colors.Grey.``100``, Mui.Colors.Grey.``600``, Mui.Colors.Grey.``500``
+            elif isOpen then
+                Mui.Colors.Blue.``700``, Mui.Colors.Blue.``100``, Mui.Colors.Blue.``900``, Mui.Colors.Blue.``700``
+            else
+                Mui.Colors.Blue.``200``, Mui.Colors.Blue.``50``, Mui.Colors.Blue.``900``, Mui.Colors.Blue.``700``
+
+        let hover =
+            if props.disabled then
+                {|
+                    borderColor = border
+                    backgroundColor = background
+                |}
+            else
+                {|
+                    borderColor = Mui.Colors.Blue.``700``
+                    backgroundColor = Mui.Colors.Blue.``100``
+                |}
+
         let cellSx =
             {|
                 display = "inline-flex"
@@ -59,24 +92,16 @@ module OrderPlan =
                 paddingX = 0.75
                 paddingY = 0.25
                 borderRadius = 1
-                border = $"1px solid %s{Mui.Colors.Blue.``200``}"
-                backgroundColor =
-                    (if anchor.IsSome then
-                         Mui.Colors.Blue.``100``
-                     else
-                         Mui.Colors.Blue.``50``)
-                color = Mui.Colors.Blue.``900``
-                cursor = "pointer"
+                border = $"1px solid %s{border}"
+                backgroundColor = background
+                color = text
+                cursor = (if props.disabled then "default" else "pointer")
                 ``& svg`` =
                     {|
                         fontSize = 16
-                        color = Mui.Colors.Blue.``700``
+                        color = icon
                     |}
-                ``&:hover`` =
-                    {|
-                        borderColor = Mui.Colors.Blue.``700``
-                        backgroundColor = Mui.Colors.Blue.``100``
-                    |}
+                ``&:hover`` = hover
             |}
 
         let popperSx = {| zIndex = 1300 |}
@@ -89,6 +114,8 @@ module OrderPlan =
                 padding = 1
             |}
 
+        let tabIndex = if props.disabled && not isOpen then -1 else 0
+
         JSX.jsx
             $"""
         import Box from '@mui/material/Box';
@@ -96,10 +123,18 @@ module OrderPlan =
         import Paper from '@mui/material/Paper';
         import Popper from '@mui/material/Popper';
 
-        <Box sx={cellSx} tabIndex={0} onClick={toggle} onKeyDown={onKey}>
+        <Box
+            sx={cellSx}
+            role="button"
+            aria-expanded={isOpen}
+            aria-disabled={props.disabled}
+            tabIndex={tabIndex}
+            onClick={toggle}
+            onKeyDown={onKey}
+        >
             {props.text}{Mui.Icons.Edit}
             <Popper open={isOpen} anchorEl={anchorEl} placement="bottom-start" keepMounted={true} sx={popperSx}>
-                <Paper elevation={4} sx={paperSx} onClick={stop} onKeyDown={stop}>
+                <Paper elevation={4} sx={paperSx} onClick={stepped} onKeyDown={stop}>
                     {props.field}
                     <IconButton size="small" aria-label={props.closeLabel} title={props.closeLabel} onClick={close}>
                         {Mui.Icons.Close}
@@ -222,6 +257,24 @@ module OrderPlan =
 
         let revision = revisionRef.current
 
+        // the cell whose field is open, one at a time, by row id and column
+        let openCell, setOpenCell = React.useState<string option> None
+
+        // the cell whose step buttons are counting clicks: a click counts for 700 ms before its
+        // step is sent, so meanwhile no other cell opens and the sign waits. Otherwise a step could
+        // be rejected by a signature started before it was sent, or be replaced by another step
+        // while the plan keeps one waiting. The mark goes a second after the last click, when the
+        // step is on its way and the changing plan holds the rest back
+        let counting, setCounting = React.useState<string option> None
+        let countingTimer = React.useRef (None: int option)
+
+        React.useEffect ((fun () -> fun () -> countingTimer.current |> Option.iter JS.clearTimeout), [||])
+
+        let markCounting (key: string) =
+            countingTimer.current |> Option.iter JS.clearTimeout
+            setCounting (Some key)
+            countingTimer.current <- Some(JS.setTimeout (fun () -> setCounting None) 1000)
+
         // the cells step only while the plan is settled and no signature is under way
         let cellsRest =
             match orderPlan with
@@ -313,6 +366,8 @@ module OrderPlan =
                     )
                 | OrderPlanView.NoPatient -> None
 
+            let key = $"%s{id}/%A{column}"
+
             match stepping with
             | Some field ->
                 PlanCell
@@ -320,6 +375,11 @@ module OrderPlan =
                         text = value
                         field = field
                         closeLabel = "sluiten"
+                        isOpen = openCell = Some key
+                        disabled = cellsRest || counting |> Option.exists ((<>) key)
+                        onToggle = fun () -> setOpenCell (if openCell = Some key then None else Some key)
+                        onClose = fun () -> setOpenCell None
+                        onStep = fun () -> markCounting key
                     |}
             | None -> Html.text value |> toJsx
 
@@ -676,9 +736,12 @@ module OrderPlan =
         let onSign =
             fun _ ->
                 match orderPlan with
-                | OrderPlanView.Settled(tp, _) -> signing.Sign tp
+                | OrderPlanView.Settled(tp, _) when counting.IsNone -> signing.Sign tp
+                | OrderPlanView.Settled _
                 | OrderPlanView.NoPatient
                 | OrderPlanView.Changing _ -> ()
+
+        let signRests = isRecalculating || counting.IsSome
 
         // the button stays while the plan changes, disabled, so the table below does not move up
         // and down with every answer
@@ -691,7 +754,7 @@ module OrderPlan =
                 import Button from '@mui/material/Button';
 
                 <Box sx={ {| marginTop = 2 |} }>
-                    <Button variant="contained" onClick={onSign} disabled={isRecalculating} startIcon={Mui.Icons.Assignment} >
+                    <Button variant="contained" onClick={onSign} disabled={signRests} startIcon={Mui.Icons.Assignment} >
                         {tr Terms.``Signing Sign``}
                     </Button>
                 </Box>
