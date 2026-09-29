@@ -18,8 +18,8 @@ module OrderPlan =
     /// anchored to the cell. The cell is a button: a click, Enter or Space asks to open or close
     /// it, and the popper has its own close button. Which cell is open is the plan view's, so
     /// one is open at a time. A click or a key inside reaches no row, so the order dialog does
-    /// not open; a click inside tells the view that a step is counting. The popper stays mounted
-    /// while closed, so a step still counting its clicks is sent after the close.
+    /// not open; a click on a step button tells the view that a step is counting. The popper
+    /// stays mounted while closed, so a step still counting its clicks is sent after the close.
     [<JSX.Component>]
     let PlanCell
         (props:
@@ -53,9 +53,13 @@ module OrderPlan =
             e.stopPropagation ()
             props.onClose ()
 
+        // only a click on a step button counts: the label, the value or the space around them
+        // start no step; the close button keeps its own click
         let stepped (e: Browser.Types.Event) =
             e.stopPropagation ()
-            props.onStep ()
+
+            if not (isNull (e.target?closest ("button:not([disabled])"))) then
+                props.onStep ()
 
         let stop (e: Browser.Types.Event) = e.stopPropagation ()
 
