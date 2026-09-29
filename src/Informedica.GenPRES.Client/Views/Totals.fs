@@ -135,7 +135,16 @@ module Totals =
                     paddingBottom = 2
                 |}
 
-            let sxStack = {| justifyContent = "center" |}
+            // each card grows to share the row, so the bar is as wide as the page content above
+            // it; a long value wraps rather than pushing the row past the container
+            let sxStack =
+                {|
+                    ``& > *`` =
+                        {|
+                            flex = 1
+                            minWidth = 0
+                        |}
+                |}
 
             JSX.jsx
                 $"""
