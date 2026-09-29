@@ -9,6 +9,9 @@ Which fields offer the cross that clears them. Planned together with:
 - [#1033](https://github.com/informedica/GenPRES/issues/1033): a filter field is offered the
   options it could take, not only the one it has.
 
+The sections up to [As built](#as-built) are the plan as reviewed before the build; As built says
+where the build went otherwise.
+
 Follows #398, which #1031 closed by making the cross clear the field, and
 [ADR-0009: UX Design Rules](../adr/0009-ux-design-rules.md): a control that is offered and does
 nothing is removed, and the user never has to pick again what they already picked.
@@ -19,6 +22,7 @@ nothing is removed, and the user never has to pick again what they already picke
 - [Confidence](#confidence)
 - [Steps](#steps)
 - [Verification, per step](#verification-per-step)
+- [As built](#as-built)
 
 ## Problem description
 
@@ -334,3 +338,55 @@ A comment on #1034, #1195 and #1193 with the answer and the pull requests; the a
    arrow. An anonymous patient's weight: the cross empties it and it stays
    empty; an identified patient's has no cross; the department has none.
 5. None: the issues and the index row are checked by reading them.
+
+
+## As built
+
+Every step landed as a pull request from a fork branch against `master`, on 2026-09-29 and
+2026-09-30, script-first where it touched source outside the Client, the script migrated and
+removed in the same pull request once reviewed. The deviations follow the table.
+
+| Step | PR | Landed |
+|------|----|--------|
+| plan | [#1205](https://github.com/informedica/GenPRES/pull/1205) | this document |
+| 1 | [#1206](https://github.com/informedica/GenPRES/pull/1206) | `FieldOpenPolicy` in `GenPRES.Client.Core`; `Reopen` and `Restore` in `OrderPlanMachine` and `OrderContextMachine` |
+| 2 | [#1207](https://github.com/informedica/GenPRES/pull/1207) | `OrderReopen` in GenORDER; `Picks` on the order scenario, domain and contract; the clear mark sent alone; JSON structure version 3: #1195, the server half |
+| 3 | [#1215](https://github.com/informedica/GenPRES/pull/1215) | `PickList` in `Client.Core`; the arrow reopens in `SimpleSelect`, `QuantityField` and `ViewHelpers.orderField`; the workbench, the plan dialog and the nutrition page wired to `Reopen` and `Restore`: #1034, and #1195's client half |
+| 4 | [#1216](https://github.com/informedica/GenPRES/pull/1216) | each filter list without its own choice: `OrderContext.getRules` and `keep`, `FormularyService` and `ParenteraliaService`; `PickField` without the held field. Closes #1033 and #1193 |
+
+### Deviations from the text above
+
+- **The restore keeps a snapshot, not a request id.** A `Reopen` keeps the machine's whole state
+  before it and a `Restore` puts it back; the state kept has nothing under way, so the answer to
+  the clear finds no request to land on, without request ids passed from the App. The state
+  kept never holds a request, on two levels: the machine takes a `Reopen` that arrives while a
+  request is under way as a plain command and keeps no snapshot, so a later `Restore` changes
+  nothing (review of #1206); and the arrow does nothing while any request of the page is under
+  way, also a step shown before its answer, so the page never sends such a reopen (review of
+  #1215).
+- **`BackToRange` is decided after the answer.** A picked range value and a picked list value
+  both hold one value, so the click cannot tell them apart; `FieldOpenPolicy.reopened` decides
+  once the answer lands: no values, no list.
+- **The picks are a list on the scenario, not a flag on each variable.** The probe of step 2
+  found that putting back every other pick pins a coupled field: on amphotericin the mL dose
+  picked after the mg dose leaves the mg dose one value. Only the picks made before the cleared
+  one are put back, which needs their order; a list of names on the scenario carries it without
+  touching the domain order variable. A step is a pick only when it moved its variable (review
+  of #1207).
+- **The formulary and the parenteralia were added to step 4.** They build their lists the same
+  held way and share `PickField`, which would otherwise have left their fields without a way
+  out.
+- **A filter choice is never swapped for another value.** `keep` keeps a choice while its list
+  holds it and drops it otherwise; only a field without a choice takes the one option. Each
+  field's list is computed with the other choices, and a swapped choice could no longer fit
+  them (review of #1216).
+- **The department keeps its cross.** No department chosen is a state of its own, the default
+  applying and the notice saying so, not the default picked; the plan had it as a reopen
+  (review of #1216). The default is one literal in code, `Resources.Departments.defaultDepartment`.
+- **Two client fixes found in the browser.** The dialog keeps the order from before a reopen
+  shown until the answer lands, since the order sent has the value cleared and a field without
+  values is not drawn; and a change from the dialog goes to the item it shows, also right after
+  a switch of component, when no item is picked.
+- **The popup of a reopen opens at once** with the previous value, under a loading overlay laid
+  over the list, until the answer fills it.
+
