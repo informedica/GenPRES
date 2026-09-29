@@ -1457,17 +1457,15 @@ module Order =
                             ord.Schedule.Frequency
                             |> QuantityModePolicy.decideFor QuantityModePolicy.Field.Frequency ord
 
-                        // a frequency steps one increment per click, so it has no large step
-                        createStepper
+                        ViewHelpers.frequencyStepper
+                            dispatch
+                            revision
                             mode
-                            false
                             SetMinFrequencyProperty
-                            (fun _ -> DecreaseFrequencyProperty)
+                            DecreaseFrequencyProperty
                             SetMedianFrequencyProperty
-                            (fun _ -> IncreaseFrequencyProperty)
+                            IncreaseFrequencyProperty
                             SetMaxFrequencyProperty
-                            None
-                            None
 
                     let severity = ord.Schedule.Frequency |> markOf
 
@@ -1518,16 +1516,16 @@ module Order =
                             ord.Orderable.Dose.Rate
                             |> QuantityModePolicy.decideFor QuantityModePolicy.Field.DoseRate ord
 
-                        createStepper
+                        ViewHelpers.doseRateStepper
+                            dispatch
+                            revision
                             mode
-                            (ord.Orderable.Dose.Rate |> ViewHelpers.hasLargeStep)
+                            ord.Orderable.Dose.Rate
                             SetMinDoseRateProperty
                             DecreaseDoseRateProperty
                             SetMedianDoseRateProperty
                             IncreaseDoseRateProperty
                             SetMaxDoseRateProperty
-                            (ord.Orderable.Dose.Rate |> ViewHelpers.ovarStep string)
-                            (ord.Orderable.Dose.Rate |> ViewHelpers.largeStepText)
 
                     let severity = ord.Orderable.Dose.Rate |> markOf
 

@@ -374,6 +374,29 @@ module ViewHelpers =
         ovar |> stepsToCeiling ceiling largeIncr
 
 
+    /// The steps of a frequency field: one increment per click, so no large step and no step
+    /// text. The five messages come from the caller, as for createStepper.
+    let frequencyStepper dispatch revision mode setMin (decr: 'Msg) setMed (incr: 'Msg) setMax =
+        createStepper dispatch revision mode false setMin (fun _ -> decr) setMed (fun _ -> incr) setMax None None
+
+
+    /// The steps of the orderable dose rate field, its large step and step text taken from the
+    /// rate. The five messages come from the caller, as for createStepper.
+    let doseRateStepper dispatch revision mode (rate: OrderVariable) setMin decr setMed incr setMax =
+        createStepper
+            dispatch
+            revision
+            mode
+            (rate |> hasLargeStep)
+            setMin
+            decr
+            setMed
+            incr
+            setMax
+            (rate |> ovarStep string)
+            (rate |> largeStepText)
+
+
     /// Build the steps and the mode of the orderable dose-quantity select, shared by the Order
     /// and Nutrition views. Handles the optimistic stepping with feasibility-ceiling
     /// saturation: the displayed value follows the click count up to the prepared orderable
