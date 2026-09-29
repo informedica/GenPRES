@@ -93,13 +93,15 @@ module ViewHelpers =
 
 
     /// How a field the user may have narrowed reopens: whether the user constrained its variable,
-    /// what the page does before the field's choice is cleared, and what it does when the list of
-    /// a reopen closes without a pick.
+    /// what the page does before the field's choice is cleared, what it does when the list of a
+    /// reopen closes without a pick, and whether a request of the page is under way, during which
+    /// the arrow does not reopen.
     type Reopen =
         {|
             constrained: FieldOpenPolicy.Constrained
             reopening: unit -> unit
             restore: unit -> unit
+            busy: bool
         |}
 
 
@@ -183,6 +185,7 @@ module ViewHelpers =
                     readOnly = offer.Arrow = FieldOpenPolicy.Arrow.NoArrow && not (disabled || isEmpty)
                     reopen = reopenField
                     restore = reopen |> Option.map _.restore |> Option.defaultValue ignore
+                    busy = reopen |> Option.exists _.busy
                     severity = mark.severity
                     reason = mark.reason
                     mode = mode

@@ -38,6 +38,9 @@ module SimpleSelect =
                 reopen: (unit -> unit) option
                 // the list of a reopen closed without a pick: the page puts back what it showed
                 restore: unit -> unit
+                // a request of the page under way, also a step shown before its answer: a reopen
+                // then does nothing, since the clear would wait behind it with nothing to put back
+                busy: bool
             |})
         =
 
@@ -87,7 +90,7 @@ module SimpleSelect =
         let handleOpen =
             fun _ ->
                 match props.reopen with
-                | Some _ when props.isLoading -> ()
+                | Some _ when props.isLoading || props.busy -> ()
                 | Some reopen ->
                     reopening.current <- true
                     sawLoading.current <- false

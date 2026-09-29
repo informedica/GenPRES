@@ -114,6 +114,7 @@ module PickField =
                     description = None
                     reopen = None
                     restore = ignore
+                    busy = false
                 |}
         | Shape.Type ->
             Autocomplete.View

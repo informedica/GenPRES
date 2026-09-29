@@ -996,6 +996,7 @@ module Order =
                         reopening.current <- true
                         setReopenedFrom shownOrder
                 restore = props.restoreOrderScenario
+                busy = isOrderLoading
             |}
 
         let selectFor field (name: string) lbl selected updateSelected mode mark minWidth xs =

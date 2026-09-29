@@ -82,6 +82,8 @@ module QuantityField =
             reopen: (unit -> unit) option
             // the list of a reopen closed without a pick
             restore: unit -> unit
+            // a request of the page under way: the arrow does not reopen meanwhile
+            busy: bool
             disabled: bool
             isLoading: bool
             severity: Types.Severity
@@ -441,6 +443,7 @@ module QuantityField =
                     description = median |> Option.map (fun _ -> props.texts.pickMedian)
                     reopen = props.reopen
                     restore = props.restore
+                    busy = props.busy
                 |}
 
         // the step buttons rest only when the field is disabled: a step sent while the value

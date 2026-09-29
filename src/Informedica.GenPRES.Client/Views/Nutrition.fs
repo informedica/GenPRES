@@ -977,6 +977,7 @@ module Nutrition =
                     |> fun picks -> PickList.constrained picks ovar.Name
                 reopening = fun () -> reopening.current <- true
                 restore = props.planRestore
+                busy = isOrderLoading
             |}
         // a value only shown has nothing for a cross to clear
         let display = ViewHelpers.orderFixed texts true isOrderLoading
