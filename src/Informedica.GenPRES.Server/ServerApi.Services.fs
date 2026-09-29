@@ -284,23 +284,26 @@ module ParenteraliaService =
         let shps = listed par.Form par.Generic None par.Route SolutionRule.forms
         let rtes = listed par.Route par.Generic par.Form None SolutionRule.routes
 
+        // a choice stays while its list holds it, else the one option is chosen; the solution
+        // rules shown are those of the selection that results, so they always match it
+        let gen = gens |> OrderContext.keep par.Generic
+        let shp = shps |> OrderContext.keep par.Form
+        let rte = rtes |> OrderContext.keep par.Route
+
         { par with
             Generics = gens
             Forms = shps
             Routes = rtes
-            Generic =
-                if gens |> Array.length = 1 then
-                    Some gens[0]
-                else
-                    par.Generic
-            Form = if shps |> Array.length = 1 then Some shps[0] else par.Form
-            Route = if rtes |> Array.length = 1 then Some rtes[0] else par.Route
+            Generic = gen
+            Form = shp
+            Route = rte
 
             Markdown =
-                if par.Generic |> Option.isNone then
-                    ""
-                else
-                    srs |> SolutionRule.Print.toMarkdown ""
+                match gen with
+                | None -> ""
+                | Some _ ->
+                    Formulary.getSolutionRules provider gen shp rte
+                    |> SolutionRule.Print.toMarkdown ""
         }
         |> Ok
 

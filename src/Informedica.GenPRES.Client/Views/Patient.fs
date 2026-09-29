@@ -253,9 +253,10 @@ module Patient =
                     options = options
                     selected = selected
                     onChange = changeDepartment
-                    // no cross: it only put the default back, which the field then showed; the
-                    // default is among the options, and the notice says which it is
-                    clearable = false
+                    // the cross leaves no department chosen, so the server's default applies, and
+                    // follows it when it changes: a state of its own, not the default picked. It is
+                    // offered only while a department is chosen
+                    clearable = own.IsSome
                     isLoading = settings |> Deferred.toOption |> Option.isNone
                     enabled = not busy && not launched
                     shape = Components.PickField.Shape.Scroll

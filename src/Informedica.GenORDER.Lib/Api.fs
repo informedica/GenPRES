@@ -703,12 +703,15 @@ module OrderContext =
         }
 
 
-    /// The value a filter field keeps: its choice while its list holds it, else the one option the
-    /// list has, else none.
+    /// The value a filter field keeps: its choice while its list holds it, and none when the list
+    /// no longer does, since each field's list is computed with the other choices and one choice
+    /// swapped for another would no longer fit them; a field without a choice takes the one option
+    /// its list has.
     let keep (chosen: 'a option) (options: 'a[]) =
         match chosen with
         | Some c when options |> Array.contains c -> Some c
-        | _ -> options |> Array.someIfOne
+        | Some _ -> None
+        | None -> options |> Array.someIfOne
 
 
     /// The rules for the context's selection and patient, and the context with its pick lists.
