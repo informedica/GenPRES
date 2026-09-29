@@ -179,3 +179,4 @@ One pull request per step. Run `scripts/CheckDependencyRule.fsx` after step 1.
 |---|---|---|
 | 1, the rule | #1201 | As planned, with a source for each admin call. |
 | 2, the banner by source | #1202 | From the review: a late success of an earlier request no longer clears a later failure. The plan lane clears only on the answer it waits for (`OrderPlanState.awaits`), an interaction check carries a number and drops an earlier check's answer, and a log listing is not sent while one is under way. |
+| 3, the parse | #1203 | Migrated to source on the maintainer's request rather than left as a script: `Csv.isPlainDecimal` and the Fable branch of `tryParseFloat` in `Shared/Utils.fs`, the tests in `CsvTests`. The Node check runs by hand on the Fable-compiled Shared; a CI step for it was left out, as browser-side tests in CI wait on a general approach (#598). |
