@@ -703,21 +703,8 @@ module OrderContext =
         }
 
 
-    /// The value a filter field keeps: its choice while its list holds it, and none when the list
-    /// no longer does, since each field's list is computed with the other choices and one choice
-    /// swapped for another would no longer fit them; a field without a choice takes the one option
-    /// its list has.
-    let keep (chosen: 'a option) (options: 'a[]) =
-        match chosen with
-        | Some c when options |> Array.contains c -> Some c
-        | Some _ -> None
-        | None -> options |> Array.someIfOne
-
-
-    /// The rules for the context's selection and patient, and the context with its pick lists.
-    /// Each list is what its field could take given every other choice: it is filtered without
-    /// the field's own choice, so a chosen field lists the alternatives too. A choice its list no
-    /// longer holds is dropped, and a list of one is chosen. A weight and a height are needed; a department is not, a patient
+    /// The rules for the context's selection and patient, and the context with its pick lists
+    /// narrowed to them. A weight and a height are needed; a department is not, a patient
     /// without one being matched as a patient of the provider's default department, while the
     /// patient itself keeps none. Without a weight and a height the context is made afresh and
     /// there are no rules.
@@ -733,17 +720,17 @@ module OrderContext =
                     Patient = ctx |> matchedPatient provider w h
                 }
 
-            let inds = { doseFilter with Indication = None } |> filterIndications logger provider
-            let gens = { doseFilter with Generic = None } |> filterGenerics logger provider
-            let rtes = { doseFilter with Route = None } |> filterRoutes logger provider
-            let frms = { doseFilter with Form = None } |> filterForms logger provider
-            let dsts = { doseFilter with DoseType = None } |> filterDoseTypes logger provider
+            let inds = doseFilter |> filterIndications logger provider
+            let gens = doseFilter |> filterGenerics logger provider
+            let rtes = doseFilter |> filterRoutes logger provider
+            let frms = doseFilter |> filterForms logger provider
+            let dsts = doseFilter |> filterDoseTypes logger provider
 
-            let ind = inds |> keep doseFilter.Indication
-            let gen = gens |> keep doseFilter.Generic
-            let rte = rtes |> keep doseFilter.Route
-            let frm = frms |> keep doseFilter.Form
-            let dst = dsts |> keep doseFilter.DoseType
+            let ind = inds |> Array.someIfOne
+            let gen = gens |> Array.someIfOne
+            let rte = rtes |> Array.someIfOne
+            let frm = frms |> Array.someIfOne
+            let dst = dsts |> Array.someIfOne
 
             { ctx with
                 Filter =

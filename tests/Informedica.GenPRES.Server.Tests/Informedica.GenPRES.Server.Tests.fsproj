@@ -17,7 +17,6 @@
     <Compile Include="NutritionRuleSetsTests.fs" />
     <Compile Include="MappersPatientTests.fs" />
     <Compile Include="MappersOrderContextTests.fs" />
-    <Compile Include="FilterListsTests.fs" />
     <Compile Include="MappersOrderPlanTests.fs" />
     <Compile Include="MeasurementsTests.fs" />
     <Compile Include="OrderContextSwitchTests.fs" />

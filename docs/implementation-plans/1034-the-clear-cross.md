@@ -344,7 +344,7 @@ A comment on #1034, #1195 and #1193 with the answer and the pull requests; the a
 
 Every step landed as a pull request from a fork branch against `master`, on 2026-09-29 and
 2026-09-30, script-first where it touched source outside the Client, the script migrated and
-removed in the same pull request once reviewed. The deviations follow the table.
+removed in the same pull request once reviewed. Step 4 was reverted after release, see [#1220](https://github.com/informedica/GenPRES/issues/1220). The deviations follow the table.
 
 | Step | PR | Landed |
 |------|----|--------|
@@ -353,6 +353,7 @@ removed in the same pull request once reviewed. The deviations follow the table.
 | 2 | [#1207](https://github.com/informedica/GenPRES/pull/1207) | `OrderReopen` in GenORDER; `Picks` on the order scenario, domain and contract; the clear mark sent alone; JSON structure version 3: #1195, the server half |
 | 3 | [#1215](https://github.com/informedica/GenPRES/pull/1215) | `PickList` in `Client.Core`; the arrow reopens in `SimpleSelect`, `QuantityField` and `ViewHelpers.orderField`; the workbench, the plan dialog and the nutrition page wired to `Reopen` and `Restore`: #1034, and #1195's client half |
 | 4 | [#1216](https://github.com/informedica/GenPRES/pull/1216) | each filter list without its own choice: `OrderContext.getRules` and `keep`, `FormularyService` and `ParenteraliaService`; `PickField` without the held field. Closes #1033 and #1193 |
+| 4 reverted | [#1220](https://github.com/informedica/GenPRES/issues/1220) | step 4 reverted: a swap of one chosen value for another kept the choices below it, among them a choice filled in because its list had one option, so a route never chosen came back with the next medication. #1033 and #1193 are open again until it re-lands |
 
 ### Deviations from the text above
 
