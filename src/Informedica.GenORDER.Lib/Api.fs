@@ -1147,15 +1147,11 @@ Scenarios: {scenarios}
         let processPropertyCmd ctx propCmd wrapResult =
             match ctx.Scenarios |> Array.tryExactlyOne with
             | Some sc ->
-                let stepped = sc.Order |> OrderReopen.steppedBy propCmd
+                let stepped = ctx |> processScenarioOrder logger (fun o -> ChangeProperty(o, propCmd))
 
-                ctx
-                |> processScenarioOrder logger (fun o -> ChangeProperty(o, propCmd))
-                |> mapPicks (fun picks ->
-                    stepped
-                    |> Option.map (fun n -> picks |> OrderReopen.add n)
-                    |> Option.defaultValue picks
-                )
+                match stepped.Scenarios |> Array.tryExactlyOne with
+                | Some after -> stepped |> mapPicks (OrderReopen.afterStep propCmd sc.Order after.Order)
+                | None -> stepped
                 |> wrapResult
                 |> Evaluated
                 |> Ok

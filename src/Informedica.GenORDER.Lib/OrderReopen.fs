@@ -96,3 +96,20 @@ module OrderReopen =
         | SetMaxComponentOrderableQuantity cmp
         | SetMedianComponentOrderableQuantity cmp -> componentQuantity cmp
         | ComponentInStock _ -> None
+
+
+    /// The variable with this name in the order, if it has one.
+    let variableOf (name: string) (ord: Order) =
+        ord
+        |> Order.toOrdVars
+        |> List.tryFind (fun v -> nameOf v = name)
+        |> Option.map _.Variable
+
+
+    /// The picks after a step: the variable the step moves becomes the latest pick, but only when
+    /// the step moved it. A step at a bound, or without an increment, leaves the variable as it
+    /// was and the picks too.
+    let afterStep (cmd: ChangePropertyCommand) (before: Order) (after: Order) (picks: string list) =
+        match before |> steppedBy cmd with
+        | Some name when variableOf name after <> variableOf name before -> picks |> add name
+        | _ -> picks
