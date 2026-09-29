@@ -1131,6 +1131,28 @@ let reopenTests =
                 |> Expect.equal "nothing to put back" (open', [])
             }
 
+            test "a reopen while a request is under way keeps nothing: a restore cannot put that request back" {
+                let remove = OrderPlanCommand.RemoveOrderContexts(two, [| "c-2" |])
+                let busy = open' |> move (OrderPlanMsg.Command(remove, "r-1")) |> fst
+
+                let settled =
+                    busy
+                    |> run
+                        [
+                            OrderPlanMsg.Reopen(clear, "r-2")
+                            OrderPlanMsg.Answered("r-1", Ok two)
+                            OrderPlanMsg.Answered("r-2", Ok answer)
+                        ]
+
+                settled
+                |> OrderPlanState.view
+                |> Expect.equal "the clear answered" (OrderPlanView.Settled(answer, Some "c-1"))
+
+                settled
+                |> move OrderPlanMsg.Restore
+                |> Expect.equal "nothing to put back, nothing in flight again" (settled, [])
+            }
+
             test "a reopen is not admitted while a signature is under way; a restore is" {
                 let signing = SigningMachine.SigningView.Requesting
 

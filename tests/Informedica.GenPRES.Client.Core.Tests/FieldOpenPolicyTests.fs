@@ -133,16 +133,12 @@ module FieldOpenPolicyTests =
                     "after a reopen"
                     [
                         test "a list of values opens, also a list of one" {
-                            reopened 3 QuantityModePolicy.Mode.Selectable
-                            |> Expect.equal "list" Reopened.ShowList
-
-                            reopened 1 QuantityModePolicy.Mode.Fixed
-                            |> Expect.equal "list" Reopened.ShowList
+                            reopened 3 |> Expect.equal "list" Reopened.ShowList
+                            reopened 1 |> Expect.equal "list" Reopened.ShowList
                         }
 
-                        test "a range shows the range, no list" {
-                            reopened 0 QuantityModePolicy.Mode.Navigable
-                            |> Expect.equal "range" Reopened.ShowRange
+                        test "no values answered, a range it can step or one it cannot: no list" {
+                            reopened 0 |> Expect.equal "no list" Reopened.NoList
                         }
                     ]
 

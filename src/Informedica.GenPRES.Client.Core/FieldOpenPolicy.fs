@@ -129,14 +129,16 @@ let click isLoading (offer: Offer) =
 type Reopened =
     /// The list opens with the values answered, one or more.
     | ShowList
-    /// The range is back: there is no list, the click on it picks the median.
-    | ShowRange
+    /// No values were answered, so no list opens: the field shows its range, whose click picks the
+    /// median when it can step, or a range it cannot move.
+    | NoList
 
 
-/// What the field shows after a reopen: a range has no list to open.
-let reopened values (mode: QuantityModePolicy.Mode) =
-    match values, mode with
-    | 0, QuantityModePolicy.Mode.Navigable -> Reopened.ShowRange
+/// What the field shows after a reopen: a list only when there are values to list, so the arrow
+/// never leads to an empty dropdown.
+let reopened values =
+    match values with
+    | 0 -> Reopened.NoList
     | _ -> Reopened.ShowList
 
 

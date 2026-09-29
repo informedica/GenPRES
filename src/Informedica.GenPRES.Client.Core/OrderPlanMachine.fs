@@ -619,10 +619,14 @@ module OrderPlanState =
 
     /// The next state and effects for a message. A reopen keeps the state before it, which an
     /// answer carries along and a restore puts back; any other message ends the look, and the
-    /// state kept goes. The state kept has nothing under way, since a reopen is not offered while
-    /// a request is, so the answer to the clear finds no request to land on after a restore.
+    /// state kept goes. A reopen while a request is under way keeps nothing and goes as a plain
+    /// command: the state kept would hold that request, and a restore would put it back in flight
+    /// after its answer. So the state kept has nothing under way, and the answer to the clear
+    /// finds no request to land on after a restore.
     let transition (msg: OrderPlanMsg) (state: OrderPlanState) : OrderPlanState * OrderPlanEffect list =
         match msg with
+        | OrderPlanMsg.Reopen(cmd, request) when state.InFlight.IsSome ->
+            move (OrderPlanMsg.Command(cmd, request)) { state with Kept = None }
         | OrderPlanMsg.Reopen(cmd, request) ->
             let kept = { state with Kept = None }
             let moved, effects = move (OrderPlanMsg.Command(cmd, request)) kept

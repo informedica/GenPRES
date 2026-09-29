@@ -954,4 +954,28 @@ let reopenTests =
                 |> move OrderContextMsg.Restore
                 |> Expect.equal "nothing to put back" (open', [])
             }
+
+            test "a reopen while a request is under way keeps nothing: a restore cannot put that request back" {
+                let busy =
+                    open'
+                    |> move (OrderContextMsg.Command(OrderContextCommand.IncreaseScheduleFrequencyProperty, c1, "r-1"))
+                    |> fst
+
+                let settled =
+                    busy
+                    |> run
+                        [
+                            OrderContextMsg.Reopen(OrderContextCommand.UpdateOrderScenario, cleared, "r-2")
+                            OrderContextMsg.Answered("r-1", answered c1)
+                            OrderContextMsg.Answered("r-2", answered reopened)
+                        ]
+
+                settled
+                |> view
+                |> Expect.equal "the clear answered" (OrderContextView.Settled reopened)
+
+                settled
+                |> move OrderContextMsg.Restore
+                |> Expect.equal "nothing to put back, nothing in flight again" (settled, [])
+            }
         ]

@@ -536,10 +536,14 @@ module OrderContextState =
 
     /// The next state and effects for a message. A reopen keeps the state before it, which an
     /// answer carries along and a restore puts back; any other message ends the look, and the
-    /// state kept goes. The state kept has nothing under way, since a reopen is not offered while
-    /// a request is, so the answer to the clear finds no request to land on after a restore.
+    /// state kept goes. A reopen while a request is under way keeps nothing and goes as a plain
+    /// command: the state kept would hold that request, and a restore would put it back in flight
+    /// after its answer. So the state kept has nothing under way, and the answer to the clear
+    /// finds no request to land on after a restore.
     let transition (msg: OrderContextMsg) (state: OrderContextState) : OrderContextState * OrderContextEffect list =
         match msg with
+        | OrderContextMsg.Reopen(cmd, ctx, request) when state.InFlight.IsSome ->
+            move (OrderContextMsg.Command(cmd, ctx, request)) { state with Kept = None }
         | OrderContextMsg.Reopen(cmd, ctx, request) ->
             let kept = { state with Kept = None }
             let moved, effects = move (OrderContextMsg.Command(cmd, ctx, request)) kept
