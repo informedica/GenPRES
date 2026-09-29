@@ -13,6 +13,7 @@
     <Compile Include="GoldenOrders.fs" />
     <Compile Include="TotalsGolden.fs" />
     <Compile Include="OrderPlanTests.fs" />
+    <Compile Include="OrderReopenTests.fs" />
     <Compile Include="MedicationTextTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Main.fs" />

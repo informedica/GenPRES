@@ -188,30 +188,34 @@ module OrderContextMapper =
             UseRenalRule = sc.UseRenalRule
             RenalRule = sc.RenalRule
             ProductsIds = sc.ProductIds
+            Picks = sc.Picks
         }
 
 
     let scenarioBack (dto: ScenarioDto.Dto) : OrderScenario =
-        Shared.Models.OrderScenario.create
-            dto.Indication
-            dto.Name
-            dto.Form
-            dto.Route
-            (dto.DoseType |> doseTypeBack)
-            dto.Diluent
-            dto.Component
-            dto.Item
-            dto.Diluents
-            dto.Components
-            dto.Items
-            (dto.Prescription |> blocksBack)
-            (dto.Preparation |> blocksBack)
-            (dto.Administration |> blocksBack)
-            (dto.Order |> Mappers.Order.mapFromOrderToShared dto.Items)
-            dto.UseAdjust
-            dto.UseRenalRule
-            dto.RenalRule
-            dto.ProductsIds
+        let sc =
+            Shared.Models.OrderScenario.create
+                dto.Indication
+                dto.Name
+                dto.Form
+                dto.Route
+                (dto.DoseType |> doseTypeBack)
+                dto.Diluent
+                dto.Component
+                dto.Item
+                dto.Diluents
+                dto.Components
+                dto.Items
+                (dto.Prescription |> blocksBack)
+                (dto.Preparation |> blocksBack)
+                (dto.Administration |> blocksBack)
+                (dto.Order |> Mappers.Order.mapFromOrderToShared dto.Items)
+                dto.UseAdjust
+                dto.UseRenalRule
+                dto.RenalRule
+                dto.ProductsIds
+
+        { sc with Picks = dto.Picks }
 
 
     /// The totals as the domain's Dto: each line as marked-up text, an empty one as none.

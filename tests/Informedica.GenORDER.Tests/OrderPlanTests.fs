@@ -65,6 +65,7 @@ module Fixtures =
             UseRenalRule = false
             RenalRule = None
             ProductsIds = [||]
+            Picks = Some []
         }
 
 
@@ -479,6 +480,7 @@ module EvaluateFixtures =
             UseRenalRule = false
             RenalRule = None
             ProductsIds = [||]
+            Picks = Some []
         }
 
     let pcmContext: OrderContext =

@@ -101,6 +101,26 @@ let tests =
                 |> Expect.isNone "none stays none"
             }
 
+            test "the picks go to the Dto and back, a list and unknown" {
+                let withPicks picks =
+                    { context with Scenarios = context.Scenarios |> Array.map (fun sc -> { sc with Picks = picks }) }
+
+                let back picks =
+                    (withPicks picks
+                     |> OrderContextMapper.ofModel
+                     |> OrderContextMapper.toModel false)
+                        .Scenarios
+                    |> Array.map _.Picks
+
+                context.Scenarios |> Expect.isNonEmpty "the context has a scenario"
+
+                back (Some [| "frequency"; "dose" |])
+                |> Array.forall ((=) (Some [| "frequency"; "dose" |]))
+                |> Expect.isTrue "the list, in order"
+
+                back None |> Array.forall Option.isNone |> Expect.isTrue "unknown stays unknown"
+            }
+
             test "a plan context JSON from before the field, a version 1 row, reads with none" {
                 let json =
                     (context |> OrderContextMapper.ofModel |> Canonical.serialize)
@@ -291,5 +311,33 @@ let tests =
 
                 for verb, expected in verbs do
                     OrderContextMapper.Command.toDomain verb ctx |> Expect.equal $"{verb}" expected
+            }
+        ]
+
+
+[<Tests>]
+let clearMarkTests =
+    let vu = Shared.Models.Order.ValueUnit.create [| "10", 10m |] "mg" "Mass" true "dutch" ""
+
+    let variable isNonZeroPositive =
+        Shared.Models.Order.Variable.create "dose" isNonZeroPositive (Some vu) true (Some vu) (Some vu) true None
+
+    testList
+        "the clear mark"
+        [
+            test "a variable the client cleared goes as the mark alone, also with an increment" {
+                let dto = variable true |> Mappers.Order.mapFromVariable
+
+                (dto.IsNonZeroPositive, dto.MinOpt, dto.IncrOpt, dto.MaxOpt, dto.ValsOpt)
+                |> Expect.equal "the mark, no bounds" (true, None, None, None, None)
+            }
+
+            test "a range that was not cleared goes with its bounds" {
+                let dto = variable false |> Mappers.Order.mapFromVariable
+
+                dto.IsNonZeroPositive |> Expect.isFalse "no mark"
+
+                (dto.MinOpt.IsSome, dto.IncrOpt.IsSome, dto.MaxOpt.IsSome)
+                |> Expect.equal "the bounds" (true, true, true)
             }
         ]

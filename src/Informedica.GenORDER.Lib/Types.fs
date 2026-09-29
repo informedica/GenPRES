@@ -509,6 +509,9 @@ module Types =
             RenalRule: string option
             /// Associated product identifiers
             ProductsIds: string[]
+            /// The names of the order variables the user picked or stepped, in the order picked;
+            /// None when the scenario does not say, as one stored before the list existed.
+            Picks: string list option
         }
 
 
