@@ -1,5 +1,5 @@
 ---
-last_commit_released: 9fc7be8ab5fd31cb1e37df5451ee78f5f99d2b57
+last_commit_released: cd23bd2fd0d0397ea9e3b71e192437ec7f7d8755
 pre_release: alpha
 name: GenPRES
 updaters:
@@ -20,6 +20,32 @@ All notable changes to GenPRES will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.1.2-alpha.39 - 2026-09-29
+
+### 🚀 Features
+
+* *(api)* Add the plan frequency header and step terms ([9d3141d2](https://github.com/informedica/GenPRES/commit/9d3141d2b70aae2bfe8810ce64e48c686f6276db))
+* *(client)* Add the rule for how long a server error stays ([cc99fc49](https://github.com/informedica/GenPRES/commit/cc99fc49ea4fb7dab74b070d69e4121c350282c7))
+* *(client)* Decide the cross and arrow per field ([2dedcd6f](https://github.com/informedica/GenPRES/commit/2dedcd6f592d899db931264c3bf37164a918516a))
+* *(client)* The arrow reopens an order field ([36bc1fa5](https://github.com/informedica/GenPRES/commit/36bc1fa56ecb1e2861ecec8c5f422102c8086df4))
+* *(genorder)* Reopen a cleared pick by a reset ([561e8f89](https://github.com/informedica/GenPRES/commit/561e8f89173eb68cf7ee6a1ab9575e50b9230128))
+* *(genorder)* List a chosen filter field's alternatives ([3c944952](https://github.com/informedica/GenPRES/commit/3c944952113e0946c9c86ceb8a818e2eb29e9c5c))
+
+### 🐞 Bug Fixes
+
+* *(api)* Parse sheet floats in the browser as .NET does ([8ad134b5](https://github.com/informedica/GenPRES/commit/8ad134b525325ee3f7c3f516a271ad00b8c017f9))
+* *(client)* Keep the plan's action row still on a selection ([1ae556b8](https://github.com/informedica/GenPRES/commit/1ae556b893ca1e69b68becc533a24e46f7ef172f))
+* *(client)* Stretch the totals bar to the page width ([19cd9e6f](https://github.com/informedica/GenPRES/commit/19cd9e6f459d3d84567cbe2fba24cd1206582c99))
+* *(client)* Localize the plan header and step titles ([043511dc](https://github.com/informedica/GenPRES/commit/043511dcecaa0c6e972888d1e26d8055d66d1c3e))
+* *(client)* Clear the server error when its request succeeds ([a7861956](https://github.com/informedica/GenPRES/commit/a7861956ee949113a1f1ff67cc77a4bb12906b7d))
+* *(client)* Let no stale success clear a newer error ([8edeefc5](https://github.com/informedica/GenPRES/commit/8edeefc57c937249d11a7ae1516b3cf37d0caae2))
+* *(client)* Keep no state on a busy reopen ([a720469a](https://github.com/informedica/GenPRES/commit/a720469a9903a6e4691c3c3a9438308b0de7e2bf))
+* *(client)* No reopen while a request is under way ([dd88f489](https://github.com/informedica/GenPRES/commit/dd88f4893ab01809d82bd4228f3e8b5695e55d70))
+* *(genorder)* Pick only a step that moves its variable ([2c0b0225](https://github.com/informedica/GenPRES/commit/2c0b022573799bc2d5bb9be7d3377f2e49a4cfb1))
+* *(genorder)* Never swap a filter choice for another ([f4c10a47](https://github.com/informedica/GenPRES/commit/f4c10a477c92db49dac4b986599c34ab3b0e9e4a))
+
+<strong><small>[View changes on Github](https://github.com/informedica/GenPRES/compare/9fc7be8ab5fd31cb1e37df5451ee78f5f99d2b57..cd23bd2fd0d0397ea9e3b71e192437ec7f7d8755)</small></strong>
 
 ## 0.1.2-alpha.38 - 2026-09-29
 
